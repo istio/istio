@@ -15,25 +15,42 @@
 package converter
 
 import (
+	json2 "encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/log"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
-// Fn is a conversion function that converts the given unstructured CRD into the destination resource.
-type Fn func(destination resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error)
+var scope = log.RegisterScope("kube-converter", "Kubernetes conversion related packages", 0)
+
+// Fn is a conversion function that converts the given unstructured CRD into the destination Resource.
+type Fn func(cfg *Config, destination resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error)
+
+// Entry is a single converted entry.
+type Entry struct {
+	Key          resource.FullName
+	CreationTime time.Time
+	Resource     proto.Message
+}
 
 var converters = map[string]Fn{
-	"identity":              identity,
+	"identity": identity,
+	"nil":      nilConverter,
 	"legacy-mixer-resource": legacyMixerResource,
 	"auth-policy-resource":  authPolicyResource,
+	"kube-ingress-resource": kubeIngressResource,
 }
 
 // Get returns the named converter function, or panics if it is not found.
@@ -46,40 +63,56 @@ func Get(name string) Fn {
 	return fn
 }
 
-func identity(destination resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
+func identity(_ *Config, destination resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error) {
 	p, err := toProto(destination, u.Object["spec"])
 	if err != nil {
-		return "", time.Time{}, nil, err
+		return nil, err
 	}
 
-	return name, u.GetCreationTimestamp().Time, p, nil
+	e := Entry{
+		Key:          name,
+		CreationTime: u.GetCreationTimestamp().Time,
+		Resource:     p,
+	}
+
+	return []Entry{e}, nil
 }
 
-func legacyMixerResource(_ resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
+func nilConverter(_ *Config, _ resource.Info, _ resource.FullName, _ *unstructured.Unstructured) ([]Entry, error) {
+	return nil, nil
+}
+
+func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error) {
 	spec := u.Object["spec"]
 	s := &types.Struct{}
 	if err := toproto(s, spec); err != nil {
-		return "", time.Time{}, nil, err
+		return nil, err
 	}
 
-	newName := fmt.Sprintf("%s/%s", u.GetKind(), name)
+	newName := resource.FullNameFromNamespaceAndName(u.GetKind(), name.String())
 
-	return newName, u.GetCreationTimestamp().Time, &legacy.LegacyMixerResource{
-		Name:     name,
-		Kind:     u.GetKind(),
-		Contents: s,
-	}, nil
+	e := Entry{
+		Key:          newName,
+		CreationTime: u.GetCreationTimestamp().Time,
+		Resource: &legacy.LegacyMixerResource{
+			Name:     name.String(),
+			Kind:     u.GetKind(),
+			Contents: s,
+		},
+	}
+
+	return []Entry{e}, nil
 }
 
-func authPolicyResource(destination resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
+func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error) {
 	p, err := toProto(destination, u.Object["spec"])
 	if err != nil {
-		return "", time.Time{}, nil, err
+		return nil, err
 	}
 
 	policy, ok := p.(*authn.Policy)
 	if !ok {
-		return "", time.Time{}, nil, fmt.Errorf("object is not of type %v", destination.TypeURL)
+		return nil, fmt.Errorf("object is not of type %v", destination.TypeURL)
 	}
 
 	// The pilot authentication plugin's config handling allows the mtls
@@ -114,5 +147,63 @@ func authPolicyResource(destination resource.Info, name string, u *unstructured.
 		}
 	}
 
-	return name, u.GetCreationTimestamp().Time, p, nil
+	e := Entry{
+		Key:          name,
+		CreationTime: u.GetCreationTimestamp().Time,
+		Resource:     p,
+	}
+
+	return []Entry{e}, nil
+}
+
+func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error) {
+	json, err := u.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var p extensions.Ingress
+	if err = json2.Unmarshal(json, &p); err != nil {
+		return nil, err
+	}
+
+	if !shouldProcessIngress(cfg, &p) {
+		return nil, nil
+	}
+
+	e := Entry{
+		Key:          name,
+		CreationTime: u.GetCreationTimestamp().Time,
+		Resource:     &p.Spec,
+	}
+
+	return []Entry{e}, nil
+}
+
+// shouldProcessIngress determines whether the given ingress resource should be processed
+// by the controller, based on its ingress class annotation.
+// See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
+func shouldProcessIngress(cfg *Config, i *extensions.Ingress) bool {
+	class, exists := "", false
+	if i.Annotations != nil {
+		class, exists = i.Annotations[kube.IngressClassAnnotation]
+	}
+
+	mesh := cfg.Mesh.Get()
+	switch mesh.IngressControllerMode {
+	case meshconfig.MeshConfig_OFF:
+		scope.Debugf("Skipping ingress due to Ingress Controller Mode OFF (%s/%s)", i.Namespace, i.Name)
+		return false
+	case meshconfig.MeshConfig_STRICT:
+		result := exists && class == mesh.IngressClass
+		scope.Debugf("Checking ingress class w/ Strict (%s/%s): %v", i.Namespace, i.Name, result)
+		return result
+	case meshconfig.MeshConfig_DEFAULT:
+		result := !exists || class == mesh.IngressClass
+		scope.Debugf("Checking ingress class w/ Default (%s/%s): %v", i.Namespace, i.Name, result)
+		return result
+	default:
+		scope.Warnf("invalid i synchronization mode: %v", mesh.IngressControllerMode)
+		return false
+	}
 }

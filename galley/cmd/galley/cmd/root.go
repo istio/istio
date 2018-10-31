@@ -138,6 +138,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"The access list yaml file that contains the allowd mTLS peer ids.")
 	rootCmd.PersistentFlags().StringVar(&serverArgs.ConfigPath, "configPath", serverArgs.ConfigPath,
 		"Istio config file path")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.MeshConfigFile, "meshConfigFile", serverArgs.MeshConfigFile,
+		"Path to the mesh config file")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.DomainSuffix, "domain", serverArgs.DomainSuffix,
+		"DNS domain suffix")
+
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 
 	//validation config
