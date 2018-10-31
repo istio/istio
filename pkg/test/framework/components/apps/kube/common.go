@@ -12,12 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package deployment
+package kube
 
-// NewYamlDeployment creates a new yaml-based deployment.
-func NewYamlDeployment(namespace, yamlFile string) *Instance {
-	return &Instance{
-		namespace:    namespace,
-		yamlFilePath: yamlFile,
-	}
+import "fmt"
+
+const (
+	appLabel = "app"
+)
+
+func appSelector(serviceName string) string {
+	return fmt.Sprintf("%s=%s", appLabel, serviceName)
 }
