@@ -21,15 +21,11 @@ set -o pipefail
 set -x
 
 # shellcheck disable=SC1091
-source "/workspace/gcb_env.sh"
+#source "/workspace/gcb_env.sh"
 
-# This script downloads creates a static file on GCS which has the download link of lnux tar gz
+# Remove the old folder in case there is any stale file.
+gsutil -q rm -rf "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/" || echo "No old build"
 
-DAILY_HTTPS_PATH="https://storage.googleapis.com/${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/istio-${CB_VERSION}-linux.tar.gz"
+# Copy to the stable folder
+gsutil -q cp -r "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_VERSION}/*" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/"
 
-TEMP_FILE=$(mktemp)
-echo -n "${DAILY_HTTPS_PATH}" > "${TEMP_FILE}"
-cat "${TEMP_FILE}"
-
-# this file contains the linux download URL of the latest successful daily build for a particular branch
-gsutil -q cp "${TEMP_FILE}" "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest.txt"
