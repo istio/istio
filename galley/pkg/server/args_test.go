@@ -41,7 +41,7 @@ func TestDefaultArgs(t *testing.T) {
 	}
 
 	if a.Insecure {
-		t.Fatal("Default of Insecure should false")
+		t.Fatal("Default of Insecure should be false")
 	}
 }
 

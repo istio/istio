@@ -103,7 +103,7 @@ func FullNameFromNamespaceAndName(namespace, name string) FullName {
 		return FullName{string: name}
 	}
 
-	return FullName{string: fmt.Sprintf("%s/%s", namespace, name)}
+	return FullName{string: namespace + "/" + name }
 }
 
 // String inteface implementation.

@@ -37,7 +37,7 @@ type Processor struct {
 	distributor Distributor
 
 	// configuration for the processor
-	config *Config
+	config *RuntimeConfig
 
 	// The heuristic publishing strategy
 	strategy *publishingStrategy
@@ -75,14 +75,14 @@ type Processor struct {
 type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
-func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
+func NewProcessor(src Source, distributor Distributor, cfg *RuntimeConfig) *Processor {
 	return newProcessor(src, distributor, cfg, newPublishingStrategyWithDefaults(), metadata.Types, nil)
 }
 
 func newProcessor(
 	src Source,
 	distributor Distributor,
-	cfg *Config,
+	cfg *RuntimeConfig,
 	strategy *publishingStrategy,
 	schema *resource.Schema,
 	postProcessHook postProcessHookFn) *Processor {

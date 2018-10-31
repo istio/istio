@@ -71,11 +71,9 @@ func IngressToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, 
 			host = "*"
 		}
 		virtualService := &v1alpha3.VirtualService{
-			Hosts:    []string{},
+			Hosts:    []string{host},
 			Gateways: []string{model.IstioIngressGatewayName},
 		}
-
-		virtualService.Hosts = []string{host}
 
 		httpRoutes := []*v1alpha3.HTTPRoute{}
 		for _, path := range rule.HTTP.Paths {
@@ -121,7 +119,6 @@ func IngressToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, 
 	if i.Backend != nil {
 		scope.Infof("Ignore default wildcard ingress, use VirtualService %s:%s",
 			namespace, name)
-
 	}
 }
 

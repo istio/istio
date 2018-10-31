@@ -48,7 +48,7 @@ type fsSource struct {
 	// configuration for the converters.
 	config *converter.Config
 
-	//Config File Path
+	//RuntimeConfig File Path
 	root string
 
 	donec chan struct{}

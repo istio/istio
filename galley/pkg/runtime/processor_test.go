@@ -43,7 +43,7 @@ var (
 func TestProcessor_Start(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := snapshot.New(snapshot.DefaultGroupIndex)
-	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	cfg := &RuntimeConfig{Mesh: meshconfig.NewInMemory()}
 	p := NewProcessor(src, distributor, cfg)
 
 	err := p.Start()
@@ -67,7 +67,7 @@ func (e *erroneousSource) Stop() {}
 
 func TestProcessor_Start_Error(t *testing.T) {
 	distributor := snapshot.New(snapshot.DefaultGroupIndex)
-	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	cfg := &RuntimeConfig{Mesh: meshconfig.NewInMemory()}
 	p := NewProcessor(&erroneousSource{}, distributor, cfg)
 
 	err := p.Start()
@@ -80,7 +80,7 @@ func TestProcessor_Stop(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := snapshot.New(snapshot.DefaultGroupIndex)
 	strategy := newPublishingStrategyWithDefaults()
-	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	cfg := &RuntimeConfig{Mesh: meshconfig.NewInMemory()}
 
 	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
 
@@ -100,7 +100,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	strategy := newPublishingStrategy(time.Hour, time.Hour, time.Millisecond)
-	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	cfg := &RuntimeConfig{Mesh: meshconfig.NewInMemory()}
 
 	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
 	err := p.Start()
@@ -126,7 +126,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	strategy := newPublishingStrategy(time.Hour, time.Hour, time.Millisecond)
-	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	cfg := &RuntimeConfig{Mesh: meshconfig.NewInMemory()}
 
 	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
 	err := p.Start()
@@ -151,7 +151,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
 	strategy := newPublishingStrategy(time.Millisecond, time.Millisecond, time.Microsecond)
-	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	cfg := &RuntimeConfig{Mesh: meshconfig.NewInMemory()}
 
 	processCallCount := sync.WaitGroup{}
 	hookFn := func() {

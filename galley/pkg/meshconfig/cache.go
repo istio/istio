@@ -57,7 +57,6 @@ func NewCacheFromFile(path string) (*FsCache, error) {
 		return nil, err
 	}
 
-	ch := fw.Events(path)
 
 	c := &FsCache{
 		path:   path,
@@ -68,14 +67,8 @@ func NewCacheFromFile(path string) (*FsCache, error) {
 	c.reload()
 
 	go func() {
-		for {
-			select {
-			case _, more := <-ch:
-				if !more {
-					return
-				}
-				c.reload()
-			}
+		for range fw.Events(path) {
+			c.reload()
 		}
 	}()
 
