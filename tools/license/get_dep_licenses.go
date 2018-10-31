@@ -192,7 +192,12 @@ func main() {
 	}
 
 	if istioReleaseBranch == "" && !check {
-		log.Fatal("--branch must be set.")
+		var err error
+		istioReleaseBranch, err = runBash("git", "rev-parse", "HEAD")
+		if err != nil {
+			log.Fatalf("Could not get current commit: %s", err)
+		}
+		istioReleaseBranch = strings.TrimSpace(istioReleaseBranch)
 	}
 
 	// Everything happens from istio root.
@@ -278,7 +283,7 @@ func main() {
 			inexact = append(inexact, linfo)
 		}
 
-		fmt.Printf("Checking %s\n", linfo.packageName)
+		log.Printf("Checking %s\n", linfo.packageName)
 		lt, ok := licenseStrToType[ltypeStr]
 		switch {
 		// No license was found by licensee.
