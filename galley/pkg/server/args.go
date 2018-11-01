@@ -69,6 +69,11 @@ type Args struct {
 
 	//ConfigPath is the path for istio config files
 	ConfigPath string
+
+	// DisableCRDReadyCheck disables the CRD readiness check. This
+	// allows Galley to start when not all supported CRD are
+	// registered with the kube-apiserver.
+	DisableCRDReadyCheck bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -84,6 +89,7 @@ func DefaultArgs() *Args {
 		EnableServer:           true,
 		CredentialOptions:      creds.DefaultOptions(),
 		ConfigPath:             "",
+		DisableCRDReadyCheck:   false,
 	}
 }
 
@@ -106,5 +112,6 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
 	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
 	fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
+	fmt.Fprintf(buf, "DisableCRDReadyCheck: %s\n", a.DisableCRDReadyCheck)
 	return buf.String()
 }

@@ -95,8 +95,10 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := p.verifyCRDPresence(k); err != nil {
-			return nil, err
+		if !a.DisableCRDReadyCheck {
+			if err := p.verifyCRDPresence(k); err != nil {
+				return nil, err
+			}
 		}
 		src, err = p.newSource(k, a.ResyncPeriod)
 		if err != nil {
