@@ -119,9 +119,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			hosts := buildClusterHosts(env, networkView, service, port.Port, nil)
 
 			// create default cluster
+			discoveryType := convertResolution(service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []int{port.Port})
-			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, hosts)
 
 			updateEds(defaultCluster)
 			setUpstreamProtocol(defaultCluster, port)
@@ -134,10 +135,12 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-					if service.MeshExternal {
+					// clusters with discovery type STATIC, STRICT_DNS or LOGICAL_DNS rely on cluster.hosts field
+					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
+					if discoveryType != v2.Cluster_EDS && len(subset.Labels) != 0 {
 						hosts = buildClusterHosts(env, networkView, service, port.Port, []model.Labels{subset.Labels})
 					}
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, hosts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port)
