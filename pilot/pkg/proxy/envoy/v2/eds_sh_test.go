@@ -50,7 +50,11 @@ type expectedResults struct {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	initSplitHorizonTestEnv(t)
+	server, tearDown := initSplitHorizonTestEnv(t)
+	defer tearDown()
+	defer func() { util.MockTestServer = nil }()
+
+	pilotServer = server
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
@@ -66,7 +70,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	initRegistry(4, []string{}, 4)
 
 	// Update cache
-	pilotServer.EnvoyXdsServer.ClearCache()
+	server.EnvoyXdsServer.ClearCache()
 
 	// Verify that EDS from network1 will return 1 local endpoint with local VIP + 2 remote
 	// endpoints weighted accordingly with the IP of the ingress gateway.
@@ -172,19 +176,18 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 	}
 }
 
-func initSplitHorizonTestEnv(t *testing.T) *bootstrap.Server {
+func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	server, _ := util.EnsureTestServer()
-	pilotServer = server
+	server, tearDown := util.EnsureTestServer()
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	return pilotServer
+	return server, tearDown
 }
 
 // initRegistry creates and initializes a memory registry that holds a single

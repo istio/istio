@@ -24,7 +24,8 @@ import (
 
 // TestRDS is running RDSv2 tests.
 func TestRDS(t *testing.T) {
-	initLocalPilotTestEnv(t)
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
 
 	t.Run("sidecar", func(t *testing.T) {
 		rdsr, err := connectADS(util.MockPilotGrpcAddr)
