@@ -108,39 +108,38 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
 	}
 
-	err := initCharts(chartDir, workDir)
-	if err != nil {
+	helmRepoDir := filepath.Join(workDir, "helmrepo")
+	chartBuildDir := filepath.Join(workDir, "charts")
+	if err := os.MkdirAll(helmRepoDir, os.ModePerm); err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(chartBuildDir, os.ModePerm); err != nil {
 		return "", err
 	}
 
-	return shell.Execute(
-		"helm template %s --name %s --namespace %s%s%s",
-		chartDir, deploymentName, namespace, valuesFileString, valuesString)
-}
-
-func initCharts(chartDir, workDir string) error {
 	// Initialize the helm (but do not install tiller).
-	if err := exec("helm init --client-only"); err != nil {
-		return err
+	if _, err := exec(fmt.Sprintf("helm --home %s init --client-only", helmRepoDir)); err != nil {
+		return "", err
 	}
 
-	// Create a dir for the packaged charts.
-	chartBuildDir, err := ioutil.TempDir(workDir, "helm-charts-")
-	if err != nil {
-		return err
+	// Adding cni dependency as a workaround for now.
+	if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
+		helmRepoDir, "https://raw.githubusercontent.com/istio/istio.io/master/static/charts")); err != nil {
+		return "", err
 	}
 
 	// Package the chart dir.
-	if err := exec(fmt.Sprintf("helm package -u %s -d %s", chartDir, chartBuildDir)); err != nil {
-		return err
+	if _, err := exec(fmt.Sprintf("helm --home %s package -u %s -d %s", helmRepoDir, chartDir, chartBuildDir)); err != nil {
+		return "", err
 	}
-	return nil
+	return exec(fmt.Sprintf("helm --home %s template %s --name %s --namespace %s%s%s",
+		helmRepoDir, chartDir, deploymentName, namespace, valuesFileString, valuesString))
 }
 
-func exec(cmd string) error {
+func exec(cmd string) (string, error) {
 	str, err := shell.Execute(cmd)
 	if err != nil {
-		return fmt.Errorf("failed executing command (%s): %v: %s", cmd, err, str)
+		scopes.CI.Errorf("failed executing command (%s): %v: %s", cmd, err, str)
 	}
-	return nil
+	return str, err
 }
