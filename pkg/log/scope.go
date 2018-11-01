@@ -67,7 +67,7 @@ func RegisterScope(name string, description string, callerSkip int) *Scope {
 			description: description,
 			callerSkip:  callerSkip,
 		}
-		s.SetOutputLevel(InfoLevel)
+		s.SetOutputLevel(DebugLevel)
 		s.SetStackTraceLevel(NoneLevel)
 		s.SetLogCallers(false)
 
