@@ -419,7 +419,7 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
-// clusterMode defines whether the cluster is being built for SNI-DNATing (sni passthrough) or not
+// ClusterMode defines whether the cluster is being built for SNI-DNATing (sni passthrough) or not
 type ClusterMode string
 
 const (
