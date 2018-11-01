@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/plugin/health"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
-	"istio.io/istio/pilot/pkg/networking/plugin/snidnat"
 )
 
 var availablePlugins = map[string]plugin.Plugin{
