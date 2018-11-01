@@ -51,7 +51,7 @@ func TestEnv(t *testing.T) {
 		if !log.WarnEnabled() {
 			t.Error("Expected true for WarnEnabled check")
 		}
-		if log.DebugEnabled() {
+		if !log.DebugEnabled() {
 			t.Error("Expected false for DebugEnabled check")
 		}
 
