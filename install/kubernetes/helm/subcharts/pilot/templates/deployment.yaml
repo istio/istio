@@ -36,7 +36,7 @@ spec:
 {{- if contains "/" .Values.image }}
           image: "{{ .Values.image }}"
 {{- else }}
-          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub | default "gcr.io/istio-release" }}/{{ .Values.image | default "pilot" }}:{{ .Values.global.tag | default "master-latest-daily" }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
@@ -108,12 +108,13 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
+            optional: true
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
 {{- if .Values.sidecar }}
         - name: istio-proxy
-          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.hub | default "gcr.io/istio-release" }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag | default "master-latest-daily" }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15003
@@ -154,8 +155,8 @@ spec:
                 apiVersion: v1
                 fieldPath: status.podIP
           resources:
-{{- if .Values.global.proxy.resources }}
-{{ toYaml .Values.global.proxy.resources | indent 12 }}
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
@@ -173,4 +174,6 @@ spec:
           secretName: istio.istio-pilot-service-account
           optional: true
       affinity:
+{{- if .Values.nodeaffinity }}
       {{- include "nodeaffinity" . | indent 6 }}
+{{- end }}

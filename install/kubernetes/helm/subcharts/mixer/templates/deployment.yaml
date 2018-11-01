@@ -277,11 +277,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "mixer.name" $ }}
-        chart: {{ template "mixer.chart" $ }}
-        heritage: {{ $.Release.Service }}
-        release: {{ $.Release.Name }}
-        version: {{ $.Chart.Version }}
+        app: {{ $mname }}
         istio: mixer
         istio-mixer-type: {{ $mname }}
       annotations:

@@ -14,7 +14,14 @@ resources:
     cpu: 500m
     memory: 2048Mi
 env:
-  PILOT_PUSH_THROTTLE_COUNT: 100
   GODEBUG: gctrace=2
 cpu:
   targetAverageUtilization: 80
+
+# Only used if installing just pilot.
+global:
+  meshExpansion:
+    enabled: false
+  proxy:
+    resources:
+

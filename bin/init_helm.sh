@@ -33,8 +33,8 @@ export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 # 2.7.2 was released in Nov 2017.
 # 2.10 adds proper support for CRD - we will test with it
 # For pre-2.10,
-HELM_VER=${HELM_VER:-v2.9.1}
-#HELM_VER=${HELM_VER:-v2.10.0-rc.1}
+#HELM_VER=${HELM_VER:-v2.9.1}
+HELM_VER=${HELM_VER:-v2.10.0}
 
 export GOPATH=${GOPATH:-$GO_TOP}
 # Normally set by Makefile
