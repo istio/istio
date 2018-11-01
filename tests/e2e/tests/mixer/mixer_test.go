@@ -420,6 +420,29 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
+type redisDeployment struct {
+}
+
+func (r *redisDeployment) Setup() error {
+	// Deploy Tiller if not already running.
+	if err := util.CheckPodRunning("kube-system", "name=tiller", tc.Kube.KubeConfig); err != nil {
+		if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
+			return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
+		}
+	}
+
+	setValue := "--set usePassword=false,persistence.enabled=false"
+	if err := util.HelmInstall(redisInstallDir, redisInstallName, tc.Kube.Namespace, setValue); err != nil {
+		return fmt.Errorf("helm install %s failed, setValue=%s", redisInstallDir, setValue)
+	}
+
+	return nil
+}
+
+func (r *redisDeployment) Teardown() error {
+	return util.HelmDelete(redisInstallName)
+}
+
 func setTestConfig() error {
 	cc, err := framework.NewCommonConfig("mixer_test")
 	if err != nil {
@@ -454,7 +477,9 @@ func setTestConfig() error {
 		tc.Kube.AppManager.AddApp(&demoApps[i])
 	}
 	mp := newPromProxy(tc.Kube.Namespace)
+	redis := &redisDeployment{}
 	tc.Cleanup.RegisterCleanable(mp)
+	tc.Cleanup.RegisterCleanable(redis)
 	return nil
 }
 
@@ -1035,35 +1060,6 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		}
 	}()
 
-	if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 2, tc.Kube.KubeConfig); err != nil {
-		fatalf(t, "Could not scale up istio-policy pod: %v", err)
-	}
-	defer func() {
-		if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 1, tc.Kube.KubeConfig); err != nil {
-			t.Fatalf("Could not scale down istio-policy pod.: %v", err)
-		}
-		allowRuleSync()
-	}()
-
-	// Deploy Tiller if not already running.
-	if err := util.CheckPodRunning("kube-system", "name=tiller", tc.Kube.KubeConfig); err != nil {
-		if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
-			fatalf(t, "Failed to deploy helm tiller: %v", errDeployTiller)
-		}
-	}
-
-	setValue := "--set usePassword=false,persistence.enabled=false"
-	if err := util.HelmInstall(redisInstallDir, redisInstallName, tc.Kube.Namespace, setValue); err != nil {
-		fatalf(t, "Helm install %s failed, setValue=%s", redisInstallDir, setValue)
-	}
-	defer func() {
-		if err := util.HelmDelete(redisInstallName); err != nil {
-			t.Logf("Could not delete %s: %v", redisInstallName, err)
-		}
-	}()
-
-	allowRuleSync()
-
 	// the rate limit rule applies a max rate limit of 1 rps to the ratings service.
 	if err := applyMixerRule(quotaRule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
@@ -1071,6 +1067,15 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	defer func() {
 		if err := deleteMixerRule(quotaRule); err != nil {
 			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+
+	if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 2, tc.Kube.KubeConfig); err != nil {
+		fatalf(t, "Could not scale up istio-policy pod: %v", err)
+	}
+	defer func() {
+		if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 1, tc.Kube.KubeConfig); err != nil {
+			t.Fatalf("Could not scale down istio-policy pod.: %v", err)
 		}
 	}()
 
@@ -1262,7 +1267,7 @@ func TestMixerReportingToMixer(t *testing.T) {
 
 func allowRuleSync() {
 	log.Info("Sleeping to allow rules to take effect...")
-	time.Sleep(1 * time.Minute)
+	time.Sleep(15 * time.Second)
 }
 
 func allowPrometheusSync() {
