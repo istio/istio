@@ -56,6 +56,15 @@ spec:
             value: "9411"
           - name: MEMORY_MAX_TRACES
             value: "{{ .Values.jaeger.memory.max_traces }}"
+          envFrom:
+{{- if .Values.jaeger.resources.configFileEnabled }}
+          - configMapRef:
+              name: "{{ .Values.jaeger.resources.configFileEnabled  }}"
+{{- end }}
+{{- if .Values.jaeger.resources.secretFileEnabled }}
+          - secretRef:
+              name: "{{ .Values.jaeger.resources.secretFileEnabled }}"
+{{- end }}
           livenessProbe:
             httpGet:
               path: /
