@@ -49,8 +49,7 @@ func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) b
 
 	networkView := model.GetNetworkView(proxy)
 	// If we have only more than one network view for the proxy, then recompute CDS.
-	// If proxy has only one network view and that view is for the UnnamedNetwork, reuse
-	// precomputed output
+	// Because, by default, we cache the CDS output for proxies in the UnnamedNetwork only.
 	if len(networkView) > 1 {
 		return false
 	}
