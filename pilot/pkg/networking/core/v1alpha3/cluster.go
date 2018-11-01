@@ -317,7 +317,7 @@ func convertIstioMutual(service *model.Service, port *model.Port, serviceAccount
 			// SNI for subset cluster when using Istio MTLS
 			sni := fmt.Sprintf("%s_.%d_.%s_.%s", model.TrafficDirectionOutbound, port.Port, subset.Name, service.Hostname)
 			converter(subset.TrafficPolicy.Tls, sni)
-			portLevelConverter(port, destinationRule.TrafficPolicy.PortLevelSettings, sni)
+			portLevelConverter(port, subset.TrafficPolicy.PortLevelSettings, sni)
 		}
 	}
 }
