@@ -358,7 +358,8 @@ func TestFsSource_publishEvent(t *testing.T) {
 		t.Fatal("Expected non nil source")
 	}
 	d := runtime.NewInMemoryDistributor()
-	processor := runtime.NewProcessor(s, d)
+	cfg := &runtime.Config{Mesh: meshconfig.NewInMemory()}
+	processor := runtime.NewProcessor(s, d, cfg)
 	err = processor.Start()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
