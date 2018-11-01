@@ -813,10 +813,10 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Host
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
 }
 
-// BuildDnsSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
+// BuildDNSSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 // This is used only for the SNI-DNAT router. Do not use for other purposes.
-func BuildDnsSrvSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port int) string {
+func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port int) string {
 	return fmt.Sprintf("%s_.%d_.%s_.%s", direction, port, subsetName, hostname)
 }
 

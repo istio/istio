@@ -85,7 +85,7 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 	// Reset the TLS context for all other clusters belonging to internal services
 	// and set the cluster name to use DNS srv format
 	cluster.TlsContext = nil
-	cluster.Name = model.BuildDnsSrvSubsetKey(model.TrafficDirectionOutbound, in.Subset, in.Service.Hostname, in.Port.Port)
+	cluster.Name = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, in.Subset, in.Service.Hostname, in.Port.Port)
 }
 
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
