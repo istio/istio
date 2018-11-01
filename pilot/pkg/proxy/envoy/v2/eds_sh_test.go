@@ -119,7 +119,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
 		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
-		"ISTIO_NETWORK":       {Kind: &proto.Value_StringValue{StringValue: network}},
+		"NETWORK":             {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 
 	err = sendCDSReqWithMetadata(sidecarId, metadata, edsstr)

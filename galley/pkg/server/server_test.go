@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/converter"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/log"
@@ -35,11 +37,22 @@ loop:
 		p := defaultPatchTable()
 		mk := mock.NewKube()
 		p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
-		p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
+		p.newSource = func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error) {
 			return runtime.NewInMemorySource(), nil
+		}
+		p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
+		p.fsNew = func(string, *converter.Config) (runtime.Source, error) {
+			return runtime.NewInMemorySource(), nil
+		}
+		p.mcpMetricReporter = func(string) server.Reporter {
+			return nil
 		}
 
 		e := errors.New("err")
+
+		args := DefaultArgs()
+		args.APIAddress = "tcp://0.0.0.0:0"
+		args.Insecure = true
 
 		switch i {
 		case 0:
@@ -47,16 +60,18 @@ loop:
 		case 1:
 			p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return nil, e }
 		case 2:
-			p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) { return nil, e }
+			p.newSource = func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error) { return nil, e }
 		case 3:
 			p.netListen = func(network, address string) (net.Listener, error) { return nil, e }
+		case 4:
+			p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return nil, e }
+		case 5:
+			args.ConfigPath = "aaa"
+			p.fsNew = func(string, *converter.Config) (runtime.Source, error) { return nil, e }
 		default:
 			break loop
 		}
 
-		args := DefaultArgs()
-		args.APIAddress = "tcp://0.0.0.0:0"
-		args.Insecure = true
 		_, err := newServer(args, p)
 		if err == nil {
 			t.Fatalf("Expected error not found for i=%d", i)
@@ -68,11 +83,15 @@ func TestNewServer(t *testing.T) {
 	p := defaultPatchTable()
 	mk := mock.NewKube()
 	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
-	p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
+	p.newSource = func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) server.Reporter {
 		return mcptestmon.NewInMemoryServerStatsContext()
+	}
+	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
+	p.fsNew = func(string, *converter.Config) (runtime.Source, error) {
+		return runtime.NewInMemorySource(), nil
 	}
 
 	args := DefaultArgs()
@@ -91,12 +110,13 @@ func TestServer_Basic(t *testing.T) {
 	p := defaultPatchTable()
 	mk := mock.NewKube()
 	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
-	p.newSource = func(kube.Interfaces, time.Duration) (runtime.Source, error) {
+	p.newSource = func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) server.Reporter {
 		return mcptestmon.NewInMemoryServerStatsContext()
 	}
+	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
 
 	args := DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
