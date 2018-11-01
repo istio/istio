@@ -17,11 +17,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"istio.io/istio/galley/pkg/server"
+	"istio.io/istio/pkg/ctrlz"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+	istiolog "istio.io/istio/pkg/log"
 
 	"github.com/gogo/protobuf/types"
 
@@ -38,6 +41,7 @@ import (
 
 var (
 	runEnvoy = flag.Bool("envoy", true, "Start envoy")
+	configDir = flag.String("conf", "", "Config dir. Empty to use k8s")
 )
 
 // hyperistio runs all istio components in one binary, using a directory based config by
@@ -56,7 +60,12 @@ func main() {
 }
 
 func startAll() error {
-	err := startPilot()
+	err := startGalley()
+	if err != nil {
+		return err
+	}
+
+	err = startPilot()
 	if err != nil {
 		return err
 	}
@@ -112,7 +121,7 @@ func startMixer() error {
 
 func startEnvoy() error {
 	cfg := &meshconfig.ProxyConfig{
-		DiscoveryAddress: "localhost:8080",
+		DiscoveryAddress: "localhost:16010",
 		ConfigPath:       env.IstioOut,
 		BinaryPath:       env.IstioBin + "/envoy",
 		ServiceCluster:   "test",
@@ -121,7 +130,10 @@ func startEnvoy() error {
 		DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
 		StatNameLength:   189,
 	}
-	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil, os.Environ())
+	nodeId := "sidecar~127.0.0.2~a.default~default.svc.cluster.local"
+	cfgF, err := agent.WriteBootstrap(cfg,
+		nodeId,
+		1, []string{}, nil, os.Environ())
 	if err != nil {
 		return err
 	}
@@ -130,12 +142,35 @@ func startEnvoy() error {
 	if err != nil {
 		envoyLog = os.Stderr
 	}
-	agent.RunProxy(cfg, "node", 1, cfgF, stop, envoyLog, envoyLog, []string{
+	agent.RunProxy(cfg, nodeId, 1, cfgF, stop, envoyLog, envoyLog, []string{
 		"--disable-hot-restart", // "-l", "trace",
 	})
 
 	return nil
 }
+
+// Start galley. Will use KUBECONFIG, if set - otherwise the configDir flag.
+func startGalley() error {
+	gs, err := server.New(&server.Args{
+		ConfigPath: *configDir,
+		KubeConfig: os.Getenv("KUBECONFIG"),
+		Insecure: true,
+		EnableGRPCTracing: true,
+		APIAddress: "tcp://0.0.0.0:9901",
+		LoggingOptions: istiolog.DefaultOptions(), // Can't be nil
+		IntrospectionOptions: ctrlz.DefaultOptions(), // can't be nil - crash
+		MaxReceivedMessageSize: 1024 * 1024 * 1024,
+		MaxConcurrentStreams: 10000,
+	})
+	if err != nil {
+		return err
+	}
+
+	go gs.Run()
+
+	return nil
+}
+
 
 // startPilot with defaults:
 // - http port 15007
@@ -154,13 +189,14 @@ func startPilot() error {
 	args := bootstrap.PilotArgs{
 		Namespace: "testing",
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
-			HTTPAddr:        ":15007",
-			GrpcAddr:        ":15010",
-			SecureGrpcAddr:  ":15011",
+			HTTPAddr:        ":16007",
+			GrpcAddr:        ":16010",
+			SecureGrpcAddr:  ":16011",
 			EnableCaching:   true,
 			EnableProfiling: true,
 		},
 
+		MCPMaxMessageSize: 4 * 1024 * 1024,
 		Mesh: bootstrap.MeshArgs{
 			MixerAddress:    "localhost:9091",
 			RdsRefreshDelay: types.DurationProto(10 * time.Millisecond),
@@ -173,6 +209,7 @@ func startPilot() error {
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
+		MCPServerAddrs: []string{"mcp://localhost:9901"},
 		MeshConfig: &mcfg,
 	}
 	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
