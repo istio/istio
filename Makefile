@@ -711,11 +711,6 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
 
-generate_yaml_cni: export ENABLE_ISTIO_CNI=true
-generate_yaml_cni: export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.pullPolicy=IfNotPresent --set istio-cni.tag=$(ISTIO_CNI_DOCKER_TAG) --set istio-cni.hub=$(ISTIO_CNI_DOCKER_HUB)
-
-generate_yaml_cni:
-	$(MAKE) generate_yaml
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

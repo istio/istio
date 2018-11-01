@@ -28,8 +28,8 @@ set -u
 # Print commands
 set -x
 
-echo 'Running Simple test with rbac, auth Tests and CNI enabled'
+echo 'Running e2e_simple test with rbac, auth Tests and CNI enabled'
 export ENABLE_ISTIO_CNI=true
+# cniBinDir setting is appropriate for GKE environments
 export EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.cniBinDir=/home/kubernetes/bin"
-#./prow/e2e-suite.sh --auth_enable --single_test e2e_simple "$@"
-./prow/jaj-suite.sh --auth_enable --single_test e2e_simple "$@"
+./prow/e2e-suite.sh --auth_enable --single_test e2e_simple "$@"
