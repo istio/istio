@@ -18,6 +18,7 @@ import (
 	rpc "github.com/gogo/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	tracelog "github.com/opentracing/opentracing-go/log"
+	"istio.io/istio/mixer/pkg/adapter"
 
 	"istio.io/istio/mixer/pkg/status"
 )
@@ -31,9 +32,19 @@ const (
 	errorStr     = "error"
 )
 
-// LogToDispatchSpan logs to the given Span in a structured manner. Span must be valid.
-func logToDispatchSpan(span opentracing.Span, template string, handler string, adapter string, err error) {
-	st := status.OK
+func logCheckResultToDispatchSpan(span opentracing.Span, template string, handler string, adapter string, result adapter.CheckResult, err error) {
+	logEntriesToDispatchSpan(span, template, handler, adapter, result.Status, err)
+}
+
+func logQuotaResultToDispatchSpan(span opentracing.Span, template string, handler string, adapter string, result adapter.QuotaResult, err error) {
+	logEntriesToDispatchSpan(span, template, handler, adapter, result.Status, err)
+}
+
+func logErrorToDispatchSpan(span opentracing.Span, template string, handler string, adapter string, err error) {
+	logEntriesToDispatchSpan(span, template, handler, adapter, status.OK, err)
+}
+
+func logEntriesToDispatchSpan(span opentracing.Span, template string, handler string, adapter string, st rpc.Status, err error) {
 	if err != nil {
 		st = status.WithError(err)
 	}
