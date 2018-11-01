@@ -27,35 +27,45 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
-
+	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/testing/testcerts"
 )
 
 type fakeWatcher struct {
-	events chan fsnotify.Event
-	errors chan error
-	added  chan string
+	events map[string]chan fsnotify.Event
+	errors map[string]chan error
+	added  chan struct{}
 }
 
 func (w *fakeWatcher) Add(path string) error {
-	w.added <- path
+	if _, ok := w.events[path]; !ok {
+		w.events[path] = make(chan fsnotify.Event, 10)
+	}
+	if _, ok := w.errors[path]; !ok {
+		w.errors[path] = make(chan error, 10)
+	}
+	w.added <- struct{}{}
 	return nil
 }
 
-func (w *fakeWatcher) Close() error                { return nil }
-func (w *fakeWatcher) Events() chan fsnotify.Event { return w.events }
-func (w *fakeWatcher) Errors() chan error          { return w.errors }
+func (w *fakeWatcher) Close() error { return nil }
+func (w *fakeWatcher) Events(path string) chan fsnotify.Event {
+	return w.events[path]
+}
+func (w *fakeWatcher) Errors(path string) chan error {
+	return w.errors[path]
+}
+func (w *fakeWatcher) Remove(path string) error { panic("not supported") }
 
-func newFakeWatcherFunc() (func() (fileWatcher, error), *fakeWatcher) {
+func newFakeWatcherFunc() (func() filewatcher.FileWatcher, *fakeWatcher) {
 	w := &fakeWatcher{
-		events: make(chan fsnotify.Event, 10),
-		errors: make(chan error, 10),
-		added:  make(chan string, 10),
+		events: make(map[string]chan fsnotify.Event),
+		errors: make(map[string]chan error),
+		added:  make(chan struct{}, 100),
 	}
-	newWatcher := func() (fileWatcher, error) {
-		return w, nil
-	}
-	return newWatcher, w
+	return func() filewatcher.FileWatcher {
+		return w
+	}, w
 }
 
 var (
@@ -65,13 +75,14 @@ var (
 )
 
 func TestWatchRotation(t *testing.T) {
-	var fakeCertWatcher, fakeKeyWatcher *fakeWatcher
-	newCertFileWatcher, fakeCertWatcher = newFakeWatcherFunc()
-	newKeyFileWatcher, fakeKeyWatcher = newFakeWatcherFunc()
+	var wgAddedWatch sync.WaitGroup
+
+	addedWatchProbe := func(_ string, _ bool) { wgAddedWatch.Done() }
+	var fakeWatcher *filewatcher.FakeWatcher
+	newFileWatcher, fakeWatcher = filewatcher.NewFakeWatcher(addedWatchProbe)
 
 	defer func() {
-		newCertFileWatcher = newFsnotifyWatcher
-		newKeyFileWatcher = newFsnotifyWatcher
+		newFileWatcher = filewatcher.NewWatcher
 		readFile = ioutil.ReadFile
 		watchCertEventHandledProbe = nil
 		watchKeyEventHandledProbe = nil
@@ -96,10 +107,15 @@ func TestWatchRotation(t *testing.T) {
 		KeyFile:           keyFile,
 		CACertificateFile: caCertFile,
 	}
+
+	// We expect two files to be watched (key+cert). Wait for the watch
+	// to be added before proceeding.
+	wgAddedWatch.Add(2)
 	watcher, err := WatchFiles(stopCh, &options)
 	if err != nil {
 		t.Fatalf("Initial WatchFiles() failed: %v", err)
 	}
+	wgAddedWatch.Wait()
 
 	var wgCertEvent sync.WaitGroup
 	var wgKeyEvent sync.WaitGroup
@@ -122,14 +138,14 @@ func TestWatchRotation(t *testing.T) {
 	}
 	wgCertEvent.Add(1)
 	wgKeyEvent.Add(1)
-	fakeCertWatcher.events <- fsnotify.Event{
+	fakeWatcher.InjectEvent(certFile, fsnotify.Event{
 		Name: certFile,
 		Op:   fsnotify.Write,
-	}
-	fakeKeyWatcher.events <- fsnotify.Event{
+	})
+	fakeWatcher.InjectEvent(keyFile, fsnotify.Event{
 		Name: keyFile,
 		Op:   fsnotify.Write,
-	}
+	})
 	wgCertEvent.Wait()
 	wgKeyEvent.Wait()
 	want, _ := tls.X509KeyPair(testcerts.RotatedCert, testcerts.RotatedKey)
@@ -138,8 +154,8 @@ func TestWatchRotation(t *testing.T) {
 	}
 
 	// generate fake errors to increase code coverage
-	fakeCertWatcher.errors <- errors.New("fakeCertWatcher error to increase code coverage of error event path")
-	fakeKeyWatcher.errors <- errors.New("fakeCertWatcher error to increase code coverage of error event path")
+	fakeWatcher.InjectError(certFile, errors.New("fakeCertWatcher error to increase code coverage of error event path")) // nolint: lll
+	fakeWatcher.InjectError(keyFile, errors.New("fakeCertWatcher error to increase code coverage of error event path"))  // nonlint: lll
 
 	// verify the previously loaded cert/key are retained if the updated files cannot be loaded.
 	readFile = func(filename string) ([]byte, error) {
@@ -147,14 +163,14 @@ func TestWatchRotation(t *testing.T) {
 	}
 	wgCertEvent.Add(1)
 	wgKeyEvent.Add(1)
-	fakeCertWatcher.events <- fsnotify.Event{
+	fakeWatcher.InjectEvent(certFile, fsnotify.Event{
 		Name: certFile,
 		Op:   fsnotify.Write,
-	}
-	fakeKeyWatcher.events <- fsnotify.Event{
+	})
+	fakeWatcher.InjectEvent(keyFile, fsnotify.Event{
 		Name: keyFile,
 		Op:   fsnotify.Write,
-	}
+	})
 	wgCertEvent.Wait()
 	wgKeyEvent.Wait()
 
@@ -215,11 +231,9 @@ func TestWatchFiles(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			newCertFileWatcher, _ = newFakeWatcherFunc()
-			newKeyFileWatcher, _ = newFakeWatcherFunc()
+			newFileWatcher, _ = filewatcher.NewFakeWatcher(nil)
 			defer func() {
-				newCertFileWatcher = newFsnotifyWatcher
-				newKeyFileWatcher = newFsnotifyWatcher
+				newFileWatcher = filewatcher.NewWatcher
 				readFile = ioutil.ReadFile
 				watchCertEventHandledProbe = nil
 				watchKeyEventHandledProbe = nil
@@ -250,6 +264,7 @@ func TestWatchFiles(t *testing.T) {
 				KeyFile:           keyFile,
 				CACertificateFile: caCertFile,
 			}
+
 			_, err := WatchFiles(stopCh, &options)
 			if testCase.err != "" && err == nil {
 				t.Fatalf("Expected error not found: %v", testCase.err)

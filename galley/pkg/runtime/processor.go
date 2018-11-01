@@ -17,11 +17,12 @@ package runtime
 import (
 	"github.com/pkg/errors"
 
+	"time"
+
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"time"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
@@ -34,6 +35,9 @@ type Processor struct {
 
 	// distributor interface for publishing config snapshots to.
 	distributor Distributor
+
+	// configuration for the processor
+	config *Config
 
 	// The heuristic publishing strategy
 	strategy *publishingStrategy
@@ -71,13 +75,14 @@ type Processor struct {
 type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
-func NewProcessor(src Source, distributor Distributor) *Processor {
-	return newProcessor(src, distributor, newPublishingStrategyWithDefaults(), metadata.Types, nil)
+func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
+	return newProcessor(src, distributor, cfg, newPublishingStrategyWithDefaults(), metadata.Types, nil)
 }
 
 func newProcessor(
 	src Source,
 	distributor Distributor,
+	cfg *Config,
 	strategy *publishingStrategy,
 	schema *resource.Schema,
 	postProcessHook postProcessHookFn) *Processor {
@@ -85,6 +90,7 @@ func newProcessor(
 	return &Processor{
 		source:          src,
 		distributor:     distributor,
+		config:          cfg,
 		strategy:        strategy,
 		schema:          schema,
 		postProcessHook: postProcessHook,
@@ -110,7 +116,7 @@ func (p *Processor) Start() error {
 	}
 
 	p.events = events
-	p.state = newState(p.schema)
+	p.state = newState(p.schema, p.config)
 
 	p.done = make(chan struct{})
 	p.stopped = make(chan struct{})

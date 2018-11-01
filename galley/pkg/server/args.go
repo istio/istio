@@ -25,8 +25,11 @@ import (
 )
 
 const (
-	defaultConfigMapFolder = "/etc/istio/config/"
-	defaultAccessListFile  = defaultConfigMapFolder + "accesslist.yaml"
+	defaultConfigMapFolder  = "/etc/istio/config/"
+	defaultMeshConfigFolder = "/etc/istio/mesh-config/"
+	defaultAccessListFile   = defaultConfigMapFolder + "accesslist.yaml"
+	defaultMeshConfigFile   = defaultMeshConfigFolder + "mesh"
+	defaultDomainSuffix     = "cluster.local"
 )
 
 // Args contains the startup arguments to instantiate Galley.
@@ -67,8 +70,14 @@ type Args struct {
 	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
 	AccessListFile string
 
-	//ConfigPath is the path for istio config files
+	// ConfigPath is the path for Galley specific config files
 	ConfigPath string
+
+	// MeshConfigFile is the path for mesh config
+	MeshConfigFile string
+
+	// DNS Domain suffix to use while constructing Ingress based resources.
+	DomainSuffix string
 
 	// DisableCRDReadyCheck disables the CRD readiness check. This
 	// allows Galley to start when not all supported CRD are
@@ -86,9 +95,11 @@ func DefaultArgs() *Args {
 		IntrospectionOptions:   ctrlz.DefaultOptions(),
 		Insecure:               false,
 		AccessListFile:         defaultAccessListFile,
+		MeshConfigFile:         defaultMeshConfigFile,
 		EnableServer:           true,
 		CredentialOptions:      creds.DefaultOptions(),
 		ConfigPath:             "",
+		DomainSuffix:           defaultDomainSuffix,
 		DisableCRDReadyCheck:   false,
 	}
 }
@@ -112,6 +123,9 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
 	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
 	fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
+	fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
+	fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
 	fmt.Fprintf(buf, "DisableCRDReadyCheck: %s\n", a.DisableCRDReadyCheck)
+
 	return buf.String()
 }

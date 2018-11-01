@@ -21,7 +21,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"istio.io/istio/galley/pkg/kube/converter"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
@@ -156,7 +159,7 @@ func TestNewSource(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}
@@ -171,7 +174,7 @@ func TestFsSource_InitialScan(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -201,7 +204,7 @@ func TestFsSource_AddFile(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -239,7 +242,7 @@ func TestFsSource_DeleteFile(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -274,7 +277,7 @@ func TestFsSource_ModifyFile(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -307,7 +310,7 @@ func TestFsSource_DeletePartResorceInFile(t *testing.T) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -326,16 +329,16 @@ func TestFsSource_DeletePartResorceInFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-
-	log := logChannelOutput(ch, 4)
+	donec := make(chan bool)
 	expected := "[Event](Deleted: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))"
-
-	if log != expected {
-		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
+	go checkEventOccurs(expected, ch, donec)
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Expected Event does not occur:\n%s\n", expected)
+	case <-donec:
+		return
 	}
-
 	s.Stop()
-
 }
 
 //Only log the last event out
@@ -345,4 +348,13 @@ func logChannelOutput(ch chan resource.Event, count int) string {
 		result = <-ch
 	}
 	return strings.TrimSpace(fmt.Sprintf("%v\n", result))
+}
+
+// Check whether a specif event occurs
+func checkEventOccurs(expectedEvent string, ch chan resource.Event, donec chan bool) {
+	for event := range ch {
+		if expectedEvent == strings.TrimSpace(fmt.Sprintf("%v\n", event)) {
+			donec <- true
+		}
+	}
 }

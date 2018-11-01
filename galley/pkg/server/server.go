@@ -27,7 +27,9 @@ import (
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/fs"
 	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/kube/source"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/ctrlz"
@@ -57,9 +59,11 @@ type patchTable struct {
 	logConfigure          func(*log.Options) error
 	newKubeFromConfigFile func(string) (kube.Interfaces, error)
 	verifyCRDPresence     func(kube.Interfaces) error
-	newSource             func(kube.Interfaces, time.Duration) (runtime.Source, error)
+	newSource             func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error)
 	netListen             func(network, address string) (net.Listener, error)
+	newMeshConfigCache    func(path string) (meshconfig.Cache, error)
 	mcpMetricReporter     func(string) server.Reporter
+	fsNew                 func(string, *converter.Config) (runtime.Source, error)
 }
 
 func defaultPatchTable() patchTable {
@@ -70,6 +74,8 @@ func defaultPatchTable() patchTable {
 		newSource:             source.New,
 		netListen:             net.Listen,
 		mcpMetricReporter:     func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
+		newMeshConfigCache:    func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
+		fsNew:                 fs.New,
 	}
 }
 
@@ -84,9 +90,16 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	if err = p.logConfigure(a.LoggingOptions); err != nil {
 		return nil, err
 	}
+
+	mesh, err := p.newMeshConfigCache(a.MeshConfigFile)
+	if err != nil {
+		return nil, err
+	}
+	converterCfg := &converter.Config{Mesh: mesh}
+
 	var src runtime.Source
 	if a.ConfigPath != "" {
-		src, err = fs.New(a.ConfigPath)
+		src, err = p.fsNew(a.ConfigPath, converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -100,14 +113,18 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 				return nil, err
 			}
 		}
-		src, err = p.newSource(k, a.ResyncPeriod)
+		src, err = p.newSource(k, a.ResyncPeriod, converterCfg)
 		if err != nil {
 			return nil, err
 		}
 	}
 
+	processorCfg := runtime.Config{
+		DomainSuffix: a.DomainSuffix,
+		Mesh:         mesh,
+	}
 	distributor := snapshot.New(snapshot.DefaultGroupIndex)
-	s.processor = runtime.NewProcessor(src, distributor)
+	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions, grpc.MaxConcurrentStreams(uint32(a.MaxConcurrentStreams)))

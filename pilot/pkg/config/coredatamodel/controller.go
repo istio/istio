@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
@@ -51,28 +50,29 @@ type Controller struct {
 	descriptorsByMessageName map[string]model.ProtoSchema
 	options                  Options
 	eventHandlers            map[string][]func(model.Config, model.Event)
+
+	syncedMu sync.Mutex
+	synced   map[string]bool
 }
 
 // NewController provides a new CoreDataModel controller
 func NewController(options Options) CoreDataModel {
 	descriptorsByMessageName := make(map[string]model.ProtoSchema, len(model.IstioConfigTypes))
+	synced := make(map[string]bool)
 	for _, descriptor := range model.IstioConfigTypes {
 		// don't register duplicate descriptors for the same message name, e.g. auth policy
 		if _, ok := descriptorsByMessageName[descriptor.MessageName]; !ok {
 			descriptorsByMessageName[descriptor.MessageName] = descriptor
+			synced[descriptor.MessageName] = false
 		}
 	}
 
-	// Remove this when https://github.com/istio/istio/issues/7947 is done
-	configStore := make(map[string]map[string]map[string]model.Config)
-	for _, typ := range model.IstioConfigTypes.Types() {
-		configStore[typ] = make(map[string]map[string]model.Config)
-	}
 	return &Controller{
-		configStore:              configStore,
+		configStore:              make(map[string]map[string]map[string]model.Config),
 		options:                  options,
 		descriptorsByMessageName: descriptorsByMessageName,
 		eventHandlers:            make(map[string][]func(model.Config, model.Event)),
+		synced:                   synced,
 	}
 }
 
@@ -126,6 +126,10 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	if !valid {
 		return fmt.Errorf("descriptor type not supported %s", messagename)
 	}
+
+	c.syncedMu.Lock()
+	c.synced[messagename] = true
+	c.syncedMu.Unlock()
 
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]model.Config)
@@ -238,18 +242,21 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	return nil
 }
 
-// HasSynced is not implemented, waiting for the following issue
-// pending https://github.com/istio/istio/issues/7947
+// HasSynced returns true if the first batch of items has been popped
 func (c *Controller) HasSynced() bool {
-	// TODO:The configStore already populated with all the keys to avoid nil map issue
-	if len(c.configStore) == 0 {
-		return false
-	}
-	for _, descriptor := range c.ConfigDescriptor() {
-		if _, ok := c.configStore[descriptor.Type]; !ok {
-			return false
-		}
+	var notReady []string
 
+	c.syncedMu.Lock()
+	for messageName, synced := range c.synced {
+		if !synced {
+			notReady = append(notReady, messageName)
+		}
+	}
+	c.syncedMu.Unlock()
+
+	if len(notReady) > 0 {
+		log.Infof("Configuration not synced: first push for %v not received", notReady)
+		return false
 	}
 	return true
 }

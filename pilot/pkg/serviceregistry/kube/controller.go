@@ -146,7 +146,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		ranger:       cidranger.NewPCTrieRanger(),
 	}
 
-	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
+	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
 
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
 	out.services = out.createCacheHandler(svcInformer, "Services")
@@ -559,11 +559,11 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 				}
 
 				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
-					out = append(out, getEndpoints(proxy.IPAddress, c, svcPort, svc))
+					out = append(out, getEndpoints(proxy.IPAddress, c, port, svcPort, svc))
 				}
 
 				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
-					nrEP := getEndpoints(proxy.IPAddress, c, svcPort, svc)
+					nrEP := getEndpoints(proxy.IPAddress, c, port, svcPort, svc)
 					out = append(out, nrEP)
 					if c.Env != nil {
 						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -576,7 +576,7 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 	return out
 }
 
-func getEndpoints(ip string, c *Controller, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
+func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
 	labels, _ := c.pods.labelsByIP(ip)
 	pod, exists := c.pods.getPodByIP(ip)
 	az, sa := "", ""
@@ -587,7 +587,7 @@ func getEndpoints(ip string, c *Controller, svcPort *model.Port, svc *model.Serv
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     ip,
-			Port:        int(svcPort.Port),
+			Port:        int(port.Port),
 			ServicePort: svcPort,
 		},
 		Service:          svc,
@@ -777,6 +777,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 					Labels:          labels,
 					UID:             uid,
 					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
+					Network:         c.endpointNetwork(&ea),
 				})
 			}
 		}
