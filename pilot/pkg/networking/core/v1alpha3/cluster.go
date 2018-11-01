@@ -428,6 +428,7 @@ const (
 	// DefaultClusterMode indicates usual cluster with mTLS et al
 	DefaultClusterMode ClusterMode = "outbound"
 )
+
 func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, clusterMode ClusterMode) {
 	if policy == nil {
 		return
