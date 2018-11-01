@@ -25,7 +25,9 @@ import (
 
 	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/meshconfig"
+	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	sn "istio.io/istio/pkg/mcp/snapshot"
 )
 
 var mixerYAML = `
@@ -188,7 +190,7 @@ func TestFsSource_InitialScan(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	log := logChannelOutput(ch, 1)
+	log := logChannelOutput(ch, 2)
 	expected := strings.TrimSpace(`
 	[Event](Added: [VKey](type.googleapis.com/istio.networking.v1alpha3.VirtualService:route-for-myapp @v0))`)
 	if log != expected {
@@ -224,7 +226,7 @@ func TestFsSource_AddFile(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	log := logChannelOutput(ch, 1)
+	log := logChannelOutput(ch, 2)
 	expected := strings.TrimSpace(`
 	[Event](Added: [VKey](type.googleapis.com/istio.networking.v1alpha3.VirtualService:route-for-myapp @v1))`)
 
@@ -260,7 +262,7 @@ func TestFsSource_DeleteFile(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	log := logChannelOutput(ch, 2)
+	log := logChannelOutput(ch, 3)
 	expected := strings.TrimSpace(`
 	[Event](Deleted: [VKey](type.googleapis.com/istio.networking.v1alpha3.VirtualService:route-for-myapp @v0))`)
 
@@ -294,7 +296,7 @@ func TestFsSource_ModifyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	log := logChannelOutput(ch, 3)
+	log := logChannelOutput(ch, 4)
 	expected := strings.TrimSpace(`
 	[Event](Added: [VKey](type.googleapis.com/istio.networking.v1alpha3.VirtualService:route-for-myapp-changed @v1))`)
 	if log != expected {
@@ -339,6 +341,42 @@ func TestFsSource_DeletePartResorceInFile(t *testing.T) {
 		return
 	}
 	s.Stop()
+}
+
+func TestFsSource_publishEvent(t *testing.T) {
+	fst = &fsTestSourceState{
+		ConfigFiles: map[string][]byte{"virtual_service.yml": []byte(virtualServiceYAML)},
+	}
+	fst.testSetup(t)
+	defer fst.testTeardown(t)
+	s, err := New(fst.rootPath, &converter.Config{Mesh: meshconfig.NewInMemory()})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if s == nil {
+		t.Fatal("Expected non nil source")
+	}
+	d := runtime.NewInMemoryDistributor()
+	processor := runtime.NewProcessor(s, d)
+	err = processor.Start()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	ch := make(chan bool)
+	listenerAction := func(sp sn.Snapshot) {
+		ch <- true
+	}
+	cancel := make(chan bool)
+	defer func() { close(cancel) }()
+	go d.ListenChanges(cancel, listenerAction)
+	select {
+	case <-ch:
+		return
+	case <-time.After(5 * time.Second):
+		t.Fatal("The snapshot should have been set")
+	}
+	processor.Stop()
 }
 
 //Only log the last event out
