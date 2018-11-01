@@ -42,11 +42,6 @@ func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environmen
 }
 
 func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) bool {
-	// If the proxy is a SniDnatRouter router, do not use the cached data
-	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
-		return false
-	}
-
 	networkView := model.GetNetworkView(proxy)
 	// If we have only more than one network view for the proxy, then recompute CDS.
 	// Because, by default, we cache the CDS output for proxies in the UnnamedNetwork only.

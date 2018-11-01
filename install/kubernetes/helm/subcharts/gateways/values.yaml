@@ -82,6 +82,12 @@ istio-ingressgateway:
   - name: ingressgateway-ca-certs
     secretName: istio-ingressgateway-ca-certs
     mountPath: /etc/istio/ingressgateway-ca-certs
+  ### Advanced options ############
+  envVariables:
+    # A gateway with this mode ensures that pilot generates an additional
+    # set of clusters for internal services but without Istio mTLS, to
+    # enable cross cluster routing.
+    ISTIO_META_ISTIO_ROUTER_MODE: "sni-dnat"
 
 istio-egressgateway:
   enabled: true
@@ -118,6 +124,10 @@ istio-egressgateway:
     # the egress gateway sees the same set of endpoints as the sidecars
     # preserving backward compatibility
     ISTIO_META_REQUESTED_NETWORK_VIEW: ""
+    # A gateway with this mode ensures that pilot generates an additional
+    # set of clusters for internal services but without Istio mTLS, to
+    # enable cross cluster routing.
+    ISTIO_META_ISTIO_ROUTER_MODE: "sni-dnat"
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
