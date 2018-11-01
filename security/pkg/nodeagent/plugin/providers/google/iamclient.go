@@ -12,15 +12,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package iamclient is for IAM integration.
 package iamclient
 
-// Below is commented to prevent lint test from complaining about the struct
-// not being used
+import (
+	"crypto/x509"
 
-// import (
-// 	iam "google.golang.org/genproto/googleapis/iam/credentials/v1"
-// )
+	iam "google.golang.org/genproto/googleapis/iam/credentials/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"istio.io/istio/pkg/log"
+)
 
-// type iamClient struct {
-// 	client iam.IAMCredentialsClient
-// }
+var (
+	iamEndpoint = "iamcredentials.googleapis.com:443"
+	tlsFlag     = true
+)
+
+// NewPlugin returns an instance of the google iam client plugin
+func NewPlugin() iam.IAMCredentialsClient {
+	var opts grpc.DialOption
+	if tlsFlag {
+		pool, err := x509.SystemCertPool()
+		if err != nil {
+			log.Errorf("could not get SystemCertPool: %v", err)
+			return nil
+		}
+		creds := credentials.NewClientTLSFromCert(pool, "")
+		opts = grpc.WithTransportCredentials(creds)
+	} else {
+		opts = grpc.WithInsecure()
+	}
+
+	conn, err := grpc.Dial(iamEndpoint, opts)
+	if err != nil {
+		log.Errorf("Failed to connect to endpoint %q: %v", iamEndpoint, err)
+		return nil
+	}
+
+	return iam.NewIAMCredentialsClient(conn)
+}
