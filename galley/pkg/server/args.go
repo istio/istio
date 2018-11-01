@@ -125,7 +125,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
 	fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
 	fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
-	fmt.Fprintf(buf, "DisableCRDReadyCheck: %s\n", a.DisableCRDReadyCheck)
+	fmt.Fprintf(buf, "DisableCRDReadyCheck: %v\n", a.DisableCRDReadyCheck)
 
 	return buf.String()
 }
