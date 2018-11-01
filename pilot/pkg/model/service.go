@@ -827,23 +827,31 @@ func IsValidSubsetKey(s string) bool {
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
-	parts := strings.Split(s, "|")
-	if len(parts) < 4 {
-		// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
-		// Since we dont want every callsite to implement the logic to differentiate between the two forms
-		// we add an alternate parser here.
-		if !strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionOutbound)) &&
-			!strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionInbound)) {
-			return
-		}
+	var parts []string
+	dnsSrvMode := false
+	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
+	// Since we dont want every callsite to implement the logic to differentiate between the two forms
+	// we add an alternate parser here.
+	if strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionOutbound)) ||
+		strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionInbound)) {
 		parts = strings.SplitN(s, ".", 4)
-		parts[0] = strings.TrimSuffix(parts[0], "_")
-		parts[1] = strings.TrimSuffix(parts[1], "_")
-		parts[2] = strings.TrimSuffix(parts[2], "_")
+		dnsSrvMode = true
+	} else {
+		parts = strings.Split(s, "|")
 	}
-	direction = TrafficDirection(parts[0])
-	port, _ = strconv.Atoi(parts[1])
+
+	if len(parts) < 4 {
+		return
+	}
+
+	direction = TrafficDirection(strings.TrimSuffix(parts[0], "_"))
+	port, _ = strconv.Atoi(strings.TrimSuffix(parts[1], "_"))
 	subsetName = parts[2]
+
+	if dnsSrvMode {
+		subsetName = strings.TrimSuffix(parts[2], "_")
+	}
+
 	hostname = Hostname(parts[3])
 	return
 }
