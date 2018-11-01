@@ -90,13 +90,22 @@ resources:
           kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
 
           wget https://github.com/istio/istio/releases/download/{{ properties['installIstioRelease'] }}/istio-{{ properties['installIstioRelease'] }}-linux.tar.gz
+
           tar xzf istio-{{ properties['installIstioRelease'] }}-linux.tar.gz
 
-          wget -P /root/helm/ https://storage.googleapis.com/kubernetes-helm/helm-v2.9.1-linux-amd64.tar.gz
-          tar xf /root/helm/helm-v2.9.1-linux-amd64.tar.gz  -C /root/helm/
+          wget -P /root/helm/ https://storage.googleapis.com/kubernetes-helm/helm-v2.11.0-linux-amd64.tar.gz
+          tar xf /root/helm/helm-v2.11.0-linux-amd64.tar.gz  -C /root/helm/
 
           export PATH="$PATH:/root/istio-{{ properties['installIstioRelease'] }}/bin::/root/helm/linux-amd64/"
           cd /root/istio-{{ properties['installIstioRelease'] }}
+
+          kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
+
+          kubectl apply -f install/kubernetes/helm/subcharts/certmanager/templates/crds.yaml
+
+          helm init --client-only
+          helm repo add istio.io https://storage.googleapis.com/istio-release/releases/{{ properties['installIstioRelease'] }}/charts/
+          helm dependency update install/kubernetes/helm/istio
 
           kubectl create ns istio-system
 
@@ -107,7 +116,7 @@ resources:
           {% endif %}
 
           {% if  properties['enableAutomaticSidecarInjection'] %}
-            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set sidecar-injector.enabled=true"
+            ISTIO_OPTIONS=$ISTIO_OPTIONS" --set sidecarInjectorWebhook.enabled=true"
           {% endif %}
 
           {% if properties['enableGrafana'] or properties['enablePrometheus'] %}
@@ -129,12 +138,68 @@ resources:
           helm template install/kubernetes/helm/istio --name istio --namespace istio-system $ISTIO_OPTIONS  > istio.yaml
 
           kubectl apply -f istio.yaml
-          kubectl label namespace default istio-injection=enabled
 
-          sleep 150
+          {% if  properties['enableAutomaticSidecarInjection'] %}
+            kubectl label namespace default istio-injection=enabled
+          {% endif %}
 
-          kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
-          kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+          kubectl rollout status deployment.extensions/istio-pilot -n istio-system --timeout=60s
+          kubectl rollout status deployment.extensions/istio-citadel -n istio-system --timeout=60s
+          kubectl rollout status deployment.extensions/istio-policy -n istio-system --timeout=60s
+          kubectl rollout status deployment.extensions/istio-galley -n istio-system --timeout=60s
+          kubectl rollout status deployment.extensions/istio-ingressgateway -n istio-system --timeout=60s
+
+          {% if  properties['enableKiali'] %}
+
+            export USERNAME=$(echo -n '{{  properties['kialiUsername'] }}' | base64)
+            export PASSPHRASE=$(echo -n '{{  properties['kialiPassword'] }}' | base64)
+            export NAMESPACE=istio-system
+
+            echo '
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: kiali
+              namespace: $NAMESPACE
+              labels:
+                app: kiali
+            type: Opaque
+            data:
+              username: $USERNAME
+              passphrase: $PASSPHRASE
+            ' | envsubst > kaili_secret.yaml
+
+            kubectl apply -f kaili_secret.yaml
+
+            export KIALI_OPTIONS=" --set kiali.enabled=true "
+
+            {% if  properties['enableGrafana'] %}
+              KIALI_OPTIONS=$KIALI_OPTIONS"  --set kiali.dashboard.grafanaURL=http://$(kubectl get svc grafana -n istio-system -o jsonpath='{.spec.clusterIP}'):3000"
+            {% endif %}
+
+            {% if  properties['enableTracing'] %}
+              KIALI_OPTIONS=$KIALI_OPTIONS" --set kiali.dashboard.jaegerURL=http://$(kubectl get svc tracing -n istio-system -o jsonpath='{.spec.clusterIP}'):80"
+            {% endif %}
+
+            helm template install/kubernetes/helm/istio --name istio --namespace istio-system $KIALI_OPTIONS  > istio_kiali.yaml
+
+            kubectl apply -f istio_kiali.yaml
+
+          {% endif %}
+
+          {% if  properties['enableBookInfoSample'] %}
+
+            kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+            kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+
+            kubectl rollout status deployment.extensions/productpage-v1 --timeout=60s
+            kubectl rollout status deployment.extensions/ratings-v1 --timeout=60s
+            kubectl rollout status deployment.extensions/details-v1 --timeout=60s
+            kubectl rollout status deployment.extensions/reviews-v1 --timeout=60s
+            kubectl rollout status deployment.extensions/reviews-v2 --timeout=60s
+            kubectl rollout status deployment.extensions/reviews-v3 --timeout=60s
+
+          {% endif %}
 
           gcloud beta runtime-config configs variables set success/{{ CLUSTER_NAME }}-waiter success --config-name $(ref.{{ CLUSTER_NAME }}-config.name)
           gcloud -q compute instances delete {{ CLUSTER_NAME }}-vm --zone {{ properties['zone'] }}

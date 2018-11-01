@@ -35,7 +35,7 @@ properties:
   instanceType:
     type: string
     description: Node machineType
-    default: n1-standard-1
+    default: n1-standard-2
     x-googleProperty:
       type: GCE_MACHINE_TYPE
       zoneProperty: zone
@@ -43,9 +43,9 @@ properties:
   installIstioRelease:
     type: string
     description: Install Istio Release version.
-    default: 1.0.0
+    default: 1.1.0
     enum:
-      - 1.0.0
+      - 1.1.0
 
   enableBookInfoSample:
     type: boolean
@@ -79,5 +79,21 @@ properties:
 
   enableServiceGraph:
     type: boolean
-    description: Enable ServiceGraph for metrics/logs
+    description: Enable ServiceGraph for visualization
+    default: false
+
+  enableKiali:
+    type: boolean
+    description: Enable Kiali for visualization
     default: true
+
+  kialiUsername:
+    type: string
+    description: Default username for Kiali
+    default: admin
+
+  kialiPassword:
+    type: string
+    description: Default username for Kiali
+    minLength: 8
+    default: mysecret
