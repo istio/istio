@@ -77,7 +77,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	verifySplitHorizonResponse(t, "network1", sidecarId("10.1.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.1.0.1"},
-		remoteWeights:  map[string]uint32{"159.122.219.2": 2, "159.122.219.3": 3},
+		remoteWeights:  map[string]uint32{"159.122.219.2": 43, "159.122.219.3": 64},
 	})
 
 	// Verify that EDS from network2 will return 2 local endpoints with local VIPs + 2 remote
@@ -85,7 +85,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	verifySplitHorizonResponse(t, "network2", sidecarId("10.2.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.2.0.1", "10.2.0.2"},
-		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.3": 3},
+		remoteWeights:  map[string]uint32{"159.122.219.1": 22, "159.122.219.3": 64},
 	})
 
 	// Verify that EDS from network3 will return 3 local endpoints with local VIPs + 2 remote
@@ -93,13 +93,13 @@ func TestSplitHorizonEds(t *testing.T) {
 	verifySplitHorizonResponse(t, "network3", sidecarId("10.3.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.3.0.1", "10.3.0.2", "10.3.0.3"},
-		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2},
+		remoteWeights:  map[string]uint32{"159.122.219.1": 22, "159.122.219.2": 43},
 	})
 
 	verifySplitHorizonResponse(t, "network4", sidecarId("10.4.0.1", "app3"), expectedResults{
 		numOfNetworks:  4,
 		localEndpoints: []string{"10.4.0.1", "10.4.0.2", "10.4.0.3", "10.4.0.4"},
-		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2, "159.122.219.3": 3},
+		remoteWeights:  map[string]uint32{"159.122.219.1": 13, "159.122.219.2": 26, "159.122.219.3": 39},
 	})
 
 	// Clean server changes as other tests may use the same server
