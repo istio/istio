@@ -18,11 +18,12 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
-# No unset vars, print commands as they're executed, and exit on any non-zero
-# return code
-set -u
-set -x
+# Exit immediately for non zero status
 set -e
+# Check unset variables
+set -u
+# Print commands
+set -x
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"

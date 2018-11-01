@@ -108,8 +108,8 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
 	}
 
-	helmRepoDir := workDir + "/helmrepo"
-	chartBuildDir := workDir + "/charts"
+	helmRepoDir := filepath.Join(workDir, "helmrepo")
+	chartBuildDir := filepath.Join(workDir, "charts")
 	if err := os.MkdirAll(helmRepoDir, os.ModePerm); err != nil {
 		return "", err
 	}

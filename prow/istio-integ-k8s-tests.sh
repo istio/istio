@@ -14,16 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-#######################################################
-# e2e-suite runs Istio E2E tests.                     #
-#                                                     #
-# Usage: ./e2e_suite.sh --single_test mixer_e2e       #
-#                                                     #
-# ${E2E_ARGS} can be used to provide additional test  #
-# arguments.                                          #
-#######################################################
-
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
