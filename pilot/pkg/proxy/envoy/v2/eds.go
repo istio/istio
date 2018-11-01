@@ -113,7 +113,7 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 	return c.LoadAssignment
 }
 
-func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string, port uint32) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
 	var addr core.Address
 	switch family {
 	case model.AddressFamilyTCP:
@@ -144,7 +144,8 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 			FilterMetadata: map[string]*types.Struct{
 				"istio": {
 					Fields: map[string]*types.Value{
-						"uid": {Kind: &types.Value_StringValue{StringValue: UID}},
+						"uid":     {Kind: &types.Value_StringValue{StringValue: UID}},
+						"network": {Kind: &types.Value_StringValue{StringValue: network}},
 					},
 				},
 			},
@@ -246,7 +247,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 				localityEpMap[locality] = locLbEps
 			}
 			if el.EnvoyEndpoint == nil {
-				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort)
+				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort, el.Network)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
 		}
@@ -330,6 +331,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						Labels:          l,
 						UID:             ep.Endpoint.UID,
 						ServiceAccount:  ep.ServiceAccount,
+						Network:         ep.Endpoint.Network,
 					})
 					if ep.ServiceAccount != "" {
 						acc, f := svc2acc[hn]
@@ -491,17 +493,19 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	entries []*model.IstioEndpoint) error {
-	return s.edsUpdate(shard, serviceName, entries, false)
+	s.edsUpdate(shard, serviceName, entries, false)
+	return nil
 }
 
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
-	entries []*model.IstioEndpoint, internal bool) error {
+	entries []*model.IstioEndpoint, internal bool)  {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
 	// After debounce, the services are merged and pushed.
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	requireFull := false
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
@@ -517,7 +521,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		s.EndpointShardsByService[serviceName] = ep
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
-			s.ConfigUpdate(true)
+			requireFull = true
 		}
 	}
 
@@ -536,14 +540,15 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
 				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
-				s.ConfigUpdate(true)
+				requireFull = true
 			}
 		}
 	}
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
-
-	return nil
+	if requireFull {
+		s.ConfigUpdate(true)
+	}
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
@@ -659,11 +664,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	pushes.With(prometheus.Labels{"type": "eds"}).Add(1)
 
 	if full {
-		// TODO: switch back to debug
-		adsLog.Infof("EDS: PUSH for %s clusters %d endpoints %d empty %d",
+		adsLog.Debugf("EDS: PUSH for %s clusters %d endpoints %d empty %d",
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	} else {
-		adsLog.Infof("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
+		adsLog.Debugf("EDS: INC PUSH for %s clusters %d endpoints %d empty %d",
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	}
 	return nil

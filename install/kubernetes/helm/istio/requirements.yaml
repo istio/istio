@@ -55,3 +55,8 @@ dependencies:
     version: 1.1.0
     condition: certmanager.enabled
     repository: file://../subcharts/certmanager
+  - name: istio-cni
+    version: ">=0.0.1"
+    repository: https://raw.githubusercontent.com/istio/istio.io/master/static/charts
+    condition: istio_cni.enabled
+

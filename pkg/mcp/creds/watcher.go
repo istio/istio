@@ -63,7 +63,7 @@ var (
 	watchKeyEventHandledProbe  func()
 )
 
-var scope = log.RegisterScope("mcp-creds", "MCP Credential utilities", 0)
+var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 const (
 	// defaultCertDir is the default directory in which MCP options reside.
