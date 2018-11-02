@@ -25,7 +25,6 @@ import (
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -169,26 +168,24 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 }
 
 // SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream
-// Its meant only for internal services
 func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 
 	networkView := model.GetNetworkView(proxy)
 
 	for _, service := range push.Services {
-		if service.MeshExternal {
-			continue
-		}
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
 				continue
 			}
-			hosts := buildClusterHosts(env, networkView, service, port.Port)
+			hosts := buildClusterHosts(env, networkView, service, port.Port, nil)
 
 			// create default cluster
+			discoveryType := convertResolution(service.Resolution)
+
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, hosts)
 			defaultCluster.TlsContext = nil
 			updateEds(defaultCluster)
 			clusters = append(clusters, defaultCluster)
@@ -199,7 +196,12 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
+					// clusters with discovery type STATIC, STRICT_DNS or LOGICAL_DNS rely on cluster.hosts field
+					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
+					if discoveryType != v2.Cluster_EDS && len(subset.Labels) != 0 {
+						hosts = buildClusterHosts(env, networkView, service, port.Port, []model.Labels{subset.Labels})
+					}
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, hosts)
 					subsetCluster.TlsContext = nil
 					updateEds(subsetCluster)
 					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, SniDnatClusterMode)
