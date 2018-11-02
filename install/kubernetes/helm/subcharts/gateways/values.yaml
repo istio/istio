@@ -57,6 +57,10 @@ istio-ingressgateway:
   - port: 15032
     targetPort: 15032
     name: http2-tracing
+    # This is the port where sni routing happens
+  - port: 15443
+    targetPort: 15443
+    name: tls
   #### MESH EXPANSION PORTS  ########
   # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
   # to pilot/citadel if global.meshExpansion settings are enabled.
@@ -82,6 +86,12 @@ istio-ingressgateway:
   - name: ingressgateway-ca-certs
     secretName: istio-ingressgateway-ca-certs
     mountPath: /etc/istio/ingressgateway-ca-certs
+  ### Advanced options ############
+  env:
+    # A gateway with this mode ensures that pilot generates an additional
+    # set of clusters for internal services but without Istio mTLS, to
+    # enable cross cluster routing.
+    ISTIO_META_ROUTER_MODE: "sni-dnat"
 
 istio-egressgateway:
   enabled: true
@@ -101,6 +111,10 @@ istio-egressgateway:
     name: http2
   - port: 443
     name: https
+    # This is the port where sni routing happens
+  - port: 15443
+    targetPort: 15443
+    name: tls
   secretVolumes:
   - name: egressgateway-certs
     secretName: istio-egressgateway-certs
@@ -109,7 +123,7 @@ istio-egressgateway:
     secretName: istio-egressgateway-ca-certs
     mountPath: /etc/istio/egressgateway-ca-certs
   #### Advanced options ########
-  envVariables:
+  env:
     # Set this to "external" if and only if you want the egress gateway to
     # act as a transparent SNI gateway that routes mTLS/TLS traffic to
     # external services defined using service entries, where the service
@@ -118,6 +132,10 @@ istio-egressgateway:
     # the egress gateway sees the same set of endpoints as the sidecars
     # preserving backward compatibility
     ISTIO_META_REQUESTED_NETWORK_VIEW: ""
+    # A gateway with this mode ensures that pilot generates an additional
+    # set of clusters for internal services but without Istio mTLS, to
+    # enable cross cluster routing.
+    ISTIO_META_ROUTER_MODE: "sni-dnat"
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
@@ -201,8 +219,8 @@ istio-mcgateway:
     targetPort: 15443
     name: tls
   ### Advanced options ############
-  envVariables:
+  env:
     # A gateway with this mode ensures that pilot does not
     # generate mTLS clusters for the mcgateway except for
     # istio-telemetry,istio-policy
-    ISTIO_META_ISTIO_ROUTER_MODE: "sni-dnat"
+    ISTIO_META_ROUTER_MODE: "sni-dnat"
