@@ -66,7 +66,7 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
-			base: "tracing_lightstep",
+			base:                       "tracing_lightstep",
 			expectLightstepAccessToken: true,
 		},
 		{
@@ -328,16 +328,16 @@ func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (
 	envs := make([]string, 0)
 
 	if labels != nil {
-		envs = append(envs, encodeAsJson(t, labels, "LABELS"))
+		envs = append(envs, encodeAsJSON(t, labels, "LABELS"))
 	}
 
 	if anno != nil {
-		envs = append(envs, encodeAsJson(t, anno, "ANNOTATIONS"))
+		envs = append(envs, encodeAsJSON(t, anno, "ANNOTATIONS"))
 	}
 	return merged, envs
 }
 
-func encodeAsJson(t *testing.T, data map[string]string, name string) string {
+func encodeAsJSON(t *testing.T, data map[string]string, name string) string {
 	jsonStr, err := json.Marshal(data)
 	if err != nil {
 		t.Fatalf("failed to marshal %s %v: %v", name, data, err)

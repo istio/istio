@@ -164,7 +164,7 @@ data:
         {{ "[[ if .ObjectMeta.Labels ]]" }}
         - name: ISTIO_METAJSON_LABELS
           value: |
-                 {{ "[[ toJson .ObjectMeta.Labels ]]" }}
+                 {{ "[[ toJSON .ObjectMeta.Labels ]]" }}
         {{ "[[ end ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
