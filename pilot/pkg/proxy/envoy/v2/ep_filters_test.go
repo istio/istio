@@ -176,7 +176,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 func xdsConnection(network string) *XdsConnection {
 	var metadata map[string]string
 	if network != "" {
-		metadata = map[string]string{"ISTIO_NETWORK": network}
+		metadata = map[string]string{"NETWORK": network}
 	}
 	return &XdsConnection{
 		modelNode: &model.Proxy{
