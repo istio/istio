@@ -71,6 +71,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 	}
 
+	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+		clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
+	}
+
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for these two clusters.
 	clusters = append(clusters, buildBlackHoleCluster())
@@ -129,15 +133,16 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				convertIstioMutual(service, port, serviceAccounts, destinationRule)
-				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port)
+				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, DefaultClusterMode)
 
 				for _, subset := range destinationRule.Subsets {
+					inputParams.Subset = subset.Name
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port)
-					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port)
+					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, DefaultClusterMode)
+					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, DefaultClusterMode)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(inputParams, subsetCluster)
@@ -149,6 +154,51 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
 				p.OnOutboundCluster(inputParams, defaultCluster)
+			}
+		}
+	}
+
+	return clusters
+}
+
+// SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream
+// Its meant only for internal services
+func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*v2.Cluster {
+	clusters := make([]*v2.Cluster, 0)
+
+	networkView := model.GetNetworkView(proxy)
+
+	for _, service := range push.Services {
+		if service.MeshExternal {
+			continue
+		}
+		config := push.DestinationRule(service.Hostname)
+		for _, port := range service.Ports {
+			if port.Protocol == model.ProtocolUDP {
+				continue
+			}
+			hosts := buildClusterHosts(env, networkView, service, port.Port)
+
+			// create default cluster
+			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+			defaultCluster.TlsContext = nil
+			updateEds(defaultCluster)
+			clusters = append(clusters, defaultCluster)
+
+			if config != nil {
+				destinationRule := config.Spec.(*networking.DestinationRule)
+				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, SniDnatClusterMode)
+
+				for _, subset := range destinationRule.Subsets {
+					subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
+					subsetCluster.TlsContext = nil
+					updateEds(subsetCluster)
+					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, SniDnatClusterMode)
+					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, SniDnatClusterMode)
+					clusters = append(clusters, subsetCluster)
+				}
 			}
 		}
 	}
@@ -369,7 +419,17 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
-func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
+// ClusterMode defines whether the cluster is being built for SNI-DNATing (sni passthrough) or not
+type ClusterMode string
+
+const (
+	// SniDnatClusterMode indicates cluster is being built for SNI dnat mode
+	SniDnatClusterMode ClusterMode = "sni-dnat"
+	// DefaultClusterMode indicates usual cluster with mTLS et al
+	DefaultClusterMode ClusterMode = "outbound"
+)
+
+func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, clusterMode ClusterMode) {
 	if policy == nil {
 		return
 	}
@@ -378,7 +438,9 @@ func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *net
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
-	applyUpstreamTLSSettings(cluster, tls, env.Mesh.SdsUdsPath)
+	if clusterMode != SniDnatClusterMode {
+		applyUpstreamTLSSettings(cluster, tls, env.Mesh.SdsUdsPath)
+	}
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -633,7 +695,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil)
+	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil, DefaultClusterMode)
 	return cluster
 }
 
