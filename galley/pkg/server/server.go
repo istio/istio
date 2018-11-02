@@ -56,26 +56,26 @@ type Server struct {
 }
 
 type patchTable struct {
-	logConfigure          func(*log.Options) error
-	newKubeFromConfigFile func(string) (kube.Interfaces, error)
-	verifyCRDPresence     func(kube.Interfaces) error
-	newSource             func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error)
-	netListen             func(network, address string) (net.Listener, error)
-	newMeshConfigCache    func(path string) (meshconfig.Cache, error)
-	mcpMetricReporter     func(string) server.Reporter
-	fsNew                 func(string, *converter.Config) (runtime.Source, error)
+	logConfigure                func(*log.Options) error
+	newKubeFromConfigFile       func(string) (kube.Interfaces, error)
+	verifyResourceTypesPresence func(kube.Interfaces) error
+	newSource                   func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error)
+	netListen                   func(network, address string) (net.Listener, error)
+	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
+	mcpMetricReporter           func(string) server.Reporter
+	fsNew                       func(string, *converter.Config) (runtime.Source, error)
 }
 
 func defaultPatchTable() patchTable {
 	return patchTable{
-		logConfigure:          log.Configure,
-		newKubeFromConfigFile: kube.NewKubeFromConfigFile,
-		verifyCRDPresence:     source.VerifyCRDPresence,
-		newSource:             source.New,
-		netListen:             net.Listen,
-		mcpMetricReporter:     func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
-		newMeshConfigCache:    func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
-		fsNew:                 fs.New,
+		logConfigure:                log.Configure,
+		newKubeFromConfigFile:       kube.NewKubeFromConfigFile,
+		verifyResourceTypesPresence: source.VerifyResourceTypesPresence,
+		newSource:                   source.New,
+		netListen:                   net.Listen,
+		mcpMetricReporter:           func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
+		newMeshConfigCache:          func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
+		fsNew:                       fs.New,
 	}
 }
 
@@ -109,7 +109,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			return nil, err
 		}
 		if !a.DisableCRDReadyCheck {
-			if err := p.verifyCRDPresence(k); err != nil {
+			if err := p.verifyResourceTypesPresence(k); err != nil {
 				return nil, err
 			}
 		}

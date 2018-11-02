@@ -93,7 +93,7 @@ func TestNewServer(t *testing.T) {
 	p.fsNew = func(string, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
-	p.verifyCRDPresence = func(kube.Interfaces) error {
+	p.verifyResourceTypesPresence = func(kube.Interfaces) error {
 		return nil
 	}
 
@@ -120,7 +120,7 @@ func TestServer_Basic(t *testing.T) {
 		return mcptestmon.NewInMemoryServerStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	p.verifyCRDPresence = func(kube.Interfaces) error {
+	p.verifyResourceTypesPresence = func(kube.Interfaces) error {
 		return nil
 	}
 
