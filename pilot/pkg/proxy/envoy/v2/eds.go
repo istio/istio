@@ -534,6 +534,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
 			s.ConfigUpdate(true)
+			return nil
 		}
 	}
 
@@ -553,12 +554,13 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 				// Requires a CDS push and full sync.
 				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
 				s.ConfigUpdate(true)
+				return nil
 			}
 		}
 	}
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
-
+	s.ConfigUpdate(false)
 	return nil
 }
 

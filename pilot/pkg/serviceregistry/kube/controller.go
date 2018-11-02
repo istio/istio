@@ -789,13 +789,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 
 	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
 
-	err := c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
-	if err != nil {
-		// Request a global push if we failed to do EDS only
-		c.XDSUpdater.ConfigUpdate(true)
-	} else {
-		c.XDSUpdater.ConfigUpdate(false)
-	}
+	c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
