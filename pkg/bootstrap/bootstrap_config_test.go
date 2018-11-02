@@ -66,7 +66,7 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
-			base:                       "tracing_lightstep",
+			base: "tracing_lightstep",
 			expectLightstepAccessToken: true,
 		},
 		{
