@@ -107,7 +107,8 @@ func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety 
 			l.WriteFormat(name, "SetType => types: '%+v'", types)
 			l.Write(name, "SetType <=")
 		},
-		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}, out *attribute.MutableBag, outPrefix string) (adapter.CheckResult, error) {
+		DispatchCheck: func(ctx context.Context, handler adapter.Handler, instance interface{}, out *attribute.MutableBag,
+			outPrefix string) (adapter.CheckResult, error) {
 			l.WriteFormat(name, "DispatchCheck => context exists: '%+v'", ctx != nil)
 			l.WriteFormat(name, "DispatchCheck => handler exists: '%+v'", handler != nil)
 			l.WriteFormat(name, "DispatchCheck => instance:       '%+v'", instance)
