@@ -169,9 +169,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 	networkView := model.GetNetworkView(proxy)
 
 	for _, service := range push.Services {
-		if service.MeshExternal {
-			continue
-		}
 		config := push.DestinationRule(service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
