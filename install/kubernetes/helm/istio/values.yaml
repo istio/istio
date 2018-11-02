@@ -24,6 +24,10 @@ galley:
 #
 mixer:
   enabled: true
+  istio-policy:
+    enabled: true
+  istio-telemetry:
+    enabled: true
 
 #
 # pilot configuration
