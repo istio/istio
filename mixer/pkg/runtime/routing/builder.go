@@ -585,19 +585,6 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 	return instBuilder, mapper, nil
 }
 
-// chainedAttributeDescriptor extends an attribute descriptor with overrides
-type chainedAttributeDescriptor struct {
-	parent    ast.AttributeDescriptorFinder
-	overrides map[string]*descriptor.AttributeManifest_AttributeInfo
-}
-
-func (r *chainedAttributeDescriptor) GetAttribute(name string) *descriptor.AttributeManifest_AttributeInfo {
-	if info, exists := r.overrides[name]; exists {
-		return info
-	}
-	return r.parent.GetAttribute(name)
-}
-
 // buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
 // with template output attributes prefixed by the action names added to the global attribute manifests.
 func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) *compiled.ExpressionBuilder {
@@ -610,7 +597,6 @@ func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *
 			continue
 		}
 
-		// TODO(kuat): rationalize multi-instance check actions
 		template := action.Instances[0].Template
 		if template.Variety != tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
 			continue
@@ -622,7 +608,7 @@ func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *
 			}
 		}
 	}
-	return compiled.NewBuilder(&chainedAttributeDescriptor{parent: parent, overrides: attributeDescriptor})
+	return compiled.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor))
 }
 
 // buildRuleOperations creates an intermediate symbolic form for the route directive header operations
