@@ -108,7 +108,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !a.DisableCRDReadyCheck {
+		if !a.DisableResourceReadyCheck {
 			if err := p.verifyResourceTypesPresence(k); err != nil {
 				return nil, err
 			}

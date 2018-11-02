@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -38,7 +38,7 @@ func VerifyResourceTypesPresence(k kube.Interfaces) error {
 }
 
 var (
-	crdPresencePollInterval = 500 * time.Millisecond
+	crdPresencePollInterval = time.Second
 	crdPresensePollTimeout  = time.Minute
 )
 
@@ -58,14 +58,19 @@ func verifyResourceTypesPresence(cs clientset.Interface, specs []kube.ResourceSp
 				errs = multierror.Append(errs, fmt.Errorf("could not find %v: %v", gv, err))
 				continue nextCRD
 			}
+			found := false
 			for _, r := range list.APIResources {
 				if r.Name == spec.Plural {
 					delete(search, plural)
+					found = true
+					break
 				}
+			}
+			if !found {
+				scope.Infof("%s resource type not found", spec.CanonicalResourceName())
 			}
 		}
 		if len(search) == 0 {
-			scope.Infof("Discovered all supported resources (# = %v)", len(specs))
 			return true, nil
 		}
 		// entire search failed
@@ -75,5 +80,15 @@ func verifyResourceTypesPresence(cs clientset.Interface, specs []kube.ResourceSp
 		// check again next poll
 		return false, nil
 	})
-	return err
+
+	if err != nil {
+		var notFound []string
+		for plural := range search {
+			notFound = append(notFound, plural)
+		}
+		return fmt.Errorf("%v: the following resource type(s) were not found: %v", err, notFound)
+	}
+
+	scope.Infof("Discovered all supported resources (# = %v)", len(specs))
+	return nil
 }

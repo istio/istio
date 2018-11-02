@@ -142,8 +142,8 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Path to the mesh config file")
 	rootCmd.PersistentFlags().StringVar(&serverArgs.DomainSuffix, "domain", serverArgs.DomainSuffix,
 		"DNS domain suffix")
-	rootCmd.PersistentFlags().BoolVar(&serverArgs.DisableCRDReadyCheck, "disableCRDReadyCheck", serverArgs.DisableCRDReadyCheck,
-		"Disable CRD readiness checks. This allows Galley to start if not all CRD are supported")
+	rootCmd.PersistentFlags().BoolVar(&serverArgs.DisableResourceReadyCheck, "disableResourceReadyCheck", serverArgs.DisableResourceReadyCheck,
+		"Disable resource readiness checks. This allows Galley to start if not all resource types are supported")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 
