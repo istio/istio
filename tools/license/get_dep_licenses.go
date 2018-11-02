@@ -303,18 +303,21 @@ func main() {
 	}
 
 	if check {
+		exitCode := 0
 		if len(reciprocalList) > 0 {
 			fmt.Println("===========================================================")
 			fmt.Println("The following packages have reciprocal licenses (code may")
 			fmt.Println("be used but not modified):")
 			fmt.Println("===========================================================")
 			fmt.Println(strings.Join(reciprocalList, "\n"))
+			exitCode |= 1
 		}
 		if len(missingList) > 0 {
 			fmt.Println("===========================================================")
 			fmt.Println("The following packages have missing licenses:")
 			fmt.Println("===========================================================")
 			fmt.Println(strings.Join(missingList, "\n"))
+			exitCode |= 2
 		}
 		if len(unknownMap) > 0 {
 			fmt.Println("===========================================================")
@@ -324,6 +327,7 @@ func main() {
 			for k, v := range unknownMap {
 				fmt.Printf("%s:%s\n", k, v)
 			}
+			exitCode |= 4
 		}
 		if len(restrictedList) > 0 {
 			fmt.Println("===========================================================")
@@ -331,8 +335,9 @@ func main() {
 			fmt.Println("Packages MUST BE REMOVED! ")
 			fmt.Println("===========================================================")
 			fmt.Println(strings.Join(restrictedList, "\n"))
-			os.Exit(1)
+			exitCode |= 8
 		}
+		os.Exit(exitCode)
 		return
 	}
 
@@ -357,6 +362,7 @@ func main() {
 		for _, p := range missing {
 			fmt.Fprintln(os.Stderr, p)
 		}
+		os.Exit(2)
 	}
 
 	if matchDetail {
