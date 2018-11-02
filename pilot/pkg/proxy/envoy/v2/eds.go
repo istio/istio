@@ -498,7 +498,7 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 }
 
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
-	entries []*model.IstioEndpoint, internal bool)  {
+	entries []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
