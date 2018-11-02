@@ -25,11 +25,11 @@ import (
 )
 
 func TestVerifyCRDPresence(t *testing.T) {
-	prevInterval, prevTimeout := crdPresencePollInterval, crdPresensePollTimeout
-	crdPresencePollInterval = time.Nanosecond
-	crdPresensePollTimeout = time.Millisecond
+	prevInterval, prevTimeout := pollInterval, pollTimeout
+	pollInterval = time.Nanosecond
+	pollTimeout = time.Millisecond
 	defer func() {
-		crdPresencePollInterval, crdPresensePollTimeout = prevInterval, prevTimeout
+		pollInterval, pollTimeout = prevInterval, prevTimeout
 	}()
 
 	specs := kube_meta.Types.All()

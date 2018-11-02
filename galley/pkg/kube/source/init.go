@@ -38,8 +38,8 @@ func VerifyResourceTypesPresence(k kube.Interfaces) error {
 }
 
 var (
-	crdPresencePollInterval = time.Second
-	crdPresensePollTimeout  = time.Minute
+	pollInterval = time.Second
+	pollTimeout  = time.Minute
 )
 
 func verifyResourceTypesPresence(cs clientset.Interface, specs []kube.ResourceSpec) error {
@@ -48,15 +48,15 @@ func verifyResourceTypesPresence(cs clientset.Interface, specs []kube.ResourceSp
 		search[spec.Plural] = &specs[i]
 	}
 
-	err := wait.Poll(crdPresencePollInterval, crdPresensePollTimeout, func() (bool, error) {
+	err := wait.Poll(pollInterval, pollTimeout, func() (bool, error) {
 		var errs error
-	nextCRD:
+	nextResource:
 		for plural, spec := range search {
 			gv := schema.GroupVersion{Group: spec.Group, Version: spec.Version}.String()
 			list, err := cs.Discovery().ServerResourcesForGroupVersion(gv)
 			if err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("could not find %v: %v", gv, err))
-				continue nextCRD
+				continue nextResource
 			}
 			found := false
 			for _, r := range list.APIResources {
