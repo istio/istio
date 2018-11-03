@@ -298,67 +298,65 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	// TODO: if ServiceDiscovery is aggregate, and all members support direct, use
 	// the direct interface.
-	var regs []aggregate.Registry
+	var registries []aggregate.Registry
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
-		regs = agg.GetRegistries()
+		registries = agg.GetRegistries()
 	} else {
-		regs = []aggregate.Registry{
-			aggregate.Registry{
+		registries = []aggregate.Registry{
+			{
 				ServiceDiscovery: s.Env.ServiceDiscovery,
 			},
 		}
 	}
 
-	svc2acc := map[string]map[string]bool{}
+	// hostname --> service account
+	svc2account := map[string]map[string]bool{}
 
-	for _, reg := range regs {
+	for _, registry := range registries {
 		// Each registry acts as a shard - we don't want to combine them because some
 		// may individually update their endpoints incrementally
 		for _, svc := range push.Services {
 			entries := []*model.IstioEndpoint{}
-			hn := string(svc.Hostname)
+			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
 				if port.Protocol == model.ProtocolUDP {
 					continue
 				}
 
 				// This loses track of grouping (shards)
-				epi, err := reg.InstancesByPort(svc.Hostname, port.Port, model.LabelsCollection{})
+				endpoints, err := registry.InstancesByPort(svc.Hostname, port.Port, model.LabelsCollection{})
 				if err != nil {
 					return err
 				}
 
-				for _, ep := range epi {
-					//shard := ep.AvailabilityZone
-					l := map[string]string(ep.Labels)
-
+				for _, ep := range endpoints {
 					entries = append(entries, &model.IstioEndpoint{
 						Family:          ep.Endpoint.Family,
 						Address:         ep.Endpoint.Address,
 						EndpointPort:    uint32(ep.Endpoint.Port),
 						ServicePortName: port.Name,
-						Labels:          l,
+						Labels:          ep.Labels,
 						UID:             ep.Endpoint.UID,
 						ServiceAccount:  ep.ServiceAccount,
 						Network:         ep.Endpoint.Network,
 					})
 					if ep.ServiceAccount != "" {
-						acc, f := svc2acc[hn]
+						account, f := svc2account[hostname]
 						if !f {
-							acc = map[string]bool{}
-							svc2acc[hn] = acc
+							account = map[string]bool{}
+							svc2account[hostname] = account
 						}
-						acc[ep.ServiceAccount] = true
+						account[ep.ServiceAccount] = true
 					}
 				}
 			}
 
-			s.edsUpdate(reg.ClusterID, hn, entries, true)
+			s.edsUpdate(registry.ClusterID, hostname, entries, true)
 		}
 	}
 
 	s.mutex.Lock()
-	for k, v := range svc2acc {
+	for k, v := range svc2account {
 		ep, _ := s.EndpointShardsByService[k]
 		ep.ServiceAccounts = v
 	}
