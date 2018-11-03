@@ -25,7 +25,7 @@ istio-ingressgateway:
   cpu:
     targetAverageUtilization: 80
   loadBalancerIP: ""
-  loadBalancerSourceRanges: {}
+  loadBalancerSourceRanges: []
   serviceAnnotations: {}
   podAnnotations: {}
   type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
