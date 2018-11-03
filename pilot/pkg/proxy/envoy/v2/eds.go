@@ -291,7 +291,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 // updateServiceShards will list the endpoints and create the shards.
 // This is used to reconcile and to support non-k8s registries (until they migrate).
-// Note that aggreaged list is expensive (for large numbers) - we want to replace
+// Note that aggregated list is expensive (for large numbers) - we want to replace
 // it with a model where DiscoveryServer keeps track of all endpoint registries
 // directly, and calls them one by one.
 func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
@@ -508,6 +508,8 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	return s.edsUpdate(shard, serviceName, entries, false)
 }
 
+// edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
+// and requests a full/eds push.
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	entries []*model.IstioEndpoint, internal bool) error {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
