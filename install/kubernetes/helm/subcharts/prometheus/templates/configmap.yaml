@@ -11,13 +11,10 @@ metadata:
 data:
   prometheus.yml: |-
     global:
-      scrape_interval: 15s
+      scrape_interval: {{ .Values.scrapeInterval }}
     scrape_configs:
 
     - job_name: 'istio-mesh'
-      # Override the global default and scrape targets from this job every 5 seconds.
-      scrape_interval: 5s
-
       kubernetes_sd_configs:
       - role: endpoints
         namespaces:
@@ -88,11 +85,6 @@ data:
 {{ end}}
 
     - job_name: 'istio-policy'
-      # Override the global default and scrape targets from this job every 5 seconds.
-      scrape_interval: 5s
-      # metrics_path defaults to '/metrics'
-      # scheme defaults to 'http'.
-
       kubernetes_sd_configs:
       - role: endpoints
         namespaces:
@@ -106,11 +98,6 @@ data:
         regex: istio-policy;http-monitoring
 
     - job_name: 'istio-telemetry'
-      # Override the global default and scrape targets from this job every 5 seconds.
-      scrape_interval: 5s
-      # metrics_path defaults to '/metrics'
-      # scheme defaults to 'http'.
-
       kubernetes_sd_configs:
       - role: endpoints
         namespaces:
@@ -123,11 +110,6 @@ data:
         regex: istio-telemetry;http-monitoring
 
     - job_name: 'pilot'
-      # Override the global default and scrape targets from this job every 5 seconds.
-      scrape_interval: 5s
-      # metrics_path defaults to '/metrics'
-      # scheme defaults to 'http'.
-
       kubernetes_sd_configs:
       - role: endpoints
         namespaces:
@@ -140,11 +122,6 @@ data:
         regex: istio-pilot;http-monitoring
 
     - job_name: 'galley'
-      # Override the global default and scrape targets from this job every 5 seconds.
-      scrape_interval: 5s
-      # metrics_path defaults to '/metrics'
-      # scheme defaults to 'http'.
-
       kubernetes_sd_configs:
       - role: endpoints
         namespaces:
