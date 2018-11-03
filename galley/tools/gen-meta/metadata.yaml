@@ -5,6 +5,8 @@ resources:
   - kind:        "VirtualService"
     singular:    "virtualservice"
     plural:      "virtualservices"
+    shortNames:
+      - "vs"
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.VirtualService"
@@ -12,6 +14,8 @@ resources:
   - kind:        "Gateway"
     singular:    "gateway"
     plural:      "gateways"
+    shortNames:
+      - "gw"
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.Gateway"
@@ -19,6 +23,8 @@ resources:
   - kind:        "ServiceEntry"
     singular:    "serviceentry"
     plural:      "serviceentries"
+    shortNames:
+      - "se"
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.ServiceEntry"
@@ -26,6 +32,8 @@ resources:
   - kind:        "DestinationRule"
     singular:    "destinationrule"
     plural:      "destinationrules"
+    shortNames:
+      - "dr"
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.DestinationRule"

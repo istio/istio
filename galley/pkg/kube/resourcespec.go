@@ -46,6 +46,9 @@ type ResourceSpec struct {
 	// ListKind of the K8s resource
 	ListKind string
 
+	// ShortNames of the K8s resource
+	ShortNames []string
+
 	// Target resource type of the resource
 	Target resource.Info
 

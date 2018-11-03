@@ -45,15 +45,17 @@ type metadata struct {
 
 // entry in a metadata file
 type entry struct {
-	Kind           string `json:"kind"`
-	ListKind       string `json:"listKind"`
-	Singular       string `json:"singular"`
-	Plural         string `json:"plural"`
-	Group          string `json:"group"`
-	Version        string `json:"version"`
-	Proto          string `json:"proto"`
-	Converter      string `json:"converter"`
-	ProtoGoPackage string `json:"protoPackage"`
+	Kind           string   `json:"kind"`
+	ListKind       string   `json:"listKind"`
+	Singular       string   `json:"singular"`
+	Plural         string   `json:"plural"`
+	ShortNames     []string `json:"shortNames"`
+	ShortNamesStr  string   `json:"-"`
+	Group          string   `json:"group"`
+	Version        string   `json:"version"`
+	Proto          string   `json:"proto"`
+	Converter      string   `json:"converter"`
+	ProtoGoPackage string   `json:"protoPackage"`
 }
 
 // proto related metadata
@@ -125,6 +127,8 @@ func readMetadata(path string) (*metadata, error) {
 		if item.ListKind == "" {
 			item.ListKind = item.Kind + "List"
 		}
+
+		item.ShortNamesStr = convertShortNames(item.ShortNames)
 	}
 
 	// Stable sort based on message name.
@@ -185,6 +189,20 @@ func readMetadata(path string) (*metadata, error) {
 	return &m, nil
 }
 
+func convertShortNames(shortNames []string) string {
+	if len(shortNames) == 0 {
+		return ""
+	}
+
+	// Convert short names into string.
+	sns := make([]string, len(shortNames))
+	for i, sn := range shortNames {
+		sns[i] = fmt.Sprintf("\"%s\"", sn)
+	}
+
+	return fmt.Sprintf("[]string{%s}", strings.Join(sns, ", "))
+}
+
 const runtimeTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
@@ -236,6 +254,9 @@ func init() {
 		ListKind:   "{{.ListKind}}",
 		Singular:   "{{.Singular}}",
 		Plural:     "{{.Plural}}",
+		{{- if .ShortNamesStr }}
+		ShortNames: {{.ShortNamesStr | raw}},
+		{{- end}}
 		Version:    "{{.Version}}",
 		Group:      "{{.Group}}",
 		Target:     metadata.Types.Get("type.googleapis.com/{{.Proto}}"),
@@ -248,6 +269,7 @@ func init() {
 
 func applyTemplate(tmpl string, m *metadata) ([]byte, error) {
 	t := template.New("tmpl")
+	t = t.Funcs(template.FuncMap{"raw": raw})
 
 	t2, err := t.Parse(tmpl)
 	if err != nil {
@@ -260,4 +282,9 @@ func applyTemplate(tmpl string, m *metadata) ([]byte, error) {
 	}
 
 	return b.Bytes(), nil
+}
+
+// raw directly returns the string value and does not escape it.
+func raw(value string) interface{} {
+	return template.HTML(value)
 }

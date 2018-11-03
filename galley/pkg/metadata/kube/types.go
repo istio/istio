@@ -414,14 +414,15 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "DestinationRule",
-		ListKind:  "DestinationRuleList",
-		Singular:  "destinationrule",
-		Plural:    "destinationrules",
-		Version:   "v1alpha3",
-		Group:     "networking.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.DestinationRule"),
-		Converter: converter.Get("identity"),
+		Kind:       "DestinationRule",
+		ListKind:   "DestinationRuleList",
+		Singular:   "destinationrule",
+		Plural:     "destinationrules",
+		ShortNames: []string{"dr"},
+		Version:    "v1alpha3",
+		Group:      "networking.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.DestinationRule"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -436,36 +437,39 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "Gateway",
-		ListKind:  "GatewayList",
-		Singular:  "gateway",
-		Plural:    "gateways",
-		Version:   "v1alpha3",
-		Group:     "networking.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.Gateway"),
-		Converter: converter.Get("identity"),
+		Kind:       "Gateway",
+		ListKind:   "GatewayList",
+		Singular:   "gateway",
+		Plural:     "gateways",
+		ShortNames: []string{"gw"},
+		Version:    "v1alpha3",
+		Group:      "networking.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.Gateway"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "ServiceEntry",
-		ListKind:  "ServiceEntryList",
-		Singular:  "serviceentry",
-		Plural:    "serviceentries",
-		Version:   "v1alpha3",
-		Group:     "networking.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.ServiceEntry"),
-		Converter: converter.Get("identity"),
+		Kind:       "ServiceEntry",
+		ListKind:   "ServiceEntryList",
+		Singular:   "serviceentry",
+		Plural:     "serviceentries",
+		ShortNames: []string{"se"},
+		Version:    "v1alpha3",
+		Group:      "networking.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.ServiceEntry"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "VirtualService",
-		ListKind:  "VirtualServiceList",
-		Singular:  "virtualservice",
-		Plural:    "virtualservices",
-		Version:   "v1alpha3",
-		Group:     "networking.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.VirtualService"),
-		Converter: converter.Get("identity"),
+		Kind:       "VirtualService",
+		ListKind:   "VirtualServiceList",
+		Singular:   "virtualservice",
+		Plural:     "virtualservices",
+		ShortNames: []string{"vs"},
+		Version:    "v1alpha3",
+		Group:      "networking.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.VirtualService"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
