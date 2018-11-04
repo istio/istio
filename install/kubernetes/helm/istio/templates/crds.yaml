@@ -19,6 +19,8 @@ spec:
     listKind: VirtualServiceList
     plural: virtualservices
     singular: virtualservice
+    shortNames:
+    - vs
     categories:
     - istio-io
     - networking-istio-io
@@ -43,6 +45,8 @@ spec:
     listKind: DestinationRuleList
     plural: destinationrules
     singular: destinationrule
+    shortNames:
+    - dr
     categories:
     - istio-io
     - networking-istio-io
@@ -67,6 +71,8 @@ spec:
     listKind: ServiceEntryList
     plural: serviceentries
     singular: serviceentry
+    shortNames:
+    - se
     categories:
     - istio-io
     - networking-istio-io
@@ -91,6 +97,8 @@ spec:
     kind: Gateway
     plural: gateways
     singular: gateway
+    shortNames:
+    - gw
     categories:
     - istio-io
     - networking-istio-io
