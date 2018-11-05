@@ -64,7 +64,6 @@ $ kubectl create ns $NAMESPACE
 
 5. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
    ```
-   NAMESPACE=istio-system
    cat <<EOF | kubectl apply -f -
    apiVersion: v1
    kind: Secret
@@ -86,7 +85,6 @@ $ kubectl create ns $NAMESPACE
 
    Encode username, you can change the username to the name as you want:
    ```
-   NAMESPACE=istio-system
    cat <<EOF | kubectl apply -f -
    apiVersion: v1
    kind: Secret
