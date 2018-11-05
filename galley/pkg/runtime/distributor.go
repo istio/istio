@@ -83,14 +83,16 @@ func (d *InMemoryDistributor) GetSnapshot(name string) sn.Snapshot {
 
 // ListenChanges registered listener and start listening snapshot changes in the distributor
 func (d *InMemoryDistributor) ListenChanges(cancel chan bool, fn ListenerFn) {
-	d.listenersLock.Lock()
 	snapshotChan := make(chan sn.Snapshot, 1)
-	d.listeners = append(d.listeners, &listenerEntry{fn, snapshotChan})
+	l := &listenerEntry{fn, snapshotChan}
+	d.listenersLock.Lock()
+	d.listeners = append(d.listeners, l)
 	d.listenersLock.Unlock()
 
 	for {
 		select {
 		case <-cancel:
+			d.deleteListener(l)
 			close(snapshotChan)
 			return
 		case s := <-snapshotChan:
@@ -105,5 +107,18 @@ func (d *InMemoryDistributor) notifyListeners(s sn.Snapshot) {
 	defer d.listenersLock.Unlock()
 	for _, l := range d.listeners {
 		l.snapshotChan <- s
+	}
+}
+
+// Called internally when a listener is stopped
+func (d *InMemoryDistributor) deleteListener(l *listenerEntry) {
+	d.listenersLock.Lock()
+	defer d.listenersLock.Unlock()
+	for i := len(d.listeners) - 1; i >= 0; i-- {
+		if d.listeners[i] == l {
+			d.listeners = append(d.listeners[:i], d.listeners[i+1:]...)
+			l = nil
+			return
+		}
 	}
 }
