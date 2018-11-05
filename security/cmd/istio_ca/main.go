@@ -95,7 +95,7 @@ type cliOptions struct { // nolint: maligned
 	customDNSNames string
 
 	// domain to use in SPIFFE identity URLs
-	identityDomain string
+	trustDomain string
 
 	// Enable dual-use certs - SPIFFE in SAN and in CommonName
 	dualUse bool
@@ -161,8 +161,8 @@ func init() {
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate")
-	flags.StringVar(&opts.identityDomain, "identity-domain", controller.DefaultIdentityDomain,
-		fmt.Sprintf("The domain to use for identities (default: %s)", controller.DefaultIdentityDomain))
+	flags.StringVar(&opts.trustDomain, "trust-domain", controller.DefaultTrustDomain,
+		fmt.Sprintf("The domain serves identify the system with spiffe (default: %s)", controller.DefaultTrustDomain))
 
 	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
@@ -294,7 +294,7 @@ func runCA() {
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
 	sc, err := controller.NewSecretController(ca,
-		opts.workloadCertTTL, opts.identityDomain,
+		opts.workloadCertTTL, opts.trustDomain,
 		opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
 		cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
@@ -403,7 +403,7 @@ func createCA(core corev1.SecretsGetter) *ca.IstioCA {
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL, opts.identityDomain, opts.dualUse,
+			opts.maxWorkloadCertTTL, opts.trustDomain, opts.dualUse,
 			opts.istioCaStorageNamespace, core)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
