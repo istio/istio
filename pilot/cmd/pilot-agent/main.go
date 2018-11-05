@@ -298,7 +298,7 @@ var (
 func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotIdentityDomain := role.IdentityDomain
+		pilotIdentityDomain := role.TrustDomain
 		if len(pilotIdentityDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
 				(domain == os.Getenv("POD_NAMESPACE")+".svc.cluster.local" || domain == "") {
@@ -363,7 +363,7 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&role.IdentityDomain, "identity-domain", "",
+	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
 		"The domain to use for identities")
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")

@@ -25,7 +25,7 @@ import (
 func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
-	role.IdentityDomain = ""
+	role.TrustDomain = ""
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE.String()
 
 	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
@@ -36,7 +36,7 @@ func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
-	role.IdentityDomain = ""
+	role.TrustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -48,7 +48,7 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = "my.domain"
-	role.IdentityDomain = ""
+	role.TrustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -61,7 +61,7 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
-	role.IdentityDomain = ""
+	role.TrustDomain = ""
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -73,7 +73,7 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualIdentityDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
-	role.IdentityDomain = "secured"
+	role.TrustDomain = "secured"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -85,7 +85,7 @@ func TestPilotSanIfAuthenticationMutualIdentityDomain(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualIdentityDomainAndDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = "my.domain"
-	role.IdentityDomain = "secured"
+	role.TrustDomain = "secured"
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -140,7 +140,7 @@ func TestPilotDomain(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualStdDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ".svc.cluster.local"
-	role.IdentityDomain = ""
+	role.TrustDomain = ""
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
@@ -152,7 +152,7 @@ func TestPilotSanIfAuthenticationMutualStdDomainKubernetes(t *testing.T) {
 func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = "service.consul"
-	role.IdentityDomain = ""
+	role.TrustDomain = ""
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 

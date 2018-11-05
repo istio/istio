@@ -144,8 +144,8 @@ spec:
           - --controlPlaneAuthPolicy
           - NONE
         {{- end }}
-        {{- if .Values.global.identityDomain }}
-          - --identity-domain={{ .Values.global.identityDomain }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
           env:
           - name: POD_NAME

@@ -51,7 +51,7 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
-        - --identity-domain=cluster.local
+        - --trust-domain=cluster.local
         env:
         - name: POD_NAME
           valueFrom:
@@ -195,7 +195,7 @@ spec:
         - "15020"
         - --applicationPorts
         - "81"
-        - --identity-domain=cluster.local
+        - --trust-domain=cluster.local
         env:
         - name: POD_NAME
           valueFrom:

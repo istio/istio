@@ -53,7 +53,7 @@ spec:
         - "123"
         - --applicationPorts
         - 1,2,3
-        - --identity-domain=cluster.local
+        - --trust-domain=cluster.local
         env:
         - name: POD_NAME
           valueFrom:
