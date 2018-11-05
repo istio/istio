@@ -993,6 +993,7 @@ func jsonToDeployment(deploymentJSON []byte, t *testing.T) *extv1beta1.Deploymen
 
 func deploymentToYaml(deployment *extv1beta1.Deployment, t *testing.T) []byte {
 	t.Helper()
+	prepareDeployment(deployment, deployment, t)
 	yaml, err := yaml.Marshal(deployment)
 	if err != nil {
 		t.Fatal(err)
@@ -1002,6 +1003,24 @@ func deploymentToYaml(deployment *extv1beta1.Deployment, t *testing.T) []byte {
 
 func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testing.T) {
 	t.Helper()
+
+	prepareDeployment(got, want, t)
+
+	marshaler := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+	gotString, err := marshaler.MarshalToString(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantString, err := marshaler.MarshalToString(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	util.CompareBytes([]byte(gotString), []byte(wantString), name, t)
+}
+
+func prepareDeployment(got *extv1beta1.Deployment, want *extv1beta1.Deployment, t *testing.T) {
 	// Scrub unimportant fields that tend to differ.
 	annotations(got)[annotationStatus.name] = annotations(want)[annotationStatus.name]
 	gotIstioCerts := istioCerts(got)
@@ -1048,19 +1067,6 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 		envVars = append(envVars, env)
 	}
 	gotIstioProxy.Env = envVars
-
-	marshaler := jsonpb.Marshaler{
-		Indent: "  ",
-	}
-	gotString, err := marshaler.MarshalToString(got)
-	if err != nil {
-		t.Fatal(err)
-	}
-	wantString, err := marshaler.MarshalToString(want)
-	if err != nil {
-		t.Fatal(err)
-	}
-	util.CompareBytes([]byte(gotString), []byte(wantString), name, t)
 }
 
 func annotations(d *extv1beta1.Deployment) map[string]string {
