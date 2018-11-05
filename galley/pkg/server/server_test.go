@@ -93,6 +93,9 @@ func TestNewServer(t *testing.T) {
 	p.fsNew = func(string, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
+	p.verifyResourceTypesPresence = func(kube.Interfaces) error {
+		return nil
+	}
 
 	args := DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
@@ -117,6 +120,9 @@ func TestServer_Basic(t *testing.T) {
 		return mcptestmon.NewInMemoryServerStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
+	p.verifyResourceTypesPresence = func(kube.Interfaces) error {
+		return nil
+	}
 
 	args := DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"

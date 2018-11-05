@@ -15,7 +15,7 @@
 package source
 
 import (
-	errs "errors"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -26,10 +26,9 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 	dtesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/galley/pkg/meshconfig"
-
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"
 )
@@ -65,7 +64,7 @@ func TestNewSource(t *testing.T) {
 
 func TestNewSource_Error(t *testing.T) {
 	k := &mock.Kube{}
-	k.AddResponse(nil, errs.New("newDynamicClient error"))
+	k.AddResponse(nil, errors.New("newDynamicClient error"))
 
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
