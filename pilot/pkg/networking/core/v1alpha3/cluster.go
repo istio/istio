@@ -133,12 +133,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				convertIstioMutual(service, port, serviceAccounts, destinationRule)
-				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, DefaultClusterMode)
+				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
 
 				for _, subset := range destinationRule.Subsets {
 					inputParams.Subset = subset.Name
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+					defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+
 					// clusters with discovery type STATIC, STRICT_DNS or LOGICAL_DNS rely on cluster.hosts field
 					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 					if discoveryType != v2.Cluster_EDS && len(subset.Labels) != 0 {
@@ -147,8 +149,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, hosts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, DefaultClusterMode)
-					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, DefaultClusterMode)
+					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
+					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(inputParams, subsetCluster)
@@ -192,7 +194,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, SniDnatClusterMode)
+				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, nil, "", SniDnatClusterMode)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
@@ -204,8 +206,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, hosts)
 					subsetCluster.TlsContext = nil
 					updateEds(subsetCluster)
-					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, SniDnatClusterMode)
-					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, SniDnatClusterMode)
+					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, nil, "", SniDnatClusterMode)
+					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, nil, "", SniDnatClusterMode)
 					clusters = append(clusters, subsetCluster)
 				}
 			}
@@ -321,66 +323,21 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-// convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func convertIstioMutual(service *model.Service, port *model.Port, serviceAccounts []string, destinationRule *networking.DestinationRule) {
-	converter := func(tls *networking.TLSSettings, sni string) {
-		if tls == nil {
-			return
-		}
-		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
-			// user specified SNIs in the istio mtls settings are useful when routing via gateways
-			sniToUse := tls.Sni
-			if len(sniToUse) == 0 {
-				sniToUse = sni
-			}
-			*tls = *buildIstioMutualTLS(serviceAccounts, sniToUse)
-		}
+// conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccounts []string, sni string) *networking.TLSSettings {
+	if tls == nil {
+		return nil
 	}
-
-	portLevelConverter := func(port *model.Port, pls []*networking.TrafficPolicy_PortTrafficPolicy, sni string) {
-		if pls == nil {
-			return
+	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
+		// user specified SNIs in the istio mtls settings are useful when routing via gateways
+		sniToUse := tls.Sni
+		if len(sniToUse) == 0 {
+			sniToUse = sni
 		}
-
-		// Same selection logic as SelectTrafficPolicyComponents
-		foundPort := false
-		for _, p := range pls {
-			if p.Port != nil {
-				switch selector := p.Port.Port.(type) {
-				case *networking.PortSelector_Name:
-					if port.Name == selector.Name {
-						foundPort = true
-					}
-				case *networking.PortSelector_Number:
-					if uint32(port.Port) == selector.Number {
-						foundPort = true
-					}
-				}
-			}
-
-			if foundPort {
-				converter(p.Tls, sni)
-				break
-			}
-		}
+		return buildIstioMutualTLS(serviceAccounts, sniToUse)
 	}
-
-	if destinationRule.TrafficPolicy != nil {
-		// SNI for default cluster when using Istio MTLS
-		sni := fmt.Sprintf("%s_.%d_._.%s", model.TrafficDirectionOutbound, port.Port, service.Hostname)
-		converter(destinationRule.TrafficPolicy.Tls, sni)
-		portLevelConverter(port, destinationRule.TrafficPolicy.PortLevelSettings, sni)
-	}
-
-	for _, subset := range destinationRule.Subsets {
-		if subset.TrafficPolicy != nil {
-			// SNI for subset cluster when using Istio MTLS
-			sni := fmt.Sprintf("%s_.%d_.%s_.%s", model.TrafficDirectionOutbound, port.Port, subset.Name, service.Hostname)
-			converter(subset.TrafficPolicy.Tls, sni)
-			portLevelConverter(port, subset.TrafficPolicy.PortLevelSettings, sni)
-		}
-	}
+	return tls
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
@@ -440,7 +397,9 @@ const (
 	DefaultClusterMode ClusterMode = "outbound"
 )
 
-func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, clusterMode ClusterMode) {
+// FIXME: There are too many variables here. Create a clusterOpts struct and stick the values in it, just like
+// listenerOpts
+func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode) {
 	if policy == nil {
 		return
 	}
@@ -450,6 +409,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *net
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
 	if clusterMode != SniDnatClusterMode {
+		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni)
 		applyUpstreamTLSSettings(cluster, tls, env.Mesh.SdsUdsPath)
 	}
 }
@@ -706,7 +666,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil, DefaultClusterMode)
+	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil, nil, "", DefaultClusterMode)
 	return cluster
 }
 
