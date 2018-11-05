@@ -816,6 +816,7 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Host
 // BuildDNSSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 // This is used only for the SNI-DNAT router. Do not use for other purposes.
+// The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
 func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port int) string {
 	return fmt.Sprintf("%s_.%d_.%s_.%s", direction, port, subsetName, hostname)
 }
