@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"istio.io/istio/galley/pkg/server"
 	"istio.io/istio/pkg/ctrlz"
+	istiolog "istio.io/istio/pkg/log"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	istiolog "istio.io/istio/pkg/log"
 
 	"github.com/gogo/protobuf/types"
 
@@ -40,7 +40,7 @@ import (
 )
 
 var (
-	runEnvoy = flag.Bool("envoy", true, "Start envoy")
+	runEnvoy  = flag.Bool("envoy", true, "Start envoy")
 	configDir = flag.String("conf", "", "Config dir. Empty to use k8s")
 )
 
@@ -152,15 +152,15 @@ func startEnvoy() error {
 // Start galley. Will use KUBECONFIG, if set - otherwise the configDir flag.
 func startGalley() error {
 	gs, err := server.New(&server.Args{
-		ConfigPath: *configDir,
-		KubeConfig: os.Getenv("KUBECONFIG"),
-		Insecure: true,
-		EnableGRPCTracing: true,
-		APIAddress: "tcp://0.0.0.0:9901",
-		LoggingOptions: istiolog.DefaultOptions(), // Can't be nil
-		IntrospectionOptions: ctrlz.DefaultOptions(), // can't be nil - crash
+		ConfigPath:             *configDir,
+		KubeConfig:             os.Getenv("KUBECONFIG"),
+		Insecure:               true,
+		EnableGRPCTracing:      true,
+		APIAddress:             "tcp://0.0.0.0:9901",
+		LoggingOptions:         istiolog.DefaultOptions(), // Can't be nil
+		IntrospectionOptions:   ctrlz.DefaultOptions(),    // can't be nil - crash
 		MaxReceivedMessageSize: 1024 * 1024 * 1024,
-		MaxConcurrentStreams: 10000,
+		MaxConcurrentStreams:   10000,
 	})
 	if err != nil {
 		return err
@@ -170,7 +170,6 @@ func startGalley() error {
 
 	return nil
 }
-
 
 // startPilot with defaults:
 // - http port 15007
@@ -210,7 +209,7 @@ func startPilot() error {
 				string(serviceregistry.MockRegistry)},
 		},
 		MCPServerAddrs: []string{"mcp://localhost:9901"},
-		MeshConfig: &mcfg,
+		MeshConfig:     &mcfg,
 	}
 	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 
