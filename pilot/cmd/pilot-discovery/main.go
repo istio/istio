@@ -34,9 +34,7 @@ import (
 )
 
 var (
-	httpPort       int
-	monitoringPort int
-	serverArgs     = bootstrap.PilotArgs{
+	serverArgs = bootstrap.PilotArgs{
 		CtrlZOptions:         ctrlz.DefaultOptions(),
 		MCPCredentialOptions: creds.DefaultOptions(),
 	}
@@ -62,14 +60,6 @@ var (
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
-
-			// Apply deprecated flags if set to a value other than the default.
-			if serverArgs.DiscoveryOptions.HTTPAddr == ":8080" && httpPort != 8080 {
-				serverArgs.DiscoveryOptions.HTTPAddr = fmt.Sprintf(":%d", httpPort)
-			}
-			if serverArgs.DiscoveryOptions.MonitoringAddr == ":9093" && monitoringPort != 9093 {
-				serverArgs.DiscoveryOptions.MonitoringAddr = fmt.Sprintf(":%d", monitoringPort)
-			}
 
 			// Create the server for the discovery service.
 			discoveryServer, err := bootstrap.NewServer(serverArgs)
@@ -147,17 +137,6 @@ func init() {
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
 		"Enable caching discovery service responses")
-
-	// Deprecated flags.
-	var dummy string
-	discoveryCmd.PersistentFlags().StringVar(&dummy, "webhookEndpoint", "",
-		"Webhook API endpoint (supports http://sockethost, and unix:///absolute/path/to/socket")
-	discoveryCmd.PersistentFlags().MarkDeprecated("webhookEndpoint", "Stop using, it will be remove in a future release")
-	discoveryCmd.PersistentFlags().IntVar(&httpPort, "port", 8080, "Discovery service port")
-	discoveryCmd.PersistentFlags().MarkDeprecated("port", "Use --httpAddr instead")
-	discoveryCmd.PersistentFlags().IntVar(&monitoringPort, "monitoringPort", 9093,
-		"HTTP port to use for the exposing pilot self-monitoring information")
-	discoveryCmd.PersistentFlags().MarkDeprecated("monitoringPort", "Use --monitoringAddr instead")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
