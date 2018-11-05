@@ -292,7 +292,8 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
-			s.EnvoyXdsServer)
+			s.EnvoyXdsServer,
+			s.meshNetworks)
 
 		if err != nil {
 			log.Info("Unable to create new Multicluster object")
@@ -908,7 +909,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
-		s.kubeRegistry.InitNetworkLookup()
+		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
