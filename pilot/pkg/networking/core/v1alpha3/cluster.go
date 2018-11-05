@@ -399,7 +399,8 @@ const (
 
 // FIXME: There are too many variables here. Create a clusterOpts struct and stick the values in it, just like
 // listenerOpts
-func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode) {
+func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy,
+	port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode) {
 	if policy == nil {
 		return
 	}
