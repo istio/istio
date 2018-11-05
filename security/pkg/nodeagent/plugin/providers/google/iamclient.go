@@ -70,6 +70,8 @@ func NewPlugin() plugin.Plugin {
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
 func (p Plugin) ExchangeToken(ctx context.Context, trustedDomain, k8sSAjwt string) (string /*access token*/, time.Time /*expireTime*/, error) {
+	// The resource name of the service account for which the credentials are requested, in the following format: projects/-/serviceAccounts/{ACCOUNT_EMAIL_OR_UNIQUEID}
+	// Similar to https://cloud.google.com/iam/credentials/reference/rest/v1/projects.serviceAccounts/generateAccessToken
 	req := &iam.GenerateIdentityBindingAccessTokenRequest{
 		Name:  fmt.Sprintf("projects/-/serviceAccounts/%s", trustedDomain),
 		Scope: scope,
