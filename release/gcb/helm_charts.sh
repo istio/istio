@@ -42,7 +42,7 @@ CHARTS=(
 # Prepare helm setup
 mkdir -vp "$HELM_DIR"
 $HELM init --client-only
-$HELM repo add istio.io https://raw.githubusercontent.com/istio/istio.io/master/static/charts
+$HELM repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
 
 # Create a package for each charts and build the repo index.
 mkdir -vp "$HELM_BUILD_DIR"
