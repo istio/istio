@@ -161,9 +161,10 @@ data:
           value: |
                  {{ "[[ toJSON .ObjectMeta.Annotations ]]" }}
         {{ "[[ end ]]" }}
-        {{ "[[ range $k,$v := .ObjectMeta.Labels ]]" }}
-        - name: ISTIO_META_{{ "[[ $k ]]" }}
-          value: "{{ "[[ $v ]]" }}"
+        {{ "[[ if .ObjectMeta.Labels ]]" }}
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+                 {{ "[[ toJSON .ObjectMeta.Labels ]]" }}
         {{ "[[ end ]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         {{ "[[ if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}
