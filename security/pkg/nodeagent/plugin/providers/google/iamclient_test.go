@@ -48,6 +48,7 @@ func (*mockIAMServer) GenerateAccessToken(context.Context, *iam.GenerateAccessTo
 	return nil, nil
 }
 
+// nolint:golint
 func (*mockIAMServer) GenerateIdToken(context.Context, *iam.GenerateIdTokenRequest) (*iam.GenerateIdTokenResponse, error) {
 	return nil, nil
 }
