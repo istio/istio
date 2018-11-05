@@ -152,7 +152,7 @@ func TestStreamSecretsPush(t *testing.T) {
 	defer conn.Close()
 
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(CredentialTokenHeaderKey, fakeCredentialToken)
+	header := metadata.Pairs(credentialTokenHeaderKey, fakeCredentialToken)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	stream, err := sdsClient.StreamSecrets(ctx)
 	if err != nil {
@@ -255,7 +255,7 @@ func sdsRequestStream(socket string, req *api.DiscoveryRequest) (*api.DiscoveryR
 	defer conn.Close()
 
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(CredentialTokenHeaderKey, fakeCredentialToken)
+	header := metadata.Pairs(credentialTokenHeaderKey, fakeCredentialToken)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	stream, err := sdsClient.StreamSecrets(ctx)
 	if err != nil {
@@ -280,7 +280,7 @@ func sdsRequestFetch(socket string, req *api.DiscoveryRequest) (*api.DiscoveryRe
 	defer conn.Close()
 
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(CredentialTokenHeaderKey, fakeCredentialToken)
+	header := metadata.Pairs(credentialTokenHeaderKey, fakeCredentialToken)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	resp, err := sdsClient.FetchSecrets(ctx, req)
 	if err != nil {

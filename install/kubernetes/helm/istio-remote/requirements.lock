@@ -1,0 +1,12 @@
+dependencies:
+- name: sidecarInjectorWebhook
+  repository: file://../subcharts/sidecarInjectorWebhook
+  version: 1.1.0
+- name: security
+  repository: file://../subcharts/security
+  version: 1.1.0
+- name: istio-cni
+  repository: https://raw.githubusercontent.com/istio/istio.io/master/static/charts
+  version: 0.1.0
+digest: sha256:4d8c703d28e3f909a76964a096368d7d7e42915f6d0248f5efb165c6a4c2add3
+generated: 2018-10-31T10:00:59.135354088-07:00
