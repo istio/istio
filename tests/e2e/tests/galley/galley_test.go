@@ -185,10 +185,7 @@ func TestValidation(t *testing.T) {
 
 		{"networking-v1alpha3-DestinationRule-invalid", false},
 		{"networking-v1alpha3-DestinationRule-valid", true},
-		// TODO(https://github.com/istio/istio/issues/6689)
-		// ServiceEntry is temporarily disabled. Verify that invalid
-		// configuration is not rejected by galley.
-		{"networking-v1alpha3-ServiceEntry-invalid", true},
+		{"networking-v1alpha3-ServiceEntry-invalid", false},
 		{"networking-v1alpha3-ServiceEntry-valid", true},
 		{"networking-v1alpha3-VirtualService-invalid", false},
 		{"networking-v1alpha3-VirtualService-valid", true},

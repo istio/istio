@@ -1,18 +1,12 @@
 ---
-title: RBAC
-description: Adapter that exposes Istio's Role-Based Access Control model.
-location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/rbac.html
+title: adapter.rbac.config
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-supported_templates: authorization
-aliases:
-  - /docs/reference/config/adapters/rbac.html
 number_of_entries: 1
 ---
-<p>The <code>rbac</code> adapter provides Role-Based Access Control (RBAC) functionality for
-for services within the Istio mesh.</p>
-
-<p>This adapter supports the <a href="https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization/">authorization template</a>.</p>
+<p>The <code>rbac</code> adapter is deprecated by native RBAC implemented in Envoy proxy.
+See https://istio.io/docs/concepts/security/#enabling-authorization for enabling
+the native RBAC with your existing service role and service role binding.</p>
 
 <h2 id="Params">Params</h2>
 <section>

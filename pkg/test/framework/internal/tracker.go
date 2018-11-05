@@ -29,23 +29,31 @@ import (
 	"istio.io/istio/pkg/test/framework/environment"
 )
 
+type componentInstance struct {
+	id    dependency.Instance
+	value interface{}
+}
+
 // Tracker keeps track of the state information for dependencies
 type Tracker struct {
-	depMap   map[dependency.Instance]interface{}
-	registry *registry.Registry
+	// Map dependency ID to instance
+	instanceMap map[dependency.Instance]interface{}
+	// Also store the instances in the order they were initialized. This is use for ordered cleanup of the components.
+	instances []componentInstance
+	registry  *registry.Registry
 }
 
 func newTracker(registry *registry.Registry) *Tracker {
 	return &Tracker{
-		depMap:   make(map[dependency.Instance]interface{}),
-		registry: registry,
+		instanceMap: make(map[dependency.Instance]interface{}),
+		registry:    registry,
 	}
 }
 
 // Initialize a test dependency and start tracking it.
 func (t *Tracker) Initialize(ctx environment.ComponentContext, c component.Component) (interface{}, error) {
 	id := c.ID()
-	if s, ok := t.depMap[id]; ok {
+	if s, ok := t.instanceMap[id]; ok {
 		// Already initialized.
 		return s, nil
 	}
@@ -72,35 +80,39 @@ func (t *Tracker) Initialize(ctx environment.ComponentContext, c component.Compo
 		return nil, err
 	}
 
-	t.depMap[id] = s
+	t.instanceMap[id] = s
+	t.instances = append(t.instances, componentInstance{
+		id:    id,
+		value: s,
+	})
+
 	return s, nil
 }
 
 // Get the tracked resource with the given ID.
 func (t *Tracker) Get(id dependency.Instance) (interface{}, bool) {
-	s, ok := t.depMap[id]
+	s, ok := t.instanceMap[id]
 	return s, ok
 }
 
 // All returns all tracked resources.
 func (t *Tracker) All() []interface{} {
-	r := make([]interface{}, 0, len(t.depMap))
-	for _, s := range t.depMap {
-		r = append(r, s)
+	all := make([]interface{}, len(t.instances))
+	for i, e := range t.instances {
+		all[i] = e.value
 	}
-
-	return r
+	return all
 }
 
 // Reset the all Resettable resources.
 func (t *Tracker) Reset() error {
 	var er error
 
-	for k, v := range t.depMap {
-		if cl, ok := v.(Resettable); ok {
-			scopes.Framework.Debugf("Resetting state for dependency: %s", k)
+	for _, e := range t.instances {
+		if cl, ok := e.value.(Resettable); ok {
+			scopes.Framework.Debugf("Resetting state for dependency: %s", e.id)
 			if err := cl.Reset(); err != nil {
-				scopes.Framework.Errorf("Error resetting dependency state: %s: %v", k, err)
+				scopes.Framework.Errorf("Error resetting dependency state: %s: %v", e.id, err)
 				er = multierr.Append(er, err)
 			}
 		}
@@ -111,16 +123,17 @@ func (t *Tracker) Reset() error {
 
 // Cleanup closes all resources that implement io.Closer
 func (t *Tracker) Cleanup() {
-	for k, v := range t.depMap {
-		if cl, ok := v.(io.Closer); ok {
-			scopes.Framework.Debugf("Cleaning up state for dependency: %s", k)
+	for _, e := range t.instances {
+		if cl, ok := e.value.(io.Closer); ok {
+			scopes.Framework.Debugf("Cleaning up state for dependency: %s", e.id)
 			if err := cl.Close(); err != nil {
-				scopes.Framework.Errorf("Error cleaning up dependency state: %s: %v", k, err)
+				scopes.Framework.Errorf("Error cleaning up dependency state: %s: %v", e.id, err)
 			}
 		}
 	}
 
-	for k := range t.depMap {
-		delete(t.depMap, k)
+	for k := range t.instanceMap {
+		delete(t.instanceMap, k)
 	}
+	t.instances = make([]componentInstance, 0)
 }

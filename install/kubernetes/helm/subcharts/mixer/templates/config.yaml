@@ -549,6 +549,8 @@ metadata:
 spec:
   compiledAdapter: prometheus
   params:
+    metricsExpirationPolicy:
+      metricsExpiryDuration: "{{ .Values.adapters.prometheus.metricsExpiryDuration }}"
     metrics:
     - name: requests_total
       instance_name: requestcount.metric.{{ .Release.Namespace }}
