@@ -45,6 +45,10 @@ const (
 	// CredentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy's SDS request to SDS service.
 	CredentialTokenHeaderKey = "authorization"
+
+	// k8sSAJwtTokenHeaderKey is the request header key, header value is k8s sa jwt.
+	// 
+	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
 )
 
 var (
