@@ -49,7 +49,7 @@ func init() {
 
 func TestAppProbe(t *testing.T) {
 	server := NewServer(Config{
-		StatusPort:      0,
+		StatusPort: 0,
 	})
 	go server.Run(context.Background())
 
@@ -61,15 +61,15 @@ func TestAppProbe(t *testing.T) {
 	server.mutex.RUnlock()
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
-		probePath  string
+		probePath     string
 		appPortHeader string
-		statusCode int
-		err        string
+		statusCode    int
+		err           string
 	}{
 		{
-			probePath:  fmt.Sprintf(":%v/", statusPort),
+			probePath:     fmt.Sprintf(":%v/", statusPort),
 			appPortHeader: fmt.Sprintf("%v", appPort),
-			statusCode: 200,
+			statusCode:    200,
 		},
 		{
 			probePath:  fmt.Sprintf(":%v/ill-formed-path", statusPort),

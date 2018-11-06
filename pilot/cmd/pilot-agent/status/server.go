@@ -62,7 +62,7 @@ type Server struct {
 // NewServer creates a new status server.
 func NewServer(config Config) *Server {
 	return &Server{
-		statusPort:  config.StatusPort,
+		statusPort: config.StatusPort,
 		ready: &ready.Probe{
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
