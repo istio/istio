@@ -267,12 +267,13 @@
 {{- end }}
 
 
-{{- $mixers := list "policy" "telemetry" }}
-{{- range $idx, $mname := $mixers }}
+{{- range $key, $spec := .Values }}
+{{- if or (eq $key "istio-policy") (eq $key "istio-telemetry") }}
+{{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-{{ $mname }}
+  name: {{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ template "mixer.name" $ }}
@@ -281,7 +282,7 @@ metadata:
     release: {{ $.Release.Name }}
     istio: mixer
 spec:
-  replicas: {{ $.Values.replicaCount }}
+  replicas: {{ $spec.replicaCount }}
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -294,7 +295,11 @@ spec:
       release: {{ $.Release.Name }}
       version: {{ $.Chart.Version }}
       istio: mixer
-      istio-mixer-type: {{ $mname }}
+      {{- if eq $key "istio-policy" }}
+      istio-mixer-type: "policy"
+      {{- else }}
+      istio-mixer-type: "telemetry"
+      {{- end }}
   template:
     metadata:
       labels:
@@ -304,18 +309,24 @@ spec:
         release: {{ $.Release.Name }}
         version: {{ $.Chart.Version }}
         istio: mixer
-        istio-mixer-type: {{ $mname }}
+        {{- if eq $key "istio-policy" }}
+        istio-mixer-type: "policy"
+        {{- else }}
+        istio-mixer-type: "telemetry"
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- if eq $mname "policy"}}
+{{- if eq $key "istio-policy"}}
 {{- template "policy_container" $ }}
 {{- else }}
 {{- template "telemetry_container" $ }}
 {{- end }}
 
 ---
+{{- end }}
+{{- end }}
 {{- end }} {{/* range */}}

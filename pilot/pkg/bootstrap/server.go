@@ -85,6 +85,10 @@ const (
 
 	// DefaultMCPMaxMsgSize is the default maximum message size
 	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
+
+	// URL types supported by the config store
+	// example fs:///tmp/configroot
+	fsScheme = "fs"
 )
 
 var (
@@ -185,6 +189,7 @@ type Server struct {
 	multicluster     *clusterregistry.Multicluster
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
+	secureHTTPServer *http.Server
 	secureGRPCServer *grpc.Server
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
@@ -291,7 +296,8 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
-			s.EnvoyXdsServer)
+			s.EnvoyXdsServer,
+			s.meshNetworks)
 
 		if err != nil {
 			log.Info("Unable to create new Multicluster object")
@@ -492,9 +498,28 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*mcpclient.Client
 	var conns []*grpc.ClientConn
-	var mcpControllers []model.ConfigStoreCache
+	var configStores []model.ConfigStoreCache
 
 	for _, configSource := range s.mesh.ConfigSources {
+		url, err := url.Parse(configSource.Address)
+		if err != nil {
+			return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
+		}
+		if url.Scheme == fsScheme {
+			if url.Path == "" {
+				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
+			}
+			store := memory.Make(model.IstioConfigTypes)
+			configController := memory.NewController(store)
+
+			err := s.makeFileMonitor(url.Path, configController)
+			if err != nil {
+				return err
+			}
+			configStores = append(configStores, configController)
+			continue
+		}
+
 		securityOption := grpc.WithInsecure()
 		if configSource.TlsSettings != nil &&
 			configSource.TlsSettings.Mode != istio_networking_v1alpha3.TLSSettings_DISABLE {
@@ -509,8 +534,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				}
 			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
 				credentialOption = &creds.Options{
-					CertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
-
+					CertificateFile:   path.Join(model.AuthCertsPath, model.RootCertFilename),
 					KeyFile:           path.Join(model.AuthCertsPath, model.KeyFilename),
 					CACertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
 				}
@@ -563,11 +587,11 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 		clients = append(clients, mcpClient)
 		conns = append(conns, conn)
-		mcpControllers = append(mcpControllers, mcpController)
+		configStores = append(configStores, mcpController)
 	}
 
 	// TODO: remove the below branch when `--mcpServerAddrs` removed
-	if len(clients) == 0 {
+	if len(configStores) == 0 {
 		for _, addr := range args.MCPServerAddrs {
 			u, err := url.Parse(addr)
 			if err != nil {
@@ -618,7 +642,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 			clients = append(clients, mcpClient)
 			conns = append(conns, conn)
-			mcpControllers = append(mcpControllers, mcpController)
+			configStores = append(configStores, mcpController)
 		}
 	}
 
@@ -652,7 +676,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	})
 
 	// Wrap the config controller with a cache.
-	aggregateMcpController, err := configaggregate.MakeCache(mcpControllers)
+	aggregateMcpController, err := configaggregate.MakeCache(configStores)
 	if err != nil {
 		return err
 	}
@@ -672,7 +696,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		store := memory.Make(model.IstioConfigTypes)
 		configController := memory.NewController(store)
 
-		err := s.makeFileMonitor(args, configController)
+		err := s.makeFileMonitor(args.Config.FileDir, configController)
 		if err != nil {
 			return err
 		}
@@ -740,8 +764,8 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	return crd.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
-func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, model.IstioConfigTypes)
+func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
+	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, model.IstioConfigTypes)
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
@@ -907,7 +931,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
-		s.kubeRegistry.InitNetworkLookup()
+		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
@@ -967,7 +991,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 			s.grpcServer.GracefulStop()
 			if s.secureGRPCServer != nil {
-				s.secureGRPCServer.GracefulStop()
+				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				s.secureHTTPServer.Shutdown(ctx)
+				s.secureGRPCServer.Stop()
 			}
 		}()
 
@@ -1046,7 +1073,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 		log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
 
-		s := &http.Server{
+		s.secureHTTPServer = &http.Server{
 			TLSConfig: &tls.Config{
 				Certificates: []tls.Certificate{cert},
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -1072,7 +1099,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 		// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 		// on a listener
-		_ = s.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
+		_ = s.secureHTTPServer.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
 
 		// The other way to set TLS - but you can't add http handlers, and the h2 stack is
 		// different.

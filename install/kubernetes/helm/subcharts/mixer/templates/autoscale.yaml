@@ -1,6 +1,6 @@
 {{- range $key, $spec := .Values }}
 {{- if or (eq $key "istio-policy") (eq $key "istio-telemetry") }}
-{{- if and $spec.autoscaleEnabled $spec.autoscaleMin }}
+{{- if and $spec.enabled $spec.autoscaleEnabled $spec.autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:

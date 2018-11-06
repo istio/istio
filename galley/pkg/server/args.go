@@ -78,23 +78,29 @@ type Args struct {
 
 	// DNS Domain suffix to use while constructing Ingress based resources.
 	DomainSuffix string
+
+	// DisableResourceReadyCheck disables the CRD readiness check. This
+	// allows Galley to start when not all supported CRD are
+	// registered with the kube-apiserver.
+	DisableResourceReadyCheck bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIAddress:             "tcp://0.0.0.0:9901",
-		MaxReceivedMessageSize: 1024 * 1024,
-		MaxConcurrentStreams:   1024,
-		LoggingOptions:         log.DefaultOptions(),
-		IntrospectionOptions:   ctrlz.DefaultOptions(),
-		Insecure:               false,
-		AccessListFile:         defaultAccessListFile,
-		MeshConfigFile:         defaultMeshConfigFile,
-		EnableServer:           true,
-		CredentialOptions:      creds.DefaultOptions(),
-		ConfigPath:             "",
-		DomainSuffix:           defaultDomainSuffix,
+		APIAddress:                "tcp://0.0.0.0:9901",
+		MaxReceivedMessageSize:    1024 * 1024,
+		MaxConcurrentStreams:      1024,
+		LoggingOptions:            log.DefaultOptions(),
+		IntrospectionOptions:      ctrlz.DefaultOptions(),
+		Insecure:                  false,
+		AccessListFile:            defaultAccessListFile,
+		MeshConfigFile:            defaultMeshConfigFile,
+		EnableServer:              true,
+		CredentialOptions:         creds.DefaultOptions(),
+		ConfigPath:                "",
+		DomainSuffix:              defaultDomainSuffix,
+		DisableResourceReadyCheck: false,
 	}
 }
 
@@ -119,5 +125,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
 	fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
 	fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
+	fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)
+
 	return buf.String()
 }

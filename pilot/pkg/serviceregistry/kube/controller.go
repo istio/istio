@@ -33,6 +33,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
@@ -143,7 +144,6 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		ClusterID:    options.ClusterID,
 		XDSUpdater:   options.XDSUpdater,
 		servicesMap:  make(map[model.Hostname]*model.Service),
-		ranger:       cidranger.NewPCTrieRanger(),
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -466,7 +466,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									Port:        int(port.Port),
 									ServicePort: svcPortEntry,
 									UID:         uid,
-									Network:     c.endpointNetwork(&ea),
+									Network:     c.endpointNetwork(ea.IP),
 								},
 								Service:          svc,
 								Labels:           labels,
@@ -589,6 +589,7 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 			Address:     ip,
 			Port:        int(port.Port),
 			ServicePort: svcPort,
+			Network:     c.endpointNetwork(ip),
 		},
 		Service:          svc,
 		Labels:           labels,
@@ -777,7 +778,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 					Labels:          labels,
 					UID:             uid,
 					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
-					Network:         c.endpointNetwork(&ea),
+					Network:         c.endpointNetwork(ea.IP),
 				})
 			}
 		}
@@ -810,12 +811,14 @@ func (n namedRangerEntry) Network() net.IPNet {
 
 // InitNetworkLookup will read the mesh networks configuration from the environment
 // and initialize CIDR rangers for an efficient network lookup when needed
-func (c *Controller) InitNetworkLookup() {
-	if c.Env == nil || c.Env.MeshNetworks == nil {
+func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
+	if meshNetworks == nil {
 		return
 	}
 
-	for n, v := range c.Env.MeshNetworks.Networks {
+	c.ranger = cidranger.NewPCTrieRanger()
+
+	for n, v := range meshNetworks.Networks {
 		for _, ep := range v.Endpoints {
 			if ep.GetFromCidr() != "" {
 				_, net, err := net.ParseCIDR(ep.GetFromCidr())
@@ -836,9 +839,12 @@ func (c *Controller) InitNetworkLookup() {
 	}
 }
 
-// return the mesh network for the endpoint address. Empty string if not found.
-func (c *Controller) endpointNetwork(ea *v1.EndpointAddress) string {
-	entries, err := c.ranger.ContainingNetworks(net.ParseIP(ea.IP))
+// return the mesh network for the endpoint IP. Empty string if not found.
+func (c *Controller) endpointNetwork(endpointIP string) string {
+	if c.ranger == nil {
+		return ""
+	}
+	entries, err := c.ranger.ContainingNetworks(net.ParseIP(endpointIP))
 	if err != nil {
 		log.Errora(err)
 		return ""
@@ -847,7 +853,7 @@ func (c *Controller) endpointNetwork(ea *v1.EndpointAddress) string {
 		return ""
 	}
 	if len(entries) > 1 {
-		log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", ea.IP)
+		log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
 	}
 
 	return (entries[0].(namedRangerEntry)).name
