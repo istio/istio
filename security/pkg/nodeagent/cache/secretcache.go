@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/log"
 	ca "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -53,6 +54,13 @@ type Options struct {
 
 	// Secret eviction duration.
 	EvictionDuration time.Duration
+
+	// TrustDomain corresponds to the trust root of a system.
+	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+	TrustDomain string
+
+	// authentication provider specific plugins.
+	Plugins []plugin.Plugin
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -104,6 +112,9 @@ type SecretCache struct {
 	// close channel.
 	closing chan bool
 
+	trustDomain string
+	plugins     []plugin.Plugin
+
 	rootCertMutex *sync.Mutex
 	rootCert      []byte
 }
@@ -118,6 +129,8 @@ func NewSecretCache(cl ca.Client, notifyCb func(string, string, *model.SecretIte
 		rootCertMutex:    &sync.Mutex{},
 		rotationInterval: options.RotationInterval,
 		secretTTL:        options.SecretTTL,
+		trustDomain:      options.TrustDomain,
+		plugins:          options.Plugins,
 	}
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
@@ -304,6 +317,19 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		RSAKeySize: keySize,
 	}
 
+	// call authentication provider specific plugins to exchange token if necessary.
+	exchangedToken := token
+	var err error
+	if sc.plugins != nil && len(sc.plugins) > 0 {
+		for _, p := range sc.plugins {
+			exchangedToken, _, err = p.ExchangeToken(ctx, sc.trustDomain, exchangedToken)
+			if err != nil {
+				log.Errorf("failed to exchange token: %v", err)
+				return nil, err
+			}
+		}
+	}
+
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
@@ -311,7 +337,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
-	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, token, int64(sc.secretTTL.Seconds()))
+	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.secretTTL.Seconds()))
 	if err != nil {
 		log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
 		return nil, err

@@ -50,6 +50,9 @@ var (
 				log.Errorf("failed to create caClient: %v", err)
 				return fmt.Errorf("failed to create caClient")
 			}
+
+			cacheOptions.TrustDomain = serverOptions.TrustDomain
+			cacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 			sc := cache.NewSecretCache(caClient, sds.NotifyProxy, cacheOptions)
 			defer sc.Close()
 
@@ -85,6 +88,10 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", caProvider, "CA provider")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
+	rootCmd.PersistentFlags().StringArrayVar(&serverOptions.PluginNames, "pluginNames",
+		[]string{""}, "authentication provider specific plugin names")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.TrustDomain, "trustDomain",
+		"", "The trust domain this node agent run in")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.KeyFile, "sdsKeyFile", "", "SDS gRPC TLS server-side key")
