@@ -59,7 +59,7 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
-	// authN provider specific plugins.
+	// authentication provider specific plugins.
 	Plugins []plugin.Plugin
 }
 
@@ -317,7 +317,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		RSAKeySize: keySize,
 	}
 
-	// call authN provider specific plugins to exchange token if necessary.
+	// call authentication provider specific plugins to exchange token if necessary.
 	exchangedToken := token
 	var err error
 	if sc.plugins != nil && len(sc.plugins) > 0 {

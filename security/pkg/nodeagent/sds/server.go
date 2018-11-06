@@ -55,7 +55,7 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
-	// PluginNames is plugins' name for certain authN provider.
+	// PluginNames is plugins' name for certain authentication provider.
 	PluginNames []string
 }
 

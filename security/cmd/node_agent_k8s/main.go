@@ -89,7 +89,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", caProvider, "CA provider")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
 	rootCmd.PersistentFlags().StringArrayVar(&serverOptions.PluginNames, "pluginNames",
-		[]string{""}, "authN provider specific plugin names")
+		[]string{""}, "authentication provider specific plugin names")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.TrustDomain, "trustDomain",
 		"", "The trust domain this node agent run in")
 
