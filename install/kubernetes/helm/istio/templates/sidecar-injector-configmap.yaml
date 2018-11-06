@@ -156,6 +156,8 @@ data:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
+        - name: ISTIO_META_NETWORK
+          value: "{{ .Values.global.proxy.network }}"
         {{ "[[ if .ObjectMeta.Annotations ]]" }}
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
