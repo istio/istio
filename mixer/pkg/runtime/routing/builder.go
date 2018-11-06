@@ -482,10 +482,11 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 			return adapter.CheckResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
-		cr, err := h.HandleRemoteCheck(ctx, encodedInstance)
+		cr, err := h.HandleRemoteCheck(ctx, encodedInstance, out, outPrefix)
 		if err != nil {
 			return adapter.CheckResult{}, err
 		}
+
 		return *cr, nil
 	}
 
@@ -588,15 +589,15 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 // buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
 // with template output attributes prefixed by the action names added to the global attribute manifests.
 func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) *compiled.ExpressionBuilder {
-	// create attribute type descriptor from action templates
+	// templates include the output template attributes in their manifests
 	attributeDescriptor := make(map[string]*descriptor.AttributeManifest_AttributeInfo)
 
-	// TODO(kuat): add dynamic action support
 	for _, action := range rule.ActionsStatic {
 		if len(action.Instances) == 0 {
 			continue
 		}
 
+		// assuming identical templates for all instances
 		template := action.Instances[0].Template
 		if template.Variety != tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
 			continue
@@ -608,6 +609,24 @@ func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *
 			}
 		}
 	}
+
+	for _, action := range rule.ActionsDynamic {
+		if len(action.Instances) == 0 {
+			continue
+		}
+
+		// assuming identical templates for all instances
+		template := action.Instances[0].Template
+		if template.Variety != tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+			continue
+		}
+
+		// dynamic template output attributes start with "output."
+		for attrName, attrInfo := range template.AttributeManifest {
+			attributeDescriptor[action.Name+"."+attrName] = attrInfo
+		}
+	}
+
 	return compiled.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor))
 }
 

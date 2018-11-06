@@ -791,7 +791,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 			Variety:                    variety,
 		}
 
-		if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+		if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR || variety == v1beta1.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
 			resolver := yaml.NewResolver(fds)
 			msgName := "." + desc.GetPackage() + ".OutputMsg"
 			// OutputMsg is a fixed generated name for the output template

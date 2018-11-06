@@ -126,6 +126,9 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 			ctx, ds.destination.Handler, ds.instances[0], ds.inputBag, ds.mapper)
 
 	case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
+		// allocate a bag to store check output results
+		ds.outputBag = attribute.GetMutableBag(nil)
+
 		ds.checkResult, ds.err = ds.destination.Template.DispatchCheck(
 			ctx, ds.destination.Handler, ds.instances[0], ds.outputBag, ds.outputPrefix)
 

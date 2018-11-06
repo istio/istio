@@ -93,6 +93,8 @@ message HandleEdgeRequest {
 
 
 
+
+
 // Contains instance payload for 'edge' template. This is passed to infrastructure backends during request-time
 // through HandleEdgeService.HandleEdge.
 message InstanceMsg {

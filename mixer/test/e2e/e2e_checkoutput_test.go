@@ -30,13 +30,13 @@ func TestCheckOutput(t *testing.T) {
 		{
 			name: "BasicCheckOutput",
 			cfg: `
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: fakehandler
 metadata:
   name: fake
   namespace: istio-system
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: checkproducer
 metadata:
   name: instance
@@ -44,7 +44,7 @@ metadata:
 spec:
   stringPrimitive: '"test"'
 ---
-apiVersion: "config.istio.io/v1alpha2"
+apiVersion: config.istio.io/v1alpha2
 kind: rule
 metadata:
   name: example

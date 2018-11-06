@@ -124,12 +124,6 @@ func (s *session) dispatch() error {
 	ninputs := 0
 	ndestinations := 0
 
-	var outputBag *attribute.MutableBag
-	if s.variety == tpb.TEMPLATE_VARIETY_CHECK {
-		outputBag = attribute.GetMutableBag(s.bag)
-		defer outputBag.Done()
-	}
-
 	for _, destination := range destinations.Entries() {
 		var state *dispatchState
 
@@ -196,8 +190,8 @@ func (s *session) dispatch() error {
 				state.quotaArgs.QuotaAmount = s.quotaArgs.Amount
 
 				state.outputPrefix = input.ActionName + ".output."
-				state.outputBag = outputBag
 
+				// TODO(kuat) make output bag concurrency safe
 				s.dispatchToHandler(state)
 			}
 		}
@@ -241,7 +235,7 @@ func (s *session) dispatch() error {
 
 				if op.Operation != descriptor.REMOVE {
 					var verr error
-					hop.Value, verr = op.HeaderValue.EvaluateString(outputBag)
+					hop.Value, verr = op.HeaderValue.EvaluateString(s.responseBag)
 					if verr != nil {
 						log.Warnf("Failed to evaluate header value: %v", verr)
 						continue
@@ -318,6 +312,11 @@ func (s *session) waitForDispatched() {
 				}
 			}
 			st = state.checkResult.Status
+
+			if state.outputBag != nil {
+				s.responseBag.Merge(state.outputBag)
+				state.outputBag.Done()
+			}
 
 		case tpb.TEMPLATE_VARIETY_QUOTA:
 			if s.quotaResult.IsDefault() {
