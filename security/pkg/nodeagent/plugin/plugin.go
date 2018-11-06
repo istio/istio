@@ -19,7 +19,12 @@ import (
 	"time"
 )
 
-// Plugin provides common interfaces so that authN providers could choose to implement their specific logic.
+const (
+	// GoogleIAM is the name of the google IAM plugin.
+	GoogleIAM = "GoogleIAM"
+)
+
+// Plugin provides common interfaces so that authentication providers could choose to implement their specific logic.
 type Plugin interface {
 	ExchangeToken(context.Context, string, string) (string, time.Time, error)
 }
