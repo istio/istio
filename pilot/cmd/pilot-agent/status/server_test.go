@@ -50,7 +50,6 @@ func init() {
 func TestAppProbe(t *testing.T) {
 	server := NewServer(Config{
 		StatusPort:      0,
-		AppReadinessURL: fmt.Sprintf(":%v/", appPort),
 	})
 	go server.Run(context.Background())
 
@@ -63,22 +62,30 @@ func TestAppProbe(t *testing.T) {
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
 		probePath  string
+		appPortHeader string
 		statusCode int
 		err        string
 	}{
 		{
-			probePath:  fmt.Sprintf(":%v/app/ready", statusPort),
+			probePath:  fmt.Sprintf(":%v/", statusPort),
+			appPortHeader: fmt.Sprintf("%v", appPort),
 			statusCode: 200,
 		},
 		{
-			probePath: fmt.Sprintf(":%v/app/live", statusPort),
-			// expect 404 because we didn't configure status server to take over app's liveness check.
-			statusCode: 404,
+			probePath:  fmt.Sprintf(":%v/ill-formed-path", statusPort),
+			statusCode: 400,
 		},
 	}
 	for _, tc := range testCases {
 		client := http.Client{}
-		resp, _ := client.Get(fmt.Sprintf("http://localhost%s", tc.probePath))
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+		if err != nil {
+			t.Errorf("[%v] failed to create request", tc.probePath)
+		}
+		if tc.appPortHeader != "" {
+			req.Header.Add(IstioAppPortHeader, tc.appPortHeader)
+		}
+		resp, _ := client.Do(req)
 		if resp.StatusCode != tc.statusCode {
 			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
 		}
