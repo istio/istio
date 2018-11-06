@@ -839,9 +839,10 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MCPRegistry:
 			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
-			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
+			return fmt.Errorf("service registry %s is not supported", r)
 		}
 	}
+
 	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
 
 	// add service entry registry to aggregator by default
