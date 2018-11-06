@@ -184,6 +184,15 @@ global:
     # Specify which tracer to use. One of: lightstep, zipkin
     tracer: "zipkin"
 
+    # Sets an identifier for the remote network to be used for Split Horizon EDS. The network will be sent
+    # to the Pilot when connected by the sidecar and will affect the results returned in EDS requests.
+    # Based on the network identifier Pilot will return all local endpoints + endpoints of gateways to
+    # other networks.
+    # When value is an empty string (default) the Split Horizon EDS won't activate and behave like a
+    # normal EDS (i.e. endpoints from all networks returned).
+    #
+    network: ""
+
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxy_init
