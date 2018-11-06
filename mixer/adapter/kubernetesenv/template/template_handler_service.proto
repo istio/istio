@@ -172,7 +172,6 @@ message OutputMsg {
     
 }
 
-
 // Contains instance payload for 'kubernetes' template. This is passed to infrastructure backends during request-time
 // through HandleKubernetesService.HandleKubernetes.
 message InstanceMsg {

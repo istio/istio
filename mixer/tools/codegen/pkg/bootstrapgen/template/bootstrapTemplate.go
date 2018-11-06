@@ -309,8 +309,7 @@ var (
             instance := inst.(*{{.GoPackageName}}.Instance)
 
             // Invoke the handler.
-            res, err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
-            return res, err
+            return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
         },
         {{end}}
 

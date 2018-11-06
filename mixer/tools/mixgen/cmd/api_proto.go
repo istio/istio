@@ -104,7 +104,7 @@ message OutputMsg {
     {{typeName .ProtoType}} {{.ProtoName}} = {{.Number}};{{reportTypeUsed .ProtoType}}
     {{end}}
 }
-{{end}}
+{{- end}}
 
 // Contains instance payload for '{{.TemplateName}}' template. This is passed to infrastructure backends during request-time
 // through Handle{{.InterfaceName}}Service.Handle{{.InterfaceName}}.

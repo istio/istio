@@ -53,10 +53,6 @@ func BuildTemplates(l *Logger, settings ...FakeTemplateSettings) map[string]*tem
 	return t
 }
 
-type outputTemplate struct {
-	value string
-}
-
 func createFakeTemplate(name string, s FakeTemplateSettings, l *Logger, variety istio_mixer_v1_template.TemplateVariety) *template.Info {
 	callCount := 0
 

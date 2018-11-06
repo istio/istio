@@ -86,7 +86,6 @@ message OutputMsg {
     
 }
 
-
 // Contains instance payload for 'checkproducer' template. This is passed to infrastructure backends during request-time
 // through HandleCheckProducerService.HandleCheckProducer.
 message InstanceMsg {

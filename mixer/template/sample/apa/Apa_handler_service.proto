@@ -94,7 +94,6 @@ message OutputMsg {
     
 }
 
-
 // Contains instance payload for 'myapa' template. This is passed to infrastructure backends during request-time
 // through HandleMyApaService.HandleMyApa.
 message InstanceMsg {

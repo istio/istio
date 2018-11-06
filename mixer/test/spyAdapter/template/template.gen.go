@@ -463,8 +463,7 @@ var (
 				instance := inst.(*samplecheck.Instance)
 
 				// Invoke the handler.
-				res, err := handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
-				return res, err
+				return handler.(samplecheck.Handler).HandleSampleCheck(ctx, instance)
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses

@@ -859,8 +859,7 @@ var (
 				instance := inst.(*apikey.Instance)
 
 				// Invoke the handler.
-				res, err := handler.(apikey.Handler).HandleApiKey(ctx, instance)
-				return res, err
+				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
@@ -1088,8 +1087,7 @@ var (
 				instance := inst.(*authorization.Instance)
 
 				// Invoke the handler.
-				res, err := handler.(authorization.Handler).HandleAuthorization(ctx, instance)
-				return res, err
+				return handler.(authorization.Handler).HandleAuthorization(ctx, instance)
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
@@ -1189,8 +1187,7 @@ var (
 				instance := inst.(*checknothing.Instance)
 
 				// Invoke the handler.
-				res, err := handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
-				return res, err
+				return handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
@@ -1504,8 +1501,7 @@ var (
 				instance := inst.(*listentry.Instance)
 
 				// Invoke the handler.
-				res, err := handler.(listentry.Handler).HandleListEntry(ctx, instance)
-				return res, err
+				return handler.(listentry.Handler).HandleListEntry(ctx, instance)
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
