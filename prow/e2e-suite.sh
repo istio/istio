@@ -37,7 +37,8 @@ set -x
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
 # for existing resources types
-RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+#JAJ RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test-latest}"
 OWNER="${OWNER:-e2e-suite}"
 PILOT_CLUSTER="${PILOT_CLUSTER:-}"
 USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
@@ -85,6 +86,8 @@ fi
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${TAG:-${GIT_SHA}}"
+export ENABLE_ISTIO_CNI=true
+export EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.cniBinDir=/home/kubernetes/bin --set istio-cni.tag=v0.1-dev-mapann --set istio-cni.hub=docker.io/tiswanso"
 
 make init
 
