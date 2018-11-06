@@ -44,13 +44,6 @@ static_resources:
         path: /sock/mixer.socket
     http2_protocol_options: {}
     name: inbound_9092
-  - connect_timeout: 1.000s
-    hosts:
-    - socket_address:
-        address: zipkin
-        port_value: 9411
-    name: zipkin
-    type: STRICT_DNS
   listeners:
   - address:
       socket_address:
@@ -139,7 +132,6 @@ static_resources:
                   cluster: inbound_9092
                   timeout: 0.000s
           stat_prefix: "15004"
-          tracing: {}
         name: envoy.http_connection_manager
 {{- if .ControlPlaneAuth }}
       tls_context:
@@ -221,12 +213,5 @@ static_resources:
                   cluster: inbound_9092
                   timeout: 0.000s
           stat_prefix: "9091"
-          tracing: {}
         name: envoy.http_connection_manager
     name: "9091"
-tracing:
-  http:
-    config:
-      collector_cluster: zipkin
-      collector_endpoint: /api/v1/spans
-    name: envoy.zipkin

@@ -73,7 +73,6 @@ type holder struct {
 
 var (
 	httpTimeout = 5 * time.Second
-	sampler     = jaeger.NewConstSampler(true)
 	poolSpans   = jaeger.TracerOptions.PoolSpans(false)
 	logger      = spanLogger{}
 )
@@ -95,6 +94,11 @@ func configure(serviceName string, options *Options, nz newZipkin) (io.Closer, e
 	}
 
 	reporters := make([]jaeger.Reporter, 0, 3)
+
+	sampler, err := jaeger.NewProbabilisticSampler(options.SamplingRate)
+	if err != nil {
+		return nil, fmt.Errorf("could not build trace sampler: %v", err)
+	}
 
 	if options.ZipkinURL != "" {
 		trans, err := nz(options.ZipkinURL, zipkin.HTTPLogger(logger), zipkin.HTTPTimeout(httpTimeout))
