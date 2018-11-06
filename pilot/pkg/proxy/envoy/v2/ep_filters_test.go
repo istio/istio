@@ -28,13 +28,12 @@ import (
 
 type LbEpInfo struct {
 	network string
-	weight  uint32
 	address string
 }
 
 type LocLbEpInfo struct {
-	port  uint32
-	lbEps []LbEpInfo
+	lbEps  []LbEpInfo
+	weight uint32
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
@@ -73,11 +72,13 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 						{address: "10.0.0.1"},
 						{address: "10.0.0.2"},
 					},
+					weight: 2,
 				},
 				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 					lbEps: []LbEpInfo{
-						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.2"},
 					},
+					weight: 1,
 				},
 			},
 		},
@@ -89,13 +90,15 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			want: []LocLbEpInfo{
 				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1", weight: 2},
+						{address: "1.1.1.1"},
 					},
+					weight: 2,
 				},
 				{ // 1 local endpoint
 					lbEps: []LbEpInfo{
 						{address: "20.0.0.1"},
 					},
+					weight: 1,
 				},
 			},
 		},
@@ -107,13 +110,15 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			want: []LocLbEpInfo{
 				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1", weight: 2},
+						{address: "1.1.1.1"},
 					},
+					weight: 2,
 				},
 				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 					lbEps: []LbEpInfo{
-						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.2"},
 					},
+					weight: 1,
 				},
 			},
 		},
@@ -125,18 +130,21 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			want: []LocLbEpInfo{
 				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1", weight: 2},
+						{address: "1.1.1.1"},
 					},
+					weight: 2,
 				},
 				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 					lbEps: []LbEpInfo{
-						{address: "2.2.2.2", weight: 1},
+						{address: "2.2.2.2"},
 					},
+					weight: 1,
 				},
 				{ // 1 local endpoint
 					lbEps: []LbEpInfo{
 						{address: "40.0.0.1"},
 					},
+					weight: 1,
 				},
 			},
 		},
@@ -160,8 +168,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v", i, len(ep.LbEndpoints), len(tt.want[i].lbEps))
 				}
 
-				if ep.LoadBalancingWeight.GetValue() != tt.want[i].lbEps[0].weight {
-					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), tt.want[i].lbEps[0].weight)
+				if ep.LoadBalancingWeight.GetValue() != tt.want[i].weight {
+					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), tt.want[i].weight)
 				}
 
 				addr := ep.LbEndpoints[0].Endpoint.Address.GetSocketAddress().Address
@@ -185,7 +193,7 @@ func xdsConnection(network string) *XdsConnection {
 	}
 }
 
-// environment creates an Environment object with the following MeshNetworks configuraition:
+// environment creates an Environment object with the following MeshNetworks configurations:
 //  - 1 gateway for network1
 //  - 1 gateway for network2
 //  - 1 gateway for network3
@@ -280,6 +288,9 @@ func createEndpoints(locLbEpsInfo []LocLbEpInfo) []endpoint.LocalityLbEndpoints 
 				},
 			}
 			locLbEp.LbEndpoints[j] = lbEp
+		}
+		locLbEp.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(len(locLbEp.LbEndpoints)),
 		}
 		locLbEps[i] = locLbEp
 	}
