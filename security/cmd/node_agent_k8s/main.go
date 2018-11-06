@@ -97,7 +97,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&serverOptions.KeyFile, "sdsKeyFile", "", "SDS gRPC TLS server-side key")
 
 	rootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretTtl",
-		time.Hour, "Secret's TTL")
+		24*time.Hour, "Secret's TTL")
+	rootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretRefreshGraceDuration, "secretRefreshGraceDuration",
+		time.Hour, "Secret's Refresh Grace Duration")
 	rootCmd.PersistentFlags().DurationVar(&cacheOptions.RotationInterval, "secretRotationInterval",
 		10*time.Minute, "Secret rotation job running interval")
 	rootCmd.PersistentFlags().DurationVar(&cacheOptions.EvictionDuration, "secretEvictionDuration",
