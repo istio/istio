@@ -972,8 +972,7 @@ var (
 				instance := inst.(*istio_mixer_template_list.Instance)
 
 				// Invoke the handler.
-				res, err := handler.(istio_mixer_template_list.Handler).HandleList(ctx, instance)
-				return res, err
+				return handler.(istio_mixer_template_list.Handler).HandleList(ctx, instance)
 			},
 
 			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
