@@ -1,5 +1,4 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "enabled") }}
 {{- if $spec.enabled }}
 apiVersion: v1
 kind: Service
@@ -49,6 +48,5 @@ spec:
     {{- end }}
     {{- end }}
 ---
-{{- end }}
 {{- end }}
 {{- end }}

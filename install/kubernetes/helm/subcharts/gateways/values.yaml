@@ -5,8 +5,6 @@
 # and that NodePorts are not conflicting.
 # Disable specifc gateway by setting the `enabled` to false.
 #
-enabled: true
-
 istio-ingressgateway:
   enabled: true
   labels:

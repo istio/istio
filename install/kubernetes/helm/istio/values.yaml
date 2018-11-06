@@ -3,7 +3,10 @@
 # for detailed configuration
 #
 gateways:
-  enabled: true
+  istio-ingressgateway:
+    enabled: true
+  istio-egressgateway:
+    enabled: true   
 
 #
 # sidecar-injector webhook configuration, refer to the
@@ -23,7 +26,6 @@ galley:
 # mixer configuration
 #
 mixer:
-  enabled: true
   istio-policy:
     enabled: true
   istio-telemetry:
