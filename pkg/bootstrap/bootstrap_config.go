@@ -287,6 +287,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	if err != nil {
 		return "", err
 	}
+	defer fout.Close()
 
 	// Execute needs some sort of io.Writer
 	err = t.Execute(fout, opts)
