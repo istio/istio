@@ -291,7 +291,11 @@ spec:
       release: {{ $.Release.Name }}
       version: {{ $.Chart.Version }}
       istio: mixer
-      istio-mixer-type: {{ $key }}
+      {{- if eq $key "istio-policy" }}
+      istio-mixer-type: "policy"
+      {{- else }}
+      istio-mixer-type: "telemetry"
+      {{- end }}
   template:
     metadata:
       labels:
@@ -301,14 +305,18 @@ spec:
         release: {{ $.Release.Name }}
         version: {{ $.Chart.Version }}
         istio: mixer
-        istio-mixer-type: {{ $key }}
+        {{- if eq $key "istio-policy" }}
+        istio-mixer-type: "policy"
+        {{- else }}
+        istio-mixer-type: "telemetry"
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- if eq $key "policy"}}
+{{- if eq $key "istio-policy"}}
 {{- template "policy_container" $ }}
 {{- else }}
 {{- template "telemetry_container" $ }}
