@@ -254,6 +254,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	}
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
+		locLbEps.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(len(locLbEps.LbEndpoints)),
+		}
 		locEps = append(locEps, *locLbEps)
 	}
 
@@ -580,6 +583,9 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	}
 	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
+		locLbEps.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(len(locLbEps.LbEndpoints)),
+		}
 		out = append(out, *locLbEps)
 	}
 	return out
