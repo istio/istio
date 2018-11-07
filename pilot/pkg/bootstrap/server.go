@@ -987,7 +987,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			err = s.httpServer.Shutdown(ctx)
+			err := s.httpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)
 			}
