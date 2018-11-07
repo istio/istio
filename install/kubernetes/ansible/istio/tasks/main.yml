@@ -1,9 +1,5 @@
 ---
 
-- name: Is istio.addon be iterable
-  set_fact:
-    is_istioaddon_iterable: "{{ istio.addon is defined and istio.addon is iterable }}"
-
 - include_tasks: set_appropriate_cmd_path.yml
   when: cmd_path is not defined
 
@@ -28,4 +24,4 @@
   when: cluster_flavour == 'ocp'
 
 - include_tasks: install_samples.yml
-  when: (istio.samples is iterable) and (istio.samples | length > 0)
+  when: (istio.samples is defined) and (istio.samples is iterable) and (istio.samples | length > 0)

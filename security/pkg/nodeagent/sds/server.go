@@ -24,9 +24,15 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/istio/security/pkg/nodeagent/plugin"
+	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google"
 )
 
 const maxStreams = 100000
+
+var availablePlugins = map[string]plugin.Plugin{
+	plugin.GoogleIAM: iamclient.NewPlugin(),
+}
 
 // Options provides all of the configuration parameters for secret discovery service.
 type Options struct {
@@ -44,6 +50,13 @@ type Options struct {
 
 	// The CA provider name.
 	CAProviderName string
+
+	// TrustDomain corresponds to the trust root of a system.
+	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+	TrustDomain string
+
+	// PluginNames is plugins' name for certain authentication provider.
+	PluginNames []string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -82,6 +95,17 @@ func (s *Server) Stop() {
 	if s.grpcServer != nil {
 		s.grpcServer.Stop()
 	}
+}
+
+// NewPlugins returns a slice of default Plugins.
+func NewPlugins(in []string) []plugin.Plugin {
+	var plugins []plugin.Plugin
+	for _, pl := range in {
+		if p, exist := availablePlugins[pl]; exist {
+			plugins = append(plugins, p)
+		}
+	}
+	return plugins
 }
 
 func (s *Server) initDiscoveryService(options *Options, st cache.SecretManager) error {

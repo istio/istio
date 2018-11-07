@@ -14,7 +14,9 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     template: |-
+{{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
+{{- if not .Values.istio_cni.enabled }}
       - name: istio-init
 {{- if contains "/" .Values.global.proxy_init.image }}
         image: "{{ .Values.global.proxy_init.image }}"
@@ -52,6 +54,7 @@ data:
           privileged: true
           {{ end -}}
         restartPolicy: Always
+{{- end }}
       {{ if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:
@@ -69,6 +72,7 @@ data:
         securityContext:
           privileged: true
       {{ end }}
+{{- end }}
       containers:
       - name: istio-proxy
 {{- if contains "/" .Values.global.proxy.image }}
@@ -206,9 +210,13 @@ data:
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
-        {{ if .Values.global.sdsEnabled }}
+        {{ if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
+        {{ if .Values.global.sds.enableTokenMount }}
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        {{- end }}
         {{- end }}
         {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
@@ -216,10 +224,19 @@ data:
           readOnly: true
         {{- end }}
       volumes:
-      {{ if .Values.global.sdsEnabled }}
+      {{ if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
+      {{ if .Values.global.sds.enableTokenMount }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.trustDomain }}
+      {{- end }}
       {{- end }}
       {{ if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
       - name: lightstep-certs
