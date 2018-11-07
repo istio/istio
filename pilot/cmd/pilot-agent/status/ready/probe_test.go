@@ -49,7 +49,6 @@ func TestEnvoyStatsIncompleteCDS(t *testing.T) {
 	g.Expect(err.Error()).To(ContainSubstring("cds updates: 0"))
 }
 
-
 func TestEnvoyStatsIncompleteLDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success: 1"
