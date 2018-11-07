@@ -40,9 +40,11 @@ type Stats struct {
 
 // String representation of the Stats.
 func (s *Stats) String() string {
-	return fmt.Sprintf("cds updates: %d, lds updates: %d",
+	return fmt.Sprintf("cds updates: %d success, %d rejected; lds updates: %d success, %d rejected",
 		s.CDSUpdatesSuccess,
-		s.LDSUpdatesSuccess)
+		s.CDSUpdatesRejection,
+		s.LDSUpdatesSuccess,
+		s.LDSUpdatesRejection)
 }
 
 // GetStats from Envoy.
