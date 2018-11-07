@@ -322,3 +322,7 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
+
+  # Kubectl is used in some subcharts (security, grafana) to perform modifications
+  kubectl:
+    image: kubectl
