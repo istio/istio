@@ -26,7 +26,7 @@ spec:
 {{- end }}
   selector:
     istio: mixer
-    istio-mixer-type: $key
+    istio-mixer-type: {{ $key }}
 ---
 {{- end }}
 {{- end }}

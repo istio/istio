@@ -291,7 +291,7 @@ spec:
       release: {{ $.Release.Name }}
       version: {{ $.Chart.Version }}
       istio: mixer
-      istio-mixer-type: $key
+      istio-mixer-type: {{ $key }}
   template:
     metadata:
       labels:
@@ -301,7 +301,7 @@ spec:
         release: {{ $.Release.Name }}
         version: {{ $.Chart.Version }}
         istio: mixer
-        istio-mixer-type: $key
+        istio-mixer-type: {{ $key }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
