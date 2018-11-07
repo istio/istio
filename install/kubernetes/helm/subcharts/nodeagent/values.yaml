@@ -6,5 +6,4 @@ image: node-agent-k8s
 env:
   CA_PROVIDER: ""
   CA_ADDR: ""
-  Trust_Domain: ""
   Plugins: ""
