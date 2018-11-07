@@ -31,25 +31,29 @@ import (
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceInstance) []listener.Filter {
+func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, instance *model.ServiceInstance) []listener.Filter {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	config := &tcp_proxy.TcpProxy{
 		StatPrefix:       clusterName,
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 	}
-	return []listener.Filter{*setAccessLogAndBuildTCPFilter(env, config)}
+	return []listener.Filter{*setAccessLogAndBuildTCPFilter(env, node, config)}
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(env *model.Environment, config *tcp_proxy.TcpProxy) *listener.Filter {
+func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, config *tcp_proxy.TcpProxy) *listener.Filter {
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
 			Path: env.Mesh.AccessLogFile,
-			AccessLogFormat: &fileaccesslog.FileAccessLog_Format{
-				Format: EnvoyTCPLogFormat,
-			},
 		}
+
+		if util.Is11Proxy(node) {
+			fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+				Format: EnvoyTCPLogFormat,
+			}
+		}
+
 		config.AccessLog = []*accesslog.AccessLog{
 			{
 				Config: util.MessageToStruct(fl),
@@ -75,13 +79,13 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 		ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: clusterName},
 		// TODO: Need to set other fields such as Idle timeouts
 	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(env, config)
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, config)
 	return buildOutboundNetworkFiltersStack(port, tcpFilter, clusterName)
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
 // destination routes and builds a stack of network filters.
-func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, routes []*networking.RouteDestination,
+func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, node *model.Proxy, routes []*networking.RouteDestination,
 	push *model.PushContext, port *model.Port, config model.ConfigMeta) []listener.Filter {
 
 	statPrefix := fmt.Sprintf("%s.%s", config.Name, config.Namespace)
@@ -102,7 +106,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, rou
 		})
 	}
 
-	tcpFilter := setAccessLogAndBuildTCPFilter(env, proxyConfig)
+	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, proxyConfig)
 	return buildOutboundNetworkFiltersStack(port, tcpFilter, statPrefix)
 }
 
@@ -130,7 +134,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)
 	}
-	return buildOutboundNetworkFiltersWithWeightedClusters(env, routes, push, port, config)
+	return buildOutboundNetworkFiltersWithWeightedClusters(env, node, routes, push, port, config)
 }
 
 func buildOutboundMongoFilter(statPrefix string) listener.Filter {
