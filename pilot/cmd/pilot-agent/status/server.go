@@ -27,7 +27,6 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/log"
-	"path"
 )
 
 const (
@@ -135,21 +134,25 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		// TODO: figure out the appropriate timeout?
 		Timeout: 10 * time.Second,
 	}
-	url := path.Join(fmt.Sprintf("http://127.0.0.1:%s", appPort), req.URL.Path)
+	path := req.URL.Path
+	if !strings.HasPrefix(req.URL.Path, "/") {
+		path = "/" + req.URL.Path
+	}
+	url := fmt.Sprintf("http://127.0.0.1:%s%s", appPort, path)
 	appReq, err := http.NewRequest(req.Method, url, req.Body)
 	for key, value := range req.Header {
 		appReq.Header[key] = value
 	}
 
 	if err != nil {
-		log.Errorf("Failed to copy request to probe app %v", err)
+		log.Errorf("Failed to copy request to probe app %v, url %v", err, path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	response, err := httpClient.Do(appReq)
 	defer response.Body.Close()
 	if err != nil {
-		log.Errorf("Request to probe app failed: %v, url ", err, req.URL.Path)
+		log.Errorf("Request to probe app failed: %v, url %v", err, path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
