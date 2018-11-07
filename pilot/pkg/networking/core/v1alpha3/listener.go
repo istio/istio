@@ -796,8 +796,10 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
-			Path:   env.Mesh.AccessLogFile,
-			Format: EnvoyHTTPLogFormat,
+			Path: env.Mesh.AccessLogFile,
+			AccessLogFormat: &fileaccesslog.FileAccessLog_Format{
+				Format: EnvoyHTTPLogFormat,
+			},
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
