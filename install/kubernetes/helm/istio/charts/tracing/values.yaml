@@ -30,8 +30,25 @@ podAntiAffinityTermLabelSelector: {}
 jaeger:
   hub: docker.io/jaegertracing
   tag: 1.9
-  memory:
-    max_traces: 50000
+  spec:
+    strategy: allInOne
+    storage:
+      type: memory
+      options:
+        memory:
+          max-traces: 50000
+        es:
+          server-urls: http://elasticsearch:9200
+          username: elastic
+          password: changeme
+        cassandra:
+          servers: cassandra
+          keyspace: jaeger_v1_datacenter3
+      cassandra-create-schema:
+        datacenter: "datacenter3"
+        mode: "test"
+    ingress:
+      enabled: false
 
 zipkin:
   hub: docker.io/openzipkin
