@@ -28,7 +28,6 @@ const (
 	statCdsUpdatesRejection = "cluster_manager.cds.update_rejected"
 	statLdsUpdatesSuccess   = "listener_manager.lds.update_success"
 	statLdsUpdatesRejection = "listener_manager.lds.update_rejected"
-
 )
 
 // Stats contains values of interest from a poll of Envoy stats.
