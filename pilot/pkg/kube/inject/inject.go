@@ -42,8 +42,8 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/log"
 	model "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
 )
 
 // per-sidecar policy and status
