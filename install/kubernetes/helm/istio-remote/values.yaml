@@ -11,6 +11,7 @@ sidecarInjectorWebhook:
 #
 security:
   enabled: true
+  omitPostInstall: true
 
 # Common settings used among istio subcharts.
 global:
