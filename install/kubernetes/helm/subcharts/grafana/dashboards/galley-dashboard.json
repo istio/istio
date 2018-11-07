@@ -402,7 +402,7 @@
                     "expr": "sum by (typeURL) (galley_runtime_state_type_instances_total)",
                     "format": "time_series",
                     "intervalFactor": 1,
-                    "legendFormat": "",
+                    "legendFormat": "{{ typeURL }}",
                     "refId": "A"
                 }
             ],
