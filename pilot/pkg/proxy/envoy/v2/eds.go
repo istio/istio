@@ -17,6 +17,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -63,6 +64,11 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
+)
+
+const (
+	// The range of LoadBalancingWeight is [1, 128]
+	maxLoadBalancingWeight = 128
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -385,6 +391,11 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		locEps = localityLbEndpointsFromInstances(instances)
 	}
 
+	for i := 0; i < len(locEps); i++ {
+		locEps[i].LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(len(locEps[i].LbEndpoints)),
+		}
+	}
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -583,9 +594,6 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	}
 	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
-		locLbEps.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locLbEps.LbEndpoints)),
-		}
 		out = append(out, *locLbEps)
 	}
 	return out
@@ -647,6 +655,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			}
 			l = filteredCLA
 		}
+
+		// Normalize LoadBalancingWeight in range [1, 128]
+		l.Endpoints = normalizeLoadBalancingWeight(l.Endpoints)
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
@@ -765,4 +776,27 @@ func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.Discov
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
 func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
 	return errors.New("unsupported streaming method")
+}
+
+// normalizeLoadBalancingWeight set LoadBalancingWeight with a valid value.
+func normalizeLoadBalancingWeight(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
+	var totalLbEndpointsNum uint32
+
+	for _, localityLbEndpoint := range endpoints {
+		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
+	}
+	if totalLbEndpointsNum == 0 {
+		return endpoints
+	}
+
+	out := make([]endpoint.LocalityLbEndpoints, len(endpoints))
+	for i, localityLbEndpoint := range endpoints {
+		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
+		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(math.Ceil(weight)),
+		}
+		out[i] = localityLbEndpoint
+	}
+
+	return out
 }
