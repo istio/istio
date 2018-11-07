@@ -179,7 +179,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 		reg := store.NewRegistry(config.StoreInventory()...)
 		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
-		if st, err = reg.NewStore(configStoreURL, groupVersion, a.CredentialOptions); err != nil {
+		if st, err = reg.NewStore(configStoreURL, groupVersion, a.CredentialOptions, runtimeconfig.CriticalKinds()); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}

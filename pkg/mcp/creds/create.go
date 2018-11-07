@@ -34,6 +34,16 @@ func CreateForClient(serverName string, watcher *CertificateWatcher) credentials
 	return credentials.NewTLS(&config)
 }
 
+// CreateForClientSkipVerify creates TransportCredentials for MCP clients which skips verify the
+// server's certificate chain and host name..
+func CreateForClientSkipVerify() credentials.TransportCredentials {
+	config := tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	return credentials.NewTLS(&config)
+}
+
 // CreateForServer creates TransportCredentials for MCP servers.
 func CreateForServer(watcher *CertificateWatcher) credentials.TransportCredentials {
 	config := tls.Config{

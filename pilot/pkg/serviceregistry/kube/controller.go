@@ -17,6 +17,7 @@ package kube
 import (
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/yl2chen/cidranger"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -45,6 +47,8 @@ const (
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
 	IstioConfigMap = "istio"
+	// IstioNetworksConfigMap is the config map name for mesh networks configuration
+	IstioNetworksConfigMap = "istio-networks"
 	// PrometheusScrape is the annotation used by prometheus to determine if service metrics should be scraped (collected)
 	PrometheusScrape = "prometheus.io/scrape"
 	// PrometheusPort is the annotation used to explicitly specify the port to use for scraping metrics
@@ -111,6 +115,12 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[model.Hostname]*model.Service
+
+	// CIDR ranger based on path-compressed prefix trie
+	ranger cidranger.Ranger
+
+	// Network name for the registry as specified by the MeshNetworks configmap
+	network string
 }
 
 type cacheHandler struct {
@@ -133,9 +143,10 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		ClusterID:    options.ClusterID,
 		XDSUpdater:   options.XDSUpdater,
 		servicesMap:  make(map[model.Hostname]*model.Service),
+		ranger:       cidranger.NewPCTrieRanger(),
 	}
 
-	sharedInformers := informers.NewFilteredSharedInformerFactory(client, options.ResyncPeriod, options.WatchedNamespace, nil)
+	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
 
 	svcInformer := sharedInformers.Core().V1().Services().Informer()
 	out.services = out.createCacheHandler(svcInformer, "Services")
@@ -455,6 +466,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									Port:        int(port.Port),
 									ServicePort: svcPortEntry,
 									UID:         uid,
+									Network:     c.endpointNetwork(&ea),
 								},
 								Service:          svc,
 								Labels:           labels,
@@ -473,30 +485,29 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
-	proxyIP := proxy.IPAddress
-	pod, exists := c.pods.getPodByIP(proxyIP)
-	if !exists {
-		return nil, fmt.Errorf("failed to get pod by proxyIP %s", proxyIP)
-	}
-	podNamespace := pod.Namespace
-
 	out := make([]*model.ServiceInstance, 0)
+	proxyIP := proxy.IPAddress
+	proxyNamespace := ""
 
-	// 1. find proxy service by label selector, if not any, there may exist headless service
-	// failover to 2
-	svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
-	if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
-		for _, svc := range services {
-			item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
-			if err != nil || !exists {
-				log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
-				continue
+	pod, exists := c.pods.getPodByIP(proxyIP)
+	if exists {
+		proxyNamespace = pod.Namespace
+		// 1. find proxy service by label selector, if not any, there may exist headless service
+		// failover to 2
+		svcLister := listerv1.NewServiceLister(c.services.informer.GetIndexer())
+		if services, err := svcLister.GetPodServices(pod); err != nil && len(services) > 0 {
+			for _, svc := range services {
+				item, exists, err := c.endpoints.informer.GetStore().GetByKey(KeyFunc(svc.Namespace, svc.Name))
+				if err != nil || !exists {
+					log.Warnf("unable to get endpoint %s/%s for svc: %v", svc.Namespace, svc.Name, err)
+					continue
+				}
+
+				ep := *item.(*v1.Endpoints)
+				out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
 			}
-
-			ep := *item.(*v1.Endpoints)
-			out = append(out, c.getProxyServiceInstancesByEndpoint(ep, proxy)...)
+			return out, nil
 		}
-		return out, nil
 	}
 
 	// 2. Headless service
@@ -505,7 +516,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
 		endpoints := &endpointsForPodInSameNS
-		if ep.Namespace != podNamespace {
+		if ep.Namespace != proxyNamespace {
 			endpoints = &endpointsForPodInDifferentNS
 		}
 
@@ -548,11 +559,11 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 				}
 
 				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
-					out = append(out, getEndpoints(proxy.IPAddress, c, svcPort, svc))
+					out = append(out, getEndpoints(proxy.IPAddress, c, port, svcPort, svc))
 				}
 
 				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
-					nrEP := getEndpoints(proxy.IPAddress, c, svcPort, svc)
+					nrEP := getEndpoints(proxy.IPAddress, c, port, svcPort, svc)
 					out = append(out, nrEP)
 					if c.Env != nil {
 						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -565,7 +576,7 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 	return out
 }
 
-func getEndpoints(ip string, c *Controller, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
+func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
 	labels, _ := c.pods.labelsByIP(ip)
 	pod, exists := c.pods.getPodByIP(ip)
 	az, sa := "", ""
@@ -576,7 +587,7 @@ func getEndpoints(ip string, c *Controller, svcPort *model.Port, svc *model.Serv
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     ip,
-			Port:        int(svcPort.Port),
+			Port:        int(port.Port),
 			ServicePort: svcPort,
 		},
 		Service:          svc,
@@ -766,6 +777,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 					Labels:          labels,
 					UID:             uid,
 					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
+					Network:         c.endpointNetwork(&ea),
 				})
 			}
 		}
@@ -783,4 +795,60 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 	} else {
 		c.XDSUpdater.ConfigUpdate(false)
 	}
+}
+
+// namedRangerEntry for holding network's CIDR and name
+type namedRangerEntry struct {
+	name    string
+	network net.IPNet
+}
+
+// returns the IPNet for the network
+func (n namedRangerEntry) Network() net.IPNet {
+	return n.network
+}
+
+// InitNetworkLookup will read the mesh networks configuration from the environment
+// and initialize CIDR rangers for an efficient network lookup when needed
+func (c *Controller) InitNetworkLookup() {
+	if c.Env == nil || c.Env.MeshNetworks == nil {
+		return
+	}
+
+	for n, v := range c.Env.MeshNetworks.Networks {
+		for _, ep := range v.Endpoints {
+			if ep.GetFromCidr() != "" {
+				_, net, err := net.ParseCIDR(ep.GetFromCidr())
+				if err != nil {
+					log.Warnf("unable to parse CIDR %q for network %s", ep.GetFromCidr(), n)
+					continue
+				}
+				rangerEntry := namedRangerEntry{
+					name:    n,
+					network: *net,
+				}
+				c.ranger.Insert(rangerEntry)
+			}
+			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
+				c.network = n
+			}
+		}
+	}
+}
+
+// return the mesh network for the endpoint address. Empty string if not found.
+func (c *Controller) endpointNetwork(ea *v1.EndpointAddress) string {
+	entries, err := c.ranger.ContainingNetworks(net.ParseIP(ea.IP))
+	if err != nil {
+		log.Errora(err)
+		return ""
+	}
+	if len(entries) == 0 {
+		return ""
+	}
+	if len(entries) > 1 {
+		log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", ea.IP)
+	}
+
+	return (entries[0].(namedRangerEntry)).name
 }

@@ -97,19 +97,19 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	// Create the namespace objects.
 	e.systemNamespace = &namespace{
 		name:             e.kube.IstioSystemNamespace,
-		annotation:       "system-namespace",
+		annotation:       "istio-system",
 		accessor:         e.Accessor,
 		injectionEnabled: false,
 	}
 	e.dependencyNamespace = &namespace{
 		name:             e.kube.DependencyNamespace,
-		annotation:       "dep-namespace",
+		annotation:       "istio-dep",
 		accessor:         e.Accessor,
 		injectionEnabled: true,
 	}
 	e.testNamespace = &namespace{
 		name:             e.kube.TestNamespace,
-		annotation:       "test-namespace",
+		annotation:       "istio-test",
 		accessor:         e.Accessor,
 		injectionEnabled: false,
 	}
@@ -122,7 +122,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	}
 
 	if e.kube.DeployIstio {
-		if e.deployment, err = e.deployIstio(); err != nil {
+		if err := e.deployIstio(); err != nil {
 			return err
 		}
 	}
@@ -130,18 +130,17 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 	return nil
 }
 
-func (e *Implementation) deployIstio() (instance *deployment.Instance, err error) {
+func (e *Implementation) deployIstio() (err error) {
 	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
 	defer func() {
 		if err != nil {
-			instance = nil
 			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
 		} else {
 			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
 		}
 	}()
 
-	return deployment.NewHelmDeployment(deployment.HelmConfig{
+	e.deployment, err = deployment.NewHelmDeployment(deployment.HelmConfig{
 		Accessor:   e.Accessor,
 		Namespace:  e.systemNamespace.allocatedName,
 		WorkDir:    e.ctx.Settings().WorkDir,
@@ -149,6 +148,10 @@ func (e *Implementation) deployIstio() (instance *deployment.Instance, err error
 		ValuesFile: e.kube.ValuesFile,
 		Values:     e.kube.Values,
 	})
+	if err == nil {
+		err = e.deployment.Deploy(e.Accessor, true)
+	}
+	return
 }
 
 // Configure applies the given configuration to the mesh.
@@ -229,9 +232,25 @@ func (e *Implementation) DumpState(context string) {
 // Close implementation.
 func (e *Implementation) Close() error {
 	var err error
+
+	// Delete any namespaces that were allocated.
+	waitFuncs := make([]func() error, 0)
 	for _, ns := range []*namespace{e.testNamespace, e.dependencyNamespace, e.systemNamespace} {
-		if e := ns.Close(); e != nil {
-			err = multierror.Append(err, e)
+		if ns.created {
+			waitFunc, e := ns.Close()
+			if e != nil {
+				err = multierror.Append(err, e)
+			} else {
+				waitFuncs = append(waitFuncs, waitFunc)
+			}
+		}
+	}
+
+	// Wait for any allocated namespaces to be deleted.
+	for _, waitFunc := range waitFuncs {
+		e := waitFunc()
+		if e != nil {
+			err = multierror.Append(e)
 		}
 	}
 
@@ -259,7 +278,8 @@ type namespace struct {
 
 func (n *namespace) allocate() error {
 	// Close if previously allocated
-	if err := n.Close(); err != nil {
+	err := n.CloseAndWait()
+	if err != nil {
 		return err
 	}
 
@@ -279,15 +299,27 @@ func (n *namespace) allocate() error {
 }
 
 // Close implements io.Closer interface.
-func (n *namespace) Close() error {
+func (n *namespace) Close() (func() error, error) {
 	if n.created {
 		defer func() {
 			n.allocatedName = ""
 			n.created = false
 		}()
-		return n.accessor.DeleteNamespace(n.allocatedName)
+		name := n.allocatedName
+		waitFunc := func() error {
+			return n.accessor.WaitForNamespaceDeletion(name)
+		}
+		return waitFunc, n.accessor.DeleteNamespace(name)
 	}
-	return nil
+	return func() error { return nil }, nil
+}
+
+func (n *namespace) CloseAndWait() error {
+	waitFunc, err := n.Close()
+	if err == nil {
+		err = waitFunc()
+	}
+	return err
 }
 
 func (n *namespace) getNameToAllocate() string {
