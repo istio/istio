@@ -26,9 +26,9 @@ galley:
 # mixer configuration
 #
 mixer:
-  istio-policy:
+  policy:
     enabled: true
-  istio-telemetry:
+  telemetry:
     enabled: true
 
 #
