@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -26,6 +27,21 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	ca "istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/nodeagent/sds"
+)
+
+const (
+	// name of authentication provider.
+	caProvider = "CA_PROVIDER"
+
+	// CA endpoint.
+	caAddress = "CA_ADDR"
+
+	// names of authentication provider's plugins.
+	pluginNames = "Plugins"
+
+	// The trust domain corresponds to the trust root of a system.
+	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+	trustDomain = "Trust_Domain"
 )
 
 var (
@@ -71,16 +87,22 @@ var (
 )
 
 func init() {
-	caProvider := os.Getenv("CA_PROVIDER")
+	caProvider := os.Getenv(caProvider)
 	if caProvider == "" {
 		log.Error("CA Provider is missing")
 		os.Exit(1)
 	}
 
-	caAddr := os.Getenv("CA_ADDR")
+	caAddr := os.Getenv(caAddress)
 	if caAddr == "" {
 		log.Error("CA Endpoint is missing")
 		os.Exit(1)
+	}
+
+	pluginNames := os.Getenv(pluginNames)
+	pns := []string{}
+	if pluginNames != "" {
+		pns = strings.Split(pluginNames, ",")
 	}
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
@@ -88,10 +110,11 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", caProvider, "CA provider")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
-	rootCmd.PersistentFlags().StringArrayVar(&serverOptions.PluginNames, "pluginNames",
-		[]string{""}, "authentication provider specific plugin names")
+
 	rootCmd.PersistentFlags().StringVar(&serverOptions.TrustDomain, "trustDomain",
-		"", "The trust domain this node agent run in")
+		os.Getenv(trustDomain), "The trust domain this node agent run in")
+	rootCmd.PersistentFlags().StringArrayVar(&serverOptions.PluginNames, "pluginNames",
+		pns, "authentication provider specific plugin names")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.KeyFile, "sdsKeyFile", "", "SDS gRPC TLS server-side key")
