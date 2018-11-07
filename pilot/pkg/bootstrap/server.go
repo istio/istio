@@ -968,12 +968,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
 
 		go func() {
-			if err = s.httpServer.Serve(listener); err != nil {
+			if err := s.httpServer.Serve(listener); err != nil {
 				log.Warna(err)
 			}
 		}()
 		go func() {
-			if err = s.grpcServer.Serve(grpcListener); err != nil {
+			if err := s.grpcServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
