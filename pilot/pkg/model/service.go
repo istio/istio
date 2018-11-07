@@ -315,7 +315,7 @@ type LabelsCollection []Labels
 const (
 	// IstioMTLSAnnotationName is the name of the annotation which decides whether an endpoint can serve
 	// mTLS traffic. For now, kube injector adds this annotation to the Pod spec.
-	IstioMTLSAnnotationName = "authentication.istio.io/able_mtls"
+	IstioMTLSAnnotationName = "authentication.istio.io/mtlsReady"
 )
 
 // Probe represents a health probe associated with an instance of service.

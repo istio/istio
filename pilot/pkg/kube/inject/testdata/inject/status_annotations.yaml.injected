@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        authentication.istio.io/able_mtls: "true"
+        authentication.istio.io/mtlsReady: "true"
         readiness.status.sidecar.istio.io/applicationPorts: 1,2,3
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"

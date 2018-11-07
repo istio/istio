@@ -11,7 +11,7 @@ items:
     template:
       metadata:
         annotations:
-          authentication.istio.io/able_mtls: "true"
+          authentication.istio.io/mtlsReady: "true"
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
@@ -138,7 +138,7 @@ items:
     template:
       metadata:
         annotations:
-          authentication.istio.io/able_mtls: "true"
+          authentication.istio.io/mtlsReady: "true"
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
