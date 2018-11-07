@@ -86,12 +86,18 @@ fi
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${TAG:-${GIT_SHA}}"
-export ENABLE_ISTIO_CNI=true
-export EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.cniBinDir=/home/kubernetes/bin --set istio-cni.tag=v0.1-dev-mapann --set istio-cni.hub=docker.io/tiswanso"
+#JAJ export ENABLE_ISTIO_CNI=true
+#JAJ export EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.cniBinDir=/home/kubernetes/bin --set istio-cni.tag=v0.1-dev-mapann --set istio-cni.hub=docker.io/tiswanso"
 
 make init
 
 setup_cluster
+
+export ENABLE_ISTIO_CNI=true
+# cniBinDir setting is appropriate for GKE environments
+export EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.cniBinDir=/home/kubernetes/bin --set istio-cni.tag=v0.1-dev-mapann --set istio-cni.hub=docker.io/tiswanso"
+export RESOURCE_TYPE="gke-e2e-test-latest"
+export E2E_ARGS+=" --kube_inject_configmap=istio-sidecar-injector"
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
