@@ -25,6 +25,19 @@ func TestValidation(t *testing.T) {
 		t.Errorf("Expecting to validate but failed with: %v", err)
 	}
 
+	a = DefaultArgs()
+	a.MaxMessageSize = 0
+	if err := a.validate(); err == nil {
+		t.Errorf("Got unexpected success")
+	}
+
+	a = DefaultArgs()
+	a.MaxConcurrentStreams = 0
+	if err := a.validate(); err == nil {
+		t.Errorf("Got unexpected success")
+	}
+
+	a = DefaultArgs()
 	a.AdapterWorkerPoolSize = -1
 	if err := a.validate(); err == nil {
 		t.Errorf("Got unexpected success")
