@@ -201,6 +201,7 @@ static_resources:
                   timeout: 0.000s
           stat_prefix: "15011"
         name: envoy.http_connection_manager
+{{- if .ControlPlaneAuth }}
       tls_context:
         common_tls_context:
           alpn_protocols:
@@ -214,6 +215,7 @@ static_resources:
             trusted_ca:
               filename: /etc/certs/root-cert.pem
         require_client_certificate: true
+{{- end }}
     name: "15011"
   - address:
       socket_address:
@@ -276,6 +278,7 @@ static_resources:
                   timeout: 0.000s
           stat_prefix: "15005"
         name: envoy.http_connection_manager
+{{- if .ControlPlaneAuth }}
       tls_context:
         common_tls_context:
           alpn_protocols:
@@ -289,6 +292,7 @@ static_resources:
             trusted_ca:
               filename: /etc/certs/root-cert.pem
         require_client_certificate: true
+{{- end }}
     name: "15005"
   - address:
       socket_address:
