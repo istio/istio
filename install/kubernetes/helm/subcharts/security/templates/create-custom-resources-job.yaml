@@ -1,3 +1,4 @@
+{{- if not .Values.omitPostInstall }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -89,3 +90,4 @@ spec:
           configMap:
             name: istio-security-custom-resources
       restartPolicy: OnFailure
+{{- end }}
