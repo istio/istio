@@ -30,10 +30,18 @@ import (
 )
 
 const (
-	caProvider  = "CA_PROVIDER"
-	caAddress   = "CA_ADDR"
-	trustDomain = "Trust_Domain"
+	// name of authentication provider.
+	caProvider = "CA_PROVIDER"
+
+	// CA endpoint.
+	caAddress = "CA_ADDR"
+
+	// names of authentication provider's plugins.
 	pluginNames = "Plugins"
+
+	// The trust domain corresponds to the trust root of a system.
+	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+	trustDomain = "Trust_Domain"
 )
 
 var (
