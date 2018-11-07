@@ -67,6 +67,10 @@ for ((i=1; i<=$#; i++)); do
     E2E_ARGS+=( "${!i}" )
 done
 
+if [[ "${ENABLE_ISTIO_CNI}" == "true" ]]; then
+  collect_logging
+fi
+
 time ISTIO_DOCKER_HUB=$HUB \
   E2E_ARGS="${E2E_ARGS[*]}" \
   JUNIT_E2E_XML="${ARTIFACTS_DIR}/junit.xml" \

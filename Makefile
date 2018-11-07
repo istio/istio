@@ -711,7 +711,6 @@ FILES_TO_CLEAN+=install/consul/istio.yaml \
                 install/kubernetes/istio.yaml \
                 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml \
 
-
 #-----------------------------------------------------------------------------
 # Target: environment and tools
 #-----------------------------------------------------------------------------
