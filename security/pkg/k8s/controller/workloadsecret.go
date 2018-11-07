@@ -49,8 +49,8 @@ const (
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
 
-	// The default SPIFFE URL value for identity domain
-	DefaultIdentityDomain = "cluster.local"
+	// The default SPIFFE URL value for trust domain
+	DefaultTrustDomain = "cluster.local"
 
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
@@ -84,7 +84,7 @@ type DNSNameEntry struct {
 type SecretController struct {
 	ca             ca.CertificateAuthority
 	certTTL        time.Duration
-	identityDomain string
+	trustDomain    string
 	core           corev1.CoreV1Interface
 	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
@@ -111,7 +111,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, identityDomain string,
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, trustDomain string,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
@@ -123,14 +123,14 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, iden
 			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
 
-	if identityDomain == "" {
-		identityDomain = DefaultIdentityDomain
+	if trustDomain == "" {
+		trustDomain = DefaultTrustDomain
 	}
 
 	c := &SecretController{
 		ca:               ca,
 		certTTL:          certTTL,
-		identityDomain:   identityDomain,
+		trustDomain:      trustDomain,
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
 		dualUse:          dualUse,
@@ -292,15 +292,15 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 	}
 
 	saName := scrt.Annotations[ServiceAccountNameAnnotationKey]
-	if sa, _ := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); sa != nil {
-		log.Errorf("Re-create deleted Istio secret for existing service account.")
+	if _, error := sc.core.ServiceAccounts(scrt.GetNamespace()).Get(saName, metav1.GetOptions{}); error == nil {
+		log.Errorf("Re-create deleted Istio secret for existing service account %s.", saName)
 		sc.upsertSecret(saName, scrt.GetNamespace())
 		sc.monitoring.SecretDeletion.Inc()
 	}
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
-	id := fmt.Sprintf("%s://%s/ns/%s/sa/%s", util.URIScheme, sc.identityDomain, saNamespace, saName)
+	id := fmt.Sprintf("%s://%s/ns/%s/sa/%s", util.URIScheme, sc.trustDomain, saNamespace, saName)
 	if sc.dnsNames != nil {
 		// Control plane components in same namespace.
 		if e, ok := sc.dnsNames[saName]; ok {

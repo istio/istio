@@ -9,5 +9,5 @@ dependencies:
     repository: file://../subcharts/security
   - name: istio-cni
     version: ">=0.0.1"
-    repository: https://raw.githubusercontent.com/istio/istio.io/master/static/charts
+    repository: "@istio.io"
     condition: istio_cni.enabled
