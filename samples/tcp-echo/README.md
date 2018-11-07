@@ -21,7 +21,7 @@ To run the TCP Echo Service sample:
 3. Test by running the `nc` command from a `busybox` container from within the cluster.
 
    ```console
-   $ kubectl run -i --rm --restart=Never busybox --image=busybox -- sh -c "echo world | nc tcp-echo 9000"
+   $ kubectl run -i --rm --restart=Never dummy --image=busybox -- sh -c "echo world | nc tcp-echo 9000"
    hello world
    pod "busybox" deleted
    ```
