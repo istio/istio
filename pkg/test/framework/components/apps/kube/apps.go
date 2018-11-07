@@ -162,10 +162,11 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 	// Wait for the pods to transition to running.
 	clients := make([]environment.DeployedApp, 0, len(deployments))
 	for _, d := range deployments {
-		if err := d.wait(e); err != nil {
+		pod, err := d.waitForPod(e)
+		if err != nil {
 			return nil, multierror.Prefix(err, fmt.Sprintf("failed waiting for deployment %s: ", d.deployment))
 		}
-		client, err := newClient(d.service, e)
+		client, err := newApp(d.service, pod, e)
 		if err != nil {
 			return nil, multierror.Prefix(err, fmt.Sprintf("failed creating client for deployment %s: ", d.deployment))
 		}

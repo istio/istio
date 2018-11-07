@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var scope = log.RegisterScope("kube-source", "Source for Kubernetes", 0)
+var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
 
 // source is an implementation of runtime.Source.
 type sourceImpl struct {
@@ -112,8 +112,10 @@ func ProcessEvent(spec kube.ResourceSpec, kind resource.EventKind, key, resource
 	if u != nil {
 		if key, createTime, item, err = spec.Converter(spec.Target, key, u); err != nil {
 			scope.Errorf("Unable to convert unstructured to proto: %s/%s", key, resourceVersion)
+			recordConverterResult(false, spec.Version, spec.Group, spec.Kind)
 			return
 		}
+		recordConverterResult(true, spec.Version, spec.Group, spec.Kind)
 	}
 
 	rid := resource.VersionedKey{

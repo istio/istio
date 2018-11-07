@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
-	"istio.io/istio/mixer/adapter/rbac"
+	"istio.io/istio/istioctl/pkg/rbac"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -40,11 +40,11 @@ locally to evaluate the effect of the Istio RBAC policies, no actual request wil
 
 METHOD is the HTTP method being taken, like GET, POST, etc. SERVICE is the short service name the action
 is being taken on. PATH is the HTTP path within the service.`,
-		Example: `# Query if user test is allowed to GET /v1/health of service rating.
-istioctl experimental rbac can -u test GET rating /v1/health
+		Example: `# Query if user "cluster.local/ns/default/sa/productpage" is allowed to GET /v1/health of service rating.
+istioctl experimental rbac can -u cluster.local/ns/default/sa/productpage GET rating /v1/health
 
-# Query if service product-page is allowed to POST to /data of service rating with label version=dev.
-istioctl experimental rbac can -s service=product-page POST rating /data -a version=dev`,
+# Query if namespace foo is allowed to POST to /data of service rating with label version=dev.
+istioctl experimental rbac can -s source.namespace=foo POST rating /data -a destination.labels[version]=dev`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			action.Method = args[0]
@@ -61,7 +61,7 @@ istioctl experimental rbac can -s service=product-page POST rating /data -a vers
 				return fmt.Errorf("failed to create rbacStore: %v", err)
 			}
 
-			ret, err := rbacStore.Check(subject, action)
+			ret, err := rbacStore.CheckPermission(subject, action)
 			if err != nil {
 				return err
 			}
@@ -77,8 +77,6 @@ istioctl experimental rbac can -s service=product-page POST rating /data -a vers
 
 	cmd.Flags().StringVarP(&subject.User, "user", "u", "",
 		"[Subject] User name/ID that the subject represents.")
-	cmd.Flags().StringVarP(&subject.Groups, "groups", "g", "",
-		"[Subject] Group name/ID that the subject represents.")
 	cmd.Flags().StringArrayVarP(&subject.Properties, "subject-properties", "s", []string{},
 		"[Subject] Additional data about the subject. Specified as name1=value1,name2=value2,...")
 	cmd.Flags().StringArrayVarP(&action.Properties, "action-properties", "a", []string{},

@@ -127,13 +127,13 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
-  # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
-  sdsEnabled: false
-
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
   disablePolicyChecks: false
+
+  # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
+  # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
+  policyCheckFailOpen: false
 
   # EnableTracing sets the value with same name in istio config map, requires pilot restart to take effect.
   enableTracing: true
@@ -238,3 +238,16 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
+
+  sds:
+    enabled: false
+    udsPath: ""
+    enableTokenMount: false
+
+#
+# Istio CNI plugin enabled
+#   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
+#   settings for the istio-proxy.
+#
+istio_cni:
+  enabled: false

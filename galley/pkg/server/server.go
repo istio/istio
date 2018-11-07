@@ -41,6 +41,8 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
+var scope = log.RegisterScope("runtime", "Galley runtime", 0)
+
 // Server is the main entry point into the Galley code.
 type Server struct {
 	shutdown chan error
