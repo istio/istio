@@ -42,7 +42,7 @@ spec:
     spec:
       containers:
       - name: tcp-echo
-        image: docker.io/venilnoronha/tcp-echo-server
+        image: istio/tcp-echo-server:1.1
         imagePullPolicy: IfNotPresent
         args: [ "9000", "hello" ]
         ports:
