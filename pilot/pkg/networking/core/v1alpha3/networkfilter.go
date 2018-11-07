@@ -45,8 +45,10 @@ func buildInboundNetworkFilters(env *model.Environment, instance *model.ServiceI
 func setAccessLogAndBuildTCPFilter(env *model.Environment, config *tcp_proxy.TcpProxy) *listener.Filter {
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
-			Path:   env.Mesh.AccessLogFile,
-			Format: EnvoyTCPLogFormat,
+			Path: env.Mesh.AccessLogFile,
+			AccessLogFormat: &fileaccesslog.FileAccessLog_Format{
+				Format: EnvoyTCPLogFormat,
+			},
 		}
 		config.AccessLog = []*accesslog.AccessLog{
 			{
