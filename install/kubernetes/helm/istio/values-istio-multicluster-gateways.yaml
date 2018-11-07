@@ -1,0 +1,15 @@
+global:
+  podDNSSearchNamespaces:
+  - global
+  - "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"  
+
+  multiCluster:
+    connectUsingGateway: true
+
+istiocoredns:
+  enabled: true
+
+gateways:
+  istio-egressgateway:
+    env:
+      ISTIO_META_REQUESTED_NETWORK_VIEW: "external"

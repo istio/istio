@@ -1,0 +1,5 @@
+#
+# addon istiocoredns tracing configuration
+#
+enabled: false
+replicaCount: 1

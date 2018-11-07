@@ -131,7 +131,7 @@ istio-egressgateway:
     # network field set to "external". By default its set to "" so that
     # the egress gateway sees the same set of endpoints as the sidecars
     # preserving backward compatibility
-    ISTIO_META_REQUESTED_NETWORK_VIEW: ""
+    # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
     # A gateway with this mode ensures that pilot generates an additional
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
@@ -183,44 +183,3 @@ istio-ilbgateway:
     secretName: istio-ilbgateway-ca-certs
     mountPath: /etc/istio/ilbgateway-ca-certs
 
-# MultiCluster gateway is used to route traffic into local cluster, based
-# on the SNI value in the TLS connection. In a multi-cluster setup, a
-# remote service sends traffic with the Envoy cluster encoded in the SNI
-# value. The gateway forwards traffic to the envoy cluster (service+subset+port).
-istio-mcgateway:
-  enabled: false
-  cpu:
-    targetAverageUtilization: 80
-  labels:
-    app: istio-mcgateway
-    istio: mcgateway
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  resources:
-    requests:
-      cpu: 800m
-      memory: 512Mi
-    #limits:
-    #  cpu: 1800m
-    #  memory: 256Mi
-  loadBalancerIP: ""
-  podAnnotations: {}
-  type: LoadBalancer
-  ports:
-    # Port 80 is not used. But we still need this because AWS LB marks
-    # the gateway as unhealthy without some response.
-    # Traffic into port 80 returns 404 always, but keeps AWS LB happy.
-  - port: 80
-    targetPort: 80
-    name: http
-    # This is the port where sni routing happens
-  - port: 15443
-    targetPort: 15443
-    name: tls
-  ### Advanced options ############
-  env:
-    # A gateway with this mode ensures that pilot does not
-    # generate mTLS clusters for the mcgateway except for
-    # istio-telemetry,istio-policy
-    ISTIO_META_ROUTER_MODE: "sni-dnat"
