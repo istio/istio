@@ -8,6 +8,13 @@
 - name: Add istio bin dir to PATH
   import_tasks: add_to_path.yml
 
+- include_tasks: safely_create_namespace.yml
+  vars:
+    ns_name: 'istio-system'
+
+- name: Create Kiali Secret
+  shell: "echo \"{{ secret | to_yaml }}\" | {{cmd_path}} create -f - "
+
 - name: Deploy Istio from kubernetes file
   shell: "{{ cmd_path }} create -f {{ istio_definition_full_path }}"
   ignore_errors: true
@@ -18,7 +25,5 @@
     - istio-ingressgateway
     - prometheus
     - grafana
+    - kiali
   when: "cluster_flavour == 'ocp'"
-
-- name: Deploy Addons defined such as Grafana, ...
-  import_tasks: install_addons.yml
