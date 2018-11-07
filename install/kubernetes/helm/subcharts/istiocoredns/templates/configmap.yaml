@@ -7,17 +7,18 @@ metadata:
     app: {{ template "istiocoredns.name" . }}
     chart: {{ template "istiocoredns.chart" . }}
     heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }
+    release: {{ .Release.Name }}
 data:
   Corefile: |
     .:53 {
-        errors
-        health
-        proxy global 127.0.0.1:8053 {
-          protocol grpc insecure
+          errors
+          health
+          proxy global 127.0.0.1:8053 {
+            protocol grpc insecure
+          }
+          prometheus :9153
+          proxy . /etc/resolv.conf
+          cache 30
+          reload
         }
-        prometheus :9153
-        proxy . /etc/resolv.conf
-        cache 30
-        reload
-    }
+---
