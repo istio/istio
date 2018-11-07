@@ -194,6 +194,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 
 		instance := &model.ServiceInstance{
 			Service: svc,
+			Labels:  e.Labels,
 			Endpoint: model.NetworkEndpoint{
 				Address: e.Address,
 				ServicePort: &model.Port{
