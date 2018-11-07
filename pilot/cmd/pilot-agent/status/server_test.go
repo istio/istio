@@ -86,6 +86,7 @@ func TestAppProbe(t *testing.T) {
 			req.Header.Add(IstioAppPortHeader, tc.appPortHeader)
 		}
 		resp, _ := client.Do(req)
+		defer resp.Body.Close()
 		if resp.StatusCode != tc.statusCode {
 			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
 		}
