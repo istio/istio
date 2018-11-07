@@ -8,7 +8,7 @@ jaeger:
   tag: 1.7
   memory:
     max_traces: 50000
-  resources: {}
+  envResources: {}
 #    configFileEnabled: "jaeger-configmap"
 #    secretFileEnabled: "jaeger-secrets"
   ingress:
