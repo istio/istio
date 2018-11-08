@@ -25,7 +25,7 @@ import (
 )
 
 func TestSchema_All(t *testing.T) {
-	// Test Schema.All in isolation, as the rest of the tests depend on it.
+	// Test schema.All in isolation, as the rest of the tests depend on it.
 	s := Schema{
 		byURL: make(map[string]Info),
 	}
