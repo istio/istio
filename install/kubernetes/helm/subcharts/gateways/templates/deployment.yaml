@@ -65,11 +65,9 @@ spec:
             {{- range $key, $val := $spec.ports }}
             - containerPort: {{ $val.port }}
             {{- end }}
-{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
-            - containerPort: {{ $.Values.global.proxy.stats.prometheusPort }}
+            - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
-{{ end }}
           args:
           - proxy
           - router

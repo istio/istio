@@ -80,12 +80,10 @@ data:
 {{- else }}
         image: {{ "[[ annotation .ObjectMeta `sidecar.istio.io/proxyImage` " }} "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}" {{ " ]]" }}
 {{- end }}
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
         ports:
-        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+        - containerPort: 15090
           protocol: TCP
           name: http-envoy-prom
-{{ end }}
         args:
         - proxy
         - sidecar
