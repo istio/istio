@@ -178,12 +178,7 @@ global:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
       host: # example: statsd-svc
-      port: # example: 9125
-
-    # This controls the stats collection for proxies. To disable stats
-    # collection, set the prometheusPort to 0.
-    stats:
-      prometheusPort: 15090
+      port: # example: 9125    
 
     # Specify which tracer to use. One of: lightstep, zipkin
     tracer: "zipkin"
