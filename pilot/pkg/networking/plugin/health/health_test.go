@@ -21,11 +21,11 @@ import (
 	envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	hcfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/proto"
 )
 
 func TestBuildHealthCheckFilters(t *testing.T) {
@@ -51,9 +51,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
-							PassThroughMode: &types.BoolValue{
-								Value: true,
-							},
+							PassThroughMode: proto.BoolTrue,
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
 									Name:                 ":path",
@@ -80,9 +78,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
-							PassThroughMode: &types.BoolValue{
-								Value: true,
-							},
+							PassThroughMode: proto.BoolTrue,
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
 									Name:                 ":path",
@@ -117,9 +113,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
-							PassThroughMode: &types.BoolValue{
-								Value: true,
-							},
+							PassThroughMode: proto.BoolTrue,
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
 									Name:                 ":path",
@@ -131,9 +125,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
-							PassThroughMode: &types.BoolValue{
-								Value: true,
-							},
+							PassThroughMode: proto.BoolTrue,
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
 									Name:                 ":path",
@@ -169,9 +161,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					{
 						Name: "envoy.health_check",
 						Config: util.MessageToStruct(&hcfilter.HealthCheck{
-							PassThroughMode: &types.BoolValue{
-								Value: true,
-							},
+							PassThroughMode: proto.BoolTrue,
 							Headers: []*envoy_api_v2_route.HeaderMatcher{
 								{
 									Name:                 ":path",
