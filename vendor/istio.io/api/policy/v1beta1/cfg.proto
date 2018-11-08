@@ -332,7 +332,7 @@ message Connection {
   string address = 2;
 
   // Timeout for remote calls to the backend.
-  google.protobuf.Duration timeout = 3;
+  google.protobuf.Duration timeout = 3 [(gogoproto.stdduration) = true];
 
   // TODO: Add auth related fields.
 }

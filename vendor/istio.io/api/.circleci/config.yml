@@ -2,7 +2,7 @@ version: 2
 defaults: &defaults
   working_directory: /src/istio.io/api
   docker:
-    - image: gcr.io/istio-testing/protoc:2018-06-12
+    - image: gcr.io/istio-testing/api-build-tools:2018-10-31
   environment:
     GOPATH: /go
     OUT_PATH: /src
@@ -15,10 +15,12 @@ jobs:
       - run:
           command: |
             ./scripts/generate-protos.sh || die "could not generate *.pb.go"
+            make proto-commit || die "could not regenerate proto.lock"
+            make lint || die "Lint errors"
             if [[ -n $(git status --porcelain) ]]; then
               git status
               git --no-pager diff
-              echo "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh"
+              echo "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh or make proto-commit"
               exit 1
             fi
 

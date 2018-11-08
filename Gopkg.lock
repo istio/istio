@@ -1608,7 +1608,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c61cd9e33a234b63e8fe066615b66ebb80e1c1ba5103ae7d7a0c2312d09f6112"
+  digest = "1:beee7a1021554ce19306fa440376f1f378695a22d4841fcd69ad9f275ad92bbf"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
