@@ -82,6 +82,12 @@ tracing:
 kiali:
   enabled: false
 
+#
+# addon Istio CoreDNS configuration
+#
+istiocoredns:
+  enabled: false
+
 # Common settings used among istio subcharts.
 global:
   # Default hub for Istio images.
