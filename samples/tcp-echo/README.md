@@ -1,8 +1,8 @@
 # TCP Echo Service
 
-This sample runs [TCP Echo Server](https://github.com/venilnoronha/tcp-echo-server)
-as an Istio service. TCP Echo Server allows you to connect to it over TCP and
-echoes back data sent to it along with a preconfigured prefix.
+This sample runs [TCP Echo Server](src/) as an Istio service. TCP Echo Server
+allows you to connect to it over TCP and echoes back data sent to it along with
+a preconfigured prefix.
 
 ## Usage
 
@@ -23,7 +23,7 @@ To run the TCP Echo Service sample:
    ```console
    $ kubectl run -i --rm --restart=Never dummy --image=busybox -- sh -c "echo world | nc tcp-echo 9000"
    hello world
-   pod "busybox" deleted
+   pod "dummy" deleted
    ```
 
    As you observe, sending _world_ on a TCP connection to the server results in
