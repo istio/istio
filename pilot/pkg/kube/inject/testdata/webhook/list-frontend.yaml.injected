@@ -77,6 +77,12 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_META_app
+          value: hello
+        - name: ISTIO_META_tier
+          value: frontend
+        - name: ISTIO_META_track
+          value: stable
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy

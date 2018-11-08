@@ -35,9 +35,6 @@ const (
 )
 
 func appProbePath(kind string, containers []corev1.Container) string {
-	if !canRewriteProber(containers) {
-		return ""
-	}
 	for _, c := range containers {
 		probe := c.ReadinessProbe
 		if kind == "live" {
@@ -64,26 +61,7 @@ func appProbePath(kind string, containers []corev1.Container) string {
 	return ""
 }
 
-// Returns true if only one container has readiness or liveness prober defined in the spec.
-// TODO(incfly): support more than one container probing.
-func canRewriteProber(containers []corev1.Container) bool {
-	count := 0
-	for _, c := range containers {
-		if c.Name == istioProxyContainerName {
-			continue
-		}
-		if c.LivenessProbe != nil || c.ReadinessProbe != nil {
-			count++
-		}
-	}
-	return count == 1
-}
-
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
-	if !canRewriteProber(podSpec.Containers) {
-		return
-	}
-
 	statusPort := -1
 	pi := -1
 	for _, c := range spec.Containers {
@@ -106,23 +84,26 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	if statusPort == -1 {
 		return
 	}
-	// We only support one for now. If more than one container have prober defined, we don't rewrite.
 
 	// Change the application containers' probe to point to sidecar's status port.
-	rewriteProbe := func(probe *corev1.Probe, path string) bool {
+	rewriteProbe := func(probe *corev1.Probe)  {
 		if probe == nil || probe.HTTPGet == nil {
-			return false
+			return
 		}
-		probe.HTTPGet.Path = path
-		probe.HTTPGet.Port = intstr.FromInt(statusPort)
-		return true
+		httpGet := probe.HTTPGet
+		// TODO: handle named port as well.
+		httpGet.HTTPHeaders = append(httpGet.HTTPHeaders, corev1.HTTPHeader{
+			Name: status.IstioAppPortHeader,
+			Value: httpGet.Port.String(),
+		})
+		httpGet.Port = intstr.FromInt(statusPort)
 	}
 	for _, c := range podSpec.Containers {
 		// Skip sidecar container.
 		if c.Name == istioProxyContainerName {
 			continue
 		}
-		rewriteProbe(c.ReadinessProbe, status.AppReadinessPath)
-		rewriteProbe(c.LivenessProbe, status.AppLivenessPath)
+		rewriteProbe(c.ReadinessProbe)
+		rewriteProbe(c.LivenessProbe)
 	}
 }
