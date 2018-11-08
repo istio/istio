@@ -49,6 +49,9 @@ jaeger:
         mode: "test"
     ingress:
       enabled: false
+    annotations:
+      scheduler.alpha.kubernetes.io/critical-pod: ""
+      sidecar.istio.io/inject: "false"
 
 zipkin:
   hub: docker.io/openzipkin
