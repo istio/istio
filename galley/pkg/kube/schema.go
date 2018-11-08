@@ -19,7 +19,7 @@ type Schema struct {
 	entries []ResourceSpec
 }
 
-// SchemaBuilder is a builder for Schema.
+// SchemaBuilder is a builder for schema.
 type SchemaBuilder struct {
 	schema *Schema
 }
@@ -36,7 +36,7 @@ func (b *SchemaBuilder) Add(entry ResourceSpec) {
 	b.schema.entries = append(b.schema.entries, entry)
 }
 
-// Build a new instance of Schema.
+// Build a new instance of schema.
 func (b *SchemaBuilder) Build() *Schema {
 	s := b.schema
 

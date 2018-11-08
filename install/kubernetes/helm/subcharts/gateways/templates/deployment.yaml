@@ -65,11 +65,9 @@ spec:
             {{- range $key, $val := $spec.ports }}
             - containerPort: {{ $val.port }}
             {{- end }}
-{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
-            - containerPort: {{ $.Values.global.proxy.stats.prometheusPort }}
+            - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
-{{ end }}
           args:
           - proxy
           - router
@@ -145,9 +143,9 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name                
-          {{- if $spec.envVariables }}
-          {{- range $key, $val := $spec.envVariables }}
+                fieldPath: metadata.name             
+          {{- if $spec.env }}
+          {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}

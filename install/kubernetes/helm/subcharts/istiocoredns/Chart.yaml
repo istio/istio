@@ -1,0 +1,6 @@
+apiVersion: v1
+description: Istio CoreDNS provides DNS resolution for services in multicluster setups.
+name: istiocoredns
+version: 1.1.0
+appVersion: 0.1
+tillerVersion: ">=2.7.2"
