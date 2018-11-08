@@ -42,9 +42,13 @@ const (
 	// SecretType is used for secret discovery service to construct response.
 	SecretType = "type.googleapis.com/envoy.api.v2.auth.Secret"
 
-	// CredentialTokenHeaderKey is the header key in gPRC header which is used to
+	// credentialTokenHeaderKey is the header key in gPRC header which is used to
 	// pass credential token from envoy's SDS request to SDS service.
-	CredentialTokenHeaderKey = "authorization"
+	credentialTokenHeaderKey = "authorization"
+
+	// k8sSAJwtTokenHeaderKey is the request header key, header value is k8s sa jwt, which is set in
+	// https://github.com/istio/istio/blob/master/pilot/pkg/model/authentication.go
+	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
 )
 
 var (
@@ -242,9 +246,18 @@ func getCredentialToken(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("unable to get metadata from incoming context")
 	}
 
-	if h, ok := metadata[CredentialTokenHeaderKey]; ok {
+	// Get credential token from request k8sSAJwtTokenHeader(`istio_sds_credentail_header`) if it exists;
+	// otherwise fallback to credentialTokenHeader('authorization').
+	if h, ok := metadata[k8sSAJwtTokenHeaderKey]; ok {
 		if len(h) != 1 {
-			return "", fmt.Errorf("credential token must have 1 value in gRPC metadata but got %d", len(h))
+			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", k8sSAJwtTokenHeaderKey, len(h))
+		}
+		return h[0], nil
+	}
+
+	if h, ok := metadata[credentialTokenHeaderKey]; ok {
+		if len(h) != 1 {
+			return "", fmt.Errorf("credential token from %q must have 1 value in gRPC metadata but got %d", credentialTokenHeaderKey, len(h))
 		}
 		return h[0], nil
 	}

@@ -514,6 +514,7 @@ func TestIntoResourceFile(t *testing.T) {
 				ProxyImage:                   ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
 				ImagePullPolicy:              "IfNotPresent",
 				SDSEnabled:                   false,
+				EnableSdsTokenMount:          false,
 				Verbosity:                    DefaultVerbosity,
 				SidecarProxyUID:              DefaultSidecarProxyUID,
 				Version:                      "12345678",
