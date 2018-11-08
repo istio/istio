@@ -16,10 +16,22 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "60000"
     spec:
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{- range .Values.global.imagePullSecrets }}
+        - name: {{ . }}
+{{- end }}
+{{- end }}
       containers:
         - name: jaeger-operator
           image: "{{ .Values.jaeger.hub }}/jaeger-operator:{{ .Values.jaeger.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 60000
             name: metrics
@@ -32,4 +44,12 @@ spec:
                   fieldPath: metadata.namespace
             - name: OPERATOR_NAME
               value: "jaeger-operator"
+          resources:
+{{- if .Values.resources }}
+{{ toYaml .Values.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+      affinity:
+{{- include "nodeaffinity" . | indent 6 }}
 {{ end }}
