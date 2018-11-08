@@ -38,6 +38,8 @@ global:
 # Disable specifc gateway by setting the `enabled` to false.
 #
 gateways:
+  enabled: true
+
   custom-gateway:
     enabled: true
     labels:

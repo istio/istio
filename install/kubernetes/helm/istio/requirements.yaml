@@ -13,7 +13,7 @@ dependencies:
     repository: file://../subcharts/ingress
   - name: gateways
     version: 1.1.0
-    condition: gateways.istio-ingressgateway.enabled,gateways.istio-egressgateway.enabled
+    condition: gateways.enabled
     repository: file://../subcharts/gateways
   - name: mixer
     version: 1.1.0
