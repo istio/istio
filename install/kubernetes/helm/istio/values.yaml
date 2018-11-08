@@ -3,7 +3,7 @@
 # for detailed configuration
 #
 gateways:
-  enabled: true  
+  enabled: true
 
 #
 # sidecar-injector webhook configuration, refer to the
