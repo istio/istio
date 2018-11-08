@@ -26,12 +26,17 @@ import (
 
 // Registry specifies the collection of service registry related interfaces
 type Registry struct {
-	Name      serviceregistry.ServiceRegistry
+	// Name is the type of the registry - Kubernetes, Consul, etc.
+	Name serviceregistry.ServiceRegistry
+	// ClusterID is used when multiple registries of the same type are used,
+	// for example in the case of K8S multicluster.
 	ClusterID string
 	model.Controller
 	model.ServiceDiscovery
 	model.ServiceAccounts
 }
+
+// TODO: rename Name to Type and ClusterID to Name ?
 
 var (
 	clusterAddressesMutex sync.Mutex
