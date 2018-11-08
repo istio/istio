@@ -319,7 +319,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:87e833f5aae198da32458c5653958d43101e71821f33afb84c67839cc25ec493"
+  digest = "1:c86c80011ebdba8fc79b5a439ca69f3e028b7837b82c8de3328dc70663f3ac7a"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -356,8 +356,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "51b27c23cab9d18a020bf06acb0ddd00d23a2d77"
-  version = "v0.6.1"
+  revision = "c4eafe5f684c32f5b19bc21c8c947fc1c1a4fbb2"
+  version = "v0.6.2"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -1667,14 +1667,16 @@
 
 [[projects]]
   branch = "release-1.11"
-  digest = "1:e762108455a2930c3d35d270c67192f67c4d68135391e29dae2506156c630cd1"
+  digest = "1:c23aaeb5fd34af7a630c2e8bfd98c4e2833cb0598594ec55e8e56107cf245852"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
     "pkg/apis/apiextensions/v1beta1",
     "pkg/client/clientset/clientset",
+    "pkg/client/clientset/clientset/fake",
     "pkg/client/clientset/clientset/scheme",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake",
   ]
   pruneopts = "NUT"
   revision = "16750353bf974758fbed9f44c39b81dfe6decb71"
@@ -2151,6 +2153,7 @@
     "k8s.io/api/rbac/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
+    "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",

@@ -159,7 +159,8 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `gateways.istio-egressgateway.enabled` | Specifies whether Egress gateway should be installed | true/false | `true` |
 | `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | `true` |
 | `galley.enabled` | Specifies whether Galley should be installed for server-side config validation | true/false | `true` |
-| `mixer.enabled` | Specifies whether Mixer should be installed | true/false | `true` |
+| `mixer.istio-policy.enabled` | Specifies whether Mixer Policy should be installed | true/false | `true` |
+| `mixer.istio-telemetry.enabled` | Specifies whether Mixer Telemetry should be installed | true/false | `true` |
 | `pilot.enabled` | Specifies whether Pilot should be installed | true/false | `true` |
 | `grafana.enabled` | Specifies whether Grafana addon should be installed | true/false | `false` |
 | `grafana.persist` | Specifies whether Grafana addon should persist config data | true/false | `false` |

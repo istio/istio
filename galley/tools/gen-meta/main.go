@@ -58,6 +58,7 @@ type entry struct {
 
 // proto related metadata
 type protoDef struct {
+	FullName    string `json:"-"`
 	MessageName string `json:"-"`
 }
 
@@ -165,7 +166,9 @@ func readMetadata(path string) (*metadata, error) {
 		if _, found := knownProtoTypes[e.Proto]; e.Proto == "" || found {
 			continue
 		}
-		defn := protoDef{MessageName: e.Proto}
+		parts := strings.Split(e.Proto, ".")
+		msgName := parts[len(parts)-1]
+		defn := protoDef{MessageName: msgName, FullName: e.Proto}
 
 		if prevDefn, ok := protoDefs[e.Proto]; ok && defn != prevDefn {
 			return nil, fmt.Errorf("proto definitions do not match: %+v != %+v", defn, prevDefn)
@@ -194,18 +197,29 @@ const runtimeTemplate = `
 package metadata
 
 import (
-// Pull in all the known proto types to ensure we get their types registered.
-{{range .ProtoGoPackages}}	_ "{{.}}"
-	"istio.io/istio/galley/pkg/runtime/resource"
+	// Pull in all the known proto types to ensure we get their types registered.
+
+{{range .ProtoGoPackages}}	
+	// Register protos in {{.}}""
+	_ "{{.}}"
 {{end}}
+
+	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 // Types of known resources.
 var Types *resource.Schema
 
+var (
+	{{range .ProtoDefs}}
+		// {{.MessageName}} metadata
+		{{.MessageName}} resource.Info
+	{{end}}
+)
+
 func init() {
 	b := resource.NewSchemaBuilder()
-{{range .ProtoDefs}}	b.Register("type.googleapis.com/{{.MessageName}}")
+{{range .ProtoDefs}}	{{.MessageName}} = b.Register("type.googleapis.com/{{.FullName}}")
 {{end}}
     Types = b.Build()
 }

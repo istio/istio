@@ -26,38 +26,13 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
-
+	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/log"
 )
 
-type fileWatcher interface {
-	Add(path string) error
-	Close() error
-	Events() chan fsnotify.Event
-	Errors() chan error
-}
-
-type fsNotifyWatcher struct {
-	*fsnotify.Watcher
-}
-
-func (w *fsNotifyWatcher) Add(path string) error       { return w.Watcher.Add(path) }
-func (w *fsNotifyWatcher) Close() error                { return w.Watcher.Close() }
-func (w *fsNotifyWatcher) Events() chan fsnotify.Event { return w.Watcher.Events }
-func (w *fsNotifyWatcher) Errors() chan error          { return w.Watcher.Errors }
-
-func newFsnotifyWatcher() (fileWatcher, error) {
-	w, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
-	return &fsNotifyWatcher{Watcher: w}, nil
-}
-
 var (
-	newCertFileWatcher = newFsnotifyWatcher
-	newKeyFileWatcher  = newFsnotifyWatcher
-	readFile           = ioutil.ReadFile
+	newFileWatcher = filewatcher.NewWatcher
+	readFile       = ioutil.ReadFile
 
 	watchCertEventHandledProbe func()
 	watchKeyEventHandledProbe  func()
@@ -169,56 +144,32 @@ func (c *CertificateWatcher) start() error {
 	}
 	c.set(&cert)
 
-	// TODO: https://github.com/istio/istio/issues/7877
-	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
-	//
-	certFileWatcher, err := newCertFileWatcher()
-	if err != nil {
+	fw := newFileWatcher()
+	if err := fw.Add(c.options.CertificateFile); err != nil {
 		return err
 	}
-
-	keyFileWatcher, err := newKeyFileWatcher()
-	if err != nil {
-		return err
-	}
-
-	if err = certFileWatcher.Add(c.options.CertificateFile); err != nil {
-		return err
-	}
-
-	if err = keyFileWatcher.Add(c.options.KeyFile); err != nil {
-		_ = certFileWatcher.Close()
+	if err := fw.Add(c.options.KeyFile); err != nil {
 		return err
 	}
 
 	scope.Debugf("Begin watching certificate files: %s, %s: ",
 		c.options.CertificateFile, c.options.KeyFile)
 
-	// Coordinate the goroutines for orderly shutdown
-	exitSignal := &sync.WaitGroup{}
-	exitSignal.Add(1)
-	exitSignal.Add(1)
-
-	go c.watch(exitSignal, certFileWatcher, keyFileWatcher)
-	// Watch error events in a separate g See:
-	// https://github.com/fsnotify/fsnotify#faq
-	go c.watchErrors(exitSignal, certFileWatcher, keyFileWatcher)
-
-	go closeWatchers(exitSignal, certFileWatcher, keyFileWatcher)
+	go c.watch(fw)
 
 	c.caCertPool = caCertPool
 
 	return nil
 }
 
-func (c *CertificateWatcher) watch(exitSignal *sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
-
-	defer exitSignal.Done()
-
+func (c *CertificateWatcher) watch(fw filewatcher.FileWatcher) {
 	for {
 		select {
-		case e := <-certFileWatcher.Events():
-			if e.Op&fsnotify.Write == fsnotify.Write {
+		case e, more := <-fw.Events(c.options.CertificateFile):
+			if !more {
+				return
+			}
+			if e.Op&fsnotify.Write == fsnotify.Write || e.Op&fsnotify.Create == fsnotify.Create {
 				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
@@ -229,8 +180,11 @@ func (c *CertificateWatcher) watch(exitSignal *sync.WaitGroup, certFileWatcher, 
 			if watchCertEventHandledProbe != nil {
 				watchCertEventHandledProbe()
 			}
-		case e := <-keyFileWatcher.Events():
-			if e.Op&fsnotify.Write == fsnotify.Write {
+		case e, more := <-fw.Events(c.options.KeyFile):
+			if !more {
+				return
+			}
+			if e.Op&fsnotify.Write == fsnotify.Write || e.Op&fsnotify.Create == fsnotify.Create {
 				cert, err := loadCertPair(c.options.CertificateFile, c.options.KeyFile)
 				if err != nil {
 					scope.Errorf("error loading certificates after watch event: %v", err)
@@ -241,34 +195,16 @@ func (c *CertificateWatcher) watch(exitSignal *sync.WaitGroup, certFileWatcher, 
 			if watchKeyEventHandledProbe != nil {
 				watchKeyEventHandledProbe()
 			}
+		case e := <-fw.Errors(c.options.CertificateFile):
+			scope.Errorf("error event while watching cert file: %v", e)
+		case e := <-fw.Errors(c.options.KeyFile):
+			scope.Errorf("error event while watching key file: %v", e)
 		case <-c.stopCh:
+			fw.Close()
 			scope.Debug("stopping watch of certificate file changes")
 			return
 		}
 	}
-}
-
-func (c *CertificateWatcher) watchErrors(exitSignal *sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) {
-
-	defer exitSignal.Done()
-
-	for {
-		select {
-		case e := <-keyFileWatcher.Errors():
-			scope.Errorf("error event while watching key file: %v", e)
-		case e := <-certFileWatcher.Errors():
-			scope.Errorf("error event while watching cert file: %v", e)
-		case <-c.stopCh:
-			scope.Debug("stopping watch of certificate file errors")
-			return
-		}
-	}
-}
-
-func closeWatchers(exitSignal *sync.WaitGroup, certFileWatcher, keyFileWatcher fileWatcher) { // nolint: interfacer
-	exitSignal.Wait()
-	_ = certFileWatcher.Close()
-	_ = keyFileWatcher.Close()
 }
 
 // set the certificate directly

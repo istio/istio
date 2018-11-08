@@ -10,6 +10,7 @@ metadata:
     release: {{ .Release.Name }}
 data:
   config.yaml: |
+    istio_namespace: {{ .Release.Namespace }}
     server:
       port: 20001
     external_services:

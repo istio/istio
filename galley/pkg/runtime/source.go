@@ -68,7 +68,7 @@ func (s *InMemorySource) Start() (chan resource.Event, error) {
 
 	// publish current items
 	for _, item := range s.items {
-		s.ch <- resource.Event{Kind: resource.Added, ID: item.ID, Item: item.Item}
+		s.ch <- resource.Event{Kind: resource.Added, Entry: resource.Entry{ID: item.ID, Item: item.Item}}
 	}
 	s.ch <- resource.Event{Kind: resource.FullSync}
 
@@ -104,7 +104,7 @@ func (s *InMemorySource) Set(k resource.Key, item proto.Message) {
 	}
 
 	if s.ch != nil {
-		s.ch <- resource.Event{Kind: kind, ID: resource.VersionedKey{Key: k, Version: v}, Item: item}
+		s.ch <- resource.Event{Kind: kind, Entry: resource.Entry{ID: resource.VersionedKey{Key: k, Version: v}, Item: item}}
 	}
 }
 
@@ -122,7 +122,7 @@ func (s *InMemorySource) Delete(k resource.Key) {
 
 	delete(s.items, k)
 
-	s.ch <- resource.Event{Kind: resource.Deleted, ID: resource.VersionedKey{Key: k, Version: v}}
+	s.ch <- resource.Event{Kind: resource.Deleted, Entry: resource.Entry{ID: resource.VersionedKey{Key: k, Version: v}}}
 }
 
 // Get a value in the in-memory store.

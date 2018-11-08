@@ -17,7 +17,7 @@ dependencies:
     repository: file://../subcharts/gateways
   - name: mixer
     version: 1.1.0
-    condition: mixer.enabled
+    condition: mixer.policy.enabled,mixer.telemetry.enabled
     repository: file://../subcharts/mixer
   - name: nodeagent
     version: 1.1.0
@@ -51,6 +51,10 @@ dependencies:
     version: 1.1.0
     condition: kiali.enabled
     repository: file://../subcharts/kiali
+  - name: istiocoredns
+    version: 1.1.0
+    condition: istiocoredns.enabled
+    repository: file://../subcharts/istiocoredns
   - name: certmanager
     version: 1.1.0
     condition: certmanager.enabled

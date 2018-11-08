@@ -1,9 +1,10 @@
-{{ $mixers := list "policy" "telemetry" }}
-{{- range $idx, $mname := $mixers }}
+{{- range $key, $spec := .Values }}
+{{- if or (eq $key "policy") (eq $key "telemetry") }}
+{{- if $spec.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: istio-{{ $mname }}
+  name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ template "mixer.name" $ }}
@@ -19,12 +20,15 @@ spec:
     port: 15004
   - name: http-monitoring
     port: 9093
-{{- if eq $mname "telemetry" }}
+{{- if eq $key "telemetry" }}
   - name: prometheus
     port: 42422
 {{- end }}
   selector:
     istio: mixer
-    istio-mixer-type: {{ $mname }}
+    istio-mixer-type: {{ $key }}
 ---
 {{- end }}
+{{- end }}
+{{- end }}
+
