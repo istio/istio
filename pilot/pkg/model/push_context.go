@@ -88,7 +88,7 @@ type PushContext struct {
 // or the full list of endpoints for a service across registries, since it limits scalability.
 //
 // Future optimizations will include grouping the endpoints by labels, gateway or region to
-// reduce the time when subsetting or split-horizon is used. This desing assumes pilot
+// reduce the time when subsetting or split-horizon is used. This design assumes pilot
 // tracks all endpoints in the mesh and they fit in RAM - so limit is few M endpoints.
 // It is possible to split the endpoint tracking in future.
 type XDSUpdater interface {
