@@ -150,12 +150,12 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	response, err := httpClient.Do(appReq)
-	defer response.Body.Close()
 	if err != nil {
 		log.Errorf("Request to probe app failed: %v, url %v", err, path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	defer response.Body.Close()
 
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
