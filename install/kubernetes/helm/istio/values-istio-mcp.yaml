@@ -18,11 +18,4 @@ global:
 
   useMCP: true
 
-istiotesting:
-  oneNameSpace: false
 
-prometheus:
-  enabled: true
-
-galley:
-  enabled: true
