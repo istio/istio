@@ -682,10 +682,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 		}
 		// EDS needs the port mapping.
 		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
-		// Bypass convertService and the cache invalidation.
 
-		// Shortcut the conversion
-		c.XDSUpdater.ConfigUpdate(true)
 		svcConv := convertService(*svc, c.domainSuffix)
 		switch event {
 		case model.EventDelete:
@@ -697,6 +694,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			c.servicesMap[svcConv.Hostname] = svcConv
 			c.Unlock()
 		}
+
 		f(svcConv, event)
 
 		return nil
@@ -748,17 +746,11 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 	endpoints := []*model.IstioEndpoint{}
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			//podName := ea.TargetRef.Name
-
 			pod, exists := c.pods.getPodByIP(ea.IP)
 			if !exists {
 				log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
 				if c.Env != nil {
 					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
-				}
-				// Request a global config update - after debounce we may find an endpoint.
-				if c.XDSUpdater != nil {
-					c.XDSUpdater.ConfigUpdate(true)
 				}
 				// TODO: keep them in a list, and check when pod events happen !
 				continue
@@ -789,13 +781,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 
 	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
 
-	err := c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
-	if err != nil {
-		// Request a global push if we failed to do EDS only
-		c.XDSUpdater.ConfigUpdate(true)
-	} else {
-		c.XDSUpdater.ConfigUpdate(false)
-	}
+	c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name
