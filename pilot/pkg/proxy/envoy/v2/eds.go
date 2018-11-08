@@ -17,6 +17,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -63,6 +64,11 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
+)
+
+const (
+	// The range of LoadBalancingWeight is [1, 128]
+	maxLoadBalancingWeight = 128
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -285,74 +291,72 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 // updateServiceShards will list the endpoints and create the shards.
 // This is used to reconcile and to support non-k8s registries (until they migrate).
-// Note that aggreaged list is expensive (for large numbers) - we want to replace
+// Note that aggregated list is expensive (for large numbers) - we want to replace
 // it with a model where DiscoveryServer keeps track of all endpoint registries
 // directly, and calls them one by one.
 func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	// TODO: if ServiceDiscovery is aggregate, and all members support direct, use
 	// the direct interface.
-	var regs []aggregate.Registry
+	var registries []aggregate.Registry
 	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
-		regs = agg.GetRegistries()
+		registries = agg.GetRegistries()
 	} else {
-		regs = []aggregate.Registry{
-			aggregate.Registry{
+		registries = []aggregate.Registry{
+			{
 				ServiceDiscovery: s.Env.ServiceDiscovery,
 			},
 		}
 	}
 
-	svc2acc := map[string]map[string]bool{}
+	// hostname --> service account
+	svc2account := map[string]map[string]bool{}
 
-	for _, reg := range regs {
+	for _, registry := range registries {
 		// Each registry acts as a shard - we don't want to combine them because some
 		// may individually update their endpoints incrementally
 		for _, svc := range push.Services {
 			entries := []*model.IstioEndpoint{}
-			hn := string(svc.Hostname)
+			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
 				if port.Protocol == model.ProtocolUDP {
 					continue
 				}
 
 				// This loses track of grouping (shards)
-				epi, err := reg.InstancesByPort(svc.Hostname, port.Port, model.LabelsCollection{})
+				endpoints, err := registry.InstancesByPort(svc.Hostname, port.Port, model.LabelsCollection{})
 				if err != nil {
 					return err
 				}
 
-				for _, ep := range epi {
-					//shard := ep.AvailabilityZone
-					l := map[string]string(ep.Labels)
-
+				for _, ep := range endpoints {
 					entries = append(entries, &model.IstioEndpoint{
 						Family:          ep.Endpoint.Family,
 						Address:         ep.Endpoint.Address,
 						EndpointPort:    uint32(ep.Endpoint.Port),
 						ServicePortName: port.Name,
-						Labels:          l,
+						Labels:          ep.Labels,
 						UID:             ep.Endpoint.UID,
 						ServiceAccount:  ep.ServiceAccount,
 						Network:         ep.Endpoint.Network,
 					})
 					if ep.ServiceAccount != "" {
-						acc, f := svc2acc[hn]
+						account, f := svc2account[hostname]
 						if !f {
-							acc = map[string]bool{}
-							svc2acc[hn] = acc
+							account = map[string]bool{}
+							svc2account[hostname] = account
 						}
-						acc[ep.ServiceAccount] = true
+						account[ep.ServiceAccount] = true
 					}
 				}
 			}
 
-			s.edsUpdate(reg.ClusterID, hn, entries, true)
+			s.edsUpdate(registry.ClusterID, hostname, entries, true)
 		}
 	}
 
 	s.mutex.Lock()
-	for k, v := range svc2acc {
+	for k, v := range svc2account {
 		ep, _ := s.EndpointShardsByService[k]
 		ep.ServiceAccounts = v
 	}
@@ -385,6 +389,11 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		locEps = localityLbEndpointsFromInstances(instances)
 	}
 
+	for i := 0; i < len(locEps); i++ {
+		locEps[i].LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(len(locEps[i].LbEndpoints)),
+		}
+	}
 	// There is a chance multiple goroutines will update the cluster at the same time.
 	// This could be prevented by a lock - but because the update may be slow, it may be
 	// better to accept the extra computations.
@@ -499,6 +508,8 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	return s.edsUpdate(shard, serviceName, entries, false)
 }
 
+// edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
+// and requests a full/eds push.
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	entries []*model.IstioEndpoint, internal bool) error {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
@@ -523,6 +534,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
 			s.ConfigUpdate(true)
+			return nil
 		}
 	}
 
@@ -542,12 +554,13 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 				// Requires a CDS push and full sync.
 				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
 				s.ConfigUpdate(true)
+				return nil
 			}
 		}
 	}
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
-
+	s.ConfigUpdate(false)
 	return nil
 }
 
@@ -580,9 +593,6 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 	}
 	out := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
-		locLbEps.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locLbEps.LbEndpoints)),
-		}
 		out = append(out, *locLbEps)
 	}
 	return out
@@ -644,6 +654,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			}
 			l = filteredCLA
 		}
+
+		// Normalize LoadBalancingWeight in range [1, 128]
+		l.Endpoints = normalizeLoadBalancingWeight(l.Endpoints)
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
@@ -762,4 +775,27 @@ func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.Discov
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
 func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
 	return errors.New("unsupported streaming method")
+}
+
+// normalizeLoadBalancingWeight set LoadBalancingWeight with a valid value.
+func normalizeLoadBalancingWeight(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
+	var totalLbEndpointsNum uint32
+
+	for _, localityLbEndpoint := range endpoints {
+		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
+	}
+	if totalLbEndpointsNum == 0 {
+		return endpoints
+	}
+
+	out := make([]endpoint.LocalityLbEndpoints, len(endpoints))
+	for i, localityLbEndpoint := range endpoints {
+		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
+		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(math.Ceil(weight)),
+		}
+		out[i] = localityLbEndpoint
+	}
+
+	return out
 }

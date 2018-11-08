@@ -26,7 +26,6 @@ data:
         action: keep
         regex: istio-telemetry;prometheus
 
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
     # Scrape config for envoy stats
     - job_name: 'envoy-stats'
       metrics_path: /stats/prometheus
@@ -40,7 +39,7 @@ data:
       - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
         action: replace
         regex: ([^:]+)(?::\d+)?;(\d+)
-        replacement: $1:{{ .Values.global.proxy.stats.prometheusPort }}
+        replacement: $1:15090
         target_label: __address__
       - action: labelmap
         regex: __meta_kubernetes_pod_label_(.+)
@@ -82,7 +81,6 @@ data:
       - source_labels: [ __name__ ]
         regex: 'envoy_cluster_(lb|retry|bind|internal|max|original).*'
         action: drop
-{{ end}}
 
     - job_name: 'istio-policy'
       kubernetes_sd_configs:
