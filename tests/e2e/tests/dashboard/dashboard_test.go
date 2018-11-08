@@ -322,6 +322,24 @@ func galleyQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "validation_http_error") {
 			continue
 		}
+		if strings.Contains(query, "handle_event_error_total") {
+			continue
+		}
+		if strings.Contains(query, "converter_failure_total") {
+			continue
+		}
+		if strings.Contains(query, "request_nacks_total") {
+			continue
+		}
+		// Since Galley doesn't receive traffic initially and metrics don't export if they have zero
+		// values, we filter these metrics out. They should ideally be tested.
+		// https://github.com/istio/istio/issues/9674
+		if strings.Contains(query, "server_clients_total") {
+			continue
+		}
+		if strings.Contains(query, "request_acks_total") {
+			continue
+		}
 		filtered = append(filtered, query)
 	}
 	return filtered
