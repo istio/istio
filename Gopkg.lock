@@ -356,7 +356,7 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "51b27c23cab9d18a020bf06acb0ddd00d23a2d77"
+  revision = "95250a51c8a5af2cfb3199b5e4415c517c73b667"
   version = "v0.6.1"
 
 [[projects]]
