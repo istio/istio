@@ -29,7 +29,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/proto"
 )
 
 const (
@@ -441,7 +441,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 					},
 				},
 			},
-			RequireClientCertificate: &types.BoolValue{Value: true},
+			RequireClientCertificate: proto.BoolTrue,
 		},
 	}}
 
