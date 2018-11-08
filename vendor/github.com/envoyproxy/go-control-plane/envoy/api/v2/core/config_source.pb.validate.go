@@ -88,6 +88,16 @@ func (m *ApiConfigSource) Validate() error {
 
 	}
 
+	if v, ok := interface{}(m.GetRateLimitSettings()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ApiConfigSourceValidationError{
+				Field:  "RateLimitSettings",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -163,6 +173,69 @@ func (e AggregatedConfigSourceValidationError) Error() string {
 }
 
 var _ error = AggregatedConfigSourceValidationError{}
+
+// Validate checks the field values on RateLimitSettings with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *RateLimitSettings) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if v, ok := interface{}(m.GetMaxTokens()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RateLimitSettingsValidationError{
+				Field:  "MaxTokens",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if wrapper := m.GetFillRate(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			return RateLimitSettingsValidationError{
+				Field:  "FillRate",
+				Reason: "value must be greater than 0",
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// RateLimitSettingsValidationError is the validation error returned by
+// RateLimitSettings.Validate if the designated constraints aren't met.
+type RateLimitSettingsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e RateLimitSettingsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRateLimitSettings.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = RateLimitSettingsValidationError{}
 
 // Validate checks the field values on ConfigSource with the rules defined in
 // the proto definition for this message. If any rules are violated, an error

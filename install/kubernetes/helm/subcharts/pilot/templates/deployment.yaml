@@ -14,6 +14,10 @@ metadata:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
@@ -108,12 +112,18 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
+          - name: config-networks-volume
+            mountPath: /etc/istio/config-networks
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
 {{- if .Values.sidecar }}
         - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15003
@@ -168,6 +178,9 @@ spec:
       - name: config-volume
         configMap:
           name: istio
+      - name: config-networks-volume
+        configMap:
+          name: istio-networks
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account

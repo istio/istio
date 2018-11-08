@@ -16,7 +16,6 @@ package route
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -480,14 +479,6 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
-		if out.Headers[i].Name == out.Headers[j].Name {
-			if reflect.TypeOf(out.Headers[i].HeaderMatchSpecifier) == reflect.TypeOf(out.Headers[j].HeaderMatchSpecifier) {
-				var bi, bj []byte
-				out.Headers[i].HeaderMatchSpecifier.MarshalTo(bi)
-				out.Headers[j].HeaderMatchSpecifier.MarshalTo(bj)
-				return string(bi) < string(bj)
-			}
-		}
 		return out.Headers[i].Name < out.Headers[j].Name
 	})
 

@@ -73,16 +73,18 @@
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
+{{- if contains "/" $.Values.global.proxy.image }}
+        image: "{{ $.Values.global.proxy.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
-        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+        - containerPort: 15090
           protocol: TCP
           name: http-envoy-prom
-{{ end }}
         args:
         - proxy
         - --serviceCluster
@@ -200,17 +202,18 @@
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
+{{- if contains "/" $.Values.global.proxy.image }}
+        image: "{{ $.Values.global.proxy.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
-        ports:
-        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+        - containerPort: 15090
           protocol: TCP
           name: http-envoy-prom
-{{ end }}
         args:
         - proxy
 {{- if $.Values.global.proxy.proxyDomain }}
@@ -259,12 +262,13 @@
 {{- end }}
 
 
-{{- $mixers := list "policy" "telemetry" }}
-{{- range $idx, $mname := $mixers }}
+{{- range $key, $spec := .Values }}
+{{- if or (eq $key "policy") (eq $key "telemetry") }}
+{{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-{{ $mname }}
+  name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ template "mixer.name" $ }}
@@ -273,7 +277,20 @@ metadata:
     release: {{ $.Release.Name }}
     istio: mixer
 spec:
-  replicas: {{ $.Values.replicaCount }}
+  replicas: {{ $spec.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: {{ template "mixer.name" $ }}
+      chart: {{ template "mixer.chart" $ }}
+      heritage: {{ $.Release.Service }}
+      release: {{ $.Release.Name }}
+      version: {{ $.Chart.Version }}
+      istio: mixer
+      istio-mixer-type: {{ $key }}
   template:
     metadata:
       labels:
@@ -283,18 +300,20 @@ spec:
         release: {{ $.Release.Name }}
         version: {{ $.Chart.Version }}
         istio: mixer
-        istio-mixer-type: {{ $mname }}
+        istio-mixer-type: {{ $key }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- if eq $mname "policy"}}
+{{- if eq $key "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}
 {{- template "telemetry_container" $ }}
 {{- end }}
 
 ---
+{{- end }}
+{{- end }}
 {{- end }} {{/* range */}}
