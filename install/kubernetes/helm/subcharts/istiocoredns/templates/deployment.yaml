@@ -29,7 +29,7 @@ spec:
 {{- end }}
       containers:
       - name: coredns
-        image: coredns/coredns:1.1.2
+        image: {{ .Values.coreDNSImage }}
         imagePullPolicy: IfNotPresent
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
@@ -63,18 +63,12 @@ spec:
       - name: istio-coredns-plugin
         command:
         - /usr/local/bin/plugin
-        image: rshriram/istio-coredns-plugin:istio-1.1
-        imagePullPolicy: Always
+        image: {{ .Values.coreDNSPluginImage }}
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8053
           name: dns-grpc
           protocol: TCP
-        command:
-        - "/opt/istiocoredns/istiocoredns"
-        - "-config"
-        - "/istiocoredns-configuration/config.yaml"
-        - "-v"
-        - "4"
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
