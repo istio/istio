@@ -1,10 +1,10 @@
 {{- range $key, $spec := .Values }}
-{{- if or (eq $key "istio-policy") (eq $key "istio-telemetry") }}
+{{- if or (eq $key "policy") (eq $key "telemetry") }}
 {{- if and $spec.enabled $spec.autoscaleEnabled $spec.autoscaleMin }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ $key }}
+  name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ template "mixer.name" $ }}
@@ -17,7 +17,7 @@ spec:
     scaleTargetRef:
       apiVersion: apps/v1beta1
       kind: Deployment
-      name: {{ $key }}
+      name: istio-{{ $key }}
     metrics:
     - type: Resource
       resource:
