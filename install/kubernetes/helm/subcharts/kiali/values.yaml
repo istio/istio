@@ -5,6 +5,7 @@ enabled: false
 replicaCount: 1
 hub: docker.io/kiali
 tag: v0.9
+contextPath: /kiali
 ingress:
   enabled: false
   ## Used to create an Ingress record.
