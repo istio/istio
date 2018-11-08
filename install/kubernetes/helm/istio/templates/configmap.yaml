@@ -51,6 +51,10 @@ data:
     # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
     enableSdsTokenMount: {{ .Values.global.sds.enableTokenMount }}
 
+    # The trust domain corresponds to the trust root of a system.
+    # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+    trustDomain: {{ .Values.global.trustDomain }}
+
     #
     defaultConfig:
       #
