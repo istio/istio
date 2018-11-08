@@ -137,7 +137,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err = marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
+		if err = marshalFilters(node, mutable.Listener, opts, mutable.FilterChains); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}

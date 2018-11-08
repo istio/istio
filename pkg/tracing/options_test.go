@@ -65,8 +65,21 @@ func TestValidate(t *testing.T) {
 	o.ZipkinURL = "https://bar"
 
 	if o.Validate() == nil {
-		t.Error("Expecting failure, got success")
+		t.Error("Validate() did not produce expected failure")
 	}
+
+	o.JaegerURL = ""
+
+	o.SamplingRate = 14.45
+	if o.Validate() == nil {
+		t.Error("Validate() did not produce expected failure for invalid sampling rate")
+	}
+
+	o.SamplingRate = -1.0234
+	if o.Validate() == nil {
+		t.Error("Validate() did not produce expected failure for invalid sampling rate")
+	}
+
 }
 
 func TestTracingEnabled(t *testing.T) {

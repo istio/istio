@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -62,8 +61,8 @@ func TestPilotMCPClient(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defer mcpServer.Close()
 
-	pilot := initLocalPilotTestEnv(t, mcpServerAddr, pilotGrpcPort, pilotDebugPort)
-	defer pilot.Close()
+	tearDown := initLocalPilotTestEnv(t, mcpServerAddr, pilotGrpcPort, pilotDebugPort)
+	defer tearDown()
 
 	g.Eventually(func() (string, error) {
 		return curlPilot(fmt.Sprintf("http://127.0.0.1:%d/debug/configz", pilotDebugPort))
@@ -174,12 +173,12 @@ func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	return gateway
 }
 
-func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int) io.Closer {
+func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int) util.TearDownFunc {
 	mixerEnv.NewTestSetup(mixerEnv.PilotMCPTest, t)
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
-	_, cancel := util.EnsureTestServer(addMcpAddrs(mcpAddr), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
-	return cancel
+	_, tearDown := util.EnsureTestServer(addMcpAddrs(mcpAddr), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
+	return tearDown
 }
 
 func addMcpAddrs(mcpServerAddr string) func(*bootstrap.PilotArgs) {

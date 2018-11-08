@@ -34,7 +34,7 @@ import (
 
 // processorFn is a callback function that will receive change events back from listener.
 type processorFn func(
-	l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured)
+	l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured)
 
 // listener is a simplified client interface for listening/getting Kubernetes resources in an unstructured way.
 type listener struct {
@@ -167,13 +167,7 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 		scope.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
 
-	key, err := cache.MetaNamespaceKeyFunc(object)
-	if err != nil {
-		msg := fmt.Sprintf("Error creating MetaNamespaceKey from object: %v", object)
-		scope.Error(msg)
-		recordHandleEventError(msg)
-		return
-	}
+	key := resource.FullNameFromNamespaceAndName(object.GetNamespace(), object.GetName())
 
 	var u *unstructured.Unstructured
 

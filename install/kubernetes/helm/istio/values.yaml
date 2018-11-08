@@ -23,7 +23,10 @@ galley:
 # mixer configuration
 #
 mixer:
-  enabled: true
+  policy:
+    enabled: true
+  telemetry:
+    enabled: true
 
 #
 # pilot configuration
@@ -77,6 +80,12 @@ tracing:
 # addon kiali tracing configuration
 #
 kiali:
+  enabled: false
+
+#
+# addon Istio CoreDNS configuration
+#
+istiocoredns:
   enabled: false
 
 # Common settings used among istio subcharts.
@@ -174,15 +183,19 @@ global:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
       host: # example: statsd-svc
-      port: # example: 9125
-
-    # This controls the stats collection for proxies. To disable stats
-    # collection, set the prometheusPort to 0.
-    stats:
-      prometheusPort: 15090
+      port: # example: 9125    
 
     # Specify which tracer to use. One of: lightstep, zipkin
     tracer: "zipkin"
+
+    # Sets an identifier for the remote network to be used for Split Horizon EDS. The network will be sent
+    # to the Pilot when connected by the sidecar and will affect the results returned in EDS requests.
+    # Based on the network identifier Pilot will return all local endpoints + endpoints of gateways to
+    # other networks.
+    # When value is an empty string (default) the Split Horizon EDS won't activate and behave like a
+    # normal EDS (i.e. endpoints from all networks returned).
+    #
+    network: ""
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
