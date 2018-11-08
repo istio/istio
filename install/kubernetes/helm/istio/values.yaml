@@ -30,6 +30,7 @@ mixer:
 #
 pilot:
   enabled: true
+  traceSampling: 1.0
 
 #
 # security configuration
