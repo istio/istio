@@ -57,7 +57,8 @@ func TestListener_NewClientError(t *testing.T) {
 	k := &mock.Kube{}
 	k.AddResponse(nil, errors.New("newDynamicClient error"))
 
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {}
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
+	}
 
 	_, err := newListener(k, 0, info, processorFn)
 	if err == nil || err.Error() != "newDynamicClient error" {
@@ -69,7 +70,8 @@ func TestListener_NewClient_Debug(t *testing.T) {
 	k := &mock.Kube{}
 	k.AddResponse(nil, errors.New("newDynamicClient error"))
 
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {}
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
+	}
 
 	old := scope.GetOutputLevel()
 	defer scope.SetOutputLevel(old)
@@ -84,7 +86,7 @@ func TestListener_Basic(t *testing.T) {
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v %v", eventKind, key)
 	}
 
@@ -117,7 +119,7 @@ func TestListener_DoubleStart(t *testing.T) {
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v %v", eventKind, key)
 	}
 
@@ -154,7 +156,7 @@ func TestListener_DoubleStop(t *testing.T) {
 	k.AddResponse(cl, nil)
 
 	processorLog := &common.MockLog{}
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v %v", eventKind, key)
 	}
 
@@ -190,7 +192,7 @@ func TestListener_AddEvent(t *testing.T) {
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v key=%v", eventKind, key)
 		wg.Done()
 	}
@@ -235,7 +237,7 @@ func TestListener_UpdateEvent(t *testing.T) {
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
 	wg.Add(2) // One for initial add, one for update
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v key=%v", eventKind, key)
 		wg.Done()
 	}
@@ -283,7 +285,7 @@ func TestListener_UpdateEvent_SameResourceVersion(t *testing.T) {
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
 	wg.Add(1) // One for initial add only
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v key=%v", eventKind, key)
 		wg.Done()
 	}
@@ -329,7 +331,7 @@ func TestListener_DeleteEvent(t *testing.T) {
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
 	wg.Add(2) // One for initial add, one for delete
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v key=%v", eventKind, key)
 		wg.Done()
 	}
@@ -377,7 +379,7 @@ func TestListener_Tombstone(t *testing.T) {
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
 	wg.Add(2) // One for initial add, one for delete
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v key=%v", eventKind, key)
 		wg.Done()
 	}
@@ -426,7 +428,7 @@ func TestListener_TombstoneDecodeError(t *testing.T) {
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
 	wg.Add(1) // One for initial add only
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v key=%v", eventKind, key)
 		wg.Done()
 	}
@@ -472,7 +474,7 @@ func TestListener_Tombstone_ObjDecodeError(t *testing.T) {
 	processorLog := &common.MockLog{}
 	wg := &sync.WaitGroup{}
 	wg.Add(1) // One for initial add only
-	processorFn := func(l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured) {
+	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 		processorLog.Append("%v key=%v", eventKind, key)
 		wg.Done()
 	}

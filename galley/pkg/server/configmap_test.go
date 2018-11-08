@@ -21,36 +21,9 @@ import (
 	"testing"
 
 	"github.com/fsnotify/fsnotify"
-
+	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/server"
 )
-
-type fakeWatcher struct {
-	events chan fsnotify.Event
-	errors chan error
-	added  chan string
-}
-
-func (w *fakeWatcher) Add(path string) error {
-	w.added <- path
-	return nil
-}
-
-func (w *fakeWatcher) Close() error                { return nil }
-func (w *fakeWatcher) Events() chan fsnotify.Event { return w.events }
-func (w *fakeWatcher) Errors() chan error          { return w.errors }
-
-func newFakeWatcherFunc() (func() (fileWatcher, error), *fakeWatcher) {
-	w := &fakeWatcher{
-		events: make(chan fsnotify.Event, 1),
-		errors: make(chan error, 1),
-		added:  make(chan string, 1),
-	}
-	newWatcher := func() (fileWatcher, error) {
-		return w, nil
-	}
-	return newWatcher, w
-}
 
 func TestWatchAccessList_Basic(t *testing.T) {
 	initial := `
@@ -99,10 +72,11 @@ func TestWatchAccessList_Initial_NotExists(t *testing.T) {
 }
 
 func TestWatchAccessList_Update(t *testing.T) {
-	var fake *fakeWatcher
-	newFileWatcher, fake = newFakeWatcherFunc()
+	added := make(chan string, 10)
+	var fake *filewatcher.FakeWatcher
+	newFileWatcher, fake = filewatcher.NewFakeWatcher(func(path string, _ bool) { added <- path })
 	defer func() {
-		newFileWatcher = newFsnotifyWatcher
+		newFileWatcher = filewatcher.NewWatcher
 		readFile = ioutil.ReadFile
 		watchEventHandledProbe = nil
 	}()
@@ -119,7 +93,7 @@ allowed:
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	gotAddedFile := <-fake.added
+	gotAddedFile := <-added
 	if gotAddedFile != file {
 		t.Fatalf("access list watcher read the wrong file: got %v want %v", gotAddedFile, file)
 	}
@@ -140,10 +114,10 @@ allowed:
 	// fake the watch `Write` event and wait for the event to be handled and the accesslist updated.
 	watchEventHandled := make(chan struct{})
 	watchEventHandledProbe = func() { close(watchEventHandled) }
-	fake.events <- fsnotify.Event{
+	fake.InjectEvent(file, fsnotify.Event{
 		Name: file,
 		Op:   fsnotify.Write,
-	}
+	})
 	<-watchEventHandled
 
 	if !checker.Allowed("spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account") {
