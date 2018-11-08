@@ -32,4 +32,10 @@ if [ $BRANCH_NAME != '(no branch)' ]; then
 
   echo "generating pb.go files..."
   scripts/generate-protos.sh
+
+  echo "Updating proto.lock"
+  make proto-commit
+
+  echo "Checking lint"
+  make lint
 fi

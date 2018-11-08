@@ -127,31 +127,45 @@ message Rule {
   // Optional. The actions that will be executed when match evaluates to `true`.
   repeated Action actions = 2;
 
-  // A template for an HTTP header manipulation.
+  // A template for an HTTP header manipulation. Values in the template are expressions
+  // that may reference action outputs by name. For example, if an action `x` produces an output
+  // with a field `f`, then the header value expressions may use attribute `x.output.f` to reference
+  // the field value:
+  // ```yaml
+  // request_header_operations:
+  // - name: x-istio-header
+  //   values:
+  //   - x.output.f
+  // ```
   message HeaderOperationTemplate {
 
-    // Required. Header name.
+    // Required. Header name literal value.
     string name = 1;
 
-    // Optional. Header values to replace or append.
+    // Optional. Header value expressions.
     repeated string values = 2;
 
     // Header operation type.
     enum Operation {
-      REPLACE = 0;  // replaces the header with the given name
-      REMOVE = 1;   // removes the header with the given name (the value is ignored)
-      APPEND = 2;   // appends the values to the existing values (preserving existing values)
+      // Replace a header by name.
+      REPLACE = 0;
+
+      // Remove a header by name. Values are ignored.
+      REMOVE = 1;
+
+      // Append values to the existing header values.
+      APPEND = 2;
     }
 
     // Optional. Header operation type. Default operation is to replace the value of the header by name.
     Operation operation = 3;
   }
 
-  // Optional. Templatized operations on the request headers using attributes produced by the
+  // Optional. Templatized operations on the request headers using values produced by the
   // rule actions.
   repeated HeaderOperationTemplate request_header_operations = 3;
 
-  // Optional. Templatized operations on the response headers using attributes produced by the
+  // Optional. Templatized operations on the response headers using values produced by the
   // rule actions.
   repeated HeaderOperationTemplate response_header_operations = 4;
 
@@ -332,7 +346,7 @@ message Connection {
   string address = 2;
 
   // Timeout for remote calls to the backend.
-  google.protobuf.Duration timeout = 3;
+  google.protobuf.Duration timeout = 3 [(gogoproto.stdduration) = true];
 
   // TODO: Add auth related fields.
 }
