@@ -40,9 +40,9 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN:= getPilotSAN(role.DNSDomain,"anything")
+	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
 
 func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
@@ -52,9 +52,9 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN:= getPilotSAN(role.DNSDomain,"anything")
+	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"}))
 }
 
 //TODO Is this really correct?
@@ -65,9 +65,9 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN:= getPilotSAN(role.DNSDomain,"anything")
+	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
 }
 
 func TestPilotSanIfAuthenticationMutualIdentityDomain(t *testing.T) {
@@ -77,9 +77,9 @@ func TestPilotSanIfAuthenticationMutualIdentityDomain(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN:= getPilotSAN(role.DNSDomain,"anything")
+	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"}))
 }
 
 func TestPilotSanIfAuthenticationMutualIdentityDomainAndDomain(t *testing.T) {
@@ -89,9 +89,9 @@ func TestPilotSanIfAuthenticationMutualIdentityDomainAndDomain(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN:= getPilotSAN(role.DNSDomain,"anything")
+	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"}))
 }
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
@@ -115,7 +115,6 @@ func TestPilotDefaultDomainConsul(t *testing.T) {
 
 	g.Expect(domain).To(gomega.Equal("service.consul"))
 }
-
 
 func TestPilotDefaultDomainOthers(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -144,9 +143,9 @@ func TestPilotSanIfAuthenticationMutualStdDomainKubernetes(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN:= getPilotSAN(role.DNSDomain,"anything")
+	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
 
 func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
@@ -156,7 +155,7 @@ func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	registry = serviceregistry.ConsulRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN:= getPilotSAN(role.DNSDomain,"anything")
+	pilotSAN := getPilotSAN(role.DNSDomain, "anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
 }
