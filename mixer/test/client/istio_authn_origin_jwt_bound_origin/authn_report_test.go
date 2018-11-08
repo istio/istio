@@ -111,6 +111,28 @@ var reportAttributesOkGet = `
   "destination.port": "*",
   "destination.uid": "",
   "destination.namespace": "",
+  "istio_authn": {
+    "request.auth.raw_claims": {
+      "aud": "aud1",
+      "exp": 20000000000,
+      "iat": 1500000000,
+      "iss": "issuer@foo.com",
+      "some-other-string-claims": "some-claims-kept",
+      "sub": "sub@foo.com"
+    },
+    "request.auth.principal": "issuer@foo.com/sub@foo.com",
+    "request.auth.audiences": "aud1"
+  },
+  "jwt-auth": {
+    "issuer@foo.com": {
+      "aud": "aud1",
+      "exp": 20000000000,
+      "iat": 1500000000,
+      "iss": "issuer@foo.com",
+      "some-other-string-claims": "some-claims-kept",
+      "sub": "sub@foo.com"
+    }
+  },
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
