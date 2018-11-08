@@ -15,6 +15,7 @@
 package model_test
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -30,25 +31,45 @@ import (
 
 func TestApplyJSON(t *testing.T) {
 	cases := []struct {
-		in   string
-		want *meshconfig.MeshConfig
+		in      string
+		want    *meshconfig.MeshConfig
+		strict  bool
+		wantErr bool
 	}{
 		{
-			in:   `{"enableTracing": true}`,
-			want: &meshconfig.MeshConfig{EnableTracing: true},
+			in:     `{"enableTracing": true}`,
+			want:   &meshconfig.MeshConfig{EnableTracing: true},
+			strict: true,
 		},
 		{
-			in:   `{"enableTracing": true, "unknownField": "unknownValue"}`,
-			want: &meshconfig.MeshConfig{EnableTracing: true},
+			in:      `{"enableTracing": true, "unknownField": "unknownValue"}`,
+			want:    &meshconfig.MeshConfig{EnableTracing: true},
+			strict:  true,
+			wantErr: true,
+		},
+		{
+			in:     `{"enableTracing": true, "unknownField": "unknownValue"}`,
+			want:   &meshconfig.MeshConfig{EnableTracing: true},
+			strict: false,
 		},
 	}
-	for _, c := range cases {
-		var got meshconfig.MeshConfig
-		if err := model.ApplyJSON(c.in, &got); err != nil {
-			t.Errorf("ApplyJSON(%v) failed: %v", c.in, err)
-		} else if !reflect.DeepEqual(&got, c.want) {
-			t.Errorf("ApplyJSON(%v): got %v want %v", c.in, &got, c.want)
-		}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v]", i), func(tt *testing.T) {
+			var got meshconfig.MeshConfig
+			err := model.ApplyJSON(c.in, &got, c.strict)
+			if err != nil {
+				if !c.wantErr {
+					tt.Fatalf("got unexpected error: %v", err)
+				}
+			} else {
+				if c.wantErr {
+					tt.Fatal("unexpected success, expected error")
+				}
+				if !reflect.DeepEqual(&got, c.want) {
+					tt.Fatalf("ApplyJSON(%v): got %v want %v", c.in, &got, c.want)
+				}
+			}
+		})
 	}
 }
 
