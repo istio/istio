@@ -65,9 +65,9 @@ func Get(name string) Fn {
 
 func identity(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	var p proto.Message
-	var err error
 	creationTime := time.Time{}
 	if u != nil {
+		var err error
 		if p, err = toProto(destination, u.Object["spec"]); err != nil {
 			return nil, err
 		}
@@ -119,9 +119,9 @@ func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, kin
 
 func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	var p proto.Message
-	var err error
 	creationTime := time.Time{}
 	if u != nil {
+		var err error
 		if p, err = toProto(destination, u.Object["spec"]); err != nil {
 			return nil, err
 		}
