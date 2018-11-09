@@ -693,7 +693,7 @@ generate_yaml_new: $(HELM) $(HOME)/.helm helm-repo-add
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	(cd install/kubernetes/helm/istio; ${ISTIO_OUT}/istioctl gen-deploy -o yaml --values values.yaml)
 
-generate_fast_prom_yaml: $(HELM) $(HOME)/.helm
+generate_e2e_test_yaml: $(HELM) $(HOME)/.helm
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
@@ -703,6 +703,7 @@ generate_fast_prom_yaml: $(HELM) $(HOME)/.helm
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set prometheus.scrapeInterval=1s \
+		--set gateways.istio-ingressgateway.autoscaleMax=1 \
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
