@@ -15,39 +15,89 @@
 package genbinding
 
 import (
+        "fmt"
+        "net"
+	"strconv"
+
 	kube_v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
+type hostPort struct {
+    host string
+    port int
+}
+
 // ConvertBindingsAndExposures2 converts desired multicluster state into Kubernetes and Istio state
-func CreateBinding(service string, clusters []string, subset string) ([]model.Config, []kube_v1.Service, error) { // nolint: lll
-	istioConfig, k8sSvcs, err := dummyBinding() // TODO
+func CreateBinding(service string, clusters []string, subset string, namespace string) ([]model.Config, []kube_v1.Service, error) { // nolint: lll
+
+        host, port, err := net.SplitHostPort(service)
+        if err != nil {
+	       return nil, nil, err
+	}
+        i, err := strconv.Atoi(port)
+        if err != nil {
+               return nil, nil, err
+        }
+        remoteService := hostPort{host, i}
+
+	var remoteClusters []hostPort
+        for _, cluster := range clusters {
+	       host, port, err := net.SplitHostPort(cluster)
+               if err != nil {
+	       	      return nil, nil, err
+	       }
+	       i, err := strconv.Atoi(port)
+       	       if err != nil {
+               	      return nil, nil, err
+               }
+       	       remoteClusters = append(remoteClusters, hostPort{host, i})
+        }	
+        
+	istioConfig, k8sSvcs, err := serviceToServiceEntrySniCluster(remoteService, remoteClusters, subset, namespace)
 	return istioConfig, k8sSvcs, err
 }
 
-func dummyBinding() ([]model.Config, []kube_v1.Service, error) {
-	return []model.Config{
-		model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      model.DestinationRule.Type,
-				Group:     model.DestinationRule.Group + model.IstioAPIGroupDomain,
-				Version:   model.DestinationRule.Version,
-				Name:      "dest-rule-dummy",
-				Namespace: "default",
-			},
-			Spec: &v1alpha3.DestinationRule{
-				Host: "dummy",
-				TrafficPolicy: &v1alpha3.TrafficPolicy{
-					Tls: &v1alpha3.TLSSettings{
-						Mode:              v1alpha3.TLSSettings_MUTUAL,
-						ClientCertificate: "/etc/certs/cert-chain.pem",
-						PrivateKey:        "/etc/certs/key.pem",
-						CaCertificates:    "/etc/certs/root-cert.pem",
-						Sni:               "dummy-sni.default.svc.cluster.local",
-					},
+
+// serviceToServiceEntry() creates a ServiceEntry pointing to istio-egressgateway
+func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []hostPort, subset string, namespace string) ([]model.Config, []kube_v1.Service, error) { // nolint: lll
+	protocol := "http"
+	serviceEntry := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:        model.ServiceEntry.Type,
+			Group:       model.ServiceEntry.Group + model.IstioAPIGroupDomain,
+			Version:     model.ServiceEntry.Version,
+			Name:        fmt.Sprintf("service-entry-%s", remoteService.host),
+			Namespace:   namespace,
+			// Annotations: annotations(config), //  TODO (MB)
+		},
+		Spec: &v1alpha3.ServiceEntry{
+			Hosts: []string{remoteService.host},
+			Ports: []*v1alpha3.Port{
+				&v1alpha3.Port{
+					Number:   uint32(remoteService.port),
+					Protocol: "HTTP",
+					Name:     "http",
 				},
 			},
-		}}, nil, nil
+			Location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
+			Resolution: v1alpha3.ServiceEntry_STATIC,
+			Endpoints:  []*v1alpha3.ServiceEntry_Endpoint{},
+		},
+	}
+
+   	spec := serviceEntry.Spec.(*v1alpha3.ServiceEntry)
+	for _, cluster := range remoteClusters {
+     	       endpoint := &v1alpha3.ServiceEntry_Endpoint{
+	       		Address: cluster.host,
+		 	Ports:   make(map[string]uint32),
+	       }
+	       endpoint.Ports[protocol] = uint32(cluster.port)
+	       spec.Endpoints = append(spec.Endpoints, endpoint)
+	}
+
+        return  []model.Config{serviceEntry}, nil, nil
 }
+
