@@ -71,7 +71,7 @@ var (
 			ServiceTags:    []string{"version|v3"},
 			ServiceAddress: "172.19.0.8",
 			ServicePort:    9080,
-			NodeMeta:       map[string]string{protocolTagName: "tcp"},
+			ServiceMeta:    map[string]string{protocolTagName: "tcp"},
 		},
 	}
 )

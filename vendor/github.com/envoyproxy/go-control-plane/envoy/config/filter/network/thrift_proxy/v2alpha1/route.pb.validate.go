@@ -246,6 +246,21 @@ func (m *RouteAction) Validate() error {
 		}
 	}
 
+	for idx, item := range m.GetRateLimits() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteActionValidationError{
+					Field:  fmt.Sprintf("RateLimits[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	switch m.ClusterSpecifier.(type) {
 
 	case *RouteAction_Cluster:

@@ -42,6 +42,7 @@ spec:
           - containerPort: 9901
           command:
           - /usr/local/bin/galley
+          - --meshConfigFile=/etc/istio/mesh-config/mesh
           - --caCertFile=/etc/istio/certs/root-cert.pem
           - --tlsCertFile=/etc/istio/certs/cert-chain.pem
           - --tlsKeyFile=/etc/istio/certs/key.pem
@@ -62,6 +63,9 @@ spec:
             readOnly: true
           - name: config
             mountPath: /etc/istio/config
+            readOnly: true
+          - name: mesh-config
+            mountPath: /etc/istio/mesh-config
             readOnly: true
           livenessProbe:
             exec:
@@ -94,5 +98,8 @@ spec:
       - name: config
         configMap:
           name: istio-galley-configuration
+      - name: mesh-config
+        configMap:
+          name: istio
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

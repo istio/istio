@@ -192,6 +192,26 @@ func (m *CertificateDetails) Validate() error {
 
 	// no validation rules for DaysUntilExpiration
 
+	if v, ok := interface{}(m.GetValidFrom()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CertificateDetailsValidationError{
+				Field:  "ValidFrom",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetExpirationTime()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CertificateDetailsValidationError{
+				Field:  "ExpirationTime",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 

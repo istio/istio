@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import GKE cluster authentication plugin
@@ -26,6 +27,7 @@ import (
 // test/injection purposes.
 type Interfaces interface {
 	DynamicInterface(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error)
+	APIExtensionsClientset() (clientset.Interface, error)
 }
 
 type kube struct {
@@ -54,4 +56,9 @@ func NewKube(cfg *rest.Config) Interfaces {
 // DynamicInterface returns a new dynamic.Interface for the specified API Group/Version.
 func (k *kube) DynamicInterface(gv schema.GroupVersion, kind, listKind string) (dynamic.Interface, error) {
 	return dynamic.NewForConfig(k.cfg)
+}
+
+// APIExtensionsClientset returns a new apiextensions clientset
+func (k *kube) APIExtensionsClientset() (clientset.Interface, error) {
+	return clientset.NewForConfig(k.cfg)
 }

@@ -240,6 +240,16 @@ func (m *HttpConnectionManager) Validate() error {
 
 	}
 
+	if v, ok := interface{}(m.GetBugfixReverseEncodeOrder()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "BugfixReverseEncodeOrder",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	switch m.RouteSpecifier.(type) {
 
 	case *HttpConnectionManager_Rds:
@@ -384,16 +394,6 @@ func (m *HttpFilter) Validate() error {
 		if err := v.Validate(); err != nil {
 			return HttpFilterValidationError{
 				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpFilterValidationError{
-				Field:  "DeprecatedV1",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}
@@ -679,47 +679,3 @@ func (e HttpConnectionManager_UpgradeConfigValidationError) Error() string {
 }
 
 var _ error = HttpConnectionManager_UpgradeConfigValidationError{}
-
-// Validate checks the field values on HttpFilter_DeprecatedV1 with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *HttpFilter_DeprecatedV1) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	// no validation rules for Type
-
-	return nil
-}
-
-// HttpFilter_DeprecatedV1ValidationError is the validation error returned by
-// HttpFilter_DeprecatedV1.Validate if the designated constraints aren't met.
-type HttpFilter_DeprecatedV1ValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e HttpFilter_DeprecatedV1ValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sHttpFilter_DeprecatedV1.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = HttpFilter_DeprecatedV1ValidationError{}

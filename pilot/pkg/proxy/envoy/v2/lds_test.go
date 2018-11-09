@@ -24,7 +24,8 @@ import (
 
 // TestLDS is running LDSv2 tests.
 func TestLDS(t *testing.T) {
-	initLocalPilotTestEnv(t)
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
 
 	t.Run("sidecar", func(t *testing.T) {
 		ldsr, err := connectADS(util.MockPilotGrpcAddr)

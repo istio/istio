@@ -231,7 +231,7 @@ func TestServices(t *testing.T) {
 			},
 		},
 	}
-	ctl.InitNetworkLookup()
+	ctl.InitNetworkLookup(ctl.Env.MeshNetworks)
 
 	// 2 ports 1001, 2 IPs
 	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, t)
