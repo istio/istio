@@ -6,7 +6,7 @@ metadata:
     app: kiali
     version: master
 rules:
-- apiGroups: ["","apps", "autoscaling"]
+- apiGroups: ["", "apps", "autoscaling", "batch"]
   resources:
   - configmaps
   - namespaces
@@ -17,6 +17,11 @@ rules:
   - endpoints
   - deployments
   - horizontalpodautoscalers
+  - replicasets
+  - statefulsets
+  - replicationcontrollers
+  - jobs
+  - cronjobs
   verbs:
   - get
   - list
