@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/proto"
 )
 
 func TestRequireTls(t *testing.T) {
@@ -545,7 +546,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 			},
 			AlpnProtocols: []string{"h2", "http/1.1"},
 		},
-		RequireClientCertificate: &types.BoolValue{Value: true},
+		RequireClientCertificate: proto.BoolTrue,
 	}
 	cases := []struct {
 		name       string
@@ -663,7 +664,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
-						RequireClientCertificate: &types.BoolValue{Value: true},
+						RequireClientCertificate: proto.BoolTrue,
 					},
 				},
 			},

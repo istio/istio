@@ -27,8 +27,10 @@ func TestCreateConfig(t *testing.T) {
 	}
 	gv := schema.GroupVersion{Group: "group", Version: "version"}
 
-	_, err := k.DynamicInterface(gv, "kind", "listkind")
-	if err != nil {
+	if _, err := k.DynamicInterface(gv, "kind", "listkind"); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if _, err := k.APIExtensionsClientset(); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 }

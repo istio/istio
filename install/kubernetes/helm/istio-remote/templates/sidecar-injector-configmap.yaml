@@ -148,6 +148,10 @@ data:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
+        {{- if .Values.global.proxy.network }}
+        - name: ISTIO_META_NETWORK
+          value: "{{ .Values.global.proxy.network }}"
+        {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           {{ if eq .Values.global.proxy.privileged true }}
@@ -183,12 +187,25 @@ data:
         {{ if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
+        {{ if .Values.global.sds.enableTokenMount }}
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        {{ end }}
         {{ end }}
       volumes:
       {{ if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
+      {{ if .Values.global.sds.enableTokenMount }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.trustDomain }}
+      {{ end }}
       {{ end }}
       - emptyDir:
           medium: Memory

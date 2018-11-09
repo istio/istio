@@ -22,8 +22,13 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	meshcfg "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/galley/pkg/meshconfig"
+	"istio.io/istio/pilot/pkg/model"
+	"k8s.io/api/extensions/v1beta1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
@@ -49,6 +54,18 @@ func TestGet_Panic(t *testing.T) {
 
 var fakeCreateTime, _ = time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 
+func TestNilConverter(t *testing.T) {
+	e, err := nilConverter(nil, resource.Info{}, resource.FullName{}, nil)
+
+	if e != nil {
+		t.Fatalf("Unexpected entries: %v", e)
+	}
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+}
+
 func TestIdentity(t *testing.T) {
 	b := resource.NewSchemaBuilder()
 	b.Register("type.googleapis.com/google.protobuf.Struct")
@@ -67,25 +84,29 @@ func TestIdentity(t *testing.T) {
 		},
 	}
 
-	key := "key"
+	key := resource.FullNameFromNamespaceAndName("", "Key")
 
-	outkey, createTime, pb, err := identity(info, key, u)
+	entries, err := identity(nil, info, key, u)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	if key != outkey {
-		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", key, outkey)
+	if len(entries) != 1 {
+		t.Fatalf("Expected one entry: %v", entries)
 	}
 
-	if !createTime.Equal(fakeCreateTime) {
+	if key != entries[0].Key {
+		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", key, entries[0].Key)
+	}
+
+	if !entries[0].CreationTime.Equal(fakeCreateTime) {
 		t.Fatalf("createTime mismatch: got %q want %q",
-			createTime, fakeCreateTime)
+			entries[0].CreationTime, fakeCreateTime)
 	}
 
-	actual, ok := pb.(*types.Struct)
+	actual, ok := entries[0].Resource.(*types.Struct)
 	if !ok {
-		t.Fatalf("Unable to convert to struct: %v", pb)
+		t.Fatalf("Unable to convert to struct: %v", entries[0].Resource)
 	}
 
 	expected := &types.Struct{
@@ -119,9 +140,9 @@ func TestIdentity_Error(t *testing.T) {
 		},
 	}
 
-	key := "key"
+	key := resource.FullNameFromNamespaceAndName("", "Key")
 
-	_, _, _, err := identity(info, key, u)
+	_, err := identity(nil, info, key, u)
 	if err == nil {
 		t.Fatal("Expected error not found")
 	}
@@ -146,30 +167,34 @@ func TestLegacyMixerResource(t *testing.T) {
 		},
 	}
 
-	key := "key"
+	key := resource.FullNameFromNamespaceAndName("", "Key")
 
-	outkey, createTime, pb, err := legacyMixerResource(info, key, u)
+	entries, err := legacyMixerResource(nil, info, key, u)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	expectedKey := "k1/" + key
-	if outkey != expectedKey {
-		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", expectedKey, outkey)
+	if len(entries) != 1 {
+		t.Fatalf("Expected one entry: %v", entries)
 	}
 
-	if !createTime.Equal(fakeCreateTime) {
+	expectedKey := "k1/" + key.String()
+	if entries[0].Key.String() != expectedKey {
+		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", expectedKey, entries[0].Key)
+	}
+
+	if !entries[0].CreationTime.Equal(fakeCreateTime) {
 		t.Fatalf("createTime mismatch: got %q want %q",
-			createTime, fakeCreateTime)
+			entries[0].CreationTime, fakeCreateTime)
 	}
 
-	actual, ok := pb.(*legacy.LegacyMixerResource)
+	actual, ok := entries[0].Resource.(*legacy.LegacyMixerResource)
 	if !ok {
-		t.Fatalf("Unable to convert to legacy: %v", pb)
+		t.Fatalf("Unable to convert to legacy: %v", entries[0].Resource)
 	}
 
 	expected := &legacy.LegacyMixerResource{
-		Name: "key",
+		Name: "Key",
 		Kind: "k1",
 		Contents: &types.Struct{
 			Fields: map[string]*types.Value{
@@ -201,9 +226,9 @@ func TestLegacyMixerResource_Error(t *testing.T) {
 		},
 	}
 
-	key := "key"
+	key := resource.FullNameFromNamespaceAndName("", "Key")
 
-	_, _, _, err := legacyMixerResource(info, key, u)
+	_, err := legacyMixerResource(nil, info, key, u)
 	if err == nil {
 		t.Fatalf("expected error not found")
 	}
@@ -251,7 +276,7 @@ func TestAuthPolicyResource(t *testing.T) {
 					Name: "foo",
 				}},
 				Peers: []*authn.PeerAuthenticationMethod{{
-					&authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}},
+					&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
 				}},
 			},
 		},
@@ -284,7 +309,7 @@ func TestAuthPolicyResource(t *testing.T) {
 					Name: "foo",
 				}},
 				Peers: []*authn.PeerAuthenticationMethod{{
-					&authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}},
+					&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
 				}},
 			},
 		},
@@ -292,16 +317,21 @@ func TestAuthPolicyResource(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(tt *testing.T) {
-			wantKey, err := cache.MetaNamespaceKeyFunc(c.in)
-			if err != nil {
-				tt.Fatalf("Unexpected error: %v", err)
-			}
-			gotKey, createTime, pb, err := authPolicyResource(info, wantKey, c.in)
+			wantKey := resource.FullNameFromNamespaceAndName(c.in.GetNamespace(), c.in.GetName())
+			entries, err := authPolicyResource(nil, info, wantKey, c.in)
 			if err != nil {
 				tt.Fatalf("Unexpected error: %v", err)
 			}
 
-			if gotKey != wantKey {
+			if len(entries) != 1 {
+				tt.Fatalf("Expected one entry: %v", entries)
+			}
+
+			gotKey := entries[0].Key
+			createTime := entries[0].CreationTime
+			pb := entries[0].Resource
+
+			if entries[0].Key != wantKey {
 				tt.Fatalf("Keys mismatch. got=%s, want=%s", gotKey, wantKey)
 			}
 
@@ -319,5 +349,54 @@ func TestAuthPolicyResource(t *testing.T) {
 				tt.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", gotProto, c.wantProto)
 			}
 		})
+	}
+}
+
+func TestShouldProcessIngress(t *testing.T) {
+	istio := model.DefaultMeshConfig().IngressClass
+	cases := []struct {
+		ingressMode   meshcfg.MeshConfig_IngressControllerMode
+		ingressClass  string
+		shouldProcess bool
+	}{
+		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: meshcfg.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
+		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: meshcfg.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
+		{ingressMode: meshcfg.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
+		{ingressMode: -1, shouldProcess: false},
+	}
+
+	for _, c := range cases {
+		ing := v1beta1.Ingress{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name:        "test-ingress",
+				Namespace:   "default",
+				Annotations: make(map[string]string),
+			},
+			Spec: v1beta1.IngressSpec{
+				Backend: &v1beta1.IngressBackend{
+					ServiceName: "default-http-backend",
+					ServicePort: intstr.FromInt(80),
+				},
+			},
+		}
+
+		mesh := model.DefaultMeshConfig()
+		mesh.IngressControllerMode = c.ingressMode
+		cch := meshconfig.NewInMemory()
+		cch.Set(mesh)
+		cfg := Config{Mesh: cch}
+
+		if c.ingressClass != "" {
+			ing.Annotations["kubernetes.io/ingress.class"] = c.ingressClass
+		}
+
+		if c.shouldProcess != shouldProcessIngress(&cfg, &ing) {
+			t.Errorf("shouldProcessIngress(<ingress of class '%s'>) => %v, want %v",
+				c.ingressClass, !c.shouldProcess, c.shouldProcess)
+		}
 	}
 }

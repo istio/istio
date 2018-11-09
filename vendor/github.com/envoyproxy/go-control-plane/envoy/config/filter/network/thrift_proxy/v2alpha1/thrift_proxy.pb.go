@@ -56,7 +56,7 @@ func (x TransportType) String() string {
 	return proto.EnumName(TransportType_name, int32(x))
 }
 func (TransportType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_65080cd603fc9443, []int{0}
+	return fileDescriptor_thrift_proxy_84738bf6783cb6de, []int{0}
 }
 
 // Thrift Protocol types supported by Envoy.
@@ -97,7 +97,7 @@ func (x ProtocolType) String() string {
 	return proto.EnumName(ProtocolType_name, int32(x))
 }
 func (ProtocolType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_65080cd603fc9443, []int{1}
+	return fileDescriptor_thrift_proxy_84738bf6783cb6de, []int{1}
 }
 
 // [#comment:next free field: 6]
@@ -126,7 +126,7 @@ func (m *ThriftProxy) Reset()         { *m = ThriftProxy{} }
 func (m *ThriftProxy) String() string { return proto.CompactTextString(m) }
 func (*ThriftProxy) ProtoMessage()    {}
 func (*ThriftProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_65080cd603fc9443, []int{0}
+	return fileDescriptor_thrift_proxy_84738bf6783cb6de, []int{0}
 }
 func (m *ThriftProxy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -198,6 +198,7 @@ type ThriftFilter struct {
 	//
 	// [#comment:TODO(zuercher): Auto generate the following list]
 	// * :ref:`envoy.filters.thrift.router <config_thrift_filters_router>`
+	// * :ref:`envoy.filters.thrift.rate_limit <config_thrift_filters_rate_limit>`
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Filter specific configuration which depends on the filter being
 	// instantiated. See the supported filters for further documentation.
@@ -211,7 +212,7 @@ func (m *ThriftFilter) Reset()         { *m = ThriftFilter{} }
 func (m *ThriftFilter) String() string { return proto.CompactTextString(m) }
 func (*ThriftFilter) ProtoMessage()    {}
 func (*ThriftFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_65080cd603fc9443, []int{1}
+	return fileDescriptor_thrift_proxy_84738bf6783cb6de, []int{1}
 }
 func (m *ThriftFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -278,7 +279,7 @@ func (m *ThriftProtocolOptions) Reset()         { *m = ThriftProtocolOptions{} }
 func (m *ThriftProtocolOptions) String() string { return proto.CompactTextString(m) }
 func (*ThriftProtocolOptions) ProtoMessage()    {}
 func (*ThriftProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_65080cd603fc9443, []int{2}
+	return fileDescriptor_thrift_proxy_84738bf6783cb6de, []int{2}
 }
 func (m *ThriftProtocolOptions) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1028,10 +1029,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/thrift_proxy.proto", fileDescriptor_thrift_proxy_65080cd603fc9443)
+	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/thrift_proxy.proto", fileDescriptor_thrift_proxy_84738bf6783cb6de)
 }
 
-var fileDescriptor_thrift_proxy_65080cd603fc9443 = []byte{
+var fileDescriptor_thrift_proxy_84738bf6783cb6de = []byte{
 	// 545 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x92, 0x4f, 0x6f, 0xd3, 0x30,
 	0x18, 0xc6, 0xe7, 0xa4, 0x1b, 0xeb, 0x9b, 0xb6, 0x0a, 0x16, 0x68, 0x55, 0x05, 0x55, 0xd5, 0x53,

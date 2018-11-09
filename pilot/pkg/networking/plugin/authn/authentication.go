@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	protovalue "istio.io/istio/pkg/proto"
 )
 
 const (
@@ -99,9 +100,7 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, enableSdsTo
 			// Currently it works: when server is in permissive mode, client sidecar can send tls traffic.
 			AlpnProtocols: util.ALPNHttp,
 		},
-		RequireClientCertificate: &types.BoolValue{
-			Value: true,
-		},
+		RequireClientCertificate: protovalue.BoolTrue,
 	}
 	if sdsUdsPath == "" {
 		tls.CommonTlsContext.ValidationContextType = model.ConstructValidationContext(model.AuthCertsPath+model.RootCertFilename, []string{} /*subjectAltNames*/)
