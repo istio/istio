@@ -1729,6 +1729,7 @@ func TestValidateHTTPRetry(t *testing.T) {
 		{name: "valid", in: &networking.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "5xx,gateway-error",
 		}, valid: true},
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
@@ -1744,6 +1745,11 @@ func TestValidateHTTPRetry(t *testing.T) {
 		{name: "timeout too small", in: &networking.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Nanos: 999},
+		}, valid: false},
+		{name: "non supported retryOn", in: &networking.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "5xx,invalid policy",
 		}, valid: false},
 	}
 
