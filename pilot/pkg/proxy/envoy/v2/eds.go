@@ -19,6 +19,8 @@ import (
 	"errors"
 	"reflect"
 
+	"istio.io/istio/pilot/pkg/serviceregistry"
+
 	"strconv"
 	"strings"
 	"sync"
@@ -405,7 +407,8 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 	pc := s.globalPushContext()
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if cluster == "" {
+	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
+	if cluster == string(serviceregistry.KubernetesRegistry) {
 		pl := model.PortList{}
 		for k, v := range ports {
 			pl = append(pl, &model.Port{
