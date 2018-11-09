@@ -129,12 +129,6 @@ containers:
   - [[ .ProxyConfig.ControlPlaneAuthPolicy ]]
   - --statusPort
   - [[ $statusPortValue ]]
-  [[ if (ne $statusPortValue "0") ]]
-  - --appReadyUrl
-  - [[ appProbePath "ready" .Spec.Containers]]
-  - --appLiveUrl
-  - [[ appProbePath "live" .Spec.Containers]]
-  [[ end -]]
   - --applicationPorts
   - "[[ $readinessApplicationPortsValue ]]"
   [[ if (ne $statusPortValue "0") ]]

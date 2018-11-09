@@ -505,7 +505,6 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
-		"appProbePath":        appProbePath,
 		"toJSON":              toJSON,
 		"directory":           directory,
 	}

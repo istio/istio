@@ -24,7 +24,10 @@ spec:
           name: http
         readinessProbe:
           httpGet:
-            path: /app/ready
+            httpHeaders:
+            - name: istio-app-probe-port
+              value: "8000"
+            path: /ip
             port: 15020
         resources: {}
       - args:
@@ -52,10 +55,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --appReadyUrl
-        - :8000/ip
-        - --appLiveUrl
-        - ""
         - --applicationPorts
         - "80"
         env:

@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"75c16362c923e62d1ff44f33119b9b94a1688afe69f9787965ae8884c73d264b","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: traffic
@@ -46,10 +46,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --appReadyUrl
-        - ""
-        - --appLiveUrl
-        - ""
         - --applicationPorts
         - "80"
         env:

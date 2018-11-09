@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"21cdfc0290095a437bfdd0f09f9993704dee08d6d2deda0d87a966cd8a62dbe5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -49,10 +49,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --appReadyUrl
-        - ""
-        - --appLiveUrl
-        - ""
         - --applicationPorts
         - "80"
         env:
@@ -140,7 +136,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"21cdfc0290095a437bfdd0f09f9993704dee08d6d2deda0d87a966cd8a62dbe5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -180,10 +176,6 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --appReadyUrl
-        - ""
-        - --appLiveUrl
-        - ""
         - --applicationPorts
         - "81"
         env:
