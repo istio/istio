@@ -74,14 +74,6 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_app
-          value: hello
-        - name: ISTIO_META_tier
-          value: backend
-        - name: ISTIO_META_track
-          value: stable
-        - name: ISTIO_META_version
-          value: v1
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -225,14 +217,6 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_META_app
-          value: hello
-        - name: ISTIO_META_tier
-          value: backend
-        - name: ISTIO_META_track
-          value: stable
-        - name: ISTIO_META_version
-          value: v2
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy

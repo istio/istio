@@ -46,9 +46,9 @@ spec:
         - NONE
         - --statusPort
         - "15020"
-        - --appReadyUrl
+        - "--appReadyUrl"
         - ""
-        - --appLiveUrl
+        - "--appLiveUrl"
         - ""
         - --applicationPorts
         - ""
