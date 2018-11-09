@@ -35,7 +35,6 @@ const (
 	istioProxyContainerName = "istio-proxy"
 )
 
-
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	statusPort := -1
 	pi := -1
@@ -60,13 +59,13 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	}
 
 	// Change the application containers' probe to point to sidecar's status port.
-	rewriteProbe := func(probe *corev1.Probe, portMap map[string]int32)  {
+	rewriteProbe := func(probe *corev1.Probe, portMap map[string]int32) {
 		if probe == nil || probe.HTTPGet == nil {
 			return
 		}
 		httpGet := probe.HTTPGet
 		header := corev1.HTTPHeader{
-			Name: status.IstioAppPortHeader,
+			Name:  status.IstioAppPortHeader,
 			Value: httpGet.Port.String(),
 		}
 		// A named port, resolve by looking at port map.
