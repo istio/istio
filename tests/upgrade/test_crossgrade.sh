@@ -348,6 +348,7 @@ if [[ ${local_log_str} != *"Code 200"* ]];then
     failed=true
 elif ! percent200sAbove "${local_log_str}"; then
     printf "\\n\\nToo many errors found in external traffic log:\\n\\n"
+    failed=true
     cat ${LOCAL_FORTIO_LOG}
 fi
 
@@ -356,8 +357,8 @@ if [[ ${pod_log_str}  != *"Code 200"* ]]; then
     failed=true
 elif ! percent200sAbove "${local_log_str}"; then
     printf "\\n\\nToo many errors found in internal traffic log:\\n\\n"
+    failed=true
     cat ${POD_FORTIO_LOG}
-    exit 1
 fi
 
 popd || exit 1
