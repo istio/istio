@@ -59,7 +59,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
 	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
-	mux.HandleFunc("/debug/workloadz", s.endpointShardz)
+	mux.HandleFunc("/debug/workloadz", s.workloadz)
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
