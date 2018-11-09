@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -273,6 +274,77 @@ func TestSource_ProtoConversionError(t *testing.T) {
 	log := logChannelOutput(ch, 1)
 	expected := strings.TrimSpace(`
 [Event](FullSync)
+`)
+	if log != expected {
+		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
+	}
+
+	s.Stop()
+}
+
+func TestSource_MangledNames(t *testing.T) {
+	k := &mock.Kube{}
+	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
+	k.AddResponse(cl, nil)
+
+	i1 := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":            "f1",
+				"namespace":       "ns",
+				"resourceVersion": "rv1",
+			},
+			"spec": map[string]interface{}{
+				"zoo": "zar",
+			},
+		},
+	}
+
+	cl.PrependReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{i1}}, nil
+	})
+	cl.PrependWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, mock.NewWatch(), nil
+	})
+
+	entries := []kube.ResourceSpec{
+		{
+			Kind:     "foo",
+			Singular: "foo",
+			Plural:   "foos",
+			Target:   emptyInfo,
+			Converter: func(_ *converter.Config, info resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]converter.Entry, error) {
+				e := converter.Entry{
+					Key:      resource.FullNameFromNamespaceAndName("foo", name.String()),
+					Resource: &types.Struct{},
+				}
+
+				return []converter.Entry{e}, nil
+			},
+		},
+	}
+
+	cfg := converter.Config{
+		Mesh: meshconfig.NewInMemory(),
+	}
+	s, err := newSource(k, 0, &cfg, entries)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if s == nil {
+		t.Fatal("Expected non nil source")
+	}
+
+	ch, err := s.Start()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// The mangled name foo/ns/f1 should appear.
+	log := logChannelOutput(ch, 1)
+	expected := strings.TrimSpace(`
+[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:foo/ns/f1 @rv1))
 `)
 	if log != expected {
 		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
