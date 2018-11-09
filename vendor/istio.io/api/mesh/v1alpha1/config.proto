@@ -110,7 +110,8 @@ message MeshConfig {
   // $hide_from_docs
   AuthPolicy auth_policy = 10 [deprecated=true];
 
-  reserved 11;
+  // $hide_from_docs
+  google.protobuf.Duration rds_refresh_delay = 11 [deprecated=true];
 
   // Flag to control generation of trace spans and request IDs.
   // Requires a trace span collector defined in the proxy configuration.
@@ -132,8 +133,31 @@ message MeshConfig {
   ProxyConfig default_config = 14;
 
   reserved 15;
-  reserved 16;
-  reserved 17;
+  
+  // $hide_from_docs
+  string mixer_address = 16 [deprecated=true];
+  
+  message OutboundTrafficPolicy {
+    enum Mode {
+      // outbound traffic will be restricted to services defined in the service registry as well as those defined
+      // through ServiceEntries
+      REGISTRY_ONLY = 0 [deprecated=true];
+      // outbound traffic to unknown destinations will be allowed
+      ALLOW_ANY = 1 [deprecated=true];
+      // not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only
+      VIRTUAL_SERVICE_ONLY = 2 [deprecated=true];
+    }
+    Mode mode = 1 [deprecated=true];
+  }
+
+  // Set the default behavior of the sidecar for handling outbound traffic from the application.
+  // While the default mode should work out of the box, if your application uses one or more external services that
+  // are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
+  // requested destination.
+  // Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
+  // instead of using allow_any.
+  OutboundTrafficPolicy outbound_traffic_policy = 17 [deprecated=true];
+
   reserved 18;
 
   // Enables clide side policy checks.
@@ -143,7 +167,8 @@ message MeshConfig {
   // Use secret-mount files instead of SDS if set to empty.
   string sds_uds_path = 20;
   
-  reserved 21;
+  // $hide_from_docs
+  google.protobuf.Duration sds_refresh_delay = 21 [deprecated=true];
 
   // ConfigSource describes a source of configuration data for networking
   // rules, and other Istio configuration artifacts. Multiple data sources
@@ -157,8 +182,13 @@ message MeshConfig {
   // will be used to generate key/cert eventually. This isn't supported for non-k8s case.
   bool enable_sds_token_mount = 23;
 
+  // The trust domain corresponds to the trust root of a system.
+  // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  // Fallback to old identity format(without trust domain) if not set.
+  string trust_domain = 26;
+
   // $hide_from_docs
-  // Next available field number: 26
+  // Next available field number: 27
 }
 
 // ConfigSource describes information about a configuration store inside a
@@ -167,7 +197,7 @@ message MeshConfig {
 message ConfigSource {
   // Address of the server implementing the Istio Mesh Configuration
   // protocol (MCP). Can be IP address or a fully qualified DNS name.
-  // Use file:/// to specify a file-based backend with absolute path to the directory.
+  // Use fs:/// to specify a file-based backend with absolute path to the directory.
   string address = 1;
 
   // Use the tls_settings to specify the tls mode to use. If the MCP server
