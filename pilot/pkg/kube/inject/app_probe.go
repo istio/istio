@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/log"
-	"fmt"
 )
 
 const (
@@ -32,6 +31,7 @@ const (
 	// TODO: replace the hardcoded statusPort elsewhere by this variable as much as possible.
 	StatusPortCmdFlagName = "statusPort"
 
+	// TODO: any constant refers to this container's name?
 	istioProxyContainerName = "istio-proxy"
 )
 
@@ -40,7 +40,6 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	statusPort := -1
 	pi := -1
 	for _, c := range spec.Containers {
-		// TODO: any constant refers to this container's name?
 		if c.Name != istioProxyContainerName {
 			continue
 		}
@@ -78,7 +77,6 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 				return
 			}
 			header.Value = strconv.Itoa(int(port))
-			fmt.Printf("jianfeih debug the port is %v, the map is %v, header %v\n", port, portMap, header)
 		}
 		httpGet.HTTPHeaders = append(httpGet.HTTPHeaders, header)
 		httpGet.Port = intstr.FromInt(statusPort)
