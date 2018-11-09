@@ -109,6 +109,8 @@ var reportAttributesOkGet = `
   "destination.port": "*",
   "destination.uid": "",
   "destination.namespace": "",
+  "istio_authn": "*",
+  "jwt-auth": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
