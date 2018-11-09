@@ -60,7 +60,7 @@ func (x VirtualHost_TlsRequirementType) String() string {
 	return proto.EnumName(VirtualHost_TlsRequirementType_name, int32(x))
 }
 func (VirtualHost_TlsRequirementType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{0, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{0, 0}
 }
 
 type RouteAction_ClusterNotFoundResponseCode int32
@@ -85,7 +85,7 @@ func (x RouteAction_ClusterNotFoundResponseCode) String() string {
 	return proto.EnumName(RouteAction_ClusterNotFoundResponseCode_name, int32(x))
 }
 func (RouteAction_ClusterNotFoundResponseCode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 0}
 }
 
 type RedirectAction_RedirectResponseCode int32
@@ -122,7 +122,7 @@ func (x RedirectAction_RedirectResponseCode) String() string {
 	return proto.EnumName(RedirectAction_RedirectResponseCode_name, int32(x))
 }
 func (RedirectAction_RedirectResponseCode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{6, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{6, 0}
 }
 
 // The top level element in the routing configuration is a virtual host. Each virtual host has
@@ -206,7 +206,7 @@ func (m *VirtualHost) Reset()         { *m = VirtualHost{} }
 func (m *VirtualHost) String() string { return proto.CompactTextString(m) }
 func (*VirtualHost) ProtoMessage()    {}
 func (*VirtualHost) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{0}
 }
 func (m *VirtualHost) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -385,7 +385,7 @@ func (m *Route) Reset()         { *m = Route{} }
 func (m *Route) String() string { return proto.CompactTextString(m) }
 func (*Route) ProtoMessage()    {}
 func (*Route) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{1}
+	return fileDescriptor_route_7062eb54e43e2807, []int{1}
 }
 func (m *Route) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -643,7 +643,7 @@ func (m *WeightedCluster) Reset()         { *m = WeightedCluster{} }
 func (m *WeightedCluster) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster) ProtoMessage()    {}
 func (*WeightedCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{2}
+	return fileDescriptor_route_7062eb54e43e2807, []int{2}
 }
 func (m *WeightedCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -745,7 +745,7 @@ func (m *WeightedCluster_ClusterWeight) Reset()         { *m = WeightedCluster_C
 func (m *WeightedCluster_ClusterWeight) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster_ClusterWeight) ProtoMessage()    {}
 func (*WeightedCluster_ClusterWeight) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{2, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{2, 0}
 }
 func (m *WeightedCluster_ClusterWeight) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -881,7 +881,7 @@ func (m *RouteMatch) Reset()         { *m = RouteMatch{} }
 func (m *RouteMatch) String() string { return proto.CompactTextString(m) }
 func (*RouteMatch) ProtoMessage()    {}
 func (*RouteMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{3}
+	return fileDescriptor_route_7062eb54e43e2807, []int{3}
 }
 func (m *RouteMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1085,7 +1085,7 @@ func (m *RouteMatch_GrpcRouteMatchOptions) Reset()         { *m = RouteMatch_Grp
 func (m *RouteMatch_GrpcRouteMatchOptions) String() string { return proto.CompactTextString(m) }
 func (*RouteMatch_GrpcRouteMatchOptions) ProtoMessage()    {}
 func (*RouteMatch_GrpcRouteMatchOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{3, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{3, 0}
 }
 func (m *RouteMatch_GrpcRouteMatchOptions) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1145,7 +1145,7 @@ func (m *CorsPolicy) Reset()         { *m = CorsPolicy{} }
 func (m *CorsPolicy) String() string { return proto.CompactTextString(m) }
 func (*CorsPolicy) ProtoMessage()    {}
 func (*CorsPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{4}
+	return fileDescriptor_route_7062eb54e43e2807, []int{4}
 }
 func (m *CorsPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1365,7 +1365,7 @@ func (m *RouteAction) Reset()         { *m = RouteAction{} }
 func (m *RouteAction) String() string { return proto.CompactTextString(m) }
 func (*RouteAction) ProtoMessage()    {}
 func (*RouteAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5}
 }
 func (m *RouteAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1769,7 +1769,7 @@ func (m *RouteAction_RetryPolicy) Reset()         { *m = RouteAction_RetryPolicy
 func (m *RouteAction_RetryPolicy) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_RetryPolicy) ProtoMessage()    {}
 func (*RouteAction_RetryPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 0}
 }
 func (m *RouteAction_RetryPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1859,7 +1859,7 @@ func (m *RouteAction_RetryPolicy_RetryPriority) Reset()         { *m = RouteActi
 func (m *RouteAction_RetryPolicy_RetryPriority) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_RetryPolicy_RetryPriority) ProtoMessage()    {}
 func (*RouteAction_RetryPolicy_RetryPriority) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 0, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 0, 0}
 }
 func (m *RouteAction_RetryPolicy_RetryPriority) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1918,7 +1918,7 @@ func (m *RouteAction_RetryPolicy_RetryHostPredicate) String() string {
 }
 func (*RouteAction_RetryPolicy_RetryHostPredicate) ProtoMessage() {}
 func (*RouteAction_RetryPolicy_RetryHostPredicate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 0, 1}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 0, 1}
 }
 func (m *RouteAction_RetryPolicy_RetryHostPredicate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1988,7 +1988,7 @@ func (m *RouteAction_RequestMirrorPolicy) Reset()         { *m = RouteAction_Req
 func (m *RouteAction_RequestMirrorPolicy) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_RequestMirrorPolicy) ProtoMessage()    {}
 func (*RouteAction_RequestMirrorPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 1}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 1}
 }
 func (m *RouteAction_RequestMirrorPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2068,7 +2068,7 @@ func (m *RouteAction_HashPolicy) Reset()         { *m = RouteAction_HashPolicy{}
 func (m *RouteAction_HashPolicy) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy) ProtoMessage()    {}
 func (*RouteAction_HashPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 2}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 2}
 }
 func (m *RouteAction_HashPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2259,7 +2259,7 @@ func (m *RouteAction_HashPolicy_Header) Reset()         { *m = RouteAction_HashP
 func (m *RouteAction_HashPolicy_Header) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy_Header) ProtoMessage()    {}
 func (*RouteAction_HashPolicy_Header) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 2, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 2, 0}
 }
 func (m *RouteAction_HashPolicy_Header) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2330,7 +2330,7 @@ func (m *RouteAction_HashPolicy_Cookie) Reset()         { *m = RouteAction_HashP
 func (m *RouteAction_HashPolicy_Cookie) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy_Cookie) ProtoMessage()    {}
 func (*RouteAction_HashPolicy_Cookie) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 2, 1}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 2, 1}
 }
 func (m *RouteAction_HashPolicy_Cookie) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2396,7 +2396,7 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) String() string {
 }
 func (*RouteAction_HashPolicy_ConnectionProperties) ProtoMessage() {}
 func (*RouteAction_HashPolicy_ConnectionProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{5, 2, 2}
+	return fileDescriptor_route_7062eb54e43e2807, []int{5, 2, 2}
 }
 func (m *RouteAction_HashPolicy_ConnectionProperties) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2466,7 +2466,7 @@ func (m *RedirectAction) Reset()         { *m = RedirectAction{} }
 func (m *RedirectAction) String() string { return proto.CompactTextString(m) }
 func (*RedirectAction) ProtoMessage()    {}
 func (*RedirectAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{6}
+	return fileDescriptor_route_7062eb54e43e2807, []int{6}
 }
 func (m *RedirectAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2727,7 +2727,7 @@ func (m *DirectResponseAction) Reset()         { *m = DirectResponseAction{} }
 func (m *DirectResponseAction) String() string { return proto.CompactTextString(m) }
 func (*DirectResponseAction) ProtoMessage()    {}
 func (*DirectResponseAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{7}
+	return fileDescriptor_route_7062eb54e43e2807, []int{7}
 }
 func (m *DirectResponseAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2789,7 +2789,7 @@ func (m *Decorator) Reset()         { *m = Decorator{} }
 func (m *Decorator) String() string { return proto.CompactTextString(m) }
 func (*Decorator) ProtoMessage()    {}
 func (*Decorator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{8}
+	return fileDescriptor_route_7062eb54e43e2807, []int{8}
 }
 func (m *Decorator) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2871,7 +2871,7 @@ func (m *VirtualCluster) Reset()         { *m = VirtualCluster{} }
 func (m *VirtualCluster) String() string { return proto.CompactTextString(m) }
 func (*VirtualCluster) ProtoMessage()    {}
 func (*VirtualCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{9}
+	return fileDescriptor_route_7062eb54e43e2807, []int{9}
 }
 func (m *VirtualCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2949,7 +2949,7 @@ func (m *RateLimit) Reset()         { *m = RateLimit{} }
 func (m *RateLimit) String() string { return proto.CompactTextString(m) }
 func (*RateLimit) ProtoMessage()    {}
 func (*RateLimit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{10}
+	return fileDescriptor_route_7062eb54e43e2807, []int{10}
 }
 func (m *RateLimit) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3017,7 +3017,7 @@ func (m *RateLimit_Action) Reset()         { *m = RateLimit_Action{} }
 func (m *RateLimit_Action) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action) ProtoMessage()    {}
 func (*RateLimit_Action) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{10, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{10, 0}
 }
 func (m *RateLimit_Action) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3295,7 +3295,7 @@ func (m *RateLimit_Action_SourceCluster) Reset()         { *m = RateLimit_Action
 func (m *RateLimit_Action_SourceCluster) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_SourceCluster) ProtoMessage()    {}
 func (*RateLimit_Action_SourceCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{10, 0, 0}
+	return fileDescriptor_route_7062eb54e43e2807, []int{10, 0, 0}
 }
 func (m *RateLimit_Action_SourceCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3350,7 +3350,7 @@ func (m *RateLimit_Action_DestinationCluster) Reset()         { *m = RateLimit_A
 func (m *RateLimit_Action_DestinationCluster) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_DestinationCluster) ProtoMessage()    {}
 func (*RateLimit_Action_DestinationCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{10, 0, 1}
+	return fileDescriptor_route_7062eb54e43e2807, []int{10, 0, 1}
 }
 func (m *RateLimit_Action_DestinationCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3401,7 +3401,7 @@ func (m *RateLimit_Action_RequestHeaders) Reset()         { *m = RateLimit_Actio
 func (m *RateLimit_Action_RequestHeaders) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_RequestHeaders) ProtoMessage()    {}
 func (*RateLimit_Action_RequestHeaders) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{10, 0, 2}
+	return fileDescriptor_route_7062eb54e43e2807, []int{10, 0, 2}
 }
 func (m *RateLimit_Action_RequestHeaders) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3460,7 +3460,7 @@ func (m *RateLimit_Action_RemoteAddress) Reset()         { *m = RateLimit_Action
 func (m *RateLimit_Action_RemoteAddress) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_RemoteAddress) ProtoMessage()    {}
 func (*RateLimit_Action_RemoteAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{10, 0, 3}
+	return fileDescriptor_route_7062eb54e43e2807, []int{10, 0, 3}
 }
 func (m *RateLimit_Action_RemoteAddress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3506,7 +3506,7 @@ func (m *RateLimit_Action_GenericKey) Reset()         { *m = RateLimit_Action_Ge
 func (m *RateLimit_Action_GenericKey) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_GenericKey) ProtoMessage()    {}
 func (*RateLimit_Action_GenericKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{10, 0, 4}
+	return fileDescriptor_route_7062eb54e43e2807, []int{10, 0, 4}
 }
 func (m *RateLimit_Action_GenericKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3570,7 +3570,7 @@ func (m *RateLimit_Action_HeaderValueMatch) Reset()         { *m = RateLimit_Act
 func (m *RateLimit_Action_HeaderValueMatch) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_HeaderValueMatch) ProtoMessage()    {}
 func (*RateLimit_Action_HeaderValueMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{10, 0, 5}
+	return fileDescriptor_route_7062eb54e43e2807, []int{10, 0, 5}
 }
 func (m *RateLimit_Action_HeaderValueMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3672,7 +3672,7 @@ func (m *HeaderMatcher) Reset()         { *m = HeaderMatcher{} }
 func (m *HeaderMatcher) String() string { return proto.CompactTextString(m) }
 func (*HeaderMatcher) ProtoMessage()    {}
 func (*HeaderMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{11}
+	return fileDescriptor_route_7062eb54e43e2807, []int{11}
 }
 func (m *HeaderMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3954,7 +3954,7 @@ func (m *QueryParameterMatcher) Reset()         { *m = QueryParameterMatcher{} }
 func (m *QueryParameterMatcher) String() string { return proto.CompactTextString(m) }
 func (*QueryParameterMatcher) ProtoMessage()    {}
 func (*QueryParameterMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_cd2348441212b092, []int{12}
+	return fileDescriptor_route_7062eb54e43e2807, []int{12}
 }
 func (m *QueryParameterMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -15090,10 +15090,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/route/route.proto", fileDescriptor_route_cd2348441212b092)
+	proto.RegisterFile("envoy/api/v2/route/route.proto", fileDescriptor_route_7062eb54e43e2807)
 }
 
-var fileDescriptor_route_cd2348441212b092 = []byte{
+var fileDescriptor_route_7062eb54e43e2807 = []byte{
 	// 3189 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x5a, 0x4b, 0x6c, 0x1b, 0xc7,
 	0xf9, 0xd7, 0xf2, 0xcd, 0x8f, 0xaf, 0xd5, 0x58, 0x96, 0x68, 0x3a, 0xb6, 0x65, 0xda, 0xfe, 0x47,

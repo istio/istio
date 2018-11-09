@@ -49,7 +49,7 @@ func (m *StatsSink) Reset()         { *m = StatsSink{} }
 func (m *StatsSink) String() string { return proto.CompactTextString(m) }
 func (*StatsSink) ProtoMessage()    {}
 func (*StatsSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_b06277804e23e669, []int{0}
+	return fileDescriptor_stats_428af8416bb9c326, []int{0}
 }
 func (m *StatsSink) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -128,7 +128,7 @@ func (m *StatsConfig) Reset()         { *m = StatsConfig{} }
 func (m *StatsConfig) String() string { return proto.CompactTextString(m) }
 func (*StatsConfig) ProtoMessage()    {}
 func (*StatsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_b06277804e23e669, []int{1}
+	return fileDescriptor_stats_428af8416bb9c326, []int{1}
 }
 func (m *StatsConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -194,7 +194,7 @@ func (m *StatsMatcher) Reset()         { *m = StatsMatcher{} }
 func (m *StatsMatcher) String() string { return proto.CompactTextString(m) }
 func (*StatsMatcher) ProtoMessage()    {}
 func (*StatsMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_b06277804e23e669, []int{2}
+	return fileDescriptor_stats_428af8416bb9c326, []int{2}
 }
 func (m *StatsMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -395,7 +395,7 @@ func (m *TagSpecifier) Reset()         { *m = TagSpecifier{} }
 func (m *TagSpecifier) String() string { return proto.CompactTextString(m) }
 func (*TagSpecifier) ProtoMessage()    {}
 func (*TagSpecifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_b06277804e23e669, []int{3}
+	return fileDescriptor_stats_428af8416bb9c326, []int{3}
 }
 func (m *TagSpecifier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -577,7 +577,7 @@ func (m *StatsdSink) Reset()         { *m = StatsdSink{} }
 func (m *StatsdSink) String() string { return proto.CompactTextString(m) }
 func (*StatsdSink) ProtoMessage()    {}
 func (*StatsdSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_b06277804e23e669, []int{4}
+	return fileDescriptor_stats_428af8416bb9c326, []int{4}
 }
 func (m *StatsdSink) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -741,7 +741,7 @@ func (m *DogStatsdSink) Reset()         { *m = DogStatsdSink{} }
 func (m *DogStatsdSink) String() string { return proto.CompactTextString(m) }
 func (*DogStatsdSink) ProtoMessage()    {}
 func (*DogStatsdSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_b06277804e23e669, []int{5}
+	return fileDescriptor_stats_428af8416bb9c326, []int{5}
 }
 func (m *DogStatsdSink) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -889,7 +889,7 @@ func (m *HystrixSink) Reset()         { *m = HystrixSink{} }
 func (m *HystrixSink) String() string { return proto.CompactTextString(m) }
 func (*HystrixSink) ProtoMessage()    {}
 func (*HystrixSink) Descriptor() ([]byte, []int) {
-	return fileDescriptor_stats_b06277804e23e669, []int{6}
+	return fileDescriptor_stats_428af8416bb9c326, []int{6}
 }
 func (m *HystrixSink) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2433,10 +2433,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/metrics/v2/stats.proto", fileDescriptor_stats_b06277804e23e669)
+	proto.RegisterFile("envoy/config/metrics/v2/stats.proto", fileDescriptor_stats_428af8416bb9c326)
 }
 
-var fileDescriptor_stats_b06277804e23e669 = []byte{
+var fileDescriptor_stats_428af8416bb9c326 = []byte{
 	// 658 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcd, 0x6e, 0xd3, 0x40,
 	0x10, 0x8e, 0xe3, 0xfe, 0x65, 0xdc, 0x56, 0xc1, 0xaa, 0xda, 0xb4, 0x82, 0xb4, 0x18, 0x21, 0x45,

@@ -70,7 +70,7 @@ func (x HealthStatus) String() string {
 	return proto.EnumName(HealthStatus_name, int32(x))
 }
 func (HealthStatus) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_e95bdc2aa9eec758, []int{0}
+	return fileDescriptor_health_check_a3c7627c50e6673c, []int{0}
 }
 
 type HealthCheck struct {
@@ -147,7 +147,7 @@ func (m *HealthCheck) Reset()         { *m = HealthCheck{} }
 func (m *HealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck) ProtoMessage()    {}
 func (*HealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_e95bdc2aa9eec758, []int{0}
+	return fileDescriptor_health_check_a3c7627c50e6673c, []int{0}
 }
 func (m *HealthCheck) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -454,7 +454,7 @@ func (m *HealthCheck_Payload) Reset()         { *m = HealthCheck_Payload{} }
 func (m *HealthCheck_Payload) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck_Payload) ProtoMessage()    {}
 func (*HealthCheck_Payload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_e95bdc2aa9eec758, []int{0, 0}
+	return fileDescriptor_health_check_a3c7627c50e6673c, []int{0, 0}
 }
 func (m *HealthCheck_Payload) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -623,7 +623,7 @@ func (m *HealthCheck_HttpHealthCheck) Reset()         { *m = HealthCheck_HttpHea
 func (m *HealthCheck_HttpHealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck_HttpHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_HttpHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_e95bdc2aa9eec758, []int{0, 1}
+	return fileDescriptor_health_check_a3c7627c50e6673c, []int{0, 1}
 }
 func (m *HealthCheck_HttpHealthCheck) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -724,7 +724,7 @@ func (m *HealthCheck_TcpHealthCheck) Reset()         { *m = HealthCheck_TcpHealt
 func (m *HealthCheck_TcpHealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck_TcpHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_TcpHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_e95bdc2aa9eec758, []int{0, 2}
+	return fileDescriptor_health_check_a3c7627c50e6673c, []int{0, 2}
 }
 func (m *HealthCheck_TcpHealthCheck) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -782,7 +782,7 @@ func (m *HealthCheck_RedisHealthCheck) Reset()         { *m = HealthCheck_RedisH
 func (m *HealthCheck_RedisHealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck_RedisHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_RedisHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_e95bdc2aa9eec758, []int{0, 3}
+	return fileDescriptor_health_check_a3c7627c50e6673c, []int{0, 3}
 }
 func (m *HealthCheck_RedisHealthCheck) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -838,7 +838,7 @@ func (m *HealthCheck_GrpcHealthCheck) Reset()         { *m = HealthCheck_GrpcHea
 func (m *HealthCheck_GrpcHealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck_GrpcHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_GrpcHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_e95bdc2aa9eec758, []int{0, 4}
+	return fileDescriptor_health_check_a3c7627c50e6673c, []int{0, 4}
 }
 func (m *HealthCheck_GrpcHealthCheck) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -890,7 +890,7 @@ func (m *HealthCheck_CustomHealthCheck) Reset()         { *m = HealthCheck_Custo
 func (m *HealthCheck_CustomHealthCheck) String() string { return proto.CompactTextString(m) }
 func (*HealthCheck_CustomHealthCheck) ProtoMessage()    {}
 func (*HealthCheck_CustomHealthCheck) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_e95bdc2aa9eec758, []int{0, 5}
+	return fileDescriptor_health_check_a3c7627c50e6673c, []int{0, 5}
 }
 func (m *HealthCheck_CustomHealthCheck) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3601,10 +3601,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/health_check.proto", fileDescriptor_health_check_e95bdc2aa9eec758)
+	proto.RegisterFile("envoy/api/v2/core/health_check.proto", fileDescriptor_health_check_a3c7627c50e6673c)
 }
 
-var fileDescriptor_health_check_e95bdc2aa9eec758 = []byte{
+var fileDescriptor_health_check_a3c7627c50e6673c = []byte{
 	// 1036 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x96, 0xdf, 0x6e, 0xe3, 0x44,
 	0x14, 0xc6, 0xe3, 0x24, 0xcd, 0x9f, 0x93, 0x34, 0x71, 0xa6, 0x74, 0xeb, 0x0d, 0xa5, 0x1b, 0x50,
