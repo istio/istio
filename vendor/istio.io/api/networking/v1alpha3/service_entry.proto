@@ -264,7 +264,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   location: MESH_EXTERNAL
 //   ports:
 //   - number: 80
-//     name: https
+//     name: http
 //     protocol: HTTP
 //   resolution: DNS
 //   endpoints:
