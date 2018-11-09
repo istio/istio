@@ -28,7 +28,7 @@ mkdir -vp "$WORK_DIR/istio"
 cp -R "./istio-${CB_VERSION}/install" "$WORK_DIR/istio/install"
 
 pushd "$WORK_DIR"
-    git clone -b master https://github.com/istio-ecosystem/cni.git
+    git clone -b master https://github.com/istio/cni.git
 popd
 
 
@@ -42,6 +42,7 @@ CHARTS=(
 # Prepare helm setup
 mkdir -vp "$HELM_DIR"
 $HELM init --client-only
+$HELM repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
 
 # Create a package for each charts and build the repo index.
 mkdir -vp "$HELM_BUILD_DIR"

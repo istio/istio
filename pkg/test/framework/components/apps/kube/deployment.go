@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strconv"
 
+	kubeApiCore "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/tmpl"
 )
@@ -185,15 +187,15 @@ func (d *deployment) apply(e *kubernetes.Implementation) error {
 	return nil
 }
 
-func (d *deployment) wait(e *kubernetes.Implementation) error {
+func (d *deployment) waitForPod(e *kubernetes.Implementation) (kubeApiCore.Pod, error) {
 	n := e.KubeSettings().DependencyNamespace
-	pod, err := e.Accessor.WaitForPodBySelectors(n, fmt.Sprintf("app=%s", d.service), fmt.Sprintf("version=%s", d.version))
+	pod, err := e.Accessor.WaitForPodBySelectors(n, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
 	if err != nil {
-		return err
+		return kubeApiCore.Pod{}, err
 	}
 
 	if err = e.Accessor.WaitUntilPodIsRunning(n, pod.Name); err != nil {
-		return err
+		return kubeApiCore.Pod{}, err
 	}
-	return nil
+	return pod, nil
 }

@@ -36,7 +36,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	echopb "istio.io/istio/pilot/test/grpcecho"
+	echopb "istio.io/istio/pkg/test/application/echo/proto"
 )
 
 var upgrader = websocket.Upgrader{
@@ -123,6 +123,10 @@ func (h *pilotTestHandler) Echo(ctx context.Context, req *echopb.EchoRequest) (*
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Echo=" + req.GetMessage())
 	return &echopb.EchoResponse{Message: body.String()}, nil
+}
+
+func (h *pilotTestHandler) ForwardEcho(ctx context.Context, in *echopb.ForwardEchoRequest) (*echopb.ForwardEchoResponse, error) {
+	return nil, fmt.Errorf("unsupported operation")
 }
 
 func (h *pilotTestHandler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {

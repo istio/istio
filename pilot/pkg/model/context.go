@@ -301,6 +301,8 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
 		SdsUdsPath:            "",
+		EnableSdsTokenMount:   false,
+		TrustDomain:           "",
 	}
 }
 
