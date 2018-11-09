@@ -535,7 +535,7 @@ func translateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPoli
 	if in != nil && in.Attempts > 0 {
 		d := util.GogoDurationToDuration(in.PerTryTimeout)
 		// default retry on condition
-		retryOn := "gateway-error,connect-failure,refused-stream,unavailable"
+		retryOn := "gateway-error,connect-failure,refused-stream,unavailable,cancelled,resource-exhausted"
 		if in.RetryOn != "" {
 			retryOn = in.RetryOn
 		}
