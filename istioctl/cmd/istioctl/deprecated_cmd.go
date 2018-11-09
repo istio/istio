@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // DEPRECATED - These commands are deprecated and will be removed in future releases.
-
+// Please don't make effort to add new features here.
 package main
 
 import (
