@@ -45,7 +45,11 @@ var (
 				return fmt.Errorf("Usage: %s", c.Example)
 			}
 
-			bindings, svcs, err := genbinding.CreateBinding(args[0], remoteClusters, remoteSubset)
+			if len(namespace) == 0 {
+			        namespace = defaultNamespace
+			}
+
+			bindings, svcs, err := genbinding.CreateBinding(args[0], remoteClusters, remoteSubset, namespace)
 			if err != nil {
 				return multierror.Prefix(err, "could not create binding:")
 			}
@@ -54,6 +58,7 @@ var (
 			configDescriptor := model.ConfigDescriptor{
 				model.VirtualService,
 				model.DestinationRule,
+				model.ServiceEntry,
 			}
 			writeYAMLOutput(configDescriptor, bindings, c.OutOrStdout())
 
@@ -61,8 +66,6 @@ var (
 			if err := validateConfigs(bindings); err != nil {
 				return multierror.Prefix(err, "output config(s) are invalid:")
 			}
-			return nil
-
 			return nil
 		},
 	}
