@@ -7,6 +7,7 @@
 	It is generated from these files:
 		envoy/config/filter/http/authn/v2alpha1/config.proto
 		envoy/config/filter/http/jwt_auth/v2alpha1/config.proto
+		envoy/config/filter/network/tcp_cluster_rewrite/v2alpha1/config.proto
 
 	It has these top-level messages:
 		FilterConfig
@@ -16,6 +17,7 @@
 		RemoteJwks
 		JwtHeader
 		JwtAuthentication
+		TcpClusterRewrite
 */
 package v2alpha1
 

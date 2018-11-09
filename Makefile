@@ -83,7 +83,9 @@ export ENABLE_ISTIO_CNI ?= false
 # EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
 
 
-ISTIO_HELM_REPO := https://raw.githubusercontent.com/istio/istio.io/master/static/charts
+#ISTIO_HELM_REPO := https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts
+ISTIO_HELM_REPO := https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
+
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -171,7 +173,7 @@ export ISTIO_ENVOY_RELEASE_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/release
 export ISTIO_ENVOY_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELEASE_NAME}
 
-GO_VERSION_REQUIRED:=1.9
+GO_VERSION_REQUIRED:=1.10
 
 HUB?=istio
 ifeq ($(HUB),)
@@ -274,7 +276,7 @@ depend.diff: $(ISTIO_OUT)
 # Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
 go.generate.diff: $(ISTIO_OUT)
 	git diff HEAD > $(ISTIO_OUT)/before_go_generate.diff
-	-go generate ./... 
+	-go generate ./...
 	git diff HEAD > $(ISTIO_OUT)/after_go_generate.diff
 	diff $(ISTIO_OUT)/before_go_generate.diff $(ISTIO_OUT)/after_go_generate.diff
 
@@ -408,6 +410,7 @@ ${ISTIO_OUT}/archive: istioctl-all LICENSE README.md install/updateVersion.sh re
 	cp LICENSE ${ISTIO_OUT}/archive
 	cp README.md ${ISTIO_OUT}/archive
 	cp -r tools ${ISTIO_OUT}/archive
+	go run tools/license/get_dep_licenses.go > LICENSES.txt
 	ISTIO_RELEASE=1 install/updateVersion.sh -a "$(ISTIO_DOCKER_HUB),$(VERSION)" \
 		-P "$(ISTIO_URL)/deb" \
 		-d "${ISTIO_OUT}/archive"

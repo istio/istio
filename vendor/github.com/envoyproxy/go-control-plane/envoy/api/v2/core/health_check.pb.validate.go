@@ -136,44 +136,88 @@ func (m *HealthCheck) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetNoTrafficInterval()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
+	if d := m.GetNoTrafficInterval(); d != nil {
+		dur, err := types.DurationFromProto(d)
+		if err != nil {
 			return HealthCheckValidationError{
 				Field:  "NoTrafficInterval",
-				Reason: "embedded message failed validation",
+				Reason: "value is not a valid duration",
 				Cause:  err,
 			}
 		}
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return HealthCheckValidationError{
+				Field:  "NoTrafficInterval",
+				Reason: "value must be greater than 0s",
+			}
+		}
+
 	}
 
-	if v, ok := interface{}(m.GetUnhealthyInterval()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
+	if d := m.GetUnhealthyInterval(); d != nil {
+		dur, err := types.DurationFromProto(d)
+		if err != nil {
 			return HealthCheckValidationError{
 				Field:  "UnhealthyInterval",
-				Reason: "embedded message failed validation",
+				Reason: "value is not a valid duration",
 				Cause:  err,
 			}
 		}
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return HealthCheckValidationError{
+				Field:  "UnhealthyInterval",
+				Reason: "value must be greater than 0s",
+			}
+		}
+
 	}
 
-	if v, ok := interface{}(m.GetUnhealthyEdgeInterval()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
+	if d := m.GetUnhealthyEdgeInterval(); d != nil {
+		dur, err := types.DurationFromProto(d)
+		if err != nil {
 			return HealthCheckValidationError{
 				Field:  "UnhealthyEdgeInterval",
-				Reason: "embedded message failed validation",
+				Reason: "value is not a valid duration",
 				Cause:  err,
 			}
 		}
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return HealthCheckValidationError{
+				Field:  "UnhealthyEdgeInterval",
+				Reason: "value must be greater than 0s",
+			}
+		}
+
 	}
 
-	if v, ok := interface{}(m.GetHealthyEdgeInterval()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
+	if d := m.GetHealthyEdgeInterval(); d != nil {
+		dur, err := types.DurationFromProto(d)
+		if err != nil {
 			return HealthCheckValidationError{
 				Field:  "HealthyEdgeInterval",
-				Reason: "embedded message failed validation",
+				Reason: "value is not a valid duration",
 				Cause:  err,
 			}
 		}
+
+		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+		if dur <= gt {
+			return HealthCheckValidationError{
+				Field:  "HealthyEdgeInterval",
+				Reason: "value must be greater than 0s",
+			}
+		}
+
 	}
 
 	// no validation rules for EventLogPath

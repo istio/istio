@@ -120,9 +120,11 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushRe
 	// requested version doesn't match.
 	if snapshot, ok := c.snapshots[group]; ok {
 		version := snapshot.Version(request.TypeUrl)
-		scope.Debugf("Found snapshot for group: %q, with version: %q", group, version)
+		scope.Debugf("Found snapshot for group: %q for %v @ version: %q",
+			group, request.TypeUrl, version)
+
 		if version != request.VersionInfo {
-			scope.Debugf("Responding to group %q with snapshot:\n%v\n", group, snapshot)
+			scope.Debugf("Responding to group %q snapshot:\n%v\n", group, snapshot)
 			response := &server.WatchResponse{
 				TypeURL:   request.TypeUrl,
 				Version:   version,
@@ -170,7 +172,8 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 		for id, watch := range info.watches {
 			version := snapshot.Version(watch.request.TypeUrl)
 			if version != watch.request.VersionInfo {
-				scope.Infof("SetSnapshot(): respond to watch %d with new version %q", id, version)
+				scope.Infof("SetSnapshot(): respond to watch %d for %v @ version %q",
+					id, watch.request.TypeUrl, version)
 
 				response := &server.WatchResponse{
 					TypeURL:   watch.request.TypeUrl,
@@ -182,7 +185,8 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 				// discard the responseWatch
 				delete(info.watches, id)
 
-				scope.Debugf("SetSnapshot(): watch %d with version %q complete", id, version)
+				scope.Debugf("SetSnapshot(): watch %d for %v @ version %q complete",
+					id, watch.request.TypeUrl, version)
 			}
 		}
 		info.mu.Unlock()

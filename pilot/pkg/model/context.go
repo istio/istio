@@ -203,7 +203,7 @@ const (
 // GetRouterMode returns the operating mode associated with the router.
 // Assumes that the proxy is of type Router
 func (node *Proxy) GetRouterMode() RouterMode {
-	if modestr, found := node.Metadata["ISTIO_ROUTER_MODE"]; found {
+	if modestr, found := node.Metadata["ROUTER_MODE"]; found {
 		switch RouterMode(modestr) {
 		case SniDnatRouter:
 			return SniDnatRouter
@@ -367,6 +367,8 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
 		SdsUdsPath:            "",
+		EnableSdsTokenMount:   false,
+		TrustDomain:           "",
 	}
 }
 

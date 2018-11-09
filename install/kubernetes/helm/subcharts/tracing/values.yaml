@@ -8,6 +8,7 @@ jaeger:
   tag: 1.7
   memory:
     max_traces: 50000
+  contextPath: /jaeger
   ingress:
     enabled: false
     # Used to create an Ingress record.

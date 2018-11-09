@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/proto"
 )
 
 const (
@@ -56,7 +57,7 @@ const (
 	LocalhostAddress = "127.0.0.1"
 
 	// EnvoyHTTPLogFormat format for envoy access logs
-	EnvoyHTTPLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%" +
+	EnvoyHTTPLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
 		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
@@ -121,7 +122,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		mgmtListeners := buildSidecarInboundMgmtListeners(env, managementPorts, node.IPAddress)
+		mgmtListeners := buildSidecarInboundMgmtListeners(node, env, managementPorts, node.IPAddress)
 		// If management listener port and service port are same, bad things happen
 		// when running in kubernetes, as the probes stop responding. So, append
 		// non overlapping listeners only.
@@ -144,7 +145,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 		var transparent *google_protobuf.BoolValue
 		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
-			transparent = &google_protobuf.BoolValue{Value: true}
+			transparent = proto.BoolTrue
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -152,7 +153,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			Name:           VirtualListenerName,
 			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
 			Transparent:    transparent,
-			UseOriginalDst: &google_protobuf.BoolValue{Value: true},
+			UseOriginalDst: proto.BoolTrue,
 			FilterChains: []listener.FilterChain{
 				{
 					Filters: []listener.Filter{
@@ -191,9 +192,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					direction:        traceOperation,
 					connectionManager: &http_conn.HttpConnectionManager{
 						HttpProtocolOptions: &core.Http1ProtocolOptions{
-							AllowAbsoluteUrl: &google_protobuf.BoolValue{
-								Value: true,
-							},
+							AllowAbsoluteUrl: proto.BoolTrue,
 						},
 					},
 				},
@@ -201,7 +200,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			bindToPort: true,
 		}
 		l := buildListener(opts)
-		if err := marshalFilters(l, opts, []plugin.FilterChain{{}}); err != nil {
+		if err := marshalFilters(node, l, opts, []plugin.FilterChain{{}}); err != nil {
 			log.Warna("buildSidecarListeners ", err.Error())
 		} else {
 			listeners = append(listeners, l)
@@ -264,7 +263,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				},
 			}
 		case plugin.ListenerProtocolTCP:
-			tcpNetworkFilters = buildInboundNetworkFilters(env, instance)
+			tcpNetworkFilters = buildInboundNetworkFilters(env, node, instance)
 
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, endpoint.ServicePort)
@@ -325,7 +324,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			}
 		}
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := marshalFilters(mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
+		if err := marshalFilters(node, mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
 			log.Warna("buildSidecarInboundListeners ", err.Error())
 		} else {
 			listeners = append(listeners, mutable.Listener)
@@ -541,7 +540,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			}
 
 			// Filters are serialized one time into an opaque struct once we have the complete list.
-			if err := marshalFilters(mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
+			if err := marshalFilters(node, mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
 				log.Warna("buildSidecarOutboundListeners: ", err.Error())
 				continue
 			}
@@ -664,7 +663,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 // the pod.
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
-func buildSidecarInboundMgmtListeners(env *model.Environment, managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
+func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment, managementPorts model.PortList, managementIP string) []*xdsapi.Listener {
 	listeners := make([]*xdsapi.Listener, 0, len(managementPorts))
 
 	if managementIP == "" {
@@ -691,12 +690,12 @@ func buildSidecarInboundMgmtListeners(env *model.Environment, managementPorts mo
 				ip:   managementIP,
 				port: mPort.Port,
 				filterChainOpts: []*filterChainOpts{{
-					networkFilters: buildInboundNetworkFilters(env, instance),
+					networkFilters: buildInboundNetworkFilters(env, node, instance),
 				}},
 			}
 			l := buildListener(listenerOpts)
 			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
-			if err := marshalFilters(l, listenerOpts, []plugin.FilterChain{{}}); err != nil {
+			if err := marshalFilters(node, l, listenerOpts, []plugin.FilterChain{{}}); err != nil {
 				log.Warna("buildSidecarInboundMgmtListeners ", err.Error())
 			} else {
 				listeners = append(listeners, l)
@@ -747,7 +746,7 @@ type buildListenerOpts struct {
 	filterChainOpts []*filterChainOpts
 }
 
-func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOpts,
+func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
 	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
 	filters := append(httpFilters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
@@ -764,7 +763,11 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
-	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{Value: httpOpts.useRemoteAddress}
+	if httpOpts.useRemoteAddress {
+		connectionManager.UseRemoteAddress = proto.BoolTrue
+	} else {
+		connectionManager.UseRemoteAddress = proto.BoolFalse
+	}
 
 	// Allow websocket upgrades
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
@@ -793,8 +796,13 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 
 	if env.Mesh.AccessLogFile != "" {
 		fl := &fileaccesslog.FileAccessLog{
-			Path:   env.Mesh.AccessLogFile,
-			Format: EnvoyHTTPLogFormat,
+			Path: env.Mesh.AccessLogFile,
+		}
+
+		if util.Is11Proxy(node) {
+			fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+				Format: EnvoyHTTPLogFormat,
+			}
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
@@ -819,7 +827,7 @@ func buildHTTPConnectionManager(env *model.Environment, httpOpts *httpListenerOp
 				Value: tc.OverallSampling,
 			},
 		}
-		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{Value: true}
+		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
@@ -898,7 +906,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
 	if !opts.bindToPort {
 		deprecatedV1 = &xdsapi.Listener_DeprecatedV1{
-			BindToPort: boolFalse,
+			BindToPort: proto.BoolFalse,
 		}
 	}
 
@@ -917,7 +925,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 // TODO: given how tightly tied listener.FilterChains, opts.filterChainOpts, and mutable.FilterChains are to eachother
 // we should encapsulate them some way to ensure they remain consistent (mainly that in each an index refers to the same
 // chain)
-func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.FilterChain) error {
+func marshalFilters(node *model.Proxy, l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.FilterChain) error {
 	if len(opts.filterChainOpts) == 0 {
 		return fmt.Errorf("must have more than 0 chains in listener: %#v", l)
 	}
@@ -937,7 +945,7 @@ func marshalFilters(l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.
 
 		if opt.httpOpts != nil {
 			opt.httpOpts.statPrefix = l.Name
-			connectionManager := buildHTTPConnectionManager(opts.env, opt.httpOpts, chain.HTTP)
+			connectionManager := buildHTTPConnectionManager(node, opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   xdsutil.HTTPConnectionManager,
 				Config: util.MessageToStruct(connectionManager),

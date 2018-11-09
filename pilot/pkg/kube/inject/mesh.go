@@ -140,6 +140,10 @@ containers:
     periodSeconds: [[ $readinessPeriodValue ]]
     failureThreshold: [[ $readinessFailureThresholdValue ]]
   [[ end -]]
+  ports:
+  - containerPort: 15090
+    protocol: TCP
+    name: http-envoy-prom
   env:
   - name: POD_NAME
     valueFrom:
@@ -193,12 +197,25 @@ containers:
 {{ if eq .SDSEnabled true -}}
   - mountPath: /var/run/sds
     name: sdsudspath
+{{ if eq .EnableSdsTokenMount true -}}
+  - mountPath: /var/run/secrets/tokens
+    name: istio-token
+{{ end -}}
 {{ end -}}
 volumes:
 {{ if eq .SDSEnabled true -}}
 - name: sdsudspath
   hostPath:
     path: /var/run/sds
+{{ if eq .EnableSdsTokenMount true -}}
+- name: istio-token
+  projected:
+    sources:
+    - serviceAccountToken:
+      path: istio-token
+      expirationSeconds: 43200
+      audience: istio
+{{ end -}}
 {{ end -}}
 - emptyDir:
     medium: Memory

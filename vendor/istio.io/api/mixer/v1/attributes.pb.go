@@ -6,9 +6,7 @@
 
 	It is generated from these files:
 		mixer/v1/attributes.proto
-		mixer/v1/check.proto
-		mixer/v1/report.proto
-		mixer/v1/service.proto
+		mixer/v1/mixer.proto
 
 	It has these top-level messages:
 		Attributes
