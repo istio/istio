@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -2197,6 +2198,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: 5,
+					MinHealthPercent:  20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2216,6 +2218,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				ConnectionPool: &networking.ConnectionPoolSettings{},
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: 5,
+					MinHealthPercent:  20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2240,6 +2243,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 						OutlierDetection: &networking.OutlierDetection{
 							ConsecutiveErrors: 5,
+							MinHealthPercent:  20,
 						},
 					},
 				},
@@ -2260,6 +2264,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						ConnectionPool: &networking.ConnectionPoolSettings{},
 						OutlierDetection: &networking.OutlierDetection{
 							ConsecutiveErrors: 5,
+							MinHealthPercent:  20,
 						},
 					},
 				},
@@ -2281,6 +2286,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 				OutlierDetection: &networking.OutlierDetection{
 					ConsecutiveErrors: 5,
+					MinHealthPercent:  20,
 				},
 			},
 			Subsets: []*networking.Subset{
@@ -2297,6 +2303,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 						OutlierDetection: &networking.OutlierDetection{
 							ConsecutiveErrors: 5,
+							MinHealthPercent:  30,
 						},
 					},
 				},
@@ -2330,6 +2337,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			},
 			OutlierDetection: &networking.OutlierDetection{
 				ConsecutiveErrors: 5,
+				MinHealthPercent:  20,
 			},
 		},
 			valid: true},
@@ -2350,6 +2358,7 @@ func TestValidateTrafficPolicy(t *testing.T) {
 					},
 					OutlierDetection: &networking.OutlierDetection{
 						ConsecutiveErrors: 5,
+						MinHealthPercent:  20,
 					},
 				},
 			},
@@ -2364,6 +2373,23 @@ func TestValidateTrafficPolicy(t *testing.T) {
 			ConnectionPool: &networking.ConnectionPoolSettings{},
 			OutlierDetection: &networking.OutlierDetection{
 				ConsecutiveErrors: 5,
+				MinHealthPercent:  20,
+			},
+		},
+			valid: false},
+		{name: "invalid traffic policy, panic threshold too low", in: networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{
+					Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+				},
+			},
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+			},
+			OutlierDetection: &networking.OutlierDetection{
+				ConsecutiveErrors: 5,
+				MinHealthPercent:  -1,
 			},
 		},
 			valid: false},
@@ -2543,6 +2569,14 @@ func TestValidateOutlierDetection(t *testing.T) {
 
 		{name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
 			MaxEjectionPercent: 105},
+			valid: false},
+		{name: "invalid outlier detection, panic threshold too low", in: networking.OutlierDetection{
+			MinHealthPercent: -1,
+		},
+			valid: false},
+		{name: "invalid outlier detection, panic threshold too high", in: networking.OutlierDetection{
+			MinHealthPercent: 101,
+		},
 			valid: false},
 	}
 
