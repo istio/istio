@@ -15,7 +15,6 @@
 package inject
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -23,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pkg/log"
+	"fmt"
 )
 
 const (
@@ -34,32 +35,6 @@ const (
 	istioProxyContainerName = "istio-proxy"
 )
 
-func appProbePath(kind string, containers []corev1.Container) string {
-	for _, c := range containers {
-		probe := c.ReadinessProbe
-		if kind == "live" {
-			probe = c.LivenessProbe
-		}
-		if probe == nil || probe.Handler.HTTPGet == nil {
-			continue
-		}
-		hp := probe.Handler.HTTPGet
-		port := 80
-		if hp.Port.Type == intstr.String {
-			name := hp.Port.String()
-			for _, cp := range c.Ports {
-				if cp.Name == name {
-					port = int(cp.ContainerPort)
-					break
-				}
-			}
-		} else {
-			port = hp.Port.IntValue()
-		}
-		return fmt.Sprintf(":%v%v", port, hp.Path)
-	}
-	return ""
-}
 
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	statusPort := -1
@@ -86,16 +61,26 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	}
 
 	// Change the application containers' probe to point to sidecar's status port.
-	rewriteProbe := func(probe *corev1.Probe)  {
+	rewriteProbe := func(probe *corev1.Probe, portMap map[string]int32)  {
 		if probe == nil || probe.HTTPGet == nil {
 			return
 		}
 		httpGet := probe.HTTPGet
-		// TODO: handle named port as well.
-		httpGet.HTTPHeaders = append(httpGet.HTTPHeaders, corev1.HTTPHeader{
+		header := corev1.HTTPHeader{
 			Name: status.IstioAppPortHeader,
 			Value: httpGet.Port.String(),
-		})
+		}
+		// A named port, resolve by looking at port map.
+		if httpGet.Port.Type == intstr.String {
+			port, exists := portMap[httpGet.Port.StrVal]
+			if !exists {
+				log.Errorf("named port not found in the map skip rewriting probing %v", *probe)
+				return
+			}
+			header.Value = strconv.Itoa(int(port))
+			fmt.Printf("jianfeih debug the port is %v, the map is %v, header %v\n", port, portMap, header)
+		}
+		httpGet.HTTPHeaders = append(httpGet.HTTPHeaders, header)
 		httpGet.Port = intstr.FromInt(statusPort)
 	}
 	for _, c := range podSpec.Containers {
@@ -103,7 +88,11 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 		if c.Name == istioProxyContainerName {
 			continue
 		}
-		rewriteProbe(c.ReadinessProbe)
-		rewriteProbe(c.LivenessProbe)
+		portMap := map[string]int32{}
+		for _, p := range c.Ports {
+			portMap[p.Name] = p.ContainerPort
+		}
+		rewriteProbe(c.ReadinessProbe, portMap)
+		rewriteProbe(c.LivenessProbe, portMap)
 	}
 }

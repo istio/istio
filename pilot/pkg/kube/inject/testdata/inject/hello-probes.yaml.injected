@@ -22,7 +22,7 @@ spec:
           httpGet:
             httpHeaders:
             - name: istio-app-probe-port
-              value: http
+              value: "80"
             port: 15020
         name: hello
         ports:
@@ -40,7 +40,7 @@ spec:
           httpGet:
             httpHeaders:
             - name: istio-app-probe-port
-              value: http
+              value: "90"
             port: 15020
         name: world
         ports:
