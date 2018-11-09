@@ -41,6 +41,8 @@ resources:
   - kind:        "EnvoyFilter"
     singular:    "envoyfilter"
     plural:      "envoyfilters"
+    shortNames:
+      - "ef"
     group:       "networking.istio.io"
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.EnvoyFilter"
@@ -48,6 +50,8 @@ resources:
   - kind:        "HTTPAPISpec"
     singular:    "httpapispec"
     plural:      "httpapispecs"
+    shortNames:
+      - "hs"
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.HTTPAPISpec"
@@ -55,6 +59,8 @@ resources:
   - kind:        "HTTPAPISpecBinding"
     singular:    "httpapispecbinding"
     plural:      "httpapispecbindings"
+    shortNames:
+      - "hsb"
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.HTTPAPISpecBinding"
@@ -62,6 +68,8 @@ resources:
   - kind:        "QuotaSpec"
     singular:    "quotaspec"
     plural:      "quotaspecs"
+    shortNames:
+      - "qs"
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.QuotaSpec"
@@ -69,6 +77,8 @@ resources:
   - kind:        "QuotaSpecBinding"
     singular:    "quotaspecbinding"
     plural:      "quotaspecbindings"
+    shortNames:
+      - "qsb"
     group:       "config.istio.io"
     version:     "v1alpha2"
     proto:       "istio.mixer.v1.config.client.QuotaSpecBinding"
@@ -76,6 +86,8 @@ resources:
   - kind:        "Policy"
     singular:    "policy"
     plural:      "policies"
+    shortNames:
+      - "pol"
     group:       "authentication.istio.io"
     version:     "v1alpha1"
     proto:       "istio.authentication.v1alpha1.Policy"
@@ -85,6 +97,8 @@ resources:
     clusterScoped: true
     singular:      "meshpolicy"
     plural:        "meshpolicies"
+    shortNames:
+      - "mp"
     group:         "authentication.istio.io"
     version:       "v1alpha1"
     proto:         "istio.authentication.v1alpha1.Policy"
@@ -93,6 +107,8 @@ resources:
   - kind:        "ServiceRole"
     singular:    "servicerole"
     plural:      "serviceroles"
+    shortNames:
+      - "sr"
     group:       "rbac.istio.io"
     version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.ServiceRole"
@@ -101,6 +117,8 @@ resources:
     clusterScoped: false
     singular:    "servicerolebinding"
     plural:      "servicerolebindings"
+    shortNames:
+      - "srb"
     group:       "rbac.istio.io"
     version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.ServiceRoleBinding"
@@ -109,6 +127,8 @@ resources:
     listKind:    "RbacConfigList"
     singular:    "rbacconfig"
     plural:      "rbacconfigs"
+    shortNames:
+      - "rbaccfg"
     group:       "rbac.istio.io"
     version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.RbacConfig"
@@ -118,6 +138,8 @@ resources:
     listKind:    "ClusterRbacConfigList"
     singular:    "clusterrbacconfig"
     plural:      "clusterrbacconfigs"
+    shortNames:
+      - "crbaccfg"
     group:       "rbac.istio.io"
     version:     "v1alpha1"
     proto:       "istio.rbac.v1alpha1.RbacConfig"

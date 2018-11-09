@@ -18,25 +18,27 @@ func init() {
 	b := kube.NewSchemaBuilder()
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "Policy",
-		ListKind:  "PolicyList",
-		Singular:  "policy",
-		Plural:    "policies",
-		Version:   "v1alpha1",
-		Group:     "authentication.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.authentication.v1alpha1.Policy"),
-		Converter: converter.Get("auth-policy-resource"),
+		Kind:       "Policy",
+		ListKind:   "PolicyList",
+		Singular:   "policy",
+		Plural:     "policies",
+		ShortNames: []string{"pol"},
+		Version:    "v1alpha1",
+		Group:      "authentication.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.authentication.v1alpha1.Policy"),
+		Converter:  converter.Get("auth-policy-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "MeshPolicy",
-		ListKind:  "MeshPolicyList",
-		Singular:  "meshpolicy",
-		Plural:    "meshpolicies",
-		Version:   "v1alpha1",
-		Group:     "authentication.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.authentication.v1alpha1.Policy"),
-		Converter: converter.Get("auth-policy-resource"),
+		Kind:       "MeshPolicy",
+		ListKind:   "MeshPolicyList",
+		Singular:   "meshpolicy",
+		Plural:     "meshpolicies",
+		ShortNames: []string{"mp"},
+		Version:    "v1alpha1",
+		Group:      "authentication.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.authentication.v1alpha1.Policy"),
+		Converter:  converter.Get("auth-policy-resource"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -370,47 +372,51 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "HTTPAPISpec",
-		ListKind:  "HTTPAPISpecList",
-		Singular:  "httpapispec",
-		Plural:    "httpapispecs",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpec"),
-		Converter: converter.Get("identity"),
+		Kind:       "HTTPAPISpec",
+		ListKind:   "HTTPAPISpecList",
+		Singular:   "httpapispec",
+		Plural:     "httpapispecs",
+		ShortNames: []string{"hs"},
+		Version:    "v1alpha2",
+		Group:      "config.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpec"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "HTTPAPISpecBinding",
-		ListKind:  "HTTPAPISpecBindingList",
-		Singular:  "httpapispecbinding",
-		Plural:    "httpapispecbindings",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpecBinding"),
-		Converter: converter.Get("identity"),
+		Kind:       "HTTPAPISpecBinding",
+		ListKind:   "HTTPAPISpecBindingList",
+		Singular:   "httpapispecbinding",
+		Plural:     "httpapispecbindings",
+		ShortNames: []string{"hsb"},
+		Version:    "v1alpha2",
+		Group:      "config.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.mixer.v1.config.client.HTTPAPISpecBinding"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "QuotaSpec",
-		ListKind:  "QuotaSpecList",
-		Singular:  "quotaspec",
-		Plural:    "quotaspecs",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpec"),
-		Converter: converter.Get("identity"),
+		Kind:       "QuotaSpec",
+		ListKind:   "QuotaSpecList",
+		Singular:   "quotaspec",
+		Plural:     "quotaspecs",
+		ShortNames: []string{"qs"},
+		Version:    "v1alpha2",
+		Group:      "config.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpec"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "QuotaSpecBinding",
-		ListKind:  "QuotaSpecBindingList",
-		Singular:  "quotaspecbinding",
-		Plural:    "quotaspecbindings",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpecBinding"),
-		Converter: converter.Get("identity"),
+		Kind:       "QuotaSpecBinding",
+		ListKind:   "QuotaSpecBindingList",
+		Singular:   "quotaspecbinding",
+		Plural:     "quotaspecbindings",
+		ShortNames: []string{"qsb"},
+		Version:    "v1alpha2",
+		Group:      "config.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpecBinding"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -426,14 +432,15 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "EnvoyFilter",
-		ListKind:  "EnvoyFilterList",
-		Singular:  "envoyfilter",
-		Plural:    "envoyfilters",
-		Version:   "v1alpha3",
-		Group:     "networking.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.EnvoyFilter"),
-		Converter: converter.Get("identity"),
+		Kind:       "EnvoyFilter",
+		ListKind:   "EnvoyFilterList",
+		Singular:   "envoyfilter",
+		Plural:     "envoyfilters",
+		ShortNames: []string{"ef"},
+		Version:    "v1alpha3",
+		Group:      "networking.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.EnvoyFilter"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
@@ -517,47 +524,51 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "RbacConfig",
-		ListKind:  "RbacConfigList",
-		Singular:  "rbacconfig",
-		Plural:    "rbacconfigs",
-		Version:   "v1alpha1",
-		Group:     "rbac.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"),
-		Converter: converter.Get("identity"),
+		Kind:       "RbacConfig",
+		ListKind:   "RbacConfigList",
+		Singular:   "rbacconfig",
+		Plural:     "rbacconfigs",
+		ShortNames: []string{"rbaccfg"},
+		Version:    "v1alpha1",
+		Group:      "rbac.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "ClusterRbacConfig",
-		ListKind:  "ClusterRbacConfigList",
-		Singular:  "clusterrbacconfig",
-		Plural:    "clusterrbacconfigs",
-		Version:   "v1alpha1",
-		Group:     "rbac.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"),
-		Converter: converter.Get("identity"),
+		Kind:       "ClusterRbacConfig",
+		ListKind:   "ClusterRbacConfigList",
+		Singular:   "clusterrbacconfig",
+		Plural:     "clusterrbacconfigs",
+		ShortNames: []string{"crbaccfg"},
+		Version:    "v1alpha1",
+		Group:      "rbac.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.RbacConfig"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "ServiceRole",
-		ListKind:  "ServiceRoleList",
-		Singular:  "servicerole",
-		Plural:    "serviceroles",
-		Version:   "v1alpha1",
-		Group:     "rbac.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.ServiceRole"),
-		Converter: converter.Get("identity"),
+		Kind:       "ServiceRole",
+		ListKind:   "ServiceRoleList",
+		Singular:   "servicerole",
+		Plural:     "serviceroles",
+		ShortNames: []string{"sr"},
+		Version:    "v1alpha1",
+		Group:      "rbac.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.ServiceRole"),
+		Converter:  converter.Get("identity"),
 	})
 
 	b.Add(kube.ResourceSpec{
-		Kind:      "ServiceRoleBinding",
-		ListKind:  "ServiceRoleBindingList",
-		Singular:  "servicerolebinding",
-		Plural:    "servicerolebindings",
-		Version:   "v1alpha1",
-		Group:     "rbac.istio.io",
-		Target:    metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding"),
-		Converter: converter.Get("identity"),
+		Kind:       "ServiceRoleBinding",
+		ListKind:   "ServiceRoleBindingList",
+		Singular:   "servicerolebinding",
+		Plural:     "servicerolebindings",
+		ShortNames: []string{"srb"},
+		Version:    "v1alpha1",
+		Group:      "rbac.istio.io",
+		Target:     metadata.Types.Get("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding"),
+		Converter:  converter.Get("identity"),
 	})
 
 	Types = b.Build()
