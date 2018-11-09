@@ -51,10 +51,6 @@ spec:
         - NONE
         - --statusPort
         - "123"
-        - "--appReadyUrl"
-        - ""
-        - "--appLiveUrl"
-        - ""
         - --applicationPorts
         - 1,2,3
         env:
