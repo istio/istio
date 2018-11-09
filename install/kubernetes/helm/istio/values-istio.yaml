@@ -7,4 +7,4 @@ global:
   #   - name: "private-registry-key"
 
   # Default is 10s second
-refreshInterval: 1s
+  refreshInterval: 1s
