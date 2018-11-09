@@ -203,7 +203,7 @@ func Empty() *Snapshot {
 	var err error
 	ctx := context.Background()
 	if ctx, err = tag.New(ctx, tag.Insert(monitoring.ConfigIDTag, "-1")); err != nil {
-		log.Errorf("error establishing monitoring context config ID: %v", err)
+		scope.Errorf("error establishing monitoring context config ID: %v", err)
 	}
 
 	return &Snapshot{

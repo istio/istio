@@ -138,13 +138,13 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	id := e.nextID
 	e.nextID++
 
-	log.Debugf("Building new config.Snapshot: id='%d'", id)
+	scope.Debugf("Building new config.Snapshot: id='%d'", id)
 
 	// Allocate new monitoring context to use with the new snapshot.
 	monitoringCtx := context.Background()
 	var err error
 	if monitoringCtx, err = tag.New(monitoringCtx, tag.Insert(monitoring.ConfigIDTag, strconv.FormatInt(id, 10))); err != nil {
-		log.Errorf("could not establish snapshot id in monitoring context: %v", err)
+		scope.Errorf("could not establish snapshot id in monitoring context: %v", err)
 	}
 
 	e.lock.RLock()
@@ -182,8 +182,8 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	}
 	e.lock.RUnlock()
 
-	log.Infof("Built new config.Snapshot: id='%d'", id)
-	log.Debugf("config.Snapshot creation error=%v, contents:\n%s", errs.ErrorOrNil(), s)
+	scope.Infof("Built new config.Snapshot: id='%d'", id)
+	scope.Debugf("config.Snapshot creation error=%v, contents:\n%s", errs.ErrorOrNil(), s)
 	return s, errs.ErrorOrNil()
 }
 
@@ -194,13 +194,13 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 			continue
 		}
 
-		log.Debug("Start processing attributes from changed manifest...")
+		scope.Debug("Start processing attributes from changed manifest...")
 
 		cfg := obj.Spec
 		for an, at := range cfg.(*config.AttributeManifest).Attributes {
 			attrs[an] = at
 			stats.Record(ctx, monitoring.AttributesTotal.M(1))
-			log.Debugf("Attribute '%s': '%s'.", an, at.ValueType)
+			scope.Debugf("Attribute '%s': '%s'.", an, at.ValueType)
 		}
 	}
 
@@ -210,18 +210,18 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
 	// The list of valid names for a given Template is available in the Template.Info.AttributeManifests object.
 	for _, info := range e.templates {
-		log.Debugf("Processing attributes from template: '%s'", info.Name)
+		scope.Debugf("Processing attributes from template: '%s'", info.Name)
 
 		for _, v := range info.AttributeManifests {
 			for an, at := range v.Attributes {
 				attrs[an] = at
 				stats.Record(ctx, monitoring.AttributesTotal.M(1))
-				log.Debugf("Attribute '%s': '%s'", an, at.ValueType)
+				scope.Debugf("Attribute '%s': '%s'", an, at.ValueType)
 			}
 		}
 	}
 
-	log.Debug("Completed processing attributes.")
+	scope.Debug("Completed processing attributes.")
 	return attrs
 }
 
@@ -232,7 +232,7 @@ func convert(spec map[string]interface{}, target proto.Message) error {
 		return err
 	}
 	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), target); err != nil {
-		log.Warnf("unable to unmarshal: %s, %s", err.Error(), string(jsonData))
+		scope.Warnf("unable to unmarshal: %s, %s", err.Error(), string(jsonData))
 	}
 	return err
 }
@@ -245,7 +245,7 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs
 		var found bool
 
 		if key.Kind == constant.HandlerKind {
-			log.Debugf("Static Handler: %#v (name: %s)", key, key.Name)
+			scope.Debugf("Static Handler: %#v (name: %s)", key, key.Name)
 			handlerProto := resource.Spec.(*config.Handler)
 			a, ok := e.adapters[handlerProto.CompiledAdapter]
 			if !ok {
@@ -262,10 +262,10 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs
 				if handlerProto.GetParams() != nil {
 					dict, err := toDictionary(handlerProto.Params)
 					if err != nil {
-						log.Warnf("could not convert handler params; using default config: %v", err)
+						scope.Warnf("could not convert handler params; using default config: %v", err)
 					} else {
 						if err := convert(dict, c); err != nil {
-							log.Warnf("could not convert handler params; using default config: %v", err)
+							scope.Warnf("could not convert handler params; using default config: %v", err)
 						}
 					}
 				}
@@ -283,7 +283,7 @@ func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs
 
 		adapterName := key.String()
 
-		log.Debugf("Processing incoming handler config: name='%s'\n%s", adapterName, resource.Spec)
+		scope.Debugf("Processing incoming handler config: name='%s'\n%s", adapterName, resource.Spec)
 
 		cfg := &HandlerStatic{
 			Name:    adapterName,
@@ -317,7 +317,7 @@ func (e *Ephemeral) processDynamicHandlerConfigs(ctx context.Context, adapters m
 		}
 
 		handlerName := key.String()
-		log.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
+		scope.Debugf("Processing incoming handler config: name='%s'\n%s", handlerName, resource.Spec)
 
 		hdl := resource.Spec.(*config.Handler)
 		if len(hdl.CompiledAdapter) > 0 {
@@ -382,7 +382,7 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 
 		inst := resource.Spec.(*config.Instance)
 		instanceName := key.String()
-		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
+		scope.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 
 		tmpl, _ := getCanonicalRef(inst.Template, constant.TemplateKind, key.Namespace, func(n string) interface{} {
 			if a, ok := templates[n]; ok {
@@ -473,7 +473,7 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.A
 
 		instanceName := key.String()
 
-		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
+		scope.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 		inferredType, err := info.InferType(resource.Spec, func(s string) (config.ValueType, error) {
 			return e.tc.EvalType(s, attributes)
 		})
@@ -497,7 +497,7 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.A
 
 func (e *Ephemeral) processDynamicAdapterConfigs(ctx context.Context, availableTmpls map[string]*Template, errs *multierror.Error) map[string]*Adapter {
 	result := map[string]*Adapter{}
-	log.Debug("Begin processing adapter info configurations.")
+	scope.Debug("Begin processing adapter info configurations.")
 	for adapterInfoKey, resource := range e.entries {
 		if adapterInfoKey.Kind != constant.AdapterKind {
 			continue
@@ -508,7 +508,7 @@ func (e *Ephemeral) processDynamicAdapterConfigs(ctx context.Context, availableT
 		stats.Record(ctx, monitoring.AdapterInfosTotal.M(1))
 		cfg := resource.Spec.(*v1beta1.Info)
 
-		log.Debugf("Processing incoming adapter info: name='%s'\n%v", adapterName, cfg)
+		scope.Debugf("Processing incoming adapter info: name='%s'\n%v", adapterName, cfg)
 
 		fds, desc, err := GetAdapterCfgDescriptor(cfg.Config)
 		if err != nil {
@@ -556,7 +556,7 @@ func (e *Ephemeral) processRuleConfigs(
 	attributes ast.AttributeDescriptorFinder,
 	errs *multierror.Error) []*Rule {
 
-	log.Debug("Begin processing rule configurations.")
+	scope.Debug("Begin processing rule configurations.")
 
 	var rules []*Rule
 
@@ -570,7 +570,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 		cfg := resource.Spec.(*config.Rule)
 
-		log.Debugf("Processing incoming rule: name='%s'\n%s", ruleName, cfg)
+		scope.Debugf("Processing incoming rule: name='%s'\n%s", ruleName, cfg)
 
 		if cfg.Match != "" {
 			if err := e.tc.AssertType(cfg.Match, attributes, config.BOOL); err != nil {
@@ -584,7 +584,7 @@ func (e *Ephemeral) processRuleConfigs(
 		actionsStat := make([]*ActionStatic, 0, len(cfg.Actions))
 		actionsDynamic := make([]*ActionDynamic, 0, len(cfg.Actions))
 		for i, a := range cfg.Actions {
-			log.Debugf("Processing action: %s[%d]", ruleName, i)
+			scope.Debugf("Processing action: %s[%d]", ruleName, i)
 			var processStaticHandler bool
 			var processDynamicHandler bool
 			var sahandler *HandlerStatic
@@ -761,7 +761,7 @@ func contains(strs []string, w string) bool {
 
 func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *multierror.Error) map[string]*Template {
 	result := map[string]*Template{}
-	log.Debug("Begin processing templates.")
+	scope.Debug("Begin processing templates.")
 	for templateKey, resource := range e.entries {
 		if templateKey.Kind != constant.TemplateKind {
 			continue
@@ -770,7 +770,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 
 		templateName := templateKey.String()
 		cfg := resource.Spec.(*v1beta1.Template)
-		log.Debugf("Processing incoming template: name='%s'\n%v", templateName, cfg)
+		scope.Debugf("Processing incoming template: name='%s'\n%v", templateName, cfg)
 
 		fds, desc, name, variety, err := GetTmplDescriptor(cfg.Descriptor_)
 		if err != nil {
@@ -811,7 +811,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 
 func appendErr(ctx context.Context, errs *multierror.Error, field string, measure *stats.Int64Measure, format string, a ...interface{}) {
 	err := fmt.Errorf(format, a...)
-	log.Error(err.Error())
+	scope.Error(err.Error())
 	stats.Record(ctx, measure.M(1))
 	_ = multierror.Append(errs, adapter.ConfigError{Field: field, Underlying: err})
 }

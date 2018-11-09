@@ -45,6 +45,8 @@
           {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
           {{- end }}
+          - --log_output_level
+          - runtime-config:debug
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}
@@ -174,6 +176,8 @@
           {{- else }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
           {{- end }}
+          - --log_output_level
+          - runtime-config:debug
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}
