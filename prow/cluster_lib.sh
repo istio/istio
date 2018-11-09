@@ -136,23 +136,6 @@ function setup_cluster() {
   fi
 }
 
-function collect_logging() {
-  # use current-context if pilot_cluster not set
-  PILOT_CLUSTER="${PILOT_CLUSTER:-$(kubectl config current-context)}"
-
-  kubectl config use-context "${PILOT_CLUSTER}"
-
-  #export PROJECT_ID=$(gcloud config get-value project)
-
-  #gcloud logging read "resource.type=gce_instance AND logName=projects/${PROJECT_ID}/logs/kubelet AND jsonPayload.MESSAGE:istio-cni"  --limit 10 --format json
-
-#  gcloud logging read "resource.type=gce_instance AND logName=projects/${PROJECT_ID}/logs/kubelet"  --limit 10 --format json
-  #gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIFIER=kubelet"  --limit 250 --format json | { grep -i network-plugini=cni || true; }
-#  gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIFIER=kubelet"  --limit 200 --format json | grep network-plugin=cni
-  gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIFIER=kubelet AND jsonPayload.MESSAGE:calico" --limit 10 --format json
-
-}
-
 function unsetup_clusters() {
   # use current-context if pilot_cluster not set
   PILOT_CLUSTER="${PILOT_CLUSTER:-$(kubectl config current-context)}"

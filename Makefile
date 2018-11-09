@@ -29,7 +29,7 @@ ISTIO_GCS ?= istio-release/releases/$(VERSION)
 ISTIO_URL ?= https://storage.googleapis.com/$(ISTIO_GCS)
 ISTIO_CNI_DOCKER_HUB ?= docker.io/istio
 export ISTIO_CNI_DOCKER_HUB
-ISTIO_CNI_DOCKER_TAG ?= nightly-master
+ISTIO_CNI_DOCKER_TAG ?= master-latest-daily
 export ISTIO_CNI_DOCKER_TAG
 
 # cumulatively track the directories/files to delete after a clean
