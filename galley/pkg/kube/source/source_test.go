@@ -246,7 +246,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 			Singular: "foo",
 			Plural:   "foos",
 			Target:   emptyInfo,
-			Converter: func(_ *converter.Config, info resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]converter.Entry, error) {
+			Converter: func(_ *converter.Config, info resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]converter.Entry, error) {
 				return nil, fmt.Errorf("cant convert")
 			},
 		},
