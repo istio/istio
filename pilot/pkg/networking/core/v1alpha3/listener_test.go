@@ -184,7 +184,6 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	}
 }
 
-
 func getOldestService(services ...*model.Service) *model.Service {
 	var oldestService *model.Service
 	for _, s := range services {
@@ -225,7 +224,7 @@ func buildInboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsap
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
 		instances[i] = &model.ServiceInstance{
-			Service: s,
+			Service:  s,
 			Endpoint: buildEndpoint(s),
 		}
 	}

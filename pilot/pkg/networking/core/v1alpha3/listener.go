@@ -263,7 +263,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Append and forward client cert to backend.
 					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-					ServerName: EnvoyServerName,
+					ServerName:               EnvoyServerName,
 				},
 			}
 		case plugin.ListenerProtocolTCP:
