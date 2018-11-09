@@ -38,6 +38,8 @@ spec:
           value: "{{ $val }}"
         {{- end }}
         {{- end }}
+        - name: "Trust_Domain"
+          value: "{{ .Values.global.trustDomain }}"
       volumes:
       - name: sdsudspath
         hostPath:

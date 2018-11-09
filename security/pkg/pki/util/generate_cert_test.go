@@ -442,7 +442,7 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 		}
 
 		if cert == nil || key == nil {
-			t.Errorf("[%s] Faild to load signer credeitials from files: %v, %v", id, tc.certFile, tc.keyFile)
+			t.Errorf("[%s] Failed to load signer credentials from files: %v, %v", id, tc.certFile, tc.keyFile)
 		}
 	}
 }
