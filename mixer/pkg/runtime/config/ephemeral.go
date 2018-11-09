@@ -51,7 +51,6 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/pkg/log"
 )
 
 // Ephemeral configuration state that gets updated by incoming config change events. By itself, the data contained
