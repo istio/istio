@@ -24,7 +24,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/hashicorp/go-multierror"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -299,6 +298,14 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	node *model.Proxy, env *model.Environment, push *model.PushContext, servers []*networking.Server, gatewaysForWorkload map[string]bool) []*filterChainOpts {
 
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
+	proxyVersion, proxyFound := node.GetProxyVersion()
+	if !proxyFound {
+		proxyVersion = ""
+	}
+	istioVersion, istioFound := node.GetIstioVersion()
+	if !istioFound {
+		istioVersion = ""
+	}
 	// Are we processing plaintext servers or HTTPS servers?
 	// If plain text, we have to combine all servers into a single listener
 	if model.ParseProtocol(servers[0].Port.Protocol).IsHTTP() {
@@ -321,6 +328,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						Uri:     true,
 						Dns:     true,
 					},
+					ServerName: fmt.Sprintf("Istio/%s Envoy/%s", istioVersion, proxyVersion),
 				},
 			},
 		}
@@ -348,6 +356,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 							Uri:     true,
 							Dns:     true,
 						},
+						ServerName: fmt.Sprintf("Istio/%s Envoy/%s", istioVersion, proxyVersion),
 					},
 				},
 			}

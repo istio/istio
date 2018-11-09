@@ -23,7 +23,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
@@ -120,6 +119,12 @@ func (node *Proxy) ServiceNode() string {
 // GetProxyVersion returns the proxy version string identifier, and whether it is present.
 func (node *Proxy) GetProxyVersion() (string, bool) {
 	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	return version, found
+}
+
+// GetIstioVersion returns the istio version string identifier, and whether it is present.
+func (node *Proxy) GetIstioVersion() (string, bool) {
+	version, found := node.Metadata["ISTIO_VERSION"]
 	return version, found
 }
 
