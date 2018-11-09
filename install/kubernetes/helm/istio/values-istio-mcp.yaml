@@ -1,4 +1,4 @@
-# This is used to generate istio.yaml
+# This is used to generate istio.yaml with MCP enabled
 global:
   # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
   # propagated, not recommended for tests.
@@ -18,11 +18,4 @@ global:
 
   useMCP: true
 
-istiotesting:
-  oneNameSpace: false
 
-prometheus:
-  enabled: true
-
-galley:
-  enabled: true
