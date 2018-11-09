@@ -484,7 +484,7 @@ istioctl context-create --api-server http://127.0.0.1:8080
 		RunE: func(c *cobra.Command, args []string) error {
 			if istioAPIServer == "" {
 				c.Println(c.UsageString())
-				return fmt.Errorf("specify the the Istio api server IP")
+				return fmt.Errorf("specify the Istio api server IP")
 			}
 
 			u, err := url.ParseRequestURI(istioAPIServer)
