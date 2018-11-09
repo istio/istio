@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package galley
+package validation
 
 import (
 	"testing"
@@ -21,5 +21,5 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	framework.Run("galley_test", m)
+	framework.Run("galley_validation_test", m)
 }
