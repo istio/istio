@@ -122,6 +122,8 @@ spec:
     kind: EnvoyFilter
     plural: envoyfilters
     singular: envoyfilter
+    shortNames:
+    - ef
     categories:
     - istio-io
     - networking-istio-io
@@ -145,6 +147,8 @@ spec:
     kind: ClusterRbacConfig
     plural: clusterrbacconfigs
     singular: clusterrbacconfig
+    shortNames:
+    - crbaccfg
     categories:
     - istio-io
     - rbac-istio-io
@@ -172,6 +176,8 @@ spec:
     kind: Policy
     plural: policies
     singular: policy
+    shortNames:
+    - pol
     categories:
     - istio-io
     - authentication-istio-io
@@ -196,6 +202,8 @@ spec:
     listKind: MeshPolicyList
     plural: meshpolicies
     singular: meshpolicy
+    shortNames:
+    - mp
     categories:
     - istio-io
     - authentication-istio-io
@@ -222,6 +230,8 @@ spec:
     kind: HTTPAPISpecBinding
     plural: httpapispecbindings
     singular: httpapispecbinding
+    shortNames:
+    - hsb
     categories:
     - istio-io
     - apim-istio-io
@@ -245,6 +255,8 @@ spec:
     kind: HTTPAPISpec
     plural: httpapispecs
     singular: httpapispec
+    shortNames:
+    - hs
     categories:
     - istio-io
     - apim-istio-io
@@ -268,6 +280,8 @@ spec:
     kind: QuotaSpecBinding
     plural: quotaspecbindings
     singular: quotaspecbinding
+    shortNames:
+    - qsb
     categories:
     - istio-io
     - apim-istio-io
@@ -291,6 +305,8 @@ spec:
     kind: QuotaSpec
     plural: quotaspecs
     singular: quotaspec
+    shortNames:
+    - qs
     categories:
     - istio-io
     - apim-istio-io
@@ -1194,6 +1210,8 @@ spec:
     kind: RbacConfig
     plural: rbacconfigs
     singular: rbacconfig
+    shortNames:
+    - rbaccfg
     categories:
     - istio-io
     - rbac-istio-io
@@ -1220,6 +1238,8 @@ spec:
     kind: ServiceRole
     plural: serviceroles
     singular: servicerole
+    shortNames:
+    - sr
     categories:
     - istio-io
     - rbac-istio-io
@@ -1246,6 +1266,8 @@ spec:
     kind: ServiceRoleBinding
     plural: servicerolebindings
     singular: servicerolebinding
+    shortNames:
+    - srb
     categories:
     - istio-io
     - rbac-istio-io
