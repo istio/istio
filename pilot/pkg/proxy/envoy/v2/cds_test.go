@@ -23,8 +23,8 @@ import (
 )
 
 func TestCDS(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	initLocalPilotTestEnv(t)
+	defer tearDownLocalPilot()
 
 	cdsr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {

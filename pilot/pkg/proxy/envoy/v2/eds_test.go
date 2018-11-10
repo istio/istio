@@ -41,8 +41,8 @@ import (
 // StreamEndpoints is not used in 1.0+
 
 func TestEds(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	initLocalPilotTestEnv(t)
+	defer tearDownLocalPilot()
 
 	server := util.MockTestServer
 

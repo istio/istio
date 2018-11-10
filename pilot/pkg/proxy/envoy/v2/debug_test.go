@@ -30,8 +30,8 @@ import (
 
 func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
-		_, tearDown := initLocalPilotTestEnv(t)
-		defer tearDown()
+		initLocalPilotTestEnv(t)
+		defer tearDownLocalPilot()
 
 		adsstr, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
@@ -75,8 +75,8 @@ func TestSyncz(t *testing.T) {
 		verifySyncStatus(t, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
-		_, tearDown := initLocalPilotTestEnv(t)
-		defer tearDown()
+		initLocalPilotTestEnv(t)
+		defer tearDownLocalPilot()
 
 		adsstr, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
@@ -209,8 +209,8 @@ func TestConfigDump(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, tearDown := initLocalPilotTestEnv(t)
-			defer tearDown()
+			s := initLocalPilotTestEnv(t)
+			defer tearDownLocalPilot()
 
 			for i := 0; i < 2; i++ {
 				envoy, err := connectADS(util.MockPilotGrpcAddr)

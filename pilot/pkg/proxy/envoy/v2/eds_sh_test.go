@@ -50,9 +50,8 @@ type expectedResults struct {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	server, tearDown := initSplitHorizonTestEnv(t)
-	defer tearDown()
-	defer func() { util.MockTestServer = nil }()
+	server := initSplitHorizonTestEnv(t)
+	defer tearDownLocalPilot()
 
 	pilotServer = server
 
@@ -176,18 +175,18 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 	}
 }
 
-func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
+func initSplitHorizonTestEnv(t *testing.T) *bootstrap.Server {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	server, tearDown := util.EnsureTestServer()
+	server := util.EnsureTestServer()
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	return server, tearDown
+	return server
 }
 
 // initRegistry creates and initializes a memory registry that holds a single

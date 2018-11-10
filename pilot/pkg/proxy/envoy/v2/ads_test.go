@@ -27,8 +27,8 @@ import (
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	initLocalPilotTestEnv(t)
+	defer tearDownLocalPilot()
 	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
@@ -64,8 +64,8 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
-	s, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	s := initLocalPilotTestEnv(t)
+	defer tearDownLocalPilot()
 
 	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
@@ -107,8 +107,8 @@ func TestAdsReconnect(t *testing.T) {
 }
 
 func TestTLS(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	initLocalPilotTestEnv(t)
+	defer tearDownLocalPilot()
 
 	edsstr, err := connectADSS(util.MockPilotSecureAddr)
 	if err != nil {
@@ -126,8 +126,8 @@ func TestTLS(t *testing.T) {
 }
 
 func TestAdsClusterUpdate(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	server := initLocalPilotTestEnv(t)
+	defer tearDownLocalPilot()
 
 	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
@@ -175,8 +175,8 @@ func TestAdsClusterUpdate(t *testing.T) {
 }
 
 func TestAdsUpdate(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	server := initLocalPilotTestEnv(t)
+	defer tearDownLocalPilot()
 
 	edsstr, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {

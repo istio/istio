@@ -131,12 +131,12 @@ func ingressId(ip string) string {
 //
 // The server will have a set of pre-defined instances and services, and read CRDs from the
 // common tests/testdata directory.
-func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
+func initLocalPilotTestEnv(t *testing.T) *bootstrap.Server {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	server, tearDown := util.EnsureTestServer()
+	server := util.EnsureTestServer()
 	pilotServer = server
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
@@ -286,10 +286,12 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	// debug and for the canary.
 	time.Sleep(200 * time.Millisecond)
 
-	return server, func() {
-		pilotServer = nil
-		tearDown()
-	}
+	return server
+}
+
+func tearDownLocalPilot() {
+	util.TearDownMockTestServer()
+	pilotServer = nil
 }
 
 func testPorts(base int) []*model.Port {
@@ -324,12 +326,12 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy and with mixer.
 func TestEnvoy(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
+	initLocalPilotTestEnv(t)
 	defer func() {
 		if testEnv != nil {
 			testEnv.TearDown()
 		}
-		tearDown()
+		tearDownLocalPilot()
 	}()
 	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
