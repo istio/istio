@@ -274,6 +274,9 @@ var (
 
 	// All metrics we registered.
 	metrics []*PushMetric
+
+	// Global mutex
+	mutex = sync.RWMutex{}
 )
 
 // NewPushContext creates a new PushContext structure to track push status.
@@ -322,6 +325,9 @@ func (ps *PushContext) UpdateMetrics() {
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
 func (ps *PushContext) VirtualServices(gateways map[string]bool) []Config {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
 	configs := ps.VirtualServiceConfigs
 	out := make([]Config, 0)
 	for _, config := range configs {
@@ -409,6 +415,9 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	vservices, err := env.List(VirtualService.Type, NamespaceAll)
 	if err != nil {
 		return err

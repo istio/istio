@@ -111,6 +111,9 @@ var (
 		plugin.Envoyfilter,
 		plugin.Snidnat,
 	}
+
+	// Global mutex
+	globalMutex = sync.Mutex{}
 )
 
 func init() {
@@ -1125,7 +1128,12 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 		prometheus.UnaryServerInterceptor,
 	}
 
+	// EnableHandlingTimeHistogram() has a data race within it (reading/writing to its
+	// serverHandledHistogramEnabled). Using a package mutex to avoid data races.
+	// Should be re-examined with an updated revision of the go-grpc-prometheus.
+	globalMutex.Lock()
 	prometheus.EnableHandlingTimeHistogram()
+	globalMutex.Unlock()
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
