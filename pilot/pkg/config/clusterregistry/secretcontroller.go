@@ -235,6 +235,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 				DomainSuffix:     c.domainSufix,
 				ClusterID:        clusterID,
 				XDSUpdater:       c.edsUpdater,
+				ConfigUpdater:    c.configUpdater,
 			})
 			c.cs.rc[clusterID].Controller = kubectl
 			c.serviceController.AddRegistry(
