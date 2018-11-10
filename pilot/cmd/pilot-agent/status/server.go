@@ -70,7 +70,7 @@ func NewServer(config Config) *Server {
 	}
 }
 
-// Run opens a the status port and begins accepting probes.
+// Run opens a status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d\n", s.statusPort)
 
