@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -26,8 +27,10 @@ type ConfigGeneratorImpl struct {
 	Plugins []plugin.Plugin
 	// List of outbound clusters
 	// Must be rebuilt for each push epoch
-	PrecomputedOutboundClusters []*xdsapi.Cluster
+	precomputedOutboundClusters []*xdsapi.Cluster
 	// TODO: add others in future
+
+	mutex sync.RWMutex
 }
 
 func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
@@ -37,8 +40,16 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 }
 
 func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment, push *model.PushContext) error {
-	configgen.PrecomputedOutboundClusters = configgen.buildOutboundClusters(env, nil, push)
+	configgen.mutex.Lock()
+	configgen.precomputedOutboundClusters = configgen.buildOutboundClusters(env, nil, push)
+	configgen.mutex.Unlock()
 	return nil
+}
+
+func (configgen *ConfigGeneratorImpl) PrecomputedOutboundClusters() []*xdsapi.Cluster {
+	configgen.mutex.RLock()
+	defer configgen.mutex.RUnlock()
+	return configgen.precomputedOutboundClusters
 }
 
 func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) bool {
