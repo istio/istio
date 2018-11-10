@@ -29,7 +29,7 @@ import (
 var (
 	requestCmd = &cobra.Command{
 		Use:   "request <method> <path> [<body>]",
-		Short: "Makes an HTTP request to the Envoy admin API",
+		Short: "Makes a HTTP request to the Envoy admin API",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			command := &request.Command{
