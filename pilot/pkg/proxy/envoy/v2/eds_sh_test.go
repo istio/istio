@@ -51,7 +51,6 @@ type expectedResults struct {
 func TestSplitHorizonEds(t *testing.T) {
 	server, tearDown := initSplitHorizonTestEnv(t)
 	defer tearDown()
-	defer func() { util.MockTestServer = nil }()
 
 	pilotServer = server
 
@@ -67,9 +66,6 @@ func TestSplitHorizonEds(t *testing.T) {
 	// Set up a cluster registry for network 4 with 4 instances for the service 'service5'
 	// but without any gateway
 	initRegistry(4, []string{}, 4)
-
-	// Update cache
-	server.EnvoyXdsServer.ClearCache()
 
 	tests := []struct {
 		network   string
@@ -122,15 +118,6 @@ func TestSplitHorizonEds(t *testing.T) {
 			verifySplitHorizonResponse(t, tt.network, tt.sidecarId, tt.want)
 		})
 	}
-
-	// Clean server changes as other tests may use the same server
-	pilotServer.ServiceController.DeleteRegistry("network1")
-	pilotServer.ServiceController.DeleteRegistry("network2")
-	pilotServer.ServiceController.DeleteRegistry("network3")
-	pilotServer.ServiceController.DeleteRegistry("network4")
-	pilotServer.EnvoyXdsServer.Env.MeshNetworks = nil
-	pilotServer.EnvoyXdsServer.ConfigUpdate(true)
-	time.Sleep(2 * time.Second)
 }
 
 // Tests whether an EDS response from the provided network matches the expected results
