@@ -360,7 +360,7 @@ func (p *promProxy) portForward(labelSelector string, localPort, remotePort uint
 		PodNamespace:  p.namespace,
 		LabelSelector: labelSelector,
 	}
-	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
+	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 	if err != nil {
 		log.Errorf("Error creating accessor: %v", err)
 		return err

@@ -451,7 +451,7 @@ func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePo
 		PodNamespace:  p.namespace,
 		LabelSelector: labelSelector,
 	}
-	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
+	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 	if err != nil {
 		log.Errorf("Error creating accessor: %v", err)
 		return err
@@ -546,7 +546,7 @@ func waitForMixerProxyReadiness() error {
 				PodName:      pod,
 			}
 
-			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
+			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 			if err != nil {
 				log.Errorf("Error creating accessor: %v", err)
 				return err
