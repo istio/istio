@@ -29,6 +29,7 @@ import (
 type LbEpInfo struct {
 	network string
 	address string
+	weight  uint32
 }
 
 type LocLbEpInfo struct {
@@ -67,18 +68,15 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			env:       env,
 			endpoints: testEndpoints,
 			want: []LocLbEpInfo{
-				{ // 2 local endpoints
+				{
 					lbEps: []LbEpInfo{
-						{address: "10.0.0.1"},
-						{address: "10.0.0.2"},
+						// 2 local endpoints
+						{address: "10.0.0.1", weight: 1},
+						{address: "10.0.0.2", weight: 1},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
 					},
-					weight: 2,
-				},
-				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-					lbEps: []LbEpInfo{
-						{address: "2.2.2.2"},
-					},
-					weight: 1,
+					weight: 3,
 				},
 			},
 		},
@@ -88,17 +86,14 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			env:       env,
 			endpoints: testEndpoints,
 			want: []LocLbEpInfo{
-				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+				{
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1"},
+						// 1 local endpoint
+						{address: "20.0.0.1", weight: 1},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
 					},
 					weight: 2,
-				},
-				{ // 1 local endpoint
-					lbEps: []LbEpInfo{
-						{address: "20.0.0.1"},
-					},
-					weight: 1,
 				},
 			},
 		},
@@ -108,17 +103,14 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			env:       env,
 			endpoints: testEndpoints,
 			want: []LocLbEpInfo{
-				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+				{
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1"},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
 					},
 					weight: 2,
-				},
-				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-					lbEps: []LbEpInfo{
-						{address: "2.2.2.2"},
-					},
-					weight: 1,
 				},
 			},
 		},
@@ -128,23 +120,16 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			env:       env,
 			endpoints: testEndpoints,
 			want: []LocLbEpInfo{
-				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+				{
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1"},
+						// 1 local endpoint
+						{address: "40.0.0.1", weight: 1},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
 					},
-					weight: 2,
-				},
-				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-					lbEps: []LbEpInfo{
-						{address: "2.2.2.2"},
-					},
-					weight: 1,
-				},
-				{ // 1 local endpoint
-					lbEps: []LbEpInfo{
-						{address: "40.0.0.1"},
-					},
-					weight: 1,
+					weight: 3,
 				},
 			},
 		},
@@ -243,56 +228,60 @@ func environment() *model.Environment {
 // testEndpoints creates endpoints to be handed to the filter. It creates
 // 2 endpoints on network1, 1 endpoint on network2 and 1 endpoint on network4.
 func testEndpoints() []endpoint.LocalityLbEndpoints {
-	return createEndpoints(
-		[]LocLbEpInfo{
-			{
-				lbEps: []LbEpInfo{
-					{network: "network1", address: "10.0.0.1"},
-					{network: "network1", address: "10.0.0.2"},
-					{network: "network2", address: "20.0.0.1"},
-					{network: "network4", address: "40.0.0.1"},
-				},
-			},
+	lbEndpoints := createLbEndpoints(
+		[]LbEpInfo{
+			{network: "network1", address: "10.0.0.1"},
+			{network: "network1", address: "10.0.0.2"},
+			{network: "network2", address: "20.0.0.1"},
+			{network: "network4", address: "40.0.0.1"},
 		},
 	)
+
+	return []endpoint.LocalityLbEndpoints{
+		{
+			LbEndpoints: lbEndpoints,
+			LoadBalancingWeight: &types.UInt32Value{
+				Value: uint32(len(lbEndpoints)),
+			},
+		},
+	}
+
 }
 
-func createEndpoints(locLbEpsInfo []LocLbEpInfo) []endpoint.LocalityLbEndpoints {
-	locLbEps := make([]endpoint.LocalityLbEndpoints, len(locLbEpsInfo))
-	for i, locLbEpInfo := range locLbEpsInfo {
-		locLbEp := endpoint.LocalityLbEndpoints{}
-		locLbEp.LbEndpoints = make([]endpoint.LbEndpoint, len(locLbEpInfo.lbEps))
-		for j, lbEpInfo := range locLbEpInfo.lbEps {
-			lbEp := endpoint.LbEndpoint{
-				Endpoint: &endpoint.Endpoint{
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
-								Address: lbEpInfo.address,
-							},
+func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
+	lbEndpoints := make([]endpoint.LbEndpoint, len(lbEpsInfo))
+	for j, lbEpInfo := range lbEpsInfo {
+		lbEp := endpoint.LbEndpoint{
+			Endpoint: &endpoint.Endpoint{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							Address: lbEpInfo.address,
 						},
 					},
 				},
-				Metadata: &core.Metadata{
-					FilterMetadata: map[string]*types.Struct{
-						"istio": &types.Struct{
-							Fields: map[string]*types.Value{
-								"network": &types.Value{
-									Kind: &types.Value_StringValue{
-										StringValue: lbEpInfo.network,
-									},
+			},
+			Metadata: &core.Metadata{
+				FilterMetadata: map[string]*types.Struct{
+					"istio": &types.Struct{
+						Fields: map[string]*types.Value{
+							"network": &types.Value{
+								Kind: &types.Value_StringValue{
+									StringValue: lbEpInfo.network,
+								},
+							},
+							"uid": &types.Value{
+								Kind: &types.Value_StringValue{
+									StringValue: "kubernetes://dummy",
 								},
 							},
 						},
 					},
 				},
-			}
-			locLbEp.LbEndpoints[j] = lbEp
+			},
 		}
-		locLbEp.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locLbEp.LbEndpoints)),
-		}
-		locLbEps[i] = locLbEp
+		lbEndpoints[j] = lbEp
 	}
-	return locLbEps
+
+	return lbEndpoints
 }

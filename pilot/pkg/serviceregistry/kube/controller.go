@@ -827,6 +827,9 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 
 // return the mesh network for the endpoint IP. Empty string if not found.
 func (c *Controller) endpointNetwork(endpointIP string) string {
+	if len(c.network) != 0 {
+		return c.network
+	}
 	if c.ranger == nil {
 		return ""
 	}
