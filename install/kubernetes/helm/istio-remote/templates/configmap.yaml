@@ -33,11 +33,19 @@ data:
     # To disable the mixer completely (including metrics), comment out
     # the following lines
   {{- if .Values.global.remotePolicyAddress }}
+  {{- if .Values.global.createRemoteSvcEndpoints }}
+    mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
+  {{- else }}
     mixerCheckServer: {{ .Values.global.remotePolicyAddress }}:15004
+  {{- end }}
   {{- end }}
 
   {{- if .Values.global.remoteTelemetryAddress }}
+  {{- if .Values.global.createRemoteSvcEndpoints }}
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
+  {{- else }}
     mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
+  {{- end }}
   {{- end }}
 
     defaultConfig:

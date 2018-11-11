@@ -1,4 +1,4 @@
-{{- if .Values.global.remotePilotCreateSvcEndpoint }}
+{{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,5 +20,41 @@ spec:
     name: http-legacy-discovery # direct
   - port: 9093
     name: http-monitoring
+  clusterIP: None
+{{- end }}
+{{- if and .Values.global.remotePolicyAddress .Values.global.createRemoteSvcEndpoints }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-policy
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 9093
+  clusterIP: None
+{{- end }}
+{{- if and .Values.global.remoteTelemetryAddress .Values.global.createRemoteSvcEndpoints }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-telemetry
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 9093
+  - name: prometheus
+    port: 42422
   clusterIP: None
 {{- end }}
