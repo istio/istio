@@ -94,9 +94,8 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 
 // HelmTemplate calls "helm template".
 func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile string, values map[string]string) (string, error) {
-	valuesString := ""
-
 	// Apply the overrides for the values file.
+	valuesString := ""
 	if values != nil {
 		for k, v := range values {
 			valuesString += fmt.Sprintf(" --set %s=%s", k, v)
@@ -105,7 +104,7 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 
 	valuesFileString := ""
 	if valuesFile != "" {
-		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
+		valuesFileString = fmt.Sprintf("--values %s", valuesFile)
 	}
 
 	helmRepoDir := filepath.Join(workDir, "helmrepo")
@@ -132,11 +131,12 @@ func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile strin
 	if _, err := exec(fmt.Sprintf("helm --home %s package -u %s -d %s", helmRepoDir, chartDir, chartBuildDir)); err != nil {
 		return "", err
 	}
-	return exec(fmt.Sprintf("helm --home %s template %s --name %s --namespace %s%s%s",
+	return exec(fmt.Sprintf("helm --home %s template %s --name %s --namespace %s %s %s",
 		helmRepoDir, chartDir, deploymentName, namespace, valuesFileString, valuesString))
 }
 
 func exec(cmd string) (string, error) {
+	scopes.CI.Infof("executing: %s", cmd)
 	str, err := shell.Execute(cmd)
 	if err != nil {
 		scopes.CI.Errorf("failed executing command (%s): %v: %s", cmd, err, str)

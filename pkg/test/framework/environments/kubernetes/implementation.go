@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,19 +34,22 @@ import (
 	"istio.io/istio/pkg/test/kube"
 )
 
+const (
+	validatingWebhookName = "istio-galley"
+)
+
 // Implementation is the implementation of a kubernetes environment. It implements environment.Implementation,
 // and also hosts publicly accessible methods that are specific to cluster environment.
 type Implementation struct {
 	kube *Settings
 	ctx  environment.ComponentContext
 
-	Accessor *kube.Accessor
+	Accessor   *kube.Accessor
+	deployment *deployment.Instance
 
 	systemNamespace     *namespace
 	dependencyNamespace *namespace
 	testNamespace       *namespace
-
-	deployment *deployment.Instance
 }
 
 var _ internal.EnvironmentController = &Implementation{}
@@ -84,7 +88,7 @@ func (e *Implementation) Initialize(ctx *internal.TestContext) error {
 
 	scopes.CI.Infof("Test Framework Kubernetes environment settings:\n%s", e.kube)
 
-	if e.Accessor, err = kube.NewAccessor(e.kube.KubeConfig); err != nil {
+	if e.Accessor, err = kube.NewAccessor(e.kube.KubeConfig, ctx.Settings().WorkDir); err != nil {
 		return err
 	}
 
@@ -131,6 +135,7 @@ func (e *Implementation) deployIstio() (err error) {
 	defer func() {
 		if err != nil {
 			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
+			scopes.CI.Infoa(err)
 		} else {
 			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
 		}
@@ -229,13 +234,13 @@ func (e *Implementation) DumpState(context string) {
 func (e *Implementation) Close() error {
 	var err error
 
-	// Delete any namespaces that were allocated.
+	// Delete test and dependency namespaces if allocated.
 	waitFuncs := make([]func() error, 0)
-	for _, ns := range []*namespace{e.testNamespace, e.dependencyNamespace, e.systemNamespace} {
+	for _, ns := range []*namespace{e.testNamespace, e.dependencyNamespace} {
 		if ns.created {
-			waitFunc, e := ns.Close()
-			if e != nil {
-				err = multierror.Append(err, e)
+			waitFunc, tempErr := ns.Close()
+			if tempErr != nil {
+				err = multierror.Append(err, tempErr)
 			} else {
 				waitFuncs = append(waitFuncs, waitFunc)
 			}
@@ -244,20 +249,38 @@ func (e *Implementation) Close() error {
 
 	// Wait for any allocated namespaces to be deleted.
 	for _, waitFunc := range waitFuncs {
-		e := waitFunc()
-		if e != nil {
-			err = multierror.Append(e)
-		}
+		err = multierror.Append(err, waitFunc()).ErrorOrNil()
 	}
 
-	if e.deployment != nil {
-		// TODO: Deleting the deployment is extremely noisy. It is outputting a whole slew of errors
-		// Disabling the collection of errors from Delete for the time being.
-		_ = e.deployment.Delete(e.Accessor, true)
-		//if err2 := e.deployment.Delete(); err2 != nil {
-		//	err = multierror.Append(err, err2)
-		//}
-		e.deployment = nil
+	if e.KubeSettings().DeployIstio {
+		// Delete the deployment yaml file.
+		err = multierror.Append(e.deployment.Delete(e.Accessor, true))
+
+		// Deleting the deployment should have removed everything, but just in case...
+
+		// Make sure the system namespace is deleted.
+		err = multierror.Append(err, e.systemNamespace.CloseAndWait()).ErrorOrNil()
+
+		// Make sure the validating webhook is deleted.
+		if e.Accessor.ValidatingWebhookConfigurationExists(validatingWebhookName) {
+			scopes.CI.Info("Deleting ValidatingWebhook")
+			err = multierror.Append(err, e.Accessor.DeleteValidatingWebhook(validatingWebhookName)).ErrorOrNil()
+			err = multierror.Append(err, e.Accessor.WaitForValidatingWebhookDeletion(validatingWebhookName)).ErrorOrNil()
+		}
+
+		// Make sure all Istio CRDs are deleted.
+		crds, tempErr := e.Accessor.GetCustomResourceDefinitions()
+		if tempErr != nil {
+			err = multierror.Append(err, tempErr)
+		}
+		if len(crds) > 0 {
+			scopes.CI.Info("Deleting Istio CRDs")
+			for _, crd := range crds {
+				if strings.HasSuffix(crd.Name, ".istio.io") {
+					err = multierror.Append(err, e.Accessor.DeleteCustomResourceDefinitions(crd.Name)).ErrorOrNil()
+				}
+			}
+		}
 	}
 
 	return err
@@ -296,7 +319,8 @@ func (n *namespace) allocate() error {
 
 // Close implements io.Closer interface.
 func (n *namespace) Close() (func() error, error) {
-	if n.created {
+	if n.created && n.accessor.NamespaceExists(n.allocatedName) {
+		scopes.CI.Infof("Deleting Namespace %s", n.allocatedName)
 		defer func() {
 			n.allocatedName = ""
 			n.created = false

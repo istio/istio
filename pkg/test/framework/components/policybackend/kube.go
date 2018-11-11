@@ -17,7 +17,7 @@ package policybackend
 import (
 	"fmt"
 
-	v12 "k8s.io/api/core/v1"
+	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/dependency"
@@ -136,19 +136,27 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return
 	}
 
-	var pod v12.Pod
+	var pod kubeApiCore.Pod
 	pod, err = e.Accessor.WaitForPodBySelectors(s.DependencyNamespace, "app=policy-backend", "version=test")
 	if err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend pod: %v", err)
 		return
 	}
 
-	if err = e.Accessor.WaitUntilPodIsRunning(s.DependencyNamespace, pod.Name); err != nil {
+	fetchFn := func() ([]kubeApiCore.Pod, error) {
+		pod, err := e.Accessor.GetPod(pod.Namespace, pod.Name)
+		if err != nil {
+			return nil, err
+		}
+		return []kubeApiCore.Pod{*pod}, nil
+	}
+
+	if err = e.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
 		return
 	}
 
-	var svc *v12.Service
+	var svc *kubeApiCore.Service
 	svc, err = e.Accessor.GetService(s.DependencyNamespace, "policy-backend")
 	if err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend service to be available: %v", err)
