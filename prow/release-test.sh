@@ -42,6 +42,7 @@ function create_gcb_env() {
   touch /workspace/manifest.txt
 
 cat << EOF > "/workspace/gcb_env.sh"
+export CB_BRANCH="${GIT_SHA}"
 export CB_VERSION="${GIT_SHA}"
 export CB_ISTIOCTL_DOCKER_HUB="docker.io/istio"
 EOF
