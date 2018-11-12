@@ -19,6 +19,7 @@ import (
 	"hash/fnv"
 	"net"
 	"strconv"
+	"strings"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -32,7 +33,30 @@ type hostPort struct {
 // CreateBinding converts desired multicluster state into Istio state
 func CreateBinding(service string, clusters []string, labels map[string]string, namespace string) ([]model.Config, error) {
 
-	host, port, err := net.SplitHostPort(service)
+	remoteService, err := parseNet(service, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	var remoteClusters []hostPort
+	for _, cluster := range clusters {
+		remoteCluster, err := parseNet(cluster, 15443)
+		if err != nil {
+			return nil, err
+		}
+		remoteClusters = append(remoteClusters, *remoteCluster)
+	}
+
+	istioConfig, err := serviceToServiceEntrySniCluster(*remoteService, remoteClusters, labels, namespace)
+	return istioConfig, err
+}
+
+func parseNet(s string, defaultPort int) (*hostPort, error) {
+	if defaultPort != 0 && !strings.Contains(s, ":") {
+		return &hostPort{s, defaultPort}, nil
+	}
+
+	host, port, err := net.SplitHostPort(s)
 	if err != nil {
 		return nil, err
 	}
@@ -40,23 +64,7 @@ func CreateBinding(service string, clusters []string, labels map[string]string, 
 	if err != nil {
 		return nil, err
 	}
-	remoteService := hostPort{host, i}
-
-	var remoteClusters []hostPort
-	for _, cluster := range clusters {
-		host, port, err := net.SplitHostPort(cluster)
-		if err != nil {
-			return nil, err
-		}
-		i, err := strconv.Atoi(port)
-		if err != nil {
-			return nil, err
-		}
-		remoteClusters = append(remoteClusters, hostPort{host, i})
-	}
-
-	istioConfig, err := serviceToServiceEntrySniCluster(remoteService, remoteClusters, labels, namespace)
-	return istioConfig, err
+	return &hostPort{host, i}, nil
 }
 
 // serviceToServiceEntry() creates a ServiceEntry pointing to istio-egressgateway

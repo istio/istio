@@ -37,23 +37,23 @@ type genBindingTestCase struct {
 func TestGenBinding(t *testing.T) {
 	tt := []genBindingTestCase{
 		{args: strings.Split("experimental gen-binding", " "),
-			expectedSubstring: "Usage: istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2]",
+			expectedSubstring: "Error: usage: istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2]", // nolint: lll
 			wantException:     true,
 			name:              "No args"},
 
-		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:5", " "),
+		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:15443", " "),
 			goldenFilename: "testdata/genbinding/reviews-1234.yaml",
 			name:           "One remote, no subset"},
 
-		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:5 --cluster 6.7.8.9:10", " "),
+		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4 --cluster 6.7.8.9", " "),
 			goldenFilename: "testdata/genbinding/reviews-2remotes.yaml",
 			name:           "Two remotes, no subset"},
 
-		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:5 --labels version=v1", " "),
+		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:15443 --labels version=v1", " "),
 			goldenFilename: "testdata/genbinding/reviews-v1.yaml",
 			name:           "One remote with subset"},
 
-		{args: strings.Split("experimental gen-binding ratings:8080 --cluster 1.2.3.4:5 --labels version=v1,arch=i586", " "),
+		{args: strings.Split("experimental gen-binding ratings:8080 --cluster 1.2.3.4 --labels version=v1,arch=i586", " "),
 			goldenFilename: "testdata/genbinding/ratings-v1-i586.yaml",
 			name:           "One remote with subset"},
 	}

@@ -13,7 +13,7 @@ spec:
       arch: i586
       version: v1
     ports:
-      http: 5
+      http: 15443
   hosts:
   - ratings
   location: MESH_INTERNAL

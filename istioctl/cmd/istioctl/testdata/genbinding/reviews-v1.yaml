@@ -12,7 +12,7 @@ spec:
     labels:
       version: v1
     ports:
-      http: 5
+      http: 15443
   hosts:
   - reviews
   location: MESH_INTERNAL

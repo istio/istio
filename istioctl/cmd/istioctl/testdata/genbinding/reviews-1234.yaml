@@ -10,7 +10,7 @@ spec:
   endpoints:
   - address: 1.2.3.4
     ports:
-      http: 5
+      http: 15443
   hosts:
   - reviews
   location: MESH_INTERNAL
