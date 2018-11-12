@@ -58,10 +58,12 @@ kubectl create clusterrolebinding myname-cluster-admin-binding  --clusterrole=cl
 
 ```
 # Customize .istiorc.mk (at the top of the istio.io/istio source tree) with your HUB and optional TAG
+# also optional: GS_BUCKET to use a different Google Storage Bucket than the default one (you need write permissions)
 # it allows you to customize Makefile rules. For example:
 cat .istiorc.mk
 HUB=costinm
 TAG=mybranch
+GS_BUCKET=mybucket
 
 # Build images on the local docker.
 make docker
@@ -71,6 +73,12 @@ make push
 
 # the hub/tag set in your .istiorc.mk will be used by the test.
 
+```
+
+On MacOS, you need to set the target operating system before building the images
+
+```
+GOOS=linux make docker push
 ```
 
 **Option 2:** Already committed changes to istio/istio master branch

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/log"
 	ca "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -48,11 +49,22 @@ type Options struct {
 	// secret TTL.
 	SecretTTL time.Duration
 
-	// Secret rotation job running interval.
+	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
+	// secret should be refreshed if time.Now.After(secret.CreateTime + SecretTTL - SecretRefreshGraceDuration)
+	SecretRefreshGraceDuration time.Duration
+
+	// Key rotation job running interval.
 	RotationInterval time.Duration
 
-	// Secret eviction duration.
+	// Cached secret will be removed from cache if (time.now - secretItem.CreatedTime >= evictionDuration), this prevents cache growing indefinitely.
 	EvictionDuration time.Duration
+
+	// TrustDomain corresponds to the trust root of a system.
+	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+	TrustDomain string
+
+	// authentication provider specific plugins.
+	Plugins []plugin.Plugin
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -81,20 +93,15 @@ type SecretCache struct {
 	rotationTicker *time.Ticker
 	caClient       ca.Client
 
-	// Cached secret will be removed from cache if (time.now - secretItem.CreatedTime >= evictionDuration), this prevents cache growing indefinitely.
-	evictionDuration time.Duration
-
-	// Key rotation job running interval.
-	rotationInterval time.Duration
-
-	// secret TTL.
-	secretTTL time.Duration
+	// configOptions includes all configurable params for the cache.
+	configOptions Options
 
 	// How may times that key rotation job has detected secret change happened, used in unit test.
 	secretChangedCount uint64
 
 	// callback function to invoke when detecting secret change.
 	notifyCallback func(proxyID string, resourceName string, secret *model.SecretItem) error
+
 	// Right now always skip the check, since key rotation job checks token expire only when cert has expired;
 	// since token's TTL is much shorter than the cert, we could skip the check in normal cases.
 	// The flag is used in unit test, use uint32 instead of boolean because there is no atomic boolean
@@ -111,13 +118,11 @@ type SecretCache struct {
 // NewSecretCache creates a new secret cache.
 func NewSecretCache(cl ca.Client, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
 	ret := &SecretCache{
-		caClient:         cl,
-		closing:          make(chan bool),
-		evictionDuration: options.EvictionDuration,
-		notifyCallback:   notifyCb,
-		rootCertMutex:    &sync.Mutex{},
-		rotationInterval: options.RotationInterval,
-		secretTTL:        options.SecretTTL,
+		caClient:       cl,
+		closing:        make(chan bool),
+		notifyCallback: notifyCb,
+		rootCertMutex:  &sync.Mutex{},
+		configOptions:  options,
 	}
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
@@ -207,7 +212,7 @@ func (sc *SecretCache) Close() {
 
 func (sc *SecretCache) keyCertRotationJob() {
 	// Wake up once in a while and refresh stale items.
-	sc.rotationTicker = time.NewTicker(sc.rotationInterval)
+	sc.rotationTicker = time.NewTicker(sc.configOptions.RotationInterval)
 	for {
 		select {
 		case <-sc.rotationTicker.C:
@@ -239,7 +244,7 @@ func (sc *SecretCache) rotate() {
 		e := v.(model.SecretItem)
 
 		// Remove stale secrets from cache, this prevent the cache growing indefinitely.
-		if now.After(e.CreatedTime.Add(sc.evictionDuration)) {
+		if now.After(e.CreatedTime.Add(sc.configOptions.EvictionDuration)) {
 			sc.secrets.Delete(key)
 			return true
 		}
@@ -304,6 +309,19 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		RSAKeySize: keySize,
 	}
 
+	// call authentication provider specific plugins to exchange token if necessary.
+	exchangedToken := token
+	var err error
+	if sc.configOptions.Plugins != nil && len(sc.configOptions.Plugins) > 0 {
+		for _, p := range sc.configOptions.Plugins {
+			exchangedToken, _, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
+			if err != nil {
+				log.Errorf("failed to exchange token: %v", err)
+				return nil, err
+			}
+		}
+	}
+
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
@@ -311,7 +329,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
-	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, token, int64(sc.secretTTL.Seconds()))
+	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 	if err != nil {
 		log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
 		return nil, err
@@ -343,15 +361,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 }
 
 func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
-	// TODO(quanlin), check if cert has expired.
-	// May need to be more accurate - reserve some grace period to
-	// make sure now() <= TTL - envoy_reconnect_delay - CSR_round_trip delay
-	now := time.Now()
-	if now.After(s.CreatedTime.Add(sc.secretTTL)) {
-		return true
-	}
-
-	return false
+	// secret should be refreshed before it expired, SecretRefreshGraceDuration is the grace period;
+	// secret should be refreshed if time.Now.After(secret.CreateTime + SecretTTL - SecretRefreshGraceDuration)
+	return time.Now().After(s.CreatedTime.Add(sc.configOptions.SecretTTL - sc.configOptions.SecretRefreshGraceDuration))
 }
 
 func (sc *SecretCache) isTokenExpired(s *model.SecretItem) bool {

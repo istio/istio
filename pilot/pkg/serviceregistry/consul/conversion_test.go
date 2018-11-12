@@ -92,7 +92,7 @@ func TestConvertInstance(t *testing.T) {
 		ServiceAddress: ip,
 		ServicePort:    port,
 		Datacenter:     dc,
-		NodeMeta:       map[string]string{protocolTagName: protocol},
+		ServiceMeta:    map[string]string{protocolTagName: protocol},
 	}
 
 	out := convertInstance(&consulServiceInst)
@@ -169,7 +169,7 @@ func TestConvertService(t *testing.T) {
 			},
 			ServiceAddress: "172.19.0.11",
 			ServicePort:    9080,
-			NodeMeta:       map[string]string{protocolTagName: "udp"},
+			ServiceMeta:    map[string]string{protocolTagName: "udp"},
 		},
 		{
 			Node:        "istio-node",
@@ -181,7 +181,7 @@ func TestConvertService(t *testing.T) {
 			},
 			ServiceAddress: "172.19.0.12",
 			ServicePort:    9080,
-			NodeMeta:       map[string]string{protocolTagName: "udp"},
+			ServiceMeta:    map[string]string{protocolTagName: "udp"},
 		},
 	}
 
