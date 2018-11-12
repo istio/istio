@@ -83,7 +83,7 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 				},
 			},
 			Location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
-			Resolution: v1alpha3.ServiceEntry_STATIC,
+			Resolution: v1alpha3.ServiceEntry_DNS,
 			Endpoints:  []*v1alpha3.ServiceEntry_Endpoint{},
 		},
 	}

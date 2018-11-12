@@ -1,15 +1,22 @@
 apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
+kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: dest-rule-dummy
+  name: service-entry-reviews
   namespace: default
 spec:
-  host: dummy
-  trafficPolicy:
-    tls:
-      caCertificates: /etc/certs/root-cert.pem
-      clientCertificate: /etc/certs/cert-chain.pem
-      mode: MUTUAL
-      privateKey: /etc/certs/key.pem
-      sni: dummy-sni.default.svc.cluster.local
+  endpoints:
+  - address: 1.2.3.4
+    ports:
+      http: 5
+  - address: 6.7.8.9
+    ports:
+      http: 10
+  hosts:
+  - reviews
+  location: MESH_INTERNAL
+  ports:
+  - name: http
+    number: 9080
+    protocol: HTTP
+  resolution: DNS
