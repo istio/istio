@@ -484,11 +484,13 @@ func setTestConfig() error {
 }
 
 func fatalf(t *testing.T, format string, args ...interface{}) {
+	t.Helper()
 	dumpK8Env()
 	t.Fatalf(format, args...)
 }
 
 func errorf(t *testing.T, format string, args ...interface{}) {
+	t.Helper()
 	dumpK8Env()
 	t.Errorf(format, args...)
 }
@@ -758,7 +760,7 @@ func testDenials(t *testing.T, rule string) {
 		}
 	}()
 
-	time.Sleep(10 * time.Second)
+	allowRuleSync()
 
 	// Product page should not be accessible anymore.
 	log.Infof("Denials: ensure productpage is denied access for user john")
@@ -1272,7 +1274,7 @@ func allowRuleSync() {
 
 func allowPrometheusSync() {
 	log.Info("Sleeping to allow prometheus to record metrics...")
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second)
 }
 
 func promAPI() (v1.API, error) {
