@@ -136,25 +136,17 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return
 	}
 
-	var pod kubeApiCore.Pod
-	pod, err = e.Accessor.WaitForPodBySelectors(s.DependencyNamespace, "app=policy-backend", "version=test")
-	if err != nil {
-		scopes.CI.Infof("Error waiting for PolicyBackend pod: %v", err)
-		return
-	}
-
-	fetchFn := func() ([]kubeApiCore.Pod, error) {
-		pod, err := e.Accessor.GetPod(pod.Namespace, pod.Name)
-		if err != nil {
-			return nil, err
-		}
-		return []kubeApiCore.Pod{*pod}, nil
-	}
-
-	if err = e.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
+	podFetchFunc := e.Accessor.NewSinglePodFetch(s.DependencyNamespace, "app=policy-backend", "version=test")
+	if err = e.Accessor.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
 		return
 	}
+	var pods []kubeApiCore.Pod
+	pods, err = podFetchFunc()
+	if err != nil {
+		return
+	}
+	pod := pods[0]
 
 	var svc *kubeApiCore.Service
 	svc, err = e.Accessor.GetService(s.DependencyNamespace, "policy-backend")
