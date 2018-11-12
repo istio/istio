@@ -157,9 +157,18 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), tt.want[i].weight)
 				}
 
-				addr := ep.LbEndpoints[0].Endpoint.Address.GetSocketAddress().Address
-				if addr != tt.want[i].lbEps[0].address {
-					t.Errorf("Unexpected address for endpoint %d: got %v, want %v", i, addr, tt.want[i].lbEps[0].address)
+				for _, lbEp := range ep.LbEndpoints {
+					addr := lbEp.Endpoint.Address.GetSocketAddress().Address
+					found := false
+					for _, wantLbEp := range tt.want[i].lbEps {
+						if addr == wantLbEp.address {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
+					}
 				}
 			}
 		})

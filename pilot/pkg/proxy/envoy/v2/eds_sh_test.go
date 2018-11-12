@@ -15,12 +15,12 @@ package v2_test
 
 import (
 	"fmt"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"testing"
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	proto "github.com/gogo/protobuf/types"
 
