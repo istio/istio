@@ -109,10 +109,11 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	cases := []struct {
-		serviceAccount string
-		sdsUdsPath     string
-		tokenFilePath  string
-		expected       *auth.SdsSecretConfig
+		serviceAccount      string
+		sdsUdsPath          string
+		tokenFilePath       string
+		expected            *auth.SdsSecretConfig
+		enableSdsTokenMount bool
 	}{
 		{
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -144,9 +145,10 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			},
 		},
 		{
-			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:     "/tmp/sdsuds.sock",
-			tokenFilePath:  testTokenFileName,
+			serviceAccount:      "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:          "/tmp/sdsuds.sock",
+			tokenFilePath:       testTokenFileName,
+			enableSdsTokenMount: true,
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
@@ -194,7 +196,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.tokenFilePath); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.tokenFilePath, c.enableSdsTokenMount); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}
