@@ -29,7 +29,7 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/scopes"
-	"istio.io/istio/pkg/test/util"
+	"istio.io/istio/pkg/test/util/retry"
 
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -45,9 +45,12 @@ import (
 )
 
 const (
-	defaultTimeout     = time.Minute * 3
-	defaultRetryPeriod = time.Second * 10
-	workDirPrefix      = "istio-kube-accessor-"
+	workDirPrefix = "istio-kube-accessor-"
+)
+
+var (
+	defaultRetryTimeout = retry.Timeout(time.Minute * 3)
+	defaultRetryDelay   = retry.Delay(time.Second * 10)
 )
 
 // Accessor is a helper for accessing Kubernetes programmatically. It bundles some of the high-level
@@ -116,9 +119,7 @@ func (a *Accessor) NewPortForwarder(options *PodSelectOptions, localPort, remote
 // all pods are returned.
 func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore.Pod, error) {
 	s := strings.Join(selectors, ",")
-	list, err := a.set.CoreV1().
-		Pods(namespace).
-		List(kubeApiMeta.ListOptions{LabelSelector: s})
+	list, err := a.set.CoreV1().Pods(namespace).List(kubeApiMeta.ListOptions{LabelSelector: s})
 
 	if err != nil {
 		return []kubeApiCore.Pod{}, err
@@ -151,41 +152,34 @@ func (a *Accessor) FindPodBySelectors(namespace string, selectors ...string) (ku
 	return list[0], nil
 }
 
-// WaitForPodBySelectors waits for the pod to appear that match the given namespace and selectors.
-func (a *Accessor) WaitForPodBySelectors(ns string, selectors ...string) (pod kubeApiCore.Pod, err error) {
-	p, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
+// PodFetchFunc fetches pods from the Accessor.
+type PodFetchFunc func() ([]kubeApiCore.Pod, error)
 
-		s := strings.Join(selectors, ",")
-
-		var list *kubeApiCore.PodList
-		if list, err = a.set.CoreV1().Pods(ns).List(kubeApiMeta.ListOptions{LabelSelector: s}); err != nil {
-			return nil, false, err
-		}
-
-		if len(list.Items) > 0 {
-			if len(list.Items) > 1 {
-				scopes.Framework.Warnf("More than one pod found matching selectors: %s", s)
-			}
-			return &list.Items[0], true, nil
-		}
-
-		return nil, false, err
-	})
-
-	if p != nil {
-		pod = *(p.(*kubeApiCore.Pod))
+// NewPodFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
+func (a *Accessor) NewPodFetch(namespace string, selectors ...string) PodFetchFunc {
+	return func() ([]kubeApiCore.Pod, error) {
+		return a.GetPods(namespace, selectors...)
 	}
+}
 
-	return
+// NewSinglePodFetch creates a new PodFetchFunction that fetches a single pod matching the given label selectors.
+func (a *Accessor) NewSinglePodFetch(namespace string, selectors ...string) PodFetchFunc {
+	return func() ([]kubeApiCore.Pod, error) {
+		pod, err := a.FindPodBySelectors(namespace, selectors...)
+		if err != nil {
+			return nil, err
+		}
+		return []kubeApiCore.Pod{pod}, nil
+	}
 }
 
 // WaitUntilPodsAreReady waits until the pod with the name/namespace is in ready state.
-func (a *Accessor) WaitUntilPodsAreReady(fetchFn func() ([]kubeApiCore.Pod, error)) error {
-	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
+func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
 
 		scopes.CI.Infof("Checking pods...")
 
-		pods, err := fetchFn()
+		pods, err := fetchFunc()
 		if err != nil {
 			scopes.CI.Infof("Failed retrieving pods: %v", err)
 			return nil, false, err
@@ -204,19 +198,16 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFn func() ([]kubeApiCore.Pod, erro
 			return nil, false, err
 		}
 		return nil, true, nil
-	})
+	}, newRetryOptions(opts...)...)
 
 	return err
 }
 
 // WaitUntilDeploymentIsReady waits until the deployment with the name/namespace is in ready state.
-func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string, opts ...retry.Option) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		deployment, err := a.set.ExtensionsV1beta1().
-			Deployments(ns).
-			Get(name, kubeApiMeta.GetOptions{})
-
+		deployment, err := a.set.ExtensionsV1beta1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -226,19 +217,16 @@ func (a *Accessor) WaitUntilDeploymentIsReady(ns string, name string) error {
 		ready := deployment.Status.ReadyReplicas == deployment.Status.UnavailableReplicas+deployment.Status.AvailableReplicas
 
 		return nil, ready, nil
-	})
+	}, newRetryOptions(opts...)...)
 
 	return err
 }
 
 // WaitUntilDaemonSetIsReady waits until the deployment with the name/namespace is in ready state.
-func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string, opts ...retry.Option) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
 
-		daemonSet, err := a.set.ExtensionsV1beta1().
-			DaemonSets(ns).
-			Get(name, kubeApiMeta.GetOptions{})
-
+		daemonSet, err := a.set.ExtensionsV1beta1().DaemonSets(ns).Get(name, kubeApiMeta.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, true, err
@@ -248,35 +236,33 @@ func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string) error {
 		ready := daemonSet.Status.NumberReady == daemonSet.Status.DesiredNumberScheduled
 
 		return nil, ready, nil
-	})
+	}, newRetryOptions(opts...)...)
 
 	return err
 }
 
 // DeleteValidatingWebhook deletes the validating webhook with the given name.
 func (a *Accessor) DeleteValidatingWebhook(name string) error {
-	a.set.CoreV1()
 	return a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(name, deleteOptionsForeground())
 }
 
 // WaitForValidatingWebhookDeletion waits for the validating webhook with the given name to be garbage collected by kubernetes.
-func (a *Accessor) WaitForValidatingWebhookDeletion(name string) error {
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+func (a *Accessor) WaitForValidatingWebhookDeletion(name string, opts ...retry.Option) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
 		if a.ValidatingWebhookConfigurationExists(name) {
 			return nil, false, fmt.Errorf("validating webhook not deleted: %s", name)
 		}
 
 		// It no longer exists ... success.
 		return nil, true, nil
-	})
+	}, newRetryOptions(opts...)...)
 
 	return err
 }
 
 // ValidatingWebhookConfigurationExists indicates whether a mutating validating with the given name exists.
 func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
-	_, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name,
-		kubeApiMeta.GetOptions{})
+	_, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name, kubeApiMeta.GetOptions{})
 	return err == nil
 }
 
@@ -296,8 +282,7 @@ func (a *Accessor) DeleteCustomResourceDefinitions(name string) error {
 
 // GetService returns the service entry with the given name/namespace.
 func (a *Accessor) GetService(ns string, name string) (*kubeApiCore.Service, error) {
-	svc, err := a.set.CoreV1().Services(ns).Get(name, kubeApiMeta.GetOptions{})
-	return svc, err
+	return a.set.CoreV1().Services(ns).Get(name, kubeApiMeta.GetOptions{})
 }
 
 // GetSecret returns secret resource with the given namespace.
@@ -346,8 +331,8 @@ func (a *Accessor) DeleteNamespace(ns string) error {
 }
 
 // WaitForNamespaceDeletion waits until a namespace is deleted.
-func (a *Accessor) WaitForNamespaceDeletion(ns string) error {
-	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
+func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
 		_, err2 := a.set.CoreV1().Namespaces().Get(ns, kubeApiMeta.GetOptions{})
 		if err2 == nil {
 			return nil, false, nil
@@ -358,7 +343,7 @@ func (a *Accessor) WaitForNamespaceDeletion(ns string) error {
 		}
 
 		return nil, true, err2
-	})
+	}, newRetryOptions(opts...)...)
 
 	return err
 }
@@ -527,4 +512,11 @@ func splitYaml(filename string) ([]*yamlDoc, error) {
 	}
 
 	return []*yamlDoc{namespacesAndCrds, misc}, nil
+}
+
+func newRetryOptions(opts ...retry.Option) []retry.Option {
+	out := make([]retry.Option, 0, 2+len(opts))
+	out = append(out, defaultRetryTimeout, defaultRetryDelay)
+	out = append(out, opts...)
+	return out
 }

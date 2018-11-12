@@ -18,18 +18,19 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/scopes"
-	"istio.io/istio/pkg/test/util"
-
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/local"
+	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
 	// LocalComponent is a component for the local environment.
 	LocalComponent = &localComponent{}
+
+	retryDelay = retry.Delay(time.Second)
 )
 
 type localComponent struct {
@@ -74,14 +75,14 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 	be.prependCloser(be.backend.Close)
 
 	var ctl interface{}
-	ctl, err = util.Retry(util.DefaultRetryWait, time.Second, func() (interface{}, bool, error) {
+	ctl, err = retry.Do(func() (interface{}, bool, error) {
 		c, err := policy.NewController(fmt.Sprintf(":%d", be.backend.Port()))
 		if err != nil {
 			scopes.Framework.Debugf("error while connecting to the PolicyBackend controller: %v", err)
 			return nil, false, err
 		}
 		return c, true, nil
-	})
+	}, retryDelay)
 	if err != nil {
 		return nil, err
 	}
