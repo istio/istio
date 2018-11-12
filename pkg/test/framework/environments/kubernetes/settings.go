@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mitchellh/go-homedir"
 
@@ -45,6 +46,12 @@ const (
 
 	// LatestTag value
 	LatestTag = "latest"
+
+	// DefaultDeployTimeout for Istio
+	DefaultDeployTimeout = time.Second * 480
+
+	// DefaultUndeployTimeout for Istio.
+	DefaultUndeployTimeout = time.Second * 600
 )
 
 var (
@@ -53,6 +60,8 @@ var (
 	globalSettings = &Settings{
 		KubeConfig:           ISTIO_TEST_KUBE_CONFIG.Value(),
 		IstioSystemNamespace: DefaultIstioSystemNamespace,
+		DeployTimeout:        DefaultDeployTimeout,
+		UndeployTimeout:      DefaultUndeployTimeout,
 		ChartDir:             env.IstioChartDir,
 		ValuesFile:           DefaultValuesFile,
 	}
@@ -156,6 +165,12 @@ type Settings struct {
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
 
+	// DeployTimeout the timeout for deploying Istio.
+	DeployTimeout time.Duration
+
+	// UndeployTimeout the timeout for undeploying Istio.
+	UndeployTimeout time.Duration
+
 	// Indicates that the Ingress Gateway is not available. This typically happens in Minikube. The Ingress
 	// component will fall back to node-port in this case.
 	MinikubeIngress bool
@@ -195,6 +210,8 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("DependencyNamespace:  %s\n", s.DependencyNamespace)
 	result += fmt.Sprintf("TestNamespace:        %s\n", s.TestNamespace)
 	result += fmt.Sprintf("DeployIstio:          %v\n", s.DeployIstio)
+	result += fmt.Sprintf("DeployTimeout:        %ds\n", s.DeployTimeout/time.Second)
+	result += fmt.Sprintf("UndeployTimeout:      %ds\n", s.UndeployTimeout/time.Second)
 	result += fmt.Sprintf("MinikubeIngress:      %v\n", s.MinikubeIngress)
 	result += fmt.Sprintf("Values:               %v\n", s.Values)
 

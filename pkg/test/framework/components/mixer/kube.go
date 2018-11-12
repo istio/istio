@@ -69,10 +69,15 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 
 	s := e.KubeSettings()
 	for _, serviceType := range []string{telemetryService, policyService} {
-		pod, err := e.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, "istio=mixer", "istio-mixer-type="+serviceType)
+		fetchFn := e.Accessor.NewSinglePodFetch(s.IstioSystemNamespace, "istio=mixer", "istio-mixer-type="+serviceType)
+		if err := e.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
+			return nil, err
+		}
+		pods, err := fetchFn()
 		if err != nil {
 			return nil, err
 		}
+		pod := pods[0]
 
 		scopes.Framework.Debugf("completed wait for Mixer pod(%s)", serviceType)
 

@@ -111,10 +111,15 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error) {
 	s := e.KubeSettings()
 
-	pod, err := e.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, "istio=pilot")
+	fetchFn := e.Accessor.NewSinglePodFetch(s.IstioSystemNamespace, "istio=pilot")
+	if err := e.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
+		return nil, err
+	}
+	pods, err := fetchFn()
 	if err != nil {
 		return nil, err
 	}
+	pod := pods[0]
 
 	port, err := getGrpcPort(e)
 	if err != nil {
