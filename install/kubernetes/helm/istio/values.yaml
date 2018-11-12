@@ -320,7 +320,7 @@ global:
     # association methods. For `network1` all endpoints that their IP belongs
     # to the provided CIDR range will be mapped to network1. The gateway for
     # this network example is specified by its public IP address and port.
-    # The second network, `network2`, in this exmaple is defined differently
+    # The second network, `network2`, in this example is defined differently
     # with all endpoints retrieved through the specified Multi-Cluster registry
     # being mapped to network2. The gateway is also defined differently with
     # the name of the gateway service on the remote cluster. The public IP for
