@@ -44,7 +44,7 @@ subsets:
 {{- if and .Values.global.remoteTelemetryAddress .Values.global.createRemoteSvcEndpoints }}
 ---
 apiVersion: v1
-kind: Service
+kind: Endpoints
 metadata:
   name: istio-telemetry
   namespace: istio-system
