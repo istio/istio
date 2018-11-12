@@ -693,7 +693,7 @@ generate_yaml_new: $(HELM) $(HOME)/.helm helm-repo-add
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	(cd install/kubernetes/helm/istio; ${ISTIO_OUT}/istioctl gen-deploy -o yaml --values values.yaml)
 
-generate_e2e_test_yaml: $(HELM) $(HOME)/.helm
+generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
