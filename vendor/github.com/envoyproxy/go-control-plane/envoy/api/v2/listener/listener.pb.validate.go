@@ -48,16 +48,6 @@ func (m *Filter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return FilterValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FilterValidationError{
@@ -66,6 +56,34 @@ func (m *Filter) Validate() error {
 				Cause:  err,
 			}
 		}
+	}
+
+	switch m.ConfigType.(type) {
+
+	case *Filter_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *Filter_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -336,14 +354,32 @@ func (m *ListenerFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ListenerFilterValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	switch m.ConfigType.(type) {
+
+	case *ListenerFilter_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerFilterValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
+	case *ListenerFilter_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerFilterValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
