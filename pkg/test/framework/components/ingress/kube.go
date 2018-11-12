@@ -27,20 +27,20 @@ import (
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/kubernetes"
 	"istio.io/istio/pkg/test/framework/scopes"
-	"istio.io/istio/pkg/test/util"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
-	timeout     = 1 * time.Minute
-	retryWait   = 5 * time.Second
 	serviceName = "istio-ingressgateway"
 	istioLabel  = "ingressgateway"
 )
 
 var (
-
 	// KubeComponent is a component for the Kubernetes environment.
 	KubeComponent = &component{}
+
+	retryTimeout = retry.Timeout(1 * time.Minute)
+	retryDelay   = retry.Delay(5 * time.Second)
 
 	_ environment.DeployedIngress = &deployedIngress{}
 )
@@ -70,7 +70,7 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 	}
 
 	s := env.KubeSettings()
-	address, err := util.Retry(timeout, retryWait, func() (interface{}, bool, error) {
+	address, err := retry.Do(func() (interface{}, bool, error) {
 
 		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 		// port.
@@ -114,7 +114,7 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 
 		ip := svc.Status.LoadBalancer.Ingress[0].IP
 		return fmt.Sprintf("http://%s", ip), true, nil
-	})
+	}, retryTimeout, retryDelay)
 
 	if err != nil {
 		return nil, err

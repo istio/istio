@@ -17,6 +17,7 @@ package kubernetes
 import (
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/test/util/retry"
 	"os"
 	"path"
 	"strings"
@@ -154,7 +155,7 @@ func (e *Implementation) deployIstio() (err error) {
 		Values:     e.kube.Values,
 	})
 	if err == nil {
-		err = e.deployment.Deploy(e.Accessor, true)
+		err = e.deployment.Deploy(e.Accessor, true, retry.Timeout(e.KubeSettings().DeployTimeout))
 	}
 	return
 }
@@ -256,9 +257,9 @@ func (e *Implementation) Close() error {
 		err = multierror.Append(err, waitFunc()).ErrorOrNil()
 	}
 
-	if e.KubeSettings().DeployIstio {
+	if e.deployment != nil {
 		// Delete the deployment yaml file.
-		err = multierror.Append(e.deployment.Delete(e.Accessor, true))
+		err = multierror.Append(e.deployment.Delete(e.Accessor, true, retry.Timeout(e.KubeSettings().UndeployTimeout)))
 
 		// Deleting the deployment should have removed everything, but just in case...
 

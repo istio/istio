@@ -26,7 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/internal"
-	"istio.io/istio/pkg/test/util"
+	"istio.io/istio/pkg/test/util/retry"
 
 	"io"
 
@@ -71,7 +71,7 @@ func (p *policyBackend) DenyCheck(t testing.TB, deny bool) {
 func (p *policyBackend) ExpectReport(t testing.TB, expected ...proto.Message) {
 	t.Helper()
 
-	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	_, err := retry.Do(func() (interface{}, bool, error) {
 		reports, err := p.controller.GetReports()
 		if err != nil {
 			return nil, false, err
@@ -102,7 +102,7 @@ func (p *policyBackend) ExpectReportJSON(t testing.TB, expected ...string) {
 		}
 	}
 
-	_, err = util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+	_, err = retry.Do(func() (interface{}, bool, error) {
 		reports, err := p.controller.GetReports()
 		if err != nil {
 			return nil, false, err

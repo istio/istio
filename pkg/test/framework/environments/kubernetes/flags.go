@@ -34,6 +34,10 @@ func init() {
 			"one test namespace in the system.")
 	flag.BoolVar(&globalSettings.DeployIstio, "istio.test.kube.deploy", globalSettings.DeployIstio,
 		"Deploy Istio into the target Kubernetes environment.")
+	flag.DurationVar(&globalSettings.DeployTimeout, "istio.test.kube.deployTimeout", globalSettings.DeployTimeout,
+		"Timeout applied to deploying Istio into the target Kubernetes environment. Only applies if DeployIstio=true.")
+	flag.DurationVar(&globalSettings.UndeployTimeout, "istio.test.kube.undeployTimeout", globalSettings.UndeployTimeout,
+		"Timeout applied to undeploying Istio from the target Kubernetes environment. Only applies if DeployIstio=true.")
 	flag.BoolVar(&globalSettings.MinikubeIngress, "istio.test.kube.minikubeingress", globalSettings.MinikubeIngress,
 		"Configure the Ingress component so that it gets the IP address from Node, when Minikube is used..")
 	flag.StringVar(&globalSettings.ChartDir, "istio.test.kube.helm.chartDir", globalSettings.ChartDir,
