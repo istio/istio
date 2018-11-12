@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/proto"
 )
 
 const (
@@ -144,7 +145,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 		var transparent *google_protobuf.BoolValue
 		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
-			transparent = &google_protobuf.BoolValue{Value: true}
+			transparent = proto.BoolTrue
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -152,7 +153,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			Name:           VirtualListenerName,
 			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
 			Transparent:    transparent,
-			UseOriginalDst: &google_protobuf.BoolValue{Value: true},
+			UseOriginalDst: proto.BoolTrue,
 			FilterChains: []listener.FilterChain{
 				{
 					Filters: []listener.Filter{
@@ -191,9 +192,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					direction:        traceOperation,
 					connectionManager: &http_conn.HttpConnectionManager{
 						HttpProtocolOptions: &core.Http1ProtocolOptions{
-							AllowAbsoluteUrl: &google_protobuf.BoolValue{
-								Value: true,
-							},
+							AllowAbsoluteUrl: proto.BoolTrue,
 						},
 					},
 				},
@@ -764,7 +763,11 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
-	connectionManager.UseRemoteAddress = &google_protobuf.BoolValue{Value: httpOpts.useRemoteAddress}
+	if httpOpts.useRemoteAddress {
+		connectionManager.UseRemoteAddress = proto.BoolTrue
+	} else {
+		connectionManager.UseRemoteAddress = proto.BoolFalse
+	}
 
 	// Allow websocket upgrades
 	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
@@ -824,7 +827,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 				Value: tc.OverallSampling,
 			},
 		}
-		connectionManager.GenerateRequestId = &google_protobuf.BoolValue{Value: true}
+		connectionManager.GenerateRequestId = proto.BoolTrue
 	}
 
 	return connectionManager
@@ -903,7 +906,7 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
 	if !opts.bindToPort {
 		deprecatedV1 = &xdsapi.Listener_DeprecatedV1{
-			BindToPort: boolFalse,
+			BindToPort: proto.BoolFalse,
 		}
 	}
 

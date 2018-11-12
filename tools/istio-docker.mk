@@ -22,7 +22,7 @@
 docker: build test-bins docker.all
 
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend \
-	docker.proxy_init docker.servicegraph docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.kubectl
+	docker.proxy_init docker.servicegraph docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -46,7 +46,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # generates rules like the following:
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT)/$FILE $(ISTIO_DOCKER)/($FILE)
-DOCKER_FILES_FROM_ISTIO_OUT:=pilot-test-client pilot-test-server \
+DOCKER_FILES_FROM_ISTIO_OUT:=pkg-test-application-echo-client pkg-test-application-echo-server \
                              pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
                              istio_ca node_agent node_agent_k8s galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
@@ -56,7 +56,7 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
 DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz \
-                          pilot/docker/certs/cert.crt pilot/docker/certs/cert.key pilot/docker/certs/cacert.pem
+                          tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
 # generates rules like the following:
 # $(ISTIO_DOCKER)/tools/deb/istio-iptables.sh: $(ISTIO_OUT)/tools/deb/istio-iptables.sh | $(ISTIO_DOCKER)
 # 	cp $FILE $$(@D))
@@ -129,25 +129,25 @@ docker.proxytproxy: pilot/docker/envoy_telemetry.yaml.tmpl
 	$(DOCKER_RULE)
 
 docker.pilot: $(ISTIO_OUT)/pilot-discovery
-docker.pilot: pilot/docker/certs/cacert.pem
+docker.pilot: tests/testdata/certs/cacert.pem
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
-# Test app for pilot integration
-docker.app: pilot/docker/Dockerfile.app
-docker.app: $(ISTIO_OUT)/pilot-test-client
-docker.app: $(ISTIO_OUT)/pilot-test-server
-docker.app: pilot/docker/certs/cert.crt
-docker.app: pilot/docker/certs/cert.key
-	mkdir -p $(ISTIO_DOCKER)/pilotapp
-	cp $^ $(ISTIO_DOCKER)/pilotapp
+# Test application
+docker.app: tests/docker/Dockerfile.app
+docker.app: $(ISTIO_OUT)/pkg-test-application-echo-client
+docker.app: $(ISTIO_OUT)/pkg-test-application-echo-server
+docker.app: tests/testdata/certs/cert.crt
+docker.app: tests/testdata/certs/cert.key
+	mkdir -p $(ISTIO_DOCKER)/testapp
+	cp $^ $(ISTIO_DOCKER)/testapp
 ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
-	cp $(ISTIO_DOCKER)/pilotapp/Dockerfile.app $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg
-	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/pilotapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/pilotapp/Dockerfile.appd
+	cp $(ISTIO_DOCKER)/testapp/Dockerfile.app $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg
+	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/testapp/Dockerfile.appd
 endif
-	time (cd $(ISTIO_DOCKER)/pilotapp && \
+	time (cd $(ISTIO_DOCKER)/testapp && \
 		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
 
 # Test policy backend for mixer integration

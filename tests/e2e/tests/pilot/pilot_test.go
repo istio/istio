@@ -44,6 +44,7 @@ const (
 	ingressContainerName    = "ingress"
 	defaultPropagationDelay = 5 * time.Second
 	primaryCluster          = framework.PrimaryCluster
+	remoteCluster           = framework.RemoteCluster
 )
 
 var (
@@ -52,12 +53,13 @@ var (
 		Egress:  true,
 	}
 
-	errAgain     = errors.New("try again")
-	idRegex      = regexp.MustCompile("(?i)X-Request-Id=(.*)")
-	versionRegex = regexp.MustCompile("ServiceVersion=(.*)")
-	portRegex    = regexp.MustCompile("ServicePort=(.*)")
-	codeRegex    = regexp.MustCompile("StatusCode=(.*)")
-	hostRegex    = regexp.MustCompile("Host=(.*)")
+	errAgain        = errors.New("try again")
+	idRegex         = regexp.MustCompile("(?i)X-Request-Id=(.*)")
+	versionRegex    = regexp.MustCompile("ServiceVersion=(.*)")
+	portRegex       = regexp.MustCompile("ServicePort=(.*)")
+	codeRegex       = regexp.MustCompile("StatusCode=(.*)")
+	hostRegex       = regexp.MustCompile("Host=(.*)")
+	appsWithSidecar []string
 )
 
 func init() {
@@ -328,6 +330,14 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}
 
+	if len(t.Kube.Clusters) > 1 {
+		// For multicluster tests, add the remote cluster into the mesh
+		// and verify the multicluster service mesh before starting tests
+		err = createAndVerifyMCMeshConfig()
+	} else {
+		// Verify the service mesh config for a single cluster
+		err = verifyMeshConfig()
+	}
 	return
 }
 
@@ -344,21 +354,22 @@ func (t *testConfig) Teardown() (err error) {
 }
 
 func getApps(tc *testConfig) []framework.App {
+	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
-		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false),
-		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true),
-		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true),
-		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true),
-		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true),
-		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true),
-		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true),
+		getApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false, false, true),
+		getApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false, true, true),
+		getApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false, true, true),
+		getApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false, true, true),
+		getApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false, true, false),
+		getApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, false, true, true),
+		getApp("headless", "headless", 80, 8080, 10090, 19090, 70, 7070, "unversioned", true, true, true, true),
 		getStatefulSet("statefulset", 19090, true),
 	}
 }
 
 func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool, headless bool, serviceAccount bool) framework.App {
+	version string, injectProxy bool, headless bool, serviceAccount bool, createService bool) framework.App {
 	// TODO(nmittler): Consul does not support management ports ... should we support other registries?
 	healthPort := "true"
 
@@ -383,6 +394,7 @@ func getApp(deploymentName, serviceName string, port1, port2, port3, port4, port
 			"serviceAccount":  strconv.FormatBool(serviceAccount),
 			"healthPort":      healthPort,
 			"ImagePullPolicy": tc.Kube.ImagePullPolicy(),
+			"createService":   strconv.FormatBool(createService),
 		},
 		KubeInject: injectProxy,
 	}
