@@ -170,6 +170,9 @@ func Is11Proxy(node *model.Proxy) bool {
 // networks in the config and if it's not an IP address it will try to lookup
 // that hostname and replace it with the IP address in the config
 func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
+	if config == nil {
+		return
+	}
 	for _, n := range config.Networks {
 		for _, gw := range n.Gateways {
 			gwIP := net.ParseIP(gw.GetAddress())
