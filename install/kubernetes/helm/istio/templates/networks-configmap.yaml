@@ -11,21 +11,10 @@ metadata:
     release: {{ .Release.Name }}
 data:
   meshNetworks: |-
+{{- if .Values.global.multiCluster.networks }}
+    networks:
+{{ toYaml .Values.global.multiCluster.networks | indent 6 }}
+{{- else }}
     networks: {}
-    #
-    # Example:
-    #
-    # networks:
-    #   network1:
-    #     endpoints:
-    #     - fromCidr: "192.168.0.1/24"
-    #     gateways:
-    #     - address: 1.1.1.1
-    #       port: 80
-    #   network2:
-    #     endpoints:
-    #     - fromRegistry: reg1
-    #     gateways:
-    #     - registryServiceName: reg1
-    #       port: 443
+{{- end }}
 {{- end }}
