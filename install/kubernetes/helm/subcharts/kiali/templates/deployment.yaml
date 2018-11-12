@@ -53,6 +53,10 @@ spec:
               key: {{ .Values.dashboard.passphraseKey }}
         - name: PROMETHEUS_SERVICE_URL
           value: {{ .Values.prometheusAddr }}
+{{- if .Values.contextPath }}
+        - name: SERVER_WEB_ROOT
+          value: {{ .Values.contextPath }}
+{{- end }}
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"

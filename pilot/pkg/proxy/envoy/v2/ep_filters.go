@@ -33,7 +33,7 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network, found := conn.modelNode.Metadata["ISTIO_NETWORK"]
+	network, found := conn.modelNode.Metadata["NETWORK"]
 	if !found {
 
 		// TODO: try to get the network by querying the service registry to get the
@@ -82,10 +82,12 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				// This LocalityLbEndpoints has remote endpoint so add to the result
 				// a new one that holds only local endpoints
 				newEp := endpoint.LocalityLbEndpoints{
-					Locality:            ep.Locality,
-					LbEndpoints:         onlyLocalLbEndpoints,
-					LoadBalancingWeight: ep.LoadBalancingWeight,
-					Priority:            ep.Priority,
+					Locality:    ep.Locality,
+					LbEndpoints: onlyLocalLbEndpoints,
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: uint32(len(onlyLocalLbEndpoints)),
+					},
+					Priority: ep.Priority,
 				}
 				filtered = append(filtered, newEp)
 			}

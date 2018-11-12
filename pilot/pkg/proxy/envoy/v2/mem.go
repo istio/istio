@@ -194,6 +194,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 
 		instance := &model.ServiceInstance{
 			Service: svc,
+			Labels:  e.Labels,
 			Endpoint: model.NetworkEndpoint{
 				Address: e.Address,
 				ServicePort: &model.Port{
@@ -217,13 +218,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 
 	}
 
-	err := sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
-	if err != nil {
-		// Request a global push if we failed to do EDS only
-		sd.EDSUpdater.ConfigUpdate(true)
-	} else {
-		sd.EDSUpdater.ConfigUpdate(false)
-	}
+	sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
 }
 
 // Services implements discovery interface

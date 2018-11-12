@@ -20,16 +20,18 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 type istioResource struct {
 	u   *unstructured.Unstructured
 	sha [sha1.Size]byte
-	key string
+	key resource.FullName
 }
 
 type fileResourceKey struct {
-	key  string
+	key  resource.FullName
 	kind string
 }
 
@@ -49,12 +51,7 @@ func parseFile(path string, data []byte) []*istioResource {
 		if u == nil {
 			continue
 		}
-		var key string
-		if len(u.GetNamespace()) > 0 {
-			key = u.GetNamespace() + "/" + u.GetName()
-		} else {
-			key = u.GetName()
-		}
+		key := resource.FullNameFromNamespaceAndName(u.GetNamespace(), u.GetName())
 		resources = append(resources, &istioResource{u: u, sha: sha1.Sum(chunk), key: key})
 	}
 	return resources

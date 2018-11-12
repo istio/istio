@@ -51,24 +51,77 @@ make tools
 make depend.install
 ```
 
-2. Edit the code in your favorite IDE
+2. Generate proto files (if you update the [data-plane-api](https://github.com/envoyproxy/data-plane-api)
+dependency)
 
-3. Format, vet and lint the code
+```sh
+make generate
+```
+
+3. Edit the code in your favorite IDE
+
+4. Format, vet and lint the code
 
 ```sh
 make check
 ```
 
-3. Build and test
+5. Build and test
 
 ```sh
 make build
 make test
 ```
 
-4. Run [integration test](pkg/test/main/README.md) against the latest Envoy
+6. Run [integration test](pkg/test/main/README.md) against the latest Envoy
    docker image:
 
 ```sh
 make integration.docker
+```
+
+## Usage
+
+Register services on the gRPC server as follows.
+
+```go
+import (
+	"net"
+
+	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	"github.com/envoyproxy/go-control-plane/pkg/cache"
+	xds "github.com/envoyproxy/go-control-plane/pkg/server"
+)
+
+func main() {
+  snapshotCache := cache.NewSnapshotCache(false, hash{}, nil)
+	server := xds.NewServer(snapshotCache, nil)
+	grpcServer := grpc.NewServer()
+	lis, _ := net.Listen("tcp", ":8080")
+
+	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, server)
+	api.RegisterEndpointDiscoveryServiceServer(grpcServer, server)
+	api.RegisterClusterDiscoveryServiceServer(grpcServer, server)
+	api.RegisterRouteDiscoveryServiceServer(grpcServer, server)
+	api.RegisterListenerDiscoveryServiceServer(grpcServer, server)
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			// error handling
+		}
+	}()
+}
+```
+
+As mentioned in [Scope](https://github.com/envoyproxy/go-control-plane/blob/master/README.md#scope), you need to cache Envoy configurations.  
+Generate the key based on the node information as follows and cache the configurations.
+
+```go
+import "github.com/envoyproxy/go-control-plane/pkg/cache"
+
+var clusters, endpoints, routes, listeners []cache.Resource
+
+snapshotCache := cache.NewSnapshotCache(false, hash{}, nil)
+snapshot := cache.NewSnapshot("1.0", endpoints, clusters, routes, listeners)
+_ = snapshotCache.SetSnapshot("node1", snapshot)
 ```
