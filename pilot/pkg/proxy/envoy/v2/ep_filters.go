@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"math"
 	"net"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -149,4 +150,27 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 	}
 
 	return filtered
+}
+
+// LoadBalancingWeightNormalize set LoadBalancingWeight with a valid value.
+func LoadBalancingWeightNormalize(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
+	var totalLbEndpointsNum uint32
+
+	for _, localityLbEndpoint := range endpoints {
+		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
+	}
+	if totalLbEndpointsNum == 0 {
+		return endpoints
+	}
+
+	out := make([]endpoint.LocalityLbEndpoints, len(endpoints))
+	for i, localityLbEndpoint := range endpoints {
+		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
+		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(math.Ceil(weight)),
+		}
+		out[i] = localityLbEndpoint
+	}
+
+	return out
 }
