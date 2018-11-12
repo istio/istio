@@ -71,8 +71,8 @@ spec:
               path: /
               port: 16686
           resources:
-{{- if .Values.resources }}
-{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.jaeger.resources }}
+{{ toYaml .Values.jaeger.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}

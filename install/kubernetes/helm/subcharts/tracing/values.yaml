@@ -2,7 +2,9 @@
 # addon jeager tracing configuration
 #
 enabled: false
+
 provider: jaeger
+
 jaeger:
   hub: docker.io/jaegertracing
   tag: 1.7
@@ -22,24 +24,30 @@ jaeger:
       # - secretName: jaeger-tls
       #   hosts:
       #     - jaeger.local
+
 zipkin:
-  hub: docker.io/openzipkin/zipkin
+  hub: docker.io/openzipkin
   tag: 2
   sampleRate: 1.0
   probeStartupDelay: 200
   queryPort: 9411
   resources:
-    ramMb: 900
-    javaOptsHeap: 700
-    cpuRequest: 150m
-    cpuLimit: 300m
+    limits:
+      cpu: 300m
+      memory: 900Mi
+    requests:
+      cpu: 150m
+      memory: 900Mi
+  javaOptsHeap: 700
   node:
     cpus: 2
+
 service:
   annotations: {}
   name: http
   type: ClusterIP
   externalPort: 9411
+
 ingress:
   enabled: false
   # Used to create an Ingress record.

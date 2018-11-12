@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.zipkin.hub }}:{{ .Values.zipkin.tag }}"
+          image: "{{ .Values.zipkin.hub }}/zipkin:{{ .Values.zipkin.tag }}"
           ports:
             - containerPort: {{ .Values.zipkin.queryPort }}
           livenessProbe:
@@ -31,12 +31,11 @@ spec:
               path: /health
               port: {{ .Values.zipkin.queryPort }}
           resources:
-            limits:
-              cpu: "{{ .Values.zipkin.resources.cpuLimit }}"
-              memory: "{{ .Values.zipkin.resources.ramMb }}Mi" # TODO fix this, this field is mi but the value is mb. There will be slight wastage
-            requests:
-              cpu: "{{ .Values.zipkin.resources.cpuRequest }}"
-              memory: "{{ .Values.zipkin.resources.ramMb }}Mi" # TODO fix this, this field is mi but the value is mb. There will be slight wastage
+{{- if .Values.zipkin.resources }}
+{{ toYaml .Values.zipkin.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -46,7 +45,7 @@ spec:
             - name: QUERY_PORT
               value: "{{ .Values.zipkin.queryPort }}"
             - name: JAVA_OPTS
-              value: "-XX:ConcGCThreads={{ .Values.zipkin.node.cpus }} -XX:ParallelGCThreads={{ .Values.zipkin.node.cpus }} -Djava.util.concurrent.ForkJoinPool.common.parallelism={{ .Values.zipkin.node.cpus }} -Xms{{ .Values.zipkin.resources.javaOptsHeap }}M -Xmx{{ .Values.zipkin.resources.javaOptsHeap }}M -XX:+UseG1GC -server"
+              value: "-XX:ConcGCThreads={{ .Values.zipkin.node.cpus }} -XX:ParallelGCThreads={{ .Values.zipkin.node.cpus }} -Djava.util.concurrent.ForkJoinPool.common.parallelism={{ .Values.zipkin.node.cpus }} -Xms{{ .Values.zipkin.javaOptsHeap }}M -Xmx{{ .Values.zipkin.javaOptsHeap }}M -XX:+UseG1GC -server"
             - name: COLLECTOR_SAMPLE_RATE
               value: "{{ .Values.zipkin.sampleRate }}"
             - name: QUERY_ENABLED
