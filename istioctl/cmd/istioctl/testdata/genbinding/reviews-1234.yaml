@@ -5,6 +5,8 @@ metadata:
   name: service-entry-reviews
   namespace: default
 spec:
+  addresses:
+  - 127.255.214.91
   endpoints:
   - address: 1.2.3.4
     ports:

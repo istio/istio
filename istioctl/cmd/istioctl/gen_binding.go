@@ -20,8 +20,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/istioctl/pkg/genbinding"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
@@ -46,18 +46,15 @@ var (
 			}
 
 			if len(namespace) == 0 {
-			        namespace = defaultNamespace
+				namespace = defaultNamespace
 			}
 
-			bindings, svcs, err := genbinding.CreateBinding(args[0], remoteClusters, remoteSubset, namespace)
+			bindings, err := genbinding.CreateBinding(args[0], remoteClusters, remoteSubset, namespace)
 			if err != nil {
 				return multierror.Prefix(err, "could not create binding:")
 			}
-			_ = svcs // TODO if we need to generate K8s services, we need to write them out.  Currently we neither gen nor write them.
 
 			configDescriptor := model.ConfigDescriptor{
-				model.VirtualService,
-				model.DestinationRule,
 				model.ServiceEntry,
 			}
 			writeYAMLOutput(configDescriptor, bindings, c.OutOrStdout())
