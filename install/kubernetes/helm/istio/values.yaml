@@ -337,7 +337,7 @@ global:
     #     endpoints:
     #     - fromRegistry: reg1
     #     gateways:
-    #     - registryServiceName: reg1
+    #     - registryServiceName: istio-ingressgateway
     #       port: 443
     networks:
 
