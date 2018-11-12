@@ -19,8 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
-
-	kubeApiCore "k8s.io/api/core/v1"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Instance represents an Istio deployment instance that has been performed by this test code.
@@ -33,22 +32,14 @@ type Instance struct {
 }
 
 // Deploy this deployment instance.
-func (i *Instance) Deploy(a *kube.Accessor, wait bool) (err error) {
+func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
 	scopes.CI.Infof("Applying Yaml file: %s", i.yamlFilePath)
 	if err = a.Apply(i.namespace, i.yamlFilePath); err != nil {
 		return multierror.Prefix(err, "kube apply of generated yaml filed:")
 	}
 
 	if wait {
-		fetchFn := func() ([]kubeApiCore.Pod, error) {
-			return a.GetPods(i.namespace)
-		}
-		_, err := fetchFn()
-		if err != nil {
-			scopes.CI.Errorf("Error retrieving pods in namespace: %s: %v", i.namespace, err)
-			return err
-		}
-		if err := a.WaitUntilPodsAreReady(fetchFn); err != nil {
+		if err := a.WaitUntilPodsAreReady(a.NewPodFetch(i.namespace), opts...); err != nil {
 			scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
 			return err
 		}
@@ -58,7 +49,7 @@ func (i *Instance) Deploy(a *kube.Accessor, wait bool) (err error) {
 }
 
 // Delete this deployment instance.
-func (i *Instance) Delete(a *kube.Accessor, wait bool) (err error) {
+func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
 
 	if err = a.Delete(i.namespace, i.yamlFilePath); err != nil {
 		scopes.CI.Warnf("Error deleting deployment: %v", err)
@@ -67,7 +58,7 @@ func (i *Instance) Delete(a *kube.Accessor, wait bool) (err error) {
 	if wait {
 		// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
 		// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
-		if e := a.WaitForNamespaceDeletion(i.namespace); e != nil {
+		if e := a.WaitForNamespaceDeletion(i.namespace, opts...); e != nil {
 			scopes.CI.Warnf("Error waiting for environment deletion: %v", e)
 			err = multierror.Append(err, e)
 		}

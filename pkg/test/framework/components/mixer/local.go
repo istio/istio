@@ -32,12 +32,14 @@ import (
 	"istio.io/istio/pkg/test/framework/environments/local"
 	"istio.io/istio/pkg/test/framework/environments/local/service"
 	"istio.io/istio/pkg/test/framework/scopes"
-	"istio.io/istio/pkg/test/util"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
 	// LocalComponent is a component for the local environment.
 	LocalComponent = &localComponent{}
+
+	retryDelay = retry.Delay(time.Second)
 )
 
 type localComponent struct {
@@ -99,7 +101,7 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 
 	go dm.server.Run()
 
-	conn, err := util.Retry(util.DefaultRetryTimeout, time.Second, func() (interface{}, bool, error) {
+	conn, err := retry.Do(func() (interface{}, bool, error) {
 		conn, err := grpc.Dial(dm.server.Addr().String(), grpc.WithInsecure())
 		if err != nil {
 			scopes.Framework.Debugf("error connecting to Mixer backend: %v", err)
@@ -107,7 +109,7 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 		}
 
 		return conn, true, nil
-	})
+	}, retryDelay)
 	if err != nil {
 		return nil, err
 	}
