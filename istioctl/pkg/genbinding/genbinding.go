@@ -29,8 +29,8 @@ type hostPort struct {
 	port int
 }
 
-// ConvertBindingsAndExposures2 converts desired multicluster state into Kubernetes and Istio state
-func CreateBinding(service string, clusters []string, subset string, namespace string) ([]model.Config, error) {
+// CreateBinding converts desired multicluster state into Istio state
+func CreateBinding(service string, clusters []string, labels map[string]string, namespace string) ([]model.Config, error) {
 
 	host, port, err := net.SplitHostPort(service)
 	if err != nil {
@@ -55,13 +55,16 @@ func CreateBinding(service string, clusters []string, subset string, namespace s
 		remoteClusters = append(remoteClusters, hostPort{host, i})
 	}
 
-	istioConfig, err := serviceToServiceEntrySniCluster(remoteService, remoteClusters, subset, namespace)
+	istioConfig, err := serviceToServiceEntrySniCluster(remoteService, remoteClusters, labels, namespace)
 	return istioConfig, err
 }
 
 // serviceToServiceEntry() creates a ServiceEntry pointing to istio-egressgateway
-func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []hostPort, subset string, namespace string) ([]model.Config, error) { // nolint: lll
+func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []hostPort, labels map[string]string, namespace string) ([]model.Config, error) { // nolint: lll
 	protocol := "http"
+
+	// It is strongly recommended addresses for different hosts don't clash;
+	// we use the hash to make clashing unlikely.
 	h := fnv.New32a()
 	h.Write([]byte(remoteService.host))
 	address := fmt.Sprintf("127.255.%d.%d", h.Sum32()&255, (h.Sum32()>>8)&255)
@@ -98,6 +101,9 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 			Ports:   make(map[string]uint32),
 		}
 		endpoint.Ports[protocol] = uint32(cluster.port)
+		if len(labels) > 0 {
+			endpoint.Labels = labels
+		}
 		spec.Endpoints = append(spec.Endpoints, endpoint)
 	}
 

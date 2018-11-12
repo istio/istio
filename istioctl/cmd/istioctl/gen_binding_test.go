@@ -37,7 +37,7 @@ type genBindingTestCase struct {
 func TestGenBinding(t *testing.T) {
 	tt := []genBindingTestCase{
 		{args: strings.Split("experimental gen-binding", " "),
-			expectedSubstring: "Usage: istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--subset <subset>]",
+			expectedSubstring: "Usage: istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2]",
 			wantException:     true,
 			name:              "No args"},
 
@@ -49,8 +49,12 @@ func TestGenBinding(t *testing.T) {
 			goldenFilename: "testdata/genbinding/reviews-2remotes.yaml",
 			name:           "Two remotes, no subset"},
 
-		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:5 --subset v1", " "),
+		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:5 --labels version=v1", " "),
 			goldenFilename: "testdata/genbinding/reviews-v1.yaml",
+			name:           "One remote with subset"},
+
+		{args: strings.Split("experimental gen-binding ratings:8080 --cluster 1.2.3.4:5 --labels version=v1,arch=i586", " "),
+			goldenFilename: "testdata/genbinding/ratings-v1-i586.yaml",
 			name:           "One remote with subset"},
 	}
 
@@ -58,7 +62,7 @@ func TestGenBinding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Clear, because we re-use
 			remoteClusters = []string{}
-			remoteSubset = ""
+			addressLabels = ""
 
 			verifyGenBindingTestOutput(t, tc)
 		})
