@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"go/types"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
