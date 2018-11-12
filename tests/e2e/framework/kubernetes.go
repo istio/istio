@@ -40,7 +40,6 @@ import (
 const (
 	yamlSuffix                     = ".yaml"
 	istioInstallDir                = "install/kubernetes"
-	istioAddonsDir                 = "install/kubernetes/addons"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
 	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
@@ -102,10 +101,6 @@ var (
 	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
-
-	addons = []string{
-		"zipkin",
-	}
 )
 
 type appPodsInfo struct {
