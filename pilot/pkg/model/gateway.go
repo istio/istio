@@ -152,7 +152,7 @@ func isHTTPServer(server *networking.Server) bool {
 		return true
 	}
 
-	if protocol == ProtocolHTTPS && server.Tls != nil && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+	if protocol == ProtocolHTTPS && server.Tls != nil && !IsPassThroughServer(server) {
 		return true
 	}
 
@@ -190,9 +190,22 @@ func GatewayRDSRouteName(server *networking.Server) string {
 		return fmt.Sprintf("http.%d", server.Port.Number)
 	}
 
-	if protocol == ProtocolHTTPS && server.Tls != nil && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+	if protocol == ProtocolHTTPS && server.Tls != nil && !IsPassThroughServer(server) {
 		return fmt.Sprintf("https.%d.%s", server.Port.Number, server.Port.Name)
 	}
 
 	return ""
+}
+
+func IsPassThroughServer(server *networking.Server) bool {
+	if server.Tls == nil {
+		return false
+	}
+
+	if server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH ||
+		server.Tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH {
+		return true
+	}
+
+	return false
 }

@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"go/types"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
@@ -150,4 +151,19 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 		Name:   xdsutil.MongoProxy,
 		Config: util.MessageToStruct(config),
 	}
+}
+
+// buildOutboundAutoPassthroughFilterStack builds a filter stack with sni_cluster and tcp_proxy
+// used by auto_passthrough gateway servers
+func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model.Proxy, port *model.Port) []listener.Filter {
+	// First build tcp_proxy with access logs
+	// then add sni_cluster to the front
+	tcp_proxy := buildOutboundNetworkFiltersWithSingleDestination(env, node, util.BlackHoleCluster, port)
+	filterstack := make([]listener.Filter, 0)
+	filterstack = append(filterstack, listener.Filter{
+		Name: util.SniClusterFilter,
+	})
+	filterstack = append(filterstack, tcp_proxy...)
+
+	return filterstack
 }
