@@ -321,6 +321,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						Uri:     true,
 						Dns:     true,
 					},
+					ServerName: EnvoyServerName,
 				},
 			},
 		}
@@ -348,6 +349,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 							Uri:     true,
 							Dns:     true,
 						},
+						ServerName: EnvoyServerName,
 					},
 				},
 			}
