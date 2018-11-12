@@ -189,13 +189,15 @@ func (d *deployment) apply(e *kubernetes.Implementation) error {
 
 func (d *deployment) waitForPod(e *kubernetes.Implementation) (kubeApiCore.Pod, error) {
 	n := e.KubeSettings().DependencyNamespace
-	pod, err := e.Accessor.WaitForPodBySelectors(n, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
-	if err != nil {
+
+	podFetchFunc := e.Accessor.NewSinglePodFetch(n, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+	if err := e.Accessor.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		return kubeApiCore.Pod{}, err
 	}
 
-	if err = e.Accessor.WaitUntilPodIsRunning(n, pod.Name); err != nil {
+	pods, err := podFetchFunc()
+	if err != nil {
 		return kubeApiCore.Pod{}, err
 	}
-	return pod, nil
+	return pods[0], nil
 }

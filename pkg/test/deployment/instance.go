@@ -16,6 +16,7 @@ package deployment
 
 import (
 	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
@@ -31,14 +32,14 @@ type Instance struct {
 }
 
 // Deploy this deployment instance.
-func (i *Instance) Deploy(a *kube.Accessor, wait bool) (err error) {
+func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
 	scopes.CI.Infof("Applying Yaml file: %s", i.yamlFilePath)
 	if err = a.Apply(i.namespace, i.yamlFilePath); err != nil {
 		return multierror.Prefix(err, "kube apply of generated yaml filed:")
 	}
 
 	if wait {
-		if err := a.WaitUntilPodsInNamespaceAreReady(i.namespace); err != nil {
+		if err := a.WaitUntilPodsAreReady(a.NewPodFetch(i.namespace), opts...); err != nil {
 			scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
 			return err
 		}
@@ -48,7 +49,7 @@ func (i *Instance) Deploy(a *kube.Accessor, wait bool) (err error) {
 }
 
 // Delete this deployment instance.
-func (i *Instance) Delete(a *kube.Accessor, wait bool) (err error) {
+func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
 
 	if err = a.Delete(i.namespace, i.yamlFilePath); err != nil {
 		scopes.CI.Warnf("Error deleting deployment: %v", err)
@@ -57,7 +58,7 @@ func (i *Instance) Delete(a *kube.Accessor, wait bool) (err error) {
 	if wait {
 		// TODO: Just for waiting for deployment namespace deletion may not be enough. There are CRDs
 		// and roles/rolebindings in other parts of the system as well. We should also wait for deletion of them.
-		if e := a.WaitForNamespaceDeletion(i.namespace); e != nil {
+		if e := a.WaitForNamespaceDeletion(i.namespace, opts...); e != nil {
 			scopes.CI.Warnf("Error waiting for environment deletion: %v", e)
 			err = multierror.Append(err, e)
 		}
