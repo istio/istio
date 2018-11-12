@@ -22,6 +22,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	"istio.io/istio/galley/pkg/meshconfig"
+
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -29,15 +31,20 @@ import (
 var testSchema = func() *resource.Schema {
 	b := resource.NewSchemaBuilder()
 	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("type.googleapis.com/google.protobuf.Struct")
 	return b.Build()
 }()
 
-var emptyInfo = testSchema.Get("type.googleapis.com/google.protobuf.Empty")
+var (
+	emptyInfo  = testSchema.Get("type.googleapis.com/google.protobuf.Empty")
+	structInfo = testSchema.Get("type.googleapis.com/google.protobuf.Struct")
+)
 
 func TestProcessor_Start(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := snapshot.New(snapshot.DefaultGroupIndex)
-	p := NewProcessor(src, distributor)
+	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	p := NewProcessor(src, distributor, cfg)
 
 	err := p.Start()
 	if err != nil {
@@ -60,7 +67,8 @@ func (e *erroneousSource) Stop() {}
 
 func TestProcessor_Start_Error(t *testing.T) {
 	distributor := snapshot.New(snapshot.DefaultGroupIndex)
-	p := NewProcessor(&erroneousSource{}, distributor)
+	cfg := &Config{Mesh: meshconfig.NewInMemory()}
+	p := NewProcessor(&erroneousSource{}, distributor, cfg)
 
 	err := p.Start()
 	if err == nil {
@@ -72,8 +80,9 @@ func TestProcessor_Stop(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := snapshot.New(snapshot.DefaultGroupIndex)
 	strategy := newPublishingStrategyWithDefaults()
+	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(src, distributor, strategy, testSchema, nil)
+	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
 
 	err := p.Start()
 	if err != nil {
@@ -91,14 +100,15 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	strategy := newPublishingStrategy(time.Hour, time.Hour, time.Millisecond)
+	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(src, distributor, strategy, testSchema, nil)
+	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{TypeURL: emptyInfo.TypeURL, FullName: "r1"}
+	k1 := resource.Key{TypeURL: emptyInfo.TypeURL, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, &types.Empty{})
 
 	// Wait "long enough"
@@ -116,14 +126,15 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	strategy := newPublishingStrategy(time.Hour, time.Hour, time.Millisecond)
+	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(src, distributor, strategy, testSchema, nil)
+	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{TypeURL: info.TypeURL, FullName: "r1"}
+	k1 := resource.Key{TypeURL: info.TypeURL, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, &types.Empty{})
 
 	// Wait "long enough"
@@ -140,6 +151,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
 	strategy := newPublishingStrategy(time.Millisecond, time.Millisecond, time.Microsecond)
+	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
 	processCallCount := sync.WaitGroup{}
 	hookFn := func() {
@@ -147,13 +159,13 @@ func TestProcessor_Publishing(t *testing.T) {
 	}
 	processCallCount.Add(3) // 1 for add, 1 for sync, 1 for publish trigger
 
-	p := newProcessor(src, distributor, strategy, testSchema, hookFn)
+	p := newProcessor(src, distributor, cfg, strategy, testSchema, hookFn)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{TypeURL: info.TypeURL, FullName: "r1"}
+	k1 := resource.Key{TypeURL: info.TypeURL, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, &types.Empty{})
 
 	processCallCount.Wait()

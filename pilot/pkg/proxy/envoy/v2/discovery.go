@@ -325,7 +325,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 			model.LastPushStatus = push
 		}
 		push.UpdateMetrics()
-		// TODO: env to customize
 	}
 }
 
@@ -338,7 +337,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 		return
 	}
 	// Reset the status during the push.
-	//afterPush := true
 	pc := s.globalPushContext()
 	if pc != nil {
 		pc.OnConfigChange()
@@ -376,7 +374,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	s.mutex.Unlock()
 
-	// TODO: propagate K8S version and use it instead
 	versionMutex.Lock()
 	version = versionLocal
 	versionMutex.Unlock()

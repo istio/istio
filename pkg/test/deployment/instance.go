@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
+	kubeApiCore "k8s.io/api/core/v1"
 )
 
 // Instance represents an Istio deployment instance that has been performed by this test code.
@@ -38,7 +39,15 @@ func (i *Instance) Deploy(a *kube.Accessor, wait bool) (err error) {
 	}
 
 	if wait {
-		if err := a.WaitUntilPodsInNamespaceAreReady(i.namespace); err != nil {
+		fetchFn := func() ([]kubeApiCore.Pod, error) {
+			return a.GetPods(i.namespace)
+		}
+		_, err := fetchFn()
+		if err != nil {
+			scopes.CI.Errorf("Error retrieving pods in namespace: %s: %v", i.namespace, err)
+			return err
+		}
+		if err := a.WaitUntilPodsAreReady(fetchFn); err != nil {
 			scopes.CI.Errorf("Wait for Istio pods failed: %v", err)
 			return err
 		}

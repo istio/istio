@@ -1,14 +1,14 @@
 #
 # mixer configuration
 #
-enabled: true
-replicaCount: 1
 image: mixer
 
 env:
   GODEBUG: gctrace=2
 
 istio-policy:
+  enabled: true
+  replicaCount: 1
   autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
@@ -16,6 +16,8 @@ istio-policy:
     targetAverageUtilization: 80
 
 istio-telemetry:
+  enabled: true
+  replicaCount: 1
   autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5

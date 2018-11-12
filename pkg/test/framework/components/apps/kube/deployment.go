@@ -194,7 +194,14 @@ func (d *deployment) waitForPod(e *kubernetes.Implementation) (kubeApiCore.Pod, 
 		return kubeApiCore.Pod{}, err
 	}
 
-	if err = e.Accessor.WaitUntilPodIsRunning(n, pod.Name); err != nil {
+	fetchFn := func() ([]kubeApiCore.Pod, error) {
+		pod, err := e.Accessor.GetPod(n, pod.Name)
+		if err != nil {
+			return nil, err
+		}
+		return []kubeApiCore.Pod{*pod}, nil
+	}
+	if err = e.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
 		return kubeApiCore.Pod{}, err
 	}
 	return pod, nil

@@ -15,25 +15,42 @@
 package converter
 
 import (
+	json2 "encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/log"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
-// Fn is a conversion function that converts the given unstructured CRD into the destination resource.
-type Fn func(destination resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error)
+var scope = log.RegisterScope("kube-converter", "Kubernetes conversion related packages", 0)
+
+// Fn is a conversion function that converts the given unstructured CRD into the destination Resource.
+type Fn func(cfg *Config, destination resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]Entry, error)
+
+// Entry is a single converted entry.
+type Entry struct {
+	Key          resource.FullName
+	CreationTime time.Time
+	Resource     proto.Message
+}
 
 var converters = map[string]Fn{
-	"identity":              identity,
+	"identity": identity,
+	"nil":      nilConverter,
 	"legacy-mixer-resource": legacyMixerResource,
 	"auth-policy-resource":  authPolicyResource,
+	"kube-ingress-resource": kubeIngressResource,
 }
 
 // Get returns the named converter function, or panics if it is not found.
@@ -46,73 +63,173 @@ func Get(name string) Fn {
 	return fn
 }
 
-func identity(destination resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
-	p, err := toProto(destination, u.Object["spec"])
-	if err != nil {
-		return "", time.Time{}, nil, err
+func identity(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+	var p proto.Message
+	creationTime := time.Time{}
+	if u != nil {
+		var err error
+		if p, err = toProto(destination, u.Object["spec"]); err != nil {
+			return nil, err
+		}
+		creationTime = u.GetCreationTimestamp().Time
 	}
 
-	return name, u.GetCreationTimestamp().Time, p, nil
+	e := Entry{
+		Key:          name,
+		CreationTime: creationTime,
+		Resource:     p,
+	}
+
+	return []Entry{e}, nil
 }
 
-func legacyMixerResource(_ resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
-	spec := u.Object["spec"]
+func nilConverter(_ *Config, _ resource.Info, _ resource.FullName, _ string, _ *unstructured.Unstructured) ([]Entry, error) {
+	return nil, nil
+}
+
+func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]Entry, error) {
 	s := &types.Struct{}
-	if err := toproto(s, spec); err != nil {
-		return "", time.Time{}, nil, err
+	creationTime := time.Time{}
+	var res *legacy.LegacyMixerResource
+
+	if u != nil {
+		spec := u.Object["spec"]
+		if err := toproto(s, spec); err != nil {
+			return nil, err
+		}
+		creationTime = u.GetCreationTimestamp().Time
+		res = &legacy.LegacyMixerResource{
+			Name:     name.String(),
+			Kind:     kind,
+			Contents: s,
+		}
+
 	}
 
-	newName := fmt.Sprintf("%s/%s", u.GetKind(), name)
+	newName := resource.FullNameFromNamespaceAndName(kind, name.String())
 
-	return newName, u.GetCreationTimestamp().Time, &legacy.LegacyMixerResource{
-		Name:     name,
-		Kind:     u.GetKind(),
-		Contents: s,
-	}, nil
+	e := Entry{
+		Key:          newName,
+		CreationTime: creationTime,
+		Resource:     res,
+	}
+
+	return []Entry{e}, nil
 }
 
-func authPolicyResource(destination resource.Info, name string, u *unstructured.Unstructured) (string, time.Time, proto.Message, error) {
-	p, err := toProto(destination, u.Object["spec"])
-	if err != nil {
-		return "", time.Time{}, nil, err
-	}
+func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+	var p proto.Message
+	creationTime := time.Time{}
+	if u != nil {
+		var err error
+		if p, err = toProto(destination, u.Object["spec"]); err != nil {
+			return nil, err
+		}
+		creationTime = u.GetCreationTimestamp().Time
 
-	policy, ok := p.(*authn.Policy)
-	if !ok {
-		return "", time.Time{}, nil, fmt.Errorf("object is not of type %v", destination.TypeURL)
-	}
+		policy, ok := p.(*authn.Policy)
+		if !ok {
+			return nil, fmt.Errorf("object is not of type %v", destination.TypeURL)
+		}
 
-	// The pilot authentication plugin's config handling allows the mtls
-	// peer method object value to be nil. See pilot/pkg/networking/plugin/authn/authentication.go#L68
-	//
-	// For example,
-	//
-	//     metadata:
-	//       name: d-ports-mtls-enabled
-	//     spec:
-	//       targets:
-	//       - name: d
-	//         ports:
-	//         - number: 80
-	//       peers:
-	//       - mtls:
-	//
-	// This translates to the following in-memory representation:
-	//
-	//     policy := &authn.Policy{
-	//       Peers: []*authn.PeerAuthenticationMethod{{
-	//         &authn.PeerAuthenticationMethod_Mtls{},
-	//       }},
-	//     }
-	//
-	// The PeerAuthenticationMethod_Mtls object with nil field is lost when
-	// the proto is re-encoded for transport via MCP. As a workaround, fill
-	// in the missing field value which is functionality equivalent.
-	for _, peer := range policy.Peers {
-		if mtls, ok := peer.Params.(*authn.PeerAuthenticationMethod_Mtls); ok && mtls.Mtls == nil {
-			mtls.Mtls = &authn.MutualTls{}
+		// The pilot authentication plugin's config handling allows the mtls
+		// peer method object value to be nil. See pilot/pkg/networking/plugin/authn/authentication.go#L68
+		//
+		// For example,
+		//
+		//     metadata:
+		//       name: d-ports-mtls-enabled
+		//     spec:
+		//       targets:
+		//       - name: d
+		//         ports:
+		//         - number: 80
+		//       peers:
+		//       - mtls:
+		//
+		// This translates to the following in-memory representation:
+		//
+		//     policy := &authn.Policy{
+		//       Peers: []*authn.PeerAuthenticationMethod{{
+		//         &authn.PeerAuthenticationMethod_Mtls{},
+		//       }},
+		//     }
+		//
+		// The PeerAuthenticationMethod_Mtls object with nil field is lost when
+		// the proto is re-encoded for transport via MCP. As a workaround, fill
+		// in the missing field value which is functionality equivalent.
+		for _, peer := range policy.Peers {
+			if mtls, ok := peer.Params.(*authn.PeerAuthenticationMethod_Mtls); ok && mtls.Mtls == nil {
+				mtls.Mtls = &authn.MutualTls{}
+			}
 		}
 	}
 
-	return name, u.GetCreationTimestamp().Time, p, nil
+	e := Entry{
+		Key:          name,
+		CreationTime: creationTime,
+		Resource:     p,
+	}
+
+	return []Entry{e}, nil
+}
+
+func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+	creationTime := time.Time{}
+	var p *extensions.IngressSpec
+	if u != nil {
+		json, err := u.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		creationTime = u.GetCreationTimestamp().Time
+
+		ing := &extensions.Ingress{}
+		if err = json2.Unmarshal(json, ing); err != nil {
+			return nil, err
+		}
+
+		if !shouldProcessIngress(cfg, ing) {
+			return nil, nil
+		}
+
+		p = &ing.Spec
+	}
+
+	e := Entry{
+		Key:          name,
+		CreationTime: creationTime,
+		Resource:     p,
+	}
+
+	return []Entry{e}, nil
+}
+
+// shouldProcessIngress determines whether the given ingress resource should be processed
+// by the controller, based on its ingress class annotation.
+// See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
+func shouldProcessIngress(cfg *Config, i *extensions.Ingress) bool {
+	class, exists := "", false
+	if i.Annotations != nil {
+		class, exists = i.Annotations[kube.IngressClassAnnotation]
+	}
+
+	mesh := cfg.Mesh.Get()
+	switch mesh.IngressControllerMode {
+	case meshconfig.MeshConfig_OFF:
+		scope.Debugf("Skipping ingress due to Ingress Controller Mode OFF (%s/%s)", i.Namespace, i.Name)
+		return false
+	case meshconfig.MeshConfig_STRICT:
+		result := exists && class == mesh.IngressClass
+		scope.Debugf("Checking ingress class w/ Strict (%s/%s): %v", i.Namespace, i.Name, result)
+		return result
+	case meshconfig.MeshConfig_DEFAULT:
+		result := !exists || class == mesh.IngressClass
+		scope.Debugf("Checking ingress class w/ Default (%s/%s): %v", i.Namespace, i.Name, result)
+		return result
+	default:
+		scope.Warnf("invalid i synchronization mode: %v", mesh.IngressControllerMode)
+		return false
+	}
 }

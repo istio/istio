@@ -35,7 +35,7 @@ type ExtAuthz struct {
 	//	*ExtAuthz_HttpService
 	Services isExtAuthz_Services `protobuf_oneof:"services"`
 	// The filter's behaviour in case the external authorization service does
-	// not respond back. When it is set to true, Envoy will also allow traffic in case of
+	// not respond back. When set to true, Envoy will also allow traffic in cases when
 	// an error occurs during the authorization process.
 	// Defaults to false.
 	FailureModeAllow     bool     `protobuf:"varint,2,opt,name=failure_mode_allow,json=failureModeAllow,proto3" json:"failure_mode_allow,omitempty"`
@@ -48,7 +48,7 @@ func (m *ExtAuthz) Reset()         { *m = ExtAuthz{} }
 func (m *ExtAuthz) String() string { return proto.CompactTextString(m) }
 func (*ExtAuthz) ProtoMessage()    {}
 func (*ExtAuthz) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_6e713e13278d18e2, []int{0}
+	return fileDescriptor_ext_authz_671c7ae06b7dbec9, []int{0}
 }
 func (m *ExtAuthz) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -202,7 +202,7 @@ func _ExtAuthz_OneofSizer(msg proto.Message) (n int) {
 // A successful check allows the authorization service adding or overriding headers from the
 // original request before dispatching it to the upstream. This is done by configuring which headers
 // in the authorization response should be sent to the upstream. See *allowed_authorization_headers*
-// bellow.
+// below.
 //
 // A failed check will cause this filter to close the HTTP request with 403 (Forbidden),
 // unless a different status code has been indicated by the authorization server via response
@@ -247,7 +247,7 @@ func (m *HttpService) Reset()         { *m = HttpService{} }
 func (m *HttpService) String() string { return proto.CompactTextString(m) }
 func (*HttpService) ProtoMessage()    {}
 func (*HttpService) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_6e713e13278d18e2, []int{1}
+	return fileDescriptor_ext_authz_671c7ae06b7dbec9, []int{1}
 }
 func (m *HttpService) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -993,10 +993,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/ext_authz/v2alpha/ext_authz.proto", fileDescriptor_ext_authz_6e713e13278d18e2)
+	proto.RegisterFile("envoy/config/filter/http/ext_authz/v2alpha/ext_authz.proto", fileDescriptor_ext_authz_671c7ae06b7dbec9)
 }
 
-var fileDescriptor_ext_authz_6e713e13278d18e2 = []byte{
+var fileDescriptor_ext_authz_671c7ae06b7dbec9 = []byte{
 	// 441 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0x41, 0x8b, 0x13, 0x31,
 	0x14, 0xc7, 0x9d, 0x6d, 0x5d, 0xdb, 0x74, 0x0f, 0x4b, 0x60, 0xb1, 0xd6, 0xb5, 0x0e, 0x8b, 0x87,

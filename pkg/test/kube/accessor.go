@@ -16,38 +16,51 @@ package kube
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/ghodss/yaml"
+	"github.com/hashicorp/go-multierror"
+	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/util"
 	kubeApiCore "k8s.io/api/core/v1"
+	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeClient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	kubeClientCore "k8s.io/client-go/kubernetes/typed/core/v1"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // Needed for auth
 	"k8s.io/client-go/rest"
-
-	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/framework/scopes"
-	"istio.io/istio/pkg/test/util"
 )
 
 const (
 	defaultTimeout     = time.Minute * 3
 	defaultRetryPeriod = time.Second * 10
+	workDirPrefix      = "istio-kube-accessor-"
 )
 
 // Accessor is a helper for accessing Kubernetes programmatically. It bundles some of the high-level
 // operations that is frequently used by the test framework.
 type Accessor struct {
-	restConfig *rest.Config
-	ctl        *kubectl
-	set        *kubeClient.Clientset
+	restConfig   *rest.Config
+	ctl          *kubectl
+	set          *kubeClient.Clientset
+	extSet       *kubeExtClient.Clientset
+	baseDir      string
+	workDir      string
+	workDirMutex sync.Mutex
 }
 
 // NewAccessor returns a new instance of an accessor.
-func NewAccessor(kubeConfig string) (*Accessor, error) {
+func NewAccessor(kubeConfig string, baseWorkDir string) (*Accessor, error) {
 	restConfig, err := istioKube.BuildClientConfig(kubeConfig, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create rest config. %v", err)
@@ -61,11 +74,34 @@ func NewAccessor(kubeConfig string) (*Accessor, error) {
 		return nil, err
 	}
 
+	extSet, err := kubeExtClient.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Accessor{
 		restConfig: restConfig,
 		ctl:        &kubectl{kubeConfig},
 		set:        set,
+		extSet:     extSet,
+		baseDir:    baseWorkDir,
 	}, nil
+}
+
+// getWorkDir lazy-creates the working directory for the accessor.
+func (a *Accessor) getWorkDir() (string, error) {
+	a.workDirMutex.Lock()
+	defer a.workDirMutex.Unlock()
+
+	workDir := a.workDir
+	if workDir == "" {
+		var err error
+		if workDir, err = ioutil.TempDir(a.baseDir, workDirPrefix); err != nil {
+			return "", err
+		}
+		a.workDir = workDir
+	}
+	return workDir, nil
 }
 
 // NewPortForwarder creates a new port forwarder.
@@ -86,6 +122,12 @@ func (a *Accessor) GetPods(namespace string, selectors ...string) ([]kubeApiCore
 	}
 
 	return list.Items, nil
+}
+
+// GetPod returns the pod with the given namespace and name.
+func (a *Accessor) GetPod(namespace, name string) (*kubeApiCore.Pod, error) {
+	return a.set.CoreV1().
+		Pods(namespace).Get(name, kubeApiMeta.GetOptions{})
 }
 
 // FindPodBySelectors returns the first matching pod, given a namespace and a set of selectors.
@@ -134,60 +176,31 @@ func (a *Accessor) WaitForPodBySelectors(ns string, selectors ...string) (pod ku
 	return
 }
 
-// WaitUntilPodIsRunning waits until the pod with the name/namespace is in succeeded or in running state.
-func (a *Accessor) WaitUntilPodIsRunning(ns string, name string) error {
+// WaitUntilPodsAreReady waits until the pod with the name/namespace is in ready state.
+func (a *Accessor) WaitUntilPodsAreReady(fetchFn func() ([]kubeApiCore.Pod, error)) error {
 	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
 
-		pod, err := a.set.CoreV1().
-			Pods(ns).
-			Get(name, kubeApiMeta.GetOptions{})
+		scopes.CI.Infof("Checking pods...")
+
+		pods, err := fetchFn()
+		if err != nil {
+			scopes.CI.Infof("Failed retrieving pods: %v", err)
+			return nil, false, err
+		}
+
+		for i, p := range pods {
+			msg := "Ready"
+			if e := checkPodReady(&p); e != nil {
+				msg = e.Error()
+				err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
+			}
+			scopes.CI.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
+		}
 
 		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, true, err
-			}
+			return nil, false, err
 		}
-
-		scopes.CI.Infof("  Checking pod state: %s/%s:\t %v", ns, name, pod.Status.Phase)
-
-		switch pod.Status.Phase {
-		case kubeApiCore.PodSucceeded:
-			return nil, true, nil
-		case kubeApiCore.PodRunning:
-			// Wait until all containers are ready.
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if !containerStatus.Ready {
-					return nil, false, fmt.Errorf("pod %s running, but container %s not ready", name, containerStatus.ContainerID)
-				}
-			}
-			return nil, true, nil
-		case kubeApiCore.PodFailed:
-			return nil, true, fmt.Errorf("pod found with selectors have failed:%s/%s", ns, name)
-		}
-
-		return nil, false, nil
-	})
-
-	return err
-}
-
-// WaitUntilPodIsReady waits until the pod with the name/namespace is in ready state.
-func (a *Accessor) WaitUntilPodIsReady(ns string, name string) error {
-	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
-
-		pod, err := a.set.CoreV1().
-			Pods(ns).
-			Get(name, kubeApiMeta.GetOptions{})
-
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, true, err
-			}
-		}
-
-		ready := pod.Status.Phase == kubeApiCore.PodRunning || pod.Status.Phase == kubeApiCore.PodSucceeded
-
-		return nil, ready, nil
+		return nil, true, nil
 	})
 
 	return err
@@ -237,35 +250,45 @@ func (a *Accessor) WaitUntilDaemonSetIsReady(ns string, name string) error {
 	return err
 }
 
-// WaitUntilPodsInNamespaceAreReady waits for pods to be become running/succeeded in a given namespace.
-func (a *Accessor) WaitUntilPodsInNamespaceAreReady(ns string) error {
-	scopes.CI.Infof("Starting wait for pods to be ready in namespace %s", ns)
+// DeleteValidatingWebhook deletes the validating webhook with the given name.
+func (a *Accessor) DeleteValidatingWebhook(name string) error {
+	a.set.CoreV1()
+	return a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(name, deleteOptionsForeground())
+}
 
-	_, err := util.Retry(defaultTimeout, defaultRetryPeriod, func() (interface{}, bool, error) {
-
-		list, err := a.set.CoreV1().Pods(ns).List(kubeApiMeta.ListOptions{})
-		if err != nil {
-			scopes.Framework.Errorf("Error retrieving pods in namespace: %s: %v", ns, err)
-			return nil, false, err
+// WaitForValidatingWebhookDeletion waits for the validating webhook with the given name to be garbage collected by kubernetes.
+func (a *Accessor) WaitForValidatingWebhookDeletion(name string) error {
+	_, err := util.Retry(util.DefaultRetryTimeout, util.DefaultRetryWait, func() (interface{}, bool, error) {
+		if a.ValidatingWebhookConfigurationExists(name) {
+			return nil, false, fmt.Errorf("validating webhook not deleted: %s", name)
 		}
 
-		scopes.CI.Infof("  Pods in %q:", ns)
-		for i, p := range list.Items {
-			ready := p.Status.Phase == kubeApiCore.PodRunning || p.Status.Phase == kubeApiCore.PodSucceeded
-			scopes.CI.Infof("  [%d] %s:\t %v (%v)", i, p.Name, p.Status.Phase, ready)
-		}
-
-		for _, p := range list.Items {
-			ready := p.Status.Phase == kubeApiCore.PodRunning || p.Status.Phase == kubeApiCore.PodSucceeded
-			if !ready {
-				return nil, false, nil
-			}
-		}
-
+		// It no longer exists ... success.
 		return nil, true, nil
 	})
 
 	return err
+}
+
+// ValidatingWebhookConfigurationExists indicates whether a mutating validating with the given name exists.
+func (a *Accessor) ValidatingWebhookConfigurationExists(name string) bool {
+	_, err := a.set.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(name,
+		kubeApiMeta.GetOptions{})
+	return err == nil
+}
+
+// GetCustomResourceDefinitions gets the CRDs
+func (a *Accessor) GetCustomResourceDefinitions() ([]kubeApiExt.CustomResourceDefinition, error) {
+	crd, err := a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().List(kubeApiMeta.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return crd.Items, nil
+}
+
+// DeleteCustomResourceDefinitions deletes the CRD with the given name.
+func (a *Accessor) DeleteCustomResourceDefinitions(name string) error {
+	return a.extSet.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, deleteOptionsForeground())
 }
 
 // GetService returns the service entry with the given name/namespace.
@@ -316,7 +339,7 @@ func (a *Accessor) NamespaceExists(ns string) bool {
 // DeleteNamespace with the given name
 func (a *Accessor) DeleteNamespace(ns string) error {
 	scopes.Framework.Debugf("Deleting namespace: %s", ns)
-	return a.set.CoreV1().Namespaces().Delete(ns, &kubeApiMeta.DeleteOptions{})
+	return a.set.CoreV1().Namespaces().Delete(ns, deleteOptionsForeground())
 }
 
 // WaitForNamespaceDeletion waits until a namespace is deleted.
@@ -344,7 +367,27 @@ func (a *Accessor) ApplyContents(namespace string, contents string) error {
 
 // Apply the config in the given filename using kubectl.
 func (a *Accessor) Apply(namespace string, filename string) error {
-	return a.ctl.apply(namespace, filename)
+	docs, err := splitYaml(filename)
+	if err != nil {
+		return err
+	}
+
+	workDir, err := a.getWorkDir()
+	if err != nil {
+		return err
+	}
+
+	for _, doc := range docs {
+		f, e := doc.toTempFile(workDir)
+		if e != nil {
+			return multierror.Append(err, e)
+		}
+		scopes.CI.Infof("Applying yaml file %v", f)
+		if e = a.ctl.apply(namespace, f); e != nil {
+			err = multierror.Append(err, e)
+		}
+	}
+	return err
 }
 
 // DeleteContents deletes the given config contents using kubectl.
@@ -354,7 +397,28 @@ func (a *Accessor) DeleteContents(namespace string, contents string) error {
 
 // Delete the config in the given filename using kubectl.
 func (a *Accessor) Delete(namespace string, filename string) error {
-	return a.ctl.delete(namespace, filename)
+	docs, err := splitYaml(filename)
+	if err != nil {
+		return err
+	}
+
+	workDir, err := a.getWorkDir()
+	if err != nil {
+		return err
+	}
+
+	for i := len(docs) - 1; i >= 0; i-- {
+		f, e := docs[i].toTempFile(workDir)
+		if e != nil {
+			return multierror.Append(err, e)
+		}
+		scopes.CI.Infof("Deleting yaml file %v", f)
+		if e = a.ctl.delete(namespace, f); e != nil {
+			err = multierror.Append(err, e)
+		}
+	}
+
+	return err
 }
 
 // Logs calls the logs command for the specified pod, with -c, if container is specified.
@@ -365,4 +429,99 @@ func (a *Accessor) Logs(namespace string, pod string, container string) (string,
 // Exec executes the provided command on the specified pod/container.
 func (a *Accessor) Exec(namespace, pod, container, command string) (string, error) {
 	return a.ctl.exec(namespace, pod, container, command)
+}
+
+func checkPodReady(pod *kubeApiCore.Pod) error {
+	switch pod.Status.Phase {
+	case kubeApiCore.PodSucceeded:
+		return nil
+	case kubeApiCore.PodRunning:
+		// Wait until all containers are ready.
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if !containerStatus.Ready {
+				return fmt.Errorf("container not ready: '%s'", containerStatus.Name)
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("%s", pod.Status.Phase)
+	}
+}
+
+func deleteOptionsForeground() *kubeApiMeta.DeleteOptions {
+	propagationPolicy := kubeApiMeta.DeletePropagationForeground
+	return &kubeApiMeta.DeleteOptions{
+		PropagationPolicy: &propagationPolicy,
+	}
+}
+
+type yamlDoc struct {
+	filePattern string
+	content     string
+}
+
+func (d *yamlDoc) prepend(c string) {
+	d.content = test.JoinConfigs(c, d.content)
+}
+
+func (d *yamlDoc) append(c string) {
+	d.content = test.JoinConfigs(d.content, c)
+}
+
+func (d *yamlDoc) toTempFile(workDir string) (string, error) {
+	f, err := ioutil.TempFile(workDir, d.filePattern)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	name := f.Name()
+
+	_, err = f.WriteString(d.content)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// split the given yaml file into 2 docs: namespaces first, then crds, then everything else.
+func splitYaml(filename string) ([]*yamlDoc, error) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	cfgs := test.SplitConfigs(string(content))
+
+	_, base := filepath.Split(filename)
+	ext := filepath.Ext(filename)
+	nameWithoutExt := strings.TrimSuffix(base, ext)
+	namespacesAndCrds := &yamlDoc{
+		filePattern: fmt.Sprintf("%s_namespaces_and_crds_*%s", nameWithoutExt, ext),
+	}
+	misc := &yamlDoc{
+		filePattern: fmt.Sprintf("%s_misc_*%s", nameWithoutExt, ext),
+	}
+	for _, cfg := range cfgs {
+		var typeMeta kubeApiMeta.TypeMeta
+		if e := yaml.Unmarshal([]byte(cfg), &typeMeta); e != nil {
+			// Ignore invalid parts. This most commonly happens when it's empty or contains only comments.
+			continue
+		}
+
+		switch typeMeta.Kind {
+		case "Namespace":
+			namespacesAndCrds.append(cfg)
+		case "CustomResourceDefinition":
+			namespacesAndCrds.append(cfg)
+		default:
+			misc.append(cfg)
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return []*yamlDoc{namespacesAndCrds, misc}, nil
 }

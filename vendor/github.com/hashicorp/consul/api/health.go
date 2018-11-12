@@ -159,10 +159,45 @@ func (h *Health) Checks(service string, q *QueryOptions) (HealthChecks, *QueryMe
 // for a given service. It can optionally do server-side filtering on a tag
 // or nodes with passing health checks only.
 func (h *Health) Service(service, tag string, passingOnly bool, q *QueryOptions) ([]*ServiceEntry, *QueryMeta, error) {
-	r := h.c.newRequest("GET", "/v1/health/service/"+service)
-	r.setQueryOptions(q)
+	var tags []string
 	if tag != "" {
-		r.params.Set("tag", tag)
+		tags = []string{tag}
+	}
+	return h.service(service, tags, passingOnly, q, false)
+}
+
+func (h *Health) ServiceMultipleTags(service string, tags []string, passingOnly bool, q *QueryOptions) ([]*ServiceEntry, *QueryMeta, error) {
+	return h.service(service, tags, passingOnly, q, false)
+}
+
+// Connect is equivalent to Service except that it will only return services
+// which are Connect-enabled and will returns the connection address for Connect
+// client's to use which may be a proxy in front of the named service. If
+// passingOnly is true only instances where both the service and any proxy are
+// healthy will be returned.
+func (h *Health) Connect(service, tag string, passingOnly bool, q *QueryOptions) ([]*ServiceEntry, *QueryMeta, error) {
+	var tags []string
+	if tag != "" {
+		tags = []string{tag}
+	}
+	return h.service(service, tags, passingOnly, q, true)
+}
+
+func (h *Health) ConnectMultipleTags(service string, tags []string, passingOnly bool, q *QueryOptions) ([]*ServiceEntry, *QueryMeta, error) {
+	return h.service(service, tags, passingOnly, q, true)
+}
+
+func (h *Health) service(service string, tags []string, passingOnly bool, q *QueryOptions, connect bool) ([]*ServiceEntry, *QueryMeta, error) {
+	path := "/v1/health/service/" + service
+	if connect {
+		path = "/v1/health/connect/" + service
+	}
+	r := h.c.newRequest("GET", path)
+	r.setQueryOptions(q)
+	if len(tags) > 0 {
+		for _, tag := range tags {
+			r.params.Add("tag", tag)
+		}
 	}
 	if passingOnly {
 		r.params.Set(HealthPassing, "1")
