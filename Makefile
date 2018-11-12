@@ -714,6 +714,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm
 		--set global.hub=${HUB} \
 		--set global.mtls.enabled=true \
 		--set prometheus.scrapeInterval=1s \
+		--set gateways.istio-ingressgateway.autoscaleMax=1 \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--values install/kubernetes/helm/istio/values.yaml \

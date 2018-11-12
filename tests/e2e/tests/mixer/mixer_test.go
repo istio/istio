@@ -1272,7 +1272,7 @@ func allowRuleSync() {
 
 func allowPrometheusSync() {
 	log.Info("Sleeping to allow prometheus to record metrics...")
-	time.Sleep(15 * time.Second)
+	time.Sleep(5 * time.Second)
 }
 
 func promAPI() (v1.API, error) {
