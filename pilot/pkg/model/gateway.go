@@ -197,6 +197,7 @@ func GatewayRDSRouteName(server *networking.Server) string {
 	return ""
 }
 
+// IsPassThroughServer returns true if this server does TLS passthrough (auto or manual)
 func IsPassThroughServer(server *networking.Server) bool {
 	if server.Tls == nil {
 		return false
