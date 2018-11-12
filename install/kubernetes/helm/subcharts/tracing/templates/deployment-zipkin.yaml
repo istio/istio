@@ -1,0 +1,57 @@
+{{ if eq .Values.provider "zipkin" }}
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-zipkin
+  labels:
+    app: zipkin
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  template:
+    metadata:
+      labels:
+        app: zipkin
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.zipkin.hub }}:{{ .Values.zipkin.tag }}"
+          ports:
+            - containerPort: {{ .Values.zipkin.queryPort }}
+          livenessProbe:
+            initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
+            tcpSocket:
+              port: {{ .Values.zipkin.queryPort }}
+          readinessProbe:
+            initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
+            httpGet:
+              path: /health
+              port: {{ .Values.zipkin.queryPort }}
+          resources:
+            limits:
+              cpu: "{{ .Values.zipkin.resources.cpuLimit }}"
+              memory: "{{ .Values.zipkin.resources.ramMb }}Mi" # TODO fix this, this field is mi but the value is mb. There will be slight wastage
+            requests:
+              cpu: "{{ .Values.zipkin.resources.cpuRequest }}"
+              memory: "{{ .Values.zipkin.resources.ramMb }}Mi" # TODO fix this, this field is mi but the value is mb. There will be slight wastage
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: QUERY_PORT
+              value: "{{ .Values.zipkin.queryPort }}"
+            - name: JAVA_OPTS
+              value: "-XX:ConcGCThreads={{ .Values.zipkin.node.cpus }} -XX:ParallelGCThreads={{ .Values.zipkin.node.cpus }} -Djava.util.concurrent.ForkJoinPool.common.parallelism={{ .Values.zipkin.node.cpus }} -Xms{{ .Values.zipkin.resources.javaOptsHeap }}M -Xmx{{ .Values.zipkin.resources.javaOptsHeap }}M -XX:+UseG1GC -server"
+            - name: COLLECTOR_SAMPLE_RATE
+              value: "{{ .Values.zipkin.sampleRate }}"
+            - name: QUERY_ENABLED
+              value: "true"
+            - name: STORAGE_METHOD
+              value: "mem"
+
+{{ end }}
