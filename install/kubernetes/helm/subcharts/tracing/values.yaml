@@ -22,6 +22,9 @@ jaeger:
       # - secretName: jaeger-tls
       #   hosts:
       #     - jaeger.local
+zipkin:
+  hub: docker.io/openzipkin
+  tag: 2.11
 replicaCount: 1
 service:
   annotations: {}

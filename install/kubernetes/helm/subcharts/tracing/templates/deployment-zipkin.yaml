@@ -1,10 +1,11 @@
+{{ if eq .Values.provider "zipkin" }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-tracing
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
+    app: zipkin
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -13,7 +14,7 @@ spec:
   template:
     metadata:
       labels:
-        app: jaeger
+        app: zipkin
         chart: {{ template "tracing.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
@@ -21,8 +22,6 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "16686"
     spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
@@ -34,40 +33,25 @@ spec:
 {{- end }}
 {{- end }}
       containers:
-        - name: jaeger
-          image: "{{ .Values.jaeger.hub }}/all-in-one:{{ .Values.jaeger.tag }}"
+        - name: zipkin
+          image: "{{ .Values.zipkin.hub }}/zipkin:{{ .Values.zipkin.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: 9411
-            - containerPort: 16686
-            - containerPort: 5775
-              protocol: UDP
-            - containerPort: 6831
-              protocol: UDP
-            - containerPort: 6832
-              protocol: UDP
           env:
           - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: COLLECTOR_ZIPKIN_HTTP_PORT
-            value: "9411"
-          - name: MEMORY_MAX_TRACES
-            value: "{{ .Values.jaeger.memory.max_traces }}"
-{{- if .Values.jaeger.contextPath }}
-          - name: QUERY_BASE_PATH
-            value: {{ .Values.jaeger.contextPath }}
-{{- end }}
           livenessProbe:
             httpGet:
               path: /
-              port: 16686
+              port: 9411
           readinessProbe:
             httpGet:
               path: /
-              port: 16686
+              port: 9411
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 12 }}
@@ -76,3 +60,4 @@ spec:
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+{{- end }}

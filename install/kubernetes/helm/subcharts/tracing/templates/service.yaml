@@ -4,7 +4,7 @@ metadata:
   name: tracing-services
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
+    app: {{ .Values.provider }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -15,7 +15,7 @@ items:
     name: zipkin
     namespace: {{ .Release.Namespace }}
     labels:
-      app: jaeger
+      app: {{ .Values.provider }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
@@ -27,7 +27,7 @@ items:
         protocol: TCP
         name: {{ .Values.service.name }}
     selector:
-      app: jaeger
+      app: {{ .Values.provider }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -38,7 +38,7 @@ items:
       {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
-      app: jaeger
+      app: {{ .Values.provider }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
@@ -49,4 +49,4 @@ items:
         protocol: TCP
         targetPort: 16686
     selector:
-      app: jaeger
+      app: {{ .Values.provider }}

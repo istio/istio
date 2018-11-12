@@ -7,7 +7,7 @@ metadata:
   name: {{ template "tracing.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
+    app: {{ .Values.provider }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
