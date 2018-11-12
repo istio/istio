@@ -16,6 +16,7 @@ package util
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -162,4 +164,23 @@ func Is1xProxy(node *model.Proxy) bool {
 // Is11Proxy checks whether the given Proxy version is 1.1.
 func Is11Proxy(node *model.Proxy) bool {
 	return isProxyVersion(node, "1.1")
+}
+
+// ResolveHostsInNetworksConfig will go through the Gateways addresses for all
+// networks in the config and if it's not an IP address it will try to lookup
+// that hostname and replace it with the IP address in the config
+func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
+	for _, n := range config.Networks {
+		for _, gw := range n.Gateways {
+			gwIP := net.ParseIP(gw.GetAddress())
+			if gwIP == nil {
+				addrs, err := net.LookupHost(gw.GetAddress())
+				if err == nil && len(addrs) > 0 {
+					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
+						Address: addrs[0],
+					}
+				}
+			}
+		}
+	}
 }

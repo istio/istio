@@ -98,7 +98,8 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				var gwEp *endpoint.LbEndpoint
 				//TODO add support for getting the gateway address from the service registry
 
-				// If the gateway address is DNS we can't add it to the endpoints
+				// If the gateway address in the config was a hostname it got already resolved
+				// and replaced with an IP address when loading the config
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
 					addr := util.BuildAddress(gw.GetAddress(), gw.Port)
 					gwEp = &endpoint.LbEndpoint{

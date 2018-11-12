@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -418,6 +419,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 		return nil
 	}
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
+	util.ResolveHostsInNetworksConfig(s.meshNetworks)
 	s.meshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
@@ -430,6 +432,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
 			log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
 			s.EnvoyXdsServer.ConfigUpdate(true)
 		}
