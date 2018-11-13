@@ -244,7 +244,12 @@ func checkDNS1123Preconditions(name string) error {
 }
 
 func validateDNS1123Labels(domain string) error {
-	for _, label := range strings.Split(domain, ".") {
+	parts := strings.Split(domain, ".")
+	topLevelDomain := parts[len(parts)-1]
+	if '0' <= topLevelDomain[0] && topLevelDomain[0] <= '9' {
+		return fmt.Errorf("domain name %q invalid (top level domain %q cannot start with a number)", domain, topLevelDomain)
+	}
+	for _, label := range parts {
 		if !IsDNS1123Label(label) {
 			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, label)
 		}
@@ -1849,10 +1854,15 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 		}
 
 		for _, endpoint := range serviceEntry.Endpoints {
+			ipAddr := net.ParseIP(endpoint.Address) // Typically it is an IP address
+			if ipAddr == nil {
+				if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
+					errs = appendErrors(errs,
+						fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", endpoint.Address))
+				}
+			}
 			errs = appendErrors(errs,
-				ValidateFQDN(endpoint.Address),
 				Labels(endpoint.Labels).Validate())
-
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
 					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
@@ -1936,9 +1946,11 @@ func appendErrors(err error, errs ...error) error {
 func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
 	switch n.Family {
 	case AddressFamilyTCP:
-		ipAddr := net.ParseIP(n.Address)
+		ipAddr := net.ParseIP(n.Address) // Typically it is an IP address
 		if ipAddr == nil {
-			return errors.New("invalid IP address " + n.Address)
+			if err := ValidateFQDN(n.Address); err != nil { // Otherwise could be an FQDN
+				return errors.New("invalid address " + n.Address)
+			}
 		}
 	case AddressFamilyUnix:
 		return ValidateUnixAddress(n.Address)
