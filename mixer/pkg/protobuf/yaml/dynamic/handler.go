@@ -199,20 +199,20 @@ var _ adapter.RemoteCheckHandler = &Handler{}
 func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance *adapter.EncodedInstance,
 	output *attribute.MutableBag, outPrefix string) (*adapter.CheckResult, error) {
 
-	result := &CheckOutput{
+	co := &CheckOutput{
 		result:    &v1beta1.CheckResult{},
-		output:    output,
+		outBag:    output,
 		outPrefix: outPrefix,
 	}
 
-	if err := h.handleRemote(ctx, nil, "", result, encodedInstance); err != nil {
+	if err := h.handleRemote(ctx, nil, "", co, encodedInstance); err != nil {
 		return nil, err
 	}
 
 	return &adapter.CheckResult{
-		Status:        result.result.Status,
-		ValidUseCount: result.result.ValidUseCount,
-		ValidDuration: result.result.ValidDuration,
+		Status:        co.result.Status,
+		ValidUseCount: co.result.ValidUseCount,
+		ValidDuration: co.result.ValidDuration,
 	}, nil
 }
 
@@ -408,7 +408,7 @@ func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances 
 // It is used to unpack the value using a combination of the static and dynamic decoders.
 type CheckOutput struct {
 	result    *v1beta1.CheckResult
-	output    *attribute.MutableBag
+	outBag    *attribute.MutableBag
 	outPrefix string
 
 	// decoder for decoding "output" field
@@ -435,7 +435,7 @@ func (out *CheckOutput) Bytes(n wire.Number, v []byte) {
 			out.err = multierror.Append(out.err, err)
 		}
 	case 2 /* OutputMsg output = 2; */ :
-		if err := out.decoder.Decode(v, out.output, out.outPrefix); err != nil {
+		if err := out.decoder.Decode(v, out.outBag, out.outPrefix); err != nil {
 			out.err = multierror.Append(out.err, err)
 		}
 	default:

@@ -118,9 +118,8 @@ const (
 // Check implementation of runtime.Impl.
 func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResult, error) {
 	s := d.getSession(ctx, tpb.TEMPLATE_VARIETY_CHECK, bag)
-	// allocate bag for storing check output on top on input attributes
+	// allocate bag for storing check output on top of input attributes
 	s.responseBag = attribute.GetMutableBag(bag)
-	defer s.responseBag.Done()
 
 	var r adapter.CheckResult
 	err := s.dispatch()
@@ -142,6 +141,7 @@ func (d *Impl) Check(ctx context.Context, bag attribute.Bag) (adapter.CheckResul
 		}
 	}
 
+	s.responseBag.Done()
 	d.putSession(s)
 	return r, err
 }

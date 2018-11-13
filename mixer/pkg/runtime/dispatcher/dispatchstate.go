@@ -127,6 +127,7 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 
 	case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
 		// allocate a bag to store check output results
+		// this bag is released in session waitForDispatched
 		ds.outputBag = attribute.GetMutableBag(nil)
 
 		ds.checkResult, ds.err = ds.destination.Template.DispatchCheck(

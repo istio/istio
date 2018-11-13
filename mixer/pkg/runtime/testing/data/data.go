@@ -522,14 +522,14 @@ spec:
     - icheckoutput1.tcheckoutput.istio-system
     name: b
   requestHeaderOperations:
-  - name: a
+  - name: a-header
     values:
     - a.output.value
     operation: REPLACE
   - name: user
     operation: REMOVE
   responseHeaderOperations:
-  - name: b
+  - name: b-header
     values:
     - b.output.value
     - prefix.generated.string

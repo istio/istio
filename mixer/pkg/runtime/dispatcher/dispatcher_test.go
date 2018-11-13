@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
-
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -300,7 +299,7 @@ ident                         : dest.istio-system
 			ValidUseCount: 123,
 			RouteDirective: &v1.RouteDirective{
 				RequestHeaderOperations: []v1.HeaderOperation{{
-					Name:      "a",
+					Name:      "a-header",
 					Value:     "1337",
 					Operation: v1.REPLACE,
 				}, {
@@ -308,11 +307,11 @@ ident                         : dest.istio-system
 					Operation: v1.REMOVE,
 				}},
 				ResponseHeaderOperations: []v1.HeaderOperation{{
-					Name:      "b",
+					Name:      "b-header",
 					Value:     "1337",
 					Operation: v1.APPEND,
 				}, {
-					Name:      "b",
+					Name:      "b-header",
 					Value:     "bar",
 					Operation: v1.APPEND,
 				}},
