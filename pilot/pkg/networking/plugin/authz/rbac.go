@@ -258,7 +258,7 @@ func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metada
 }
 
 // createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
-func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
+func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.MetadataMatcher {
 	filterName := authn.AuthnFilterName
 	if k == attrSrcNamespace {
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
@@ -279,7 +279,11 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */)
 	if !attributesFromAuthN(k) {
 		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", k)
-		filterName = rbacHTTPFilterName
+		if forTCPFilter {
+			filterName = rbacTCPFilterName
+		} else {
+			filterName = rbacHTTPFilterName
+		}
 	}
 	return generateMetadataStringMatcher(k, stringMatcher, filterName)
 }
@@ -796,7 +800,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Pri
 			},
 		}
 	default:
-		if matcher := createDynamicMetadataMatcher(key, value); matcher != nil {
+		if matcher := createDynamicMetadataMatcher(key, value, forTCPFilter); matcher != nil {
 			return &policyproto.Principal{
 				Identifier: &policyproto.Principal_Metadata{
 					Metadata: matcher,

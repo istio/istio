@@ -24,7 +24,9 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -482,12 +484,20 @@ func applyOutlierDetection(cluster *v2.Cluster, outlier *networking.OutlierDetec
 	}
 
 	cluster.OutlierDetection = out
+
+	if outlier.MinHealthPercent > 0 {
+		if cluster.CommonLbConfig == nil {
+			cluster.CommonLbConfig = &v2.Cluster_CommonLbConfig{}
+		}
+		cluster.CommonLbConfig.HealthyPanicThreshold = &envoy_type.Percent{Value: float64(outlier.MinHealthPercent)}
+	}
 }
 
 func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings) {
 	if lb == nil {
 		return
 	}
+
 	// TODO: MAGLEV
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_LEAST_CONN:

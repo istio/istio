@@ -44,7 +44,7 @@ import (
 const (
 	// maxLevelsToLicense is the maximum levels to go up to the root to find
 	// license in parent directories.
-	maxLevelsToLicense = 7
+	maxLevelsToLicense = 8
 )
 
 type licenseType int

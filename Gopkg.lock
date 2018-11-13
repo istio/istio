@@ -1608,7 +1608,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:beee7a1021554ce19306fa440376f1f378695a22d4841fcd69ad9f275ad92bbf"
+  digest = "1:89cd5ecdb4790b7c6809931ca318b5648a565b52efde2f617d85e993b366a88d"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1624,7 +1624,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "11e496c8752386fe827c78c7498f64c00520493c"
+  revision = "7b94541b038b4dcc78e99a24262abeef20bf88af"
 
 [[projects]]
   branch = "release-1.11"
@@ -2128,6 +2128,7 @@
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/peer",
     "google.golang.org/grpc/reflection",
+    "google.golang.org/grpc/stats",
     "google.golang.org/grpc/status",
     "gopkg.in/d4l3k/messagediff.v1",
     "gopkg.in/yaml.v2",

@@ -15,15 +15,17 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"time" // "github.com/prometheus/client_golang/prometheus/promhttp"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	ocprom "go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats/view"
+	"google.golang.org/grpc/stats"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/version"
@@ -114,4 +116,44 @@ L:
 		}
 	}
 	return err
+}
+
+type multiStatsHandler struct {
+	handlers []stats.Handler
+}
+
+// HandleRPC processes the RPC stats.
+func (m *multiStatsHandler) HandleRPC(ctx context.Context, rs stats.RPCStats) {
+	for _, h := range m.handlers {
+		h.HandleRPC(ctx, rs)
+	}
+}
+
+// TagRPC can attach some information to the given context.
+func (m *multiStatsHandler) TagRPC(ctx context.Context, rti *stats.RPCTagInfo) context.Context {
+	c := ctx
+	for _, h := range m.handlers {
+		c = h.TagRPC(c, rti)
+	}
+	return c
+}
+
+// TagConn can attach some information to the given context.
+func (m *multiStatsHandler) TagConn(ctx context.Context, cti *stats.ConnTagInfo) context.Context {
+	c := ctx
+	for _, h := range m.handlers {
+		c = h.TagConn(c, cti)
+	}
+	return c
+}
+
+// HandleConn processes the Conn stats.
+func (m *multiStatsHandler) HandleConn(ctx context.Context, cs stats.ConnStats) {
+	for _, h := range m.handlers {
+		h.HandleConn(ctx, cs)
+	}
+}
+
+func newMultiStatsHandler(handlers ...stats.Handler) stats.Handler {
+	return &multiStatsHandler{handlers: handlers}
 }

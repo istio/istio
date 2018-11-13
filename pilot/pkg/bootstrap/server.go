@@ -370,8 +370,11 @@ func (s *Server) initMesh(args *PilotArgs) error {
 			}
 			if !reflect.DeepEqual(mesh, s.mesh) {
 				log.Infof("mesh configurtion file updated to: %s", spew.Sdump(mesh))
-
-				//TODO Handle mesh config updates wherever necessary
+				if !reflect.DeepEqual(mesh.ConfigSources, s.mesh.ConfigSources) {
+					log.Infof("mesh configuration sources have changed")
+					//TODO Need to re-create or reload initConfigController()
+				}
+				s.EnvoyXdsServer.ConfigUpdate(true)
 			}
 		})
 	}
@@ -779,6 +782,7 @@ func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigSt
 func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
+	args.Config.ControllerOptions.ClusterID = clusterID
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(

@@ -144,22 +144,6 @@ type DiscoveryServer struct {
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
 
-	// true if a full push is needed after debounce. False if only EDS is required.
-	fullPush bool
-
-	// lastPushStart (former lastClearCache) is the time we last started a push
-	lastPushStart time.Time
-
-	// lastConfigUpdateTime is the time of the last config event
-	lastConfigUpdateTime time.Time
-
-	// confiugUpdateCounter is the counter of 'clearCache' calls
-	configUpdateCounter int
-
-	// debouncePushTimerSet is true if a config update was requested and we are
-	// waiting for more events, to debounce.
-	debouncePushTimerSet bool
-
 	// endpointsFilterFuncs is an ordered list of functions to apply to EDS just before pushing it
 	endpointsFilterFuncs []EndpointsFilterFunc
 }
@@ -422,39 +406,11 @@ func (s *DiscoveryServer) ClearCache() {
 	s.clearCache()
 }
 
-// debouncePush is called on config or endpoint changes, to initiate a push.
-func (s *DiscoveryServer) debouncePush(startDebounce time.Time) {
-	s.updateMutex.RLock()
-	since := time.Since(s.lastConfigUpdateTime)
-	events := s.configUpdateCounter
-	s.updateMutex.RUnlock()
-
-	if since > 2*DebounceAfter ||
-		time.Since(startDebounce) > DebounceMax {
-
-		adsLog.Infof("Push debounce stable %d: %v since last change, %v since last push, full=%v",
-			events,
-			since, time.Since(s.lastPushStart), s.fullPush)
-
-		s.doPush()
-
-	} else {
-		time.AfterFunc(DebounceAfter, func() {
-			s.debouncePush(startDebounce)
-		})
-	}
-}
-
 // Start the actual push. Called from a timer.
-func (s *DiscoveryServer) doPush() {
+func (s *DiscoveryServer) doPush(full bool) {
 	// more config update events may happen while doPush is processing.
 	// we don't want to lose updates.
 	s.updateMutex.Lock()
-
-	s.debouncePushTimerSet = false
-	s.lastPushStart = time.Now()
-	full := s.fullPush
-
 	s.mutex.Lock()
 	// Swap the edsUpdates map - tracking requests for incremental updates.
 	// The changes to the map are protected by ds.mutex.
@@ -462,9 +418,6 @@ func (s *DiscoveryServer) doPush() {
 	// Reset - any new updates will be tracked by the new map
 	s.edsUpdates = map[string]*EndpointShardsByService{}
 	s.mutex.Unlock()
-
-	// Update the config values, next ConfigUpdate and eds updates will use this
-	s.fullPush = false
 
 	s.updateMutex.Unlock()
 
@@ -486,32 +439,57 @@ func (s *DiscoveryServer) ConfigUpdate(full bool) {
 // Debouncing and update request happens in a separate thread, it uses locks
 // and we want to avoid complications, ConfigUpdate may already hold other locks.
 func (s *DiscoveryServer) handleUpdates() {
+	handleUpdates(s.updateChannel, DebounceAfter, DebounceMax, s.doPush)
+}
+
+// handleUpdates processes events from updateChannel
+// It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
+// It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
+func handleUpdates(updateChannel <-chan *updateReq, minQuiet time.Duration, maxDelay time.Duration, processUpdate func(bool)) {
+	var timeChan <-chan time.Time
+	var startDebounce time.Time
+	var lastConfigUpdateTime time.Time
+
+	configUpdateCounter := 0
+	pushCounter := 0
+
+	debouncedEvents := 0
+	fullPush := false
+
 	for {
 		select {
-		case r, _ := <-s.updateChannel:
+		case r := <-updateChannel:
+			lastConfigUpdateTime = time.Now()
+			if debouncedEvents == 0 {
+				timeChan = time.After(minQuiet)
+				startDebounce = lastConfigUpdateTime
+			}
+			debouncedEvents++
+			configUpdateCounter++
+			// fullPush is sticky if any debounced event requires a fullPush
+			if r.full {
+				fullPush = true
+			}
 
-			if DebounceAfter == 0 {
-				go s.doPush()
+		case now := <-timeChan:
+			timeChan = nil
+
+			eventDelay := now.Sub(startDebounce)
+			quietTime := now.Sub(lastConfigUpdateTime)
+			// it has been too long or quiet enough
+			if eventDelay >= maxDelay || quietTime >= minQuiet {
+				pushCounter++
+				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
+					pushCounter, debouncedEvents,
+					quietTime, eventDelay, fullPush)
+
+				go processUpdate(fullPush)
+				fullPush = false
+				debouncedEvents = 0
 				continue
 			}
-			s.updateMutex.Lock()
 
-			if r.full {
-				s.fullPush = true
-			}
-			s.configUpdateCounter++
-
-			s.lastConfigUpdateTime = time.Now()
-
-			if !s.debouncePushTimerSet {
-				s.debouncePushTimerSet = true
-				startDebounce := s.lastConfigUpdateTime
-				time.AfterFunc(DebounceAfter, func() {
-					s.debouncePush(startDebounce)
-				})
-			} // else: debounce in progress - it'll keep delaying the push
-
-			s.updateMutex.Unlock()
+			timeChan = time.After(minQuiet - quietTime)
 		}
 	}
 }

@@ -1551,6 +1551,7 @@ spec:
     retries:
       attempts: 3
       perTryTimeout: 2s
+      retryOn: gateway-error,connect-failure,refused-stream
 </code></pre>
 
 <table class="message-fields">
@@ -1577,6 +1578,18 @@ number of retries attempted depends on the httpReqTimeout.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms.</p>
+
+</td>
+</tr>
+<tr id="HTTPRetry-retry_on">
+<td><code>retryOn</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the conditions under which retry takes place.
+One or more policies can be specified using a ‘,’ delimited list.
+The supported policies can be found in
+&ldquo;https://www.envoyproxy.io/docs/envoy/latest/configuration/http<em>filters/router</em>filter#x-envoy-retry-on&rdquo;
+and &ldquo;https://www.envoyproxy.io/docs/envoy/latest/configuration/http<em>filters/router</em>filter#x-envoy-retry-grpc-on&rdquo;</p>
 
 </td>
 </tr>
@@ -2283,6 +2296,18 @@ service that can be ejected. Defaults to 10%.</p>
 
 </td>
 </tr>
+<tr id="OutlierDetection-min_health_percent">
+<td><code>minHealthPercent</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Outlier detection will be enabled as long as the associated load balancing
+pool has at least min<em>health</em>percent hosts in healthy mode. When the
+percentage of healthy hosts in the load balancing pool drops below this
+threshold, outlier detection will be disabled and the proxy will load balance
+across all hosts in the pool (healthy and unhealthy).  The default is 50%.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -2637,29 +2662,29 @@ Otherwise default to the default cipher list supported by Envoy.</p>
 
 </td>
 </tr>
-<tr id="Server-TLSOptions-TLSProtocol-TLSv1_0">
-<td><code>TLSv1_0</code></td>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_0">
+<td><code>TLSV1_0</code></td>
 <td>
 <p>TLS version 1.0</p>
 
 </td>
 </tr>
-<tr id="Server-TLSOptions-TLSProtocol-TLSv1_1">
-<td><code>TLSv1_1</code></td>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_1">
+<td><code>TLSV1_1</code></td>
 <td>
 <p>TLS version 1.1</p>
 
 </td>
 </tr>
-<tr id="Server-TLSOptions-TLSProtocol-TLSv1_2">
-<td><code>TLSv1_2</code></td>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_2">
+<td><code>TLSV1_2</code></td>
 <td>
 <p>TLS version 1.2</p>
 
 </td>
 </tr>
-<tr id="Server-TLSOptions-TLSProtocol-TLSv1_3">
-<td><code>TLSv1_3</code></td>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_3">
+<td><code>TLSV1_3</code></td>
 <td>
 <p>TLS version 1.3</p>
 
@@ -2959,7 +2984,7 @@ spec:
   location: MESH_EXTERNAL
   ports:
   - number: 80
-    name: https
+    name: http
     protocol: HTTP
   resolution: DNS
   endpoints:

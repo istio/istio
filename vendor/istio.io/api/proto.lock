@@ -660,6 +660,23 @@
                 "integer": 1
               }
             ]
+          },
+          {
+            "name": "OutboundTrafficPolicy.Mode",
+            "enum_fields": [
+              {
+                "name": "REGISTRY_ONLY",
+                "integer": 0
+              },
+              {
+                "name": "ALLOW_ANY",
+                "integer": 1
+              },
+              {
+                "name": "VIRTUAL_SERVICE_ONLY",
+                "integer": 2
+              }
+            ]
           }
         ],
         "messages": [
@@ -722,6 +739,11 @@
                 "type": "AuthPolicy"
               },
               {
+                "id": 11,
+                "name": "rds_refresh_delay",
+                "type": "google.protobuf.Duration"
+              },
+              {
                 "id": 12,
                 "name": "enable_tracing",
                 "type": "bool"
@@ -742,6 +764,16 @@
                 "type": "ProxyConfig"
               },
               {
+                "id": 16,
+                "name": "mixer_address",
+                "type": "string"
+              },
+              {
+                "id": 17,
+                "name": "outbound_traffic_policy",
+                "type": "OutboundTrafficPolicy"
+              },
+              {
                 "id": 19,
                 "name": "enable_client_side_policy_check",
                 "type": "bool"
@@ -750,6 +782,11 @@
                 "id": 20,
                 "name": "sds_uds_path",
                 "type": "string"
+              },
+              {
+                "id": 21,
+                "name": "sds_refresh_delay",
+                "type": "google.protobuf.Duration"
               },
               {
                 "id": 22,
@@ -769,12 +806,20 @@
               }
             ],
             "reserved_ids": [
-              11,
               15,
-              16,
-              17,
-              18,
-              21
+              18
+            ],
+            "messages": [
+              {
+                "name": "OutboundTrafficPolicy",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "mode",
+                    "type": "Mode"
+                  }
+                ]
+              }
             ]
           },
           {
@@ -996,6 +1041,11 @@
                 "type": "string"
               },
               {
+                "id": 7,
+                "name": "discovery_refresh_delay",
+                "type": "google.protobuf.Duration"
+              },
+              {
                 "id": 8,
                 "name": "zipkin_address",
                 "type": "string"
@@ -1014,6 +1064,11 @@
                 "id": 11,
                 "name": "proxy_admin_port",
                 "type": "int32"
+              },
+              {
+                "id": 12,
+                "name": "availability_zone",
+                "type": "string"
               },
               {
                 "id": 13,
@@ -1050,10 +1105,6 @@
                 "name": "tracing",
                 "type": "Tracing"
               }
-            ],
-            "reserved_ids": [
-              7,
-              12
             ]
           }
         ]
@@ -2607,6 +2658,11 @@
                 "id": 4,
                 "name": "max_ejection_percent",
                 "type": "int32"
+              },
+              {
+                "id": 5,
+                "name": "min_health_percent",
+                "type": "int32"
               }
             ]
           },
@@ -2866,19 +2922,19 @@
                 "integer": 0
               },
               {
-                "name": "TLSv1_0",
+                "name": "TLSV1_0",
                 "integer": 1
               },
               {
-                "name": "TLSv1_1",
+                "name": "TLSV1_1",
                 "integer": 2
               },
               {
-                "name": "TLSv1_2",
+                "name": "TLSV1_2",
                 "integer": 3
               },
               {
-                "name": "TLSv1_3",
+                "name": "TLSV1_3",
                 "integer": 4
               }
             ]
@@ -3566,6 +3622,11 @@
                 "id": 2,
                 "name": "per_try_timeout",
                 "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 3,
+                "name": "retry_on",
+                "type": "string"
               }
             ]
           },

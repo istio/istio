@@ -535,10 +535,23 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 func translateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
 	if in != nil && in.Attempts > 0 {
 		d := util.GogoDurationToDuration(in.PerTryTimeout)
+		// default retry on condition
+		retryOn := "gateway-error,connect-failure,refused-stream,unavailable,cancelled,resource-exhausted"
+		if in.RetryOn != "" {
+			retryOn = in.RetryOn
+		}
 		return &route.RouteAction_RetryPolicy{
 			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},
-			RetryOn:       "5xx,connect-failure,refused-stream",
+			RetryOn:       retryOn,
 			PerTryTimeout: &d,
+			RetryHostPredicate: []*route.RouteAction_RetryPolicy_RetryHostPredicate{
+				{
+					// to configure retries to prefer hosts that haven’t been attempted already,
+					// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
+					Name: "envoy.retry_host_predicates.previous_hosts",
+				},
+			},
+			HostSelectionRetryMaxAttempts: 3,
 		}
 	}
 	return nil

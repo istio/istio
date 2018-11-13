@@ -36,7 +36,7 @@ import (
 var scope = log.RegisterScope("kube-converter", "Kubernetes conversion related packages", 0)
 
 // Fn is a conversion function that converts the given unstructured CRD into the destination Resource.
-type Fn func(cfg *Config, destination resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error)
+type Fn func(cfg *Config, destination resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]Entry, error)
 
 // Entry is a single converted entry.
 type Entry struct {
@@ -63,118 +63,144 @@ func Get(name string) Fn {
 	return fn
 }
 
-func identity(_ *Config, destination resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error) {
-	p, err := toProto(destination, u.Object["spec"])
-	if err != nil {
-		return nil, err
+func identity(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+	var p proto.Message
+	creationTime := time.Time{}
+	if u != nil {
+		var err error
+		if p, err = toProto(destination, u.Object["spec"]); err != nil {
+			return nil, err
+		}
+		creationTime = u.GetCreationTimestamp().Time
 	}
 
 	e := Entry{
 		Key:          name,
-		CreationTime: u.GetCreationTimestamp().Time,
+		CreationTime: creationTime,
 		Resource:     p,
 	}
 
 	return []Entry{e}, nil
 }
 
-func nilConverter(_ *Config, _ resource.Info, _ resource.FullName, _ *unstructured.Unstructured) ([]Entry, error) {
+func nilConverter(_ *Config, _ resource.Info, _ resource.FullName, _ string, _ *unstructured.Unstructured) ([]Entry, error) {
 	return nil, nil
 }
 
-func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error) {
-	spec := u.Object["spec"]
+func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]Entry, error) {
 	s := &types.Struct{}
-	if err := toproto(s, spec); err != nil {
-		return nil, err
+	creationTime := time.Time{}
+	var res *legacy.LegacyMixerResource
+
+	if u != nil {
+		spec := u.Object["spec"]
+		if err := toproto(s, spec); err != nil {
+			return nil, err
+		}
+		creationTime = u.GetCreationTimestamp().Time
+		res = &legacy.LegacyMixerResource{
+			Name:     name.String(),
+			Kind:     kind,
+			Contents: s,
+		}
+
 	}
 
-	newName := resource.FullNameFromNamespaceAndName(u.GetKind(), name.String())
+	newName := resource.FullNameFromNamespaceAndName(kind, name.String())
 
 	e := Entry{
 		Key:          newName,
-		CreationTime: u.GetCreationTimestamp().Time,
-		Resource: &legacy.LegacyMixerResource{
-			Name:     name.String(),
-			Kind:     u.GetKind(),
-			Contents: s,
-		},
+		CreationTime: creationTime,
+		Resource:     res,
 	}
 
 	return []Entry{e}, nil
 }
 
-func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error) {
-	p, err := toProto(destination, u.Object["spec"])
-	if err != nil {
-		return nil, err
-	}
+func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+	var p proto.Message
+	creationTime := time.Time{}
+	if u != nil {
+		var err error
+		if p, err = toProto(destination, u.Object["spec"]); err != nil {
+			return nil, err
+		}
+		creationTime = u.GetCreationTimestamp().Time
 
-	policy, ok := p.(*authn.Policy)
-	if !ok {
-		return nil, fmt.Errorf("object is not of type %v", destination.TypeURL)
-	}
+		policy, ok := p.(*authn.Policy)
+		if !ok {
+			return nil, fmt.Errorf("object is not of type %v", destination.TypeURL)
+		}
 
-	// The pilot authentication plugin's config handling allows the mtls
-	// peer method object value to be nil. See pilot/pkg/networking/plugin/authn/authentication.go#L68
-	//
-	// For example,
-	//
-	//     metadata:
-	//       name: d-ports-mtls-enabled
-	//     spec:
-	//       targets:
-	//       - name: d
-	//         ports:
-	//         - number: 80
-	//       peers:
-	//       - mtls:
-	//
-	// This translates to the following in-memory representation:
-	//
-	//     policy := &authn.Policy{
-	//       Peers: []*authn.PeerAuthenticationMethod{{
-	//         &authn.PeerAuthenticationMethod_Mtls{},
-	//       }},
-	//     }
-	//
-	// The PeerAuthenticationMethod_Mtls object with nil field is lost when
-	// the proto is re-encoded for transport via MCP. As a workaround, fill
-	// in the missing field value which is functionality equivalent.
-	for _, peer := range policy.Peers {
-		if mtls, ok := peer.Params.(*authn.PeerAuthenticationMethod_Mtls); ok && mtls.Mtls == nil {
-			mtls.Mtls = &authn.MutualTls{}
+		// The pilot authentication plugin's config handling allows the mtls
+		// peer method object value to be nil. See pilot/pkg/networking/plugin/authn/authentication.go#L68
+		//
+		// For example,
+		//
+		//     metadata:
+		//       name: d-ports-mtls-enabled
+		//     spec:
+		//       targets:
+		//       - name: d
+		//         ports:
+		//         - number: 80
+		//       peers:
+		//       - mtls:
+		//
+		// This translates to the following in-memory representation:
+		//
+		//     policy := &authn.Policy{
+		//       Peers: []*authn.PeerAuthenticationMethod{{
+		//         &authn.PeerAuthenticationMethod_Mtls{},
+		//       }},
+		//     }
+		//
+		// The PeerAuthenticationMethod_Mtls object with nil field is lost when
+		// the proto is re-encoded for transport via MCP. As a workaround, fill
+		// in the missing field value which is functionality equivalent.
+		for _, peer := range policy.Peers {
+			if mtls, ok := peer.Params.(*authn.PeerAuthenticationMethod_Mtls); ok && mtls.Mtls == nil {
+				mtls.Mtls = &authn.MutualTls{}
+			}
 		}
 	}
 
 	e := Entry{
 		Key:          name,
-		CreationTime: u.GetCreationTimestamp().Time,
+		CreationTime: creationTime,
 		Resource:     p,
 	}
 
 	return []Entry{e}, nil
 }
 
-func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, u *unstructured.Unstructured) ([]Entry, error) {
-	json, err := u.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
+func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+	creationTime := time.Time{}
+	var p *extensions.IngressSpec
+	if u != nil {
+		json, err := u.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 
-	var p extensions.Ingress
-	if err = json2.Unmarshal(json, &p); err != nil {
-		return nil, err
-	}
+		creationTime = u.GetCreationTimestamp().Time
 
-	if !shouldProcessIngress(cfg, &p) {
-		return nil, nil
+		ing := &extensions.Ingress{}
+		if err = json2.Unmarshal(json, ing); err != nil {
+			return nil, err
+		}
+
+		if !shouldProcessIngress(cfg, ing) {
+			return nil, nil
+		}
+
+		p = &ing.Spec
 	}
 
 	e := Entry{
 		Key:          name,
-		CreationTime: u.GetCreationTimestamp().Time,
-		Resource:     &p.Spec,
+		CreationTime: creationTime,
+		Resource:     p,
 	}
 
 	return []Entry{e}, nil

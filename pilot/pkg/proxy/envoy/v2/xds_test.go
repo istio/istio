@@ -284,7 +284,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	server.EnvoyXdsServer.ConfigUpdate(true)
 	// TODO: channel to notify when the push is finished and to notify individual updates, for
 	// debug and for the canary.
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(2 * time.Second)
 
 	return server, func() {
 		pilotServer = nil
