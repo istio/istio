@@ -150,8 +150,8 @@ func (rc *restClient) updateRESTConfig(cfg *rest.Config) (config *rest.Config, e
 }
 
 // NewForConfig creates a client to the Kubernetes API using a rest config.
-func NewForConfig(cfg *rest.Config, domainSuffix string) (*Client, error) {
-	cs, err := newClientSet(model.IstioConfigTypes)
+func NewForConfig(cfg *rest.Config, descriptor model.ConfigDescriptor, domainSuffix string) (*Client, error) {
+	cs, err := newClientSet(descriptor)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func NewClient(config string, context string, descriptor model.ConfigDescriptor,
 		return nil, err
 	}
 
-	return NewForConfig(cfg, domainSuffix)
+	return NewForConfig(cfg, descriptor, domainSuffix)
 }
 
 // RegisterResources sends a request to create CRDs and waits for them to initialize
