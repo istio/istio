@@ -357,4 +357,3 @@ func (s *Store) OnDelete(obj interface{}) {
 		s.dispatch(ev)
 	}
 }
-
