@@ -453,7 +453,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v required:%v %s",
 			metadata.Namespace,
 			potentialPodName(metadata),
-			config,
+			config.Policy,
 			useDefault,
 			inject,
 			required,
@@ -483,6 +483,7 @@ func directory(filepath string) string {
 
 func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
+		log.Infof("Invalid annotations: %v %v\n", err, metadata.GetAnnotations())
 		return nil, "", err
 	}
 
@@ -510,6 +511,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
 	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
 	if err := t.Execute(&tmpl, &data); err != nil {
+		log.Infof("Invalid template: %v %v\n", err, sidecarTemplate)
 		return nil, "", err
 	}
 
