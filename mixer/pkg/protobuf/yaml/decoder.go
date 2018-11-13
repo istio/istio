@@ -23,7 +23,6 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
-
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
@@ -32,9 +31,8 @@ import (
 type (
 	// Decoder transforms protobuf-encoded bytes to attribute values.
 	Decoder struct {
-		resolver   Resolver
-		fields     map[wire.Number]*descriptor.FieldDescriptorProto
-		attrPrefix string
+		resolver Resolver
+		fields   map[wire.Number]*descriptor.FieldDescriptorProto
 	}
 )
 
@@ -44,8 +42,7 @@ type (
 // A nil field mask implies all fields are decoded.
 // This decoder is specialized to a single-level proto schema (no nested field dereferences
 // in the resulting output).
-// Attribute prefix is appended to the field names in the output attribute bag.
-func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool, attrPrefix string) *Decoder {
+func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool) *Decoder {
 	message := resolver.ResolveMessage(msgName)
 	fields := make(map[wire.Number]*descriptor.FieldDescriptorProto)
 
@@ -56,18 +53,19 @@ func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool, at
 	}
 
 	return &Decoder{
-		resolver:   resolver,
-		fields:     fields,
-		attrPrefix: attrPrefix,
+		resolver: resolver,
+		fields:   fields,
 	}
 }
 
 // Decode function parses wire-encoded bytes to attribute values. The keys are field names
 // in the message specified by the field mask.
-func (d *Decoder) Decode(b []byte, out *attribute.MutableBag) error {
+// Attribute prefix is appended to the field names in the output attribute bag.
+func (d *Decoder) Decode(b []byte, out *attribute.MutableBag, attrPrefix string) error {
 	visitor := &decodeVisitor{
-		decoder: d,
-		out:     out,
+		decoder:    d,
+		out:        out,
+		attrPrefix: attrPrefix,
 	}
 
 	for len(b) > 0 {
@@ -82,13 +80,14 @@ func (d *Decoder) Decode(b []byte, out *attribute.MutableBag) error {
 }
 
 type decodeVisitor struct {
-	decoder *Decoder
-	out     *attribute.MutableBag
-	err     error
+	decoder    *Decoder
+	out        *attribute.MutableBag
+	attrPrefix string
+	err        error
 }
 
 func (dv *decodeVisitor) setValue(f *descriptor.FieldDescriptorProto, val interface{}) {
-	name := dv.decoder.attrPrefix + f.GetName()
+	name := dv.attrPrefix + f.GetName()
 	if f.IsRepeated() {
 		var arr []interface{}
 		old, ok := dv.out.Get(name)
@@ -201,7 +200,7 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 		dv.setValue(f, v)
 		return
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		name := dv.decoder.attrPrefix + f.GetName()
+		name := dv.attrPrefix + f.GetName()
 		if isMap(dv.decoder.resolver, f) {
 			// validate proto type to be map<string, string>
 			mapType := dv.decoder.resolver.ResolveMessage(f.GetTypeName())
@@ -243,10 +242,10 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 
 		// parse the entirety of the message recursively for value types
 		if _, ok := valueResolver.descriptors[f.GetTypeName()]; ok && !f.IsRepeated() {
-			decoder := NewDecoder(valueResolver, f.GetTypeName(), nil, "")
+			decoder := NewDecoder(valueResolver, f.GetTypeName(), nil)
 			inner := attribute.GetMutableBag(nil)
 			defer inner.Done()
-			if err := decoder.Decode(v, inner); err != nil {
+			if err := decoder.Decode(v, inner, ""); err != nil {
 				dv.err = multierror.Append(dv.err, fmt.Errorf("failed to decode field %q: %v", f.GetName(), err))
 				return
 			}
