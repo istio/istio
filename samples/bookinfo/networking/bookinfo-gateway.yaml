@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: bookinfo-gateway
+  namespace: istio
 spec:
   selector:
     istio: ingressgateway # use istio default controller
@@ -17,6 +18,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: bookinfo
+  namespace: istio
 spec:
   hosts:
   - "*"

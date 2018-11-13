@@ -397,11 +397,11 @@ security:
 #
 telemetry-gateway:
   gatewayName: ingressgateway
-  grafanaEnabled: false
-  prometheusEnabled: false
+  grafanaEnabled: true
+  prometheusEnabled: true
 
 grafana:
-  enabled: false
+  enabled: true
   replicaCount: 1
   image: grafana
   security:
@@ -454,7 +454,7 @@ servicegraph:
   prometheusAddr: http://prometheus:9090
 
 tracing:
-  enabled: false
+  enabled: true
   provider: jaeger
   jaeger:
     hub: docker.io/jaegertracing

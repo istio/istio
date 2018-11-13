@@ -19,6 +19,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: details
+  namespace: istio
   labels:
     app: details
 spec:
@@ -32,6 +33,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: details-v1
+  namespace: istio
 spec:
   replicas: 1
   template:
@@ -54,6 +56,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ratings
+  namespace: istio
   labels:
     app: ratings
 spec:
@@ -67,6 +70,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: ratings-v1
+  namespace: istio
 spec:
   replicas: 1
   template:
@@ -89,6 +93,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: reviews
+  namespace: istio
   labels:
     app: reviews
 spec:
@@ -102,6 +107,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: reviews-v1
+  namespace: istio
 spec:
   replicas: 1
   template:
@@ -121,6 +127,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: reviews-v2
+  namespace: istio
 spec:
   replicas: 1
   template:
@@ -140,6 +147,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: reviews-v3
+  namespace: istio
 spec:
   replicas: 1
   template:
@@ -162,6 +170,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: productpage
+  namespace: istio
   labels:
     app: productpage
 spec:
@@ -175,6 +184,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: productpage-v1
+  namespace: istio
 spec:
   replicas: 1
   template:
