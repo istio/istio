@@ -159,7 +159,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					Filters: []listener.Filter{
 						{
 							Name:   xdsutil.TCPProxy,
-							Config: util.MessageToStruct(passthroughTCPProxy),
+							ConfigType: &listener.Filter_Config{
+								util.MessageToStruct(passthroughTCPProxy),
+							},
 						},
 					},
 				},
@@ -807,7 +809,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
 			{
-				Config: util.MessageToStruct(fl),
+				ConfigType: &accesslog.AccessLog_Config{util.MessageToStruct(fl)},
 				Name:   xdsutil.FileAccessLog,
 			},
 		}
@@ -948,7 +950,7 @@ func marshalFilters(node *model.Proxy, l *xdsapi.Listener, opts buildListenerOpt
 			connectionManager := buildHTTPConnectionManager(node, opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
 				Name:   xdsutil.HTTPConnectionManager,
-				Config: util.MessageToStruct(connectionManager),
+				ConfigType: &listener.Filter_Config{util.MessageToStruct(connectionManager)},
 			})
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", len(connectionManager.HttpFilters), l.Name, i)
 		}

@@ -147,7 +147,7 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, enableSdsTo
 				RequiredListenerFilters: []ldsv2.ListenerFilter{
 					{
 						Name:   EnvoyTLSInspectorFilterName,
-						Config: &types.Struct{},
+						ConfigType: &ldsv2.ListenerFilter_Config{&types.Struct{}},
 					},
 				},
 			},
@@ -292,7 +292,7 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 	return &http_conn.HttpFilter{
 		Name:   JwtFilterName,
-		Config: util.MessageToStruct(filterConfigProto),
+		ConfigType: &http_conn.HttpFilter_Config{util.MessageToStruct(filterConfigProto)},
 	}
 }
 
@@ -304,7 +304,7 @@ func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType) *http_conn
 	}
 	return &http_conn.HttpFilter{
 		Name:   AuthnFilterName,
-		Config: util.MessageToStruct(filterConfigProto),
+		ConfigType: &http_conn.HttpFilter_Config{util.MessageToStruct(filterConfigProto)},
 	}
 }
 

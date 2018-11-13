@@ -271,29 +271,31 @@ func TestBuildJwtFilter(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "jwt-auth",
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
-						"rules": {
-							Kind: &types.Value_ListValue{
-								ListValue: &types.ListValue{
-									Values: []*types.Value{
-										{
-											Kind: &types.Value_StructValue{
-												StructValue: &types.Struct{
-													Fields: map[string]*types.Value{
-														"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
-														"forward_payload_header": {
-															Kind: &types.Value_StringValue{
-																StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+				ConfigType: &http_conn.HttpFilter_Config{
+					&types.Struct{
+						Fields: map[string]*types.Value{
+							"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
+							"rules": {
+								Kind: &types.Value_ListValue{
+									ListValue: &types.ListValue{
+										Values: []*types.Value{
+											{
+												Kind: &types.Value_StructValue{
+													StructValue: &types.Struct{
+														Fields: map[string]*types.Value{
+															"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
+															"forward_payload_header": {
+																Kind: &types.Value_StringValue{
+																	StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+																},
 															},
-														},
-														"local_jwks": {
-															Kind: &types.Value_StructValue{
-																StructValue: &types.Struct{
-																	Fields: map[string]*types.Value{
-																		"inline_string": {
-																			Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
+															"local_jwks": {
+																Kind: &types.Value_StructValue{
+																	StructValue: &types.Struct{
+																		Fields: map[string]*types.Value{
+																			"inline_string": {
+																				Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
+																			},
 																		},
 																	},
 																},
@@ -633,7 +635,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					RequiredListenerFilters: []listener.ListenerFilter{
 						{
 							Name:   "envoy.listener.tls_inspector",
-							Config: &types.Struct{},
+							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},
 						},
 					},
 				},

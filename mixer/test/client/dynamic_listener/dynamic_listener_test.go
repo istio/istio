@@ -153,7 +153,7 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 						}}}}}}},
 		HttpFilters: []*hcm.HttpFilter{{
 			Name:   "mixer",
-			Config: mxConf,
+			ConfigType: &hcm.HttpFilter_Config{mxConf},
 		}, {
 			Name: util.Router,
 		}},
@@ -172,7 +172,7 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 		FilterChains: []listener.FilterChain{{
 			Filters: []listener.Filter{{
 				Name:   util.HTTPConnectionManager,
-				Config: pbst,
+				ConfigType: &listener.Filter_Config{pbst},
 			}},
 		}},
 	}

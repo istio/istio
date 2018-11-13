@@ -101,7 +101,8 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string, enabl
 				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 					FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 						Name:   fileBasedMetadataPlugName,
-						Config: protoToStruct(tokenMountConfig),
+						ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
+							protoToStruct(tokenMountConfig)},
 					},
 				},
 			},
