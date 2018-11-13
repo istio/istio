@@ -35,7 +35,7 @@ func (m *mockBatchClient) fakeAssertBatch(
 	ctx context.Context,
 	req *contextgraphpb.AssertBatchRequest,
 	opts ...gax.CallOption) (*contextgraphpb.AssertBatchResponse, error) {
-	m.ABCalled += 1
+	m.ABCalled++
 	m.NumEntities += len(req.EntityPresentAssertions)
 	m.NumEdges += len(req.RelationshipPresentAssertions)
 	return nil, nil
