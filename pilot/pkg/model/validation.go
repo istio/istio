@@ -249,7 +249,7 @@ func checkDNS1123Preconditions(name string) error {
 func validateDNS1123Labels(domain string) error {
 	parts := strings.Split(domain, ".")
 	topLevelDomain := parts[len(parts)-1]
-	if '0' <= topLevelDomain[0] && topLevelDomain[0] <= '9' {
+	if len(topLevelDomain) > 0 && '0' <= topLevelDomain[0] && topLevelDomain[0] <= '9' {
 		return fmt.Errorf("domain name %q invalid (top level domain %q cannot start with a number)", domain, topLevelDomain)
 	}
 	for _, label := range parts {
@@ -1346,7 +1346,10 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
 		if err := ValidateWildcardDomain(host); err != nil {
-			errs = appendErrors(errs, err)
+			ipAddr := net.ParseIP(host)
+			if ipAddr == nil { // Could be an IP address
+				errs = appendErrors(errs, err)
+			}
 			allHostsValid = false
 		} else if appliesToMesh && host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
