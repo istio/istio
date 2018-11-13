@@ -436,7 +436,7 @@ func buildHTTPFilter(service *serviceMetadata, option rbacOption) *http_conn.Htt
 	config := convertRbacRulesToFilterConfig(service, option)
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	return &http_conn.HttpFilter{
-		Name:   rbacHTTPFilterName,
+		Name:       rbacHTTPFilterName,
 		ConfigType: &http_conn.HttpFilter_Config{util.MessageToStruct(config)},
 	}
 }

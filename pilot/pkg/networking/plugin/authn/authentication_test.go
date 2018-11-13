@@ -634,7 +634,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					},
 					RequiredListenerFilters: []listener.ListenerFilter{
 						{
-							Name:   "envoy.listener.tls_inspector",
+							Name:       "envoy.listener.tls_inspector",
 							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},
 						},
 					},

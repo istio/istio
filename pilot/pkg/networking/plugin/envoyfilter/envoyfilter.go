@@ -230,7 +230,7 @@ func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
 
 func insertHTTPFilter(filterChain *plugin.FilterChain, envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &http_conn.HttpFilter{
-		Name:   envoyFilter.FilterName,
+		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{envoyFilter.FilterConfig},
 	}
 
@@ -269,7 +269,7 @@ func insertHTTPFilter(filterChain *plugin.FilterChain, envoyFilter *networking.E
 
 func insertNetworkFilter(filterChain *plugin.FilterChain, envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &listener.Filter{
-		Name:   envoyFilter.FilterName,
+		Name:       envoyFilter.FilterName,
 		ConfigType: &listener.Filter_Config{envoyFilter.FilterConfig},
 	}
 

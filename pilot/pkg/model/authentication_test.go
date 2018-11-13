@@ -167,7 +167,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 												&core.GrpcService_GoogleGrpc_CallCredentials{
 													CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 														FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-															Name:   "envoy.grpc_credentials.file_based_metadata",
+															Name: "envoy.grpc_credentials.file_based_metadata",
 															ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
 																protoToStruct(metaConfig)},
 														},
