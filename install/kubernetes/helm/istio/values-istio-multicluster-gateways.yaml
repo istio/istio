@@ -5,7 +5,7 @@ global:
   - "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"  
 
   multiCluster:
-    connectUsingGateway: true
+    enabled: true
 
   controlPlaneSecurityEnabled: true
 
