@@ -11,7 +11,6 @@ COREDUMP_DIR="/var/lib/istio"
 
 # Limit total log size to 100MB by default
 DEFAULT_MAX_LOG_BYTES=100000000
-stored_log_bytes=0
 
 error() {
   echo "$*" >&2
@@ -30,7 +29,7 @@ usage() {
   error '                               directory'
   error '  -q, --quiet              if present, do not log'
   error '  -m, --max-bytes          max total bytes, 0=no limit, default='${DEFAULT_MAX_LOG_BYTES}
-  error '  -l, --label              if set, dump logs only for pods with given label e.g. "-l dump=true"'
+  error '  -l, --label              if set, dump logs only for pods with given labels e.g. "-l app=pilot -l istio=galley"'
   error '  --error-if-nasty-logs    if present, exit with 255 if any logs'
   error '                               contain errors'
   exit 1
@@ -68,7 +67,7 @@ parse_args() {
         shift 2 # Shift past option and value.
         ;;
       -l|--label)
-        local pod_label="${2}"
+        pod_labels+="${2} "
         shift 2 # Shift past option and value.
         ;;
       *)
@@ -85,7 +84,6 @@ parse_args() {
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
   readonly ISTIO_RESOURCES_FILE="${OUT_DIR}/istio-resources.yaml"
   readonly MAX_LOG_BYTES="${max_bytes}"
-  readonly POD_LABEL="${pod_label}"
 }
 
 check_prerequisites() {
@@ -195,10 +193,12 @@ tap_containers() {
   namespaces=$(kubectl get \
       namespaces -o=jsonpath="{.items[*].metadata.name}")
   for namespace in ${namespaces}; do
-    local pods
-    if [ -n "${POD_LABEL}" ]; then
-        pods=$(kubectl get --namespace="${namespace}" -l${POD_LABEL} \
-            pods -o=jsonpath='{.items[*].metadata.name}')
+    local pods=""
+    if [ -n "${pod_labels}" ]; then
+      for label in $pod_labels; do
+        pods+=$(kubectl get --namespace="${namespace}" -l${label} \
+            pods -o=jsonpath='{.items[*].metadata.name}')" "
+      done
     else
         pods=$(kubectl get --namespace="${namespace}" \
             pods -o=jsonpath='{.items[*].metadata.name}')
@@ -208,11 +208,9 @@ tap_containers() {
       containers=$(kubectl get --namespace="${namespace}" \
           pod "${pod}" -o=jsonpath='{.spec.containers[*].name}')
       for container in ${containers}; do
-
         for f in "${functions[@]}"; do
           "${f}" "${namespace}" "${pod}" "${container}" || return $?
         done
-
       done
     done
   done
@@ -329,5 +327,7 @@ main() {
 
   return ${exit_code}
 }
+
+stored_log_bytes=0
 
 main "$@"
