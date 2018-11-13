@@ -214,7 +214,10 @@ func (l Labels) Validate() error {
 
 // ValidateFQDN checks a fully-qualified domain name
 func ValidateFQDN(fqdn string) error {
-	return appendErrors(checkDNS1123Preconditions(fqdn), validateDNS1123Labels(fqdn))
+	if err := checkDNS1123Preconditions(fqdn); err != nil {
+		return err
+	}
+	return validateDNS1123Labels(fqdn)
 }
 
 // ValidateWildcardDomain checks that a domain is a valid FQDN, but also allows wildcard prefixes.
