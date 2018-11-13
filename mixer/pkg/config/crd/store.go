@@ -201,20 +201,20 @@ func (s *Store) retryCreateCache(
 	lwBuilder listerWatcherBuilderInterface,
 	kinds []string) {
 	remaining := kinds
-	tick := time.Tick(s.bgRetryInterval)
+	ticker := time.NewTicker(s.bgRetryInterval)
+	defer ticker.Stop()
 	stopRetry := false
 
 	for len(remaining) != 0 && !stopRetry {
 		select {
 		case <-s.donec:
 			stopRetry = true
-		case <-tick:
+		case <-ticker.C:
 			rm := s.checkAndCreateCaches(d, lwBuilder, remaining)
 			if len(rm) < len(remaining) {
 				log.Debugf("discovered %v new kinds, remaining undiscovered kinds: %v", len(remaining)-len(rm), rm)
 			}
 			remaining = rm
-		default:
 		}
 	}
 }
