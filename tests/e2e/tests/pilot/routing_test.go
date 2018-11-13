@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -258,25 +257,6 @@ func TestRoutes(t *testing.T) {
 							if count[version] > expected+epsilon || count[version] < expected-epsilon {
 								return fmt.Errorf("expected %v requests (+/-%v) to reach %s => Got %v",
 									expected, epsilon, version, count[version])
-							}
-						}
-
-						// Only test this on the primary cluster since zipkin is not available on the remote
-						if c.operation != "" && cluster == primaryCluster {
-							response := ClientRequest(
-								cluster,
-								"t",
-								fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", tc.Kube.Namespace),
-								1, "",
-							)
-
-							if !response.IsHTTPOk() {
-								return fmt.Errorf("could not retrieve traces from zipkin")
-							}
-
-							text := fmt.Sprintf("\"name\":\"%s\"", c.operation)
-							if strings.Count(response.Body, text) != 10 {
-								t.Logf("could not find operation %q in zipkin traces: %v", c.operation, response.Body)
 							}
 						}
 

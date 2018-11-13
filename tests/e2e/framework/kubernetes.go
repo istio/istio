@@ -39,7 +39,6 @@ import (
 const (
 	yamlSuffix                     = ".yaml"
 	istioInstallDir                = "install/kubernetes"
-	istioAddonsDir                 = "install/kubernetes/addons"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
 	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
@@ -101,10 +100,6 @@ var (
 	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
-
-	addons = []string{
-		"zipkin",
-	}
 )
 
 type appPodsInfo struct {
@@ -132,7 +127,6 @@ type KubeInfo struct {
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
-	InstallAddons    bool
 
 	// Istioctl installation
 	Istioctl *Istioctl
@@ -592,34 +586,6 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 	return newMap
 }
 
-func (k *KubeInfo) deployAddons() error {
-	for _, addon := range addons {
-		addonPath := filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon))
-		baseYamlFile := filepath.Join(k.ReleaseDir, addonPath)
-		content, err := ioutil.ReadFile(baseYamlFile)
-		if err != nil {
-			log.Errorf("Cannot read file %s", baseYamlFile)
-			return err
-		}
-
-		if !*clusterWide {
-			content = replacePattern(content, istioSystem, k.Namespace)
-		}
-
-		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
-		err = ioutil.WriteFile(yamlFile, content, 0600)
-		if err != nil {
-			log.Errorf("Cannot write into file %s", yamlFile)
-		}
-
-		if err := util.KubeApply(k.Namespace, yamlFile, k.KubeConfig); err != nil {
-			log.Errorf("Kubectl apply %s failed", yamlFile)
-			return err
-		}
-	}
-	return nil
-}
-
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
@@ -661,13 +627,6 @@ func (k *KubeInfo) deployIstio() error {
 	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
-	}
-
-	if k.InstallAddons {
-		if err := k.deployAddons(); err != nil {
-			log.Error("Failed to deploy istio addons")
-			return err
-		}
 	}
 
 	if *multiClusterDir != "" {
