@@ -35,9 +35,12 @@ ROOT=$(dirname "$WD")
 
 echo "Testing upgrade and downgrade between ${HUB}/${SOURCE_VERSION} and ${HUB}/${TARGET_VERSION}"
 
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+
 # Download release artifacts.
-download_untar_istio_release ${SOURCE_RELEASE_PATH} ${SOURCE_VERSION}
-download_untar_istio_release ${TARGET_RELEASE_PATH} ${TARGET_VERSION}
+download_untar_istio_release "${SOURCE_RELEASE_PATH}" "${SOURCE_VERSION}"
+download_untar_istio_release "${TARGET_RELEASE_PATH}" "${TARGET_VERSION}"
 
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
@@ -47,8 +50,6 @@ export OWNER='upgrade-tests'
 export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
 export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
-# shellcheck source=prow/lib.sh
-source "${ROOT}/prow/lib.sh"
 setup_e2e_cluster
 
 
@@ -57,5 +58,5 @@ go get fortio.org/fortio
 
 
 # Kick off tests
-${ROOT}/tests/upgrade/test_crossgrade.sh --from_hub=${HUB} --from_tag=${SOURCE_VERSION} --from_path=istio-${SOURCE_VERSION} --to_hub=${HUB} --to_tag=${TARGET_VERSION} --to_path=istio-${TARGET_VERSION}
+"${ROOT}/tests/upgrade/test_crossgrade.sh" --from_hub="${HUB}" --from_tag="${SOURCE_VERSION}" --from_path="istio-${SOURCE_VERSION}" --to_hub="${HUB}" --to_tag="${TARGET_VERSION}" --to_path="istio-${TARGET_VERSION}"
 

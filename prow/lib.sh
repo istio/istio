@@ -14,10 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
-ROOT=$(dirname "$WD")
-
 function setup_and_export_git_sha() {
   if [[ -n "${CI:-}" ]]; then
     if [[ "${CI:-}" == 'bootstrap' ]]; then
@@ -82,6 +78,10 @@ function cleanup() {
 
 # Set up a GKE cluster for testing.
 function setup_e2e_cluster() {
+  WD=$(dirname "$0")
+  WD=$(cd "$WD" || exit; pwd)
+  ROOT=$(dirname "$WD")
+
   # shellcheck source=prow/mason_lib.sh
   source "${ROOT}/prow/mason_lib.sh"
   # shellcheck source=prow/cluster_lib.sh
@@ -90,9 +90,9 @@ function setup_e2e_cluster() {
   trap cleanup EXIT
 
   if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-    export INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
-    export FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
-
+    INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+    FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
+    OWNER=${OWNER:-"e2e"}
     export E2E_ARGS+=("--mason_info=${INFO_PATH}")
 
     setup_and_export_git_sha

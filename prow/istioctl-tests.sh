@@ -34,7 +34,7 @@ ROOT=$(dirname "$WD")
 # Expects ISTIO_REL_URL, HUB, and TAG as inputs.
 
 
-# Helper functions
+# shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 
 function test_istioctl_version() {
@@ -53,13 +53,13 @@ function test_helm_files() {
   local expected_hub=${2}
   local expected_tag=${3}
 
-  local hub=$(grep hub: ${istio_path}/install/kubernetes/helm/istio/values.yaml | head -n 1 | cut -c 8-)
-  local tag=$(grep tag: ${istio_path}/install/kubernetes/helm/istio/values.yaml | head -n 1 | cut -c 8-)
+  hub=$(grep hub: "${istio_path}/install/kubernetes/helm/istio/values.yaml" | head -n 1 | cut -c 8-)
+  tag=$(grep tag: "${istio_path}/install/kubernetes/helm/istio/values.yaml" | head -n 1 | cut -c 8-)
   [ "${hub}" == "${expected_hub}" ]
   [ "${tag}" == "${expected_tag}" ]
 
-  local hub=$(grep hub: ${istio_path}/install/kubernetes/helm/istio-remote/values.yaml | head -n 1 | cut -c 8-)
-  local tag=$(grep tag: ${istio_path}/install/kubernetes/helm/istio-remote/values.yaml | head -n 1 | cut -c 8-)
+  hub=$(grep hub: "${istio_path}/install/kubernetes/helm/istio-remote/values.yaml" | head -n 1 | cut -c 8-)
+  tag=$(grep tag: "${istio_path}/install/kubernetes/helm/istio-remote/values.yaml" | head -n 1 | cut -c 8-)
   [ "${hub}" == "${expected_hub}" ]
   [ "${tag}" == "${expected_tag}" ]
 }
@@ -68,6 +68,6 @@ function test_helm_files() {
 # Assert HUB and TAG are matching from all istioctl binaries.
 
 download_untar_istio_release "${ISTIO_REL_URL}" "${TAG}"
-test_istioctl_version istio-${TAG}/bin/istioctl "${HUB}" "${TAG}"
-test_helm_files istio-${TAG} "${HUB}" "${TAG}"
+test_istioctl_version "istio-${TAG}/bin/istioctl" "${HUB}" "${TAG}"
+test_helm_files "istio-${TAG}" "${HUB}" "${TAG}"
 
