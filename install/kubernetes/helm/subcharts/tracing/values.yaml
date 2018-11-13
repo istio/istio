@@ -28,7 +28,6 @@ jaeger:
 zipkin:
   hub: docker.io/openzipkin
   tag: 2
-  sampleRate: 1.0
   probeStartupDelay: 200
   queryPort: 9411
   resources:
@@ -39,6 +38,11 @@ zipkin:
       cpu: 150m
       memory: 900Mi
   javaOptsHeap: 700
+  # From: https://github.com/openzipkin/zipkin/blob/master/zipkin-server/src/main/resources/zipkin-server-shared.yml#L51
+  # Maximum number of spans to keep in memory.  When exceeded, oldest traces (and their spans) will be purged.
+  # A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus
+  # 100 MB for a safety buffer.  You'll need to verify in your own environment.
+  maxSpans: 500000
   node:
     cpus: 2
 
