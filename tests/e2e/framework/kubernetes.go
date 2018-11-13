@@ -128,7 +128,6 @@ type KubeInfo struct {
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
-	InstallAddons    bool
 
 	// Istioctl installation
 	Istioctl *Istioctl
