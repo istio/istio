@@ -12,6 +12,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package validation
+package testdata
 
-//go:generate go-bindata --nocompress --nometadata --pkg validation -o data.gen_test.go testdata/...
+//go:generate go-bindata --nocompress --nometadata --pkg testdata -o dataset.gen.go dataset/...

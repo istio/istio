@@ -12,6 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package validation
+package conversion
 
-//go:generate go-bindata --nocompress --nometadata --pkg validation -o data.gen_test.go testdata/...
+import (
+	"testing"
+
+	"istio.io/istio/pkg/test/framework"
+)
+
+func TestMain(m *testing.M) {
+	framework.Run("galley_conversion_test", m)
+}
