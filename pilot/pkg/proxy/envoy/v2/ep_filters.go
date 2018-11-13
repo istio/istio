@@ -25,6 +25,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
+const (
+	// The range of LoadBalancingWeight is [1, 128]
+	maxLoadBalancingWeight = 128
+)
+
 // EndpointsFilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
 type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints
 

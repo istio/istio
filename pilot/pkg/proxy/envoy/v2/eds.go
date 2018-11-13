@@ -65,11 +65,6 @@ var (
 	connectionNumber = int64(0)
 )
 
-const (
-	// The range of LoadBalancingWeight is [1, 128]
-	maxLoadBalancingWeight = 128
-)
-
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
 // all clusters until we support on-demand cluster loading.
 type EdsCluster struct {
