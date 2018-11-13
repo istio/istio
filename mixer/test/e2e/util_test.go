@@ -41,10 +41,11 @@ type testData struct {
 	templates map[string]template.Info
 	attrs     map[string]interface{}
 
-	expectError    error
-	expectSetTypes map[string]interface{}
-	expectCalls    []spyAdapter.CapturedCall
-	expectAttrRefs []expectedAttrRef
+	expectError     error
+	expectSetTypes  map[string]interface{}
+	expectCalls     []spyAdapter.CapturedCall
+	expectDirective *istio_mixer_v1.RouteDirective
+	expectAttrRefs  []expectedAttrRef
 }
 
 type expectedAttrRef struct {
@@ -105,6 +106,13 @@ func (tt *testData) run(t *testing.T, variety v1beta1.TemplateVariety, globalCfg
 		tt.checkReturnError(t, err)
 		tt.checkCalls(t, spyAdapters)
 		tt.checkReferencedAttributes(t, response.Precondition.ReferencedAttributes)
+
+		if tt.expectDirective != nil {
+			if !reflect.DeepEqual(tt.expectDirective, response.Precondition.RouteDirective) {
+				t.Fatalf("Route directive mismatch:\ngot:\n%v\nwanted:\n%v\n", spew.Sdump(response.Precondition.RouteDirective),
+					spew.Sdump(tt.expectDirective))
+			}
+		}
 
 	default:
 		t.Fatalf("Unsupported variety: %v", variety)
