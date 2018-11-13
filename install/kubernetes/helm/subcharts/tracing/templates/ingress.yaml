@@ -1,6 +1,6 @@
 {{- if .Values.ingress.enabled -}}
-{{- $serviceName := "zipkin" -}}
-{{- $servicePort := .Values.service.externalPort -}}
+{{- $serviceName := "tracing" -}}
+{{- $servicePort := 80 -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -17,6 +17,7 @@ metadata:
     {{- end }}
 spec:
   rules:
+{{- if .Values.ingress.hosts }}
     {{- range $host := .Values.ingress.hosts }}
     - host: {{ $host }}
       http:
@@ -25,8 +26,17 @@ spec:
             backend:
               serviceName: {{ $serviceName }}
               servicePort: {{ $servicePort }}
+
     {{- end -}}
-  {{- if .Values.ingress.tls }}
+{{- else }}
+    - http:
+        paths:
+          - path: /
+            backend:
+              serviceName: {{ $serviceName }}
+              servicePort: {{ $servicePort }}
+{{- end }}
+   {{- if .Values.ingress.tls }}
   tls:
 {{ toYaml .Values.ingress.tls | indent 4 }}
   {{- end -}}
