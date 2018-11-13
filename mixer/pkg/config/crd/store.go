@@ -204,17 +204,19 @@ func (s *Store) retryCreateCache(
 	tick := time.Tick(s.bgRetryInterval)
 	stopRetry := false
 
-	for len(remaining) != 0 && !stopRetry {
+	for range tick {
 		select {
 		case <-s.donec:
 			stopRetry = true
-		case <-tick:
+		default:
 			rm := s.checkAndCreateCaches(d, lwBuilder, remaining)
 			if len(rm) < len(remaining) {
 				log.Debugf("discovered %v new kinds, remaining undiscovered kinds: %v", len(remaining)-len(rm), rm)
 			}
 			remaining = rm
-		default:
+		}
+		if stopRetry || len(remaining) == 0 {
+			break
 		}
 	}
 }
@@ -357,3 +359,4 @@ func (s *Store) OnDelete(obj interface{}) {
 		s.dispatch(ev)
 	}
 }
+
