@@ -65,30 +65,37 @@ type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
 
-	// Timestamp
+	// Timestamp of the edge
 	Timestamp time.Time
 
-	// Source of edge.
+	// Namespace of the source workload
 	SourceWorkloadNamespace string
 
+	// Name of the source workload
 	SourceWorkloadName string
 
+	// Owner of the source workload (often k8s deployment)
 	SourceOwner string
 
+	// UID of the source workload
 	SourceUid string
 
-	// Destination of edge
+	// Namespace of the destination workload
 	DestinationWorkloadNamespace string
 
+	// Name of the destination workload
 	DestinationWorkloadName string
 
+	// Owner of the destination workload (often k8s deployment)
 	DestinationOwner string
 
+	// UID of the destination workload
 	DestinationUid string
 
-	// Protocol used
+	// Protocol used for communication (http, tcp)
 	ContextProtocol string
 
+	// The protocol type of the API call (http, https, grpc)
 	ApiProtocol string
 }
 
