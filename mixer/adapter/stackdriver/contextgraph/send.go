@@ -24,6 +24,8 @@ import (
 	contextgraphpb "google.golang.org/genproto/googleapis/cloud/contextgraph/v1alpha1"
 )
 
+// Maximum payload size allowed for calling this API is 600KB. Set to
+// 550 to be safe.
 const maxReq = 550 * 1024
 
 func (h *handler) cacheAndSend(ctx context.Context) {
