@@ -141,7 +141,7 @@ type DiscoveryServer struct {
 	// incremental updates.
 	EndpointShardsByService map[string]*EndpointShardsByService
 
-	// WorkloadsById keeps track of informations about a workload, based on direct notifications
+	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
 	WorkloadsByID map[string]*Workload
 
