@@ -298,6 +298,12 @@ type NetworkEndpoint struct {
 
 	// The network where this endpoint is present
 	Network string
+
+	// The locality where the endpoint is present. / separated string
+	Locality string
+
+	// The load balancing weight associated with this endpoint.
+	LbWeight uint32
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -369,7 +375,7 @@ func (si *ServiceInstance) GetAZ() string {
 // IstioEndpoint has the information about a single address+port for a specific
 // service and shard.
 //
-// This will eventually replace NetworkEndpoint and ServiceInstance:
+// TODO: Replace NetworkEndpoint and ServiceInstance with Istio endpoints
 // - ServicePortName replaces ServicePort, since port number and protocol may not
 // be available when endpoint callbacks are made.
 // - It no longer splits into one ServiceInstance and one NetworkEndpoint - both
@@ -413,6 +419,12 @@ type IstioEndpoint struct {
 
 	// Network holds the network where this endpoint is present
 	Network string
+
+	// The locality where the endpoint is present. / separated string
+	Locality string
+
+	// The load balancing weight associated with this endpoint.
+	LbWeight int
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
