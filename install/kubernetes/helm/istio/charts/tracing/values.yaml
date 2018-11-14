@@ -30,6 +30,9 @@ podAntiAffinityTermLabelSelector: {}
 jaeger:
   hub: docker.io/jaegertracing
   tag: 1.9
+  # The spec represents the Jaeger operator's custom resource (CR).
+  # CR docs can be found here: https://github.com/jaegertracing/jaeger-operator#creating-a-new-jaeger-instance
+  # Some example CRs: https://github.com/jaegertracing/jaeger-operator/tree/master/deploy/examples
   spec:
     strategy: allInOne
     storage:
@@ -44,7 +47,7 @@ jaeger:
         cassandra:
           servers: cassandra
           keyspace: jaeger_v1_datacenter3
-      cassandra-create-schema:
+      cassandraCreateSchema:
         datacenter: "datacenter3"
         mode: "test"
     ingress:
