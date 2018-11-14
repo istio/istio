@@ -425,7 +425,10 @@ func validateServer(server *networking.Server) (errs error) {
 				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
 			}
 			if err := ValidateWildcardDomain(host); err != nil {
-				errs = appendErrors(errs, err)
+				ipAddr := net.ParseIP(host) // Could also be an IP
+				if ipAddr == nil {
+					errs = appendErrors(errs, err)
+				}
 			}
 		}
 	}
@@ -1346,11 +1349,11 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
 		if err := ValidateWildcardDomain(host); err != nil {
-			ipAddr := net.ParseIP(host)
-			if ipAddr == nil { // Could be an IP address
+			ipAddr := net.ParseIP(host) // Could also be an IP
+			if ipAddr == nil {
 				errs = appendErrors(errs, err)
+				allHostsValid = false
 			}
-			allHostsValid = false
 		} else if appliesToMesh && host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
 			allHostsValid = false
@@ -1427,9 +1430,11 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 }
 
 func validateSniHost(sniHost string, context *networking.VirtualService) error {
-	err := ValidateWildcardDomain(sniHost)
-	if err != nil {
-		return err
+	if err := ValidateWildcardDomain(sniHost); err != nil {
+		ipAddr := net.ParseIP(sniHost) // Could also be an IP
+		if ipAddr == nil {
+			return err
+		}
 	}
 	sniHostname := Hostname(sniHost)
 	for _, host := range context.Hosts {
@@ -1437,8 +1442,7 @@ func validateSniHost(sniHost string, context *networking.VirtualService) error {
 			return nil
 		}
 	}
-	err = fmt.Errorf("SNI host is not a compatible subset of the virtual service hosts: %s", sniHost)
-	return err
+	return fmt.Errorf("SNI host is not a compatible subset of the virtual service hosts: %s", sniHost)
 }
 
 func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
