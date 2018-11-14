@@ -30,6 +30,9 @@ function setup_and_export_git_sha() {
 
       # Set artifact dir based on checkout
       export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${GOPATH}/src/istio.io/istio/_artifacts}"
+      E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+      export E2E_ARGS
+
     elif [[ "${CI:-}" == 'prow' ]]; then
       # Set artifact dir based on checkout
       export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${ARTIFACTS}}"
@@ -48,3 +51,57 @@ function setup_and_export_git_sha() {
   fi
   gcloud auth configure-docker -q
 }
+
+# Download and unpack istio release artifacts.
+function download_untar_istio_release() {
+  local url_path=${1}
+  local tag=${2}
+  local dir=${3:-.}
+  # Download artifacts
+  LINUX_DIST_URL="${url_path}/istio-${tag}-linux.tar.gz"
+
+  wget  -q "${LINUX_DIST_URL}" -P "${dir}"
+  tar -xzf "${dir}/istio-${tag}-linux.tar.gz" -C "${dir}"
+
+  export ISTIOCTL_BIN="${GOPATH}/src/istio.io/istio/istio-${TAG}/bin/istioctl"
+}
+
+# Cleanup e2e resources.
+function cleanup() {
+  if [[ "${CLEAN_CLUSTERS}" == "True" ]]; then
+    unsetup_clusters
+  fi
+  if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
+    mason_cleanup
+    cat "${FILE_LOG}"
+  fi
+}
+
+# Set up a GKE cluster for testing.
+function setup_e2e_cluster() {
+  WD=$(dirname "$0")
+  WD=$(cd "$WD" || exit; pwd)
+  ROOT=$(dirname "$WD")
+
+  # shellcheck source=prow/mason_lib.sh
+  source "${ROOT}/prow/mason_lib.sh"
+  # shellcheck source=prow/cluster_lib.sh
+  source "${ROOT}/prow/cluster_lib.sh"
+
+  trap cleanup EXIT
+
+  if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
+    INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
+    FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
+    OWNER=${OWNER:-"e2e"}
+    E2E_ARGS+=("--mason_info=${INFO_PATH}")
+
+    setup_and_export_git_sha
+
+    get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
+  else
+    export GIT_SHA="${GIT_SHA:-$TAG}"
+  fi
+  setup_cluster
+}
+
