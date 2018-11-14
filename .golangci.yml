@@ -35,7 +35,7 @@ linters-settings:
     check-blank: false
   govet:
     # report about shadowed variables
-    check-shadowing: true
+    check-shadowing: false
   golint:
     # minimal confidence for issues, default is 0.8
     min-confidence: 0.0
@@ -104,13 +104,30 @@ linters-settings:
     simple: true
     range-loops: true # Report preallocation suggestions on range loops, true by default
     for-loops: false # Report preallocation suggestions on for loops, false by default
+  gocritic:
+    # which checks should be enabled; can't be combined with 'disabled-checks';
+    # default are: [appendAssign assignOp caseOrder dupArg dupBranchBody dupCase flagDeref
+    # ifElseChain regexpMust singleCaseSwitch sloppyLen switchTrue typeSwitchVar underef
+    # unlambda unslice rangeValCopy defaultCaseOrder];
+    # all checks list: https://github.com/go-critic/checkers
+    enabled-checks:
+      - rangeValCopy
+    settings: # settings passed to gocritic
+      captLocal: # must be valid enabled check name
+        checkLocals: true
+      rangeValCopy:
+        sizeThreshold: 32
 
 linters:
   enable:
-    - deadcode
-    - errcheck
-    - goconst
     - goimports
+    - govet
+    - gosimple
+    - lll
+    - misspell
+    - staticcheck
+    - ineffassign
+    - unused
   enable-all: false
   disable:
     - gocritic
@@ -118,22 +135,20 @@ linters:
     - typecheck
     - megacheck
     - unparam
-    - gosec
     - scopelint
+    - gochecknoglobals
+    - gochecknoinits
+    - gosec
       # start here to enable back all gometalinter linters
+    - deadcode
+    - errcheck
+    - goconst
     - golint
-    - gosimple
-    - ineffassign
-    - interfacer
-    - lll
     - maligned
-    - misspell
-    - staticcheck
+    - interfacer
     - structcheck
     - unconvert
-    - unused
     - varcheck
-    - govet
   disable-all: false
   presets:
     - bugs
