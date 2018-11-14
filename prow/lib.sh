@@ -30,7 +30,8 @@ function setup_and_export_git_sha() {
 
       # Set artifact dir based on checkout
       export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${GOPATH}/src/istio.io/istio/_artifacts}"
-      export E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+      E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+      export E2E_ARGS
 
     elif [[ "${CI:-}" == 'prow' ]]; then
       # Set artifact dir based on checkout
@@ -93,7 +94,7 @@ function setup_e2e_cluster() {
     INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
     FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
     OWNER=${OWNER:-"e2e"}
-    export E2E_ARGS+=("--mason_info=${INFO_PATH}")
+    E2E_ARGS+=("--mason_info=${INFO_PATH}")
 
     setup_and_export_git_sha
 
