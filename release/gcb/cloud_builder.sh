@@ -84,13 +84,16 @@ MAKE_TARGETS=(build)
 VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${CB_ISTIOCTL_DOCKER_HUB}" HUB="${CB_ISTIOCTL_DOCKER_HUB}" VERSION="${CNI_VERSION}" TAG="${CB_VERSION}" make "${MAKE_TARGETS[@]}"
 BUILD_DOCKER_TARGETS=(docker)
 
-rm -r "${ISTIO_OUT}/docker"
+if [ -d "${CNI_OUT}/docker" ]; then
+    rm -r "${CNI_OUT}/docker"
+fi
 
 VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="master" TAG="${CB_VERSION}" make "${BUILD_DOCKER_TARGETS[@]}"
 
-cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
+cp -r "${CNI_OUT}/docker" "${OUTPUT_PATH}/"
 
 go run ../istio/tools/license/get_dep_licenses.go --branch "master" > LICENSES.txt
+#TODO confirm this doesn't add the CNI licenses to the istio tar files
 ../istio/add_license_to_tar_images "${REL_DOCKER_HUB}" "${CNI_VERSION}" "${OUTPUT_PATH}"
 
 # log where git thinks the build might be dirty
