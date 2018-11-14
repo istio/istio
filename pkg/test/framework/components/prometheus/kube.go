@@ -25,7 +25,7 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/istio/pkg/test/util"
+	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
@@ -43,6 +43,9 @@ var (
 
 	// KubeComponent is a component for the Kubernetes environment.
 	KubeComponent = &component{}
+
+	retryTimeout = retry.Timeout(time.Second * 30)
+	retryDelay   = retry.Delay(time.Second * 5)
 
 	_ io.Closer                      = &deployedPrometheus{}
 	_ environment.DeployedPrometheus = &deployedPrometheus{}
@@ -85,10 +88,16 @@ func (c *component) Init(ctx environment.ComponentContext, _ map[dependency.Inst
 
 	// Find the Prometheus pod and service, and start forwarding a local port.
 	s := env.KubeSettings()
-	pod, err := env.Accessor.WaitForPodBySelectors(s.IstioSystemNamespace, fmt.Sprintf("app=%s", appName))
+
+	fetchFn := env.Accessor.NewSinglePodFetch(s.IstioSystemNamespace, fmt.Sprintf("app=%s", appName))
+	if err := env.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
+		return nil, err
+	}
+	pods, err := fetchFn()
 	if err != nil {
 		return nil, err
 	}
+	pod := pods[0]
 
 	svc, err := env.Accessor.GetService(s.IstioSystemNamespace, serviceName)
 	if err != nil {
@@ -132,7 +141,7 @@ func (b *deployedPrometheus) WaitForQuiesce(format string, args ...interface{}) 
 
 	time.Sleep(time.Second * 5)
 
-	value, err := util.Retry(time.Second*30, time.Second*5, func() (interface{}, bool, error) {
+	value, err := retry.Do(func() (interface{}, bool, error) {
 
 		query, err := b.env.Evaluate(fmt.Sprintf(format, args...))
 		if err != nil {
@@ -159,7 +168,7 @@ func (b *deployedPrometheus) WaitForQuiesce(format string, args ...interface{}) 
 		}
 
 		return v, true, nil
-	})
+	}, retryTimeout, retryDelay)
 
 	var v model.Value
 	if value != nil {
@@ -172,7 +181,7 @@ func (b *deployedPrometheus) WaitForOneOrMore(format string, args ...interface{}
 
 	time.Sleep(time.Second * 5)
 
-	_, err := util.Retry(time.Second*30, time.Second*5, func() (interface{}, bool, error) {
+	_, err := retry.Do(func() (interface{}, bool, error) {
 
 		query, err := b.env.Evaluate(fmt.Sprintf(format, args...))
 		if err != nil {
@@ -203,7 +212,7 @@ func (b *deployedPrometheus) WaitForOneOrMore(format string, args ...interface{}
 			return nil, true, fmt.Errorf("unhandled value type: %v", v.Type())
 		}
 
-	})
+	}, retryTimeout, retryDelay)
 
 	return err
 }
