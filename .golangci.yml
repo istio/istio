@@ -107,6 +107,9 @@ linters-settings:
 
 linters:
   enable:
+    - deadcode
+    - errcheck
+    - goconst
     - goimports
   enable-all: false
   disable:
@@ -118,9 +121,6 @@ linters:
     - gosec
     - scopelint
       # start here to enable back all gometalinter linters
-    - deadcode
-    - errcheck
-    - goconst
     - golint
     - gosimple
     - ineffassign
