@@ -224,7 +224,8 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 		endpointsFilterFuncs: []EndpointsFilterFunc{
-			EndpointsByNetworkFilter, // A filter to support Split Horizon EDS
+			EndpointsByNetworkFilter,     // A filter to support Split Horizon EDS
+			LoadBalancingWeightNormalize, // Normalize LoadBalancingWeight in range [1, 128]
 		},
 	}
 	env.PushContext = model.NewPushContext()

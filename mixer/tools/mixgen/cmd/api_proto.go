@@ -29,7 +29,7 @@ package {{.PackageName}};
 import "gogoproto/gogo.proto";
 import "mixer/adapter/model/v1beta1/extensions.proto";
 import "google/protobuf/any.proto";
-{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
+{{if or (eq .VarietyName "TEMPLATE_VARIETY_CHECK") (eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT") -}}
 import "mixer/adapter/model/v1beta1/check.proto";
 {{- else if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}
 import "mixer/adapter/model/v1beta1/report.proto";
@@ -50,13 +50,15 @@ service Handle{{.InterfaceName}}Service {
     // Handle{{.InterfaceName}} is called by Mixer at request-time to deliver '{{.TemplateName}}' instances to the backend.
     {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
       rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (istio.mixer.adapter.model.v1beta1.CheckResult);
+    {{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT" -}}
+      rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (Handle{{.InterfaceName}}Response);
     {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
       rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (istio.mixer.adapter.model.v1beta1.QuotaResult);
     {{else if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}
       rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (istio.mixer.adapter.model.v1beta1.ReportResult);
     {{else if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR" -}}
       rpc Handle{{.InterfaceName}}(Handle{{.InterfaceName}}Request) returns (OutputMsg);
-    {{end}}
+    {{- end}}
 }
 
 // Request message for Handle{{.InterfaceName}} method.
@@ -87,7 +89,14 @@ message Handle{{.InterfaceName}}Request {
     {{- end}}
 }
 
-{{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR" -}}
+{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT" -}}
+message Handle{{.InterfaceName}}Response {
+    istio.mixer.adapter.model.v1beta1.CheckResult result = 1;
+    OutputMsg output = 2;
+}
+{{- end}}
+
+{{if or (eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR") (eq .VarietyName "TEMPLATE_VARIETY_CHECK_WITH_OUTPUT") -}}
 // Contains output payload for '{{.TemplateName}}' template.
 message OutputMsg {
     {{range .OutputTemplateMessage.Fields}}
@@ -95,7 +104,7 @@ message OutputMsg {
     {{typeName .ProtoType}} {{.ProtoName}} = {{.Number}};{{reportTypeUsed .ProtoType}}
     {{end}}
 }
-{{end}}
+{{- end}}
 
 // Contains instance payload for '{{.TemplateName}}' template. This is passed to infrastructure backends during request-time
 // through Handle{{.InterfaceName}}Service.Handle{{.InterfaceName}}.

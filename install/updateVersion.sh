@@ -133,13 +133,6 @@ export FORTIO_TAG="${FORTIO_TAG}"
 EOF
 }
 
-function update_istio_addons() {
-  SRC_DIR=$ROOT/install/kubernetes/addons
-  DEST=$DEST_DIR/install/kubernetes/addons
-  mkdir -p "$DEST"
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" "$SRC_DIR/zipkin.yaml.tmpl" > "$DEST/zipkin.yaml"
-}
-
 function gen_file() {
     fl=$1
     dest=$2
@@ -240,9 +233,6 @@ fi
 
 # Update the istio.VERSION file
 update_version_file
-
-# Generate the addons which aren't covered by Helm charts (zipkin)
-update_istio_addons
 
 # Generate the istio*.yaml files
 gen_istio_files

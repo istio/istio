@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
-
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	"istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -248,6 +248,96 @@ ident                         : dest.istio-system
 [tcheck] DispatchCheck => handler exists: 'true'
 [tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{foo: &Value{Kind:&Value_StringValue{StringValue:bar,},XXX_unrecognized:[],},},XXX_unrecognized:[],}'
 [tcheck] DispatchCheck <= (SUCCESS)
+`,
+	},
+
+	{
+		name: "BasicCheckOutput",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckOutput1,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: 123 * time.Second,
+			ValidUseCount: 123,
+			RouteDirective: &v1.RouteDirective{
+				RequestHeaderOperations: []v1.HeaderOperation{{
+					Name:  "user",
+					Value: "1337",
+				}},
+			},
+		},
+		log: `
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheck => context exists: 'true'
+[tcheckoutput] DispatchCheck => handler exists: 'true'
+[tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
+`,
+	},
+
+	{
+		name: "BasicCheckMultipleOutput",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckOutput2,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		attr: map[string]interface{}{
+			"prefix.generated.string": "bar",
+			"ident":                   "dest.istio-system",
+		},
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: 123 * time.Second,
+			ValidUseCount: 123,
+			RouteDirective: &v1.RouteDirective{
+				RequestHeaderOperations: []v1.HeaderOperation{{
+					Name:      "a-header",
+					Value:     "1337",
+					Operation: v1.REPLACE,
+				}, {
+					Name:      "user",
+					Operation: v1.REMOVE,
+				}},
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:      "b-header",
+					Value:     "1337",
+					Operation: v1.APPEND,
+				}, {
+					Name:      "b-header",
+					Value:     "bar",
+					Operation: v1.APPEND,
+				}},
+			},
+		},
+		log: `
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+prefix.generated.string       : bar
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheck => context exists: 'true'
+[tcheckoutput] DispatchCheck => handler exists: 'true'
+[tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
+[tcheckoutput] InstanceBuilderFn() => name: 'tcheckoutput', bag: '---
+ident                         : dest.istio-system
+prefix.generated.string       : bar
+'
+[tcheckoutput] InstanceBuilderFn() <= (SUCCESS)
+[tcheckoutput] DispatchCheck => context exists: 'true'
+[tcheckoutput] DispatchCheck => handler exists: 'true'
+[tcheckoutput] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheckoutput] DispatchCheck <= (SUCCESS)
+[tcheckoutput] DispatchCheck => output: {value: '1337'}
 `,
 	},
 
@@ -751,7 +841,7 @@ func TestDispatcher(t *testing.T) {
 
 			var err error
 			switch tst.variety {
-			case tpb.TEMPLATE_VARIETY_CHECK:
+			case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
 				cres, e := dispatcher.Check(context.TODO(), bag)
 
 				if e == nil {

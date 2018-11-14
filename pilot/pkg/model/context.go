@@ -310,7 +310,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 // input YAML with defaults applied to omitted configuration values.
 func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	out := DefaultMeshConfig()
-	if err := ApplyYAML(yaml, &out); err != nil {
+	if err := ApplyYAML(yaml, &out, false); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
@@ -327,7 +327,7 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 		if err != nil {
 			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
 		}
-		if err := ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
+		if err := ApplyYAML(origProxyConfigYAML, out.DefaultConfig, false); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
@@ -350,7 +350,7 @@ func EmptyMeshNetworks() meshconfig.MeshNetworks {
 // input YAML.
 func LoadMeshNetworksConfig(yaml string) (*meshconfig.MeshNetworks, error) {
 	out := EmptyMeshNetworks()
-	if err := ApplyYAML(yaml, &out); err != nil {
+	if err := ApplyYAML(yaml, &out, false); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 

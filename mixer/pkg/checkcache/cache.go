@@ -35,7 +35,6 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/pkg/cache"
@@ -74,6 +73,9 @@ type Value struct {
 
 	// ReferencedAttributes for the Check operation
 	ReferencedAttributes mixerpb.ReferencedAttributes
+
+	// RouteDirective for the completed Check operation
+	RouteDirective *mixerpb.RouteDirective
 }
 
 var (

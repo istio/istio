@@ -81,6 +81,8 @@ message HandleListEntryRequest {
 
 
 
+
+
 // Contains instance payload for 'listentry' template. This is passed to infrastructure backends during request-time
 // through HandleListEntryService.HandleListEntry.
 message InstanceMsg {

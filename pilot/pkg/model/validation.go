@@ -66,6 +66,26 @@ var (
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
+// envoy supported retry on header values
+var supportedRetryOnPolicies = map[string]bool{
+	// 'x-envoy-retry-on' supported policies:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on
+	"5xx":                    true,
+	"gateway-error":          true,
+	"connect-failure":        true,
+	"retriable-4xx":          true,
+	"refused-stream":         true,
+	"retriable-status-codes": true,
+
+	// 'x-envoy-retry-grpc-on' supported policies:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on
+	"cancelled":          true,
+	"deadline-exceeded":  true,
+	"internal":           true,
+	"resource-exhausted": true,
+	"unavailable":        true,
+}
+
 // golang supported methods: https://golang.org/src/net/http/method.go
 var supportedMethods = map[string]bool{
 	http.MethodGet:     true,
@@ -435,7 +455,7 @@ func validateServer(server *networking.Server) (errs error) {
 		} else if !protocol.IsTLS() && server.Tls != nil {
 			// only tls redirect is allowed if this is a HTTP server
 			if protocol.IsHTTP() {
-				if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH ||
+				if !IsPassThroughServer(server) ||
 					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
 					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
 				}
@@ -1742,6 +1762,15 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	if retries.PerTryTimeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(retries.PerTryTimeout))
 	}
+	if retries.RetryOn != "" {
+		retryOnPolicies := strings.Split(retries.RetryOn, ",")
+		for _, policy := range retryOnPolicies {
+			if !supportedRetryOnPolicies[policy] {
+				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
+			}
+		}
+	}
+
 	return
 }
 
