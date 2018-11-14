@@ -203,12 +203,12 @@ func (c *CommonConfig) saveLogs(r int) error {
 	if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace, c.Kube.KubeConfig); err != nil {
 		return err
 	}
-	if c.Kube.RemoteKubeConfig  != "" {
+	if c.Kube.RemoteKubeConfig != "" {
 		if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace, c.Kube.RemoteKubeConfig); err != nil {
 			return err
 		}
 	}
-        return nil
+	return nil
 }
 
 // RunTest sets up all registered cleanables in FIFO order
