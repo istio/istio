@@ -58,18 +58,11 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 
 		lbEndpoints := []endpoint.LbEndpoint{}
 		for _, lbEp := range ep.LbEndpoints {
-			epNetwork, _ := istioMetadata(lbEp, "network")
+			epNetwork := istioMetadata(lbEp, "network")
 			if epNetwork == network {
 				// This is a local endpoint
 				lbEndpoints = append(lbEndpoints, lbEp)
 			} else {
-				// If there is no istio.uid metadata then it can be a service with no
-				// selector where endpoints object was manually created. In such case
-				// ignore the endpoint when network is not the endpoint's network.
-				// TODO Is there a better way?
-				if _, exists := istioMetadata(lbEp, "uid"); !exists {
-					continue
-				}
 				// Remote endpoint. Increase the weight counter
 				remoteEps[epNetwork]++
 			}
@@ -135,14 +128,14 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 
 // Checks whether there is an istio metadata string value for the provided key
 // within the endpoint metadata. If exists, it will return the value.
-func istioMetadata(ep endpoint.LbEndpoint, key string) (string, bool) {
+func istioMetadata(ep endpoint.LbEndpoint, key string) string {
 	if ep.Metadata != nil &&
 		ep.Metadata.FilterMetadata["istio"] != nil &&
 		ep.Metadata.FilterMetadata["istio"].Fields != nil &&
 		ep.Metadata.FilterMetadata["istio"].Fields[key] != nil {
-		return ep.Metadata.FilterMetadata["istio"].Fields[key].GetStringValue(), true
+		return ep.Metadata.FilterMetadata["istio"].Fields[key].GetStringValue()
 	}
-	return "", false
+	return ""
 }
 
 func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints []endpoint.LbEndpoint) *endpoint.LocalityLbEndpoints {
