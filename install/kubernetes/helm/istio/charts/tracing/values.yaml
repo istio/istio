@@ -35,6 +35,14 @@ jaeger:
   # Some example CRs: https://github.com/jaegertracing/jaeger-operator/tree/master/deploy/examples
   spec:
     strategy: allInOne
+    allInOne:
+      options:
+        query:
+          base-path: /jaeger
+    query:
+      options:
+        query:
+          base-path: /jaeger
     storage:
       type: memory
       options:
