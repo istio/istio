@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/proto"
 )
 
 // Headers with special meaning in Envoy
@@ -107,7 +108,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
 				})
 			}
 		}
@@ -534,10 +535,23 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 func translateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
 	if in != nil && in.Attempts > 0 {
 		d := util.GogoDurationToDuration(in.PerTryTimeout)
+		// default retry on condition
+		retryOn := "gateway-error,connect-failure,refused-stream,unavailable,cancelled,resource-exhausted"
+		if in.RetryOn != "" {
+			retryOn = in.RetryOn
+		}
 		return &route.RouteAction_RetryPolicy{
 			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},
-			RetryOn:       "5xx,connect-failure,refused-stream",
+			RetryOn:       retryOn,
 			PerTryTimeout: &d,
+			RetryHostPredicate: []*route.RouteAction_RetryPolicy_RetryHostPredicate{
+				{
+					// to configure retries to prefer hosts that haven’t been attempted already,
+					// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
+					Name: "envoy.retry_host_predicates.previous_hosts",
+				},
+			},
+			HostSelectionRetryMaxAttempts: 3,
 		}
 	}
 	return nil
@@ -551,7 +565,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
-		Enabled:     &types.BoolValue{Value: true},
+		Enabled:     proto.BoolTrue,
 	}
 	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
@@ -591,10 +605,10 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
 
-	defaultRoute := &route.Route{
+	return &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
@@ -603,18 +617,10 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 				Timeout:          &notimeout,
+				MaxGrpcTimeout:   &notimeout,
 			},
 		},
 	}
-
-	defaultRoute.Action = &route.Route_Route{
-		Route: &route.RouteAction{
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-			Timeout:          &notimeout,
-			MaxGrpcTimeout:   &notimeout,
-		},
-	}
-	return defaultRoute
 }
 
 // translatePercentToFractionalPercent translates an v1alpha3 Percent instance

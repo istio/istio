@@ -24,7 +24,9 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	v2_cluster "github.com/envoyproxy/go-control-plane/envoy/api/v2/cluster"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -411,7 +413,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *net
 	applyLoadBalancer(cluster, loadBalancer)
 	if clusterMode != SniDnatClusterMode {
 		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni)
-		applyUpstreamTLSSettings(cluster, tls, env.Mesh.SdsUdsPath)
+		applyUpstreamTLSSettings(env, cluster, tls)
 	}
 }
 
@@ -482,12 +484,20 @@ func applyOutlierDetection(cluster *v2.Cluster, outlier *networking.OutlierDetec
 	}
 
 	cluster.OutlierDetection = out
+
+	if outlier.MinHealthPercent > 0 {
+		if cluster.CommonLbConfig == nil {
+			cluster.CommonLbConfig = &v2.Cluster_CommonLbConfig{}
+		}
+		cluster.CommonLbConfig.HealthyPanicThreshold = &envoy_type.Percent{Value: float64(outlier.MinHealthPercent)}
+	}
 }
 
 func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings) {
 	if lb == nil {
 		return
 	}
+
 	// TODO: MAGLEV
 	switch lb.GetSimple() {
 	case networking.LoadBalancerSettings_LEAST_CONN:
@@ -514,7 +524,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 }
 
-func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, sdsUdsPath string) {
+func applyUpstreamTLSSettings(env *model.Environment, cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
 	}
@@ -566,7 +576,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if sdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+		if env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -586,7 +596,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			}
 		} else {
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName))
+				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount))
 
 			rootResourceName := model.SDSRootResourceName
 			if len(tls.SubjectAltNames) > 0 {
@@ -597,7 +607,8 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			}
 
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(rootResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName),
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(
+					rootResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount),
 			}
 		}
 

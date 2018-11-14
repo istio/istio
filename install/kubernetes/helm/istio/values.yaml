@@ -33,6 +33,7 @@ mixer:
 #
 pilot:
   enabled: true
+  traceSampling: 1.0
 
 #
 # security configuration
@@ -83,6 +84,13 @@ kiali:
   enabled: false
 
 #
+# Istio CNI plugin enabled
+#   If true, the privileged initContainer istio-init is not needed to perform the traffic redirect
+#   settings for the istio-proxy.
+#
+istio_cni:
+  enabled: false
+
 # addon Istio CoreDNS configuration
 #
 istiocoredns:
@@ -210,10 +218,6 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
-  # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
-  sdsEnabled: false
-
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
   disablePolicyChecks: false
@@ -298,16 +302,11 @@ global:
     useILB: false
 
   multiCluster:
-    # Set to true to connect two kubernetes clusters using a LB gateway as
-    # the only entry point into the cluster (instead of requiring pod to
-    # pod connectivity across two clusters). Note that for this system to
-    # work, service objects from remote clusters have to be replicated to
-    # local cluster (without the pod selectors). In addition, service
-    # entries have to be added for each replicated service object, where
-    # the endpoints in the service entry point to the remote cluster's
-    # mcgatewayIP:15443. All clusters should be using Istio mTLS and must
+    # Set to true to connect two kubernetes clusters via their respective
+    # ingressgateway services when pods in each cluster cannot directly
+    # talk to one another. All clusters should be using Istio mTLS and must
     # have a shared root CA for this model to work.
-    connectUsingGateway: false
+    enabled: false
 
   # A minimal set of requested resources to applied to all deployments so that
   # Horizontal Pod Autoscaler will be able to function (if set).
@@ -338,3 +337,14 @@ global:
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
   useMCP: false
+
+  # The trust domain corresponds to the trust root of a system
+  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+  trustDomain: ""
+
+  sds:
+    # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
+    # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
+    enabled: false
+    udsPath: ""
+    enableTokenMount: false

@@ -17,7 +17,6 @@ package v2
 import (
 	"context"
 	"errors"
-	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -64,11 +63,6 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
-)
-
-const (
-	// The range of LoadBalancingWeight is [1, 128]
-	maxLoadBalancingWeight = 128
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -505,19 +499,21 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 	entries []*model.IstioEndpoint) error {
-	return s.edsUpdate(shard, serviceName, entries, false)
+	s.edsUpdate(shard, serviceName, entries, false)
+	return nil
 }
 
 // edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
 // and requests a full/eds push.
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
-	entries []*model.IstioEndpoint, internal bool) error {
+	entries []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
 	// After debounce, the services are merged and pushed.
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	requireFull := false
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
@@ -533,8 +529,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		s.EndpointShardsByService[serviceName] = ep
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
-			s.ConfigUpdate(true)
-			return nil
+			requireFull = true
 		}
 	}
 
@@ -553,15 +548,18 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
 				adsLog.Infof("Endpoint updating service account %s %s", e.ServiceAccount, serviceName)
-				s.ConfigUpdate(true)
-				return nil
+				requireFull = true
 			}
 		}
 	}
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
-	s.ConfigUpdate(false)
-	return nil
+
+	if requireFull {
+		s.ConfigUpdate(true)
+	} else {
+		s.ConfigUpdate(false)
+	}
 }
 
 // LocalityLbEndpointsFromInstances returns a list of Envoy v2 LocalityLbEndpoints.
@@ -654,9 +652,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			}
 			l = filteredCLA
 		}
-
-		// Normalize LoadBalancingWeight in range [1, 128]
-		l.Endpoints = normalizeLoadBalancingWeight(l.Endpoints)
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
@@ -775,27 +770,4 @@ func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.Discov
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
 func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
 	return errors.New("unsupported streaming method")
-}
-
-// normalizeLoadBalancingWeight set LoadBalancingWeight with a valid value.
-func normalizeLoadBalancingWeight(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
-	var totalLbEndpointsNum uint32
-
-	for _, localityLbEndpoint := range endpoints {
-		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
-	}
-	if totalLbEndpointsNum == 0 {
-		return endpoints
-	}
-
-	out := make([]endpoint.LocalityLbEndpoints, len(endpoints))
-	for i, localityLbEndpoint := range endpoints {
-		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = localityLbEndpoint
-	}
-
-	return out
 }

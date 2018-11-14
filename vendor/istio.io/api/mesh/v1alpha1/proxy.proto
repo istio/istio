@@ -106,7 +106,8 @@ message ProxyConfig {
   // Address of the discovery service exposing xDS with mTLS connection.
   string discovery_address = 6;
 
-  reserved 7;
+  // $hide_from_docs
+  google.protobuf.Duration discovery_refresh_delay = 7 [deprecated=true];
 
   // Address of the Zipkin service (e.g. _zipkin:9411_).
   // DEPRECATED: Use [tracing][istio.mesh.v1alpha1.ProxyConfig.tracing] instead.
@@ -121,7 +122,8 @@ message ProxyConfig {
   // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 11;
   
-  reserved 12;
+  // $hide_from_docs
+  string availability_zone = 12 [deprecated=true];
 
   // Authentication policy defines the global switch to control authentication
   // for Envoy-to-Envoy communication for istio components Mixer and Pilot.

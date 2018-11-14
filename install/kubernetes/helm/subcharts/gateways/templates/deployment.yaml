@@ -151,7 +151,7 @@ spec:
           {{- end }}
           {{ end }}
           volumeMounts:
-          {{ if $.Values.global.sdsEnabled }}
+          {{ if $.Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
           {{- end }}
@@ -167,7 +167,7 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{ if $.Values.global.sdsEnabled }}
+      {{ if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
           path: /var/run/sds

@@ -157,3 +157,18 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 		Config: util.MessageToStruct(config),
 	}
 }
+
+// buildOutboundAutoPassthroughFilterStack builds a filter stack with sni_cluster and tcp_proxy
+// used by auto_passthrough gateway servers
+func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model.Proxy, port *model.Port) []listener.Filter {
+	// First build tcp_proxy with access logs
+	// then add sni_cluster to the front
+	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(env, node, util.BlackHoleCluster, port)
+	filterstack := make([]listener.Filter, 0)
+	filterstack = append(filterstack, listener.Filter{
+		Name: util.SniClusterFilter,
+	})
+	filterstack = append(filterstack, tcpProxy...)
+
+	return filterstack
+}

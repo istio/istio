@@ -24,7 +24,6 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
-
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -52,6 +51,9 @@ type dispatchState struct {
 	outputBag   *attribute.MutableBag
 	checkResult adapter.CheckResult
 	quotaResult adapter.QuotaResult
+
+	// attribute prefix for the output bag
+	outputPrefix string
 }
 
 func (ds *dispatchState) clear() {
@@ -63,6 +65,7 @@ func (ds *dispatchState) clear() {
 	ds.quotaArgs = adapter.QuotaArgs{}
 	ds.err = nil
 	ds.outputBag = nil
+	ds.outputPrefix = ""
 	ds.checkResult = adapter.CheckResult{}
 	ds.quotaResult = adapter.QuotaResult{}
 
@@ -122,9 +125,13 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 		ds.outputBag, ds.err = ds.destination.Template.DispatchGenAttrs(
 			ctx, ds.destination.Handler, ds.instances[0], ds.inputBag, ds.mapper)
 
-	case tpb.TEMPLATE_VARIETY_CHECK:
+	case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
+		// allocate a bag to store check output results
+		// this bag is released in session waitForDispatched
+		ds.outputBag = attribute.GetMutableBag(nil)
+
 		ds.checkResult, ds.err = ds.destination.Template.DispatchCheck(
-			ctx, ds.destination.Handler, ds.instances[0])
+			ctx, ds.destination.Handler, ds.instances[0], ds.outputBag, ds.outputPrefix)
 
 	case tpb.TEMPLATE_VARIETY_REPORT:
 		ds.err = ds.destination.Template.DispatchReport(

@@ -23,8 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -32,13 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-)
-
-var (
-	// TODO: extract this into istio.io/pkg/proto/{bool.go or types.go or values.go}
-	boolFalse = &types.BoolValue{
-		Value: false,
-	}
+	"istio.io/istio/pkg/proto"
 )
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
@@ -76,7 +69,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			// manager. Ideally, the merge gateway function should take care of this and intelligently create multiple
 			// groups of servers based on their TLS types as well. For now, we simply assume that if HTTPS,
 			// and the first server in the group is not a passthrough, then this is a HTTP connection manager.
-			if servers[0].Tls != nil && servers[0].Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+			if servers[0].Tls != nil && !model.IsPassThroughServer(servers[0]) {
 				protocol = model.ProtocolHTTP2
 			}
 		}
@@ -285,7 +278,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	routeCfg := &xdsapi.RouteConfiguration{
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
-		ValidateClusters: boolFalse,
+		ValidateClusters: proto.BoolFalse,
 	}
 	// call plugins
 	for _, p := range configgen.Plugins {
@@ -324,10 +317,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: http_conn.SANITIZE_SET,
 					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: &types.BoolValue{Value: true},
+						Subject: proto.BoolTrue,
 						Uri:     true,
 						Dns:     true,
 					},
+					ServerName: EnvoyServerName,
 				},
 			},
 		}
@@ -351,10 +345,11 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						// Forward client cert if connection is mTLS
 						ForwardClientCertDetails: http_conn.SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-							Subject: &types.BoolValue{Value: true},
+							Subject: proto.BoolTrue,
 							Uri:     true,
 							Dns:     true,
 						},
+						ServerName: EnvoyServerName,
 					},
 				},
 			}
@@ -367,7 +362,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 
 func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
-	if server.Tls == nil || server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH {
+	if server.Tls == nil || model.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
@@ -387,7 +382,10 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		}
 	}
 
-	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
+	requireClientCert := proto.BoolFalse
+	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
+		requireClientCert = proto.BoolTrue
+	}
 
 	// Set TLS parameters if they are non-default
 	var tlsParams *auth.TlsParameters
@@ -424,9 +422,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 			AlpnProtocols: ListenersALPNProtocols,
 			TlsParams:     tlsParams,
 		},
-		RequireClientCertificate: &types.BoolValue{
-			Value: requireClientCert,
-		},
+		RequireClientCertificate: requireClientCert,
 	}
 }
 
@@ -459,7 +455,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 					networkFilters: filters,
 				})
 			}
-		} else if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+		} else if !model.IsPassThroughServer(server) {
 			// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 			// and forward to backend
 			// Validation ensures that non-passthrough servers will have certs
@@ -533,26 +529,36 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := push.VirtualServices(gatewaysForWorkload)
 	filterChains := make([]*filterChainOpts, 0)
-	for _, spec := range virtualServices {
-		vsvc := spec.Spec.(*networking.VirtualService)
-		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
-		if len(matchingHosts) == 0 {
-			// the VirtualService's hosts don't include hosts advertised by server
-			continue
-		}
 
-		// For every matching TLS block, generate a filter chain with sni match
-		for _, tls := range vsvc.Tls {
-			for _, match := range tls.Match {
-				if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewaysForWorkload) {
-					// the sni hosts in the match will become part of a filter chain match
-					filterChains = append(filterChains, &filterChainOpts{
-						sniHosts:       match.SniHosts,
-						tlsContext:     nil, // NO TLS context because this is passthrough
-						networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, spec.ConfigMeta),
-					})
+	if server.Tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH {
+		// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
+		filterChains = append(filterChains, &filterChainOpts{
+			sniHosts:       server.Hosts,
+			tlsContext:     nil, // NO TLS context because this is passthrough
+			networkFilters: buildOutboundAutoPassthroughFilterStack(env, node, port),
+		})
+	} else {
+		virtualServices := push.VirtualServices(gatewaysForWorkload)
+		for _, spec := range virtualServices {
+			vsvc := spec.Spec.(*networking.VirtualService)
+			matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
+			if len(matchingHosts) == 0 {
+				// the VirtualService's hosts don't include hosts advertised by server
+				continue
+			}
+
+			// For every matching TLS block, generate a filter chain with sni match
+			for _, tls := range vsvc.Tls {
+				for _, match := range tls.Match {
+					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewaysForWorkload) {
+						// the sni hosts in the match will become part of a filter chain match
+						filterChains = append(filterChains, &filterChainOpts{
+							sniHosts:       match.SniHosts,
+							tlsContext:     nil, // NO TLS context because this is passthrough
+							networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, spec.ConfigMeta),
+						})
+					}
 				}
 			}
 		}

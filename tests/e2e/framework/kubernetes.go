@@ -30,17 +30,15 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/client-go/kubernetes"
-
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
 	yamlSuffix                     = ".yaml"
 	istioInstallDir                = "install/kubernetes"
-	istioAddonsDir                 = "install/kubernetes/addons"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
 	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
@@ -102,10 +100,6 @@ var (
 	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
-
-	addons = []string{
-		"zipkin",
-	}
 )
 
 type appPodsInfo struct {
@@ -133,7 +127,6 @@ type KubeInfo struct {
 	namespaceCreated bool
 	AuthEnabled      bool
 	RBACEnabled      bool
-	InstallAddons    bool
 
 	// Istioctl installation
 	Istioctl *Istioctl
@@ -153,6 +146,7 @@ type KubeInfo struct {
 	RemoteKubeConfig string
 	RemoteKubeClient kubernetes.Interface
 	RemoteAppManager *AppManager
+	RemoteIstioctl   *Istioctl
 }
 
 func getClusterWideInstallFile() string {
@@ -184,7 +178,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
-	i, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, *kubeInjectCM)
+	i, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, *kubeInjectCM, "")
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +205,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	var kubeConfig, remoteKubeConfig string
 	var kubeClient, remoteKubeClient kubernetes.Interface
 	var aRemote *AppManager
+	var remoteI *Istioctl
 	if *multiClusterDir != "" {
 		// multiClusterDir indicates the Kubernetes cluster config should come from files versus
 		// the in cluster config. At the current time only the remote kubeconfig is read from a
@@ -222,6 +217,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		}
 		kubeConfig = tmpfile
 		remoteKubeConfig, err = getKubeConfigFromFile(*multiClusterDir)
+		log.Infof("Remote kubeconfig file %s", remoteKubeConfig)
 		if err != nil {
 			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
@@ -233,7 +229,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
-		remoteI, err := NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector")
+		remoteI, err = NewIstioctl(yamlDir, *namespace, *proxyHub, *proxyTag, *imagePullPolicy, "istio-sidecar-injector", remoteKubeConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -263,6 +259,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		yamlDir:          yamlDir,
 		localCluster:     *localCluster,
 		Istioctl:         i,
+		RemoteIstioctl:   remoteI,
 		AppManager:       a,
 		RemoteAppManager: aRemote,
 		AuthEnabled:      *authEnable,
@@ -589,34 +586,6 @@ func (k *KubeInfo) deepCopy(src map[string][]string) map[string][]string {
 	return newMap
 }
 
-func (k *KubeInfo) deployAddons() error {
-	for _, addon := range addons {
-		addonPath := filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon))
-		baseYamlFile := filepath.Join(k.ReleaseDir, addonPath)
-		content, err := ioutil.ReadFile(baseYamlFile)
-		if err != nil {
-			log.Errorf("Cannot read file %s", baseYamlFile)
-			return err
-		}
-
-		if !*clusterWide {
-			content = replacePattern(content, istioSystem, k.Namespace)
-		}
-
-		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
-		err = ioutil.WriteFile(yamlFile, content, 0600)
-		if err != nil {
-			log.Errorf("Cannot write into file %s", yamlFile)
-		}
-
-		if err := util.KubeApply(k.Namespace, yamlFile, k.KubeConfig); err != nil {
-			log.Errorf("Kubectl apply %s failed", yamlFile)
-			return err
-		}
-	}
-	return nil
-}
-
 func (k *KubeInfo) deployIstio() error {
 	istioYaml := nonAuthInstallFileNamespace
 	if *multiClusterDir != "" {
@@ -660,22 +629,10 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
-	if k.InstallAddons {
-		if err := k.deployAddons(); err != nil {
-			log.Error("Failed to deploy istio addons")
-			return err
-		}
-	}
-
 	if *multiClusterDir != "" {
 		// Create namespace on any remote clusters
 		if err := util.CreateNamespace(k.Namespace, k.RemoteKubeConfig); err != nil {
 			log.Errorf("Unable to create namespace %s on remote cluster: %s", k.Namespace, err.Error())
-			return err
-		}
-		// Create the local secrets and configmap to start pilot
-		if err := util.CreateMultiClusterSecrets(k.Namespace, k.RemoteKubeConfig, k.KubeConfig); err != nil {
-			log.Errorf("Unable to create secrets on local cluster %s", err.Error())
 			return err
 		}
 

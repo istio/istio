@@ -62,6 +62,8 @@ message HandleSampleReportRequest {
 
 
 
+
+
 // Contains instance payload for 'samplereport' template. This is passed to infrastructure backends during request-time
 // through HandleSampleReportService.HandleSampleReport.
 message InstanceMsg {
