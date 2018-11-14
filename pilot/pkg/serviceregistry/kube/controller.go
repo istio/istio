@@ -116,6 +116,8 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[model.Hostname]*model.Service
+	// instanceMap stores hostname ==> instance, is used to store ExternalName k8s services
+	instanceMap map[model.Hostname][]*model.ServiceInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -144,6 +146,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 		ClusterID:    options.ClusterID,
 		XDSUpdater:   options.XDSUpdater,
 		servicesMap:  make(map[model.Hostname]*model.Service),
+		instanceMap:  make(map[model.Hostname][]*model.ServiceInstance),
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -433,6 +436,13 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists && reqSvcPort != 0 {
 		return nil, nil
+	}
+
+	c.RLock()
+	instances := c.instanceMap[hostname]
+	c.RUnlock()
+	if instances != nil {
+		return instances, nil
 	}
 
 	for _, item := range c.endpoints.informer.GetStore().List() {
@@ -741,6 +751,39 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		}
 		return nil
 	})
+
+	c.services.handler.Append(func(obj interface{}, event model.Event) error {
+		svc, ok := obj.(*v1.Service)
+		if !ok {
+			return nil
+		}
+
+		if svc.Namespace == meta_v1.NamespaceSystem {
+			return nil
+		}
+
+		svcConv := convertService(*svc, c.domainSuffix)
+		instances := externalNameServiceInstances(*svc, svcConv)
+		switch event {
+		case model.EventDelete:
+			c.Lock()
+			delete(c.instanceMap, svcConv.Hostname)
+			c.Unlock()
+		default:
+			c.Lock()
+			if instances != nil {
+				c.instanceMap[svcConv.Hostname] = instances
+			}
+			c.Unlock()
+		}
+
+		for _, instance := range instances {
+			f(instance, event)
+		}
+
+		return nil
+	})
+
 	return nil
 }
 

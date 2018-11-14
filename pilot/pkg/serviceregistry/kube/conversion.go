@@ -74,8 +74,12 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		external = svc.Spec.ExternalName
-		resolution = model.Passthrough
-		meshExternal = true
+		if strings.HasSuffix(external, "."+domainSuffix) {
+			resolution = model.DNSLB
+		} else {
+			resolution = model.Passthrough
+			meshExternal = true
+		}
 	}
 
 	if addr == model.UnspecifiedIP && external == "" { // headless services should not be load balanced
@@ -115,6 +119,29 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			Namespace: svc.Namespace,
 			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
 		},
+	}
+}
+
+func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*model.ServiceInstance {
+	if k8sSvc.Spec.Type != v1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
+		return nil
+	}
+	var out []*model.ServiceInstance
+	for _, portEntry := range svc.Ports {
+		out = append(out, serviceInstance(k8sSvc, portEntry, svc))
+	}
+	return out
+}
+
+func serviceInstance(k8sSvc v1.Service, portEntry *model.Port, svc *model.Service) *model.ServiceInstance {
+	return &model.ServiceInstance{
+		Endpoint: model.NetworkEndpoint{
+			Address:     k8sSvc.Spec.ExternalName,
+			Port:        portEntry.Port,
+			ServicePort: portEntry,
+		},
+		Service: svc,
+		Labels:  k8sSvc.Labels,
 	}
 }
 
