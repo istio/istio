@@ -59,7 +59,7 @@ data:
           {{ end }}
         restartPolicy: Always
 {{- end }}
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      {{- if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:
         - -c
@@ -71,7 +71,7 @@ data:
         resources: {}
         securityContext:
           privileged: true
-      {{ end }}
+      {{- end }}
 {{- end }}
       containers:
       - name: istio-proxy
@@ -154,18 +154,18 @@ data:
         {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-          {{ if eq .Values.global.proxy.privileged true }}
+          {{- if eq .Values.global.proxy.privileged true }}
           privileged: true
-          {{ end -}}
-          {{ if ne .Values.global.proxy.enableCoreDump true }}
+          {{- end }}
+          {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
-          {{ end -}}
-          {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
+          {{- end }}
+          {{- "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
           capabilities:
             add:
             - NET_ADMIN
           runAsGroup: 1337
-          {{ "[[ else -]]" }}
+          {{- "[[ else -]]" }}
           runAsUser: 1337
           {{ "[[- end ]]" }}
         resources:
