@@ -4,7 +4,7 @@
 pilot:
   enabled: true
   sidecar: false
-  
+
 gateways:
   enabled: false
 
@@ -18,7 +18,10 @@ galley:
   enabled: false
 
 mixer:
-  enabled: false
+  policy:
+    enabled: false
+  telemetry:
+    enabled: false
 
 prometheus:
   enabled: false
