@@ -66,6 +66,7 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
+			// nolint: goimports
 			base: "tracing_lightstep",
 			expectLightstepAccessToken: true,
 		},

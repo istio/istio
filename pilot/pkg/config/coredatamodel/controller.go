@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"

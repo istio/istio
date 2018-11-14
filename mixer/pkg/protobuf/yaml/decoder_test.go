@@ -21,6 +21,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
+
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"

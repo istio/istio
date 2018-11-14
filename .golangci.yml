@@ -45,7 +45,7 @@ linters-settings:
   goimports:
     # put imports beginning with prefix after 3rd-party packages;
     # it's a comma-separated list of prefixes
-    local-prefixes: istio.io/istio
+    local-prefixes: istio.io/
   gocyclo:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
     min-complexity: 10
@@ -117,14 +117,14 @@ linters:
     - unparam
     - gosec
     - scopelint
-      # start here
+      # start here to enable back all gometalinter linters
     - deadcode
     - errcheck
     - goconst
     - golint
     - gosimple
     - ineffassign
-      #  - interfacer
+    - interfacer
     - lll
     - maligned
     - misspell

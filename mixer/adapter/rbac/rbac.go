@@ -20,6 +20,7 @@ package rbac
 
 import (
 	"context"
+
 	"istio.io/istio/mixer/adapter/rbac/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/authorization"

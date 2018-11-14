@@ -16,10 +16,11 @@ package source
 
 import (
 	"context"
+	"sync"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	"sync"
 )
 
 const (
