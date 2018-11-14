@@ -249,8 +249,8 @@ func checkDNS1123Preconditions(name string) error {
 func validateDNS1123Labels(domain string) error {
 	parts := strings.Split(domain, ".")
 	topLevelDomain := parts[len(parts)-1]
-	if len(topLevelDomain) > 0 && '0' <= topLevelDomain[0] && topLevelDomain[0] <= '9' {
-		return fmt.Errorf("domain name %q invalid (top level domain %q cannot start with a number)", domain, topLevelDomain)
+	if _, err := strconv.Atoi(topLevelDomain); err == nil {
+		return fmt.Errorf("domain name %q invalid (top level domain %q cannot be all-numeric)", domain, topLevelDomain)
 	}
 	for _, label := range parts {
 		if !IsDNS1123Label(label) {
