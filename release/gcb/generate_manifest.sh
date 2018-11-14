@@ -53,19 +53,23 @@ function create_manifest_check_consistency() {
  pushd istio
   local ISTIO_REPO_SHA
   local PROXY_REPO_SHA
+  local CNI_REPO_SHA
   local API_REPO_SHA
   ISTIO_REPO_SHA=$(git rev-parse HEAD)
+  #TODO add proper tracking of the SHA
+  CNI_REPO_SHA=3b977f8c6fe9c694b99617be0ae77dec11f50dde
   PROXY_REPO_SHA=$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
   API_REPO_SHA=$(grep istio.io.api -A 100 < Gopkg.lock | grep revision -m 1 | cut -f 2 -d '"')
 
-  if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ]; then
-    echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA some shas not found"
+  if [ -z "${ISTIO_REPO_SHA}" ] || [ -z "${API_REPO_SHA}" ] || [ -z "${PROXY_REPO_SHA}" ] || [ -z "${CNI_REPO_SHA}" ] ; then
+    echo "ISTIO_REPO_SHA:$ISTIO_REPO_SHA API_REPO_SHA:$API_REPO_SHA PROXY_REPO_SHA:$PROXY_REPO_SHA CNI_REPO_SHA:$CNI_REPO_SHA some shas not found"
     exit 8
   fi
 cat << EOF > "${MANIFEST_FILE}"
 istio ${ISTIO_REPO_SHA}
 proxy ${PROXY_REPO_SHA}
 api ${API_REPO_SHA}
+cni ${CNI_REPO_SHA}
 EOF
 
  popd
@@ -88,6 +92,7 @@ EOF
         echo "inconsistent shas ISTIO_HEAD_SHA         $ISTIO_HEAD_SHA != $ISTIO_REPO_SHA ISTIO_REPO_SHA" 1>&2
         exit 18
       fi
+      # TODO - Add CNI constistency check
   fi
 }
 

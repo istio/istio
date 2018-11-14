@@ -75,6 +75,29 @@ add_license_to_tar_images "${REL_DOCKER_HUB}" "${CB_VERSION}" "${OUTPUT_PATH}"
 # log where git thinks the build might be dirty
 git status
 
+#Handle CNI artifacts.
+pushd ../cni
+CNI_OUT=$(make DEBUG=0 where-is-out)
+#TODO fix up version
+CNI_VERSION="master"
+MAKE_TARGETS=(build)
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${CB_ISTIOCTL_DOCKER_HUB}" HUB="${CB_ISTIOCTL_DOCKER_HUB}" VERSION="${CNI_VERSION}" TAG="${CB_VERSION}" make "${MAKE_TARGETS[@]}"
+BUILD_DOCKER_TARGETS=(docker)
+
+rm -r "${ISTIO_OUT}/docker"
+
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="master" TAG="${CB_VERSION}" make "${BUILD_DOCKER_TARGETS[@]}"
+
+cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
+
+go run ../istio/tools/license/get_dep_licenses.go --branch "master" > LICENSES.txt
+../istio/add_license_to_tar_images "${REL_DOCKER_HUB}" "${CNI_VERSION}" "${OUTPUT_PATH}"
+
+# log where git thinks the build might be dirty
+git status
+
+popd
+
 # preserve the source from the root of the code
 pushd "${ROOT}/../../../.."
 pwd
