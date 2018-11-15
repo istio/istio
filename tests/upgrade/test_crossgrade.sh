@@ -261,11 +261,11 @@ resetNamespaces() {
 # Returns 0 if the passed string has form "Code 200 : 6601 (94.6 %)" and the percentage is smaller than ${MIN_200_PCT_FOR_PASS}
 percent200sAbove() {
     local s=$1
-    local regex="Code 200 : [0-9]+ \(([0-9]+\.[0-9]+) %\)"
+    local regex="Code 200 : [0-9]+ \\(([0-9]+\\.[0-9]+) %\\)"
     if [[ $s =~ $regex ]]; then
         local pct200s="${BASH_REMATCH[1]}"
-        echo ${pct200s}
-        if [ $(echo ${pct200s}'>'${MIN_200_PCT_FOR_PASS} | bc) -eq 1 ]; then
+        pctExceeds=$(echo "${pct200s}"'>'"${MIN_200_PCT_FOR_PASS}" | bc)
+        if [ pctExceeds -eq 1 ]; then
             return 0
         fi
         return 1
