@@ -44,7 +44,7 @@ GOPATH="$(cd "$ROOT/../../.." && pwd)"
 export GOPATH
 echo gopath is "$GOPATH"
 # this is needed for istioctl and other parts of build to get the version info
-export ISTIO_VERSION="${CB_VERSION}"
+export ISTIO_VERSION="${CB_VERSION:-master}"
 
 ISTIO_OUT=$(make DEBUG=0 where-is-out)
 
@@ -78,23 +78,25 @@ git status
 #Handle CNI artifacts.
 pushd ../cni
 CNI_OUT=$(make DEBUG=0 where-is-out)
-#TODO fix up version
-CNI_VERSION="master"
+# CNI version strategy is to have CNI run lock step with Istio i.e. CB_VERSION
+CNI_VERSION=${ISTIO_VERSION}
 MAKE_TARGETS=(build)
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${CB_ISTIOCTL_DOCKER_HUB}" HUB="${CB_ISTIOCTL_DOCKER_HUB}" VERSION="${CNI_VERSION}" TAG="${CB_VERSION}" make "${MAKE_TARGETS[@]}"
-BUILD_DOCKER_TARGETS=(docker)
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB="${CB_ISTIOCTL_DOCKER_HUB}" HUB="${CB_ISTIOCTL_DOCKER_HUB}" VERSION="${CNI_VERSION}" TAG="${CNI_VERSION}" make "${MAKE_TARGETS[@]}"
+BUILD_DOCKER_TARGETS=(docker.save)
 
 if [ -d "${CNI_OUT}/docker" ]; then
     rm -r "${CNI_OUT}/docker"
 fi
 
-VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="master" TAG="${CB_VERSION}" make "${BUILD_DOCKER_TARGETS[@]}"
+VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSION="${CNI_VERSION}" TAG="${CNI_VERSION}" make "${BUILD_DOCKER_TARGETS[@]}"
 
-cp -r "${CNI_OUT}/docker" "${OUTPUT_PATH}/"
+mkdir "/cni_tmp"
+
+cp -r "${CNI_OUT}/docker" "/cni_tmp"
 
 go run ../istio/tools/license/get_dep_licenses.go --branch "master" > LICENSES.txt
-#TODO confirm this doesn't add the CNI licenses to the istio tar files
-../istio/add_license_to_tar_images "${REL_DOCKER_HUB}" "${CNI_VERSION}" "${OUTPUT_PATH}"
+add_license_to_tar_images "${REL_DOCKER_HUB}" "${CNI_VERSION}" "/cni_tmp"
+cp -r "/cni_tmp" "${OUTPUT_PATH}/"
 
 # log where git thinks the build might be dirty
 git status
