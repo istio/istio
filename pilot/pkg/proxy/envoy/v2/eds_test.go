@@ -172,7 +172,7 @@ func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 		AvailabilityZone: "az",
 	})
 
-	v2.AdsPushAll(server.EnvoyXdsServer)
+	go v2.AdsPushAll(server.EnvoyXdsServer)
 	// will trigger recompute and push
 
 	_, err := adsc.Wait("eds", 5*time.Second)

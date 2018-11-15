@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"math"
 	"path"
 	"strings"
 	"time"
@@ -41,11 +40,6 @@ const (
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
 	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
 	ManagementClusterHostname = "mgmtCluster"
-)
-
-const (
-	// The range of LoadBalancingWeight is [1, 128]
-	maxLoadBalancingWeight = 128
 )
 
 // TODO: Need to do inheritance of DestRules based on domain suffix match
@@ -128,7 +122,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			inputParams.Service = service
 			inputParams.Port = port
 
-			lbEndpoints := buildLbEndpoints(env, networkView, service, port.Port, nil)
+			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(service.Resolution)
@@ -153,7 +147,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					// clusters with discovery type STATIC, STRICT_DNS or LOGICAL_DNS rely on cluster.hosts field
 					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 					if discoveryType != v2.Cluster_EDS && len(subset.Labels) != 0 {
-						lbEndpoints = buildLbEndpoints(env, networkView, service, port.Port, []model.Labels{subset.Labels})
+						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []model.Labels{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints)
 					updateEds(subsetCluster)
@@ -190,7 +184,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 			if port.Protocol == model.ProtocolUDP {
 				continue
 			}
-			lbEndpoints := buildLbEndpoints(env, networkView, service, port.Port, nil)
+			lbEndpoints := buildLocalityLbEndpoints(env, networkView, service, port.Port, nil)
 
 			// create default cluster
 			discoveryType := convertResolution(service.Resolution)
@@ -210,7 +204,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					// clusters with discovery type STATIC, STRICT_DNS or LOGICAL_DNS rely on cluster.hosts field
 					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 					if discoveryType != v2.Cluster_EDS && len(subset.Labels) != 0 {
-						lbEndpoints = buildLbEndpoints(env, networkView, service, port.Port, []model.Labels{subset.Labels})
+						lbEndpoints = buildLocalityLbEndpoints(env, networkView, service, port.Port, []model.Labels{subset.Labels})
 					}
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints)
 					subsetCluster.TlsContext = nil
@@ -240,8 +234,8 @@ func updateEds(cluster *v2.Cluster) {
 	}
 }
 
-func buildLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
-	port int, labels model.LabelsCollection) []endpoint.LbEndpoint {
+func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
+	port int, labels model.LabelsCollection) []endpoint.LocalityLbEndpoints {
 
 	if service.Resolution != model.DNSLB {
 		return nil
@@ -263,8 +257,6 @@ func buildLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, 
 			continue
 		}
 		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
-		// TODO: Need to parse the locality in the endpoint from service entry
-		// split by /, and put them into the locality fields and construct localityLbEndpoints per group
 		ep := endpoint.LbEndpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: &host,
@@ -279,7 +271,28 @@ func buildLbEndpoints(env *model.Environment, proxyNetworkView map[string]bool, 
 		lbEndpoints = append(lbEndpoints, ep)
 	}
 
-	return lbWeightNormalize(lbEndpoints)
+	LocalityLbEndpoints := []endpoint.LocalityLbEndpoints{
+		{
+			// TODO: Need to set Locality accordingly.
+			Locality:    nil,
+			LbEndpoints: lbEndpoints,
+		},
+	}
+	return util.LocalityLbWeightNormalize(LocalityLbEndpoints)
+}
+
+func buildInboundLocalityLbEndpoints(port int) []endpoint.LocalityLbEndpoints {
+	address := util.BuildAddress("127.0.0.1", uint32(port))
+	lbEndpoint := endpoint.LbEndpoint{
+		Endpoint: &endpoint.Endpoint{
+			Address: &address,
+		},
+	}
+	return []endpoint.LocalityLbEndpoints{
+		{
+			LbEndpoints: []endpoint.LbEndpoint{lbEndpoint},
+		},
+	}
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environment, proxy *model.Proxy,
@@ -295,15 +308,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-		address := util.BuildAddress("127.0.0.1", uint32(instance.Endpoint.Port))
-		lbEndpoint := endpoint.LbEndpoint{
-			Endpoint: &endpoint.Endpoint{
-				Address: &address,
-			},
-			LoadBalancingWeight: nil,
-		}
-
-		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []endpoint.LbEndpoint{lbEndpoint})
+		localityLbEndpoints := buildInboundLocalityLbEndpoints(instance.Endpoint.Port)
+		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins
 		inputParams.ServiceInstance = instance
@@ -331,14 +337,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	// Add a passthrough cluster for traffic to management ports (health check ports)
 	for _, port := range managementPorts {
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
-		address := util.BuildAddress("127.0.0.1", uint32(port.Port))
-		lbEndpoint := endpoint.LbEndpoint{
-			Endpoint: &endpoint.Endpoint{
-				Address: &address,
-			},
-			LoadBalancingWeight: nil,
-		}
-		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, []endpoint.LbEndpoint{lbEndpoint})
+		localityLbEndpoints := buildInboundLocalityLbEndpoints(port.Port)
+		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
 		setUpstreamProtocol(mgmtCluster, port)
 		clusters = append(clusters, mgmtCluster)
 	}
@@ -701,17 +701,13 @@ func buildDefaultPassthroughCluster() *v2.Cluster {
 // TODO: supply LbEndpoints or even better, LocalityLbEndpoints here
 // change all other callsites accordingly
 func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.Cluster_DiscoveryType,
-	lbEndpoints []endpoint.LbEndpoint) *v2.Cluster {
+	localityLbEndpoints []endpoint.LocalityLbEndpoints) *v2.Cluster {
 	cluster := &v2.Cluster{
 		Name: name,
 		Type: discoveryType,
 		LoadAssignment: &v2.ClusterLoadAssignment{
 			ClusterName: name,
-			Endpoints: []endpoint.LocalityLbEndpoints{
-				{
-					LbEndpoints: lbEndpoints,
-				},
-			},
+			Endpoints:   localityLbEndpoints,
 		},
 	}
 
@@ -744,28 +740,4 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType v2.Cluster_
 			},
 		},
 	}
-}
-
-// TODO: merge with that in ep_filters.go
-// lbWeightNormalize set LoadBalancingWeight with a valid value.
-func lbWeightNormalize(endpoints []endpoint.LbEndpoint) []endpoint.LbEndpoint {
-	var totalLbEndpointsNum uint32
-
-	for _, ep := range endpoints {
-		totalLbEndpointsNum += ep.GetLoadBalancingWeight().GetValue()
-	}
-	if totalLbEndpointsNum == 0 {
-		return endpoints
-	}
-
-	out := make([]endpoint.LbEndpoint, len(endpoints))
-	for i, ep := range endpoints {
-		weight := float64(ep.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		ep.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = ep
-	}
-
-	return out
 }
