@@ -30,6 +30,7 @@ usage() {
   error '  -q, --quiet              if present, do not log'
   error '  -m, --max-bytes          max total bytes, 0=no limit, default='${DEFAULT_MAX_LOG_BYTES}
   error '  -l, --label              if set, dump logs only for pods with given labels e.g. "-l app=pilot -l istio=galley"'
+  error '  -n, --namespace          if set, dump logs only for pods in the given namespaces e.g. "-n default -n istio-system"'
   error '  --error-if-nasty-logs    if present, exit with 255 if any logs'
   error '                               contain errors'
   exit 1
@@ -64,11 +65,15 @@ parse_args() {
         ;;
       -m|--max-bytes)
         max_bytes="${2}"
-        shift 2 # Shift past option and value.
+        shift 2
         ;;
       -l|--label)
         pod_labels+="${2} "
-        shift 2 # Shift past option and value.
+        shift 2
+        ;;
+      -n|--namespace)
+        namespaces+="${2} "
+        shift 2
         ;;
       *)
         usage
@@ -189,9 +194,10 @@ copy_core_dumps_if_istio_proxy() {
 # immediately with that error.
 tap_containers() {
   local functions=("$@")
-  local namespaces
-  namespaces=$(kubectl get \
-      namespaces -o=jsonpath="{.items[*].metadata.name}")
+  if [ -z "${namespaces}" ]; then
+    namespaces=$(kubectl get \
+        namespaces -o=jsonpath="{.items[*].metadata.name}")
+  fi
   for namespace in ${namespaces}; do
     local pods=""
     if [ -n "${pod_labels}" ]; then
