@@ -75,6 +75,8 @@ spec:
         valueType: BOOL
       connection.requested_server_name:
         valueType: STRING
+      context.proxy_error_code:
+        valueType: STRING
       context.protocol:
         valueType: STRING
       context.timestamp:
