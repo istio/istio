@@ -112,17 +112,22 @@ linters:
     - golint
     - govet
     - gosimple
+    - interfacer
     - lll
     - misspell
     - staticcheck
+    - structcheck
     - ineffassign
+    - unconvert
     - unused
+    - varcheck
   enable-all: false
   disable:
     - gocritic
     - prealloc
     - typecheck
     - megacheck
+    - nakedret
     - unparam
     - scopelint
     - gochecknoglobals
@@ -132,10 +137,6 @@ linters:
     - errcheck
     - goconst
     - maligned
-    - interfacer
-    - structcheck
-    - unconvert
-    - varcheck
   disable-all: false
   presets:
     - bugs

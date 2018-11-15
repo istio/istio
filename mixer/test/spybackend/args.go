@@ -96,16 +96,12 @@ type (
 		quotaLock          sync.RWMutex
 		HandleQuotaRequest []*quota.HandleQuotaRequest
 
-		samplecheckLock          sync.RWMutex
 		HandleSampleCheckRequest []*checkTmpl.HandleSampleCheckRequest
 
-		samplequotaLock          sync.RWMutex
 		HandleSampleQuotaRequest []*quotaTmpl.HandleSampleQuotaRequest
 
-		samplereportLock          sync.RWMutex
 		HandleSampleReportRequest []*reportTmpl.HandleSampleReportRequest
 
-		sampleapaLock          sync.RWMutex
 		HandleSampleApaRequest []*apaTmpl.HandleSampleApaRequest
 	}
 )

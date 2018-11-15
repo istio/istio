@@ -213,7 +213,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Could not get current branch: %s", err)
 		}
-		prevBranch = strings.TrimSpace(string(pb))
+		prevBranch = strings.TrimSpace(pb)
 
 		// Need to switch to branch we're getting the licenses for.
 		_, err = runBash("git", "checkout", istioReleaseBranch)
@@ -237,7 +237,7 @@ func main() {
 	if err != nil {
 		log.Fatal(out)
 	}
-	outv := strings.Split(string(out), "\n")
+	outv := strings.Split(out, "\n")
 	outv, skipv := filter(dedup(outv))
 	sort.Strings(outv)
 	sort.Strings(skipv)

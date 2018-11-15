@@ -15,6 +15,7 @@
 package flakytestfinder
 
 import (
+	// nolint: goimports
 	"path/filepath"
 	"reflect"
 	"testing"

@@ -19,7 +19,7 @@ import (
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
 	checkProducerTmpl "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
 )
@@ -64,10 +64,10 @@ spec:
 ---
 `,
 			attrs: map[string]interface{}{},
-			behaviors: []spyAdapter.AdapterBehavior{
+			behaviors: []spyadapter.AdapterBehavior{
 				{
 					Name: "fakehandler",
-					Handler: spyAdapter.HandlerBehavior{
+					Handler: spyadapter.HandlerBehavior{
 						HandleCheckProducerOutput: &checkProducerTmpl.Output{
 							StringPrimitive: "string0",
 							StringMap: map[string]string{
@@ -85,7 +85,7 @@ spec:
 				name:      "context.reporter.kind",
 				condition: v1.ABSENCE,
 			}},
-			expectCalls: []spyAdapter.CapturedCall{
+			expectCalls: []spyadapter.CapturedCall{
 				{
 					Name: "HandleCheckProducer",
 					Instances: []interface{}{

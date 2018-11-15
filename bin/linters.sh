@@ -118,8 +118,8 @@ function run_golangcilint() {
     security tests tools"
   echo 'Running golangci-lint ...'
   for component in $COMPONENTS; do
-    echo "Running golanci-lint on ${component} ..."
-    golangci-lint run ./${component}/...
+    echo "Running golangci-lint on ${component} ..."
+    golangci-lint run ./"${component}"/...
   done
 }
 

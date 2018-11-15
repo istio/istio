@@ -31,14 +31,11 @@ import (
 	"testing"
 	"time"
 
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-
-	"fortio.org/fortio/fhttp"
-
-	// flog "fortio.org/fortio/log"
-	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/kube"
@@ -1360,6 +1357,7 @@ type header struct {
 	value string
 }
 
+// nolint: interfacer
 func get(clnt *http.Client, url string, headers ...*header) (status int, contents string, err error) {
 	var req *http.Request
 	req, err = http.NewRequest("GET", url, nil)

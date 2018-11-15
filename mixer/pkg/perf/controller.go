@@ -27,7 +27,7 @@ import (
 )
 
 // TODO(lichuqiang): modify defaultTimeout accordingly.
-const defaultTimeout = time.Duration(5 * time.Minute)
+const defaultTimeout = 5 * time.Minute
 
 // Controller is the top-level perf benchmark controller. It drives the test by managing the client(s) that generate
 // load against a Mixer instance.

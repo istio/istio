@@ -31,7 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -50,12 +49,6 @@ type Cache struct {
 
 	// allowing patch for testing
 	getTime func() time.Time
-
-	// the metrics we report
-	cacheWrites    prometheus.Collector
-	cacheHits      prometheus.Collector
-	cacheMisses    prometheus.Collector
-	cacheEvictions prometheus.Collector
 }
 
 // Value holds the data that the check cache stores.
