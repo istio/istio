@@ -1064,27 +1064,6 @@ attribute_bindings:
 	}
 }
 
-func cmp(m interface{}, n interface{}) bool {
-	a := InterfaceSlice(m)
-	b := InterfaceSlice(n)
-	if len(a) != len(b) {
-		return false
-	}
-
-	for _, x1 := range a {
-		f := false
-		for _, x2 := range b {
-			if reflect.DeepEqual(x1, x2) {
-				f = true
-			}
-		}
-		if !f {
-			return false
-		}
-	}
-	return true
-}
-
 func InterfaceSlice(slice interface{}) []interface{} {
 	s := reflect.ValueOf(slice)
 

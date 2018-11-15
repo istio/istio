@@ -35,6 +35,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -740,6 +741,7 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		rule := &Rule{
+			// nolint: goimports
 			Name:           ruleName,
 			Namespace:      ruleKey.Namespace,
 			ActionsStatic:  actionsStat,
@@ -784,6 +786,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 		}
 
 		result[templateName] = &Template{
+			// nolint: goimports
 			Name: templateName,
 			InternalPackageDerivedName: name,
 			FileDescSet:                fds,

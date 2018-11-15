@@ -17,7 +17,6 @@ package mixer
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io"
 	"io/ioutil"
 	"os"
@@ -25,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"

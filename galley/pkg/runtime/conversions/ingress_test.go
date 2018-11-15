@@ -17,11 +17,12 @@ package conversions
 import (
 	"testing"
 
+	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestIngressConversion(t *testing.T) {

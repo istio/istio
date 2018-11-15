@@ -63,7 +63,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		ttl := time.Duration(time.Nanosecond * 100)
+		ttl := time.Nanosecond * 100
 		push := &model.PushContext{}
 		push.SetDestinationRules([]model.Config{
 			{

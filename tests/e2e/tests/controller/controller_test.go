@@ -144,12 +144,12 @@ func TestTempWorkspace(t *testing.T) {
 
 }
 
-func storeInvariant(t *testing.T, client *crd.Client, ns string) {
+func storeInvariant(t *testing.T, client model.ConfigStore, ns string) {
 	mock.CheckMapInvariant(client, t, ns, 5)
 	log.Println("Check Map Invariant done")
 }
 
-func istioConfig(t *testing.T, client *crd.Client, ns string) {
+func istioConfig(t *testing.T, client model.ConfigStore, ns string) {
 	mock.CheckIstioConfigTypes(client, ns, t)
 }
 

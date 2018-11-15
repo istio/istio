@@ -30,6 +30,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -230,8 +231,8 @@ func RunTest(
 	wg.Wait()
 
 	// get adapter state. NOTE: We are doing marshal and then unmarshal it back into generic interface{}.
-	// This is done to make getState output into generic json map or array; which is exactly what we get when un-marshalling
-	// the baseline json. Without this, deep equality on un-marshalled baseline AdapterState would defer
+	// This is done to make getState output into generic json map or array; which is exactly what we get when un-marshaling
+	// the baseline json. Without this, deep equality on un-marshaled baseline AdapterState would defer
 	// from the rich object returned by getState function.
 	if scenario.GetState != nil {
 		var adptState interface{}
