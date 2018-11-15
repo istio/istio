@@ -15,9 +15,11 @@
 package genbinding
 
 import (
+        "errors"
 	"fmt"
 	"hash/fnv"
 	"net"
+        "regexp"
 	"strconv"
 	"strings"
 
@@ -30,17 +32,21 @@ type hostPort struct {
 	port int
 }
 
+const defaultMultiMeshPort = "15443"
+
+var ValidHostnameRegex = regexp.MustCompile(`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$`)
+
 // CreateBinding converts desired multicluster state into Istio state
 func CreateBinding(service string, clusters []string, labels map[string]string, egressGateway string, namespace string) ([]model.Config, error) { // nolint: lll
 
-	remoteService, err := parseNet(service, 0)
+	remoteService, err := parseNet(service, "")
 	if err != nil {
 		return nil, err
 	}
 
 	var remoteClusters []hostPort
 	for _, cluster := range clusters {
-		remoteCluster, err := parseNet(cluster, 15443)
+		remoteCluster, err := parseNet(cluster, defaultMultiMeshPort)
 		if err != nil {
 			return nil, err
 		}
@@ -49,22 +55,6 @@ func CreateBinding(service string, clusters []string, labels map[string]string, 
 
 	istioConfig, err := serviceToServiceEntrySniCluster(*remoteService, remoteClusters, labels, egressGateway, namespace)
 	return istioConfig, err
-}
-
-func parseNet(s string, defaultPort int) (*hostPort, error) {
-	if defaultPort != 0 && !strings.Contains(s, ":") {
-		return &hostPort{s, defaultPort}, nil
-	}
-
-	host, port, err := net.SplitHostPort(s)
-	if err != nil {
-		return nil, err
-	}
-	i, err := strconv.Atoi(port)
-	if err != nil {
-		return nil, err
-	}
-	return &hostPort{host, i}, nil
 }
 
 // serviceToServiceEntry() creates a ServiceEntry pointing to istio-egressgateway
@@ -123,7 +113,7 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 	}
 
         if egressGateway != "" {
-               egressGatewayEntry, err := parseNet(egressGateway, 15443)
+               egressGatewayEntry, err := parseNet(egressGateway, defaultMultiMeshPort)
 	       if err != nil {
                         return nil, err
                }
@@ -136,4 +126,30 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
         }
 
 	return []model.Config{serviceEntry}, nil
+}
+
+func parseNet(s, defaultPort string) (*hostPort, error) {
+	var host, port string
+	var err error
+
+	if defaultPort != "" && !strings.Contains(s, ":") {
+		host, port, err= s, defaultPort, nil
+	} else {
+	        host, port, err = net.SplitHostPort(s)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	i, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, err
+	}
+	hostIP := net.ParseIP(host)
+	if hostIP == nil {
+		if ValidHostnameRegex.MatchString(host) == false {
+			return nil, errors.New("Invalid Name or IP address")
+		}
+	}
+	return &hostPort{host, i}, nil
 }
