@@ -66,7 +66,7 @@ func TestMTlsWithAuthNPolicy(t *testing.T) {
 					for _, port := range ports {
 						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
 							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
-							runRetriableTest(t, cluster, testName, 15, func() error {
+							runRetriableTest(t, testName, 15, func() error {
 								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 								resp := ClientRequest(cluster, src, reqURL, 1, "")
 								if src == "t" && (dst == "b" || (dst == "d" && port == "8080")) {
@@ -177,7 +177,7 @@ func TestAuthNJwt(t *testing.T) {
 
 	for _, c := range cases {
 		testName := fmt.Sprintf("%s->%s%s[%s]", c.src, c.dst, c.path, c.expect)
-		runRetriableTest(t, primaryCluster, testName, defaultRetryBudget, func() error {
+		runRetriableTest(t, testName, defaultRetryBudget, func() error {
 			extra := fmt.Sprintf("-key \"Authorization\" -val \"Bearer %s\"", c.token)
 			resp := ClientRequest(primaryCluster, c.src, fmt.Sprintf("http://%s:%s%s", c.dst, c.port, c.path), 1, extra)
 			if len(resp.Code) > 0 && resp.Code[0] == c.expect {
@@ -210,7 +210,7 @@ func TestGatewayIngress_AuthN_JWT(t *testing.T) {
 	}
 	defer cfgs.Teardown()
 
-	runRetriableTest(t, primaryCluster, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
+	runRetriableTest(t, "GatewayIngress_AuthN_JWT", defaultRetryBudget, func() error {
 		reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
 		resp := ClientRequest(primaryCluster, "t", reqURL, 1, "-key Host -val uk.bookinfo.com")
 		if len(resp.Code) > 0 && resp.Code[0] == "401" {

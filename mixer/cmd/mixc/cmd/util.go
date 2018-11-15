@@ -280,7 +280,7 @@ func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.CompressedAtt
 	printf("%s", buf.String())
 }
 
-func dumpReferencedAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.ReferencedAttributes) {
+func dumpReferencedAttributes(printf shared.FormatFn, attrs *mixerpb.ReferencedAttributes) {
 	vals := make([]string, 0, len(attrs.AttributeMatches))
 	for _, at := range attrs.AttributeMatches {
 		out := attrs.Words[-1*at.Name-1]

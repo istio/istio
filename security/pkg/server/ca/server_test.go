@@ -105,6 +105,7 @@ type mockAuthorizer struct {
 	errMsg string
 }
 
+// nolint: unparam
 func (authz *mockAuthorizer) authorize(requester *caller, requestedIds []string) error {
 	if len(authz.errMsg) > 0 {
 		return fmt.Errorf("%v", authz.errMsg)
