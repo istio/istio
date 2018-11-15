@@ -41,16 +41,16 @@ func valueTypeEncoderBuilder(_ *descriptor.DescriptorProto, fd *descriptor.Field
 	var vVal v1beta1.Value
 	switch vv := v.(type) {
 	case int:
-		vVal.Value = &v1beta1.Value_Int64Value{Value: int64(vv)}
+		vVal.Value = &v1beta1.Value_Int64Value{Int64Value: int64(vv)}
 	case float64:
-		vVal.Value = &v1beta1.Value_DoubleValue{Value: vv}
+		vVal.Value = &v1beta1.Value_DoubleValue{DoubleValue: vv}
 	case bool:
-		vVal.Value = &v1beta1.Value_BoolValue{Value: vv}
+		vVal.Value = &v1beta1.Value_BoolValue{BoolValue: vv}
 	case string:
 		val, isConstString := transformQuotedString(vv)
 		sval, _ := val.(string)
 		if isConstString {
-			vVal.Value = &v1beta1.Value_StringValue{Value: sval}
+			vVal.Value = &v1beta1.Value_StringValue{StringValue: sval}
 		} else {
 			return buildExprEncoder(sval, fd.GetTypeName(), compiler)
 		}

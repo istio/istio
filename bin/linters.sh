@@ -114,7 +114,7 @@ function run_gometalinter() {
 
 function run_golangcilint() {
   COMPONENTS="addons galley istioctl mixer \
-    pilot/cmd pilot/pkg/networking pilot/pkg/model pilot/pkg/serviceregistry pilot/test \
+    pilot/cmd pilot/pkg/networking pilot/test \
     security tests tools"
   echo 'Running golangci-lint ...'
   for component in $COMPONENTS; do
