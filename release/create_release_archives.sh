@@ -15,16 +15,12 @@
 #
 ################################################################################
 
-set -o errexit
-set -o pipefail
-set -x
-
 # This script primarily exists for Cloud Builder.  This script
 # reads artifacts from a specified directory, generates tar files
 # based on those artifacts, and then stores the tar files
 # back to the directory.
 
-TEMP_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
+TEMP_DIR="/tmp/istio.version.XXXX"
 BASE_DIR="$TEMP_DIR"
 ISTIOCTL_SUBDIR=istioctl
 OUTPUT_PATH=""
@@ -45,6 +41,11 @@ function error_exit() {
   exit "${2:-1}"
 }
 
+# since there are 2 required options, should show usage and exit with no args specified
+if (($# == 0)); then
+  usage
+fi
+
 while getopts d:i:o:v: arg ; do
   case "${arg}" in
     d) BASE_DIR="${OPTARG}";;
@@ -55,10 +56,17 @@ while getopts d:i:o:v: arg ; do
   esac
 done
 
+set -o errexit
+set -o pipefail
+set -x
+
 [[ -z "${BASE_DIR}"    ]] && usage
 [[ -z "${OUTPUT_PATH}" ]] && usage
 [[ -z "${VER_STRING}"  ]] && usage
 
+if ("${BASE_DIR}" = "${TEMP_DIR}"); then
+  mktemp -d "${TEMP_DIR}"
+fi
 COMMON_FILES_DIR="${BASE_DIR}/istio/istio-${VER_STRING}"
 BIN_DIR="${COMMON_FILES_DIR}/bin"
 mkdir -p "${BIN_DIR}"
@@ -68,6 +76,13 @@ mkdir -p "${BIN_DIR}"
 
 CP=${CP:-"cp"}
 TAR=${TAR:-"tar"}
+
+function replace_with_release_charts_url() {
+  local origin_url="istio-prerelease/daily-build/master-latest-daily/charts"
+  local target_url="istio-release/releases/${VER_STRING}/charts"
+  sed -i.bak "s:${origin_url}:${target_url}:g" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/README.md"
+  rm -rf "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/README.md.bak"
+}
 
 function create_linux_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
@@ -154,6 +169,7 @@ ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
 # Changing dir such that tar and zip files are
 # created with right hiereachy
 pushd "${COMMON_FILES_DIR}/.."
+replace_with_release_charts_url
 create_linux_archive
 create_osx_archive
 create_windows_archive
