@@ -13,6 +13,13 @@ security:
   enabled: true
   omitPostInstall: true
 
+#
+# Gateways Configuration, refer to the charts/gateways/values.yaml
+# for detailed configuration
+#
+gateways:
+  enabled: false
+
 # Common settings used among istio subcharts.
 global:
   # Default hub for Istio images.

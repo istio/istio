@@ -143,7 +143,11 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name             
+                fieldPath: metadata.name  
+          {{- if $.Values.global.proxy.network }}
+          - name: ISTIO_META_NETWORK
+            value: "{{ $.Values.global.proxy.network }}"
+          {{- end }}           
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
