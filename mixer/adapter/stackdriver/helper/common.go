@@ -80,7 +80,7 @@ func (md *Metadata) FillProjectMetadata(in map[string]string) {
 		if key == "project_id" {
 			in[key] = md.ProjectID
 		}
-		if key == "location" {
+		if key == "location" || key == "zone" {
 			in[key] = md.Location
 		}
 		if key == "cluster_name" {
