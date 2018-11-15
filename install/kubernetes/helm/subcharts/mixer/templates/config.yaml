@@ -88,6 +88,8 @@ spec:
       valueType: STRING
     context.protocol:
       valueType: STRING
+    context.proxy_error_code:
+      valueType: STRING
     context.timestamp:
       valueType: TIMESTAMP
     context.time:
@@ -244,6 +246,7 @@ spec:
     method: request.method | ""
     url: request.path | ""
     responseCode: response.code | 0
+    responseFlags: context.proxy_error_code | ""
     responseSize: response.size | 0
     permissiveResponseCode: rbac.permissive.response_code | "none"
     permissiveResponsePolicyID: rbac.permissive.effective_policy_id | "none"
@@ -304,6 +307,7 @@ spec:
     totalReceivedBytes: connection.received.bytes_total | 0
     totalSentBytes: connection.sent.bytes_total | 0
     reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+    responseFlags: context.proxy_error_code | ""
   monitored_resource_type: '"global"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -368,7 +372,8 @@ spec:
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
-    response_code: response.code | 200   
+    response_code: response.code | 200
+    response_flags: context.proxy_error_code | "-"
     permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -403,6 +408,7 @@ spec:
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    response_flags: context.proxy_error_code | "-"
     permissive_response_code: rbac.permissive.response_code | "none" 
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -437,6 +443,7 @@ spec:
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    response_flags: context.proxy_error_code | "-"
     permissive_response_code: rbac.permissive.response_code | "none" 
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -471,6 +478,7 @@ spec:
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
+    response_flags: context.proxy_error_code | "-"
     permissive_response_code: rbac.permissive.response_code | "none" 
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -504,6 +512,7 @@ spec:
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    response_flags: context.proxy_error_code | "-"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -534,6 +543,7 @@ spec:
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    response_flags: context.proxy_error_code | "-"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -572,6 +582,7 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - response_flags
       - permissive_response_code
       - permissive_response_policyid
       - connection_security_policy
@@ -595,6 +606,7 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - response_flags
       - permissive_response_code
       - permissive_response_policyid
       - connection_security_policy
@@ -621,6 +633,7 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - response_flags
       - permissive_response_code
       - permissive_response_policyid
       - connection_security_policy
@@ -649,6 +662,7 @@ spec:
       - destination_service_namespace
       - request_protocol
       - response_code
+      - response_flags
       - permissive_response_code
       - permissive_response_policyid
       - connection_security_policy
@@ -676,6 +690,7 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - connection_security_policy
+      - response_flags
     - name: tcp_received_bytes_total
       instance_name: tcpbytereceived.metric.{{ .Release.Namespace }}
       kind: COUNTER
@@ -695,6 +710,7 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - connection_security_policy
+      - response_flags
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
