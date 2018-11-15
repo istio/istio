@@ -569,6 +569,7 @@ spec:
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    response_flags: context.proxy_error_code | "-"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -594,6 +595,7 @@ spec:
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+    response_flags: context.proxy_error_code | "-"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -780,6 +782,7 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - connection_security_policy
+      - response_flags
     - name: tcp_connections_closed_total
       instance_name: tcpconnectionsclosed.metric.{{ .Release.Namespace }}
       kind: COUNTER
@@ -799,6 +802,7 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - connection_security_policy
+      - response_flags
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
