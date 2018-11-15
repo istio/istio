@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 	sampleapa "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	samplecheck "istio.io/istio/mixer/test/spyAdapter/template/check"
 	checkoutputTmpl "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
@@ -44,7 +44,7 @@ type (
 		Addr() net.Addr
 		Close() error
 		Run()
-		GetCapturedCalls() []spyAdapter.CapturedCall
+		GetCapturedCalls() []spyadapter.CapturedCall
 	}
 
 	// NoSessionServer models no session adapter backend.
@@ -54,7 +54,7 @@ type (
 		server        *grpc.Server
 		Behavior      *Behavior
 		Requests      *Requests
-		CapturedCalls []spyAdapter.CapturedCall
+		CapturedCalls []spyadapter.CapturedCall
 	}
 )
 
@@ -93,12 +93,12 @@ func (s *NoSessionServer) HandleQuota(c context.Context, r *quota.HandleQuotaReq
 
 // HandleSampleCheck records samplecheck and responds with the programmed response
 func (s *NoSessionServer) HandleSampleCheck(c context.Context, r *samplecheck.HandleSampleCheckRequest) (*adptModel.CheckResult, error) {
-	cc := spyAdapter.CapturedCall{
+	cc := spyadapter.CapturedCall{
 		Name:      "HandleSampleCheck",
 		Instances: []interface{}{r.Instance},
 	}
 	if s.CapturedCalls == nil {
-		s.CapturedCalls = []spyAdapter.CapturedCall{}
+		s.CapturedCalls = []spyadapter.CapturedCall{}
 	}
 	s.CapturedCalls = append(s.CapturedCalls, cc)
 
@@ -107,7 +107,7 @@ func (s *NoSessionServer) HandleSampleCheck(c context.Context, r *samplecheck.Ha
 
 // HandleSampleReport records samplereport and responds with the programmed response
 func (s *NoSessionServer) HandleSampleReport(c context.Context, r *samplereport.HandleSampleReportRequest) (*adptModel.ReportResult, error) {
-	cc := spyAdapter.CapturedCall{
+	cc := spyadapter.CapturedCall{
 		Name:      "HandleSampleReport",
 		Instances: make([]interface{}, len(r.Instances)),
 	}
@@ -116,7 +116,7 @@ func (s *NoSessionServer) HandleSampleReport(c context.Context, r *samplereport.
 	}
 
 	if s.CapturedCalls == nil {
-		s.CapturedCalls = []spyAdapter.CapturedCall{}
+		s.CapturedCalls = []spyadapter.CapturedCall{}
 	}
 	s.CapturedCalls = append(s.CapturedCalls, cc)
 
@@ -125,12 +125,12 @@ func (s *NoSessionServer) HandleSampleReport(c context.Context, r *samplereport.
 
 // HandleSampleQuota records samplequota and responds with the programmed response
 func (s *NoSessionServer) HandleSampleQuota(c context.Context, r *samplequota.HandleSampleQuotaRequest) (*adptModel.QuotaResult, error) {
-	cc := spyAdapter.CapturedCall{
+	cc := spyadapter.CapturedCall{
 		Name:      "HandleSampleQuota",
 		Instances: []interface{}{r.Instance},
 	}
 	if s.CapturedCalls == nil {
-		s.CapturedCalls = []spyAdapter.CapturedCall{}
+		s.CapturedCalls = []spyadapter.CapturedCall{}
 	}
 	s.CapturedCalls = append(s.CapturedCalls, cc)
 
@@ -139,7 +139,7 @@ func (s *NoSessionServer) HandleSampleQuota(c context.Context, r *samplequota.Ha
 
 // HandleSampleApa records sampleapa and responds with the programmed response
 func (s *NoSessionServer) HandleSampleApa(c context.Context, r *sampleapa.HandleSampleApaRequest) (*sampleapa.OutputMsg, error) {
-	s.CapturedCalls = append(s.CapturedCalls, spyAdapter.CapturedCall{
+	s.CapturedCalls = append(s.CapturedCalls, spyadapter.CapturedCall{
 		Name:      "HandleSampleApa",
 		Instances: []interface{}{r.Instance},
 	})
@@ -149,7 +149,7 @@ func (s *NoSessionServer) HandleSampleApa(c context.Context, r *sampleapa.Handle
 // HandleCheckProducer records checkoutput and responds with the programmed response
 func (s *NoSessionServer) HandleCheckProducer(c context.Context,
 	r *checkoutputTmpl.HandleCheckProducerRequest) (*checkoutputTmpl.HandleCheckProducerResponse, error) {
-	s.CapturedCalls = append(s.CapturedCalls, spyAdapter.CapturedCall{
+	s.CapturedCalls = append(s.CapturedCalls, spyadapter.CapturedCall{
 		Name:      "HandleCheckProducer",
 		Instances: []interface{}{r.Instance},
 	})
@@ -201,7 +201,7 @@ func (s *NoSessionServer) Close() error {
 }
 
 // GetCapturedCalls ...
-func (s *NoSessionServer) GetCapturedCalls() []spyAdapter.CapturedCall {
+func (s *NoSessionServer) GetCapturedCalls() []spyadapter.CapturedCall {
 	return s.CapturedCalls
 }
 

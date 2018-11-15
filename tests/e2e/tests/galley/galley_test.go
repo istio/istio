@@ -32,10 +32,7 @@ import (
 )
 
 const (
-	// This namespace is used by default in all mixer config documents.
-	// It will be replaced with the test namespace.
-	templateNamespace = "istio-system"
-	yamlExtension     = "yaml"
+	yamlExtension = "yaml"
 )
 
 type testConfig struct {
@@ -75,10 +72,6 @@ func TestMain(m *testing.M) {
 		os.Exit(-1)
 	}
 	os.Exit(tc.RunTest(m))
-}
-
-func deleteGalleyConfig(ruleName string) error {
-	return doGalleyConfig(ruleName, util.KubeDeleteContents)
 }
 
 func applyGalleyConfig(ruleName string) error {

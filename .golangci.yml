@@ -104,19 +104,6 @@ linters-settings:
     simple: true
     range-loops: true # Report preallocation suggestions on range loops, true by default
     for-loops: false # Report preallocation suggestions on for loops, false by default
-  gocritic:
-    # which checks should be enabled; can't be combined with 'disabled-checks';
-    # default are: [appendAssign assignOp caseOrder dupArg dupBranchBody dupCase flagDeref
-    # ifElseChain regexpMust singleCaseSwitch sloppyLen switchTrue typeSwitchVar underef
-    # unlambda unslice rangeValCopy defaultCaseOrder];
-    # all checks list: https://github.com/go-critic/checkers
-    enabled-checks:
-      - rangeValCopy
-    settings: # settings passed to gocritic
-      captLocal: # must be valid enabled check name
-        checkLocals: true
-      rangeValCopy:
-        sizeThreshold: 32
 
 linters:
   enable:

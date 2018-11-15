@@ -15,18 +15,10 @@
 package flakytestfinder
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
-
-	"path/filepath"
 )
-
-func getAbsPath(path string) string {
-	if !filepath.IsAbs(path) {
-		path, _ = filepath.Abs(path)
-	}
-	return path
-}
 
 func TestIntegTestSkipByIssueRule(t *testing.T) {
 	rpts, _ := ReportFlakyTests([]string{"testdata/"})

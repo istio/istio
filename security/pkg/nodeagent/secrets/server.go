@@ -105,10 +105,10 @@ func (s *SDSServer) GetTLSCertificate() (*auth.TlsCertificate, error) {
 
 	tlsSecret := &auth.TlsCertificate{
 		CertificateChain: &core.DataSource{
-			Specifier: &core.DataSource_InlineBytes{s.certificateChain},
+			Specifier: &core.DataSource_InlineBytes{InlineBytes: s.certificateChain},
 		},
 		PrivateKey: &core.DataSource{
-			Specifier: &core.DataSource_InlineBytes{s.privateKey},
+			Specifier: &core.DataSource_InlineBytes{InlineBytes: s.privateKey},
 		},
 	}
 

@@ -25,8 +25,8 @@ import (
 
 	fortio_server "istio.io/istio/tests/integration_old/component/fortio_server"
 	"istio.io/istio/tests/integration_old/component/proxy"
-	"istio.io/istio/tests/integration_old/example/environment/appOnlyEnv"
-	"istio.io/istio/tests/integration_old/example/environment/mixerEnvoyEnv"
+	apponlyenv "istio.io/istio/tests/integration_old/example/environment/appOnlyEnv"
+	mixerenvoyenv "istio.io/istio/tests/integration_old/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration_old/framework"
 )
 
@@ -90,11 +90,11 @@ func TestSample1(t *testing.T) {
 func TestMain(m *testing.M) {
 	flag.Parse()
 
-	testEM = framework.NewTestEnvManager(appOnlyEnv.NewAppOnlyEnv(appOnlyEnvName), testID)
+	testEM = framework.NewTestEnvManager(apponlyenv.NewAppOnlyEnv(appOnlyEnvName), testID)
 	res1 := testEM.RunTest(m)
 	log.Printf("Test result %d in env %s", res1, appOnlyEnvName)
 
-	testEM = framework.NewTestEnvManager(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
+	testEM = framework.NewTestEnvManager(mixerenvoyenv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
 	res2 := testEM.RunTest(m)
 	log.Printf("Test result %d in env %s", res2, mixerEnvoyEnvName)
 
