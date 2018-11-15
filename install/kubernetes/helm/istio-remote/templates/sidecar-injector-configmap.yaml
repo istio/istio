@@ -59,7 +59,7 @@ data:
           {{ end }}
         restartPolicy: Always
 {{- end }}
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      {{- if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:
         - -c
@@ -71,7 +71,7 @@ data:
         resources: {}
         securityContext:
           privileged: true
-      {{ end }}
+      {{- end }}
 {{- end }}
       containers:
       - name: istio-proxy
@@ -154,12 +154,12 @@ data:
         {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-          {{ if eq .Values.global.proxy.privileged true }}
+          {{- if eq .Values.global.proxy.privileged true }}
           privileged: true
-          {{ end -}}
-          {{ if ne .Values.global.proxy.enableCoreDump true }}
+          {{- end }}
+          {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
-          {{ end -}}
+          {{- end }}
           {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
           capabilities:
             add:
@@ -184,20 +184,20 @@ data:
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
-        {{ if .Values.global.sds.enabled }}
+        {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
-        {{ if .Values.global.sds.enableTokenMount }}
+        {{- if .Values.global.sds.enableTokenMount }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        {{ end }}
-        {{ end }}
+        {{- end }}
+        {{- end }}
       volumes:
-      {{ if .Values.global.sds.enabled }}
+      {{- if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
-      {{ if .Values.global.sds.enableTokenMount }}
+      {{- if .Values.global.sds.enableTokenMount }}
       - name: istio-token
         projected:
           sources:
@@ -205,8 +205,8 @@ data:
               path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
-      {{ end }}
-      {{ end }}
+      {{- end }}
+      {{- end }}
       - emptyDir:
           medium: Memory
         name: istio-envoy
