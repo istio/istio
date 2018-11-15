@@ -121,8 +121,6 @@ linters-settings:
 linters:
   enable:
     - deadcode
-    - errcheck
-    - goconst
     - goimports
     - golint
     - govet
@@ -144,6 +142,8 @@ linters:
     - gochecknoinits
     - gosec
       # start here to enable back all gometalinter linters
+    - errcheck
+    - goconst
     - maligned
     - interfacer
     - structcheck

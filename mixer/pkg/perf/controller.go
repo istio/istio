@@ -114,8 +114,9 @@ func (c *Controller) runClients(iterations int, timeout time.Duration) error {
 	errCh := make(chan error, len(c.clients))
 
 	for _, conn := range c.clients {
+		connc := conn
 		// Make calls asynchronously.
-		go func() { errCh <- conn.Call("ClientServer.Run", iterations, nil) }()
+		go func() { errCh <- connc.Call("ClientServer.Run", iterations, nil) }()
 	}
 
 	var errors *multierror.Error
