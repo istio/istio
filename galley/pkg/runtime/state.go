@@ -21,6 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/conversions"

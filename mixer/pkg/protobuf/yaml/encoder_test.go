@@ -979,7 +979,7 @@ map_str_str:
 }
 
 // Why is this case not included it inside the above `simple` yaml ? Because for this case jsonpb cannot unmarshal
-// into proto and therefore I cannot validate the unmarshalled data of custom marshalled bits using reflect.deepequals.
+// into proto and therefore I cannot validate the unmarshaled data of custom marshaled bits using reflect.deepequals.
 // Therefore, for these two cases, we will unmarshal the encoded bytes and check for specific fields.
 func TestEncodeBytesForEnumMapVals(t *testing.T) {
 	fds, fdsLoadErr := GetFileDescSet("testdata/all/types.descriptor")

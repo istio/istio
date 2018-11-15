@@ -30,10 +30,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"k8s.io/client-go/kubernetes"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (

@@ -104,7 +104,7 @@ func TestHandleMetric(t *testing.T) {
 		},
 		{
 			Name:  "m3",
-			Value: time.Duration(5 * time.Second), // duration
+			Value: 5 * time.Second, // duration
 			Dimensions: map[string]interface{}{
 				"tag3": "hello",
 			},

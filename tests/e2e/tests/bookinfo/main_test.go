@@ -50,9 +50,6 @@ const (
 	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
 	bookinfoGateway                    = routeRulesDir + "/" + "bookinfo-gateway"
-	destRule                           = routeRulesDir + "/" + "destination-rule-all"
-	destRuleMtls                       = routeRulesDir + "/" + "destination-rule-all-mtls"
-	allRule                            = routeRulesDir + "/" + "virtual-service-all-v1"
 	delayRule                          = routeRulesDir + "/" + "virtual-service-ratings-test-delay"
 	tenRule                            = routeRulesDir + "/" + "virtual-service-reviews-90-10"
 	twentyRule                         = routeRulesDir + "/" + "virtual-service-reviews-80-20"
@@ -62,7 +59,6 @@ const (
 	testMysqlRule                      = routeRulesDir + "/" + "virtual-service-ratings-mysql"
 	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "virtual-service-details-v2"
 	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
-	reviewsDestinationRule             = routeRulesDir + "/" + "destination-policy-reviews"
 
 	// users
 	normalUsername = "normal-user"

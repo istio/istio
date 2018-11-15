@@ -79,7 +79,7 @@ var (
 		Host: "ratings",
 		TrafficPolicy: &networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
-				new(networking.LoadBalancerSettings_Simple),
+				LbPolicy: new(networking.LoadBalancerSettings_Simple),
 			},
 		},
 	}
@@ -88,13 +88,13 @@ var (
 	ExampleHTTPAPISpec = &mccpb.HTTPAPISpec{
 		Attributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"petstore"}},
+				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "petstore"}},
 			},
 		},
 		Patterns: []*mccpb.HTTPAPISpecPattern{{
 			Attributes: &mpb.Attributes{
 				Attributes: map[string]*mpb.Attributes_AttributeValue{
-					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{"getPet"}},
+					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "getPet"}},
 				},
 			},
 			HttpMethod: "GET",

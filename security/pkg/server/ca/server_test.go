@@ -363,6 +363,7 @@ func TestRun(t *testing.T) {
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 		"Multiple hostname": {
+			// nolint: goimports
 			ca:       &mockca.FakeCA{SignedCert: []byte(csr)},
 			hostname: []string{"localhost", "fancyhost"},
 			port:     0,
