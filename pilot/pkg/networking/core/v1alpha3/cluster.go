@@ -518,7 +518,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 		cluster.LbPolicy = v2.Cluster_RING_HASH
 		cluster.LbConfig = &v2.Cluster_RingHashLbConfig_{
 			RingHashLbConfig: &v2.Cluster_RingHashLbConfig{
-				MinimumRingSize: &types.UInt64Value{Value: uint64(consistentHash.GetMinimumRingSize())},
+				MinimumRingSize: &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()},
 			},
 		}
 	}

@@ -53,27 +53,11 @@ type PushContext struct {
 	// ServiceByHostname has all services, indexed by hostname.
 	ServiceByHostname map[Hostname]*Service `json:"-,omitempty"`
 
-	//
-	//ConfigsByType map[string][]*Config
-
-	// TODO: add the remaining O(n**2) model, deprecate/remove all remaining
-	// uses of model:
-
-	//Endpoints map[string][]*ServiceInstance
-	//ServicesForProxy map[string][]*ServiceInstance
-	//ManagementPorts map[string]*PortList
-	//WorkloadHealthCheck map[string]*ProbeList
-
-	// ServiceAccounts represents the list of service accounts
-	// for a service.
-	//	ServiceAccounts map[string][]string
 	// Temp: the code in alpha3 should use VirtualService directly
 	VirtualServiceConfigs []Config `json:"-,omitempty"`
 
 	destinationRuleHosts   []Hostname
 	destinationRuleByHosts map[Hostname]*combinedDestinationRule
-
-	//TODO: gateways              []*networking.Gateway
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
@@ -104,7 +88,7 @@ type PushContext struct {
 // or the full list of endpoints for a service across registries, since it limits scalability.
 //
 // Future optimizations will include grouping the endpoints by labels, gateway or region to
-// reduce the time when subsetting or split-horizon is used. This desing assumes pilot
+// reduce the time when subsetting or split-horizon is used. This design assumes pilot
 // tracks all endpoints in the mesh and they fit in RAM - so limit is few M endpoints.
 // It is possible to split the endpoint tracking in future.
 type XDSUpdater interface {

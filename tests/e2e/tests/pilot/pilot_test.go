@@ -149,8 +149,6 @@ func setTestConfig() error {
 	}
 	tc.CommonConfig = cc
 
-	tc.Kube.InstallAddons = true // zipkin is used
-
 	appDir, err := ioutil.TempDir(os.TempDir(), "pilot_test")
 	if err != nil {
 		return err

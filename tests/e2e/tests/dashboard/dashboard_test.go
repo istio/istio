@@ -507,7 +507,7 @@ func podList(namespace string, selector string) ([]string, error) {
 }
 
 func allowPrometheusSync() {
-	time.Sleep(1 * time.Minute)
+	time.Sleep(15 * time.Second)
 }
 
 var waitDurations = []time.Duration{0, 5 * time.Second, 15 * time.Second, 30 * time.Second, time.Minute, 2 * time.Minute}

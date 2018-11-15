@@ -66,6 +66,26 @@ var (
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
+// envoy supported retry on header values
+var supportedRetryOnPolicies = map[string]bool{
+	// 'x-envoy-retry-on' supported policies:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on
+	"5xx":                    true,
+	"gateway-error":          true,
+	"connect-failure":        true,
+	"retriable-4xx":          true,
+	"refused-stream":         true,
+	"retriable-status-codes": true,
+
+	// 'x-envoy-retry-grpc-on' supported policies:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on
+	"cancelled":          true,
+	"deadline-exceeded":  true,
+	"internal":           true,
+	"resource-exhausted": true,
+	"unavailable":        true,
+}
+
 // golang supported methods: https://golang.org/src/net/http/method.go
 var supportedMethods = map[string]bool{
 	http.MethodGet:     true,
@@ -214,7 +234,10 @@ func (l Labels) Validate() error {
 
 // ValidateFQDN checks a fully-qualified domain name
 func ValidateFQDN(fqdn string) error {
-	return appendErrors(checkDNS1123Preconditions(fqdn), validateDNS1123Labels(fqdn))
+	if err := checkDNS1123Preconditions(fqdn); err != nil {
+		return err
+	}
+	return validateDNS1123Labels(fqdn)
 }
 
 // ValidateWildcardDomain checks that a domain is a valid FQDN, but also allows wildcard prefixes.
@@ -244,7 +267,12 @@ func checkDNS1123Preconditions(name string) error {
 }
 
 func validateDNS1123Labels(domain string) error {
-	for _, label := range strings.Split(domain, ".") {
+	parts := strings.Split(domain, ".")
+	topLevelDomain := parts[len(parts)-1]
+	if _, err := strconv.Atoi(topLevelDomain); err == nil {
+		return fmt.Errorf("domain name %q invalid (top level domain %q cannot be all-numeric)", domain, topLevelDomain)
+	}
+	for _, label := range parts {
 		if !IsDNS1123Label(label) {
 			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, label)
 		}
@@ -417,7 +445,10 @@ func validateServer(server *networking.Server) (errs error) {
 				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
 			}
 			if err := ValidateWildcardDomain(host); err != nil {
-				errs = appendErrors(errs, err)
+				ipAddr := net.ParseIP(host) // Could also be an IP
+				if ipAddr == nil {
+					errs = appendErrors(errs, err)
+				}
 			}
 		}
 	}
@@ -435,7 +466,7 @@ func validateServer(server *networking.Server) (errs error) {
 		} else if !protocol.IsTLS() && server.Tls != nil {
 			// only tls redirect is allowed if this is a HTTP server
 			if protocol.IsHTTP() {
-				if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH ||
+				if !IsPassThroughServer(server) ||
 					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
 					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
 				}
@@ -1338,8 +1369,11 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
 		if err := ValidateWildcardDomain(host); err != nil {
-			errs = appendErrors(errs, err)
-			allHostsValid = false
+			ipAddr := net.ParseIP(host) // Could also be an IP
+			if ipAddr == nil {
+				errs = appendErrors(errs, err)
+				allHostsValid = false
+			}
 		} else if appliesToMesh && host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
 			allHostsValid = false
@@ -1416,9 +1450,11 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 }
 
 func validateSniHost(sniHost string, context *networking.VirtualService) error {
-	err := ValidateWildcardDomain(sniHost)
-	if err != nil {
-		return err
+	if err := ValidateWildcardDomain(sniHost); err != nil {
+		ipAddr := net.ParseIP(sniHost) // Could also be an IP
+		if ipAddr == nil {
+			return err
+		}
 	}
 	sniHostname := Hostname(sniHost)
 	for _, host := range context.Hosts {
@@ -1426,8 +1462,7 @@ func validateSniHost(sniHost string, context *networking.VirtualService) error {
 			return nil
 		}
 	}
-	err = fmt.Errorf("SNI host is not a compatible subset of the virtual service hosts: %s", sniHost)
-	return err
+	return fmt.Errorf("SNI host is not a compatible subset of the virtual service hosts: %s", sniHost)
 }
 
 func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
@@ -1742,6 +1777,15 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	if retries.PerTryTimeout != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(retries.PerTryTimeout))
 	}
+	if retries.RetryOn != "" {
+		retryOnPolicies := strings.Split(retries.RetryOn, ",")
+		for _, policy := range retryOnPolicies {
+			if !supportedRetryOnPolicies[policy] {
+				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
+			}
+		}
+	}
+
 	return
 }
 
@@ -1849,10 +1893,15 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 		}
 
 		for _, endpoint := range serviceEntry.Endpoints {
+			ipAddr := net.ParseIP(endpoint.Address) // Typically it is an IP address
+			if ipAddr == nil {
+				if err := ValidateFQDN(endpoint.Address); err != nil { // Otherwise could be an FQDN
+					errs = appendErrors(errs,
+						fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", endpoint.Address))
+				}
+			}
 			errs = appendErrors(errs,
-				ValidateFQDN(endpoint.Address),
 				Labels(endpoint.Labels).Validate())
-
 			for name, port := range endpoint.Ports {
 				if !servicePorts[name] {
 					errs = appendErrors(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
@@ -1936,9 +1985,11 @@ func appendErrors(err error, errs ...error) error {
 func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
 	switch n.Family {
 	case AddressFamilyTCP:
-		ipAddr := net.ParseIP(n.Address)
+		ipAddr := net.ParseIP(n.Address) // Typically it is an IP address
 		if ipAddr == nil {
-			return errors.New("invalid IP address " + n.Address)
+			if err := ValidateFQDN(n.Address); err != nil { // Otherwise could be an FQDN
+				return errors.New("invalid address " + n.Address)
+			}
 		}
 	case AddressFamilyUnix:
 		return ValidateUnixAddress(n.Address)

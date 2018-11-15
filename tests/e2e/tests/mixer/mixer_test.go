@@ -31,14 +31,11 @@ import (
 	"testing"
 	"time"
 
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-
-	"fortio.org/fortio/fhttp"
-
-	// flog "fortio.org/fortio/log"
-	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/kube"
@@ -484,11 +481,13 @@ func setTestConfig() error {
 }
 
 func fatalf(t *testing.T, format string, args ...interface{}) {
+	t.Helper()
 	dumpK8Env()
 	t.Fatalf(format, args...)
 }
 
 func errorf(t *testing.T, format string, args ...interface{}) {
+	t.Helper()
 	dumpK8Env()
 	t.Errorf(format, args...)
 }
@@ -758,7 +757,7 @@ func testDenials(t *testing.T, rule string) {
 		}
 	}()
 
-	time.Sleep(10 * time.Second)
+	allowRuleSync()
 
 	// Product page should not be accessible anymore.
 	log.Infof("Denials: ensure productpage is denied access for user john")
@@ -1272,7 +1271,7 @@ func allowRuleSync() {
 
 func allowPrometheusSync() {
 	log.Info("Sleeping to allow prometheus to record metrics...")
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second)
 }
 
 func promAPI() (v1.API, error) {
@@ -1358,6 +1357,7 @@ type header struct {
 	value string
 }
 
+// nolint: interfacer
 func get(clnt *http.Client, url string, headers ...*header) (status int, contents string, err error) {
 	var req *http.Request
 	req, err = http.NewRequest("GET", url, nil)

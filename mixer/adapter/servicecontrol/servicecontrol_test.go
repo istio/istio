@@ -137,6 +137,7 @@ func getTestAdapterConfig() *config.Params {
 				GoogleServiceName: "service_a.googleapi.com",
 				Quotas: []*config.Quota{
 					{
+						// nolint: goimports
 						Name: "request-count",
 						GoogleQuotaMetricName: "request-metric",
 						Expiration: &pbtypes.Duration{

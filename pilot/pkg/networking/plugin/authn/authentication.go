@@ -252,7 +252,7 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy, proxyType model.Node
 			// Only enable mTLS for sidecar, not Ingress/Router for now.
 			if proxyType == model.Sidecar {
 				if peer.GetMtls() == nil {
-					peer.Params = &authn.PeerAuthenticationMethod_Mtls{&authn.MutualTls{}}
+					peer.Params = &authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}}
 				}
 				usedPeers = append(usedPeers, peer)
 			}

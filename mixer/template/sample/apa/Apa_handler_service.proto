@@ -40,7 +40,6 @@ option (gogoproto.gostring_all) = false;
 service HandleMyApaService {
     // HandleMyApa is called by Mixer at request-time to deliver 'myapa' instances to the backend.
     rpc HandleMyApa(HandleMyApaRequest) returns (OutputMsg);
-    
 }
 
 // Request message for HandleMyApa method.
@@ -60,6 +59,8 @@ message HandleMyApaRequest {
     // Id to dedupe identical requests from Mixer.
     string dedup_id = 3;
 }
+
+
 
 // Contains output payload for 'myapa' template.
 message OutputMsg {
@@ -92,7 +93,6 @@ message OutputMsg {
     map<string, string> out_str_map = 12;
     
 }
-
 
 // Contains instance payload for 'myapa' template. This is passed to infrastructure backends during request-time
 // through HandleMyApaService.HandleMyApa.

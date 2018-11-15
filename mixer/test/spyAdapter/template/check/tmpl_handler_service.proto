@@ -61,6 +61,8 @@ message HandleSampleCheckRequest {
 
 
 
+
+
 // Contains instance payload for 'samplecheck' template. This is passed to infrastructure backends during request-time
 // through HandleSampleCheckService.HandleSampleCheck.
 message InstanceMsg {
