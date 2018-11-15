@@ -42,7 +42,7 @@
       },
       {
         "tag_name": "mongo_prefix",
-        "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delay_|decoding_)(.*?)$"
+        "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       }
     ]
   },
