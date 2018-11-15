@@ -3152,6 +3152,11 @@
                     "id": 5,
                     "name": "locality",
                     "type": "string"
+                  },
+                  {
+                    "id": 6,
+                    "name": "weight",
+                    "type": "uint32"
                   }
                 ],
                 "maps": [
