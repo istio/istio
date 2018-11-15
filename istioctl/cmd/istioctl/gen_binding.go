@@ -20,15 +20,13 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"istio.io/istio/istioctl/pkg/genbinding"
 	"istio.io/istio/pilot/pkg/model"
 )
 
-const (
-	defaultEgressGatewayHolder = "%default%"
-	defaultEgressGateway       = "istio-egressgateway.istio-system"
-)
+const defaultEgressGateway = "istio-egressgateway.istio-system"
 
 var (
 	remoteClusters []string
@@ -64,12 +62,8 @@ var (
 				namespace = defaultNamespace
 			}
 
-			if egressGateway == defaultEgressGatewayHolder {
-				if useEgress == false {
-					egressGateway = ""
-				} else {
-					egressGateway = defaultEgressGateway
-				}
+			if !explicitlySet(c.Flags(), "use-egress") && !explicitlySet(c.Flags(), "egressgateway") {
+				egressGateway = ""
 			}
 
 			bindings, err := genbinding.CreateBinding(args[0], remoteClusters, labels, egressGateway, namespace)
@@ -99,7 +93,7 @@ func init() {
 	genBindingCmd.PersistentFlags().BoolVarP(&useEgress, "use-egress", "",
 		false, "Use Egress Gateway")
 	genBindingCmd.PersistentFlags().StringVarP(&egressGateway, "egressgateway", "",
-		defaultEgressGatewayHolder, "Egress Gateway Address")
+		defaultEgressGateway, "Egress Gateway Address")
 
 	experimentalCmd.AddCommand(genBindingCmd)
 }
@@ -117,4 +111,12 @@ func parseLabels(s string) (map[string]string, error) {
 		}
 	}
 	return retval, nil
+}
+
+func explicitlySet(fs *pflag.FlagSet, s string) bool {
+	retval := false
+	fs.Visit(func(f *pflag.Flag) {
+		retval = retval || (f.Name == s)
+	})
+	return retval
 }
