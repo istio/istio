@@ -1,0 +1,28 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  creationTimestamp: null
+  name: service-entry-ratings
+  namespace: default
+spec:
+  addresses:
+  - 127.255.25.103
+  endpoints:
+  - address: 1.2.3.4
+    labels:
+      arch: i586
+      network: external
+      version: v1
+    ports:
+      http: 15443
+  - address: istio-egressgateway.istio-system
+    ports:
+      http: 15443
+  hosts:
+  - ratings
+  location: MESH_INTERNAL
+  ports:
+  - name: http
+    number: 8080
+    protocol: HTTP
+  resolution: DNS

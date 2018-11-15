@@ -37,7 +37,7 @@ type genBindingTestCase struct {
 func TestGenBinding(t *testing.T) {
 	tt := []genBindingTestCase{
 		{args: strings.Split("experimental gen-binding", " "),
-			expectedSubstring: "Error: usage: istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2]", // nolint: lll
+			expectedSubstring: "Error: usage: istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2]  [--use-egress] [--egressgateway <ip:port>]", // nolint: lll
 			wantException:     true,
 			name:              "No args"},
 
@@ -56,6 +56,22 @@ func TestGenBinding(t *testing.T) {
 		{args: strings.Split("experimental gen-binding ratings:8080 --cluster 1.2.3.4 --labels version=v1,arch=i586", " "),
 			goldenFilename: "testdata/genbinding/ratings-v1-i586.yaml",
 			name:           "One remote with subset"},
+
+		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4 --use-egress", " "),
+			goldenFilename: "testdata/genbinding/use-egress.yaml",
+			name:           "Use egress gateway"},
+
+		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4 --egressgateway 6.7.8.9:15443", " "),
+			goldenFilename: "testdata/genbinding/egressgateway.yaml",
+			name:           "Specify egress gateway"},
+
+		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4 --egressgateway 6.7.8.9", " "),
+			goldenFilename: "testdata/genbinding/egress-gateway-ip.yaml",
+			name:           "Specify egress gateway IP address only"},
+
+		{args: strings.Split("experimental gen-binding ratings:8080 --cluster 1.2.3.4 --labels version=v1,arch=i586 --use-egress", " "),
+			goldenFilename: "testdata/genbinding/ratings-v1-i586-egress.yaml",
+			name:           "One remote with subset with egress"},
 	}
 
 	for _, tc := range tt {
@@ -63,6 +79,8 @@ func TestGenBinding(t *testing.T) {
 			// Clear, because we re-use
 			remoteClusters = []string{}
 			addressLabels = ""
+			useEgress = false
+			egressGateway = "%default%"
 
 			verifyGenBindingTestOutput(t, tc)
 		})

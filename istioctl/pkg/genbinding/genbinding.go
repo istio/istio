@@ -31,7 +31,7 @@ type hostPort struct {
 }
 
 // CreateBinding converts desired multicluster state into Istio state
-func CreateBinding(service string, clusters []string, labels map[string]string, namespace string) ([]model.Config, error) {
+func CreateBinding(service string, clusters []string, labels map[string]string, egressGateway string, namespace string) ([]model.Config, error) { // nolint: lll
 
 	remoteService, err := parseNet(service, 0)
 	if err != nil {
@@ -47,7 +47,7 @@ func CreateBinding(service string, clusters []string, labels map[string]string, 
 		remoteClusters = append(remoteClusters, *remoteCluster)
 	}
 
-	istioConfig, err := serviceToServiceEntrySniCluster(*remoteService, remoteClusters, labels, namespace)
+	istioConfig, err := serviceToServiceEntrySniCluster(*remoteService, remoteClusters, labels, egressGateway, namespace)
 	return istioConfig, err
 }
 
@@ -68,9 +68,9 @@ func parseNet(s string, defaultPort int) (*hostPort, error) {
 }
 
 // serviceToServiceEntry() creates a ServiceEntry pointing to istio-egressgateway
-func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []hostPort, labels map[string]string, namespace string) ([]model.Config, error) { // nolint: lll
+func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []hostPort, labels map[string]string, egressGateway string, namespace string) ([]model.Config, error) { // nolint: lll
 	protocol := "http"
-
+        var egresslabels map[string]string
 	// It is strongly recommended addresses for different hosts don't clash;
 	// we use the hash to make clashing unlikely.
 	h := fnv.New32a()
@@ -102,6 +102,8 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 		},
 	}
 
+	egresslabels = make(map[string]string)
+        egresslabels["network"] = "external"
 	spec := serviceEntry.Spec.(*v1alpha3.ServiceEntry)
 	for _, cluster := range remoteClusters {
 		endpoint := &v1alpha3.ServiceEntry_Endpoint{
@@ -110,10 +112,28 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 		}
 		endpoint.Ports[protocol] = uint32(cluster.port)
 		if len(labels) > 0 {
+		   	if egressGateway != "" {
+			   	labels["network"] = "external"
+			}
 			endpoint.Labels = labels
-		}
+		} else if egressGateway != "" {
+			endpoint.Labels = egresslabels
+                }
 		spec.Endpoints = append(spec.Endpoints, endpoint)
 	}
+
+        if egressGateway != "" {
+               egressGatewayEntry, err := parseNet(egressGateway, 15443)
+	       if err != nil {
+                        return nil, err
+               }
+                endpoint := &v1alpha3.ServiceEntry_Endpoint{
+                        Address: egressGatewayEntry.host,
+			Ports:   make(map[string]uint32),
+                }
+                endpoint.Ports[protocol] = uint32(egressGatewayEntry.port)
+                spec.Endpoints = append(spec.Endpoints, endpoint)
+        }
 
 	return []model.Config{serviceEntry}, nil
 }
