@@ -69,10 +69,10 @@ function download_untar_istio_release() {
 # Cleanup e2e resources.
 function cleanup() {
   if [[ "${CLEAN_CLUSTERS}" == "True" ]]; then
-    unsetup_clusters
+    unsetup_clusters || echo "Cluster cleanup failed"
   fi
   if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-    mason_cleanup
+    mason_cleanup || echo "Mason cleanup failed"
     cat "${FILE_LOG}"
   fi
 }

@@ -43,6 +43,8 @@ usage() {
 }
 
 ISTIO_NAMESPACE="istio-system"
+# Minimum % of all requests that must be 200 for test to pass.
+MIN_200_PCT_FOR_PASS="85.0"
 
 while (( "$#" )); do
     PARAM=$(echo "${1}" | awk -F= '{print $1}')
@@ -116,8 +118,8 @@ installIstioSystemAtVersionHelmTemplate() {
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
-    helm init --client-only
-    helm dep update "${release_path}"
+    #helm init --client-only
+    #helm dep update "${release_path}"
     helm template "${release_path}" "${auth_opts}" \
     --name istio --namespace "${ISTIO_NAMESPACE}" \
     --set gateways.istio-ingressgateway.replicaCount=4 \
@@ -258,6 +260,22 @@ resetNamespaces() {
     done
 }
 
+# Returns 0 if the passed string has form "Code 200 : 6601 (94.6 %)" and the percentage is smaller than ${MIN_200_PCT_FOR_PASS}
+percent200sAbove() {
+    local s=$1
+    local regex="Code 200 : [0-9]+ \(([0-9]+\.[0-9]+) %\)"
+    if [[ $s =~ $regex ]]; then
+        local pct200s="${BASH_REMATCH[1]}"
+        echo ${pct200s}
+        if [ $(echo ${pct200s}'>'${MIN_200_PCT_FOR_PASS} | bc) -eq 1 ]; then
+            return 0
+        fi
+        return 1
+    fi
+    echo "No Code 200 percentage found in log."
+    return 1
+}
+
 die() {
     echo "$*" 1>&2 ; exit 1;
 }
@@ -327,21 +345,22 @@ kubectl logs -f -n "${TEST_NAMESPACE}" -c echosrv "${cli_pod_name}" &> "${POD_FO
 local_log_str=$(grep "Code 200" "${LOCAL_FORTIO_LOG}")
 pod_log_str=$(grep "Code 200"  "${POD_FORTIO_LOG}")
 
-if [[ ${local_log_str} == "" ]]; then
+if [[ ${local_log_str} != *"Code 200"* ]];then
     echo "No Code 200 found in external traffic log"
     failed=true
-elif [[ ${local_log_str} != *"(100.0"* ]]; then
-    printf "\\n\\nErrors found in external traffic log:\\n\\n"
+elif ! percent200sAbove "${local_log_str}"; then
+    printf "\\n\\nToo many errors found in external traffic log:\\n\\n"
+    failed=true
     cat ${LOCAL_FORTIO_LOG}
 fi
 
-if [[ ${pod_log_str} == "" ]]; then
+if [[ ${pod_log_str}  != *"Code 200"* ]]; then
     echo "No Code 200 found in internal traffic log"
     failed=true
-elif [[ ${pod_log_str} != *"(100.0"* ]]; then
-    printf "\\n\\nErrors found in internal traffic log:\\n\\n"
+elif ! percent200sAbove "${local_log_str}"; then
+    printf "\\n\\nToo many errors found in internal traffic log:\\n\\n"
+    failed=true
     cat ${POD_FORTIO_LOG}
-    exit 1
 fi
 
 popd || exit 1
@@ -351,3 +370,4 @@ if [ -n "${failed}" ]; then
 fi
 
 echo "SUCCESS"
+
