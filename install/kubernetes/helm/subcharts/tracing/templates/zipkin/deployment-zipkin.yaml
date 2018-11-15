@@ -1,0 +1,55 @@
+{{ if eq .Values.provider "zipkin" }}
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-zipkin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: zipkin
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  template:
+    metadata:
+      labels:
+        app: zipkin
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.zipkin.hub }}/zipkin:{{ .Values.zipkin.tag }}"
+          ports:
+            - containerPort: {{ .Values.zipkin.queryPort }}
+          livenessProbe:
+            initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
+            tcpSocket:
+              port: {{ .Values.zipkin.queryPort }}
+          readinessProbe:
+            initialDelaySeconds: {{ .Values.zipkin.probeStartupDelay }}
+            httpGet:
+              path: /health
+              port: {{ .Values.zipkin.queryPort }}
+          resources:
+{{- if .Values.zipkin.resources }}
+{{ toYaml .Values.zipkin.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: QUERY_PORT
+              value: "{{ .Values.zipkin.queryPort }}"
+            - name: JAVA_OPTS
+              value: "-XX:ConcGCThreads={{ .Values.zipkin.node.cpus }} -XX:ParallelGCThreads={{ .Values.zipkin.node.cpus }} -Djava.util.concurrent.ForkJoinPool.common.parallelism={{ .Values.zipkin.node.cpus }} -Xms{{ .Values.zipkin.javaOptsHeap }}M -Xmx{{ .Values.zipkin.javaOptsHeap }}M -XX:+UseG1GC -server"
+            - name: STORAGE_METHOD
+              value: "mem"
+            - name: ZIPKIN_STORAGE_MEM_MAXSPANS
+              value: "{{ .Values.zipkin.maxSpans }}"
+
+{{ end }}
