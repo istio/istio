@@ -52,7 +52,7 @@ data:
             - NET_ADMIN
           {{- if .Values.global.proxy.privileged }}
           privileged: true
-          {{ end -}}
+          {{- end }}
         restartPolicy: Always
 {{- end }}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
