@@ -57,7 +57,7 @@ func TestHttp(t *testing.T) {
 					for _, port := range ports {
 						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
 							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
-							runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+							runRetriableTest(t, testName, defaultRetryBudget, func() error {
 								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 								resp := ClientRequest(cluster, src, reqURL, 1, "")
 								// Auth is enabled for d:80 and disable for d:8080 using per-service

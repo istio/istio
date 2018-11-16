@@ -119,6 +119,7 @@ linters:
     - structcheck
     - ineffassign
     - unconvert
+    - unparam
     - unused
     - varcheck
   enable-all: false
@@ -128,7 +129,6 @@ linters:
     - typecheck
     - megacheck
     - nakedret
-    - unparam
     - scopelint
     - gochecknoglobals
     - gochecknoinits

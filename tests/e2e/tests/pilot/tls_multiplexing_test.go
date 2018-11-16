@@ -62,7 +62,7 @@ func TestTLSMultiplexing(t *testing.T) {
 					for _, port := range ports {
 						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
 							testName := fmt.Sprintf("%s->%s%s_%s", src, dst, domain, port)
-							runRetriableTest(t, cluster, testName, 15, func() error {
+							runRetriableTest(t, testName, 15, func() error {
 								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 								expectOK := true
 								for _, f := range shouldFails {

@@ -25,7 +25,6 @@ import (
 )
 
 func TestNewMetricsHandler(t *testing.T) {
-	ctx := context.Background()
 	env := test2.NewEnv(t)
 	logger := env.Logger()
 	type testData struct {
@@ -48,11 +47,7 @@ func TestNewMetricsHandler(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			logger.Infof("Starting %s - test run. . .\n", t.Name())
 			defer logger.Infof("Finished %s - test run. . .", t.Name())
-			mhi, err := newMetricsHandler(ctx, test2.NewEnv(t), test.cfg)
-			if err != nil {
-				t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
-				return
-			}
+			mhi := newMetricsHandler(test2.NewEnv(t), test.cfg)
 			defer mhi.close()
 
 			mh, ok := mhi.(*metricsHandler)
@@ -71,7 +66,7 @@ func TestHandleMetric(t *testing.T) {
 	logger.Infof("Starting %s - test run. . .\n", t.Name())
 	defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-	mhi, err := newMetricsHandler(ctx, test2.NewEnv(t), &config.Params{
+	mhi := newMetricsHandler(test2.NewEnv(t), &config.Params{
 		Metrics: map[string]*config.Params_MetricInfo{
 			"m1": {
 				LabelNames: []string{"tag1"},
@@ -81,13 +76,8 @@ func TestHandleMetric(t *testing.T) {
 			},
 		},
 	})
-
-	if err != nil {
-		t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
-		return
-	}
 	defer mhi.close()
-	err = mhi.handleMetric(ctx, []*metric.Instance{
+	err := mhi.handleMetric(ctx, []*metric.Instance{
 		{
 			Name:  "m1",
 			Value: 1, // int

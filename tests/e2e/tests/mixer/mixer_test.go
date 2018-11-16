@@ -873,6 +873,7 @@ func testCheckCache(t *testing.T, visit func() error, app string) {
 	}
 }
 
+// nolint: unparam
 func fetchRequestCount(t *testing.T, promAPI v1.API, service string) (prior429s float64, prior200s float64, value model.Value) {
 	var err error
 	t.Log("Establishing metrics baseline for test...")
@@ -1293,6 +1294,7 @@ func promDump(client v1.API, metric string) string {
 
 // promDumpWithAttributes is used to get all of the recorded values of a metric for particular attributes.
 // Attributes have to be of format %s=\"%s\"
+// nolint: unparam
 func promDumpWithAttributes(promAPI v1.API, metric string, attributes []string) string {
 	var err error
 	query := fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))

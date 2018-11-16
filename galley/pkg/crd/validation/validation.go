@@ -45,7 +45,7 @@ var dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 // TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
 // config validation to remove galley dependency on mixer internal
 // packages.
-func createMixerValidator() (store.BackendValidator, error) {
+func createMixerValidator() store.BackendValidator {
 	info := generatedTmplRepo.SupportedTmplInfo
 	templates := make(map[string]*template.Info, len(info))
 	for k := range info {
@@ -53,16 +53,13 @@ func createMixerValidator() (store.BackendValidator, error) {
 		templates[k] = &t
 	}
 	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
-	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates)), nil
+	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
 }
 
 //RunValidation start running Galley validation mode
 func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
-	mixerValidator, err := createMixerValidator()
-	if err != nil {
-		faltaf("cannot create mixer backend validator for %q: %v", kubeConfig, err)
-	}
+	mixerValidator := createMixerValidator()
 	clientset, err := kube.CreateClientset(kubeConfig, "")
 	if err != nil {
 		faltaf("could not create k8s clientset: %v", err)

@@ -99,6 +99,7 @@ func (c *Controller) initializeClients(address string, setup *Setup) error {
 	return err
 }
 
+// nolinter: unparam
 func (c *Controller) runClients(iterations int, timeout time.Duration) error {
 	if len(c.clients) == 0 {
 		return nil
