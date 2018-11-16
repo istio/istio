@@ -738,7 +738,7 @@ func (a *pilotAgent) findFreePort() (int, error) {
 
 func randomBase64String(len int) string {
 	buff := make([]byte, len)
-	rand.Read(buff)
+	_, _ = rand.Read(buff)
 	str := base64.URLEncoding.EncodeToString(buff)
 	return str[:len]
 }
