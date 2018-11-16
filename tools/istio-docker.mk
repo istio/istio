@@ -22,7 +22,7 @@
 docker: build test-bins docker.all
 
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend \
-	docker.proxy_init docker.servicegraph docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
+	docker.proxy_init docker.servicegraph docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s docker.operator
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -56,7 +56,8 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
 # tell make which files are copied from the source tree and generate rules to copy them to the proper location:
 # TODO(sdake)                      $(NODE_AGENT_TEST_FILES) $(GRAFANA_FILES)
 DOCKER_FILES_FROM_SOURCE:=tools/deb/istio-iptables.sh docker/ca-certificates.tgz \
-                          tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem
+                          tests/testdata/certs/cert.crt tests/testdata/certs/cert.key tests/testdata/certs/cacert.pem \
+                          operator/operator.sh
 # generates rules like the following:
 # $(ISTIO_DOCKER)/tools/deb/istio-iptables.sh: $(ISTIO_OUT)/tools/deb/istio-iptables.sh | $(ISTIO_DOCKER)
 # 	cp $FILE $$(@D))
@@ -205,6 +206,11 @@ docker.node-agent-test: $(ISTIO_DOCKER)/node_agent
 docker.node-agent-test: $(ISTIO_DOCKER)/istio_ca.crt
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.crt
 docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
+	$(DOCKER_RULE)
+
+docker.operator: operator/docker/Dockerfile.operator
+docker.operator: $(ISTIO_BIN)/kubectl
+docker.operator: $(ISTIO_DOCKER)/operator.sh
 	$(DOCKER_RULE)
 
 # $@ is the name of the target
