@@ -352,7 +352,7 @@ func TestNodeMetadata(t *testing.T) {
 		"istio": "sidecar",
 	}
 	anno := map[string]string{
-		"istio.io/enable": "{\"abc\": 20}",
+		"istio.io/enable": "{20: 20}",
 	}
 
 	_, envs := createEnv(t, labels, nil)
