@@ -784,17 +784,19 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
-	err = util.HelmInstallDryRun(workDir, k.Namespace, valFile, k.Namespace, setValue)
+	err = util.HelmInstallDryRun(workDir, "istio", valFile, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
-		log.Errorf("Helm dry run of istio install failed %s, valueFile=%s, setValue=%s", istioHelmInstallDir, valFile, setValue)
+		log.Errorf("Helm dry run of istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
+			istioHelmInstallDir, valFile, setValue, k.Namespace)
 		return err
 	}
 
 	// helm install
-	err = util.HelmInstall(workDir, k.Namespace, valFile, k.Namespace, setValue)
+	err = util.HelmInstall(workDir, "istio", valFile, k.Namespace, setValue)
 	if err != nil {
-		log.Errorf("Helm install istio install failed %s, valueFile=%s, setValue=%s", istioHelmInstallDir, valFile, setValue)
+		log.Errorf("Helm install istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
+			istioHelmInstallDir, valFile, setValue, k.Namespace)
 		return err
 	}
 
