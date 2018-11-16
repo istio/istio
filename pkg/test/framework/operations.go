@@ -15,43 +15,21 @@
 package framework
 
 import (
-	"os"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/dependency"
-	env "istio.io/istio/pkg/test/framework/environment"
-	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/framework/api/context"
+	"istio.io/istio/pkg/test/framework/runtime"
 )
 
-var d = newDriver()
+var r = runtime.New()
 
 // Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
 // It allows us to do post-run doCleanup, and flag parsing.
 func Run(testID string, m *testing.M) {
-	exitcode, err := d.Run(testID, m)
-	if err != nil {
-		scopes.Framework.Errorf("test.Run: %v", err)
-	}
-	os.Exit(exitcode)
+	r.Run(testID, m)
 }
 
-// SuiteRequires indicates that the whole suite requires particular dependencies.
-func SuiteRequires(_ *testing.M, dependencies ...dependency.Instance) {
-	if err := d.SuiteRequires(dependencies); err != nil {
-		panic(err)
-	}
-}
-
-// Requires ensures that the given dependencies will be satisfied. If they cannot, then the
-// test will fail.
-func Requires(t testing.TB, dependencies ...dependency.Instance) {
-	t.Helper()
-	d.Requires(t, dependencies)
-}
-
-// AcquireEnvironment resets and returns the environment. Once AcquireEnvironment should be called exactly
-// once per test.
-func AcquireEnvironment(t testing.TB) env.Environment {
-	t.Helper()
-	return d.AcquireEnvironment(t)
+// GetContext resets and returns the environment. Should be called exactly once per test.
+func GetContext(t testing.TB) context.Instance {
+	return r.GetContext(t)
 }

@@ -17,18 +17,12 @@ package kube
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
-	"io/ioutil"
-	"path/filepath"
-
-	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeApiCore "k8s.io/api/core/v1"
@@ -56,13 +50,10 @@ var (
 // Accessor is a helper for accessing Kubernetes programmatically. It bundles some of the high-level
 // operations that is frequently used by the test framework.
 type Accessor struct {
-	restConfig   *rest.Config
-	ctl          *kubectl
-	set          *kubeClient.Clientset
-	extSet       *kubeExtClient.Clientset
-	baseDir      string
-	workDir      string
-	workDirMutex sync.Mutex
+	restConfig *rest.Config
+	ctl        *kubectl
+	set        *kubeClient.Clientset
+	extSet     *kubeExtClient.Clientset
 }
 
 // NewAccessor returns a new instance of an accessor.
@@ -87,27 +78,13 @@ func NewAccessor(kubeConfig string, baseWorkDir string) (*Accessor, error) {
 
 	return &Accessor{
 		restConfig: restConfig,
-		ctl:        &kubectl{kubeConfig},
-		set:        set,
-		extSet:     extSet,
-		baseDir:    baseWorkDir,
+		ctl: &kubectl{
+			kubeConfig: kubeConfig,
+			baseDir:    baseWorkDir,
+		},
+		set:    set,
+		extSet: extSet,
 	}, nil
-}
-
-// getWorkDir lazy-creates the working directory for the accessor.
-func (a *Accessor) getWorkDir() (string, error) {
-	a.workDirMutex.Lock()
-	defer a.workDirMutex.Unlock()
-
-	workDir := a.workDir
-	if workDir == "" {
-		var err error
-		if workDir, err = ioutil.TempDir(a.baseDir, workDirPrefix); err != nil {
-			return "", err
-		}
-		a.workDir = workDir
-	}
-	return workDir, nil
 }
 
 // NewPortForwarder creates a new port forwarder.
@@ -198,6 +175,27 @@ func (a *Accessor) WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.O
 			return nil, false, err
 		}
 		return nil, true, nil
+	}, newRetryOptions(opts...)...)
+
+	return err
+}
+
+// WaitUntilPodsAreDeleted waits until the pod with the name/namespace no longer exist.
+func (a *Accessor) WaitUntilPodsAreDeleted(fetchFunc PodFetchFunc, opts ...retry.Option) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
+
+		pods, err := fetchFunc()
+		if err != nil {
+			scopes.CI.Infof("Failed retrieving pods: %v", err)
+			return nil, false, err
+		}
+
+		if len(pods) == 0 {
+			// All pods have been deleted.
+			return nil, true, nil
+		}
+
+		return nil, false, fmt.Errorf("failed waiting to delete pod %s/%s", pods[0].Namespace, pods[0].Name)
 	}, newRetryOptions(opts...)...)
 
 	return err
@@ -349,33 +347,13 @@ func (a *Accessor) WaitForNamespaceDeletion(ns string, opts ...retry.Option) err
 }
 
 // ApplyContents applies the given config contents using kubectl.
-func (a *Accessor) ApplyContents(namespace string, contents string) error {
+func (a *Accessor) ApplyContents(namespace string, contents string) ([]string, error) {
 	return a.ctl.applyContents(namespace, contents)
 }
 
 // Apply the config in the given filename using kubectl.
 func (a *Accessor) Apply(namespace string, filename string) error {
-	docs, err := splitYaml(filename)
-	if err != nil {
-		return err
-	}
-
-	workDir, err := a.getWorkDir()
-	if err != nil {
-		return err
-	}
-
-	for _, doc := range docs {
-		f, e := doc.toTempFile(workDir)
-		if e != nil {
-			return multierror.Append(err, e)
-		}
-		scopes.CI.Infof("Applying yaml file %v", f)
-		if e = a.ctl.apply(namespace, f); e != nil {
-			err = multierror.Append(err, e)
-		}
-	}
-	return err
+	return a.ctl.apply(namespace, filename)
 }
 
 // DeleteContents deletes the given config contents using kubectl.
@@ -385,28 +363,7 @@ func (a *Accessor) DeleteContents(namespace string, contents string) error {
 
 // Delete the config in the given filename using kubectl.
 func (a *Accessor) Delete(namespace string, filename string) error {
-	docs, err := splitYaml(filename)
-	if err != nil {
-		return err
-	}
-
-	workDir, err := a.getWorkDir()
-	if err != nil {
-		return err
-	}
-
-	for i := len(docs) - 1; i >= 0; i-- {
-		f, e := docs[i].toTempFile(workDir)
-		if e != nil {
-			return multierror.Append(err, e)
-		}
-		scopes.CI.Infof("Deleting yaml file %v", f)
-		if e = a.ctl.delete(namespace, f); e != nil {
-			err = multierror.Append(err, e)
-		}
-	}
-
-	return err
+	return a.ctl.delete(namespace, filename)
 }
 
 // Logs calls the logs command for the specified pod, with -c, if container is specified.
@@ -441,77 +398,6 @@ func deleteOptionsForeground() *kubeApiMeta.DeleteOptions {
 	return &kubeApiMeta.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}
-}
-
-type yamlDoc struct {
-	filePattern string
-	content     string
-}
-
-func (d *yamlDoc) prepend(c string) {
-	d.content = test.JoinConfigs(c, d.content)
-}
-
-func (d *yamlDoc) append(c string) {
-	d.content = test.JoinConfigs(d.content, c)
-}
-
-func (d *yamlDoc) toTempFile(workDir string) (string, error) {
-	f, err := ioutil.TempFile(workDir, d.filePattern)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	name := f.Name()
-
-	_, err = f.WriteString(d.content)
-	if err != nil {
-		return "", err
-	}
-	return name, nil
-}
-
-// split the given yaml file into 2 docs: namespaces first, then crds, then everything else.
-func splitYaml(filename string) ([]*yamlDoc, error) {
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	cfgs := test.SplitConfigs(string(content))
-
-	_, base := filepath.Split(filename)
-	ext := filepath.Ext(filename)
-	nameWithoutExt := strings.TrimSuffix(base, ext)
-	namespacesAndCrds := &yamlDoc{
-		filePattern: fmt.Sprintf("%s_namespaces_and_crds_*%s", nameWithoutExt, ext),
-	}
-	misc := &yamlDoc{
-		filePattern: fmt.Sprintf("%s_misc_*%s", nameWithoutExt, ext),
-	}
-	for _, cfg := range cfgs {
-		var typeMeta kubeApiMeta.TypeMeta
-		if e := yaml.Unmarshal([]byte(cfg), &typeMeta); e != nil {
-			// Ignore invalid parts. This most commonly happens when it's empty or contains only comments.
-			continue
-		}
-
-		switch typeMeta.Kind {
-		case "Namespace":
-			namespacesAndCrds.append(cfg)
-		case "CustomResourceDefinition":
-			namespacesAndCrds.append(cfg)
-		default:
-			misc.append(cfg)
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return []*yamlDoc{namespacesAndCrds, misc}, nil
 }
 
 func newRetryOptions(opts ...retry.Option) []retry.Option {

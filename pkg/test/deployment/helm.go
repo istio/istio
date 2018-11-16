@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 )
 
