@@ -60,10 +60,10 @@ type ADSC struct {
 	// Set after Dial is called.
 	stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
+	conn *grpc.ClientConn
+
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
-
-	done chan error
 
 	certDir string
 	url     string
@@ -115,7 +115,6 @@ var (
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
-		done:        make(chan error),
 		Updates:     make(chan string, 100),
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
@@ -137,7 +136,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
-	err := adsc.Reconnect()
+	err := adsc.Run()
 	return adsc, err
 }
 
@@ -187,19 +186,18 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 	}, nil
 }
 
-// Close the stream. Reconnect() can be called to restore the connection, to
-// simulate envoy restart behavior.
+// Close the stream.
 func (a *ADSC) Close() {
 	if a.stream != nil {
 		a.stream.CloseSend()
 	}
+	a.conn.Close()
 }
 
-// Reconnect will reconnect after close.
-func (a *ADSC) Reconnect() error {
+// Run will run the ADS client.
+func (a *ADSC) Run() error {
 
 	// TODO: pass version info, nonce properly
-	var conn *grpc.ClientConn
 	var err error
 	if len(a.certDir) > 0 {
 		tlsCfg, err := tlsConfig(a.certDir)
@@ -212,12 +210,12 @@ func (a *ADSC) Reconnect() error {
 			// Verify Pilot cert and service account
 			grpc.WithTransportCredentials(creds),
 		}
-		conn, err = grpc.Dial(a.url, opts...)
+		a.conn, err = grpc.Dial(a.url, opts...)
 		if err != nil {
 			return err
 		}
 	} else {
-		conn, err = grpc.Dial(a.url, grpc.WithInsecure())
+		a.conn, err = grpc.Dial(a.url, grpc.WithInsecure())
 		if err != nil {
 			return err
 		}
@@ -226,7 +224,7 @@ func (a *ADSC) Reconnect() error {
 		return err
 	}
 
-	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
+	xds := ads.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err

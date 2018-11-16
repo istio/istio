@@ -52,20 +52,18 @@ func TestSplitHorizonEds(t *testing.T) {
 	server, tearDown := initSplitHorizonTestEnv(t)
 	defer tearDown()
 
-	pilotServer = server
-
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
-	initRegistry(1, []string{"159.122.219.1"}, 1)
+	initRegistry(server, 1, []string{"159.122.219.1"}, 1)
 	// Set up a cluster registry for network 2 with 2 instances for the service 'service5'
 	// Network has 1 gateway
-	initRegistry(2, []string{"159.122.219.2"}, 2)
+	initRegistry(server, 2, []string{"159.122.219.2"}, 2)
 	// Set up a cluster registry for network 3 with 3 instances for the service 'service5'
 	// Network has 2 gateways
-	initRegistry(3, []string{"159.122.219.3", "179.114.119.3"}, 3)
+	initRegistry(server, 3, []string{"159.122.219.3", "179.114.119.3"}, 3)
 	// Set up a cluster registry for network 4 with 4 instances for the service 'service5'
 	// but without any gateway
-	initRegistry(4, []string{}, 4)
+	initRegistry(server, 4, []string{}, 4)
 
 	tests := []struct {
 		network   string
@@ -123,11 +121,11 @@ func TestSplitHorizonEds(t *testing.T) {
 // Tests whether an EDS response from the provided network matches the expected results
 func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, expected expectedResults) {
 	t.Helper()
-	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer edsstr.CloseSend()
+	defer cancel()
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
 		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
@@ -200,11 +198,11 @@ func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc
 // initRegistry creates and initializes a memory registry that holds a single
 // service with the provided amount of endpoints. It also creates a service for
 // the ingress with the provided external IP
-func initRegistry(clusterNum int, gatewaysIP []string, numOfEndpoints int) {
+func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := v2.NewMemServiceDiscovery(
 		map[model.Hostname]*model.Service{}, 2)
-	pilotServer.ServiceController.AddRegistry(aggregate.Registry{
+	server.ServiceController.AddRegistry(aggregate.Registry{
 		ClusterID:        id,
 		Name:             serviceregistry.ServiceRegistry("memAdapter"),
 		ServiceDiscovery: memRegistry,
@@ -215,8 +213,8 @@ func initRegistry(clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	gws := []*meshconfig.Network_IstioNetworkGateway{}
 	for _, gatewayIP := range gatewaysIP {
 		if gatewayIP != "" {
-			if pilotServer.EnvoyXdsServer.Env.MeshNetworks == nil {
-				pilotServer.EnvoyXdsServer.Env.MeshNetworks = &meshconfig.MeshNetworks{
+			if server.EnvoyXdsServer.Env.MeshNetworks == nil {
+				server.EnvoyXdsServer.Env.MeshNetworks = &meshconfig.MeshNetworks{
 					Networks: map[string]*meshconfig.Network{},
 				}
 			}
@@ -231,7 +229,7 @@ func initRegistry(clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	}
 
 	if len(gws) != 0 {
-		pilotServer.EnvoyXdsServer.Env.MeshNetworks.Networks[id] = &meshconfig.Network{
+		server.EnvoyXdsServer.Env.MeshNetworks.Networks[id] = &meshconfig.Network{
 			Gateways: gws,
 		}
 	}
