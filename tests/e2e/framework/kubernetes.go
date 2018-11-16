@@ -758,7 +758,9 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	setValue += " --set global.crds=false"
 
 	// add additional values passed from test
-	setValue += " --set " + *values
+	if *values != "" {
+		setValue += " --set " + *values
+	}
 
 	err := util.HelmClientInit()
 	if err != nil {
