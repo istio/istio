@@ -64,25 +64,25 @@ func NewManager(ctx context.Instance, registry *registry.Instance) *Manager {
 }
 
 // Require implements the component.Resolver interface
-func (m *Manager) Require(scope lifecycle.Scope, reqs ...component.Requirement) (component.ResolutionError, component.StartError) {
+func (m *Manager) Require(scope lifecycle.Scope, reqs ...component.Requirement) component.RequirementError {
 	// Gather the descriptors and component IDs.
 	idMap := make(map[component.ID]bool)
 	depMgr := newCreationProcessor(m, scope)
 	for _, req := range reqs {
 		if desc, ok := req.(*component.Descriptor); ok {
-			if resErr, startErr := depMgr.Add(*desc); resErr != nil || startErr != nil {
-				return resErr, startErr
+			if err := depMgr.Add(*desc); err != nil {
+				return err
 			}
 		} else if id, ok := req.(*component.ID); ok {
 			idMap[*id] = true
 		} else {
-			return fmt.Errorf("unsupported requirement type: %v", req), nil
+			return resolutionError(fmt.Errorf("unsupported requirement type: %v", req))
 		}
 	}
 
 	// Create any explicit dependencies first.
-	if resErr, startErr := depMgr.CreateComponents(); resErr != nil || startErr != nil {
-		return resErr, startErr
+	if err := depMgr.CreateComponents(); err != nil {
+		return err
 	}
 
 	// Now for any required component IDs, create default component as necessary.
@@ -90,53 +90,41 @@ func (m *Manager) Require(scope lifecycle.Scope, reqs ...component.Requirement) 
 		if c := m.GetComponent(compID); c == nil {
 			desc, err := m.GetDefaultDescriptor(compID)
 			if err != nil {
-				return err, nil
+				return resolutionError(err)
 			}
 
-			if _, resErr, startErr := m.requireComponent(desc, scope); resErr != nil || startErr != nil {
-				return resErr, startErr
+			if _, err := m.requireComponent(desc, scope); err != nil {
+				return err
 			}
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 // RequireOrFail implements the component.Resolver interface
 func (m *Manager) RequireOrFail(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
 	t.Helper()
-	resErr, startErr := m.Require(scope, reqs...)
-	if startErr != nil {
-		t.Fatal(startErr)
-	}
-	if resErr != nil {
-		t.Fatal(resErr)
+	if err := m.Require(scope, reqs...); err != nil {
+		t.Fatal(err)
 	}
 }
 
 // RequireOrSkip implements the component.Resolver interface
 func (m *Manager) RequireOrSkip(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
 	t.Helper()
-	resErr, startErr := m.Require(scope, reqs...)
-	if startErr != nil {
-		t.Fatal(startErr)
-	}
-	if resErr != nil {
-		t.Skipf("Missing requirement: %v", resErr)
+	if err := m.Require(scope, reqs...); err != nil {
+		if err.IsStartError() {
+			t.Fatal(err)
+		} else {
+			t.Skipf("Missing requirement: %v", err)
+		}
 	}
 }
 
 // NewComponent implements the component.Factory interface
 func (m *Manager) NewComponent(desc component.Descriptor, scope lifecycle.Scope) (component.Instance, error) {
-	c, resErr, startErr := m.requireComponent(desc, scope)
-	var err error
-	if resErr != nil {
-		err = resErr
-	}
-	if startErr != nil {
-		err = resErr
-	}
-	return c, err
+	return m.requireComponent(desc, scope)
 }
 
 // NewComponentOrFail implements the component.Factory interface
@@ -158,51 +146,54 @@ func normalizeScope(desc component.Descriptor, scope lifecycle.Scope) lifecycle.
 	return scope
 }
 
-func (m *Manager) requireComponent(desc component.Descriptor, scope lifecycle.Scope) (component.Instance, component.ResolutionError, component.StartError) {
+func (m *Manager) requireComponent(desc component.Descriptor, scope lifecycle.Scope) (component.Instance, component.RequirementError) {
 	// Make sure that system components are always created with suite scope.
 	scope = normalizeScope(desc, scope)
 
 	// First, check if we've already created this component.
 	if c, ok := m.compMap[desc.ID]; ok {
 		if !reflect.DeepEqual(c.Descriptor(), desc) {
-			return nil, fmt.Errorf("cannot add component `%s`, already running with `%s`", desc.FriendlyName(), c.Descriptor().FriendlyName()), nil
+			return nil, resolutionError(fmt.Errorf("cannot add component `%s`, already running with `%s`", desc.FriendlyName(), c.Descriptor().FriendlyName()))
 		}
 		if c.Scope().IsLower(scope) {
-			return nil, fmt.Errorf("component `%s` already exists with lower lifecycle scope: %s", desc.FriendlyName(), c.Scope()), nil
+			return nil, resolutionError(fmt.Errorf("component `%s` already exists with lower lifecycle scope: %s", desc.FriendlyName(), c.Scope()))
 		}
 		// The component was already added.
-		return c, nil, nil
+		return c, nil
 	}
 
 	// Create any dependencies.
-	if resErr, startErr := m.Require(scope, desc.Requires...); resErr != nil || startErr != nil {
-		return nil, resErr, startErr
+	if err := m.Require(scope, desc.Requires...); err != nil {
+		return nil, err
 	}
 
 	// Now create the component.
 	// Get the component factory function.
 	fn, err := m.registry.GetFactory(desc)
 	if err != nil {
-		return nil, err, nil
+		return nil, resolutionError(err)
 	}
 
 	// Create the component.
 	c, err := fn()
 	if err != nil {
-		// Start error
-		return nil, nil, err
+		return nil, startError(err)
 	}
 
-	// Start the component
+	// Start the component.
 	if err := c.Start(m.ctx, scope); err != nil {
-		// Start error
-		return nil, nil, err
+		// Close the component if we can.
+		if cl, ok := c.(io.Closer); ok {
+			err = multierror.Append(err, cl.Close())
+		}
+		return nil, startError(err)
 	}
 
 	// Store the deployment in the map.
 	m.compMap[desc.ID] = c
 	m.all = append(m.all, c)
-	return c, nil, nil
+
+	return c, nil
 }
 
 // GetComponent implements the component.Repository interface

@@ -485,7 +485,7 @@ jobs:
               export PATH=$GOPATH/bin:$PATH
               make localTestEnv
               set -o pipefail
-              make test.integration T=-v | tee -a /go/out/tests/build-log.txt
+              make test.integration.local T=-v | tee -a /go/out/tests/build-log.txt
         - <<: *recordZeroExitCodeIfTestPassed
         - <<: *recordNonzeroExitCodeIfTestFailed
         - <<: *markJobFinishesOnGCS
