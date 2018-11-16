@@ -58,7 +58,7 @@ func TestGenBinding(t *testing.T) {
 			name:           "One remote with subset"},
 
 		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1_2_3_4:15443", " "),
-			expectedSubstring: "Error: could not create binding: Invalid Name or IP address",
+			expectedSubstring: "Error: could not create binding: invalid Name or IP address",
 			wantException:     true,
 			name:              "Bad cluster hostname or IP"},
 

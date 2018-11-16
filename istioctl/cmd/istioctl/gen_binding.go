@@ -37,8 +37,8 @@ var (
 
 	genBindingCmd = &cobra.Command{
 		Use:     "gen-binding",
-		Short:   "Generate Istio Configuration to direct traffic to another Istio mesh",
-		Long:    "Generate Istio Configuration to direct traffic to another Istio mesh.",
+		Short:   "Generate Istio traffic routing configuration to direct traffic to another Istio mesh",
+		Long:    "Generate Istio traffic routing configuration to direct traffic to another Istio mesh.",
 		Example: "istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2] [--use-egress] [--egressgateway <ip:port>]", // nolint: lll
 		RunE: func(c *cobra.Command, args []string) error {
 
@@ -92,7 +92,7 @@ func init() {
 	genBindingCmd.PersistentFlags().StringSliceVarP(&remoteClusters, "cluster", "",
 		nil, "IP:Port of remote Istio Ingress")
 	genBindingCmd.PersistentFlags().StringVarP(&addressLabels, "labels", "",
-		"", "Labels")
+		"", "key=value pairs for subsets")
 	genBindingCmd.PersistentFlags().BoolVarP(&useEgress, "use-egress", "",
 		false, "Use Egress Gateway")
 	genBindingCmd.PersistentFlags().StringVarP(&egressGateway, "egressgateway", "",
