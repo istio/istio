@@ -116,12 +116,16 @@ installIstioSystemAtVersionHelmTemplate() {
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
-    helm init --client-only
-    helm dep update "${release_path}"
+    if [[ "${release_path}" = *"1.1"* ]]; then
+        helm init --client-only
+        helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
+        helm dependency update "${release_path}"
+    fi
     helm template "${release_path}" "${auth_opts}" \
     --name istio --namespace "${ISTIO_NAMESPACE}" \
     --set gateways.istio-ingressgateway.replicaCount=4 \
     --set gateways.istio-ingressgateway.autoscaleMin=4 \
+    --set prometheus.enabled=false \
     --set global.hub="${1}" \
     --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml"
 
