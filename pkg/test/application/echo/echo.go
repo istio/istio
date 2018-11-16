@@ -181,7 +181,7 @@ func (s *httpServer) start() error {
 	}
 
 	// Start serving HTTP traffic.
-	go s.server.Serve(listener)
+	go func() { _ = s.server.Serve(listener) }()
 	return nil
 }
 
@@ -192,7 +192,6 @@ func (s *httpServer) stop() error {
 type grpcServer struct {
 	tlsCert string
 	tlsCKey string
-	version string
 	port    *model.Port
 	h       *handler
 
@@ -223,7 +222,7 @@ func (s *grpcServer) start() error {
 	proto.RegisterEchoTestServiceServer(s.server, s.h)
 
 	// Start serving GRPC traffic.
-	go s.server.Serve(listener)
+	go func() { _ = s.server.Serve(listener) }()
 	return nil
 }
 

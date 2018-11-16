@@ -264,7 +264,6 @@ func (m *Manager) Reset() (err error) {
 	// Iterate in reverse, traversing from newest to oldest component.
 	for i := len(m.all) - 1; i >= 0; i-- {
 		c := m.all[i]
-		newAll = append(newAll, c)
 		err = multierror.Append(err, resetComponent(c)).ErrorOrNil()
 	}
 	return

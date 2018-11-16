@@ -321,15 +321,6 @@ func (m *manager) registerVariant(cid component.ID, variant component.Variant, r
 	return desc
 }
 
-func (m *manager) createAndVerify(desc component.Descriptor, scope lifecycle.Scope) component.Instance {
-	c, err := m.NewComponent(desc, scope)
-	if err != nil {
-		m.t.Fatal(err)
-	}
-	assertDescriptor(c, desc, scope, m.t)
-	return c
-}
-
 func (m *manager) assertCount(expected int) {
 	actual := len(m.GetAllComponents())
 	if actual != expected {
@@ -368,7 +359,6 @@ func id(i string) component.ID {
 }
 
 type mockContext struct {
-	cmap map[component.ID]component.Descriptor
 }
 
 func (d *mockContext) TestID() string {
