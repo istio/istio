@@ -44,7 +44,7 @@ usage() {
 
 ISTIO_NAMESPACE="istio-system"
 # Minimum % of all requests that must be 200 for test to pass.
-MIN_200_PCT_FOR_PASS="90.0"
+MIN_200_PCT_FOR_PASS="85.0"
 
 while (( "$#" )); do
     PARAM=$(echo "${1}" | awk -F= '{print $1}')
