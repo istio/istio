@@ -160,7 +160,9 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `global.arch.s390x` | Specifies the scheduling policy for `s390x` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |
 | `global.arch.ppc64le` | Specifies the scheduling policy for `ppc64le` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |
 | `ingress.enabled` | Specifies whether Ingress should be installed | true/false | `true` |
-| `gateways.enabled` | Specifies whether gateway should be installed | true/false | `true` |
+| `gateways.enabled` | Specifies whether gateway(both Ingres and Egress) should be installed | true/false | `true` |
+| `gateways.istio-ingressgateway.enabled` | Specifies whether Ingress gateway should be installed | true/false | `true` |
+| `gateways.istio-egressgateway.enabled` | Specifies whether Egress gateway should be installed | true/false | `true` |
 | `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | `true` |
 | `galley.enabled` | Specifies whether Galley should be installed for server-side config validation | true/false | `true` |
 | `security.enabled` | Specifies whether Citadel should be installed | true/false | `true` |
