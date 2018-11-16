@@ -81,7 +81,7 @@ func TestDoAllGood(t *testing.T) {
 	}
 
 	if atomic.LoadInt32(&count) != 1 {
-		t.Errorf("Received requests dont match expected.")
+		t.Errorf("Received requests don't match expected.")
 	}
 }
 
@@ -92,7 +92,7 @@ func TestDoRemoteError(t *testing.T) {
 	defer logger.Infof("Finishing %s - test run. . .\n", t.Name())
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "I dont like your message.", http.StatusInternalServerError)
+		http.Error(w, "I don't like your message.", http.StatusInternalServerError)
 	}))
 	defer ts.Close()
 
