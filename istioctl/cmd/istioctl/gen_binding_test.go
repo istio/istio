@@ -58,8 +58,9 @@ func TestGenBinding(t *testing.T) {
 			name:           "One remote with subset"},
 
 		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1_2_3_4:15443", " "),
-			goldenFilename: "testdata/genbinding/bad-cluster.yaml",
-			name:           "Bad cluster hostname or IP"},
+			expectedSubstring: "Error: could not create binding: Invalid Name or IP address",
+			wantException:     true,
+			name:              "Bad cluster hostname or IP"},
 
 		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4 --use-egress", " "),
 			goldenFilename: "testdata/genbinding/use-egress.yaml",
@@ -76,6 +77,11 @@ func TestGenBinding(t *testing.T) {
 		{args: strings.Split("experimental gen-binding ratings:8080 --cluster 1.2.3.4 --labels version=v1,arch=i586 --use-egress", " "),
 			goldenFilename: "testdata/genbinding/ratings-v1-i586-egress.yaml",
 			name:           "One remote with subset with egress"},
+
+		{args: strings.Split("experimental gen-binding ratings:8080 --cluster 1.2.3.4 --use-egress=false --egressgateway 1234.com", " "),
+			expectedSubstring: "Error: cannot combine --use-egress=false and --egressgateway",
+			wantException:     true,
+			name:              "egressgateway/use-egress mismatch"},
 	}
 
 	for _, tc := range tt {
@@ -93,6 +99,12 @@ func TestGenBinding(t *testing.T) {
 
 func verifyGenBindingTestOutput(t *testing.T, c genBindingTestCase) {
 	t.Helper()
+
+	// Reset the flags, so genBindingCmd.Flags() doesn't
+	// include arguments from previous run
+	pflags := genBindingCmd.PersistentFlags()
+	genBindingCmd.ResetFlags()
+	genBindingCmd.PersistentFlags().AddFlagSet(pflags)
 
 	var out bytes.Buffer
 	rootCmd.SetOutput(&out)

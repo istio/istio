@@ -15,6 +15,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -38,12 +39,8 @@ var (
 		Use:     "gen-binding",
 		Short:   "Generate Istio Configuration to direct traffic to another Istio mesh",
 		Long:    "Generate Istio Configuration to direct traffic to another Istio mesh.",
-		Example: "istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2] [--use-egress] [--egressgateway <ip:port>]",
+		Example: "istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2] [--use-egress] [--egressgateway <ip:port>]", // nolint: lll
 		RunE: func(c *cobra.Command, args []string) error {
-			// fmt.Fprintf(c.OutOrStdout(), "Args is %#v\n", args)                     // TODO remove
-			// fmt.Fprintf(c.OutOrStdout(), "remoteClusters is %#v\n", remoteClusters) // TODO remove
-			// fmt.Fprintf(c.OutOrStdout(), "useEegress is %#v\n", useEgress)   	   // TODO remove
-			// fmt.Fprintf(c.OutOrStdout(), "egressGateway is %#v\n", egressGateway)   // TODO remove
 
 			if len(args) != 1 {
 				return fmt.Errorf("usage: %s", c.Example)
@@ -62,7 +59,13 @@ var (
 				namespace = defaultNamespace
 			}
 
-			if !explicitlySet(c.Flags(), "use-egress") && !explicitlySet(c.Flags(), "egressgateway") {
+			if explicitlySet(c.Flags(), "use-egress") && !useEgress && egressGateway != defaultEgressGateway {
+				return errors.New("cannot combine --use-egress=false and --egressgateway")
+			}
+			if egressGateway != defaultEgressGateway {
+				useEgress = true
+			}
+			if !useEgress {
 				egressGateway = ""
 			}
 
