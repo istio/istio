@@ -33,14 +33,14 @@ func HelmDepUpdate(chartDir string) error {
 }
 
 // HelmInstallDryRun helm install dry run from a chart for a given namespace
-func HelmInstallDryRun(chartDir, chartName, namespace, valueFile, setValue string) error {
+func HelmInstallDryRun(chartDir, chartName, valueFile, namespace, setValue string) error {
 	_, err := Shell("helm install --dry-run --debug " + HelmParams(chartDir, chartName, namespace, valueFile, setValue))
 	return err
 }
 
 // HelmInstall helm install from a chart for a given namespace
 //       --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
-func HelmInstall(chartDir, chartName, namespace, valueFile, setValue string) error {
+func HelmInstall(chartDir, chartName, valueFile, namespace, setValue string) error {
 	_, err := Shell("helm install " + HelmParams(chartDir, chartName, namespace, valueFile, setValue))
 	return err
 }
@@ -60,7 +60,7 @@ func HelmDelete(chartName string) error {
 }
 
 // HelmParams provides a way to construct helm params
-func HelmParams(chartDir, chartName, namespace, valueFile, setValue string) string {
+func HelmParams(chartDir, chartName, valueFile, namespace, setValue string) string {
 	helmCmd := chartDir + " --name " + chartName + " --namespace " + namespace + " " + setValue
 	if valueFile != "" {
 		helmCmd = chartDir + " --name " + chartName + " --values " + valueFile + " --namespace " + namespace + " " + setValue
