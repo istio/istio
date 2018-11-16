@@ -29,10 +29,7 @@ import (
 
 func TestInitializeHandlerContext(t *testing.T) {
 	adapterCfg := getTestAdapterConfig()
-	ctx, err := initializeHandlerContext(at.NewEnv(t), adapterCfg, &mockSvcctrlClient{})
-	if err != nil {
-		t.Errorf("initializeHandlerContext() failed with %v", err)
-	}
+	ctx := initializeHandlerContext(at.NewEnv(t), adapterCfg, &mockSvcctrlClient{})
 
 	expectedIdx := map[string]*config.GcpServiceSetting{
 		"service_a": adapterCfg.ServiceConfigs[0],

@@ -121,7 +121,7 @@ func getPreprocessedRulePath(t *testConfig, version, rule string) string {
 		strings.Join(parts[1:], string(os.PathSeparator))))
 }
 
-func getOriginalRulePath(version, rule string) string {
+func getOriginalRulePath(rule string) string {
 	parts := strings.Split(rule, string(os.PathSeparator))
 
 	parts[0] = routeRulesDir
@@ -130,7 +130,7 @@ func getOriginalRulePath(version, rule string) string {
 }
 
 func preprocessRule(t *testConfig, version, rule string) error {
-	src := getOriginalRulePath(version, rule)
+	src := getOriginalRulePath(rule)
 	dest := getPreprocessedRulePath(t, version, rule)
 	ori, err := ioutil.ReadFile(src)
 	if err != nil {
@@ -407,6 +407,6 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-func getIngressOrFail(t *testing.T, configVersion string) string {
+func getIngressOrFail(t *testing.T) string {
 	return tc.Kube.IngressGatewayOrFail(t)
 }

@@ -106,7 +106,7 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 }
 
 func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
-	amount, exp, key, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+	amount, exp, key := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
@@ -152,11 +152,11 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q Limi
 		Status:        status.OK,
 		Amount:        amount,
 		ValidDuration: exp,
-	}, err
+	}, nil
 }
 
 func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q Limit) (adapter.QuotaResult, error) {
-	amount, _, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
+	amount, _, _ := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
 
@@ -195,7 +195,7 @@ func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q Limit
 	return adapter.QuotaResult{
 		Status: status.OK,
 		Amount: amount,
-	}, err
+	}, nil
 }
 
 func (h *handler) Close() error {

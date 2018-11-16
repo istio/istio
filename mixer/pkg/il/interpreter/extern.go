@@ -139,7 +139,7 @@ func ilType(t reflect.Type) il.Type {
 //
 // The function returns two uint32 values in the push order (i.e. first uint32 to be pushed on to
 // the stack first).
-func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack []uint32, sp uint32) (uint32, uint32, error) {
+func (e Extern) invoke(_ *il.StringTable, heap []interface{}, hp *uint32, stack []uint32, sp uint32) (uint32, uint32, error) {
 
 	// Convert the parameters on stack to reflect.Values.
 	ins := make([]reflect.Value, len(e.paramTypes))

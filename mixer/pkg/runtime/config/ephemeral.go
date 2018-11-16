@@ -147,9 +147,9 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	e.lock.RLock()
 
-	attributes := e.processAttributeManifests(monitoringCtx, errs)
+	attributes := e.processAttributeManifests(monitoringCtx)
 
-	shandlers := e.processStaticAdapterHandlerConfigs(monitoringCtx, errs)
+	shandlers := e.processStaticAdapterHandlerConfigs(monitoringCtx)
 
 	af := ast.NewFinder(attributes)
 	instances := e.processInstanceConfigs(monitoringCtx, af, errs)
@@ -185,7 +185,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	return s, errs.ErrorOrNil()
 }
 
-func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multierror.Error) map[string]*config.AttributeManifest_AttributeInfo {
+func (e *Ephemeral) processAttributeManifests(ctx context.Context) map[string]*config.AttributeManifest_AttributeInfo {
 	attrs := make(map[string]*config.AttributeManifest_AttributeInfo)
 	for k, obj := range e.entries {
 		if k.Kind != constant.AttributeManifestKind {
@@ -239,7 +239,7 @@ func convert(spec map[string]interface{}, target proto.Message) error {
 	return err
 }
 
-func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs *multierror.Error) map[string]*HandlerStatic {
+func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context) map[string]*HandlerStatic {
 	handlers := make(map[string]*HandlerStatic, len(e.adapters))
 
 	for key, resource := range e.entries {

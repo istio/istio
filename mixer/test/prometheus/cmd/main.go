@@ -40,7 +40,7 @@ func defaultArgs() *Args {
 }
 
 // GetCmd returns the cobra command-tree.
-func GetCmd(args []string) *cobra.Command {
+func GetCmd() *cobra.Command {
 	sa := defaultArgs()
 	cmd := &cobra.Command{
 		Use:   "prometheus",
@@ -66,7 +66,7 @@ func GetCmd(args []string) *cobra.Command {
 }
 
 func main() {
-	cmd := GetCmd(os.Args[1:])
+	cmd := GetCmd()
 	if err := cmd.Execute(); err != nil {
 		os.Exit(-1)
 	}

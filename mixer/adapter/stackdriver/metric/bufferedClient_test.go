@@ -195,7 +195,7 @@ func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, with
 			return nil
 		}
 		defer func(pc *int) {
-			(*pushCount)++
+			(*pc)++
 		}(pushCount)
 
 		// Verify time series in request match the given ones

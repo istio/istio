@@ -72,7 +72,7 @@ func NewServer(options Options, st cache.SecretManager) (*Server, error) {
 	s := &Server{
 		envoySds: newSDSService(st),
 	}
-	if err := s.initDiscoveryService(&options, st); err != nil {
+	if err := s.initDiscoveryService(&options); err != nil {
 		log.Errorf("Failed to initialize secret discovery service: %v", err)
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func NewPlugins(in []string) []plugin.Plugin {
 	return plugins
 }
 
-func (s *Server) initDiscoveryService(options *Options, st cache.SecretManager) error {
+func (s *Server) initDiscoveryService(options *Options) error {
 	s.grpcServer = grpc.NewServer(s.grpcServerOptions(options)...)
 	s.envoySds.register(s.grpcServer)
 
