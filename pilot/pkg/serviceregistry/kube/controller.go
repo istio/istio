@@ -121,7 +121,7 @@ type Controller struct {
 	ranger cidranger.Ranger
 
 	// Network name for the registry as specified by the MeshNetworks configmap
-	network string
+	networkForRegistry string
 }
 
 type cacheHandler struct {
@@ -823,7 +823,7 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 				c.ranger.Insert(rangerEntry)
 			}
 			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.ClusterID {
-				c.network = n
+				c.networkForRegistry = n
 			}
 		}
 	}
@@ -831,6 +831,14 @@ func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
 
 // return the mesh network for the endpoint IP. Empty string if not found.
 func (c *Controller) endpointNetwork(endpointIP string) string {
+	// If networkForRegistry is set then all endpoints discovered by this registry
+	// belong to the configured network so simply return it
+	if len(c.networkForRegistry) != 0 {
+		return c.networkForRegistry
+	}
+
+	// Try to determine the network by checking whether the endpoint IP belongs
+	// to any of the configure networks' CIDR ranges
 	if c.ranger == nil {
 		return ""
 	}
