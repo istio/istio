@@ -12,14 +12,30 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package galley
+package dependency
 
-import (
-	"testing"
+import "istio.io/istio/pkg/test/framework/api/component"
 
-	"istio.io/istio/pkg/test/framework"
-)
+var _ component.RequirementError = &requirementError{}
 
-func TestMain(m *testing.M) {
-	framework.Run("galley_test", m)
+type requirementError struct {
+	error
+	startError bool
+}
+
+func (e *requirementError) IsStartError() bool {
+	return e.startError
+}
+
+func resolutionError(e error) component.RequirementError {
+	return &requirementError{
+		error: e,
+	}
+}
+
+func startError(e error) component.RequirementError {
+	return &requirementError{
+		error:      e,
+		startError: true,
+	}
 }
