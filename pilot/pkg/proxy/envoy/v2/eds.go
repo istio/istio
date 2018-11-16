@@ -555,10 +555,15 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
 
-	if requireFull {
-		s.ConfigUpdate(true)
-	} else {
-		s.ConfigUpdate(false)
+	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
+	// no need to trigger push here.
+	// It is done in DiscoveryServer.Push --> AdsPushAll
+	if !internal {
+		if requireFull {
+			s.ConfigUpdate(true)
+		} else {
+			s.ConfigUpdate(false)
+		}
 	}
 }
 
