@@ -94,8 +94,6 @@ webhooks:
         - servicecontrols
         - solarwindses
         - stackdrivers
-        - cloudwatches
-        - dogstatsds
         - statsds
         - stdios
         - apikeys
