@@ -89,9 +89,9 @@ func NewNativeComponent() (api.Component, error) {
 }
 
 type nativeComponent struct {
-	scope            lifecycle.Scope
-	tlsCKey          string
-	tlsCert          string
+	scope lifecycle.Scope
+	//tlsCKey          string
+	//tlsCert          string
 	discoveryAddress *net.TCPAddr
 	serviceManager   *service.Manager
 	apps             []components.App
@@ -154,8 +154,8 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 	}()
 
 	for _, cfg := range cfgs {
-		cfg.tlsCKey = c.tlsCert
-		cfg.tlsCert = c.tlsCert
+		//cfg.tlsCKey = c.tlsCert
+		//cfg.tlsCert = c.tlsCert
 		cfg.discoveryAddress = c.discoveryAddress
 		cfg.serviceManager = c.serviceManager
 
