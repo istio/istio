@@ -202,6 +202,8 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 					Port:     p.Port,
 					Protocol: model.ProtocolHTTP,
 				},
+				Locality: e.Locality,
+				LbWeight: uint32(e.LbWeight),
 			},
 			ServiceAccount: e.ServiceAccount,
 		}

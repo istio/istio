@@ -467,6 +467,8 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									ServicePort: svcPortEntry,
 									UID:         uid,
 									Network:     c.endpointNetwork(ea.IP),
+									// TODO(hzxuzhonghu): covert AvailabilityZone to '/' separated format and set Locality.
+									Locality: "",
 								},
 								Service:          svc,
 								Labels:           labels,
@@ -590,6 +592,8 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 			Port:        int(port.Port),
 			ServicePort: svcPort,
 			Network:     c.endpointNetwork(ip),
+			// TODO(hzxuzhonghu): covert AvailabilityZone to '/' separated format and set Locality.
+			Locality: "",
 		},
 		Service:          svc,
 		Labels:           labels,

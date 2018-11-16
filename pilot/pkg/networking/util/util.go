@@ -16,6 +16,7 @@ package util
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
@@ -40,6 +42,9 @@ const (
 	PassthroughCluster = "PassthroughCluster"
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
+
+	// The range of LoadBalancingWeight is [1, 128]
+	maxLoadBalancingWeight = 128
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -103,6 +108,52 @@ func GetNetworkEndpointAddress(n *model.NetworkEndpoint) core.Address {
 	default:
 		panic(fmt.Sprintf("unhandled Family %v", n.Family))
 	}
+}
+
+// lbWeightNormalize set LbEndpoints within a locality with a valid LoadBalancingWeight.
+func lbWeightNormalize(endpoints []endpoint.LbEndpoint) []endpoint.LbEndpoint {
+	var totalLbEndpointsNum uint32
+
+	for _, ep := range endpoints {
+		totalLbEndpointsNum += ep.GetLoadBalancingWeight().GetValue()
+	}
+	if totalLbEndpointsNum == 0 {
+		return endpoints
+	}
+
+	out := make([]endpoint.LbEndpoint, len(endpoints))
+	for i, ep := range endpoints {
+		weight := float64(ep.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
+		ep.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(math.Ceil(weight)),
+		}
+		out[i] = ep
+	}
+
+	return out
+}
+
+// LocalityLbWeightNormalize set LocalityLbEndpoints within a cluster with a valid LoadBalancingWeight.
+func LocalityLbWeightNormalize(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
+	var totalLbEndpointsNum uint32
+	for i, localityLbEndpoint := range endpoints {
+		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
+		endpoints[i].LbEndpoints = lbWeightNormalize(localityLbEndpoint.LbEndpoints)
+	}
+	if totalLbEndpointsNum == 0 {
+		return endpoints
+	}
+
+	out := make([]endpoint.LocalityLbEndpoints, len(endpoints))
+	for i, localityLbEndpoint := range endpoints {
+		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
+		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(math.Ceil(weight)),
+		}
+		out[i] = localityLbEndpoint
+	}
+
+	return out
 }
 
 // GetByAddress returns a listener by its address
