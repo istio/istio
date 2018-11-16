@@ -77,7 +77,7 @@ func GetProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int3
 	pb.globalWordList = globalWordList
 	pb.messageDict = d
 
-	scope.Debugf("Returning bag with attributes: %v", pb)
+	scope.Debugf("Returning bag with attributes:\n%v", pb)
 
 	return pb
 }
