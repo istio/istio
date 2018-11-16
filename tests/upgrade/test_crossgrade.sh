@@ -265,7 +265,7 @@ percent200sAbove() {
     if [[ $s =~ $regex ]]; then
         local pct200s="${BASH_REMATCH[1]}"
         pctExceeds=$(echo "${pct200s}"'>'"${MIN_200_PCT_FOR_PASS}" | bc)
-        if [ pctExceeds -eq 1 ]; then
+        if [ "${pctExceeds}" -eq "1" ]; then
             return 0
         fi
         return 1
