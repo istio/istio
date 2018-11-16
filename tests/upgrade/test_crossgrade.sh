@@ -44,7 +44,7 @@ usage() {
 
 ISTIO_NAMESPACE="istio-system"
 # Minimum % of all requests that must be 200 for test to pass.
-MIN_200_PCT_FOR_PASS="85.0"
+MIN_200_PCT_FOR_PASS="85"
 
 while (( "$#" )); do
     PARAM=$(echo "${1}" | awk -F= '{print $1}')
@@ -261,11 +261,10 @@ resetNamespaces() {
 # Returns 0 if the passed string has form "Code 200 : 6601 (94.6 %)" and the percentage is smaller than ${MIN_200_PCT_FOR_PASS}
 percent200sAbove() {
     local s=$1
-    local regex="Code 200 : [0-9]+ \\(([0-9]+\\.[0-9]+) %\\)"
+    local regex="Code 200 : [0-9]+ \\(([0-9]+)\\.[0-9]+ %\\)"
     if [[ $s =~ $regex ]]; then
         local pct200s="${BASH_REMATCH[1]}"
-        pctExceeds=$(echo "${pct200s}"'>'"${MIN_200_PCT_FOR_PASS}" | bc)
-        if [ "${pctExceeds}" -eq "1" ]; then
+        if (( pct200s > MIN_200_PCT_FOR_PASS )); then
             return 0
         fi
         return 1
