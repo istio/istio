@@ -420,8 +420,8 @@ func (c *mockContext) NewComponentOrFail(d component.Descriptor, scope lifecycle
 	return nil
 }
 
-func (c *mockContext) Require(scope lifecycle.Scope, reqs ...component.Requirement) (component.ResolutionError, component.StartError) {
-	return fmt.Errorf("unsupported"), fmt.Errorf("unsupported")
+func (c *mockContext) Require(scope lifecycle.Scope, reqs ...component.Requirement) component.RequirementError {
+	return nil
 }
 
 func (c *mockContext) RequireOrFail(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
@@ -478,11 +478,11 @@ func expect(t *testing.T) *exp {
 	return &exp{t}
 }
 
-func (e *exp) resolutionError(resErr, startErr error) {
-	if startErr != nil {
-		e.t.Fatal("unexpected start error: ", startErr)
-	}
-	if resErr == nil {
+func (e *exp) resolutionError(err component.RequirementError) {
+	if err == nil {
 		e.t.Fatal("expected resolution error")
+	}
+	if err.IsStartError() {
+		e.t.Fatal("unexpected start error: ", err)
 	}
 }

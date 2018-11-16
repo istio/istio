@@ -54,27 +54,27 @@ func newRequiredEntry(d component.Descriptor) *requiredEntry {
 }
 
 // Add a new component to be created by this processor.
-func (p *creationProcessor) Add(desc component.Descriptor) (component.ResolutionError, component.StartError) {
+func (p *creationProcessor) Add(desc component.Descriptor) component.RequirementError {
 	// Check if the component was already created.
 	if c := p.mgr.GetComponent(desc.ID); c != nil {
 		if !reflect.DeepEqual(c.Descriptor(), desc) {
-			return fmt.Errorf("cannot add component `%s`, already running with `%s`", desc.FriendlyName(), c.Descriptor().FriendlyName()), nil
+			return resolutionError(fmt.Errorf("cannot add component `%s`, already running with `%s`", desc.FriendlyName(), c.Descriptor().FriendlyName()))
 		}
 		if c.Scope().IsLower(p.scope) {
-			return fmt.Errorf("component `%s` already exists with lower lifecycle scope: %s", desc.FriendlyName(), c.Scope()), nil
+			return resolutionError(fmt.Errorf("component `%s` already exists with lower lifecycle scope: %s", desc.FriendlyName(), c.Scope()))
 		}
 
 		// The same component was already created with the same scope.
-		return nil, nil
+		return nil
 	}
 
 	// Check if we've already processed this component.
 	if oldDesc, ok := p.provided[desc.ID]; ok {
 		if reflect.DeepEqual(oldDesc, desc) {
 			// The same deployment was required multiple times - just ignore it.
-			return nil, nil
+			return nil
 		}
-		return fmt.Errorf("required duplicate components: %v, %v", oldDesc, desc), nil
+		return resolutionError(fmt.Errorf("required duplicate components: %v, %v", oldDesc, desc))
 	}
 
 	p.provided[desc.ID] = desc
@@ -84,16 +84,17 @@ func (p *creationProcessor) Add(desc component.Descriptor) (component.Resolution
 	entry := newRequiredEntry(desc)
 	for _, req := range desc.Requires {
 		if reqDesc, ok := req.(*component.Descriptor); ok {
-			if resErr, createErr := p.Add(*reqDesc); resErr != nil || createErr != nil {
-				return resErr, createErr
+			if err := p.Add(*reqDesc); err != nil {
+				return err
 			}
 			// Indicate it's required.
 			entry.ids[reqDesc.ID] = true
 		} else if cid, ok := req.(*component.ID); ok {
 			if c := p.mgr.GetComponent(*cid); c != nil {
 				if c.Scope().IsLower(p.scope) {
-					return fmt.Errorf("previously created component %s (required by %s) has insufficient scope: %s, required: %s",
-						req, desc.ID, c.Scope(), p.scope), nil
+					return resolutionError(
+						fmt.Errorf("previously created component %s (required by %s) has insufficient scope: %s, required: %s",
+							req, desc.ID, c.Scope(), p.scope))
 				}
 			} else {
 				// Indicate it's required.
@@ -102,14 +103,14 @@ func (p *creationProcessor) Add(desc component.Descriptor) (component.Resolution
 		}
 	}
 	p.required[k] = entry
-	return nil, nil
+	return nil
 }
 
 // CreateComponents contained in this processor in the appropriate order.
-func (p *creationProcessor) CreateComponents() (component.ResolutionError, component.StartError) {
+func (p *creationProcessor) CreateComponents() component.RequirementError {
 	// Apply appropriate defaults for any missing components.
-	if resErr, startErr := p.applyDefaults(); resErr != nil || startErr != nil {
-		return resErr, startErr
+	if err := p.applyDefaults(); err != nil {
+		return err
 	}
 
 	for len(p.required) > 0 {
@@ -130,20 +131,20 @@ func (p *creationProcessor) CreateComponents() (component.ResolutionError, compo
 				delete(p.required, desc)
 
 				// Create the component.
-				if _, resErr, startErr := p.mgr.requireComponent(entry.desc, p.scope); resErr != nil || startErr != nil {
-					return resErr, startErr
+				if _, err := p.mgr.requireComponent(entry.desc, p.scope); err != nil {
+					return err
 				}
 			}
 		}
 
 		if !progress {
-			return fmt.Errorf("unable to determine creation order for required components"), nil
+			return resolutionError(fmt.Errorf("unable to determine creation order for required components"))
 		}
 	}
-	return nil, nil
+	return nil
 }
 
-func (p *creationProcessor) applyDefaults() (component.ResolutionError, component.StartError) {
+func (p *creationProcessor) applyDefaults() component.RequirementError {
 	done := false
 	for !done {
 		done = true
@@ -155,15 +156,15 @@ func (p *creationProcessor) applyDefaults() (component.ResolutionError, componen
 					// Not found... Use a default.
 					desc, err := p.mgr.GetDefaultDescriptor(compID)
 					if err != nil {
-						return err, nil
+						return resolutionError(err)
 					}
 
-					if resErr, startErr := p.Add(desc); err != nil || startErr != nil {
-						return resErr, startErr
+					if err := p.Add(desc); err != nil {
+						return err
 					}
 				}
 			}
 		}
 	}
-	return nil, nil
+	return nil
 }

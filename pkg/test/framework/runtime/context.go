@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/context"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/dependency"
 	"istio.io/istio/pkg/test/framework/runtime/registries"
@@ -41,7 +42,6 @@ var _ api.Resettable = &contextImpl{}
 type contextImpl struct {
 	component.Repository
 	component.Factory
-	component.Resolver
 	component.Defaults
 
 	testID     string
@@ -89,7 +89,6 @@ func newContext(testID string) (*contextImpl, error) {
 	ctx.depManager = depMgr
 	ctx.Repository = depMgr
 	ctx.Factory = depMgr
-	ctx.Resolver = depMgr
 
 	return ctx, nil
 }
@@ -130,6 +129,32 @@ func (c *contextImpl) CreateTmpDirectory(name string) (string, error) {
 	return dir, nil
 }
 
+func (c *contextImpl) Require(scope lifecycle.Scope, reqs ...component.Requirement) component.RequirementError {
+	err := c.depManager.Require(scope, reqs...)
+	if err != nil && err.IsStartError() {
+		c.DumpState(c.RunID())
+	}
+	return err
+}
+
+func (c *contextImpl) RequireOrFail(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
+	t.Helper()
+	if err := c.Require(scope, reqs...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (c *contextImpl) RequireOrSkip(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
+	t.Helper()
+	if err := c.Require(scope, reqs...); err != nil {
+		if err.IsStartError() {
+			t.Fatal(err)
+		} else {
+			t.Skipf("Missing requirement: %v", err)
+		}
+	}
+}
+
 func (c *contextImpl) DumpState(contextStr string) {
 	e := api.GetEnvironment(c)
 	if e != nil {
@@ -164,7 +189,6 @@ func (c *contextImpl) Close() (err error) {
 		err = c.depManager.Close()
 		c.Repository = nil
 		c.Factory = nil
-		c.Resolver = nil
 	}
 	return
 }

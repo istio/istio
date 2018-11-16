@@ -15,8 +15,9 @@
 package mixer
 
 import (
-	"istio.io/istio/pkg/test/framework"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework"
 )
 
 func TestMain(m *testing.M) {
