@@ -103,21 +103,28 @@ func (*HandleEdgeRequest) Descriptor() ([]byte, []int) {
 type InstanceMsg struct {
 	// Name of the instance as specified in configuration.
 	Name string `protobuf:"bytes,72295727,opt,name=name,proto3" json:"name,omitempty"`
-	// Timestamp
+	// Timestamp of the edge
 	Timestamp *istio_policy_v1beta1.TimeStamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
-	// Source of edge.
+	// Namespace of the source workload
 	SourceWorkloadNamespace string `protobuf:"bytes,10,opt,name=source_workload_namespace,json=sourceWorkloadNamespace,proto3" json:"source_workload_namespace,omitempty"`
-	SourceWorkloadName      string `protobuf:"bytes,11,opt,name=source_workload_name,json=sourceWorkloadName,proto3" json:"source_workload_name,omitempty"`
-	SourceOwner             string `protobuf:"bytes,12,opt,name=source_owner,json=sourceOwner,proto3" json:"source_owner,omitempty"`
-	SourceUid               string `protobuf:"bytes,13,opt,name=source_uid,json=sourceUid,proto3" json:"source_uid,omitempty"`
-	// Destination of edge
+	// Name of the source workload
+	SourceWorkloadName string `protobuf:"bytes,11,opt,name=source_workload_name,json=sourceWorkloadName,proto3" json:"source_workload_name,omitempty"`
+	// Owner of the source workload (often k8s deployment)
+	SourceOwner string `protobuf:"bytes,12,opt,name=source_owner,json=sourceOwner,proto3" json:"source_owner,omitempty"`
+	// UID of the source workload
+	SourceUid string `protobuf:"bytes,13,opt,name=source_uid,json=sourceUid,proto3" json:"source_uid,omitempty"`
+	// Namespace of the destination workload
 	DestinationWorkloadNamespace string `protobuf:"bytes,20,opt,name=destination_workload_namespace,json=destinationWorkloadNamespace,proto3" json:"destination_workload_namespace,omitempty"`
-	DestinationWorkloadName      string `protobuf:"bytes,21,opt,name=destination_workload_name,json=destinationWorkloadName,proto3" json:"destination_workload_name,omitempty"`
-	DestinationOwner             string `protobuf:"bytes,22,opt,name=destination_owner,json=destinationOwner,proto3" json:"destination_owner,omitempty"`
-	DestinationUid               string `protobuf:"bytes,23,opt,name=destination_uid,json=destinationUid,proto3" json:"destination_uid,omitempty"`
-	// Protocol used
+	// Name of the destination workload
+	DestinationWorkloadName string `protobuf:"bytes,21,opt,name=destination_workload_name,json=destinationWorkloadName,proto3" json:"destination_workload_name,omitempty"`
+	// Owner of the destination workload (often k8s deployment)
+	DestinationOwner string `protobuf:"bytes,22,opt,name=destination_owner,json=destinationOwner,proto3" json:"destination_owner,omitempty"`
+	// UID of the destination workload
+	DestinationUid string `protobuf:"bytes,23,opt,name=destination_uid,json=destinationUid,proto3" json:"destination_uid,omitempty"`
+	// Protocol used for communication (http, tcp)
 	ContextProtocol string `protobuf:"bytes,30,opt,name=context_protocol,json=contextProtocol,proto3" json:"context_protocol,omitempty"`
-	ApiProtocol     string `protobuf:"bytes,31,opt,name=api_protocol,json=apiProtocol,proto3" json:"api_protocol,omitempty"`
+	// The protocol type of the API call (http, https, grpc)
+	ApiProtocol string `protobuf:"bytes,31,opt,name=api_protocol,json=apiProtocol,proto3" json:"api_protocol,omitempty"`
 }
 
 func (m *InstanceMsg) Reset()      { *m = InstanceMsg{} }
@@ -137,21 +144,28 @@ func (*Type) Descriptor() ([]byte, []int) { return fileDescriptorTemplateHandler
 
 // Represents instance configuration schema for 'edge' template.
 type InstanceParam struct {
-	// Timestamp
+	// Timestamp of the edge
 	Timestamp string `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	// Source of edge.
+	// Namespace of the source workload
 	SourceWorkloadNamespace string `protobuf:"bytes,10,opt,name=source_workload_namespace,json=sourceWorkloadNamespace,proto3" json:"source_workload_namespace,omitempty"`
-	SourceWorkloadName      string `protobuf:"bytes,11,opt,name=source_workload_name,json=sourceWorkloadName,proto3" json:"source_workload_name,omitempty"`
-	SourceOwner             string `protobuf:"bytes,12,opt,name=source_owner,json=sourceOwner,proto3" json:"source_owner,omitempty"`
-	SourceUid               string `protobuf:"bytes,13,opt,name=source_uid,json=sourceUid,proto3" json:"source_uid,omitempty"`
-	// Destination of edge
+	// Name of the source workload
+	SourceWorkloadName string `protobuf:"bytes,11,opt,name=source_workload_name,json=sourceWorkloadName,proto3" json:"source_workload_name,omitempty"`
+	// Owner of the source workload (often k8s deployment)
+	SourceOwner string `protobuf:"bytes,12,opt,name=source_owner,json=sourceOwner,proto3" json:"source_owner,omitempty"`
+	// UID of the source workload
+	SourceUid string `protobuf:"bytes,13,opt,name=source_uid,json=sourceUid,proto3" json:"source_uid,omitempty"`
+	// Namespace of the destination workload
 	DestinationWorkloadNamespace string `protobuf:"bytes,20,opt,name=destination_workload_namespace,json=destinationWorkloadNamespace,proto3" json:"destination_workload_namespace,omitempty"`
-	DestinationWorkloadName      string `protobuf:"bytes,21,opt,name=destination_workload_name,json=destinationWorkloadName,proto3" json:"destination_workload_name,omitempty"`
-	DestinationOwner             string `protobuf:"bytes,22,opt,name=destination_owner,json=destinationOwner,proto3" json:"destination_owner,omitempty"`
-	DestinationUid               string `protobuf:"bytes,23,opt,name=destination_uid,json=destinationUid,proto3" json:"destination_uid,omitempty"`
-	// Protocol used
+	// Name of the destination workload
+	DestinationWorkloadName string `protobuf:"bytes,21,opt,name=destination_workload_name,json=destinationWorkloadName,proto3" json:"destination_workload_name,omitempty"`
+	// Owner of the destination workload (often k8s deployment)
+	DestinationOwner string `protobuf:"bytes,22,opt,name=destination_owner,json=destinationOwner,proto3" json:"destination_owner,omitempty"`
+	// UID of the destination workload
+	DestinationUid string `protobuf:"bytes,23,opt,name=destination_uid,json=destinationUid,proto3" json:"destination_uid,omitempty"`
+	// Protocol used for communication (http, tcp)
 	ContextProtocol string `protobuf:"bytes,30,opt,name=context_protocol,json=contextProtocol,proto3" json:"context_protocol,omitempty"`
-	ApiProtocol     string `protobuf:"bytes,31,opt,name=api_protocol,json=apiProtocol,proto3" json:"api_protocol,omitempty"`
+	// The protocol type of the API call (http, https, grpc)
+	ApiProtocol string `protobuf:"bytes,31,opt,name=api_protocol,json=apiProtocol,proto3" json:"api_protocol,omitempty"`
 }
 
 func (m *InstanceParam) Reset()      { *m = InstanceParam{} }

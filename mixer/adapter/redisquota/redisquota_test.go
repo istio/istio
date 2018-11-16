@@ -514,21 +514,21 @@ func TestHandleQuota(t *testing.T) {
 func TestHandleQuotaErrorMsg(t *testing.T) {
 	cases := map[string]struct {
 		quotaType   map[string]*quota.Type
-		mockRedis   map[string]interface{}
+		mockRedis   map[string]server.Cmd
 		quotaConfig []config.Params_Quota
 		instance    quota.Instance
 		req         RequestInfo
 		errMsg      []string
 	}{
 		"Failed to run the script": {
-			mockRedis: map[string]interface{}{
-				"PING": func(c *server.Peer, cmd string, args []string) {
+			mockRedis: map[string]server.Cmd{
+				"PING": func(c *server.Peer, _ string, _ []string) {
 					c.WriteInline("PONG")
 				},
-				"SCRIPT": func(c *server.Peer, cmd string, args []string) {
+				"SCRIPT": func(c *server.Peer, _ string, _ []string) {
 					c.WriteInline("OK")
 				},
-				"EVALSHA": func(c *server.Peer, cmd string, args []string) {
+				"EVALSHA": func(c *server.Peer, _ string, _ []string) {
 					c.WriteError("Error")
 				},
 			},
@@ -559,14 +559,14 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 			},
 		},
 		"Invalid response from the script": {
-			mockRedis: map[string]interface{}{
-				"PING": func(c *server.Peer, cmd string, args []string) {
+			mockRedis: map[string]server.Cmd{
+				"PING": func(c *server.Peer, _ string, _ []string) {
 					c.WriteInline("PONG")
 				},
-				"SCRIPT": func(c *server.Peer, cmd string, args []string) {
+				"SCRIPT": func(c *server.Peer, _ string, _ []string) {
 					c.WriteOK()
 				},
-				"EVALSHA": func(c *server.Peer, cmd string, args []string) {
+				"EVALSHA": func(c *server.Peer, _ string, _ []string) {
 					c.WriteLen(1)
 					c.WriteInt(10)
 				},
@@ -608,7 +608,7 @@ func TestHandleQuotaErrorMsg(t *testing.T) {
 		}
 
 		for funcTime, funcHandler := range c.mockRedis {
-			if err = s.Register(funcTime, funcHandler.(func(c *server.Peer, cmd string, args []string))); err != nil {
+			if err = s.Register(funcTime, funcHandler); err != nil {
 				t.Fatal(err)
 			}
 		}

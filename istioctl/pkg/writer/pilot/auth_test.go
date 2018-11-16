@@ -103,6 +103,7 @@ func TestTLSCheckWriter_PrintSingle(t *testing.T) {
 func authInput() []v2.AuthenticationDebug {
 	return []v2.AuthenticationDebug{
 		{
+			// nolint: goimports
 			Host: "host1",
 			Port: 1,
 			AuthenticationPolicyName: "auth-policy1/namespace1",
@@ -112,6 +113,7 @@ func authInput() []v2.AuthenticationDebug {
 			TLSConflictStatus:        "OK",
 		},
 		{
+			// nolint: goimports
 			Host: "host2",
 			Port: 2,
 			AuthenticationPolicyName: "auth-policy2/namespace2",
@@ -121,6 +123,7 @@ func authInput() []v2.AuthenticationDebug {
 			TLSConflictStatus:        "OK",
 		},
 		{
+			// nolint: goimports
 			Host: "",
 			Port: 9999,
 			AuthenticationPolicyName: "auth-policy/namespace",

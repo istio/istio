@@ -36,9 +36,8 @@ var (
 
 	rateLimitEval = loadshedding.NewRateLimitEvaluator(maxRPS, burst)
 
-	samplesPerSec = 100000
-
 	grpcLatencyOpts = loadshedding.Options{
+		// nolint: goimports
 		Mode: loadshedding.Enforce,
 		AverageLatencyThreshold: 1 * time.Nanosecond,
 		SampleHalfLife:          1 * time.Millisecond,

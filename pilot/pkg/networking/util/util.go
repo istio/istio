@@ -16,6 +16,8 @@ package util
 
 import (
 	"fmt"
+	"math"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,11 +25,13 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
@@ -40,6 +44,9 @@ const (
 	PassthroughCluster = "PassthroughCluster"
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
+
+	// The range of LoadBalancingWeight is [1, 128]
+	maxLoadBalancingWeight = 128
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -105,6 +112,52 @@ func GetNetworkEndpointAddress(n *model.NetworkEndpoint) core.Address {
 	}
 }
 
+// lbWeightNormalize set LbEndpoints within a locality with a valid LoadBalancingWeight.
+func lbWeightNormalize(endpoints []endpoint.LbEndpoint) []endpoint.LbEndpoint {
+	var totalLbEndpointsNum uint32
+
+	for _, ep := range endpoints {
+		totalLbEndpointsNum += ep.GetLoadBalancingWeight().GetValue()
+	}
+	if totalLbEndpointsNum == 0 {
+		return endpoints
+	}
+
+	out := make([]endpoint.LbEndpoint, len(endpoints))
+	for i, ep := range endpoints {
+		weight := float64(ep.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
+		ep.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(math.Ceil(weight)),
+		}
+		out[i] = ep
+	}
+
+	return out
+}
+
+// LocalityLbWeightNormalize set LocalityLbEndpoints within a cluster with a valid LoadBalancingWeight.
+func LocalityLbWeightNormalize(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
+	var totalLbEndpointsNum uint32
+	for i, localityLbEndpoint := range endpoints {
+		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
+		endpoints[i].LbEndpoints = lbWeightNormalize(localityLbEndpoint.LbEndpoints)
+	}
+	if totalLbEndpointsNum == 0 {
+		return endpoints
+	}
+
+	out := make([]endpoint.LocalityLbEndpoints, len(endpoints))
+	for i, localityLbEndpoint := range endpoints {
+		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
+		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
+			Value: uint32(math.Ceil(weight)),
+		}
+		out[i] = localityLbEndpoint
+	}
+
+	return out
+}
+
 // GetByAddress returns a listener by its address
 // TODO(mostrowski): consider passing map around to save iteration.
 func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
@@ -164,4 +217,26 @@ func Is1xProxy(node *model.Proxy) bool {
 // Is11Proxy checks whether the given Proxy version is 1.1.
 func Is11Proxy(node *model.Proxy) bool {
 	return isProxyVersion(node, "1.1")
+}
+
+// ResolveHostsInNetworksConfig will go through the Gateways addresses for all
+// networks in the config and if it's not an IP address it will try to lookup
+// that hostname and replace it with the IP address in the config
+func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
+	if config == nil {
+		return
+	}
+	for _, n := range config.Networks {
+		for _, gw := range n.Gateways {
+			gwIP := net.ParseIP(gw.GetAddress())
+			if gwIP == nil {
+				addrs, err := net.LookupHost(gw.GetAddress())
+				if err == nil && len(addrs) > 0 {
+					gw.Gw = &meshconfig.Network_IstioNetworkGateway_Address{
+						Address: addrs[0],
+					}
+				}
+			}
+		}
+	}
 }

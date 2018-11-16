@@ -44,13 +44,10 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := b.injectBuild(context.Background(), test.NewEnv(t), &fluent.Fluent{})
-	if err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
+	handler := b.injectBuild(test.NewEnv(t), &fluent.Fluent{})
 
 	logEntryHandler := handler.(logentry.Handler)
-	err = logEntryHandler.HandleLogEntry(context.Background(), nil)
+	err := logEntryHandler.HandleLogEntry(context.Background(), nil)
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -123,7 +120,7 @@ func TestBuilder(t *testing.T) {
 			var h adapter.Handler
 			var err error
 			if c.inject {
-				h, err = b.injectBuild(context.Background(), env, &fluent.Fluent{})
+				h = b.injectBuild(env, &fluent.Fluent{})
 			} else {
 				h, err = b.Build(context.Background(), env)
 			}

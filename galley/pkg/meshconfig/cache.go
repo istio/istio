@@ -88,7 +88,7 @@ func (c *FsCache) reload() {
 		return
 	}
 
-	js, err := yaml.YAMLToJSON([]byte(by))
+	js, err := yaml.YAMLToJSON(by)
 	if err != nil {
 		scope.Errorf("Error converting mesh config Yaml to JSON: %v", err)
 		return

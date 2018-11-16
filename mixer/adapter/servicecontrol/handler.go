@@ -184,9 +184,9 @@ func (h *handler) getServiceProcessor(serviceFullName string) (*serviceProcessor
 	return svcProc, nil
 }
 
-func newHandler(ctx *handlerContext) (*handler, error) {
+func newHandler(ctx *handlerContext) *handler {
 	return &handler{
 		ctx:        ctx,
 		svcProcMap: make(map[string]*serviceProcessor, len(ctx.config.ServiceConfigs)),
-	}, nil
+	}
 }

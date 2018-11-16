@@ -31,14 +31,11 @@ import (
 	"testing"
 	"time"
 
+	"fortio.org/fortio/fhttp"
+	"fortio.org/fortio/periodic"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-
-	"fortio.org/fortio/fhttp"
-
-	// flog "fortio.org/fortio/log"
-	"fortio.org/fortio/periodic"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/kube"
@@ -876,6 +873,7 @@ func testCheckCache(t *testing.T, visit func() error, app string) {
 	}
 }
 
+// nolint: unparam
 func fetchRequestCount(t *testing.T, promAPI v1.API, service string) (prior429s float64, prior200s float64, value model.Value) {
 	var err error
 	t.Log("Establishing metrics baseline for test...")
@@ -1296,6 +1294,7 @@ func promDump(client v1.API, metric string) string {
 
 // promDumpWithAttributes is used to get all of the recorded values of a metric for particular attributes.
 // Attributes have to be of format %s=\"%s\"
+// nolint: unparam
 func promDumpWithAttributes(promAPI v1.API, metric string, attributes []string) string {
 	var err error
 	query := fmt.Sprintf("%s{%s}", metric, strings.Join(attributes, ", "))
@@ -1360,6 +1359,7 @@ type header struct {
 	value string
 }
 
+// nolint: interfacer
 func get(clnt *http.Client, url string, headers ...*header) (status int, contents string, err error) {
 	var req *http.Request
 	req, err = http.NewRequest("GET", url, nil)

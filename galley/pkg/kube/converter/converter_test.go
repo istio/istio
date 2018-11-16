@@ -22,9 +22,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	meshcfg "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/extensions/v1beta1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,8 +30,11 @@ import (
 
 	authn "istio.io/api/authentication/v1alpha1"
 	mcfg "istio.io/api/mesh/v1alpha1"
+	meshcfg "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestGet(t *testing.T) {

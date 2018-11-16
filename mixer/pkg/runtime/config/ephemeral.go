@@ -30,13 +30,11 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-
-	"go.opencensus.io/tag"
-
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
@@ -149,9 +147,9 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	e.lock.RLock()
 
-	attributes := e.processAttributeManifests(monitoringCtx, errs)
+	attributes := e.processAttributeManifests(monitoringCtx)
 
-	shandlers := e.processStaticAdapterHandlerConfigs(monitoringCtx, errs)
+	shandlers := e.processStaticAdapterHandlerConfigs(monitoringCtx)
 
 	af := ast.NewFinder(attributes)
 	instances := e.processInstanceConfigs(monitoringCtx, af, errs)
@@ -187,7 +185,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	return s, errs.ErrorOrNil()
 }
 
-func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multierror.Error) map[string]*config.AttributeManifest_AttributeInfo {
+func (e *Ephemeral) processAttributeManifests(ctx context.Context) map[string]*config.AttributeManifest_AttributeInfo {
 	attrs := make(map[string]*config.AttributeManifest_AttributeInfo)
 	for k, obj := range e.entries {
 		if k.Kind != constant.AttributeManifestKind {
@@ -206,10 +204,14 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 
 	// append all the well known attribute vocabulary from the static templates.
 	//
-	// ATTRIBUTE_GENERATOR variety templates allows operators to write Attributes
+	// ATTRIBUTE_GENERATOR variety templates allow operators to write Attributes
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
 	// The list of valid names for a given Template is available in the Template.Info.AttributeManifests object.
 	for _, info := range e.templates {
+		if info.Variety != v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+			continue
+		}
+
 		log.Debugf("Processing attributes from template: '%s'", info.Name)
 
 		for _, v := range info.AttributeManifests {
@@ -237,7 +239,7 @@ func convert(spec map[string]interface{}, target proto.Message) error {
 	return err
 }
 
-func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs *multierror.Error) map[string]*HandlerStatic {
+func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context) map[string]*HandlerStatic {
 	handlers := make(map[string]*HandlerStatic, len(e.adapters))
 
 	for key, resource := range e.entries {
@@ -666,6 +668,7 @@ func (e *Ephemeral) processRuleConfigs(
 				action := &ActionStatic{
 					Handler:   sahandler,
 					Instances: actionInstances,
+					Name:      a.Name,
 				}
 
 				actionsStat = append(actionsStat, action)
@@ -724,6 +727,7 @@ func (e *Ephemeral) processRuleConfigs(
 				action := &ActionDynamic{
 					Handler:   dahandler,
 					Instances: actionInstances,
+					Name:      a.Name,
 				}
 
 				actionsDynamic = append(actionsDynamic, action)
@@ -737,11 +741,14 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		rule := &Rule{
+			// nolint: goimports
 			Name:           ruleName,
 			Namespace:      ruleKey.Namespace,
 			ActionsStatic:  actionsStat,
 			ActionsDynamic: actionsDynamic,
 			Match:          cfg.Match,
+			RequestHeaderOperations:  cfg.RequestHeaderOperations,
+			ResponseHeaderOperations: cfg.ResponseHeaderOperations,
 		}
 
 		rules = append(rules, rule)
@@ -779,6 +786,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 		}
 
 		result[templateName] = &Template{
+			// nolint: goimports
 			Name: templateName,
 			InternalPackageDerivedName: name,
 			FileDescSet:                fds,
@@ -786,7 +794,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 			Variety:                    variety,
 		}
 
-		if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+		if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR || variety == v1beta1.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
 			resolver := yaml.NewResolver(fds)
 			msgName := "." + desc.GetPackage() + ".OutputMsg"
 			// OutputMsg is a fixed generated name for the output template

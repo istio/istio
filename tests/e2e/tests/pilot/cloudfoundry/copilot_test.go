@@ -45,9 +45,7 @@ import (
 const (
 	pilotDebugPort     = 5555
 	pilotGrpcPort      = 15010
-	copilotPort        = 5556
 	copilotMCPPort     = 5557
-	edgeServicePort    = 8080
 	sidecarServicePort = 15022
 
 	cfRouteOne      = "public.example.com"
@@ -264,7 +262,7 @@ func runPilot(grpcPort, debugPort int) (*gexec.Session, error) {
 	return gexec.Start(pilotCmd, os.Stdout, os.Stderr) // change these to os.Stdout when debugging
 }
 
-func runEnvoy(t *testing.T, nodeId string, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
+func runEnvoy(t *testing.T, nodeID string, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
 	t.Log("create a new envoy test environment")
 	tmpl, err := ioutil.ReadFile(env.IstioSrc + "/tests/testdata/cf_bootstrap_tmpl.json")
 	if err != nil {
@@ -280,11 +278,11 @@ func runEnvoy(t *testing.T, nodeId string, grpcPort, debugPort uint16) *mixerEnv
 	gateway.Ports().PilotGrpcPort = grpcPort
 	gateway.Ports().PilotHTTPPort = debugPort
 	gateway.EnvoyConfigOpt = map[string]interface{}{
-		"NodeID": nodeId,
+		"NodeID": nodeID,
 	}
 	gateway.EnvoyTemplate = string(tmpl)
 	gateway.EnvoyParams = []string{
-		"--service-node", nodeId,
+		"--service-node", nodeID,
 		"--service-cluster", "x",
 	}
 	if err := gateway.SetUp(); err != nil {
@@ -326,7 +324,7 @@ func curlApp(endpoint, hostRoute url.URL) (string, error) {
 	return string(respBytes), nil
 }
 
-var gateway_test_allConfig = map[string]map[string]proto.Message{
+var gatewayTestAllConfig = map[string]map[string]proto.Message{
 	fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName): map[string]proto.Message{
 		"cloudfoundry-ingress": gateway,
 	},
@@ -347,7 +345,7 @@ var gateway_test_allConfig = map[string]map[string]proto.Message{
 	},
 }
 
-var sidecar_test_allConfig = map[string]map[string]proto.Message{
+var sidecarTestAllConfig = map[string]map[string]proto.Message{
 	fmt.Sprintf("type.googleapis.com/%s", model.ServiceEntry.MessageName): map[string]proto.Message{
 		"se-1": serviceEntry(sidecarServicePort, app3ListenPort, []string{"127.1.1.1"}, cfInternalRoute, subsetOne),
 	},
@@ -359,7 +357,7 @@ func mcpSidecarServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchRespo
 		log.Printf("watch canceled for %s\n", req.GetTypeUrl())
 	}
 
-	namedMsgs, ok := sidecar_test_allConfig[req.GetTypeUrl()]
+	namedMsgs, ok := sidecarTestAllConfig[req.GetTypeUrl()]
 	if ok {
 		return buildWatchResp(req, namedMsgs), cancelFunc
 	}
@@ -377,7 +375,7 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 		log.Printf("watch canceled for %s\n", req.GetTypeUrl())
 	}
 
-	namedMsgs, ok := gateway_test_allConfig[req.GetTypeUrl()]
+	namedMsgs, ok := gatewayTestAllConfig[req.GetTypeUrl()]
 	if ok {
 		return buildWatchResp(req, namedMsgs), cancelFunc
 	}

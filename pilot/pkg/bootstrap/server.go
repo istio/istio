@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -255,7 +256,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
-// but is executed asynchronously. Serving can be cancelled at any time by closing the provided stop channel.
+// but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
@@ -418,6 +419,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 		return nil
 	}
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
+	util.ResolveHostsInNetworksConfig(s.meshNetworks)
 	s.meshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
@@ -430,6 +432,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
 			log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
 			s.EnvoyXdsServer.ConfigUpdate(true)
 		}

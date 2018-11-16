@@ -69,7 +69,7 @@ type (
 		Handler
 
 		// HandleRemoteCheck performs check call based on pre a encoded instance.
-		HandleRemoteCheck(ctx context.Context, encodedInstance *EncodedInstance) (*CheckResult, error)
+		HandleRemoteCheck(ctx context.Context, encodedInstance *EncodedInstance, out *attribute.MutableBag, outPrefix string) (*CheckResult, error)
 	}
 
 	// RemoteReportHandler calls remote report adapter.

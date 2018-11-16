@@ -58,7 +58,7 @@ var (
 
 	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
-	// We measure and reports cases where pusing a client takes longer.
+	// We measure and reports cases where pushing a client takes longer.
 	PushTimeout = 5 * time.Second
 
 )
@@ -207,7 +207,7 @@ type XdsConnection struct {
 	pushChannel chan *XdsEvent
 
 	// Set to the current push status when a push is started.
-	// Null after the pushall completes for the node.
+	// Null after the push all completes for the node.
 	currentPush *model.PushContext
 
 	// Set if a push request is received while a push is in progress.
@@ -234,8 +234,6 @@ type XdsConnection struct {
 
 	// current list of clusters monitored by the client
 	Clusters []string
-
-	// TODO: TcpListeners (may combine mongo/etc)
 
 	// Both ADS and EDS streams implement this interface
 	stream DiscoveryStream

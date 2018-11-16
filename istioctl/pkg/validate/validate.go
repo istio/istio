@@ -17,18 +17,20 @@ package validate
 import (
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime" // TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
-	// k8s.io/cli-runtime was created for k8s v.12. Prior to that release,
-	// the genericclioptions packages are organized under kubectl.
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions"
 	"k8s.io/kubernetes/pkg/kubectl/genericclioptions/resource"
+
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 )
+
+// TODO use k8s.io/cli-runtime when we switch to v1.12 k8s dependency
+// k8s.io/cli-runtime was created for k8s v.12. Prior to that release,
+// the genericclioptions packages are organized under kubectl.
 
 /*
 
@@ -96,7 +98,7 @@ Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
 
-func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
+func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions) error {
 	// resource.Builder{} validates most of the CLI flags consistent
 	// with kubectl which is good. Unforatunly, it also assumes
 	// resources can be specified as '<resource> <name>' which is
@@ -164,7 +166,7 @@ func NewValidateCommand() *cobra.Command {
 		Example: `istioctl validate -f bookinfo-gateway.yaml`,
 		Args:    cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
+			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions())
 		},
 	}
 

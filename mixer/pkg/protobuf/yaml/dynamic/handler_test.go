@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	attributeV1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 	sampleapa "istio.io/istio/mixer/test/spyAdapter/template/apa"
+	checkproducer "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
 	spy "istio.io/istio/mixer/test/spybackend"
 )
 
@@ -115,6 +117,10 @@ func TestNoSessionBackend(t *testing.T) {
 	args.Behavior.HandleSampleApaResult = &sampleapa.OutputMsg{
 		Int64Primitive: 1337,
 	}
+	args.Behavior.HandleSampleCheckResult = &v1beta1.CheckResult{ValidUseCount: 32}
+	args.Behavior.HandleCheckOutput = &checkproducer.OutputMsg{
+		StringPrimitive: "test-nosession",
+	}
 
 	var s spy.Server
 	var err error
@@ -156,6 +162,8 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 		v1beta1.TEMPLATE_VARIETY_QUOTA)
 	apaDi := loadInstance(t, "apa", "test/spyAdapter/template/apa/tmpl_handler_service.descriptor_set",
 		v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR)
+	checkoutputDi := loadInstance(t, "checkproducer", "test/spyAdapter/template/checkoutput/tmpl_handler_service.descriptor_set",
+		v1beta1.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT)
 
 	unknownQuota := &TemplateConfig{
 		Name:         "unknownQuota",
@@ -171,7 +179,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 
 	h, err := BuildHandler("spy",
 		&attributeV1beta1.Connection{Address: s.Addr().String()}, false, adapterConfig,
-		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota, apaDi})
+		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota, apaDi, checkoutputDi})
 
 	if err != nil {
 		t.Fatalf("unable to build handler: %v", err)
@@ -202,13 +210,31 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 		Value: "v1",
 	}
 	linstBa, _ := linst.Marshal()
-	le, err := h.HandleRemoteCheck(context.Background(), &adapter.EncodedInstance{Name: listentryDi.Name, Data: linstBa})
+	le, err := h.HandleRemoteCheck(context.Background(), &adapter.EncodedInstance{Name: listentryDi.Name, Data: linstBa}, nil, "")
 	if err != nil {
 		t.Fatalf("HandleRemoteCheck returned: %v", err)
 	}
 
 	expectEqual(linst, s.Requests.HandleListEntryRequest[0].Instance, t)
 	expectEqual(le, asAdapterCheckResult(s.Behavior.HandleListEntryResult), t)
+
+	// check with output
+	checkinst := &checkproducer.InstanceMsg{
+		StringPrimitive: "input-instance",
+	}
+	checkinstBa, _ := checkinst.Marshal()
+	checkOut := attribute.GetMutableBag(nil)
+	defer checkOut.Done()
+	cpe, err := h.HandleRemoteCheck(context.Background(), &adapter.EncodedInstance{Name: checkoutputDi.Name, Data: checkinstBa},
+		checkOut, "some_long_prefix.")
+	if err != nil {
+		t.Fatalf("HandleRemoteCheck with output failed: %v", err)
+	}
+
+	expectEqual(cpe, asAdapterCheckResult(s.Behavior.HandleSampleCheckResult), t)
+	if val, ok := checkOut.Get("some_long_prefix.stringPrimitive"); !ok || val != "test-nosession" {
+		t.Errorf("HandleRemoteCheck => got %t, %v, want 'test-nosession'", ok, val)
+	}
 
 	// report
 	minst := &metric.InstanceMsg{
@@ -278,7 +304,7 @@ func asAdapterCheckResult(result *v1beta1.CheckResult) *adapter.CheckResult {
 }
 
 func TestCodecErrors(t *testing.T) {
-	c := Codec{}
+	c := Codec{decode: protoUnmarshal}
 	t.Run(c.String()+".marshalError", func(t *testing.T) {
 		if _, err := c.Marshal("ABC"); err != nil {
 			if !strings.Contains(err.Error(), "unable to marshal") {

@@ -17,7 +17,6 @@ package v2
 import (
 	"context"
 	"errors"
-	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -64,11 +63,6 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
-)
-
-const (
-	// The range of LoadBalancingWeight is [1, 128]
-	maxLoadBalancingWeight = 128
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -561,10 +555,15 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
 
-	if requireFull {
-		s.ConfigUpdate(true)
-	} else {
-		s.ConfigUpdate(false)
+	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
+	// no need to trigger push here.
+	// It is done in DiscoveryServer.Push --> AdsPushAll
+	if !internal {
+		if requireFull {
+			s.ConfigUpdate(true)
+		} else {
+			s.ConfigUpdate(false)
+		}
 	}
 }
 
@@ -658,9 +657,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			}
 			l = filteredCLA
 		}
-
-		// Normalize LoadBalancingWeight in range [1, 128]
-		l.Endpoints = normalizeLoadBalancingWeight(l.Endpoints)
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
@@ -779,27 +775,4 @@ func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.Discov
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
 func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
 	return errors.New("unsupported streaming method")
-}
-
-// normalizeLoadBalancingWeight set LoadBalancingWeight with a valid value.
-func normalizeLoadBalancingWeight(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
-	var totalLbEndpointsNum uint32
-
-	for _, localityLbEndpoint := range endpoints {
-		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
-	}
-	if totalLbEndpointsNum == 0 {
-		return endpoints
-	}
-
-	out := make([]endpoint.LocalityLbEndpoints, len(endpoints))
-	for i, localityLbEndpoint := range endpoints {
-		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = localityLbEndpoint
-	}
-
-	return out
 }

@@ -77,7 +77,7 @@ func TestValidate(t *testing.T) {
 			"unknown kinds",
 			map[string]proto.Message{},
 			errors.New("fail"),
-			backendEvent(Update, "Unknown", "foo", map[string]interface{}{"foo": "bar"}),
+			backendEvent(Update, "Unknown", "bar", map[string]interface{}{"foo": "bar"}),
 			nil,
 		},
 		{

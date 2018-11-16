@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	delimiter           = `---`
 	validVirtualService = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -103,75 +102,6 @@ spec:
   - handler: handler-for-valid-rule.denier
     instances:
     - instance-for-valid-rule.checknothing`
-	invalidNoGroup = `
-apiVersion: /v1alpha3
-kind: VirtualService
-metadata:
-  name: invalid-no-group
-spec:
-  hosts:
-    - c
-  http:
-    - route:
-      - destination:
-          host: c
-          subset: v1
-        weight: 75`
-	invalidNoVersion = `
-apiVersion: networking.istio.io/
-kind: VirtualService
-metadata:
-  name: invalid-no-group
-spec:
-  hosts:
-    - c
-  http:
-    - route:
-      - destination:
-          host: c
-          subset: v1
-        weight: 75`
-	invalidNoKind = `
-apiVersion: networking.istio.io/v1alpha3
-metadata:
-  name: invalid-no-group
-spec:
-  hosts:
-    - c
-  http:
-    - route:
-      - destination:
-          host: c
-          subset: v1
-        weight: 75`
-	invalidNoName = `
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  typo-name: invalid-no-group
-spec:
-  hosts:
-    - c
-  http:
-    - route:
-      - destination:
-          host: c
-          subset: v1
-        weight: 75`
-	badYAML = `
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: { valid-virtual-service
-spec:
-  hosts:
-    - c
-  http:
-    - route:
-      - destination:
-          host: c
-          subset: v1
-        weight: 75`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {

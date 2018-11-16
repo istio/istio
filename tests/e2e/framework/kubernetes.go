@@ -30,10 +30,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"k8s.io/client-go/kubernetes"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -764,7 +765,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	err = util.HelmDepUpdate(workDir)
 	if err != nil {
 		// helm dep upgrade
-		log.Errorf("Helm dep update %s", workDir)
+		log.Errorf("Helm dep update failed %s", workDir)
 		return err
 	}
 
@@ -869,11 +870,13 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.
+	// note these config nobs aren't exposed to helm
 	content = replacePattern(content, "connectTimeout: 10s", "connectTimeout: 1s")
 	content = replacePattern(content, "drainDuration: 45s", "drainDuration: 2s")
 	content = replacePattern(content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
 
-	// A very flimsy and unreliable regexp to replace delays in ingress pod Spec
+	// A very flimsy and unreliable regexp to replace delays in ingress gateway pod Spec
+	// note these config nobs aren't exposed to helm
 	content = replacePattern(content, "'10s' #connectTimeout", "'1s' #connectTimeout")
 	content = replacePattern(content, "'45s' #drainDuration", "'2s' #drainDuration")
 	content = replacePattern(content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")

@@ -128,7 +128,7 @@ type DiscoveryServer struct {
 	// incremental updates.
 	EndpointShardsByService map[string]*EndpointShardsByService
 
-	// WorkloadsById keeps track of informations about a workload, based on direct notifications
+	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
 	WorkloadsByID map[string]*Workload
 
@@ -211,7 +211,8 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 		endpointsFilterFuncs: []EndpointsFilterFunc{
-			EndpointsByNetworkFilter, // A filter to support Split Horizon EDS
+			EndpointsByNetworkFilter,     // A filter to support Split Horizon EDS
+			LoadBalancingWeightNormalize, // Normalize LoadBalancingWeight in range [1, 128]
 		},
 	}
 	env.PushContext = model.NewPushContext()

@@ -124,7 +124,7 @@ func TestServiceEntry(t *testing.T) {
 			for cluster := range tc.Kube.Clusters {
 				// Make the requests and verify the reachability
 				for _, src := range []string{"a"} {
-					runRetriableTest(t, cluster, "from_"+src, 3, func() error {
+					runRetriableTest(t, "from_"+src, 3, func() error {
 						resp := ClientRequest(cluster, src, cs.url, 1, "")
 						reachable := resp.IsHTTPOk()
 						if reachable && !cs.shouldBeReachable {
