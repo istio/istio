@@ -53,7 +53,6 @@ import (
 var (
 	// mixer-style test environment, includes mixer and envoy configs.
 	testEnv        *testenv.TestSetup
-	pilotServer    *bootstrap.Server
 	initMutex      sync.Mutex
 	initEnvoyMutex sync.Mutex
 
@@ -135,10 +134,8 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
-	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	server, tearDown := util.EnsureTestServer()
-	pilotServer = server
-
+	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -286,10 +283,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	// debug and for the canary.
 	time.Sleep(2 * time.Second)
 
-	return server, func() {
-		pilotServer = nil
-		tearDown()
-	}
+	return server, tearDown
 }
 
 func testPorts(base int) []*model.Port {
