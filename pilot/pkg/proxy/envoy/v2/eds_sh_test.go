@@ -79,7 +79,7 @@ func TestSplitHorizonEds(t *testing.T) {
 			sidecarId: sidecarId("10.1.0.1", "app3"),
 			want: expectedResults{
 				endpoints: []string{"10.1.0.1", "159.122.219.2", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.2": 2, "159.122.219.3": 3},
+				weights:   map[string]uint32{"159.122.219.2": 32, "159.122.219.3": 48},
 			},
 		},
 		{
@@ -89,7 +89,7 @@ func TestSplitHorizonEds(t *testing.T) {
 			sidecarId: sidecarId("10.2.0.1", "app3"),
 			want: expectedResults{
 				endpoints: []string{"10.2.0.1", "10.2.0.2", "159.122.219.1", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.3": 3, "179.114.119.3": 3},
+				weights:   map[string]uint32{"159.122.219.1": 19, "159.122.219.3": 55, "179.114.119.3": 55},
 			},
 		},
 		{
@@ -99,7 +99,7 @@ func TestSplitHorizonEds(t *testing.T) {
 			sidecarId: sidecarId("10.3.0.1", "app3"),
 			want: expectedResults{
 				endpoints: []string{"10.3.0.1", "10.3.0.2", "10.3.0.3", "159.122.219.1", "159.122.219.2"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2},
+				weights:   map[string]uint32{"159.122.219.1": 43, "159.122.219.2": 86},
 			},
 		},
 		{
@@ -109,7 +109,7 @@ func TestSplitHorizonEds(t *testing.T) {
 			sidecarId: sidecarId("10.4.0.1", "app3"),
 			want: expectedResults{
 				endpoints: []string{"10.4.0.1", "10.4.0.2", "10.4.0.3", "10.4.0.4", "159.122.219.1", "159.122.219.2", "159.122.219.3", "179.114.119.3"},
-				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2, "159.122.219.3": 3, "179.114.119.3": 3},
+				weights:   map[string]uint32{"159.122.219.1": 15, "159.122.219.2": 29, "159.122.219.3": 43, "179.114.119.3": 43},
 			},
 		},
 	}
