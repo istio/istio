@@ -7,9 +7,12 @@
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 _INTEGRATION_TEST_LOGGING_FLAG =
-_INTEGRATION_TEST_INGRESS_FLAG =
 ifneq ($(CI),)
     _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info
+endif
+
+_INTEGRATION_TEST_INGRESS_FLAG =
+ifeq (${TEST_ENV},minikube)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
 endif
 
@@ -54,8 +57,8 @@ JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/
 TEST_PACKAGES = $(shell go list ./tests/integration2/... | grep -v /qualification | grep -v /examples)
 
 # All integration tests targeting local environment.
-.PHONY: test.integration
-test.integration: | $(JUNIT_REPORT)
+.PHONY: test.integration.local
+test.integration.local: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env local \

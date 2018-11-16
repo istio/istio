@@ -19,26 +19,27 @@ import (
 	"testing"
 )
 
-// ResolutionError is an error related to resolving component dependencies.
-type ResolutionError error
+// RequirementError is an error that occurred while requiring components.
+type RequirementError interface {
+	error
 
-// StartError is an error encountered while attempting to start a component.
-type StartError error
+	// IsStartError indicates that the error occurred while starting a component. Otherwise the error was related to
+	// resolving the dependency chain of a required component
+	IsStartError() bool
+}
 
 // Resolver for component requirements. It controls creation of the dependency tree for each required component.
 type Resolver interface {
 	// Require the given components to be available with the given lifecycle scope. The components may be specified
 	// via ID or specifically by descriptor. If a component requires others, each of its required components are
 	// implicitly required with the same scope. If a component already exists with the requested scope (or higher),
-	// the existing component is used. If an error was encountered related to resolving the dependency chain of a
-	// required component, the ResolutionError will be returned. If an error occurred while starting one of the
-	// components, a StartError is returned.
-	Require(scope lifecycle.Scope, reqs ...Requirement) (ResolutionError, StartError)
+	// the existing component is used.
+	Require(scope lifecycle.Scope, reqs ...Requirement) RequirementError
 
 	// RequireOrFail calls Require and fails the test if any error occurs.
 	RequireOrFail(t testing.TB, scope lifecycle.Scope, reqs ...Requirement)
 
-	// RequireOrSkip calls Require and skips the test if a ResolutionError occurs. If a StartError occurs, however,
-	// the test still fails.
+	// RequireOrSkip calls Require and skips the test if a non-start RequirementError occurs. If a start error occurs,
+	// however, the test still fails.
 	RequireOrSkip(t testing.TB, scope lifecycle.Scope, reqs ...Requirement)
 }
