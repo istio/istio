@@ -45,7 +45,7 @@ func init() {
 }
 
 func main() {
-	log.Configure(log.DefaultOptions())
+	_ = log.Configure(log.DefaultOptions())
 
 	flag.Parse()
 

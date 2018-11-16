@@ -96,10 +96,8 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile string, values map[string]string) (string, error) {
 	// Apply the overrides for the values file.
 	valuesString := ""
-	if values != nil {
-		for k, v := range values {
-			valuesString += fmt.Sprintf(" --set %s=%s", k, v)
-		}
+	for k, v := range values {
+		valuesString += fmt.Sprintf(" --set %s=%s", k, v)
 	}
 
 	valuesFileString := ""

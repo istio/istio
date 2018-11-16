@@ -290,10 +290,6 @@ type yamlDoc struct {
 	docType docType
 }
 
-func (d *yamlDoc) prepend(c string) {
-	d.content = test.JoinConfigs(c, d.content)
-}
-
 func (d *yamlDoc) append(c string) {
 	d.content = test.JoinConfigs(d.content, c)
 }
