@@ -1,0 +1,82 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "operator.name" . }}
+    chart: {{ template "operator.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: operator
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ template "operator.name" . }}
+        chart: {{ template "operator.chart" . }}
+        heritage: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+        version: {{ .Chart.Version }}
+        istio: operator
+      annotations:
+        sidecar.istio.io/inject: "false"
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      serviceAccountName: istio-operator-service-account
+ {{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: operator
+          image: "{{ .Values.global.hub }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+            readOnly: true
+          - name: certs
+            mountPath: /etc/istio/certs
+            readOnly: true
+          - name: operator-config
+            mountPath: /etc/istio/operator
+            readOnly: true
+#          livenessProbe:
+#            exec:
+#              command:
+#                - /usr/local/bin/operator
+#                - probe
+#                - --probe-path=/health
+#                - --interval=4s
+#            initialDelaySeconds: 4
+#            periodSeconds: 4
+#          readinessProbe:
+#            exec:
+#              command:
+#                - /usr/local/bin/operator
+#                - probe
+#                - --probe-path=/health
+#                - --interval=4s
+#            initialDelaySeconds: 4
+#            periodSeconds: 4
+#          resources:
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+      - name: certs
+        secret:
+          secretName: istio.istio-operator-service-account
+      - name: operator-config
+        configMap:
+          name: istio-operator
+          items:
+          - key: config
+            path: config
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

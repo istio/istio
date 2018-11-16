@@ -1,0 +1,6 @@
+#
+# operator
+#
+enabled: false
+image: operator
+enableNamespacesByDefault: false

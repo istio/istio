@@ -63,4 +63,7 @@ dependencies:
     version: ">=0.0.1"
     repository: "@istio.io"
     condition: istio_cni.enabled
-
+  - name: operator
+    version: 1.1.0
+    condition: operator.enabled
+    repository: file://../subcharts/operator

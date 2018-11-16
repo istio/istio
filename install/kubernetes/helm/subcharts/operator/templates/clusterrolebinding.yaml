@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-operator-admin-role-binding-{{ .Release.Namespace }}
+  labels:
+    app: {{ template "operator.name" . }}
+    chart: {{ template "operator.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-operator-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: istio-operator-service-account
+    namespace: {{ .Release.Namespace }}

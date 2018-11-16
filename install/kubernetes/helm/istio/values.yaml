@@ -28,6 +28,9 @@ mixer:
   telemetry:
     enabled: true
 
+operator:
+  enabled: false
+
 #
 # pilot configuration
 #
