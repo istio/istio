@@ -166,7 +166,7 @@ func logConfigs(agents []Agent) {
 	}
 
 	f := bufio.NewWriter(os.Stdout)
-	f.WriteString(out)
+	_, _ = f.WriteString(out)
 	f.Flush()
 }
 
