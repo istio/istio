@@ -2392,7 +2392,7 @@ func runTestCode(name string, t *testing.T, test test) {
 	p := il.NewProgram()
 	err := text.MergeText(test.code, p)
 	if err != nil {
-		t.Fatalf("code compilation failed: %v", err)
+		t.Fatalf("code compilation failed in %q: %v", name, err)
 	}
 	runTestProgram(t, p, test)
 }

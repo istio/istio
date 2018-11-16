@@ -49,8 +49,14 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 		}
 
 		if util.Is11Proxy(node) {
-			fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
-				Format: EnvoyTCPLogFormat,
+			if env.Mesh.AccessLogFormat == "json" {
+				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormat,
+				}
+			} else {
+				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+					Format: EnvoyTextLogFormat,
+				}
 			}
 		}
 

@@ -2360,7 +2360,8 @@ across all hosts in the pool (healthy and unhealthy).  The default is 50%.</p>
 <td>
 <p>REQUIRED: The protocol exposed on the port.
 MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
-TLS is used to indicate secure connections to non HTTP services.</p>
+TLS implies the connection will be routed based on the SNI header to
+the destination without terminating the TLS connection.</p>
 
 </td>
 </tr>
@@ -3020,7 +3021,7 @@ be translated to http://uk.foo.bar.com/baz.</p>
 <p>REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
 name with wildcard prefix (external services only). DNS names in hosts
 will be ignored if the application accesses the service over non-HTTP
-protocols such as mongo/opaque TCP/even HTTPS. In such scenarios, the
+protocols such as mongo/opaque TCP/HTTPS. In such scenarios, the
 IP addresses specified in the Addresses field or the port will be used
 to uniquely identify the destination.</p>
 
@@ -3033,7 +3034,7 @@ to uniquely identify the destination.</p>
 <p>The virtual IP addresses associated with the service. Could be CIDR
 prefix. For HTTP services, the addresses field will be ignored and
 the destination will be identified based on the HTTP Host/Authority
-header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
+header. For non-HTTP protocols such as mongo/opaque TCP/HTTPS,
 the hosts will be ignored. If one or more IP addresses are specified,
 the incoming traffic will be identified as belonging to this service
 if the destination IP matches the IP/CIDRs specified in the addresses
@@ -3167,6 +3168,15 @@ will prefer e1 from the same locality over e2 from a different
 locality. Endpoint e2 could be the IP associated with a gateway
 (that bridges networks n1 and n2), or the IP associated with a
 standard service endpoint.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-weight">
+<td><code>weight</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The load balancing weight associated with the endpoint. Endpoints
+with higher weights will receive proportionally higher traffic.</p>
 
 </td>
 </tr>

@@ -41,8 +41,6 @@ const authnConfig = `
   }
 `
 
-const secIstioAuthUserInfoHeaderKey = "sec-istio-auth-jwt-output"
-
 const respExpected = "Origin authentication failed."
 
 func TestAuthnCheckReportAttributesPeerJwtBoundToOrigin(t *testing.T) {

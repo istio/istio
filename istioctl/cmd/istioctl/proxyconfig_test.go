@@ -183,10 +183,12 @@ func mockClientExecFactoryGenerator(testResults map[string][]byte) func(kubeconf
 	return outFactory
 }
 
+// nolint: unparam
 func (client mockExecConfig) AllPilotsDiscoveryDo(pilotNamespace, method, path string, body []byte) (map[string][]byte, error) {
 	return client.results, nil
 }
 
+// nolint: unparam
 func (client mockExecConfig) EnvoyDo(podName, podNamespace, method, path string, body []byte) ([]byte, error) {
 	results, ok := client.results[podName]
 	if !ok {
@@ -195,6 +197,7 @@ func (client mockExecConfig) EnvoyDo(podName, podNamespace, method, path string,
 	return results, nil
 }
 
+// nolint: unparam
 func (client mockExecConfig) PilotDiscoveryDo(pilotNamespace, method, path string, body []byte) ([]byte, error) {
 	for _, results := range client.results {
 		return results, nil

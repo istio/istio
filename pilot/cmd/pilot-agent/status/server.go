@@ -53,8 +53,6 @@ type Config struct {
 type Server struct {
 	statusPort          uint16
 	ready               *ready.Probe
-	appLiveURL          string
-	appReadyURL         string
 	mutex               sync.RWMutex
 	lastProbeSuccessful bool
 }

@@ -123,6 +123,7 @@ func TestRolesForNamespace(t *testing.T) {
 		expectedRolesServiceRoleBinding []model.Config
 	}{
 		{
+			// nolint: goimports
 			name:          "authzPolicies is nil",
 			authzPolicies: nil,
 			ns:            model.NamespaceAll,
@@ -151,6 +152,7 @@ func TestRolesForNamespace(t *testing.T) {
 				},
 				nil,
 			},
+			// nolint: goimports
 			ns: model.NamespaceAll,
 			expectedRolesServiceRoleBinding: []model.Config{},
 		},
@@ -165,6 +167,7 @@ func TestRolesForNamespace(t *testing.T) {
 				},
 				nil,
 			},
+			// nolint: goimports
 			ns: model.NamespaceAll,
 			expectedRolesServiceRoleBinding: []model.Config{roleCfg, bindingCfg},
 		},
@@ -197,6 +200,7 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 		expectedRolesServiceRoleBinding map[string][]*rbacproto.ServiceRoleBinding
 	}{
 		{
+			// nolint: goimports
 			name:          "authzPolicies is nil",
 			authzPolicies: nil,
 			ns:            model.NamespaceAll,
@@ -225,6 +229,7 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 				},
 				nil,
 			},
+			// nolint: goimports
 			ns: model.NamespaceAll,
 			expectedRolesServiceRoleBinding: map[string][]*rbacproto.ServiceRoleBinding{},
 		},
