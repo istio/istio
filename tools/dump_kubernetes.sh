@@ -114,14 +114,15 @@ mv_unless_max_exceeded() {
   local src_file="${1}"
   local dst_file="${2}"
 
-  file_size=$(wc -c ${src_file} | awk '{print $1}')
+  file_size=$(wc -c "${src_file}" | awk '{print $1}')
   local nsb=$(("${stored_log_bytes}" + "${file_size}"))
 
   if (("${nsb}" > "${MAX_LOG_BYTES}")); then
     log "Not storing ${log_file} because appending its ${file_size} bytes would exceed max logged bytes ${MAX_LOG_BYTES}"
     rm "${src_file}"
   else
-    mkdir -p $(dirname "${dst_file}")
+    dirn=$(dirname "${dst_file}")
+    mkdir -p "${dirn}"
     mv "${src_file}" "${dst_file}"
     stored_log_bytes="${nsb}"
   fi
@@ -202,7 +203,7 @@ tap_containers() {
     local pods=""
     if [ -n "${pod_labels}" ]; then
       for label in $pod_labels; do
-        pods+=$(kubectl get --namespace="${namespace}" -l${label} \
+        pods+=$(kubectl get --namespace="${namespace}" -l"${label}" \
             pods -o=jsonpath='{.items[*].metadata.name}')" "
       done
     else
