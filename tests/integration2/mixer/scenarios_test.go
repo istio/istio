@@ -15,49 +15,54 @@
 package mixer
 
 import (
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/ids"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
+	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
 	"testing"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 // This file contains Mixer tests that are ported from Mixer E2E tests
 
 // Port of TestMetric
 func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
-	framework.Requires(t, dependency.Mixer, dependency.Kubernetes, dependency.Prometheus, dependency.BookInfo, dependency.Ingress)
+	ctx := framework.GetContext(t)
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Mixer, &ids.Prometheus, &ids.BookInfo, &ids.Ingress)
 
 	label := "source_workload"
 	labelValue := "istio-ingressgateway"
-	testMetric(t, label, labelValue)
+	testMetric(t, ctx, label, labelValue)
 }
 
 // Port of TestMetric
 func TestIngessToPrometheus_IngressMetric(t *testing.T) {
-	framework.Requires(t, dependency.Mixer, dependency.Kubernetes, dependency.Prometheus, dependency.BookInfo, dependency.Ingress)
+	ctx := framework.GetContext(t)
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Mixer, &ids.Prometheus, &ids.BookInfo, &ids.Ingress)
 
 	label := "destination_service"
 	labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
-	testMetric(t, label, labelValue)
+	testMetric(t, ctx, label, labelValue)
 }
 
-func testMetric(t *testing.T, label string, labelValue string) {
+func testMetric(t *testing.T, ctx component.Repository, label string, labelValue string) {
+	t.Helper()
 
-	env := framework.AcquireEnvironment(t)
-
-	env.DeployBookInfoOrFail(t)
-
-	env.Configure(t,
+	mxr := components.GetMixer(ctx, t)
+	mxr.Configure(t,
+		lifecycle.Test,
 		test.JoinConfigs(
 			bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
 			bookinfo.NetworkingDestinationRuleAll.LoadOrFail(t),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
 		))
 
-	prometheus := env.GetPrometheusOrFail(t)
-	ingress := env.GetIngressOrFail(t)
+	prometheus := components.GetPrometheus(ctx, t)
+	ingress := components.GetIngress(ctx, t)
 
 	// Warm up
 	_, err := ingress.Call("/productpage")

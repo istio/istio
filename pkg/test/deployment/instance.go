@@ -17,8 +17,8 @@ package deployment
 import (
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -29,13 +29,21 @@ type Instance struct {
 
 	// Path to the yaml file that is generated from the template.
 	yamlFilePath string
+	yamlContents string
+
+	appliedFiles []string
 }
 
 // Deploy this deployment instance.
 func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
-	scopes.CI.Infof("Applying Yaml file: %s", i.yamlFilePath)
-	if err = a.Apply(i.namespace, i.yamlFilePath); err != nil {
-		return multierror.Prefix(err, "kube apply of generated yaml filed:")
+	if i.yamlFilePath != "" {
+		if err = a.Apply(i.namespace, i.yamlFilePath); err != nil {
+			return multierror.Prefix(err, "kube apply of generated yaml filed:")
+		}
+	} else {
+		if i.appliedFiles, err = a.ApplyContents(i.namespace, i.yamlContents); err != nil {
+			return multierror.Prefix(err, "kube apply of generated yaml filed:")
+		}
 	}
 
 	if wait {
@@ -50,9 +58,19 @@ func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (er
 
 // Delete this deployment instance.
 func (i *Instance) Delete(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
-
-	if err = a.Delete(i.namespace, i.yamlFilePath); err != nil {
-		scopes.CI.Warnf("Error deleting deployment: %v", err)
+	if len(i.appliedFiles) > 0 {
+		// Delete in the opposite order that they were applied.
+		for ix := len(i.appliedFiles) - 1; ix >= 0; ix-- {
+			err = multierror.Append(err, a.Delete(i.namespace, i.appliedFiles[ix])).ErrorOrNil()
+		}
+	} else if i.yamlFilePath != "" {
+		if err = a.Delete(i.namespace, i.yamlFilePath); err != nil {
+			scopes.CI.Warnf("Error deleting deployment: %v", err)
+		}
+	} else {
+		if err = a.DeleteContents(i.namespace, i.yamlContents); err != nil {
+			scopes.CI.Warnf("Error deleting deployment: %v", err)
+		}
 	}
 
 	if wait {
