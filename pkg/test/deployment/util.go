@@ -16,6 +16,7 @@ package deployment
 
 import (
 	"fmt"
+	"github.com/gogo/protobuf/jsonpb"
 	"io/ioutil"
 	"os"
 	"path"
@@ -28,12 +29,26 @@ import (
 
 // DumpPodState logs the current pod state.
 func DumpPodState(namespace string, accessor *kube.Accessor) {
-	s, err := accessor.GetPods(namespace)
+	pods, err := accessor.GetPods(namespace)
 	if err != nil {
 		scopes.CI.Errorf("Error getting pods list via kubectl: %v", err)
 		return
 	}
-	scopes.CI.Infof("Pods (from Kubectl):\n%v", s)
+
+	marshaler := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+
+	output := ""
+	for _, pod := range pods {
+		output += fmt.Sprintf("Pod: %s/%s\n", pod.Namespace, pod.Name)
+		if str, err := marshaler.MarshalToString(&pod); err != nil {
+			output += fmt.Sprintf("Error converting to pod to JSON: %v\n", err.Error())
+		} else {
+			output += str + "\n"
+		}
+	}
+	scopes.CI.Infof("Pods (from Kubectl):\n%s", output)
 }
 
 // DumpPodData copies pod logs from Kubernetes to the specified workDir.

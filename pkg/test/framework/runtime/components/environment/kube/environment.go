@@ -192,6 +192,7 @@ func (e *Environment) Start(ctx context.Instance, scope lifecycle.Scope) error {
 
 	if e.s.DeployIstio {
 		if err := e.deployIstio(); err != nil {
+			e.DumpState(ctx.TestID())
 			return err
 		}
 	}

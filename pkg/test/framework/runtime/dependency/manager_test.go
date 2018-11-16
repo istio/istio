@@ -119,16 +119,16 @@ func TestOverrideDefault(t *testing.T) {
 
 	a := m.registerDefault(aID, &bID, &cID)
 	_ = m.registerDefault(bID, &cID)
-	b_override := m.registerVariant(bID, "b-variant", &cID)
+	bOverride := m.registerVariant(bID, "b-variant", &cID)
 	c := m.registerDefault(cID)
 
 	// Creating component a should create b and c.
 	scope := lifecycle.Suite
-	m.RequireOrFail(t, scope, &aID, &b_override, &cID)
+	m.RequireOrFail(t, scope, &aID, &bOverride, &cID)
 
 	m.assertCount(3)
 	m.assertDescriptor(a, scope)
-	m.assertDescriptor(b_override, scope)
+	m.assertDescriptor(bOverride, scope)
 	m.assertDescriptor(c, scope)
 }
 
@@ -361,41 +361,41 @@ func id(i string) component.ID {
 type mockContext struct {
 }
 
-func (d *mockContext) TestID() string {
+func (c *mockContext) TestID() string {
 	return ""
 }
 
-func (d *mockContext) RunID() string {
+func (c *mockContext) RunID() string {
 	return ""
 }
 
-func (d *mockContext) NoCleanup() bool {
+func (c *mockContext) NoCleanup() bool {
 	return false
 }
 
-func (d *mockContext) WorkDir() string {
+func (c *mockContext) WorkDir() string {
 	return ""
 }
 
-func (d *mockContext) CreateTmpDirectory(name string) (string, error) {
+func (c *mockContext) CreateTmpDirectory(name string) (string, error) {
 	return "", fmt.Errorf("unsupported")
 }
 
-func (d *mockContext) LogOptions() *log.Options {
+func (c *mockContext) LogOptions() *log.Options {
 	return nil
 }
 
-func (d *mockContext) DumpState(context string) {}
+func (c *mockContext) DumpState(context string) {}
 
-func (d *mockContext) Evaluate(t testing.TB, tmpl string) string {
+func (c *mockContext) Evaluate(t testing.TB, tmpl string) string {
 	return ""
 }
 
-func (d *mockContext) GetComponent(id component.ID) component.Instance {
+func (c *mockContext) GetComponent(id component.ID) component.Instance {
 	return nil
 }
 
-func (d *mockContext) GetComponentOrFail(id component.ID, t testing.TB) component.Instance {
+func (c *mockContext) GetComponentOrFail(id component.ID, t testing.TB) component.Instance {
 	t.Fatalf("unsupported")
 	return nil
 }
@@ -409,7 +409,7 @@ func (c *mockContext) GetComponentForDescriptorOrFail(d component.Descriptor, t 
 	return nil
 }
 
-func (d *mockContext) GetAllComponents() []component.Instance {
+func (c *mockContext) GetAllComponents() []component.Instance {
 	return nil
 }
 
@@ -421,23 +421,23 @@ func (c *mockContext) NewComponentOrFail(d component.Descriptor, scope lifecycle
 	return nil
 }
 
-func (d *mockContext) Require(scope lifecycle.Scope, reqs ...component.Requirement) (component.ResolutionError, component.StartError) {
-	return fmt.Errorf("unsupported"), fmt.Errorf("unsupported")
+func (c *mockContext) Require(scope lifecycle.Scope, reqs ...component.Requirement) component.RequirementError {
+	return nil
 }
 
-func (d *mockContext) RequireOrFail(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
+func (c *mockContext) RequireOrFail(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
 	t.Fatalf("unsupported")
 }
 
-func (d *mockContext) RequireOrSkip(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
+func (c *mockContext) RequireOrSkip(t testing.TB, scope lifecycle.Scope, reqs ...component.Requirement) {
 	t.Fatalf("unsupported")
 }
 
-func (d *mockContext) GetDefaultDescriptor(id component.ID) (component.Descriptor, error) {
+func (c *mockContext) GetDefaultDescriptor(id component.ID) (component.Descriptor, error) {
 	return component.Descriptor{}, fmt.Errorf("unsupported")
 }
 
-func (d *mockContext) GetDefaultDescriptorOrFail(id component.ID, t testing.TB) component.Descriptor {
+func (c *mockContext) GetDefaultDescriptorOrFail(id component.ID, t testing.TB) component.Descriptor {
 	t.Fatalf("unsupported")
 	return component.Descriptor{}
 }
@@ -509,11 +509,11 @@ func expect(t *testing.T) *exp {
 	return &exp{t}
 }
 
-func (e *exp) resolutionError(resErr, startErr error) {
-	if startErr != nil {
-		e.t.Fatal("unexpected start error: ", startErr)
-	}
-	if resErr == nil {
+func (e *exp) resolutionError(err component.RequirementError) {
+	if err == nil {
 		e.t.Fatal("expected resolution error")
+	}
+	if err.IsStartError() {
+		e.t.Fatal("unexpected start error: ", err)
 	}
 }
