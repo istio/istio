@@ -22,8 +22,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // DumpPodState logs the current pod state.
