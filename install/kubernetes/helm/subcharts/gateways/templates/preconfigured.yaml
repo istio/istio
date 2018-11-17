@@ -251,7 +251,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: istio-multicluster-destinationrule
-  namespace: istio
+  namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
     chart: {{ template "gateway.chart" . }}

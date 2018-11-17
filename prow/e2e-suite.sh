@@ -37,58 +37,20 @@ set -x
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
 # for existing resources types
-RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
-OWNER="${OWNER:-e2e-suite}"
-PILOT_CLUSTER="${PILOT_CLUSTER:-}"
-USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
-CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
-
+export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+export OWNER="${OWNER:-e2e-suite}"
+export PILOT_CLUSTER="${PILOT_CLUSTER:-}"
+export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
+export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
-# shellcheck source=prow/mason_lib.sh
-source "${ROOT}/prow/mason_lib.sh"
-# shellcheck source=prow/cluster_lib.sh
-source "${ROOT}/prow/cluster_lib.sh"
-
-function cleanup() {
-  if [[ "${CLEAN_CLUSTERS}" == "True" ]]; then
-    unsetup_clusters
-  fi
-  if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-    mason_cleanup
-    cat "${FILE_LOG}"
-  fi
-}
-
-trap cleanup EXIT
-
-if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
-  INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
-  FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
-
-  E2E_ARGS+=("--mason_info=${INFO_PATH}")
-
-  setup_and_export_git_sha
-
-  get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-else
-  GIT_SHA="${GIT_SHA:-$TAG}"
-fi
-
-
-if [ "${CI:-}" == 'bootstrap' ]; then
-  # bootsrap upload all artifacts in _artifacts to the log bucket.
-  ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
-  E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
-fi
+setup_e2e_cluster
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${TAG:-${GIT_SHA}}"
 
 make init
-
-setup_cluster
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do

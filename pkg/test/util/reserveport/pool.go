@@ -20,7 +20,7 @@ func allocatePool(size int) (pool []ReservedPort, err error) {
 	tempPool := make([]ReservedPort, size)
 	defer func() {
 		if err != nil {
-			freePool(tempPool)
+			_ = freePool(tempPool)
 		}
 	}()
 

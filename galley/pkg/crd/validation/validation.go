@@ -57,22 +57,22 @@ func createMixerValidator() (store.BackendValidator, error) {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeConfig string,
+func RunValidation(vc *WebhookParameters, printf, fatalf shared.FormatFn, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
 	mixerValidator, err := createMixerValidator()
 	if err != nil {
-		faltaf("cannot create mixer backend validator for %q: %v", kubeConfig, err)
+		fatalf("cannot create mixer backend validator for %q: %v", kubeConfig, err)
 	}
 	clientset, err := kube.CreateClientset(kubeConfig, "")
 	if err != nil {
-		faltaf("could not create k8s clientset: %v", err)
+		fatalf("could not create k8s clientset: %v", err)
 	}
 	vc.MixerValidator = mixerValidator
 	vc.PilotDescriptor = model.IstioConfigTypes
 	vc.Clientset = clientset
 	wh, err := NewWebhook(*vc)
 	if err != nil {
-		faltaf("cannot create validation webhook service: %v", err)
+		fatalf("cannot create validation webhook service: %v", err)
 	}
 	if livenessProbeController != nil {
 		validationLivenessProbe := probe.NewProbe()

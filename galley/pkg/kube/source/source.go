@@ -111,15 +111,16 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 
 	var event resource.Event
 
+	entries, err := spec.Converter(cfg, spec.Target, key, spec.Kind, u)
+	if err != nil {
+		scope.Errorf("Unable to convert unstructured to proto: %s/%s: %v", key, resourceVersion, err)
+		recordConverterResult(false, spec.Version, spec.Group, spec.Kind)
+		return
+	}
+	recordConverterResult(true, spec.Version, spec.Group, spec.Kind)
+
 	switch kind {
 	case resource.Added, resource.Updated:
-		entries, err := spec.Converter(cfg, spec.Target, key, u)
-		if err != nil {
-			scope.Errorf("Unable to convert unstructured to proto: %s/%s: %v", key, resourceVersion, err)
-			recordConverterResult(false, spec.Version, spec.Group, spec.Kind)
-			return
-		}
-		recordConverterResult(true, spec.Version, spec.Group, spec.Kind)
 
 		if len(entries) == 0 {
 			scope.Debugf("Did not receive any entries from converter: kind=%v, key=%v, rv=%s", kind, key, resourceVersion)
@@ -133,7 +134,7 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 		rid := resource.VersionedKey{
 			Key: resource.Key{
 				TypeURL:  spec.Target.TypeURL,
-				FullName: key,
+				FullName: entries[0].Key,
 			},
 			Version:    resource.Version(resourceVersion),
 			CreateTime: entries[0].CreationTime,
@@ -148,7 +149,7 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 		rid := resource.VersionedKey{
 			Key: resource.Key{
 				TypeURL:  spec.Target.TypeURL,
-				FullName: key,
+				FullName: entries[0].Key,
 			},
 			Version: resource.Version(resourceVersion),
 		}
