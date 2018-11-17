@@ -802,7 +802,7 @@ func (n namedRangerEntry) Network() net.IPNet {
 // InitNetworkLookup will read the mesh networks configuration from the environment
 // and initialize CIDR rangers for an efficient network lookup when needed
 func (c *Controller) InitNetworkLookup(meshNetworks *meshconfig.MeshNetworks) {
-	if meshNetworks == nil {
+	if meshNetworks == nil || len(meshNetworks.Networks) == 0 {
 		return
 	}
 

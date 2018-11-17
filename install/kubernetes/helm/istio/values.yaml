@@ -313,6 +313,7 @@ global:
 
 
     # Configure the mesh networks to be used by the Split Horizon EDS.
+    # Please notice that it is an Alpha level feature.
     # 
     # The following example defines two networks with different endpoints
     # association methods. For `network1` all endpoints that their IP belongs
