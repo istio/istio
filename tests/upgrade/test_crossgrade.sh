@@ -341,22 +341,28 @@ kubectl logs -f -n "${TEST_NAMESPACE}" -c echosrv "${cli_pod_name}" &> "${POD_FO
 local_log_str=$(grep "Code 200" "${LOCAL_FORTIO_LOG}")
 pod_log_str=$(grep "Code 200"  "${POD_FORTIO_LOG}")
 
+# First dump local log
+cat ${LOCAL_FORTIO_LOG}
 if [[ ${local_log_str} != *"Code 200"* ]];then
-    echo "No Code 200 found in external traffic log"
+    echo "=== No Code 200 found in external traffic log ==="
     failed=true
 elif ! percent200sAbove "${local_log_str}"; then
-    printf "\\n\\nToo many errors found in external traffic log:\\n\\n"
+    echo "=== Errors found in external traffic exceeded ${MIN_200_PCT_FOR_PASS}% threshold ==="
     failed=true
-    cat ${LOCAL_FORTIO_LOG}
+else
+    echo "=== Errors found in external traffic is within ${MIN_200_PCT_FOR_PASS}% threshold ==="
 fi
 
+# Then dump pod log
+cat ${POD_FORTIO_LOG}
 if [[ ${pod_log_str}  != *"Code 200"* ]]; then
-    echo "No Code 200 found in internal traffic log"
+    echo "=== No Code 200 found in internal traffic log ==="
     failed=true
-elif ! percent200sAbove "${local_log_str}"; then
-    printf "\\n\\nToo many errors found in internal traffic log:\\n\\n"
+elif ! percent200sAbove "${pod_log_str}"; then
+    echo "=== Errors found in internal traffic exceeded ${MIN_200_PCT_FOR_PASS}% threshold ==="
     failed=true
-    cat ${POD_FORTIO_LOG}
+else
+    echo "=== Errors found in internal traffic is within ${MIN_200_PCT_FOR_PASS}% threshold ==="
 fi
 
 popd
