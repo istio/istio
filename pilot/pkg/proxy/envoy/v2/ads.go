@@ -591,11 +591,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 // update the node associated with the connection, after receiving a a packet from envoy.
 func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, con *XdsConnection) error {
-	con.mu.Lock()
+	con.mu.RLock()
 	if con.modelNode != nil {
+		con.mu.RUnlock()
 		return nil // only need to init the node on first request in the stream
 	}
-	con.mu.Unlock()
+	con.mu.RUnlock()
 
 	if discReq.Node == nil || discReq.Node.Id == "" {
 		return errors.New("Missing node id")

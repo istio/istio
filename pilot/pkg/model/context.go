@@ -135,20 +135,25 @@ func (p *Proxy) GetOutboundServices(ctx *PushContext) []*Service {
 // services and store it in the Proxy. Explicit config will also provide an optional
 // list.
 func (p *Proxy) UpdateOutboundServices(push *PushContext) {
+	// TODO: compute the list of dependencies based on NetworkScope.
+	// By default, if isolation is enabled only same namespace will be visible - this
+	// method allows fine tunning deps for an individual workload.
 	// HACK: until the API is finalized, extract the outbound subset from a node metadata.
-	outboundServices, f := p.Metadata["istioOutbound"]
-	if f {
-		p.mutex.Lock()
-		osvc := strings.Split(outboundServices, ",")
-		p.serviceDependencies = []*Service{}
-		for _, osn := range osvc {
-			svc, f := push.ServiceByHostname[Hostname(osn)]
-			if f {
-				p.serviceDependencies = append(p.serviceDependencies, svc)
-			}
-		}
-		p.mutex.Unlock()
-	}
+
+	//outboundServices, f := p.Metadata["istioOutbound"]
+
+	//if f {
+	//	p.mutex.Lock()
+	//	osvc := strings.Split(outboundServices, ",")
+	//	p.serviceDependencies = []*Service{}
+	//	for _, osn := range osvc {
+	//		svc, f := push.ServiceByHostname[Hostname(osn)]
+	//		if f {
+	//			p.serviceDependencies = append(p.serviceDependencies, svc)
+	//		}
+	//	}
+	//	p.mutex.Unlock()
+	//}
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh

@@ -10,6 +10,14 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 data:
+  meshNetworks: |-
+  {{- if .Values.global.networks }}
+    networks:
+    {{ toYaml .Values.global.networks | indent 6 }}
+    {{- else }}
+    networks: {}
+    {{- end }}
+  {{- end }}
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.

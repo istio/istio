@@ -120,6 +120,11 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 	return filtered
 }
 
+// TODO: remove this, filtering should be done before generating the config, and
+// network metadata should not be included in output. A node only receives endpoints
+// in the same network as itself - so passing an network meta, with exactly
+// same value that the node itself had, on each endpoint is a bit absurd.
+
 // Checks whether there is an istio metadata string value for the provided key
 // within the endpoint metadata. If exists, it will return the value.
 func istioMetadata(ep endpoint.LbEndpoint, key string) string {
