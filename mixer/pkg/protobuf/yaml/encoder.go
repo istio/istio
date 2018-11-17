@@ -62,7 +62,10 @@ func (e *Encoder) EncodeBytes(data map[string]interface{}, msgName string, skipU
 			return nil, err
 		}
 	}
-	return buf.Bytes(), nil
+
+	out := make([]byte, len(buf.Bytes()))
+	copy(out, buf.Bytes())
+	return out, nil
 }
 
 func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDescriptorProto, skipUnknown bool, buffer *proto.Buffer) error {
@@ -592,6 +595,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			for i, iface := range v {
 				c, ok := ToInt64(iface)
 				if !ok {
+					PutBuffer(tmpBuffer)
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeZigzag32(uint64(c))
@@ -676,6 +680,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			for i, iface := range v {
 				c, ok := ToInt64(iface)
 				if !ok {
+					PutBuffer(tmpBuffer)
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeZigzag64(uint64(c))
