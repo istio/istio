@@ -15,7 +15,6 @@
 # Dependencies that must be preinstalled: helm, fortio.
 #
 
-set -o errexit
 set -o pipefail
 
 command -v helm >/dev/null 2>&1 || { echo >&2 "helm must be installed, aborting."; exit 1; }
@@ -109,7 +108,7 @@ TEST_NAMESPACE="test"
 # Edit fortio-cli.yaml to the same value when changing this.
 TRAFFIC_RUNTIME_SEC=700
 
-echo_and_run() { echo "RUNNING $*" ; "$@" ; }
+echo_and_run() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
 
 installIstioSystemAtVersionHelmTemplate() {
     writeMsg "helm installing version ${2} from ${3}."
@@ -123,23 +122,23 @@ installIstioSystemAtVersionHelmTemplate() {
     --set gateways.istio-ingressgateway.replicaCount=4 \
     --set gateways.istio-ingressgateway.autoscaleMin=4 \
     --set global.hub="${1}" \
-    --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml"
+    --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
 
-   kubectl apply -n "${ISTIO_NAMESPACE}" -f "${ISTIO_ROOT}"/istio.yaml
+   kubectl apply -n "${ISTIO_NAMESPACE}" -f "${ISTIO_ROOT}"/istio.yaml || die "kubectl in installIstioSystemAtVersionHelmTemplate failed"
 }
 
 installTest() {
    writeMsg "Installing test deployments"
-   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/gateway.yaml"
+   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/gateway.yaml" || die "kubectl apply gateway.yaml failed"
    # We don't want to auto-inject into ${ISTIO_NAMESPACE}, so echosrv and load client must be in different namespace.
-   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio.yaml"
+   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio.yaml" || die "kubectl apply fortio.yaml failed"
    sleep 10
 }
 
 # Sends traffic from internal pod (Fortio load command) to Fortio echosrv.
 sendInternalRequestTraffic() {
    writeMsg "Sending internal traffic"
-   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml"
+   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml" || die "kubectl apply fortio-cli.yaml failed"
 }
 
 # Sends external traffic from machine test is running on to Fortio echosrv through external IP and ingress gateway LB.
@@ -297,7 +296,7 @@ waitForIngress
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
 # Make a copy of the "from" sidecar injector ConfigMap so we can restore the sidecar independently later.
-kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
+kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml || die "copy ConfigMap failed"
 
 installTest
 waitForPodsReady "${TEST_NAMESPACE}"
@@ -360,7 +359,7 @@ elif ! percent200sAbove "${local_log_str}"; then
     cat ${POD_FORTIO_LOG}
 fi
 
-popd || exit 1
+popd
 
 if [ -n "${failed}" ]; then
     exit 1
