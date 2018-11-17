@@ -40,7 +40,7 @@ type Stats struct {
 
 // String representation of the Stats.
 func (s *Stats) String() string {
-	return fmt.Sprintf("cds updates: %d success, %d rejected; lds updates: %d success, %d rejected",
+	return fmt.Sprintf("cds updates: %d successful, %d rejected; lds updates: %d successful, %d rejected",
 		s.CDSUpdatesSuccess,
 		s.CDSUpdatesRejection,
 		s.LDSUpdatesSuccess,

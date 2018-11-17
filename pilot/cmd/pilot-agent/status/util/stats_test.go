@@ -24,5 +24,5 @@ func TestStatsToString(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := Stats{CDSUpdatesSuccess: 1, CDSUpdatesRejection: 2, LDSUpdatesSuccess: 3, LDSUpdatesRejection: 4}
 
-	g.Expect(stats.String()).To(Equal("cds updates: 1 success, 2 rejected; lds updates: 3 success, 4 rejected"))
+	g.Expect(stats.String()).To(Equal("cds updates: 1 successful, 2 rejected; lds updates: 3 successful, 4 rejected"))
 }
