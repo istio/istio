@@ -600,9 +600,8 @@ jobs:
       - run:
           name: Starting Kubernetes API Server standalone and running tests
           command: |
-            make localTestEnv
             cd /go/src/istio.io/istio
-            MAXPROCS=6 bin/codecov.sh
+            MAXPROCS=6 bin/codecov_diff.sh
       - run:
           name: Uploading code coverage to codecov.io
           when: always
