@@ -112,8 +112,6 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          - name: config-networks-volume
-            mountPath: /etc/istio/config-networks
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -178,9 +176,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
-      - name: config-networks-volume
-        configMap:
-          name: istio-networks
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account
