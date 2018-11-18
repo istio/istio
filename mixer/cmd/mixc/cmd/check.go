@@ -127,7 +127,7 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn, quotas map[string
 				} else if rootArgs.printResponse {
 					printf("Check RPC completed successfully. Check status was %s", decodeStatus(response.Precondition.Status))
 					printf("  Valid use count: %v, valid duration: %v", response.Precondition.ValidUseCount, response.Precondition.ValidDuration)
-					dumpReferencedAttributes(printf, fatalf, response.Precondition.ReferencedAttributes)
+					dumpReferencedAttributes(printf, response.Precondition.ReferencedAttributes)
 					dumpQuotas(printf, response.Quotas)
 				}
 			}

@@ -467,7 +467,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
-	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
+	cache.RegisterEventHandler(model.MockConfig.Type, func(_ model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted.Load() != 0 {

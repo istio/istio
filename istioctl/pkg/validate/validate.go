@@ -17,7 +17,6 @@ package validate
 import (
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -99,7 +98,7 @@ Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
 
-func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions, writer io.Writer) error {
+func validateObjects(restClientGetter resource.RESTClientGetter, options resource.FilenameOptions) error {
 	// resource.Builder{} validates most of the CLI flags consistent
 	// with kubectl which is good. Unforatunly, it also assumes
 	// resources can be specified as '<resource> <name>' which is
@@ -167,7 +166,7 @@ func NewValidateCommand() *cobra.Command {
 		Example: `istioctl validate -f bookinfo-gateway.yaml`,
 		Args:    cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions(), c.OutOrStderr())
+			return validateObjects(kubeConfigFlags, fileNameFlags.ToOptions())
 		},
 	}
 

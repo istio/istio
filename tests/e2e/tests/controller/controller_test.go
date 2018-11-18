@@ -43,7 +43,7 @@ const (
 	resync = 1 * time.Second
 )
 
-func makeClient(t *testing.T, desc model.ConfigDescriptor) (*crd.Client, error) {
+func makeClient(desc model.ConfigDescriptor) (*crd.Client, error) {
 	cl, err := crd.NewClient("", "", desc, "")
 	if err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func makeTempClient(t *testing.T) (*crd.Client, string, func()) {
 		t.Fatal(err.Error())
 	}
 	desc := append(model.IstioConfigTypes, mock.Types...)
-	cl, err := makeClient(t, desc)
+	cl, err := makeClient(desc)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -162,7 +162,7 @@ func TestUnknownConfig(t *testing.T) {
 		MessageName: "test.MockConfig",
 		Validate:    nil,
 	}}
-	_, err := makeClient(t, desc)
+	_, err := makeClient(desc)
 	if err == nil {
 		t.Fatalf("expect client to fail with unknown types")
 	}

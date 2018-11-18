@@ -555,10 +555,15 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
 
-	if requireFull {
-		s.ConfigUpdate(true)
-	} else {
-		s.ConfigUpdate(false)
+	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
+	// no need to trigger push here.
+	// It is done in DiscoveryServer.Push --> AdsPushAll
+	if !internal {
+		if requireFull {
+			s.ConfigUpdate(true)
+		} else {
+			s.ConfigUpdate(false)
+		}
 	}
 }
 
@@ -642,16 +647,19 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			l = loadAssignment(c)
 		}
 
-		// Apply registered endpoints filter functions and create a new
-		// ClusterLoadAssignment to be pushed with filtered endpoints
-		if len(s.endpointsFilterFuncs) > 0 {
+		// If networks are set (by default they aren't) apply the Split Horizon
+		// EDS filter on the endpoints
+		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
-				Endpoints:   s.applyEndpointsFilterFuncs(l.Endpoints, con),
+				Endpoints:   EndpointsByNetworkFilter(l.Endpoints, con, s.Env),
 				Policy:      l.Policy,
 			}
 			l = filteredCLA
 		}
+
+		// Normalize LoadBalancingWeight in range [1, 128]
+		l.Endpoints = LoadBalancingWeightNormalize(l.Endpoints, con, s.Env)
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {

@@ -34,7 +34,7 @@ func init() {
 
 // Minimal test to check the standalone server runs with some valid config.
 func TestAppend(t *testing.T) {
-	res, err := get(t, "http://appendh.test.istio.io/foo")
+	res, err := get(t)
 	if err != nil {
 		return
 	}
@@ -45,7 +45,7 @@ func TestAppend(t *testing.T) {
 }
 
 func TestByon(t *testing.T) {
-	res, err := get(t, "http://mybyon.test.istio.io/foo")
+	res, err := get(t)
 	if err != nil {
 		return
 	}
@@ -59,7 +59,7 @@ func TestByon(t *testing.T) {
 }
 
 // get returns the body of the request, after making basic checks on the response
-func get(t *testing.T, url string) (string, error) {
+func get(t *testing.T) (string, error) {
 	res, err := client.Get("http://mybyon.test.istio.io/foo")
 	if err != nil {
 		t.Error(err)

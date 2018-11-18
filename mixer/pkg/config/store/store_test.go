@@ -79,9 +79,11 @@ func newTestBackend() *testStore {
 }
 
 func registerTestStore(builders map[string]Builder) {
-	builders["test"] = func(u *url.URL, gv *schema.GroupVersion, _ *creds.Options, ck []string) (Backend, error) {
+	// nolint: unparam
+	var builder Builder = func(_ *url.URL, _ *schema.GroupVersion, _ *creds.Options, _ []string) (Backend, error) {
 		return newTestBackend(), nil
 	}
+	builders["test"] = builder
 }
 
 func TestStore(t *testing.T) {

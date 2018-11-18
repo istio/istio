@@ -84,7 +84,7 @@ func testVersionRoutingRule(t *testing.T, configVersion string, rule versionRout
 	}()
 
 	for _, uv := range rule.userVersions {
-		_, err := checkRoutingResponse(uv.user.cookiejar, uv.version, getIngressOrFail(t, configVersion), uv.model)
+		_, err := checkRoutingResponse(uv.user.cookiejar, uv.version, getIngressOrFail(t), uv.model)
 		inspect(
 			err, fmt.Sprintf("Failed version routing! %s in %s", uv.user.username, uv.version),
 			fmt.Sprintf("Success! Response matches with expected! %s in %s", uv.user.username,
@@ -110,7 +110,7 @@ func doTestFaultDelay(t *testing.T, configVersion string, rules []string) {
 		filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
 	for i := 0; i < testRetryTimes; i++ {
 		duration, err := checkRoutingResponse(
-			testUser.cookiejar, "v1-timeout", getIngressOrFail(t, configVersion),
+			testUser.cookiejar, "v1-timeout", getIngressOrFail(t),
 			testModel)
 		log.Infof("Get response in %d second", duration)
 		if err == nil && duration >= minDuration && duration <= maxDuration {
@@ -182,7 +182,7 @@ func testVersionMigrationRule(t *testing.T, configVersion string, rule migration
 	for i := 0; i < testRetryTimes; i++ {
 		c1, cVersionToMigrate := 0, 0
 		for c := 0; c < totalShot; c++ {
-			resp, err := getWithCookieJar(fmt.Sprintf("%s/productpage", getIngressOrFail(t, configVersion)), normalUser.cookiejar)
+			resp, err := getWithCookieJar(fmt.Sprintf("%s/productpage", getIngressOrFail(t)), normalUser.cookiejar)
 			inspect(err, "Failed to record", "", t)
 			if resp.StatusCode != http.StatusOK {
 				log.Errorf("unexpected response status %d", resp.StatusCode)
@@ -247,7 +247,7 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), respExpr, 10)
+	_, err = checkHTTPResponse(getIngressOrFail(t), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -271,7 +271,7 @@ func doTestDbRoutingMysql(t *testing.T, configVersion string, rules []string) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), respExpr, 10)
+	_, err = checkHTTPResponse(getIngressOrFail(t), respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
@@ -317,7 +317,7 @@ func doTestExternalDetailsService(t *testing.T, configVersion string, rules []st
 
 	isbnFetchedFromExternalService := "0486424618"
 
-	_, err = checkHTTPResponse(getIngressOrFail(t, configVersion), isbnFetchedFromExternalService, 1)
+	_, err = checkHTTPResponse(getIngressOrFail(t), isbnFetchedFromExternalService, 1)
 	inspect(
 		err, fmt.Sprintf("Failed external details routing! %s in v1", normalUser.username),
 		fmt.Sprintf("Success! Response matches with expected! %s", isbnFetchedFromExternalService), t)

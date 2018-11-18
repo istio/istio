@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	_ "net/http/pprof"
 	"runtime"
 	"strconv"
 	"strings"
@@ -41,10 +40,8 @@ import (
 // StreamEndpoints is not used in 1.0+
 
 func TestEds(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
+	server, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
-
-	server := util.MockTestServer
 
 	// will be checked in the direct request test
 	addUdsEndpoint(server)
@@ -262,7 +259,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	// Bad client - will not read any response. This triggers Write to block, which should
 	// be detected
 	// This is not using adsc, which consumes the events automatically.
-	ads, err := connectADS(util.MockPilotGrpcAddr)
+	ads, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,6 +267,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	if err != nil {
 		t.Fatal(err)
 	}
+	cancel()
 
 	n := nclients
 	wg.Add(n)

@@ -146,6 +146,9 @@ global:
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
+    # configure the access log for sidecar to "json" or "text". 
+    access_log_format: "text"
+
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
 
@@ -310,6 +313,7 @@ global:
 
 
     # Configure the mesh networks to be used by the Split Horizon EDS.
+    # Please notice that it is an Alpha level feature.
     # 
     # The following example defines two networks with different endpoints
     # association methods. For `network1` all endpoints that their IP belongs

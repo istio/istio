@@ -56,7 +56,7 @@ func TestTcpNonHeadlessPorts(t *testing.T) {
 					for _, port := range ports {
 						for _, domain := range []string{"", "." + tc.Kube.Namespace} {
 							testName := fmt.Sprintf("%s from %s cluster->%s%s_%s", src, cluster, dst, domain, port)
-							runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+							runRetriableTest(t, testName, defaultRetryBudget, func() error {
 								reqURL := fmt.Sprintf("http://%s%s:%s/%s", dst, domain, port, src)
 								resp := ClientRequest(cluster, src, reqURL, 1, "")
 								if src == "t" && (tc.Kube.AuthEnabled || (dst == "d" && port == "9090")) {
@@ -91,7 +91,7 @@ func TestTCPNonIstioToIstioHeadlessPort(t *testing.T) {
 	t.Run("request", func(t *testing.T) {
 		for cluster := range tc.Kube.Clusters {
 			testName := fmt.Sprintf("tcp: %s from %s cluster->%s_%s", src, cluster, dstSvc, port)
-			runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+			runRetriableTest(t, testName, defaultRetryBudget, func() error {
 				reqURL := fmt.Sprintf("http://%s:%s/%s", dstSvc, port, src)
 				resp := ClientRequest(cluster, src, reqURL, 1, "")
 				if resp.IsHTTPOk() {
@@ -119,7 +119,7 @@ func TestTcpStatefulSets(t *testing.T) {
 					// statefulset-1.statefulset.svc.cluster.local
 					fqdn := fmt.Sprintf("%s.%s", dst, dstService)
 					testName := fmt.Sprintf("tcp: %s from %s cluster->%s_%s", src, cluster, fqdn, port)
-					runRetriableTest(t, cluster, testName, defaultRetryBudget, func() error {
+					runRetriableTest(t, testName, defaultRetryBudget, func() error {
 						reqURL := fmt.Sprintf("http://%s:%s/%s", fqdn, port, src)
 						resp := clientRequestFromStatefulSet(cluster, src, reqURL, 1, "")
 						if resp.IsHTTPOk() {
