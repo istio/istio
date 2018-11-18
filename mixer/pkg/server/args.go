@@ -147,6 +147,10 @@ func (a *Args) validate() error {
 		return fmt.Errorf("# check cache entries must be >= 0 and <= 2^31-1, got %d", a.NumCheckCacheEntries)
 	}
 
+	if a.ConfigStore != nil && a.ConfigStoreURL != "" {
+		return fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
+	}
+
 	return nil
 }
 
