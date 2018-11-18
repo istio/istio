@@ -11,6 +11,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: prometheus
   template:
     metadata:
       labels:
