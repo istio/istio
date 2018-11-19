@@ -229,7 +229,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "delete"}).Add(1)
 				// Deleting the endpoints results in an empty set from EDS perspective - only
 				// deleting the service should delete the resources. The full sync replaces the
 				// maps.
