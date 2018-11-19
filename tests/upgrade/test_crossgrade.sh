@@ -15,7 +15,6 @@
 # Dependencies that must be preinstalled: helm, fortio.
 #
 
-set -o errexit
 set -o pipefail
 
 command -v helm >/dev/null 2>&1 || { echo >&2 "helm must be installed, aborting."; exit 1; }
@@ -43,6 +42,8 @@ usage() {
 }
 
 ISTIO_NAMESPACE="istio-system"
+# Minimum % of all requests that must be 200 for test to pass.
+MIN_200_PCT_FOR_PASS="85"
 
 while (( "$#" )); do
     PARAM=$(echo "${1}" | awk -F= '{print $1}')
@@ -107,7 +108,7 @@ TEST_NAMESPACE="test"
 # Edit fortio-cli.yaml to the same value when changing this.
 TRAFFIC_RUNTIME_SEC=700
 
-echo_and_run() { echo "RUNNING $*" ; "$@" ; }
+echo_and_run() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
 
 installIstioSystemAtVersionHelmTemplate() {
     writeMsg "helm installing version ${2} from ${3}."
@@ -116,37 +117,54 @@ installIstioSystemAtVersionHelmTemplate() {
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
-    helm init --client-only
-    helm dep update "${release_path}"
+    if [[ "${release_path}" = *"1.1"* ]]; then
+        helm init --client-only
+        helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
+        helm dependency update "${release_path}"
+    fi
     helm template "${release_path}" "${auth_opts}" \
     --name istio --namespace "${ISTIO_NAMESPACE}" \
     --set gateways.istio-ingressgateway.replicaCount=4 \
     --set gateways.istio-ingressgateway.autoscaleMin=4 \
+    --set prometheus.enabled=false \
     --set global.hub="${1}" \
-    --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml"
+    --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
 
-   kubectl apply -n "${ISTIO_NAMESPACE}" -f "${ISTIO_ROOT}"/istio.yaml
+   kubectl apply -n "${ISTIO_NAMESPACE}" -f "${ISTIO_ROOT}"/istio.yaml || die "kubectl in installIstioSystemAtVersionHelmTemplate failed"
 }
 
 installTest() {
    writeMsg "Installing test deployments"
-   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/gateway.yaml"
+   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/gateway.yaml" || die "kubectl apply gateway.yaml failed"
    # We don't want to auto-inject into ${ISTIO_NAMESPACE}, so echosrv and load client must be in different namespace.
-   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio.yaml"
+   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio.yaml" || die "kubectl apply fortio.yaml failed"
    sleep 10
 }
 
 # Sends traffic from internal pod (Fortio load command) to Fortio echosrv.
 sendInternalRequestTraffic() {
    writeMsg "Sending internal traffic"
-   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml"
+   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml" || die "kubectl apply fortio-cli.yaml failed"
+}
+
+# Runs traffic from external fortio client, with retries.
+runFortioLoadCommand() {
+    local n=0
+    while [ $n -lt 10 ]; do
+      echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 \
+        -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" && break
+      echo "fortio load failed, retrying..."
+      ((n++))
+      sleep 10
+    done
 }
 
 # Sends external traffic from machine test is running on to Fortio echosrv through external IP and ingress gateway LB.
 sendExternalRequestTraffic() {
     writeMsg "Sending external traffic"
-    echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" &
+    runFortioLoadCommand "${1}" &
 }
+
 
 restartDataPlane() {
     # Apply label within deployment spec.
@@ -258,6 +276,21 @@ resetNamespaces() {
     done
 }
 
+# Returns 0 if the passed string has form "Code 200 : 6601 (94.6 %)" and the percentage is smaller than ${MIN_200_PCT_FOR_PASS}
+percent200sAbove() {
+    local s=$1
+    local regex="Code 200 : [0-9]+ \\(([0-9]+)\\.[0-9]+ %\\)"
+    if [[ $s =~ $regex ]]; then
+        local pct200s="${BASH_REMATCH[1]}"
+        if (( pct200s > MIN_200_PCT_FOR_PASS )); then
+            return 0
+        fi
+        return 1
+    fi
+    echo "No Code 200 percentage found in log."
+    return 1
+}
+
 die() {
     echo "$*" 1>&2 ; exit 1;
 }
@@ -282,7 +315,7 @@ waitForIngress
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
 # Make a copy of the "from" sidecar injector ConfigMap so we can restore the sidecar independently later.
-kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
+kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml || die "copy ConfigMap failed"
 
 installTest
 waitForPodsReady "${TEST_NAMESPACE}"
@@ -327,21 +360,28 @@ kubectl logs -f -n "${TEST_NAMESPACE}" -c echosrv "${cli_pod_name}" &> "${POD_FO
 local_log_str=$(grep "Code 200" "${LOCAL_FORTIO_LOG}")
 pod_log_str=$(grep "Code 200"  "${POD_FORTIO_LOG}")
 
-if [[ ${local_log_str} == "" ]]; then
-    echo "No Code 200 found in external traffic log"
+# First dump local log
+cat ${LOCAL_FORTIO_LOG}
+if [[ ${local_log_str} != *"Code 200"* ]];then
+    echo "=== No Code 200 found in external traffic log ==="
     failed=true
-elif [[ ${local_log_str} != *"(100.0"* ]]; then
-    printf "\\n\\nErrors found in external traffic log:\\n\\n"
-    cat ${LOCAL_FORTIO_LOG}
+elif ! percent200sAbove "${local_log_str}"; then
+    echo "=== Errors found in external traffic exceeded ${MIN_200_PCT_FOR_PASS}% threshold ==="
+    failed=true
+else
+    echo "=== Errors found in external traffic is within ${MIN_200_PCT_FOR_PASS}% threshold ==="
 fi
 
-if [[ ${pod_log_str} == "" ]]; then
-    echo "No Code 200 found in internal traffic log"
+# Then dump pod log
+cat ${POD_FORTIO_LOG}
+if [[ ${pod_log_str}  != *"Code 200"* ]]; then
+    echo "=== No Code 200 found in internal traffic log ==="
     failed=true
-elif [[ ${pod_log_str} != *"(100.0"* ]]; then
-    printf "\\n\\nErrors found in internal traffic log:\\n\\n"
-    cat ${POD_FORTIO_LOG}
-    exit 1
+elif ! percent200sAbove "${pod_log_str}"; then
+    echo "=== Errors found in internal traffic exceeded ${MIN_200_PCT_FOR_PASS}% threshold ==="
+    failed=true
+else
+    echo "=== Errors found in internal traffic is within ${MIN_200_PCT_FOR_PASS}% threshold ==="
 fi
 
 popd || exit 1
