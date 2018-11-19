@@ -255,6 +255,8 @@ var (
 	// It can be used by debugging tools to inspect the push event. It will be reset after each push with the
 	// new version.
 	LastPushStatus *PushContext
+	// LastPushMutex will protect the LastPushStatus
+	LastPushMutex sync.Mutex
 
 	// All metrics we registered.
 	metrics []*PushMetric
@@ -283,7 +285,9 @@ func (ps *PushContext) JSON() ([]byte, error) {
 
 // OnConfigChange is called when a config change is detected.
 func (ps *PushContext) OnConfigChange() {
+	LastPushMutex.Lock()
 	LastPushStatus = ps
+	LastPushMutex.Unlock()
 	ps.UpdateMetrics()
 }
 
