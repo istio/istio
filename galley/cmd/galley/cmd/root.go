@@ -52,6 +52,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		livenessProbeController  probe.Controller
 		readinessProbeController probe.Controller
 		monitoringPort           uint
+		enableProfiling          bool
 	)
 
 	rootCmd := &cobra.Command{
@@ -94,7 +95,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 				go validation.RunValidation(validationArgs, printf, fatalf, flags.kubeConfig, livenessProbeController, readinessProbeController)
 			}
 			galleyStop := make(chan struct{})
-			go server.StartSelfMonitoring(galleyStop, monitoringPort)
+			go server.StartSelfMonitoring(galleyStop, monitoringPort, enableProfiling)
 			go server.StartProbeCheck(livenessProbeController, readinessProbeController, galleyStop)
 			istiocmd.WaitSignal(galleyStop)
 
@@ -123,6 +124,8 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Interval of updating file for the Galley readiness probe.")
 	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
 		"Port to use for exposing self-monitoring information")
+	rootCmd.PersistentFlags().BoolVar(&enableProfiling, "enableProfiling", true,
+		"Enable pprof for Galley")
 
 	//server config
 	rootCmd.PersistentFlags().StringVarP(&serverArgs.APIAddress, "server-address", "", serverArgs.APIAddress,

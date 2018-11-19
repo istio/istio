@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
 
 	"github.com/prometheus/client_golang/prometheus"
 	ocprom "go.opencensus.io/exporter/prometheus"
@@ -32,7 +33,7 @@ const (
 )
 
 //StartSelfMonitoring start the self monitoring for Galley
-func StartSelfMonitoring(stop <-chan struct{}, port uint) {
+func StartSelfMonitoring(stop <-chan struct{}, port uint, enableProfiling bool) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%v", port))
 	if err != nil {
 		scope.Errorf("Unable to listen on monitoring port %v: %v", port, err)
@@ -56,6 +57,14 @@ func StartSelfMonitoring(stop <-chan struct{}, port uint) {
 	})
 
 	version.Info.RecordComponentBuildTag("galley")
+
+	if enableProfiling {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	server := &http.Server{
 		Handler: mux,
