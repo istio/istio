@@ -45,6 +45,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
+          - --monitoringAddr=:{{ .Values.global.monitoringPort }}
 {{- if $.Values.global.proxy.discoveryDomain }}
           - --domain
           - {{ $.Values.global.proxy.discoveryDomain }}
