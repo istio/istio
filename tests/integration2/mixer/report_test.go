@@ -15,24 +15,25 @@
 package mixer
 
 import (
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/ids"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/dependency"
 )
 
 func TestMixer_Report_Direct(t *testing.T) {
-	framework.Requires(t, dependency.PolicyBackend, dependency.Mixer)
+	ctx := framework.GetContext(t)
+	ctx.RequireOrSkip(t, lifecycle.Test, &ids.PolicyBackend, &ids.Mixer)
 
-	env := framework.AcquireEnvironment(t)
+	mxr := components.GetMixer(ctx, t)
+	be := components.GetPolicyBackend(ctx, t)
 
-	mxr := env.GetMixerOrFail(t)
-
-	be := env.GetPolicyBackendOrFail(t)
-
-	env.Configure(t,
+	mxr.Configure(t,
+		lifecycle.Test,
 		test.JoinConfigs(
 			testReportConfig,
 			be.CreateConfigSnippet("handler1"),
