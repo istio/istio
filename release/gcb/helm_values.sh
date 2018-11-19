@@ -5,8 +5,15 @@ set -o nounset
 set -o pipefail
 set -x
 
+# Update this for local testing
+WORKSPACE="/workspace"
+
 # shellcheck disable=SC1091
-source "/workspace/gcb_env.sh"
+source "${WORKSPACE}/gcb_env.sh"
+
+
+# This script updates helm config files and add helm charts to the release tarballs.
+
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,8 +33,13 @@ function fix_values_yaml() {
   eval    "$unzip_cmd"     "${tarball_name}"
   rm                       "${tarball_name}"
 
+  # Update version string in yaml files.
   sed -i "s|hub: gcr.io/istio-release|hub: ${CB_DOCKER_HUB}|g" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
   sed -i "s|tag: .*-latest-daily|tag: ${CB_VERSION}|g"         ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio*/values.yaml
+
+  # Copy helm charts (build by helm_charts.sh) to be packaged in the tarball.
+  mkdir -vp ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
+  cp "${WORKSPACE}"/charts/* ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
 
   eval "$zip_cmd" "${tarball_name}" "istio-${CB_VERSION}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
@@ -38,7 +50,7 @@ function fix_values_yaml() {
   echo "DONE fixing  gs://${CB_GCS_BUILD_PATH}/${tarball_name} with hub: ${CB_DOCKER_HUB} tag: ${CB_VERSION}"
 }
 
-mkdir modification-tmp
+mkdir -p modification-tmp
 cd    modification-tmp || exit 2
 ls -l
 pwd
