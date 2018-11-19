@@ -19,6 +19,10 @@ security:
 #
 gateways:
   enabled: false
+  istio-ingressgateway:
+    env:
+      # Should match the value in global.network
+      ISTIO_META_NETWORK: ""
 
 # Common settings used among istio subcharts.
 global:
