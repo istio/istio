@@ -273,6 +273,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
 
+	// Normalize LoadBalancingWeight in range [1, 128]
+	locEps = LoadBalancingWeightNormalize(locEps)
+
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -394,6 +397,10 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
+
+	// Normalize LoadBalancingWeight in range [1, 128]
+	locEps = LoadBalancingWeightNormalize(locEps)
+
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -650,16 +657,15 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		// If networks are set (by default they aren't) apply the Split Horizon
 		// EDS filter on the endpoints
 		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
+			endpoints := EndpointsByNetworkFilter(l.Endpoints, con, s.Env)
+			endpoints = LoadBalancingWeightNormalize(endpoints)
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
-				Endpoints:   EndpointsByNetworkFilter(l.Endpoints, con, s.Env),
+				Endpoints:   endpoints,
 				Policy:      l.Policy,
 			}
 			l = filteredCLA
 		}
-
-		// Normalize LoadBalancingWeight in range [1, 128]
-		l.Endpoints = LoadBalancingWeightNormalize(l.Endpoints, con, s.Env)
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
