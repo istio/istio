@@ -117,7 +117,7 @@ installIstioSystemAtVersionHelmTemplate() {
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
-    if [[ "${release_path}" != *"1.0"* ]]; then
+    if [[ "${release_path}" = *"1.1"* ]]; then
         helm init --client-only
         helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
         helm dependency update "${release_path}"
