@@ -141,11 +141,24 @@ sendInternalRequestTraffic() {
    kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml" || die "kubectl apply fortio-cli.yaml failed"
 }
 
+# Runs traffic from external fortio client, with retries.
+runFortioLoadCommand() {
+    local n=0
+    while [ $n -lt 10 ]; do
+      echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 \
+        -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" && break
+      echo "fortio load failed, retrying..."
+      ((n++))
+      sleep 10
+    done
+}
+
 # Sends external traffic from machine test is running on to Fortio echosrv through external IP and ingress gateway LB.
 sendExternalRequestTraffic() {
     writeMsg "Sending external traffic"
-    echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" &
+    runFortioLoadCommand "${1}" &
 }
+
 
 restartDataPlane() {
     # Apply label within deployment spec.
