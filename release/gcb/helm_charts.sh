@@ -7,10 +7,8 @@ set -o nounset
 set -o pipefail
 set -x
 
-WORKSPACE="/workspace"
-
 # shellcheck disable=SC1091
-source "${WORKSPACE}/gcb_env.sh"
+source "/workspace/gcb_env.sh"
 
 
 WORK_DIR=$(mktemp -d)
@@ -20,7 +18,7 @@ echo WORK_DIR = "$WORK_DIR"
 echo HELM_DIR = "$HELM_DIR"
 
 # Helm setup
-HELM_BUILD_DIR="${WORKSPACE}/charts"
+HELM_BUILD_DIR="/workspace/charts"
 HELM="helm --home $HELM_DIR"
 
 # Copy Istio release files to WORK_DIR

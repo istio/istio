@@ -5,11 +5,8 @@ set -o nounset
 set -o pipefail
 set -x
 
-# Update this for local testing
-WORKSPACE="/workspace"
-
 # shellcheck disable=SC1091
-source "${WORKSPACE}/gcb_env.sh"
+source "/workspace/gcb_env.sh"
 
 
 # This script updates helm config files and add helm charts to the release tarballs.
@@ -39,7 +36,7 @@ function fix_values_yaml() {
 
   # Copy helm charts (build by helm_charts.sh) to be packaged in the tarball.
   mkdir -vp ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
-  cp "${WORKSPACE}"/charts/* ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
+  cp /workspace/charts/* ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
 
   eval "$zip_cmd" "${tarball_name}" "istio-${CB_VERSION}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
