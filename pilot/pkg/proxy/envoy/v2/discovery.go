@@ -298,10 +298,14 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	defer ticker.Stop()
 	for range ticker.C {
 		push := s.globalPushContext()
+		push.Mutex.Lock()
 		if push.End != timeZero {
+			model.LastPushMutex.Lock()
 			model.LastPushStatus = push
+			model.LastPushMutex.Unlock()
 		}
 		push.UpdateMetrics()
+		push.Mutex.Unlock()
 	}
 }
 

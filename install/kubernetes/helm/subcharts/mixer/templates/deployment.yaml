@@ -271,10 +271,11 @@ metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" $ }}
+    app: istio-mixer
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
+    version: {{ $.Chart.Version }}
     istio: mixer
 spec:
   replicas: {{ $spec.replicaCount }}
@@ -284,7 +285,7 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: {{ template "mixer.name" $ }}
+      app: {{ $key }}
       chart: {{ template "mixer.chart" $ }}
       heritage: {{ $.Release.Service }}
       release: {{ $.Release.Name }}
@@ -294,7 +295,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "mixer.name" $ }}
+        app: {{ $key }}
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}
