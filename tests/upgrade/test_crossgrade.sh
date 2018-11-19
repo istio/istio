@@ -384,7 +384,7 @@ else
     echo "=== Errors found in internal traffic is within ${MIN_200_PCT_FOR_PASS}% threshold ==="
 fi
 
-popd
+popd || exit 1
 
 if [ -n "${failed}" ]; then
     exit 1
