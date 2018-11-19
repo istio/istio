@@ -115,11 +115,15 @@ func GetNetworkEndpointAddress(n *model.NetworkEndpoint) core.Address {
 // lbWeightNormalize set LbEndpoints within a locality with a valid LoadBalancingWeight.
 func lbWeightNormalize(endpoints []endpoint.LbEndpoint) []endpoint.LbEndpoint {
 	var totalLbEndpointsNum uint32
+	var needNormalize bool
 
 	for _, ep := range endpoints {
+		if ep.GetLoadBalancingWeight().GetValue() > maxLoadBalancingWeight {
+			needNormalize = true
+		}
 		totalLbEndpointsNum += ep.GetLoadBalancingWeight().GetValue()
 	}
-	if totalLbEndpointsNum == 0 {
+	if !needNormalize {
 		return endpoints
 	}
 
@@ -138,11 +142,16 @@ func lbWeightNormalize(endpoints []endpoint.LbEndpoint) []endpoint.LbEndpoint {
 // LocalityLbWeightNormalize set LocalityLbEndpoints within a cluster with a valid LoadBalancingWeight.
 func LocalityLbWeightNormalize(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
 	var totalLbEndpointsNum uint32
+	var needNormalize bool
+
 	for i, localityLbEndpoint := range endpoints {
+		if localityLbEndpoint.GetLoadBalancingWeight().GetValue() > maxLoadBalancingWeight {
+			needNormalize = true
+		}
 		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
 		endpoints[i].LbEndpoints = lbWeightNormalize(localityLbEndpoint.LbEndpoints)
 	}
-	if totalLbEndpointsNum == 0 {
+	if !needNormalize {
 		return endpoints
 	}
 
