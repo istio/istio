@@ -21,7 +21,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
-
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
@@ -357,10 +356,10 @@ duration_istio_value:
 				tt.Fatal(err)
 			}
 
-			decoder := NewDecoder(NewResolver(fds), ".foo.Simple", td.fields, td.prefix)
+			decoder := NewDecoder(NewResolver(fds), ".foo.Simple", td.fields)
 			got := make(map[string]interface{})
 			mb := attribute.GetMutableBagForTesting(got)
-			err = decoder.Decode(bytes, mb)
+			err = decoder.Decode(bytes, mb, td.prefix)
 
 			if td.err {
 				if err == nil {
