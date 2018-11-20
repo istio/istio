@@ -429,7 +429,7 @@ func (r *redisDeployment) Setup() error {
 	}
 
 	setValue := "--set usePassword=false,persistence.enabled=false"
-	if err := util.HelmInstall(redisInstallDir, redisInstallName, tc.Kube.Namespace, setValue); err != nil {
+	if err := util.HelmInstall(redisInstallDir, redisInstallName, "", tc.Kube.Namespace, setValue); err != nil {
 		return fmt.Errorf("helm install %s failed, setValue=%s", redisInstallDir, setValue)
 	}
 
