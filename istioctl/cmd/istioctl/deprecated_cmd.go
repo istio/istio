@@ -31,6 +31,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
+	kubecfg "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,12 +46,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
-	kubecfg "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -72,20 +72,20 @@ var (
 	// mustList tracks which Istio types we SHOULD NOT silently ignore if we can't list.
 	// The user wants reasonable error messages when doing `get all` against a different
 	// server version.
-	mustList = map[string]bool{
-		model.Gateway.Type:              true,
-		model.VirtualService.Type:       true,
-		model.DestinationRule.Type:      true,
-		model.ServiceEntry.Type:         true,
-		model.HTTPAPISpec.Type:          true,
-		model.HTTPAPISpecBinding.Type:   true,
-		model.QuotaSpec.Type:            true,
-		model.QuotaSpecBinding.Type:     true,
-		model.AuthenticationPolicy.Type: true,
-		model.ServiceRole.Type:          true,
-		model.ServiceRoleBinding.Type:   true,
-		model.RbacConfig.Type:           true,
-	}
+	mustList = sets.NewString([]string{
+		model.Gateway.Type,
+		model.VirtualService.Type,
+		model.DestinationRule.Type,
+		model.ServiceEntry.Type,
+		model.HTTPAPISpec.Type,
+		model.HTTPAPISpecBinding.Type,
+		model.QuotaSpec.Type,
+		model.QuotaSpecBinding.Type,
+		model.AuthenticationPolicy.Type,
+		model.ServiceRole.Type,
+		model.ServiceRoleBinding.Type,
+		model.RbacConfig.Type,
+	}...)
 
 	// Headings for short format listing specific to type
 	shortOutputHeadings = map[string]string{
@@ -336,7 +336,7 @@ istioctl get virtualservice bookinfo
 					if err == nil {
 						configs = append(configs, typeConfigs...)
 					} else {
-						if mustList[typ.Type] {
+						if mustList.Has(typ.Type) {
 							errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("Can't list %v:", typ.Type)))
 						}
 					}

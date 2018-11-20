@@ -24,12 +24,12 @@ import (
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/api/extensions/v1beta1"
-
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
+	"k8s.io/api/extensions/v1beta1"
 )
 
 var (
@@ -162,13 +162,13 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 		if len(kinds) > recognized {
 			// If convert-networking-config was asked to convert non-network things,
 			// like Deployments and Services, return a brief informative error
-			kindsFound := make(map[string]bool)
+			foundKinds := sets.NewString()
 			for _, kind := range kinds {
-				kindsFound[kind.Kind] = true
+				foundKinds.Insert(kind.Kind)
 			}
 
 			var msg error
-			for kind := range kindsFound {
+			for kind := range foundKinds {
 				msg = multierror.Append(msg, fmt.Errorf("unsupported kind: %v", kind))
 			}
 

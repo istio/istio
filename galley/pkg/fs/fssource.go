@@ -17,31 +17,28 @@ package fs
 import (
 	"crypto/sha1"
 	"fmt"
-
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/howeyc/fsnotify"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"istio.io/istio/galley/pkg/kube/converter"
-
-	"istio.io/istio/pkg/log"
-
 	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/kube/source"
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var supportedExtensions = map[string]bool{
-	".yaml": true,
-	".yml":  true,
-}
-var scope = log.RegisterScope("fs", "File system source debugging", 0)
+var (
+	supportedExtensions = sets.NewString([]string{".yaml", ".yml"}...)
+
+	scope = log.RegisterScope("fs", "File system source debugging", 0)
+)
 
 // fsSource is source implementation for filesystem.
 type fsSource struct {
@@ -60,8 +57,8 @@ type fsSource struct {
 
 	ch chan resource.Event
 
-	// map to store kind : bool to indicate whether we need to deal with the resource or not
-	kinds map[string]bool
+	// Kind set
+	kinds sets.String
 
 	// map to store filename: []{namespace/name,kind} to indicate whether the resources has been deleted from one file
 	fileResorceKeys map[string][]*fileResourceKey
@@ -99,7 +96,7 @@ func (s *fsSource) readFiles(root string) map[resource.FullName]*istioResource {
 
 func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[resource.FullName]*istioResource {
 	result := map[resource.FullName]*istioResource{}
-	if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
+	if mode := info.Mode() & os.ModeType; !supportedExtensions.Has(filepath.Ext(path)) || (mode != 0 && mode != os.ModeSymlink) {
 		return nil
 	}
 	data, err := ioutil.ReadFile(path)
@@ -111,7 +108,7 @@ func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[res
 	defer s.mu.Unlock()
 	resourceKeyList := make([]*fileResourceKey, 1)
 	for _, r := range parseFile(path, data) {
-		if !s.kinds[r.u.GetKind()] {
+		if !s.kinds.Has(r.u.GetKind()) {
 			continue
 		}
 		result[r.key] = r
@@ -310,14 +307,14 @@ func newFsSource(root string, config *converter.Config, specs []kube.ResourceSpe
 	fs := &fsSource{
 		config:          config,
 		root:            root,
-		kinds:           map[string]bool{},
+		kinds:           sets.NewString(),
 		fileResorceKeys: map[string][]*fileResourceKey{},
 		donec:           make(chan struct{}),
 		shas:            map[resource.FullName][sha1.Size]byte{},
 		version:         0,
 	}
 	for _, spec := range specs {
-		fs.kinds[spec.Kind] = true
+		fs.kinds.Insert(spec.Kind)
 	}
 	return fs, nil
 }
