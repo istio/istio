@@ -151,6 +151,6 @@ func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints [
 }
 
 // LoadBalancingWeightNormalize set LoadBalancingWeight with a valid value.
-func LoadBalancingWeightNormalize(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
+func LoadBalancingWeightNormalize(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
 	return util.LocalityLbWeightNormalize(endpoints)
 }
