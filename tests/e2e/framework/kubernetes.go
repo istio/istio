@@ -746,7 +746,7 @@ EOF`, k.KubeConfig, dummyValidationRule)
 EOF`, k.KubeConfig, dummyValidationRule)
 
 	log.Info("Creating dummy rule to check for validation webhook readiness")
-	time := time.Now().Add(validationWebhookReadinessTimeout)
+	timeout := time.Now().Add(validationWebhookReadinessTimeout)
 	for {
 		if time.Now().After(timeout) {
 			return errors.New("timeout waiting for validation webhook readiness")
