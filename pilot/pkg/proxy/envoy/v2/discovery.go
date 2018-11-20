@@ -36,10 +36,8 @@ var (
 	periodicRefreshDuration = 0 * time.Second
 
 	versionMutex sync.RWMutex
-
 	// version is the timestamp of the last registry event.
 	version = "0"
-
 	// versionNum counts versions
 	versionNum = atomic.NewUint64(0)
 
@@ -315,7 +313,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsByService) {
 	if !full {
 		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
-		go s.AdsPushAll(version, s.globalPushContext(), false, edsUpdates)
+		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
 		return
 	}
 	// Reset the status during the push.
