@@ -29,7 +29,6 @@ static_resources:
     - socket_address:
         address: 127.0.0.1
         port_value: 15010
-    http2_protocol_options: {}
     name: in.15010
   - circuit_breakers:
       thresholds:
@@ -42,7 +41,6 @@ static_resources:
     - socket_address:
         address: istio-telemetry
         port_value: 15004
-    http2_protocol_options: {}
     name: mixer_report_server
 {{- if .ControlPlaneAuth }}
     tls_context:

@@ -42,7 +42,6 @@ static_resources:
     hosts:
     - pipe:
         path: /sock/mixer.socket
-    http2_protocol_options: {}
     name: inbound_9092
   - connect_timeout: 1.000s
     hosts:
@@ -62,7 +61,6 @@ static_resources:
     - socket_address:
         address: istio-telemetry
         port_value: 15004
-    http2_protocol_options: {}
     name: mixer_report_server
 {{- if .ControlPlaneAuth }}
     tls_context:
