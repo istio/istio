@@ -21,6 +21,7 @@ import (
 
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
+	"go.uber.org/atomic"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
@@ -40,7 +41,7 @@ var (
 	version = "0"
 
 	// versionNum counts versions
-	versionNum = 1
+	versionNum = atomic.NewUint64(0)
 
 	periodicRefreshMetrics = 10 * time.Second
 
@@ -347,12 +348,10 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	s.Env.PushContext = push
 	s.updateMutex.Unlock()
 
-	s.mutex.Lock()
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.Itoa(versionNum)
-	versionNum++
+	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
+	versionNum.Inc()
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
-	s.mutex.Unlock()
 
 	versionMutex.Lock()
 	version = versionLocal
