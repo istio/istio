@@ -36,11 +36,6 @@ function setup_and_export_git_sha() {
     elif [[ "${CI:-}" == 'prow' ]]; then
       # Set artifact dir based on checkout
       export ARTIFACTS_DIR="${ARTIFACTS_DIR:-${ARTIFACTS}}"
-      TMP_DIR=$PWD
-      cd ../ || return
-      # Clone the CNI repo so the CNI artifacts can be built.
-      git clone -b master "https://github.com/istio/cni.git"
-      cd "${TMP_DIR}" || return
     fi
 
     if [ -z "${PULL_PULL_SHA:-}" ]; then
@@ -110,3 +105,14 @@ function setup_e2e_cluster() {
   setup_cluster
 }
 
+function clone_cni() {
+  # Clone the CNI repo so the CNI artifacts can be built.
+  if [[ $PWD = ${GOPATH}/src/istio.io/istio ]]; then
+      TMP_DIR=$PWD
+      cd ../ || return
+      git clone -b master "https://github.com/istio/cni.git"
+      cd "${TMP_DIR}" || return
+  else
+    exit 1
+  fi
+}
