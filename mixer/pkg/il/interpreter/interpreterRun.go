@@ -36,8 +36,10 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 	var t2 uint32
 	var t3 uint32
 	var ti64 int64
+	var ti642 int64
 	var tu64 uint64
 	var tf64 float64
+	var tf642 float64
 	var tVal interface{}
 	var tStr string
 	var tStr2 string
@@ -1147,6 +1149,502 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			hp++
 			opstack[sp] = t3
 			sp++
+
+		case il.LtS:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			if t1 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t1].(string)
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr2 = heap[t2].(string)
+
+			if tStr2 < tStr {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.LtI:
+			if sp < 4 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			ti64 = int64(t1) + int64(t2)<<32
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			ti642 = int64(t1) + int64(t2)<<32
+			if ti642 < ti64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.LtD:
+			if sp < 4 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			if tf642 < tf64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.ALtS:
+			t1 = body[ip]
+			ip++
+			if sp < 1 {
+				goto STACK_UNDERFLOW
+			}
+			sp--
+			t2 = opstack[sp]
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t2].(string)
+			if tStr < strings.GetString(t1) {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.ALtI:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			t2 = body[ip+1]
+			ip = ip + 2
+			ti64 = int64(t1) + int64(t2)<<32
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			ti642 = int64(t1) + int64(t2)<<32
+			sp = sp - 2
+			if ti642 < ti64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.ALtD:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			t2 = body[ip+1]
+			ip = ip + 2
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			sp = sp - 2
+			if tf642 < tf64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.LeS:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			if t1 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t1].(string)
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr2 = heap[t2].(string)
+
+			if tStr2 <= tStr {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.LeI:
+			if sp < 4 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			ti64 = int64(t1) + int64(t2)<<32
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			ti642 = int64(t1) + int64(t2)<<32
+			if ti642 <= ti64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.LeD:
+			if sp < 4 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			if tf642 <= tf64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.ALeS:
+			t1 = body[ip]
+			ip++
+			if sp < 1 {
+				goto STACK_UNDERFLOW
+			}
+			sp--
+			t2 = opstack[sp]
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t2].(string)
+			if tStr <= strings.GetString(t1) {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.ALeI:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			t2 = body[ip+1]
+			ip = ip + 2
+			ti64 = int64(t1) + int64(t2)<<32
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			ti642 = int64(t1) + int64(t2)<<32
+			sp = sp - 2
+			if ti642 <= ti64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.ALeD:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			t2 = body[ip+1]
+			ip = ip + 2
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			sp = sp - 2
+			if tf642 <= tf64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.GtS:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			if t1 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t1].(string)
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr2 = heap[t2].(string)
+
+			if tStr2 > tStr {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.GtI:
+			if sp < 4 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			ti64 = int64(t1) + int64(t2)<<32
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			ti642 = int64(t1) + int64(t2)<<32
+			if ti642 > ti64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.GtD:
+			if sp < 4 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			if tf642 > tf64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.AGtS:
+			t1 = body[ip]
+			ip++
+			if sp < 1 {
+				goto STACK_UNDERFLOW
+			}
+			sp--
+			t2 = opstack[sp]
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t2].(string)
+			if tStr > strings.GetString(t1) {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.AGtI:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			t2 = body[ip+1]
+			ip = ip + 2
+			ti64 = int64(t1) + int64(t2)<<32
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			ti642 = int64(t1) + int64(t2)<<32
+			sp = sp - 2
+			if ti642 > ti64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.AGtD:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			t2 = body[ip+1]
+			ip = ip + 2
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			sp = sp - 2
+			if tf642 > tf64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.GeS:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			if t1 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t1].(string)
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr2 = heap[t2].(string)
+
+			if tStr2 >= tStr {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.GeI:
+			if sp < 4 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			ti64 = int64(t1) + int64(t2)<<32
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			ti642 = int64(t1) + int64(t2)<<32
+			if ti642 >= ti64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.GeD:
+			if sp < 4 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			if tf642 >= tf64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.AGeS:
+			t1 = body[ip]
+			ip++
+			if sp < 1 {
+				goto STACK_UNDERFLOW
+			}
+			sp--
+			t2 = opstack[sp]
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t2].(string)
+			if tStr >= strings.GetString(t1) {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.AGeI:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			t2 = body[ip+1]
+			ip = ip + 2
+			ti64 = int64(t1) + int64(t2)<<32
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			ti642 = int64(t1) + int64(t2)<<32
+			sp = sp - 2
+			if ti642 >= ti64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
+
+		case il.AGeD:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			t2 = body[ip+1]
+			ip = ip + 2
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			sp = sp - 2
+			if tf642 >= tf64 {
+				opstack[sp] = 1
+				sp++
+			} else {
+				opstack[sp] = 0
+				sp++
+			}
 
 		default:
 			tErr = fmt.Errorf("invalid opcode: '%v'", il.Opcode(code))

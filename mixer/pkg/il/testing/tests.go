@@ -3069,6 +3069,1028 @@ end
 	},
 
 	{
+		E:    `1.0 < 2.0`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_d 1.000000
+  alt_d 2.000000
+  ret
+end`,
+	},
+	{
+		E:          `1 < "a"`,
+		Type:       descriptor.BOOL,
+		CompileErr: `LT(1, "a") arg 2 ("a") typeError got STRING, expected INT64`,
+	},
+	{
+		E:          `"a" < 1`,
+		Type:       descriptor.BOOL,
+		CompileErr: `LT("a", 1) arg 2 (1) typeError got INT64, expected STRING`,
+	},
+	{
+		E:    `1.0 < 1.0`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_d 1.000000
+  alt_d 1.000000
+  ret
+end`,
+	},
+	{
+		E:    `2.0 < 1.0`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_d 2.000000
+  alt_d 1.000000
+  ret
+end`,
+	},
+
+	{
+		E:    `1.0 <= 2.0`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_d 1.000000
+  ale_d 2.000000
+  ret
+end`,
+	},
+	{
+		E:    `1.0 <= 1.0`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_d 1.000000
+  ale_d 1.000000
+  ret
+end`,
+	},
+	{
+		E:    `2.0 <= 1.0`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_d 2.000000
+  ale_d 1.000000
+  ret
+end`,
+	},
+
+	{
+		E:    `1.0 > 2.0`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_d 1.000000
+  agt_d 2.000000
+  ret
+end`,
+	},
+	{
+		E:    `1.0 > 1.0`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_d 1.000000
+  agt_d 1.000000
+  ret
+end`,
+	},
+	{
+		E:    `2.0 > 1.0`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_d 2.000000
+  agt_d 1.000000
+  ret
+end`,
+	},
+
+	{
+		E:    `1.0 >= 2.0`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_d 1.000000
+  age_d 2.000000
+  ret
+end`,
+	},
+	{
+		E:    `1.0 >= 1.0`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_d 1.000000
+  age_d 1.000000
+  ret
+end`,
+	},
+	{
+		E:    `2.0 >= 1.0`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_d 2.000000
+  age_d 1.000000
+  ret
+end`,
+	},
+
+	{
+		E:    `ad < bd`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+			"bd": float64(2.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "ad"
+  resolve_d "bd"
+  lt_d
+  ret
+end`,
+	},
+	{
+		E:    `bd < ad`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+			"bd": float64(2.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "bd"
+  resolve_d "ad"
+  lt_d
+  ret
+end`,
+	},
+	{
+		E:    `ad < ad`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "ad"
+  resolve_d "ad"
+  lt_d
+  ret
+end`,
+	},
+
+	{
+		E:    `ad <= bd`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+			"bd": float64(2.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "ad"
+  resolve_d "bd"
+  le_d
+  ret
+end`,
+	},
+	{
+		E:    `bd <= ad`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+			"bd": float64(2.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "bd"
+  resolve_d "ad"
+  le_d
+  ret
+end`,
+	},
+	{
+		E:    `ad <= ad`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "ad"
+  resolve_d "ad"
+  le_d
+  ret
+end`,
+	},
+
+	{
+		E:    `ad > bd`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+			"bd": float64(2.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "ad"
+  resolve_d "bd"
+  gt_d
+  ret
+end`,
+	},
+	{
+		E:    `bd > ad`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+			"bd": float64(2.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "bd"
+  resolve_d "ad"
+  gt_d
+  ret
+end`,
+	},
+	{
+		E:    `ad > ad`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "ad"
+  resolve_d "ad"
+  gt_d
+  ret
+end`,
+	},
+
+	{
+		E:    `ad >= bd`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+			"bd": float64(2.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "ad"
+  resolve_d "bd"
+  ge_d
+  ret
+end`,
+	},
+	{
+		E:    `bd >= ad`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+			"bd": float64(2.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "bd"
+  resolve_d "ad"
+  ge_d
+  ret
+end`,
+	},
+	{
+		E:    `ad >= ad`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ad": float64(1.0),
+		},
+		IL: `fn eval() bool
+  resolve_d "ad"
+  resolve_d "ad"
+  ge_d
+  ret
+end`,
+	},
+
+	{
+		E:    `1 > 2`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_i 1
+  agt_i 2
+  ret
+end`,
+	},
+
+	{
+		E:    `2 > 1`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_i 2
+  agt_i 1
+  ret
+end`,
+	},
+
+	{
+		E:    `1 > 1`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_i 1
+  agt_i 1
+  ret
+end`,
+	},
+
+	{
+		E:    `1 >= 2`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_i 1
+  age_i 2
+  ret
+end`,
+	},
+
+	{
+		E:    `2 >= 1`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_i 2
+  age_i 1
+  ret
+end`,
+	},
+
+	{
+		E:    `1 >= 1`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_i 1
+  age_i 1
+  ret
+end`,
+	},
+
+	{
+		E:    `1 < 2`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_i 1
+  alt_i 2
+  ret
+end`,
+	},
+	{
+		E:    `1 < 1`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_i 1
+  alt_i 1
+  ret
+end`,
+	},
+	{
+		E:    `2 < 1`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_i 2
+  alt_i 1
+  ret
+end`,
+	},
+	{
+		E:    `1 <= 2`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_i 1
+  ale_i 2
+  ret
+end`,
+	},
+	{
+		E:    `1 <= 1`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_i 1
+  ale_i 1
+  ret
+end`,
+	},
+	{
+		E:    `2 <= 1`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_i 2
+  ale_i 1
+  ret
+end`,
+	},
+	{
+		E:    `ai < bi`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `fn eval() bool
+  resolve_i "ai"
+  resolve_i "bi"
+  lt_i
+  ret
+end`,
+	},
+	{
+		E:    `bi < ai`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `fn eval() bool
+  resolve_i "bi"
+  resolve_i "ai"
+  lt_i
+  ret
+end`,
+	},
+	{
+		E:    `ai < ai`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ai": int64(1),
+		},
+		IL: `fn eval() bool
+  resolve_i "ai"
+  resolve_i "ai"
+  lt_i
+  ret
+end`,
+	},
+
+	{
+		E:    `ai > bi`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `fn eval() bool
+  resolve_i "ai"
+  resolve_i "bi"
+  gt_i
+  ret
+end`,
+	},
+	{
+		E:    `bi > ai`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `fn eval() bool
+  resolve_i "bi"
+  resolve_i "ai"
+  gt_i
+  ret
+end`,
+	},
+	{
+		E:    `ai > ai`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ai": int64(1),
+		},
+		IL: `fn eval() bool
+  resolve_i "ai"
+  resolve_i "ai"
+  gt_i
+  ret
+end`,
+	},
+
+	{
+		E:    `ai >= bi`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `fn eval() bool
+  resolve_i "ai"
+  resolve_i "bi"
+  ge_i
+  ret
+end`,
+	},
+	{
+		E:    `bi >= ai`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `fn eval() bool
+  resolve_i "bi"
+  resolve_i "ai"
+  ge_i
+  ret
+end`,
+	},
+	{
+		E:    `ai >= ai`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ai": int64(1),
+		},
+		IL: `fn eval() bool
+  resolve_i "ai"
+  resolve_i "ai"
+  ge_i
+  ret
+end`,
+	},
+
+	{
+		E:    `ai <= bi`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `fn eval() bool
+  resolve_i "ai"
+  resolve_i "bi"
+  le_i
+  ret
+end`,
+	},
+	{
+		E:    `bi <= ai`,
+		Type: descriptor.BOOL,
+		R:    false,
+		I: map[string]interface{}{
+			"ai": int64(1),
+			"bi": int64(2),
+		},
+		IL: `fn eval() bool
+  resolve_i "bi"
+  resolve_i "ai"
+  le_i
+  ret
+end`,
+	},
+	{
+		E:    `ai <= ai`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"ai": int64(1),
+		},
+		IL: `fn eval() bool
+  resolve_i "ai"
+  resolve_i "ai"
+  le_i
+  ret
+end`,
+	},
+
+	{
+		E:    `"a" < "b"`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "a"
+  alt_s "b"
+  ret
+end`,
+	},
+	{
+		E:    `"b" < "a"`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_s "b"
+  alt_s "a"
+  ret
+end`,
+	},
+	{
+		E:    `"a" < "a"`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_s "a"
+  alt_s "a"
+  ret
+end`,
+	},
+
+	{
+		E:    `"a" <= "b"`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "a"
+  ale_s "b"
+  ret
+end`,
+	},
+	{
+		E:    `"b" <= "a"`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_s "b"
+  ale_s "a"
+  ret
+end`,
+	},
+	{
+		E:    `"a" <= "a"`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "a"
+  ale_s "a"
+  ret
+end`,
+	},
+
+	{
+		E:    `"a" > "b"`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_s "a"
+  agt_s "b"
+  ret
+end`,
+	},
+	{
+		E:    `"b" > "a"`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "b"
+  agt_s "a"
+  ret
+end`,
+	},
+	{
+		E:    `"a" > "a"`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_s "a"
+  agt_s "a"
+  ret
+end`,
+	},
+
+	{
+		E:    `"a" >= "b"`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_s "a"
+  age_s "b"
+  ret
+end`,
+	},
+	{
+		E:    `"b" >= "a"`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "b"
+  age_s "a"
+  ret
+end`,
+	},
+	{
+		E:    `"a" >= "a"`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "a"
+  age_s "a"
+  ret
+end`,
+	},
+
+	{
+		E:    `as < "b"`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "as"
+  alt_s "b"
+  ret
+end`,
+	},
+	{
+		E:    `"b" < as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		R: false,
+		IL: `fn eval() bool
+  apush_s "b"
+  resolve_s "as"
+  lt_s
+  ret
+end`,
+	},
+	{
+		E:    `as < bs`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  lt_s
+  ret
+end`,
+	},
+	{
+		E:    `bs < as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_s "bs"
+  resolve_s "as"
+  lt_s
+  ret
+end`,
+	},
+	{
+		E:    `as < as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "as"
+  lt_s
+  ret
+end`,
+	},
+	{
+		E:    `as <= bs`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  le_s
+  ret
+end`,
+	},
+	{
+		E:    `bs <= as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_s "bs"
+  resolve_s "as"
+  le_s
+  ret
+end`,
+	},
+	{
+		E:    `as <= as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "as"
+  le_s
+  ret
+end`,
+	},
+	{
+		E:    `as > bs`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  gt_s
+  ret
+end`,
+	},
+	{
+		E:    `bs > as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "bs"
+  resolve_s "as"
+  gt_s
+  ret
+end`,
+	},
+	{
+		E:    `as > as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "as"
+  gt_s
+  ret
+end`,
+	},
+	{
+		E:    `as >= bs`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  ge_s
+  ret
+end`,
+	},
+	{
+		E:    `bs >= as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "bs"
+  resolve_s "as"
+  ge_s
+  ret
+end`,
+	},
+	{
+		E:    `as >= as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "as"
+  ge_s
+  ret
+end`,
+	},
+	{
+		E:    `"a" <= "b"`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "a"
+  ale_s "b"
+  ret
+end`,
+	},
+	{
+		E:    `"b" <= "a"`,
+		Type: descriptor.BOOL,
+		R:    false,
+		IL: `fn eval() bool
+  apush_s "b"
+  ale_s "a"
+  ret
+end`,
+	},
+	{
+		E:    `"a" <= "a"`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "a"
+  ale_s "a"
+  ret
+end`,
+	},
+	{
+		E:    `as <= as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "as"
+  le_s
+  ret
+end`,
+	},
+	{
+		E:    `as <= bs`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  le_s
+  ret
+end`,
+	},
+	{
+		E:    `bs <= as`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"as": "a",
+			"bs": "b",
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_s "bs"
+  resolve_s "as"
+  le_s
+  ret
+end`,
+	},
+
+	{
 		E:    `as.reverse()`,
 		Type: descriptor.STRING,
 		IL: `

@@ -49,6 +49,26 @@ func intrinsics() []FunctionMetadata {
 			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
 		},
 		{
+			Name:          "LT",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "LEQ",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "GT",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:          "GEQ",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
 			Name:          "OR",
 			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
 			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
