@@ -30,6 +30,7 @@ const reportAttributes = `
   "context.reporter.uid" : "",
   "destination.namespace" : "",
   "destination.uid": "",
+  "envoy.filters.http.rbac": "*",
   "mesh1.ip": "*",
   "mesh2.ip": "*",
   "mesh3.ip": "*",
