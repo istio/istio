@@ -64,7 +64,7 @@ set -x
 [[ -z "${OUTPUT_PATH}" ]] && usage
 [[ -z "${VER_STRING}"  ]] && usage
 
-if ("${BASE_DIR}" = "${TEMP_DIR}"); then
+if [ "${BASE_DIR}" = "${TEMP_DIR}" ]; then
   mktemp -d "${TEMP_DIR}"
 fi
 COMMON_FILES_DIR="${BASE_DIR}/istio/istio-${VER_STRING}"
@@ -78,10 +78,12 @@ CP=${CP:-"cp"}
 TAR=${TAR:-"tar"}
 
 function replace_with_release_charts_url() {
-  local origin_url="istio-prerelease/daily-build/master-latest-daily/charts"
-  local target_url="istio-release/releases/${VER_STRING}/charts"
-  sed -i.bak "s:${origin_url}:${target_url}:g" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/README.md"
-  rm -rf "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/README.md.bak"
+  if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
+    local origin_url="istio-prerelease/daily-build/master-latest-daily/charts"
+    local target_url="istio-release/releases/${VER_STRING}/charts"
+    sed -i.bak "s:${origin_url}:${target_url}:g" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/README.md"
+    rm -rf "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/README.md.bak"
+  fi
 }
 
 function create_linux_archive() {
