@@ -17,9 +17,9 @@
 package protocol
 
 import (
+	"context"
 	"fmt"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	//"istio.io/istio/pkg/log"

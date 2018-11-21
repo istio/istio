@@ -17,13 +17,13 @@
 package mockapi // import "istio.io/istio/mixer/pkg/mockapi"
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	rpc "github.com/gogo/googleapis/google/rpc"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"

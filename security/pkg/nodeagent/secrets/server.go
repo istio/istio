@@ -15,6 +15,7 @@
 package secrets
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -27,7 +28,6 @@ import (
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

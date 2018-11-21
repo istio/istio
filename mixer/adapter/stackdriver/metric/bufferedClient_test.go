@@ -15,6 +15,7 @@
 package metric
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,7 +26,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	gax "github.com/googleapis/gax-go"
-	xcontext "golang.org/x/net/context"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 	grpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc/codes"
@@ -53,7 +53,7 @@ func TestBuffered_Send(t *testing.T) {
 	b := buffered{l: env, timeSeriesBatchSize: 100, retryLimit: 1, retryBuffer: []*monitoring.TimeSeries{}, pushInterval: 100 * time.Millisecond}
 
 	// We'll panic if we call the pushMetrics fn
-	panicFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
+	panicFn := func(ctx context.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
 		panic("Should not be called!")
 	}
 	b.pushMetrics = panicFn
@@ -67,10 +67,10 @@ func TestBuffered_Send(t *testing.T) {
 
 	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m1, mr1, 1, 1), makeTS(m1, mr1, 1, 1)}
 
-	errorFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
+	errorFn := func(ctx context.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
 		return errors.New("expected")
 	}
-	happyFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
+	happyFn := func(ctx context.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
 		return nil
 	}
 
@@ -124,7 +124,7 @@ func TestBuffered_BatchSend(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			env := test.NewEnv(t)
 			pushTimes := 0
-			pushFunc := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
+			pushFunc := func(ctx context.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
 				pushTimes++
 				return nil
 			}
@@ -142,7 +142,7 @@ func TestBuffered_SpreadPush(t *testing.T) {
 	in := []*monitoring.TimeSeries{makeTS(m1, mr1, 1, 1), makeTS(m2, mr2, 1, 1), makeTS(m3, mr3, 1, 1)}
 	l := test.NewEnv(t).Logger()
 	pushTimes := 0
-	pushFunc := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
+	pushFunc := func(ctx context.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
 		pushTimes++
 		return nil
 	}
@@ -188,7 +188,7 @@ func TestBuffered_Close(t *testing.T) {
 
 func createRetryPushFn(pushCount *int, expReqTS [][]*monitoring.TimeSeries, withError []bool, failedTS [][]*monitoring.TimeSeries,
 	errorCode [][]codes.Code, overallCode codes.Code, t *testing.T) pushFunc {
-	retryPushFn := func(ctx xcontext.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
+	retryPushFn := func(ctx context.Context, req *monitoring.CreateTimeSeriesRequest, opts ...gax.CallOption) error {
 		if len(expReqTS) != len(withError) || len(expReqTS) != len(failedTS) || len(expReqTS) <= *pushCount {
 			t.Errorf("args size does not match or potential out of bound. abort push operation %v %v %v %v",
 				len(expReqTS), len(withError), len(failedTS), *pushCount)

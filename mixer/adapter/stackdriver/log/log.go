@@ -26,7 +26,6 @@ import (
 
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/logging/logadmin"
-	xctx "golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 
@@ -38,8 +37,8 @@ import (
 )
 
 type (
-	makeClientFn     func(ctx xctx.Context, projectID string, opts ...option.ClientOption) (*logging.Client, error)
-	makeSyncClientFn func(ctx xctx.Context, projectID string, opts ...option.ClientOption) (*logadmin.Client, error)
+	makeClientFn     func(ctx context.Context, projectID string, opts ...option.ClientOption) (*logging.Client, error)
+	makeSyncClientFn func(ctx context.Context, projectID string, opts ...option.ClientOption) (*logadmin.Client, error)
 
 	logFn   func(logging.Entry)
 	flushFn func() error

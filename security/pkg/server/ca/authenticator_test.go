@@ -15,6 +15,7 @@
 package ca
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -23,7 +24,6 @@ import (
 	"testing"
 
 	oidc "github.com/coreos/go-oidc"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"

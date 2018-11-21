@@ -15,6 +15,7 @@
 package secrets
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -26,7 +27,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/proto"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 

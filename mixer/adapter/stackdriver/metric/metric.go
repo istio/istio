@@ -23,7 +23,6 @@ import (
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
 	gax "github.com/googleapis/gax-go"
-	xcontext "golang.org/x/net/context"
 	labelpb "google.golang.org/genproto/googleapis/api/label"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
@@ -50,7 +49,7 @@ type (
 	createClientFunc func(*config.Params) (*monitoring.MetricClient, error)
 
 	// pushFunc abstracts over client.CreateTimeSeries for testing
-	pushFunc func(ctx xcontext.Context, req *monitoringpb.CreateTimeSeriesRequest, opts ...gax.CallOption) error
+	pushFunc func(ctx context.Context, req *monitoringpb.CreateTimeSeriesRequest, opts ...gax.CallOption) error
 
 	builder struct {
 		createClient createClientFunc

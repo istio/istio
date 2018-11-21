@@ -15,6 +15,7 @@
 package log
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,7 +28,6 @@ import (
 
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/logging/logadmin"
-	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 

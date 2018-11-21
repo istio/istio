@@ -31,7 +31,7 @@ set -e
 
 outdir=$ROOTDIR
 file=$ROOTDIR
-protoc="$ROOTDIR/bin/protoc.sh"
+protoc="protoc"
 
 optimport=$ROOTDIR
 template=$ROOTDIR
@@ -101,9 +101,9 @@ do
   MAPPINGS+="M$i,"
 done
 
-PLUGIN="--gogoslick_out=plugins=grpc,$MAPPINGS:$outdir"
+PLUGIN="--plugin=protoc-gen-gogoslick=${ROOTDIR}/bin/protoc-gen-gogoslick --gogoslick_out=plugins=grpc,$MAPPINGS:$outdir"
 
-GENDOCS_PLUGIN="--docs_out=warnings=true,mode=html_fragment_with_front_matter:"
+GENDOCS_PLUGIN="--plugin=protoc-gen-docs=${ROOTDIR}/bin/protoc-gen-docs --docs_out=warnings=true,mode=html_fragment_with_front_matter:"
 GENDOCS_PLUGIN_FILE=$GENDOCS_PLUGIN$(dirname "${file}")
 GENDOCS_PLUGIN_TEMPLATE=$GENDOCS_PLUGIN$(dirname "${template}")
 
@@ -128,7 +128,7 @@ if [ "$opttemplate" = true ]; then
     TMPL_PROTOC_MAPPING+="M${i/:/=},"
   done
 
-  TMPL_PLUGIN="--gogoslick_out=plugins=grpc,$TMPL_PROTOC_MAPPING:$outdir"
+  TMPL_PLUGIN="--plugin=protoc-gen-gogoslick=${ROOTDIR}/bin/protoc-gen-gogoslick --gogoslick_out=plugins=grpc,$TMPL_PROTOC_MAPPING:$outdir"
 
   descriptor_set="_proto.descriptor_set"
   handler_gen_go="_handler.gen.go"
@@ -146,9 +146,9 @@ if [ "$opttemplate" = true ]; then
     "--descriptor_set_out=$templateDS"
   )
   if [ "$gendoc" = true ]; then
-    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$GENDOCS_PLUGIN_TEMPLATE" "$template")
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" $PLUGIN $GENDOCS_PLUGIN_TEMPLATE "$template")
   else
-    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$template")
+    err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" $PLUGIN "$template")
   fi
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
@@ -156,7 +156,7 @@ if [ "$opttemplate" = true ]; then
 
   go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "${TMPL_GEN_MAP[@]}"
 
-  err=$($protoc "${IMPORTS[@]}" "$TMPL_PLUGIN" "$templateHSP")
+  err=$($protoc "${IMPORTS[@]}" $TMPL_PLUGIN "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
@@ -167,7 +167,7 @@ if [ "$opttemplate" = true ]; then
     "--include_source_info"
     "--descriptor_set_out=$templateSDS"
   )
-  err=$($protoc "${SDESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$templateHSP")
+  err=$($protoc "${SDESCRIPTOR[@]}" "${IMPORTS[@]}" $PLUGIN "$templateHSP")
   if [ ! -z "$err" ]; then
     die "template generation failure: $err";
   fi
@@ -183,16 +183,16 @@ fi
 # handle adapter code generation
 if [ "$optadapter" = true ]; then
   if [ "$gendoc" = true ]; then
-    err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$GENDOCS_PLUGIN_FILE" "$file")
+    err=$($protoc "${IMPORTS[@]}" $PLUGIN $GENDOCS_PLUGIN_FILE "$file")
   else
-    err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$file")
+    err=$($protoc "${IMPORTS[@]}" $PLUGIN "$file")
   fi
   if [ ! -z "$err" ]; then
     die "generation failure: $err";
   fi
 
   adapteCfdDS=${file}_descriptor
-  err=$($protoc "${IMPORTS[@]}" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${adapteCfdDS}" "$file")
+  err=$($protoc "${IMPORTS[@]}" $PLUGIN --include_imports --include_source_info --descriptor_set_out="${adapteCfdDS}" "$file")
   if [ ! -z "$err" ]; then
   die "config generation failure: $err";
   fi
@@ -205,15 +205,15 @@ fi
 
 # handle simple protoc-based generation
 if [ "$gendoc" = true ]; then
-  err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$GENDOCS_PLUGIN_FILE" "$file")
+  err=$($protoc "${IMPORTS[@]}" $PLUGIN $GENDOCS_PLUGIN_FILE "$file")
 else
-  err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$file")
+  err=$($protoc "${IMPORTS[@]}" $PLUGIN "$file")
 fi
 if [ ! -z "$err" ]; then
   die "generation failure: $err";
 fi
 
-err=$($protoc "${IMPORTS[@]}" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${file}_descriptor" "$file")
+err=$($protoc "${IMPORTS[@]}" $PLUGIN --include_imports --include_source_info --descriptor_set_out="${file}_descriptor" "$file")
 if [ ! -z "$err" ]; then
 die "config generation failure: $err";
 fi

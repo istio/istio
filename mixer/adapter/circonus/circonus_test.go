@@ -15,12 +15,12 @@
 package circonus
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	cgm "github.com/circonus-labs/circonus-gometrics"
 	"github.com/circonus-labs/circonus-gometrics/checkmgr"
-	"golang.org/x/net/context"
 
 	"istio.io/istio/mixer/adapter/circonus/config"
 	"istio.io/istio/mixer/pkg/adapter/test"

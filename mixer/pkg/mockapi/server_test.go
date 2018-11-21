@@ -15,6 +15,7 @@
 package mockapi
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -23,7 +24,6 @@ import (
 
 	rpc "github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/proto"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"

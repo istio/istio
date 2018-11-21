@@ -15,11 +15,11 @@
 package servicecontrol
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"net/http"
 
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	sc "google.golang.org/api/servicecontrol/v1"

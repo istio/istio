@@ -14,6 +14,7 @@
 package sds
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"reflect"
@@ -25,7 +26,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
