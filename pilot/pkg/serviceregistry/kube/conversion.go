@@ -128,21 +128,17 @@ func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*mode
 	}
 	var out []*model.ServiceInstance
 	for _, portEntry := range svc.Ports {
-		out = append(out, serviceInstance(k8sSvc, portEntry, svc))
+		out = append(out, &model.ServiceInstance{
+			Endpoint: model.NetworkEndpoint{
+				Address:     k8sSvc.Spec.ExternalName,
+				Port:        portEntry.Port,
+				ServicePort: portEntry,
+			},
+			Service: svc,
+			Labels:  k8sSvc.Labels,
+		})
 	}
 	return out
-}
-
-func serviceInstance(k8sSvc v1.Service, portEntry *model.Port, svc *model.Service) *model.ServiceInstance {
-	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
-			Address:     k8sSvc.Spec.ExternalName,
-			Port:        portEntry.Port,
-			ServicePort: portEntry,
-		},
-		Service: svc,
-		Labels:  k8sSvc.Labels,
-	}
 }
 
 // serviceHostname produces FQDN for a k8s service
