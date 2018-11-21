@@ -24,7 +24,7 @@ OUT_DIR=${OUT_DIR:-"${GOPATH}/out/codecov"}
 SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
 ROOTDIR="$(dirname "${SCRIPTPATH}")"
 DIR="./..."
-CODECOV_SKIP="${ROOTDIR}/codecov.skip"
+CODECOV_SKIP=${CODECOV_SKIP:-"${ROOTDIR}/codecov.skip"}
 SKIPPED_TESTS_GREP_ARGS=
 
 # Set GOPATH to match the expected layout
@@ -80,7 +80,9 @@ function parse_skipped_tests() {
     if [[ "${SKIPPED_TESTS_GREP_ARGS}" != '' ]]; then
       SKIPPED_TESTS_GREP_ARGS+='\|'
     fi
-    SKIPPED_TESTS_GREP_ARGS+="\\(${entry}\\)"
+    if [[ "${entry}" != "#"* ]]; then
+      SKIPPED_TESTS_GREP_ARGS+="\\(${entry}\\)"
+    fi
   done < "${CODECOV_SKIP}"
 }
 
