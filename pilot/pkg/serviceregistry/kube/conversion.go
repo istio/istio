@@ -157,6 +157,10 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 		out = model.ProtocolUDP
 	case v1.ProtocolTCP:
 		prefix := name
+		if strings.HasPrefix(strings.ToLower(prefix), strings.ToLower(string(model.ProtocolGRPCWeb))) {
+			out = model.ProtocolGRPCWeb
+			break
+		}
 		i := strings.Index(name, "-")
 		if i >= 0 {
 			prefix = name[:i]
