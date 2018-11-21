@@ -21,8 +21,8 @@ data:
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
 
-    # Set accessLogFormat to "text" or "json" to configure sidecar access log format
-    access_log_format: "{{ .Values.global.proxy.accessLogFormat }}"
+    # Set accessLogEncoding to JSON or TEXT to configure sidecar access log
+    accessLogEncoding: {{ .Values.global.proxy.accessLogEncoding }}
 
     #
     # Deprecated: mixer is using EDS

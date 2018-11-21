@@ -24,10 +24,12 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/log"
 )
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
@@ -49,14 +51,17 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 		}
 
 		if util.Is11Proxy(node) {
-			if env.Mesh.AccessLogFormat == "json" {
-				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormat,
-				}
-			} else {
+			switch env.Mesh.AccessLogEncoding {
+			case meshconfig.MeshConfig_TEXT:
 				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
 					Format: EnvoyTextLogFormat,
 				}
+			case meshconfig.MeshConfig_JSON:
+				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormat,
+				}
+			default:
+				log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
 			}
 		}
 

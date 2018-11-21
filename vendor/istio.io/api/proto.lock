@@ -662,6 +662,19 @@
             ]
           },
           {
+            "name": "MeshConfig.AccessLogEncoding",
+            "enum_fields": [
+              {
+                "name": "TEXT",
+                "integer": 0
+              },
+              {
+                "name": "JSON",
+                "integer": 1
+              }
+            ]
+          },
+          {
             "name": "OutboundTrafficPolicy.Mode",
             "enum_fields": [
               {
@@ -757,6 +770,11 @@
                 "id": 24,
                 "name": "access_log_format",
                 "type": "string"
+              },
+              {
+                "id": 27,
+                "name": "access_log_encoding",
+                "type": "AccessLogEncoding"
               },
               {
                 "id": 14,

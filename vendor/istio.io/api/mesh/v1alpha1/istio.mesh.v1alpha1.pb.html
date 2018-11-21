@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 15
+number_of_entries: 16
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -221,7 +221,16 @@ Empty value disables access logging.</p>
 <td><code>accessLogFormat</code></td>
 <td><code>string</code></td>
 <td>
-<p>Format for the proxy access log (text or json).
+<p>Format for the proxy access log
+Empty value results in proxy&rsquo;s default access log format</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-access_log_encoding">
+<td><code>accessLogEncoding</code></td>
+<td><code><a href="#MeshConfig-AccessLogEncoding">MeshConfig.AccessLogEncoding</a></code></td>
+<td>
+<p>Encoding for the proxy access log (text or json).
 Default value is text.</p>
 
 </td>
@@ -286,6 +295,29 @@ can be configured for a single control plane.</p>
 Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 Fallback to old identity format(without trust domain) if not set.</p>
 
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-AccessLogEncoding">MeshConfig.AccessLogEncoding</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-AccessLogEncoding-TEXT">
+<td><code>TEXT</code></td>
+<td>
+</td>
+</tr>
+<tr id="MeshConfig-AccessLogEncoding-JSON">
+<td><code>JSON</code></td>
+<td>
 </td>
 </tr>
 </tbody>

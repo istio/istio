@@ -299,7 +299,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		IngressControllerMode: meshconfig.MeshConfig_STRICT,
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",
-		AccessLogFormat:       "text",
+		AccessLogEncoding:     meshconfig.MeshConfig_TEXT,
 		DefaultConfig:         &config,
 		SdsUdsPath:            "",
 		EnableSdsTokenMount:   false,
