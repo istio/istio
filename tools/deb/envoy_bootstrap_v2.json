@@ -245,7 +245,8 @@
     "http": {
       "name": "envoy.zipkin",
       "config": {
-        "collector_cluster": "zipkin"
+        "collector_cluster": "zipkin",
+        "collector_endpoint": "/api/v1/spans"
       }
     }
   }

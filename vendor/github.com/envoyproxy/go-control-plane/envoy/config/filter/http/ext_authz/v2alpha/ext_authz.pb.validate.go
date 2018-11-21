@@ -173,3 +173,127 @@ func (e HttpServiceValidationError) Error() string {
 }
 
 var _ error = HttpServiceValidationError{}
+
+// Validate checks the field values on ExtAuthzPerRoute with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *ExtAuthzPerRoute) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	switch m.Override.(type) {
+
+	case *ExtAuthzPerRoute_Disabled:
+
+		if m.GetDisabled() != true {
+			return ExtAuthzPerRouteValidationError{
+				Field:  "Disabled",
+				Reason: "value must equal true",
+			}
+		}
+
+	case *ExtAuthzPerRoute_CheckSettings:
+
+		if m.GetCheckSettings() == nil {
+			return ExtAuthzPerRouteValidationError{
+				Field:  "CheckSettings",
+				Reason: "value is required",
+			}
+		}
+
+		if v, ok := interface{}(m.GetCheckSettings()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ExtAuthzPerRouteValidationError{
+					Field:  "CheckSettings",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	default:
+		return ExtAuthzPerRouteValidationError{
+			Field:  "Override",
+			Reason: "value is required",
+		}
+
+	}
+
+	return nil
+}
+
+// ExtAuthzPerRouteValidationError is the validation error returned by
+// ExtAuthzPerRoute.Validate if the designated constraints aren't met.
+type ExtAuthzPerRouteValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e ExtAuthzPerRouteValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sExtAuthzPerRoute.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = ExtAuthzPerRouteValidationError{}
+
+// Validate checks the field values on CheckSettings with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *CheckSettings) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for ContextExtensions
+
+	return nil
+}
+
+// CheckSettingsValidationError is the validation error returned by
+// CheckSettings.Validate if the designated constraints aren't met.
+type CheckSettingsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e CheckSettingsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCheckSettings.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = CheckSettingsValidationError{}
