@@ -792,7 +792,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Protocol: model.ProtocolTCP,
 				},
 			},
-			MeshExternal: false,
+			MeshExternal: true,
 			Resolution:   model.DNSLB,
 		},
 		{
@@ -804,7 +804,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Protocol: model.ProtocolTCP,
 				},
 			},
-			MeshExternal: false,
+			MeshExternal: true,
 			Resolution:   model.DNSLB,
 		},
 		{
@@ -816,7 +816,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Protocol: model.ProtocolTCP,
 				},
 			},
-			MeshExternal: false,
+			MeshExternal: true,
 			Resolution:   model.DNSLB,
 		},
 		{
@@ -829,7 +829,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				},
 			},
 			MeshExternal: true,
-			Resolution:   model.Passthrough,
+			Resolution:   model.DNSLB,
 		},
 	}
 	var expectedInstanceList []*model.ServiceInstance

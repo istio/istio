@@ -74,12 +74,8 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		external = svc.Spec.ExternalName
-		if strings.HasSuffix(external, "."+domainSuffix) {
-			resolution = model.DNSLB
-		} else {
-			resolution = model.Passthrough
-			meshExternal = true
-		}
+		resolution = model.DNSLB
+		meshExternal = true
 	}
 
 	if addr == model.UnspecifiedIP && external == "" { // headless services should not be load balanced

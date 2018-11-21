@@ -257,8 +257,8 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 			len(service.Ports), len(extSvc.Spec.Ports))
 	}
 
-	if service.External() {
-		t.Error("cluster local service should not be external")
+	if !service.External() {
+		t.Error("ExternalName service (even if .cluster.local) should be external")
 	}
 
 	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
