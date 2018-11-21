@@ -112,8 +112,6 @@ var (
 		plugin.Envoyfilter,
 		plugin.Snidnat,
 	}
-
-	runOnce = sync.Once{}
 )
 
 func init() {
@@ -220,6 +218,8 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{
 		fileWatcher: filewatcher.NewWatcher(),
 	}
+
+	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
@@ -1132,11 +1132,6 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 		// setup server prometheus monitoring (as final interceptor in chain)
 		prometheus.UnaryServerInterceptor,
 	}
-
-	// Running the prometheus global func once to avoid data races within it
-	runOnce.Do(func() {
-		prometheus.EnableHandlingTimeHistogram()
-	})
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.
