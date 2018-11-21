@@ -175,7 +175,7 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	}
 	f := fc.Filters[0]
 	expectedServerName := "istio-envoy"
-	serverName := f.Config.Fields["server_name"].GetStringValue()
+	serverName := f.GetConfig().Fields["server_name"].GetStringValue()
 	if serverName != expectedServerName {
 		t.Fatalf("expected listener to contain server_name %s, found %s", expectedServerName, serverName)
 	}
