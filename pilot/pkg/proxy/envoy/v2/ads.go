@@ -350,7 +350,9 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 		req, err := con.stream.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled || err == io.EOF {
+				con.mu.RLock()
 				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				con.mu.RUnlock()
 				return
 			}
 			*errP = err
@@ -425,6 +427,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if err != nil {
 				return err
 			}
+			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+			con.mu.Lock()
+			con.modelNode = &nt
+			if con.ConID == "" {
+				// first request
+				con.ConID = connectionID(discReq.Node.Id)
+			}
+			con.mu.Unlock()
 
 			switch discReq.TypeUrl {
 			case ClusterType:
@@ -662,7 +672,9 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		n := atomic.AddInt32(pushEv.pending, -1)
 		if n <= 0 && pushEv.push.End == timeZero {
 			// Display again the push status
+			pushEv.push.Mutex.Lock()
 			pushEv.push.End = time.Now()
+			pushEv.push.Mutex.Unlock()
 			proxiesConvergeDelay.Observe(time.Since(pushEv.push.Start).Seconds())
 			out, _ := pushEv.push.JSON()
 			adsLog.Infof("Push finished: %v %s",

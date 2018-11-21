@@ -48,8 +48,6 @@ const (
 	IstioNamespace = "istio-system"
 	// IstioConfigMap is used by default
 	IstioConfigMap = "istio"
-	// IstioNetworksConfigMap is the config map name for mesh networks configuration
-	IstioNetworksConfigMap = "istio-networks"
 	// PrometheusScrape is the annotation used by prometheus to determine if service metrics should be scraped (collected)
 	PrometheusScrape = "prometheus.io/scrape"
 	// PrometheusPort is the annotation used to explicitly specify the port to use for scraping metrics

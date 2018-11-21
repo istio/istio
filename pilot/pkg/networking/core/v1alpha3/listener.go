@@ -34,6 +34,7 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -827,14 +828,17 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		}
 
 		if util.Is11Proxy(node) {
-			if env.Mesh.AccessLogFormat == "json" {
-				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormat,
-				}
-			} else {
+			switch env.Mesh.AccessLogEncoding {
+			case meshconfig.MeshConfig_TEXT:
 				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
 					Format: EnvoyTextLogFormat,
 				}
+			case meshconfig.MeshConfig_JSON:
+				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormat,
+				}
+			default:
+				log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
 			}
 		}
 

@@ -18,7 +18,7 @@ echo WORK_DIR = "$WORK_DIR"
 echo HELM_DIR = "$HELM_DIR"
 
 # Helm setup
-HELM_BUILD_DIR=${HELM_DIR}/istio-repository
+HELM_BUILD_DIR="/workspace/charts"
 HELM="helm --home $HELM_DIR"
 
 # Copy Istio release files to WORK_DIR

@@ -101,6 +101,8 @@ var (
 	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
+	valueFile = flag.String("valueFile", "", "Istio value yaml file when helm is used")
+	values    = flag.String("values", "", "Helm set values when helm is used")
 )
 
 type appPodsInfo struct {
@@ -717,6 +719,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
 	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
 
+	// deploy CRDs first
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
 		log.Errorf("Failed to apply %s", yamlFileName)
 		return err
@@ -754,14 +757,24 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// CRDs installed ahead of time with 2.9.x
 	setValue += " --set global.crds=false"
 
+	// add additional values passed from test
+	if *values != "" {
+		setValue += " --set " + *values
+	}
+
 	err := util.HelmClientInit()
 	if err != nil {
 		// helm client init
-		log.Errorf("Helm clienty init")
+		log.Errorf("Helm client init error: %v", err)
 		return err
 	}
 	// Generate dependencies for Helm
 	workDir := filepath.Join(k.ReleaseDir, istioHelmInstallDir)
+	valFile := ""
+	if *valueFile != "" {
+		valFile = filepath.Join(workDir, *valueFile)
+	}
+
 	err = util.HelmDepUpdate(workDir)
 	if err != nil {
 		// helm dep upgrade
@@ -771,17 +784,19 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
-	err = util.HelmInstallDryRun(workDir, k.Namespace, k.Namespace, setValue)
+	err = util.HelmInstallDryRun(workDir, "istio", valFile, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
-		log.Errorf("Helm dry run of istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
+		log.Errorf("Helm dry run of istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
+			istioHelmInstallDir, valFile, setValue, k.Namespace)
 		return err
 	}
 
 	// helm install
-	err = util.HelmInstall(workDir, k.Namespace, k.Namespace, setValue)
+	err = util.HelmInstall(workDir, "istio", valFile, k.Namespace, setValue)
 	if err != nil {
-		log.Errorf("Helm install istio install failed %s, setValue=%s", istioHelmInstallDir, setValue)
+		log.Errorf("Helm install istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
+			istioHelmInstallDir, valFile, setValue, k.Namespace)
 		return err
 	}
 

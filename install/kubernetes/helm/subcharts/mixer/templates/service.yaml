@@ -19,7 +19,7 @@ spec:
   - name: grpc-mixer-mtls
     port: 15004
   - name: http-monitoring
-    port: 9093
+    port: {{ $.Values.global.monitoringPort }}
 {{- if eq $key "telemetry" }}
   - name: prometheus
     port: 42422

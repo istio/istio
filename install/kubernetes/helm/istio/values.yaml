@@ -106,6 +106,9 @@ global:
   # Default tag for Istio images.
   tag: master-latest-daily
 
+  # monitoring port used by mixer, pilot, galley
+  monitoringPort: 9093
+
   k8sIngress:
     enabled: false
     # Gateway used for legacy k8s Ingress resources. By default it is
@@ -146,8 +149,8 @@ global:
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
-    # configure the access log for sidecar to "json" or "text". 
-    access_log_format: "text"
+    # configure the access log for sidecar to JSON or TEXT. 
+    accessLogEncoding: TEXT
 
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
@@ -197,16 +200,7 @@ global:
       port: # example: 9125    
 
     # Specify which tracer to use. One of: lightstep, zipkin
-    tracer: "zipkin"
-
-    # Sets an identifier for the remote network to be used for Split Horizon EDS. The network will be sent
-    # to the Pilot when connected by the sidecar and will affect the results returned in EDS requests.
-    # Based on the network identifier Pilot will return all local endpoints + endpoints of gateways to
-    # other networks.
-    # When value is an empty string (default) the Split Horizon EDS won't activate and behave like a
-    # normal EDS (i.e. endpoints from all networks returned).
-    #
-    network: ""
+    tracer: "zipkin"    
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
@@ -378,3 +372,31 @@ global:
     enabled: false
     udsPath: ""
     enableTokenMount: false
+
+  # Configure the mesh networks to be used by the Split Horizon EDS.
+  # 
+  # The following example defines two networks with different endpoints association methods.
+  # For `network1` all endpoints that their IP belongs to the provided CIDR range will be 
+  # mapped to network1. The gateway for this network example is specified by its public IP
+  # address and port.
+  # The second network, `network2`, in this example is defined differently with all endpoints
+  # retrieved through the specified Multi-Cluster registry being mapped to network2. The 
+  # gateway is also defined differently with the name of the gateway service on the remote
+  # cluster. The public IP for the gateway will be determined from that remote service (not
+  # supported yet).
+  #
+  # meshNetworks:
+  #   network1:
+  #     endpoints:
+  #     - fromCidr: "192.168.0.1/24"
+  #     gateways:
+  #     - address: 1.1.1.1
+  #       port: 80
+  #   network2:
+  #     endpoints:
+  #     - fromRegistry: reg1
+  #     gateways:
+  #     - registryServiceName: istio-ingressgateway
+  #       port: 443
+  #
+  meshNetworks:

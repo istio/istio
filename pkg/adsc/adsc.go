@@ -188,10 +188,12 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 
 // Close the stream.
 func (a *ADSC) Close() {
+	a.mutex.Lock()
 	if a.stream != nil {
 		a.stream.CloseSend()
 	}
 	a.conn.Close()
+	a.mutex.Unlock()
 }
 
 // Run will run the ADS client.
@@ -279,7 +281,9 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// TODO: add hook to inject nacks
+		a.mutex.Lock()
 		a.ack(msg)
+		a.mutex.Unlock()
 
 		if len(listeners) > 0 {
 			a.handleLDS(listeners)
@@ -332,13 +336,13 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	}
 
 	log.Println("LDS: http=", len(lh), "tcp=", len(lt), "size=", ldsSize)
+	a.mutex.Lock()
 	if len(routes) > 0 {
 		a.sendRsc(routeType, routes)
 	}
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
 	a.HTTPListeners = lh
 	a.TCPListeners = lt
+	defer a.mutex.Unlock()
 
 	select {
 	case a.Updates <- "lds":

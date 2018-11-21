@@ -110,8 +110,10 @@ var (
 		plugin.Health,
 		plugin.Mixer,
 		plugin.Envoyfilter,
-		plugin.Snidnat,
 	}
+
+	// Global mutex
+	globalMutex = sync.Mutex{}
 )
 
 func init() {
@@ -198,6 +200,7 @@ type Server struct {
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
 	fileWatcher      filewatcher.FileWatcher
+	secureGrpcMutex  sync.RWMutex
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -971,12 +974,12 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
 
 		go func() {
-			if err = s.httpServer.Serve(listener); err != nil {
+			if err := s.httpServer.Serve(listener); err != nil {
 				log.Warna(err)
 			}
 		}()
 		go func() {
-			if err = s.grpcServer.Serve(grpcListener); err != nil {
+			if err := s.grpcServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
@@ -990,7 +993,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			err = s.httpServer.Shutdown(ctx)
+			err := s.httpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)
 			}
@@ -999,7 +1002,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
 				s.secureHTTPServer.Shutdown(ctx)
+				s.secureGrpcMutex.RLock()
 				s.secureGRPCServer.Stop()
+				s.secureGrpcMutex.RUnlock()
 			}
 		}()
 
@@ -1072,7 +1077,9 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 		caCertPool.AppendCertsFromPEM(caCert)
 
 		opts = append(opts, grpc.Creds(creds))
+		s.secureGrpcMutex.Lock()
 		s.secureGRPCServer = grpc.NewServer(opts...)
+		s.secureGrpcMutex.Unlock()
 
 		s.EnvoyXdsServer.Register(s.secureGRPCServer)
 
@@ -1128,7 +1135,12 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 		prometheus.UnaryServerInterceptor,
 	}
 
+	// EnableHandlingTimeHistogram() has a data race within it (reading/writing to its
+	// serverHandledHistogramEnabled). Using a package mutex to avoid data races.
+	// Should be re-examined with an updated revision of the go-grpc-prometheus.
+	globalMutex.Lock()
 	prometheus.EnableHandlingTimeHistogram()
+	globalMutex.Unlock()
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.

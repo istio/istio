@@ -56,6 +56,9 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 			epNetwork := istioMetadata(lbEp, "network")
 			if epNetwork == network {
 				// This is a local endpoint
+				lbEp.LoadBalancingWeight = &types.UInt32Value{
+					Value: uint32(1),
+				}
 				lbEndpoints = append(lbEndpoints, lbEp)
 			} else {
 				// Remote endpoint. Increase the weight counter
@@ -157,6 +160,6 @@ func createLocalityLbEndpoints(base *endpoint.LocalityLbEndpoints, lbEndpoints [
 }
 
 // LoadBalancingWeightNormalize set LoadBalancingWeight with a valid value.
-func LoadBalancingWeightNormalize(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
+func LoadBalancingWeightNormalize(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
 	return util.LocalityLbWeightNormalize(endpoints)
 }
