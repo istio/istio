@@ -1,0 +1,16 @@
+# This overrides the default threshold used by the circle codecov job to prevent
+# unexpected drop of code coverage.
+# This is useful to temporarily whitelist the packages that have either non
+# deterministic code path. (E.g. test may retry on failure. Some paths 
+# may not be exercised when there is no error, but are hit when there
+# is an error before the test retries.)
+#
+# Ideally this file should be empty, and all whitelisted packages should
+# eventually be removed when the tests are made deteministic.
+#
+# Format:
+# <package or filename>=<threshold in float64>
+#
+istio.io/istio/pilot/pkg/proxy/envoy/v2=10
+istio.io/istio/pilot/pkg/config/memory/monitor.go=10
+
