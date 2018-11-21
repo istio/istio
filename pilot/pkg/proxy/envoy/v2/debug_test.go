@@ -56,19 +56,23 @@ func TestSyncz(t *testing.T) {
 		if err := sendLDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 3; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv failed", err)
 			}
 		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, "", adsstr); err != nil {
+			t.Fatal(err)
+		}
+		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
+		if err != nil {
+			t.Fatal("Recv failed", err)
+		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, rdsResponse.Nonce, adsstr); err != nil {
+			t.Fatal(err)
+		}
+
 		node, _ := model.ParseServiceNode(sidecarId(app3Ip, "syncApp"))
 		verifySyncStatus(t, node.ID, true, true)
 	})
@@ -98,17 +102,21 @@ func TestSyncz(t *testing.T) {
 		if err := sendLDSNack(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendRDSReq(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendRDSNack(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
-			t.Fatal(err)
-		}
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 3; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv failed", err)
 			}
+		}
+		if err := sendRDSReq(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, "", adsstr); err != nil {
+			t.Fatal(err)
+		}
+		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
+		if err != nil {
+			t.Fatal("Recv failed", err)
+		}
+		if err := sendRDSNack(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, rdsResponse.Nonce, adsstr); err != nil {
+			t.Fatal(err)
 		}
 		node, _ := model.ParseServiceNode(sidecarId(app3Ip, "syncApp2"))
 		verifySyncStatus(t, node.ID, true, false)
@@ -220,7 +228,7 @@ func TestConfigDump(t *testing.T) {
 				}
 				// Only most recent proxy will have routes
 				if i == 1 {
-					if err := sendRDSReq(sidecarId(app3Ip, "dumpApp"), []string{"80", "8080"}, envoy); err != nil {
+					if err := sendRDSReq(sidecarId(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
 						t.Fatal(err)
 					}
 					_, err := adsReceive(envoy, 5*time.Second)

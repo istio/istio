@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/proxy/envoy"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
@@ -233,4 +235,58 @@ func TestAdsUpdate(t *testing.T) {
 	strResponse, _ = model.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(util.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
 	_ = edsstr.CloseSend()
+}
+
+func TestEnvoyRDSProtocolError(t *testing.T) {
+	server := initLocalPilotTestEnv(t)
+
+	edsstr, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// wait for debounce
+	time.Sleep(3 * envoy.DebounceAfter)
+
+	err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+
+	v2.AdsPushAll(server.EnvoyXdsServer)
+
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) != 2 {
+		t.Fatal("No routes returned")
+	}
+
+	// send a protocol error
+	err = sendRDSReq(gatewayId(gatewayIP), nil, res.Nonce, edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Refresh routes
+	err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes after protocol error")
+	}
 }

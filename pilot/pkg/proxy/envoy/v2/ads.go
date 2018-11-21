@@ -91,6 +91,11 @@ var (
 		Help: "Pilot rejected RDS.",
 	}, []string{"node", "err"})
 
+	rdsExpiredNonce = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "pilot_rds_expired_nonce",
+		Help: "Total number of RDS messages with an expired nonce.",
+	})
+
 	totalXDSRejects = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "pilot_total_xds_rejects",
 		Help: "Total number of XDS responses from pilot rejected by proxy.",
@@ -159,6 +164,7 @@ func init() {
 	prometheus.MustRegister(edsReject)
 	prometheus.MustRegister(ldsReject)
 	prometheus.MustRegister(rdsReject)
+	prometheus.MustRegister(rdsExpiredNonce)
 	prometheus.MustRegister(totalXDSRejects)
 	prometheus.MustRegister(edsInstances)
 	prometheus.MustRegister(monServices)
@@ -234,6 +240,7 @@ type XdsConnection struct {
 	ClusterNonceSent, ClusterNonceAcked   string
 	ListenerNonceSent, ListenerNonceAcked string
 	RouteNonceSent, RouteNonceAcked       string
+	RouteVersionInfoSent                  string
 	EndpointNonceSent, EndpointNonceAcked string
 	RoutePercent, EndpointPercent         int
 
@@ -443,27 +450,42 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case RouteType:
 				routes := discReq.GetResourceNames()
-				if len(routes) == len(con.Routes) || len(routes) == 0 {
-					if discReq.ErrorDetail != nil {
-						adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
-						rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-						totalXDSRejects.Add(1)
-					}
-					// Not logging full request, can be very long.
-					adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
-					if len(con.Routes) > 0 {
-						// Already got a list of routes to watch and has same length as the request, this is an ack
-						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-							con.mu.Lock()
-							con.RouteNonceAcked = discReq.ResponseNonce
-							con.mu.Unlock()
-						}
+				if discReq.ResponseNonce != "" {
+					con.mu.RLock()
+					routeNonceSent := con.RouteNonceSent
+					routeVersionInfoSent := con.RouteVersionInfoSent
+					con.mu.RUnlock()
+					if routeNonceSent != discReq.ResponseNonce {
+						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%s), sent %s, received %s",
+							peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
+						rdsExpiredNonce.Inc()
 						continue
 					}
+					if discReq.VersionInfo == routeVersionInfoSent {
+						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+						con.mu.Lock()
+						con.RouteNonceAcked = discReq.ResponseNonce
+						con.mu.Unlock()
+						continue
+					}
+					if discReq.ErrorDetail != nil || routes == nil {
+						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
+						if discReq.ErrorDetail != nil {
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+							totalXDSRejects.Add(1)
+						} else { // protocol error
+							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": "Protocol error"}).Add(1)
+							totalXDSRejects.Add(1)
+							continue
+						}
+					}
 				}
+
 				con.Routes = routes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
-				err := s.pushRoute(con, s.globalPushContext(), versionInfo())
+				err := s.pushRoute(con, s.globalPushContext())
 				if err != nil {
 					return err
 				}
@@ -592,7 +614,7 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		}
 	}
 	if len(con.Routes) > 0 {
-		err := s.pushRoute(con, pushEv.push, pushEv.version)
+		err := s.pushRoute(con, pushEv.push)
 		if err != nil {
 			return err
 		}
@@ -803,6 +825,9 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 			case EndpointType:
 				conn.EndpointNonceSent = res.Nonce
 			}
+		}
+		if res.TypeUrl == RouteType {
+			conn.RouteVersionInfoSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
 	}()

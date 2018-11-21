@@ -99,7 +99,7 @@ func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 		t.Fatal("Error connecting ", err)
 	}
 	adsc.Watch()
-	_, err = adsc.Wait("rds", 10*time.Second)
+	_, err = adsc.Wait("lds", 10*time.Second)
 	if err != nil {
 		t.Fatal("Error getting initial config ", err)
 	}
@@ -291,7 +291,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			}
 			defer adsc.Close()
 			adsc.Watch()
-			_, err = adsc.Wait("rds", 5*time.Second)
+			_, err = adsc.Wait("lds", 5*time.Second)
 			if err != nil {
 				errChan <- err
 				wgConnect.Done()
