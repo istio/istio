@@ -58,6 +58,19 @@ jaeger:
       cassandraCreateSchema:
         datacenter: "datacenter3"
         mode: "test"
+    ui:
+      options:
+        dependencies:
+          # Disable dependencies tab, as information provided by tools such as Kiali will
+          # be more accurate than tracing derived data which is subject to sampling.
+          menuEnabled: false
+        tracking:
+          gaID: UA-000000-2
+        menu:
+          - label: "About Jaeger"
+            items:
+              - label: "Documentation"
+                url: "https://www.jaegertracing.io/docs/latest"
     ingress:
       enabled: false
     annotations:

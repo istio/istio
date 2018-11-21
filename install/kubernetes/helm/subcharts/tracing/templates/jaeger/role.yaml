@@ -1,16 +1,11 @@
 {{ if eq .Values.provider "jaeger" }}
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
+  creationTimestamp: null
   name: jaeger-operator
   namespace: {{ .Release.Namespace }}
 rules:
-- apiGroups:
-  - io.jaegertracing
-  resources:
-  - "*"
-  verbs:
-  - "*"
 - apiGroups:
   - ""
   resources:
@@ -22,7 +17,7 @@ rules:
   - configmaps
   - secrets
   verbs:
-  - "*"
+  - '*'
 - apiGroups:
   - apps
   resources:
@@ -31,26 +26,30 @@ rules:
   - replicasets
   - statefulsets
   verbs:
-  - "*"
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - io.jaegertracing
+  resources:
+  - '*'
+  verbs:
+  - '*'
 - apiGroups:
   - extensions
   resources:
   - ingresses
   verbs:
   - "*"
-
----
-
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: default-account-jaeger-operator
-  namespace: {{ .Release.Namespace }}
-subjects:
-- kind: ServiceAccount
-  name: default
-roleRef:
-  kind: Role
-  name: jaeger-operator
-  apiGroup: rbac.authorization.k8s.io
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - "*"
 {{ end }}
