@@ -41,7 +41,7 @@ func (m *RouteConfiguration) Reset()         { *m = RouteConfiguration{} }
 func (m *RouteConfiguration) String() string { return proto.CompactTextString(m) }
 func (*RouteConfiguration) ProtoMessage()    {}
 func (*RouteConfiguration) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_122fb0d5e1726767, []int{0}
+	return fileDescriptor_route_9ac4720c96869364, []int{0}
 }
 func (m *RouteConfiguration) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -99,7 +99,7 @@ func (m *Route) Reset()         { *m = Route{} }
 func (m *Route) String() string { return proto.CompactTextString(m) }
 func (*Route) ProtoMessage()    {}
 func (*Route) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_122fb0d5e1726767, []int{1}
+	return fileDescriptor_route_9ac4720c96869364, []int{1}
 }
 func (m *Route) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -176,7 +176,7 @@ func (m *RouteMatch) Reset()         { *m = RouteMatch{} }
 func (m *RouteMatch) String() string { return proto.CompactTextString(m) }
 func (*RouteMatch) ProtoMessage()    {}
 func (*RouteMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_122fb0d5e1726767, []int{2}
+	return fileDescriptor_route_9ac4720c96869364, []int{2}
 }
 func (m *RouteMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -348,7 +348,7 @@ func (m *RouteAction) Reset()         { *m = RouteAction{} }
 func (m *RouteAction) String() string { return proto.CompactTextString(m) }
 func (*RouteAction) ProtoMessage()    {}
 func (*RouteAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_122fb0d5e1726767, []int{3}
+	return fileDescriptor_route_9ac4720c96869364, []int{3}
 }
 func (m *RouteAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -513,7 +513,7 @@ func (m *WeightedCluster) Reset()         { *m = WeightedCluster{} }
 func (m *WeightedCluster) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster) ProtoMessage()    {}
 func (*WeightedCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_122fb0d5e1726767, []int{4}
+	return fileDescriptor_route_9ac4720c96869364, []int{4}
 }
 func (m *WeightedCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -572,7 +572,7 @@ func (m *WeightedCluster_ClusterWeight) Reset()         { *m = WeightedCluster_C
 func (m *WeightedCluster_ClusterWeight) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster_ClusterWeight) ProtoMessage()    {}
 func (*WeightedCluster_ClusterWeight) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_122fb0d5e1726767, []int{4, 0}
+	return fileDescriptor_route_9ac4720c96869364, []int{4, 0}
 }
 func (m *WeightedCluster_ClusterWeight) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1979,10 +1979,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/route.proto", fileDescriptor_route_122fb0d5e1726767)
+	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/route.proto", fileDescriptor_route_9ac4720c96869364)
 }
 
-var fileDescriptor_route_122fb0d5e1726767 = []byte{
+var fileDescriptor_route_9ac4720c96869364 = []byte{
 	// 661 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcd, 0x6e, 0x13, 0x3d,
 	0x14, 0x8d, 0x27, 0x3f, 0x6d, 0x9d, 0xaf, 0x7f, 0xd6, 0x27, 0x88, 0x42, 0x1b, 0xd2, 0x20, 0xa4,

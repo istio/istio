@@ -67,15 +67,15 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 
 		config.AccessLog = []*accesslog.AccessLog{
 			{
-				Config: util.MessageToStruct(fl),
-				Name:   xdsutil.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_Config{util.MessageToStruct(fl)},
+				Name:       xdsutil.FileAccessLog,
 			},
 		}
 	}
 
 	tcpFilter := &listener.Filter{
-		Name:   xdsutil.TCPProxy,
-		Config: util.MessageToStruct(config),
+		Name:       xdsutil.TCPProxy,
+		ConfigType: &listener.Filter_Config{util.MessageToStruct(config)},
 	}
 	return tcpFilter
 }
@@ -158,8 +158,8 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 	}
 
 	return listener.Filter{
-		Name:   xdsutil.MongoProxy,
-		Config: util.MessageToStruct(config),
+		Name:       xdsutil.MongoProxy,
+		ConfigType: &listener.Filter_Config{util.MessageToStruct(config)},
 	}
 }
 
