@@ -53,6 +53,6 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh || echo "Some tests have failed"
 
   go get -u istio.io/test-infra/toolbox/pkg_check
-  "${GOPATH}"/bin/pkg_check  --report_file="${REPORT_PATH}/coverage.html" --baseline_file="${BASELINE_PATH}/coverage.html"
+  "${GOPATH}"/bin/pkg_check  --report_file="${REPORT_PATH}/coverage.html" --baseline_file="${BASELINE_PATH}/coverage.html" --html
 fi
 
