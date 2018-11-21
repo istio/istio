@@ -616,8 +616,8 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		con.ConID = connectionID(discReq.Node.Id)
 	}
 
-	if pilot.IsolateNamespaces != "" {
-		adminNs := strings.Split(pilot.IsolateNamespaces, ",")
+	if pilot.NetworkScopes != "" {
+		adminNs := strings.Split(pilot.NetworkScopes, ",")
 		con.modelNode.NamespaceDependencies = map[string]bool{}
 		for _, ns := range adminNs {
 			con.modelNode.NamespaceDependencies[ns] = true

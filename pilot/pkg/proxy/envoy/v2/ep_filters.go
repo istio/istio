@@ -19,6 +19,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pkg/features/pilot"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -33,7 +34,7 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network, found := conn.modelNode.Metadata["NETWORK"]
+	network, found := conn.modelNode.Metadata[pilot.NodeMetadataNetwork]
 	if !found {
 		// Couldn't find the sidecar network, using default/local
 		network = ""

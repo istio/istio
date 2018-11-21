@@ -68,11 +68,19 @@ var (
 	// AzDebug indicates whether to log service registry az info.
 	AzDebug = os.Getenv("VERBOSE_AZ_DEBUG") == "1"
 
-	// IsolateNamespaces is an experimental feature limiting configuration for
+	// NetworkScopes isolates namespaces, limiting configuration for
 	// egress and other mesh services to only hosts defined in same namespace or
-	// 'admin' namespaces. Using services from any other namespaces will require a new CRD (in review).
-	// This will likely be replaced with something different and
-	// removed - but for 1.1 it can be used in special cases with large number of services.
-	IsolateNamespaces = os.Getenv("ISOLATE_NAMESPACE")
+	// 'admin' namespaces. Using services from any other namespaces will require the new NetworkScope
+	// config.
+	NetworkScopes = os.Getenv("ISOLATE_NAMESPACE")
+
+)
+
+const (
+
+	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
+	// set at injection time. When set, the Endpoints returned to a note and not on same network
+	// will be replaced with the gateway defined in the settings.
+	NodeMetadataNetwork = "NETWORK"
 
 )

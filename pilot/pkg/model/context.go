@@ -231,6 +231,9 @@ func GetNetworkView(node *Proxy) map[string]bool {
 		return map[string]bool{UnnamedNetwork: true}
 	}
 
+	// TODO: this is only used to select CDS ( DNS-based ) - not clear when user will have DNS names
+	// bound to a network or how a node would be part of multiple networks. It may not be needed.
+
 	nmap := make(map[string]bool)
 	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
 		for _, n := range strings.Split(networks, ",") {
