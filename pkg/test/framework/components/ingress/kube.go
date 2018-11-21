@@ -19,11 +19,19 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
+
+	"istio.io/istio/pilot/pkg/model"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -31,6 +39,11 @@ import (
 const (
 	serviceName = "istio-ingressgateway"
 	istioLabel  = "ingressgateway"
+	// Specifies how long we wait before a secret becomes existent.
+	secretWaitTime = 120 * time.Second
+	// Name of secret used by egress
+	secretName     = "istio-ingressgateway-certs"
+	deploymentName = "istio-ingressgateway"
 )
 
 var (
@@ -41,8 +54,10 @@ var (
 )
 
 type kubeComponent struct {
-	id      resource.ID
-	address string
+	id                   resource.ID
+	url                  func(model.Protocol) (*url.URL, error)
+	accessor             *kube2.Accessor
+	istioSystemNamespace string
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
@@ -51,6 +66,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	env := ctx.Environment().(*kube.Environment)
 
+	c.accessor = env.Accessor
+	c.istioSystemNamespace = cfg.Istio.Settings().SystemNamespace
 	address, err := retry.Do(func() (interface{}, bool, error) {
 
 		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
@@ -83,9 +100,14 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 				return nil, false, fmt.Errorf("no ports found in service: %s/%s", n, "istio-ingressgateway")
 			}
 
-			port := svc.Spec.Ports[0].NodePort
-
-			return fmt.Sprintf("http://%s:%d", ip, port), true, nil
+			return func(protocol model.Protocol) (*url.URL, error) {
+				for _, p := range svc.Spec.Ports {
+					if supportsProtocol(p.Name, protocol) {
+						return &url.URL{Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d", ip, p.NodePort)}, nil
+					}
+				}
+				return nil, errors.New("no port found")
+			}, true, nil
 		}
 
 		// Otherwise, get the load balancer IP.
@@ -99,14 +121,25 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		}
 
 		ip := svc.Status.LoadBalancer.Ingress[0].IP
-		return fmt.Sprintf("http://%s", ip), true, nil
+		return func(protocol model.Protocol) (*url.URL, error) {
+			for _, p := range svc.Spec.Ports {
+				if supportsProtocol(p.Name, protocol) {
+					return &url.URL{Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d", ip, p.Port)}, nil
+				}
+			}
+			return nil, errors.New("no port found")
+		}, true, nil
 	}, retryTimeout, retryDelay)
 
 	if err != nil {
 		return nil, err
 	}
-	c.address = address.(string)
+	err = c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), []string{"/etc/certs/cert-chain.pem"}, secretWaitTime)
+	if err != nil {
+		return nil, err
+	}
 
+	c.url = address.(func(protocol model.Protocol) (*url.URL, error))
 	return c, nil
 }
 
@@ -114,9 +147,15 @@ func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
 
-// Address implements environment.DeployedIngress
-func (c *kubeComponent) Address() string {
-	return c.address
+func supportsProtocol(name string, protocol model.Protocol) bool {
+	return name == "http" && (protocol == model.ProtocolHTTP || protocol == model.ProtocolHTTP2) ||
+		name == "http2" && (protocol == model.ProtocolHTTP || protocol == model.ProtocolHTTP2) ||
+		name == "https" && protocol == model.ProtocolHTTPS
+}
+
+// URL implements environment.DeployedIngress
+func (c *kubeComponent) URL(protocol model.Protocol) (*url.URL, error) {
+	return c.url(protocol)
 }
 
 func (c *kubeComponent) Call(path string) (CallResponse, error) {
@@ -127,11 +166,16 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	url := c.address + path
+	url, err := c.url(model.ProtocolHTTP)
+	if err != nil {
+		return CallResponse{}, err
+	}
+
+	url.Path = path
 
 	scopes.Framework.Debugf("Sending call to ingress at: %s", url)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return CallResponse{}, err
 	}
@@ -147,7 +191,7 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	var ba []byte
 	ba, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", c.address, err)
+		scopes.Framework.Warnf("Unable to connect to read from %s: %v", c.url, err)
 		return CallResponse{}, err
 	}
 	contents := string(ba)
@@ -161,4 +205,49 @@ func (c *kubeComponent) Call(path string) (CallResponse, error) {
 	// scopes.Framework.Debugf("Received response to ingress call (url: %s): %+v", url, response)
 
 	return response, nil
+}
+
+func (c *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error) {
+	secret.Name = secretName
+	secretAPI := c.accessor.GetSecret(c.istioSystemNamespace)
+	_, err := secretAPI.Create(secret)
+	if err != nil {
+		switch t := err.(type) {
+		case *errors2.StatusError:
+			if t.ErrStatus.Reason == v12.StatusReasonAlreadyExists {
+				_, err := secretAPI.Update(secret)
+				if err != nil {
+					return nil, err
+				}
+			}
+		default:
+			return nil, err
+		}
+	}
+	secret, err = c.accessor.WaitForSecretExist(secretAPI, secretName, secretWaitTime)
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, 0)
+	for key := range secret.Data {
+		files = append(files, "/etc/istio/ingressgateway-certs/"+key)
+	}
+	err = c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
+	if err != nil {
+		return nil, err
+	}
+	return secret, nil
+}
+
+func (c *kubeComponent) AddSecretMountPoint(path string) error {
+	deployment, err := c.accessor.GetDeployment(c.istioSystemNamespace, deploymentName)
+	if err != nil {
+		return err
+	}
+	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts,
+		v1.VolumeMount{MountPath: path, Name: "ingressgateway-certs", ReadOnly: true})
+
+	_, err = c.accessor.UpdateDeployment(deployment)
+	return err
 }

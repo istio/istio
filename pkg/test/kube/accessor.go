@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/log"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -26,10 +28,12 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeApiCore "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeClient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -345,6 +349,29 @@ func (a *Accessor) GetEndpoints(ns, service string, options kubeApiMeta.GetOptio
 	return a.set.CoreV1().Endpoints(ns).Get(service, options)
 }
 
+// Wait for a secret
+func (a *Accessor) WaitForSecretExist(secret kubeClientCore.SecretInterface, secretName string, timeout time.Duration) (*kubeApiCore.Secret, error) {
+	watch, err := secret.Watch(mv1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
+	}
+	events := watch.ResultChan()
+
+	startTime := time.Now()
+	for {
+		select {
+		case event := <-events:
+			secret := event.Object.(*kubeApiCore.Secret)
+			if secret.GetName() == secretName {
+				return secret, nil
+			}
+		case <-time.After(timeout - time.Since(startTime)):
+			return nil, fmt.Errorf("secret %v did not become existent within %v",
+				secretName, timeout)
+		}
+	}
+}
+
 // CreateNamespace with the given name. Also adds an "istio-testing" annotation.
 func (a *Accessor) CreateNamespace(ns string, istioTestingAnnotation string, injectionEnabled bool) error {
 	scopes.Framework.Debugf("Creating namespace: %s", ns)
@@ -433,7 +460,50 @@ func (a *Accessor) Exec(namespace, pod, container, command string) (string, erro
 	return a.ctl.exec(namespace, pod, container, command)
 }
 
-// CheckPodReady returns nil if the given pod and all of its containers are ready.
+func (a *Accessor) WaitForFilesExistence(namespace string, selector string, files []string, duration time.Duration) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
+		pods, err := a.GetPods(namespace, selector)
+		if err != nil {
+			return nil, true, err
+		}
+		for _, pod := range pods {
+			cmd := "test -f " + strings.Join(files, " -a -f ")
+			_, err := a.ctl.exec(namespace, pod.Name, "", cmd)
+			if err != nil {
+				return nil, false, err
+			}
+		}
+		return nil, true, nil
+	}, retry.Timeout(duration), defaultRetryDelay)
+
+	if err != nil {
+		log.Errora(err)
+	}
+	return err
+}
+
+// GetDeployment get a deployment
+func (a *Accessor) GetDeployment(ns string, name string, opts ...retry.Option) (*extensions.Deployment, error) {
+	result, err := retry.Do(func() (interface{}, bool, error) {
+
+		deployment, err := a.set.ExtensionsV1beta1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, true, err
+			}
+			return nil, false, err
+		}
+
+		return deployment, true, nil
+	}, newRetryOptions(opts...)...)
+	return result.(*extensions.Deployment), err
+}
+
+// UpdateDeployment update a deployment
+func (a *Accessor) UpdateDeployment(deployment *extensions.Deployment) (*extensions.Deployment, error) {
+	return a.set.ExtensionsV1beta1().Deployments(deployment.Namespace).Update(deployment)
+}
+
 func CheckPodReady(pod *kubeApiCore.Pod) error {
 	switch pod.Status.Phase {
 	case kubeApiCore.PodSucceeded:

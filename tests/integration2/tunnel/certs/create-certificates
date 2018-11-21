@@ -1,0 +1,7 @@
+#!/bin/bash
+
+for cert in client service ; do
+  openssl req -new -out $cert.csr -config $cert.conf
+  openssl x509 -req -in $cert.csr -CA ca.crt -CAkey ca.key -out $cert.crt -CAcreateserial -extensions $cert -extfile extension.conf -days 3650
+done
+

@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -403,59 +403,74 @@ func (c *kubeComponent) Close() (err error) {
 	return
 }
 
-type endpoint struct {
+type KubeEndpoint struct {
+	url   *url.URL
 	port  *model.Port
 	owner *kubeApp
 }
 
-func (e *endpoint) Name() string {
+func (e *KubeEndpoint) Name() string {
 	return e.port.Name
 }
 
-func (e *endpoint) Owner() App {
+func (e *KubeEndpoint) Owner() App {
 	return e.owner
 }
 
-func (e *endpoint) Protocol() model.Protocol {
+func (e *KubeEndpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-func (e *endpoint) makeURL(opts AppCallOptions) *url.URL {
-	protocol := string(opts.Protocol)
-	switch protocol {
-	case AppProtocolHTTP:
-	case AppProtocolGRPC:
-	case AppProtocolWebSocket:
-	default:
-		protocol = string(AppProtocolHTTP)
-	}
+func (e *KubeEndpoint) URL() *url.URL {
+	if e.url == nil {
+		var protocol string
+		switch e.port.Protocol {
+		case model.ProtocolGRPC:
+			protocol = AppProtocolGRPC
+		case model.ProtocolGRPCWeb:
+			protocol = AppProtocolWebSocket
+		case model.ProtocolHTTPS:
+			protocol = AppProtocolHTTP + "s"
+		default:
+			protocol = AppProtocolHTTP
+		}
 
-	if opts.Secure {
-		protocol += "s"
+		host := e.owner.serviceName + "." + e.owner.namespace
+		return &url.URL{
+			Scheme: protocol,
+			Host:   net.JoinHostPort(host, strconv.Itoa(e.port.Port)),
+		}
 	}
+	return e.url
+}
 
-	host := e.owner.serviceName
-	if !opts.UseShortHostname {
-		host += "." + e.owner.namespace
-	}
-	return &url.URL{
-		Scheme: protocol,
-		Host:   net.JoinHostPort(host, strconv.Itoa(e.port.Port)),
-	}
+func (e *KubeEndpoint) SetURL(URL *url.URL) {
+	e.url = URL
 }
 
 // Represents a deployed App in k8s environment.
 type KubeApp interface {
 	App
 	EndpointForPort(port int) AppEndpoint
+	ClusterIP() string
 }
+
+type kubeSvc struct {
+	*kubeApiCore.Service
+}
+
+func (s *kubeSvc) ClusterIP() string {
+	return s.Spec.ClusterIP
+}
+
 type kubeApp struct {
 	namespace   string
 	serviceName string
 	appName     string
-	endpoints   []*endpoint
+	endpoints   []*KubeEndpoint
 	forwarder   testKube.PortForwarder
 	client      *echo.Client
+	service     *kubeApiCore.Service
 }
 
 var _ App = &kubeApp{}
@@ -471,19 +486,19 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		}
 	}()
 
-	service, err := e.GetService(namespace, serviceName)
+	a.service, err = e.GetService(namespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the app name for this service.
-	a.appName = service.Labels[appLabel]
+	a.appName = a.service.Labels[appLabel]
 	if len(a.appName) == 0 {
 		return nil, fmt.Errorf("service does not contain the 'app' label")
 	}
 
 	// Extract the endpoints from the service definition.
-	a.endpoints = getEndpoints(a, service)
+	a.endpoints = getEndpoints(a, a.service)
 
 	var grpcPort uint16
 	grpcPort, err = a.getGrpcPort()
@@ -523,17 +538,21 @@ func (a *kubeApp) getGrpcPort() (uint16, error) {
 	if len(commandEndpoints) == 0 {
 		return 0, fmt.Errorf("unable fo find GRPC command port")
 	}
-	return uint16(commandEndpoints[0].(*endpoint).port.Port), nil
+	return uint16(commandEndpoints[0].(*KubeEndpoint).port.Port), nil
 }
 
 func (a *kubeApp) Name() string {
 	return a.serviceName
 }
 
-func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
-	out := make([]*endpoint, len(service.Spec.Ports))
+func (a *kubeApp) ClusterIP() string {
+	return (&kubeSvc{a.service}).ClusterIP()
+}
+
+func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*KubeEndpoint {
+	out := make([]*KubeEndpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
-		out[i] = &endpoint{
+		out[i] = &KubeEndpoint{
 			owner: owner,
 			port: &model.Port{
 				Name:     servicePort.Name,
@@ -572,29 +591,16 @@ func (a *kubeApp) EndpointForPort(port int) AppEndpoint {
 	return nil
 }
 
-// Call implements the environment.DeployedApp interface
-func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
-	dst, ok := e.(*endpoint)
-	if !ok {
-		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
-	}
-
-	// Normalize the count.
-	if opts.Count <= 0 {
-		opts.Count = 1
-	}
-
-	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
+func (a *kubeApp) callURL(url *url.URL, dst App, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
 	}
 
 	// Forward a request from 'this' service to the destination service.
-	dstURL := dst.makeURL(opts)
-	dstServiceName := dst.owner.Name()
+	dstServiceName := dst.Name()
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   dstURL.String(),
+		Url:   url.String(),
 		Count: int32(opts.Count),
 		Headers: []*proto.Header{
 			{
@@ -616,11 +622,18 @@ func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedRespon
 	if resp[0].Host != dstServiceName {
 		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	if resp[0].Port != strconv.Itoa(dst.port.Port) {
+	if resp[0].Port != url.Port() {
 		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
 	return resp, nil
+
+}
+
+// Call implements the environment.DeployedApp interface
+func (a *kubeApp) Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error) {
+	kubeEndpoint := e.(*KubeEndpoint)
+	return a.callURL(kubeEndpoint.URL(), e.Owner(), opts)
 }
 
 func (a *kubeApp) CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse {

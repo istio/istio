@@ -15,12 +15,15 @@
 package kube
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/environment/api"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 // Environment is the implementation of a kubernetes environment. It implements environment.Environment,
@@ -112,4 +115,51 @@ func (e *Environment) DeployYaml(namespace, yamlFile string) (*deployment.Instan
 		return nil, err
 	}
 	return i, nil
+}
+
+const (
+	service = `---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+spec:
+  ports:
+  - port: {{ .port }}
+    protocol: TCP
+    targetPort: {{ .port }}
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+`
+)
+
+func (e *Environment) AllocateIPAddress(port int, name string, namespace string) (string, error) {
+	content, err := tmpl.Evaluate(service,
+		map[string]interface{}{
+			"name":      name,
+			"namespace": namespace,
+			"port":      port})
+	if err != nil {
+		return "", err
+	}
+	_, err = e.Accessor.ApplyContents(namespace, content)
+	if err != nil {
+		return "", err
+	}
+	service, err := e.Accessor.GetService(namespace, name)
+	if err != nil {
+		return "", err
+	}
+	return service.Spec.ClusterIP, nil
+}
+
+func (e *Environment) AllocateIPAddressOrFail(port int, name string, namespace string, t testing.TB) string {
+	ip, err := e.AllocateIPAddress(port, name, namespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ip
 }

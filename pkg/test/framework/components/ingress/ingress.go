@@ -15,7 +15,12 @@
 package ingress
 
 import (
+	"net/url"
 	"testing"
+
+	"istio.io/istio/pilot/pkg/model"
+
+	"k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/framework/components/environment"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -26,12 +31,18 @@ import (
 type Instance interface {
 	resource.Resource
 
-	// Address returns the external HTTP address of the ingress gateway (or the NodePort address,
+	// URL returns the external HTTP address of the ingress gateway (or the NodePort address,
 	// when running under Minikube).
-	Address() string
+	URL(protocol model.Protocol) (*url.URL, error)
 
 	//  Call makes an HTTP call through ingress, where the URL has the given path.
 	Call(path string) (CallResponse, error)
+
+	// Configure a secret and wait for the existence
+	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)
+
+	// Add addition secret mountpoint
+	AddSecretMountPoint(path string) error
 }
 
 type Config struct {

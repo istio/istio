@@ -1,0 +1,3 @@
+#!/bin/bash
+
+openssl req -new -x509 -out ca.crt -config ca.conf -days 10000
