@@ -111,9 +111,6 @@ var (
 		plugin.Mixer,
 		plugin.Envoyfilter,
 	}
-
-	// Global mutex
-	globalMutex = sync.Mutex{}
 )
 
 func init() {
@@ -220,6 +217,8 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{
 		fileWatcher: filewatcher.NewWatcher(),
 	}
+
+	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
@@ -1077,9 +1076,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 		caCertPool.AppendCertsFromPEM(caCert)
 
 		opts = append(opts, grpc.Creds(creds))
-		s.secureGrpcMutex.Lock()
 		s.secureGRPCServer = grpc.NewServer(opts...)
-		s.secureGrpcMutex.Unlock()
 
 		s.EnvoyXdsServer.Register(s.secureGRPCServer)
 
@@ -1134,13 +1131,6 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 		// setup server prometheus monitoring (as final interceptor in chain)
 		prometheus.UnaryServerInterceptor,
 	}
-
-	// EnableHandlingTimeHistogram() has a data race within it (reading/writing to its
-	// serverHandledHistogramEnabled). Using a package mutex to avoid data races.
-	// Should be re-examined with an updated revision of the go-grpc-prometheus.
-	globalMutex.Lock()
-	prometheus.EnableHandlingTimeHistogram()
-	globalMutex.Unlock()
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.

@@ -337,12 +337,12 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 
 	log.Println("LDS: http=", len(lh), "tcp=", len(lt), "size=", ldsSize)
 	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if len(routes) > 0 {
 		a.sendRsc(routeType, routes)
 	}
 	a.HTTPListeners = lh
 	a.TCPListeners = lt
-	defer a.mutex.Unlock()
 
 	select {
 	case a.Updates <- "lds":
