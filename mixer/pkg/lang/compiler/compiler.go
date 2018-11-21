@@ -270,6 +270,14 @@ func (g *generator) generateFunction(f *ast.Function, depth int, mode nilMode, v
 		g.generateEq(f, depth)
 	case "NEQ":
 		g.generateNeq(f, depth)
+	case "LT":
+		g.generateLt(f, depth)
+	case "LEQ":
+		g.generateLe(f, depth)
+	case "GT":
+		g.generateGt(f, depth)
+	case "GEQ":
+		g.generateGe(f, depth)
 	case "LOR":
 		g.generateLor(f, depth)
 	case "LAND":
@@ -367,6 +375,187 @@ func (g *generator) generateEq(f *ast.Function, depth int) {
 
 	default:
 		g.internalError("equality for type not yet implemented: %v", exprType)
+	}
+}
+
+func (g *generator) generateLt(f *ast.Function, depth int) {
+	exprType := g.evalType(f.Args[0])
+	g.generate(f.Args[0], depth+1, nmNone, "")
+
+	var constArg1 interface{}
+	if f.Args[1].Const != nil {
+		constArg1 = f.Args[1].Const.Value
+	} else {
+		g.generate(f.Args[1], depth+1, nmNone, "")
+	}
+
+	switch exprType {
+
+	case il.String:
+		if constArg1 != nil {
+			g.builder.ALTString(constArg1.(string))
+		} else {
+			g.builder.LTString()
+		}
+
+	case il.Integer:
+		if constArg1 != nil {
+			g.builder.ALTInteger(constArg1.(int64))
+		} else {
+			g.builder.LTInteger()
+		}
+
+	case il.Double:
+		if constArg1 != nil {
+			g.builder.ALTDouble(constArg1.(float64))
+		} else {
+			g.builder.LTDouble()
+		}
+
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.TIMESTAMP:
+			g.builder.Call("timestamp_lt")
+		default:
+			g.internalError("less than for type not yet implemented: %v", exprType)
+		}
+
+	default:
+		g.internalError("less than for type not yet implemented: %v", exprType)
+	}
+}
+
+func (g *generator) generateGt(f *ast.Function, depth int) {
+	exprType := g.evalType(f.Args[0])
+	g.generate(f.Args[0], depth+1, nmNone, "")
+
+	var constArg1 interface{}
+	if f.Args[1].Const != nil {
+		constArg1 = f.Args[1].Const.Value
+	} else {
+		g.generate(f.Args[1], depth+1, nmNone, "")
+	}
+
+	switch exprType {
+
+	case il.String:
+		if constArg1 != nil {
+			g.builder.AGTString(constArg1.(string))
+		} else {
+			g.builder.GTString()
+		}
+	case il.Integer:
+		if constArg1 != nil {
+			g.builder.AGTInteger(constArg1.(int64))
+		} else {
+			g.builder.GTInteger()
+		}
+	case il.Double:
+		if constArg1 != nil {
+			g.builder.AGTDouble(constArg1.(float64))
+		} else {
+			g.builder.GTDouble()
+		}
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.TIMESTAMP:
+			g.builder.Call("timestamp_gt")
+		default:
+			g.internalError("greater than for type not yet implemented: %v", exprType)
+		}
+	default:
+		g.internalError("greater than for type not yet implemented: %v", exprType)
+	}
+}
+
+func (g *generator) generateGe(f *ast.Function, depth int) {
+	exprType := g.evalType(f.Args[0])
+	g.generate(f.Args[0], depth+1, nmNone, "")
+
+	var constArg1 interface{}
+	if f.Args[1].Const != nil {
+		constArg1 = f.Args[1].Const.Value
+	} else {
+		g.generate(f.Args[1], depth+1, nmNone, "")
+	}
+
+	switch exprType {
+
+	case il.String:
+		if constArg1 != nil {
+			g.builder.AGEString(constArg1.(string))
+		} else {
+			g.builder.GEString()
+		}
+	case il.Integer:
+		if constArg1 != nil {
+			g.builder.AGEInteger(constArg1.(int64))
+		} else {
+			g.builder.GEInteger()
+		}
+	case il.Double:
+		if constArg1 != nil {
+			g.builder.AGEDouble(constArg1.(float64))
+		} else {
+			g.builder.GEDouble()
+		}
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.TIMESTAMP:
+			g.builder.Call("timestamp_ge")
+		default:
+			g.internalError("greater or equal for type not yet implemented: %v", exprType)
+		}
+	default:
+		g.internalError("greater or equal for type not yet implemented: %v", exprType)
+	}
+}
+
+func (g *generator) generateLe(f *ast.Function, depth int) {
+	exprType := g.evalType(f.Args[0])
+	g.generate(f.Args[0], depth+1, nmNone, "")
+
+	var constArg1 interface{}
+	if f.Args[1].Const != nil {
+		constArg1 = f.Args[1].Const.Value
+	} else {
+		g.generate(f.Args[1], depth+1, nmNone, "")
+	}
+
+	switch exprType {
+
+	case il.String:
+		if constArg1 != nil {
+			g.builder.ALEString(constArg1.(string))
+		} else {
+			g.builder.LEString()
+		}
+	case il.Integer:
+		if constArg1 != nil {
+			g.builder.ALEInteger(constArg1.(int64))
+		} else {
+			g.builder.LEInteger()
+		}
+	case il.Double:
+		if constArg1 != nil {
+			g.builder.ALEDouble(constArg1.(float64))
+		} else {
+			g.builder.LEDouble()
+		}
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.TIMESTAMP:
+			g.builder.Call("timestamp_le")
+		default:
+			g.internalError("less or equal for type not yet implemented: %v", exprType)
+		}
+
+	default:
+		g.internalError("less or equal for type not yet implemented: %v", exprType)
 	}
 }
 

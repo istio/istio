@@ -313,6 +313,102 @@ const (
 
 	// SizeS pops a string value from the stack, and pushes its length back into stack.
 	SizeS Opcode = 216
+
+	// LtS pops two string values from the stack and compare for order.
+	// If less then it pushes 1 into the stack, otherwise it pushes 0.
+	LtS Opcode = 217
+
+	// LtI pops two integer values from the stack and compare for order.
+	// If less then it pushes 1 into the stack, otherwise it pushes 0.
+	LtI Opcode = 218
+
+	// LtD pops two float values from the stack and compare for order.
+	// If less then it pushes 1 into the stack, otherwise it pushes 0.
+	LtD Opcode = 219
+
+	// ALtS pops a string value from the stack and compare it against its argument for order.
+	// If the value on the stack is less, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALtS Opcode = 220
+
+	// ALtI pops an integer value from the stack and compare it against its argument for order.
+	// If the value on the stack is less, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALtI Opcode = 221
+
+	// ALtD pops a float value from the stack and compare it against its argument for order.
+	// If the value on the stack is less, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALtD Opcode = 222
+
+	// LeS pops two string values from the stack and compare for order.
+	// If less or equals then it pushes 1 into the stack, otherwise it pushes 0.
+	LeS Opcode = 223
+
+	// LeI pops two integer values from the stack and compare for order.
+	// If less or equals then it pushes 1 into the stack, otherwise it pushes 0.
+	LeI Opcode = 224
+
+	// LeD pops two float values from the stack and compare for order.
+	// If less or equals then it pushes 1 into the stack, otherwise it pushes 0.
+	LeD Opcode = 225
+
+	// ALeS pops a string value from the stack and compare it against its argument for order.
+	// If the value on the stack is less or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALeS Opcode = 226
+
+	// ALeI pops an integer value from the stack and compare it against its argument for order.
+	// If the value on the stack is less or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALeI Opcode = 227
+
+	// ALeD pops a float value from the stack and compare it against its argument for order.
+	// If the value on the stack is less or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALeD Opcode = 228
+
+	// GtS pops two string values from the stack and compare for order.
+	// If greater then it pushes 1 into the stack, otherwise it pushes 0.
+	GtS Opcode = 229
+
+	// GtI pops two integer values from the stack and compare for order.
+	// If greater then it pushes 1 into the stack, otherwise it pushes 0.
+	GtI Opcode = 230
+
+	// GtD pops two float values from the stack and compare for order.
+	// If greater then it pushes 1 into the stack, otherwise it pushes 0.
+	GtD Opcode = 231
+
+	// AGtS pops a string value from the stack and compare it against its argument for order.
+	// If the value on the stack is greater, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGtS Opcode = 232
+
+	// AGtI pops an integer value from the stack and compare it against its argument for order.
+	// If the value on the stack is greater, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGtI Opcode = 233
+
+	// AGtD pops a float value from the stack and compare it against its argument for order.
+	// If the value on the stack is greater, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGtD Opcode = 234
+
+	// GeS pops two string values from the stack and compare for order.
+	// If greater or equal then it pushes 1 into the stack, otherwise it pushes 0.
+	GeS Opcode = 235
+
+	// GeI pops two integer values from the stack and compare for order.
+	// If greater or equal then it pushes 1 into the stack, otherwise it pushes 0.
+	GeI Opcode = 236
+
+	// GeD pops two float values from the stack and compare for order.
+	// If greater or equal then it pushes 1 into the stack, otherwise it pushes 0.
+	GeD Opcode = 237
+
+	// AGeS pops a string value from the stack and compare it against its argument for order.
+	// If the value on the stack is greater or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGeS Opcode = 238
+
+	// AGeI pops an integer value from the stack and compare it against its argument for equality.
+	// If greater or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGeI Opcode = 239
+
+	// AGeD pops a float value from the stack and compare it against its argument for equality.
+	// If greater or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGeD Opcode = 240
 )
 
 const (
@@ -776,6 +872,138 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 
 	// SizeS pops a string and pushes it length.
 	SizeS: {name: "SizeS", keyword: "size_s"},
+
+	// LtS pops two string values from the stack and compare for order.
+	// If less then it pushes 1 into the stack, otherwise it pushes 0.
+	LtS: {name: "LtS", keyword: "lt_s"},
+
+	// LtI pops two integer values from the stack and compare for order.
+	// If less then it pushes 1 into the stack, otherwise it pushes 0.
+	LtI: {name: "LtI", keyword: "lt_i"},
+
+	// LtD pops two float values from the stack and compare for order.
+	// If less then it pushes 1 into the stack, otherwise it pushes 0.
+	LtD: {name: "LtD", keyword: "lt_d"},
+
+	// ALtS pops a string value from the stack and compare it against its argument for order.
+	// If the value on the stack is less, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALtS: {name: "ALtS", keyword: "alt_s", args: []OpcodeArg{
+		// The string value for comparison.
+		OpcodeArgString,
+	}},
+
+	// ALtI pops an integer value from the stack and compare it against its argument for order.
+	// If the value on the stack is less, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALtI: {name: "ALtI", keyword: "alt_i", args: []OpcodeArg{
+		// The integer value for comparison.
+		OpcodeArgInt,
+	}},
+
+	// ALtD pops a float value from the stack and compare it against its argument for order.
+	// If the value on the stack is less, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALtD: {name: "ALtD", keyword: "alt_d", args: []OpcodeArg{
+		// The integer value for comparison.
+		OpcodeArgDouble,
+	}},
+
+	// LeS pops two string values from the stack and compare for order.
+	// If less or equals then it pushes 1 into the stack, otherwise it pushes 0.
+	LeS: {name: "LeS", keyword: "le_s"},
+
+	// LeI pops two integer values from the stack and compare for order.
+	// If less or equals then it pushes 1 into the stack, otherwise it pushes 0.
+	LeI: {name: "LeI", keyword: "le_i"},
+
+	// LeD pops two float values from the stack and compare for order.
+	// If less or equals then it pushes 1 into the stack, otherwise it pushes 0.
+	LeD: {name: "LeD", keyword: "le_d"},
+
+	// ALeS pops a string value from the stack and compare it against its argument for order.
+	// If the value on the stack is less or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALeS: {name: "ALeS", keyword: "ale_s", args: []OpcodeArg{
+		// The string value for comparison.
+		OpcodeArgString,
+	}},
+
+	// ALeI pops an integer value from the stack and compare it against its argument for order.
+	// If the value on the stack is less or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALeI: {name: "ALeI", keyword: "ale_i", args: []OpcodeArg{
+		// The integer value for comparison.
+		OpcodeArgInt,
+	}},
+
+	// ALeD pops a float value from the stack and compare it against its argument for order.
+	// If the value on the stack is less or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	ALeD: {name: "ALeD", keyword: "ale_d", args: []OpcodeArg{
+		// The integer value for comparison.
+		OpcodeArgDouble,
+	}},
+
+	// GtS pops two string values from the stack and compare for order.
+	// If greater then it pushes 1 into the stack, otherwise it pushes 0.
+	GtS: {name: "GtS", keyword: "gt_s"},
+
+	// GtI pops two integer values from the stack and compare for order.
+	// If greater then it pushes 1 into the stack, otherwise it pushes 0.
+	GtI: {name: "GtI", keyword: "gt_i"},
+
+	// GtD pops two float values from the stack and compare for order.
+	// If greater then it pushes 1 into the stack, otherwise it pushes 0.
+	GtD: {name: "GtD", keyword: "gt_d"},
+
+	// AGtS pops a string value from the stack and compare it against its argument for order.
+	// If the value on the stack is greater, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGtS: {name: "AGtS", keyword: "agt_s", args: []OpcodeArg{
+		// The string value for comparison.
+		OpcodeArgString,
+	}},
+
+	// AGtI pops an integer value from the stack and compare it against its argument for order.
+	// If the value on the stack is greater, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGtI: {name: "AGtI", keyword: "agt_i", args: []OpcodeArg{
+		// The integer value for comparison.
+		OpcodeArgInt,
+	}},
+
+	// AGtD pops a float value from the stack and compare it against its argument for order.
+	// If the value on the stack is greater, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGtD: {name: "AGtD", keyword: "agt_d", args: []OpcodeArg{
+		// The integer value for comparison.
+		OpcodeArgDouble,
+	}},
+
+	// GeS pops two string values from the stack and compare for order.
+	// If greater or equal then it pushes 1 into the stack, otherwise it pushes 0.
+	GeS: {name: "GeS", keyword: "ge_s"},
+
+	// GeI pops two integer values from the stack and compare for order.
+	// If greater or equal then it pushes 1 into the stack, otherwise it pushes 0.
+	GeI: {name: "GeI", keyword: "ge_i"},
+
+	// GeD pops two float values from the stack and compare for order.
+	// If greater or equal then it pushes 1 into the stack, otherwise it pushes 0.
+	GeD: {name: "GeD", keyword: "ge_d"},
+
+	// AGeS pops a string value from the stack and compare it against its argument for order.
+	// If the value on the stack is greater or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGeS: {name: "AGeS", keyword: "age_s", args: []OpcodeArg{
+		// The string value for comparison.
+		OpcodeArgString,
+	}},
+
+	// AGeI pops an integer value from the stack and compare it against its argument for equality.
+	// If greater or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGeI: {name: "AGeI", keyword: "age_i", args: []OpcodeArg{
+		// The integer value for comparison.
+		OpcodeArgInt,
+	}},
+
+	// AGeD pops a float value from the stack and compare it against its argument for equality.
+	// If greater or equal, then it pushes 1 into the stack, otherwise it pushes 0.
+	AGeD: {name: "AGeD", keyword: "age_d", args: []OpcodeArg{
+		// The integer value for comparison.
+		OpcodeArgDouble,
+	}},
 }
 
 var opcodesByKeyword = func() map[string]Opcode {
