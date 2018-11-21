@@ -57,7 +57,8 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"}))
 }
 
-//TODO Is this really correct?
+// This test is used to ensure that the former behaviour is unchanged
+// When pilot is started without a trust domain, the SPIFFE URI doesn't contain a host and is not valid
 func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
@@ -70,7 +71,7 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"}))
 }
 
-func TestPilotSanIfAuthenticationMutualIdentityDomain(t *testing.T) {
+func TestPilotSanIfAuthenticationMutualTrustDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = ""
 	role.TrustDomain = "secured"
@@ -82,7 +83,7 @@ func TestPilotSanIfAuthenticationMutualIdentityDomain(t *testing.T) {
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"}))
 }
 
-func TestPilotSanIfAuthenticationMutualIdentityDomainAndDomain(t *testing.T) {
+func TestPilotSanIfAuthenticationMutualTrustDomainAndDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = "my.domain"
 	role.TrustDomain = "secured"
@@ -148,6 +149,8 @@ func TestPilotSanIfAuthenticationMutualStdDomainKubernetes(t *testing.T) {
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
 
+// This test is used to ensure that the former behaviour is unchanged
+// When pilot is started without a trust domain, the SPIFFE URI doesn't contain a host and is not valid
 func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.DNSDomain = "service.consul"

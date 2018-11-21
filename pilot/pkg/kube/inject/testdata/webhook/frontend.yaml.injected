@@ -54,7 +54,6 @@ spec:
         - "15020"
         - --applicationPorts
         - ""
-        - --trust-domain=cluster.local
         env:
         - name: POD_NAME
           valueFrom:

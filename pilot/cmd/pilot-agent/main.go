@@ -166,8 +166,8 @@ var (
 					}
 				}
 			}
-			pilotSAN = getPilotSAN(role.DNSDomain, ns)
 			role.DNSDomain = getDNSDomain(role.DNSDomain)
+			pilotSAN = getPilotSAN(role.DNSDomain, ns)
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -298,19 +298,19 @@ var (
 func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
 	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotIdentityDomain := role.TrustDomain
-		if len(pilotIdentityDomain) == 0 {
+		pilotTrustDomain := role.TrustDomain
+		if len(pilotTrustDomain) == 0 {
 			if registry == serviceregistry.KubernetesRegistry &&
 				(domain == os.Getenv("POD_NAMESPACE")+".svc.cluster.local" || domain == "") {
-				pilotIdentityDomain = "cluster.local"
+				pilotTrustDomain = "cluster.local"
 			} else if registry == serviceregistry.ConsulRegistry &&
 				(domain == "service.consul" || domain == "") {
-				pilotIdentityDomain = ""
+				pilotTrustDomain = ""
 			} else {
-				pilotIdentityDomain = domain
+				pilotTrustDomain = domain
 			}
 		}
-		pilotSAN = envoy.GetPilotSAN(pilotIdentityDomain, ns)
+		pilotSAN = envoy.GetPilotSAN(pilotTrustDomain, ns)
 	}
 	return pilotSAN
 }
