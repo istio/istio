@@ -604,8 +604,8 @@ jobs:
             MAXPROCS=6 bin/codecov_diff.sh
       - run:
           name: Uploading code coverage to codecov.io
-          when: always
-          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.cov
+          when: on_success
+          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/pr/coverage.cov
       - store_artifacts:
           path: /go/out/codecov
 
