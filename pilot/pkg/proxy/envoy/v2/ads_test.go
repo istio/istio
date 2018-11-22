@@ -244,3 +244,59 @@ func TestAdsUpdate(t *testing.T) {
 	strResponse, _ = model.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
 }
+
+func TestEnvoyRDSProtocolError(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+
+	// wait for debounce
+	time.Sleep(3 * v2.DebounceAfter)
+
+	err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+
+	v2.AdsPushAll(server.EnvoyXdsServer)
+
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) != 2 {
+		t.Fatal("No routes returned")
+	}
+
+	// send a protocol error
+	err = sendRDSReq(gatewayId(gatewayIP), nil, res.Nonce, edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Refresh routes
+	err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes after protocol error")
+	}
+}

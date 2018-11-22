@@ -221,6 +221,8 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 		t.Fatal("Expecting full push after service account update", err, upd)
 	}
 	adsc.Wait("rds", 5*time.Second)
+	// LDS also asks for an update
+	adsc.Wait("rds", 5*time.Second)
 	testTCPEndpoints("127.0.0.3", adsc, t)
 
 	// Update the endpoint again, no SA change - expect incremental
@@ -289,7 +291,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			}
 			defer adsc.Close()
 			adsc.Watch()
-			_, err = adsc.Wait("rds", 10*time.Second)
+			_, err = adsc.Wait("rds", 5*time.Second)
 			if err != nil {
 				errChan <- errors.New("Failed to get initial rds" + err.Error())
 				wgConnect.Done()
