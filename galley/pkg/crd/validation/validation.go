@@ -129,7 +129,7 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 			for {
 				if err := webhookHTTPSHandlerReady(vc); err != nil {
 					validationReadinessProbe.SetAvailable(errors.New("not ready"))
-					scope.Infof("https handler for validation webhook  is not ready: %v", err)
+					scope.Infof("https handler for validation webhook is not ready: %v", err)
 					ready = false
 				} else {
 					validationReadinessProbe.SetAvailable(nil)
