@@ -59,7 +59,7 @@ func (x ApiConfigSource_ApiType) String() string {
 	return proto.EnumName(ApiConfigSource_ApiType_name, int32(x))
 }
 func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{0, 0}
+	return fileDescriptor_config_source_17996ce5b35770ec, []int{0, 0}
 }
 
 // API configuration source. This identifies the API type and cluster that Envoy
@@ -94,7 +94,7 @@ func (m *ApiConfigSource) Reset()         { *m = ApiConfigSource{} }
 func (m *ApiConfigSource) String() string { return proto.CompactTextString(m) }
 func (*ApiConfigSource) ProtoMessage()    {}
 func (*ApiConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{0}
+	return fileDescriptor_config_source_17996ce5b35770ec, []int{0}
 }
 func (m *ApiConfigSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -178,7 +178,7 @@ func (m *AggregatedConfigSource) Reset()         { *m = AggregatedConfigSource{}
 func (m *AggregatedConfigSource) String() string { return proto.CompactTextString(m) }
 func (*AggregatedConfigSource) ProtoMessage()    {}
 func (*AggregatedConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{1}
+	return fileDescriptor_config_source_17996ce5b35770ec, []int{1}
 }
 func (m *AggregatedConfigSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -224,7 +224,7 @@ func (m *RateLimitSettings) Reset()         { *m = RateLimitSettings{} }
 func (m *RateLimitSettings) String() string { return proto.CompactTextString(m) }
 func (*RateLimitSettings) ProtoMessage()    {}
 func (*RateLimitSettings) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{2}
+	return fileDescriptor_config_source_17996ce5b35770ec, []int{2}
 }
 func (m *RateLimitSettings) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -288,7 +288,7 @@ func (m *ConfigSource) Reset()         { *m = ConfigSource{} }
 func (m *ConfigSource) String() string { return proto.CompactTextString(m) }
 func (*ConfigSource) ProtoMessage()    {}
 func (*ConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{3}
+	return fileDescriptor_config_source_17996ce5b35770ec, []int{3}
 }
 func (m *ConfigSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1663,10 +1663,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor_config_source_a5c3a8d06d8a28fe)
+	proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor_config_source_17996ce5b35770ec)
 }
 
-var fileDescriptor_config_source_a5c3a8d06d8a28fe = []byte{
+var fileDescriptor_config_source_17996ce5b35770ec = []byte{
 	// 634 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x53, 0xb1, 0x6f, 0xd3, 0x4e,
 	0x14, 0xce, 0xc5, 0x69, 0x9b, 0x5c, 0xd2, 0xd6, 0xb9, 0x56, 0xbf, 0xfa, 0x57, 0xa1, 0x10, 0x42,

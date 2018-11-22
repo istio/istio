@@ -177,6 +177,16 @@ func (m *Listener) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetBugfixReverseWriteFilterOrder()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				Field:  "BugfixReverseWriteFilterOrder",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 

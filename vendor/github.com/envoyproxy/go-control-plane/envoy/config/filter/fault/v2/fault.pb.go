@@ -46,7 +46,7 @@ func (x FaultDelay_FaultDelayType) String() string {
 	return proto.EnumName(FaultDelay_FaultDelayType_name, int32(x))
 }
 func (FaultDelay_FaultDelayType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_fault_8d6edcb267807ce6, []int{0, 0}
+	return fileDescriptor_fault_8f50ad10d05c4aef, []int{0, 0}
 }
 
 // Delay specification is used to inject latency into the
@@ -69,7 +69,7 @@ func (m *FaultDelay) Reset()         { *m = FaultDelay{} }
 func (m *FaultDelay) String() string { return proto.CompactTextString(m) }
 func (*FaultDelay) ProtoMessage()    {}
 func (*FaultDelay) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fault_8d6edcb267807ce6, []int{0}
+	return fileDescriptor_fault_8f50ad10d05c4aef, []int{0}
 }
 func (m *FaultDelay) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -556,10 +556,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/fault/v2/fault.proto", fileDescriptor_fault_8d6edcb267807ce6)
+	proto.RegisterFile("envoy/config/filter/fault/v2/fault.proto", fileDescriptor_fault_8f50ad10d05c4aef)
 }
 
-var fileDescriptor_fault_8d6edcb267807ce6 = []byte{
+var fileDescriptor_fault_8f50ad10d05c4aef = []byte{
 	// 350 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x50, 0xbf, 0x4a, 0xc3, 0x40,
 	0x18, 0xef, 0x25, 0xad, 0xe8, 0x15, 0x4a, 0x08, 0x05, 0x63, 0xb5, 0xb1, 0x74, 0x2a, 0x0e, 0x77,
