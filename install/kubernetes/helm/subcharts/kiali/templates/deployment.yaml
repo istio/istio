@@ -9,7 +9,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  replicas: {{ .Values.replicaCount }}]
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: kiali
