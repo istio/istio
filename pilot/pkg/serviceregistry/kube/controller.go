@@ -755,7 +755,16 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	c.services.handler.Append(func(obj interface{}, event model.Event) error {
 		svc, ok := obj.(*v1.Service)
 		if !ok {
-			return nil
+			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+			if !ok {
+				log.Errorf("Couldn't get object from tombstone %#v", obj)
+				return nil
+			}
+			svc, ok = tombstone.Obj.(*v1.Service)
+			if !ok {
+				log.Errorf("Tombstone contained object that is not a service %#v", obj)
+				return nil
+			}
 		}
 
 		if svc.Namespace == meta_v1.NamespaceSystem || svc.Spec.Type != v1.ServiceTypeExternalName {
@@ -770,11 +779,15 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
 		default:
-			c.Lock()
-			if instances != nil {
+			if instances == nil {
+				c.Lock()
+				delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
+				c.Unlock()
+			} else {
+				c.Lock()
 				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
+				c.Unlock()
 			}
-			c.Unlock()
 		}
 
 		for _, instance := range instances {
