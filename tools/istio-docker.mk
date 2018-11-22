@@ -155,7 +155,7 @@ docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
 docker.test_policybackend: $(ISTIO_OUT)/mixer-test-policybackend
 	$(DOCKER_RULE)
 
-docker.kubectl: docker/Dockerfile$$(suffix $$@) $(ISTIO_BIN)/kubectl
+docker.kubectl: docker/Dockerfile$$(suffix $$@)
 	$(DOCKER_RULE)
 
 # addons docker images
