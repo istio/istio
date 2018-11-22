@@ -17,11 +17,11 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/ghodss/yaml"
 )
@@ -255,7 +255,7 @@ func init() {
 		Singular:   "{{.Singular}}",
 		Plural:     "{{.Plural}}",
 		{{- if .ShortNamesStr }}
-		ShortNames: {{.ShortNamesStr | raw}},
+		ShortNames: {{.ShortNamesStr}},
 		{{- end}}
 		Version:    "{{.Version}}",
 		Group:      "{{.Group}}",
@@ -269,7 +269,6 @@ func init() {
 
 func applyTemplate(tmpl string, m *metadata) ([]byte, error) {
 	t := template.New("tmpl")
-	t = t.Funcs(template.FuncMap{"raw": raw})
 
 	t2, err := t.Parse(tmpl)
 	if err != nil {
@@ -282,9 +281,4 @@ func applyTemplate(tmpl string, m *metadata) ([]byte, error) {
 	}
 
 	return b.Bytes(), nil
-}
-
-// raw directly returns the string value and does not escape it.
-func raw(value string) interface{} {
-	return template.HTML(value)
 }
