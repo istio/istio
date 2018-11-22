@@ -225,6 +225,8 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 		t.Fatal("Expecting full push after service account update", err, upd)
 	}
 	adsc.Wait("rds", 5*time.Second)
+	// LDS also asks for an update
+	adsc.Wait("rds", 5*time.Second)
 	testTCPEndpoints("127.0.0.3", adsc, t)
 
 	// Update the endpoint again, no SA change - expect incremental
