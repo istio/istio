@@ -267,12 +267,11 @@ func ConvertLocality(locality string) *core.Locality {
 			Region: items[0],
 			Zone:   items[1],
 		}
-	case 3:
+	default:
 		return &core.Locality{
 			Region:  items[0],
 			Zone:    items[1],
 			SubZone: items[2],
 		}
 	}
-	return nil
 }
