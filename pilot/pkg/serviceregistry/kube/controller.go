@@ -35,7 +35,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 )
 
@@ -309,35 +308,28 @@ func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 }
 
 // GetPodAZ retrieves the AZ for a pod.
-func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
+func (c *Controller) GetPodAZ(pod *v1.Pod) string {
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
 	if !exists || err != nil {
 		log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
-		return "", false
+		return ""
 	}
-	region, exists := node.(*v1.Node).Labels[NodeRegionLabel]
-	if !exists {
-		if pilot.AzDebug {
-			log.Warnf("unable to retrieve region label for pod: %v", pod.Name)
-		}
-		return "", false
+
+	region, _ := node.(*v1.Node).Labels[NodeRegionLabel]
+	zone, _ := node.(*v1.Node).Labels[NodeZoneLabel]
+	if region == "" && zone == "" {
+		return ""
 	}
-	zone, exists := node.(*v1.Node).Labels[NodeZoneLabel]
-	if !exists {
-		if pilot.AzDebug {
-			log.Warnf("unable to retrieve zone label for pod: %v", pod.Name)
-		}
-		return "", false
-	}
-	return fmt.Sprintf("%v/%v", region, zone), true
+
+	return fmt.Sprintf("%v/%v", region, zone)
 }
 
 // ManagementPorts implements a service catalog operation
 func (c *Controller) ManagementPorts(addr string) model.PortList {
-	pod, exists := c.pods.getPodByIP(addr)
-	if !exists {
+	pod := c.pods.getPodByIP(addr)
+	if pod == nil {
 		return nil
 	}
 
@@ -353,8 +345,8 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 
 // WorkloadHealthCheckInfo implements a service catalog operation
 func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	pod, exists := c.pods.getPodByIP(addr)
-	if !exists {
+	pod := c.pods.getPodByIP(addr)
+	if pod == nil {
 		return nil
 	}
 
@@ -445,10 +437,10 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 						continue
 					}
 
-					pod, exists := c.pods.getPodByIP(ea.IP)
+					pod := c.pods.getPodByIP(ea.IP)
 					az, sa, uid := "", "", ""
-					if exists {
-						az, _ = c.GetPodAZ(pod)
+					if pod != nil {
+						az = c.GetPodAZ(pod)
 						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
@@ -465,13 +457,11 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 									ServicePort: svcPortEntry,
 									UID:         uid,
 									Network:     c.endpointNetwork(ea.IP),
-									// TODO(hzxuzhonghu): covert AvailabilityZone to '/' separated format and set Locality.
-									Locality: "",
+									Locality:    az,
 								},
-								Service:          svc,
-								Labels:           labels,
-								AvailabilityZone: az,
-								ServiceAccount:   sa,
+								Service:        svc,
+								Labels:         labels,
+								ServiceAccount: sa,
 							})
 						}
 					}
@@ -489,8 +479,8 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	proxyIP := proxy.IPAddress
 	proxyNamespace := ""
 
-	pod, exists := c.pods.getPodByIP(proxyIP)
-	if exists {
+	pod := c.pods.getPodByIP(proxyIP)
+	if pod != nil {
 		proxyNamespace = pod.Namespace
 		// 1. find proxy service by label selector, if not any, there may exist headless service
 		// failover to 2
@@ -578,10 +568,10 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 
 func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model.Port, svc *model.Service) *model.ServiceInstance {
 	labels, _ := c.pods.labelsByIP(ip)
-	pod, exists := c.pods.getPodByIP(ip)
+	pod := c.pods.getPodByIP(ip)
 	az, sa := "", ""
-	if exists {
-		az, _ = c.GetPodAZ(pod)
+	if pod != nil {
+		az = c.GetPodAZ(pod)
 		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
 	}
 	return &model.ServiceInstance{
@@ -590,13 +580,11 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 			Port:        int(port.Port),
 			ServicePort: svcPort,
 			Network:     c.endpointNetwork(ip),
-			// TODO(hzxuzhonghu): covert AvailabilityZone to '/' separated format and set Locality.
-			Locality: "",
+			Locality:    az,
 		},
-		Service:          svc,
-		Labels:           labels,
-		AvailabilityZone: az,
-		ServiceAccount:   sa,
+		Service:        svc,
+		Labels:         labels,
+		ServiceAccount: sa,
 	}
 }
 
@@ -748,8 +736,8 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 	endpoints := []*model.IstioEndpoint{}
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			pod, exists := c.pods.getPodByIP(ea.IP)
-			if !exists {
+			pod := c.pods.getPodByIP(ea.IP)
+			if pod == nil {
 				log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
 				if c.Env != nil {
 					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)

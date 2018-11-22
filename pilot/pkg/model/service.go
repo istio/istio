@@ -353,11 +353,10 @@ type ProbeList []*Probe
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint         NetworkEndpoint `json:"endpoint,omitempty"`
-	Service          *Service        `json:"service,omitempty"`
-	Labels           Labels          `json:"labels,omitempty"`
-	AvailabilityZone string          `json:"az,omitempty"`
-	ServiceAccount   string          `json:"serviceaccount,omitempty"`
+	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
+	Service        *Service        `json:"service,omitempty"`
+	Labels         Labels          `json:"labels,omitempty"`
+	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
 const (
@@ -366,15 +365,14 @@ const (
 	AZLabel = "istio-az"
 )
 
-// GetAZ returns the availability zone from an instance.
+// GetLocality returns the availability zone from an instance.
 // - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
 // - consul: defaults to 'instance.Datacenter'
 //
-// This is used by EDS to group the endpoints by AZ and by .
-// TODO: remove me?
-func (si *ServiceInstance) GetAZ() string {
-	if si.AvailabilityZone != "" {
-		return si.AvailabilityZone
+// This is used by CDS/EDS to group the endpoints by locality.
+func (si *ServiceInstance) GetLocality() string {
+	if si.Endpoint.Locality != "" {
+		return si.Endpoint.Locality
 	}
 	return si.Labels[AZLabel]
 }
@@ -431,7 +429,7 @@ type IstioEndpoint struct {
 	Locality string
 
 	// The load balancing weight associated with this endpoint.
-	LbWeight int
+	LbWeight uint32
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
