@@ -250,7 +250,7 @@ func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
 	}
 }
 
-// Convert '/' separated locality string to Locality struct.
+// ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
 		return nil
