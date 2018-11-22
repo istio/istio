@@ -1,5 +1,8 @@
 FROM istionightly/base_debug
 # Image for post install jobs
 
-# This container should only contain kubectl
-ADD kubectl /usr/bin
+ARG K8S_VER=v1.10.4
+
+# Include only kubectl in the image
+RUN curl -kLo /tmp/kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VER}/bin/linux/amd64/kubectl && \
+    chmod +x /tmp/kubectl && sudo mv /tmp/kubectl /usr/bin/
