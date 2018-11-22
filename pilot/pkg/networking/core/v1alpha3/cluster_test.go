@@ -30,6 +30,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
+const (
+	MeshWideTcpKeepalive        = 11
+	DestinationRuleTcpKeepalive = 21
+)
+
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -226,6 +231,137 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 				},
 			},
 		}})
+
+	return env
+}
+
+func TestBuildSidecarClustersWithMeshWideTcpKeepalive(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	configgen := core.NewConfigGenerator([]plugin.Plugin{})
+	proxy := &model.Proxy{
+		ClusterID: "some-cluster-id",
+		Type:      model.Sidecar,
+		IPAddress: "6.6.6.6",
+		Domain:    "com",
+		Metadata:  make(map[string]string),
+	}
+
+	env := buildEnvForClustersWithTcpKeepalive(false)
+
+	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(len(clusters)).To(gomega.Equal(4))
+
+	cluster := clusters[1]
+	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
+	// KeepaliveTime should be set but rest should be nil.
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes).To(gomega.BeNil())
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(gomega.Equal(uint32(MeshWideTcpKeepalive)))
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(gomega.BeNil())
+
+	// Now set tcp_keepalive at DestinationRule level
+	env = buildEnvForClustersWithTcpKeepalive(true)
+
+	clusters, err = configgen.BuildClusters(env, proxy, env.PushContext)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(len(clusters)).To(gomega.Equal(4))
+
+	cluster = clusters[1]
+	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
+	// KeepaliveTime should be set but rest should be nil.
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes).To(gomega.BeNil())
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(gomega.Equal(uint32(DestinationRuleTcpKeepalive)))
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(gomega.BeNil())
+}
+
+func buildEnvForClustersWithTcpKeepalive(setDestinationRuleTcpKeepalive bool) *model.Environment {
+	serviceDiscovery := &fakes.ServiceDiscovery{}
+
+	serviceDiscovery.ServicesReturns([]*model.Service{
+		{
+			Hostname:    "foo.example.org",
+			Address:     "1.1.1.1",
+			ClusterVIPs: make(map[string]string),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "default",
+					Port:     8080,
+					Protocol: model.ProtocolHTTP,
+				},
+			},
+		},
+	}, nil)
+
+	meshConfig := &meshconfig.MeshConfig{
+		ConnectTimeout: &types.Duration{
+			Seconds: 10,
+			Nanos:   1,
+		},
+		TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+			Time: &types.Duration{
+				Seconds: MeshWideTcpKeepalive,
+				Nanos:   0,
+			},
+		},
+	}
+
+	var destinationRuleTcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive
+
+	if setDestinationRuleTcpKeepalive {
+		destinationRuleTcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+			Time: &types.Duration{
+				Seconds: DestinationRuleTcpKeepalive,
+				Nanos:   0,
+			},
+		}
+	}
+
+	configStore := &fakes.IstioConfigStore{}
+
+	env := &model.Environment{
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts:  &fakes.ServiceAccounts{},
+		IstioConfigStore: configStore,
+		Mesh:             meshConfig,
+		MixerSAN:         []string{},
+	}
+
+	env.PushContext = model.NewPushContext()
+	env.PushContext.InitContext(env)
+	env.PushContext.SetDestinationRules([]model.Config{
+		{ConfigMeta: model.ConfigMeta{
+			Type:    model.DestinationRule.Type,
+			Version: model.DestinationRule.Version,
+			Name:    "acme",
+		},
+			Spec: &networking.DestinationRule{
+				Host: "*.example.org",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+								{
+									Port: &networking.PortSelector{
+										Port: &networking.PortSelector_Number{Number: 8080},
+									},
+									ConnectionPool: &networking.ConnectionPoolSettings{
+										Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+											TcpKeepalive: destinationRuleTcpKeepalive,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
 
 	return env
 }

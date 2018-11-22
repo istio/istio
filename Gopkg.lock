@@ -1607,8 +1607,8 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "release-1.1"
-  digest = "1:0de4d99d74b8b9acd8150c1de66d8cc0cd6688e5608df6cc84ceec695ee5e411"
+  branch = "shakti/tcp-keepalive-r1.1"
+  digest = "1:9ee62038c0abbb63fa81ffd3abfd66795d5b217f1be2b44803845bd77c5b8257"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1624,7 +1624,8 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "a48276b53112bf98ed2d61fd07a66208dc5cb043"
+  revision = "f0b6350ed0dcfb813e8b5d9f579c3fb1cb5683e4"
+  source = "https://github.com/shakti-das/api"
 
 [[projects]]
   branch = "release-1.11"
