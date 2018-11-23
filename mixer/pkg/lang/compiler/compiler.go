@@ -408,6 +408,15 @@ func (g *generator) generateLt(f *ast.Function, depth int) {
 			g.builder.LTDouble()
 		}
 
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.TIMESTAMP:
+			g.builder.Call("timestamp_lt")
+		default:
+			g.internalError("equality for type not yet implemented: %v", exprType)
+		}
+
 	default:
 		g.internalError("less than for type not yet implemented: %v", exprType)
 	}
@@ -444,7 +453,14 @@ func (g *generator) generateGt(f *ast.Function, depth int) {
 		} else {
 			g.builder.GTDouble()
 		}
-
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.TIMESTAMP:
+			g.builder.Call("timestamp_gt")
+		default:
+			g.internalError("equality for type not yet implemented: %v", exprType)
+		}
 	default:
 		g.internalError("greater than for type not yet implemented: %v", exprType)
 	}
@@ -481,6 +497,14 @@ func (g *generator) generateGe(f *ast.Function, depth int) {
 		} else {
 			g.builder.GEDouble()
 		}
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.TIMESTAMP:
+			g.builder.Call("timestamp_ge")
+		default:
+			g.internalError("equality for type not yet implemented: %v", exprType)
+		}
 	default:
 		g.internalError("greater than for type not yet implemented: %v", exprType)
 	}
@@ -505,20 +529,27 @@ func (g *generator) generateLe(f *ast.Function, depth int) {
 		} else {
 			g.builder.LEString()
 		}
-
 	case il.Integer:
 		if constArg1 != nil {
 			g.builder.ALEInteger(constArg1.(int64))
 		} else {
 			g.builder.LEInteger()
 		}
-
 	case il.Double:
 		if constArg1 != nil {
 			g.builder.ALEDouble(constArg1.(float64))
 		} else {
 			g.builder.LEDouble()
 		}
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		switch dvt {
+		case descriptor.TIMESTAMP:
+			g.builder.Call("timestamp_le")
+		default:
+			g.internalError("equality for type not yet implemented: %v", exprType)
+		}
+
 	default:
 		g.internalError("less or equal for type not yet implemented: %v", exprType)
 	}

@@ -2587,12 +2587,113 @@ end`,
 end`,
 	},
 	{
-		E:    `timestamp("2015-01-02T15:04:35Z")`,
-		Type: descriptor.TIMESTAMP,
-		R:    t,
-		IL: `fn eval() interface
+		E:    `timestamp("2015-01-02T15:04:35Z") < timestamp("2015-01-02T15:04:36Z")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
   apush_s "2015-01-02T15:04:35Z"
   call timestamp
+  apush_s "2015-01-02T15:04:36Z"
+  call timestamp
+  call timestamp_lt
+  ret
+end`,
+	},
+	{
+		E:    `timestamp("2015-01-02T15:04:35Z") < timestamp("2015-01-02T15:04:36Z")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		IL: `fn eval() bool
+  apush_s "2015-01-02T15:04:35Z"
+  call timestamp
+  apush_s "2015-01-02T15:04:36Z"
+  call timestamp
+  call timestamp_lt
+  ret
+end`,
+	},
+	{
+		E:    `t1 < timestamp("2015-01-02T15:04:36Z")`,
+		Type: descriptor.BOOL,
+		R:    true,
+		I: map[string]interface{}{
+			"t1": t,
+		},
+		IL: `fn eval() bool
+  resolve_f "t1"
+  apush_s "2015-01-02T15:04:36Z"
+  call timestamp
+  call timestamp_lt
+  ret
+end`,
+	},
+	{
+		E:    `t1 <= t2`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"t1": t,
+			"t2": t2,
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_le
+  ret
+end`,
+	},
+	{
+		E:    `t2 <= t1`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"t1": t,
+			"t2": t2,
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_f "t2"
+  resolve_f "t1"
+  call timestamp_le
+  ret
+end`,
+	},
+	{
+		E:          `t1 <= 42`,
+		CompileErr: "LEQ($t1, 42) arg 2 (42) typeError got INT64, expected TIMESTAMP",
+	},
+	{
+		E:          `t1 < 42`,
+		CompileErr: "LT($t1, 42) arg 2 (42) typeError got INT64, expected TIMESTAMP",
+	},
+	{
+		E:          `42 <= t1`,
+		CompileErr: "LEQ(42, $t1) arg 2 ($t1) typeError got TIMESTAMP, expected INT64",
+	},
+	{
+		E:    `t1 <= t1`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"t1": t,
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t1"
+  call timestamp_le
+  ret
+end`,
+	},
+	{
+		E:    `t1 < t1`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"t1": t,
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t1"
+  call timestamp_lt
   ret
 end`,
 	},
@@ -2608,6 +2709,64 @@ end`,
   resolve_f "t1"
   resolve_f "t2"
   call timestamp_equal
+  ret
+end`,
+	},
+	{
+		E:    `t1 > t2`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"t1": t,
+			"t2": t2,
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_gt
+  ret
+end`,
+	},
+	{
+		E:    `t1 >= t2`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"t1": t,
+			"t2": t2,
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_ge
+  ret
+end`,
+	},
+	{
+		E:    `t1 > t1`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"t1": t,
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t1"
+  call timestamp_gt
+  ret
+end`,
+	},
+	{
+		E:    `t1 >= t1`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"t1": t,
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t1"
+  call timestamp_ge
   ret
 end`,
 	},
