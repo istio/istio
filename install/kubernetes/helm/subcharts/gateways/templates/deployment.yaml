@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if ne $key "enabled" }}
+{{- if and (ne $key "enabled") (ne $key "nodeSelector") }}
 {{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment

@@ -10,3 +10,4 @@ env:
   CA_ADDR: ""  
   # names of authentication provider's plugins.
   Plugins: ""
+nodeSelector: {}

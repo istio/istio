@@ -83,3 +83,5 @@ spec:
           items:
           - key: Corefile
             path: Corefile
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

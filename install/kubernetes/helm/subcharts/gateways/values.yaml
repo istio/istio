@@ -6,6 +6,7 @@
 # Disable specifc gateway by setting the `enabled` to false.
 #
 enabled: true
+nodeSelector: {}
 
 istio-ingressgateway:
   enabled: true

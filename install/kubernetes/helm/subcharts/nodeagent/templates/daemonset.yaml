@@ -44,3 +44,5 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

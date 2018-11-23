@@ -14,6 +14,7 @@ security:
   secretName: grafana
   usernameKey: username
   passphraseKey: passphrase
+nodeSelector: {}
 service:
   annotations: {}
   name: http

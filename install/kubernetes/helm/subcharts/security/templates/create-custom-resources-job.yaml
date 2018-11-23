@@ -90,4 +90,6 @@ spec:
           configMap:
             name: istio-security-custom-resources
       restartPolicy: OnFailure
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
 {{- end }}

@@ -25,6 +25,7 @@ telemetry:
     targetAverageUtilization: 80
 
 podAnnotations: {}
+nodeSelector: {}
 
 adapters:
   kubernetesenv:
