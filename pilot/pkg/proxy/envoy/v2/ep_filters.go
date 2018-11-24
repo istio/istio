@@ -19,7 +19,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
-	
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
@@ -33,7 +33,7 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network, found := conn.modelNode.Metadata["ISTIO_NETWORK"]
+	network, found := conn.modelNode.Metadata["NETWORK"]
 	if !found {
 
 		// TODO: try to get the network by querying the service registry to get the
@@ -78,15 +78,19 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 			// add it to the result
 			filtered = append(filtered, ep)
 		} else {
-			// This LocalityLbEndpoints has remote endpoint so add to the result
-			// a new one that holds only local endpoints
-			newEp := endpoint.LocalityLbEndpoints{
-				Locality:            ep.Locality,
-				LbEndpoints:         onlyLocalLbEndpoints,
-				LoadBalancingWeight: ep.LoadBalancingWeight,
-				Priority:            ep.Priority,
+			if len(onlyLocalLbEndpoints) > 0 {
+				// This LocalityLbEndpoints has remote endpoint so add to the result
+				// a new one that holds only local endpoints
+				newEp := endpoint.LocalityLbEndpoints{
+					Locality:    ep.Locality,
+					LbEndpoints: onlyLocalLbEndpoints,
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: uint32(len(onlyLocalLbEndpoints)),
+					},
+					Priority: ep.Priority,
+				}
+				filtered = append(filtered, newEp)
 			}
-			filtered = append(filtered, newEp)
 		}
 	}
 

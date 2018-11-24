@@ -319,7 +319,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:87e833f5aae198da32458c5653958d43101e71821f33afb84c67839cc25ec493"
+  digest = "1:6ebcd4b4ebb45e3685b600892166337f7820a69efb7b0d489b1f31eae11766c3"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -356,8 +356,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "51b27c23cab9d18a020bf06acb0ddd00d23a2d77"
-  version = "v0.6.1"
+  revision = "7b403cf5db9547db2db5562a65454f9ae0dd4f4a"
+  version = "v0.6.3"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -665,12 +665,12 @@
   revision = "0e7658f8ee99ee5aa683e2a032b8880091b7a055"
 
 [[projects]]
-  digest = "1:c3f14b698c0f5c5729896489f4b526f519d1d2522e697d63f532901d0e183dff"
+  digest = "1:e9b9f716309b4b4c55c7645f4f6d8c01b010d3e050e54d64614081fee8177e98"
   name = "github.com/hashicorp/consul"
   packages = ["api"]
   pruneopts = "NUT"
-  revision = "9a494b5fb9c86180a5702e29c485df1507a47198"
-  version = "v1.0.6"
+  revision = "e8757838a49feeb682c7e6ad6b78694a78b2096b"
+  version = "v1.3.0"
 
 [[projects]]
   branch = "master"
@@ -1477,7 +1477,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2110ef481d5c110c5809314b265ae1e96d86e588cb09e51e64f79ccb3bb5990f"
+  digest = "1:738b8929764f49c7bd229657a96d7207073431c29ec9eb6c85a7b7f0552d556d"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -1488,6 +1488,7 @@
     "googleapis/appengine/logging/v1",
     "googleapis/cloud/audit",
     "googleapis/devtools/cloudtrace/v2",
+    "googleapis/iam/credentials/v1",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/monitoring/v3",
@@ -1607,7 +1608,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c61cd9e33a234b63e8fe066615b66ebb80e1c1ba5103ae7d7a0c2312d09f6112"
+  digest = "1:beee7a1021554ce19306fa440376f1f378695a22d4841fcd69ad9f275ad92bbf"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1623,7 +1624,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "9e5a9173e61ed2af3807c94915e6693e1062425a"
+  revision = "11e496c8752386fe827c78c7498f64c00520493c"
 
 [[projects]]
   branch = "release-1.11"
@@ -1666,14 +1667,16 @@
 
 [[projects]]
   branch = "release-1.11"
-  digest = "1:e762108455a2930c3d35d270c67192f67c4d68135391e29dae2506156c630cd1"
+  digest = "1:c23aaeb5fd34af7a630c2e8bfd98c4e2833cb0598594ec55e8e56107cf245852"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
     "pkg/apis/apiextensions/v1beta1",
     "pkg/client/clientset/clientset",
+    "pkg/client/clientset/clientset/fake",
     "pkg/client/clientset/clientset/scheme",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake",
   ]
   pruneopts = "NUT"
   revision = "16750353bf974758fbed9f44c39b81dfe6decb71"
@@ -2113,6 +2116,7 @@
     "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
     "google.golang.org/genproto/googleapis/api/monitoredres",
+    "google.golang.org/genproto/googleapis/iam/credentials/v1",
     "google.golang.org/genproto/googleapis/monitoring/v3",
     "google.golang.org/genproto/googleapis/rpc/status",
     "google.golang.org/grpc",
@@ -2149,6 +2153,7 @@
     "k8s.io/api/rbac/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
+    "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",

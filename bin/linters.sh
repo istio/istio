@@ -118,12 +118,18 @@ function check_grafana_dashboards() {
     echo 'dashboards OK'
 }
 
+function check_licenses() {
+    echo 'Checking Licenses for Istio dependencies'
+    go run tools/license/get_dep_licenses.go > LICENSES.txt
+    echo 'Licenses OK'
+}
+
 ensure_pilot_types
-# Below format check is temporarily disabled until https://github.com/golang/go/issues/28200 is resolved
-#format
+format
 check_licenses
 check_spelling
 install_gometalinter
 run_gometalinter
 run_helm_lint
 check_grafana_dashboards
+check_licenses

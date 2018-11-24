@@ -83,7 +83,9 @@ export ENABLE_ISTIO_CNI ?= false
 # EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set istio-cni.tag=v0.1-dev-foo"
 
 
-ISTIO_HELM_REPO := https://raw.githubusercontent.com/istio/istio.io/master/static/charts
+#ISTIO_HELM_REPO := https://gcsweb.istio.io/gcs/istio-prerelease/daily-build/master-latest-daily/charts
+ISTIO_HELM_REPO := https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
+
 #-----------------------------------------------------------------------------
 # Output control
 #-----------------------------------------------------------------------------
@@ -171,7 +173,7 @@ export ISTIO_ENVOY_RELEASE_DIR ?= ${OUT_DIR}/${GOOS}_${GOARCH}/release
 export ISTIO_ENVOY_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_RELEASE_PATH ?= ${ISTIO_ENVOY_RELEASE_DIR}/${ISTIO_ENVOY_RELEASE_NAME}
 
-GO_VERSION_REQUIRED:=1.9
+GO_VERSION_REQUIRED:=1.10
 
 HUB?=istio
 ifeq ($(HUB),)
@@ -274,7 +276,7 @@ depend.diff: $(ISTIO_OUT)
 # Used by CI for automatic go code generation and generates a git diff of the generated files against HEAD.
 go.generate.diff: $(ISTIO_OUT)
 	git diff HEAD > $(ISTIO_OUT)/before_go_generate.diff
-	-go generate ./... 
+	-go generate ./...
 	git diff HEAD > $(ISTIO_OUT)/after_go_generate.diff
 	diff $(ISTIO_OUT)/before_go_generate.diff $(ISTIO_OUT)/after_go_generate.diff
 
@@ -451,9 +453,9 @@ GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?=
 GOSTATIC = -ldflags '-extldflags "-static"'
 
-PILOT_TEST_BINS:=${ISTIO_OUT}/pilot-test-server ${ISTIO_OUT}/pilot-test-client
+TEST_APP_BINS:=${ISTIO_OUT}/pkg-test-application-echo-server ${ISTIO_OUT}/pkg-test-application-echo-client
 
-$(PILOT_TEST_BINS):
+$(TEST_APP_BINS):
 	CGO_ENABLED=0 go build ${GOSTATIC} -o $@ istio.io/istio/$(subst -,/,$(@F))
 
 MIXER_TEST_BINS:=${ISTIO_OUT}/mixer-test-policybackend
@@ -464,7 +466,7 @@ $(MIXER_TEST_BINS):
 hyperistio:
 	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_OUT}/hyperistio istio.io/istio/tools/hyperistio
 
-test-bins: $(PILOT_TEST_BINS) $(MIXER_TEST_BINS)
+test-bins: $(TEST_APP_BINS) $(MIXER_TEST_BINS)
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure

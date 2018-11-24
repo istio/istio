@@ -257,7 +257,7 @@ func runPilot(grpcPort, debugPort int) (*gexec.Session, error) {
 		"--registries", "MCP",
 		"--meshConfig", "/dev/null",
 		"--grpcAddr", fmt.Sprintf(":%d", grpcPort),
-		"--port", fmt.Sprintf("%d", debugPort),
+		"--httpAddr", fmt.Sprintf(":%d", debugPort),
 		"--mcpServerAddrs", fmt.Sprintf("mcp://127.0.0.1:%d", copilotMCPPort),
 	)
 

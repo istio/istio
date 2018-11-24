@@ -108,6 +108,8 @@ var reportAttributesOkGet = `
   "destination.ip": "[127 0 0 1]",
   "destination.port": "*",
   "destination.uid": "",
+  "istio_authn": "*",
+  "jwt-auth": "*",
   "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",

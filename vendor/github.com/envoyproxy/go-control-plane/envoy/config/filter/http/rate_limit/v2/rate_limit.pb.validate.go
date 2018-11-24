@@ -69,6 +69,8 @@ func (m *RateLimit) Validate() error {
 
 	// no validation rules for FailureModeDeny
 
+	// no validation rules for RateLimitedAsResourceExhausted
+
 	return nil
 }
 

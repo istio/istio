@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 )
 
-var scope = log.RegisterScope("snapshot", "mcp snapshot", 0)
+var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 // Snapshot provides an immutable view of versioned envelopes.
 type Snapshot interface {
@@ -67,8 +67,8 @@ func New(groupIndex GroupIndexFn) *Cache {
 var _ server.Watcher = &Cache{}
 
 type responseWatch struct {
-	request   *mcp.MeshConfigRequest // original request
-	responseC chan<- *server.WatchResponse
+	request      *mcp.MeshConfigRequest // original request
+	pushResponse server.PushResponseFunc
 }
 
 // StatusInfo records watch status information of a remote client.
@@ -96,7 +96,7 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 }
 
 // Watch returns a watch for an MCP request.
-func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.WatchResponse) (*server.WatchResponse, server.CancelWatchFunc) { // nolint: lll
+func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushResponseFunc) server.CancelWatchFunc { // nolint: lll
 	group := c.groupIndex(request.Client)
 
 	c.mu.Lock()
@@ -120,15 +120,18 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	// requested version doesn't match.
 	if snapshot, ok := c.snapshots[group]; ok {
 		version := snapshot.Version(request.TypeUrl)
-		scope.Debugf("Found snapshot for group: %q, with version: %q", group, version)
+		scope.Debugf("Found snapshot for group: %q for %v @ version: %q",
+			group, request.TypeUrl, version)
+
 		if version != request.VersionInfo {
-			scope.Debugf("Responding to group %q with snapshot:\n%v\n", group, snapshot)
+			scope.Debugf("Responding to group %q snapshot:\n%v\n", group, snapshot)
 			response := &server.WatchResponse{
 				TypeURL:   request.TypeUrl,
 				Version:   version,
 				Envelopes: snapshot.Resources(request.TypeUrl),
 			}
-			return response, nil
+			pushResponse(response)
+			return nil
 		}
 	}
 
@@ -136,11 +139,11 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 	c.watchCount++
 	watchID := c.watchCount
 
-	log.Infof("Watch(): created watch %d for %s from group %q, version %q",
+	scope.Infof("Watch(): created watch %d for %s from group %q, version %q",
 		watchID, request.TypeUrl, group, request.VersionInfo)
 
 	info.mu.Lock()
-	info.watches[watchID] = &responseWatch{request: request, responseC: responseC}
+	info.watches[watchID] = &responseWatch{request: request, pushResponse: pushResponse}
 	info.mu.Unlock()
 
 	cancel := func() {
@@ -152,7 +155,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, responseC chan<- *server.W
 			info.mu.Unlock()
 		}
 	}
-	return nil, cancel
+	return cancel
 }
 
 // SetSnapshot updates a snapshot for a group.
@@ -169,19 +172,21 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 		for id, watch := range info.watches {
 			version := snapshot.Version(watch.request.TypeUrl)
 			if version != watch.request.VersionInfo {
-				log.Infof("SetSnapshot(): respond to watch %d with new version %q", id, version)
+				scope.Infof("SetSnapshot(): respond to watch %d for %v @ version %q",
+					id, watch.request.TypeUrl, version)
 
 				response := &server.WatchResponse{
 					TypeURL:   watch.request.TypeUrl,
 					Version:   version,
 					Envelopes: snapshot.Resources(watch.request.TypeUrl),
 				}
-				watch.responseC <- response
+				watch.pushResponse(response)
 
 				// discard the responseWatch
 				delete(info.watches, id)
 
-				log.Debugf("SetSnapshot(): watch %d with version %q complete", id, version)
+				scope.Debugf("SetSnapshot(): watch %d for %v @ version %q complete",
+					id, watch.request.TypeUrl, version)
 			}
 		}
 		info.mu.Unlock()
@@ -207,7 +212,7 @@ func (c *Cache) ClearStatus(group string) {
 		info.mu.Lock()
 		for _, watch := range info.watches {
 			// response channel may be shared
-			watch.responseC <- nil
+			watch.pushResponse(nil)
 		}
 		info.mu.Unlock()
 	}

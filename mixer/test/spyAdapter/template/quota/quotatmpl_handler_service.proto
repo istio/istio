@@ -65,6 +65,8 @@ message HandleSampleQuotaRequest {
 
 
 
+
+
 // Contains instance payload for 'samplequota' template. This is passed to infrastructure backends during request-time
 // through HandleSampleQuotaService.HandleSampleQuota.
 message InstanceMsg {

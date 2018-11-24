@@ -27,13 +27,14 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 
+	"fmt"
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 // processorFn is a callback function that will receive change events back from listener.
 type processorFn func(
-	l *listener, eventKind resource.EventKind, key, version string, u *unstructured.Unstructured)
+	l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured)
 
 // listener is a simplified client interface for listening/getting Kubernetes resources in an unstructured way.
 type listener struct {
@@ -152,21 +153,21 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 	if !ok {
 		var tombstone cache.DeletedFinalStateUnknown
 		if tombstone, ok = obj.(cache.DeletedFinalStateUnknown); !ok {
-			scope.Errorf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
+			msg := fmt.Sprintf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
+			scope.Error(msg)
+			recordHandleEventError(msg)
 			return
 		}
 		if object, ok = tombstone.Obj.(metav1.Object); !ok {
-			scope.Errorf("error decoding object tombstone, invalid type: %v", reflect.TypeOf(tombstone.Obj))
+			msg := fmt.Sprintf("error decoding object tombstone, invalid type: %v", reflect.TypeOf(tombstone.Obj))
+			scope.Error(msg)
+			recordHandleEventError(msg)
 			return
 		}
 		scope.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
 
-	key, err := cache.MetaNamespaceKeyFunc(object)
-	if err != nil {
-		scope.Errorf("Error creating MetaNamespaceKey from object: %v", object)
-		return
-	}
+	key := resource.FullNameFromNamespaceAndName(object.GetNamespace(), object.GetName())
 
 	var u *unstructured.Unstructured
 
@@ -187,4 +188,5 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 		scope.Debugf("Sending event: [%v] from: %s", c, l.spec.CanonicalResourceName())
 	}
 	l.processor(l, c, key, object.GetResourceVersion(), u)
+	recordHandleEventSuccess()
 }

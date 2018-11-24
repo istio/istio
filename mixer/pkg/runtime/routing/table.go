@@ -16,6 +16,7 @@ package routing
 
 import (
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -31,6 +32,7 @@ type Table struct {
 	id int64
 
 	// namespaceTables grouped by variety.
+	// Note that CHECK_WITH_OUTPUT templates are placed into CHECK variety group.
 	entries map[tpb.TemplateVariety]*varietyTable
 
 	debugInfo *tableDebugInfo
@@ -47,9 +49,10 @@ type varietyTable struct {
 	defaultSet *NamespaceTable
 }
 
-// NamespaceTable contains a list of destinations that should be targeted for a given namespace.
+// NamespaceTable contains a list of destinations and directives that should be targeted for a given namespace.
 type NamespaceTable struct {
-	entries []*Destination
+	entries    []*Destination
+	directives []*DirectiveGroup
 }
 
 var emptyDestinations = &NamespaceTable{}
@@ -81,10 +84,39 @@ type Destination struct {
 	FriendlyName string
 }
 
+// DirectiveGroup is a group of route directive expressions with a condition.
+// Directive expressions reference destination action names.
+// Note that InstanceGroup organizes by handlers, rather than rules, which necessitates
+// a different grouping for directives.
+type DirectiveGroup struct {
+	Condition  compiled.Expression
+	Operations []*HeaderOperation
+}
+
+// HeaderOperationType is an enumeration for the route directive header operation template type.
+type HeaderOperationType int
+
+// Request and response header operation types.
+const (
+	RequestHeaderOperation HeaderOperationType = iota
+	ResponseHeaderOperation
+)
+
+// HeaderOperation is an intermediate form of a rule header operation.
+type HeaderOperation struct {
+	Type        HeaderOperationType
+	HeaderName  string
+	HeaderValue compiled.Expression
+	Operation   descriptor.Rule_HeaderOperationTemplate_Operation
+}
+
 // NamedBuilder holds a builder function and the short name of the associated instance.
 type NamedBuilder struct {
 	InstanceShortName string
 	Builder           template.InstanceBuilderFn
+
+	// ActionName is the action name in the rule, used to reference the output of the handler applied to the instance
+	ActionName string
 }
 
 // TemplateInfo is the common data that is needed from a template
@@ -136,6 +168,7 @@ func (t *Table) ID() int64 {
 }
 
 // GetDestinations returns the set of destinations (handlers) for the given template variety and for the given namespace.
+// CHECK_WITH_OUTPUT variety destinations are grouped together with CHECK variety destinations.
 func (t *Table) GetDestinations(variety tpb.TemplateVariety, namespace string) *NamespaceTable {
 	destinations, ok := t.entries[variety]
 	if !ok {
@@ -161,6 +194,11 @@ func (d *NamespaceTable) Count() int {
 // Entries in the table.
 func (d *NamespaceTable) Entries() []*Destination {
 	return d.entries
+}
+
+// Directives in the table
+func (d *NamespaceTable) Directives() []*DirectiveGroup {
+	return d.directives
 }
 
 // MaxInstances returns the maximum number of instances that can be built from this Destination.

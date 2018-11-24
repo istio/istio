@@ -32,10 +32,11 @@ func BuildAdapters(l *Logger, settings ...FakeAdapterSettings) map[string]*adapt
 	}
 
 	var a = map[string]*adapter.Info{
-		"acheck":  createFakeAdapter("acheck", m["acheck"], l, "tcheck", "thalt"),
-		"areport": createFakeAdapter("areport", m["areport"], l, "treport"),
-		"aquota":  createFakeAdapter("aquota", m["aquota"], l, "tquota"),
-		"apa":     createFakeAdapter("apa", m["apa"], l, "tapa"),
+		"acheck":       createFakeAdapter("acheck", m["acheck"], l, "tcheck", "thalt"),
+		"acheckoutput": createFakeAdapter("acheckoutput", m["acheckoutput"], l, "tcheckoutput"),
+		"areport":      createFakeAdapter("areport", m["areport"], l, "treport"),
+		"aquota":       createFakeAdapter("aquota", m["aquota"], l, "tquota"),
+		"apa":          createFakeAdapter("apa", m["apa"], l, "tapa"),
 	}
 
 	return a

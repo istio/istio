@@ -94,6 +94,8 @@ message HandleAuthorizationRequest {
 
 
 
+
+
 // Contains instance payload for 'authorization' template. This is passed to infrastructure backends during request-time
 // through HandleAuthorizationService.HandleAuthorization.
 message InstanceMsg {

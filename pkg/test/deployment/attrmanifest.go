@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // ExtractAttributeManifest extracts attribute manifest from Helm charts.
@@ -32,7 +32,7 @@ func ExtractAttributeManifest(workDir string) (string, error) {
 		"istio-system",
 		env.IstioChartDir,
 		workDir,
-		"", nil)
+		"", make(map[string]string))
 	if err != nil {
 		return "", err
 	}

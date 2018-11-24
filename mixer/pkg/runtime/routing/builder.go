@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
@@ -184,7 +185,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				}
 
 				b.add(rule.Namespace, buildTemplateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match)
+					entry.Name, instance.Name, rule.Match, action.Name)
 			}
 		}
 
@@ -214,8 +215,20 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				}
 
 				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
-					entry.Name, instance.Name, rule.Match)
+					entry.Name, instance.Name, rule.Match, action.Name)
 			}
+		}
+
+		// process rule operations
+		if len(rule.RequestHeaderOperations) > 0 || len(rule.ResponseHeaderOperations) > 0 {
+			compiler := b.buildRuleCompiler(snapshot.Attributes, rule)
+			operations, err := b.buildRuleOperations(compiler, rule)
+			if err != nil {
+				log.Warnf("Unable to compile rule operations: %q, rule=%q", err, rule.Name)
+				continue
+			}
+
+			b.addRuleOperations(rule.Namespace, condition, operations)
 		}
 	}
 
@@ -317,15 +330,22 @@ func (b *builder) add(
 	mapper template.OutputMapperFn,
 	handlerName string,
 	instanceName string,
-	matchText string) {
+	matchText string,
+	actionName string) {
+
+	// CHECK_WITH_OUTPUT is grouped into CHECK variety table
+	variety := t.Variety
+	if variety == tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+		variety = tpb.TEMPLATE_VARIETY_CHECK
+	}
 
 	// Find or create the variety entry.
-	byVariety, found := b.table.entries[t.Variety]
+	byVariety, found := b.table.entries[variety]
 	if !found {
 		byVariety = &varietyTable{
 			entries: make(map[string]*NamespaceTable),
 		}
-		b.table.entries[t.Variety] = byVariety
+		b.table.entries[variety] = byVariety
 	}
 
 	// Find or create the namespace entry.
@@ -395,7 +415,8 @@ func (b *builder) add(
 	}
 
 	// Append the builder & mapper.
-	instanceGroup.Builders = append(instanceGroup.Builders, NamedBuilder{InstanceShortName: config.ExtractShortName(instanceName), Builder: builder})
+	instanceGroup.Builders = append(instanceGroup.Builders, NamedBuilder{InstanceShortName: config.ExtractShortName(instanceName), Builder: builder,
+		ActionName: actionName})
 
 	if mapper != nil {
 		instanceGroup.Mappers = append(instanceGroup.Mappers, mapper)
@@ -447,7 +468,8 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 	}
 
 	// Make a call to check
-	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error) {
+	ti.DispatchCheck = func(ctx context.Context, handler adapter.Handler, instance interface{},
+		out *attribute.MutableBag, outPrefix string) (adapter.CheckResult, error) {
 		var h adapter.RemoteCheckHandler
 		var ok bool
 		var encodedInstance *adapter.EncodedInstance
@@ -460,10 +482,11 @@ func (b *builder) templateInfo(tmpl *config.Template) *TemplateInfo {
 			return adapter.CheckResult{}, fmt.Errorf("internal: instance of incorrect type. got %T, want: []byte", instance)
 		}
 
-		cr, err := h.HandleRemoteCheck(ctx, encodedInstance)
+		cr, err := h.HandleRemoteCheck(ctx, encodedInstance, out, outPrefix)
 		if err != nil {
 			return adapter.CheckResult{}, err
 		}
+
 		return *cr, nil
 	}
 
@@ -561,4 +584,128 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 		b.mappers[instance.Name] = mapper
 	}
 	return instBuilder, mapper, nil
+}
+
+// buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
+// with template output attributes prefixed by the action names added to the global attribute manifests.
+func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) *compiled.ExpressionBuilder {
+	// templates include the output template attributes in their manifests
+	attributeDescriptor := make(map[string]*descriptor.AttributeManifest_AttributeInfo)
+
+	for _, action := range rule.ActionsStatic {
+		if len(action.Instances) == 0 {
+			continue
+		}
+
+		// assuming identical templates for all instances
+		template := action.Instances[0].Template
+		if template.Variety != tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+			continue
+		}
+
+		for _, manifest := range template.AttributeManifests {
+			for attrName, attrInfo := range manifest.Attributes {
+				attributeDescriptor[action.Name+".output."+attrName] = attrInfo
+			}
+		}
+	}
+
+	for _, action := range rule.ActionsDynamic {
+		if len(action.Instances) == 0 {
+			continue
+		}
+
+		// assuming identical templates for all instances
+		template := action.Instances[0].Template
+		if template.Variety != tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+			continue
+		}
+
+		// dynamic template output attributes start with "output."
+		for attrName, attrInfo := range template.AttributeManifest {
+			attributeDescriptor[action.Name+"."+attrName] = attrInfo
+		}
+	}
+
+	return compiled.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor))
+}
+
+// buildRuleOperations creates an intermediate symbolic form for the route directive header operations
+func (b *builder) buildRuleOperations(compiler dynamic.Compiler, rule *config.Rule) ([]*HeaderOperation, error) {
+	reqOps, err := b.compileRuleOperationTemplates(rule.Name, compiler, RequestHeaderOperation, rule.RequestHeaderOperations)
+	if err != nil {
+		return nil, err
+	}
+
+	respOps, err := b.compileRuleOperationTemplates(rule.Name, compiler, ResponseHeaderOperation, rule.ResponseHeaderOperations)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(reqOps, respOps...), nil
+}
+
+func (b *builder) compileRuleOperationTemplates(
+	location string,
+	compiler dynamic.Compiler,
+	typ HeaderOperationType,
+	ops []*descriptor.Rule_HeaderOperationTemplate) ([]*HeaderOperation, error) {
+
+	out := make([]*HeaderOperation, 0, len(ops))
+
+	for _, op := range ops {
+		// ignore values if operation is header removal
+		if op.Operation == descriptor.REMOVE {
+			out = append(out, &HeaderOperation{
+				Type:       typ,
+				HeaderName: op.Name,
+				Operation:  op.Operation,
+			})
+			continue
+		}
+
+		for _, value := range op.Values {
+			ve, vt, verr := compiler.Compile(value)
+			if verr != nil {
+				return nil, fmt.Errorf("unable to compile header operation value expression: %q in %q, expression=%q",
+					verr, location, value)
+			}
+			if vt != descriptor.STRING {
+				return nil, fmt.Errorf("header operation value expression is not of string type: expression=%q in %q",
+					value, location)
+			}
+			out = append(out, &HeaderOperation{
+				Type:        typ,
+				HeaderName:  op.Name,
+				HeaderValue: ve,
+				Operation:   op.Operation,
+			})
+		}
+	}
+
+	return out, nil
+}
+
+// addRuleOperations appends operation expressions to the CHECK entry in the routing table
+// should be called after b.add() to ensure table initialization for the namespace
+func (b *builder) addRuleOperations(
+	namespace string,
+	condition compiled.Expression,
+	operations []*HeaderOperation) {
+	byNamespace := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace]
+
+	var group *DirectiveGroup
+	for _, set := range byNamespace.directives {
+		if set.Condition == condition {
+			group = set
+			break
+		}
+	}
+	if group == nil {
+		group = &DirectiveGroup{
+			Condition: condition,
+		}
+		byNamespace.directives = append(byNamespace.directives, group)
+	}
+	group.Operations = append(group.Operations, operations...)
 }

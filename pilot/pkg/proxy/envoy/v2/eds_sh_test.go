@@ -23,7 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	proto "github.com/gogo/protobuf/types"
-	
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	testenv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
@@ -50,7 +50,11 @@ type expectedResults struct {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	initSplitHorizonTestEnv(t)
+	server, tearDown := initSplitHorizonTestEnv(t)
+	defer tearDown()
+	defer func() { util.MockTestServer = nil }()
+
+	pilotServer = server
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
@@ -66,14 +70,14 @@ func TestSplitHorizonEds(t *testing.T) {
 	initRegistry(4, []string{}, 4)
 
 	// Update cache
-	pilotServer.EnvoyXdsServer.ClearCache()
+	server.EnvoyXdsServer.ClearCache()
 
 	// Verify that EDS from network1 will return 1 local endpoint with local VIP + 2 remote
 	// endpoints weighted accordingly with the IP of the ingress gateway.
 	verifySplitHorizonResponse(t, "network1", sidecarId("10.1.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.1.0.1"},
-		remoteWeights:  map[string]uint32{"159.122.219.2": 2, "159.122.219.3": 3},
+		remoteWeights:  map[string]uint32{"159.122.219.2": 43, "159.122.219.3": 64},
 	})
 
 	// Verify that EDS from network2 will return 2 local endpoints with local VIPs + 2 remote
@@ -81,7 +85,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	verifySplitHorizonResponse(t, "network2", sidecarId("10.2.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.2.0.1", "10.2.0.2"},
-		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.3": 3},
+		remoteWeights:  map[string]uint32{"159.122.219.1": 22, "159.122.219.3": 64},
 	})
 
 	// Verify that EDS from network3 will return 3 local endpoints with local VIPs + 2 remote
@@ -89,13 +93,13 @@ func TestSplitHorizonEds(t *testing.T) {
 	verifySplitHorizonResponse(t, "network3", sidecarId("10.3.0.1", "app3"), expectedResults{
 		numOfNetworks:  3,
 		localEndpoints: []string{"10.3.0.1", "10.3.0.2", "10.3.0.3"},
-		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2},
+		remoteWeights:  map[string]uint32{"159.122.219.1": 22, "159.122.219.2": 43},
 	})
 
 	verifySplitHorizonResponse(t, "network4", sidecarId("10.4.0.1", "app3"), expectedResults{
 		numOfNetworks:  4,
 		localEndpoints: []string{"10.4.0.1", "10.4.0.2", "10.4.0.3", "10.4.0.4"},
-		remoteWeights:  map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2, "159.122.219.3": 3},
+		remoteWeights:  map[string]uint32{"159.122.219.1": 13, "159.122.219.2": 26, "159.122.219.3": 39},
 	})
 
 	// Clean server changes as other tests may use the same server
@@ -119,7 +123,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
 		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
-		"ISTIO_NETWORK":       {Kind: &proto.Value_StringValue{StringValue: network}},
+		"NETWORK":             {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 
 	err = sendCDSReqWithMetadata(sidecarId, metadata, edsstr)
@@ -172,19 +176,18 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 	}
 }
 
-func initSplitHorizonTestEnv(t *testing.T) *bootstrap.Server {
+func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
-	server, _ := util.EnsureTestServer()
-	pilotServer = server
+	server, tearDown := util.EnsureTestServer()
 
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	return pilotServer
+	return server, tearDown
 }
 
 // initRegistry creates and initializes a memory registry that holds a single

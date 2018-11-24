@@ -41,11 +41,13 @@ ROOT=$(dirname $WD)
 cd ${ROOT}
 
 ./scripts/generate-protos.sh || die "Could not generate *.pb.go"
+make proto-commit || die "Could not commit new proto.lock"
+make lint || die "Lint errors"
 
 if [[ -n $(git status --porcelain) ]]; then
     git status
     git diff
-    die "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh"
+    die "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh or make proto-commit"
 fi
 
 exit 0

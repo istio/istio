@@ -17,8 +17,7 @@ package config
 // GetInstancesGroupedByHandlers queries the snapshot and returns all used instances, grouped by the handlers that will
 // receive them.
 func GetInstancesGroupedByHandlers(s *Snapshot) map[*HandlerStatic][]*InstanceStatic {
-	// There is no set in Go? map[<item>]bool to the rescue!
-	m := make(map[*HandlerStatic]map[*InstanceStatic]bool)
+	m := make(map[*HandlerStatic]map[*InstanceStatic]struct{})
 
 	// Grovel over rules/actions and for each handler create a map entry and place all the instances in that action
 	// as values.
@@ -26,12 +25,12 @@ func GetInstancesGroupedByHandlers(s *Snapshot) map[*HandlerStatic][]*InstanceSt
 		for _, a := range r.ActionsStatic {
 			instances, found := m[a.Handler]
 			if !found {
-				instances = make(map[*InstanceStatic]bool)
+				instances = make(map[*InstanceStatic]struct{})
 				m[a.Handler] = instances
 			}
 
 			for _, i := range a.Instances {
-				instances[i] = true
+				instances[i] = struct{}{}
 			}
 		}
 	}
@@ -52,8 +51,7 @@ func GetInstancesGroupedByHandlers(s *Snapshot) map[*HandlerStatic][]*InstanceSt
 // GetInstancesGroupedByHandlersDynamic queries the snapshot and returns all used instances, grouped by the handlers that will
 // receive them.
 func GetInstancesGroupedByHandlersDynamic(s *Snapshot) map[*HandlerDynamic][]*InstanceDynamic {
-	// There is no set in Go? map[<item>]bool to the rescue!
-	m := make(map[*HandlerDynamic]map[*InstanceDynamic]bool)
+	m := make(map[*HandlerDynamic]map[*InstanceDynamic]struct{})
 
 	// Grovel over rules/actions and for each handler create a map entry and place all the instances in that action
 	// as values.
@@ -61,12 +59,12 @@ func GetInstancesGroupedByHandlersDynamic(s *Snapshot) map[*HandlerDynamic][]*In
 		for _, a := range r.ActionsDynamic {
 			instances, found := m[a.Handler]
 			if !found {
-				instances = make(map[*InstanceDynamic]bool)
+				instances = make(map[*InstanceDynamic]struct{})
 				m[a.Handler] = instances
 			}
 
 			for _, i := range a.Instances {
-				instances[i] = true
+				instances[i] = struct{}{}
 			}
 		}
 	}

@@ -29,7 +29,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/server"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/proto"
 )
 
 const (
@@ -426,8 +426,9 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	serverManager.HttpFilters = append(serverMutable.FilterChains[0].HTTP, serverManager.HttpFilters...)
 	serverListener.FilterChains = []listener.FilterChain{{
 		Filters: []listener.Filter{{
-			Name:   util.HTTPConnectionManager,
-			Config: pilotutil.MessageToStruct(serverManager)}},
+			Name:       util.HTTPConnectionManager,
+			ConfigType: &listener.Filter_Config{pilotutil.MessageToStruct(serverManager)},
+		}},
 		// turn on mTLS on downstream
 		TlsContext: &auth.DownstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{
@@ -441,7 +442,7 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 					},
 				},
 			},
-			RequireClientCertificate: &types.BoolValue{Value: true},
+			RequireClientCertificate: proto.BoolTrue,
 		},
 	}}
 
@@ -451,8 +452,8 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	}
 	clientManager.HttpFilters = append(clientMutable.FilterChains[0].HTTP, clientManager.HttpFilters...)
 	clientListener.FilterChains = []listener.FilterChain{{Filters: []listener.Filter{{
-		Name:   util.HTTPConnectionManager,
-		Config: pilotutil.MessageToStruct(clientManager),
+		Name:       util.HTTPConnectionManager,
+		ConfigType: &listener.Filter_Config{pilotutil.MessageToStruct(clientManager)},
 	}}}}
 
 	p.OnInboundRouteConfiguration(&serverParams, serverRoute)

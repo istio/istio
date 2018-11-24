@@ -93,6 +93,8 @@ message HandleLogEntryRequest {
 
 
 
+
+
 // Contains instance payload for 'logentry' template. This is passed to infrastructure backends during request-time
 // through HandleLogEntryService.HandleLogEntry.
 message InstanceMsg {

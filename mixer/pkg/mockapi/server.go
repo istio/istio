@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
-
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/status"
@@ -95,7 +94,7 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 		return nil, fmt.Errorf("global dictionary mismatch: proxy %d and mixer %d", req.GlobalWordCount, len(a.GlobalDict))
 	}
 
-	requestBag := attribute.NewProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
+	requestBag := attribute.GetProtoBag(&req.Attributes, a.GlobalDict, attribute.GlobalList())
 	defer requestBag.Done()
 
 	result := a.Handler.Check(requestBag)
@@ -157,7 +156,7 @@ func (a *AttributesServer) Report(ctx context.Context, req *mixerpb.ReportReques
 		}
 	}
 
-	protoBag := attribute.NewProtoBag(&req.Attributes[0], a.GlobalDict, attribute.GlobalList())
+	protoBag := attribute.GetProtoBag(&req.Attributes[0], a.GlobalDict, attribute.GlobalList())
 	requestBag := attribute.GetMutableBag(protoBag)
 	defer requestBag.Done()
 	defer protoBag.Done()

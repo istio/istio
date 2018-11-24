@@ -82,7 +82,8 @@ type InputParams struct {
 	// For outbound/inbound sidecars this is the service port (not endpoint port)
 	// For inbound listener on gateway, this is the gateway server port
 	Port *model.Port
-
+	// The subset associated with the service for which the cluster is being programmed
+	Subset string
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
 }

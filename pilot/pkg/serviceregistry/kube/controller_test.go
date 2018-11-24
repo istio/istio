@@ -28,11 +28,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {
@@ -231,7 +231,7 @@ func TestServices(t *testing.T) {
 			},
 		},
 	}
-	ctl.InitNetworkLookup()
+	ctl.InitNetworkLookup(ctl.Env.MeshNetworks)
 
 	// 2 ports 1001, 2 IPs
 	createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, t)
