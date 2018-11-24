@@ -1,6 +1,3 @@
-FROM istionightly/base_debug
-
-ADD operator.sh /usr/local/bin/
-ADD kubectl /usr/local/bin/
-
-ENTRYPOINT ["/usr/local/bin/operator.sh"]
+FROM scratch
+ADD operator /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/operator"]
