@@ -873,6 +873,24 @@ func TestController_ExternalNameService(t *testing.T) {
 			t.Errorf("wrong instance endpoint address: '%s' != '%s'", instances[0].Endpoint.Address, k8sSvcs[i].Spec.ExternalName)
 		}
 	}
+
+	for _, s := range k8sSvcs {
+		deleteExternalNameService(controller, s.Name, s.Namespace, t, fx.Events)
+	}
+	svcList, _ = controller.Services()
+	if len(svcList) != 0 {
+		t.Fatalf("Should have 0 services at this point")
+	}
+	for _, exp := range expectedSvcList {
+		instances, err := controller.InstancesByPort(exp.Hostname, exp.Ports[0].Port, model.LabelsCollection{})
+		if err != nil {
+			t.Errorf("error getting instances by port: %s", err)
+			continue
+		}
+		if len(instances) != 0 {
+			t.Errorf("should be exactly 0 instance: len(instances) = %v", len(instances))
+		}
+	}
 }
 
 func makeFakeKubeAPIController() *Controller {
@@ -974,6 +992,18 @@ func createExternalNameService(controller *Controller, name, namespace string,
 		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
 	}
 	return service
+}
+
+func deleteExternalNameService(controller *Controller, name, namespace string, t *testing.T, xdsEvents <-chan XdsEvent) {
+
+	defer func() {
+		<-xdsEvents
+	}()
+
+	err := controller.client.CoreV1().Services(namespace).Delete(name, &meta_v1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("Cannot delete service %s in namespace %s (error: %v)", name, namespace, err)
+	}
 }
 
 func addPods(t *testing.T, controller *Controller, pods ...*v1.Pod) {
