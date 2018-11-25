@@ -58,6 +58,7 @@ type Server struct {
 type patchTable struct {
 	logConfigure                func(*log.Options) error
 	newKubeFromConfigFile       func(string) (kube.Interfaces, error)
+	createResourceTypes         func(kube.Interfaces) error
 	verifyResourceTypesPresence func(kube.Interfaces) error
 	newSource                   func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
@@ -70,6 +71,7 @@ func defaultPatchTable() patchTable {
 	return patchTable{
 		logConfigure:                log.Configure,
 		newKubeFromConfigFile:       kube.NewKubeFromConfigFile,
+		createResourceTypes:         source.CreateResourceTypes,
 		verifyResourceTypesPresence: source.VerifyResourceTypesPresence,
 		newSource:                   source.New,
 		netListen:                   net.Listen,
@@ -106,6 +108,9 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	} else {
 		k, err := p.newKubeFromConfigFile(a.KubeConfig)
 		if err != nil {
+			return nil, err
+		}
+		if err := p.createResourceTypes(k); err != nil {
 			return nil, err
 		}
 		if !a.DisableResourceReadyCheck {

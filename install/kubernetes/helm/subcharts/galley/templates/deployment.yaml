@@ -68,6 +68,14 @@ spec:
           - name: mesh-config
             mountPath: /etc/istio/mesh-config
             readOnly: true
+          - name: istio-crd-10
+            mountPath: /etc/istio/crds/crd-10.yaml
+            subPath: crd-10.yaml
+            readOnly: true
+          - name: istio-crd-11
+            mountPath: /etc/istio/crds/crd-11.yaml
+            subPath: crd-11.yaml
+            readOnly: true
           livenessProbe:
             exec:
               command:
@@ -102,5 +110,11 @@ spec:
       - name: mesh-config
         configMap:
           name: istio
+      - name: istio-crd-10
+        configMap:
+          name: istio-crd-10
+      - name: istio-crd-11
+        configMap:
+          name: istio-crd-11
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
