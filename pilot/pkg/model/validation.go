@@ -28,7 +28,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
@@ -1516,13 +1515,13 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	for name := range http.AppendHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
-	for _, name := range http.AppendRequestHeaders {
+	for name := range http.AppendRequestHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
 	for _, name := range http.RemoveRequestHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
-	for _, name := range http.AppendResponseHeaders {
+	for name := range http.AppendResponseHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
 	for _, name := range http.RemoveResponseHeaders {
