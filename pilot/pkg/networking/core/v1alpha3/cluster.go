@@ -502,16 +502,14 @@ func applyTcpKeepalive(env *model.Environment, cluster *v2.Cluster, settings *ne
 	var keepaliveProbes uint32
 	var keepaliveTime *types.Duration
 	var keepaliveInterval *types.Duration
-
-	upstreamConnectionOptions := &v2.UpstreamConnectionOptions{
-		TcpKeepalive: &core.TcpKeepalive{},
-	}
+	isTcpKeepaliveSet := false
 
 	// Apply mesh wide TCP keepalive.
 	if env.Mesh.TcpKeepalive != nil {
 		keepaliveProbes = env.Mesh.TcpKeepalive.Probes
 		keepaliveTime = env.Mesh.TcpKeepalive.Time
 		keepaliveInterval = env.Mesh.TcpKeepalive.Interval
+		isTcpKeepaliveSet = true
 	}
 
 	// Apply/Override with DestinationRule TCP keepalive if set.
@@ -519,6 +517,17 @@ func applyTcpKeepalive(env *model.Environment, cluster *v2.Cluster, settings *ne
 		keepaliveProbes = settings.Tcp.TcpKeepalive.Probes
 		keepaliveTime = settings.Tcp.TcpKeepalive.Time
 		keepaliveInterval = settings.Tcp.TcpKeepalive.Interval
+		isTcpKeepaliveSet = true
+	}
+
+	if !isTcpKeepaliveSet {
+		return
+	}
+
+	// If none of the proto fields are set, then an empty tcp_keepalive is set in Envoy.
+	// That would set SO_KEEPALIVE on the socket with OS default values.
+	upstreamConnectionOptions := &v2.UpstreamConnectionOptions{
+		TcpKeepalive: &core.TcpKeepalive{},
 	}
 
 	// If any of the TCP keepalive options are not set, skip them from the config so that OS defaults are used.

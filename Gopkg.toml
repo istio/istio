@@ -295,8 +295,7 @@ ignored = [
 
 [[constraint]]
   name = "istio.io/api"
-  branch = "shakti/tcp-keepalive-r1.1"
-  source = "https://github.com/shakti-das/api"
+  branch = "release-1.1"
 
 # fortio is latest tagged by default
 
