@@ -55,6 +55,8 @@ func init() {
 
 const (
 	watchDebounceDelay = 100 * time.Millisecond
+
+	httpsHandlerReadyPath = "/ready"
 )
 
 // WebhookParameters contains the configuration for the Istio Pilot validation
@@ -240,6 +242,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	h := http.NewServeMux()
 	h.HandleFunc("/admitpilot", wh.serveAdmitPilot)
 	h.HandleFunc("/admitmixer", wh.serveAdmitMixer)
+	h.HandleFunc(httpsHandlerReadyPath, wh.serveReady)
 	wh.server.Handler = h
 
 	return wh, nil
@@ -378,6 +381,10 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 		reportValidationHTTPError(http.StatusInternalServerError)
 		http.Error(w, fmt.Sprintf("could write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+func (wh *Webhook) serveReady(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }
 
 func (wh *Webhook) serveAdmitPilot(w http.ResponseWriter, r *http.Request) {
