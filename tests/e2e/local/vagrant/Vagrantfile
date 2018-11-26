@@ -46,7 +46,7 @@ Vagrant.configure("2") do |config|
   # the path on the host to the actual folder. The second argument is
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
-  istio_root = ENV["ISTIO_ROOT"] || "~/go/src/istio.io"
+  istio_root = ENV["ISTIO"] || "~/go/src/istio.io"
   config.vm.synced_folder istio_root, "/istio.io"
 
   # Provider-specific configuration so you can fine-tune various
