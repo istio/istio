@@ -110,6 +110,18 @@ func (e *Envoy) Start() (err error) {
 
 	// Run the envoy binary
 	args := e.getCommandArgs()
+
+	// glibc_path is the location of customized glibc library path (/opt/glibc-2.18/lib)
+	// build a customized glibc-2.18
+	// export GLIBC_PATH=/opt/glibc-2.18/lib
+	// in case you are in a CentOS env which incoperates with glibc-2.17 by default
+	if glibc_path := os.Getenv("GLIBC_PATH"); glibc_path != "" {
+		glibc_args := []string{"--library-path", glibc_path, envoyPath}
+		envoyPath = filepath.Join(glibc_path, "ld-linux-x86-64.so.2")
+		args = append(glibc_args, args...)
+	}
+	fmt.Println(envoyPath, args)
+
 	e.cmd = exec.Command(envoyPath, args...)
 	e.cmd.Stderr = os.Stderr
 	e.cmd.Stdout = os.Stdout
