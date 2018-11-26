@@ -24,7 +24,7 @@ sh install_prereqs.sh
 The script will look for the istio source inside `~/go/src/istio.io`. If you have it in another place, set the `ISTIO` environment variable to point to the correct location.
 
 ```bash
-export ISTIO=`~/path/to/istio.io
+export ISTIO=~/path/to/istio.io
 sh setup_vm.sh
 ```
 
