@@ -268,12 +268,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 		time.Sleep(time.Second)
 	}
 
-	if err != nil && errors.IsAlreadyExists(err) {
-		// Do nothing for the already exist error.
-		return
-	}
-
-	if err != nil {
+	if err != nil && !errors.IsAlreadyExists(err) {
 		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
 			saName, err, secretCreationRetry)
 		return
