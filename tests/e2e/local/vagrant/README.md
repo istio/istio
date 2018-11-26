@@ -21,7 +21,10 @@ sh install_prereqs.sh
 
 # Steps
 ## 1. Set up Vagrant Environment
+The script will look for the istio source inside `~/go/src/istio.io`. If you have it in another place, set the `ISTIO_ROOT` environment variable to point to the correct location.
+
 ```bash
+export ISTIO_ROOT=`~/path/to/istio.io
 sh setup_vm.sh
 ```
 
