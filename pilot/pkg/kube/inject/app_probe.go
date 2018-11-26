@@ -38,7 +38,9 @@ const (
 )
 
 var (
-	statusPortPattern = regexp.MustCompile(fmt.Sprintf("^-{1,2}%s$", StatusPortCmdFlagName))
+	// regex pattern for to extract the pilot agent probing port.
+	// Supported format, --statusPort, -statusPort, --statusPort=15020.
+	statusPortPattern = regexp.MustCompile(fmt.Sprintf(`^-{1,2}%s(=(?P<port>\d+))?$`, StatusPortCmdFlagName))
 )
 
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
@@ -48,18 +50,31 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 			continue
 		}
 		for i, arg := range c.Args {
-			// Not matches, unrelated args.
-			if !statusPortPattern.MatchString(strings.TrimSpace(arg)) {
+			// Skip for unrelated args.
+			match := statusPortPattern.FindAllStringSubmatch(strings.TrimSpace(arg), -1)
+			if len(match) != 1 {
 				continue
 			}
-			// Matches the regex pattern, but without actual values provided.
-			if len(c.Args) <= i+1 {
-				log.Errorf("No statusPort value provided, skip app probe rewriting")
-				return
+			groups := statusPortPattern.SubexpNames()
+			portStr := ""
+			for ind, s := range match[0] {
+				if groups[ind] == "port" {
+					portStr = s
+					break
+				}
 			}
-			p, err := strconv.Atoi(c.Args[i+1])
+			// Port not found from current arg, extract from next arg.
+			if portStr == "" {
+				// Matches the regex pattern, but without actual values provided.
+				if len(c.Args) <= i+1 {
+					log.Errorf("No statusPort value provided, skip app probe rewriting")
+					return
+				}
+				portStr = c.Args[i+1]
+			}
+			p, err := strconv.Atoi(portStr)
 			if err != nil {
-				log.Errorf("Failed to convert statusPort to int %v, err %v", c.Args[i+1], err)
+				log.Errorf("Failed to convert statusPort to int %v, err %v", portStr, err)
 				return
 			}
 			statusPort = p
