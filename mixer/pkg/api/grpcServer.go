@@ -73,7 +73,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 
 	if req.GlobalWordCount > uint32(len(s.globalWordList)) {
 		err := fmt.Errorf("inconsistent global dictionary versions used: mixer knows %d words, caller knows %d", len(s.globalWordList), req.GlobalWordCount)
-		lg.Errora("Check failed:", err.Error())
+		lg.Errora("Check failed: ", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
@@ -126,7 +126,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 
 	if err := s.dispatcher.Preprocess(ctx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
-		lg.Errora("Check failed:", err.Error())
+		lg.Errora("Check failed: ", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
@@ -141,7 +141,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 	cr, err := s.dispatcher.Check(ctx, checkBag)
 	if err != nil {
 		err = fmt.Errorf("performing check operation failed: %v", err)
-		lg.Errora("Check failed:", err.Error())
+		lg.Errora("Check failed: ", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
@@ -194,7 +194,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 			qr, err := s.dispatcher.Quota(ctx, checkBag, qma)
 			if err != nil {
 				err = fmt.Errorf("performing quota alloc failed: %v", err)
-				lg.Errora("Quota failure:", err.Error())
+				lg.Errora("Quota failure: ", err.Error())
 				// we continue the quota loop even after this error
 			} else {
 				if !status.IsOK(qr.Status) {
@@ -222,7 +222,7 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 
 	if req.GlobalWordCount > uint32(len(s.globalWordList)) {
 		err := fmt.Errorf("inconsistent global dictionary versions used: mixer knows %d words, caller knows %d", len(s.globalWordList), req.GlobalWordCount)
-		lg.Errora("Report failed:", err.Error())
+		lg.Errora("Report failed: ", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
@@ -308,7 +308,7 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 	reportSpan.Finish()
 
 	if errors != nil {
-		lg.Errora("Report failed:", errors.Error())
+		lg.Errora("Report failed: ", errors.Error())
 		return nil, grpc.Errorf(codes.Unknown, errors.Error())
 	}
 

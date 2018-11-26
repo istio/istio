@@ -65,7 +65,7 @@ type TearDownFunc func()
 func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, TearDownFunc) {
 	tearDown, err := setup(args...)
 	if err != nil {
-		log.Errora("Failed to start in-process server", err)
+		log.Errora("Failed to start in-process server ", err)
 		panic(err)
 	}
 	return MockTestServer, tearDown
