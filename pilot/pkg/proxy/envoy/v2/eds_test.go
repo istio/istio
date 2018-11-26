@@ -163,10 +163,10 @@ func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 				Port:     8080,
 				Protocol: model.ProtocolHTTP,
 			},
+			Locality: "az",
 		},
-		ServiceAccount:   "hello-sa",
-		Labels:           map[string]string{"version": "v1"},
-		AvailabilityZone: "az",
+		ServiceAccount: "hello-sa",
+		Labels:         map[string]string{"version": "v1"},
 	})
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
@@ -401,9 +401,9 @@ func addUdsEndpoint(server *bootstrap.Server) {
 				Port:     0,
 				Protocol: model.ProtocolGRPC,
 			},
+			Locality: "localhost",
 		},
-		Labels:           map[string]string{"socket": "unix"},
-		AvailabilityZone: "localhost",
+		Labels: map[string]string{"socket": "unix"},
 	})
 
 	server.EnvoyXdsServer.Push(true, nil)

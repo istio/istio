@@ -255,11 +255,11 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 					Port:     1080,
 					Protocol: model.ProtocolHTTP,
 				},
-				Network: id,
-				UID:     "kubernetes://dummy",
+				Network:  id,
+				Locality: "az",
+				UID:      "kubernetes://dummy",
 			},
-			Labels:           svcLabels,
-			AvailabilityZone: "az",
+			Labels: svcLabels,
 		})
 	}
 }
