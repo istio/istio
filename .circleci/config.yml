@@ -523,7 +523,7 @@ jobs:
           when: always
           name: make test.integration.kube
           command: |
-            make test.integration.kube T=-v | tee -a /go/out/tests/build-log.txt
+            make test.integration.kube T="-v -timeout=15m" | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
