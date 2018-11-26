@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -213,7 +212,7 @@ func executeDispatchReport(t *testing.T, h adapter.Handler) error {
 
 func executeDispatchCheck(t *testing.T, h adapter.Handler) (adapter.CheckResult, error) {
 	instance := createInstance(t, sample_check.TemplateName, &defaultCheckInstanceParam, defaultCheckAttributes)
-	return SupportedTmplInfo[sample_check.TemplateName].DispatchCheck(context.TODO(), h, instance)
+	return SupportedTmplInfo[sample_check.TemplateName].DispatchCheck(context.TODO(), h, instance, nil, "")
 }
 
 func executeDispatchQuota(t *testing.T, h adapter.Handler, a adapter.QuotaArgs) (adapter.QuotaResult, error) {

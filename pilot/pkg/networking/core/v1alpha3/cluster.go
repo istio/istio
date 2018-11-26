@@ -71,6 +71,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 	}
 
+	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+		clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
+	}
+
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for these two clusters.
 	clusters = append(clusters, buildBlackHoleCluster())
@@ -115,12 +119,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			inputParams.Service = service
 			inputParams.Port = port
 
-			hosts := buildClusterHosts(env, networkView, service, port.Port)
+			hosts := buildClusterHosts(env, networkView, service, port.Port, nil)
 
 			// create default cluster
+			discoveryType := convertResolution(service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			upstreamServiceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []int{port.Port})
-			defaultCluster := buildDefaultCluster(env, clusterName, convertResolution(service.Resolution), hosts)
+			serviceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []int{port.Port})
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, hosts)
 
 			updateEds(defaultCluster)
 			setUpstreamProtocol(defaultCluster, port)
@@ -128,16 +133,24 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				convertIstioMutual(destinationRule, upstreamServiceAccounts)
-				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port)
+				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
 
 				for _, subset := range destinationRule.Subsets {
+					inputParams.Subset = subset.Name
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
-					subsetCluster := buildDefaultCluster(env, subsetClusterName, convertResolution(service.Resolution), hosts)
+					defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+
+					// clusters with discovery type STATIC, STRICT_DNS or LOGICAL_DNS rely on cluster.hosts field
+					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
+					if discoveryType != v2.Cluster_EDS && len(subset.Labels) != 0 {
+						hosts = buildClusterHosts(env, networkView, service, port.Port, []model.Labels{subset.Labels})
+					}
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, hosts)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port)
-					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port)
+					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
+					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(inputParams, subsetCluster)
@@ -149,6 +162,54 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			// call plugins for the default cluster
 			for _, p := range configgen.Plugins {
 				p.OnOutboundCluster(inputParams, defaultCluster)
+			}
+		}
+	}
+
+	return clusters
+}
+
+// SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream
+func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*v2.Cluster {
+	clusters := make([]*v2.Cluster, 0)
+
+	networkView := model.GetNetworkView(proxy)
+
+	for _, service := range push.Services {
+		config := push.DestinationRule(service.Hostname)
+		for _, port := range service.Ports {
+			if port.Protocol == model.ProtocolUDP {
+				continue
+			}
+			hosts := buildClusterHosts(env, networkView, service, port.Port, nil)
+
+			// create default cluster
+			discoveryType := convertResolution(service.Resolution)
+
+			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, hosts)
+			defaultCluster.TlsContext = nil
+			updateEds(defaultCluster)
+			clusters = append(clusters, defaultCluster)
+
+			if config != nil {
+				destinationRule := config.Spec.(*networking.DestinationRule)
+				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, nil, "", SniDnatClusterMode)
+
+				for _, subset := range destinationRule.Subsets {
+					subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+					// clusters with discovery type STATIC, STRICT_DNS or LOGICAL_DNS rely on cluster.hosts field
+					// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
+					if discoveryType != v2.Cluster_EDS && len(subset.Labels) != 0 {
+						hosts = buildClusterHosts(env, networkView, service, port.Port, []model.Labels{subset.Labels})
+					}
+					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, hosts)
+					subsetCluster.TlsContext = nil
+					updateEds(subsetCluster)
+					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, nil, "", SniDnatClusterMode)
+					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, nil, "", SniDnatClusterMode)
+					clusters = append(clusters, subsetCluster)
+				}
 			}
 		}
 	}
@@ -170,12 +231,14 @@ func updateEds(cluster *v2.Cluster) {
 	}
 }
 
-func buildClusterHosts(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service, port int) []*core.Address {
+func buildClusterHosts(env *model.Environment, proxyNetworkView map[string]bool, service *model.Service,
+	port int, labels model.LabelsCollection) []*core.Address {
+
 	if service.Resolution != model.DNSLB {
 		return nil
 	}
 
-	instances, err := env.InstancesByPort(service.Hostname, port, nil)
+	instances, err := env.InstancesByPort(service.Hostname, port, labels)
 	if err != nil {
 		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
 		return nil
@@ -260,44 +323,32 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 	}
 }
 
-// convertIstioMutual fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func convertIstioMutual(destinationRule *networking.DestinationRule, upstreamServiceAccount []string) {
-	converter := func(tls *networking.TLSSettings) {
-		if tls == nil {
-			return
-		}
-		if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-			*tls = *buildIstioMutualTLS(upstreamServiceAccount, tls.Sni)
-		}
+// conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccounts []string, sni string) *networking.TLSSettings {
+	if tls == nil {
+		return nil
 	}
-
-	if destinationRule.TrafficPolicy != nil {
-		converter(destinationRule.TrafficPolicy.Tls)
-		for _, portTLS := range destinationRule.TrafficPolicy.PortLevelSettings {
-			converter(portTLS.Tls)
+	if tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
+		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
+		// user specified SNIs in the istio mtls settings are useful when routing via gateways
+		sniToUse := tls.Sni
+		if len(sniToUse) == 0 {
+			sniToUse = sni
 		}
+		return buildIstioMutualTLS(serviceAccounts, sniToUse)
 	}
-	for _, subset := range destinationRule.Subsets {
-		if subset.TrafficPolicy != nil {
-			converter(subset.TrafficPolicy.Tls)
-			for _, portTLS := range subset.TrafficPolicy.PortLevelSettings {
-				converter(portTLS.Tls)
-			}
-		}
-	}
+	return tls
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTLS(upstreamServiceAccount []string, sni string) *networking.TLSSettings {
+func buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
 		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
 		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
-		SubjectAltNames:   upstreamServiceAccount,
-		// Allow user specified SNIs in the istio mtls settings - which is useful
-		// for routing via gateways
-		Sni: sni,
+		SubjectAltNames:   serviceAccounts,
+		Sni:               sni,
 	}
 }
 
@@ -336,7 +387,20 @@ func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
-func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy, port *model.Port) {
+// ClusterMode defines whether the cluster is being built for SNI-DNATing (sni passthrough) or not
+type ClusterMode string
+
+const (
+	// SniDnatClusterMode indicates cluster is being built for SNI dnat mode
+	SniDnatClusterMode ClusterMode = "sni-dnat"
+	// DefaultClusterMode indicates usual cluster with mTLS et al
+	DefaultClusterMode ClusterMode = "outbound"
+)
+
+// FIXME: There are too many variables here. Create a clusterOpts struct and stick the values in it, just like
+// listenerOpts
+func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *networking.TrafficPolicy,
+	port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode) {
 	if policy == nil {
 		return
 	}
@@ -345,7 +409,10 @@ func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *net
 	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
-	applyUpstreamTLSSettings(cluster, tls, env.Mesh.SdsUdsPath)
+	if clusterMode != SniDnatClusterMode {
+		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni)
+		applyUpstreamTLSSettings(env, cluster, tls)
+	}
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -447,7 +514,7 @@ func applyLoadBalancer(cluster *v2.Cluster, lb *networking.LoadBalancerSettings)
 	}
 }
 
-func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, sdsUdsPath string) {
+func applyUpstreamTLSSettings(env *model.Environment, cluster *v2.Cluster, tls *networking.TLSSettings) {
 	if tls == nil {
 		return
 	}
@@ -499,7 +566,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 		}
 
 		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or tls.mode is TLSSettings_MUTUAL.
-		if sdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
+		if env.Mesh.SdsUdsPath == "" || tls.Mode == networking.TLSSettings_MUTUAL {
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -519,7 +586,7 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			}
 		} else {
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath))
+				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount))
 
 			rootResourceName := model.SDSRootResourceName
 			if len(tls.SubjectAltNames) > 0 {
@@ -530,7 +597,8 @@ func applyUpstreamTLSSettings(cluster *v2.Cluster, tls *networking.TLSSettings, 
 			}
 
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(rootResourceName, sdsUdsPath),
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(
+					rootResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount),
 			}
 		}
 
@@ -600,7 +668,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil)
+	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil, nil, "", DefaultClusterMode)
 	return cluster
 }
 

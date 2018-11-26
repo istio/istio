@@ -55,7 +55,7 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 	}, nil
 }
 
-// ConvertObject converts an IstioObject k8s-style object to the
+// ConvertObjectFromUnstructured converts an IstioObject k8s-style object to the
 // internal configuration model.
 func ConvertObjectFromUnstructured(schema model.ProtoSchema, un *unstructured.Unstructured, domain string) (*model.Config, error) {
 	data, err := schema.FromJSONMap(un.Object["spec"])

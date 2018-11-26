@@ -17,6 +17,8 @@ package runtime
 import (
 	"github.com/pkg/errors"
 
+	"time"
+
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
@@ -33,6 +35,9 @@ type Processor struct {
 
 	// distributor interface for publishing config snapshots to.
 	distributor Distributor
+
+	// configuration for the processor
+	config *Config
 
 	// The heuristic publishing strategy
 	strategy *publishingStrategy
@@ -56,18 +61,28 @@ type Processor struct {
 
 	// hook that gets called after each event processing. Useful for testing.
 	postProcessHook postProcessHookFn
+
+	// pendingEvents counts the number of events awaiting publishing.
+	pendingEvents int64
+
+	// lastEventTime records the last time an event was received.
+	lastEventTime time.Time
+
+	// lastSnapshotTime records the last time a snapshot was published.
+	lastSnapshotTime time.Time
 }
 
 type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
-func NewProcessor(src Source, distributor Distributor) *Processor {
-	return newProcessor(src, distributor, newPublishingStrategyWithDefaults(), metadata.Types, nil)
+func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
+	return newProcessor(src, distributor, cfg, newPublishingStrategyWithDefaults(), metadata.Types, nil)
 }
 
 func newProcessor(
 	src Source,
 	distributor Distributor,
+	cfg *Config,
 	strategy *publishingStrategy,
 	schema *resource.Schema,
 	postProcessHook postProcessHookFn) *Processor {
@@ -75,6 +90,7 @@ func newProcessor(
 	return &Processor{
 		source:          src,
 		distributor:     distributor,
+		config:          cfg,
 		strategy:        strategy,
 		schema:          schema,
 		postProcessHook: postProcessHook,
@@ -100,10 +116,12 @@ func (p *Processor) Start() error {
 	}
 
 	p.events = events
-	p.state = newState(p.schema)
+	p.state = newState(p.schema, p.config)
 
 	p.done = make(chan struct{})
 	p.stopped = make(chan struct{})
+	p.lastEventTime = time.Now()
+	p.lastSnapshotTime = time.Now()
 	go p.process()
 
 	return nil
@@ -166,6 +184,10 @@ loop:
 
 func (p *Processor) processEvent(e resource.Event) bool {
 	scope.Debugf("Incoming source event: %v", e)
+	now := time.Now()
+	recordProcessorEventProcessed(now.Sub(p.lastEventTime))
+	p.lastEventTime = now
+	p.pendingEvents++
 
 	if e.Kind == resource.FullSync {
 		scope.Infof("Synchronization is complete, starting distribution.")
@@ -177,7 +199,11 @@ func (p *Processor) processEvent(e resource.Event) bool {
 }
 
 func (p *Processor) publish() {
+	now := time.Now()
+	recordProcessorSnapshotPublished(p.pendingEvents, now.Sub(p.lastSnapshotTime))
+	p.lastSnapshotTime = now
 	sn := p.state.buildSnapshot()
 
 	p.distributor.SetSnapshot(snapshot.DefaultGroup, sn)
+	p.pendingEvents = 0
 }

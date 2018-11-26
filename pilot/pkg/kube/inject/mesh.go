@@ -45,7 +45,7 @@ initContainers:
   - "-u"
   - {{ .SidecarProxyUID }}
   - "-m"
-  - [[ annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode ]]
+  - "[[ annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode ]]"
   - "-i"
   - "[[ annotation .ObjectMeta $includeOutboundIPRangesKey "{{ .IncludeIPRanges }}" ]]"
   - "-x"
@@ -63,25 +63,27 @@ initContainers:
     capabilities:
       add:
       - NET_ADMIN
-    {{ if eq .DebugMode true -}}
+    {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true
     {{ end -}}
-{{- if eq .EnableCoreDump true }}
-- args:
+  restartPolicy: Always
+{{ if eq .EnableCoreDump true -}}
+- name: enable-core-dump
+  args:
   - -c
   - sysctl -w kernel.core_pattern=/var/lib/istio/core.proxy && ulimit -c unlimited
   command:
-  - /bin/sh
+    - /bin/sh
   image: {{ .InitImage }}
   imagePullPolicy: IfNotPresent
-  name: enable-core-dump
   resources: {}
   securityContext:
     privileged: true
 {{- end }}
+
 containers:
 - name: istio-proxy
-  image: [[ annotation .ObjectMeta $proxyImageKey "{{ .ProxyImage }}" ]] 
+  image: [[ annotation .ObjectMeta $proxyImageKey "{{ .ProxyImage }}" ]]
   args:
   - proxy
   - sidecar
@@ -101,8 +103,18 @@ containers:
   - [[ formatDuration .ProxyConfig.ParentShutdownDuration ]]
   - --discoveryAddress
   - [[ .ProxyConfig.DiscoveryAddress ]]
+  [[ if .ProxyConfig.GetTracing.GetLightstep -]]
+  - --lightstepAddress
+  - [[ .ProxyConfig.GetTracing.GetLightstep.GetAddress ]]
+  - --lightstepAccessToken
+  - [[ .ProxyConfig.GetTracing.GetLightstep.GetAccessToken ]]
+  - --lightstepSecure=[[ .ProxyConfig.GetTracing.GetLightstep.GetSecure ]]
+  - --lightstepCacertPath
+  - [[ .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]
+  [[ else if .ProxyConfig.GetTracing.GetZipkin -]]
   - --zipkinAddress
-  - [[ .ProxyConfig.ZipkinAddress ]]
+  - [[ .ProxyConfig.GetTracing.GetZipkin.GetAddress ]]
+  [[ end -]]
   - --connectTimeout
   - [[ formatDuration .ProxyConfig.ConnectTimeout ]]
   - --statsdUdpAddress
@@ -128,6 +140,10 @@ containers:
     periodSeconds: [[ $readinessPeriodValue ]]
     failureThreshold: [[ $readinessFailureThresholdValue ]]
   [[ end -]]
+  ports:
+  - containerPort: 15090
+    protocol: TCP
+    name: http-envoy-prom
   env:
   - name: POD_NAME
     valueFrom:
@@ -156,19 +172,20 @@ containers:
     requests:
       cpu: 10m
   securityContext:
-    {{ if eq .DebugMode true -}}
+    {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true
+    {{ end -}}
+    {{ if eq .DebugMode true -}}
     readOnlyRootFilesystem: false
-    {{ else -}}
-    privileged: false
+    {{ else }}
     readOnlyRootFilesystem: true
+    {{ end -}}
     [[ if eq (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     capabilities:
       add:
       - NET_ADMIN
     [[ end -]]
-    {{ end -}}
-    [[ if ne (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
+    [[ if eq (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     runAsUser: 1337
     [[- end ]]
   volumeMounts:
@@ -180,12 +197,25 @@ containers:
 {{ if eq .SDSEnabled true -}}
   - mountPath: /var/run/sds
     name: sdsudspath
+{{ if eq .EnableSdsTokenMount true -}}
+  - mountPath: /var/run/secrets/tokens
+    name: istio-token
+{{ end -}}
 {{ end -}}
 volumes:
 {{ if eq .SDSEnabled true -}}
 - name: sdsudspath
   hostPath:
     path: /var/run/sds
+{{ if eq .EnableSdsTokenMount true -}}
+- name: istio-token
+  projected:
+    sources:
+    - serviceAccountToken:
+      path: istio-token
+      expirationSeconds: 43200
+      audience: istio
+{{ end -}}
 {{ end -}}
 - emptyDir:
     medium: Memory

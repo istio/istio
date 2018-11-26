@@ -14,28 +14,18 @@
 
 package deployment
 
-import (
-	"fmt"
-
-	"istio.io/istio/pkg/test/framework/scopes"
-	"istio.io/istio/pkg/test/kube"
-)
-
-// NewYamlDeployment creates a new yaml-based deployment.
-func NewYamlDeployment(a *kube.Accessor, namespace, yamlFile string) (*Instance, error) {
-	instance := &Instance{}
-
-	instance.namespace = namespace
-	instance.yamlFilePath = yamlFile
-
-	scopes.CI.Infof("Applying Yaml file: %s", instance.yamlFilePath)
-	if err := a.Apply(namespace, instance.yamlFilePath); err != nil {
-		return nil, fmt.Errorf("kube apply of generated yaml filed: %v", err)
+// NewYamlDeployment creates a new deployment from a yaml file.
+func NewYamlDeployment(namespace, yamlFile string) *Instance {
+	return &Instance{
+		namespace:    namespace,
+		yamlFilePath: yamlFile,
 	}
+}
 
-	if err := instance.wait(namespace, a); err != nil {
-		return nil, err
+// NewYamlContentDeployment creates a new deployment from the contents of a yaml document.
+func NewYamlContentDeployment(namespace, yamlContents string) *Instance {
+	return &Instance{
+		namespace:    namespace,
+		yamlContents: yamlContents,
 	}
-
-	return instance, nil
 }

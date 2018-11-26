@@ -20,18 +20,19 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/scopes"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // ExtractAttributeManifest extracts attribute manifest from Helm charts.
-func ExtractAttributeManifest() (string, error) {
+func ExtractAttributeManifest(workDir string) (string, error) {
 	// We don't care about deploymentName, namespace or values file, or other settings, as we only
 	// want to extract attribute manifest, which is not really templatized.
 	s, err := HelmTemplate(
 		"attributemanifest",
 		"istio-system",
 		env.IstioChartDir,
-		"", nil)
+		workDir,
+		"", make(map[string]string))
 	if err != nil {
 		return "", err
 	}

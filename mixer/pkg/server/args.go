@@ -63,9 +63,6 @@ type Args struct {
 	// Kubernetes namespace used to store mesh-wide configuration.")
 	ConfigDefaultNamespace string
 
-	// Configuration fetch interval in seconds
-	ConfigFetchIntervalSec uint
-
 	// The logging options to use
 	LoggingOptions *log.Options
 
@@ -130,6 +127,14 @@ func DefaultArgs() *Args {
 }
 
 func (a *Args) validate() error {
+	if a.MaxMessageSize <= 0 {
+		return fmt.Errorf("max message size must be > 0, got %d", a.MaxMessageSize)
+	}
+
+	if a.MaxConcurrentStreams <= 0 {
+		return fmt.Errorf("max concurrent streams must be > 0, got %d", a.MaxConcurrentStreams)
+	}
+
 	if a.APIWorkerPoolSize <= 0 {
 		return fmt.Errorf("api worker pool size must be > 0, got pool size %d", a.APIWorkerPoolSize)
 	}
@@ -140,6 +145,10 @@ func (a *Args) validate() error {
 
 	if a.NumCheckCacheEntries < 0 {
 		return fmt.Errorf("# check cache entries must be >= 0 and <= 2^31-1, got %d", a.NumCheckCacheEntries)
+	}
+
+	if a.ConfigStore != nil && a.ConfigStoreURL != "" {
+		return fmt.Errorf("invalid arguments: both ConfigStore and ConfigStoreURL are specified")
 	}
 
 	return nil

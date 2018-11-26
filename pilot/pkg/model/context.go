@@ -53,6 +53,13 @@ type Environment struct {
 	// CONFIG AND PUSH
 	// Deprecated - a local config for ads will be used instead
 	PushContext *PushContext
+
+	// MeshNetworks (loaded from a config map) provides information about the
+	// set of networks inside a mesh and how to route to endpoints in each
+	// network. Each network provides information about the endpoints in a
+	// routable L3 network. A single routable L3 network can have one or more
+	// service registries.
+	MeshNetworks *meshconfig.MeshNetworks
 }
 
 // Proxy defines the proxy attributes used by xDS identification
@@ -130,7 +137,7 @@ const (
 // GetRouterMode returns the operating mode associated with the router.
 // Assumes that the proxy is of type Router
 func (node *Proxy) GetRouterMode() RouterMode {
-	if modestr, found := node.Metadata["ISTIO_ROUTER_MODE"]; found {
+	if modestr, found := node.Metadata["ROUTER_MODE"]; found {
 		switch RouterMode(modestr) {
 		case SniDnatRouter:
 			return SniDnatRouter
@@ -267,7 +274,6 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		DrainDuration:          types.DurationProto(2 * time.Second),
 		ParentShutdownDuration: types.DurationProto(3 * time.Second),
 		DiscoveryAddress:       DiscoveryPlainAddress,
-		ZipkinAddress:          "",
 		ConnectTimeout:         types.DurationProto(1 * time.Second),
 		StatsdUdpAddress:       "",
 		ProxyAdminPort:         15000,
@@ -275,6 +281,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		CustomConfigFile:       "",
 		Concurrency:            0,
 		StatNameLength:         189,
+		Tracing:                nil,
 	}
 }
 
@@ -285,6 +292,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		MixerCheckServer:      "",
 		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
+		PolicyCheckFailOpen:   false,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        types.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
@@ -293,6 +301,8 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
 		SdsUdsPath:            "",
+		EnableSdsTokenMount:   false,
+		TrustDomain:           "",
 	}
 }
 
@@ -325,6 +335,29 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	if err := ValidateMeshConfig(&out); err != nil {
 		return nil, err
 	}
+
+	return &out, nil
+}
+
+// EmptyMeshNetworks configuration with no networks
+func EmptyMeshNetworks() meshconfig.MeshNetworks {
+	return meshconfig.MeshNetworks{
+		Networks: map[string]*meshconfig.Network{},
+	}
+}
+
+// LoadMeshNetworksConfig returns a new MeshNetworks decoded from the
+// input YAML.
+func LoadMeshNetworksConfig(yaml string) (*meshconfig.MeshNetworks, error) {
+	out := EmptyMeshNetworks()
+	if err := ApplyYAML(yaml, &out); err != nil {
+		return nil, multierror.Prefix(err, "failed to convert to proto.")
+	}
+
+	// TODO validate the loaded MeshNetworks
+	// if err := ValidateMeshNetworks(&out); err != nil {
+	// 	return nil, err
+	// }
 	return &out, nil
 }
 

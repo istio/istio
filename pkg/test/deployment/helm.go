@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/scopes"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 )
 
@@ -72,6 +72,7 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		deploymentName,
 		c.Namespace,
 		c.ChartDir,
+		c.WorkDir,
 		valuesFile,
 		c.Values); err != nil {
 		return nil, fmt.Errorf("chart generation failed: %v", err)
@@ -87,42 +88,56 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 		return nil, fmt.Errorf("unable to write helm generated yaml: %v", err)
 	}
 
-	scopes.CI.Infof("Applying Helm generated Yaml file: %s", yamlFilePath)
-	return NewYamlDeployment(c.Accessor, c.Namespace, yamlFilePath)
+	scopes.CI.Infof("Created Helm-generated Yaml file: %s", yamlFilePath)
+	return NewYamlDeployment(c.Namespace, yamlFilePath), nil
 }
 
 // HelmTemplate calls "helm template".
-func HelmTemplate(deploymentName, namespace, chartDir, valuesFile string, values map[string]string) (string, error) {
-	valuesString := ""
-
+func HelmTemplate(deploymentName, namespace, chartDir, workDir, valuesFile string, values map[string]string) (string, error) {
 	// Apply the overrides for the values file.
-	if values != nil {
-		for k, v := range values {
-			valuesString += fmt.Sprintf(" --set %s=%s", k, v)
-		}
+	valuesString := ""
+	for k, v := range values {
+		valuesString += fmt.Sprintf(" --set %s=%s", k, v)
 	}
 
 	valuesFileString := ""
 	if valuesFile != "" {
-		valuesFileString = fmt.Sprintf(" --values %s", valuesFile)
+		valuesFileString = fmt.Sprintf("--values %s", valuesFile)
 	}
 
-	str, err := shell.Execute("helm init --client-only")
-	if err == nil {
-		return str, nil
+	helmRepoDir := filepath.Join(workDir, "helmrepo")
+	chartBuildDir := filepath.Join(workDir, "charts")
+	if err := os.MkdirAll(helmRepoDir, os.ModePerm); err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(chartBuildDir, os.ModePerm); err != nil {
+		return "", err
 	}
 
-	str, err = shell.Execute("helm dep update %s", chartDir)
-	if err == nil {
-		return str, nil
+	// Initialize the helm (but do not install tiller).
+	if _, err := exec(fmt.Sprintf("helm --home %s init --client-only", helmRepoDir)); err != nil {
+		return "", err
 	}
 
-	str, err = shell.Execute(
-		"helm template %s --name %s --namespace %s%s%s",
-		chartDir, deploymentName, namespace, valuesFileString, valuesString)
-	if err == nil {
-		return str, nil
+	// Adding cni dependency as a workaround for now.
+	if _, err := exec(fmt.Sprintf("helm --home %s repo add istio.io %s",
+		helmRepoDir, "https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts")); err != nil {
+		return "", err
 	}
 
-	return "", fmt.Errorf("%v: %s", err, str)
+	// Package the chart dir.
+	if _, err := exec(fmt.Sprintf("helm --home %s package -u %s -d %s", helmRepoDir, chartDir, chartBuildDir)); err != nil {
+		return "", err
+	}
+	return exec(fmt.Sprintf("helm --home %s template %s --name %s --namespace %s %s %s",
+		helmRepoDir, chartDir, deploymentName, namespace, valuesFileString, valuesString))
+}
+
+func exec(cmd string) (string, error) {
+	scopes.CI.Infof("executing: %s", cmd)
+	str, err := shell.Execute(cmd)
+	if err != nil {
+		scopes.CI.Errorf("failed executing command (%s): %v: %s", cmd, err, str)
+	}
+	return str, err
 }

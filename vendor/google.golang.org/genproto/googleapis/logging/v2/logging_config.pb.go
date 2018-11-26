@@ -3,17 +3,16 @@
 
 package logging
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
-import google_protobuf5 "github.com/golang/protobuf/ptypes/empty"
-import google_protobuf6 "google.golang.org/genproto/protobuf/field_mask"
-import google_protobuf4 "github.com/golang/protobuf/ptypes/timestamp"
-
 import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	empty "github.com/golang/protobuf/ptypes/empty"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	context "golang.org/x/net/context"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
+	field_mask "google.golang.org/genproto/protobuf/field_mask"
 	grpc "google.golang.org/grpc"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -21,7 +20,13 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// Available log entry formats. Log entries can be written to Stackdriver
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
+// Available log entry formats. Log entries can be written to
 // Logging in either format and can be exported in either format.
 // Version 2 is the preferred format.
 type LogSink_VersionFormat int32
@@ -40,16 +45,20 @@ var LogSink_VersionFormat_name = map[int32]string{
 	1: "V2",
 	2: "V1",
 }
+
 var LogSink_VersionFormat_value = map[string]int32{
 	"VERSION_FORMAT_UNSPECIFIED": 0,
-	"V2": 1,
-	"V1": 2,
+	"V2":                         1,
+	"V1":                         2,
 }
 
 func (x LogSink_VersionFormat) String() string {
 	return proto.EnumName(LogSink_VersionFormat_name, int32(x))
 }
-func (LogSink_VersionFormat) EnumDescriptor() ([]byte, []int) { return fileDescriptor2, []int{0, 0} }
+
+func (LogSink_VersionFormat) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{0, 0}
+}
 
 // Describes a sink used to export log entries to one of the following
 // destinations in any project: a Cloud Storage bucket, a BigQuery dataset, or a
@@ -62,7 +71,7 @@ type LogSink struct {
 	// limited to 100 characters and can include only the following characters:
 	// upper and lower-case alphanumeric characters, underscores, hyphens, and
 	// periods.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Required. The export destination:
 	//
 	//     "storage.googleapis.com/[GCS_BUCKET]"
@@ -73,19 +82,19 @@ type LogSink struct {
 	// have permission to write to the destination or else the log
 	// entries are not exported.  For more information, see
 	// [Exporting Logs With Sinks](/logging/docs/api/tasks/exporting-logs).
-	Destination string `protobuf:"bytes,3,opt,name=destination" json:"destination,omitempty"`
+	Destination string `protobuf:"bytes,3,opt,name=destination,proto3" json:"destination,omitempty"`
 	// Optional.
 	// An [advanced logs filter](/logging/docs/view/advanced_filters).  The only
 	// exported log entries are those that are in the resource owning the sink and
 	// that match the filter.  For example:
 	//
 	//     logName="projects/[PROJECT_ID]/logs/[LOG_ID]" AND severity>=ERROR
-	Filter string `protobuf:"bytes,5,opt,name=filter" json:"filter,omitempty"`
+	Filter string `protobuf:"bytes,5,opt,name=filter,proto3" json:"filter,omitempty"`
 	// Deprecated. The log entry format to use for this sink's exported log
 	// entries.  The v2 format is used by default and cannot be changed.
-	OutputVersionFormat LogSink_VersionFormat `protobuf:"varint,6,opt,name=output_version_format,json=outputVersionFormat,enum=google.logging.v2.LogSink_VersionFormat" json:"output_version_format,omitempty"`
+	OutputVersionFormat LogSink_VersionFormat `protobuf:"varint,6,opt,name=output_version_format,json=outputVersionFormat,proto3,enum=google.logging.v2.LogSink_VersionFormat" json:"output_version_format,omitempty"` // Deprecated: Do not use.
 	// Output only. An IAM identity&mdash;a service account or group&mdash;under
-	// which Stackdriver Logging writes the exported log entries to the sink's
+	// which Logging writes the exported log entries to the sink's
 	// destination.  This field is set by
 	// [sinks.create](/logging/docs/api/reference/rest/v2/projects.sinks/create)
 	// and
@@ -98,7 +107,7 @@ type LogSink struct {
 	// resource](/iam/docs/granting-roles-to-service-accounts#granting_access_to_a_service_account_for_a_resource).
 	// Consult the destination service's documentation to determine the
 	// appropriate IAM roles to assign to the identity.
-	WriterIdentity string `protobuf:"bytes,8,opt,name=writer_identity,json=writerIdentity" json:"writer_identity,omitempty"`
+	WriterIdentity string `protobuf:"bytes,8,opt,name=writer_identity,json=writerIdentity,proto3" json:"writer_identity,omitempty"`
 	// Optional. This field applies only to sinks owned by organizations and
 	// folders. If the field is false, the default, only the logs owned by the
 	// sink's parent resource are available for export. If the field is true, then
@@ -112,17 +121,40 @@ type LogSink struct {
 	//
 	//     logName:("projects/test-project1/" OR "projects/test-project2/") AND
 	//     resource.type=gce_instance
-	IncludeChildren bool `protobuf:"varint,9,opt,name=include_children,json=includeChildren" json:"include_children,omitempty"`
+	IncludeChildren bool `protobuf:"varint,9,opt,name=include_children,json=includeChildren,proto3" json:"include_children,omitempty"`
 	// Deprecated. This field is ignored when creating or updating sinks.
-	StartTime *google_protobuf4.Timestamp `protobuf:"bytes,10,opt,name=start_time,json=startTime" json:"start_time,omitempty"`
+	StartTime *timestamp.Timestamp `protobuf:"bytes,10,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"` // Deprecated: Do not use.
 	// Deprecated. This field is ignored when creating or updating sinks.
-	EndTime *google_protobuf4.Timestamp `protobuf:"bytes,11,opt,name=end_time,json=endTime" json:"end_time,omitempty"`
+	EndTime              *timestamp.Timestamp `protobuf:"bytes,11,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"` // Deprecated: Do not use.
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
-func (m *LogSink) Reset()                    { *m = LogSink{} }
-func (m *LogSink) String() string            { return proto.CompactTextString(m) }
-func (*LogSink) ProtoMessage()               {}
-func (*LogSink) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
+func (m *LogSink) Reset()         { *m = LogSink{} }
+func (m *LogSink) String() string { return proto.CompactTextString(m) }
+func (*LogSink) ProtoMessage()    {}
+func (*LogSink) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{0}
+}
+
+func (m *LogSink) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_LogSink.Unmarshal(m, b)
+}
+func (m *LogSink) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_LogSink.Marshal(b, m, deterministic)
+}
+func (m *LogSink) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogSink.Merge(m, src)
+}
+func (m *LogSink) XXX_Size() int {
+	return xxx_messageInfo_LogSink.Size(m)
+}
+func (m *LogSink) XXX_DiscardUnknown() {
+	xxx_messageInfo_LogSink.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LogSink proto.InternalMessageInfo
 
 func (m *LogSink) GetName() string {
 	if m != nil {
@@ -145,6 +177,7 @@ func (m *LogSink) GetFilter() string {
 	return ""
 }
 
+// Deprecated: Do not use.
 func (m *LogSink) GetOutputVersionFormat() LogSink_VersionFormat {
 	if m != nil {
 		return m.OutputVersionFormat
@@ -166,14 +199,16 @@ func (m *LogSink) GetIncludeChildren() bool {
 	return false
 }
 
-func (m *LogSink) GetStartTime() *google_protobuf4.Timestamp {
+// Deprecated: Do not use.
+func (m *LogSink) GetStartTime() *timestamp.Timestamp {
 	if m != nil {
 		return m.StartTime
 	}
 	return nil
 }
 
-func (m *LogSink) GetEndTime() *google_protobuf4.Timestamp {
+// Deprecated: Do not use.
+func (m *LogSink) GetEndTime() *timestamp.Timestamp {
 	if m != nil {
 		return m.EndTime
 	}
@@ -188,22 +223,45 @@ type ListSinksRequest struct {
 	//     "organizations/[ORGANIZATION_ID]"
 	//     "billingAccounts/[BILLING_ACCOUNT_ID]"
 	//     "folders/[FOLDER_ID]"
-	Parent string `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	// Optional. If present, then retrieve the next batch of results from the
 	// preceding call to this method.  `pageToken` must be the value of
 	// `nextPageToken` from the previous response.  The values of other method
 	// parameters should be identical to those in the previous call.
-	PageToken string `protobuf:"bytes,2,opt,name=page_token,json=pageToken" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	// Optional. The maximum number of results to return from this request.
 	// Non-positive values are ignored.  The presence of `nextPageToken` in the
 	// response indicates that more results might be available.
-	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize" json:"page_size,omitempty"`
+	PageSize             int32    `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListSinksRequest) Reset()                    { *m = ListSinksRequest{} }
-func (m *ListSinksRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListSinksRequest) ProtoMessage()               {}
-func (*ListSinksRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{1} }
+func (m *ListSinksRequest) Reset()         { *m = ListSinksRequest{} }
+func (m *ListSinksRequest) String() string { return proto.CompactTextString(m) }
+func (*ListSinksRequest) ProtoMessage()    {}
+func (*ListSinksRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{1}
+}
+
+func (m *ListSinksRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListSinksRequest.Unmarshal(m, b)
+}
+func (m *ListSinksRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListSinksRequest.Marshal(b, m, deterministic)
+}
+func (m *ListSinksRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListSinksRequest.Merge(m, src)
+}
+func (m *ListSinksRequest) XXX_Size() int {
+	return xxx_messageInfo_ListSinksRequest.Size(m)
+}
+func (m *ListSinksRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListSinksRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListSinksRequest proto.InternalMessageInfo
 
 func (m *ListSinksRequest) GetParent() string {
 	if m != nil {
@@ -229,17 +287,40 @@ func (m *ListSinksRequest) GetPageSize() int32 {
 // Result returned from `ListSinks`.
 type ListSinksResponse struct {
 	// A list of sinks.
-	Sinks []*LogSink `protobuf:"bytes,1,rep,name=sinks" json:"sinks,omitempty"`
+	Sinks []*LogSink `protobuf:"bytes,1,rep,name=sinks,proto3" json:"sinks,omitempty"`
 	// If there might be more results than appear in this response, then
 	// `nextPageToken` is included.  To get the next set of results, call the same
 	// method again using the value of `nextPageToken` as `pageToken`.
-	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty"`
+	NextPageToken        string   `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListSinksResponse) Reset()                    { *m = ListSinksResponse{} }
-func (m *ListSinksResponse) String() string            { return proto.CompactTextString(m) }
-func (*ListSinksResponse) ProtoMessage()               {}
-func (*ListSinksResponse) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{2} }
+func (m *ListSinksResponse) Reset()         { *m = ListSinksResponse{} }
+func (m *ListSinksResponse) String() string { return proto.CompactTextString(m) }
+func (*ListSinksResponse) ProtoMessage()    {}
+func (*ListSinksResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{2}
+}
+
+func (m *ListSinksResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListSinksResponse.Unmarshal(m, b)
+}
+func (m *ListSinksResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListSinksResponse.Marshal(b, m, deterministic)
+}
+func (m *ListSinksResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListSinksResponse.Merge(m, src)
+}
+func (m *ListSinksResponse) XXX_Size() int {
+	return xxx_messageInfo_ListSinksResponse.Size(m)
+}
+func (m *ListSinksResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListSinksResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListSinksResponse proto.InternalMessageInfo
 
 func (m *ListSinksResponse) GetSinks() []*LogSink {
 	if m != nil {
@@ -265,13 +346,36 @@ type GetSinkRequest struct {
 	//     "folders/[FOLDER_ID]/sinks/[SINK_ID]"
 	//
 	// Example: `"projects/my-project-id/sinks/my-sink-id"`.
-	SinkName string `protobuf:"bytes,1,opt,name=sink_name,json=sinkName" json:"sink_name,omitempty"`
+	SinkName             string   `protobuf:"bytes,1,opt,name=sink_name,json=sinkName,proto3" json:"sink_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *GetSinkRequest) Reset()                    { *m = GetSinkRequest{} }
-func (m *GetSinkRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetSinkRequest) ProtoMessage()               {}
-func (*GetSinkRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{3} }
+func (m *GetSinkRequest) Reset()         { *m = GetSinkRequest{} }
+func (m *GetSinkRequest) String() string { return proto.CompactTextString(m) }
+func (*GetSinkRequest) ProtoMessage()    {}
+func (*GetSinkRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{3}
+}
+
+func (m *GetSinkRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetSinkRequest.Unmarshal(m, b)
+}
+func (m *GetSinkRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetSinkRequest.Marshal(b, m, deterministic)
+}
+func (m *GetSinkRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetSinkRequest.Merge(m, src)
+}
+func (m *GetSinkRequest) XXX_Size() int {
+	return xxx_messageInfo_GetSinkRequest.Size(m)
+}
+func (m *GetSinkRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetSinkRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetSinkRequest proto.InternalMessageInfo
 
 func (m *GetSinkRequest) GetSinkName() string {
 	if m != nil {
@@ -290,14 +394,14 @@ type CreateSinkRequest struct {
 	//     "folders/[FOLDER_ID]"
 	//
 	// Examples: `"projects/my-logging-project"`, `"organizations/123456789"`.
-	Parent string `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	// Required. The new sink, whose `name` parameter is a sink identifier that
 	// is not already in use.
-	Sink *LogSink `protobuf:"bytes,2,opt,name=sink" json:"sink,omitempty"`
+	Sink *LogSink `protobuf:"bytes,2,opt,name=sink,proto3" json:"sink,omitempty"`
 	// Optional. Determines the kind of IAM identity returned as `writer_identity`
 	// in the new sink.  If this value is omitted or set to false, and if the
 	// sink's parent is a project, then the value returned as `writer_identity` is
-	// the same group or service account used by Stackdriver Logging before the
+	// the same group or service account used by Logging before the
 	// addition of writer identities to this API. The sink's destination must be
 	// in the same project as the sink itself.
 	//
@@ -305,13 +409,36 @@ type CreateSinkRequest struct {
 	// resource such as an organization, then the value of `writer_identity` will
 	// be a unique service account used only for exports from the new sink.  For
 	// more information, see `writer_identity` in [LogSink][google.logging.v2.LogSink].
-	UniqueWriterIdentity bool `protobuf:"varint,3,opt,name=unique_writer_identity,json=uniqueWriterIdentity" json:"unique_writer_identity,omitempty"`
+	UniqueWriterIdentity bool     `protobuf:"varint,3,opt,name=unique_writer_identity,json=uniqueWriterIdentity,proto3" json:"unique_writer_identity,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *CreateSinkRequest) Reset()                    { *m = CreateSinkRequest{} }
-func (m *CreateSinkRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateSinkRequest) ProtoMessage()               {}
-func (*CreateSinkRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{4} }
+func (m *CreateSinkRequest) Reset()         { *m = CreateSinkRequest{} }
+func (m *CreateSinkRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateSinkRequest) ProtoMessage()    {}
+func (*CreateSinkRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{4}
+}
+
+func (m *CreateSinkRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CreateSinkRequest.Unmarshal(m, b)
+}
+func (m *CreateSinkRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CreateSinkRequest.Marshal(b, m, deterministic)
+}
+func (m *CreateSinkRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateSinkRequest.Merge(m, src)
+}
+func (m *CreateSinkRequest) XXX_Size() int {
+	return xxx_messageInfo_CreateSinkRequest.Size(m)
+}
+func (m *CreateSinkRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateSinkRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreateSinkRequest proto.InternalMessageInfo
 
 func (m *CreateSinkRequest) GetParent() string {
 	if m != nil {
@@ -345,10 +472,10 @@ type UpdateSinkRequest struct {
 	//     "folders/[FOLDER_ID]/sinks/[SINK_ID]"
 	//
 	// Example: `"projects/my-project-id/sinks/my-sink-id"`.
-	SinkName string `protobuf:"bytes,1,opt,name=sink_name,json=sinkName" json:"sink_name,omitempty"`
+	SinkName string `protobuf:"bytes,1,opt,name=sink_name,json=sinkName,proto3" json:"sink_name,omitempty"`
 	// Required. The updated sink, whose name is the same identifier that appears
 	// as part of `sink_name`.
-	Sink *LogSink `protobuf:"bytes,2,opt,name=sink" json:"sink,omitempty"`
+	Sink *LogSink `protobuf:"bytes,2,opt,name=sink,proto3" json:"sink,omitempty"`
 	// Optional. See
 	// [sinks.create](/logging/docs/api/reference/rest/v2/projects.sinks/create)
 	// for a description of this field.  When updating a sink, the effect of this
@@ -361,7 +488,7 @@ type UpdateSinkRequest struct {
 	//     `writer_identity` is changed to a unique service account.
 	// +   It is an error if the old value is true and the new value is
 	//     set to false or defaulted to false.
-	UniqueWriterIdentity bool `protobuf:"varint,3,opt,name=unique_writer_identity,json=uniqueWriterIdentity" json:"unique_writer_identity,omitempty"`
+	UniqueWriterIdentity bool `protobuf:"varint,3,opt,name=unique_writer_identity,json=uniqueWriterIdentity,proto3" json:"unique_writer_identity,omitempty"`
 	// Optional. Field mask that specifies the fields in `sink` that need
 	// an update. A sink field will be overwritten if, and only if, it is
 	// in the update mask.  `name` and output only fields cannot be updated.
@@ -373,16 +500,39 @@ type UpdateSinkRequest struct {
 	// empty updateMask will be an error.
 	//
 	// For a detailed `FieldMask` definition, see
-	// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#fieldmask
+	// https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#google.protobuf.FieldMask
 	//
 	// Example: `updateMask=filter`.
-	UpdateMask *google_protobuf6.FieldMask `protobuf:"bytes,4,opt,name=update_mask,json=updateMask" json:"update_mask,omitempty"`
+	UpdateMask           *field_mask.FieldMask `protobuf:"bytes,4,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
 }
 
-func (m *UpdateSinkRequest) Reset()                    { *m = UpdateSinkRequest{} }
-func (m *UpdateSinkRequest) String() string            { return proto.CompactTextString(m) }
-func (*UpdateSinkRequest) ProtoMessage()               {}
-func (*UpdateSinkRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{5} }
+func (m *UpdateSinkRequest) Reset()         { *m = UpdateSinkRequest{} }
+func (m *UpdateSinkRequest) String() string { return proto.CompactTextString(m) }
+func (*UpdateSinkRequest) ProtoMessage()    {}
+func (*UpdateSinkRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{5}
+}
+
+func (m *UpdateSinkRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateSinkRequest.Unmarshal(m, b)
+}
+func (m *UpdateSinkRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateSinkRequest.Marshal(b, m, deterministic)
+}
+func (m *UpdateSinkRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateSinkRequest.Merge(m, src)
+}
+func (m *UpdateSinkRequest) XXX_Size() int {
+	return xxx_messageInfo_UpdateSinkRequest.Size(m)
+}
+func (m *UpdateSinkRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateSinkRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateSinkRequest proto.InternalMessageInfo
 
 func (m *UpdateSinkRequest) GetSinkName() string {
 	if m != nil {
@@ -405,7 +555,7 @@ func (m *UpdateSinkRequest) GetUniqueWriterIdentity() bool {
 	return false
 }
 
-func (m *UpdateSinkRequest) GetUpdateMask() *google_protobuf6.FieldMask {
+func (m *UpdateSinkRequest) GetUpdateMask() *field_mask.FieldMask {
 	if m != nil {
 		return m.UpdateMask
 	}
@@ -423,13 +573,36 @@ type DeleteSinkRequest struct {
 	//     "folders/[FOLDER_ID]/sinks/[SINK_ID]"
 	//
 	// Example: `"projects/my-project-id/sinks/my-sink-id"`.
-	SinkName string `protobuf:"bytes,1,opt,name=sink_name,json=sinkName" json:"sink_name,omitempty"`
+	SinkName             string   `protobuf:"bytes,1,opt,name=sink_name,json=sinkName,proto3" json:"sink_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeleteSinkRequest) Reset()                    { *m = DeleteSinkRequest{} }
-func (m *DeleteSinkRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteSinkRequest) ProtoMessage()               {}
-func (*DeleteSinkRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{6} }
+func (m *DeleteSinkRequest) Reset()         { *m = DeleteSinkRequest{} }
+func (m *DeleteSinkRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteSinkRequest) ProtoMessage()    {}
+func (*DeleteSinkRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{6}
+}
+
+func (m *DeleteSinkRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeleteSinkRequest.Unmarshal(m, b)
+}
+func (m *DeleteSinkRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeleteSinkRequest.Marshal(b, m, deterministic)
+}
+func (m *DeleteSinkRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteSinkRequest.Merge(m, src)
+}
+func (m *DeleteSinkRequest) XXX_Size() int {
+	return xxx_messageInfo_DeleteSinkRequest.Size(m)
+}
+func (m *DeleteSinkRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteSinkRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteSinkRequest proto.InternalMessageInfo
 
 func (m *DeleteSinkRequest) GetSinkName() string {
 	if m != nil {
@@ -438,7 +611,7 @@ func (m *DeleteSinkRequest) GetSinkName() string {
 	return ""
 }
 
-// Specifies a set of log entries that are not to be stored in Stackdriver
+// Specifies a set of log entries that are not to be stored in
 // Logging. If your project receives a large volume of logs, you might be able
 // to use exclusions to reduce your chargeable logs. Exclusions are processed
 // after log sinks, so you can export log entries before they are excluded.
@@ -448,9 +621,9 @@ type LogExclusion struct {
 	// Required. A client-assigned identifier, such as
 	// `"load-balancer-exclusion"`. Identifiers are limited to 100 characters and
 	// can include only letters, digits, underscores, hyphens, and periods.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Optional. A description of this exclusion.
-	Description string `protobuf:"bytes,2,opt,name=description" json:"description,omitempty"`
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// Required.
 	// An [advanced logs filter](/logging/docs/view/advanced_filters)
 	// that matches the log entries to be excluded. By using the
@@ -459,19 +632,42 @@ type LogExclusion struct {
 	// For example, the following filter matches 99% of low-severity log
 	// entries from load balancers:
 	//
-	//     "resource.type=http_load_balancer severity<ERROR sample(insertId, 0.99)"
-	Filter string `protobuf:"bytes,3,opt,name=filter" json:"filter,omitempty"`
+	// `"resource.type=http_load_balancer severity<ERROR sample(insertId, 0.99)"`
+	Filter string `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
 	// Optional. If set to True, then this exclusion is disabled and it does not
 	// exclude any log entries. You can use
-	// [exclusions.patch](/logging/docs/alpha-exclusion/docs/reference/v2/rest/v2/projects.exclusions/patch)
+	// [exclusions.patch](/logging/docs/reference/v2/rest/v2/projects.exclusions/patch)
 	// to change the value of this field.
-	Disabled bool `protobuf:"varint,4,opt,name=disabled" json:"disabled,omitempty"`
+	Disabled             bool     `protobuf:"varint,4,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *LogExclusion) Reset()                    { *m = LogExclusion{} }
-func (m *LogExclusion) String() string            { return proto.CompactTextString(m) }
-func (*LogExclusion) ProtoMessage()               {}
-func (*LogExclusion) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{7} }
+func (m *LogExclusion) Reset()         { *m = LogExclusion{} }
+func (m *LogExclusion) String() string { return proto.CompactTextString(m) }
+func (*LogExclusion) ProtoMessage()    {}
+func (*LogExclusion) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{7}
+}
+
+func (m *LogExclusion) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_LogExclusion.Unmarshal(m, b)
+}
+func (m *LogExclusion) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_LogExclusion.Marshal(b, m, deterministic)
+}
+func (m *LogExclusion) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogExclusion.Merge(m, src)
+}
+func (m *LogExclusion) XXX_Size() int {
+	return xxx_messageInfo_LogExclusion.Size(m)
+}
+func (m *LogExclusion) XXX_DiscardUnknown() {
+	xxx_messageInfo_LogExclusion.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LogExclusion proto.InternalMessageInfo
 
 func (m *LogExclusion) GetName() string {
 	if m != nil {
@@ -509,22 +705,45 @@ type ListExclusionsRequest struct {
 	//     "organizations/[ORGANIZATION_ID]"
 	//     "billingAccounts/[BILLING_ACCOUNT_ID]"
 	//     "folders/[FOLDER_ID]"
-	Parent string `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	// Optional. If present, then retrieve the next batch of results from the
 	// preceding call to this method.  `pageToken` must be the value of
 	// `nextPageToken` from the previous response.  The values of other method
 	// parameters should be identical to those in the previous call.
-	PageToken string `protobuf:"bytes,2,opt,name=page_token,json=pageToken" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	// Optional. The maximum number of results to return from this request.
 	// Non-positive values are ignored.  The presence of `nextPageToken` in the
 	// response indicates that more results might be available.
-	PageSize int32 `protobuf:"varint,3,opt,name=page_size,json=pageSize" json:"page_size,omitempty"`
+	PageSize             int32    `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListExclusionsRequest) Reset()                    { *m = ListExclusionsRequest{} }
-func (m *ListExclusionsRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListExclusionsRequest) ProtoMessage()               {}
-func (*ListExclusionsRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{8} }
+func (m *ListExclusionsRequest) Reset()         { *m = ListExclusionsRequest{} }
+func (m *ListExclusionsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListExclusionsRequest) ProtoMessage()    {}
+func (*ListExclusionsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{8}
+}
+
+func (m *ListExclusionsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListExclusionsRequest.Unmarshal(m, b)
+}
+func (m *ListExclusionsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListExclusionsRequest.Marshal(b, m, deterministic)
+}
+func (m *ListExclusionsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListExclusionsRequest.Merge(m, src)
+}
+func (m *ListExclusionsRequest) XXX_Size() int {
+	return xxx_messageInfo_ListExclusionsRequest.Size(m)
+}
+func (m *ListExclusionsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListExclusionsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListExclusionsRequest proto.InternalMessageInfo
 
 func (m *ListExclusionsRequest) GetParent() string {
 	if m != nil {
@@ -550,17 +769,40 @@ func (m *ListExclusionsRequest) GetPageSize() int32 {
 // Result returned from `ListExclusions`.
 type ListExclusionsResponse struct {
 	// A list of exclusions.
-	Exclusions []*LogExclusion `protobuf:"bytes,1,rep,name=exclusions" json:"exclusions,omitempty"`
+	Exclusions []*LogExclusion `protobuf:"bytes,1,rep,name=exclusions,proto3" json:"exclusions,omitempty"`
 	// If there might be more results than appear in this response, then
 	// `nextPageToken` is included.  To get the next set of results, call the same
 	// method again using the value of `nextPageToken` as `pageToken`.
-	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken" json:"next_page_token,omitempty"`
+	NextPageToken        string   `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListExclusionsResponse) Reset()                    { *m = ListExclusionsResponse{} }
-func (m *ListExclusionsResponse) String() string            { return proto.CompactTextString(m) }
-func (*ListExclusionsResponse) ProtoMessage()               {}
-func (*ListExclusionsResponse) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{9} }
+func (m *ListExclusionsResponse) Reset()         { *m = ListExclusionsResponse{} }
+func (m *ListExclusionsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListExclusionsResponse) ProtoMessage()    {}
+func (*ListExclusionsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{9}
+}
+
+func (m *ListExclusionsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListExclusionsResponse.Unmarshal(m, b)
+}
+func (m *ListExclusionsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListExclusionsResponse.Marshal(b, m, deterministic)
+}
+func (m *ListExclusionsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListExclusionsResponse.Merge(m, src)
+}
+func (m *ListExclusionsResponse) XXX_Size() int {
+	return xxx_messageInfo_ListExclusionsResponse.Size(m)
+}
+func (m *ListExclusionsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListExclusionsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ListExclusionsResponse proto.InternalMessageInfo
 
 func (m *ListExclusionsResponse) GetExclusions() []*LogExclusion {
 	if m != nil {
@@ -586,13 +828,36 @@ type GetExclusionRequest struct {
 	//     "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]"
 	//
 	// Example: `"projects/my-project-id/exclusions/my-exclusion-id"`.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *GetExclusionRequest) Reset()                    { *m = GetExclusionRequest{} }
-func (m *GetExclusionRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetExclusionRequest) ProtoMessage()               {}
-func (*GetExclusionRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{10} }
+func (m *GetExclusionRequest) Reset()         { *m = GetExclusionRequest{} }
+func (m *GetExclusionRequest) String() string { return proto.CompactTextString(m) }
+func (*GetExclusionRequest) ProtoMessage()    {}
+func (*GetExclusionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{10}
+}
+
+func (m *GetExclusionRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetExclusionRequest.Unmarshal(m, b)
+}
+func (m *GetExclusionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetExclusionRequest.Marshal(b, m, deterministic)
+}
+func (m *GetExclusionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetExclusionRequest.Merge(m, src)
+}
+func (m *GetExclusionRequest) XXX_Size() int {
+	return xxx_messageInfo_GetExclusionRequest.Size(m)
+}
+func (m *GetExclusionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetExclusionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetExclusionRequest proto.InternalMessageInfo
 
 func (m *GetExclusionRequest) GetName() string {
 	if m != nil {
@@ -611,16 +876,39 @@ type CreateExclusionRequest struct {
 	//     "folders/[FOLDER_ID]"
 	//
 	// Examples: `"projects/my-logging-project"`, `"organizations/123456789"`.
-	Parent string `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Parent string `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	// Required. The new exclusion, whose `name` parameter is an exclusion name
 	// that is not already used in the parent resource.
-	Exclusion *LogExclusion `protobuf:"bytes,2,opt,name=exclusion" json:"exclusion,omitempty"`
+	Exclusion            *LogExclusion `protobuf:"bytes,2,opt,name=exclusion,proto3" json:"exclusion,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *CreateExclusionRequest) Reset()                    { *m = CreateExclusionRequest{} }
-func (m *CreateExclusionRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateExclusionRequest) ProtoMessage()               {}
-func (*CreateExclusionRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{11} }
+func (m *CreateExclusionRequest) Reset()         { *m = CreateExclusionRequest{} }
+func (m *CreateExclusionRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateExclusionRequest) ProtoMessage()    {}
+func (*CreateExclusionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{11}
+}
+
+func (m *CreateExclusionRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CreateExclusionRequest.Unmarshal(m, b)
+}
+func (m *CreateExclusionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CreateExclusionRequest.Marshal(b, m, deterministic)
+}
+func (m *CreateExclusionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateExclusionRequest.Merge(m, src)
+}
+func (m *CreateExclusionRequest) XXX_Size() int {
+	return xxx_messageInfo_CreateExclusionRequest.Size(m)
+}
+func (m *CreateExclusionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateExclusionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CreateExclusionRequest proto.InternalMessageInfo
 
 func (m *CreateExclusionRequest) GetParent() string {
 	if m != nil {
@@ -646,10 +934,10 @@ type UpdateExclusionRequest struct {
 	//     "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]"
 	//
 	// Example: `"projects/my-project-id/exclusions/my-exclusion-id"`.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Required. New values for the existing exclusion. Only the fields specified
 	// in `update_mask` are relevant.
-	Exclusion *LogExclusion `protobuf:"bytes,2,opt,name=exclusion" json:"exclusion,omitempty"`
+	Exclusion *LogExclusion `protobuf:"bytes,2,opt,name=exclusion,proto3" json:"exclusion,omitempty"`
 	// Required. A nonempty list of fields to change in the existing exclusion.
 	// New values for the fields are taken from the corresponding fields in the
 	// [LogExclusion][google.logging.v2.LogExclusion] included in this request. Fields not mentioned in
@@ -657,13 +945,36 @@ type UpdateExclusionRequest struct {
 	//
 	// For example, to change the filter and description of an exclusion,
 	// specify an `update_mask` of `"filter,description"`.
-	UpdateMask *google_protobuf6.FieldMask `protobuf:"bytes,3,opt,name=update_mask,json=updateMask" json:"update_mask,omitempty"`
+	UpdateMask           *field_mask.FieldMask `protobuf:"bytes,3,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
+	XXX_unrecognized     []byte                `json:"-"`
+	XXX_sizecache        int32                 `json:"-"`
 }
 
-func (m *UpdateExclusionRequest) Reset()                    { *m = UpdateExclusionRequest{} }
-func (m *UpdateExclusionRequest) String() string            { return proto.CompactTextString(m) }
-func (*UpdateExclusionRequest) ProtoMessage()               {}
-func (*UpdateExclusionRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{12} }
+func (m *UpdateExclusionRequest) Reset()         { *m = UpdateExclusionRequest{} }
+func (m *UpdateExclusionRequest) String() string { return proto.CompactTextString(m) }
+func (*UpdateExclusionRequest) ProtoMessage()    {}
+func (*UpdateExclusionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{12}
+}
+
+func (m *UpdateExclusionRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UpdateExclusionRequest.Unmarshal(m, b)
+}
+func (m *UpdateExclusionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UpdateExclusionRequest.Marshal(b, m, deterministic)
+}
+func (m *UpdateExclusionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UpdateExclusionRequest.Merge(m, src)
+}
+func (m *UpdateExclusionRequest) XXX_Size() int {
+	return xxx_messageInfo_UpdateExclusionRequest.Size(m)
+}
+func (m *UpdateExclusionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UpdateExclusionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UpdateExclusionRequest proto.InternalMessageInfo
 
 func (m *UpdateExclusionRequest) GetName() string {
 	if m != nil {
@@ -679,7 +990,7 @@ func (m *UpdateExclusionRequest) GetExclusion() *LogExclusion {
 	return nil
 }
 
-func (m *UpdateExclusionRequest) GetUpdateMask() *google_protobuf6.FieldMask {
+func (m *UpdateExclusionRequest) GetUpdateMask() *field_mask.FieldMask {
 	if m != nil {
 		return m.UpdateMask
 	}
@@ -696,13 +1007,36 @@ type DeleteExclusionRequest struct {
 	//     "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]"
 	//
 	// Example: `"projects/my-project-id/exclusions/my-exclusion-id"`.
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DeleteExclusionRequest) Reset()                    { *m = DeleteExclusionRequest{} }
-func (m *DeleteExclusionRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteExclusionRequest) ProtoMessage()               {}
-func (*DeleteExclusionRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{13} }
+func (m *DeleteExclusionRequest) Reset()         { *m = DeleteExclusionRequest{} }
+func (m *DeleteExclusionRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteExclusionRequest) ProtoMessage()    {}
+func (*DeleteExclusionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_775871f9b2cdbeb8, []int{13}
+}
+
+func (m *DeleteExclusionRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeleteExclusionRequest.Unmarshal(m, b)
+}
+func (m *DeleteExclusionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeleteExclusionRequest.Marshal(b, m, deterministic)
+}
+func (m *DeleteExclusionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteExclusionRequest.Merge(m, src)
+}
+func (m *DeleteExclusionRequest) XXX_Size() int {
+	return xxx_messageInfo_DeleteExclusionRequest.Size(m)
+}
+func (m *DeleteExclusionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteExclusionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteExclusionRequest proto.InternalMessageInfo
 
 func (m *DeleteExclusionRequest) GetName() string {
 	if m != nil {
@@ -712,6 +1046,7 @@ func (m *DeleteExclusionRequest) GetName() string {
 }
 
 func init() {
+	proto.RegisterEnum("google.logging.v2.LogSink_VersionFormat", LogSink_VersionFormat_name, LogSink_VersionFormat_value)
 	proto.RegisterType((*LogSink)(nil), "google.logging.v2.LogSink")
 	proto.RegisterType((*ListSinksRequest)(nil), "google.logging.v2.ListSinksRequest")
 	proto.RegisterType((*ListSinksResponse)(nil), "google.logging.v2.ListSinksResponse")
@@ -726,7 +1061,105 @@ func init() {
 	proto.RegisterType((*CreateExclusionRequest)(nil), "google.logging.v2.CreateExclusionRequest")
 	proto.RegisterType((*UpdateExclusionRequest)(nil), "google.logging.v2.UpdateExclusionRequest")
 	proto.RegisterType((*DeleteExclusionRequest)(nil), "google.logging.v2.DeleteExclusionRequest")
-	proto.RegisterEnum("google.logging.v2.LogSink_VersionFormat", LogSink_VersionFormat_name, LogSink_VersionFormat_value)
+}
+
+func init() {
+	proto.RegisterFile("google/logging/v2/logging_config.proto", fileDescriptor_775871f9b2cdbeb8)
+}
+
+var fileDescriptor_775871f9b2cdbeb8 = []byte{
+	// 1446 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x58, 0xcf, 0x6f, 0xdc, 0x44,
+	0x14, 0xc6, 0xde, 0x36, 0xcd, 0xbe, 0xb4, 0xf9, 0x31, 0xa5, 0xcb, 0xe2, 0xf4, 0xc7, 0xd6, 0x0d,
+	0x69, 0x76, 0x29, 0xbb, 0xad, 0xa9, 0x10, 0xb4, 0xaa, 0xaa, 0x36, 0x4d, 0xaa, 0x48, 0x69, 0x1b,
+	0x6d, 0xda, 0x20, 0x45, 0x95, 0x8c, 0xb3, 0x3b, 0x6b, 0x86, 0x78, 0xed, 0xad, 0xed, 0x0d, 0x6d,
+	0x51, 0x0f, 0x70, 0xe1, 0x0c, 0xf4, 0xc2, 0x81, 0x0a, 0x4e, 0x20, 0x0e, 0xf0, 0x2f, 0x70, 0x41,
+	0x20, 0xc4, 0xad, 0x77, 0x4e, 0xfc, 0x03, 0x9c, 0xe0, 0x84, 0x90, 0xc7, 0xe3, 0xf5, 0xd8, 0xeb,
+	0x75, 0x66, 0x85, 0xe0, 0x54, 0xfb, 0xbd, 0xef, 0xed, 0xbc, 0xf9, 0xfc, 0xcd, 0x37, 0x2f, 0x85,
+	0x45, 0xd3, 0x71, 0x4c, 0x0b, 0x37, 0x2c, 0xc7, 0x34, 0x89, 0x6d, 0x36, 0xf6, 0xb4, 0xe8, 0x51,
+	0x6f, 0x39, 0x76, 0x87, 0x98, 0xf5, 0x9e, 0xeb, 0xf8, 0x0e, 0x9a, 0x0b, 0x71, 0x75, 0x96, 0xac,
+	0xef, 0x69, 0xca, 0x71, 0x56, 0x6a, 0xf4, 0x48, 0xc3, 0xb0, 0x6d, 0xc7, 0x37, 0x7c, 0xe2, 0xd8,
+	0x5e, 0x58, 0xa0, 0xcc, 0xb3, 0x2c, 0x7d, 0xdb, 0xe9, 0x77, 0x1a, 0xb8, 0xdb, 0xf3, 0x1f, 0xb1,
+	0x64, 0x25, 0x9d, 0xec, 0x10, 0x6c, 0xb5, 0xf5, 0xae, 0xe1, 0xed, 0x32, 0xc4, 0xa9, 0x34, 0xc2,
+	0x27, 0x5d, 0xec, 0xf9, 0x46, 0xb7, 0x17, 0x02, 0xd4, 0x9f, 0x0b, 0x70, 0x68, 0xdd, 0x31, 0x37,
+	0x89, 0xbd, 0x8b, 0x10, 0x1c, 0xb0, 0x8d, 0x2e, 0x2e, 0x4b, 0x15, 0x69, 0xa9, 0xd8, 0xa4, 0xcf,
+	0xa8, 0x02, 0x53, 0x6d, 0xec, 0xf9, 0xc4, 0xa6, 0x5d, 0x95, 0x0b, 0x34, 0xc5, 0x87, 0x50, 0x09,
+	0x26, 0x3a, 0xc4, 0xf2, 0xb1, 0x5b, 0x3e, 0x48, 0x93, 0xec, 0x0d, 0xbd, 0x03, 0xc7, 0x9c, 0xbe,
+	0xdf, 0xeb, 0xfb, 0xfa, 0x1e, 0x76, 0x3d, 0xe2, 0xd8, 0x7a, 0xc7, 0x71, 0xbb, 0x86, 0x5f, 0x9e,
+	0xa8, 0x48, 0x4b, 0xd3, 0xda, 0x52, 0x7d, 0x88, 0x8a, 0x3a, 0x6b, 0xa4, 0xbe, 0x15, 0x16, 0xac,
+	0x52, 0xfc, 0x75, 0xb9, 0x2c, 0x35, 0x8f, 0x86, 0x3f, 0x95, 0x48, 0xa0, 0xb3, 0x30, 0xf3, 0xbe,
+	0x4b, 0x7c, 0xec, 0xea, 0xa4, 0x8d, 0x6d, 0x9f, 0xf8, 0x8f, 0xca, 0x93, 0xb4, 0x85, 0xe9, 0x30,
+	0xbc, 0xc6, 0xa2, 0xa8, 0x0a, 0xb3, 0xc4, 0x6e, 0x59, 0xfd, 0x36, 0xd6, 0x5b, 0xef, 0x12, 0xab,
+	0xed, 0x62, 0xbb, 0x5c, 0xac, 0x48, 0x4b, 0x93, 0xcd, 0x19, 0x16, 0x5f, 0x66, 0x61, 0x74, 0x05,
+	0xc0, 0xf3, 0x0d, 0xd7, 0xd7, 0x03, 0xa2, 0xca, 0x50, 0x91, 0x96, 0xa6, 0x34, 0x25, 0x6a, 0x35,
+	0x62, 0xb1, 0x7e, 0x37, 0x62, 0x91, 0x36, 0x57, 0xa4, 0x15, 0x41, 0x0c, 0xbd, 0x05, 0x93, 0xd8,
+	0x6e, 0x87, 0xc5, 0x53, 0x42, 0xc5, 0x87, 0xb0, 0xdd, 0x0e, 0x22, 0xea, 0x55, 0x38, 0x92, 0xdc,
+	0xde, 0x49, 0x50, 0xb6, 0x56, 0x9a, 0x9b, 0x6b, 0x77, 0x6e, 0xeb, 0xab, 0x77, 0x9a, 0xb7, 0xae,
+	0xdd, 0xd5, 0xef, 0xdd, 0xde, 0xdc, 0x58, 0x59, 0x5e, 0x5b, 0x5d, 0x5b, 0xb9, 0x31, 0xfb, 0x02,
+	0x9a, 0x00, 0x79, 0x4b, 0x9b, 0x95, 0xe8, 0xbf, 0x17, 0x66, 0x65, 0xb5, 0x03, 0xb3, 0xeb, 0xc4,
+	0xf3, 0x03, 0x06, 0xbd, 0x26, 0x7e, 0xd0, 0xc7, 0x9e, 0x1f, 0x7c, 0x9c, 0x9e, 0xe1, 0x62, 0xdb,
+	0x67, 0x1f, 0x95, 0xbd, 0xa1, 0x13, 0x00, 0x3d, 0xc3, 0xc4, 0xba, 0xef, 0xec, 0x62, 0xbb, 0x2c,
+	0xd3, 0x5c, 0x31, 0x88, 0xdc, 0x0d, 0x02, 0x68, 0x1e, 0xe8, 0x8b, 0xee, 0x91, 0xc7, 0x98, 0x7e,
+	0xf3, 0x83, 0xcd, 0xc9, 0x20, 0xb0, 0x49, 0x1e, 0x63, 0xb5, 0x0b, 0x73, 0xdc, 0x3a, 0x5e, 0xcf,
+	0xb1, 0x3d, 0x8c, 0xce, 0xc3, 0x41, 0x2f, 0x08, 0x94, 0xa5, 0x4a, 0x81, 0xdf, 0xf5, 0xf0, 0xd7,
+	0x6d, 0x86, 0x40, 0xb4, 0x08, 0x33, 0x36, 0x7e, 0xe8, 0xeb, 0x43, 0x7d, 0x1c, 0x09, 0xc2, 0x1b,
+	0x51, 0x2f, 0xea, 0x6b, 0x30, 0x7d, 0x13, 0xd3, 0xd5, 0xa2, 0x4d, 0xcd, 0x43, 0x31, 0xf8, 0x09,
+	0x9d, 0x13, 0xeb, 0x64, 0x10, 0xb8, 0x6d, 0x74, 0xb1, 0xfa, 0x89, 0x04, 0x73, 0xcb, 0x2e, 0x36,
+	0x7c, 0xcc, 0x97, 0x8c, 0xe2, 0xa1, 0x0e, 0x07, 0x82, 0x4a, 0xba, 0x72, 0x7e, 0xd7, 0x14, 0x87,
+	0x2e, 0x42, 0xa9, 0x6f, 0x93, 0x07, 0x7d, 0xac, 0xa7, 0x95, 0x57, 0xa0, 0x7a, 0x7a, 0x31, 0xcc,
+	0xbe, 0x9d, 0xd0, 0x9f, 0xfa, 0x5c, 0x82, 0xb9, 0x7b, 0xbd, 0x76, 0xaa, 0xa7, 0xbc, 0x6d, 0xfc,
+	0x3f, 0x8d, 0xa1, 0xcb, 0x30, 0xd5, 0xa7, 0x7d, 0x51, 0xcf, 0x28, 0x1f, 0x18, 0xa1, 0xd8, 0xd5,
+	0xc0, 0x56, 0x6e, 0x19, 0xde, 0x6e, 0x13, 0x42, 0x78, 0xf0, 0xac, 0x9e, 0x87, 0xb9, 0x1b, 0xd8,
+	0xc2, 0xe2, 0x9b, 0x52, 0x1f, 0xc2, 0xe1, 0x75, 0xc7, 0x5c, 0x79, 0xd8, 0xb2, 0xfa, 0x81, 0xce,
+	0x73, 0x0c, 0xa7, 0xe5, 0x92, 0x1e, 0x35, 0x1c, 0x79, 0x60, 0x38, 0x51, 0x88, 0x33, 0x9c, 0x42,
+	0xc2, 0x70, 0x14, 0x98, 0x6c, 0x13, 0xcf, 0xd8, 0xb1, 0x70, 0x9b, 0xee, 0x64, 0xb2, 0x39, 0x78,
+	0x57, 0x77, 0xe1, 0x58, 0xa0, 0xd9, 0xc1, 0xd2, 0xff, 0xe9, 0x01, 0xf9, 0x50, 0x82, 0x52, 0x7a,
+	0x35, 0x76, 0x4c, 0xae, 0x02, 0xe0, 0x41, 0x94, 0x9d, 0x95, 0x53, 0xd9, 0x1f, 0x77, 0x50, 0xdd,
+	0xe4, 0x4a, 0x84, 0x4f, 0x4d, 0x15, 0x8e, 0xde, 0xc4, 0x71, 0x07, 0xd1, 0x76, 0x33, 0x18, 0x57,
+	0x1d, 0x28, 0x85, 0x07, 0x66, 0x08, 0x3d, 0x8a, 0x9c, 0x2b, 0x50, 0x1c, 0xb4, 0xc4, 0x14, 0xba,
+	0xef, 0x26, 0xe2, 0x0a, 0xf5, 0x1b, 0x09, 0x4a, 0xe1, 0x71, 0x10, 0xe9, 0xef, 0x5f, 0xae, 0x96,
+	0xd6, 0x78, 0x61, 0x2c, 0x8d, 0x9f, 0x83, 0x52, 0xa8, 0x71, 0x91, 0x4e, 0xb5, 0xa7, 0x2f, 0xc3,
+	0xcc, 0x32, 0xbd, 0xee, 0x37, 0xb1, 0xbb, 0x47, 0x5a, 0x78, 0x4b, 0x43, 0x1f, 0xcb, 0x50, 0x1c,
+	0xd8, 0x25, 0x3a, 0x93, 0xd5, 0x78, 0xca, 0xb4, 0x95, 0x85, 0x7c, 0x50, 0x28, 0x25, 0xf5, 0x3b,
+	0xe9, 0xa3, 0xe7, 0xbf, 0x7f, 0x26, 0x7f, 0x2d, 0xa1, 0x52, 0x30, 0x6e, 0x7c, 0x10, 0x7e, 0x9b,
+	0x2b, 0xb5, 0x46, 0xed, 0x49, 0x83, 0x3a, 0xec, 0xf6, 0x29, 0x74, 0x82, 0xcf, 0xf4, 0x5c, 0xe7,
+	0x3d, 0xdc, 0xf2, 0xbd, 0x18, 0xb0, 0x80, 0x54, 0x1e, 0xe0, 0xb8, 0xa6, 0x61, 0x93, 0xc7, 0xe1,
+	0xfc, 0x11, 0xa3, 0x4e, 0xa2, 0xe3, 0x3c, 0xaa, 0xe3, 0x58, 0x6d, 0xec, 0x72, 0xf9, 0x45, 0xb4,
+	0xc0, 0xe7, 0x77, 0x88, 0x65, 0x11, 0xdb, 0xbc, 0xd6, 0x6a, 0x39, 0x7d, 0x9b, 0x5b, 0x0d, 0x7d,
+	0x2a, 0xc3, 0x21, 0xe6, 0xe4, 0xe8, 0x74, 0xc6, 0x16, 0x93, 0x2e, 0xaf, 0xe4, 0x78, 0x9e, 0xfa,
+	0x53, 0xb8, 0xf7, 0x1f, 0x24, 0x34, 0x4f, 0x97, 0x1e, 0x58, 0x4e, 0xb0, 0xfd, 0x70, 0xb9, 0x46,
+	0xed, 0xc9, 0x60, 0x7f, 0x71, 0x3a, 0xe6, 0x20, 0x46, 0x55, 0xd1, 0xd9, 0x14, 0x2a, 0x45, 0x44,
+	0x0c, 0x3d, 0x83, 0x4e, 0xa7, 0xa0, 0x03, 0x36, 0x62, 0xd0, 0xab, 0xa8, 0x9a, 0x02, 0x0d, 0x51,
+	0x32, 0x00, 0xa3, 0x2f, 0x64, 0x80, 0xf8, 0xba, 0x42, 0x59, 0x9f, 0x7e, 0xe8, 0x36, 0xcb, 0xa5,
+	0xe6, 0xd7, 0x90, 0x9a, 0x1f, 0x25, 0x75, 0x84, 0x2c, 0x2e, 0xd1, 0x0b, 0x63, 0xfb, 0x15, 0x35,
+	0x5f, 0x1c, 0x0c, 0x56, 0x53, 0x05, 0x24, 0xc2, 0xb0, 0x0b, 0x6a, 0xae, 0x50, 0x18, 0xea, 0x9c,
+	0x2a, 0x24, 0x97, 0x10, 0x8d, 0xfe, 0x28, 0x00, 0xc4, 0x57, 0x67, 0x26, 0x3f, 0x43, 0x37, 0x6b,
+	0x2e, 0x3f, 0x5f, 0x16, 0x28, 0x3f, 0x9f, 0x17, 0x94, 0x3c, 0xe9, 0x44, 0xbb, 0x57, 0x04, 0x04,
+	0xc4, 0xb0, 0x0d, 0x45, 0x54, 0x46, 0xac, 0xa0, 0xaa, 0xec, 0x2f, 0x26, 0x06, 0xbd, 0xa0, 0x88,
+	0x4b, 0x2a, 0x6a, 0x5d, 0x1b, 0xa3, 0x75, 0x6d, 0xdc, 0xd6, 0x35, 0xf1, 0xd6, 0xb5, 0x71, 0x5b,
+	0x47, 0x4f, 0x65, 0x80, 0x78, 0xb2, 0xc8, 0xfc, 0xe6, 0x43, 0x83, 0x87, 0x52, 0x1a, 0x72, 0xf4,
+	0x95, 0xe0, 0x2f, 0xa5, 0xd8, 0x2a, 0x6a, 0xf9, 0x56, 0x51, 0x13, 0xb2, 0x8a, 0x9a, 0xb8, 0x55,
+	0xd4, 0x44, 0xac, 0xa2, 0x36, 0x86, 0x55, 0x7c, 0x2f, 0xc3, 0x74, 0x72, 0xac, 0x40, 0x4b, 0x23,
+	0x6e, 0x8a, 0xa1, 0x39, 0x47, 0xa9, 0x0a, 0x20, 0xd9, 0xc5, 0x92, 0x36, 0x57, 0xde, 0x41, 0xe2,
+	0x49, 0x24, 0x7d, 0x79, 0xf0, 0x06, 0xc2, 0xa1, 0x22, 0x73, 0x1d, 0xe5, 0x1f, 0x1c, 0x34, 0x32,
+	0xd7, 0x61, 0xfb, 0xe0, 0x40, 0x91, 0xb9, 0x8e, 0x76, 0x0f, 0x6e, 0x58, 0xfa, 0x4a, 0x86, 0xc3,
+	0xfc, 0x14, 0x84, 0x16, 0xb3, 0xaf, 0x9d, 0xf4, 0xe5, 0xae, 0xec, 0x37, 0x5f, 0x0c, 0x71, 0x34,
+	0x10, 0x54, 0xbc, 0x3a, 0x7f, 0x01, 0xa5, 0x05, 0x95, 0x44, 0x45, 0x1c, 0x65, 0x0a, 0x2a, 0x09,
+	0x8d, 0x38, 0x4a, 0x09, 0x2a, 0x09, 0x8a, 0x38, 0x1a, 0x21, 0xa8, 0x04, 0x18, 0xfd, 0x26, 0xc3,
+	0x4c, 0x6a, 0xfc, 0x43, 0xd5, 0x91, 0xb7, 0xd0, 0xf8, 0x4c, 0xfd, 0x1d, 0x32, 0xf5, 0xa7, 0xa4,
+	0xe6, 0xa9, 0xe9, 0x52, 0x3c, 0xb0, 0x6d, 0x37, 0x54, 0x01, 0x61, 0xf1, 0x05, 0x17, 0x55, 0x51,
+	0x8d, 0xf1, 0x55, 0x75, 0x75, 0x7f, 0xb9, 0xf1, 0xf8, 0x37, 0x54, 0x71, 0xe5, 0x71, 0x75, 0x94,
+	0xe0, 0xd4, 0xb4, 0x9b, 0x49, 0x70, 0xf6, 0x44, 0x3c, 0x06, 0xc1, 0x5a, 0x9e, 0x14, 0x13, 0x04,
+	0x6b, 0x02, 0xaa, 0x4c, 0x10, 0xac, 0x89, 0x0a, 0x34, 0x41, 0xb0, 0xb6, 0xbf, 0x56, 0x13, 0x04,
+	0x6b, 0xe2, 0xb2, 0xe5, 0x09, 0x7e, 0x26, 0xc3, 0x4c, 0x6a, 0x48, 0xcf, 0x24, 0x38, 0x7b, 0x90,
+	0x17, 0xbe, 0x38, 0x46, 0x1d, 0xf1, 0x9a, 0xd0, 0x11, 0xaf, 0x89, 0x1f, 0xf1, 0x9a, 0xc8, 0x11,
+	0xaf, 0x89, 0x73, 0x75, 0xfd, 0x99, 0x04, 0xc7, 0x5a, 0x4e, 0x77, 0x98, 0x92, 0xeb, 0x68, 0x3d,
+	0x7c, 0x0e, 0xff, 0x68, 0xd9, 0x08, 0x08, 0xd8, 0x90, 0xb6, 0xdf, 0x64, 0x40, 0xd3, 0xb1, 0x0c,
+	0xdb, 0xac, 0x3b, 0xae, 0xd9, 0x30, 0xb1, 0x4d, 0xe9, 0x69, 0x84, 0x29, 0xa3, 0x47, 0x3c, 0xee,
+	0xff, 0x3a, 0x2f, 0xb3, 0xc7, 0xbf, 0x24, 0xe9, 0x5b, 0xf9, 0xa5, 0x9b, 0x61, 0xf5, 0xb2, 0xe5,
+	0xf4, 0xdb, 0x75, 0xb6, 0x40, 0x7d, 0x4b, 0xfb, 0x25, 0xca, 0xdc, 0xa7, 0x99, 0xfb, 0x2c, 0x73,
+	0x7f, 0x4b, 0xdb, 0x99, 0xa0, 0xbf, 0xfd, 0xfa, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x9e, 0xb0,
+	0x58, 0x3e, 0x46, 0x15, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -737,8 +1170,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for ConfigServiceV2 service
-
+// ConfigServiceV2Client is the client API for ConfigServiceV2 service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ConfigServiceV2Client interface {
 	// Lists sinks.
 	ListSinks(ctx context.Context, in *ListSinksRequest, opts ...grpc.CallOption) (*ListSinksResponse, error)
@@ -756,7 +1190,7 @@ type ConfigServiceV2Client interface {
 	UpdateSink(ctx context.Context, in *UpdateSinkRequest, opts ...grpc.CallOption) (*LogSink, error)
 	// Deletes a sink. If the sink has a unique `writer_identity`, then that
 	// service account is also deleted.
-	DeleteSink(ctx context.Context, in *DeleteSinkRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error)
+	DeleteSink(ctx context.Context, in *DeleteSinkRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// Lists all the exclusions in a parent resource.
 	ListExclusions(ctx context.Context, in *ListExclusionsRequest, opts ...grpc.CallOption) (*ListExclusionsResponse, error)
 	// Gets the description of an exclusion.
@@ -768,7 +1202,7 @@ type ConfigServiceV2Client interface {
 	// Changes one or more properties of an existing exclusion.
 	UpdateExclusion(ctx context.Context, in *UpdateExclusionRequest, opts ...grpc.CallOption) (*LogExclusion, error)
 	// Deletes an exclusion.
-	DeleteExclusion(ctx context.Context, in *DeleteExclusionRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error)
+	DeleteExclusion(ctx context.Context, in *DeleteExclusionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type configServiceV2Client struct {
@@ -781,7 +1215,7 @@ func NewConfigServiceV2Client(cc *grpc.ClientConn) ConfigServiceV2Client {
 
 func (c *configServiceV2Client) ListSinks(ctx context.Context, in *ListSinksRequest, opts ...grpc.CallOption) (*ListSinksResponse, error) {
 	out := new(ListSinksResponse)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/ListSinks", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/ListSinks", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -790,7 +1224,7 @@ func (c *configServiceV2Client) ListSinks(ctx context.Context, in *ListSinksRequ
 
 func (c *configServiceV2Client) GetSink(ctx context.Context, in *GetSinkRequest, opts ...grpc.CallOption) (*LogSink, error) {
 	out := new(LogSink)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/GetSink", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/GetSink", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -799,7 +1233,7 @@ func (c *configServiceV2Client) GetSink(ctx context.Context, in *GetSinkRequest,
 
 func (c *configServiceV2Client) CreateSink(ctx context.Context, in *CreateSinkRequest, opts ...grpc.CallOption) (*LogSink, error) {
 	out := new(LogSink)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/CreateSink", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/CreateSink", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -808,16 +1242,16 @@ func (c *configServiceV2Client) CreateSink(ctx context.Context, in *CreateSinkRe
 
 func (c *configServiceV2Client) UpdateSink(ctx context.Context, in *UpdateSinkRequest, opts ...grpc.CallOption) (*LogSink, error) {
 	out := new(LogSink)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/UpdateSink", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/UpdateSink", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *configServiceV2Client) DeleteSink(ctx context.Context, in *DeleteSinkRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error) {
-	out := new(google_protobuf5.Empty)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/DeleteSink", in, out, c.cc, opts...)
+func (c *configServiceV2Client) DeleteSink(ctx context.Context, in *DeleteSinkRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/DeleteSink", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -826,7 +1260,7 @@ func (c *configServiceV2Client) DeleteSink(ctx context.Context, in *DeleteSinkRe
 
 func (c *configServiceV2Client) ListExclusions(ctx context.Context, in *ListExclusionsRequest, opts ...grpc.CallOption) (*ListExclusionsResponse, error) {
 	out := new(ListExclusionsResponse)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/ListExclusions", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/ListExclusions", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -835,7 +1269,7 @@ func (c *configServiceV2Client) ListExclusions(ctx context.Context, in *ListExcl
 
 func (c *configServiceV2Client) GetExclusion(ctx context.Context, in *GetExclusionRequest, opts ...grpc.CallOption) (*LogExclusion, error) {
 	out := new(LogExclusion)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/GetExclusion", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/GetExclusion", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -844,7 +1278,7 @@ func (c *configServiceV2Client) GetExclusion(ctx context.Context, in *GetExclusi
 
 func (c *configServiceV2Client) CreateExclusion(ctx context.Context, in *CreateExclusionRequest, opts ...grpc.CallOption) (*LogExclusion, error) {
 	out := new(LogExclusion)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/CreateExclusion", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/CreateExclusion", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -853,24 +1287,23 @@ func (c *configServiceV2Client) CreateExclusion(ctx context.Context, in *CreateE
 
 func (c *configServiceV2Client) UpdateExclusion(ctx context.Context, in *UpdateExclusionRequest, opts ...grpc.CallOption) (*LogExclusion, error) {
 	out := new(LogExclusion)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/UpdateExclusion", in, out, c.cc, opts...)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/UpdateExclusion", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *configServiceV2Client) DeleteExclusion(ctx context.Context, in *DeleteExclusionRequest, opts ...grpc.CallOption) (*google_protobuf5.Empty, error) {
-	out := new(google_protobuf5.Empty)
-	err := grpc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/DeleteExclusion", in, out, c.cc, opts...)
+func (c *configServiceV2Client) DeleteExclusion(ctx context.Context, in *DeleteExclusionRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/google.logging.v2.ConfigServiceV2/DeleteExclusion", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for ConfigServiceV2 service
-
+// ConfigServiceV2Server is the server API for ConfigServiceV2 service.
 type ConfigServiceV2Server interface {
 	// Lists sinks.
 	ListSinks(context.Context, *ListSinksRequest) (*ListSinksResponse, error)
@@ -888,7 +1321,7 @@ type ConfigServiceV2Server interface {
 	UpdateSink(context.Context, *UpdateSinkRequest) (*LogSink, error)
 	// Deletes a sink. If the sink has a unique `writer_identity`, then that
 	// service account is also deleted.
-	DeleteSink(context.Context, *DeleteSinkRequest) (*google_protobuf5.Empty, error)
+	DeleteSink(context.Context, *DeleteSinkRequest) (*empty.Empty, error)
 	// Lists all the exclusions in a parent resource.
 	ListExclusions(context.Context, *ListExclusionsRequest) (*ListExclusionsResponse, error)
 	// Gets the description of an exclusion.
@@ -900,7 +1333,7 @@ type ConfigServiceV2Server interface {
 	// Changes one or more properties of an existing exclusion.
 	UpdateExclusion(context.Context, *UpdateExclusionRequest) (*LogExclusion, error)
 	// Deletes an exclusion.
-	DeleteExclusion(context.Context, *DeleteExclusionRequest) (*google_protobuf5.Empty, error)
+	DeleteExclusion(context.Context, *DeleteExclusionRequest) (*empty.Empty, error)
 }
 
 func RegisterConfigServiceV2Server(s *grpc.Server, srv ConfigServiceV2Server) {
@@ -1134,80 +1567,4 @@ var _ConfigServiceV2_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "google/logging/v2/logging_config.proto",
-}
-
-func init() { proto.RegisterFile("google/logging/v2/logging_config.proto", fileDescriptor2) }
-
-var fileDescriptor2 = []byte{
-	// 1118 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x57, 0x5d, 0x6f, 0xdb, 0xd4,
-	0x1b, 0xff, 0x3b, 0xe9, 0x4b, 0xf2, 0x74, 0x6b, 0xda, 0xb3, 0x7f, 0x83, 0xe5, 0xb2, 0x2e, 0xb8,
-	0x53, 0x49, 0x2b, 0x70, 0x46, 0x00, 0x09, 0x36, 0x4d, 0x13, 0xeb, 0xda, 0xaa, 0x52, 0xd7, 0x55,
-	0x6e, 0x17, 0x24, 0x54, 0xc9, 0x72, 0xe3, 0x13, 0x73, 0x54, 0xc7, 0xf6, 0xec, 0x93, 0xd2, 0x0e,
-	0x26, 0x01, 0x97, 0x48, 0x5c, 0x20, 0xee, 0xb9, 0x46, 0x7c, 0x06, 0x3e, 0x01, 0xb7, 0xfb, 0x0a,
-	0x7c, 0x08, 0x2e, 0xd1, 0x79, 0x49, 0xe2, 0x38, 0x8e, 0x9b, 0x09, 0xc1, 0x55, 0xcf, 0x79, 0x5e,
-	0xce, 0xef, 0xf7, 0x3c, 0xe7, 0x39, 0xbf, 0x3a, 0xb0, 0xe1, 0x06, 0x81, 0xeb, 0xe1, 0x86, 0x17,
-	0xb8, 0x2e, 0xf1, 0xdd, 0xc6, 0x45, 0xb3, 0xbf, 0xb4, 0xda, 0x81, 0xdf, 0x21, 0xae, 0x11, 0x46,
-	0x01, 0x0d, 0xd0, 0xb2, 0x88, 0x33, 0xa4, 0xd3, 0xb8, 0x68, 0x6a, 0x6f, 0xcb, 0x54, 0x3b, 0x24,
-	0x0d, 0xdb, 0xf7, 0x03, 0x6a, 0x53, 0x12, 0xf8, 0xb1, 0x48, 0xd0, 0x56, 0xa5, 0x97, 0xef, 0xce,
-	0x7a, 0x9d, 0x06, 0xee, 0x86, 0xf4, 0x4a, 0x3a, 0x6b, 0x69, 0x67, 0x87, 0x60, 0xcf, 0xb1, 0xba,
-	0x76, 0x7c, 0x2e, 0x23, 0xee, 0xa4, 0x23, 0x28, 0xe9, 0xe2, 0x98, 0xda, 0xdd, 0x50, 0x04, 0xe8,
-	0xbf, 0x17, 0x61, 0xfe, 0x20, 0x70, 0x8f, 0x89, 0x7f, 0x8e, 0x10, 0xcc, 0xf8, 0x76, 0x17, 0xab,
-	0x4a, 0x4d, 0xa9, 0x97, 0x4d, 0xbe, 0x46, 0x35, 0x58, 0x70, 0x70, 0x4c, 0x89, 0xcf, 0x59, 0xa9,
-	0x45, 0xee, 0x4a, 0x9a, 0x50, 0x15, 0xe6, 0x3a, 0xc4, 0xa3, 0x38, 0x52, 0x67, 0xb9, 0x53, 0xee,
-	0xd0, 0x29, 0xac, 0x04, 0x3d, 0x1a, 0xf6, 0xa8, 0x75, 0x81, 0xa3, 0x98, 0x04, 0xbe, 0xd5, 0x09,
-	0xa2, 0xae, 0x4d, 0xd5, 0xb9, 0x9a, 0x52, 0x5f, 0x6c, 0xd6, 0x8d, 0xb1, 0x56, 0x18, 0x92, 0x88,
-	0xd1, 0x12, 0x09, 0xbb, 0x3c, 0xde, 0xbc, 0x25, 0x8e, 0x19, 0x31, 0xa2, 0x77, 0xa1, 0xf2, 0x55,
-	0x44, 0x28, 0x8e, 0x2c, 0xe2, 0x60, 0x9f, 0x12, 0x7a, 0xa5, 0x96, 0x38, 0xfc, 0xa2, 0x30, 0xef,
-	0x4b, 0x2b, 0xda, 0x84, 0x25, 0xe2, 0xb7, 0xbd, 0x9e, 0x83, 0xad, 0xf6, 0x97, 0xc4, 0x73, 0x22,
-	0xec, 0xab, 0xe5, 0x9a, 0x52, 0x2f, 0x99, 0x15, 0x69, 0xdf, 0x96, 0x66, 0xf4, 0x29, 0x40, 0x4c,
-	0xed, 0x88, 0x5a, 0xac, 0x49, 0x2a, 0xd4, 0x94, 0xfa, 0x42, 0x53, 0xeb, 0xd3, 0xec, 0x77, 0xd0,
-	0x38, 0xe9, 0x77, 0xd0, 0x2c, 0xf3, 0x68, 0xb6, 0x47, 0x1f, 0x43, 0x09, 0xfb, 0x8e, 0x48, 0x5c,
-	0xb8, 0x36, 0x71, 0x1e, 0xfb, 0x0e, 0xdb, 0xe9, 0x8f, 0xe0, 0xe6, 0x68, 0x59, 0x6b, 0xa0, 0xb5,
-	0x76, 0xcc, 0xe3, 0xfd, 0x67, 0x87, 0xd6, 0xee, 0x33, 0xf3, 0xe9, 0x67, 0x27, 0xd6, 0xf3, 0xc3,
-	0xe3, 0xa3, 0x9d, 0xed, 0xfd, 0xdd, 0xfd, 0x9d, 0x27, 0x4b, 0xff, 0x43, 0x73, 0x50, 0x68, 0x35,
-	0x97, 0x14, 0xfe, 0xf7, 0x83, 0xa5, 0x82, 0xde, 0x81, 0xa5, 0x03, 0x12, 0x53, 0xd6, 0xb5, 0xd8,
-	0xc4, 0x2f, 0x7a, 0x38, 0xa6, 0xec, 0x42, 0x42, 0x3b, 0xc2, 0x3e, 0x95, 0x17, 0x29, 0x77, 0xe8,
-	0x36, 0x40, 0x68, 0xbb, 0xd8, 0xa2, 0xc1, 0x39, 0xf6, 0xd5, 0x02, 0xf7, 0x95, 0x99, 0xe5, 0x84,
-	0x19, 0xd0, 0x2a, 0xf0, 0x8d, 0x15, 0x93, 0x97, 0x98, 0xdf, 0xf3, 0xac, 0x59, 0x62, 0x86, 0x63,
-	0xf2, 0x12, 0xeb, 0x5d, 0x58, 0x4e, 0xe0, 0xc4, 0x61, 0xe0, 0xc7, 0x18, 0xdd, 0x83, 0xd9, 0x98,
-	0x19, 0x54, 0xa5, 0x56, 0x4c, 0x56, 0x3c, 0x7e, 0xa3, 0xa6, 0x08, 0x44, 0x1b, 0x50, 0xf1, 0xf1,
-	0x25, 0xb5, 0xc6, 0x78, 0xdc, 0x64, 0xe6, 0xa3, 0x3e, 0x17, 0xfd, 0x7d, 0x58, 0xdc, 0xc3, 0x1c,
-	0xad, 0x5f, 0xd4, 0x2a, 0x94, 0xd9, 0x11, 0x56, 0x62, 0x40, 0x4b, 0xcc, 0x70, 0x68, 0x77, 0xb1,
-	0xfe, 0x93, 0x02, 0xcb, 0xdb, 0x11, 0xb6, 0x29, 0x4e, 0xa6, 0x4c, 0xea, 0x83, 0x01, 0x33, 0x2c,
-	0x93, 0x23, 0xe7, 0xb3, 0xe6, 0x71, 0xe8, 0x23, 0xa8, 0xf6, 0x7c, 0xf2, 0xa2, 0x87, 0xad, 0xf4,
-	0xc4, 0x15, 0xf9, 0x1c, 0xfd, 0x5f, 0x78, 0x3f, 0x1f, 0x99, 0x3b, 0xfd, 0xb5, 0x02, 0xcb, 0xcf,
-	0x43, 0x27, 0xc5, 0x29, 0xaf, 0x8c, 0xff, 0x86, 0x18, 0x7a, 0x00, 0x0b, 0x3d, 0xce, 0x8b, 0xeb,
-	0x84, 0x3a, 0x33, 0x61, 0x5a, 0x77, 0x99, 0x94, 0x3c, 0xb5, 0xe3, 0x73, 0x13, 0x44, 0x38, 0x5b,
-	0xeb, 0xf7, 0x60, 0xf9, 0x09, 0xf6, 0xf0, 0xf4, 0x45, 0xe9, 0x97, 0x70, 0xe3, 0x20, 0x70, 0x77,
-	0x2e, 0xdb, 0x5e, 0x8f, 0xcd, 0x79, 0x8e, 0xc8, 0xb4, 0x23, 0x12, 0x72, 0x91, 0x29, 0x0c, 0x44,
-	0xa6, 0x6f, 0x4a, 0x88, 0x4c, 0x71, 0x44, 0x64, 0x34, 0x28, 0x39, 0x24, 0xb6, 0xcf, 0x3c, 0xec,
-	0xf0, 0x4a, 0x4a, 0xe6, 0x60, 0xaf, 0x9f, 0xc3, 0x0a, 0x9b, 0xd9, 0x01, 0xf4, 0xbf, 0xfa, 0x40,
-	0xbe, 0x53, 0xa0, 0x9a, 0x46, 0x93, 0xcf, 0xe4, 0x11, 0x00, 0x1e, 0x58, 0xe5, 0x5b, 0xb9, 0x93,
-	0x7d, 0xb9, 0x83, 0x6c, 0x33, 0x91, 0x32, 0xf5, 0xab, 0xd9, 0x84, 0x5b, 0x7b, 0x78, 0xc8, 0xa0,
-	0x5f, 0x6e, 0x46, 0xc7, 0xf5, 0x00, 0xaa, 0xe2, 0xc1, 0x8c, 0x45, 0x4f, 0x6a, 0xce, 0x43, 0x28,
-	0x0f, 0x28, 0xc9, 0x09, 0xbd, 0xb6, 0x88, 0x61, 0x86, 0xfe, 0xab, 0x02, 0x55, 0xf1, 0x1c, 0xa6,
-	0xe1, 0xf7, 0x0f, 0xd1, 0xd2, 0x33, 0x5e, 0x7c, 0xa3, 0x19, 0x7f, 0x0f, 0xaa, 0x62, 0xc6, 0xa7,
-	0x61, 0xda, 0xfc, 0x16, 0xa0, 0xb2, 0xcd, 0xff, 0xc5, 0x1f, 0xe3, 0xe8, 0x82, 0xb4, 0x71, 0xab,
-	0x89, 0x2e, 0xa0, 0x3c, 0x50, 0x4b, 0xb4, 0x9e, 0xc5, 0x3b, 0xa5, 0xd9, 0xda, 0xdd, 0xfc, 0x20,
-	0x31, 0x49, 0xfa, 0xda, 0xf7, 0xaf, 0xff, 0xfc, 0xb9, 0xa0, 0xa2, 0x2a, 0xfb, 0xbe, 0xf8, 0x5a,
-	0x5c, 0xcc, 0xc3, 0xad, 0xc6, 0xd6, 0xab, 0x86, 0x90, 0xd7, 0x2e, 0xcc, 0x4b, 0xd9, 0x44, 0xef,
-	0x64, 0x1c, 0x38, 0x2a, 0xa9, 0x5a, 0x8e, 0xc0, 0xe8, 0xeb, 0x1c, 0xe9, 0x36, 0x5a, 0xe5, 0x48,
-	0x83, 0xd7, 0xcd, 0xc0, 0x04, 0x56, 0x63, 0xeb, 0x15, 0xa2, 0x00, 0x43, 0xd5, 0x45, 0x59, 0x25,
-	0x8c, 0x89, 0x72, 0x2e, 0xe8, 0x5d, 0x0e, 0xba, 0xa6, 0x4f, 0x28, 0xef, 0xbe, 0x50, 0xbd, 0x2b,
-	0x80, 0xa1, 0xae, 0x66, 0xa2, 0x8e, 0xc9, 0x6e, 0x2e, 0xea, 0x26, 0x47, 0x5d, 0xd7, 0xf2, 0x4a,
-	0x95, 0xd0, 0x01, 0xc0, 0x50, 0xfd, 0x32, 0xa1, 0xc7, 0xc4, 0x51, 0xab, 0x8e, 0x4d, 0xdd, 0x0e,
-	0xfb, 0x82, 0xeb, 0x77, 0x78, 0x2b, 0xb7, 0xc3, 0x3f, 0x28, 0xb0, 0x38, 0xaa, 0x2a, 0xa8, 0x3e,
-	0x61, 0x52, 0xc6, 0x64, 0x4e, 0xdb, 0x9c, 0x22, 0x52, 0x0e, 0xd6, 0xe8, 0x75, 0x27, 0x3b, 0x9f,
-	0x90, 0xa1, 0x6f, 0xe0, 0x46, 0x52, 0x5e, 0xd0, 0x46, 0xf6, 0x88, 0xa5, 0x5f, 0x8d, 0x76, 0xdd,
-	0xc3, 0x4d, 0xa1, 0x0f, 0xba, 0x30, 0x84, 0x66, 0xad, 0xf8, 0x51, 0x81, 0x4a, 0x4a, 0xb2, 0xd0,
-	0xe6, 0xc4, 0x91, 0x7b, 0x73, 0x12, 0x06, 0x27, 0x51, 0xd7, 0xf3, 0x5a, 0x70, 0x3f, 0x21, 0x31,
-	0x8c, 0x4f, 0x4a, 0xd0, 0x32, 0xf9, 0x64, 0x8b, 0xde, 0xd4, 0x7c, 0x9a, 0x79, 0x4d, 0x49, 0xf2,
-	0xb9, 0x82, 0x4a, 0x4a, 0xb5, 0x32, 0xe9, 0x64, 0x2b, 0xdb, 0x94, 0x53, 0x9a, 0xcd, 0xe2, 0xf1,
-	0x2f, 0x0a, 0xac, 0xb4, 0x83, 0xee, 0x38, 0xda, 0x63, 0x74, 0x20, 0xd6, 0x42, 0x20, 0x8f, 0xd8,
-	0xd9, 0x47, 0xca, 0x17, 0x9f, 0xc8, 0x40, 0x37, 0xf0, 0x6c, 0xdf, 0x35, 0x82, 0xc8, 0x6d, 0xb8,
-	0xd8, 0xe7, 0xc8, 0x0d, 0xe1, 0xb2, 0x43, 0x12, 0x27, 0x7e, 0x4b, 0x3d, 0x90, 0xcb, 0xbf, 0x14,
-	0xe5, 0xb7, 0xc2, 0x5b, 0x7b, 0x22, 0x7b, 0xdb, 0x0b, 0x7a, 0x8e, 0x21, 0x01, 0x8c, 0x56, 0xf3,
-	0x8f, 0xbe, 0xe7, 0x94, 0x7b, 0x4e, 0xa5, 0xe7, 0xb4, 0xd5, 0x3c, 0x9b, 0xe3, 0x67, 0x7f, 0xf8,
-	0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0x67, 0x9c, 0x61, 0x2f, 0xa6, 0x0d, 0x00, 0x00,
 }

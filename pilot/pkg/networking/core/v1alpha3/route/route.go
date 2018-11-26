@@ -16,7 +16,6 @@ package route
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/proto"
 )
 
 // Headers with special meaning in Envoy
@@ -108,7 +108,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(node, cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
 				})
 			}
 		}
@@ -479,14 +479,6 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) route.RouteMatch {
 
 	// guarantee ordering of headers
 	sort.Slice(out.Headers, func(i, j int) bool {
-		if out.Headers[i].Name == out.Headers[j].Name {
-			if reflect.TypeOf(out.Headers[i].HeaderMatchSpecifier) == reflect.TypeOf(out.Headers[j].HeaderMatchSpecifier) {
-				var bi, bj []byte
-				out.Headers[i].HeaderMatchSpecifier.MarshalTo(bi)
-				out.Headers[j].HeaderMatchSpecifier.MarshalTo(bj)
-				return string(bi) < string(bj)
-			}
-		}
 		return out.Headers[i].Name < out.Headers[j].Name
 	})
 
@@ -560,7 +552,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
-		Enabled:     &types.BoolValue{Value: true},
+		Enabled:     proto.BoolTrue,
 	}
 	out.AllowCredentials = in.AllowCredentials
 	out.AllowHeaders = strings.Join(in.AllowHeaders, ",")
@@ -600,10 +592,10 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
 
-	defaultRoute := &route.Route{
+	return &route.Route{
 		Match: translateRouteMatch(nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
@@ -612,18 +604,10 @@ func BuildDefaultHTTPRoute(node *model.Proxy, clusterName string, operation stri
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 				Timeout:          &notimeout,
+				MaxGrpcTimeout:   &notimeout,
 			},
 		},
 	}
-
-	defaultRoute.Action = &route.Route_Route{
-		Route: &route.RouteAction{
-			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
-			Timeout:          &notimeout,
-			MaxGrpcTimeout:   &notimeout,
-		},
-	}
-	return defaultRoute
 }
 
 // translatePercentToFractionalPercent translates an v1alpha3 Percent instance

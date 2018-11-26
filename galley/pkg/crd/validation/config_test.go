@@ -238,11 +238,15 @@ func TestValidatingWebhookConfig(t *testing.T) {
 
 	for _, tc := range ts {
 		t.Run(tc.name, func(t *testing.T) {
-			wh, cancel := createTestWebhook(t, fake.NewSimpleClientset(dummyDeployment, tc.configs.DeepCopyObject()), want)
+			wh, cancel := createTestWebhook(t,
+				fake.NewSimpleClientset(dummyDeployment, tc.configs.DeepCopyObject()),
+				createFakeWebhookSource(),
+				createFakeEndpointsSource(),
+				want)
 			defer cancel()
 
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
-			config, err := rebuildWebhookConfigHelper(wh.caFile, wh.webhookConfigFile, wh.ownerRefs)
+			config, err := rebuildWebhookConfigHelper(wh.caFile, wh.webhookConfigFile, wh.webhookName, wh.ownerRefs)
 			if err != nil {
 				t.Fatalf("Got unexpected error: %v", err)
 			}
@@ -300,7 +304,11 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 }
 
 func TestReloadCert(t *testing.T) {
-	wh, cleanup := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
+	wh, cleanup := createTestWebhook(t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		createFakeEndpointsSource(),
+		dummyConfig)
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
@@ -375,7 +383,11 @@ func TestInitialConfigLoadError(t *testing.T) {
 		}
 	}()
 
-	wh, cleanup := createTestWebhook(t, fake.NewSimpleClientset(), dummyConfig)
+	wh, cleanup := createTestWebhook(t,
+		fake.NewSimpleClientset(),
+		createFakeWebhookSource(),
+		createFakeEndpointsSource(),
+		dummyConfig)
 	defer cleanup()
 
 	wh.webhookConfigFile = ""

@@ -26,6 +26,8 @@ import (
 	"github.com/howeyc/fsnotify"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"istio.io/istio/galley/pkg/kube/converter"
+
 	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/galley/pkg/kube"
@@ -39,36 +41,39 @@ var supportedExtensions = map[string]bool{
 	".yaml": true,
 	".yml":  true,
 }
-var scope = log.RegisterScope("file-source", "Source for File System", 0)
+var scope = log.RegisterScope("fs", "File system source debugging", 0)
 
-//fsSource is source implementation for filesystem.
+// fsSource is source implementation for filesystem.
 type fsSource struct {
-	//Config File Path
+	// configuration for the converters.
+	config *converter.Config
+
+	// Config File Path
 	root string
 
 	donec chan struct{}
 
 	mu sync.RWMutex
 
-	//map to store namespace/name : shas
-	shas map[string][sha1.Size]byte
+	// map to store namespace/name : shas
+	shas map[resource.FullName][sha1.Size]byte
 
 	ch chan resource.Event
 
 	// map to store kind : bool to indicate whether we need to deal with the resource or not
 	kinds map[string]bool
 
-	//map to store filename: []{namespace/name,kind} to indicate whether the resources has been deleted from one file
+	// map to store filename: []{namespace/name,kind} to indicate whether the resources has been deleted from one file
 	fileResorceKeys map[string][]*fileResourceKey
 
-	//fsresource version
+	// fsresource version
 	version int64
 
 	watcher *fsnotify.Watcher
 }
 
-func (s *fsSource) readFiles(root string) map[string]*istioResource {
-	results := map[string]*istioResource{}
+func (s *fsSource) readFiles(root string) map[resource.FullName]*istioResource {
+	results := map[resource.FullName]*istioResource{}
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -92,8 +97,8 @@ func (s *fsSource) readFiles(root string) map[string]*istioResource {
 	return results
 }
 
-func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[string]*istioResource {
-	result := map[string]*istioResource{}
+func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[resource.FullName]*istioResource {
+	result := map[resource.FullName]*istioResource{}
 	if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
 		return nil
 	}
@@ -119,7 +124,7 @@ func (s *fsSource) readFile(path string, info os.FileInfo, initial bool) map[str
 }
 
 //process delete part of the resources in a file
-func (s *fsSource) processPartialDelete(fileName string, newData *map[string]*istioResource) {
+func (s *fsSource) processPartialDelete(fileName string, newData *map[resource.FullName]*istioResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if fileResorceKeys, ok := s.fileResorceKeys[fileName]; ok {
@@ -142,7 +147,7 @@ func (s *fsSource) processPartialDelete(fileName string, newData *map[string]*is
 
 }
 
-func (s *fsSource) processAddOrUpdate(fileName string, newData *map[string]*istioResource) {
+func (s *fsSource) processAddOrUpdate(fileName string, newData *map[resource.FullName]*istioResource) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// need versionUpdated as sometimes when fswatcher fires events, there is actually no change on the file content
@@ -199,6 +204,7 @@ func (s *fsSource) initialCheck() {
 	newData := s.readFiles(s.root)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.ch <- resource.Event{Kind: resource.FullSync}
 	for k, r := range newData {
 		s.process(resource.Added, k, "", r)
 		s.shas[k] = r.sha
@@ -211,7 +217,7 @@ func (s *fsSource) Stop() {
 	s.watcher.Close()
 }
 
-func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind string, r *istioResource) {
+func (s *fsSource) process(eventKind resource.EventKind, key resource.FullName, resourceKind string, r *istioResource) {
 	var u *unstructured.Unstructured
 	var spec kube.ResourceSpec
 	var kind string
@@ -229,7 +235,8 @@ func (s *fsSource) process(eventKind resource.EventKind, key, resourceKind strin
 			break
 		}
 	}
-	source.ProcessEvent(spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
+
+	source.ProcessEvent(s.config, spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
 }
 
 // Start implements runtime.Source
@@ -295,17 +302,18 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 }
 
 // New returns a File System implementation of runtime.Source.
-func New(root string) (runtime.Source, error) {
-	return newFsSource(root, kube_meta.Types.All())
+func New(root string, config *converter.Config) (runtime.Source, error) {
+	return newFsSource(root, config, kube_meta.Types.All())
 }
 
-func newFsSource(root string, specs []kube.ResourceSpec) (runtime.Source, error) {
+func newFsSource(root string, config *converter.Config, specs []kube.ResourceSpec) (runtime.Source, error) {
 	fs := &fsSource{
+		config:          config,
 		root:            root,
 		kinds:           map[string]bool{},
 		fileResorceKeys: map[string][]*fileResourceKey{},
 		donec:           make(chan struct{}),
-		shas:            map[string][sha1.Size]byte{},
+		shas:            map[resource.FullName][sha1.Size]byte{},
 		version:         0,
 	}
 	for _, spec := range specs {

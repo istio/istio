@@ -31,7 +31,7 @@ The `demo.jwt` contains a signed-JWT token with following payload:
 }
 ```
 
-Note the expiration date (`exp`) is very long in the future, so it can be tested as is without anty modification. For example:
+Note the expiration date (`exp`) is very long in the future, so it can be tested as is without any modification. For example:
 
 ```bash
 TOKEN=$(curl https://raw.githubusercontent.com/istio/istio/master/security/tools/jwt/samples/demo.jwt -s)

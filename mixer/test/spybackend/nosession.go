@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n spybackend-nosession -s=false -t metric -t quota -t listentry -o nosession.yaml
+//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go adapter -n spybackend-nosession -s=false -t metric -t quota -t listentry -t apa -t checkoutput -o nosession.yaml
 
 package spybackend
 
@@ -25,13 +25,14 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
-
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/template/listentry"
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 	"istio.io/istio/mixer/test/spyAdapter"
+	sampleapa "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	samplecheck "istio.io/istio/mixer/test/spyAdapter/template/check"
+	checkoutputTmpl "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
 	samplequota "istio.io/istio/mixer/test/spyAdapter/template/quota"
 	samplereport "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
@@ -62,6 +63,8 @@ var _ quota.HandleQuotaServiceServer = &NoSessionServer{}
 var _ samplecheck.HandleSampleCheckServiceServer = &NoSessionServer{}
 var _ samplequota.HandleSampleQuotaServiceServer = &NoSessionServer{}
 var _ samplereport.HandleSampleReportServiceServer = &NoSessionServer{}
+var _ sampleapa.HandleSampleApaServiceServer = &NoSessionServer{}
+var _ checkoutputTmpl.HandleCheckProducerServiceServer = &NoSessionServer{}
 
 // HandleMetric records metric entries and responds with the programmed response
 func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetricRequest) (*adptModel.ReportResult, error) {
@@ -131,6 +134,28 @@ func (s *NoSessionServer) HandleSampleQuota(c context.Context, r *samplequota.Ha
 	s.CapturedCalls = append(s.CapturedCalls, cc)
 
 	return s.Behavior.HandleSampleQuotaResult, s.Behavior.HandleSampleQuotaError
+}
+
+// HandleSampleApa records sampleapa and responds with the programmed response
+func (s *NoSessionServer) HandleSampleApa(c context.Context, r *sampleapa.HandleSampleApaRequest) (*sampleapa.OutputMsg, error) {
+	s.CapturedCalls = append(s.CapturedCalls, spyAdapter.CapturedCall{
+		Name:      "HandleSampleApa",
+		Instances: []interface{}{r.Instance},
+	})
+	return s.Behavior.HandleSampleApaResult, s.Behavior.HandleSampleApaError
+}
+
+// HandleCheckProducer records checkoutput and responds with the programmed response
+func (s *NoSessionServer) HandleCheckProducer(c context.Context,
+	r *checkoutputTmpl.HandleCheckProducerRequest) (*checkoutputTmpl.HandleCheckProducerResponse, error) {
+	s.CapturedCalls = append(s.CapturedCalls, spyAdapter.CapturedCall{
+		Name:      "HandleCheckProducer",
+		Instances: []interface{}{r.Instance},
+	})
+	return &checkoutputTmpl.HandleCheckProducerResponse{
+		Result: s.Behavior.HandleSampleCheckResult,
+		Output: s.Behavior.HandleCheckOutput,
+	}, s.Behavior.HandleSampleCheckError
 }
 
 // Addr returns the listening address of the server
@@ -296,6 +321,8 @@ func NewNoSessionServer(a *Args) (Server, error) {
 	samplereport.RegisterHandleSampleReportServiceServer(s.server, s)
 	samplecheck.RegisterHandleSampleCheckServiceServer(s.server, s)
 	samplequota.RegisterHandleSampleQuotaServiceServer(s.server, s)
+	sampleapa.RegisterHandleSampleApaServiceServer(s.server, s)
+	checkoutputTmpl.RegisterHandleCheckProducerServiceServer(s.server, s)
 
 	return s, nil
 }

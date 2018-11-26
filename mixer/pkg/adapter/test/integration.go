@@ -30,7 +30,6 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
-
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -295,6 +294,7 @@ func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int,
 		result, resultErr := client.Check(context.Background(), &req)
 		result.Precondition.ReferencedAttributes = &istio_mixer_v1.ReferencedAttributes{}
 		ret.Error = resultErr
+		ret.Check.RouteDirective = result.Precondition.RouteDirective
 		if len(c.Quotas) > 0 {
 			ret.Quota = make(map[string]adapter.QuotaResult)
 			for k := range c.Quotas {
@@ -346,6 +346,8 @@ func getServerArgs(
 		"../../../template/metric/template.yaml",
 		"../../../template/quota/template.yaml",
 		"../../../template/listentry/template.yaml",
+		"../../../test/spyAdapter/template/apa/tmpl.yaml",
+		"../../../test/spyAdapter/template/checkoutput/tmpl.yaml",
 	}
 
 	for _, fileRelativePath := range additionalCrs {

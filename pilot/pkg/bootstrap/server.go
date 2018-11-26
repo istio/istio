@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,7 +35,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
@@ -43,8 +45,7 @@ import (
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	_ "istio.io/istio/galley/pkg/metadata" // TODO: why do we need this ?
+	istio_networking_v1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/cmd"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/clusterregistry"
@@ -66,21 +67,30 @@ import (
 	srmemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/features/pilot"
+	"istio.io/istio/pkg/filewatcher"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
-	"istio.io/istio/pkg/version" // Import the resource package to pull in all proto types.
+	"istio.io/istio/pkg/version"
 )
 
 const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 
+	// MeshNetworksConfigMapKey should match the expected MeshNetworks config file name
+	MeshNetworksConfigMapKey = "meshNetworks"
+
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
 
+	// DefaultMCPMaxMsgSize is the default maximum message size
 	DefaultMCPMaxMsgSize = 1024 * 1024 * 4
+
+	// URL types supported by the config store
+	// example fs:///tmp/configroot
+	fsScheme = "fs"
 )
 
 var (
@@ -152,6 +162,7 @@ type PilotArgs struct {
 	Config               ConfigArgs
 	Service              ServiceArgs
 	MeshConfig           *meshconfig.MeshConfig
+	NetworksConfigFile   string
 	CtrlZOptions         *ctrlz.Options
 	Plugins              []string
 	MCPServerAddrs       []string
@@ -171,6 +182,7 @@ type Server struct {
 	ServiceController *aggregate.Controller
 
 	mesh             *meshconfig.MeshConfig
+	meshNetworks     *meshconfig.MeshNetworks
 	configController model.ConfigStoreCache
 	mixerSAN         []string
 	kubeClient       kubernetes.Interface
@@ -178,11 +190,13 @@ type Server struct {
 	multicluster     *clusterregistry.Multicluster
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
+	secureHTTPServer *http.Server
 	secureGRPCServer *grpc.Server
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
+	fileWatcher      filewatcher.FileWatcher
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -199,13 +213,18 @@ func NewServer(args PilotArgs) (*Server, error) {
 		}
 	}
 
-	s := &Server{}
+	s := &Server{
+		fileWatcher: filewatcher.NewWatcher(),
+	}
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMesh(&args); err != nil {
+		return nil, err
+	}
+	if err := s.initMeshNetworks(&args); err != nil {
 		return nil, err
 	}
 	if err := s.initMixerSan(&args); err != nil {
@@ -281,7 +300,8 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			args.Config.ControllerOptions.DomainSuffix,
 			args.Config.ControllerOptions.ResyncPeriod,
 			s.ServiceController,
-			s.EnvoyXdsServer)
+			s.EnvoyXdsServer,
+			s.meshNetworks)
 
 		if err != nil {
 			log.Info("Unable to create new Multicluster object")
@@ -339,6 +359,21 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		if err != nil {
 			log.Warnf("failed to read mesh configuration, using default: %v", err)
 		}
+
+		// Watch the config file for changes and reload if it got modified
+		s.addFileWatcher(args.Mesh.ConfigFile, func() {
+			// Reload the config file
+			mesh, err = cmd.ReadMeshConfig(args.Mesh.ConfigFile)
+			if err != nil {
+				log.Warnf("failed to read mesh configuration, using default: %v", err)
+				return
+			}
+			if !reflect.DeepEqual(mesh, s.mesh) {
+				log.Infof("mesh configurtion file updated to: %s", spew.Sdump(mesh))
+
+				//TODO Handle mesh config updates wherever necessary
+			}
+		})
 	}
 
 	if mesh == nil {
@@ -360,6 +395,43 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	log.Infof("flags %s", spew.Sdump(args))
 
 	s.mesh = mesh
+	return nil
+}
+
+// initMeshNetworks loads the mesh networks configuration from the file provided
+// in the args and add a watcher for changes in this file.
+func (s *Server) initMeshNetworks(args *PilotArgs) error {
+	if args.NetworksConfigFile == "" {
+		log.Info("mesh networks configuration not provided")
+		return nil
+	}
+
+	var meshNetworks *meshconfig.MeshNetworks
+	var err error
+
+	meshNetworks, err = cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+	if err != nil {
+		log.Warnf("failed to read mesh networks configuration from %q. using default.", args.NetworksConfigFile)
+		return nil
+	}
+	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
+	s.meshNetworks = meshNetworks
+
+	// Watch the networks config file for changes and reload if it got modified
+	s.addFileWatcher(args.NetworksConfigFile, func() {
+		// Reload the config file
+		meshNetworks, err := cmd.ReadMeshNetworksConfig(args.NetworksConfigFile)
+		if err != nil {
+			log.Warnf("failed to read mesh networks configuration from %q", args.NetworksConfigFile)
+			return
+		}
+		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
+			log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+			s.meshNetworks = meshNetworks
+			s.EnvoyXdsServer.ConfigUpdate(true)
+		}
+	})
+
 	return nil
 }
 
@@ -414,61 +486,162 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
-	mcpController := coredatamodel.NewController(options)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*mcpclient.Client
 	var conns []*grpc.ClientConn
+	var configStores []model.ConfigStoreCache
 
-	for _, addr := range args.MCPServerAddrs {
-		u, err := url.Parse(addr)
+	for _, configSource := range s.mesh.ConfigSources {
+		url, err := url.Parse(configSource.Address)
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 		}
-
-		securityOption := grpc.WithInsecure()
-		if u.Scheme == "mcps" {
-			requiredFiles := []string{
-				args.MCPCredentialOptions.CertificateFile,
-				args.MCPCredentialOptions.KeyFile,
-				args.MCPCredentialOptions.CACertificateFile,
+		if url.Scheme == fsScheme {
+			if url.Path == "" {
+				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 			}
-			log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
-				requiredFiles)
-			for len(requiredFiles) > 0 {
-				if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
-					log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(requiredMCPCertCheckFreq):
-						// retry
-					}
-					continue
-				}
-				log.Infof("%v found", requiredFiles[0])
-				requiredFiles = requiredFiles[1:]
-			}
+			store := memory.Make(model.IstioConfigTypes)
+			configController := memory.NewController(store)
 
-			watcher, err := creds.WatchFiles(ctx.Done(), args.MCPCredentialOptions)
+			err := s.makeFileMonitor(url.Path, configController)
 			if err != nil {
 				return err
 			}
-			credentials := creds.CreateForClient(u.Hostname(), watcher)
-			securityOption = grpc.WithTransportCredentials(credentials)
+			configStores = append(configStores, configController)
+			continue
 		}
+
+		securityOption := grpc.WithInsecure()
+		if configSource.TlsSettings != nil &&
+			configSource.TlsSettings.Mode != istio_networking_v1alpha3.TLSSettings_DISABLE {
+			var credentialOption *creds.Options
+			switch configSource.TlsSettings.Mode {
+			case istio_networking_v1alpha3.TLSSettings_SIMPLE:
+			case istio_networking_v1alpha3.TLSSettings_MUTUAL:
+				credentialOption = &creds.Options{
+					CertificateFile:   configSource.TlsSettings.ClientCertificate,
+					KeyFile:           configSource.TlsSettings.PrivateKey,
+					CACertificateFile: configSource.TlsSettings.CaCertificates,
+				}
+			case istio_networking_v1alpha3.TLSSettings_ISTIO_MUTUAL:
+				credentialOption = &creds.Options{
+					CertificateFile:   path.Join(model.AuthCertsPath, model.RootCertFilename),
+					KeyFile:           path.Join(model.AuthCertsPath, model.KeyFilename),
+					CACertificateFile: path.Join(model.AuthCertsPath, model.RootCertFilename),
+				}
+			default:
+				log.Errorf("invalid tls setting mode %d", configSource.TlsSettings.Mode)
+				continue
+			}
+
+			if credentialOption == nil {
+				credentials := creds.CreateForClientSkipVerify()
+				securityOption = grpc.WithTransportCredentials(credentials)
+			} else {
+				requiredFiles := []string{credentialOption.CACertificateFile, credentialOption.KeyFile, credentialOption.CertificateFile}
+				log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
+					requiredFiles)
+				for len(requiredFiles) > 0 {
+					if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
+						log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
+						select {
+						case <-ctx.Done():
+							cancel()
+							return ctx.Err()
+						case <-time.After(requiredMCPCertCheckFreq):
+							// retry
+						}
+						continue
+					}
+					log.Infof("%v found", requiredFiles[0])
+					requiredFiles = requiredFiles[1:]
+				}
+
+				watcher, err := creds.WatchFiles(ctx.Done(), credentialOption)
+				if err != nil {
+					cancel()
+					return err
+				}
+				credentials := creds.CreateForClient(configSource.TlsSettings.Sni, watcher)
+				securityOption = grpc.WithTransportCredentials(credentials)
+			}
+		}
+
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-		conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
+		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption)
 		if err != nil {
-			log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
+			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
+			cancel()
 			return err
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+		mcpController := coredatamodel.NewController(options)
 		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)
 		conns = append(conns, conn)
+		configStores = append(configStores, mcpController)
+	}
+
+	// TODO: remove the below branch when `--mcpServerAddrs` removed
+	if len(configStores) == 0 {
+		for _, addr := range args.MCPServerAddrs {
+			u, err := url.Parse(addr)
+			if err != nil {
+				cancel()
+				return err
+			}
+
+			securityOption := grpc.WithInsecure()
+			if u.Scheme == "mcps" {
+				requiredFiles := []string{
+					args.MCPCredentialOptions.CertificateFile,
+					args.MCPCredentialOptions.KeyFile,
+					args.MCPCredentialOptions.CACertificateFile,
+				}
+				log.Infof("Secure MCP configured. Waiting for required certificate files to become available: %v",
+					requiredFiles)
+				for len(requiredFiles) > 0 {
+					if _, err := os.Stat(requiredFiles[0]); os.IsNotExist(err) {
+						log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredMCPCertCheckFreq)
+						select {
+						case <-ctx.Done():
+							cancel()
+							return ctx.Err()
+						case <-time.After(requiredMCPCertCheckFreq):
+							// retry
+						}
+						continue
+					}
+					log.Infof("%v found", requiredFiles[0])
+					requiredFiles = requiredFiles[1:]
+				}
+
+				watcher, err := creds.WatchFiles(ctx.Done(), args.MCPCredentialOptions)
+				if err != nil {
+					cancel()
+					return err
+				}
+				credentials := creds.CreateForClient(u.Hostname(), watcher)
+				securityOption = grpc.WithTransportCredentials(credentials)
+			}
+			msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
+			conn, err := grpc.DialContext(ctx, u.Host, securityOption, msgSizeOption)
+			if err != nil {
+				log.Errorf("Unable to dial MCP Server %q: %v", u.Host, err)
+				cancel()
+				return err
+			}
+			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+			mcpController := coredatamodel.NewController(options)
+			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+			configz.Register(mcpClient)
+
+			clients = append(clients, mcpClient)
+			conns = append(conns, conn)
+			configStores = append(configStores, mcpController)
+		}
 	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -500,13 +673,18 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		return nil
 	})
 
-	s.configController = mcpController
+	// Wrap the config controller with a cache.
+	aggregateMcpController, err := configaggregate.MakeCache(configStores)
+	if err != nil {
+		return err
+	}
+	s.configController = aggregateMcpController
 	return nil
 }
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	if len(args.MCPServerAddrs) > 0 {
+	if len(args.MCPServerAddrs) > 0 || len(s.mesh.ConfigSources) > 0 {
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -516,7 +694,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		store := memory.Make(model.IstioConfigTypes)
 		configController := memory.NewController(store)
 
-		err := s.makeFileMonitor(args, configController)
+		err := s.makeFileMonitor(args.Config.FileDir, configController)
 		if err != nil {
 			return err
 		}
@@ -584,8 +762,8 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 	return crd.NewController(configClient, args.Config.ControllerOptions), nil
 }
 
-func (s *Server) makeFileMonitor(args *PilotArgs, configController model.ConfigStore) error {
-	fileSnapshot := configmonitor.NewFileSnapshot(args.Config.FileDir, model.IstioConfigTypes)
+func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigStore) error {
+	fileSnapshot := configmonitor.NewFileSnapshot(fileDir, model.IstioConfigTypes)
 	fileMonitor := configmonitor.NewMonitor("file-monitor", configController, FilepathWalkInterval, fileSnapshot.ReadConfigFiles)
 
 	// Defer starting the file monitor until after the service is created.
@@ -719,6 +897,7 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := &model.Environment{
 		Mesh:             s.mesh,
+		MeshNetworks:     s.meshNetworks,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
 		ServiceAccounts:  s.ServiceController,
@@ -750,6 +929,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
 		s.kubeRegistry.Env = environment
+		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
@@ -809,7 +989,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 			s.grpcServer.GracefulStop()
 			if s.secureGRPCServer != nil {
-				s.secureGRPCServer.GracefulStop()
+				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				s.secureHTTPServer.Shutdown(ctx)
+				s.secureGRPCServer.Stop()
 			}
 		}()
 
@@ -888,7 +1071,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 		log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
 
-		s := &http.Server{
+		s.secureHTTPServer = &http.Server{
 			TLSConfig: &tls.Config{
 				Certificates: []tls.Certificate{cert},
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -914,7 +1097,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 		// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 		// on a listener
-		_ = s.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
+		_ = s.secureHTTPServer.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
 
 		// The other way to set TLS - but you can't add http handlers, and the h2 stack is
 		// different.
@@ -961,4 +1144,27 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 
 func (s *Server) addStartFunc(fn startFunc) {
 	s.startFuncs = append(s.startFuncs, fn)
+}
+
+// Add to the FileWatcher the provided file and execute the provided function
+// on any change event for this file.
+// Using a debouncing mechanism to avoid calling the callback multiple times
+// per event.
+func (s *Server) addFileWatcher(file string, callback func()) {
+	s.fileWatcher.Add(file)
+	go func() {
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+				callback()
+			case <-s.fileWatcher.Events(file):
+				// Use a timer to debounce configuration updates
+				if timerC == nil {
+					timerC = time.After(100 * time.Millisecond)
+				}
+			}
+		}
+	}()
 }

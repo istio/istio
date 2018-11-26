@@ -99,6 +99,9 @@ type (
 
 		// Params of the instance; used to to create the config SHA.
 		Params map[string]interface{}
+
+		// AttributeBindings used to map the adapter output back into attributes
+		AttributeBindings map[string]string
 	}
 
 	// InstanceStatic configuration for compiled templates. Fully resolved.
@@ -130,6 +133,10 @@ type (
 		ActionsDynamic []*ActionDynamic
 
 		ActionsStatic []*ActionStatic
+
+		RequestHeaderOperations []*v1beta1.Rule_HeaderOperationTemplate
+
+		ResponseHeaderOperations []*v1beta1.Rule_HeaderOperationTemplate
 	}
 
 	// ActionDynamic configuration. Fully resolved.
@@ -138,15 +145,18 @@ type (
 		Handler *HandlerDynamic
 		// Instances that should be generated as part of invoking action.
 		Instances []*InstanceDynamic
+		// Name of the action (optional)
+		Name string
 	}
 
 	// ActionStatic configuration. Fully resolved.
 	ActionStatic struct {
 		// Handler that this action is resolved to.
 		Handler *HandlerStatic
-
 		// Instances that should be generated as part of invoking action.
 		Instances []*InstanceStatic
+		// Name of the action (optional)
+		Name string
 	}
 
 	// Template contains info about a template
@@ -170,6 +180,10 @@ type (
 
 		// package name of the `Template` message
 		PackageName string
+
+		// AttributeManifest declares the output attributes for the template.
+		// For attribute producing adapters, the output attributes are of the form $out.field_name.
+		AttributeManifest map[string]*v1beta1.AttributeManifest_AttributeInfo
 	}
 
 	// Adapter contains info about an adapter

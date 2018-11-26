@@ -23,8 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -32,13 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
-)
-
-var (
-	// TODO: extract this into istio.io/pkg/proto/{bool.go or types.go or values.go}
-	boolFalse = &types.BoolValue{
-		Value: false,
-	}
+	"istio.io/istio/pkg/proto"
 )
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
@@ -87,7 +80,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			ip:         WildcardAddress,
 			port:       int(portNumber),
 			bindToPort: true,
-			protocol:   protocol,
 		}
 		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
 		switch listenerType {
@@ -138,7 +130,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err = marshalFilters(mutable.Listener, opts, mutable.FilterChains); err != nil {
+		if err = marshalFilters(node, mutable.Listener, opts, mutable.FilterChains); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
@@ -286,7 +278,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	routeCfg := &xdsapi.RouteConfiguration{
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
-		ValidateClusters: boolFalse,
+		ValidateClusters: proto.BoolFalse,
 	}
 	// call plugins
 	for _, p := range configgen.Plugins {
@@ -325,7 +317,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 					// Forward client cert if connection is mTLS
 					ForwardClientCertDetails: http_conn.SANITIZE_SET,
 					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: &types.BoolValue{Value: true},
+						Subject: proto.BoolTrue,
 						Uri:     true,
 						Dns:     true,
 					},
@@ -352,7 +344,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						// Forward client cert if connection is mTLS
 						ForwardClientCertDetails: http_conn.SANITIZE_SET,
 						SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-							Subject: &types.BoolValue{Value: true},
+							Subject: proto.BoolTrue,
 							Uri:     true,
 							Dns:     true,
 						},
@@ -388,7 +380,10 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		}
 	}
 
-	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
+	requireClientCert := proto.BoolFalse
+	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
+		requireClientCert = proto.BoolTrue
+	}
 
 	// Set TLS parameters if they are non-default
 	var tlsParams *auth.TlsParameters
@@ -425,9 +420,7 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 			AlpnProtocols: ListenersALPNProtocols,
 			TlsParams:     tlsParams,
 		},
-		RequireClientCertificate: &types.BoolValue{
-			Value: requireClientCert,
-		},
+		RequireClientCertificate: requireClientCert,
 	}
 }
 

@@ -175,7 +175,7 @@ func TestEmptyRoundTrip(t *testing.T) {
 }
 
 func mutableBagFromProtoForTesing() *MutableBag {
-	b := NewProtoBag(protoAttrsForTesting())
+	b := GetProtoBag(protoAttrsForTesting())
 	return GetMutableBag(b)
 }
 
@@ -234,7 +234,7 @@ func TestProtoBag(t *testing.T) {
 					t.Fatalf("GetBagFromProto failed with %v", err)
 				}
 			} else {
-				b := NewProtoBag(attrs, globalDict, globalWordList)
+				b := GetProtoBag(attrs, globalDict, globalWordList)
 				pb = GetMutableBag(b)
 			}
 
@@ -608,7 +608,7 @@ func TestBogusProto(t *testing.T) {
 		StringMaps: map[int32]mixerpb.StringMap{-1: sm1, -2: sm2},
 	}
 
-	b := NewProtoBag(&attrs, globalDict, globalWordList)
+	b := GetProtoBag(&attrs, globalDict, globalWordList)
 
 	cases := []struct {
 		name string
@@ -647,7 +647,7 @@ func TestMessageDictEdge(t *testing.T) {
 		Strings: map[int32]int32{0: -2},
 	}
 
-	b := NewProtoBag(&attrs, globalDict, globalWordList)
+	b := GetProtoBag(&attrs, globalDict, globalWordList)
 	v, ok := b.Get("G0")
 	if !ok {
 		t.Error("Expecting true, got false")
@@ -684,7 +684,7 @@ func TestDoubleStrings(t *testing.T) {
 			var b Bag
 
 			if i == 0 {
-				b = NewProtoBag(&attrs, globalDict, globalWordList)
+				b = GetProtoBag(&attrs, globalDict, globalWordList)
 			} else {
 				var err error
 				b, err = GetBagFromProto(&attrs, globalWordList)
@@ -738,7 +738,7 @@ func TestReferenceTracking(t *testing.T) {
 		{"DUD", -1, ""}, // not referenced, so shouldn't be a match
 	}
 
-	b := NewProtoBag(&attrs, globalDict, globalWordList)
+	b := GetProtoBag(&attrs, globalDict, globalWordList)
 
 	// reference some attributes
 	_, _ = b.Get("G0")  // from global word list
@@ -839,7 +839,7 @@ func TestGlobalWordCount(t *testing.T) {
 			var err error
 
 			if i == 0 {
-				b2 = NewProtoBag(&output, shortGlobalDict, shortGlobalWordList)
+				b2 = GetProtoBag(&output, shortGlobalDict, shortGlobalWordList)
 			} else {
 				b2, err = GetBagFromProto(&output, shortGlobalWordList)
 			}

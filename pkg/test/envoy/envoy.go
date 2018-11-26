@@ -29,7 +29,7 @@ import (
 
 const (
 	// DefaultLogLevel the log level used for Envoy if not specified.
-	DefaultLogLevel = LogLevelTrace
+	DefaultLogLevel = LogLevelWarning
 
 	// DefaultLogEntryPrefix the default prefix for all log lines from Envoy.
 	DefaultLogEntryPrefix = "[ENVOY]"
@@ -87,7 +87,7 @@ func (e *Envoy) Start() (err error) {
 	// If there is an error upon exiting this function, stop the server.
 	defer func() {
 		if err != nil {
-			e.Stop()
+			_ = e.Stop()
 		}
 	}()
 

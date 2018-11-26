@@ -30,17 +30,17 @@ import (
 	"k8s.io/api/admissionregistration/v1beta1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 
 	mixerCrd "istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -88,20 +88,48 @@ type WebhookParameters struct {
 	// CACertFile is the path to the x509 CA bundle file.
 	CACertFile string
 
-	// DeploymentNamespace is the namespace in which the validation deployment resides.
-	DeploymentNamespace string
+	// DeploymentAndServiceNamespace is the namespace in which the validation deployment and service resides.
+	DeploymentAndServiceNamespace string
+
+	// Name of the k8s validatingwebhookconfiguration
+	WebhookName string
 
 	// DeploymentName is the name of the validation deployment. This, along with
-	// DeploymentNamespace, is used to set the ownerReference in the
+	// DeploymentAndServiceNamespace, is used to set the ownerReference in the
 	// validatingwebhookconfiguration. This enables k8s to clean-up the cluster-scoped
 	// validatingwebhookconfiguration when the deployment is deleted.
 	DeploymentName string
+
+	// ServiceName is the name of the k8s service of the validation webhook. This is
+	// used to verify endpoint readiness before registering the validatingwebhookconfiguration.
+	ServiceName string
 
 	Clientset clientset.Interface
 
 	// Enable galley validation mode
 	EnableValidation bool
 }
+
+type createInformerWebhookSource func(cl clientset.Interface, name string) cache.ListerWatcher
+type createInformerEndpointSource func(cl clientset.Interface, namespace, name string) cache.ListerWatcher
+
+var (
+	defaultCreateInformerWebhookSource = func(cl clientset.Interface, name string) cache.ListerWatcher {
+		return cache.NewListWatchFromClient(
+			cl.AdmissionregistrationV1beta1().RESTClient(),
+			"validatingwebhookconfigurations",
+			"",
+			fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", name)))
+	}
+
+	defaultCreateInformerEndpointSource = func(cl clientset.Interface, namespace, name string) cache.ListerWatcher {
+		return cache.NewListWatchFromClient(
+			cl.CoreV1().RESTClient(),
+			"endpoints",
+			namespace,
+			fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", name)))
+	}
+)
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
 type Webhook struct {
@@ -115,19 +143,24 @@ type Webhook struct {
 	// mixer
 	validator store.BackendValidator
 
-	server               *http.Server
-	keyCertWatcher       *fsnotify.Watcher
-	configWatcher        *fsnotify.Watcher
-	certFile             string
-	keyFile              string
-	caFile               string
-	webhookConfigFile    string
-	clientset            clientset.Interface
-	deploymentNamespace  string
-	deploymentName       string
-	ownerRefs            []v1.OwnerReference
-	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
-	endpointReadyOnce    bool
+	server                        *http.Server
+	keyCertWatcher                *fsnotify.Watcher
+	configWatcher                 *fsnotify.Watcher
+	certFile                      string
+	keyFile                       string
+	caFile                        string
+	webhookConfigFile             string
+	clientset                     clientset.Interface
+	deploymentAndServiceNamespace string
+	deploymentName                string
+	serviceName                   string
+	webhookName                   string
+	ownerRefs                     []v1.OwnerReference
+	webhookConfiguration          *v1beta1.ValidatingWebhookConfiguration
+
+	// test hook for informers
+	createInformerWebhookSource  createInformerWebhookSource
+	createInformerEndpointSource createInformerEndpointSource
 }
 
 // NewWebhook creates a new instance of the admission webhook controller.
@@ -136,6 +169,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
+	// This is not strictly necessary, but is a workaround for having the dashboard pass. The migration
+	// to OpenCensus metrics means that zero value metrics are not exported, and the dashboard tests
+	// expect data for metrics.
+	reportValidationCertKeyUpdate()
 	certKeyWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -168,23 +205,27 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%v", p.Port),
 		},
-		keyCertWatcher:      certKeyWatcher,
-		configWatcher:       configWatcher,
-		certFile:            p.CertFile,
-		keyFile:             p.KeyFile,
-		cert:                &pair,
-		descriptor:          p.PilotDescriptor,
-		validator:           p.MixerValidator,
-		caFile:              p.CACertFile,
-		webhookConfigFile:   p.WebhookConfigFile,
-		clientset:           p.Clientset,
-		deploymentName:      p.DeploymentName,
-		deploymentNamespace: p.DeploymentNamespace,
+		keyCertWatcher:                certKeyWatcher,
+		configWatcher:                 configWatcher,
+		certFile:                      p.CertFile,
+		keyFile:                       p.KeyFile,
+		cert:                          &pair,
+		descriptor:                    p.PilotDescriptor,
+		validator:                     p.MixerValidator,
+		caFile:                        p.CACertFile,
+		webhookConfigFile:             p.WebhookConfigFile,
+		clientset:                     p.Clientset,
+		deploymentName:                p.DeploymentName,
+		serviceName:                   p.ServiceName,
+		webhookName:                   p.WebhookName,
+		deploymentAndServiceNamespace: p.DeploymentAndServiceNamespace,
+		createInformerWebhookSource:   defaultCreateInformerWebhookSource,
+		createInformerEndpointSource:  defaultCreateInformerEndpointSource,
 	}
 
-	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
-		log.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
-			wh.deploymentNamespace, wh.deploymentName)
+	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentAndServiceNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
+		scope.Warnf("Could not find %s/%s deployment to set ownerRef. The validatingwebhookconfiguration must be deleted manually",
+			wh.deploymentAndServiceNamespace, wh.deploymentName)
 	} else {
 		wh.ownerRefs = []v1.OwnerReference{
 			*v1.NewControllerRef(
@@ -211,18 +252,38 @@ func (wh *Webhook) stop() {
 }
 
 // Run implements the webhook server
-func (wh *Webhook) Run(stop <-chan struct{}) {
+func (wh *Webhook) Run(stopCh <-chan struct{}) {
 	go func() {
 		if err := wh.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
+			scope.Fatalf("admission webhook ListenAndServeTLS failed: %v", err)
 		}
 	}()
 	defer wh.stop()
 
+	// During initial Istio installation its possible for custom
+	// resources to be created concurrently with galley startup. This
+	// can lead to validation failures with "no endpoints available"
+	// if the webhook is registered before the endpoint is visible to
+	// the rest of the system. Minimize this problem by waiting for the
+	// galley endpoint to be available at least once before
+	// self-registering. Subsequent Istio upgrades rely on deployment
+	// rolling updates to set maxUnavailable to zero.
+	if shutdown := wh.waitForEndpointReady(stopCh); shutdown {
+		return
+	}
+
+	// Try to create the initial webhook configuration (if it doesn't
+	// already exist). Setup a persistent monitor to reconcile the
+	// configuration if the observed configuration doesn't match
+	// the desired configuration.
+	if err := wh.rebuildWebhookConfig(); err == nil {
+		wh.createOrUpdateWebhookConfig()
+	}
+	webhookChangedCh := wh.monitorWebhookChanges(stopCh)
+
 	// use a timer to debounce file updates
 	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
-	reconcileTickerC := time.NewTicker(time.Second).C
 
 	for {
 		select {
@@ -231,17 +292,15 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			wh.reloadKeyCert()
 		case <-configTimerC:
 			configTimerC = nil
+
+			// rebuild the desired configuration and reconcile with the
+			// existing configuration.
 			if err := wh.rebuildWebhookConfig(); err == nil {
 				wh.createOrUpdateWebhookConfig()
 			}
-		case <-reconcileTickerC:
-			if wh.webhookConfiguration == nil {
-				if err := wh.rebuildWebhookConfig(); err == nil {
-					wh.createOrUpdateWebhookConfig()
-				}
-			} else {
-				wh.createOrUpdateWebhookConfig()
-			}
+		case <-webhookChangedCh:
+			// reconcile the desired configuration
+			wh.createOrUpdateWebhookConfig()
 		case event, more := <-wh.keyCertWatcher.Event:
 			if more && (event.IsModify() || event.IsCreate()) && keyCertTimerC == nil {
 				keyCertTimerC = time.After(watchDebounceDelay)
@@ -251,10 +310,10 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 				configTimerC = time.After(watchDebounceDelay)
 			}
 		case err := <-wh.keyCertWatcher.Error:
-			log.Errorf("keyCertWatcher error: %v", err)
+			scope.Errorf("keyCertWatcher error: %v", err)
 		case err := <-wh.configWatcher.Error:
-			log.Errorf("configWatcher error: %v", err)
-		case <-stop:
+			scope.Errorf("configWatcher error: %v", err)
+		case <-stopCh:
 			return
 		}
 	}
@@ -267,7 +326,7 @@ func (wh *Webhook) getCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 }
 
 func toAdmissionResponse(err error) *admissionv1beta1.AdmissionResponse {
-	return &admissionv1beta1.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
+	return &admissionv1beta1.AdmissionResponse{Result: &v1.Status{Message: err.Error()}}
 }
 
 type admitFunc func(*admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse
@@ -333,7 +392,7 @@ func (wh *Webhook) admitPilot(request *admissionv1beta1.AdmissionRequest) *admis
 	switch request.Operation {
 	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
-		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		scope.Warnf("Unsupported webhook operation %v", request.Operation)
 		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
@@ -390,7 +449,7 @@ func (wh *Webhook) admitMixer(request *admissionv1beta1.AdmissionRequest) *admis
 		ev.Type = store.Delete
 		ev.Key.Name = request.Name
 	default:
-		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		scope.Warnf("Unsupported webhook operation %v", request.Operation)
 		reportValidationFailed(request, reasonUnsupportedOperation)
 		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}

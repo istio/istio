@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
@@ -118,7 +119,14 @@ type DiscoveryServer struct {
 	// ConfigController provides readiness info (if initial sync is complete)
 	ConfigController model.ConfigStoreCache
 
-	rateLimiter         *rate.Limiter
+	// rate limiter for sending updates during full ads push.
+	rateLimiter *rate.Limiter
+
+	// rate limiter for sending config to new connections.
+	// We want to have a larger limit for new connections because until configuration is sent the proxies
+	// will not be ready.
+	initRateLimiter *rate.Limiter
+
 	concurrentPushLimit chan struct{}
 
 	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
@@ -164,6 +172,9 @@ type DiscoveryServer struct {
 	// debouncePushTimerSet is true if a config update was requested and we are
 	// waiting for more events, to debounce.
 	debouncePushTimerSet bool
+
+	// endpointsFilterFuncs is an ordered list of functions to apply to EDS just before pushing it
+	endpointsFilterFuncs []EndpointsFilterFunc
 }
 
 // updateReq includes info about the requested update.
@@ -228,6 +239,9 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		edsUpdates:              map[string]*EndpointShardsByService{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
+		endpointsFilterFuncs: []EndpointsFilterFunc{
+			EndpointsByNetworkFilter, // A filter to support Split Horizon EDS
+		},
 	}
 	env.PushContext = model.NewPushContext()
 	go out.handleUpdates()
@@ -266,6 +280,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 
 	adsLog.Infof("Starting ADS server with rateLimiter=%d burst=%d", pushThrottle, pushBurst)
 	out.rateLimiter = rate.NewLimiter(rate.Limit(pushThrottle), pushBurst)
+	out.initRateLimiter = rate.NewLimiter(rate.Limit(pushThrottle*2), pushBurst*2)
 
 	return out
 }
@@ -310,11 +325,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 			model.LastPushStatus = push
 		}
 		push.UpdateMetrics()
-		// TODO: env to customize
-		//if time.Since(push.Start) > 30*time.Second {
-		// Reset the stats, some errors may still be stale.
-		//s.env.PushContext = model.NewPushContext()
-		//}
 	}
 }
 
@@ -327,7 +337,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 		return
 	}
 	// Reset the status during the push.
-	//afterPush := true
 	pc := s.globalPushContext()
 	if pc != nil {
 		pc.OnConfigChange()
@@ -365,7 +374,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	s.mutex.Unlock()
 
-	// TODO: propagate K8S version and use it instead
 	versionMutex.Lock()
 	version = versionLocal
 	versionMutex.Unlock()
@@ -519,4 +527,13 @@ func (s *DiscoveryServer) handleUpdates() {
 			s.updateMutex.Unlock()
 		}
 	}
+}
+
+// Apply filter functions listed in the 'endpointsFilterFuncs' one after the other
+func (s *DiscoveryServer) applyEndpointsFilterFuncs(endpoints []endpoint.LocalityLbEndpoints, con *XdsConnection) []endpoint.LocalityLbEndpoints {
+	filtered := endpoints
+	for _, ff := range s.endpointsFilterFuncs {
+		filtered = ff(filtered, con, s.Env)
+	}
+	return filtered
 }

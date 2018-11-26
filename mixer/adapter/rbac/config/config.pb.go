@@ -4,10 +4,9 @@
 /*
 	Package config is a generated protocol buffer package.
 
-	The `rbac` adapter provides Role-Based Access Control (RBAC) functionality for
-	for services within the Istio mesh.
-
-	This adapter supports the [authorization template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/authorization/).
+	The `rbac` adapter is deprecated by native RBAC implemented in Envoy proxy.
+	See https://istio.io/docs/concepts/security/#enabling-authorization for enabling
+	the native RBAC with your existing service role and service role binding.
 
 	It is generated from these files:
 		mixer/adapter/rbac/config/config.proto

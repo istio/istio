@@ -184,10 +184,14 @@ func buildUpstreamName(address string) string {
 }
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
+	networkFailPolicy := mccpb.FAIL_CLOSE
+	if mesh.PolicyCheckFailOpen {
+		networkFailPolicy = mccpb.FAIL_OPEN
+	}
 	res := &mccpb.TransportConfig{
 		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
 		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
-		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: mccpb.FAIL_CLOSE},
+		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: networkFailPolicy},
 		// internal telemetry forwarding
 		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": attrUID(node)}},
 	}
@@ -204,35 +208,39 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: mixer,
-		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
-			DefaultDestinationService: defaultConfig,
-			ServiceConfigs: map[string]*mccpb.ServiceConfig{
-				defaultConfig: {
-					DisableCheckCalls: disableClientPolicyChecks(mesh, node),
+		ConfigType: &http_conn.HttpFilter_Config{
+			util.MessageToStruct(&mccpb.HttpClientConfig{
+				DefaultDestinationService: defaultConfig,
+				ServiceConfigs: map[string]*mccpb.ServiceConfig{
+					defaultConfig: {
+						DisableCheckCalls: disableClientPolicyChecks(mesh, node),
+					},
 				},
-			},
-			MixerAttributes: &mpb.Attributes{Attributes: attrs},
-			ForwardAttributes: &mpb.Attributes{Attributes: attributes{
-				"source.uid": attrUID(node),
-			}},
-			Transport: buildTransport(mesh, node),
-		}),
+				MixerAttributes: &mpb.Attributes{Attributes: attrs},
+				ForwardAttributes: &mpb.Attributes{Attributes: attributes{
+					"source.uid": attrUID(node),
+				}},
+				Transport: buildTransport(mesh, node),
+			}),
+		},
 	}
 }
 
 func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: mixer,
-		Config: util.MessageToStruct(&mccpb.HttpClientConfig{
-			DefaultDestinationService: defaultConfig,
-			ServiceConfigs: map[string]*mccpb.ServiceConfig{
-				defaultConfig: {
-					DisableCheckCalls: mesh.DisablePolicyChecks,
+		ConfigType: &http_conn.HttpFilter_Config{
+			util.MessageToStruct(&mccpb.HttpClientConfig{
+				DefaultDestinationService: defaultConfig,
+				ServiceConfigs: map[string]*mccpb.ServiceConfig{
+					defaultConfig: {
+						DisableCheckCalls: mesh.DisablePolicyChecks,
+					},
 				},
-			},
-			MixerAttributes: &mpb.Attributes{Attributes: attrs},
-			Transport:       buildTransport(mesh, node),
-		}),
+				MixerAttributes: &mpb.Attributes{Attributes: attrs},
+				Transport:       buildTransport(mesh, node),
+			}),
+		},
 	}
 }
 
@@ -307,22 +315,26 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 	return listener.Filter{
 		Name: mixer,
-		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
-			DisableCheckCalls: disableClientPolicyChecks(mesh, node),
-			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			Transport:         buildTransport(mesh, node),
-		}),
+		ConfigType: &listener.Filter_Config{
+			util.MessageToStruct(&mccpb.TcpClientConfig{
+				DisableCheckCalls: disableClientPolicyChecks(mesh, node),
+				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+				Transport:         buildTransport(mesh, node),
+			}),
+		},
 	}
 }
 
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) listener.Filter {
 	return listener.Filter{
 		Name: mixer,
-		Config: util.MessageToStruct(&mccpb.TcpClientConfig{
-			DisableCheckCalls: mesh.DisablePolicyChecks,
-			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-			Transport:         buildTransport(mesh, node),
-		}),
+		ConfigType: &listener.Filter_Config{
+			util.MessageToStruct(&mccpb.TcpClientConfig{
+				DisableCheckCalls: mesh.DisablePolicyChecks,
+				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+				Transport:         buildTransport(mesh, node),
+			}),
+		},
 	}
 }
 

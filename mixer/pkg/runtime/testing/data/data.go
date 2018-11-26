@@ -96,6 +96,15 @@ spec:
   foo: attr.string
 `
 
+// InstanceCheckOutput1 is a standard testing instance for template tcheckoutput
+var InstanceCheckOutput1 = `
+apiVersion: config.istio.io/v1alpha2
+kind: tcheckoutput
+metadata:
+  name: icheckoutput1
+  namespace: istio-system
+`
+
 // InstanceHalt1 is a standard testing instance.
 var InstanceHalt1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -222,6 +231,15 @@ metadata:
   name: hcheck3
   namespace: ns2
 spec:
+`
+
+// HandlerACheckOutput1 is a standard handler for type acheckoutput
+var HandlerACheckOutput1 = `
+apiVersion: config.istio.io/v1alpha2
+kind: acheckoutput
+metadata:
+  name: hcheckoutput1
+  namespace: istio-system
 `
 
 // HandlerAReport1 is a handler of type acheck with name hreport1.
@@ -465,6 +483,57 @@ spec:
     instances:
     - icheck1.tcheck.istio-system
     - ihalt1.thalt.istio-system
+`
+
+// RuleCheckOutput1 is a standard testing rule for check output template
+var RuleCheckOutput1 = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: rcheckoutput1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheckoutput1.acheckoutput
+    instances:
+    - icheckoutput1.tcheckoutput.istio-system
+    name: sample
+  requestHeaderOperations:
+  - name: user
+    values:
+    - sample.output.value
+`
+
+// RuleCheckOutput2 is a testing rule for check output template with multiple outputs
+var RuleCheckOutput2 = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: rcheckoutput2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheckoutput1.acheckoutput
+    instances:
+    - icheckoutput1.tcheckoutput.istio-system
+    name: a
+  - handler: hcheckoutput1.acheckoutput
+    instances:
+    - icheckoutput1.tcheckoutput.istio-system
+    name: b
+  requestHeaderOperations:
+  - name: a-header
+    values:
+    - a.output.value
+    operation: REPLACE
+  - name: user
+    operation: REMOVE
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - b.output.value
+    - prefix.generated.string
+    operation: APPEND
 `
 
 // RuleReport1 is a standard testing instance config with name rreport1. It references I1 and H1.

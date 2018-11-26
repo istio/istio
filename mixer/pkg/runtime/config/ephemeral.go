@@ -30,14 +30,11 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-
-	"go.opencensus.io/tag"
-
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
-
+	"go.opencensus.io/tag"
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -204,12 +201,16 @@ func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multier
 		}
 	}
 
-	// append all the well known attribute vocabulary from the templates.
+	// append all the well known attribute vocabulary from the static templates.
 	//
-	// ATTRIBUTE_GENERATOR variety templates allows operators to write Attributes
+	// ATTRIBUTE_GENERATOR variety templates allow operators to write Attributes
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
 	// The list of valid names for a given Template is available in the Template.Info.AttributeManifests object.
 	for _, info := range e.templates {
+		if info.Variety != v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+			continue
+		}
+
 		log.Debugf("Processing attributes from template: '%s'", info.Name)
 
 		for _, v := range info.AttributeManifests {
@@ -427,10 +428,11 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		}
 
 		cfg := &InstanceDynamic{
-			Name:     instanceName,
-			Template: template,
-			Encoder:  enc,
-			Params:   params,
+			Name:              instanceName,
+			Template:          template,
+			Encoder:           enc,
+			Params:            params,
+			AttributeBindings: inst.AttributeBindings,
 		}
 
 		instances[cfg.Name] = cfg
@@ -665,6 +667,7 @@ func (e *Ephemeral) processRuleConfigs(
 				action := &ActionStatic{
 					Handler:   sahandler,
 					Instances: actionInstances,
+					Name:      a.Name,
 				}
 
 				actionsStat = append(actionsStat, action)
@@ -723,6 +726,7 @@ func (e *Ephemeral) processRuleConfigs(
 				action := &ActionDynamic{
 					Handler:   dahandler,
 					Instances: actionInstances,
+					Name:      a.Name,
 				}
 
 				actionsDynamic = append(actionsDynamic, action)
@@ -741,6 +745,8 @@ func (e *Ephemeral) processRuleConfigs(
 			ActionsStatic:  actionsStat,
 			ActionsDynamic: actionsDynamic,
 			Match:          cfg.Match,
+			RequestHeaderOperations:  cfg.RequestHeaderOperations,
+			ResponseHeaderOperations: cfg.ResponseHeaderOperations,
 		}
 
 		rules = append(rules, rule)
@@ -783,6 +789,26 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 			FileDescSet:                fds,
 			PackageName:                desc.GetPackage(),
 			Variety:                    variety,
+		}
+
+		if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR || variety == v1beta1.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
+			resolver := yaml.NewResolver(fds)
+			msgName := "." + desc.GetPackage() + ".OutputMsg"
+			// OutputMsg is a fixed generated name for the output template
+			desc := resolver.ResolveMessage(msgName)
+			if desc == nil {
+				continue
+			}
+
+			// We only support a single level of nesting in output templates.
+			attributes := make(map[string]*config.AttributeManifest_AttributeInfo)
+			for _, field := range desc.GetField() {
+				attributes["output."+field.GetName()] = &config.AttributeManifest_AttributeInfo{
+					ValueType: yaml.DecodeType(resolver, field),
+				}
+			}
+
+			result[templateName].AttributeManifest = attributes
 		}
 	}
 	return result

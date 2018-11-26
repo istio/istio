@@ -15,6 +15,7 @@
 package application
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -23,8 +24,8 @@ import (
 
 var (
 	// DefaultGRPCDialFunc just calls grpc.Dial directly, with no alterations to the arguments.
-	DefaultGRPCDialFunc = func(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-		return grpc.Dial(target, opts...)
+	DefaultGRPCDialFunc = func(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+		return grpc.DialContext(ctx, address, opts...)
 	}
 	// DefaultWebsocketDialFunc just calls dialer.Dial, with no alterations to the arguments.
 	DefaultWebsocketDialFunc = func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
@@ -43,7 +44,7 @@ var (
 )
 
 // GRPCDialFunc a function for establishing a GRPC connection.
-type GRPCDialFunc func(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
+type GRPCDialFunc func(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 
 // WebsocketDialFunc a function for establishing a Websocket connection.
 type WebsocketDialFunc func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error)

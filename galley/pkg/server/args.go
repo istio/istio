@@ -25,8 +25,11 @@ import (
 )
 
 const (
-	defaultConfigMapFolder = "/etc/istio/config/"
-	defaultAccessListFile  = defaultConfigMapFolder + "accesslist.yaml"
+	defaultConfigMapFolder  = "/etc/istio/config/"
+	defaultMeshConfigFolder = "/etc/istio/mesh-config/"
+	defaultAccessListFile   = defaultConfigMapFolder + "accesslist.yaml"
+	defaultMeshConfigFile   = defaultMeshConfigFolder + "mesh"
+	defaultDomainSuffix     = "cluster.local"
 )
 
 // Args contains the startup arguments to instantiate Galley.
@@ -67,23 +70,37 @@ type Args struct {
 	// AccessListFile is the YAML file that specifies ids of the allowed mTLS peers.
 	AccessListFile string
 
-	//ConfigPath is the path for istio config files
+	// ConfigPath is the path for Galley specific config files
 	ConfigPath string
+
+	// MeshConfigFile is the path for mesh config
+	MeshConfigFile string
+
+	// DNS Domain suffix to use while constructing Ingress based resources.
+	DomainSuffix string
+
+	// DisableResourceReadyCheck disables the CRD readiness check. This
+	// allows Galley to start when not all supported CRD are
+	// registered with the kube-apiserver.
+	DisableResourceReadyCheck bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIAddress:             "tcp://0.0.0.0:9901",
-		MaxReceivedMessageSize: 1024 * 1024,
-		MaxConcurrentStreams:   1024,
-		LoggingOptions:         log.DefaultOptions(),
-		IntrospectionOptions:   ctrlz.DefaultOptions(),
-		Insecure:               false,
-		AccessListFile:         defaultAccessListFile,
-		EnableServer:           true,
-		CredentialOptions:      creds.DefaultOptions(),
-		ConfigPath:             "",
+		APIAddress:                "tcp://0.0.0.0:9901",
+		MaxReceivedMessageSize:    1024 * 1024,
+		MaxConcurrentStreams:      1024,
+		LoggingOptions:            log.DefaultOptions(),
+		IntrospectionOptions:      ctrlz.DefaultOptions(),
+		Insecure:                  false,
+		AccessListFile:            defaultAccessListFile,
+		MeshConfigFile:            defaultMeshConfigFile,
+		EnableServer:              true,
+		CredentialOptions:         creds.DefaultOptions(),
+		ConfigPath:                "",
+		DomainSuffix:              defaultDomainSuffix,
+		DisableResourceReadyCheck: false,
 	}
 }
 
@@ -106,5 +123,9 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
 	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
 	fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
+	fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
+	fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
+	fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)
+
 	return buf.String()
 }

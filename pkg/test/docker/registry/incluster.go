@@ -53,7 +53,7 @@ type InClusterRegistry struct {
 
 func writeTemplate(tmpl *template.Template, data interface{}, dst string) error {
 	f, err := os.Create(dst)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err != nil {
 		return err
 	}

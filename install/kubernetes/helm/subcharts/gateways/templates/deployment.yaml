@@ -65,11 +65,9 @@ spec:
             {{- range $key, $val := $spec.ports }}
             - containerPort: {{ $val.port }}
             {{- end }}
-{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
-            - containerPort: {{ $.Values.global.proxy.stats.prometheusPort }}
+            - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
-{{ end }}
           args:
           - proxy
           - router
@@ -88,8 +86,8 @@ spec:
           - --serviceCluster
           - {{ $key }}
           - --zipkinAddress
-        {{- if $.Values.global.tracer.zipkinAddress }}
-          - {{ $.Values.global.tracer.zipkinAddress }}
+        {{- if $.Values.global.tracer.zipkin.address }}
+          - {{ $.Values.global.tracer.zipkin.address }}
         {{- else if $.Values.global.istioNamespace }}
           - zipkin.{{ $.Values.global.istioNamespace }}:9411
         {{- else }}
@@ -127,6 +125,11 @@ spec:
 {{ toYaml $.Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -145,15 +148,15 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name                
-          {{- if $spec.envVariables }}
-          {{- range $key, $val := $spec.envVariables }}
+                fieldPath: metadata.name             
+          {{- if $spec.env }}
+          {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
           {{ end }}
           volumeMounts:
-          {{ if $.Values.global.sdsEnabled }}
+          {{ if $.Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
           {{- end }}
@@ -169,7 +172,7 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{ if $.Values.global.sdsEnabled }}
+      {{ if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
