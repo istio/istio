@@ -6,6 +6,7 @@ replicaCount: 1
 hub: docker.io/prom
 tag: v2.3.1
 retention: 6h
+nodeSelector: {}
 
 # Controls the frequency of prometheus scraping
 scrapeInterval: 15s

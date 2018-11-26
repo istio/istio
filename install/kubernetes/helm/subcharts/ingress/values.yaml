@@ -5,6 +5,7 @@ enabled: false
 replicaCount: 1
 autoscaleMin: 1
 autoscaleMax: 5
+nodeSelector: {}
 service:
   annotations: {}
   loadBalancerIP: ""
