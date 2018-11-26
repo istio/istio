@@ -427,14 +427,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if err != nil {
 				return err
 			}
-			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-			con.mu.Lock()
-			con.modelNode = &nt
-			if con.ConID == "" {
-				// first request
-				con.ConID = connectionID(discReq.Node.Id)
-			}
-			con.mu.Unlock()
 
 			switch discReq.TypeUrl {
 			case ClusterType:
@@ -495,12 +487,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 					if reflect.DeepEqual(con.Routes, routes) || len(routes) == 0 {
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 							totalXDSRejects.Add(1)
 						}
 						// Not logging full request, can be very long.
-						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 						if len(con.Routes) > 0 {
 							// Already got a list of routes to watch and has same length as the request, this is an ack
 							if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
