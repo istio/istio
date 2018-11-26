@@ -234,17 +234,12 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 			}
 			cnt++
 
-			// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
-			// Once we do that, the key must be a | separated tupple.
-			locality := (el.Labels)[model.AZLabel] // may be ""
-			locLbEps, found := localityEpMap[locality]
+			locLbEps, found := localityEpMap[el.Locality]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: &core.Locality{
-						Zone: locality,
-					},
+					Locality: util.ConvertLocality(el.Locality),
 				}
-				localityEpMap[locality] = locLbEps
+				localityEpMap[el.Locality] = locLbEps
 			}
 			if el.EnvoyEndpoint == nil {
 				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort, el.Network)
@@ -336,6 +331,8 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						UID:             ep.Endpoint.UID,
 						ServiceAccount:  ep.ServiceAccount,
 						Network:         ep.Endpoint.Network,
+						Locality:        ep.GetLocality(),
+						LbWeight:        ep.Endpoint.LbWeight,
 					})
 					if ep.ServiceAccount != "" {
 						account, f := svc2account[hostname]
@@ -587,15 +584,11 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 			totalXDSInternalErrors.Add(1)
 			continue
 		}
-		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
-		// Once we do that, the key must be a | separated tupple.
-		locality := instance.GetAZ()
+		locality := instance.GetLocality()
 		locLbEps, found := localityEpMap[locality]
 		if !found {
 			locLbEps = &endpoint.LocalityLbEndpoints{
-				Locality: &core.Locality{
-					Zone: locality,
-				},
+				Locality: util.ConvertLocality(locality),
 			}
 			localityEpMap[locality] = locLbEps
 		}
@@ -622,7 +615,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	emptyClusters := 0
 	endpoints := 0
 	empty := []string{}
-
 	updated := []string{}
 
 	for _, clusterName := range con.Clusters {

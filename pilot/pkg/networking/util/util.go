@@ -249,3 +249,29 @@ func ResolveHostsInNetworksConfig(config *meshconfig.MeshNetworks) {
 		}
 	}
 }
+
+// ConvertLocality converts '/' separated locality string to Locality struct.
+func ConvertLocality(locality string) *core.Locality {
+	if locality == "" {
+		return nil
+	}
+
+	items := strings.Split(locality, "/")
+	switch len(items) {
+	case 1:
+		return &core.Locality{
+			Region: items[0],
+		}
+	case 2:
+		return &core.Locality{
+			Region: items[0],
+			Zone:   items[1],
+		}
+	default:
+		return &core.Locality{
+			Region:  items[0],
+			Zone:    items[1],
+			SubZone: items[2],
+		}
+	}
+}

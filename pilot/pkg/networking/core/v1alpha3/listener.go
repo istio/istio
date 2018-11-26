@@ -185,8 +185,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 				{
 					Filters: []listener.Filter{
 						{
-							Name:   xdsutil.TCPProxy,
-							Config: util.MessageToStruct(passthroughTCPProxy),
+							Name: xdsutil.TCPProxy,
+							ConfigType: &listener.Filter_Config{
+								Config: util.MessageToStruct(passthroughTCPProxy),
+							},
 						},
 					},
 				},
@@ -290,6 +292,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 					ServerName:               EnvoyServerName,
 				},
 			}
+			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
+			if endpoint.ServicePort.Protocol.IsHTTP2() {
+				httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+				if endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
+					httpOpts.addGRPCWebFilter = true
+				}
+			}
+
 		case plugin.ListenerProtocolTCP:
 			tcpNetworkFilters = buildInboundNetworkFilters(env, node, instance)
 
@@ -701,7 +711,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
-		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
+		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolGRPCWeb, model.ProtocolTCP,
 			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis:
 
 			instance := &model.ServiceInstance{
@@ -749,6 +759,9 @@ type httpListenerOpts struct {
 	// stat prefix for the http connection manager
 	// DO not set this field. Will be overridden by marshalFilters
 	statPrefix string
+	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
+	// should be added.
+	addGRPCWebFilter bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -776,7 +789,15 @@ type buildListenerOpts struct {
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
 	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
-	filters := append(httpFilters,
+
+	filters := make([]*http_conn.HttpFilter, len(httpFilters))
+	copy(filters, httpFilters)
+
+	if httpOpts.addGRPCWebFilter {
+		filters = append(filters, &http_conn.HttpFilter{Name: xdsutil.GRPCWeb})
+	}
+
+	filters = append(filters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
 		&http_conn.HttpFilter{Name: xdsutil.Fault},
 		&http_conn.HttpFilter{Name: xdsutil.Router},
@@ -844,8 +865,8 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
 			{
-				Config: util.MessageToStruct(fl),
-				Name:   xdsutil.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)},
+				Name:       xdsutil.FileAccessLog,
 			},
 		}
 	}
@@ -984,8 +1005,8 @@ func marshalFilters(node *model.Proxy, l *xdsapi.Listener, opts buildListenerOpt
 			opt.httpOpts.statPrefix = l.Name
 			connectionManager := buildHTTPConnectionManager(node, opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
-				Name:   xdsutil.HTTPConnectionManager,
-				Config: util.MessageToStruct(connectionManager),
+				Name:       xdsutil.HTTPConnectionManager,
+				ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(connectionManager)},
 			})
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", len(connectionManager.HttpFilters), l.Name, i)
 		}

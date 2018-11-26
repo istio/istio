@@ -136,6 +136,8 @@ type Protocol string
 const (
 	// ProtocolGRPC declares that the port carries gRPC traffic
 	ProtocolGRPC Protocol = "GRPC"
+	// ProtocolGRPCWeb declares that the port carries gRPC traffic
+	ProtocolGRPCWeb Protocol = "GRPC-Web"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
@@ -202,6 +204,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolUDP
 	case "grpc":
 		return ProtocolGRPC
+	case "grpc-web":
+		return ProtocolGRPCWeb
 	case "http":
 		return ProtocolHTTP
 	case "http2":
@@ -222,7 +226,7 @@ func ParseProtocol(s string) Protocol {
 // IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
 func (p Protocol) IsHTTP2() bool {
 	switch p {
-	case ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolHTTP2, ProtocolGRPC, ProtocolGRPCWeb:
 		return true
 	default:
 		return false
@@ -232,7 +236,7 @@ func (p Protocol) IsHTTP2() bool {
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
 	switch p {
-	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC, ProtocolGRPCWeb:
 		return true
 	default:
 		return false
@@ -270,6 +274,7 @@ func (p Protocol) IsTLS() bool {
 // For e.g., if catalog.mystore.com is accessible through port 80 and 8080,
 // and it maps to an instance with IP 172.16.0.1, such that connections to
 // port 80 are forwarded to port 55446, and connections to port 8080 are
+// forwarded to port 33333,
 // forwarded to port 33333,
 //
 // then internally, we have two two endpoint structs for the
@@ -349,11 +354,10 @@ type ProbeList []*Probe
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint         NetworkEndpoint `json:"endpoint,omitempty"`
-	Service          *Service        `json:"service,omitempty"`
-	Labels           Labels          `json:"labels,omitempty"`
-	AvailabilityZone string          `json:"az,omitempty"`
-	ServiceAccount   string          `json:"serviceaccount,omitempty"`
+	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
+	Service        *Service        `json:"service,omitempty"`
+	Labels         Labels          `json:"labels,omitempty"`
+	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
 const (
@@ -362,15 +366,14 @@ const (
 	AZLabel = "istio-az"
 )
 
-// GetAZ returns the availability zone from an instance.
+// GetLocality returns the availability zone from an instance.
 // - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
 // - consul: defaults to 'instance.Datacenter'
 //
-// This is used by EDS to group the endpoints by AZ and by .
-// TODO: remove me?
-func (si *ServiceInstance) GetAZ() string {
-	if si.AvailabilityZone != "" {
-		return si.AvailabilityZone
+// This is used by CDS/EDS to group the endpoints by locality.
+func (si *ServiceInstance) GetLocality() string {
+	if si.Endpoint.Locality != "" {
+		return si.Endpoint.Locality
 	}
 	return si.Labels[AZLabel]
 }
@@ -427,7 +430,7 @@ type IstioEndpoint struct {
 	Locality string
 
 	// The load balancing weight associated with this endpoint.
-	LbWeight int
+	LbWeight uint32
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.

@@ -21,6 +21,7 @@ import (
 
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
+	"go.uber.org/atomic"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
@@ -35,12 +36,10 @@ var (
 	periodicRefreshDuration = 0 * time.Second
 
 	versionMutex sync.RWMutex
-
 	// version is the timestamp of the last registry event.
 	version = "0"
-
 	// versionNum counts versions
-	versionNum = 1
+	versionNum = atomic.NewUint64(0)
 
 	periodicRefreshMetrics = 10 * time.Second
 
@@ -301,7 +300,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsByService) {
 	if !full {
 		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
-		go s.AdsPushAll(version, s.globalPushContext(), false, edsUpdates)
+		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
 		return
 	}
 	// Reset the status during the push.
@@ -313,7 +312,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	// saved.
 	t0 := time.Now()
 	push := model.NewPushContext()
-	push.ServiceAccounts = s.ServiceAccounts
 	err := push.InitContext(s.Env)
 	if err != nil {
 		adsLog.Errorf("XDS: failed to update services %v", err)
@@ -335,12 +333,10 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	s.Env.PushContext = push
 	s.updateMutex.Unlock()
 
-	s.mutex.Lock()
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.Itoa(versionNum)
-	versionNum++
+	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
+	versionNum.Inc()
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
-	s.mutex.Unlock()
 
 	versionMutex.Lock()
 	version = versionLocal
@@ -357,37 +353,6 @@ func versionInfo() string {
 	versionMutex.RLock()
 	defer versionMutex.RUnlock()
 	return version
-}
-
-// ServiceAccounts returns the list of service accounts for a service.
-// The XDS server incrementally updates the list, by getting the SA from registries.
-// Same list is used to compute CDS response.
-func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	sa := []string{}
-
-	// TODO: cache the computed service account map in EndpointShardsByService.
-
-	ep, f := s.EndpointShardsByService[serviceName]
-	if !f {
-		return sa
-	}
-	samap := map[string]bool{}
-	for _, es := range ep.Shards {
-		for _, el := range es.Entries {
-			if f := samap[el.ServiceAccount]; !f {
-				samap[el.ServiceAccount] = true
-			}
-		}
-	}
-	// TODO: we can just return the map.
-	for k := range samap {
-		sa = append(sa, k)
-	}
-
-	return sa
 }
 
 // Returns the global push context.

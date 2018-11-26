@@ -203,7 +203,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 					Protocol: model.ProtocolHTTP,
 				},
 				Locality: e.Locality,
-				LbWeight: uint32(e.LbWeight),
+				LbWeight: e.LbWeight,
 			},
 			ServiceAccount: e.ServiceAccount,
 		}

@@ -39,7 +39,7 @@ func (m *Alts) Reset()         { *m = Alts{} }
 func (m *Alts) String() string { return proto.CompactTextString(m) }
 func (*Alts) ProtoMessage()    {}
 func (*Alts) Descriptor() ([]byte, []int) {
-	return fileDescriptor_alts_71af6698b5273eb9, []int{0}
+	return fileDescriptor_alts_48e767adb2d18bd2, []int{0}
 }
 func (m *Alts) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -383,10 +383,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/transport_socket/alts/v2alpha/alts.proto", fileDescriptor_alts_71af6698b5273eb9)
+	proto.RegisterFile("envoy/config/transport_socket/alts/v2alpha/alts.proto", fileDescriptor_alts_48e767adb2d18bd2)
 }
 
-var fileDescriptor_alts_71af6698b5273eb9 = []byte{
+var fileDescriptor_alts_48e767adb2d18bd2 = []byte{
 	// 216 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x32, 0x4d, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x2f, 0x29, 0x4a, 0xcc, 0x2b, 0x2e, 0xc8,

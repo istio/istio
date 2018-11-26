@@ -192,3 +192,59 @@ func TestResolveHostsInNetworksConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertLocality(t *testing.T) {
+	tests := []struct {
+		name     string
+		locality string
+		want     *core.Locality
+	}{
+		{
+			"nil locality",
+			"",
+			nil,
+		},
+		{
+			"locality with only region",
+			"region",
+			&core.Locality{
+				Region: "region",
+			},
+		},
+		{
+			"locality with region and zone",
+			"region/zone",
+			&core.Locality{
+				Region: "region",
+				Zone:   "zone",
+			},
+		},
+		{
+			"locality with region zone and subzone",
+			"region/zone/subzone",
+			&core.Locality{
+				Region:  "region",
+				Zone:    "zone",
+				SubZone: "subzone",
+			},
+		},
+		{
+			"locality with region zone subzone and rack",
+			"region/zone/subzone/rack",
+			&core.Locality{
+				Region:  "region",
+				Zone:    "zone",
+				SubZone: "subzone",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ConvertLocality(tt.locality)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Expected locality %#v, but got %#v", tt.want, got)
+			}
+		})
+	}
+}

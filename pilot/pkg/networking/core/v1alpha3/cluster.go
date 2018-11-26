@@ -247,7 +247,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		return nil
 	}
 
-	lbEndpoints := make([]endpoint.LbEndpoint, 0)
+	lbEndpoints := make(map[string][]endpoint.LbEndpoint)
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
 		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
@@ -268,16 +268,19 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		lbEndpoints = append(lbEndpoints, ep)
+		locality := instance.GetLocality()
+		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 
-	LocalityLbEndpoints := []endpoint.LocalityLbEndpoints{
-		{
-			// TODO: Need to set Locality accordingly.
-			Locality:    nil,
-			LbEndpoints: lbEndpoints,
-		},
+	LocalityLbEndpoints := make([]endpoint.LocalityLbEndpoints, len(lbEndpoints))
+
+	for locality, eps := range lbEndpoints {
+		LocalityLbEndpoints = append(LocalityLbEndpoints, endpoint.LocalityLbEndpoints{
+			Locality:    util.ConvertLocality(locality),
+			LbEndpoints: eps,
+		})
 	}
+
 	return util.LocalityLbWeightNormalize(LocalityLbEndpoints)
 }
 
