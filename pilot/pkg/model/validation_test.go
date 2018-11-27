@@ -2001,6 +2001,28 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Authority: "foo.biz",
 			},
 		}, valid: false},
+		{name: "request response headers", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			AppendRequestHeaders: map[string]string{
+				"name": "",
+			},
+			AppendResponseHeaders: map[string]string{
+				"name": "",
+			},
+		}, valid: true},
+		{name: "empty request response headers", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			AppendRequestHeaders: map[string]string{
+				"": "value",
+			},
+			AppendResponseHeaders: map[string]string{
+				"": "value",
+			},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
