@@ -38,6 +38,9 @@ const (
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	statusPort := -1
 	pi := -1
+	if spec == nil || podSpec == nil {
+		return
+	}
 	for _, c := range spec.Containers {
 		if c.Name != istioProxyContainerName {
 			continue
