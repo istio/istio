@@ -1,4 +1,4 @@
-{{ if or (.Values.policy.enabled) (.Values.telemetry.enabled) }}
+{{- if or (.Values.policy.enabled) (.Values.telemetry.enabled) }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
@@ -195,7 +195,7 @@ spec:
     destination.workload.namespace:
       valueType: STRING
 ---
-{{ if and .Values.adapters.stdio.enabled .Values.telemetry.enabled }}
+{{- if and .Values.adapters.stdio.enabled .Values.telemetry.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
@@ -341,9 +341,9 @@ spec:
   - handler: stdio
     instances:
     - tcpaccesslog.logentry
-{{ end }}
+{{- end }}
 ---
-{{ if and .Values.adapters.prometheus.enabled .Values.telemetry.enabled }}
+{{- if and .Values.adapters.prometheus.enabled .Values.telemetry.enabled }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
@@ -737,9 +737,9 @@ spec:
     instances:
     - tcpbytesent.metric
     - tcpbytereceived.metric
-{{ end }}
+{{- end }}
 ---
-{{ if and .Values.adapters.kubernetesenv.enabled (or .Values.policy.enabled .Values.telemetry.enabled) }}
+{{- if and .Values.adapters.kubernetesenv.enabled (or .Values.policy.enabled .Values.telemetry.enabled) }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
@@ -834,9 +834,9 @@ spec:
     destination.workload.uid: $out.destination_workload_uid | "unknown"
     destination.workload.name: $out.destination_workload_name | "unknown"
     destination.workload.namespace: $out.destination_workload_namespace | "unknown"
-{{ end }}
+{{- end }}
 ---
-{{ if .Values.policy.enabled }}
+{{- if .Values.policy.enabled }}
 # Configuration needed by Mixer.
 # Mixer cluster is delivered via CDS
 # Specify mixer cluster settings
@@ -864,9 +864,9 @@ spec:
       http:
         http2MaxRequests: 10000
         maxRequestsPerConnection: 10000
-{{ end }}
+{{- end }}
 ---
-{{ if .Values.telemetry.enabled }}
+{{- if .Values.telemetry.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
@@ -891,6 +891,6 @@ spec:
       http:
         http2MaxRequests: 10000
         maxRequestsPerConnection: 10000
-{{ end }}
+{{- end }}
 ---
-{{ end }}
+{{- end }}
