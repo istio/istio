@@ -29,4 +29,4 @@ set -u
 set -x
 
 echo 'Running Simple test with minimal profile and gateways, non auth test'
-./prow/e2e-suite.sh --single_test e2e_simple --installer helm --valueFile "values-istio-minimal.yaml" --values "--set gateways.enabled=true" "$@"
+./prow/e2e-suite.sh --single_test e2e_simple --installer helm --valueFile "values-istio-minimal.yaml" --values "gateways.enabled=true" "$@"

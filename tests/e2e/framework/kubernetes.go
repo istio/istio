@@ -105,7 +105,7 @@ var (
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
 	valueFile = flag.String("valueFile", "", "Istio value yaml file when helm is used")
-	values    = flag.String("values", "", "Helm set values when helm is used")
+	values    = flag.String("values", "", "Helm set values when helm is used, seperated by comma")
 )
 
 type appPodsInfo struct {
@@ -809,7 +809,13 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// add additional values passed from test
 	if *values != "" {
-		setValue += " " + *values
+		// split values
+		vals := strings.Split(*values, ",")
+		for _, element := range vals {
+			if element != "" {
+				setValue += " --set " + element
+			}
+		}
 	}
 
 	err := util.HelmClientInit()
