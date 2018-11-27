@@ -275,7 +275,6 @@ func (p Protocol) IsTLS() bool {
 // and it maps to an instance with IP 172.16.0.1, such that connections to
 // port 80 are forwarded to port 55446, and connections to port 8080 are
 // forwarded to port 33333,
-// forwarded to port 33333,
 //
 // then internally, we have two two endpoint structs for the
 // service catalog.mystore.com
