@@ -483,34 +483,39 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case RouteType:
+				if discReq.ErrorDetail != nil {
+					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+					rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+					totalXDSRejects.Add(1)
+					continue
+				}
 				routes := discReq.GetResourceNames()
+				if routes == nil && discReq.ResponseNonce != "" {
+					// There is no requirement that ACK includes routes. The test doesn't.
+					con.mu.Lock()
+					con.RouteNonceAcked = discReq.ResponseNonce
+					con.mu.Unlock()
+					continue
+				}
+				// routes and con.Routes are all empty, this is not an ack and will do nothing.
+				if len(routes) == 0 && len(con.Routes) == 0 {
+					continue
+				}
 
-				if len(routes) == len(con.Routes) || len(routes) == 0 {
-					// routes and con.Routes are all empty, this is not an ack and will do nothing.
-					if len(routes) == 0 && len(con.Routes) == 0 {
-						continue
-					}
-
+				if len(routes) == len(con.Routes) {
 					sort.Strings(routes)
 					sort.Strings(con.Routes)
 
-					if reflect.DeepEqual(con.Routes, routes) || len(routes) == 0 {
-						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
-							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-							totalXDSRejects.Add(1)
-						}
+					if reflect.DeepEqual(con.Routes, routes) {
 						// Not logging full request, can be very long.
-						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
-						if len(con.Routes) > 0 {
-							// Already got a list of routes to watch and has same length as the request, this is an ack
-							if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-								con.mu.Lock()
-								con.RouteNonceAcked = discReq.ResponseNonce
-								con.mu.Unlock()
-							}
-							continue
+						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
+						// Already got a list of routes to watch and has same length as the request, this is an ack
+						if discReq.ResponseNonce != "" {
+							con.mu.Lock()
+							con.RouteNonceAcked = discReq.ResponseNonce
+							con.mu.Unlock()
 						}
+						continue
 					}
 				}
 
@@ -522,18 +527,18 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case EndpointType:
-				clusters := discReq.GetResourceNames()
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					totalXDSRejects.Add(1)
+					continue
 				}
-
+				clusters := discReq.GetResourceNames()
 				if clusters == nil && discReq.ResponseNonce != "" {
 					// There is no requirement that ACK includes clusters. The test doesn't.
-					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-						con.EndpointNonceAcked = discReq.ResponseNonce
-					}
+					con.mu.Lock()
+					con.EndpointNonceAcked = discReq.ResponseNonce
+					con.mu.Unlock()
 					continue
 				}
 				// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
@@ -546,11 +551,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 					// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 					if reflect.DeepEqual(con.Clusters, clusters) {
-						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+						if discReq.ResponseNonce != "" {
+							con.mu.Lock()
 							con.EndpointNonceAcked = discReq.ResponseNonce
 							if len(edsClusters) != 0 {
 								con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
 							}
+							con.mu.Unlock()
 						}
 						continue
 					}
