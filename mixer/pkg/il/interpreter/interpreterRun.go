@@ -36,10 +36,8 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 	var t2 uint32
 	var t3 uint32
 	var ti64 int64
-	var ti642 int64
 	var tu64 uint64
 	var tf64 float64
-	var tf642 float64
 	var tVal interface{}
 	var tStr string
 	var tStr2 string
@@ -1179,8 +1177,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
-			ti642 = int64(opstack[sp-3]) + int64(opstack[sp-4])<<32
-			if ti642 < ti64 {
+			if int64(opstack[sp-3])+int64(opstack[sp-4])<<32 < ti64 {
 				sp -= 4
 				opstack[sp] = 1
 				sp++
@@ -1195,8 +1192,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
-			tf642 = math.Float64frombits(uint64(opstack[sp-3]) + uint64(opstack[sp-4])<<32)
-			if tf642 < tf64 {
+			if math.Float64frombits(uint64(opstack[sp-3])+uint64(opstack[sp-4])<<32) < tf64 {
 				sp -= 4
 				opstack[sp] = 1
 				sp++
@@ -1230,12 +1226,11 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			t1 = body[ip]
 			t2 = body[ip+1]
 			ip = ip + 2
-			ti642 = int64(t1) + int64(t2)<<32
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
-			if ti642 > ti64 {
+			if int64(t1)+int64(t2)<<32 > ti64 {
 				sp = sp - 2
 				opstack[sp] = 1
 				sp++
@@ -1253,8 +1248,8 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
-			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
-			if tf64 < tf642 {
+
+			if tf64 < math.Float64frombits(uint64(t1)+uint64(t2)<<32) {
 				sp = sp - 2
 				opstack[sp] = 1
 				sp++
@@ -1293,8 +1288,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
-			ti642 = int64(opstack[sp-3]) + int64(opstack[sp-4])<<32
-			if ti642 <= ti64 {
+			if (int64(opstack[sp-3]) + int64(opstack[sp-4])<<32) <= ti64 {
 				sp -= 4
 				opstack[sp] = 1
 				sp++
@@ -1309,8 +1303,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
-			tf642 = math.Float64frombits(uint64(opstack[sp-3]) + uint64(opstack[sp-4])<<32)
-			if tf642 <= tf64 {
+			if math.Float64frombits(uint64(opstack[sp-3])+uint64(opstack[sp-4])<<32) <= tf64 {
 				sp -= 4
 				opstack[sp] = 1
 				sp++
@@ -1344,12 +1337,11 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			t1 = body[ip]
 			t2 = body[ip+1]
 			ip = ip + 2
-			ti642 = int64(t1) + int64(t2)<<32
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
-			if ti642 >= ti64 {
+			if int64(t1)+int64(t2)<<32 >= ti64 {
 				sp = sp - 2
 				opstack[sp] = 1
 				sp++
@@ -1367,8 +1359,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
-			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
-			if tf64 <= tf642 {
+			if tf64 <= math.Float64frombits(uint64(t1)+uint64(t2)<<32) {
 				sp = sp - 2
 				opstack[sp] = 1
 				sp++
@@ -1407,8 +1398,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
-			ti642 = int64(opstack[sp-3]) + int64(opstack[sp-4])<<32
-			if ti642 > ti64 {
+			if (int64(opstack[sp-3]) + int64(opstack[sp-4])<<32) > ti64 {
 				sp -= 4
 				opstack[sp] = 1
 				sp++
@@ -1423,8 +1413,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
-			tf642 = math.Float64frombits(uint64(opstack[sp-3]) + uint64(opstack[sp-4])<<32)
-			if tf642 > tf64 {
+			if math.Float64frombits(uint64(opstack[sp-3])+uint64(opstack[sp-4])<<32) > tf64 {
 				sp -= 4
 				opstack[sp] = 1
 				sp++
@@ -1458,12 +1447,11 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			t1 = body[ip]
 			t2 = body[ip+1]
 			ip = ip + 2
-			ti642 = int64(t1) + int64(t2)<<32
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
-			if ti642 < ti64 {
+			if int64(t1)+int64(t2)<<32 < ti64 {
 				sp = sp - 2
 				opstack[sp] = 1
 				sp++
@@ -1481,8 +1469,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
-			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
-			if tf64 > tf642 {
+			if tf64 > math.Float64frombits(uint64(t1)+uint64(t2)<<32) {
 				sp = sp - 2
 				opstack[sp] = 1
 				sp++
@@ -1521,8 +1508,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
-			ti642 = int64(opstack[sp-3]) + int64(opstack[sp-4])<<32
-			if ti642 >= ti64 {
+			if (int64(opstack[sp-3]) + int64(opstack[sp-4])<<32) >= ti64 {
 				sp -= 4
 				opstack[sp] = 1
 				sp++
@@ -1537,8 +1523,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
-			tf642 = math.Float64frombits(uint64(opstack[sp-3]) + uint64(opstack[sp-4])<<32)
-			if tf642 >= tf64 {
+			if math.Float64frombits(uint64(opstack[sp-3])+uint64(opstack[sp-4])<<32) >= tf64 {
 				sp -= 4
 				opstack[sp] = 1
 				sp++
@@ -1572,12 +1557,11 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			t1 = body[ip]
 			t2 = body[ip+1]
 			ip = ip + 2
-			ti642 = int64(t1) + int64(t2)<<32
 			if sp < 2 {
 				goto STACK_UNDERFLOW
 			}
 			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
-			if ti642 <= ti64 {
+			if (int64(t1) + int64(t2)<<32) <= ti64 {
 				sp = sp - 2
 				opstack[sp] = 1
 				sp++
@@ -1595,8 +1579,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto STACK_UNDERFLOW
 			}
 			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
-			tf642 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
-			if tf64 >= tf642 {
+			if tf64 >= math.Float64frombits(uint64(t1)+uint64(t2)<<32) {
 				sp = sp - 2
 				opstack[sp] = 1
 				sp++
