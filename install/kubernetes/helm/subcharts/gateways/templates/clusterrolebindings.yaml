@@ -1,6 +1,6 @@
-{{- range $key, $spec := .Values }}
-{{- if and (ne $key "enabled") }}
-{{- if $spec.enabled }}
+{{- range $key, $spec := .Values -}}
+{{- if and (ne $key "enabled") -}}
+{{- if $spec.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
@@ -19,6 +19,6 @@ subjects:
   name: {{ $key }}-service-account
   namespace: {{ $.Release.Namespace }}
 ---
-{{- end }}
+{{ end }}
 {{- end }}
 {{- end }}

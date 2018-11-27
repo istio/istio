@@ -1,4 +1,4 @@
-{{- if not .Values.omitPostInstall }}
+{{- if not .Values.omitPostInstall -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

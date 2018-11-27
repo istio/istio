@@ -264,9 +264,9 @@
 {{- end }}
 
 
-{{- range $key, $spec := .Values }}
-{{- if or (eq $key "policy") (eq $key "telemetry") }}
-{{- if $spec.enabled }}
+{{- range $key, $spec := .Values -}}
+{{- if or (eq $key "policy") (eq $key "telemetry") -}}
+{{- if $spec.enabled -}}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -315,8 +315,7 @@ spec:
 {{- else }}
 {{- template "telemetry_container" $ }}
 {{- end }}
-
 ---
-{{- end }}
+{{ end }}
 {{- end }}
 {{- end }} {{/* range */}}

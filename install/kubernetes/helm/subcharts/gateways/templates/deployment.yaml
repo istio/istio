@@ -1,6 +1,6 @@
-{{- range $key, $spec := .Values }}
-{{- if and (ne $key "enabled") }}
-{{- if $spec.enabled }}
+{{- range $key, $spec := .Values -}}
+{{- if and (ne $key "enabled") -}}
+{{- if $spec.enabled -}}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -191,6 +191,6 @@ spec:
       affinity:
       {{- include "nodeaffinity" $ | indent 6 }}
 ---
-{{- end }}
+{{ end }}
 {{- end }}
 {{- end }}

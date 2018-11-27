@@ -1,6 +1,6 @@
-{{- range $key, $spec := .Values }}
-{{- if or (eq $key "policy") (eq $key "telemetry") }}
-{{- if and $spec.enabled $spec.autoscaleEnabled $spec.autoscaleMin }}
+{{- range $key, $spec := .Values -}}
+{{- if or (eq $key "policy") (eq $key "telemetry") -}}
+{{- if and $spec.enabled $spec.autoscaleEnabled $spec.autoscaleMin -}}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
@@ -24,6 +24,6 @@ spec:
         name: cpu
         targetAverageUtilization: {{ $spec.cpu.targetAverageUtilization }}
 ---
-{{- end }}
+{{ end }}
 {{- end }}
 {{- end }}

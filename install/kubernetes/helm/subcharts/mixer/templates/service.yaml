@@ -1,6 +1,6 @@
-{{- range $key, $spec := .Values }}
-{{- if or (eq $key "policy") (eq $key "telemetry") }}
-{{- if $spec.enabled }}
+{{- range $key, $spec := .Values -}}
+{{- if or (eq $key "policy") (eq $key "telemetry") -}}
+{{- if $spec.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -28,7 +28,7 @@ spec:
     istio: mixer
     istio-mixer-type: {{ $key }}
 ---
-{{- end }}
+{{ end }}
 {{- end }}
 {{- end }}
 

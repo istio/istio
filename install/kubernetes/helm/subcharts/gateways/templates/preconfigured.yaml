@@ -1,4 +1,4 @@
-{{- if .Values.global.k8sIngress.enabled }}
+{{- if .Values.global.k8sIngress.enabled -}}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:

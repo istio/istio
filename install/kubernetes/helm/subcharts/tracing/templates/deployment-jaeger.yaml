@@ -1,5 +1,4 @@
-{{ if eq .Values.provider "jaeger" }}
-
+{{- if eq .Values.provider "jaeger" -}}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -77,5 +76,4 @@ spec:
 {{- end }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
-
-{{ end }}
+{{- end }}

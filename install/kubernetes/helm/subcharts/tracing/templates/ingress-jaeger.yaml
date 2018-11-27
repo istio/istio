@@ -1,4 +1,4 @@
-{{ if (.Values.jaeger.ingress.enabled) and eq .Values.provider "jaeger" }}
+{{- if (.Values.jaeger.ingress.enabled) and eq .Values.provider "jaeger" -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -38,4 +38,4 @@ spec:
   tls:
 {{ toYaml .Values.jaeger.ingress.tls | indent 4 }}
   {{- end -}}
-{{- end -}}
+{{- end }}

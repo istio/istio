@@ -1,5 +1,4 @@
-{{ if eq .Values.provider "zipkin" }}
-
+{{- if eq .Values.provider "zipkin" -}}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -51,5 +50,4 @@ spec:
               value: "mem"
             - name: ZIPKIN_STORAGE_MEM_MAXSPANS
               value: "{{ .Values.zipkin.maxSpans }}"
-
-{{ end }}
+{{- end }}
