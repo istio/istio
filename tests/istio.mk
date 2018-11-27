@@ -66,6 +66,11 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 e2e_simple: istioctl generate_yaml e2e_simple_run
+e2e_simple_cni: istioctl
+e2e_simple_cni: export ENABLE_ISTIO_CNI=true
+e2e_simple_cni: export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.pullPolicy=IfNotPresent --set istio-cni.tag=$(ISTIO_CNI_DOCKER_TAG) --set istio-cni.hub=$(ISTIO_CNI_DOCKER_HUB)
+e2e_simple_cni: export E2E_ARGS+=--kube_inject_configmap=istio-sidecar-injector
+e2e_simple_cni: generate_yaml e2e_simple_run
 e2e_simple_auth: istioctl generate_yaml e2e_simple_auth_run
 e2e_simple_noauth: istioctl generate_yaml e2e_simple_noauth_run
 
