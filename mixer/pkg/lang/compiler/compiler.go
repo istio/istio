@@ -414,7 +414,7 @@ func (g *generator) generateLt(f *ast.Function, depth int) {
 		case descriptor.TIMESTAMP:
 			g.builder.Call("timestamp_lt")
 		default:
-			g.internalError("equality for type not yet implemented: %v", exprType)
+			g.internalError("less than for type not yet implemented: %v", exprType)
 		}
 
 	default:
@@ -459,7 +459,7 @@ func (g *generator) generateGt(f *ast.Function, depth int) {
 		case descriptor.TIMESTAMP:
 			g.builder.Call("timestamp_gt")
 		default:
-			g.internalError("equality for type not yet implemented: %v", exprType)
+			g.internalError("greater than for type not yet implemented: %v", exprType)
 		}
 	default:
 		g.internalError("greater than for type not yet implemented: %v", exprType)
@@ -503,10 +503,10 @@ func (g *generator) generateGe(f *ast.Function, depth int) {
 		case descriptor.TIMESTAMP:
 			g.builder.Call("timestamp_ge")
 		default:
-			g.internalError("equality for type not yet implemented: %v", exprType)
+			g.internalError("greater or equal for type not yet implemented: %v", exprType)
 		}
 	default:
-		g.internalError("greater than for type not yet implemented: %v", exprType)
+		g.internalError("greater or equal for type not yet implemented: %v", exprType)
 	}
 }
 
@@ -547,7 +547,7 @@ func (g *generator) generateLe(f *ast.Function, depth int) {
 		case descriptor.TIMESTAMP:
 			g.builder.Call("timestamp_le")
 		default:
-			g.internalError("equality for type not yet implemented: %v", exprType)
+			g.internalError("less or equal for type not yet implemented: %v", exprType)
 		}
 
 	default:
