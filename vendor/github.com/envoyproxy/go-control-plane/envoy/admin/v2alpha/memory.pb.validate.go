@@ -45,6 +45,12 @@ func (m *Memory) Validate() error {
 
 	// no validation rules for HeapSize
 
+	// no validation rules for PageheapUnmapped
+
+	// no validation rules for PageheapFree
+
+	// no validation rules for TotalThreadCache
+
 	return nil
 }
 

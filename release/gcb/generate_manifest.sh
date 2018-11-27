@@ -104,7 +104,7 @@ function get_later_sha_timestamp() {
   local GTS
   GTS=$(   git show -s --format=%ct "$GSHA")
   if [   "$TS_MFEST" -gt "$GTS" ]; then
-    # dont go backwards
+    # don't go backwards
     echo "$SHA_MFEST"
     return
   fi
@@ -130,7 +130,7 @@ function get_later_sha_revlist() {
   local SHA_LATEST
   SHA_LATEST=$(git rev-list "$SHA_MFEST...$GSHA" | grep "$GSHA")
   if [[ -z "${SHA_LATEST}" ]]; then
-    # dont go backwards
+    # don't go backwards
     echo "$SHA_MFEST"
     return
   fi

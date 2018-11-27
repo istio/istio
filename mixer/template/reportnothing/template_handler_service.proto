@@ -77,6 +77,8 @@ message HandleReportNothingRequest {
 
 
 
+
+
 // Contains instance payload for 'reportnothing' template. This is passed to infrastructure backends during request-time
 // through HandleReportNothingService.HandleReportNothing.
 message InstanceMsg {

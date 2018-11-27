@@ -25,7 +25,6 @@ import (
 	otlog "github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
-
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/checkcache"
@@ -79,7 +78,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 	}
 
 	// bag around the input proto that keeps track of reference attributes
-	protoBag := attribute.NewProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
+	protoBag := attribute.GetProtoBag(&req.Attributes, s.globalDict, s.globalWordList)
 
 	if s.cache != nil {
 		if value, ok := s.cache.Get(protoBag); ok {
@@ -92,6 +91,7 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 					ValidDuration:        value.Expiration.Sub(time.Now()),
 					ValidUseCount:        value.ValidUseCount,
 					ReferencedAttributes: &value.ReferencedAttributes,
+					RouteDirective:       value.RouteDirective,
 				},
 			}
 
@@ -157,6 +157,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 			ValidUseCount:        cr.ValidUseCount,
 			Status:               cr.Status,
 			ReferencedAttributes: protoBag.GetReferencedAttributes(s.globalDict, globalWordCount),
+			RouteDirective:       cr.RouteDirective,
 		},
 	}
 
@@ -168,6 +169,7 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 			Expiration:           time.Now().Add(resp.Precondition.ValidDuration),
 			ValidUseCount:        resp.Precondition.ValidUseCount,
 			ReferencedAttributes: *resp.Precondition.ReferencedAttributes,
+			RouteDirective:       resp.Precondition.RouteDirective,
 		})
 	}
 
@@ -237,7 +239,7 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 	}
 
 	// bag around the input proto that keeps track of reference attributes
-	protoBag := attribute.NewProtoBag(&req.Attributes[0], s.globalDict, s.globalWordList)
+	protoBag := attribute.GetProtoBag(&req.Attributes[0], s.globalDict, s.globalWordList)
 
 	// This tracks the delta attributes encoded in the individual report entries
 	accumBag := attribute.GetMutableBag(protoBag)

@@ -20,6 +20,7 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -43,13 +44,14 @@ type Multicluster struct {
 
 	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
+	meshNetworks          *meshconfig.MeshNetworks
 }
 
 // NewMulticluster initializes data structure to store multicluster information
 // It also starts the secret controller
 func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 	watchedNamespace string, domainSuffix string, resycnPeriod time.Duration,
-	serviceController *aggregate.Controller, xds model.XDSUpdater) (*Multicluster, error) {
+	serviceController *aggregate.Controller, xds model.XDSUpdater, meshNetworks *meshconfig.MeshNetworks) (*Multicluster, error) {
 
 	remoteKubeController := make(map[string]*kubeController)
 	if resycnPeriod == 0 {
@@ -64,6 +66,7 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string,
 		serviceController:     serviceController,
 		XDSUpdater:            xds,
 		remoteKubeControllers: remoteKubeController,
+		meshNetworks:          meshNetworks,
 	}
 
 	err := secretcontroller.StartSecretController(kc,
@@ -88,6 +91,7 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, clusterI
 		DomainSuffix:     m.DomainSuffix,
 		XDSUpdater:       m.XDSUpdater,
 	})
+	kubectl.InitNetworkLookup(m.meshNetworks)
 
 	remoteKubeController.rc = kubectl
 	m.serviceController.AddRegistry(

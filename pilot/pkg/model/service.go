@@ -819,6 +819,14 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Host
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
 }
 
+// BuildDNSSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
+// The proxy queries Pilot with this key to obtain the list of instances in a subset.
+// This is used only for the SNI-DNAT router. Do not use for other purposes.
+// The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
+func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port int) string {
+	return fmt.Sprintf("%s_.%d_.%s_.%s", direction, port, subsetName, hostname)
+}
+
 // IsValidSubsetKey checks if a string is valid for subset key parsing.
 func IsValidSubsetKey(s string) bool {
 	return strings.Count(s, "|") == 3
@@ -826,13 +834,31 @@ func IsValidSubsetKey(s string) bool {
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
-	parts := strings.Split(s, "|")
+	var parts []string
+	dnsSrvMode := false
+	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
+	// Since we dont want every callsite to implement the logic to differentiate between the two forms
+	// we add an alternate parser here.
+	if strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionOutbound)) ||
+		strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionInbound)) {
+		parts = strings.SplitN(s, ".", 4)
+		dnsSrvMode = true
+	} else {
+		parts = strings.Split(s, "|")
+	}
+
 	if len(parts) < 4 {
 		return
 	}
-	direction = TrafficDirection(parts[0])
-	port, _ = strconv.Atoi(parts[1])
+
+	direction = TrafficDirection(strings.TrimSuffix(parts[0], "_"))
+	port, _ = strconv.Atoi(strings.TrimSuffix(parts[1], "_"))
 	subsetName = parts[2]
+
+	if dnsSrvMode {
+		subsetName = strings.TrimSuffix(parts[2], "_")
+	}
+
 	hostname = Hostname(parts[3])
 	return
 }

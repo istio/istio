@@ -21,12 +21,12 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/proto"
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
@@ -68,7 +68,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	r := &xdsapi.RouteConfiguration{
 		Name:             clusterName,
 		VirtualHosts:     []route.VirtualHost{inboundVHost},
-		ValidateClusters: &types.BoolValue{Value: false},
+		ValidateClusters: proto.BoolFalse,
 	}
 
 	for _, p := range configgen.Plugins {
@@ -164,7 +164,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	out := &xdsapi.RouteConfiguration{
 		Name:             routeName,
 		VirtualHosts:     virtualHosts,
-		ValidateClusters: &types.BoolValue{Value: false},
+		ValidateClusters: proto.BoolFalse,
 	}
 
 	// call plugins

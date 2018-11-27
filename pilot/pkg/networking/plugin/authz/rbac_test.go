@@ -221,7 +221,7 @@ func TestBuildTCPFilter(t *testing.T) {
 			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
 			rbacConfig := &network_config.RBAC{}
-			if err := util.StructToMessage(filter.Config, rbacConfig); err != nil {
+			if err := util.StructToMessage(filter.GetConfig(), rbacConfig); err != nil {
 				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
 			} else {
 				if rbacConfig.StatPrefix != "tcp." {
@@ -310,7 +310,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
 			rbacConfig := &http_config.RBAC{}
-			if err := util.StructToMessage(filter.Config, rbacConfig); err != nil {
+			if err := util.StructToMessage(filter.GetConfig(), rbacConfig); err != nil {
 				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
 			} else {
 				rbac := rbacConfig.Rules

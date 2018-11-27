@@ -47,7 +47,7 @@ const (
 
 	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
-	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
+	k8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -100,8 +100,9 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string, enabl
 			&core.GrpcService_GoogleGrpc_CallCredentials{
 				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 					FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-						Name:   fileBasedMetadataPlugName,
-						Config: protoToStruct(tokenMountConfig),
+						Name: fileBasedMetadataPlugName,
+						ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
+							protoToStruct(tokenMountConfig)},
 					},
 				},
 			},

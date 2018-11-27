@@ -200,6 +200,8 @@ func (m *Cluster) Validate() error {
 
 	// no validation rules for ExtensionProtocolOptions
 
+	// no validation rules for TypedExtensionProtocolOptions
+
 	if d := m.GetDnsRefreshRate(); d != nil {
 		dur := *d
 

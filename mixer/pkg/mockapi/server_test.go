@@ -25,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/status"
@@ -89,7 +88,7 @@ func TestCheck(t *testing.T) {
 
 	client := mixerpb.NewMixerClient(conn)
 
-	srcBag := attribute.NewProtoBag(&attrs, attrSrv.GlobalDict, attribute.GlobalList())
+	srcBag := attribute.GetProtoBag(&attrs, attrSrv.GlobalDict, attribute.GlobalList())
 	wantBag := attribute.CopyBag(srcBag)
 
 	noQuotaReq := &mixerpb.CheckRequest{Attributes: attrs}
@@ -229,7 +228,7 @@ func TestReport(t *testing.T) {
 
 	words := []string{"foo", "bar", "baz"}
 
-	baseBag := attribute.CopyBag(attribute.NewProtoBag(&attrs[0], attrSrv.GlobalDict, attribute.GlobalList()))
+	baseBag := attribute.CopyBag(attribute.GetProtoBag(&attrs[0], attrSrv.GlobalDict, attribute.GlobalList()))
 	middleBag := attribute.CopyBag(baseBag)
 	if err = middleBag.UpdateBagFromProto(&attrs[1], attribute.GlobalList()); err != nil {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)

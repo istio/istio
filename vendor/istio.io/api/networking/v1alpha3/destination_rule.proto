@@ -393,7 +393,7 @@ message ConnectionPoolSettings {
 // failures to a given host counts as an error when measuring the
 // consecutive errors metric. See Envoy's [outlier
 // detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier)
-// for more details. 
+// for more details.
 //
 // The following rule sets a connection pool size of 100 connections and
 // 1000 concurrent HTTP2 requests, with no more than 10 req/connection to
@@ -445,7 +445,7 @@ message OutlierDetection {
 }
 
 // SSL/TLS related settings for upstream connections. See Envoy's [TLS
-// context](https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_ssl.html#config-cluster-manager-cluster-ssl)
+// context](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/auth/cert.proto.html)
 // for more details. These settings are common to both HTTP and TCP upstreams.
 //
 // For example, the following rule configures a client to use mutual TLS
