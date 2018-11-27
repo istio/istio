@@ -726,15 +726,15 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	// install istio helm chart, which includes addon
+	// CRDs installed ahead of time with 2.9.x
+	setValue := " --set global.crds=false"
 	isSecurityOn := false
 	if *authEnable {
 		// enable mTLS
 		isSecurityOn = true
+		setValue = "--set global.mtls.enabled=" + strconv.FormatBool(isSecurityOn)
 	}
 
-	// construct setValue to pass into helm install
-	// mTLS
-	setValue := "--set global.mtls.enabled=" + strconv.FormatBool(isSecurityOn)
 	// side car injector
 	if *useAutomaticInjection {
 		setValue += " --set sidecarInjectorWebhook.enabled=true"
@@ -754,12 +754,9 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		setValue += " --set istiotesting.oneNameSpace=true"
 	}
 
-	// CRDs installed ahead of time with 2.9.x
-	setValue += " --set global.crds=false"
-
 	// add additional values passed from test
 	if *values != "" {
-		setValue += " --set " + *values
+		setValue += " " + *values
 	}
 
 	err := util.HelmClientInit()
@@ -787,8 +784,8 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	err = util.HelmInstallDryRun(workDir, "istio", valFile, k.Namespace, setValue)
 	if err != nil {
 		// dry run fail, let's fail early
-		log.Errorf("Helm dry run of istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
-			istioHelmInstallDir, valFile, setValue, k.Namespace)
+		log.Errorf("Helm dry run of istio chart failed %s, valueFile=%s, setValue=%s, values params passed from tests=%s, namespace=%s",
+			istioHelmInstallDir, valFile, setValue, *values, k.Namespace)
 		return err
 	}
 
