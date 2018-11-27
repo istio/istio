@@ -91,6 +91,16 @@ ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
 # Split ISTIO_AGENT_FLAGS by spaces.
 IFS=' ' read -r -a ISTIO_AGENT_FLAGS_ARRAY <<< "$ISTIO_AGENT_FLAGS"
 
+# Dump out our environment for debugging purposes.
+echo "Environment:"
+echo "------------"
+echo "ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT-}"
+echo "ISTIO_CP_AUTH=${ISTIO_CP_AUTH-}"
+echo "CONTROL_PLANE_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY[*]-}"
+echo "PILOT_ADDRESS=${PILOT_ADDRESS-}"
+echo "ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS-}"
+echo "------------"
+
 if [ ${EXEC_USER} == "${USER:-}" ] ; then
   # if started as istio-proxy (or current user), do a normal start, without
   # redirecting stderr.
