@@ -45,7 +45,6 @@ var (
 
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	statusPort := -1
-	pi := -1
 	if spec == nil || podSpec == nil {
 		return
 	}
