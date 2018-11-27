@@ -242,17 +242,18 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.EndpointShardsByService) {
-	if !full {
-		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
-		go s.AdsPushAll(version, s.globalPushContext(), false, edsUpdates)
-		return
-	}
 	// Reset the status during the push.
-	//afterPush := true
 	pc := s.globalPushContext()
 	if pc != nil {
 		pc.OnConfigChange()
 	}
+
+	if !full {
+		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
+		go s.AdsPushAll(version, pc, false, edsUpdates)
+		return
+	}
+
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()

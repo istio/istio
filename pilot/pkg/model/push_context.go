@@ -262,6 +262,25 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 	metricMap[key] = ev
 }
 
+// Delete will remove an case from the metric.
+func (ps *PushContext) Delete(metric *PushMetric, key string) {
+	if ps == nil {
+		log.Infof("Metric without context %s", key)
+		return
+	}
+
+	ps.proxyStatusMutex.Lock()
+	defer ps.proxyStatusMutex.Unlock()
+
+	metricMap, f := ps.ProxyStatus[metric.Name]
+	if f {
+		delete(metricMap, key)
+	}
+	if len(metricMap) == 0 {
+		delete(ps.ProxyStatus, metric.Name)
+	}
+}
+
 var (
 
 	// EndpointNoPod tracks endpoints without an associated pod. This is an error condition, since
