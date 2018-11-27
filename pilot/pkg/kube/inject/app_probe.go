@@ -15,6 +15,8 @@
 package inject
 
 import (
+	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -35,6 +37,12 @@ const (
 	istioProxyContainerName = "istio-proxy"
 )
 
+var (
+	// regex pattern for to extract the pilot agent probing port.
+	// Supported format, --statusPort, -statusPort, --statusPort=15020.
+	statusPortPattern = regexp.MustCompile(fmt.Sprintf(`^-{1,2}%s(=(?P<port>\d+))?$`, StatusPortCmdFlagName))
+)
+
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	statusPort := -1
 	pi := -1
@@ -46,14 +54,35 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 			continue
 		}
 		for i, arg := range c.Args {
-			// arg is "--flag-name"
-			if strings.HasSuffix(arg, StatusPortCmdFlagName) {
-				pi = i
-				break
+			// Skip for unrelated args.
+			match := statusPortPattern.FindAllStringSubmatch(strings.TrimSpace(arg), -1)
+			if len(match) != 1 {
+				continue
 			}
-		}
-		if pi != -1 {
-			statusPort, _ = strconv.Atoi(c.Args[pi+1])
+			groups := statusPortPattern.SubexpNames()
+			portStr := ""
+			for ind, s := range match[0] {
+				if groups[ind] == "port" {
+					portStr = s
+					break
+				}
+			}
+			// Port not found from current arg, extract from next arg.
+			if portStr == "" {
+				// Matches the regex pattern, but without actual values provided.
+				if len(c.Args) <= i+1 {
+					log.Errorf("No statusPort value provided, skip app probe rewriting")
+					return
+				}
+				portStr = c.Args[i+1]
+			}
+			p, err := strconv.Atoi(portStr)
+			if err != nil {
+				log.Errorf("Failed to convert statusPort to int %v, err %v", portStr, err)
+				return
+			}
+			statusPort = p
+			break
 		}
 	}
 	// Pilot agent statusPort is not defined, skip changing application http probe.

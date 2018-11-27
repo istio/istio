@@ -69,6 +69,7 @@ VERBOSE=1 DEBUG=0 ISTIO_DOCKER_HUB=${REL_DOCKER_HUB} HUB=${REL_DOCKER_HUB} VERSI
 
 cp -r "${ISTIO_OUT}/docker" "${OUTPUT_PATH}/"
 
+go run tools/license/get_dep_licenses.go --branch "${CB_BRANCH}" > LICENSES.txt
 add_license_to_tar_images "${REL_DOCKER_HUB}" "${CB_VERSION}" "${OUTPUT_PATH}"
 
 # log where git thinks the build might be dirty

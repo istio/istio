@@ -15,9 +15,8 @@
 package qualification
 
 import (
-	"testing"
-
 	"istio.io/istio/pkg/test/framework"
+	"testing"
 )
 
 func TestMain(m *testing.M) {

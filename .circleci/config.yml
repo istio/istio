@@ -485,7 +485,7 @@ jobs:
               export PATH=$GOPATH/bin:$PATH
               make localTestEnv
               set -o pipefail
-              make test.integration T=-v | tee -a /go/out/tests/build-log.txt
+              make test.integration.local T=-v | tee -a /go/out/tests/build-log.txt
         - <<: *recordZeroExitCodeIfTestPassed
         - <<: *recordNonzeroExitCodeIfTestFailed
         - <<: *markJobFinishesOnGCS
@@ -844,6 +844,12 @@ workflows:
       - e2e-pilot-auth-v1alpha3-v2-mcp: # auth+v1alpha3+v2 with MCP
           requires:
             - build
+      - test-integration-local:
+          requires:
+            - build
+      - test-integration-kubernetes:
+          requires:
+            - build
 
   all:
     jobs:
@@ -880,8 +886,5 @@ workflows:
           requires:
             - build
       - test-integration-local:
-          requires:
-            - build
-      - test-integration-kubernetes:
           requires:
             - build
