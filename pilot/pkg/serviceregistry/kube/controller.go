@@ -717,14 +717,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			return nil
 		}
 		c.updateEDS(ep)
-
-		log.Infof("Handle endpoint %s in namespace %s -> %v", ep.Name, ep.Namespace, ep.Subsets)
-		hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-		if svc := c.servicesMap[hostname]; svc != nil {
-			// TODO: we're passing an incomplete instance to the
-			// handler since endpoints is an aggregate structure
-			f(&model.ServiceInstance{Service: svc}, event)
-		}
 		return nil
 	})
 	return nil
