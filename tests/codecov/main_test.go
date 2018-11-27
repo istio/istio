@@ -1,9 +1,7 @@
-package codecov
+package main
 
 import (
-	"flag"
 	"fmt"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"log"
 	"os"
@@ -17,10 +15,7 @@ const (
 )
 
 var (
-	reportFile    = flag.String("report_file", "", "Code coverage report file.")
-	baselineFile  = flag.String("baseline_file", "", "Code coverage baseline file.")
-	thresholdFile = flag.String("threshold_file", "", "File containing package to threshold mappings, as overrides")
-	tmpDir        string
+	tmpDir string
 )
 
 func TestParseHtml(t *testing.T) {
@@ -195,29 +190,14 @@ func TestCheckDeltaGood(t *testing.T) {
 }
 
 // Actual codecov diff test
-func TestCoverage(t *testing.T) {
+func TestCheckCoverage(t *testing.T) {
 	if len(*reportFile) == 0 || len(*baselineFile) == 0 || len(*thresholdFile) == 0 {
 		t.Skip("Test files are not provided.")
 	}
-	report, err := parseReport(*reportFile)
-	if err != nil {
-		glog.Error(err)
-		t.Errorf("Cannot open or parse report file: %s", *reportFile)
-	}
-	baseline, err := parseReport(*baselineFile)
-	if err != nil {
-		glog.Error(err)
-		t.Errorf("Cannot open or parse baseline file: %s", *baselineFile)
-	}
-	thresholds, err := parseThreshold(*thresholdFile)
-	if err != nil {
-		glog.Error(err)
-		t.Errorf("Cannot open or parse threshold file: %s", *thresholdFile)
-	}
-	deltas := findDelta(report, baseline)
+	err := checkCoverage(*reportFile, *baselineFile, *thresholdFile)
 
-	if !checkDelta(deltas, report, baseline, thresholds) {
-		t.Error("Some test coverage has dropped more than the allowed threshold.")
+	if err != nil {
+		t.Errorf("Coverage test failed: %v", err)
 	}
 }
 
