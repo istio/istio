@@ -375,7 +375,6 @@ spec:
     response_code: response.code | 200
     response_flags: context.proxy_error_code | "-"
     grpc_status: response.grpc_status | "2"
-    grpc_message: response.grpc_message | ""
     permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -412,8 +411,7 @@ spec:
     response_code: response.code | 200
     response_flags: context.proxy_error_code | "-"
     grpc_status: response.grpc_status | "2"
-    grpc_message: response.grpc_message | ""
-    permissive_response_code: rbac.permissive.response_code | "none" 
+    permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
@@ -449,7 +447,6 @@ spec:
     response_code: response.code | 200
     response_flags: context.proxy_error_code | "-"
     grpc_status: response.grpc_status | "2"
-    grpc_message: response.grpc_message | ""
     permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -486,8 +483,7 @@ spec:
     response_code: response.code | 200
     response_flags: context.proxy_error_code | "-"
     grpc_status: response.grpc_status | "2"
-    grpc_message: response.grpc_message | ""
-    permissive_response_code: rbac.permissive.response_code | "none" 
+    permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
@@ -592,7 +588,6 @@ spec:
       - response_code
       - response_flags
       - grpc_status
-      - grpc_message
       - permissive_response_code
       - permissive_response_policyid
       - connection_security_policy
@@ -618,7 +613,6 @@ spec:
       - response_code
       - response_flags
       - grpc_status
-      - grpc_message
       - permissive_response_code
       - permissive_response_policyid
       - connection_security_policy
@@ -647,7 +641,6 @@ spec:
       - response_code
       - response_flags
       - grpc_status
-      - grpc_message
       - permissive_response_code
       - permissive_response_policyid
       - connection_security_policy
@@ -678,7 +671,6 @@ spec:
       - response_code
       - response_flags
       - grpc_status
-      - grpc_message
       - permissive_response_code
       - permissive_response_policyid
       - connection_security_policy
