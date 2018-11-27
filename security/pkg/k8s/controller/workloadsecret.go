@@ -261,6 +261,9 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	for i := 0; i < secretCreationRetry; i++ {
 		_, err = sc.core.Secrets(saNamespace).Create(secret)
 		if err == nil || errors.IsAlreadyExists(err) {
+			if errors.IsAlreadyExists(err) {
+				log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" already exists", saName, saNamespace)
+			}
 			break
 		} else {
 			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
