@@ -550,6 +550,9 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 
 				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
 					out = append(out, getEndpoints(proxy.IPAddress, c, port, svcPort, svc))
+					if c.Env != nil {
+						c.Env.PushContext.Delete(model.ProxyStatusEndpointNotReady, proxy.ID)
+					}
 				}
 
 				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
