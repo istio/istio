@@ -27,7 +27,7 @@ import (
 
 var (
 	statusCmd = &cobra.Command{
-		Use:   "proxy-status [<proxy-name>]",
+		Use:   "proxy-status [<pod-name[.namespace]>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
 		Long: `
 Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in the mesh

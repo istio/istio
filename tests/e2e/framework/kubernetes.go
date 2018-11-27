@@ -70,6 +70,9 @@ const (
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
+
+	validationWebhookReadinessTimeout = time.Minute
+	validationWebhookReadinessFreq    = 100 * time.Millisecond
 )
 
 var (
@@ -96,7 +99,7 @@ var (
 	imagePullPolicy     = flag.String("image_pull_policy", "", "Specifies an override for the Docker image pull policy to be used")
 	multiClusterDir     = flag.String("cluster_registry_dir", "",
 		"Directory name for the cluster registry config. When provided a multicluster test to be run across two clusters.")
-	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
+	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", true, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
 	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
@@ -493,7 +496,7 @@ func (k *KubeInfo) Teardown() error {
 	// confirm the namespace is deleted as it will cause future creation to fail
 	maxAttempts := 600
 	namespaceDeleted := false
-	validatingWebhookConfigurationDeleted := false
+	validatingWebhookConfigurationExists := false
 	log.Infof("Deleting namespace %v", k.Namespace)
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
 		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace, k.KubeConfig)
@@ -501,9 +504,9 @@ func (k *KubeInfo) Teardown() error {
 		// be delete by kubernetes GC controller asynchronously,
 		// we need to ensure it's deleted before return.
 		// TODO: find a more general way as long term solution.
-		validatingWebhookConfigurationDeleted = util.ValidatingWebhookConfigurationDeleted("istio-galley", k.KubeConfig)
+		validatingWebhookConfigurationExists = util.ValidatingWebhookConfigurationExists("istio-galley", k.KubeConfig)
 
-		if namespaceDeleted && validatingWebhookConfigurationDeleted {
+		if namespaceDeleted && !validatingWebhookConfigurationExists {
 			break
 		}
 
@@ -515,7 +518,7 @@ func (k *KubeInfo) Teardown() error {
 		return nil
 	}
 
-	if !validatingWebhookConfigurationDeleted {
+	if validatingWebhookConfigurationExists {
 		log.Errorf("Failed to delete validatingwebhookconfiguration istio-galley after %d seconds", maxAttempts)
 		return nil
 	}
@@ -683,6 +686,10 @@ func (k *KubeInfo) deployIstio() error {
 		if !validationReady {
 			return errors.New("timeout waiting for validatingwebhookconfiguration istio-galley to be created")
 		}
+
+		if err := k.waitForValdiationWebhook(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -713,6 +720,52 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 	}
 	// wait till tiller reaches running
 	return util.CheckPodRunning("kube-system", "name=tiller", k.KubeConfig)
+}
+
+var (
+	dummyValidationRule = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: validation-readiness-dummy-rule
+spec:
+  match: request.headers["foo"] == "bar"
+  actions:
+  - handler: validation-readiness-dummy
+    instances:
+    - validation-readiness-dummy
+`
+)
+
+func (k *KubeInfo) waitForValdiationWebhook() error {
+
+	add := fmt.Sprintf(`cat << EOF | kubectl --kubeconfig=%s apply -f -
+%s
+EOF`, k.KubeConfig, dummyValidationRule)
+
+	remove := fmt.Sprintf(`cat << EOF | kubectl --kubeconfig=%s delete -f -
+%s
+EOF`, k.KubeConfig, dummyValidationRule)
+
+	log.Info("Creating dummy rule to check for validation webhook readiness")
+	timeout := time.Now().Add(validationWebhookReadinessTimeout)
+	for {
+		if time.Now().After(timeout) {
+			return errors.New("timeout waiting for validation webhook readiness")
+		}
+
+		out, err := util.ShellSilent(add)
+		if err == nil && !strings.Contains(out, "connection refused") {
+			break
+		}
+
+		log.Errorf("Validation webhook not ready yet: %v %v", out, err)
+		time.Sleep(validationWebhookReadinessFreq)
+
+	}
+	util.ShellSilent(remove) // nolint: errcheck
+	log.Info("Validation webhook is ready")
+	return nil
 }
 
 func (k *KubeInfo) deployIstioWithHelm() error {
@@ -795,6 +848,12 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		log.Errorf("Helm install istio chart failed %s, valueFile=%s, setValue=%s, namespace=%s",
 			istioHelmInstallDir, valFile, setValue, k.Namespace)
 		return err
+	}
+
+	if *useGalleyConfigValidator {
+		if err := k.waitForValdiationWebhook(); err != nil {
+			return err
+		}
 	}
 
 	return nil
