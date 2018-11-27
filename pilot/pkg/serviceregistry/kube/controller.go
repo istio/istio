@@ -698,14 +698,21 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		svcConv := convertService(*svc, c.domainSuffix)
+		instances := externalNameServiceInstances(*svc, svcConv)
 		switch event {
 		case model.EventDelete:
 			c.Lock()
 			delete(c.servicesMap, svcConv.Hostname)
+			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
 		default:
 			c.Lock()
 			c.servicesMap[svcConv.Hostname] = svcConv
+			if instances == nil {
+				delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
+			} else {
+				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
+			}
 			c.Unlock()
 		}
 
@@ -749,51 +756,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			// handler since endpoints is an aggregate structure
 			f(&model.ServiceInstance{Service: svc}, event)
 		}
-		return nil
-	})
-
-	c.services.handler.Append(func(obj interface{}, event model.Event) error {
-		svc, ok := obj.(*v1.Service)
-		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-			if !ok {
-				log.Errorf("Couldn't get object from tombstone %#v", obj)
-				return nil
-			}
-			svc, ok = tombstone.Obj.(*v1.Service)
-			if !ok {
-				log.Errorf("Tombstone contained object that is not a service %#v", obj)
-				return nil
-			}
-		}
-
-		if svc.Namespace == meta_v1.NamespaceSystem || svc.Spec.Type != v1.ServiceTypeExternalName {
-			return nil
-		}
-
-		svcConv := convertService(*svc, c.domainSuffix)
-		instances := externalNameServiceInstances(*svc, svcConv)
-		switch event {
-		case model.EventDelete:
-			c.Lock()
-			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
-			c.Unlock()
-		default:
-			if instances == nil {
-				c.Lock()
-				delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
-				c.Unlock()
-			} else {
-				c.Lock()
-				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
-				c.Unlock()
-			}
-		}
-
-		for _, instance := range instances {
-			f(instance, event)
-		}
-
 		return nil
 	})
 
