@@ -74,7 +74,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		external = svc.Spec.ExternalName
-		resolution = model.Passthrough
+		resolution = model.DNSLB
 		meshExternal = true
 	}
 
@@ -116,6 +116,25 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
 		},
 	}
+}
+
+func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*model.ServiceInstance {
+	if k8sSvc.Spec.Type != v1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
+		return nil
+	}
+	var out []*model.ServiceInstance
+	for _, portEntry := range svc.Ports {
+		out = append(out, &model.ServiceInstance{
+			Endpoint: model.NetworkEndpoint{
+				Address:     k8sSvc.Spec.ExternalName,
+				Port:        portEntry.Port,
+				ServicePort: portEntry,
+			},
+			Service: svc,
+			Labels:  k8sSvc.Labels,
+		})
+	}
+	return out
 }
 
 // serviceHostname produces FQDN for a k8s service

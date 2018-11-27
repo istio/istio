@@ -116,6 +116,8 @@ type Controller struct {
 	sync.RWMutex
 	// servicesMap stores hostname ==> service, it is used to reduce convertService calls.
 	servicesMap map[model.Hostname]*model.Service
+	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
+	externalNameSvcInstanceMap map[model.Hostname][]*model.ServiceInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -138,12 +140,13 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
-		domainSuffix: options.DomainSuffix,
-		client:       client,
-		queue:        NewQueue(1 * time.Second),
-		ClusterID:    options.ClusterID,
-		XDSUpdater:   options.XDSUpdater,
-		servicesMap:  make(map[model.Hostname]*model.Service),
+		domainSuffix:               options.DomainSuffix,
+		client:                     client,
+		queue:                      NewQueue(1 * time.Second),
+		ClusterID:                  options.ClusterID,
+		XDSUpdater:                 options.XDSUpdater,
+		servicesMap:                make(map[model.Hostname]*model.Service),
+		externalNameSvcInstanceMap: make(map[model.Hostname][]*model.ServiceInstance),
 	}
 
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
@@ -222,7 +225,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 
 				if !reflect.DeepEqual(oldE.Subsets, curE.Subsets) {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "update"}).Add(1)
-					//c.updateEDS(cur.(*v1.Endpoints))
+					// c.updateEDS(cur.(*v1.Endpoints))
 					c.queue.Push(Task{handler: handler.Apply, obj: cur, event: model.EventUpdate})
 				} else {
 					k8sEvents.With(prometheus.Labels{"type": otype, "event": "updateSame"}).Add(1)
@@ -233,7 +236,7 @@ func (c *Controller) createEDSCacheHandler(informer cache.SharedIndexInformer, o
 				// Deleting the endpoints results in an empty set from EDS perspective - only
 				// deleting the service should delete the resources. The full sync replaces the
 				// maps.
-				//c.updateEDS(obj.(*v1.Endpoints))
+				// c.updateEDS(obj.(*v1.Endpoints))
 				c.queue.Push(Task{handler: handler.Apply, obj: obj, event: model.EventDelete})
 			},
 		})
@@ -433,6 +436,13 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 	svcPortEntry, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists && reqSvcPort != 0 {
 		return nil, nil
+	}
+
+	c.RLock()
+	instances := c.externalNameSvcInstanceMap[hostname]
+	c.RUnlock()
+	if instances != nil {
+		return instances, nil
 	}
 
 	for _, item := range c.endpoints.informer.GetStore().List() {
@@ -684,14 +694,21 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		svcConv := convertService(*svc, c.domainSuffix)
+		instances := externalNameServiceInstances(*svc, svcConv)
 		switch event {
 		case model.EventDelete:
 			c.Lock()
 			delete(c.servicesMap, svcConv.Hostname)
+			delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 			c.Unlock()
 		default:
 			c.Lock()
 			c.servicesMap[svcConv.Hostname] = svcConv
+			if instances == nil {
+				delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
+			} else {
+				c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
+			}
 			c.Unlock()
 		}
 
@@ -737,6 +754,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		}
 		return nil
 	})
+
 	return nil
 }
 
