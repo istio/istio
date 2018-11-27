@@ -351,15 +351,39 @@ message LoadBalancerSettings {
 //       tcp:
 //         maxConnections: 100
 //         connectTimeout: 30ms
+//         tcpKeepalive:
+//           time: 7200s
+//           interval: 75s
 // ```
 message ConnectionPoolSettings {
   // Settings common to both HTTP and TCP upstream connections.
   message TCPSettings {
+    // TCP keepalive.
+    message TcpKeepalive {
+      // Maximum number of keepalive probes to send without response before
+      // deciding the connection is dead. Default is to use the OS level configuration
+      // (unless overridden, Linux defaults to 9.)
+      uint32 probes = 1;
+
+      // The time duration a connection needs to be idle before keep-alive
+      // probes start being sent. Default is to use the OS level configuration
+      // (unless overridden, Linux defaults to 7200s (ie 2 hours.)
+      google.protobuf.Duration time = 2;
+
+      // The time duration between keep-alive probes.
+      // Default is to use the OS level configuration
+      // (unless overridden, Linux defaults to 75s.)
+      google.protobuf.Duration interval = 3;
+    };
+
     // Maximum number of HTTP1 /TCP connections to a destination host.
     int32 max_connections = 1;
 
     // TCP connection timeout.
     google.protobuf.Duration connect_timeout = 2;
+
+    // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+    TcpKeepalive tcp_keepalive = 3;
   };
 
   // Settings applicable to HTTP1.1/HTTP2/GRPC connections.
