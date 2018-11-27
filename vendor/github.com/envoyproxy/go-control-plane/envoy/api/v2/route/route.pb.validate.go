@@ -159,6 +159,8 @@ func (m *VirtualHost) Validate() error {
 
 	// no validation rules for PerFilterConfig
 
+	// no validation rules for TypedPerFilterConfig
+
 	// no validation rules for IncludeRequestAttemptCount
 
 	return nil
@@ -233,6 +235,8 @@ func (m *Route) Validate() error {
 	}
 
 	// no validation rules for PerFilterConfig
+
+	// no validation rules for TypedPerFilterConfig
 
 	if len(m.GetRequestHeadersToAdd()) > 1000 {
 		return RouteValidationError{
@@ -1456,6 +1460,8 @@ func (m *WeightedCluster_ClusterWeight) Validate() error {
 
 	// no validation rules for PerFilterConfig
 
+	// no validation rules for TypedPerFilterConfig
+
 	return nil
 }
 
@@ -1782,14 +1788,32 @@ func (m *RouteAction_RetryPolicy_RetryPriority) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RouteAction_RetryPolicy_RetryPriorityValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	switch m.ConfigType.(type) {
+
+	case *RouteAction_RetryPolicy_RetryPriority_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteAction_RetryPolicy_RetryPriorityValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
+	case *RouteAction_RetryPolicy_RetryPriority_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteAction_RetryPolicy_RetryPriorityValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -1842,14 +1866,32 @@ func (m *RouteAction_RetryPolicy_RetryHostPredicate) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return RouteAction_RetryPolicy_RetryHostPredicateValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	switch m.ConfigType.(type) {
+
+	case *RouteAction_RetryPolicy_RetryHostPredicate_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteAction_RetryPolicy_RetryHostPredicateValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
+	case *RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteAction_RetryPolicy_RetryHostPredicateValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil

@@ -268,6 +268,62 @@ func (e DynamicOtConfigValidationError) Error() string {
 
 var _ error = DynamicOtConfigValidationError{}
 
+// Validate checks the field values on DatadogConfig with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *DatadogConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if len(m.GetCollectorCluster()) < 1 {
+		return DatadogConfigValidationError{
+			Field:  "CollectorCluster",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	if len(m.GetServiceName()) < 1 {
+		return DatadogConfigValidationError{
+			Field:  "ServiceName",
+			Reason: "value length must be at least 1 bytes",
+		}
+	}
+
+	return nil
+}
+
+// DatadogConfigValidationError is the validation error returned by
+// DatadogConfig.Validate if the designated constraints aren't met.
+type DatadogConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e DatadogConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDatadogConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = DatadogConfigValidationError{}
+
 // Validate checks the field values on TraceServiceConfig with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
@@ -342,14 +398,32 @@ func (m *Tracing_Http) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Tracing_HttpValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	switch m.ConfigType.(type) {
+
+	case *Tracing_Http_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return Tracing_HttpValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
+	case *Tracing_Http_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return Tracing_HttpValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil

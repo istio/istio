@@ -111,9 +111,6 @@ var (
 		plugin.Mixer,
 		plugin.Envoyfilter,
 	}
-
-	// Global mutex
-	globalMutex = sync.Mutex{}
 )
 
 func init() {
@@ -220,6 +217,8 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{
 		fileWatcher: filewatcher.NewWatcher(),
 	}
+
+	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
@@ -971,7 +970,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
+		log.Infof("Discovery service started at http=%s grpc=%s secure grpc=%s", listener.Addr(), grpcListener.Addr(), secureGrpcListener.Addr())
 
 		go func() {
 			if err := s.httpServer.Serve(listener); err != nil {
@@ -983,9 +982,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				log.Warna(err)
 			}
 		}()
-		if len(args.DiscoveryOptions.SecureGrpcAddr) > 0 {
-			go s.secureGrpcStart(secureGrpcListener)
-		}
+
+		go s.secureGrpcStart(secureGrpcListener)
 
 		go func() {
 			<-stop
@@ -1041,92 +1039,79 @@ func (s *Server) initGrpcServer() {
 func (s *Server) secureGrpcStart(listener net.Listener) {
 	certDir := pilot.CertDir
 	if certDir == "" {
-		certDir = PilotCertDir // /etc/certs
-	}
-	if !strings.HasSuffix(certDir, "/") {
-		certDir = certDir + "/"
+		certDir = PilotCertDir
 	}
 
-	for i := 0; i < 30; i++ {
-		opts := s.grpcServerOptions()
+	ca := path.Join(certDir, model.RootCertFilename)
+	key := path.Join(certDir, model.KeyFilename)
+	cert := path.Join(certDir, model.CertChainFilename)
 
-		// This is used for the grpc h2 implementation. It doesn't appear to be needed in
-		// the case of golang h2 stack.
-		creds, err := credentials.NewServerTLSFromFile(certDir+model.CertChainFilename,
-			certDir+model.KeyFilename)
-		// certs not ready yet.
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
+	var err error
+	defer func() {
+		if err != http.ErrServerClosed {
+			log.Errorf("Failed to start secure grpc server %v", err)
+			// Exit - mesh is in MTLS mode, but certificates are missing or bad.
+			// k8s may allocate to a different machine.
+			if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+				os.Exit(403)
+			}
 		}
+	}()
+	// This is used for the grpc h2 implementation. It doesn't appear to be needed in
+	// the case of golang h2 stack.
+	creds, err := credentials.NewServerTLSFromFile(cert, key)
+	// certs not ready yet.
+	if err != nil {
+		return
+	}
 
-		// TODO: parse the file to determine expiration date. Restart listener before expiration
-		cert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename,
-			certDir+model.KeyFilename)
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		caCertFile := certDir + model.RootCertFilename
-		caCert, err := ioutil.ReadFile(caCertFile)
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+	// TODO: parse the file to determine expiration date. Restart listener before expiration
+	certificate, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return
+	}
 
-		opts = append(opts, grpc.Creds(creds))
-		s.secureGrpcMutex.Lock()
-		s.secureGRPCServer = grpc.NewServer(opts...)
-		s.secureGrpcMutex.Unlock()
+	caCert, err := ioutil.ReadFile(ca)
+	if err != nil {
+		return
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
 
-		s.EnvoyXdsServer.Register(s.secureGRPCServer)
+	opts := s.grpcServerOptions()
+	opts = append(opts, grpc.Creds(creds))
+	s.secureGRPCServer = grpc.NewServer(opts...)
 
-		log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
+	s.EnvoyXdsServer.Register(s.secureGRPCServer)
 
-		s.secureHTTPServer = &http.Server{
-			TLSConfig: &tls.Config{
-				Certificates: []tls.Certificate{cert},
-				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-					// For now accept any certs - pilot is not authenticating the caller, TLS used for
-					// privacy
-					return nil
-				},
-				NextProtos: []string{"h2", "http/1.1"},
-				//ClientAuth: tls.NoClientCert,
-				//ClientAuth: tls.RequestClientCert,
-				ClientAuth: tls.RequireAndVerifyClientCert,
-				ClientCAs:  caCertPool,
+	log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
+
+	s.secureHTTPServer = &http.Server{
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{certificate},
+			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+				// For now accept any certs - pilot is not authenticating the caller, TLS used for
+				// privacy
+				return nil
 			},
-			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.ProtoMajor == 2 && strings.HasPrefix(
-					r.Header.Get("Content-Type"), "application/grpc") {
-					s.secureGRPCServer.ServeHTTP(w, r)
-				} else {
-					s.mux.ServeHTTP(w, r)
-				}
-			}),
-		}
-
-		// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
-		// on a listener
-		_ = s.secureHTTPServer.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
-
-		// The other way to set TLS - but you can't add http handlers, and the h2 stack is
-		// different.
-		//if err := s.secureGRPCServer.Serve(listener); err != nil {
-		//	log.Warna(err)
-		//}
+			NextProtos: []string{"h2", "http/1.1"},
+			ClientAuth: tls.RequireAndVerifyClientCert,
+			ClientCAs:  caCertPool,
+		},
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && strings.HasPrefix(
+				r.Header.Get("Content-Type"), "application/grpc") {
+				s.secureGRPCServer.ServeHTTP(w, r)
+			} else {
+				s.mux.ServeHTTP(w, r)
+			}
+		}),
 	}
 
-	log.Errorf("Failed to find certificates for GRPC secure in %s", certDir)
-
-	// Exit - mesh is in MTLS mode, but certificates are missing or bad.
-	// k8s may allocate to a different machine.
-	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		os.Exit(403)
-	}
+	// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+	// on a listener
+	err = s.secureHTTPServer.ServeTLS(listener, "", "")
+	log.Infof("Stoppped listening on %s", listener.Addr().String())
 }
 
 func (s *Server) grpcServerOptions() []grpc.ServerOption {
@@ -1134,13 +1119,6 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 		// setup server prometheus monitoring (as final interceptor in chain)
 		prometheus.UnaryServerInterceptor,
 	}
-
-	// EnableHandlingTimeHistogram() has a data race within it (reading/writing to its
-	// serverHandledHistogramEnabled). Using a package mutex to avoid data races.
-	// Should be re-examined with an updated revision of the go-grpc-prometheus.
-	globalMutex.Lock()
-	prometheus.EnableHandlingTimeHistogram()
-	globalMutex.Unlock()
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.

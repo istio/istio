@@ -24,12 +24,13 @@ ROOTDIR="$(dirname "${SCRIPTPATH}")"
 REPORT_PATH=${GOPATH}/out/codecov/pr
 BASELINE_PATH=${GOPATH}/out/codecov/baseline
 CODECOV_SKIP=${GOPATH}/out/codecov/codecov.skip
-
+THRESHOLD_FILE=${GOPATH}/out/codecov/codecov.threshold
 mkdir -p "${GOPATH}"/out/codecov
 
 # Use the codecov.skip from the PR across two test runs to make sure we skip a
 # consistent list of packages.
 cp "${ROOTDIR}"/codecov.skip "${CODECOV_SKIP}"
+cp "${ROOTDIR}"/codecov.threshold "${THRESHOLD_FILE}"
 
 # First run codecov from current workspace (PR)
 OUT_DIR="${REPORT_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh || echo "Some tests have failed"
@@ -53,6 +54,6 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh || echo "Some tests have failed"
 
   go get -u istio.io/test-infra/toolbox/pkg_check
-  "${GOPATH}"/bin/pkg_check  --report_file="${REPORT_PATH}/coverage.html" --baseline_file="${BASELINE_PATH}/coverage.html" --html
+  "${GOPATH}"/bin/pkg_check  --report_file="${REPORT_PATH}/coverage.html" --baseline_file="${BASELINE_PATH}/coverage.html" --html --threshold_file="${THRESHOLD_FILE}"
 fi
 

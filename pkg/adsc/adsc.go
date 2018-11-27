@@ -317,7 +317,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		}
 		if f0.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
-			c := f0.Config.Fields["cluster"].GetStringValue()
+			c := f0.GetConfig().Fields["cluster"].GetStringValue()
 			clusters = append(clusters, c)
 			//log.Printf("TCP: %s -> %s", l.Name, c)
 		} else if f0.Name == "envoy.http_connection_manager" {
@@ -337,12 +337,12 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 
 	log.Println("LDS: http=", len(lh), "tcp=", len(lt), "size=", ldsSize)
 	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if len(routes) > 0 {
 		a.sendRsc(routeType, routes)
 	}
 	a.HTTPListeners = lh
 	a.TCPListeners = lt
-	defer a.mutex.Unlock()
 
 	select {
 	case a.Updates <- "lds":

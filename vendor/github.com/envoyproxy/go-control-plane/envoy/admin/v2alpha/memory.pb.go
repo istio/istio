@@ -29,7 +29,18 @@ type Memory struct {
 	Allocated uint64 `protobuf:"varint,1,opt,name=allocated,proto3" json:"allocated,omitempty"`
 	// The number of bytes reserved by the heap but not necessarily allocated. This is an alias for
 	// `generic.heap_size`.
-	HeapSize             uint64   `protobuf:"varint,2,opt,name=heap_size,json=heapSize,proto3" json:"heap_size,omitempty"`
+	HeapSize uint64 `protobuf:"varint,2,opt,name=heap_size,json=heapSize,proto3" json:"heap_size,omitempty"`
+	// The number of bytes in free, unmapped pages in the page heap. These bytes always count towards
+	// virtual memory usage, and depending on the OS, typically do not count towards physical memory
+	// usage. This is an alias for `tcmalloc.pageheap_unmapped_bytes`.
+	PageheapUnmapped uint64 `protobuf:"varint,3,opt,name=pageheap_unmapped,json=pageheapUnmapped,proto3" json:"pageheap_unmapped,omitempty"`
+	// The number of bytes in free, mapped pages in the page heap. These bytes always count towards
+	// virtual memory usage, and unless the underlying memory is swapped out by the OS, they also
+	// count towards physical memory usage. This is an alias for `tcmalloc.pageheap_free_bytes`.
+	PageheapFree uint64 `protobuf:"varint,4,opt,name=pageheap_free,json=pageheapFree,proto3" json:"pageheap_free,omitempty"`
+	// The amount of memory used by the TCMalloc thread caches (for small objects). This is an alias
+	// for `tcmalloc.current_total_thread_cache_bytes`.
+	TotalThreadCache     uint64   `protobuf:"varint,5,opt,name=total_thread_cache,json=totalThreadCache,proto3" json:"total_thread_cache,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -39,7 +50,7 @@ func (m *Memory) Reset()         { *m = Memory{} }
 func (m *Memory) String() string { return proto.CompactTextString(m) }
 func (*Memory) ProtoMessage()    {}
 func (*Memory) Descriptor() ([]byte, []int) {
-	return fileDescriptor_memory_3334726f6f81eb1e, []int{0}
+	return fileDescriptor_memory_e5c9ae494bb99127, []int{0}
 }
 func (m *Memory) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -82,6 +93,27 @@ func (m *Memory) GetHeapSize() uint64 {
 	return 0
 }
 
+func (m *Memory) GetPageheapUnmapped() uint64 {
+	if m != nil {
+		return m.PageheapUnmapped
+	}
+	return 0
+}
+
+func (m *Memory) GetPageheapFree() uint64 {
+	if m != nil {
+		return m.PageheapFree
+	}
+	return 0
+}
+
+func (m *Memory) GetTotalThreadCache() uint64 {
+	if m != nil {
+		return m.TotalThreadCache
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*Memory)(nil), "envoy.admin.v2alpha.Memory")
 }
@@ -110,6 +142,21 @@ func (m *Memory) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintMemory(dAtA, i, uint64(m.HeapSize))
 	}
+	if m.PageheapUnmapped != 0 {
+		dAtA[i] = 0x18
+		i++
+		i = encodeVarintMemory(dAtA, i, uint64(m.PageheapUnmapped))
+	}
+	if m.PageheapFree != 0 {
+		dAtA[i] = 0x20
+		i++
+		i = encodeVarintMemory(dAtA, i, uint64(m.PageheapFree))
+	}
+	if m.TotalThreadCache != 0 {
+		dAtA[i] = 0x28
+		i++
+		i = encodeVarintMemory(dAtA, i, uint64(m.TotalThreadCache))
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -133,6 +180,15 @@ func (m *Memory) Size() (n int) {
 	}
 	if m.HeapSize != 0 {
 		n += 1 + sovMemory(uint64(m.HeapSize))
+	}
+	if m.PageheapUnmapped != 0 {
+		n += 1 + sovMemory(uint64(m.PageheapUnmapped))
+	}
+	if m.PageheapFree != 0 {
+		n += 1 + sovMemory(uint64(m.PageheapFree))
+	}
+	if m.TotalThreadCache != 0 {
+		n += 1 + sovMemory(uint64(m.TotalThreadCache))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -216,6 +272,63 @@ func (m *Memory) Unmarshal(dAtA []byte) error {
 				b := dAtA[iNdEx]
 				iNdEx++
 				m.HeapSize |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PageheapUnmapped", wireType)
+			}
+			m.PageheapUnmapped = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMemory
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.PageheapUnmapped |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PageheapFree", wireType)
+			}
+			m.PageheapFree = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMemory
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.PageheapFree |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TotalThreadCache", wireType)
+			}
+			m.TotalThreadCache = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMemory
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.TotalThreadCache |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -348,18 +461,23 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/admin/v2alpha/memory.proto", fileDescriptor_memory_3334726f6f81eb1e)
+	proto.RegisterFile("envoy/admin/v2alpha/memory.proto", fileDescriptor_memory_e5c9ae494bb99127)
 }
 
-var fileDescriptor_memory_3334726f6f81eb1e = []byte{
-	// 141 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x48, 0xcd, 0x2b, 0xcb,
-	0xaf, 0xd4, 0x4f, 0x4c, 0xc9, 0xcd, 0xcc, 0xd3, 0x2f, 0x33, 0x4a, 0xcc, 0x29, 0xc8, 0x48, 0xd4,
-	0xcf, 0x4d, 0xcd, 0xcd, 0x2f, 0xaa, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0x06, 0xab,
-	0xd0, 0x03, 0xab, 0xd0, 0x83, 0xaa, 0x50, 0x72, 0xe6, 0x62, 0xf3, 0x05, 0x2b, 0x12, 0x92, 0xe1,
-	0xe2, 0x4c, 0xcc, 0xc9, 0xc9, 0x4f, 0x4e, 0x2c, 0x49, 0x4d, 0x91, 0x60, 0x54, 0x60, 0xd4, 0x60,
-	0x09, 0x42, 0x08, 0x08, 0x49, 0x73, 0x71, 0x66, 0xa4, 0x26, 0x16, 0xc4, 0x17, 0x67, 0x56, 0xa5,
-	0x4a, 0x30, 0x81, 0x65, 0x39, 0x40, 0x02, 0xc1, 0x99, 0x55, 0xa9, 0x4e, 0x3c, 0x27, 0x1e, 0xc9,
-	0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0x63, 0x12, 0x1b, 0xd8, 0x3a, 0x63, 0x40,
-	0x00, 0x00, 0x00, 0xff, 0xff, 0x4e, 0x45, 0xfd, 0x87, 0x92, 0x00, 0x00, 0x00,
+var fileDescriptor_memory_e5c9ae494bb99127 = []byte{
+	// 221 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x44, 0xcf, 0x4d, 0x4a, 0xc6, 0x30,
+	0x10, 0xc6, 0x71, 0xa2, 0xaf, 0xc5, 0x86, 0x0a, 0x1a, 0x37, 0x01, 0xa5, 0x14, 0xdd, 0x08, 0x4a,
+	0x0b, 0x7a, 0x03, 0x05, 0x77, 0x6e, 0xfc, 0x58, 0x97, 0xb1, 0x19, 0x4d, 0x21, 0x69, 0x42, 0x8c,
+	0x85, 0xf6, 0x7a, 0x6e, 0x5c, 0x7a, 0x04, 0xe9, 0x49, 0xa4, 0x63, 0xab, 0xdb, 0xff, 0xf3, 0x63,
+	0x60, 0x78, 0x81, 0x5d, 0xef, 0x86, 0x0a, 0x94, 0x6d, 0xbb, 0xaa, 0xbf, 0x04, 0xe3, 0x35, 0x54,
+	0x16, 0xad, 0x0b, 0x43, 0xe9, 0x83, 0x8b, 0x4e, 0x1c, 0x92, 0x28, 0x49, 0x94, 0x8b, 0x38, 0xf9,
+	0x60, 0x3c, 0xb9, 0x23, 0x25, 0x8e, 0x79, 0x0a, 0xc6, 0xb8, 0x06, 0x22, 0x2a, 0xc9, 0x0a, 0x76,
+	0xb6, 0xb9, 0xff, 0x0f, 0xe2, 0x88, 0xa7, 0x1a, 0xc1, 0xd7, 0x6f, 0xed, 0x88, 0x72, 0x8b, 0xd6,
+	0xdd, 0x39, 0x3c, 0xb4, 0x23, 0x8a, 0x73, 0x7e, 0xe0, 0xe1, 0x15, 0x09, 0xbc, 0x77, 0x16, 0xbc,
+	0x47, 0x25, 0xb7, 0x09, 0xed, 0xaf, 0xc3, 0xd3, 0xd2, 0xc5, 0x29, 0xdf, 0xfb, 0xc3, 0x2f, 0x01,
+	0x51, 0x6e, 0x08, 0x66, 0x6b, 0xbc, 0x0d, 0x88, 0xe2, 0x82, 0x8b, 0xe8, 0x22, 0x98, 0x3a, 0xea,
+	0x80, 0xa0, 0xea, 0x06, 0x1a, 0x8d, 0x72, 0xe7, 0xf7, 0x24, 0x2d, 0x8f, 0x34, 0xdc, 0xcc, 0xfd,
+	0x3a, 0xfb, 0x9c, 0x72, 0xf6, 0x35, 0xe5, 0xec, 0x7b, 0xca, 0xd9, 0x73, 0x42, 0xff, 0x5e, 0xfd,
+	0x04, 0x00, 0x00, 0xff, 0xff, 0x2c, 0x6e, 0x70, 0x1d, 0x13, 0x01, 0x00, 0x00,
 }

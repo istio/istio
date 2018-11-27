@@ -342,27 +342,27 @@ func TestController_getPodAZ(t *testing.T) {
 			},
 		},
 		{
-			name: "should return false and empty string if node doesnt have zone label",
+			name: "should return correct az if node has only region label",
 			pods: []*v1.Pod{pod1, pod2},
 			nodes: []*v1.Node{
 				generateNode("node1", map[string]string{NodeRegionLabel: "region1"}),
 				generateNode("node2", map[string]string{NodeRegionLabel: "region2"}),
 			},
 			wantAZ: map[*v1.Pod]string{
-				pod1: "",
-				pod2: "",
+				pod1: "region1/",
+				pod2: "region2/",
 			},
 		},
 		{
-			name: "should return false and empty string if node doesnt have region label",
+			name: "should return correct az if node has only zone label",
 			pods: []*v1.Pod{pod1, pod2},
 			nodes: []*v1.Node{
 				generateNode("node1", map[string]string{NodeZoneLabel: "zone1"}),
 				generateNode("node2", map[string]string{NodeZoneLabel: "zone2"}),
 			},
 			wantAZ: map[*v1.Pod]string{
-				pod1: "",
-				pod2: "",
+				pod1: "/zone1",
+				pod2: "/zone2",
 			},
 		},
 	}
@@ -381,13 +381,13 @@ func TestController_getPodAZ(t *testing.T) {
 
 			// Verify expected existing pod AZs
 			for pod, wantAZ := range c.wantAZ {
-				az, found := controller.GetPodAZ(pod)
+				az := controller.GetPodAZ(pod)
 				if wantAZ != "" {
 					if !reflect.DeepEqual(az, wantAZ) {
 						t.Errorf("Wanted az: %s, got: %s", wantAZ, az)
 					}
 				} else {
-					if found {
+					if az != "" {
 						t.Errorf("Unexpectedly found az: %s for pod: %s", az, pod.ObjectMeta.Name)
 					}
 				}

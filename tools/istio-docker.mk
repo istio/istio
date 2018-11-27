@@ -22,7 +22,7 @@
 docker: build test-bins docker.all
 
 DOCKER_TARGETS:=docker.pilot docker.proxy_debug docker.proxytproxy docker.proxyv2 docker.app docker.test_policybackend \
-	docker.proxy_init docker.servicegraph docker.mixer docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
+	docker.proxy_init docker.servicegraph docker.mixer docker.mixer_codegen docker.citadel docker.galley docker.sidecar_injector docker.kubectl docker.node-agent-k8s
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -47,7 +47,7 @@ $(ISTIO_DOCKER)/node_agent.crt $(ISTIO_DOCKER)/node_agent.key: ${GEN_CERT} $(IST
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT:=pkg-test-application-echo-client pkg-test-application-echo-server \
-                             pilot-discovery pilot-agent sidecar-injector servicegraph mixs \
+                             pilot-discovery pilot-agent sidecar-injector servicegraph mixs mixgen \
                              istio_ca node_agent node_agent_k8s galley
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
@@ -171,6 +171,11 @@ docker.servicegraph: addons/servicegraph/force
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
 docker.mixer: $(ISTIO_DOCKER)/ca-certificates.tgz
+	$(DOCKER_RULE)
+
+# mixer codegen docker images
+docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
+docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
 # galley docker images

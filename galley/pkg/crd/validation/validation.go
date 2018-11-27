@@ -15,11 +15,15 @@
 package validation
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"regexp"
+	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/mixer/adapter"
@@ -37,6 +41,8 @@ import (
 const (
 	dns1123LabelMaxLength int    = 63
 	dns1123LabelFmt       string = "[a-zA-Z0-9]([-a-z-A-Z0-9]*[a-zA-Z0-9])?"
+
+	httpsHandlerReadinessFreq = time.Second
 )
 
 var dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
@@ -54,6 +60,38 @@ func createMixerValidator() store.BackendValidator {
 	}
 	adapters := config.AdapterInfoMap(adapter.Inventory(), template.NewRepository(info).SupportsTemplate)
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
+}
+
+func webhookHTTPSHandlerReady(vc *WebhookParameters) error {
+	client := &http.Client{
+		Timeout: time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+
+	readinessURL := &url.URL{
+		Scheme: "https",
+		Host:   fmt.Sprintf("localhost:%v", vc.Port),
+		Path:   httpsHandlerReadyPath,
+	}
+
+	req := &http.Request{
+		Method: http.MethodGet,
+		URL:    readinessURL,
+	}
+
+	response, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP request to %v failed: %v", readinessURL, err)
+	}
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %v returned non-200 status=%v",
+			readinessURL, response.StatusCode)
+	}
+	return nil
 }
 
 //RunValidation start running Galley validation mode
@@ -77,14 +115,40 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 		validationLivenessProbe.RegisterProbe(livenessProbeController, "validationLiveness")
 		defer validationLivenessProbe.SetAvailable(errors.New("stopped"))
 	}
-	if readinessProbeController != nil {
-		validationReadinessProbe := probe.NewProbe()
-		validationReadinessProbe.SetAvailable(nil)
-		validationReadinessProbe.RegisterProbe(readinessProbeController, "validationReadiness")
-		defer validationReadinessProbe.SetAvailable(errors.New("stopped"))
-	}
+
 	// Create the stop channel for all of the servers.
 	stop := make(chan struct{})
+
+	if readinessProbeController != nil {
+		validationReadinessProbe := probe.NewProbe()
+		validationReadinessProbe.SetAvailable(errors.New("init"))
+		validationReadinessProbe.RegisterProbe(readinessProbeController, "validationReadiness")
+
+		go func() {
+			ready := false
+			for {
+				if err := webhookHTTPSHandlerReady(vc); err != nil {
+					validationReadinessProbe.SetAvailable(errors.New("not ready"))
+					scope.Infof("https handler for validation webhook is not ready: %v", err)
+					ready = false
+				} else {
+					validationReadinessProbe.SetAvailable(nil)
+
+					if !ready {
+						scope.Info("https handler for validation webhook is ready")
+						ready = true
+					}
+				}
+				select {
+				case <-stop:
+					validationReadinessProbe.SetAvailable(errors.New("stopped"))
+					return
+				case <-time.After(httpsHandlerReadinessFreq):
+					// check again
+				}
+			}
+		}()
+	}
 
 	go wh.Run(stop)
 	cmd.WaitSignal(stop)
