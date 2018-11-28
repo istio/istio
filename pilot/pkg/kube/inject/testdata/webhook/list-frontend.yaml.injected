@@ -67,12 +67,15 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        - name: ISTIO_META_POD_NAME
+        - name: ISTIO_META_CONFIG_NAMESPACE
           valueFrom:
             fieldRef:
-              fieldPath: metadata.name
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"hello","tier":"frontend","track":"stable"}
         image: gcr.io/istio-release/proxyv2:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-proxy

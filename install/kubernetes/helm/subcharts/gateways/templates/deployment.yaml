@@ -140,10 +140,10 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.podIP
-          - name: ISTIO_META_POD_NAME
+          - name: ISTIO_META_CONFIG_NAMESPACE
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name
+                fieldPath: metadata.namespace
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}

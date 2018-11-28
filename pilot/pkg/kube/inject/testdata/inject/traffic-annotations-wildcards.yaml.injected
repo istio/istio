@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"21cdfc0290095a437bfdd0f09f9993704dee08d6d2deda0d87a966cd8a62dbe5","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"8dc6c9aaf0e83506495b01fb3ddba8bc860a95ae12bec5bbb0327471f1cf009e","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/includeInboundPorts: '*'
@@ -65,10 +65,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        - name: ISTIO_META_POD_NAME
+        - name: ISTIO_META_CONFIG_NAMESPACE
           valueFrom:
             fieldRef:
-              fieldPath: metadata.name
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         image: docker.io/istio/proxyv2:unittest

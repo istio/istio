@@ -152,10 +152,10 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        - name: ISTIO_META_POD_NAME
+        - name: ISTIO_META_CONFIG_NAMESPACE
           valueFrom:
             fieldRef:
-              fieldPath: metadata.name
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
         {{- if .Values.global.network }}

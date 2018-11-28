@@ -157,10 +157,10 @@ containers:
     valueFrom:
       fieldRef:
         fieldPath: status.podIP
-  - name: ISTIO_META_POD_NAME
+  - name: ISTIO_META_CONFIG_NAMESPACE
     valueFrom:
       fieldRef:
-        fieldPath: metadata.name
+        fieldPath: metadata.namespace
   - name: ISTIO_META_INTERCEPTION_MODE
     value: [[ annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode ]]
   {{ if eq .ImagePullPolicy "" -}}
