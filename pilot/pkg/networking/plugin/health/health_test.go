@@ -72,7 +72,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
+			endpoint: &model.IstioEndpoint{
 				Port: 8080,
 			},
 			expected: plugin.FilterChain{
@@ -109,7 +109,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/live",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
+			endpoint: &model.IstioEndpoint{
 				Port: 8080,
 			},
 			expected: plugin.FilterChain{
@@ -161,7 +161,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
+			endpoint: &model.IstioEndpoint{
 				Port: 8080,
 			},
 			expected: plugin.FilterChain{
@@ -193,7 +193,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
+			endpoint: &model.IstioEndpoint{
 				Port: 8080,
 			},
 			expected: plugin.FilterChain{},
