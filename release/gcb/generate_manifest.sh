@@ -74,6 +74,7 @@ EOF
  popd
 
   if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
+     # Consistency check not needed for CNI
      checkout_code "proxy" "HEAD" .
      pushd proxy 
        PROXY_HEAD_SHA=$(git rev-parse HEAD)
@@ -90,14 +91,6 @@ EOF
       if [ "$ISTIO_HEAD_SHA" != "$ISTIO_REPO_SHA" ]; then
         echo "inconsistent shas ISTIO_HEAD_SHA         $ISTIO_HEAD_SHA != $ISTIO_REPO_SHA ISTIO_REPO_SHA" 1>&2
         exit 18
-      fi
-      checkout_code "cni" "HEAD" .
-      pushd CNI
-        CNI_HEAD_SHA=$(git rev-parse HEAD)
-      popd
-      if [ "$CNI_HEAD_SHA" != "$CNI_REPO_SHA" ]; then
-        echo "inconsistent shas CNI_HEAD_SHA         $CNI_HEAD_SHA != $CNI_REPO_SHA CNI_REPO_SHA" 1>&2
-        exit 19
       fi
   fi
 }
