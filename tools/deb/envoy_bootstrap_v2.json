@@ -39,6 +39,10 @@
       {
         "tag_name": "listener_address",
         "regex": "^listener\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {
+        "tag_name": "mongo_prefix",
+        "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       }
     ]
   },
