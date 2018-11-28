@@ -1,0 +1,17 @@
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: trafficclaims.networking.aspenmesh.io
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  group: networking.aspenmesh.io
+  names:
+    kind: TrafficClaim
+    plural: trafficclaims
+    singular: trafficclaim
+    listKind: TrafficClaimList
+  scope: Namespaced
+  version: v1alpha3

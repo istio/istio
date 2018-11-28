@@ -1,0 +1,39 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: traffic-claim-enforcer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: traffic-claim-enforcer
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+webhooks:
+  - name: traffic-claim-enforcer.aspenmesh.io
+    clientConfig:
+      service:
+        name: traffic-claim-enforcer-webhook
+        namespace: {{ .Release.Namespace }}
+        path: "/validate"
+      caBundle: ""
+    rules:
+      - operations: [ "CREATE", "UPDATE" ]
+        apiGroups: ["networking.istio.io"]
+        apiVersions: ["v1alpha3"]
+        resources:
+          - virtualservices
+          - gateways
+          - serviceentries
+          - destinationrules
+    failurePolicy: Fail
+    namespaceSelector:
+{{- if .Values.enableNamespacesByDefault }}
+      matchExpressions:
+      - key: traffic-claim-enforcer
+        operator: NotIn
+        values:
+        - disabled
+{{- else }}
+      matchLabels:
+        traffic-claim-enforcer: enabled
+{{- end }}

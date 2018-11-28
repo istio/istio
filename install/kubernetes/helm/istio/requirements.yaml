@@ -51,3 +51,6 @@ dependencies:
   - name: aspen-mesh-agent
     version: 0.8.0
     condition: global.aspenMeshCloud.enabled
+  - name: traffic-claim-enforcer
+    version: 1.0.0
+    condition: global.traffic-claim-enforcer.enabled

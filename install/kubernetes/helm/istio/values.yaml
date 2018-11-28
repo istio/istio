@@ -542,3 +542,8 @@ aspen-mesh-agent:
     # requests:
     #  cpu: 100m
     #  memory: 128Mi
+
+traffic-claim-enforcer:
+  enabled: true
+  image: quay.io/aspenmesh/traffic-claim-enforcer:master-4
+  resources: {}

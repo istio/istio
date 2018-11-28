@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: traffic-claim-enforcer-certs
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+  labels:
+    app: traffic-claim-enforcer
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  template:
+    metadata:
+      name: traffic-claim-enforcer-certs
+      labels:
+        app: traffic-claim-enforcer
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccountName: traffic-claim-enforcer-certs-service-account
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.hub }}/hyperkube:{{ .Values.global.hyperkube.tag }}"
+          command: [ "/bin/bash", "/tmp/cert/run.sh" ]
+          volumeMounts:
+            - mountPath: "/tmp/cert"
+              name: tmp-configmap-certs
+      volumes:
+        - name: tmp-configmap-certs
+          configMap:
+            name: traffic-claim-enforcer-certs
+      restartPolicy: OnFailure
