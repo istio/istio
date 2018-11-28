@@ -69,5 +69,8 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   # Merge codecov junit into the one creared by unit tests at PR head.
   go get github.com/imsky/junit-merger/...
   junit-merger "${GOPATH}"/out/codecov/pr/junit.xml "${GOPATH}"/out/codecov/junit.xml  > "${GOPATH}"/out/tests/junit.xml
+else
+  # Upload to codecov.io in post submit only for visualization
+  bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/pr/coverage.cov
 fi
 
