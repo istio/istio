@@ -122,9 +122,9 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 
 	hostname := serviceHostname(instance.ServiceName)
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address:     addr,
-			Port:        instance.ServicePort,
+			Port:        uint32(instance.ServicePort),
 			ServicePort: port,
 			Locality:    instance.Datacenter,
 		},

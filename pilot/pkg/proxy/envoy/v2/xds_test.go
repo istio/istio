@@ -151,9 +151,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 		Ports:    testPorts(0),
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance(hostname, &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address: "127.0.0.1",
-			Port:    int(testEnv.Ports().BackendPort),
+			Port:    uint32(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
@@ -176,9 +176,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			}},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address: localIp,
-			Port:    int(testEnv.Ports().BackendPort),
+			Port:    uint32(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
 				Name:     "http",
 				Port:     80,
@@ -197,7 +197,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	})
 
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address: app3Ip,
 			Port:    2080,
 			ServicePort: &model.Port{
@@ -210,7 +210,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 		Labels: map[string]string{"version": "v1"},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address: gatewayIP,
 			Port:    2080,
 			ServicePort: &model.Port{
@@ -241,7 +241,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 		},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address: ingressIP,
 			Port:    80,
 			ServicePort: &model.Port{
@@ -254,7 +254,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 		Labels: model.IstioIngressWorkloadLabels,
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address: ingressIP,
 			Port:    443,
 			ServicePort: &model.Port{
@@ -434,7 +434,7 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 			ServicePort: &model.Port{
 				Name: "http-main",
 			},
-			EndpointPort:   80,
+			Port:           80,
 			Labels:         map[string]string{"version": version},
 			UID:            "uid1",
 			ServiceAccount: account,

@@ -145,9 +145,9 @@ func (sd *MemServiceDiscovery) AddInstance(service model.Hostname, instance *mod
 // AddEndpoint adds an endpoint to a service.
 func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
 	instance := &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address: address,
-			Port:    port,
+			Port:    uint32(port),
 			ServicePort: &model.Port{
 				Name:     servicePortName,
 				Port:     servicePort,
@@ -195,7 +195,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 		instance := &model.ServiceInstance{
 			Service: svc,
 			Labels:  e.Labels,
-			Endpoint: model.NetworkEndpoint{
+			Endpoint: model.IstioEndpoint{
 				Address: e.Address,
 				ServicePort: &model.Port{
 					Name:     e.ServicePort.Name,

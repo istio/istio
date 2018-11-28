@@ -353,10 +353,10 @@ type ProbeList []*Probe
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
-	Service        *Service        `json:"service,omitempty"`
-	Labels         Labels          `json:"labels,omitempty"`
-	ServiceAccount string          `json:"serviceaccount,omitempty"`
+	Endpoint       IstioEndpoint `json:"endpoint,omitempty"`
+	Service        *Service      `json:"service,omitempty"`
+	Labels         Labels        `json:"labels,omitempty"`
+	ServiceAccount string        `json:"serviceaccount,omitempty"`
 }
 
 const (
@@ -403,7 +403,7 @@ type IstioEndpoint struct {
 
 	// EndpointPort is the port where the workload is listening, can be different
 	// from the service port.
-	EndpointPort uint32
+	Port uint32
 
 	// Port declaration from the service declaration. This is the port for
 	// the service associated with this instance.

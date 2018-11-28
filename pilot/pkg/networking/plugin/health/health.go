@@ -56,14 +56,14 @@ func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	}
 }
 
-func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList, endpoint *model.NetworkEndpoint) {
+func buildHealthCheckFilters(filterChain *plugin.FilterChain, probes model.ProbeList, endpoint *model.IstioEndpoint) {
 	for _, probe := range probes {
 		// Check that the probe matches the listener port. If not, then the probe will be handled
 		// as a management port and not traced. If the port does match, then we need to add a
 		// health check filter for the probe path, to ensure that health checks are not traced.
 		// If no probe port is defined, then port has not specifically been defined, so assume filter
 		// needs to be applied.
-		if probe.Port == nil || probe.Port.Port == endpoint.Port {
+		if probe.Port == nil || probe.Port.Port == int(endpoint.Port) {
 			filter := buildHealthCheckFilter(probe)
 			if !containsHTTPFilter(filterChain.HTTP, filter) {
 				filterChain.HTTP = append(filterChain.HTTP, filter)

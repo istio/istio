@@ -835,9 +835,9 @@ func TestController_ExternalNameService(t *testing.T) {
 	var expectedInstanceList []*model.ServiceInstance
 	for i, svc := range expectedSvcList {
 		expectedInstanceList = append(expectedInstanceList, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
+			Endpoint: model.IstioEndpoint{
 				Address:     k8sSvcs[i].Spec.ExternalName,
-				Port:        svc.Ports[0].Port,
+				Port:        uint32(svc.Ports[0].Port),
 				ServicePort: svc.Ports[0],
 			},
 			Service: svc,

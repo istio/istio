@@ -175,7 +175,7 @@ func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restf
 				for _, instance := range instances {
 					hosts = append(hosts, &host{
 						Address: instance.Endpoint.Address,
-						Port:    instance.Endpoint.Port,
+						Port:    int(instance.Endpoint.Port),
 					})
 				}
 				services = append(services, &keyAndService{

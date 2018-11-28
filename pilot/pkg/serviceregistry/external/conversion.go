@@ -123,10 +123,10 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	}
 
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address:     addr,
 			Family:      family,
-			Port:        int(instancePort),
+			Port:        instancePort,
 			ServicePort: convertPort(servicePort),
 			Network:     endpoint.Network,
 			Locality:    endpoint.Locality,
@@ -149,9 +149,9 @@ func convertInstances(serviceEntry *networking.ServiceEntry, creationTime time.T
 				// Do not use serviceentry.hosts as a service entry is converted into
 				// multiple services (one for each host)
 				out = append(out, &model.ServiceInstance{
-					Endpoint: model.NetworkEndpoint{
+					Endpoint: model.IstioEndpoint{
 						Address:     string(service.Hostname),
-						Port:        int(serviceEntryPort.Number),
+						Port:        serviceEntryPort.Number,
 						ServicePort: convertPort(serviceEntryPort),
 					},
 					// TODO AvailabilityZone, ServiceAccount

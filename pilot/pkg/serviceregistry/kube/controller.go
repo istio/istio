@@ -461,9 +461,9 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 							reqSvcPort == 0 || // return all ports (mostly used by tests/debug)
 							svcPortEntry.Name == port.Name {
 							out = append(out, &model.ServiceInstance{
-								Endpoint: model.NetworkEndpoint{
+								Endpoint: model.IstioEndpoint{
 									Address:     ea.IP,
-									Port:        int(port.Port),
+									Port:        uint32(port.Port),
 									ServicePort: svcPortEntry,
 									UID:         uid,
 									Network:     c.endpointNetwork(ea.IP),
@@ -585,9 +585,9 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
 	}
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address:     ip,
-			Port:        int(port.Port),
+			Port:        uint32(port.Port),
 			ServicePort: svcPort,
 			Network:     c.endpointNetwork(ip),
 			Locality:    az,
@@ -769,7 +769,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 					}
 					endpoints = append(endpoints, &model.IstioEndpoint{
 						Address:        ea.IP,
-						EndpointPort:   uint32(port.Port),
+						Port:           uint32(port.Port),
 						ServicePort:    servicePort,
 						Labels:         labels,
 						UID:            uid,

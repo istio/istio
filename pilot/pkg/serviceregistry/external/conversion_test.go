@@ -237,10 +237,10 @@ func makeInstance(serviceEntry *networking.ServiceEntry, address string, port in
 	}
 	return &model.ServiceInstance{
 		Service: svc,
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Family:  family,
 			Address: address,
-			Port:    port,
+			Port:    uint32(port),
 			ServicePort: &model.Port{
 				Name:     svcPort.Name,
 				Port:     int(svcPort.Number),

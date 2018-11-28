@@ -256,7 +256,7 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
-		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
+		host := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.Port)
 		ep := endpoint.LbEndpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: &host,
@@ -311,7 +311,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-		localityLbEndpoints := buildInboundLocalityLbEndpoints(instance.Endpoint.Port)
+		localityLbEndpoints := buildInboundLocalityLbEndpoints(int(instance.Endpoint.Port))
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins

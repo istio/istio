@@ -66,12 +66,12 @@ func TestConvertAddressToCidr(t *testing.T) {
 	}
 }
 
-func TestGetNetworkEndpointAddress(t *testing.T) {
-	neUnix := &model.NetworkEndpoint{
+func TestGetIstioEndpointAddress(t *testing.T) {
+	neUnix := &model.IstioEndpoint{
 		Family:  model.AddressFamilyUnix,
 		Address: "/var/run/test/test.sock",
 	}
-	aUnix := GetNetworkEndpointAddress(neUnix)
+	aUnix := GetIstioEndpointAddress(neUnix)
 	if aUnix.GetPipe() == nil {
 		t.Fatalf("GetAddress() => want Pipe, got %s", aUnix.String())
 	}
@@ -79,12 +79,12 @@ func TestGetNetworkEndpointAddress(t *testing.T) {
 		t.Fatalf("GetAddress() => want path %s, got %s", neUnix.Address, aUnix.GetPipe().GetPath())
 	}
 
-	neIP := &model.NetworkEndpoint{
+	neIP := &model.IstioEndpoint{
 		Family:  model.AddressFamilyTCP,
 		Address: "192.168.10.45",
 		Port:    4558,
 	}
-	aIP := GetNetworkEndpointAddress(neIP)
+	aIP := GetIstioEndpointAddress(neIP)
 	sock := aIP.GetSocketAddress()
 	if sock == nil {
 		t.Fatalf("GetAddress() => want SocketAddress, got %s", aIP.String())
@@ -92,7 +92,7 @@ func TestGetNetworkEndpointAddress(t *testing.T) {
 	if sock.GetAddress() != neIP.Address {
 		t.Fatalf("GetAddress() => want %s, got %s", neIP.Address, sock.GetAddress())
 	}
-	if int(sock.GetPortValue()) != neIP.Port {
+	if sock.GetPortValue() != uint32(neIP.Port) {
 		t.Fatalf("GetAddress() => want port %d, got port %d", neIP.Port, sock.GetPortValue())
 	}
 }

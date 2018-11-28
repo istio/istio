@@ -113,24 +113,8 @@ func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
 	return c.LoadAssignment
 }
 
-func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string, port uint32, network string) *endpoint.LbEndpoint {
-	var addr core.Address
-	switch family {
-	case model.AddressFamilyTCP:
-		addr = core.Address{
-			Address: &core.Address_SocketAddress{
-				SocketAddress: &core.SocketAddress{
-					Address: address,
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: port,
-					},
-				},
-			},
-		}
-	case model.AddressFamilyUnix:
-		addr = core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: address}}}
-	}
-
+func buildEnvoyLbEndpoint(istioEndpoint *model.IstioEndpoint) *endpoint.LbEndpoint {
+	addr := util.GetIstioEndpointAddress(istioEndpoint)
 	ep := &endpoint.LbEndpoint{
 		Endpoint: &endpoint.Endpoint{
 			Address: &addr,
@@ -139,38 +123,7 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Do not remove: mixerfilter depends on this logic.
-	if UID != "" {
-		ep.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*types.Struct{
-				"istio": {
-					Fields: map[string]*types.Value{
-						"uid":     {Kind: &types.Value_StringValue{StringValue: UID}},
-						"network": {Kind: &types.Value_StringValue{StringValue: network}},
-					},
-				},
-			},
-		}
-	}
-
-	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
-	return ep
-}
-
-func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpoint, error) {
-	err := model.ValidateNetworkEndpointAddress(e)
-	if err != nil {
-		return nil, err
-	}
-	addr := util.GetNetworkEndpointAddress(e)
-	ep := &endpoint.LbEndpoint{
-		Endpoint: &endpoint.Endpoint{
-			Address: &addr,
-		},
-	}
-
-	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
-	// Do not remove: mixerfilter depends on this logic.
-	if e.UID != "" || e.Network != "" {
+	if istioEndpoint.UID != "" || istioEndpoint.Network != "" {
 		ep.Metadata = &core.Metadata{
 			FilterMetadata: map[string]*types.Struct{
 				"istio": {
@@ -179,16 +132,14 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 			},
 		}
 	}
-
-	if e.UID != "" {
-		ep.Metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: e.UID}}
+	if istioEndpoint.UID != "" {
+		ep.Metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: istioEndpoint.UID}}
 	}
 
-	if e.Network != "" {
-		ep.Metadata.FilterMetadata["istio"].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: e.Network}}
+	if istioEndpoint.Network != "" {
+		ep.Metadata.FilterMetadata["istio"].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: istioEndpoint.Network}}
 	}
 
-	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep, nil
 }
 
@@ -242,7 +193,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 				localityEpMap[el.Locality] = locLbEps
 			}
 			if el.EnvoyEndpoint == nil {
-				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort, el.Network)
+				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
 		}
@@ -325,7 +276,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 					entries = append(entries, &model.IstioEndpoint{
 						Family:         ep.Endpoint.Family,
 						Address:        ep.Endpoint.Address,
-						EndpointPort:   uint32(ep.Endpoint.Port),
+						Port:           ep.Endpoint.Port,
 						ServicePort:    port,
 						Labels:         ep.Labels,
 						UID:            ep.Endpoint.UID,
@@ -578,12 +529,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 	for _, instance := range instances {
-		lbEp, err := networkEndpointToEnvoyEndpoint(&instance.Endpoint)
-		if err != nil {
-			adsLog.Errorf("EDS: unexpected pilot model endpoint v1 to v2 conversion: %v", err)
-			totalXDSInternalErrors.Add(1)
-			continue
-		}
+		lbEp := buildEnvoyLbEndpoint(&instance.Endpoint)
 		locality := instance.GetLocality()
 		locLbEps, found := localityEpMap[locality]
 		if !found {

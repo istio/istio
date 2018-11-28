@@ -110,9 +110,9 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 	}
 
 	return &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address:     MakeIP(service, version),
-			Port:        target,
+			Port:        uint32(target),
 			ServicePort: port,
 			Locality:    az,
 		},

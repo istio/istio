@@ -155,9 +155,9 @@ func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 
 	// Old style (non-incremental)
 	server.EnvoyXdsServer.MemRegistry.AddInstance(edsIncSvc, &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Address: "127.0.0.3",
-			Port:    int(testEnv.Ports().BackendPort),
+			Port:    uint32(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
 				Name:     "http-main",
 				Port:     8080,
@@ -392,7 +392,7 @@ func addUdsEndpoint(server *bootstrap.Server) {
 		Resolution:   model.ClientSideLB,
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("localuds.cluster.local", &model.ServiceInstance{
-		Endpoint: model.NetworkEndpoint{
+		Endpoint: model.IstioEndpoint{
 			Family:  model.AddressFamilyUnix,
 			Address: udsPath,
 			Port:    0,

@@ -104,7 +104,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 
 		var si *model.ServiceInstance
 		for _, w := range workloadInstances {
-			if w.Endpoint.Port == int(portNumber) {
+			if w.Endpoint.Port == portNumber {
 				si = w
 				break
 			}

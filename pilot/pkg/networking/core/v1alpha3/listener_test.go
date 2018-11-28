@@ -278,8 +278,8 @@ func buildService(hostname string, ip string, protocol model.Protocol, creationT
 	}
 }
 
-func buildEndpoint(service *model.Service) model.NetworkEndpoint {
-	return model.NetworkEndpoint{
+func buildEndpoint(service *model.Service) model.IstioEndpoint {
+	return model.IstioEndpoint{
 		ServicePort: service.Ports[0],
 	}
 }

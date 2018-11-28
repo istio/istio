@@ -31,7 +31,7 @@ import (
 func TestBuildHealthCheckFilters(t *testing.T) {
 	cases := []struct {
 		probes   model.ProbeList
-		endpoint *model.NetworkEndpoint
+		endpoint *model.IstioEndpoint
 		expected plugin.FilterChain
 	}{
 		{
@@ -43,7 +43,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					Path: "/health",
 				},
 			},
-			endpoint: &model.NetworkEndpoint{
+			endpoint: &model.IstioEndpoint{
 				Port: 8080,
 			},
 			expected: plugin.FilterChain{

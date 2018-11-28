@@ -192,7 +192,7 @@ func (instance *ServiceInstance) Validate() error {
 		errs = multierror.Append(errs, err)
 	}
 
-	if err := ValidatePort(instance.Endpoint.Port); err != nil {
+	if err := ValidatePort(int(instance.Endpoint.Port)); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -1982,7 +1982,7 @@ func appendErrors(err error, errs ...error) error {
 
 // ValidateNetworkEndpointAddress checks the Address field of a NetworkEndpoint. If the family is TCP, it checks the
 // address is a valid IP address. If the family is Unix, it checks the address is a valid socket file path.
-func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
+func ValidateIstioEndpointAddress(n *IstioEndpoint) error {
 	switch n.Family {
 	case AddressFamilyTCP:
 		ipAddr := net.ParseIP(n.Address) // Typically it is an IP address

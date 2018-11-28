@@ -715,9 +715,9 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis:
 
 			instance := &model.ServiceInstance{
-				Endpoint: model.NetworkEndpoint{
+				Endpoint: model.IstioEndpoint{
 					Address:     managementIP,
-					Port:        mPort.Port,
+					Port:        uint32(mPort.Port),
 					ServicePort: mPort,
 				},
 				Service: &model.Service{

@@ -125,9 +125,9 @@ func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*mode
 	var out []*model.ServiceInstance
 	for _, portEntry := range svc.Ports {
 		out = append(out, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
+			Endpoint: model.IstioEndpoint{
 				Address:     k8sSvc.Spec.ExternalName,
-				Port:        portEntry.Port,
+				Port:        uint32(portEntry.Port),
 				ServicePort: portEntry,
 			},
 			Service: svc,
