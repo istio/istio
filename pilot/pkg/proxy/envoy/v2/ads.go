@@ -101,6 +101,8 @@ var (
 		Help: "Total services known to pilot.",
 	})
 
+	// TODO: Update all the resource stats in separate routine
+	// virtual services, destination rules, gateways, etc.
 	monVServices = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "pilot_virt_services",
 		Help: "Total virtual services known to pilot.",
@@ -388,7 +390,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
-	if s.globalPushContext().Services == nil {
+	if len(s.globalPushContext().Services(nil)) == 0 {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		adsLog.Warnf("Not initialized %v", s.globalPushContext())
@@ -429,6 +431,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				return err
 			}
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+			// Update the ConfigNamespace for the proxy from the metadata
+			nt.ConfigNamespace = nt.Metadata["CONFIG_NAMESPACE"]
+
 			con.mu.Lock()
 			con.modelNode = &nt
 			if con.ConID == "" {
@@ -707,10 +712,9 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	}
 
 	adsLog.Infof("XDS: Pushing %s Services: %d, "+
-		"VirtualServices: %d, ConnectedEndpoints: %d", version,
-		len(push.Services), len(push.VirtualServiceConfigs), adsClientCount())
-	monServices.Set(float64(len(push.Services)))
-	monVServices.Set(float64(len(push.VirtualServiceConfigs)))
+		"ConnectedEndpoints: %d", version,
+		len(push.Services(nil)), adsClientCount())
+	monServices.Set(float64(len(push.Services(nil))))
 
 	t0 := time.Now()
 

@@ -81,6 +81,11 @@ type Proxy struct {
 	// "default.svc.cluster.local")
 	Domain string
 
+	// ConfigNamespace defines the namespace where this proxy resides
+	// for the purposes of network scoping.
+	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
+	ConfigNamespace string
+
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 }

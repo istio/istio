@@ -248,9 +248,6 @@ type IstioConfigStore interface {
 	// ServiceEntries lists all service entries
 	ServiceEntries() []Config
 
-	// Gateways lists all gateways bound to the specified workload labels
-	Gateways(workloadLabels LabelsCollection) []Config
-
 	// EnvoyFilter lists the envoy filter configuration bound to the specified workload labels
 	EnvoyFilter(workloadLabels LabelsCollection) *Config
 
@@ -594,29 +591,6 @@ func sortConfigByCreationTime(configs []Config) []Config {
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
 	return configs
-}
-
-func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Config {
-	configs, err := store.List(Gateway.Type, NamespaceAll)
-	if err != nil {
-		return nil
-	}
-
-	sortConfigByCreationTime(configs)
-	out := make([]Config, 0)
-	for _, config := range configs {
-		gateway := config.Spec.(*networking.Gateway)
-		if gateway.GetSelector() == nil {
-			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, config)
-		} else {
-			gatewaySelector := Labels(gateway.GetSelector())
-			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, config)
-			}
-		}
-	}
-	return out
 }
 
 func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Config {

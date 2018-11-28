@@ -92,17 +92,6 @@ type IstioConfigStore struct {
 	serviceEntriesReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	GatewaysStub        func(workloadLabels model.LabelsCollection) []model.Config
-	gatewaysMutex       sync.RWMutex
-	gatewaysArgsForCall []struct {
-		workloadLabels model.LabelsCollection
-	}
-	gatewaysReturns struct {
-		result1 []model.Config
-	}
-	gatewaysReturnsOnCall map[int]struct {
-		result1 []model.Config
-	}
 	EnvoyFilterStub        func(workloadLabels model.LabelsCollection) *model.Config
 	envoyFilterMutex       sync.RWMutex
 	envoyFilterArgsForCall []struct {
@@ -522,54 +511,6 @@ func (fake *IstioConfigStore) ServiceEntriesReturnsOnCall(i int, result1 []model
 		})
 	}
 	fake.serviceEntriesReturnsOnCall[i] = struct {
-		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) Gateways(workloadLabels model.LabelsCollection) []model.Config {
-	fake.gatewaysMutex.Lock()
-	ret, specificReturn := fake.gatewaysReturnsOnCall[len(fake.gatewaysArgsForCall)]
-	fake.gatewaysArgsForCall = append(fake.gatewaysArgsForCall, struct {
-		workloadLabels model.LabelsCollection
-	}{workloadLabels})
-	fake.recordInvocation("Gateways", []interface{}{workloadLabels})
-	fake.gatewaysMutex.Unlock()
-	if fake.GatewaysStub != nil {
-		return fake.GatewaysStub(workloadLabels)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.gatewaysReturns.result1
-}
-
-func (fake *IstioConfigStore) GatewaysCallCount() int {
-	fake.gatewaysMutex.RLock()
-	defer fake.gatewaysMutex.RUnlock()
-	return len(fake.gatewaysArgsForCall)
-}
-
-func (fake *IstioConfigStore) GatewaysArgsForCall(i int) model.LabelsCollection {
-	fake.gatewaysMutex.RLock()
-	defer fake.gatewaysMutex.RUnlock()
-	return fake.gatewaysArgsForCall[i].workloadLabels
-}
-
-func (fake *IstioConfigStore) GatewaysReturns(result1 []model.Config) {
-	fake.GatewaysStub = nil
-	fake.gatewaysReturns = struct {
-		result1 []model.Config
-	}{result1}
-}
-
-func (fake *IstioConfigStore) GatewaysReturnsOnCall(i int, result1 []model.Config) {
-	fake.GatewaysStub = nil
-	if fake.gatewaysReturnsOnCall == nil {
-		fake.gatewaysReturnsOnCall = make(map[int]struct {
-			result1 []model.Config
-		})
-	}
-	fake.gatewaysReturnsOnCall[i] = struct {
 		result1 []model.Config
 	}{result1}
 }

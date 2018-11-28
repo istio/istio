@@ -47,7 +47,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
 
-	gatewaysForWorkload := env.Gateways(workloadLabels)
+	gatewaysForWorkload := push.Gateways(node, workloadLabels)
 	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router", node.ID)
 		return []*xdsapi.Listener{}, nil
@@ -179,7 +179,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
 
-	gateways := env.Gateways(workloadLabels)
+	gateways := push.Gateways(node, workloadLabels)
 	if len(gateways) == 0 {
 		log.Debuga("buildGatewayRoutes: no gateways for router", node.ID)
 		return nil, nil
@@ -215,7 +215,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 	port := int(servers[0].Port.Number)
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	virtualServices := push.VirtualServices(merged.Names)
+	virtualServices := push.VirtualServices(node, merged.Names)
 	vHostDedupMap := make(map[string]*route.VirtualHost)
 
 	for _, v := range virtualServices {
@@ -491,7 +491,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := push.VirtualServices(gatewaysForWorkload)
+	virtualServices := push.VirtualServices(node, gatewaysForWorkload)
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
@@ -539,7 +539,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 			networkFilters: buildOutboundAutoPassthroughFilterStack(env, node, port),
 		})
 	} else {
-		virtualServices := push.VirtualServices(gatewaysForWorkload)
+		virtualServices := push.VirtualServices(node, gatewaysForWorkload)
 		for _, spec := range virtualServices {
 			vsvc := spec.Spec.(*networking.VirtualService)
 			matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
