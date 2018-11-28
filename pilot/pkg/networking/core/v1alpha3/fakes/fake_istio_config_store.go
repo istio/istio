@@ -901,8 +901,6 @@ func (fake *IstioConfigStore) Invocations() map[string][][]interface{} {
 	defer fake.deleteMutex.RUnlock()
 	fake.serviceEntriesMutex.RLock()
 	defer fake.serviceEntriesMutex.RUnlock()
-	fake.gatewaysMutex.RLock()
-	defer fake.gatewaysMutex.RUnlock()
 	fake.envoyFilterMutex.RLock()
 	defer fake.envoyFilterMutex.RUnlock()
 	fake.hTTPAPISpecByDestinationMutex.RLock()
