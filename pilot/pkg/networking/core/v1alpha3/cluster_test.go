@@ -37,8 +37,8 @@ const (
 	Mesh
 	DestinationRule
 	DestinationRuleForOsDefault
-	MeshWideTcpKeepaliveSeconds        = 11
-	DestinationRuleTcpKeepaliveSeconds = 21
+	MeshWideTCPKeepaliveSeconds        = 11
+	DestinationRuleTCPKeepaliveSeconds = 21
 )
 
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
@@ -241,7 +241,7 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 	return env
 }
 
-func TestBuildSidecarClustersWithMeshWideTcpKeepalive(t *testing.T) {
+func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
@@ -254,7 +254,7 @@ func TestBuildSidecarClustersWithMeshWideTcpKeepalive(t *testing.T) {
 	}
 
 	// Do not set tcp_keepalive anywhere
-	env := buildEnvForClustersWithTcpKeepalive(None)
+	env := buildEnvForClustersWithTCPKeepalive(None)
 	clusters, err := configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(clusters)).To(gomega.Equal(4))
@@ -264,7 +264,7 @@ func TestBuildSidecarClustersWithMeshWideTcpKeepalive(t *testing.T) {
 	g.Expect(cluster.UpstreamConnectionOptions).To(gomega.BeNil())
 
 	// Set mesh wide default for tcp_keepalive.
-	env = buildEnvForClustersWithTcpKeepalive(Mesh)
+	env = buildEnvForClustersWithTCPKeepalive(Mesh)
 	clusters, err = configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(clusters)).To(gomega.Equal(4))
@@ -272,11 +272,11 @@ func TestBuildSidecarClustersWithMeshWideTcpKeepalive(t *testing.T) {
 	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
 	// KeepaliveTime should be set but rest should be nil.
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes).To(gomega.BeNil())
-	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(gomega.Equal(uint32(MeshWideTcpKeepaliveSeconds)))
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(gomega.Equal(uint32(MeshWideTCPKeepaliveSeconds)))
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(gomega.BeNil())
 
 	// Set DestinationRule override for tcp_keepalive.
-	env = buildEnvForClustersWithTcpKeepalive(DestinationRule)
+	env = buildEnvForClustersWithTCPKeepalive(DestinationRule)
 	clusters, err = configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(clusters)).To(gomega.Equal(4))
@@ -284,11 +284,11 @@ func TestBuildSidecarClustersWithMeshWideTcpKeepalive(t *testing.T) {
 	g.Expect(cluster.Name).To(gomega.Equal("outbound|8080|foobar|foo.example.org"))
 	// KeepaliveTime should be set but rest should be nil.
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes).To(gomega.BeNil())
-	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(gomega.Equal(uint32(DestinationRuleTcpKeepaliveSeconds)))
+	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(gomega.Equal(uint32(DestinationRuleTCPKeepaliveSeconds)))
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(gomega.BeNil())
 
 	// Set DestinationRule override for tcp_keepalive with empty value.
-	env = buildEnvForClustersWithTcpKeepalive(DestinationRuleForOsDefault)
+	env = buildEnvForClustersWithTCPKeepalive(DestinationRuleForOsDefault)
 	clusters, err = configgen.BuildClusters(env, proxy, env.PushContext)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(clusters)).To(gomega.Equal(4))
@@ -301,7 +301,7 @@ func TestBuildSidecarClustersWithMeshWideTcpKeepalive(t *testing.T) {
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(gomega.BeNil())
 }
 
-func buildEnvForClustersWithTcpKeepalive(configType ConfigType) *model.Environment {
+func buildEnvForClustersWithTCPKeepalive(configType ConfigType) *model.Environment {
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
 	serviceDiscovery.ServicesReturns([]*model.Service{
@@ -330,18 +330,18 @@ func buildEnvForClustersWithTcpKeepalive(configType ConfigType) *model.Environme
 	if configType != None {
 		meshConfig.TcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
 			Time: &types.Duration{
-				Seconds: MeshWideTcpKeepaliveSeconds,
+				Seconds: MeshWideTCPKeepaliveSeconds,
 				Nanos:   0,
 			},
 		}
 	}
 
 	// Set DestinationRule override.
-	var destinationRuleTcpKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive
+	var destinationRuleTCPKeepalive *networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive
 	if configType == DestinationRule {
-		destinationRuleTcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+		destinationRuleTCPKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
 			Time: &types.Duration{
-				Seconds: DestinationRuleTcpKeepaliveSeconds,
+				Seconds: DestinationRuleTCPKeepaliveSeconds,
 				Nanos:   0,
 			},
 		}
@@ -349,7 +349,7 @@ func buildEnvForClustersWithTcpKeepalive(configType ConfigType) *model.Environme
 
 	// Set empty tcp_keepalive.
 	if configType == DestinationRuleForOsDefault {
-		destinationRuleTcpKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{}
+		destinationRuleTCPKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{}
 	}
 
 	configStore := &fakes.IstioConfigStore{}
@@ -384,7 +384,7 @@ func buildEnvForClustersWithTcpKeepalive(configType ConfigType) *model.Environme
 									},
 									ConnectionPool: &networking.ConnectionPoolSettings{
 										Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-											TcpKeepalive: destinationRuleTcpKeepalive,
+											TcpKeepalive: destinationRuleTCPKeepalive,
 										},
 									},
 								},

@@ -490,7 +490,7 @@ func applyConnectionPool(env *model.Environment, cluster *v2.Cluster, settings *
 			threshold.MaxConnections = &types.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
 
-		applyTcpKeepalive(env, cluster, settings)
+		applyTCPKeepalive(env, cluster, settings)
 	}
 
 	cluster.CircuitBreakers = &v2_cluster.CircuitBreakers{
@@ -498,18 +498,18 @@ func applyConnectionPool(env *model.Environment, cluster *v2.Cluster, settings *
 	}
 }
 
-func applyTcpKeepalive(env *model.Environment, cluster *v2.Cluster, settings *networking.ConnectionPoolSettings) {
+func applyTCPKeepalive(env *model.Environment, cluster *v2.Cluster, settings *networking.ConnectionPoolSettings) {
 	var keepaliveProbes uint32
 	var keepaliveTime *types.Duration
 	var keepaliveInterval *types.Duration
-	isTcpKeepaliveSet := false
+	isTCPKeepaliveSet := false
 
 	// Apply mesh wide TCP keepalive.
 	if env.Mesh.TcpKeepalive != nil {
 		keepaliveProbes = env.Mesh.TcpKeepalive.Probes
 		keepaliveTime = env.Mesh.TcpKeepalive.Time
 		keepaliveInterval = env.Mesh.TcpKeepalive.Interval
-		isTcpKeepaliveSet = true
+		isTCPKeepaliveSet = true
 	}
 
 	// Apply/Override with DestinationRule TCP keepalive if set.
@@ -517,10 +517,10 @@ func applyTcpKeepalive(env *model.Environment, cluster *v2.Cluster, settings *ne
 		keepaliveProbes = settings.Tcp.TcpKeepalive.Probes
 		keepaliveTime = settings.Tcp.TcpKeepalive.Time
 		keepaliveInterval = settings.Tcp.TcpKeepalive.Interval
-		isTcpKeepaliveSet = true
+		isTCPKeepaliveSet = true
 	}
 
-	if !isTcpKeepaliveSet {
+	if !isTCPKeepaliveSet {
 		return
 	}
 
