@@ -152,6 +152,10 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: ISTIO_META_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: ISTIO_META_CONFIG_NAMESPACE
           valueFrom:
             fieldRef:
