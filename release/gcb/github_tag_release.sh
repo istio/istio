@@ -122,7 +122,7 @@ EOF
 
 
 echo "Beginning tag of github"
-ORG_REPOS=(api istio proxy)
+ORG_REPOS=(api istio proxy cni)
 
 for GITREPO in "${ORG_REPOS[@]}"; do
   SHA=$(grep "$GITREPO" "/workspace/manifest.txt"  | cut -f 2 -d " ")
