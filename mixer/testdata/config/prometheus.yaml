@@ -157,6 +157,48 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - connection_mtls
+    - name: tcp_connections_opened_total
+      instance_name: tcpconnectionsopened.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_mtls
+    - name: tcp_connections_closed_total
+      instance_name: tcpconnectionsclosed.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_mtls
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -182,7 +224,30 @@ spec:
   match: context.protocol == "tcp"
   actions:
   - handler: prometheus
-    instances:    
+    instances:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionopen
+  namespace: istio-system
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsopened.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionclosed
+  namespace: istio-system
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "closed")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsclosed.metric

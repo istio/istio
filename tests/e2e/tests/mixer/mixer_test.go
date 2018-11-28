@@ -583,41 +583,35 @@ func TestTcpMetrics(t *testing.T) {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_app=\"%s\"}", "mongodb")
+	want := float64(1)
+	validateMetric(t, promAPI, query, "istio_tcp_sent_bytes_total", want)
+
+	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app=\"%s\"}", "mongodb")
+	validateMetric(t, promAPI, query, "istio_tcp_received_bytes_total", want)
+
+	query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
+	validateMetric(t, promAPI, query, "istio_tcp_connections_opened_total", want)
+
+	query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
+	validateMetric(t, promAPI, query, "istio_tcp_connections_closed_total", want)
+}
+
+func validateMetric(t *testing.T, promAPI v1.API, query, metricName string, want float64) {
+	t.Helper()
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
-	log.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Logf("prometheus values for istio_tcp_sent_bytes_total:\n%s", promDump(promAPI, "istio_tcp_sent_bytes_total"))
+		t.Logf("prometheus values for %s:\n%s", metricName, promDump(promAPI, metricName))
 		fatalf(t, "Could not find metric value: %v", err)
 	}
-	t.Logf("tcp_sent_bytes_total: %f", got)
-	want := float64(1)
+	t.Logf("%s: %f", metricName, got)
 	if got < want {
-		t.Logf("prometheus values for istio_tcp_sent_bytes_total:\n%s", promDump(promAPI, "istio_tcp_sent_bytes_total"))
-		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
-	}
-
-	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app=\"%s\"}", "mongodb")
-	t.Logf("prometheus query: %s", query)
-	value, err = promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		fatalf(t, "Could not get metrics from prometheus: %v", err)
-	}
-	log.Infof("promvalue := %s", value.String())
-
-	got, err = vectorValue(value, map[string]string{})
-	if err != nil {
-		t.Logf("prometheus values for istio_tcp_received_bytes_total:\n%s", promDump(promAPI, "istio_tcp_received_bytes_total"))
-		fatalf(t, "Could not find metric value: %v", err)
-	}
-	t.Logf("tcp_received_bytes_total: %f", got)
-	if got < want {
-		t.Logf("prometheus values for istio_tcp_received_bytes_total:\n%s", promDump(promAPI, "istio_tcp_received_bytes_total"))
+		t.Logf("prometheus values for %s:\n%s", metricName, promDump(promAPI, metricName))
 		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
 }
