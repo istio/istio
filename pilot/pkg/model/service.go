@@ -405,12 +405,13 @@ type IstioEndpoint struct {
 	// from the service port.
 	EndpointPort uint32
 
-	// ServicePortName tracks the name of the port, to avoid 'eventual consistency' issues.
+	// Port declaration from the service declaration. This is the port for
+	// the service associated with this instance.
 	// Sometimes the Endpoint is visible before Service - so looking up the port number would
 	// fail. Instead the mapping to number is made when the clusters are computed. The lazy
 	// computation will also help with 'on-demand' and 'split horizon' - where it will be skipped
 	// for not used clusters or endpoints behind a gate.
-	ServicePortName string
+	ServicePort *Port
 
 	// UID identifies the workload, for telemetry purpose.
 	UID string

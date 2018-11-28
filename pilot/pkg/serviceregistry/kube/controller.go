@@ -733,55 +733,63 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		if ep.Namespace == meta_v1.NamespaceSystem {
 			return nil
 		}
-		c.updateEDS(ep)
+		hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
+		svc := c.servicesMap[hostname]
+
+		endpoints := []*model.IstioEndpoint{}
+		for _, ss := range ep.Subsets {
+			for _, ea := range ss.Addresses {
+				pod := c.pods.getPodByIP(ea.IP)
+				if pod == nil {
+					log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
+					if c.Env != nil {
+						c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+					}
+					// TODO: keep them in a list, and check when pod events happen !
+					continue
+				}
+
+				labels := map[string]string(convertLabels(pod.ObjectMeta))
+
+				uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+
+				// EDS and ServiceEntry use name for service port - ADS will need to
+				// map to numbers.
+				for _, port := range ss.Ports {
+					servicePort := &model.Port{
+						Name:     port.Name,
+						Protocol: ConvertProtocol(port.Name, port.Protocol),
+					}
+					if svc != nil {
+						for _, svcPort := range svc.Ports {
+							if svcPort.Name == port.Name {
+								servicePort.Port = svcPort.Port
+							}
+						}
+					}
+					endpoints = append(endpoints, &model.IstioEndpoint{
+						Address:        ea.IP,
+						EndpointPort:   uint32(port.Port),
+						ServicePort:    servicePort,
+						Labels:         labels,
+						UID:            uid,
+						ServiceAccount: kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
+						Network:        c.endpointNetwork(ea.IP),
+					})
+				}
+			}
+		}
+
+		// TODO: Endpoints include the service labels, maybe we can use them ?
+		// nodeName is also included, not needed
+
+		log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
+
+		c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 		return nil
 	})
 
 	return nil
-}
-
-func (c *Controller) updateEDS(ep *v1.Endpoints) {
-	hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-
-	endpoints := []*model.IstioEndpoint{}
-	for _, ss := range ep.Subsets {
-		for _, ea := range ss.Addresses {
-			pod := c.pods.getPodByIP(ea.IP)
-			if pod == nil {
-				log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
-				if c.Env != nil {
-					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
-				}
-				// TODO: keep them in a list, and check when pod events happen !
-				continue
-			}
-
-			labels := map[string]string(convertLabels(pod.ObjectMeta))
-
-			uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
-
-			// EDS and ServiceEntry use name for service port - ADS will need to
-			// map to numbers.
-			for _, port := range ss.Ports {
-				endpoints = append(endpoints, &model.IstioEndpoint{
-					Address:         ea.IP,
-					EndpointPort:    uint32(port.Port),
-					ServicePortName: port.Name,
-					Labels:          labels,
-					UID:             uid,
-					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
-					Network:         c.endpointNetwork(ea.IP),
-				})
-			}
-		}
-	}
-
-	// TODO: Endpoints include the service labels, maybe we can use them ?
-	// nodeName is also included, not needed
-
-	log.Infof("Handle EDS endpoint %s in namespace %s -> %v %v", ep.Name, ep.Namespace, ep.Subsets, endpoints)
-
-	c.XDSUpdater.EDSUpdate(c.ClusterID, string(hostname), endpoints)
 }
 
 // namedRangerEntry for holding network's CIDR and name

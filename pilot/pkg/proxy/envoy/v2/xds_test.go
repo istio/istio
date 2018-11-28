@@ -430,12 +430,14 @@ func getLocalIP() string {
 func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint {
 	return []*model.IstioEndpoint{
 		&model.IstioEndpoint{
-			Address:         ip,
-			ServicePortName: "http-main",
-			EndpointPort:    80,
-			Labels:          map[string]string{"version": version},
-			UID:             "uid1",
-			ServiceAccount:  account,
+			Address: ip,
+			ServicePort: &model.Port{
+				Name: "http-main",
+			},
+			EndpointPort:   80,
+			Labels:         map[string]string{"version": version},
+			UID:            "uid1",
+			ServiceAccount: account,
 		},
 	}
 }

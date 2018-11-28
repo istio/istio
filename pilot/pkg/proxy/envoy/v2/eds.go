@@ -225,7 +225,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// for this cluster
 	for _, es := range se.Shards {
 		for _, el := range es.Entries {
-			if svcPort.Name != el.ServicePortName {
+			if svcPort.Name != el.ServicePort.Name {
 				continue
 			}
 			// Port labels
@@ -323,16 +323,16 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 				for _, ep := range endpoints {
 					entries = append(entries, &model.IstioEndpoint{
-						Family:          ep.Endpoint.Family,
-						Address:         ep.Endpoint.Address,
-						EndpointPort:    uint32(ep.Endpoint.Port),
-						ServicePortName: port.Name,
-						Labels:          ep.Labels,
-						UID:             ep.Endpoint.UID,
-						ServiceAccount:  ep.ServiceAccount,
-						Network:         ep.Endpoint.Network,
-						Locality:        ep.GetLocality(),
-						LbWeight:        ep.Endpoint.LbWeight,
+						Family:         ep.Endpoint.Family,
+						Address:        ep.Endpoint.Address,
+						EndpointPort:   uint32(ep.Endpoint.Port),
+						ServicePort:    port,
+						Labels:         ep.Labels,
+						UID:            ep.Endpoint.UID,
+						ServiceAccount: ep.ServiceAccount,
+						Network:        ep.Endpoint.Network,
+						Locality:       ep.GetLocality(),
+						LbWeight:       ep.Endpoint.LbWeight,
 					})
 					if ep.ServiceAccount != "" {
 						account, f := svc2account[hostname]

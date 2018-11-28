@@ -190,7 +190,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 
 	for _, e := range endpoints {
 		//servicePortName string, servicePort int, address string, port int
-		p, _ := svc.Ports.Get(e.ServicePortName)
+		p, _ := svc.Ports.Get(e.ServicePort.Name)
 
 		instance := &model.ServiceInstance{
 			Service: svc,
@@ -198,7 +198,7 @@ func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.I
 			Endpoint: model.NetworkEndpoint{
 				Address: e.Address,
 				ServicePort: &model.Port{
-					Name:     e.ServicePortName,
+					Name:     e.ServicePort.Name,
 					Port:     p.Port,
 					Protocol: model.ProtocolHTTP,
 				},
