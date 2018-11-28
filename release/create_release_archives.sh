@@ -20,11 +20,18 @@
 # based on those artifacts, and then stores the tar files
 # back to the directory.
 
-TEMP_DIR="/tmp/istio.version.XXXX"
+TEMP_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
 BASE_DIR="$TEMP_DIR"
 ISTIOCTL_SUBDIR=istioctl
 OUTPUT_PATH=""
 VER_STRING=""
+
+function cleanup() {
+  rm -rf "$TEMP_DIR"
+}
+
+# do cleanup before the script exits
+trap cleanup EXIT
 
 function usage() {
   echo "$0
@@ -64,9 +71,6 @@ set -x
 [[ -z "${OUTPUT_PATH}" ]] && usage
 [[ -z "${VER_STRING}"  ]] && usage
 
-if [ "${BASE_DIR}" = "${TEMP_DIR}" ]; then
-  mktemp -d "${TEMP_DIR}"
-fi
 COMMON_FILES_DIR="${BASE_DIR}/istio/istio-${VER_STRING}"
 BIN_DIR="${COMMON_FILES_DIR}/bin"
 mkdir -p "${BIN_DIR}"
@@ -177,4 +181,3 @@ create_osx_archive
 create_windows_archive
 popd
 
-rm -rf "$TEMP_DIR"

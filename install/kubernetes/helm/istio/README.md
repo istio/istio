@@ -118,7 +118,7 @@ The chart deploys pods that consume minimum resources as specified in the resour
 
 1. Add `istio.io` chart repository and point to the release:
     ```
-    $ helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/master-latest-daily/charts
+    $ helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
     ```
 
 1. Build the Helm dependencies:
