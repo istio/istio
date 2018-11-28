@@ -596,7 +596,7 @@ func TestTcpMetrics(t *testing.T) {
 	validateMetric(t, promAPI, query, "istio_tcp_connections_closed_total", want)
 }
 
-// nolint: unparam
+// nolint:unparam
 func validateMetric(t *testing.T, promAPI v1.API, query, metricName string, want float64) {
 	t.Helper()
 	t.Logf("prometheus query: %s", query)
