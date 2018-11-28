@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/istio.routing.v1alpha1/
-number_of_entries: 53
+number_of_entries: 52
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -59,9 +59,6 @@ spec:
       tcp:
         maxConnections: 100
         connectTimeout: 30ms
-        tcpKeepalive:
-          time: 7200s
-          interval: 75s
 </code></pre>
 
 <table class="message-fields">
@@ -168,60 +165,6 @@ cluster at a given time. Defaults to 3.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>TCP connection timeout.</p>
-
-</td>
-</tr>
-<tr id="ConnectionPoolSettings-TCPSettings-tcp_keepalive">
-<td><code>tcpKeepalive</code></td>
-<td><code><a href="#ConnectionPoolSettings-TCPSettings-TcpKeepalive">ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
-<td>
-<p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ConnectionPoolSettings-TCPSettings-TcpKeepalive">ConnectionPoolSettings.TCPSettings.TcpKeepalive</h2>
-<section>
-<p>TCP keepalive.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-probes">
-<td><code>probes</code></td>
-<td><code>uint32</code></td>
-<td>
-<p>Maximum number of keepalive probes to send without response before
-deciding the connection is dead. Default is to use the OS level configuration
-(unless overridden, Linux defaults to 9.)</p>
-
-</td>
-</tr>
-<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-time">
-<td><code>time</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>The time duration a connection needs to be idle before keep-alive
-probes start being sent. Default is to use the OS level configuration
-(unless overridden, Linux defaults to 7200s (ie 2 hours.)</p>
-
-</td>
-</tr>
-<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-interval">
-<td><code>interval</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
-<td>
-<p>The time duration between keep-alive probes.
-Default is to use the OS level configuration
-(unless overridden, Linux defaults to 75s.)</p>
 
 </td>
 </tr>
@@ -3944,7 +3887,7 @@ to be customized for specific client contexts.</p>
 
 <p>The following example on Kubernetes, routes all HTTP traffic by default to
 pods of the reviews service with label &ldquo;version: v1&rdquo;. In addition,
-HTTP requests with path starting with /wpcatalog/ or /consumercatalog/ will
+HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
 be rewritten to /newcatalog and sent to pods with label &ldquo;version: v2&rdquo;.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3

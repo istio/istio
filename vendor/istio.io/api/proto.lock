@@ -732,11 +732,6 @@
                 "type": "google.protobuf.Duration"
               },
               {
-                "id": 28,
-                "name": "tcp_keepalive",
-                "type": "istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive"
-              },
-              {
                 "id": 7,
                 "name": "ingress_class",
                 "type": "string"
@@ -2629,33 +2624,6 @@
                     "id": 2,
                     "name": "connect_timeout",
                     "type": "google.protobuf.Duration"
-                  },
-                  {
-                    "id": 3,
-                    "name": "tcp_keepalive",
-                    "type": "TcpKeepalive"
-                  }
-                ],
-                "messages": [
-                  {
-                    "name": "TcpKeepalive",
-                    "fields": [
-                      {
-                        "id": 1,
-                        "name": "probes",
-                        "type": "uint32"
-                      },
-                      {
-                        "id": 2,
-                        "name": "time",
-                        "type": "google.protobuf.Duration"
-                      },
-                      {
-                        "id": 3,
-                        "name": "interval",
-                        "type": "google.protobuf.Duration"
-                      }
-                    ]
                   }
                 ]
               },
