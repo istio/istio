@@ -19,6 +19,7 @@ import (
 	"time"
 )
 
+// Options defines the set of options used for grpc keepalive.
 type Options struct {
 	// After a duration of this time if the server/client doesn't see any activity it pings the peer to see if the transport is still alive.
 	Time time.Duration
@@ -27,6 +28,7 @@ type Options struct {
 	Timeout time.Duration
 }
 
+// DefaultOption returns the default keepalive options.
 func DefaultOption() *Options {
 	return &Options{
 		Time:    30 * time.Second,

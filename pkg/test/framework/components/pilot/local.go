@@ -18,18 +18,17 @@ import (
 	"fmt"
 	"net"
 
-	"istio.io/istio/pkg/test/framework/scopes"
-
-	meshConfig "istio.io/api/mesh/v1alpha1"
-
 	"github.com/hashicorp/go-multierror"
 
+	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/framework/dependency"
 	"istio.io/istio/pkg/test/framework/environment"
 	"istio.io/istio/pkg/test/framework/environments/local"
+	"istio.io/istio/pkg/test/framework/scopes"
 )
 
 var (
@@ -71,7 +70,8 @@ func NewLocalPilot(namespace string, mesh *meshConfig.MeshConfig, configStore mo
 			Registries: []string{},
 		},
 		// Include all of the default plugins for integration with Mixer, etc.
-		Plugins: bootstrap.DefaultPlugins,
+		Plugins:          bootstrap.DefaultPlugins,
+		KeepaliveOptions: keepalive.DefaultOption(),
 	}
 
 	// Create the server for the discovery service.
