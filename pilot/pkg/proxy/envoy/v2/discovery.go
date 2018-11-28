@@ -314,7 +314,10 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	// Reset the status during the push.
 	pc := s.globalPushContext()
 	if pc != nil {
-		pc.OnConfigChange()
+		pc.OnPush()
+	} else {
+		adsLog.Errorf("XDS: Failed to get push context")
+		return
 	}
 
 	if !full {

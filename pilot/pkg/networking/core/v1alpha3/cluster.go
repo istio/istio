@@ -95,7 +95,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 		if !have[cluster.Name] {
 			out = append(out, cluster)
 		} else {
-			push.Add(model.DuplicatedClusters, cluster.Name, proxy,
+			push.MetricAddEndpoint(model.DuplicatedClusters, cluster.Name, proxy,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
 		}
 		have[cluster.Name] = true

@@ -270,7 +270,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
 		if old, exists := listenerMap[listenerMapKey]; exists {
-			push.Add(model.ProxyStatusConflictInboundListener, node.ID, node,
+			push.MetricAddEndpoint(model.ProxyStatusConflictInboundListener, node.ID, node,
 				fmt.Sprintf("Rejected %s, used %s for %s", instance.Service.Hostname, old.Service.Hostname, listenerMapKey))
 			// Skip building listener for the same ip port
 			continue
@@ -406,7 +406,7 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 		currentHostnames[i] = string(s.Hostname)
 	}
 	concatHostnames := strings.Join(currentHostnames, ",")
-	push.Add(c.metric,
+	push.MetricAddEndpoint(c.metric,
 		c.listenerName,
 		c.node,
 		fmt.Sprintf("Listener=%s Accepted%s=%s Rejected%s=%s %sServices=%d",

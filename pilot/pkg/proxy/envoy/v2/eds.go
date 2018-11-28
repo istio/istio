@@ -256,10 +256,10 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	}
 
 	if cnt == 0 {
-		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+		push.MetricAddEndpoint(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 		//adsLog.Infof("EDS: no instances %s (host=%s ports=%v labels=%v)", clusterName, hostname, p, labels)
 	} else {
-		push.Delete(model.ProxyStatusClusterNoInstances, clusterName)
+		push.MetricDeleteEndpoint(model.ProxyStatusClusterNoInstances, clusterName)
 	}
 	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
 
@@ -377,10 +377,10 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			return err
 		}
 		if len(instances) == 0 {
-			push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+			push.MetricAddEndpoint(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 			adsLog.Debugf("EDS: cluster %q (host=%s ports=%v labels=%v) has no instances", clusterName, hostname, port, labels)
 		} else {
-			push.Delete(model.ProxyStatusClusterNoInstances, clusterName)
+			push.MetricDeleteEndpoint(model.ProxyStatusClusterNoInstances, clusterName)
 		}
 		edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(len(instances)))
 

@@ -147,8 +147,8 @@ func newPushMetric(name, help string) *PushMetric {
 	return pm
 }
 
-// Add will add an case to the metric.
-func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg string) {
+// MetricAddEndpoint will add an case to the ProxyStatus.
+func (ps *PushContext) MetricAddEndpoint(metric *PushMetric, key string, proxy *Proxy, msg string) {
 	if ps == nil {
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
@@ -168,8 +168,8 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 	metricMap[key] = ev
 }
 
-// Delete will remove an case from the metric.
-func (ps *PushContext) Delete(metric *PushMetric, key string) {
+// MetricDeleteEndpoint will remove an case from the ProxyStatus.
+func (ps *PushContext) MetricDeleteEndpoint(metric *PushMetric, key string) {
 	if ps == nil {
 		log.Infof("Metric without context %s", key)
 		return
@@ -297,8 +297,8 @@ func (ps *PushContext) JSON() ([]byte, error) {
 	return json.MarshalIndent(ps, "", "    ")
 }
 
-// OnConfigChange is called when a config change is detected.
-func (ps *PushContext) OnConfigChange() {
+// OnPush is called to update LastPushStatus and metrics when push happens.
+func (ps *PushContext) OnPush() {
 	LastPushMutex.Lock()
 	LastPushStatus = ps
 	LastPushMutex.Unlock()
@@ -509,7 +509,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 					mdr.subsets[subset.Name] = true
 					combinedRule.Subsets = append(combinedRule.Subsets, subset)
 				} else {
-					ps.Add(DuplicatedSubsets, string(resolvedHost), nil,
+					ps.MetricAddEndpoint(DuplicatedSubsets, string(resolvedHost), nil,
 						fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
 							subset.Name, string(resolvedHost)))
 				}

@@ -520,7 +520,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	out = append(endpointsForPodInSameNS, endpointsForPodInDifferentNS...)
 	if len(out) == 0 {
 		if c.Env != nil {
-			c.Env.PushContext.Add(model.ProxyStatusNoService, proxy.ID, proxy, "")
+			c.Env.PushContext.MetricAddEndpoint(model.ProxyStatusNoService, proxy.ID, proxy, "")
 			status := c.Env.PushContext
 			if status == nil {
 				log.Infof("Empty list of services for pod %s %v", proxy.ID, c.Env)
@@ -551,7 +551,7 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
 					out = append(out, getEndpoints(proxy.IPAddress, c, port, svcPort, svc))
 					if c.Env != nil {
-						c.Env.PushContext.Delete(model.ProxyStatusEndpointNotReady, proxy.ID)
+						c.Env.PushContext.MetricDeleteEndpoint(model.ProxyStatusEndpointNotReady, proxy.ID)
 					}
 				}
 
@@ -559,7 +559,7 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 					nrEP := getEndpoints(proxy.IPAddress, c, port, svcPort, svc)
 					out = append(out, nrEP)
 					if c.Env != nil {
-						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+						c.Env.PushContext.MetricAddEndpoint(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
 					}
 				}
 			}
@@ -743,7 +743,7 @@ func (c *Controller) updateEDS(ep *v1.Endpoints) {
 			if pod == nil {
 				log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
 				if c.Env != nil {
-					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+					c.Env.PushContext.MetricAddEndpoint(model.EndpointNoPod, string(hostname), nil, ea.IP)
 				}
 				// TODO: keep them in a list, and check when pod events happen !
 				continue
