@@ -710,6 +710,8 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--set prometheus.scrapeInterval=1s \
 		--set gateways.istio-ingressgateway.autoscaleMax=1 \
+		--set mixer.policy.replicaCount=2 \
+		--set mixer.policy.autoscaleEnabled=false \
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
@@ -721,6 +723,8 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--set global.mtls.enabled=true \
 		--set prometheus.scrapeInterval=1s \
 		--set gateways.istio-ingressgateway.autoscaleMax=1 \
+		--set mixer.policy.replicaCount=2 \
+		--set mixer.policy.autoscaleEnabled=false \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
 		--values install/kubernetes/helm/istio/values.yaml \
