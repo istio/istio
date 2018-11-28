@@ -224,6 +224,30 @@ func ParseServiceNode(s string) (Proxy, error) {
 	return out, nil
 }
 
+// GetProxyConfigNamespace extracts the namespace associated with the proxy
+// from the proxy metadata or the proxy ID
+func GetProxyConfigNamespace(proxy *Proxy) string {
+	if proxy == nil {
+		return ""
+	}
+
+	// First look for ISTIO_META_CONFIG_NAMESPACE
+	if configNamespace, found := proxy.Metadata["CONFIG_NAMESPACE"]; found {
+		return configNamespace
+	}
+
+	// If its not present, fallback to parsing the namespace from the proxyID
+	// NOTE: This is a hack for Kubernetes only where we assume that the
+	// proxy ID is of the form name.namespace. Other platforms should
+	// set ISTIO_META_CONFIG_NAMESPACE in the sidecar bootstrap config.
+	parts := strings.Split(proxy.ID, ".")
+	if len(parts) != 2 {
+		return ""
+	}
+
+	return parts[1]
+}
+
 const (
 	serviceNodeSeparator = "~"
 

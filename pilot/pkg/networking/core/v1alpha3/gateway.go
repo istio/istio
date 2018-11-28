@@ -47,7 +47,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
 
-	gatewaysForWorkload := push.Gateways(node, workloadLabels)
+	gatewaysForWorkload := env.Gateways(workloadLabels)
 	if len(gatewaysForWorkload) == 0 {
 		log.Debuga("buildGatewayListeners: no gateways for router", node.ID)
 		return []*xdsapi.Listener{}, nil
@@ -179,7 +179,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
 
-	gateways := push.Gateways(node, workloadLabels)
+	gateways := env.Gateways(workloadLabels)
 	if len(gateways) == 0 {
 		log.Debuga("buildGatewayRoutes: no gateways for router", node.ID)
 		return nil, nil

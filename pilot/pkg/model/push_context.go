@@ -56,7 +56,6 @@ type PushContext struct {
 	virtualServiceConfigs  []Config   `json:"-,omitempty"`
 	destinationRuleHosts   []Hostname
 	destinationRuleByHosts map[Hostname]*combinedDestinationRule
-	gateways               []Config `json:"-,omitempty"`
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -360,27 +359,6 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config 
 	return nil
 }
 
-// Gateways returns the gateway resources bound to the workload labels
-func (ps *PushContext) Gateways(proxy *Proxy, workloadLabels LabelsCollection) []Config {
-	// TODO: use the proxy namespace with NetworkScopes to return the correct set of Gateways
-	configs := ps.gateways
-
-	out := make([]Config, 0)
-	for _, config := range configs {
-		gateway := config.Spec.(*networking.Gateway)
-		if gateway.GetSelector() == nil {
-			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, config)
-		} else {
-			gatewaySelector := Labels(gateway.GetSelector())
-			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, config)
-			}
-		}
-	}
-	return out
-}
-
 // SubsetToLabels returns the labels associated with a subset of a given service.
 func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
 	// empty subset
@@ -423,10 +401,6 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 
 	if err = ps.initDestinationRules(env); err != nil {
-		return err
-	}
-
-	if err = ps.initGateways(env); err != nil {
 		return err
 	}
 
@@ -601,17 +575,5 @@ func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
-	return nil
-}
-
-// Caches list of gateways
-func (ps *PushContext) initGateways(env *Environment) error {
-	gateways, err := env.List(Gateway.Type, NamespaceAll)
-	if err != nil {
-		return err
-	}
-
-	sortConfigByCreationTime(gateways)
-	ps.gateways = gateways
 	return nil
 }
