@@ -331,7 +331,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			if destinationRule.TrafficPolicy != nil {
 				// only connection pool settings make sense on the inbound path.
 				// upstream TLS settings/outlier detection/load balancer don't apply here.
-				applyConnectionPool(env, localCluster, destinationRule.TrafficPolicy.ConnectionPool)
+				applyConnectionPool(localCluster, destinationRule.TrafficPolicy.ConnectionPool)
 			}
 		}
 		clusters = append(clusters, localCluster)
@@ -444,7 +444,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *net
 	}
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(policy, port)
 
-	applyConnectionPool(env, cluster, connectionPool)
+	applyConnectionPool(cluster, connectionPool)
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
 	if clusterMode != SniDnatClusterMode {
@@ -454,7 +454,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *net
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func applyConnectionPool(env *model.Environment, cluster *v2.Cluster, settings *networking.ConnectionPoolSettings) {
+func applyConnectionPool(cluster *v2.Cluster, settings *networking.ConnectionPoolSettings) {
 	if settings == nil {
 		return
 	}
@@ -489,61 +489,11 @@ func applyConnectionPool(env *model.Environment, cluster *v2.Cluster, settings *
 		if settings.Tcp.MaxConnections > 0 {
 			threshold.MaxConnections = &types.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
-
-		applyTcpKeepalive(env, cluster, settings)
 	}
 
 	cluster.CircuitBreakers = &v2_cluster.CircuitBreakers{
 		Thresholds: []*v2_cluster.CircuitBreakers_Thresholds{threshold},
 	}
-}
-
-func applyTcpKeepalive(env *model.Environment, cluster *v2.Cluster, settings *networking.ConnectionPoolSettings) {
-	var keepaliveProbes uint32
-	var keepaliveTime *types.Duration
-	var keepaliveInterval *types.Duration
-	isTcpKeepaliveSet := false
-
-	// Apply mesh wide TCP keepalive.
-	if env.Mesh.TcpKeepalive != nil {
-		keepaliveProbes = env.Mesh.TcpKeepalive.Probes
-		keepaliveTime = env.Mesh.TcpKeepalive.Time
-		keepaliveInterval = env.Mesh.TcpKeepalive.Interval
-		isTcpKeepaliveSet = true
-	}
-
-	// Apply/Override with DestinationRule TCP keepalive if set.
-	if settings.Tcp.TcpKeepalive != nil {
-		keepaliveProbes = settings.Tcp.TcpKeepalive.Probes
-		keepaliveTime = settings.Tcp.TcpKeepalive.Time
-		keepaliveInterval = settings.Tcp.TcpKeepalive.Interval
-		isTcpKeepaliveSet = true
-	}
-
-	if !isTcpKeepaliveSet {
-		return
-	}
-
-	// If none of the proto fields are set, then an empty tcp_keepalive is set in Envoy.
-	// That would set SO_KEEPALIVE on the socket with OS default values.
-	upstreamConnectionOptions := &v2.UpstreamConnectionOptions{
-		TcpKeepalive: &core.TcpKeepalive{},
-	}
-
-	// If any of the TCP keepalive options are not set, skip them from the config so that OS defaults are used.
-	if keepaliveProbes > 0 {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveProbes = &types.UInt32Value{Value: keepaliveProbes}
-	}
-
-	if keepaliveTime != nil {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveTime = &types.UInt32Value{Value: uint32(keepaliveTime.Seconds)}
-	}
-
-	if keepaliveInterval != nil {
-		upstreamConnectionOptions.TcpKeepalive.KeepaliveInterval = &types.UInt32Value{Value: uint32(keepaliveInterval.Seconds)}
-	}
-
-	cluster.UpstreamConnectionOptions = upstreamConnectionOptions
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
