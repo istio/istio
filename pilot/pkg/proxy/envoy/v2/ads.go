@@ -390,7 +390,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		adsLog.Warnf("Error reading config %v", err)
 		return err
 	}
-	if len(s.globalPushContext().Services(nil)) == 0 {
+	if s.globalPushContext().Services(nil) == nil {
 		// Error accessing the data - log and close, maybe a different pilot replica
 		// has more luck
 		adsLog.Warnf("Not initialized %v", s.globalPushContext())
