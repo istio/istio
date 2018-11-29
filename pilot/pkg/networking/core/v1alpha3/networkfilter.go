@@ -16,19 +16,26 @@ package v1alpha3
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
+	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/log"
 )
+
+// redisOpTimeout is the default operation timeout for the Redis proxy filter.
+var redisOpTimeout = 5 * time.Second
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(env *model.Environment, node *model.Proxy, instance *model.ServiceInstance) []listener.Filter {
@@ -49,14 +56,23 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 		}
 
 		if util.Is11Proxy(node) {
-			fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
-				Format: EnvoyTCPLogFormat,
+			switch env.Mesh.AccessLogEncoding {
+			case meshconfig.MeshConfig_TEXT:
+				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+					Format: EnvoyTextLogFormat,
+				}
+			case meshconfig.MeshConfig_JSON:
+				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormat,
+				}
+			default:
+				log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
 			}
 		}
 
 		config.AccessLog = []*accesslog.AccessLog{
 			{
-				ConfigType: &accesslog.AccessLog_Config{util.MessageToStruct(fl)},
+				ConfigType: &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)},
 				Name:       xdsutil.FileAccessLog,
 			},
 		}
@@ -64,7 +80,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 
 	tcpFilter := &listener.Filter{
 		Name:       xdsutil.TCPProxy,
-		ConfigType: &listener.Filter_Config{util.MessageToStruct(config)},
+		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
 	}
 	return tcpFilter
 }
@@ -80,7 +96,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 		// TODO: Need to set other fields such as Idle timeouts
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, config)
-	return buildOutboundNetworkFiltersStack(port, tcpFilter, clusterName)
+	return buildOutboundNetworkFiltersStack(port, tcpFilter, clusterName, clusterName)
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
@@ -106,17 +122,21 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 		})
 	}
 
+	// TODO: Need to handle multiple cluster names for Redis
+	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, proxyConfig)
-	return buildOutboundNetworkFiltersStack(port, tcpFilter, statPrefix)
+	return buildOutboundNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
 }
 
 // buildOutboundNetworkFiltersStack builds a slice of network filters based on
 // the protocol in use and the given TCP filter instance.
-func buildOutboundNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, statPrefix string) []listener.Filter {
+func buildOutboundNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, statPrefix, clusterName string) []listener.Filter {
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildOutboundMongoFilter(statPrefix))
+	case model.ProtocolRedis:
+		filterstack = append(filterstack, buildOutboundRedisFilter(statPrefix, clusterName))
 	}
 	filterstack = append(filterstack, *tcpFilter)
 	return filterstack
@@ -137,6 +157,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	return buildOutboundNetworkFiltersWithWeightedClusters(env, node, routes, push, port, config)
 }
 
+// buildOutboundMongoFilter builds an outbound Envoy MongoProxy filter.
 func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 	// TODO: add a watcher for /var/lib/istio/mongo/certs
 	// if certs are found use, TLS or mTLS clusters for talking to MongoDB.
@@ -148,6 +169,39 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 
 	return listener.Filter{
 		Name:       xdsutil.MongoProxy,
-		ConfigType: &listener.Filter_Config{util.MessageToStruct(config)},
+		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+	}
+}
+
+// buildOutboundAutoPassthroughFilterStack builds a filter stack with sni_cluster and tcp_proxy
+// used by auto_passthrough gateway servers
+func buildOutboundAutoPassthroughFilterStack(env *model.Environment, node *model.Proxy, port *model.Port) []listener.Filter {
+	// First build tcp_proxy with access logs
+	// then add sni_cluster to the front
+	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(env, node, util.BlackHoleCluster, port)
+	filterstack := make([]listener.Filter, 0)
+	filterstack = append(filterstack, listener.Filter{
+		Name: util.SniClusterFilter,
+	})
+	filterstack = append(filterstack, tcpProxy...)
+
+	return filterstack
+}
+
+// buildOutboundRedisFilter builds an outbound Envoy RedisProxy filter.
+// Currently, if multiple clusters are defined, one of them will be picked for
+// configuring the Redis proxy.
+func buildOutboundRedisFilter(statPrefix, clusterName string) listener.Filter {
+	config := &redis_proxy.RedisProxy{
+		StatPrefix: statPrefix, // redis stats are prefixed with redis.<statPrefix> by Envoy
+		Cluster:    clusterName,
+		Settings: &redis_proxy.RedisProxy_ConnPoolSettings{
+			OpTimeout: &redisOpTimeout, // TODO: Make this user configurable
+		},
+	}
+
+	return listener.Filter{
+		Name:       xdsutil.RedisProxy,
+		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
 	}
 }

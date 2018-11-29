@@ -109,8 +109,8 @@ func TestConvertInstance(t *testing.T) {
 		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Port, port)
 	}
 
-	if out.AvailabilityZone != dc {
-		t.Errorf("convertInstance() => %v, want %v", out.AvailabilityZone, dc)
+	if out.Endpoint.Locality != dc {
+		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.Locality, dc)
 	}
 
 	if out.Endpoint.Address != ip {

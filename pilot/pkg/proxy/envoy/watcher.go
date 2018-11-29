@@ -104,7 +104,7 @@ type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,
 // watchFileEvents watches for changes on a channel and notifies via notifyFn().
 // The function batches changes so that related changes are processed together.
 // The function ensures that notifyFn() is called no more than one time per minDelay.
-// The function does not return until the the context is cancelled.
+// The function does not return until the the context is canceled.
 func watchFileEvents(ctx context.Context, wch <-chan *fsnotify.FileEvent, minDelay time.Duration, notifyFn func()) {
 	// timer and channel for managing minDelay.
 	var timeChan <-chan time.Time

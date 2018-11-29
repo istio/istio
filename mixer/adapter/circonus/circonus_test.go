@@ -179,7 +179,7 @@ func makeConfig(metrics ...*config.Params_MetricInfo) *config.Params {
 		Metrics:            metrics}
 }
 
-func makeBadConfig(metrics ...*config.Params_MetricInfo) *config.Params {
+func makeBadConfig() *config.Params {
 	return &config.Params{
 		SubmissionUrl:      "this is not a url",
 		SubmissionInterval: -100 * time.Second,

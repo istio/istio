@@ -10,6 +10,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: certmanager
   template:
     metadata:
       labels:

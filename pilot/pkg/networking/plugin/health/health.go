@@ -43,7 +43,7 @@ func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: xdsutil.HealthCheck,
 		ConfigType: &http_conn.HttpFilter_Config{
-			util.MessageToStruct(&hcfilter.HealthCheck{
+			Config: util.MessageToStruct(&hcfilter.HealthCheck{
 				PassThroughMode: proto.BoolTrue,
 				Headers: []*envoy_api_v2_route.HeaderMatcher{
 					{

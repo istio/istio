@@ -29,7 +29,7 @@ import (
 )
 
 type (
-	// Args specify captured requests and programmed behaviour
+	// Args specify captured requests and programmed behavior
 	Args struct {
 		// manipulate the behavior of the backend.
 		Behavior *Behavior
@@ -38,7 +38,7 @@ type (
 		Requests *Requests
 	}
 
-	// Behavior specifies programmed behaviour
+	// Behavior specifies programmed behavior
 	Behavior struct {
 		ValidateResponse *adptModel.ValidateResponse
 		ValidateError    error
@@ -96,16 +96,12 @@ type (
 		quotaLock          sync.RWMutex
 		HandleQuotaRequest []*quota.HandleQuotaRequest
 
-		samplecheckLock          sync.RWMutex
 		HandleSampleCheckRequest []*checkTmpl.HandleSampleCheckRequest
 
-		samplequotaLock          sync.RWMutex
 		HandleSampleQuotaRequest []*quotaTmpl.HandleSampleQuotaRequest
 
-		samplereportLock          sync.RWMutex
 		HandleSampleReportRequest []*reportTmpl.HandleSampleReportRequest
 
-		sampleapaLock          sync.RWMutex
 		HandleSampleApaRequest []*apaTmpl.HandleSampleApaRequest
 	}
 )

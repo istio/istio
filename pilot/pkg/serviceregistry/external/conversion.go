@@ -129,8 +129,10 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Port:        int(instancePort),
 			ServicePort: convertPort(servicePort),
 			Network:     endpoint.Network,
+			Locality:    endpoint.Locality,
+			LbWeight:    endpoint.Weight,
 		},
-		// TODO AvailabilityZone, ServiceAccount
+		// TODO ServiceAccount
 		Service: service,
 		Labels:  endpoint.Labels,
 	}

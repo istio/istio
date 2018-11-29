@@ -633,7 +633,7 @@ name starts with &ldquo;ratings&rdquo;</li>
 <td><code>requestHeaderOperations</code></td>
 <td><code><a href="#Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate[]</a></code></td>
 <td>
-<p>Optional. Templatized operations on the request headers using attributes produced by the
+<p>Optional. Templatized operations on the request headers using values produced by the
 rule actions.</p>
 
 </td>
@@ -642,7 +642,7 @@ rule actions.</p>
 <td><code>responseHeaderOperations</code></td>
 <td><code><a href="#Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate[]</a></code></td>
 <td>
-<p>Optional. Templatized operations on the response headers using attributes produced by the
+<p>Optional. Templatized operations on the response headers using values produced by the
 rule actions.</p>
 
 </td>
@@ -652,7 +652,16 @@ rule actions.</p>
 </section>
 <h2 id="Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate</h2>
 <section>
-<p>A template for an HTTP header manipulation.</p>
+<p>A template for an HTTP header manipulation. Values in the template are expressions
+that may reference action outputs by name. For example, if an action <code>x</code> produces an output
+with a field <code>f</code>, then the header value expressions may use attribute <code>x.output.f</code> to reference
+the field value:</p>
+
+<pre><code class="language-yaml">request_header_operations:
+- name: x-istio-header
+  values:
+  - x.output.f
+</code></pre>
 
 <table class="message-fields">
 <thead>
@@ -667,7 +676,7 @@ rule actions.</p>
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>Required. Header name.</p>
+<p>Required. Header name literal value.</p>
 
 </td>
 </tr>
@@ -675,7 +684,7 @@ rule actions.</p>
 <td><code>values</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>Optional. Header values to replace or append.</p>
+<p>Optional. Header value expressions.</p>
 
 </td>
 </tr>
@@ -705,21 +714,21 @@ rule actions.</p>
 <tr id="Rule-HeaderOperationTemplate-Operation-REPLACE">
 <td><code>REPLACE</code></td>
 <td>
-<p>replaces the header with the given name</p>
+<p>Replace a header by name.</p>
 
 </td>
 </tr>
 <tr id="Rule-HeaderOperationTemplate-Operation-REMOVE">
 <td><code>REMOVE</code></td>
 <td>
-<p>removes the header with the given name (the value is ignored)</p>
+<p>Remove a header by name. Values are ignored.</p>
 
 </td>
 </tr>
 <tr id="Rule-HeaderOperationTemplate-Operation-APPEND">
 <td><code>APPEND</code></td>
 <td>
-<p>appends the values to the existing values (preserving existing values)</p>
+<p>Append values to the existing header values.</p>
 
 </td>
 </tr>

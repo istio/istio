@@ -108,6 +108,7 @@ func defaultTestArgs() *Args {
 }
 
 // createClient returns a Mixer gRPC client, useful for tests
+// nolint: interfacer
 func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 	conn, err := grpc.Dial(addr.String(), grpc.WithInsecure())
 	if err != nil {

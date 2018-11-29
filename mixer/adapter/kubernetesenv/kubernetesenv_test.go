@@ -42,7 +42,6 @@ import (
 const (
 	testSecretName      = "testSecretName"
 	testSecretNameSpace = "istio-system"
-	maxTestSleep        = 25
 )
 
 type fakeK8sBuilder struct {

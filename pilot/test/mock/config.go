@@ -79,7 +79,7 @@ var (
 		Host: "ratings",
 		TrafficPolicy: &networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
-				new(networking.LoadBalancerSettings_Simple),
+				LbPolicy: new(networking.LoadBalancerSettings_Simple),
 			},
 		},
 	}
@@ -88,13 +88,13 @@ var (
 	ExampleHTTPAPISpec = &mccpb.HTTPAPISpec{
 		Attributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"petstore"}},
+				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "petstore"}},
 			},
 		},
 		Patterns: []*mccpb.HTTPAPISpecPattern{{
 			Attributes: &mpb.Attributes{
 				Attributes: map[string]*mpb.Attributes_AttributeValue{
-					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{"getPet"}},
+					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "getPet"}},
 				},
 			},
 			HttpMethod: "GET",
@@ -467,7 +467,7 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	stop := make(chan struct{})
 	defer close(stop)
 	added, deleted := atomic.NewInt64(0), atomic.NewInt64(0)
-	cache.RegisterEventHandler(model.MockConfig.Type, func(c model.Config, ev model.Event) {
+	cache.RegisterEventHandler(model.MockConfig.Type, func(_ model.Config, ev model.Event) {
 		switch ev {
 		case model.EventAdd:
 			if deleted.Load() != 0 {

@@ -28,7 +28,7 @@ const (
 	endpointCheckNotReady
 )
 
-func endpointReady(store cache.Store, queue workqueue.RateLimitingInterface, namespace, name string) endpointReadiness {
+func endpointReady(store cache.KeyGetter, queue workqueue.RateLimitingInterface, namespace, name string) endpointReadiness {
 	key, quit := queue.Get()
 	if quit {
 		return endpointCheckShutdown

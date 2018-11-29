@@ -45,7 +45,7 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 			install.Namespace = *istioNamespaceFlag
 			// TODO: this is NOT merged with the values.yaml from helm directory.
 
-			values, err := getValues(valuesPath, install)
+			values, err := getValues(valuesPath)
 			if err != nil {
 				return err
 			}
@@ -83,7 +83,7 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	return cmd
 }
 
-func getValues(path string, i *installation) (string, error) {
+func getValues(path string) (string, error) {
 	if path == "" {
 		return "", nil
 	}
