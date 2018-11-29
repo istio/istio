@@ -112,55 +112,6 @@ type Proxy struct {
 	NamespaceDependencies map[string]bool
 }
 
-// GetOutboundServices returns the outbound services associated with a node,
-// defaulting to the full mesh as cached in the last config update.
-func (p *Proxy) GetOutboundServices(ctx *PushContext) []*Service {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-	if p.serviceDependencies != nil {
-		return p.serviceDependencies
-	}
-	if p.NamespaceDependencies != nil {
-		res := []*Service{}
-		for _, s := range ctx.Services {
-			podNs := s.Attributes.Namespace
-			if podNs == "" {
-				res = append(res, s)
-			} else if p.NamespaceDependencies[podNs] || podNs == p.ClusterID {
-				res = append(res, s)
-			}
-		}
-		return res
-	}
-	return ctx.Services
-}
-
-// UpdateOutboundServices is called before a push, to optionally select a subset
-// of services to configure for outbound. On-demand XDS will update the list of
-// services and store it in the Proxy. Explicit config will also provide an optional
-// list.
-func (p *Proxy) UpdateOutboundServices(push *PushContext) {
-	// TODO: compute the list of dependencies based on NetworkScope.
-	// By default, if isolation is enabled only same namespace will be visible - this
-	// method allows fine tunning deps for an individual workload.
-	// HACK: until the API is finalized, extract the outbound subset from a node metadata.
-
-	//outboundServices, f := p.Metadata["istioOutbound"]
-
-	//if f {
-	//	p.mutex.Lock()
-	//	osvc := strings.Split(outboundServices, ",")
-	//	p.serviceDependencies = []*Service{}
-	//	for _, osn := range osvc {
-	//		svc, f := push.ServiceByHostname[Hostname(osn)]
-	//		if f {
-	//			p.serviceDependencies = append(p.serviceDependencies, svc)
-	//		}
-	//	}
-	//	p.mutex.Unlock()
-	//}
-}
-
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 

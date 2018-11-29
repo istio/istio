@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"istio.io/istio/pkg/features/pilot"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -310,12 +311,29 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
-func (ps *PushContext) Services(proxy *Proxy) []*Service {
+func (ps *PushContext) Services(p *Proxy) []*Service {
 	// TODO: use network scopes here, and return services in the proxy namespace if
 	// configured to use current_namespace as the scope and proxy is not nil
-	//if proxy == nil {
-	//	return ps.allServices
-	//}
+	if p == nil {
+		return ps.allServices
+	}
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	if p.serviceDependencies != nil {
+		return p.serviceDependencies
+	}
+	if p.NamespaceDependencies != nil || pilot.NetworkScopes != ""{
+		res := []*Service{}
+		for _, s := range ps.allServices {
+			podNs := s.Attributes.Namespace
+			if podNs == "" {
+				res = append(res, s)
+			} else if p.NamespaceDependencies[podNs] || podNs == p.ClusterID {
+				res = append(res, s)
+			}
+		}
+		return res
+	}
 	return ps.allServices
 }
 

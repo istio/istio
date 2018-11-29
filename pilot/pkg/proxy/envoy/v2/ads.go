@@ -552,7 +552,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 					// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 					if reflect.DeepEqual(con.Clusters, clusters) {
-						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 						if discReq.ResponseNonce != "" {
 							con.mu.Lock()
 							con.EndpointNonceAcked = discReq.ResponseNonce
@@ -638,6 +638,8 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		con.ConID = connectionID(discReq.Node.Id)
 	}
 
+	// Using the env until the mesh config API is stable and agreed upon, and to avoid
+	// rollback issues ( new fields in mesh config break older version of pilot on rollback )
 	if pilot.NetworkScopes != "" {
 		adminNs := strings.Split(pilot.NetworkScopes, ",")
 		con.modelNode.NamespaceDependencies = map[string]bool{}
@@ -646,7 +648,8 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 		}
 	}
 
-	con.modelNode.UpdateOutboundServices(s.Env.PushContext)
+	// TODO
+	// use networkScope to update the list of namespace and service dependencies
 
 	return nil
 }
@@ -659,7 +662,7 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 // Compute and send the new configuration. This is blocking and may be slow
 // for large configs.
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
-	con.modelNode.UpdateOutboundServices(pushEv.push)
+	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
 		// Push only EDS. This is indexed already - push immediately

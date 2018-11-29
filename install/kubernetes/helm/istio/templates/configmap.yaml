@@ -16,7 +16,6 @@ data:
     {{ toYaml .Values.global.networks | indent 6 }}
     {{- else }}
     networks: {}
-    {{- end }}
   {{- end }}
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.
@@ -153,12 +152,4 @@ data:
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
     {{- end }}
   
-  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
-  meshNetworks: |-
-  {{- if .Values.global.meshNetworks }}
-    networks:
-{{ toYaml .Values.global.meshNetworks | indent 6 }}
-  {{- else }}
-    networks: {}
-  {{- end }}
 {{- end }}
