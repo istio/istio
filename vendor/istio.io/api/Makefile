@@ -351,6 +351,9 @@ clean-envoy:
 proto-commit:
 	@$(docker_lock) commit
 
+proto-commit-force:
+	@$(docker_lock) commit --force
+
 #####################
 # Lint
 #####################
