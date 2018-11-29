@@ -1980,7 +1980,7 @@ func appendErrors(err error, errs ...error) error {
 	return err
 }
 
-// ValidateNetworkEndpointAddress checks the Address field of a IstioEndpoint. If the family is TCP, it checks the
+// ValidateIstioEndpointAddress checks the Address field of a IstioEndpoint. If the family is TCP, it checks the
 // address is a valid IP address. If the family is Unix, it checks the address is a valid socket file path.
 func ValidateIstioEndpointAddress(n *IstioEndpoint) error {
 	switch n.Family {
