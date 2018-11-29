@@ -140,7 +140,7 @@ func buildEnvoyLbEndpoint(istioEndpoint *model.IstioEndpoint) *endpoint.LbEndpoi
 		ep.Metadata.FilterMetadata["istio"].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: istioEndpoint.Network}}
 	}
 
-	return ep, nil
+	return ep
 }
 
 // updateClusterInc computes an envoy cluster assignment from the service shards.
