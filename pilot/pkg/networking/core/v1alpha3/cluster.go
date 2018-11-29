@@ -112,8 +112,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	}
 	networkView := model.GetNetworkView(proxy)
 
-	for _, service := range push.Services {
-		config := push.DestinationRule(service.Hostname)
+	// NOTE: Proxy can be nil here due to precomputed CDS
+	// TODO: get rid of precomputed CDS when adding NetworkScopes as precomputed CDS is not useful in that context
+	for _, service := range push.Services(proxy) {
+		config := push.DestinationRule(proxy, service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
 				continue
@@ -177,8 +179,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 
 	networkView := model.GetNetworkView(proxy)
 
-	for _, service := range push.Services {
-		config := push.DestinationRule(service.Hostname)
+	for _, service := range push.Services(proxy) {
+		config := push.DestinationRule(proxy, service.Hostname)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
 				continue
@@ -324,7 +326,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		// (not the defaults) to handle the increased traffic volume
 		// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
 		// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-		config := push.DestinationRule(instance.Service.Hostname)
+		config := push.DestinationRule(proxy, instance.Service.Hostname)
 		if config != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
 			if destinationRule.TrafficPolicy != nil {
