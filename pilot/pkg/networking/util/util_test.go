@@ -92,7 +92,7 @@ func TestGetIstioEndpointAddress(t *testing.T) {
 	if sock.GetAddress() != neIP.Address {
 		t.Fatalf("GetAddress() => want %s, got %s", neIP.Address, sock.GetAddress())
 	}
-	if sock.GetPortValue() != uint32(neIP.Port) {
+	if sock.GetPortValue() != neIP.Port {
 		t.Fatalf("GetAddress() => want port %d, got port %d", neIP.Port, sock.GetPortValue())
 	}
 }

@@ -104,7 +104,7 @@ func BuildAddress(ip string, port uint32) core.Address {
 func GetIstioEndpointAddress(n *model.IstioEndpoint) core.Address {
 	switch n.Family {
 	case model.AddressFamilyTCP:
-		return BuildAddress(n.Address, uint32(n.Port))
+		return BuildAddress(n.Address, n.Port)
 	case model.AddressFamilyUnix:
 		return core.Address{Address: &core.Address_Pipe{Pipe: &core.Pipe{Path: n.Address}}}
 	default:
