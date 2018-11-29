@@ -537,6 +537,56 @@ spec:
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: tcpconnectionsopened
+  namespace: {{ .Release.Namespace }}
+spec:
+  value: "1"
+  dimensions:
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+    source_workload: source.workload.name | "unknown"
+    source_workload_namespace: source.workload.namespace | "unknown"
+    source_principal: source.principal | "unknown"
+    source_app: source.labels["app"] | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_workload: destination.workload.name | "unknown"
+    destination_workload_namespace: destination.workload.namespace | "unknown"
+    destination_principal: destination.principal | "unknown"
+    destination_app: destination.labels["app"] | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    destination_service: destination.service.name | "unknown"
+    destination_service_name: destination.service.name | "unknown"
+    destination_service_namespace: destination.service.namespace | "unknown"
+    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: tcpconnectionsclosed
+  namespace: {{ .Release.Namespace }}
+spec:
+  value: "1"
+  dimensions:
+    reporter: conditional((context.reporter.kind | "inbound") == "outbound", "source", "destination")
+    source_workload: source.workload.name | "unknown"
+    source_workload_namespace: source.workload.namespace | "unknown"
+    source_principal: source.principal | "unknown"
+    source_app: source.labels["app"] | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_workload: destination.workload.name | "unknown"
+    destination_workload_namespace: destination.workload.namespace | "unknown"
+    destination_principal: destination.principal | "unknown"
+    destination_app: destination.labels["app"] | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    destination_service: destination.service.name | "unknown"
+    destination_service_name: destination.service.name | "unknown"
+    destination_service_namespace: destination.service.namespace | "unknown"
+    connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
   name: prometheus
@@ -695,6 +745,44 @@ spec:
       - destination_service_name
       - destination_service_namespace
       - connection_security_policy
+    - name: tcp_connections_opened_total
+      instance_name: tcpconnectionsopened.metric.{{ .Release.Namespace }}
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+    - name: tcp_connections_closed_total
+      instance_name: tcpconnectionsclosed.metric.{{ .Release.Namespace }}
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -733,6 +821,30 @@ spec:
     instances:
     - tcpbytesent.metric
     - tcpbytereceived.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionopen
+  namespace: {{ .Release.Namespace }}
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsopened.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionclosed
+  namespace: {{ .Release.Namespace }}
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "close")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsclosed.metric
 ---
 
 apiVersion: "config.istio.io/v1alpha2"
