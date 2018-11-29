@@ -31,6 +31,7 @@ const defaultEgressGateway = "istio-egressgateway.istio-system"
 
 var (
 	remoteClusters []string
+	vip            string
 	addressLabels  string
 	useEgress      bool
 	egressGateway  string
@@ -39,7 +40,7 @@ var (
 		Use:     "gen-binding",
 		Short:   "Generate Istio traffic routing configuration to direct traffic to another Istio mesh",
 		Long:    "Generate Istio traffic routing configuration to direct traffic to another Istio mesh.",
-		Example: "istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2] [--use-egress] [--egressgateway <ip:port>]", // nolint: lll
+		Example: "istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--vip <ip>] [--labels key1=value1,key2=value2] [--use-egress] [--egressgateway <ip:port>]", // nolint: lll
 		RunE: func(c *cobra.Command, args []string) error {
 
 			if len(args) != 1 {
@@ -69,7 +70,7 @@ var (
 				egressGateway = ""
 			}
 
-			bindings, err := genbinding.CreateBinding(args[0], remoteClusters, labels, egressGateway, namespace)
+			bindings, err := genbinding.CreateBinding(args[0], remoteClusters, vip, labels, egressGateway, namespace)
 			if err != nil {
 				return multierror.Prefix(err, "could not create binding:")
 			}
@@ -91,6 +92,8 @@ var (
 func init() {
 	genBindingCmd.PersistentFlags().StringSliceVarP(&remoteClusters, "cluster", "",
 		nil, "IP:Port of remote Istio Ingress")
+	genBindingCmd.PersistentFlags().StringVarP(&vip, "vip", "",
+		"", "key=value pairs for the Service Entry VIP")
 	genBindingCmd.PersistentFlags().StringVarP(&addressLabels, "labels", "",
 		"", "key=value pairs for subsets")
 	genBindingCmd.PersistentFlags().BoolVarP(&useEgress, "use-egress", "",

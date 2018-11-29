@@ -37,13 +37,17 @@ type genBindingTestCase struct {
 func TestGenBinding(t *testing.T) {
 	tt := []genBindingTestCase{
 		{args: strings.Split("experimental gen-binding", " "),
-			expectedSubstring: "Error: usage: istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--labels key1=value1,key2=value2] [--use-egress] [--egressgateway <ip:port>]", // nolint: lll
+			expectedSubstring: "Error: usage: istioctl experimental gen-binding <service:port> --cluster <ip:port> [--cluster <ip:port>]* [--vip <ip>] [--labels key1=value1,key2=value2] [--use-egress] [--egressgateway <ip:port>]", // nolint: lll
 			wantException:     true,
 			name:              "No args"},
 
 		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:15443", " "),
 			goldenFilename: "testdata/genbinding/reviews-1234.yaml",
 			name:           "One remote, no subset"},
+
+		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4:15443 --vip 6.7.8.9", " "),
+			goldenFilename: "testdata/genbinding/reviews-1234-vip.yaml",
+			name:           "One remote with vip address"},
 
 		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4 --cluster 6.7.8.9", " "),
 			goldenFilename: "testdata/genbinding/reviews-2remotes.yaml",
@@ -88,6 +92,7 @@ func TestGenBinding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Clear, because we re-use
 			remoteClusters = []string{}
+			vip = ""
 			addressLabels = ""
 			useEgress = false
 			egressGateway = "istio-egressgateway.istio-system"

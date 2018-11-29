@@ -17,6 +17,12 @@ Accessing the service _reviews_ on a remote mesh by specifying the address of th
 istioctl experimental gen-binding reviews:9080 --cluster 1.2.3.4:15443
 ```
 
+Accessing the service _reviews_ on a remote mesh by specifying the vip address of the service:
+
+```
+istioctl experimental gen-binding reviews:9080 --cluster 1.2.3.4:15443 --vip 5.6.7.8
+```
+
 Accessing a service on multiple remote clusters:
 
 ```

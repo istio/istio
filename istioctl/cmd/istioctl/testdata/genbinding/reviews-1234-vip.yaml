@@ -5,11 +5,10 @@ metadata:
   name: service-entry-reviews
   namespace: default
 spec:
+  addresses:
+  - 6.7.8.9
   endpoints:
   - address: 1.2.3.4
-    ports:
-      http: 15443
-  - address: 6.7.8.9
     ports:
       http: 15443
   hosts:

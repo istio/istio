@@ -17,7 +17,6 @@ package genbinding
 import (
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"net"
 	"regexp"
 	"strconv"
@@ -37,7 +36,7 @@ const defaultMultiMeshPort = "15443"
 var validHostnameRegex = regexp.MustCompile(`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$`)
 
 // CreateBinding converts desired multicluster state into Istio state
-func CreateBinding(service string, clusters []string, labels map[string]string, egressGateway string, namespace string) ([]model.Config, error) { // nolint: lll
+func CreateBinding(service string, clusters []string, vip string, labels map[string]string, egressGateway string, namespace string) ([]model.Config, error) { // nolint: lll
 
 	remoteService, err := parseNet(service, "")
 	if err != nil {
@@ -53,19 +52,21 @@ func CreateBinding(service string, clusters []string, labels map[string]string, 
 		remoteClusters = append(remoteClusters, *remoteCluster)
 	}
 
-	istioConfig, err := serviceToServiceEntrySniCluster(*remoteService, remoteClusters, labels, egressGateway, namespace)
+	istioConfig, err := serviceToServiceEntrySniCluster(*remoteService, remoteClusters, vip, labels, egressGateway, namespace)
 	return istioConfig, err
 }
 
 // serviceToServiceEntry() creates a ServiceEntry pointing to istio-egressgateway
-func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []hostPort, labels map[string]string, egressGateway string, namespace string) ([]model.Config, error) { // nolint: lll
+func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []hostPort, vip string, labels map[string]string, egressGateway string, namespace string) ([]model.Config, error) { // nolint: lll
 	protocol := "http"
 	var egresslabels map[string]string
-	// It is strongly recommended addresses for different hosts don't clash;
-	// we use the hash to make clashing unlikely.
-	h := fnv.New32a()
-	h.Write([]byte(remoteService.host))
-	address := fmt.Sprintf("127.255.%d.%d", h.Sum32()&255, (h.Sum32()>>8)&255)
+
+	if vip != "" {
+		address := net.ParseIP(vip)
+		if address == nil {
+			return nil, errors.New("invalid VIP address specified")
+		}
+	}
 
 	serviceEntry := model.Config{
 		ConfigMeta: model.ConfigMeta{
@@ -85,7 +86,6 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 					Name:     "http",
 				},
 			},
-			Addresses:  []string{address},
 			Location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
 			Resolution: v1alpha3.ServiceEntry_DNS,
 			Endpoints:  []*v1alpha3.ServiceEntry_Endpoint{},
@@ -95,6 +95,10 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 	egresslabels = make(map[string]string)
 	egresslabels["network"] = "external"
 	spec := serviceEntry.Spec.(*v1alpha3.ServiceEntry)
+	if vip != "" {
+		spec.Addresses = []string{vip}
+	}
+
 	for _, cluster := range remoteClusters {
 		endpoint := &v1alpha3.ServiceEntry_Endpoint{
 			Address: cluster.host,

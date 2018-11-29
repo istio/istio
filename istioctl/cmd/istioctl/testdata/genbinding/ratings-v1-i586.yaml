@@ -5,8 +5,6 @@ metadata:
   name: service-entry-ratings
   namespace: default
 spec:
-  addresses:
-  - 127.255.25.103
   endpoints:
   - address: 1.2.3.4
     labels:
