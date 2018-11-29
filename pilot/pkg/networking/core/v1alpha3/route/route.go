@@ -76,7 +76,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 	out := make([]VirtualHostWrapper, 0)
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	virtualServices := push.VirtualServices(meshGateway)
+	virtualServices := push.VirtualServices(node, meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
 		wrappers := buildVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, meshGateway)
@@ -395,7 +395,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			weighted = append(weighted, clusterWeight)
 
-			hashPolicy := getHashPolicy(push, dst)
+			hashPolicy := getHashPolicy(push, node, dst)
 			if hashPolicy != nil {
 				action.HashPolicy = append(action.HashPolicy, hashPolicy)
 			}
@@ -728,13 +728,13 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func getHashPolicy(push *model.PushContext, dst *networking.HTTPRouteDestination) *route.RouteAction_HashPolicy {
+func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination) *route.RouteAction_HashPolicy {
 	if push == nil {
 		return nil
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := push.DestinationRule(model.Hostname(destination.GetHost()))
+	destinationRule := push.DestinationRule(node, model.Hostname(destination.GetHost()))
 	if destinationRule == nil {
 		return nil
 	}
