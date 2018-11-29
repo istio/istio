@@ -47,7 +47,7 @@ type PushContext struct {
 	// Mutex is used to protect the below store.
 	// All data is set when the PushContext object is populated in `InitContext`,
 	// data should not be changed by plugins.
-	Mutex sync.Mutex `json:"-,omitempty"`
+	Mutex sync.Mutex `json:"-"`
 
 	// The following data can be either obtained as a whole or
 	// only those in the proxy's config namespace. Keep them private
@@ -68,10 +68,10 @@ type PushContext struct {
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
-	AuthzPolicies *AuthorizationPolicies
+	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
 	// Env has a pointer to the shared environment used to create the snapshot.
-	Env *Environment `json:"-,omitempty"`
+	Env *Environment `json:"-"`
 
 	// ServicePort2Name is used to keep track of service name and port mapping.
 	// This is needed because ADS names use port numbers, while endpoints use
@@ -160,8 +160,10 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
 	}
+	log.Infof("XDS: 2222-444444 -111111111 ")
 	ps.proxyStatusMutex.Lock()
 	defer ps.proxyStatusMutex.Unlock()
+	log.Infof("XDS: 2222-444444 -222222222 ")
 
 	metricMap, f := ps.ProxyStatus[metric.Name]
 	if !f {
@@ -284,7 +286,7 @@ func (ps *PushContext) JSON() ([]byte, error) {
 	}
 	ps.proxyStatusMutex.RLock()
 	defer ps.proxyStatusMutex.RUnlock()
-	return json.MarshalIndent(ps, "", "    ")
+	return json.MarshalIndent(ps.ProxyStatus, "", "    ")
 }
 
 // OnConfigChange is called when a config change is detected.
