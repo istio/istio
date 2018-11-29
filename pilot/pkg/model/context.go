@@ -90,6 +90,11 @@ type Proxy struct {
 	// "default.svc.cluster.local")
 	Domain string
 
+	// ConfigNamespace defines the namespace where this proxy resides
+	// for the purposes of network scoping.
+	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
+	ConfigNamespace string
+
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 
@@ -291,6 +296,30 @@ func ParseServiceNode(s string) (Proxy, error) {
 	out.ID = parts[2]
 	out.Domain = parts[3]
 	return out, nil
+}
+
+// GetProxyConfigNamespace extracts the namespace associated with the proxy
+// from the proxy metadata or the proxy ID
+func GetProxyConfigNamespace(proxy *Proxy) string {
+	if proxy == nil {
+		return ""
+	}
+
+	// First look for ISTIO_META_CONFIG_NAMESPACE
+	if configNamespace, found := proxy.Metadata["CONFIG_NAMESPACE"]; found {
+		return configNamespace
+	}
+
+	// If its not present, fallback to parsing the namespace from the proxyID
+	// NOTE: This is a hack for Kubernetes only where we assume that the
+	// proxy ID is of the form name.namespace. Other platforms should
+	// set ISTIO_META_CONFIG_NAMESPACE in the sidecar bootstrap config.
+	parts := strings.Split(proxy.ID, ".")
+	if len(parts) != 2 {
+		return ""
+	}
+
+	return parts[1]
 }
 
 const (

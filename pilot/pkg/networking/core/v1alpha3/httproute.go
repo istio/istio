@@ -38,7 +38,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 		return nil, err
 	}
 
-	services := node.GetOutboundServices(push)
+	services := push.Services(node)
 
 	switch node.Type {
 	case model.Sidecar:

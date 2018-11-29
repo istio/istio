@@ -595,6 +595,7 @@ jobs:
       ISTIO_BIN: /go/bin
     steps:
       - checkout
+      - <<: *markJobStartsOnGCS
       - run: make init
       - run: make build test-bins /go/bin/go-junit-report
       - run:
@@ -602,12 +603,19 @@ jobs:
           command: |
             cd /go/src/istio.io/istio
             MAXPROCS=6 bin/codecov_diff.sh
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
-          name: Uploading code coverage to codecov.io
-          when: on_success
-          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/pr/coverage.cov
+          name: markJobFinishesOnGCS
+          when: always
+          command: |
+            bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
       - store_artifacts:
           path: /go/out/codecov
+      - store_artifacts:
+          path: /go/out/tests
+      - store_test_results:
+          path: /go/out/tests
 
   test:
     <<: *defaults

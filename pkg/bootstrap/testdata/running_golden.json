@@ -35,8 +35,35 @@
       {
         "tag_name": "listener_address",
         "regex": "^listener\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {
+        "tag_name": "mongo_prefix",
+        "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       }
-    ]
+    ],
+    "stats_matcher": {
+      "inclusion_list": {
+        "patterns": [{
+            "prefix": "cluster_manager"
+          },
+          {
+            "prefix": "listener_manager"
+          },
+          {
+            "prefix": "http_mixer_filter"
+          },
+          {
+            "prefix": "tcp_mixer_filter"
+          },
+          {
+            "prefix": "server"
+          },
+          {
+            "prefix": "cluster.xds-grpc"
+          }
+        ]
+      }
+    }
   },
   "admin": {
     "access_log_path": "/dev/null",

@@ -66,7 +66,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 
 	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
-		con.modelNode.ID, con.PeerAddr, len(rawClusters), len(push.Services))
+		con.modelNode.ID, con.PeerAddr, len(rawClusters), len(push.Services(nil)))
 	return nil
 }
 

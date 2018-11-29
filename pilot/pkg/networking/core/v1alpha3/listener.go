@@ -138,7 +138,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
-	services := node.GetOutboundServices(push)
+	services := push.Services(node)
 
 	listeners := make([]*xdsapi.Listener, 0)
 
@@ -442,7 +442,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	configs := push.VirtualServices(meshGateway)
+	configs := push.VirtualServices(node, meshGateway)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution

@@ -767,6 +767,132 @@ func TestController_Service(t *testing.T) {
 	}
 }
 
+func TestController_ExternalNameService(t *testing.T) {
+	controller, fx := newFakeController(t)
+	// Use a timeout to keep the test from hanging.
+
+	k8sSvcs := []*v1.Service{
+		createExternalNameService(controller, "svc1", "nsA",
+			[]int32{8080}, "test-app-1.test.svc."+domainSuffix, t, fx.Events),
+		createExternalNameService(controller, "svc2", "nsA",
+			[]int32{8081}, "test-app-2.test.svc."+domainSuffix, t, fx.Events),
+		createExternalNameService(controller, "svc3", "nsA",
+			[]int32{8082}, "test-app-3.test.pod."+domainSuffix, t, fx.Events),
+		createExternalNameService(controller, "svc4", "nsA",
+			[]int32{8083}, "g.co", t, fx.Events),
+	}
+
+	expectedSvcList := []*model.Service{
+		{
+			Hostname: serviceHostname("svc1", "nsA", domainSuffix),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "test-port",
+					Port:     8080,
+					Protocol: model.ProtocolTCP,
+				},
+			},
+			MeshExternal: true,
+			Resolution:   model.DNSLB,
+		},
+		{
+			Hostname: serviceHostname("svc2", "nsA", domainSuffix),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "test-port",
+					Port:     8081,
+					Protocol: model.ProtocolTCP,
+				},
+			},
+			MeshExternal: true,
+			Resolution:   model.DNSLB,
+		},
+		{
+			Hostname: serviceHostname("svc3", "nsA", domainSuffix),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "test-port",
+					Port:     8082,
+					Protocol: model.ProtocolTCP,
+				},
+			},
+			MeshExternal: true,
+			Resolution:   model.DNSLB,
+		},
+		{
+			Hostname: serviceHostname("svc4", "nsA", domainSuffix),
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "test-port",
+					Port:     8083,
+					Protocol: model.ProtocolTCP,
+				},
+			},
+			MeshExternal: true,
+			Resolution:   model.DNSLB,
+		},
+	}
+	var expectedInstanceList []*model.ServiceInstance
+	for i, svc := range expectedSvcList {
+		expectedInstanceList = append(expectedInstanceList, &model.ServiceInstance{
+			Endpoint: model.NetworkEndpoint{
+				Address:     k8sSvcs[i].Spec.ExternalName,
+				Port:        svc.Ports[0].Port,
+				ServicePort: svc.Ports[0],
+			},
+			Service: svc,
+		})
+	}
+
+	svcList, _ := controller.Services()
+	if len(svcList) != len(expectedSvcList) {
+		t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
+	}
+	for i, exp := range expectedSvcList {
+		if exp.Hostname != svcList[i].Hostname {
+			t.Errorf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Hostname, exp.Hostname)
+		}
+		if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
+			t.Errorf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Ports, exp.Ports)
+		}
+		if svcList[i].MeshExternal != exp.MeshExternal {
+			t.Errorf("i=%v, MeshExternal==%v, should be %v: externalName='%s'", i, exp.MeshExternal, svcList[i].MeshExternal, k8sSvcs[i].Spec.ExternalName)
+		}
+		if svcList[i].Resolution != exp.Resolution {
+			t.Errorf("i=%v, Resolution=='%v', should be '%v'", i, svcList[i].Resolution, exp.Resolution)
+		}
+		instances, err := controller.InstancesByPort(svcList[i].Hostname, svcList[i].Ports[0].Port, model.LabelsCollection{})
+		if err != nil {
+			t.Errorf("error getting instances by port: %s", err)
+			continue
+		}
+		if len(instances) != 1 {
+			t.Errorf("should be exactly 1 instance: len(instances) = %v", len(instances))
+		}
+		if instances[0].Endpoint.Address != k8sSvcs[i].Spec.ExternalName {
+			t.Errorf("wrong instance endpoint address: '%s' != '%s'", instances[0].Endpoint.Address, k8sSvcs[i].Spec.ExternalName)
+		}
+	}
+
+	for _, s := range k8sSvcs {
+		deleteExternalNameService(controller, s.Name, s.Namespace, t, fx.Events)
+	}
+	svcList, _ = controller.Services()
+	if len(svcList) != 0 {
+		t.Fatalf("Should have 0 services at this point")
+	}
+	for _, exp := range expectedSvcList {
+		instances, err := controller.InstancesByPort(exp.Hostname, exp.Ports[0].Port, model.LabelsCollection{})
+		if err != nil {
+			t.Errorf("error getting instances by port: %s", err)
+			continue
+		}
+		if len(instances) != 0 {
+			t.Errorf("should be exactly 0 instance: len(instances) = %v", len(instances))
+		}
+	}
+}
+
 func makeFakeKubeAPIController() *Controller {
 	clientSet := fake.NewSimpleClientset()
 	return NewController(clientSet, ControllerOptions{
@@ -797,7 +923,7 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 			Ports:     eps,
 		}},
 	}
-	//if err := controller.endpoints.informer.GetStore().Add(endpoint); err != nil {
+	// if err := controller.endpoints.informer.GetStore().Add(endpoint); err != nil {
 	if _, err := controller.client.CoreV1().Endpoints(namespace).Create(endpoint); err != nil {
 		t.Errorf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
 	}
@@ -831,6 +957,52 @@ func createService(controller *Controller, name, namespace string, annotations m
 	_, err := controller.client.CoreV1().Services(namespace).Create(service)
 	if err != nil {
 		t.Errorf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
+	}
+}
+
+func createExternalNameService(controller *Controller, name, namespace string,
+	ports []int32, externalName string, t *testing.T, xdsEvents <-chan XdsEvent) *v1.Service {
+
+	defer func() {
+		<-xdsEvents
+	}()
+
+	svcPorts := []v1.ServicePort{}
+	for _, p := range ports {
+		svcPorts = append(svcPorts, v1.ServicePort{
+			Name:     "test-port",
+			Port:     p,
+			Protocol: "http",
+		})
+	}
+	service := &v1.Service{
+		ObjectMeta: meta_v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports:        svcPorts,
+			Type:         v1.ServiceTypeExternalName,
+			ExternalName: externalName,
+		},
+	}
+
+	_, err := controller.client.CoreV1().Services(namespace).Create(service)
+	if err != nil {
+		t.Fatalf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
+	}
+	return service
+}
+
+func deleteExternalNameService(controller *Controller, name, namespace string, t *testing.T, xdsEvents <-chan XdsEvent) {
+
+	defer func() {
+		<-xdsEvents
+	}()
+
+	err := controller.client.CoreV1().Services(namespace).Delete(name, &meta_v1.DeleteOptions{})
+	if err != nil {
+		t.Fatalf("Cannot delete service %s in namespace %s (error: %v)", name, namespace, err)
 	}
 }
 
@@ -928,7 +1100,7 @@ func generateNode(name string, labels map[string]string) *v1.Node {
 func addNodes(t *testing.T, controller *Controller, nodes ...*v1.Node) {
 	for _, node := range nodes {
 		if _, err := controller.client.CoreV1().Nodes().Create(node); err != nil {
-			//if err := controller.nodes.informer.GetStore().Add(node); err != nil {
+			// if err := controller.nodes.informer.GetStore().Add(node); err != nil {
 			t.Errorf("Cannot create node %s (error: %v)", node.Name, err)
 		}
 	}
