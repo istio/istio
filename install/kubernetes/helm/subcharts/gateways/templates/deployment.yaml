@@ -159,6 +159,10 @@ spec:
           {{ if $.Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
+          {{ if $.Values.global.sds.enableTokenMount }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -176,6 +180,15 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{ if $.Values.global.sds.enableTokenMount }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ $.Values.global.trustDomain }}
+      {{- end }}
       {{- end }}
       - name: istio-certs
         secret:
