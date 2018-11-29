@@ -589,8 +589,9 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *v2.Cluster, tls *
 
 			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
-					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount),
+					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
+					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName,
+						env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount),
 				},
 			}
 		}
