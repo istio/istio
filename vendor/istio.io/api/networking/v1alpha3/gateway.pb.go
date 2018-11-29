@@ -116,6 +116,7 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 // kind: Gateway
 // metadata:
 //   name: my-gateway
+//   namespace: some-config-namespace
 // spec:
 //   selector:
 //     app: my-gateway-controller
@@ -173,13 +174,14 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 // kind: VirtualService
 // metadata:
 //   name: bookinfo-rule
+//   namespace: bookinfo-namespace
 // spec:
 //   hosts:
 //   - reviews.prod.svc.cluster.local
 //   - uk.bookinfo.com
 //   - eu.bookinfo.com
 //   gateways:
-//   - my-gateway
+//   - some-config-namespace/my-gateway
 //   - mesh # applies to all the sidecars in the mesh
 //   http:
 //   - match:
@@ -215,11 +217,13 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 // kind: VirtualService
 // metadata:
 //   name: bookinfo-Mongo
+//   namespace: bookinfo-namespace
 // spec:
 //   hosts:
 //   - mongosvr.prod.svc.cluster.local #name of internal Mongo service
 //   gateways:
-//   - my-gateway
+//   - some-config-namespace/my-gateway # can omit the namespace if gateway is in same
+//                                        namespace as virtual service.
 //   tcp:
 //   - match:
 //     - port: 27017
