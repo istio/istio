@@ -414,6 +414,9 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 		t.Fatal("No routes returned")
 	}
 	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(res.Resources) != 1 || route1.Name != routeA {
 		t.Fatal("Expected only the http.80 route to be returned")
 	}
