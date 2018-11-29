@@ -325,7 +325,7 @@ gateways:
       #  cpu: 1800m
       #  memory: 256Mi
     cpu:
-      targetAverageUtilization: 80      
+      targetAverageUtilization: 80
     loadBalancerIP: ""
     serviceAnnotations:
       cloud.google.com/load-balancer-type: "internal"
@@ -445,6 +445,7 @@ grafana:
     tag: 5.2.3
   persist: false
   storageClassName: ""
+  accessMode: ReadWriteMany
   security:
     enabled: false
     adminUser: admin
