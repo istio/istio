@@ -2,7 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: service-entry-ratings
+  name: service-entry-ratings.default.global
   namespace: default
 spec:
   endpoints:
@@ -13,7 +13,7 @@ spec:
     ports:
       http: 15443
   hosts:
-  - ratings
+  - ratings.default.global
   location: MESH_INTERNAL
   ports:
   - name: http

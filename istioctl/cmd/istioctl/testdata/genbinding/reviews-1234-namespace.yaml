@@ -2,15 +2,17 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: service-entry-reviews.default.global
+  name: service-entry-reviews.ns1.global
   namespace: default
 spec:
+  addresses:
+  - 6.7.8.9
   endpoints:
   - address: 1.2.3.4
     ports:
       http: 15443
   hosts:
-  - reviews.default.global
+  - reviews.ns1.global
   location: MESH_INTERNAL
   ports:
   - name: http

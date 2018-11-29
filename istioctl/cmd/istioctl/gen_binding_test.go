@@ -49,6 +49,10 @@ func TestGenBinding(t *testing.T) {
 			goldenFilename: "testdata/genbinding/reviews-1234-vip.yaml",
 			name:           "One remote with vip address"},
 
+		{args: strings.Split("experimental gen-binding reviews.ns1:9080 --cluster 1.2.3.4:15443 --vip 6.7.8.9", " "),
+			goldenFilename: "testdata/genbinding/reviews-1234-namespace.yaml",
+			name:           "Service name with namespace"},
+
 		{args: strings.Split("experimental gen-binding reviews:9080 --cluster 1.2.3.4 --cluster 6.7.8.9", " "),
 			goldenFilename: "testdata/genbinding/reviews-2remotes.yaml",
 			name:           "Two remotes, no subset"},

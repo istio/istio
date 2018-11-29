@@ -31,7 +31,11 @@ type hostPort struct {
 	port int
 }
 
-const defaultMultiMeshPort = "15443"
+const (
+        defaultMultiMeshPort  = "15443"
+	defaultHostNamespace  = "default"
+	defaultHostNameSuffix = ".global"
+)
 
 var validHostnameRegex = regexp.MustCompile(`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$`)
 
@@ -67,6 +71,13 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 			return nil, errors.New("invalid VIP address specified")
 		}
 	}
+
+	if ! strings.Contains(remoteService.host, ".") {
+	     remoteService.host = remoteService.host + "." + defaultHostNamespace
+	}
+	if ! strings.HasSuffix(remoteService.host, defaultHostNameSuffix) {
+	     	  remoteService.host = remoteService.host + defaultHostNameSuffix
+	} 
 
 	serviceEntry := model.Config{
 		ConfigMeta: model.ConfigMeta{
