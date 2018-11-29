@@ -152,7 +152,7 @@ func TestCheckDeltaError(t *testing.T) {
 			// Default threshold
 			"P": 5,
 		})
-	if result {
+	if len(result) == 0 {
 		t.Error("Expecting error")
 	}
 }
@@ -184,7 +184,7 @@ func TestCheckDeltaGood(t *testing.T) {
 			// Default threshold
 			"P": 5,
 		})
-	if !result {
+	if len(result) > 0 {
 		t.Errorf("Expecting success")
 	}
 }
@@ -197,7 +197,7 @@ func TestCheckCoverage(t *testing.T) {
 	err := checkCoverage(*reportFile, *baselineFile, *thresholdFile)
 
 	if err != nil {
-		t.Errorf("Coverage test failed: %v", err)
+		t.Errorf("%v", err)
 	}
 }
 
