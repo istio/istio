@@ -106,8 +106,6 @@ type SyncStatus struct {
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func Syncz(w http.ResponseWriter, req *http.Request) {
-	adsClientsMutex.RLock()
-	defer adsClientsMutex.RUnlock()
 	syncz := []SyncStatus{}
 	adsClientsMutex.RLock()
 	for _, con := range adsClients {
@@ -777,6 +775,7 @@ func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
 	if s.ConfigController != nil {
 		if !s.ConfigController.HasSynced() {
 			w.WriteHeader(503)
+			return
 		}
 	}
 	w.WriteHeader(200)
