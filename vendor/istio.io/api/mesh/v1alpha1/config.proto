@@ -71,6 +71,9 @@ message MeshConfig {
   // Connection timeout used by Envoy. (MUST BE >=1ms)
   google.protobuf.Duration connect_timeout = 6;
 
+  // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+  istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive tcp_keepalive = 28;
+
   // Class of ingress resources to be processed by Istio ingress
   // controller.  This corresponds to the value of
   // "kubernetes.io/ingress.class" annotation.
@@ -196,8 +199,41 @@ message MeshConfig {
   // Fallback to old identity format(without trust domain) if not set.
   string trust_domain = 26;
 
+  // Default network scope settings for each workload in the mesh. Network
+  // scope controls the reachability of workloads to other services in the
+  // mesh.
+  message DefaultNetworkScope {
+    enum Mode {
+      // Configure routes to services in all namespaces, i.e. import
+      // services from all namespaces.
+      ALL_NAMESPACES = 0;
+
+      // Only configure routes to services that are in the same namespace
+      // as the workload as well as services in namespaces specified in
+      // importNamespaces.
+      SAME_NAMESPACE = 1;
+    }
+
+    // REQUIRED: The default import setting for every workload in the mesh.
+    Mode import_mode = 1;
+
+    // Specifies one or more namespaces that should be imported by default
+    // in all user defined NetworkScope resources in addition to the
+    // namespaces explicitly specified by the end user. Use this setting to
+    // automatically import services/resources from namespaces such as
+    // istio-system that all workloads in the mesh depend upon.
+    repeated string import_namespaces = 2;
+  }
+
+  // The default network scope associated with every workload in the mesh.
+  // Pilot will program the routes in the sidecars and gateways
+  // accordingly. If omitted, sidecars will be configured to reach every
+  // service in the mesh. The default scope can be overriden by supplying a
+  // NetworkScope resource per namespace.
+  DefaultNetworkScope default_network_scope = 29;
+
   // $hide_from_docs
-  // Next available field number: 28
+  // Next available field number: 30
 }
 
 // ConfigSource describes information about a configuration store inside a
