@@ -17,7 +17,6 @@ spec:
         chart: {{ template "nodeagent.chart" . }}
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
-        version: {{ .Chart.Version }}
         istio: nodeagent
     spec:
       serviceAccountName: istio-nodeagent-service-account
