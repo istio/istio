@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -588,17 +587,11 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *v2.Cluster, tls *
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount))
 
-			rootResourceName := model.SDSRootResourceName
-			if len(tls.SubjectAltNames) > 0 {
-				// Pass upstream service accounts to envoy, which is eventually passed to node agent to construct CertificateValidationContext.VerifySubjectAltName
-				rootNames := []string{rootResourceName}
-				rootNames = append(rootNames, tls.SubjectAltNames...)
-				rootResourceName = strings.Join(rootNames, ",")
-			}
-
-			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(
-					rootResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount),
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
+					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount),
+				},
 			}
 		}
 
