@@ -26,6 +26,7 @@ ROOTDIR="$(dirname "${SCRIPTPATH}")"
 DIR="./..."
 CODECOV_SKIP=${CODECOV_SKIP:-"${ROOTDIR}/codecov.skip"}
 SKIPPED_TESTS_GREP_ARGS=
+TEST_RETRY_COUNT=3
 
 # Set GOPATH to match the expected layout
 GO_TOP=$(cd "$(dirname "$0")"/../../../..; pwd)
@@ -59,17 +60,22 @@ fi
 
 function code_coverage() {
   local filename
+  local count=${2:-0}
   filename="$(echo "${1}" | tr '/' '-')"
-  go test \
+  go test -v \
     -coverpkg=istio.io/istio/... \
     -coverprofile="${COVERAGEDIR}/${filename}.cov" \
     -covermode=atomic "${1}" \
     | tee "${COVERAGEDIR}/${filename}.report" \
+    | tee >(go-junit-report > "${COVERAGEDIR}/${filename}-junit.xml") \
     && RC=$? || RC=$?
-  # Generate junit xml
-  go-junit-report < "${COVERAGEDIR}/${filename}.report" > "${COVERAGEDIR}/${filename}-junit.xml"
+
   if [[ ${RC} != 0 ]]; then
-    echo "${1}" | tee "${COVERAGEDIR}/${filename}.err"
+    if (( count < TEST_RETRY_COUNT )); then
+      code_coverage "${1}" $((count+1))
+    else
+      echo "${1}" | tee "${COVERAGEDIR}/${filename}.err"
+    fi
   fi
 }
 
