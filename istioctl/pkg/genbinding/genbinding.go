@@ -32,7 +32,7 @@ type hostPort struct {
 }
 
 const (
-        defaultMultiMeshPort  = "15443"
+	defaultMultiMeshPort  = "15443"
 	defaultHostNamespace  = "default"
 	defaultHostNameSuffix = ".global"
 )
@@ -72,12 +72,12 @@ func serviceToServiceEntrySniCluster(remoteService hostPort, remoteClusters []ho
 		}
 	}
 
-	if ! strings.Contains(remoteService.host, ".") {
-	     remoteService.host = remoteService.host + "." + defaultHostNamespace
+	if !strings.Contains(remoteService.host, ".") {
+		remoteService.host = remoteService.host + "." + defaultHostNamespace
 	}
-	if ! strings.HasSuffix(remoteService.host, defaultHostNameSuffix) {
-	     	  remoteService.host = remoteService.host + defaultHostNameSuffix
-	} 
+	if !strings.HasSuffix(remoteService.host, defaultHostNameSuffix) {
+		remoteService.host = remoteService.host + defaultHostNameSuffix
+	}
 
 	serviceEntry := model.Config{
 		ConfigMeta: model.ConfigMeta{
