@@ -450,6 +450,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			case RouteType:
 				routes := discReq.GetResourceNames()
+				var sortedRoutes []string
 				if discReq.ResponseNonce != "" {
 					con.mu.RLock()
 					routeNonceSent := con.RouteNonceSent
@@ -462,13 +463,16 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						continue
 					}
 					if discReq.VersionInfo == routeVersionInfoSent {
-						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
-						con.mu.Lock()
-						con.RouteNonceAcked = discReq.ResponseNonce
-						con.mu.Unlock()
-						continue
-					}
-					if discReq.ErrorDetail != nil || routes == nil {
+						sort.Strings(routes)
+						sortedRoutes = routes
+						if reflect.DeepEqual(con.Routes, sortedRoutes) {
+							adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+							con.mu.Lock()
+							con.RouteNonceAcked = discReq.ResponseNonce
+							con.mu.Unlock()
+							continue
+						}
+					} else if discReq.ErrorDetail != nil || routes == nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
 							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
@@ -483,7 +487,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					}
 				}
 
-				con.Routes = routes
+				if sortedRoutes == nil {
+					sort.Strings(routes)
+					sortedRoutes = routes
+				}
+				con.Routes = sortedRoutes
 				adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
 				err := s.pushRoute(con, s.globalPushContext())
 				if err != nil {
