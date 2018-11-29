@@ -253,6 +253,7 @@ func (a *ADSC) handleRecv() {
 			a.Updates <- "close"
 			return
 		}
+
 		listeners := []*xdsapi.Listener{}
 		clusters := []*xdsapi.Cluster{}
 		routes := []*xdsapi.RouteConfiguration{}
