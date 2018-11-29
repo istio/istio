@@ -26,7 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/app"
 	"istio.io/istio/pkg/log"
 )
 
@@ -101,21 +101,21 @@ func extractStatusPort(sidecar *corev1.Container) int {
 }
 
 // convertAppProber returns a overwritten `HTTPGetAction` for pilot agent to take over.
-func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev1.HTTPGetAction {
+func convertAppProber(probe *corev1.Probe, newURL app.ProbeURLPath, statusPort int) *corev1.HTTPGetAction {
 	if probe == nil || probe.HTTPGet == nil {
 		return nil
 	}
 	c := probe.HTTPGet.DeepCopy()
 	// Change the application container prober config.
 	c.Port = intstr.FromInt(statusPort)
-	c.Path = newURL
+	c.Path = string(newURL)
 	return c
 }
 
 // DumpAppProbers returns a json encoded string as `status.KubeAppProbers`.
 // Also update the probers so that all usages of named port will be resolved to integer.
 func DumpAppProbers(podspec *corev1.PodSpec) string {
-	out := status.KubeAppProbers{}
+	out := make(app.ProbeMap)
 	updateNamedPort := func(p *corev1.Probe, portMap map[string]int32) *corev1.HTTPGetAction {
 		if p == nil || p.HTTPGet == nil {
 			return nil
@@ -134,7 +134,8 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		readyz, livez := status.FormatProberURL(c.Name)
+		readyz := app.ReadinessProbeURLPath(c.Name)
+		livez := app.LivenessProbeURLPath(c.Name)
 		portMap := map[string]int32{}
 		for _, p := range c.Ports {
 			if p.Name != "" {
@@ -173,7 +174,7 @@ func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
 	}
 	if prober := DumpAppProbers(podSpec); prober != "" {
 		// We don't have to escape json encoding here when using golang libraries.
-		sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
+		sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: app.ProbeMapEnvName, Value: prober})
 	}
 	// Now modify the container probers.
 	for _, c := range podSpec.Containers {
@@ -181,7 +182,8 @@ func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
 		if c.Name == ProxyContainerName {
 			continue
 		}
-		readyz, livez := status.FormatProberURL(c.Name)
+		readyz := app.ReadinessProbeURLPath(c.Name)
+		livez := app.LivenessProbeURLPath(c.Name)
 		if hg := convertAppProber(c.ReadinessProbe, readyz, statusPort); hg != nil {
 			*c.ReadinessProbe.HTTPGet = *hg
 		}
@@ -215,7 +217,8 @@ func createProbeRewritePatch(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec
 		for _, p := range c.Ports {
 			portMap[p.Name] = p.ContainerPort
 		}
-		readyz, livez := status.FormatProberURL(c.Name)
+		readyz := app.ReadinessProbeURLPath(c.Name)
+		livez := app.LivenessProbeURLPath(c.Name)
 		if after := convertAppProber(c.ReadinessProbe, readyz, statusPort); after != nil {
 			patch = append(patch, rfc6902PatchOperation{
 				Op:    "replace",

@@ -24,7 +24,8 @@ import (
 
 const requestTimeout = time.Second * 2
 
-func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
+// DoHTTPGet performs an HTTP GET to the requested URL and returns the response as a buffer.
+func DoHTTPGet(requestURL string) (*bytes.Buffer, error) {
 	httpClient := &http.Client{
 		Timeout: requestTimeout,
 	}

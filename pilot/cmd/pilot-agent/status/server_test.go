@@ -19,9 +19,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"testing"
-	"time"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status/app"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type handler struct{}
@@ -31,63 +33,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.Write([]byte("welcome, it works"))
-}
-
-func TestNewServer(t *testing.T) {
-	testCases := []struct {
-		httpProbe string
-		err       string
-	}{
-		// Json can't be parsed.
-		{
-			httpProbe: "invalid-prober-json-encoding",
-			err:       "failed to decode",
-		},
-		// map key is not well formed.
-		{
-			httpProbe: `{"abc": {"path": "/app-foo/health"}}`,
-			err:       "invalid key",
-		},
-		// Port is not Int typed.
-		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}`,
-			err:       "must be int type",
-		},
-		// A valid input.
-		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},` +
-				`"/app-health/business/livez": {"path": "/buisiness/live", "port": 9090}}`,
-		},
-		// A valid input with empty probing path, which happens when HTTPGetAction.Path is not specified.
-		{
-			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},
-"/app-health/business/livez": {"port": 9090}}`,
-		},
-		// A valid input without any prober info.
-		{
-			httpProbe: `{}`,
-		},
-	}
-	for _, tc := range testCases {
-		_, err := NewServer(Config{
-			KubeAppHTTPProbers: tc.httpProbe,
-		})
-
-		if err == nil {
-			if tc.err != "" {
-				t.Errorf("test case failed [%v], expect error %v", tc.httpProbe, tc.err)
-			}
-			continue
-		}
-		if tc.err == "" {
-			t.Errorf("test case failed [%v], expect no error, got %v", tc.httpProbe, err)
-		}
-		// error case, error string should match.
-		if !strings.Contains(err.Error(), tc.err) {
-			t.Errorf("test case failed [%v], expect error %v, got %v", tc.httpProbe, tc.err, err)
-		}
-	}
+	_, _ = w.Write([]byte("welcome, it works"))
 }
 
 func TestAppProbe(t *testing.T) {
@@ -96,59 +42,79 @@ func TestAppProbe(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to allocate unused port %v", err)
 	}
-	go http.Serve(listener, &handler{})
+	go func() { _ = http.Serve(listener, &handler{}) }()
 	appPort := listener.Addr().(*net.TCPAddr).Port
 
 	// Starts the pilot agent status server.
-	server, err := NewServer(Config{
-		StatusPort: 0,
-		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v},
-"/app-health/hello-world/livez": {"port": %v}}`, appPort, appPort),
+	server := NewServer(Config{
+		StatusPort: 0, // Port will be assigned dynamically.
+		AppProbeMap: app.ProbeMap{
+			"/app-health/hello-world/readyz": {
+				Path: "/hello/sunnyvale",
+				Port: kubePort(appPort),
+			},
+			"/app-health/hello-world/livez": {
+				Port: kubePort(appPort),
+			},
+		},
 	})
+
 	if err != nil {
 		t.Errorf("failed to create status server %v", err)
 		return
 	}
+
 	go server.Run(context.Background())
 
-	// We wait a bit here to ensure server's statusPort is updated.
-	time.Sleep(time.Second * 3)
+	// Extract the actual status port.
+	server.WaitForReady()
+	statusPort := server.GetConfig().StatusPort
 
-	server.mutex.RLock()
-	statusPort := server.statusPort
-	server.mutex.RUnlock()
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
+		name       string
 		probePath  string
 		statusCode int
 		err        string
 	}{
 		{
+			name:       "BadPathShouldBeDisallowed",
 			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
 			statusCode: http.StatusBadRequest,
 		},
 		{
+			name:       "Readyz",
 			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "Livez",
 			probePath:  fmt.Sprintf(":%v/app-health/hello-world/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			if err != nil {
+				t.Errorf("[%v] failed to create request", tc.probePath)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			_ = resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+			}
+		})
+	}
+}
+
+func kubePort(port int) intstr.IntOrString {
+	return intstr.IntOrString{
+		Type:   intstr.Int,
+		IntVal: int32(port),
 	}
 }

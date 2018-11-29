@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package stats
 
 import (
-	"testing"
+	"bytes"
+	"fmt"
 
-	. "github.com/onsi/gomega"
+	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
 
-func TestStatsToString(t *testing.T) {
-	g := NewGomegaWithT(t)
-	stats := Stats{CDSUpdatesSuccess: 1, CDSUpdatesRejection: 2, LDSUpdatesSuccess: 3, LDSUpdatesRejection: 4}
-
-	g.Expect(stats.String()).To(Equal("cds updates: 1 successful, 2 rejected; lds updates: 3 successful, 4 rejected"))
+// Fetch stats from Envoy and return the buffer.
+func Fetch(proxyAdminPort uint16) (*bytes.Buffer, error) {
+	buf, err := util.DoHTTPGet(fmt.Sprintf("http://127.0.0.1:%d/stats?usedonly", proxyAdminPort))
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed retrieving Envoy stats:")
+	}
+	return buf, nil
 }

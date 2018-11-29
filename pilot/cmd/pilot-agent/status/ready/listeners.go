@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package ready
 
 import (
 	"fmt"
@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
 
 var (
@@ -28,8 +30,8 @@ var (
 )
 
 // GetInboundListeningPorts returns a map of inbound ports for which Envoy has active listeners.
-func GetInboundListeningPorts(adminPort uint16) (map[uint16]bool, string, error) {
-	buf, err := doHTTPGet(fmt.Sprintf("http://127.0.0.1:%d/listeners", adminPort))
+func GetInboundListeningPorts(proxyAdminPort uint16) (map[uint16]bool, string, error) {
+	buf, err := util.DoHTTPGet(fmt.Sprintf("http://127.0.0.1:%d/listeners", proxyAdminPort))
 	if err != nil {
 		return nil, "", multierror.Prefix(err, "failed retrieving Envoy listeners:")
 	}

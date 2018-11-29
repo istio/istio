@@ -29,14 +29,13 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/app"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/version"
 )
 
@@ -313,6 +313,7 @@ var (
 				cancel()
 				wg.Wait()
 			}()
+
 			// If a status port was provided, start handling status probes.
 			if statusPort > 0 {
 				parsedPorts, err := parseApplicationPorts()
@@ -320,16 +321,17 @@ var (
 					return err
 				}
 
-				prober := os.Getenv(status.KubeAppProberEnvName)
-				statusServer, err := status.NewServer(status.Config{
-					AdminPort:          proxyAdminPort,
-					StatusPort:         statusPort,
-					ApplicationPorts:   parsedPorts,
-					KubeAppHTTPProbers: prober,
-				})
+				appProbeMap, err := app.ParseProbeMapJSON(app.GetKubeProberEnv())
 				if err != nil {
 					return err
 				}
+
+				statusServer := status.NewServer(status.Config{
+					ProxyAdminPort:   proxyAdminPort,
+					StatusPort:       statusPort,
+					ApplicationPorts: parsedPorts,
+					AppProbeMap:      appProbeMap,
+				})
 				go waitForCompletion(ctx, statusServer.Run)
 			}
 

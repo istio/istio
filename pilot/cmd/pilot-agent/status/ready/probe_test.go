@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ready
+package ready_test
 
 import (
 	"net"
@@ -21,17 +21,18 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-)
 
-var probe = Probe{AdminPort: 1234}
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+)
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server, port := createAndStartServer(stats)
 	defer server.Close()
 
+	probe := newProbe(port)
 	err := probe.Check()
 
 	g.Expect(err).NotTo(HaveOccurred())
@@ -41,9 +42,10 @@ func TestEnvoyStatsIncompleteCDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "listener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server, port := createAndStartServer(stats)
 	defer server.Close()
 
+	probe := newProbe(port)
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -54,9 +56,10 @@ func TestEnvoyStatsIncompleteLDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server, port := createAndStartServer(stats)
 	defer server.Close()
 
+	probe := newProbe(port)
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -67,9 +70,10 @@ func TestEnvoyStatsCompleteAndRejectedCDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_rejected: 1\nlistener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server, port := createAndStartServer(stats)
 	defer server.Close()
 
+	probe := newProbe(port)
 	err := probe.Check()
 
 	g.Expect(err).NotTo(HaveOccurred())
@@ -79,9 +83,10 @@ func TestEnvoyStatsCompleteAndRejectedLDS(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_rejected: 1"
 
-	server := createAndStartServer(stats)
+	server, port := createAndStartServer(stats)
 	defer server.Close()
 
+	probe := newProbe(port)
 	err := probe.Check()
 
 	g.Expect(err).NotTo(HaveOccurred())
@@ -91,9 +96,10 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoSeparator(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success; 1\nlistener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server, port := createAndStartServer(stats)
 	defer server.Close()
 
+	probe := newProbe(port)
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -104,26 +110,31 @@ func TestEnvoyCheckFailsIfStatsUnparsableNoNumber(t *testing.T) {
 	g := NewGomegaWithT(t)
 	stats := "cluster_manager.cds.update_success: a\nlistener_manager.lds.update_success: 1"
 
-	server := createAndStartServer(stats)
+	server, port := createAndStartServer(stats)
 	defer server.Close()
 
+	probe := newProbe(port)
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("failed parsing Envoy stat"))
 }
 
-func createAndStartServer(statsToReturn string) *httptest.Server {
+func newProbe(port int) *ready.Probe {
+	return &ready.Probe{ProxyAdminPort: uint16(port)}
+}
+
+func createAndStartServer(statsToReturn string) (*httptest.Server, int) {
 	// Start a local HTTP server
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		// Send response to be tested
-		rw.Write([]byte(statsToReturn))
+		_, _ = rw.Write([]byte(statsToReturn))
 	}))
-	l, err := net.Listen("tcp", "127.0.0.1:1234")
+	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic("Could not create listener for test: " + err.Error())
 	}
 	server.Listener = l
 	server.Start()
-	return server
+	return server, l.Addr().(*net.TCPAddr).Port
 }
