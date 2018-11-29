@@ -265,7 +265,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			proxy:          node,
 			proxyInstances: proxyInstances,
 			ip:             endpoint.Address,
-			port:           endpoint.Port,
+			port:           int(endpoint.Port),
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)

@@ -209,17 +209,17 @@ func TestServiceInstanceValidate(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid endpoint port and service port",
+			name: "endpoint missing service port",
 			instance: &ServiceInstance{
 				Service: service1,
 				Endpoint: IstioEndpoint{
 					Address: "192.168.1.2",
-					Port:    -80,
+					Port:    80,
 				},
 			},
 		},
 		{
-			name: "endpoint missing service port",
+			name: "endpoint service port name mismatch",
 			instance: &ServiceInstance{
 				Service: service1,
 				Endpoint: IstioEndpoint{
