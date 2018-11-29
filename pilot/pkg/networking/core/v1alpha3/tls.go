@@ -146,7 +146,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 
 	// HTTPS or TLS ports without associated virtual service will be treated as opaque TCP traffic.
 	if !hasTLSMatch {
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, listenPort.Port)
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
 			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, listenPort),
@@ -221,7 +221,7 @@ TcpLoop:
 	}
 
 	if !defaultRouteAdded {
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, int(listenPort.Port))
+		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, listenPort.Port)
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
 			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, listenPort),

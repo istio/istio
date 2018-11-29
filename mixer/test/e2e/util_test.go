@@ -31,19 +31,19 @@ import (
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 )
 
 type testData struct {
 	name      string
 	cfg       string
-	behaviors []spyAdapter.AdapterBehavior
+	behaviors []spyadapter.AdapterBehavior
 	templates map[string]template.Info
 	attrs     map[string]interface{}
 
 	expectError     error
 	expectSetTypes  map[string]interface{}
-	expectCalls     []spyAdapter.CapturedCall
+	expectCalls     []spyadapter.CapturedCall
 	expectDirective *istio_mixer_v1.RouteDirective
 	expectAttrRefs  []expectedAttrRef
 }
@@ -125,7 +125,7 @@ func (tt *testData) checkReturnError(t *testing.T, err error) {
 	}
 }
 
-func (tt *testData) checkSetTypes(t *testing.T, adapters []*spyAdapter.Adapter) {
+func (tt *testData) checkSetTypes(t *testing.T, adapters []*spyadapter.Adapter) {
 	if tt.expectSetTypes == nil {
 		return
 	}
@@ -137,7 +137,7 @@ func (tt *testData) checkSetTypes(t *testing.T, adapters []*spyAdapter.Adapter) 
 	}
 }
 
-func (tt *testData) checkCalls(t *testing.T, adapters []*spyAdapter.Adapter) {
+func (tt *testData) checkCalls(t *testing.T, adapters []*spyadapter.Adapter) {
 	if tt.expectCalls == nil {
 		return
 	}
@@ -222,11 +222,11 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 
 // constructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
 // the constructed spyAdapters along with the adapters Info functions.
-func constructAdapterInfos(adptBehaviors []spyAdapter.AdapterBehavior) ([]adapter.InfoFn, []*spyAdapter.Adapter) {
+func constructAdapterInfos(adptBehaviors []spyadapter.AdapterBehavior) ([]adapter.InfoFn, []*spyadapter.Adapter) {
 	adapterInfos := make([]adapter.InfoFn, 0)
-	spyAdapters := make([]*spyAdapter.Adapter, 0)
+	spyAdapters := make([]*spyadapter.Adapter, 0)
 	for _, b := range adptBehaviors {
-		sa := spyAdapter.NewSpyAdapter(b)
+		sa := spyadapter.NewSpyAdapter(b)
 		spyAdapters = append(spyAdapters, sa)
 		adapterInfos = append(adapterInfos, sa.GetAdptInfoFn())
 	}

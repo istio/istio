@@ -119,7 +119,7 @@ func (dv *decodeVisitor) Varint(n wire.Number, v uint64) {
 		val = int64(v)
 	case descriptor.FieldDescriptorProto_TYPE_SINT32,
 		descriptor.FieldDescriptorProto_TYPE_SINT64:
-		val = int64(wire.DecodeZigZag(v))
+		val = wire.DecodeZigZag(v)
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
 		val = int64(v)
 	default:

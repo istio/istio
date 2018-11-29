@@ -18,6 +18,7 @@ import (
 	"errors"
 	"flag"
 	"path/filepath"
+	"time"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -95,12 +96,17 @@ func (am *AppManager) deploy(a *App) error {
 			return err
 		}
 	}
-	if err := util.KubeApply(am.namespace, finalYaml, am.Kubeconfig); err != nil {
-		log.Errorf("Kubectl apply %s failed", finalYaml)
-		return err
+	var err error
+	for i := 0; i < 3; i++ {
+		if err = util.KubeApply(am.namespace, finalYaml, am.Kubeconfig); err == nil {
+			break
+		}
+		log.Warnf("Kubectl apply %s failed", finalYaml)
+		// wait for admission webhook configuration populate.
+		time.Sleep(5 * time.Second)
 	}
 	a.deployedYaml = finalYaml
-	return nil
+	return err
 }
 
 // Setup deploy apps

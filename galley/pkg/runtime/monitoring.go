@@ -16,10 +16,11 @@ package runtime
 
 import (
 	"context"
+	"time"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	"time"
 )
 
 const typeURL = "typeURL"

@@ -523,7 +523,7 @@ jobs:
           when: always
           name: make test.integration.kube
           command: |
-            make test.integration.kube T=-v | tee -a /go/out/tests/build-log.txt
+            make test.integration.kube T="-v -timeout=15m" | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
@@ -595,6 +595,7 @@ jobs:
       ISTIO_BIN: /go/bin
     steps:
       - checkout
+      - <<: *markJobStartsOnGCS
       - run: make init
       - run: make build test-bins /go/bin/go-junit-report
       - run:
@@ -602,12 +603,19 @@ jobs:
           command: |
             cd /go/src/istio.io/istio
             MAXPROCS=6 bin/codecov_diff.sh
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
-          name: Uploading code coverage to codecov.io
+          name: markJobFinishesOnGCS
           when: always
-          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.cov
+          command: |
+            bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
       - store_artifacts:
           path: /go/out/codecov
+      - store_artifacts:
+          path: /go/out/tests
+      - store_test_results:
+          path: /go/out/tests
 
   test:
     <<: *defaults

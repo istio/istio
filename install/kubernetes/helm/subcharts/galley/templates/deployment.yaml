@@ -38,7 +38,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 443
-          - containerPort: 9093
+          - containerPort: {{ .Values.global.monitoringPort }}
           - containerPort: 9901
           command:
           - /usr/local/bin/galley
@@ -57,6 +57,7 @@ spec:
 {{- end }}
           - --validation-webhook-config-file
           - /etc/istio/config/validatingwebhookconfiguration.yaml
+          - --monitoringPort={{ .Values.global.monitoringPort }}
           volumeMounts:
           - name: certs
             mountPath: /etc/istio/certs

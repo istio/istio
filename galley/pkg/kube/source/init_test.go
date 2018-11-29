@@ -19,9 +19,10 @@ import (
 	"testing"
 	"time"
 
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 )
 
 func TestVerifyCRDPresence(t *testing.T) {

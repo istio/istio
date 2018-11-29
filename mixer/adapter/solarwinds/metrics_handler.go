@@ -46,7 +46,7 @@ type metricsHandler struct {
 	persistWait chan struct{}
 }
 
-func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
+func newMetricsHandler(env adapter.Env, cfg *config.Params) metricsHandlerInterface {
 	buffChanSize := runtime.NumCPU() * 10
 
 	// prepChan holds groups of Measurements to be batched
@@ -87,7 +87,7 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 		persistWait: persistWait,
 		batchWait:   batchWait,
 		metricInfo:  cfg.Metrics,
-	}, nil
+	}
 }
 
 func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance) error {

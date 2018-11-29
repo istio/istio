@@ -30,7 +30,10 @@ const reportAttributes = `
   "context.reporter.uid" : "",
   "destination.namespace" : "",
   "destination.uid": "",
-  "envoy.filters.http.rbac": "*",
+  "envoy.filters.http.rbac": {
+    "shadow_effective_policyID": "details-reviews-viewer",
+    "shadow_response_code": "200"
+  },
   "mesh1.ip": "*",
   "mesh2.ip": "*",
   "mesh3.ip": "*",

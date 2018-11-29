@@ -186,6 +186,7 @@ func (client mockExecVersionConfig) PilotDiscoveryDo(pilotNamespace, method, pat
 	return nil, nil
 }
 
+// nolint: unparam
 func (client mockExecVersionConfig) GetIstioVersions(namespace string) (*version.MeshInfo, error) {
 	return &meshInfo, nil
 }

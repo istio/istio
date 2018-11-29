@@ -18,11 +18,23 @@ set -e
 set -u
 set -o pipefail
 
-REPORT_PATH=${GOPATH}/out/codecov
-BASELINE_PATH=${GOPATH}/out/codecov_baseline
+SCRIPTPATH="$(cd "$(dirname "$0")" ; pwd -P)"
+ROOTDIR="$(dirname "${SCRIPTPATH}")"
+
+REPORT_PATH=${GOPATH}/out/codecov/pr
+BASELINE_PATH=${GOPATH}/out/codecov/baseline
+CODECOV_SKIP=${GOPATH}/out/codecov/codecov.skip
+THRESHOLD_FILE=${GOPATH}/out/codecov/codecov.threshold
+mkdir -p "${GOPATH}"/out/codecov
+mkdir -p "${GOPATH}"/out/tests
+
+# Use the codecov.skip from the PR across two test runs to make sure we skip a
+# consistent list of packages.
+cp "${ROOTDIR}"/codecov.skip "${CODECOV_SKIP}"
+cp "${ROOTDIR}"/codecov.threshold "${THRESHOLD_FILE}"
 
 # First run codecov from current workspace (PR)
-OUT_DIR="${REPORT_PATH}" MAXPROCS=${MAXPROCS:-} ./bin/codecov.sh || echo "Some tests have failed"
+OUT_DIR="${REPORT_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh
 
 if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   TMP_GITHUB_TOKEN=$(mktemp /tmp/XXXXX.github)
@@ -39,10 +51,26 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
 
   cp "${TMP_CODECOV_SH}" ./bin/codecov.sh
 
+  # Run test at the base SHA
+  OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh
 
-  OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" ./bin/codecov.sh || echo "Some tests have failed"
+  # Get back to the PR head
+  git reset HEAD --hard
+  git checkout "${CIRCLE_SHA1}"
 
-  go get -u istio.io/test-infra/toolbox/pkg_check
-  "${GOPATH}"/bin/pkg_check  --report_file="${REPORT_PATH}/codecov.report" --baseline_file="${BASELINE_PATH}/codecov.report"
+  # Test that coverage is not dropped
+  go test -v istio.io/istio/tests/codecov/... \
+    --report_file="${REPORT_PATH}/coverage.html" \
+    --baseline_file="${BASELINE_PATH}/coverage.html" \
+    --threshold_file="${THRESHOLD_FILE}" \
+    | tee "${GOPATH}"/out/codecov/out.log \
+    | tee >(go-junit-report > "${GOPATH}"/out/codecov/junit.xml)
+
+  # Merge codecov junit into the one creared by unit tests at PR head.
+  go get github.com/imsky/junit-merger/...
+  junit-merger "${GOPATH}"/out/codecov/pr/junit.xml "${GOPATH}"/out/codecov/junit.xml  > "${GOPATH}"/out/tests/junit.xml
+else
+  # Upload to codecov.io in post submit only for visualization
+  bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/pr/coverage.cov
 fi
 

@@ -52,7 +52,7 @@ const (
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
-	builder := func(u *url.URL, gv *schema.GroupVersion, credOptions *creds.Options, _ []string) (store.Backend, error) {
+	var builder store.Builder = func(u *url.URL, _ *schema.GroupVersion, credOptions *creds.Options, _ []string) (store.Backend, error) {
 		return newStore(u, credOptions, nil)
 	}
 
@@ -142,6 +142,7 @@ func (b *backend) Init(kinds []string) error {
 		scope.Infof("  [%d] %s", i, url)
 	}
 
+	// nolint: govet
 	ctx, cancel := context.WithCancel(context.Background())
 
 	securityOption := grpc.WithInsecure()
@@ -158,6 +159,7 @@ func (b *backend) Init(kinds []string) error {
 				log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredCertCheckFreq)
 				select {
 				case <-ctx.Done():
+					// nolint: govet
 					return ctx.Err()
 				case <-time.After(requiredCertCheckFreq):
 					// retry
@@ -226,7 +228,6 @@ func (b *backend) WaitForSynced(timeout time.Duration) error {
 			}
 		}
 	}
-	return nil
 }
 
 // Stop implements store.Backend.Stop.

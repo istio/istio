@@ -148,17 +148,14 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 		return nil, err
 	}
 
-	ctx, err := initializeHandlerContext(env, b.config, client)
-	if err != nil {
-		return nil, err
-	}
+	ctx := initializeHandlerContext(env, b.config, client)
 	ctx.checkDataShape = b.checkDataShape
 	ctx.reportDataShape = b.reportDataShape
-	return newHandler(ctx)
+	return newHandler(ctx), nil
 }
 
 func initializeHandlerContext(env adapter.Env, adapterCfg *config.Params,
-	client serviceControlClient) (*handlerContext, error) {
+	client serviceControlClient) *handlerContext {
 
 	configIndex := make(map[string]*config.GcpServiceSetting, len(adapterCfg.ServiceConfigs))
 	for _, cfg := range adapterCfg.ServiceConfigs {
@@ -176,7 +173,7 @@ func initializeHandlerContext(env adapter.Env, adapterCfg *config.Params,
 		serviceConfigIndex: configIndex,
 		checkResponseCache: checkCache,
 		client:             client,
-	}, nil
+	}
 }
 
 // GetInfo registers Adapter with Mixer.

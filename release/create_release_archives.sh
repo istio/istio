@@ -140,6 +140,17 @@ done
 
 ls -l  "${COMMON_FILES_DIR}/install/kubernetes/"
 
+
+for unwanted_values_yaml in \
+    values-istio.yaml \
+    values-istio-one-namespace.yaml \
+    values-istio-one-namespace-auth.yaml \
+    values-istio-auth.yaml; do
+  rm -f "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/${unwanted_values_yaml}"
+done
+
+ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
+
 # Changing dir such that tar and zip files are
 # created with right hiereachy
 pushd "${COMMON_FILES_DIR}/.."

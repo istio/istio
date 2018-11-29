@@ -204,7 +204,7 @@ func createTestWebhook(
 	}
 }
 
-func makePilotConfig(t *testing.T, i int, validKind, validConfig bool) []byte {
+func makePilotConfig(t *testing.T, i int, validConfig bool) []byte {
 	t.Helper()
 
 	var key string
@@ -244,8 +244,8 @@ func makePilotConfig(t *testing.T, i int, validKind, validConfig bool) []byte {
 }
 
 func TestAdmitPilot(t *testing.T) {
-	valid := makePilotConfig(t, 0, true, true)
-	invalidConfig := makePilotConfig(t, 0, true, false)
+	valid := makePilotConfig(t, 0, true)
+	invalidConfig := makePilotConfig(t, 0, false)
 
 	wh, cancel := createTestWebhook(t, dummyClient, createFakeWebhookSource(), createFakeEndpointsSource(), dummyConfig)
 	defer cancel()
@@ -465,7 +465,7 @@ func makeTestReview(t *testing.T, valid bool) []byte {
 		Request: &admissionv1beta1.AdmissionRequest{
 			Kind: metav1.GroupVersionKind{},
 			Object: runtime.RawExtension{
-				Raw: makePilotConfig(t, 0, true, valid),
+				Raw: makePilotConfig(t, 0, valid),
 			},
 			Operation: admissionv1beta1.Create,
 		},

@@ -6,11 +6,11 @@
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "./gcb/modify_values.sh" ]
+      "args": [ "./gcb/helm_charts.sh" ]
     },
     {
       "name": "gcr.io/istio-testing/istio-builder:0.5.10",
-      "args": [ "./gcb/helm_charts.sh" ]
+      "args": [ "./gcb/helm_values.sh" ]
     }
   ],
   "timeout": "3600s",

@@ -178,6 +178,11 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, trus
 // Run starts the SecretController until a value is sent to stopCh.
 func (sc *SecretController) Run(stopCh chan struct{}) {
 	go sc.scrtController.Run(stopCh)
+
+	// saAdded calls upsertSecret to update and insert secret
+	// it throws error if the secret cache is not synchronized, but the secret exists in the system
+	cache.WaitForCacheSync(stopCh, sc.scrtController.HasSynced)
+
 	go sc.saController.Run(stopCh)
 }
 
@@ -255,7 +260,10 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	// We retry several times when create secret to mitigate transient network failures.
 	for i := 0; i < secretCreationRetry; i++ {
 		_, err = sc.core.Secrets(saNamespace).Create(secret)
-		if err == nil {
+		if err == nil || errors.IsAlreadyExists(err) {
+			if errors.IsAlreadyExists(err) {
+				log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" already exists", saName, saNamespace)
+			}
 			break
 		} else {
 			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
@@ -263,7 +271,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 		time.Sleep(time.Second)
 	}
 
-	if err != nil {
+	if err != nil && !errors.IsAlreadyExists(err) {
 		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
 			saName, err, secretCreationRetry)
 		return

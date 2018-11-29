@@ -53,7 +53,6 @@ import (
 var (
 	// mixer-style test environment, includes mixer and envoy configs.
 	testEnv        *testenv.TestSetup
-	pilotServer    *bootstrap.Server
 	initMutex      sync.Mutex
 	initEnvoyMutex sync.Mutex
 
@@ -135,10 +134,8 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
-	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	server, tearDown := util.EnsureTestServer()
-	pilotServer = server
-
+	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
@@ -162,9 +159,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Port:     80,
 				Protocol: model.ProtocolHTTP,
 			},
+			Locality: "az",
 		},
-		AvailabilityZone: "az",
-		ServiceAccount:   "hello-sa",
+		ServiceAccount: "hello-sa",
 	})
 
 	// "local" service points to the current host and the in-process mixer http test endpoint
@@ -187,8 +184,8 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Port:     80,
 				Protocol: model.ProtocolHTTP,
 			},
+			Locality: "az",
 		},
-		AvailabilityZone: "az",
 	})
 
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
@@ -208,9 +205,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Port:     1080,
 				Protocol: model.ProtocolHTTP,
 			},
+			Locality: "az",
 		},
-		Labels:           map[string]string{"version": "v1"},
-		AvailabilityZone: "az",
+		Labels: map[string]string{"version": "v1"},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -221,9 +218,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Port:     1080,
 				Protocol: model.ProtocolHTTP,
 			},
+			Locality: "az",
 		},
-		Labels:           map[string]string{"version": "v2", "app": "my-gateway-controller"},
-		AvailabilityZone: "az",
+		Labels: map[string]string{"version": "v2", "app": "my-gateway-controller"},
 	})
 
 	// Mock ingress service
@@ -252,9 +249,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Port:     80,
 				Protocol: model.ProtocolHTTP,
 			},
+			Locality: "az",
 		},
-		Labels:           model.IstioIngressWorkloadLabels,
-		AvailabilityZone: "az",
+		Labels: model.IstioIngressWorkloadLabels,
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -265,9 +262,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Port:     443,
 				Protocol: model.ProtocolHTTPS,
 			},
+			Locality: "az",
 		},
-		Labels:           model.IstioIngressWorkloadLabels,
-		AvailabilityZone: "az",
+		Labels: model.IstioIngressWorkloadLabels,
 	})
 
 	// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
@@ -286,10 +283,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	// debug and for the canary.
 	time.Sleep(2 * time.Second)
 
-	return server, func() {
-		pilotServer = nil
-		tearDown()
-	}
+	return server, tearDown
 }
 
 func testPorts(base int) []*model.Port {
