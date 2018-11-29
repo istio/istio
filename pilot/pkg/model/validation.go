@@ -1050,7 +1050,7 @@ func ValidateQuotaSpec(name, namespace string, msg proto.Message) error {
 	}
 	var errs error
 	if len(in.Rules) == 0 {
-		errs = multierror.Append(errs, errors.New("a least one rule must be specified"))
+		errs = multierror.Append(errs, errors.New("at least one rule must be specified"))
 	}
 	for _, rule := range in.Rules {
 		for _, match := range rule.Match {
@@ -1075,7 +1075,7 @@ func ValidateQuotaSpec(name, namespace string, msg proto.Message) error {
 			}
 		}
 		if len(rule.Quotas) == 0 {
-			errs = multierror.Append(errs, errors.New("a least one quota must be specified"))
+			errs = multierror.Append(errs, errors.New("at least one quota must be specified"))
 		}
 		for _, quota := range rule.Quotas {
 			if quota.Quota == "" {
