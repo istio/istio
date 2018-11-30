@@ -30,6 +30,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"

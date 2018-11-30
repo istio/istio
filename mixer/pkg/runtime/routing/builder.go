@@ -116,8 +116,8 @@ func BuildTable(
 		},
 
 		// nolint: goimports
-		handlers: handlers,
-		expb:     expb,
+		handlers:               handlers,
+		expb:                   expb,
 		defaultConfigNamespace: defaultConfigNamespace,
 		nextIDCounter:          1,
 
@@ -215,8 +215,6 @@ func (b *builder) build(snapshot *config.Snapshot) {
 				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
 					entry.Name, instance.Name, rule.Match, action.Name)
 			}
-
-			b.addRuleOperations(rule.Namespace, condition, operations)
 		}
 
 		// process rule operations
@@ -584,130 +582,6 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 		b.mappers[instance.Name] = mapper
 	}
 	return instBuilder, mapper
-}
-
-// buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
-// with template output attributes prefixed by the action names added to the global attribute manifests.
-func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) *compiled.ExpressionBuilder {
-	// templates include the output template attributes in their manifests
-	attributeDescriptor := make(map[string]*descriptor.AttributeManifest_AttributeInfo)
-
-	for _, action := range rule.ActionsStatic {
-		if len(action.Instances) == 0 {
-			continue
-		}
-
-		// assuming identical templates for all instances
-		template := action.Instances[0].Template
-		if template.Variety != tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
-			continue
-		}
-
-		for _, manifest := range template.AttributeManifests {
-			for attrName, attrInfo := range manifest.Attributes {
-				attributeDescriptor[action.Name+".output."+attrName] = attrInfo
-			}
-		}
-	}
-
-	for _, action := range rule.ActionsDynamic {
-		if len(action.Instances) == 0 {
-			continue
-		}
-
-		// assuming identical templates for all instances
-		template := action.Instances[0].Template
-		if template.Variety != tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT {
-			continue
-		}
-
-		// dynamic template output attributes start with "output."
-		for attrName, attrInfo := range template.AttributeManifest {
-			attributeDescriptor[action.Name+"."+attrName] = attrInfo
-		}
-	}
-
-	return compiled.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor))
-}
-
-// buildRuleOperations creates an intermediate symbolic form for the route directive header operations
-func (b *builder) buildRuleOperations(compiler dynamic.Compiler, rule *config.Rule) ([]*HeaderOperation, error) {
-	reqOps, err := b.compileRuleOperationTemplates(rule.Name, compiler, RequestHeaderOperation, rule.RequestHeaderOperations)
-	if err != nil {
-		return nil, err
-	}
-
-	respOps, err := b.compileRuleOperationTemplates(rule.Name, compiler, ResponseHeaderOperation, rule.ResponseHeaderOperations)
-	if err != nil {
-		return nil, err
-	}
-
-	return append(reqOps, respOps...), nil
-}
-
-func (b *builder) compileRuleOperationTemplates(
-	location string,
-	compiler dynamic.Compiler,
-	typ HeaderOperationType,
-	ops []*descriptor.Rule_HeaderOperationTemplate) ([]*HeaderOperation, error) {
-
-	out := make([]*HeaderOperation, 0, len(ops))
-
-	for _, op := range ops {
-		// ignore values if operation is header removal
-		if op.Operation == descriptor.REMOVE {
-			out = append(out, &HeaderOperation{
-				Type:       typ,
-				HeaderName: op.Name,
-				Operation:  op.Operation,
-			})
-			continue
-		}
-
-		for _, value := range op.Values {
-			ve, vt, verr := compiler.Compile(value)
-			if verr != nil {
-				return nil, fmt.Errorf("unable to compile header operation value expression: %q in %q, expression=%q",
-					verr, location, value)
-			}
-			if vt != descriptor.STRING {
-				return nil, fmt.Errorf("header operation value expression is not of string type: expression=%q in %q",
-					value, location)
-			}
-			out = append(out, &HeaderOperation{
-				Type:        typ,
-				HeaderName:  op.Name,
-				HeaderValue: ve,
-				Operation:   op.Operation,
-			})
-		}
-	}
-
-	return out, nil
-}
-
-// addRuleOperations appends operation expressions to the CHECK entry in the routing table
-// should be called after b.add() to ensure table initialization for the namespace
-func (b *builder) addRuleOperations(
-	namespace string,
-	condition compiled.Expression,
-	operations []*HeaderOperation) {
-	byNamespace := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace]
-
-	var group *DirectiveGroup
-	for _, set := range byNamespace.directives {
-		if set.Condition == condition {
-			group = set
-			break
-		}
-	}
-	if group == nil {
-		group = &DirectiveGroup{
-			Condition: condition,
-		}
-		byNamespace.directives = append(byNamespace.directives, group)
-	}
-	group.Operations = append(group.Operations, operations...)
 }
 
 // buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary

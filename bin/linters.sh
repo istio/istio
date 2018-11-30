@@ -93,9 +93,13 @@ function install_golangcilint() {
 }
 
 function run_gometalinter() {
-    echo 'Running gometalinter ....'
-    $gometalinter --config=./lintconfig_base.json ./...
-    echo 'gometalinter OK'
+    # Disable gometalinter since it now generates way too many
+    # errors. We are switching to golangci-lint anyway.
+    # https://github.com/istio/istio/issues/9933
+    #echo 'Running gometalinter ....'
+    #$gometalinter --config=./lintconfig_base.json ./...
+    #echo 'gometalinter OK'
+
     echo 'Running gometalinter on adapters ....'
     pushd mixer/tools/adapterlinter
     go install .

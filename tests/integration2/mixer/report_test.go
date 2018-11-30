@@ -15,12 +15,13 @@
 package mixer
 
 import (
+	"testing"
+	"time"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test"
 )

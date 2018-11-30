@@ -15,6 +15,9 @@
 package mixer
 
 import (
+	"testing"
+
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -22,9 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
-	"testing"
-
-	"istio.io/istio/pkg/test"
 )
 
 // This file contains Mixer tests that are ported from Mixer E2E tests
@@ -49,6 +49,7 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	testMetric(t, ctx, label, labelValue)
 }
 
+// nolint: interfacer
 func testMetric(t *testing.T, ctx context.Instance, label string, labelValue string) {
 	t.Helper()
 
