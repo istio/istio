@@ -125,7 +125,7 @@ func TestTLS(t *testing.T) {
 }
 
 func TestAdsClusterUpdate(t *testing.T) {
-	server, tearDown := initLocalPilotTestEnv(t)
+	_, tearDown := initLocalPilotTestEnv(t)
 	defer tearDown()
 
 	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
