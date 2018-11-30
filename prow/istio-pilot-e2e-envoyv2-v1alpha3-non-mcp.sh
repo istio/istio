@@ -29,7 +29,7 @@ set -x
 
 # Run tests with auth disabled
 #echo 'Running pilot e2e tests (v1alpha3, noauth)'
-./prow/e2e-suite.sh --use_mcp --single_test e2e_pilotv2_v1alpha3
+./prow/e2e-suite.sh --use_mcp=false --single_test e2e_pilotv2_v1alpha3
 
 # Run tests with auth enabled
 #echo 'Running pilot e2e tests (v1alpha3, auth)'
