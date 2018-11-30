@@ -20,8 +20,9 @@ import (
 	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	mixerpb "istio.io/api/mixer/v1"
 	descriptor "istio.io/api/policy/v1beta1"

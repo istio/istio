@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -365,7 +366,7 @@ ident                         : dest.istio-system
 		name: "BasicReportError",
 		templates: []data.FakeTemplateSettings{{
 			// nolint: goimports
-			Name: "treport",
+			Name:                  "treport",
 			ErrorOnDispatchReport: true,
 		}},
 		config: []string{
@@ -671,7 +672,7 @@ ident                         : dest.istio-system
 		name: "BasicPreprocessError",
 		templates: []data.FakeTemplateSettings{{
 			// nolint: goimports
-			Name: "tapa",
+			Name:                    "tapa",
 			ErrorOnDispatchGenAttrs: true,
 		}},
 		config: []string{

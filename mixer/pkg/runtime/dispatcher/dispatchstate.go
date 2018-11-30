@@ -24,6 +24,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"

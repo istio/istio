@@ -47,6 +47,7 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
 
   go get -u istio.io/test-infra/toolbox/githubctl
   BASE_SHA=$("${GOPATH}"/bin/githubctl --token_file="${TMP_GITHUB_TOKEN}" --op=getBaseSHA --repo=istio --pr_num="${CIRCLE_PR_NUMBER}")
+  git clean -f
   git checkout "${BASE_SHA}"
 
   cp "${TMP_CODECOV_SH}" ./bin/codecov.sh
@@ -55,7 +56,7 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh
 
   # Get back to the PR head
-  git reset HEAD --hard
+  git clean -f
   git checkout "${CIRCLE_SHA1}"
 
   # Test that coverage is not dropped

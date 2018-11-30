@@ -344,7 +344,7 @@ func TestProjectMetadata(t *testing.T) {
 			[]*logentry.Instance{
 				{
 					// nolint: goimports
-					Name: "log",
+					Name:                  "log",
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "id",
@@ -367,7 +367,7 @@ func TestProjectMetadata(t *testing.T) {
 			[]*logentry.Instance{
 				{
 					// nolint: goimports
-					Name: "log",
+					Name:                  "log",
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "",

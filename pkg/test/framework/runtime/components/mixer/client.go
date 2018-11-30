@@ -24,9 +24,9 @@ import (
 	istioMixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/server"
-        "istio.io/istio/pkg/test/framework/api/components"
-        "istio.io/istio/pkg/test/framework/runtime/api"
-        "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/runtime/api"
+	"istio.io/istio/pkg/test/kube"
 )
 
 const (
