@@ -789,6 +789,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		log.Infof("Auth enabled setValue=%s", setValue)
 
 	}
+	log.Infof("Auth enabled? setValue=%s", setValue)
 
 	// side car injector
 	if *useAutomaticInjection {
@@ -803,6 +804,8 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		log.Infof("galleyConfigValidator enabled setValue=%s", setValue)
 
 	}
+	log.Infof("galley enabled ? setValue=%s", setValue)
+
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
 	if *pilotHub != "" && *pilotTag != "" {
@@ -844,6 +847,8 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		return err
 	}
 
+	log.Infof("Start Helm dry run of istio chart failed %s, valueFile=%s, setValue=%s, values params passed from tests=%s, namespace=%s",
+		istioHelmInstallDir, valFile, setValue, *values, k.Namespace)
 	// helm install dry run - dry run seems to have problems
 	// with CRDs even in 2.9.2, pre-install is not executed
 	err = util.HelmInstallDryRun(workDir, "istio", valFile, k.Namespace, setValue)
