@@ -193,7 +193,7 @@ docker.vault-test:  | $(ISTIO_DOCKER)
 	docker build -t $(HUB)/vault-test:$(TAG) -f Dockerfile.vault-test . && \
 	docker push $(HUB)/vault-test:$(TAG)
 
-docker.citadel-vault-test-1:  citadel $(ISTIO_DOCKER)/istio_ca security/docker/Dockerfile.citadel-vault-test-1 | $(ISTIO_DOCKER)
+docker.citadel-vault-test-1:  $(ISTIO_DOCKER)/istio_ca.crt $(ISTIO_DOCKER)/istio_ca.key citadel $(ISTIO_DOCKER)/istio_ca security/docker/Dockerfile.citadel-vault-test-1 | $(ISTIO_DOCKER)
 	cp security/docker/Dockerfile.citadel-vault-test-1 $(ISTIO_DOCKER)/ && \
 	cp security/tests/integration/vaultTest/testdata/reviewer-token.jwt $(ISTIO_DOCKER)/ && \
 	cd $(ISTIO_DOCKER) && \

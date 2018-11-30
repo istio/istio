@@ -9,7 +9,7 @@ COPY reviewer-token.jwt /usr/local/bin/reviewer-token.jwt
 ENTRYPOINT [ "/usr/local/bin/istio_ca", \
 "--use-vault", \
 "--reviewer-token-file", "/usr/local/bin/reviewer-token.jwt", \
-"--vault-ip", "35.233.139.234", \
+"--vault-ip", "YOUR_VAULT_IP_ADDRESS", \
 "--vault-port", "8200", \
 "--grpc-host-identities", "istio-standalone-citadel.default.svc.cluster.local", \
 "--signing-cert", "/usr/local/bin/istio_ca.crt", \
