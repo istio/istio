@@ -43,7 +43,7 @@
         "vetshadow": "error"
     },
     "skip": [
-        "mixer/tools/adapterlinter/testdata"
+        "mixer"
     ],
     "exclude": [
         ".pb.go",

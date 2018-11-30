@@ -137,7 +137,7 @@ func TestRBAC(t *testing.T) {
 			testName := fmt.Sprintf("%s from %s cluster->%s%s%s[%s]",
 				req.src, cluster, req.dst, req.path, port, expectStr)
 
-			runRetriableTest(t, cluster, testName, 30, func() error {
+			runRetriableTest(t, testName, 30, func() error {
 				reqPath := fmt.Sprintf("http://%s%s%s", req.dst, port, req.path)
 				if !req.allow && port != "" {
 					// There is no response code for TCP service but we can just check the GET request is failed

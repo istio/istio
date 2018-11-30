@@ -56,7 +56,7 @@ var (
 
 	// PushTimeout is the time to wait for a push on a client. Pilot iterates over
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
-	// We measure and reports cases where pusing a client takes longer.
+	// We measure and reports cases where pushing a client takes longer.
 	PushTimeout = 5 * time.Second
 )
 
@@ -204,7 +204,7 @@ type XdsConnection struct {
 	pushChannel chan *XdsEvent
 
 	// Set to the current push status when a push is started.
-	// Null after the pushall completes for the node.
+	// Null after the push all completes for the node.
 	currentPush *model.PushContext
 
 	// Set if a push request is received while a push is in progress.
@@ -231,8 +231,6 @@ type XdsConnection struct {
 
 	// current list of clusters monitored by the client
 	Clusters []string
-
-	// TODO: TcpListeners (may combine mongo/etc)
 
 	// Both ADS and EDS streams implement this interface
 	stream DiscoveryStream
@@ -349,7 +347,9 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 		req, err := con.stream.Recv()
 		if err != nil {
 			if status.Code(err) == codes.Canceled || err == io.EOF {
+				con.mu.RLock()
 				adsLog.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
+				con.mu.RUnlock()
 				return
 			}
 			*errP = err
@@ -431,11 +431,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 			con.mu.Lock()
 			con.modelNode = &nt
-			con.mu.Unlock()
 			if con.ConID == "" {
 				// first request
 				con.ConID = connectionID(discReq.Node.Id)
 			}
+			con.mu.Unlock()
 
 			switch discReq.TypeUrl {
 			case ClusterType:
@@ -483,34 +483,39 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case RouteType:
+				if discReq.ErrorDetail != nil {
+					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+					rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
+					totalXDSRejects.Add(1)
+					continue
+				}
 				routes := discReq.GetResourceNames()
+				if routes == nil && discReq.ResponseNonce != "" {
+					// There is no requirement that ACK includes routes. The test doesn't.
+					con.mu.Lock()
+					con.RouteNonceAcked = discReq.ResponseNonce
+					con.mu.Unlock()
+					continue
+				}
+				// routes and con.Routes are all empty, this is not an ack and will do nothing.
+				if len(routes) == 0 && len(con.Routes) == 0 {
+					continue
+				}
 
-				if len(routes) == len(con.Routes) || len(routes) == 0 {
-					// routes and con.Routes are all empty, this is not an ack and will do nothing.
-					if len(routes) == 0 && len(con.Routes) == 0 {
-						continue
-					}
-
+				if len(routes) == len(con.Routes) {
 					sort.Strings(routes)
 					sort.Strings(con.Routes)
 
-					if reflect.DeepEqual(con.Routes, routes) || len(routes) == 0 {
-						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
-							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-							totalXDSRejects.Add(1)
-						}
+					if reflect.DeepEqual(con.Routes, routes) {
 						// Not logging full request, can be very long.
-						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
-						if len(con.Routes) > 0 {
-							// Already got a list of routes to watch and has same length as the request, this is an ack
-							if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-								con.mu.Lock()
-								con.RouteNonceAcked = discReq.ResponseNonce
-								con.mu.Unlock()
-							}
-							continue
+						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
+						// Already got a list of routes to watch and has same length as the request, this is an ack
+						if discReq.ResponseNonce != "" {
+							con.mu.Lock()
+							con.RouteNonceAcked = discReq.ResponseNonce
+							con.mu.Unlock()
 						}
+						continue
 					}
 				}
 
@@ -522,18 +527,18 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 
 			case EndpointType:
-				clusters := discReq.GetResourceNames()
 				if discReq.ErrorDetail != nil {
 					adsLog.Warnf("ADS:EDS: ACK ERROR %v %s %v", peerAddr, con.ConID, discReq.String())
 					edsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					totalXDSRejects.Add(1)
+					continue
 				}
-
+				clusters := discReq.GetResourceNames()
 				if clusters == nil && discReq.ResponseNonce != "" {
 					// There is no requirement that ACK includes clusters. The test doesn't.
-					if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-						con.EndpointNonceAcked = discReq.ResponseNonce
-					}
+					con.mu.Lock()
+					con.EndpointNonceAcked = discReq.ResponseNonce
+					con.mu.Unlock()
 					continue
 				}
 				// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
@@ -546,11 +551,14 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 					// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 					if reflect.DeepEqual(con.Clusters, clusters) {
-						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+						if discReq.ResponseNonce != "" {
+							con.mu.Lock()
 							con.EndpointNonceAcked = discReq.ResponseNonce
 							if len(edsClusters) != 0 {
 								con.EndpointPercent = int((float64(len(clusters)) / float64(len(edsClusters))) * float64(100))
 							}
+							con.mu.Unlock()
 						}
 						continue
 					}
@@ -631,7 +639,9 @@ func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
 		n := atomic.AddInt32(pushEv.pending, -1)
 		if n <= 0 && pushEv.push.End == timeZero {
 			// Display again the push status
+			pushEv.push.Mutex.Lock()
 			pushEv.push.End = time.Now()
+			pushEv.push.Mutex.Unlock()
 			proxiesConvergeDelay.Observe(time.Since(pushEv.push.Start).Seconds())
 			out, _ := pushEv.push.JSON()
 			adsLog.Infof("Push finished: %v %s",

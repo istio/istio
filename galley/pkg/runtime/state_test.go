@@ -34,7 +34,6 @@ var (
 	cfg = &Config{Mesh: meshconfig.NewInMemory()}
 	fn  = resource.FullNameFromNamespaceAndName("", "fn")
 	fn2 = resource.FullNameFromNamespaceAndName("", "fn2")
-	fn3 = resource.FullNameFromNamespaceAndName("", "fn3")
 )
 
 func init() {

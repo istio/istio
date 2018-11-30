@@ -15,13 +15,14 @@
 package galley
 
 import (
+	"path"
+	"strings"
+	"testing"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-	"path"
-	"strings"
-	"testing"
 )
 
 type testData string

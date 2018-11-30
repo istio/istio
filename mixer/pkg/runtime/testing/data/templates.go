@@ -23,6 +23,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	istio_mixer_v1_template "istio.io/api/mixer/adapter/model/v1beta1"
 	policy "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"

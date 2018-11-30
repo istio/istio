@@ -120,7 +120,7 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 	clusterEndpoint = retrieveSortedEndpointClusterSlice(clusterEndpoint)
 	fmt.Fprintln(w, "ENDPOINT\tSTATUS\tCLUSTER")
 	for _, ce := range clusterEndpoint {
-		endpoint := ce.address + ":" + strconv.Itoa(int(ce.port))
+		endpoint := ce.address + ":" + strconv.Itoa(ce.port)
 		fmt.Fprintf(w, "%v\t%v\t%v\n", endpoint, core.HealthStatus_name[int32(ce.status)], ce.cluster)
 	}
 

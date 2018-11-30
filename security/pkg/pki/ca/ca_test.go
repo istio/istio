@@ -375,6 +375,7 @@ func TestSignCSRTTLError(t *testing.T) {
 	}
 }
 
+// nolint: unparam
 func createCA(maxTTL time.Duration, multicluster bool) (*IstioCA, error) {
 	// Generate root CA key and cert.
 	rootCAOpts := util.CertOptions{

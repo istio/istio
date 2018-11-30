@@ -35,6 +35,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	config "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -146,9 +147,9 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 
 	e.lock.RLock()
 
-	attributes := e.processAttributeManifests(monitoringCtx, errs)
+	attributes := e.processAttributeManifests(monitoringCtx)
 
-	shandlers := e.processStaticAdapterHandlerConfigs(monitoringCtx, errs)
+	shandlers := e.processStaticAdapterHandlerConfigs(monitoringCtx)
 
 	af := ast.NewFinder(attributes)
 	instances := e.processInstanceConfigs(monitoringCtx, af, errs)
@@ -184,7 +185,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	return s, errs.ErrorOrNil()
 }
 
-func (e *Ephemeral) processAttributeManifests(ctx context.Context, errs *multierror.Error) map[string]*config.AttributeManifest_AttributeInfo {
+func (e *Ephemeral) processAttributeManifests(ctx context.Context) map[string]*config.AttributeManifest_AttributeInfo {
 	attrs := make(map[string]*config.AttributeManifest_AttributeInfo)
 	for k, obj := range e.entries {
 		if k.Kind != constant.AttributeManifestKind {
@@ -238,7 +239,7 @@ func convert(spec map[string]interface{}, target proto.Message) error {
 	return err
 }
 
-func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context, errs *multierror.Error) map[string]*HandlerStatic {
+func (e *Ephemeral) processStaticAdapterHandlerConfigs(ctx context.Context) map[string]*HandlerStatic {
 	handlers := make(map[string]*HandlerStatic, len(e.adapters))
 
 	for key, resource := range e.entries {
@@ -740,11 +741,12 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		rule := &Rule{
-			Name:           ruleName,
-			Namespace:      ruleKey.Namespace,
-			ActionsStatic:  actionsStat,
-			ActionsDynamic: actionsDynamic,
-			Match:          cfg.Match,
+			// nolint: goimports
+			Name:                     ruleName,
+			Namespace:                ruleKey.Namespace,
+			ActionsStatic:            actionsStat,
+			ActionsDynamic:           actionsDynamic,
+			Match:                    cfg.Match,
 			RequestHeaderOperations:  cfg.RequestHeaderOperations,
 			ResponseHeaderOperations: cfg.ResponseHeaderOperations,
 		}
@@ -784,7 +786,8 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 		}
 
 		result[templateName] = &Template{
-			Name: templateName,
+			// nolint: goimports
+			Name:                       templateName,
 			InternalPackageDerivedName: name,
 			FileDescSet:                fds,
 			PackageName:                desc.GetPackage(),

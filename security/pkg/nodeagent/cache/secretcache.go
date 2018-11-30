@@ -254,7 +254,7 @@ func (sc *SecretCache) rotate() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if sc.isTokenExpired(&e) {
+				if sc.isTokenExpired() {
 					log.Debugf("Token for %q expired for proxy %q", e.ResourceName, proxyID)
 
 					if sc.notifyCallback != nil {
@@ -366,7 +366,7 @@ func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 	return time.Now().After(s.CreatedTime.Add(sc.configOptions.SecretTTL - sc.configOptions.SecretRefreshGraceDuration))
 }
 
-func (sc *SecretCache) isTokenExpired(s *model.SecretItem) bool {
+func (sc *SecretCache) isTokenExpired() bool {
 	if atomic.LoadUint32(&sc.skipTokenExpireCheck) == 1 {
 		return true
 	}

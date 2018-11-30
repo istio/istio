@@ -24,13 +24,12 @@ import (
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/log"
-
 	authn "istio.io/api/authentication/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("kube-converter", "Kubernetes conversion related packages", 0)
@@ -46,8 +45,9 @@ type Entry struct {
 }
 
 var converters = map[string]Fn{
-	"identity": identity,
-	"nil":      nilConverter,
+	// nolint: goimports
+	"identity":              identity,
+	"nil":                   nilConverter,
 	"legacy-mixer-resource": legacyMixerResource,
 	"auth-policy-resource":  authPolicyResource,
 	"kube-ingress-resource": kubeIngressResource,

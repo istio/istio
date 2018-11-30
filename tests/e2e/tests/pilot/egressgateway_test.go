@@ -48,7 +48,7 @@ func TestRouteHTTPViaEgressGateway(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "RouteHTTPViaEgressGateway", defaultRetryBudget, func() error {
+		runRetriableTest(t, "RouteHTTPViaEgressGateway", defaultRetryBudget, func() error {
 			// We use an arbitrary IP to ensure that the test fails if networking logic is implemented incorrectly
 			reqURL := fmt.Sprintf("http://1.1.1.1/bookinfo")
 			resp := ClientRequest(cluster, "a", reqURL, 100, "-key Host -val scooby.eu.bookinfo.com")
@@ -96,7 +96,7 @@ func TestRouteSNIViaEgressGateway(t *testing.T) {
 
 	for cluster := range tc.Kube.Clusters {
 		for _, url := range []string{"https://www.google.com", "https://www.bing.com"} {
-			runRetriableTest(t, cluster, "RouteSNIViaEgressGateway", defaultRetryBudget, func() error {
+			runRetriableTest(t, "RouteSNIViaEgressGateway", defaultRetryBudget, func() error {
 				reqURL := fmt.Sprintf(url)
 				resp := ClientRequest(cluster, "a", reqURL, 100, "")
 				count := make(map[string]int)

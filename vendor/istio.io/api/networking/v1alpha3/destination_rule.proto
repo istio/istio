@@ -442,6 +442,13 @@ message OutlierDetection {
   // Maximum % of hosts in the load balancing pool for the upstream
   // service that can be ejected. Defaults to 10%.
   int32 max_ejection_percent = 4;
+
+  // Outlier detection will be enabled as long as the associated load balancing
+  // pool has at least min_health_percent hosts in healthy mode. When the
+  // percentage of healthy hosts in the load balancing pool drops below this
+  // threshold, outlier detection will be disabled and the proxy will load balance
+  // across all hosts in the pool (healthy and unhealthy).  The default is 50%.
+  int32 min_health_percent = 5;
 }
 
 // SSL/TLS related settings for upstream connections. See Envoy's [TLS

@@ -117,7 +117,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
-			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
+			certutil: &utilmock.FakeCertUtil{Duration: time.Millisecond * 300},
 			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,
@@ -133,7 +133,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
-			certutil:    &utilmock.FakeCertUtil{Duration: time.Duration(time.Millisecond * 300)},
+			certutil:    &utilmock.FakeCertUtil{Duration: time.Millisecond * 300},
 			keycert:     &pkimock.FakeKeyCertBundle{RootCertBytes: oldRootCert},
 			updated:     true,
 			expectedErr: "",
@@ -144,7 +144,7 @@ func TestKeyCertBundleRotator(t *testing.T) {
 				CertChain:  newCertChain,
 				PrivateKey: newKey,
 			},
-			certutil: &utilmock.FakeCertUtil{Duration: time.Duration(time.Hour)},
+			certutil: &utilmock.FakeCertUtil{Duration: time.Hour},
 			keycert: &pkimock.FakeKeyCertBundle{
 				CertBytes:      oldCert,
 				PrivKeyBytes:   oldKey,

@@ -126,8 +126,8 @@ func convertInstance(instance *api.CatalogService) *model.ServiceInstance {
 			Address:     addr,
 			Port:        instance.ServicePort,
 			ServicePort: port,
+			Locality:    instance.Datacenter,
 		},
-		AvailabilityZone: instance.Datacenter,
 		Service: &model.Service{
 			Hostname:     hostname,
 			Address:      instance.ServiceAddress,

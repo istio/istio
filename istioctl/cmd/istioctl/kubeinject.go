@@ -259,7 +259,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
 			// so must be specified together. hub and tag no longer have defaults.
 			if hub != "" || tag != "" {
-				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behaviour.
+				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behavior.
 				if !getBoolEnv("ISTIOCTL_USE_BUILTIN_DEFAULTS", false) {
 					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
 						"use the following command to get the current injector file\n" +

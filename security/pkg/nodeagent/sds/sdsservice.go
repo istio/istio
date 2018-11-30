@@ -62,9 +62,7 @@ type discoveryStream interface {
 }
 
 // sdsEvent represents a secret event that results in a push.
-type sdsEvent struct {
-	endStream bool
-}
+type sdsEvent struct{}
 
 type sdsConnection struct {
 	// Time of connection, for debugging.

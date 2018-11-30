@@ -27,7 +27,7 @@ import (
 )
 
 // TODO(lichuqiang): modify defaultTimeout accordingly.
-const defaultTimeout = time.Duration(5 * time.Minute)
+const defaultTimeout = 5 * time.Minute
 
 // Controller is the top-level perf benchmark controller. It drives the test by managing the client(s) that generate
 // load against a Mixer instance.
@@ -99,6 +99,7 @@ func (c *Controller) initializeClients(address string, setup *Setup) error {
 	return err
 }
 
+// nolinter: unparam
 func (c *Controller) runClients(iterations int, timeout time.Duration) error {
 	if len(c.clients) == 0 {
 		return nil
@@ -114,8 +115,9 @@ func (c *Controller) runClients(iterations int, timeout time.Duration) error {
 	errCh := make(chan error, len(c.clients))
 
 	for _, conn := range c.clients {
+		connc := conn
 		// Make calls asynchronously.
-		go func() { errCh <- conn.Call("ClientServer.Run", iterations, nil) }()
+		go func() { errCh <- connc.Call("ClientServer.Run", iterations, nil) }()
 	}
 
 	var errors *multierror.Error

@@ -67,7 +67,7 @@ func (s *StatusWriter) PrintSingle(statuses map[string][]byte, proxyName string)
 
 func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.Writer, []*writerStatus, error) {
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	fmt.Fprintln(w, "PROXY\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
+	fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tPILOT\tVERSION")
 	fullStatus := []*writerStatus{}
 	for pilot, status := range statuses {
 		ss := []*writerStatus{}

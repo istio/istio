@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
@@ -119,7 +120,7 @@ func (dv *decodeVisitor) Varint(n wire.Number, v uint64) {
 		val = int64(v)
 	case descriptor.FieldDescriptorProto_TYPE_SINT32,
 		descriptor.FieldDescriptorProto_TYPE_SINT64:
-		val = int64(wire.DecodeZigZag(v))
+		val = wire.DecodeZigZag(v)
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
 		val = int64(v)
 	default:
