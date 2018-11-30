@@ -26,6 +26,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"

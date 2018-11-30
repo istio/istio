@@ -20,8 +20,9 @@ import (
 	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	mixerpb "istio.io/api/mixer/v1"
 	descriptor "istio.io/api/policy/v1beta1"
@@ -105,16 +106,7 @@ func (s *session) ensureParallelism(minParallelism int) {
 
 func (s *session) dispatch() error {
 	// Determine namespace to scope config resolution
-	namespace, err := getIdentityNamespace(s.bag)
-	if err != nil {
-		// early return.
-		stats.Record(s.ctx,
-			monitoring.DestinationsPerRequest.M(0),
-			monitoring.InstancesPerRequest.M(0))
-
-		log.Warnf("unable to determine identity namespace: '%v', operation='%d'", err, s.variety)
-		return err
-	}
+	namespace := getIdentityNamespace(s.bag)
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
 
 	// Ensure that we can run dispatches to all destinations in parallel.
@@ -163,6 +155,7 @@ func (s *session) dispatch() error {
 				}
 
 				var instance interface{}
+				var err error
 				if instance, err = input.Builder(s.bag); err != nil {
 					log.Errorf("error creating instance: destination='%v', error='%v'", destination.FriendlyName, err)
 					s.err = multierror.Append(s.err, err)

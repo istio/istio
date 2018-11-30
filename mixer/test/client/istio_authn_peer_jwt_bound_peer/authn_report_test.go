@@ -117,6 +117,8 @@ var reportAttributesOkGet = `
   "istio_authn": "*",
   "jwt-auth": "*",
   "destination.namespace": "",
+  "istio_authn": "*",
+  "jwt-auth": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

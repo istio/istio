@@ -264,7 +264,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   location: MESH_EXTERNAL
 //   ports:
 //   - number: 80
-//     name: https
+//     name: http
 //     protocol: HTTP
 //   resolution: DNS
 //   endpoints:
@@ -288,7 +288,7 @@ message ServiceEntry {
   // REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
   // name with wildcard prefix (external services only). DNS names in hosts
   // will be ignored if the application accesses the service over non-HTTP
-  // protocols such as mongo/opaque TCP/even HTTPS. In such scenarios, the
+  // protocols such as mongo/opaque TCP/HTTPS. In such scenarios, the
   // IP addresses specified in the Addresses field or the port will be used
   // to uniquely identify the destination.
   repeated string hosts = 1;
@@ -296,7 +296,7 @@ message ServiceEntry {
   // The virtual IP addresses associated with the service. Could be CIDR
   // prefix. For HTTP services, the addresses field will be ignored and
   // the destination will be identified based on the HTTP Host/Authority
-  // header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
+  // header. For non-HTTP protocols such as mongo/opaque TCP/HTTPS,
   // the hosts will be ignored. If one or more IP addresses are specified,
   // the incoming traffic will be identified as belonging to this service
   // if the destination IP matches the IP/CIDRs specified in the addresses
@@ -419,6 +419,10 @@ message ServiceEntry {
     // (that bridges networks n1 and n2), or the IP associated with a
     // standard service endpoint.
     string locality = 5;
+
+    // The load balancing weight associated with the endpoint. Endpoints
+    // with higher weights will receive proportionally higher traffic.
+    uint32 weight = 6;
   };
 
   // One or more endpoints associated with the service.

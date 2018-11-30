@@ -53,7 +53,7 @@ function test_command() {
 
 # Called directly by Airflow.
 function modify_values_command() {
-    run_build "modify_values.template.json" \
+    run_build "helm_release.template.json" \
          "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}"
     exit "${BUILD_FAILED}"
 }

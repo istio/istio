@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -244,7 +243,7 @@ func TestRoutes(t *testing.T) {
 
 				for cluster := range tc.Kube.Clusters {
 					testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
-					runRetriableTest(t, cluster, testName, 5, func() error {
+					runRetriableTest(t, testName, 5, func() error {
 						reqURL := fmt.Sprintf("%s://%s/%s", c.scheme, c.dst, c.src)
 						resp := ClientRequest(cluster, c.src, reqURL, samples, fmt.Sprintf("-key %s -val %s", c.headerKey, c.headerVal))
 						count := make(map[string]int)
@@ -258,25 +257,6 @@ func TestRoutes(t *testing.T) {
 							if count[version] > expected+epsilon || count[version] < expected-epsilon {
 								return fmt.Errorf("expected %v requests (+/-%v) to reach %s => Got %v",
 									expected, epsilon, version, count[version])
-							}
-						}
-
-						// Only test this on the primary cluster since zipkin is not available on the remote
-						if c.operation != "" && cluster == primaryCluster {
-							response := ClientRequest(
-								cluster,
-								"t",
-								fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces", tc.Kube.Namespace),
-								1, "",
-							)
-
-							if !response.IsHTTPOk() {
-								return fmt.Errorf("could not retrieve traces from zipkin")
-							}
-
-							text := fmt.Sprintf("\"name\":\"%s\"", c.operation)
-							if strings.Count(response.Body, text) != 10 {
-								t.Logf("could not find operation %q in zipkin traces: %v", c.operation, response.Body)
 							}
 						}
 
@@ -314,7 +294,7 @@ func TestRouteFaultInjection(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
+		runRetriableTest(t, "v1alpha3", 5, func() error {
 			reqURL := "http://c/a"
 
 			start := time.Now()
@@ -353,7 +333,7 @@ func TestRouteRedirectInjection(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
+		runRetriableTest(t, "v1alpha3", 5, func() error {
 			targetHost := "b"
 			targetPath := "/new/path"
 
@@ -429,7 +409,7 @@ func TestEnvoyFilterConfigViaCRD(t *testing.T) {
 	defer cfgs.Teardown()
 
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
+		runRetriableTest(t, "v1alpha3", 5, func() error {
 			reqURL := "http://c/a"
 			resp := ClientRequest(cluster, "a", reqURL, 1, "-key envoyfilter-test -val foobar123")
 
@@ -510,7 +490,7 @@ func TestHeadersManipulations(t *testing.T) {
 	// a) making each request individually (very slow)
 	// b) or adding a bunch more parsing to the request function, so we have access to headers per request.
 	for cluster := range tc.Kube.Clusters {
-		runRetriableTest(t, cluster, "v1alpha3", 5, func() error {
+		runRetriableTest(t, "v1alpha3", 5, func() error {
 			reqURL := "http://c/a?headers=istio-custom-resp-header-remove:to-be-removed,istio-custom-dest-resp-header-remove:to-be-removed"
 
 			extra := "-headers istio-custom-req-header-remove:to-be-removed," +

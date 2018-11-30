@@ -28,10 +28,12 @@ func TestRDS(t *testing.T) {
 	defer tearDown()
 
 	t.Run("sidecar", func(t *testing.T) {
-		rdsr, err := connectADS(util.MockPilotGrpcAddr)
+		rdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer cancel()
+
 		err = sendRDSReq(sidecarId(app3Ip, "app3"), []string{"80", "8080"}, rdsr)
 		if err != nil {
 			t.Fatal(err)
@@ -51,10 +53,12 @@ func TestRDS(t *testing.T) {
 	})
 
 	t.Run("gateway", func(t *testing.T) {
-		rdsr, err := connectADS(util.MockPilotGrpcAddr)
+		rdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer cancel()
+
 		err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, rdsr)
 		if err != nil {
 			t.Fatal(err)

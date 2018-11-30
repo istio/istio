@@ -340,6 +340,7 @@
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
     "envoy/config/filter/network/rbac/v2",
+    "envoy/config/filter/network/redis_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
     "envoy/config/grpc_credential/v2alpha",
     "envoy/config/metrics/v2",
@@ -1608,7 +1609,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:beee7a1021554ce19306fa440376f1f378695a22d4841fcd69ad9f275ad92bbf"
+  digest = "1:17ea6e433a5a8d0e204d967c675a9e59921e504922e842eac2d27011380dd45a"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1624,7 +1625,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "11e496c8752386fe827c78c7498f64c00520493c"
+  revision = "62032e035e4815144b8eac7a1137b13308c7e66b"
 
 [[projects]]
   branch = "release-1.11"
@@ -2006,6 +2007,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha",
     "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha",
@@ -2128,6 +2130,7 @@
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/peer",
     "google.golang.org/grpc/reflection",
+    "google.golang.org/grpc/stats",
     "google.golang.org/grpc/status",
     "gopkg.in/d4l3k/messagediff.v1",
     "gopkg.in/yaml.v2",

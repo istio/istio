@@ -20,6 +20,10 @@ data:
 
     # Set accessLogFile to empty string to disable access log.
     accessLogFile: "{{ .Values.global.proxy.accessLogFile }}"
+
+    # Set accessLogEncoding to JSON or TEXT to configure sidecar access log
+    accessLogEncoding: {{ .Values.global.proxy.accessLogEncoding }}
+
     #
     # Deprecated: mixer is using EDS
     {{- if or .Values.mixer.policy.enabled .Values.mixer.telemetry.enabled }}
@@ -97,8 +101,8 @@ data:
       # If set to 0 (default), then start worker thread for each CPU thread/core.
       concurrency: {{ .Values.global.proxy.concurrency }}
       #
-      tracing:
       {{- if eq .Values.global.proxy.tracer "lightstep" }}
+      tracing:
         lightstep:
           # Address of the LightStep Satellite pool
           address: {{ .Values.global.tracer.lightstep.address }}
@@ -109,6 +113,7 @@ data:
           # Path to the file containing the cacert to use when verifying TLS
           cacertPath: {{ .Values.global.tracer.lightstep.cacertPath }}
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
+      tracing:
         zipkin:
           # Address of the Zipkin collector
         {{- if .Values.global.tracer.zipkin.address }}
@@ -139,4 +144,13 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
     {{- end }}
+  
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+  {{- if .Values.global.meshNetworks }}
+    networks:
+{{ toYaml .Values.global.meshNetworks | indent 6 }}
+  {{- else }}
+    networks: {}
+  {{- end }}
 {{- end }}

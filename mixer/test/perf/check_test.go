@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/pkg/perf"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 )
 
 // Tests single check call into Mixer that dispatches instances to multiple noop inproc adapters.
@@ -241,7 +241,7 @@ func Benchmark_Check_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	validateCheckBehavior(spyAdapter, b)
 }
 
-func validateCheckBehavior(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+func validateCheckBehavior(spyAdapter *spyadapter.Adapter, b *testing.B) {
 	// validate all went as expected.
 	//
 	// based on the config, there must be, for each Check call from client,

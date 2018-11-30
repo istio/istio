@@ -50,9 +50,6 @@ const (
 	bookinfoDetailsExternalServiceYaml = "bookinfo-details-v2"
 	modelDir                           = "tests/apps/bookinfo/output"
 	bookinfoGateway                    = routeRulesDir + "/" + "bookinfo-gateway"
-	destRule                           = routeRulesDir + "/" + "destination-rule-all"
-	destRuleMtls                       = routeRulesDir + "/" + "destination-rule-all-mtls"
-	allRule                            = routeRulesDir + "/" + "virtual-service-all-v1"
 	delayRule                          = routeRulesDir + "/" + "virtual-service-ratings-test-delay"
 	tenRule                            = routeRulesDir + "/" + "virtual-service-reviews-90-10"
 	twentyRule                         = routeRulesDir + "/" + "virtual-service-reviews-80-20"
@@ -62,7 +59,6 @@ const (
 	testMysqlRule                      = routeRulesDir + "/" + "virtual-service-ratings-mysql"
 	detailsExternalServiceRouteRule    = routeRulesDir + "/" + "virtual-service-details-v2"
 	detailsExternalServiceEgressRule   = routeRulesDir + "/" + "egress-rule-google-apis"
-	reviewsDestinationRule             = routeRulesDir + "/" + "destination-policy-reviews"
 
 	// users
 	normalUsername = "normal-user"
@@ -125,7 +121,7 @@ func getPreprocessedRulePath(t *testConfig, version, rule string) string {
 		strings.Join(parts[1:], string(os.PathSeparator))))
 }
 
-func getOriginalRulePath(version, rule string) string {
+func getOriginalRulePath(rule string) string {
 	parts := strings.Split(rule, string(os.PathSeparator))
 
 	parts[0] = routeRulesDir
@@ -134,7 +130,7 @@ func getOriginalRulePath(version, rule string) string {
 }
 
 func preprocessRule(t *testConfig, version, rule string) error {
-	src := getOriginalRulePath(version, rule)
+	src := getOriginalRulePath(rule)
 	dest := getPreprocessedRulePath(t, version, rule)
 	ori, err := ioutil.ReadFile(src)
 	if err != nil {
@@ -411,6 +407,6 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-func getIngressOrFail(t *testing.T, configVersion string) string {
+func getIngressOrFail(t *testing.T) string {
 	return tc.Kube.IngressGatewayOrFail(t)
 }

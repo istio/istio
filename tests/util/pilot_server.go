@@ -23,22 +23,16 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
-	// MockTestServer is used for the unit tests. Will be started once, terminated at the
-	// end of the suite.
-	MockTestServer *bootstrap.Server
-
-	// MockPilotURL is the URL for the pilot http endpoint
-	MockPilotURL string
-
 	// MockPilotGrpcAddr is the address to be used for grpc connections.
 	MockPilotGrpcAddr string
 
@@ -53,8 +47,6 @@ var (
 
 	// MockPilotGrpcPort is the dynamic port for pilot grpc
 	MockPilotGrpcPort int
-
-	stop chan struct{}
 )
 
 // TearDownFunc is to be called to tear down a test server.
@@ -63,20 +55,19 @@ type TearDownFunc func()
 // EnsureTestServer will ensure a pilot server is running in process and initializes
 // the MockPilotUrl and MockPilotGrpcAddr to allow connections to the test pilot.
 func EnsureTestServer(args ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, TearDownFunc) {
-	tearDown, err := setup(args...)
+	server, tearDown, err := setup(args...)
 	if err != nil {
 		log.Errora("Failed to start in-process server", err)
 		panic(err)
 	}
-	return MockTestServer, tearDown
+	return server, tearDown
 }
 
-func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (TearDownFunc, error) {
+func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, TearDownFunc, error) {
 	// TODO: point to test data directory
 	// Setting FileDir (--configDir) disables k8s client initialization, including for registries,
 	// and uses a 100ms scan. Must be used with the mock registry (or one of the others)
 	// This limits the options -
-	stop = make(chan struct{})
 
 	// When debugging a test or running locally it helps having a static port for /debug
 	// "0" is used on shared environment (it's not actually clear if such thing exists since
@@ -124,34 +115,33 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (TearDownFunc, error) {
 	// Create and setup the controller.
 	s, err := bootstrap.NewServer(args)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	MockTestServer = s
-
+	stop := make(chan struct{})
 	// Start the server.
 	if err := s.Start(stop); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Extract the port from the network address.
 	_, port, err := net.SplitHostPort(s.HTTPListeningAddr.String())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	MockPilotURL = "http://localhost:" + port
+	httpURL := "http://localhost:" + port
 	MockPilotHTTPPort, _ = strconv.Atoi(port)
 
 	_, port, err = net.SplitHostPort(s.GRPCListeningAddr.String())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	MockPilotGrpcAddr = "localhost:" + port
 	MockPilotGrpcPort, _ = strconv.Atoi(port)
 
 	_, port, err = net.SplitHostPort(s.SecureGRPCListeningAddr.String())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	MockPilotSecureAddr = "localhost:" + port
 	MockPilotSecurePort, _ = strconv.Atoi(port)
@@ -159,7 +149,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (TearDownFunc, error) {
 	// Wait a bit for the server to come up.
 	err = wait.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
 		client := &http.Client{Timeout: 1 * time.Second}
-		resp, err := client.Get(MockPilotURL + "/ready")
+		resp, err := client.Get(httpURL + "/ready")
 		if err != nil {
 			return false, nil
 		}
@@ -170,8 +160,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (TearDownFunc, error) {
 		}
 		return false, nil
 	})
-	return func() {
-		MockTestServer = nil
+	return s, func() {
 		close(stop)
 	}, err
 }

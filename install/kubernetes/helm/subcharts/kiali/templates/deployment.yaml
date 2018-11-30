@@ -10,6 +10,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: kiali
   template:
     metadata:
       name: kiali

@@ -209,7 +209,7 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		ConfigType: &http_conn.HttpFilter_Config{
-			util.MessageToStruct(&mccpb.HttpClientConfig{
+			Config: util.MessageToStruct(&mccpb.HttpClientConfig{
 				DefaultDestinationService: defaultConfig,
 				ServiceConfigs: map[string]*mccpb.ServiceConfig{
 					defaultConfig: {
@@ -230,7 +230,7 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attr
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		ConfigType: &http_conn.HttpFilter_Config{
-			util.MessageToStruct(&mccpb.HttpClientConfig{
+			Config: util.MessageToStruct(&mccpb.HttpClientConfig{
 				DefaultDestinationService: defaultConfig,
 				ServiceConfigs: map[string]*mccpb.ServiceConfig{
 					defaultConfig: {
@@ -316,7 +316,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	return listener.Filter{
 		Name: mixer,
 		ConfigType: &listener.Filter_Config{
-			util.MessageToStruct(&mccpb.TcpClientConfig{
+			Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 				DisableCheckCalls: disableClientPolicyChecks(mesh, node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 				Transport:         buildTransport(mesh, node),
@@ -329,7 +329,7 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs
 	return listener.Filter{
 		Name: mixer,
 		ConfigType: &listener.Filter_Config{
-			util.MessageToStruct(&mccpb.TcpClientConfig{
+			Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 				DisableCheckCalls: mesh.DisablePolicyChecks,
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 				Transport:         buildTransport(mesh, node),

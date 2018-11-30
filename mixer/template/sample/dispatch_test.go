@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"

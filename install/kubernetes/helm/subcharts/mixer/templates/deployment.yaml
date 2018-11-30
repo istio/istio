@@ -22,9 +22,10 @@
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
-        - containerPort: 9093
+        - containerPort: {{ .Values.global.monitoringPort }}
         - containerPort: 42422
         args:
+          - --monitoringPort={{ .Values.global.monitoringPort }}
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMCP }}
@@ -69,7 +70,7 @@
         livenessProbe:
           httpGet:
             path: /version
-            port: 9093
+            port: {{ .Values.global.monitoringPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
@@ -151,9 +152,10 @@
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
-        - containerPort: 9093
+        - containerPort: {{ .Values.global.monitoringPort }}
         - containerPort: 42422
         args:
+          - --monitoringPort={{ .Values.global.monitoringPort }}
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMCP }}
@@ -198,7 +200,7 @@
         livenessProbe:
           httpGet:
             path: /version
-            port: 9093
+            port: {{ .Values.global.monitoringPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
@@ -271,10 +273,11 @@ metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" $ }}
+    app: istio-mixer
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
+    version: {{ $.Chart.Version }}
     istio: mixer
 spec:
   replicas: {{ $spec.replicaCount }}
@@ -284,7 +287,7 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: {{ template "mixer.name" $ }}
+      app: {{ $key }}
       chart: {{ template "mixer.chart" $ }}
       heritage: {{ $.Release.Service }}
       release: {{ $.Release.Name }}
@@ -294,7 +297,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "mixer.name" $ }}
+        app: {{ $key }}
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}

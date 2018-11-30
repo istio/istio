@@ -105,6 +105,7 @@ type mockAuthorizer struct {
 	errMsg string
 }
 
+// nolint: unparam
 func (authz *mockAuthorizer) authorize(requester *caller, requestedIds []string) error {
 	if len(authz.errMsg) > 0 {
 		return fmt.Errorf("%v", authz.errMsg)
@@ -363,9 +364,10 @@ func TestRun(t *testing.T) {
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 		"Multiple hostname": {
-			ca:       &mockca.FakeCA{SignedCert: []byte(csr)},
-			hostname: []string{"localhost", "fancyhost"},
-			port:     0,
+			// nolint: goimports
+			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname:                  []string{"localhost", "fancyhost"},
+			port:                      0,
 			expectedAuthenticatorsLen: 1, // 3 when ID token authenticators are enabled.
 			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",

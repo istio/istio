@@ -165,7 +165,7 @@ func (c *controller) createInformer(
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				k8sEvents.With(prometheus.Labels{"type": otype, "event": "add"}).Add(1)
+				k8sEvents.With(prometheus.Labels{"type": otype, "event": "delete"}).Add(1)
 				c.queue.Push(kube.NewTask(handler.Apply, obj, model.EventDelete))
 			},
 		})

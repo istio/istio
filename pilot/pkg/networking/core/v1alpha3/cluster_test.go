@@ -82,7 +82,7 @@ func buildEnvForClustersWithRingHashLb() *model.Environment {
 		},
 	}
 
-	ttl := time.Duration(time.Nanosecond * 100)
+	ttl := time.Nanosecond * 100
 	configStore := &fakes.IstioConfigStore{}
 
 	env := &model.Environment{

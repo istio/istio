@@ -866,7 +866,7 @@ func renderTimestamp(ts time.Time) string {
 	} else if hours < 365*24 {
 		return fmt.Sprintf("%dd", hours/24)
 	}
-	return fmt.Sprintf("%dy", int((hours/24)/365))
+	return fmt.Sprintf("%dy", hours/24/365)
 }
 
 func init() {

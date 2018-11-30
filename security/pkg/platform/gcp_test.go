@@ -289,9 +289,9 @@ func TestGcpGetCredentialTypes(t *testing.T) {
 		}
 
 		credentialType := gcp.GetCredentialType()
-		if string(c.expectedType) != string(credentialType) {
+		if c.expectedType != credentialType {
 			t.Errorf("%s: type Expected %v, Actual %v", id,
-				string(c.expectedType), string(credentialType))
+				c.expectedType, credentialType)
 		}
 	}
 }

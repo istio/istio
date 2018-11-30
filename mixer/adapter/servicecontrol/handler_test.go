@@ -160,10 +160,7 @@ func TestNewHandler(t *testing.T) {
 		},
 	}
 
-	h, err := newHandler(ctx)
-	if err != nil {
-		t.Fatal(`fail to create handler`)
-	}
+	h := newHandler(ctx)
 	if !reflect.DeepEqual(*ctx, *h.ctx) {
 		t.Errorf(`handler not initialized with handleContext`)
 	}

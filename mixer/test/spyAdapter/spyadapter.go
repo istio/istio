@@ -31,8 +31,8 @@
 // quota template
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/quota/quotatmpl.proto
 
-// Package spyAdapter is intended for Mixer testing *ONLY*.
-package spyAdapter
+// Package spyadapter is intended for Mixer testing *ONLY*.
+package spyadapter
 
 import (
 	"context"

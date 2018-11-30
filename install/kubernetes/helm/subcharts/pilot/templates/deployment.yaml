@@ -45,6 +45,7 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
+          - --monitoringAddr=:{{ .Values.global.monitoringPort }}
 {{- if $.Values.global.proxy.discoveryDomain }}
           - --domain
           - {{ $.Values.global.proxy.discoveryDomain }}
@@ -91,8 +92,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: PILOT_CACHE_SQUASH
-            value: "5"
           {{- if .Values.env }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
@@ -112,8 +111,6 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
-          - name: config-networks-volume
-            mountPath: /etc/istio/config-networks
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -178,9 +175,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
-      - name: config-networks-volume
-        configMap:
-          name: istio-networks
       - name: istio-certs
         secret:
           secretName: istio.istio-pilot-service-account

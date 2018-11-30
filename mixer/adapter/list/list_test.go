@@ -29,6 +29,7 @@ import (
 	"github.com/gogo/googleapis/google/rpc"
 
 	"istio.io/istio/mixer/adapter/list/config"
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/listentry"
 )
@@ -67,7 +68,7 @@ type listTestCase struct {
 }
 
 // Build a list handler with the given config.
-func buildHandler(t *testing.T, cfg *config.Params) (*handler, error) {
+func buildHandler(t *testing.T, cfg adapter.Config) (*handler, error) {
 	info := GetInfo()
 	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(cfg)

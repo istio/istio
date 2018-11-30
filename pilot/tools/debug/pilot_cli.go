@@ -291,6 +291,7 @@ func main() {
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
+	// nolint: lll
 	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()
