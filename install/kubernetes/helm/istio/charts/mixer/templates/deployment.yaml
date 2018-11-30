@@ -30,6 +30,7 @@
           - --configStoreURL=k8s://
           - --configDefaultNamespace={{ $.Release.Namespace }}
           - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          - --numCheckCacheEntries=0
         {{- if .Values.env }}
         env:
         {{- range $key, $val := .Values.env }}
