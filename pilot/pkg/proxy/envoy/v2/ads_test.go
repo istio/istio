@@ -160,17 +160,10 @@ func TestAdsClusterUpdate(t *testing.T) {
 		}
 	}
 
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
-		"http-main", 2080, "10.2.0.1", 1080)
-
-	cluster1 := "outbound|80||adsupdate.default.svc.cluster.local"
+	cluster1 := "outbound|80||adsclusterupdate.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster1)
 
-	// register a second endpoint
-	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate2.default.svc.cluster.local",
-		"http-status", 2080, "10.2.0.2", 1081)
-
-	cluster2 := "outbound|80||adsupdate2.default.svc.cluster.local"
+	cluster2 := "outbound|80||adsclusterupdate2.default.svc.cluster.local"
 	sendEDSReqAndVerify(cluster2)
 }
 
