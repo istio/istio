@@ -43,7 +43,7 @@ services.</p>
 a namespace when the namespace is imported.  By default all
 configuration artifacts are public. Configurations with private scope
 will not be imported when the namespace containing the configuration is
-imported in a NetworkScope.</p>
+imported in a ServiceDependency.</p>
 
 <table class="enum-values">
 <thead>
@@ -2407,186 +2407,6 @@ Envoy for further details.</p>
 </tbody>
 </table>
 </section>
-<h2 id="NetworkScope">NetworkScope</h2>
-<section>
-<p><code>NetworkScope</code> describes the set of services that a workload depends on
-for its operation. In other words, it describes the properties of
-outgoing traffic from a given workload. By default, the service mesh
-established by Istio will have a full mesh connectivity - i.e. every
-workload will have proxy configuration required to reach every other
-workload in the mesh. However most connectivity graphs are sparse in
-practice. The NetworkScope provides a way to declare the service
-dependencies associated with each workload such that the amount of
-configuration sent to the sidecars can be scoped to the requisite
-dependencies.</p>
-
-<p>Services and configuration in a mesh are organized into one or more
-namespaces (e.g., a Kubernetes namespace or a CF org/space).  Workloads
-in a namespace have an implicit dependency on other workloads in the
-same namespace. In addition, to declare dependencies on workloads in
-other namespaces, a NetworkScope resource has to be specified in the
-current namespace. <em><em>Each namespace MUST have only one NetworkScope
-resource named &ldquo;default&rdquo;</em></em>. The behavior of the system is undefined if
-more than one NetworkScope resource exists in a given namespace. The set
-of dependencies specified in a NetworkScope resource will be used to
-compute the sidecar configuration for every workload in the namespace.</p>
-
-<p>NOTE 1: If workloads in the mesh depend only on other workloads in the
-same namespace, set defaultNetworkScope.importMode to SAME_NAMESPACE
-in the mesh global config map (in values.yaml).</p>
-
-<p>NOTE 2: To facilitate incremental pruning of the the sidecar
-configuration, the default import mode for the mesh is set to
-ALL_NAMESPACES. In other words, every workload will be able to reach
-every other workload. Adding a NetworkScope resource in a namespace will
-automatically prune the configuration for the workloads in that
-namespace.</p>
-
-<p>The following examples illustrate a few specific use cases of NetworkScope.</p>
-
-<p>The example below delcares a NetworkScope resource in the prod-us1
-namespace that specifies that workloads in the namespace will be able to
-reach the services in the prod-apis namespace only.</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: NetworkScope
-metadata:
-  name: default
-  namespace: prod-us1
-spec:
-  dependencies:
-  - imports:
-    - namespace: prod-apis
-</code></pre>
-
-<p>In a mesh where the default network scope is set to SAME_NAMESPACE
-only, if one or more workloads need to be able to reach every other
-service in the mesh (e.g., metrics collection server), the following
-NetworkScope resource can be used to specify such a dependency:</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: NetworkScope
-metadata:
-  name: default
-  namespace: metrics-collection
-spec:
-  dependencies:
-  - imports:
-    - namespace: '*'
-</code></pre>
-
-<p>The configuration above will allow workloads in the metrics-collection
-namespace to access service in any namespace while workloads in other
-namespaces will be configured for namespace local access as per the
-global default network scope (SAME_NAMESPACE).</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="NetworkScope-dependencies">
-<td><code>dependencies</code></td>
-<td><code><a href="#NetworkScope-Dependency">NetworkScope.Dependency[]</a></code></td>
-<td>
-<p>REQUIRED. The set of services that workloads in this namespace are
-expected to talk to, in addition to other workloads in the same
-namespace. Dependencies describe the properties of outbound traffic from
-a given workload.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="NetworkScope-Dependency">NetworkScope.Dependency</h2>
-<section>
-<p>Dependency describes a workload and the set of service dependencies
-for the workload.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="NetworkScope-Dependency-imports">
-<td><code>imports</code></td>
-<td><code><a href="#NetworkScope-Import">NetworkScope.Import[]</a></code></td>
-<td>
-<p>REQUIRED: Import describes the set of namespaces whose exported
-services will be accessed by the workloads selected by the
-sourceWorkloadLabels. The sidecars attached to the workloads will be
-configured with information required to reach other services in the
-same namespace and the imported services. In addition to the
-explicitly specified namespaces, namespaces specified in the global
-mesh config (through defaultNetworkScope.importNamespaces) will also be
-imported.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="NetworkScope-Import">NetworkScope.Import</h2>
-<section>
-<p>Import describes the set of namespaces whose exported services
-(real/virtual) will be accessed by workloads in a given namespace. The
-sidecars attached to the workloads will be configured with information
-required to reach the imported services only. The gateways in the
-current namespace will only honor imported VirtualServices instead of
-every VirtualService that binds itself to the gateway.</p>
-
-<p>Importing a service from a namespace will automatically import the
-exported configuration artifacts associated with the service, such as
-VirtualService, DestinationRule, etc. The service in a namespace can be
-a service in the service registry (e.g., a kubernetes or cloud foundry
-service) or a service specified via ServiceEntry configuration.</p>
-
-<p>NOTE: Only exported services and configuration artifacts from a
-namespace can be imported. Private services/configuration will not be
-imported. See the scope setting associated with VirtualService,
-DestinationRule, ServiceEntry, etc.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="NetworkScope-Import-namespace">
-<td><code>namespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>The configuration namespace whose services need to be imported.
-Specify * to import all namespaces. The import can be scoped further
-by specifying individual hosts.</p>
-
-</td>
-</tr>
-<tr id="NetworkScope-Import-host">
-<td><code>host</code></td>
-<td><code>string</code></td>
-<td>
-<p>A FQDN or wildcard prefixed DNS name of the host to import from the
-specified namespace. The hostnames include names of services from the
-service registry as well as those specified in a VirtualService.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h2 id="OutlierDetection">OutlierDetection</h2>
 <section>
 <p>A Circuit breaker implementation that tracks the status of each
@@ -3122,6 +2942,186 @@ used to provide connectivity between services in disparate L3
 networks that otherwise do not have direct connectivity between
 their respective endpoints. Use of this mode assumes that both the
 source and the destination are using Istio mTLS to secure traffic.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServiceDependency">ServiceDependency</h2>
+<section>
+<p><code>ServiceDependency</code> describes the set of services that a workload depends on
+for its operation. In other words, it describes the properties of
+outgoing traffic from a given workload. By default, the service mesh
+established by Istio will have a full mesh connectivity - i.e. every
+workload will have proxy configuration required to reach every other
+workload in the mesh. However most connectivity graphs are sparse in
+practice. The ServiceDependency provides a way to declare the service
+dependencies associated with each workload such that the amount of
+configuration sent to the sidecars can be scoped to the requisite
+dependencies.</p>
+
+<p>Services and configuration in a mesh are organized into one or more
+namespaces (e.g., a Kubernetes namespace or a CF org/space).  Workloads
+in a namespace have an implicit dependency on other workloads in the
+same namespace. In addition, to declare dependencies on workloads in
+other namespaces, a ServiceDependency resource has to be specified in the
+current namespace. <em><em>Each namespace MUST have only one ServiceDependency
+resource named &ldquo;default&rdquo;</em></em>. The behavior of the system is undefined if
+more than one ServiceDependency resource exists in a given namespace. The set
+of dependencies specified in a ServiceDependency resource will be used to
+compute the sidecar configuration for every workload in the namespace.</p>
+
+<p>NOTE 1: If workloads in the mesh depend only on other workloads in the
+same namespace, set defaultServiceDependency.importMode to SAME_NAMESPACE
+in the mesh global config map (in values.yaml).</p>
+
+<p>NOTE 2: To facilitate incremental pruning of the the sidecar
+configuration, the default import mode for the mesh is set to
+ALL_NAMESPACES. In other words, every workload will be able to reach
+every other workload. Adding a ServiceDependency resource in a namespace will
+automatically prune the configuration for the workloads in that
+namespace.</p>
+
+<p>The following examples illustrate a few specific use cases of ServiceDependency.</p>
+
+<p>The example below delcares a ServiceDependency resource in the prod-us1
+namespace that specifies that workloads in the namespace will be able to
+reach the services in the prod-apis namespace only.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceDependency
+metadata:
+  name: default
+  namespace: prod-us1
+spec:
+  dependencies:
+  - imports:
+    - namespace: prod-apis
+</code></pre>
+
+<p>In a mesh where the default service dependency is set to SAME_NAMESPACE
+only, if one or more workloads need to be able to reach every other
+service in the mesh (e.g., metrics collection server), the following
+ServiceDependency resource can be used to specify such a dependency:</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: ServiceDependency
+metadata:
+  name: default
+  namespace: metrics-collection
+spec:
+  dependencies:
+  - imports:
+    - namespace: '*'
+</code></pre>
+
+<p>The configuration above will allow workloads in the metrics-collection
+namespace to access service in any namespace while workloads in other
+namespaces will be configured for namespace local access as per the
+global default service dependency (SAME_NAMESPACE).</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceDependency-dependencies">
+<td><code>dependencies</code></td>
+<td><code><a href="#ServiceDependency-Dependency">ServiceDependency.Dependency[]</a></code></td>
+<td>
+<p>REQUIRED. The set of services that workloads in this namespace are
+expected to talk to, in addition to other workloads in the same
+namespace. Dependencies describe the properties of outbound traffic from
+a given workload.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServiceDependency-Dependency">ServiceDependency.Dependency</h2>
+<section>
+<p>Dependency describes a workload and the set of service dependencies
+for the workload.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceDependency-Dependency-imports">
+<td><code>imports</code></td>
+<td><code><a href="#ServiceDependency-Import">ServiceDependency.Import[]</a></code></td>
+<td>
+<p>REQUIRED: Import describes the set of namespaces whose exported
+services will be accessed by the workloads selected by the
+sourceWorkloadLabels. The sidecars attached to the workloads will be
+configured with information required to reach other services in the
+same namespace and the imported services. In addition to the
+explicitly specified namespaces, namespaces specified in the global
+mesh config (through defaultServiceDependency.importNamespaces) will also be
+imported.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ServiceDependency-Import">ServiceDependency.Import</h2>
+<section>
+<p>Import describes the set of namespaces whose exported services
+(real/virtual) will be accessed by workloads in a given namespace. The
+sidecars attached to the workloads will be configured with information
+required to reach the imported services only. The gateways in the
+current namespace will only honor imported VirtualServices instead of
+every VirtualService that binds itself to the gateway.</p>
+
+<p>Importing a service from a namespace will automatically import the
+exported configuration artifacts associated with the service, such as
+VirtualService, DestinationRule, etc. The service in a namespace can be
+a service in the service registry (e.g., a kubernetes or cloud foundry
+service) or a service specified via ServiceEntry configuration.</p>
+
+<p>NOTE: Only exported services and configuration artifacts from a
+namespace can be imported. Private services/configuration will not be
+imported. See the scope setting associated with VirtualService,
+DestinationRule, ServiceEntry, etc.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ServiceDependency-Import-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>The configuration namespace whose services need to be imported.
+Specify * to import all namespaces. The import can be scoped further
+by specifying individual hosts.</p>
+
+</td>
+</tr>
+<tr id="ServiceDependency-Import-host">
+<td><code>host</code></td>
+<td><code>string</code></td>
+<td>
+<p>A FQDN or wildcard prefixed DNS name of the host to import from the
+specified namespace. The hostnames include names of services from the
+service registry as well as those specified in a VirtualService.</p>
 
 </td>
 </tr>
