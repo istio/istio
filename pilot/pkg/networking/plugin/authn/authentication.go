@@ -119,12 +119,15 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, enableSdsTo
 			},
 		}
 	} else {
-		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-			ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName, enableSdsTokenMount),
-		}
-
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
 			model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName, enableSdsTokenMount),
+		}
+
+		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, model.K8sSAJwtTokenFileName, enableSdsTokenMount),
+			},
 		}
 	}
 	mtls := GetMutualTLS(authnPolicy)

@@ -661,8 +661,11 @@ func TestOnInboundFilterChains(t *testing.T) {
 							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 								constructSDSConfig(model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
 							},
-							ValidationContextType: &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-								ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+									DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+									ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+								},
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
