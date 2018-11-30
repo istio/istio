@@ -258,7 +258,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	for _, registry := range registries {
 		// Each registry acts as a shard - we don't want to combine them because some
 		// may individually update their endpoints incrementally
-		for _, svc := range push.Services {
+		for _, svc := range push.Services(nil) {
 			entries := []*model.IstioEndpoint{}
 			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
@@ -381,8 +381,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*EndpointShardsByService) {
 	adsLog.Infof("XDS:EDSInc Pushing %s Services: %v, "+
-		"VirtualServices: %d, ConnectedEndpoints: %d", version, edsUpdates,
-		len(push.VirtualServiceConfigs), adsClientCount())
+		"ConnectedEndpoints: %d", version, edsUpdates, adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change

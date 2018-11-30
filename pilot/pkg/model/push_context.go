@@ -47,17 +47,18 @@ type PushContext struct {
 	// data should not be changed by plugins.
 	Mutex sync.Mutex `json:"-"`
 
-	// Services list all services in the system at the time push started.
-	Services []*Service `json:"-"`
+	// all services in the system at the time push started.
+	allServices            []*Service
+	virtualServiceConfigs  []Config
+	destinationRuleHosts   []Hostname
+	destinationRuleByHosts map[Hostname]*combinedDestinationRule
+	////////// END ////////
+
+	// The following data is either a global index or used in the inbound path.
+	// Namespace specific views do not apply here.
 
 	// ServiceByHostname has all services, indexed by hostname.
 	ServiceByHostname map[Hostname]*Service `json:"-"`
-
-	// Temp: the code in alpha3 should use VirtualService directly
-	VirtualServiceConfigs []Config `json:"-"`
-
-	destinationRuleHosts   []Hostname
-	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
@@ -306,10 +307,21 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
+// Services returns the list of services that are visible to a Proxy in a given config namespace
+func (ps *PushContext) Services(proxy *Proxy) []*Service {
+	// TODO: use network scopes here, and return services in the proxy namespace if
+	// configured to use current_namespace as the scope and proxy is not nil
+	//if proxy == nil {
+	//	return ps.allServices
+	//}
+	return ps.allServices
+}
+
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
-func (ps *PushContext) VirtualServices(gateways map[string]bool) []Config {
-	configs := ps.VirtualServiceConfigs
+func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
+	// TODO: use the proxy namespace with NetworkScopes to return the correct set of VirtualServices
+	configs := ps.virtualServiceConfigs
 	out := make([]Config, 0)
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
@@ -334,6 +346,37 @@ func (ps *PushContext) VirtualServices(gateways map[string]bool) []Config {
 	}
 
 	return out
+}
+
+// DestinationRule returns a destination rule for a service name in a given domain.
+func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
+	// TODO: use the proxy namespace to return only public destination rules if in different namespace
+	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
+		return ps.destinationRuleByHosts[c].config
+	}
+	return nil
+}
+
+// SubsetToLabels returns the labels associated with a subset of a given service.
+func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	config := ps.DestinationRule(nil, hostname)
+	if config == nil {
+		return nil
+	}
+
+	rule := config.Spec.(*networking.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			return []Labels{subset.Labels}
+		}
+	}
+
+	return nil
 }
 
 // InitContext will initialize the data structures used for code generation.
@@ -378,7 +421,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		return err
 	}
 	// Sort the services in order of creation.
-	ps.Services = sortServicesByCreationTime(services)
+	ps.allServices = sortServicesByCreationTime(services)
 	for _, s := range services {
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
@@ -402,9 +445,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	}
 
 	sortConfigByCreationTime(vservices)
-	ps.VirtualServiceConfigs = vservices
+	ps.virtualServiceConfigs = vservices
 	// convert all shortnames in virtual services into FQDNs
-	for _, r := range ps.VirtualServiceConfigs {
+	for _, r := range ps.virtualServiceConfigs {
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
@@ -522,36 +565,6 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	sort.Sort(Hostnames(hosts))
 	ps.destinationRuleHosts = hosts
 	ps.destinationRuleByHosts = combinedDestinationRuleMap
-}
-
-// DestinationRule returns a destination rule for a service name in a given domain.
-func (ps *PushContext) DestinationRule(hostname Hostname) *Config {
-	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		return ps.destinationRuleByHosts[c].config
-	}
-	return nil
-}
-
-// SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) LabelsCollection {
-	// empty subset
-	if subsetName == "" {
-		return nil
-	}
-
-	config := ps.DestinationRule(hostname)
-	if config == nil {
-		return nil
-	}
-
-	rule := config.Spec.(*networking.DestinationRule)
-	for _, subset := range rule.Subsets {
-		if subset.Name == subsetName {
-			return []Labels{subset.Labels}
-		}
-	}
-
-	return nil
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {

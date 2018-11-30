@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/istio.routing.v1alpha1/
-number_of_entries: 52
+number_of_entries: 59
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -37,6 +37,40 @@ actual choice of the version is determined by the proxy/sidecar, enabling the
 application code to decouple itself from the evolution of dependent
 services.</p>
 
+<h2 id="ConfigScope">ConfigScope</h2>
+<section>
+<p>ConfigScope defines the visibility of an Istio configuration artifact in
+a namespace when the namespace is imported.  By default all
+configuration artifacts are public. Configurations with private scope
+will not be imported when the namespace containing the configuration is
+imported in a NetworkScope.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConfigScope-PUBLIC">
+<td><code>PUBLIC</code></td>
+<td>
+<p>Config with this scope are visible to all workloads in the mesh</p>
+
+</td>
+</tr>
+<tr id="ConfigScope-PRIVATE">
+<td><code>PRIVATE</code></td>
+<td>
+<p>Configs with this scope are visible to only workloads in the same
+namespace as the configuration resource.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="ConnectionPoolSettings">ConnectionPoolSettings</h2>
 <section>
 <p>Connection pool settings for an upstream host. The settings apply to
@@ -59,6 +93,9 @@ spec:
       tcp:
         maxConnections: 100
         connectTimeout: 30ms
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
 </code></pre>
 
 <table class="message-fields">
@@ -165,6 +202,60 @@ cluster at a given time. Defaults to 3.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>TCP connection timeout.</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-TCPSettings-tcp_keepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="#ConnectionPoolSettings-TCPSettings-TcpKeepalive">ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td>
+<p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConnectionPoolSettings-TCPSettings-TcpKeepalive">ConnectionPoolSettings.TCPSettings.TcpKeepalive</h2>
+<section>
+<p>TCP keepalive.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-probes">
+<td><code>probes</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Maximum number of keepalive probes to send without response before
+deciding the connection is dead. Default is to use the OS level configuration
+(unless overridden, Linux defaults to 9.)</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-time">
+<td><code>time</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The time duration a connection needs to be idle before keep-alive
+probes start being sent. Default is to use the OS level configuration
+(unless overridden, Linux defaults to 7200s (ie 2 hours.)</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-interval">
+<td><code>interval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The time duration between keep-alive probes.
+Default is to use the OS level configuration
+(unless overridden, Linux defaults to 75s.)</p>
 
 </td>
 </tr>
@@ -570,6 +661,17 @@ sizes, outlier detection).</p>
 <td>
 <p>One or more named sets that represent individual versions of a
 service. Traffic policies can be overridden at subset level.</p>
+
+</td>
+</tr>
+<tr id="DestinationRule-config_scope">
+<td><code>configScope</code></td>
+<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<td>
+<p>The visibility setting associated with this DestinationRule. Set to
+PRIVATE if this destination rule should not be exported, i.e. restrict
+the applicability of this destination rule to only workloads in the same
+namespace as the destination rule.</p>
 
 </td>
 </tr>
@@ -987,6 +1089,7 @@ ports are allowed into the mesh.</p>
 kind: Gateway
 metadata:
   name: my-gateway
+  namespace: some-config-namespace
 spec:
   selector:
     app: my-gateway-controller
@@ -1044,13 +1147,14 @@ gets redirected to &ldquo;https://uk.bookinfo.com&rdquo; (i.e. 80 redirects to 4
 kind: VirtualService
 metadata:
   name: bookinfo-rule
+  namespace: bookinfo-namespace
 spec:
   hosts:
   - reviews.prod.svc.cluster.local
   - uk.bookinfo.com
   - eu.bookinfo.com
   gateways:
-  - my-gateway
+  - some-config-namespace/my-gateway
   - mesh # applies to all the sidecars in the mesh
   http:
   - match:
@@ -1085,11 +1189,13 @@ reserved name <code>mesh</code>.</p>
 kind: VirtualService
 metadata:
   name: bookinfo-Mongo
+  namespace: bookinfo-namespace
 spec:
   hosts:
   - mongosvr.prod.svc.cluster.local #name of internal Mongo service
   gateways:
-  - my-gateway
+  - some-config-namespace/my-gateway # can omit the namespace if gateway is in same
+                                       namespace as virtual service.
   tcp:
   - match:
     - port: 27017
@@ -1762,43 +1868,52 @@ for further details about cross origin resource sharing.</p>
 <td><code>appendHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Use of <code>append_headers</code> is deprecated. Use the <code>append_request_headers</code>
+<p>Use of <code>append_headers</code> is deprecated. Use the <code>headers</code>
 field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-remove_response_headers">
+<tr id="HTTPRoute-remove_response_headers" class="deprecated ">
 <td><code>removeResponseHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>HTTP headers to remove before returning a response to the caller.</p>
+<p>Use of <code>remove_response_header</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-append_response_headers">
+<tr id="HTTPRoute-append_response_headers" class="deprecated ">
 <td><code>appendResponseHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Additional HTTP headers to add before returning a response to the
-caller.</p>
+<p>Use of <code>append_response_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-remove_request_headers">
+<tr id="HTTPRoute-remove_request_headers" class="deprecated ">
 <td><code>removeRequestHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>HTTP headers to remove before forwarding a request to the
-destination service.</p>
+<p>Use of <code>remove_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-append_request_headers">
+<tr id="HTTPRoute-append_request_headers" class="deprecated ">
 <td><code>appendRequestHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Additional HTTP headers to add before forwarding a request to the
-destination service.</p>
+<p>Use of <code>append_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-headers">
+<td><code>headers</code></td>
+<td><code><a href="#Headers">Headers</a></code></td>
+<td>
+<p>Header manipulation rules</p>
 
 </td>
 </tr>
@@ -1900,38 +2015,122 @@ be 100.</p>
 
 </td>
 </tr>
-<tr id="HTTPRouteDestination-remove_response_headers">
+<tr id="HTTPRouteDestination-remove_response_headers" class="deprecated ">
 <td><code>removeResponseHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>HTTP headers to remove before returning a response to the caller.</p>
+<p>Use of <code>remove_response_header</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRouteDestination-append_response_headers">
+<tr id="HTTPRouteDestination-append_response_headers" class="deprecated ">
 <td><code>appendResponseHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Additional HTTP headers to add before returning a response to the
-caller.</p>
+<p>Use of <code>append_response_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRouteDestination-remove_request_headers">
+<tr id="HTTPRouteDestination-remove_request_headers" class="deprecated ">
 <td><code>removeRequestHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>HTTP headers to remove before forwarding a request to the
-destination service.</p>
+<p>Use of <code>remove_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRouteDestination-append_request_headers">
+<tr id="HTTPRouteDestination-append_request_headers" class="deprecated ">
 <td><code>appendRequestHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Additional HTTP headers to add before forwarding a request to the
-destination service.</p>
+<p>Use of <code>append_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-headers">
+<td><code>headers</code></td>
+<td><code><a href="#Headers">Headers</a></code></td>
+<td>
+<p>Header manipulation rules</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Headers">Headers</h2>
+<section>
+<p>Header manipulation rules</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Headers-request">
+<td><code>request</code></td>
+<td><code><a href="#Headers-HeaderOperations">Headers.HeaderOperations</a></code></td>
+<td>
+<p>Header manipulation rules to apply before forwarding a request
+to the destination service</p>
+
+</td>
+</tr>
+<tr id="Headers-response">
+<td><code>response</code></td>
+<td><code><a href="#Headers-HeaderOperations">Headers.HeaderOperations</a></code></td>
+<td>
+<p>Header manipulation rules to apply before returning a response
+to the caller</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Headers-HeaderOperations">Headers.HeaderOperations</h2>
+<section>
+<p>HeaderOperations Describes the header manipulations to apply</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Headers-HeaderOperations-set">
+<td><code>set</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Overwrite the headers specified by key with the given values</p>
+
+</td>
+</tr>
+<tr id="Headers-HeaderOperations-add">
+<td><code>add</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Apppend the given values to the the headers specified by keys
+(will create a comma seperated list of values)</p>
+
+</td>
+</tr>
+<tr id="Headers-HeaderOperations-remove">
+<td><code>remove</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Remove a the specified headers</p>
 
 </td>
 </tr>
@@ -2202,6 +2401,186 @@ requested by the caller without doing any form of load
 balancing. This option must be used with care. It is meant for
 advanced use cases. Refer to Original Destination load balancer in
 Envoy for further details.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="NetworkScope">NetworkScope</h2>
+<section>
+<p><code>NetworkScope</code> describes the set of services that a workload depends on
+for its operation. In other words, it describes the properties of
+outgoing traffic from a given workload. By default, the service mesh
+established by Istio will have a full mesh connectivity - i.e. every
+workload will have proxy configuration required to reach every other
+workload in the mesh. However most connectivity graphs are sparse in
+practice. The NetworkScope provides a way to declare the service
+dependencies associated with each workload such that the amount of
+configuration sent to the sidecars can be scoped to the requisite
+dependencies.</p>
+
+<p>Services and configuration in a mesh are organized into one or more
+namespaces (e.g., a Kubernetes namespace or a CF org/space).  Workloads
+in a namespace have an implicit dependency on other workloads in the
+same namespace. In addition, to declare dependencies on workloads in
+other namespaces, a NetworkScope resource has to be specified in the
+current namespace. <em><em>Each namespace MUST have only one NetworkScope
+resource named &ldquo;default&rdquo;</em></em>. The behavior of the system is undefined if
+more than one NetworkScope resource exists in a given namespace. The set
+of dependencies specified in a NetworkScope resource will be used to
+compute the sidecar configuration for every workload in the namespace.</p>
+
+<p>NOTE 1: If workloads in the mesh depend only on other workloads in the
+same namespace, set defaultNetworkScope.importMode to SAME_NAMESPACE
+in the mesh global config map (in values.yaml).</p>
+
+<p>NOTE 2: To facilitate incremental pruning of the the sidecar
+configuration, the default import mode for the mesh is set to
+ALL_NAMESPACES. In other words, every workload will be able to reach
+every other workload. Adding a NetworkScope resource in a namespace will
+automatically prune the configuration for the workloads in that
+namespace.</p>
+
+<p>The following examples illustrate a few specific use cases of NetworkScope.</p>
+
+<p>The example below delcares a NetworkScope resource in the prod-us1
+namespace that specifies that workloads in the namespace will be able to
+reach the services in the prod-apis namespace only.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: NetworkScope
+metadata:
+  name: default
+  namespace: prod-us1
+spec:
+  dependencies:
+  - imports:
+    - namespace: prod-apis
+</code></pre>
+
+<p>In a mesh where the default network scope is set to SAME_NAMESPACE
+only, if one or more workloads need to be able to reach every other
+service in the mesh (e.g., metrics collection server), the following
+NetworkScope resource can be used to specify such a dependency:</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: NetworkScope
+metadata:
+  name: default
+  namespace: metrics-collection
+spec:
+  dependencies:
+  - imports:
+    - namespace: '*'
+</code></pre>
+
+<p>The configuration above will allow workloads in the metrics-collection
+namespace to access service in any namespace while workloads in other
+namespaces will be configured for namespace local access as per the
+global default network scope (SAME_NAMESPACE).</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="NetworkScope-dependencies">
+<td><code>dependencies</code></td>
+<td><code><a href="#NetworkScope-Dependency">NetworkScope.Dependency[]</a></code></td>
+<td>
+<p>REQUIRED. The set of services that workloads in this namespace are
+expected to talk to, in addition to other workloads in the same
+namespace. Dependencies describe the properties of outbound traffic from
+a given workload.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="NetworkScope-Dependency">NetworkScope.Dependency</h2>
+<section>
+<p>Dependency describes a workload and the set of service dependencies
+for the workload.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="NetworkScope-Dependency-imports">
+<td><code>imports</code></td>
+<td><code><a href="#NetworkScope-Import">NetworkScope.Import[]</a></code></td>
+<td>
+<p>REQUIRED: Import describes the set of namespaces whose exported
+services will be accessed by the workloads selected by the
+sourceWorkloadLabels. The sidecars attached to the workloads will be
+configured with information required to reach other services in the
+same namespace and the imported services. In addition to the
+explicitly specified namespaces, namespaces specified in the global
+mesh config (through defaultNetworkScope.importNamespaces) will also be
+imported.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="NetworkScope-Import">NetworkScope.Import</h2>
+<section>
+<p>Import describes the set of namespaces whose exported services
+(real/virtual) will be accessed by workloads in a given namespace. The
+sidecars attached to the workloads will be configured with information
+required to reach the imported services only. The gateways in the
+current namespace will only honor imported VirtualServices instead of
+every VirtualService that binds itself to the gateway.</p>
+
+<p>Importing a service from a namespace will automatically import the
+exported configuration artifacts associated with the service, such as
+VirtualService, DestinationRule, etc. The service in a namespace can be
+a service in the service registry (e.g., a kubernetes or cloud foundry
+service) or a service specified via ServiceEntry configuration.</p>
+
+<p>NOTE: Only exported services and configuration artifacts from a
+namespace can be imported. Private services/configuration will not be
+imported. See the scope setting associated with VirtualService,
+DestinationRule, ServiceEntry, etc.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="NetworkScope-Import-namespace">
+<td><code>namespace</code></td>
+<td><code>string</code></td>
+<td>
+<p>The configuration namespace whose services need to be imported.
+Specify * to import all namespaces. The import can be scoped further
+by specifying individual hosts.</p>
+
+</td>
+</tr>
+<tr id="NetworkScope-Import-host">
+<td><code>host</code></td>
+<td><code>string</code></td>
+<td>
+<p>A FQDN or wildcard prefixed DNS name of the host to import from the
+specified namespace. The hostnames include names of services from the
+service registry as well as those specified in a VirtualService.</p>
 
 </td>
 </tr>
@@ -3086,6 +3465,18 @@ said port will be allowed (i.e. 0.0.0.0:<port>).</p>
 
 </td>
 </tr>
+<tr id="ServiceEntry-config_scope">
+<td><code>configScope</code></td>
+<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<td>
+<p>The visibility setting associated with this service entry. Set to
+PRIVATE if this service should not be visible outside the namespace
+where the service entry was added. The default scope is public,
+i.e. the service added by the service entry will be visible to
+workloads in the entire mesh.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -3887,7 +4278,7 @@ to be customized for specific client contexts.</p>
 
 <p>The following example on Kubernetes, routes all HTTP traffic by default to
 pods of the reviews service with label &ldquo;version: v1&rdquo;. In addition,
-HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
+HTTP requests with path starting with /wpcatalog/ or /consumercatalog/ will
 be rewritten to /newcatalog and sent to pods with label &ldquo;version: v2&rdquo;.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
@@ -4025,6 +4416,17 @@ traffic.</p>
 <p>An ordered list of route rules for opaque TCP traffic. TCP routes will
 be applied to any port that is not a HTTP or TLS port. The first rule
 matching an incoming request is used.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-config_scope">
+<td><code>configScope</code></td>
+<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<td>
+<p>The visibility setting associated with this VirtualService. Set to
+PRIVATE if this virtual service should not be exported, i.e. restrict
+the applicability of this virtual service to only workloads in the same
+namespace as the virtual service.</p>
 
 </td>
 </tr>

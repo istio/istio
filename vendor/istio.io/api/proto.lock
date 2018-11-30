@@ -690,6 +690,19 @@
                 "integer": 2
               }
             ]
+          },
+          {
+            "name": "DefaultNetworkScope.Mode",
+            "enum_fields": [
+              {
+                "name": "ALL_NAMESPACES",
+                "integer": 0
+              },
+              {
+                "name": "SAME_NAMESPACE",
+                "integer": 1
+              }
+            ]
           }
         ],
         "messages": [
@@ -730,6 +743,11 @@
                 "id": 6,
                 "name": "connect_timeout",
                 "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 28,
+                "name": "tcp_keepalive",
+                "type": "istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive"
               },
               {
                 "id": 7,
@@ -821,6 +839,11 @@
                 "id": 26,
                 "name": "trust_domain",
                 "type": "string"
+              },
+              {
+                "id": 29,
+                "name": "default_network_scope",
+                "type": "DefaultNetworkScope"
               }
             ],
             "reserved_ids": [
@@ -835,6 +858,22 @@
                     "id": 1,
                     "name": "mode",
                     "type": "Mode"
+                  }
+                ]
+              },
+              {
+                "name": "DefaultNetworkScope",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "import_mode",
+                    "type": "Mode"
+                  },
+                  {
+                    "id": 2,
+                    "name": "import_namespaces",
+                    "type": "string",
+                    "is_repeated": true
                   }
                 ]
               }
@@ -2442,6 +2481,11 @@
                 "name": "subsets",
                 "type": "Subset",
                 "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "config_scope",
+                "type": "ConfigScope"
               }
             ]
           },
@@ -2624,6 +2668,33 @@
                     "id": 2,
                     "name": "connect_timeout",
                     "type": "google.protobuf.Duration"
+                  },
+                  {
+                    "id": 3,
+                    "name": "tcp_keepalive",
+                    "type": "TcpKeepalive"
+                  }
+                ],
+                "messages": [
+                  {
+                    "name": "TcpKeepalive",
+                    "fields": [
+                      {
+                        "id": 1,
+                        "name": "probes",
+                        "type": "uint32"
+                      },
+                      {
+                        "id": 2,
+                        "name": "time",
+                        "type": "google.protobuf.Duration"
+                      },
+                      {
+                        "id": 3,
+                        "name": "interval",
+                        "type": "google.protobuf.Duration"
+                      }
+                    ]
                   }
                 ]
               },
@@ -3079,6 +3150,77 @@
       }
     },
     {
+      "protopath": "networking:/:v1alpha3:/:network_scope.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "ConfigScope",
+            "enum_fields": [
+              {
+                "name": "PUBLIC",
+                "integer": 0
+              },
+              {
+                "name": "PRIVATE",
+                "integer": 1
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "NetworkScope",
+            "fields": [
+              {
+                "id": 1,
+                "name": "dependencies",
+                "type": "Dependency",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "Import",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "namespace",
+                    "type": "string"
+                  },
+                  {
+                    "id": 2,
+                    "name": "host",
+                    "type": "string"
+                  }
+                ]
+              },
+              {
+                "name": "Dependency",
+                "fields": [
+                  {
+                    "id": 2,
+                    "name": "imports",
+                    "type": "Import",
+                    "is_repeated": true
+                  }
+                ],
+                "maps": [
+                  {
+                    "key_type": "string",
+                    "field": {
+                      "id": 1,
+                      "name": "source_workload_labels",
+                      "type": "string"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "protopath": "networking:/:v1alpha3:/:service_entry.proto",
       "def": {
         "enums": [
@@ -3150,6 +3292,11 @@
                 "name": "endpoints",
                 "type": "Endpoint",
                 "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "config_scope",
+                "type": "ConfigScope"
               }
             ],
             "messages": [
@@ -3237,6 +3384,11 @@
                 "name": "tcp",
                 "type": "TCPRoute",
                 "is_repeated": true
+              },
+              {
+                "id": 6,
+                "name": "config_scope",
+                "type": "ConfigScope"
               }
             ]
           },
@@ -3326,6 +3478,11 @@
                 "name": "remove_request_headers",
                 "type": "string",
                 "is_repeated": true
+              },
+              {
+                "id": 16,
+                "name": "headers",
+                "type": "Headers"
               }
             ],
             "maps": [
@@ -3352,6 +3509,52 @@
                   "name": "append_request_headers",
                   "type": "string"
                 }
+              }
+            ]
+          },
+          {
+            "name": "Headers",
+            "fields": [
+              {
+                "id": 1,
+                "name": "request",
+                "type": "HeaderOperations"
+              },
+              {
+                "id": 2,
+                "name": "response",
+                "type": "HeaderOperations"
+              }
+            ],
+            "messages": [
+              {
+                "name": "HeaderOperations",
+                "fields": [
+                  {
+                    "id": 3,
+                    "name": "remove",
+                    "type": "string",
+                    "is_repeated": true
+                  }
+                ],
+                "maps": [
+                  {
+                    "key_type": "string",
+                    "field": {
+                      "id": 1,
+                      "name": "set",
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "key_type": "string",
+                    "field": {
+                      "id": 2,
+                      "name": "add",
+                      "type": "string"
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -3467,6 +3670,11 @@
                 "name": "remove_request_headers",
                 "type": "string",
                 "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "headers",
+                "type": "Headers"
               }
             ],
             "maps": [

@@ -7,7 +7,7 @@ provider: jaeger
 
 jaeger:
   hub: docker.io/jaegertracing
-  tag: 1.7
+  tag: 1.8
   memory:
     max_traces: 50000
   contextPath: /jaeger
