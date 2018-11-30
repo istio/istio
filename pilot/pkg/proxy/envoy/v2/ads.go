@@ -556,7 +556,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 					// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 					if reflect.DeepEqual(con.Clusters, clusters) {
-						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+						adsLog.Debugf("ADS:EDS: ACK %s %s (%#v) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
 						if discReq.ResponseNonce != "" {
 							con.mu.Lock()
 							con.EndpointNonceAcked = discReq.ResponseNonce

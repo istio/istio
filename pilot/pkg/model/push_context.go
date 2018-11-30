@@ -312,7 +312,7 @@ func (ps *PushContext) UpdateMetrics() {
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// all namespaces dependency
-	if len(proxy.ServiceDependencies) == 0 {
+	if proxy == nil || len(proxy.ServiceDependencies) == 0 {
 		return ps.allServices
 	}
 
@@ -333,7 +333,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	out := make([]Config, 0)
 	for _, config := range configs {
 		// skip virtual service that not in dependent namespaces
-		if len(proxy.ServiceDependencies) != 0 && !proxy.ServiceDependencies[config.Namespace] {
+		if proxy != nil && len(proxy.ServiceDependencies) != 0 && !proxy.ServiceDependencies[config.Namespace] {
 			continue
 		}
 
@@ -364,7 +364,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		if len(proxy.ServiceDependencies) == 0 ||
+		if proxy == nil || len(proxy.ServiceDependencies) == 0 ||
 			proxy.ServiceDependencies[ps.destinationRuleByHosts[c].config.Namespace] {
 			return ps.destinationRuleByHosts[c].config
 		}

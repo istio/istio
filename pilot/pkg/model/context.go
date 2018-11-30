@@ -247,21 +247,21 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	return parts[1]
 }
 
-// SetProxyServiceDependencies sets the dependent namespaces of the reachable services.
-func (p *Proxy) SetServiceDependencies(dependency *meshconfig.MeshConfig_DefaultServiceDependency) {
-	if p == nil || dependency == nil {
+// SetServiceDependencies sets the namespaces of the reachable services.
+func (node *Proxy) SetServiceDependencies(dependency *meshconfig.MeshConfig_DefaultServiceDependency) {
+	if node == nil || dependency == nil {
 		return
 	}
-	p.ServiceDependencies = make(map[string]bool)
+	node.ServiceDependencies = make(map[string]bool)
 	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_ALL_NAMESPACES {
 		return
 	}
 
 	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_SAME_NAMESPACE {
-		configNamespace := GetProxyConfigNamespace(p)
-		p.ServiceDependencies[configNamespace] = true
+		configNamespace := GetProxyConfigNamespace(node)
+		node.ServiceDependencies[configNamespace] = true
 		for _, ns := range dependency.ImportNamespaces {
-			p.ServiceDependencies[ns] = true
+			node.ServiceDependencies[ns] = true
 		}
 	}
 }
