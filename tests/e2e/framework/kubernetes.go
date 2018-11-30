@@ -786,6 +786,8 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		// enable mTLS
 		isSecurityOn = true
 		setValue = "--set global.mtls.enabled=" + strconv.FormatBool(isSecurityOn)
+		log.Infof("Auth enabled setValue=%s", setValue)
+
 	}
 
 	// side car injector
@@ -794,8 +796,12 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 	if *useMCP {
 		setValue += " --set galley.enabled=true --set global.useMCP=true"
+		log.Infof("useMCP enabled setValue=%s", setValue)
+
 	} else if *useGalleyConfigValidator {
 		setValue += " --set galley.enabled=true"
+		log.Infof("galleyConfigValidator enabled setValue=%s", setValue)
+
 	}
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
