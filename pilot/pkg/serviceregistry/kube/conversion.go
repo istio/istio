@@ -114,6 +114,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			Name:      svc.Name,
 			Namespace: svc.Namespace,
 			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			// TODO: populate ConfigScope once needed
 		},
 	}
 }

@@ -311,18 +311,17 @@ func (ps *PushContext) UpdateMetrics() {
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	// all namespaces dependency
-	if proxy == nil || len(proxy.ServiceDependencies) == 0 {
+	if proxy == nil {
 		return ps.allServices
 	}
 
 	out := []*Service{}
-
 	for _, svc := range ps.allServices {
-		if proxy.ServiceDependencies[svc.Attributes.Namespace] {
+		if proxy.CanImport(svc.Attributes.Namespace, svc.Attributes.ConfigScope) {
 			out = append(out, svc)
 		}
 	}
+
 	return out
 }
 
