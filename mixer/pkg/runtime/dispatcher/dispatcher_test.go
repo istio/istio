@@ -366,7 +366,7 @@ ident                         : dest.istio-system
 		name: "BasicReportError",
 		templates: []data.FakeTemplateSettings{{
 			// nolint: goimports
-			Name: "treport",
+			Name:                  "treport",
 			ErrorOnDispatchReport: true,
 		}},
 		config: []string{
@@ -672,7 +672,7 @@ ident                         : dest.istio-system
 		name: "BasicPreprocessError",
 		templates: []data.FakeTemplateSettings{{
 			// nolint: goimports
-			Name: "tapa",
+			Name:                    "tapa",
 			ErrorOnDispatchGenAttrs: true,
 		}},
 		config: []string{

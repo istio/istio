@@ -474,8 +474,8 @@ func TestProjectMetadata(t *testing.T) {
 			[]*metrict.Instance{
 				{
 					// nolint: goimports
-					Name:  "metric",
-					Value: int64(1),
+					Name:                  "metric",
+					Value:                 int64(1),
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "id",
@@ -498,8 +498,8 @@ func TestProjectMetadata(t *testing.T) {
 			[]*metrict.Instance{
 				{
 					// nolint: goimports
-					Name:  "metric",
-					Value: int64(1),
+					Name:                  "metric",
+					Value:                 int64(1),
 					MonitoredResourceType: "mr-type",
 					MonitoredResourceDimensions: map[string]interface{}{
 						"project_id":   "",
