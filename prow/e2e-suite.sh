@@ -47,6 +47,8 @@ export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 source "${ROOT}/prow/lib.sh"
 setup_e2e_cluster
 
+E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${TAG:-${GIT_SHA}}"
 
