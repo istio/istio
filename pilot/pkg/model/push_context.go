@@ -311,21 +311,32 @@ func (ps *PushContext) UpdateMetrics() {
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	// TODO: use network scopes here, and return services in the proxy namespace if
-	// configured to use current_namespace as the scope and proxy is not nil
-	//if proxy == nil {
-	//	return ps.allServices
-	//}
-	return ps.allServices
+	// all namespaces dependency
+	if len(proxy.ServiceDependencies) == 0 {
+		return ps.allServices
+	}
+
+	out := []*Service{}
+
+	for _, svc := range ps.allServices {
+		if proxy.ServiceDependencies[svc.Attributes.Namespace] {
+			out = append(out, svc)
+		}
+	}
+	return out
 }
 
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
 func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
-	// TODO: use the proxy namespace with NetworkScopes to return the correct set of VirtualServices
 	configs := ps.virtualServiceConfigs
 	out := make([]Config, 0)
 	for _, config := range configs {
+		// skip virtual service that not in dependent namespaces
+		if len(proxy.ServiceDependencies) != 0 && !proxy.ServiceDependencies[config.Namespace] {
+			continue
+		}
+
 		rule := config.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
@@ -352,9 +363,11 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
-	// TODO: use the proxy namespace to return only public destination rules if in different namespace
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		return ps.destinationRuleByHosts[c].config
+		if len(proxy.ServiceDependencies) == 0 ||
+			proxy.ServiceDependencies[ps.destinationRuleByHosts[c].config.Namespace] {
+			return ps.destinationRuleByHosts[c].config
+		}
 	}
 	return nil
 }

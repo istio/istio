@@ -81,10 +81,9 @@ type Proxy struct {
 	// "default.svc.cluster.local")
 	Domain string
 
-	// ConfigNamespace defines the namespace where this proxy resides
-	// for the purposes of network scoping.
-	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
-	ConfigNamespace string
+	// ServiceDependencies defines the the namespaces of the services
+	// which this proxy can reach.
+	ServiceDependencies map[string]bool
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
@@ -248,6 +247,25 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	return parts[1]
 }
 
+// SetProxyServiceDependencies sets the dependent namespaces of the reachable services.
+func (p *Proxy) SetServiceDependencies(dependency *meshconfig.MeshConfig_DefaultServiceDependency) {
+	if p == nil || dependency == nil {
+		return
+	}
+	p.ServiceDependencies = make(map[string]bool)
+	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_ALL_NAMESPACES {
+		return
+	}
+
+	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_SAME_NAMESPACE {
+		configNamespace := GetProxyConfigNamespace(p)
+		p.ServiceDependencies[configNamespace] = true
+		for _, ns := range dependency.ImportNamespaces {
+			p.ServiceDependencies[ns] = true
+		}
+	}
+}
+
 const (
 	serviceNodeSeparator = "~"
 
@@ -333,6 +351,9 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SdsUdsPath:            "",
 		EnableSdsTokenMount:   false,
 		TrustDomain:           "",
+		DefaultServiceDependency: &meshconfig.MeshConfig_DefaultServiceDependency{
+			ImportMode: meshconfig.MeshConfig_DefaultServiceDependency_ALL_NAMESPACES,
+		},
 	}
 }
 
