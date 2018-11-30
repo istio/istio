@@ -199,10 +199,10 @@ message MeshConfig {
   // Fallback to old identity format(without trust domain) if not set.
   string trust_domain = 26;
 
-  // Default network scope settings for each workload in the mesh. Network
-  // scope controls the reachability of workloads to other services in the
-  // mesh.
-  message DefaultNetworkScope {
+  // Default service dependency settings for each workload in the
+  // mesh. ServiceDependencycontrols the reachability of workloads to other
+  // services in the mesh.
+  message DefaultServiceDependency {
     enum Mode {
       // Configure routes to services in all namespaces, i.e. import
       // services from all namespaces.
@@ -218,19 +218,19 @@ message MeshConfig {
     Mode import_mode = 1;
 
     // Specifies one or more namespaces that should be imported by default
-    // in all user defined NetworkScope resources in addition to the
+    // in all user defined ServiceDependency resources in addition to the
     // namespaces explicitly specified by the end user. Use this setting to
     // automatically import services/resources from namespaces such as
     // istio-system that all workloads in the mesh depend upon.
     repeated string import_namespaces = 2;
   }
 
-  // The default network scope associated with every workload in the mesh.
-  // Pilot will program the routes in the sidecars and gateways
-  // accordingly. If omitted, sidecars will be configured to reach every
-  // service in the mesh. The default scope can be overriden by supplying a
-  // NetworkScope resource per namespace.
-  DefaultNetworkScope default_network_scope = 29;
+  // The default service dependency setting associated with every workload
+  // in the mesh.  Pilot will program the routes in the sidecars and
+  // gateways accordingly. If omitted, sidecars will be configured to reach
+  // every service in the mesh. The default scope can be overriden by
+  // supplying a ServiceDependency resource per namespace.
+  DefaultServiceDependency default_service_dependency = 29;
 
   // $hide_from_docs
   // Next available field number: 30
