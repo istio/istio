@@ -332,12 +332,13 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	configs := ps.virtualServiceConfigs
 	out := make([]Config, 0)
 	for _, config := range configs {
-		// skip virtual service that not in dependent namespaces
-		if proxy != nil && len(proxy.ServiceDependencies) != 0 && !proxy.ServiceDependencies[config.Namespace] {
+		rule := config.Spec.(*networking.VirtualService)
+
+		// skip virtual service that can not be imported.
+		if !proxy.CanImport(config.Namespace, rule.ConfigScope) {
 			continue
 		}
 
-		rule := config.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
 			if gateways[IstioMeshGateway] {
@@ -364,9 +365,10 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		if proxy == nil || len(proxy.ServiceDependencies) == 0 ||
-			proxy.ServiceDependencies[ps.destinationRuleByHosts[c].config.Namespace] {
-			return ps.destinationRuleByHosts[c].config
+		config := ps.destinationRuleByHosts[c].config
+		destinationRule := config.Spec.(*networking.DestinationRule)
+		if proxy.CanImport(config.Namespace, destinationRule.ConfigScope) {
+			return config
 		}
 	}
 	return nil

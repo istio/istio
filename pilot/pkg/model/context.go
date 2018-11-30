@@ -22,9 +22,10 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -80,6 +81,11 @@ type Proxy struct {
 	// Domain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
 	Domain string
+
+	// ConfigNamespace defines the namespace where this proxy resides
+	// for the purposes of network scoping.
+	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
+	ConfigNamespace string
 
 	// ServiceDependencies defines the the namespaces of the services
 	// which this proxy can reach.
@@ -258,12 +264,30 @@ func (node *Proxy) SetServiceDependencies(dependency *meshconfig.MeshConfig_Defa
 	}
 
 	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_SAME_NAMESPACE {
-		configNamespace := GetProxyConfigNamespace(node)
-		node.ServiceDependencies[configNamespace] = true
+		node.ServiceDependencies[node.ConfigNamespace] = true
 		for _, ns := range dependency.ImportNamespaces {
 			node.ServiceDependencies[ns] = true
 		}
 	}
+}
+
+// CanImport returns whether the node can import config of namespace 'ns' with ConfigScope 'scope'.
+func (node *Proxy) CanImport(ns string, scope networking.ConfigScope) bool {
+	if node == nil {
+		return true
+	}
+
+	if len(node.ServiceDependencies) == 0 ||
+		node.ServiceDependencies[ns] {
+		if scope == networking.ConfigScope_PUBLIC {
+			return true
+		}
+		if scope == networking.ConfigScope_PRIVATE && ns == node.ConfigNamespace {
+			return true
+		}
+	}
+
+	return false
 }
 
 const (
