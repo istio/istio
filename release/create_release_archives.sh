@@ -81,15 +81,6 @@ mkdir -p "${BIN_DIR}"
 CP=${CP:-"cp"}
 TAR=${TAR:-"tar"}
 
-function replace_with_release_charts_url() {
-  if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
-    local origin_url="istio-prerelease/daily-build/master-latest-daily/charts"
-    local target_url="istio-release/releases/${VER_STRING}/charts"
-    sed -i.bak "s:${origin_url}:${target_url}:g" "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/README.md"
-    rm -rf "${COMMON_FILES_DIR}/install/kubernetes/helm/istio/README.md.bak"
-  fi
-}
-
 function create_linux_archive() {
   local istioctl_path="${BIN_DIR}/istioctl"
 
@@ -175,7 +166,6 @@ ls -l  "${COMMON_FILES_DIR}/install/kubernetes/helm/istio"
 # Changing dir such that tar and zip files are
 # created with right hiereachy
 pushd "${COMMON_FILES_DIR}/.."
-replace_with_release_charts_url
 create_linux_archive
 create_osx_archive
 create_windows_archive
