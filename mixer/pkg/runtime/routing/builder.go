@@ -116,8 +116,8 @@ func BuildTable(
 		},
 
 		// nolint: goimports
-		handlers: handlers,
-		expb:     expb,
+		handlers:               handlers,
+		expb:                   expb,
 		defaultConfigNamespace: defaultConfigNamespace,
 		nextIDCounter:          1,
 
