@@ -422,26 +422,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.Node == nil || discReq.Node.Id == "" {
-				adsLog.Infof("Missing node id %s", discReq.String())
-				continue
-			}
-			nt, err := model.ParseServiceNode(discReq.Node.Id)
-			if err != nil {
+			if err = s.initConnectionNode(discReq, con); err != nil {
 				return err
 			}
-			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-			// Update the config namespace associated with this proxy
-			nt.ConfigNamespace = model.GetProxyConfigNamespace(&nt)
-			nt.SetServiceDependencies(s.Env.Mesh.DefaultServiceDependency)
-
-			con.mu.Lock()
-			con.modelNode = &nt
-			if con.ConID == "" {
-				// first request
-				con.ConID = connectionID(discReq.Node.Id)
-			}
-			con.mu.Unlock()
 
 			switch discReq.TypeUrl {
 			case ClusterType:
@@ -612,6 +595,37 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 		}
 	}
+}
+
+// update the node associated with the connection, after receiving a packet from envoy.
+func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, con *XdsConnection) error {
+	con.mu.RLock()
+	if con.modelNode != nil {
+		con.mu.RUnlock()
+		return nil // only need to init the node on first request in the stream
+	}
+	con.mu.RUnlock()
+	if discReq.Node == nil || discReq.Node.Id == "" {
+		return errors.New("missing node id")
+	}
+	nt, err := model.ParseServiceNode(discReq.Node.Id)
+	if err != nil {
+		return err
+	}
+	nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+	// Update the config namespace associated with this proxy
+	nt.ConfigNamespace = model.GetProxyConfigNamespace(&nt)
+	nt.SetNamespaceDependencies(s.Env.Mesh.DefaultServiceDependency)
+
+	con.mu.Lock()
+	con.modelNode = &nt
+	con.mu.Unlock()
+	if con.ConID == "" {
+		// first request
+		con.ConID = connectionID(discReq.Node.Id)
+	}
+
+	return nil
 }
 
 // IncrementalAggregatedResources is not implemented.

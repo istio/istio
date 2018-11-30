@@ -87,9 +87,9 @@ type Proxy struct {
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
 	ConfigNamespace string
 
-	// ServiceDependencies defines the the namespaces of the services
-	// which this proxy can reach.
-	ServiceDependencies map[string]bool
+	// NamespaceDependencies contains a list of namespaces that should be used to configure
+	// services for this node.
+	NamespaceDependencies map[string]bool
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
@@ -253,20 +253,20 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	return parts[1]
 }
 
-// SetServiceDependencies sets the namespaces of the reachable services.
-func (node *Proxy) SetServiceDependencies(dependency *meshconfig.MeshConfig_DefaultServiceDependency) {
+// SetNamespaceDependencies sets the namespaces of the reachable services.
+func (node *Proxy) SetNamespaceDependencies(dependency *meshconfig.MeshConfig_DefaultServiceDependency) {
 	if node == nil || dependency == nil {
 		return
 	}
-	node.ServiceDependencies = make(map[string]bool)
+	node.NamespaceDependencies = make(map[string]bool)
 	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_ALL_NAMESPACES {
 		return
 	}
 
 	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_SAME_NAMESPACE {
-		node.ServiceDependencies[node.ConfigNamespace] = true
+		node.NamespaceDependencies[node.ConfigNamespace] = true
 		for _, ns := range dependency.ImportNamespaces {
-			node.ServiceDependencies[ns] = true
+			node.NamespaceDependencies[ns] = true
 		}
 	}
 }
@@ -277,8 +277,8 @@ func (node *Proxy) CanImport(ns string, scope networking.ConfigScope) bool {
 		return true
 	}
 
-	if len(node.ServiceDependencies) == 0 ||
-		node.ServiceDependencies[ns] {
+	if len(node.NamespaceDependencies) == 0 ||
+		node.NamespaceDependencies[ns] {
 		if scope == networking.ConfigScope_PUBLIC {
 			return true
 		}
