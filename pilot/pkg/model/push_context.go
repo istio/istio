@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -322,19 +323,35 @@ func (ps *PushContext) Services(p *Proxy) []*Service {
 	if p.serviceDependencies != nil {
 		return p.serviceDependencies
 	}
-	if p.NamespaceDependencies != nil || pilot.NetworkScopes != ""{
+	return ps.allServices
+}
+
+// OnConnect is called when a node connects. Will update per-node data.
+func (ps *PushContext) OnConnect(p *Proxy) {
+	if pilot.NetworkScopes != "" {
+		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
+		// reviewed ), or from an env variable.
+		adminNs := strings.Split(pilot.NetworkScopes, ",")
+		globalDeps := map[string]bool{}
+		for _, ns := range adminNs {
+			globalDeps[ns] = true
+		}
+
+		p.mutex.RLock()
+		defer p.mutex.RUnlock()
 		res := []*Service{}
 		for _, s := range ps.allServices {
-			podNs := s.Attributes.Namespace
-			if podNs == "" {
+			podNamespace := s.Attributes.Namespace
+			if podNamespace == "" {
 				res = append(res, s)
-			} else if p.NamespaceDependencies[podNs] || podNs == p.ClusterID {
+			} else if globalDeps[podNamespace] || podNamespace == p.ConfigNamespace {
 				res = append(res, s)
 			}
 		}
-		return res
+		p.serviceDependencies = res
+
+		// TODO: read Gateways,NetworkScopes/etc to populate additional entries
 	}
-	return ps.allServices
 }
 
 // VirtualServices lists all virtual services bound to the specified gateways

@@ -18,10 +18,8 @@ import (
 	"context"
 	"errors"
 	"io"
-	"istio.io/istio/pkg/features/pilot"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -60,7 +58,6 @@ var (
 	// clients and pushes them serially for now, to avoid large CPU/memory spikes.
 	// We measure and reports cases where pushing a client takes longer.
 	PushTimeout = 5 * time.Second
-
 )
 
 var (
@@ -500,21 +497,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					sort.Strings(con.Routes)
 
 					if reflect.DeepEqual(con.Routes, routes) || len(routes) == 0 {
-						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
-							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
-							totalXDSRejects.Add(1)
-						}
 						// Not logging full request, can be very long.
 						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
-						if len(con.Routes) > 0 {
-							// Already got a list of routes to watch and has same length as the request, this is an ack
-							if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
-								con.mu.Lock()
-								con.RouteNonceAcked = discReq.ResponseNonce
-								con.mu.Unlock()
-							}
-							continue
+						// Already got a list of routes to watch and has same length as the request, this is an ack
+						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+							con.mu.Lock()
+							con.RouteNonceAcked = discReq.ResponseNonce
+							con.mu.Unlock()
 						}
 						continue
 					}
@@ -611,7 +600,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 // update the node associated with the connection, after receiving a a packet from envoy.
 func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, con *XdsConnection) error {
-	con.mu.RLock()
+	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
 	if con.modelNode != nil {
 		con.mu.RUnlock()
 		return nil // only need to init the node on first request in the stream
@@ -631,22 +620,13 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 
 	con.mu.Lock()
 	con.modelNode = &nt
-	con.mu.Unlock()
-
 	if con.ConID == "" {
 		// first request
 		con.ConID = connectionID(discReq.Node.Id)
 	}
+	con.mu.Unlock()
 
-	// Using the env until the mesh config API is stable and agreed upon, and to avoid
-	// rollback issues ( new fields in mesh config break older version of pilot on rollback )
-	if pilot.NetworkScopes != "" {
-		adminNs := strings.Split(pilot.NetworkScopes, ",")
-		con.modelNode.NamespaceDependencies = map[string]bool{}
-		for _, ns := range adminNs {
-			con.modelNode.NamespaceDependencies[ns] = true
-		}
-	}
+	s.globalPushContext().OnConnect(con.modelNode)
 
 	// TODO
 	// use networkScope to update the list of namespace and service dependencies

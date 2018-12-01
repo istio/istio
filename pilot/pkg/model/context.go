@@ -98,18 +98,17 @@ type Proxy struct {
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 
+	// mutex control access to mutable fields in the Proxy. On-demand will modify the
+	// list of services based on calls from envoy.
 	mutex sync.RWMutex
 
 	// serviceDependencies, if set, controls the list of outbound listeners and routes
 	// for which the proxy will receive configurations. If nil, the proxy will get config
 	// for all visible services.
 	// The list will be populated either from explicit declarations or using 'on-demand'
-	// feature, before generation takes place.
+	// feature, before generation takes place. Each node may have a different list, based on
+	// the requests handled by envoy.
 	serviceDependencies []*Service
-
-	// NamespaceDependencies contains a list of namespaces that should be used to configure
-	// services for this node.
-	NamespaceDependencies map[string]bool
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -186,9 +185,6 @@ func GetNetworkView(node *Proxy) map[string]bool {
 	if node == nil {
 		return map[string]bool{UnnamedNetwork: true}
 	}
-
-	// TODO: this is only used to select CDS ( DNS-based ) - not clear when user will have DNS names
-	// bound to a network or how a node would be part of multiple networks. It may not be needed.
 
 	nmap := make(map[string]bool)
 	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
