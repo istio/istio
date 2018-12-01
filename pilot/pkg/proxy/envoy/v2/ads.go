@@ -618,8 +618,8 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	nt.SetNamespaceDependencies(s.Env.Mesh.DefaultServiceDependency)
 
 	con.mu.Lock()
+	defer con.mu.Unlock()
 	con.modelNode = &nt
-	con.mu.Unlock()
 	if con.ConID == "" {
 		// first request
 		con.ConID = connectionID(discReq.Node.Id)

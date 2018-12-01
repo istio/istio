@@ -363,6 +363,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
+	// TODO: find all matching host, and choose the public one.
 	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
 		config := ps.destinationRuleByHosts[c].config
 		destinationRule := config.Spec.(*networking.DestinationRule)
