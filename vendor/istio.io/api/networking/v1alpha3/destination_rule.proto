@@ -15,7 +15,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "networking/v1alpha3/virtual_service.proto";
-import "networking/v1alpha3/network_scope.proto";
+import "networking/v1alpha3/service_dependency.proto";
 import "gogoproto/gogo.proto";
 
 package istio.networking.v1alpha3;
