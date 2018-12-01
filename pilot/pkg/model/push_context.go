@@ -328,7 +328,9 @@ func (ps *PushContext) Services(p *Proxy) []*Service {
 
 // OnConnect is called when a node connects. Will update per-node data.
 func (ps *PushContext) OnConnect(p *Proxy) {
-	if pilot.NetworkScopes != "" {
+	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
+	// bindings.
+	if pilot.NetworkScopes != "" && p.Type == Sidecar {
 		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
 		// reviewed ), or from an env variable.
 		adminNs := strings.Split(pilot.NetworkScopes, ",")
