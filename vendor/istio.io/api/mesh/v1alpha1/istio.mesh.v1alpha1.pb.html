@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 16
+number_of_entries: 18
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -173,6 +173,14 @@ other services.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-tcp_keepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/istio.networking.v1alpha3.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td>
+<p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-ingress_class">
 <td><code>ingressClass</code></td>
 <td><code>string</code></td>
@@ -297,6 +305,18 @@ Fallback to old identity format(without trust domain) if not set.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-default_service_dependency">
+<td><code>defaultServiceDependency</code></td>
+<td><code><a href="#MeshConfig-DefaultServiceDependency">MeshConfig.DefaultServiceDependency</a></code></td>
+<td>
+<p>The default service dependency setting associated with every workload
+in the mesh.  Pilot will program the routes in the sidecars and
+gateways accordingly. If omitted, sidecars will be configured to reach
+every service in the mesh. The default scope can be overriden by
+supplying a ServiceDependency resource per namespace.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -318,6 +338,74 @@ Fallback to old identity format(without trust domain) if not set.</p>
 <tr id="MeshConfig-AccessLogEncoding-JSON">
 <td><code>JSON</code></td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-DefaultServiceDependency">MeshConfig.DefaultServiceDependency</h2>
+<section>
+<p>Default service dependency settings for each workload in the
+mesh. ServiceDependencycontrols the reachability of workloads to other
+services in the mesh.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-DefaultServiceDependency-import_mode">
+<td><code>importMode</code></td>
+<td><code><a href="#MeshConfig-DefaultServiceDependency-Mode">MeshConfig.DefaultServiceDependency.Mode</a></code></td>
+<td>
+<p>REQUIRED: The default import setting for every workload in the mesh.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-DefaultServiceDependency-import_namespaces">
+<td><code>importNamespaces</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Specifies one or more namespaces that should be imported by default
+in all user defined ServiceDependency resources in addition to the
+namespaces explicitly specified by the end user. Use this setting to
+automatically import services/resources from namespaces such as
+istio-system that all workloads in the mesh depend upon.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-DefaultServiceDependency-Mode">MeshConfig.DefaultServiceDependency.Mode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-DefaultServiceDependency-Mode-ALL_NAMESPACES">
+<td><code>ALL_NAMESPACES</code></td>
+<td>
+<p>Configure routes to services in all namespaces, i.e. import
+services from all namespaces.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-DefaultServiceDependency-Mode-SAME_NAMESPACE">
+<td><code>SAME_NAMESPACE</code></td>
+<td>
+<p>Only configure routes to services that are in the same namespace
+as the workload as well as services in namespaces specified in
+importNamespaces.</p>
+
 </td>
 </tr>
 </tbody>
