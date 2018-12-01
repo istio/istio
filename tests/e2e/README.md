@@ -93,7 +93,7 @@ E2E tests have multiple options available while running them as follows:
 * `--rbac_enabled` - Enable RBAC (default: true)
 * `--cluster_wide` - If true Pilot/Mixer will observe all namespaces rather than just the testing namespace (default: false)
 * `--use_automatic_injection` - if you want to do transparent sidecar injection  (default: false)
-* `--use_galley_config_validator` - if you want to enable automatic configuration validation (default: false)
+* `--use_galley_config_validator` - if you want to enable automatic configuration validation (default: true)
 * `--mixer_hub <hub>` - Image hub for the Mixer (default: environment $HUB)
 * `--mixer_tag <tag>` - Image tag for the Mixer (default: environment $TAG)
 * `--pilot_hub <hub>` - Image hub for the Pilot (default: environment $HUB)
