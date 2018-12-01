@@ -51,9 +51,15 @@ type PushContext struct {
 	// only those in the proxy's config namespace. Keep them private
 	// and use accessor functions to return the appropriate data
 
-	// all services in the system at the time push started.
-	allServices            []*Service `json:"-,omitempty"`
-	virtualServiceConfigs  []Config   `json:"-,omitempty"`
+	// namespace-->services map, publicServices are reachable by all other namespaces.
+	// privateServices are reachable by the same namespace.
+	publicServicesByNamespace  map[string][]*Service
+	privateServicesByNamespace map[string][]*Service
+
+	virtualServiceConfigs             []Config
+	publicVirtualServicesByNamespace  map[string][]Config
+	privateVirtualServicesByNamespace map[string][]Config
+
 	destinationRuleHosts   []Hostname
 	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 	////////// END ////////
@@ -268,6 +274,11 @@ var (
 func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
+		publicServicesByNamespace:         map[string][]*Service{},
+		privateServicesByNamespace:        map[string][]*Service{},
+		publicVirtualServicesByNamespace:  map[string][]Config{},
+		privateVirtualServicesByNamespace: map[string][]Config{},
+
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
 		ServicePort2Name:  map[string]PortList{},
@@ -311,14 +322,19 @@ func (ps *PushContext) UpdateMetrics() {
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	if proxy == nil {
-		return ps.allServices
-	}
-
 	out := []*Service{}
-	for _, svc := range ps.allServices {
-		if proxy.CanImport(svc.Attributes.Namespace, svc.Attributes.ConfigScope) {
-			out = append(out, svc)
+	for _, publicServices := range ps.publicServicesByNamespace {
+		out = append(out, publicServices...)
+	}
+	if proxy == nil {
+		for _, privateServices := range ps.privateServicesByNamespace {
+			out = append(out, privateServices...)
+		}
+	} else {
+		for ns := range proxy.NamespaceDependencies {
+			if ns == proxy.ConfigNamespace {
+				out = append(out, ps.privateServicesByNamespace[ns]...)
+			}
 		}
 	}
 
@@ -328,16 +344,27 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
 func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
-	configs := ps.virtualServiceConfigs
+	configs := make([]Config, 0)
 	out := make([]Config, 0)
+
+	// filter out virtual services not reachable
+	for _, virtualSvcs := range ps.publicVirtualServicesByNamespace {
+		configs = append(configs, virtualSvcs...)
+	}
+	if proxy == nil {
+		for _, virtualSvcs := range ps.privateVirtualServicesByNamespace {
+			configs = append(configs, virtualSvcs...)
+		}
+	} else {
+		for ns := range proxy.NamespaceDependencies {
+			if ns == proxy.ConfigNamespace {
+				configs = append(configs, ps.privateVirtualServicesByNamespace[ns]...)
+			}
+		}
+	}
+
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
-
-		// skip virtual service that can not be imported.
-		if !proxy.CanImport(config.Namespace, rule.ConfigScope) {
-			continue
-		}
-
 		if len(rule.Gateways) == 0 {
 			// This rule applies only to IstioMeshGateway
 			if gateways[IstioMeshGateway] {
@@ -438,8 +465,15 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		return err
 	}
 	// Sort the services in order of creation.
-	ps.allServices = sortServicesByCreationTime(services)
-	for _, s := range services {
+	allServices := sortServicesByCreationTime(services)
+	for _, s := range allServices {
+		ns := s.Attributes.Namespace
+		switch s.Attributes.ConfigScope {
+		case networking.ConfigScope_PRIVATE:
+			ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
+		default:
+			ps.publicServicesByNamespace[ns] = append(ps.publicServicesByNamespace[ns], s)
+		}
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
@@ -462,9 +496,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	}
 
 	sortConfigByCreationTime(vservices)
-	ps.virtualServiceConfigs = vservices
+
 	// convert all shortnames in virtual services into FQDNs
-	for _, r := range ps.virtualServiceConfigs {
+	for _, r := range vservices {
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
@@ -519,6 +553,18 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			}
 		}
 	}
+
+	for _, virtualService := range vservices {
+		ns := virtualService.Namespace
+		rule := virtualService.Spec.(*networking.VirtualService)
+		switch rule.ConfigScope {
+		case networking.ConfigScope_PRIVATE:
+			ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+		default:
+			ps.publicVirtualServicesByNamespace[ns] = append(ps.publicVirtualServicesByNamespace[ns], virtualService)
+		}
+	}
+
 	return nil
 }
 
