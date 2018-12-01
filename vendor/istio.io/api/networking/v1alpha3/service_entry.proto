@@ -15,6 +15,7 @@
 syntax = "proto3";
 
 import "networking/v1alpha3/gateway.proto";
+import "networking/v1alpha3/service_dependency.proto";
 
 package istio.networking.v1alpha3;
 
@@ -427,4 +428,11 @@ message ServiceEntry {
 
   // One or more endpoints associated with the service.
   repeated Endpoint endpoints = 6;
+
+  // The visibility setting associated with this service entry. Set to
+  // PRIVATE if this service should not be visible outside the namespace
+  // where the service entry was added. The default scope is public,
+  // i.e. the service added by the service entry will be visible to
+  // workloads in the entire mesh.
+  ConfigScope config_scope = 7;
 }

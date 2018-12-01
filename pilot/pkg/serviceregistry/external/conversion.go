@@ -17,7 +17,6 @@ package external
 import (
 	"net"
 	"strings"
-	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -31,7 +30,10 @@ func convertPort(port *networking.Port) *model.Port {
 	}
 }
 
-func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Time) []*model.Service {
+func convertServices(config model.Config) []*model.Service {
+	serviceEntry := config.Spec.(*networking.ServiceEntry)
+	creationTime := config.CreationTimestamp
+
 	out := make([]*model.Service, 0)
 
 	var resolution model.Resolution
@@ -68,7 +70,7 @@ func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Ti
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
 							Name:      host,
-							Namespace: model.IstioDefaultConfigNamespace,
+							Namespace: config.Namespace,
 						},
 					})
 				} else if net.ParseIP(address) != nil {
@@ -81,7 +83,7 @@ func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Ti
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
 							Name:      host,
-							Namespace: model.IstioDefaultConfigNamespace,
+							Namespace: config.Namespace,
 						},
 					})
 				}
@@ -96,7 +98,7 @@ func convertServices(serviceEntry *networking.ServiceEntry, creationTime time.Ti
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
 					Name:      host,
-					Namespace: model.IstioDefaultConfigNamespace,
+					Namespace: config.Namespace,
 				},
 			})
 		}
@@ -138,9 +140,10 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	}
 }
 
-func convertInstances(serviceEntry *networking.ServiceEntry, creationTime time.Time) []*model.ServiceInstance {
+func convertInstances(config model.Config) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
-	for _, service := range convertServices(serviceEntry, creationTime) {
+	serviceEntry := config.Spec.(*networking.ServiceEntry)
+	for _, service := range convertServices(config) {
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			if len(serviceEntry.Endpoints) == 0 &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {
@@ -154,7 +157,7 @@ func convertInstances(serviceEntry *networking.ServiceEntry, creationTime time.T
 						Port:        int(serviceEntryPort.Number),
 						ServicePort: convertPort(serviceEntryPort),
 					},
-					// TODO AvailabilityZone, ServiceAccount
+					// TODO ServiceAccount
 					Service: service,
 					Labels:  nil,
 				})

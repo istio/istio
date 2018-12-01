@@ -148,7 +148,12 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
+                apiVersion: v1
                 fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}

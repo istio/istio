@@ -16,6 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
+import "networking/v1alpha3/service_dependency.proto";
 
 // $title: Traffic Routing
 // $description: Configuration affecting traffic routing.
@@ -65,7 +66,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //
 // The following example on Kubernetes, routes all HTTP traffic by default to
 // pods of the reviews service with label "version: v1". In addition,
-// HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
+// HTTP requests with path starting with /wpcatalog/ or /consumercatalog/ will
 // be rewritten to /newcatalog and sent to pods with label "version: v2".
 //
 //
@@ -175,6 +176,12 @@ message VirtualService {
   // be applied to any port that is not a HTTP or TLS port. The first rule
   // matching an incoming request is used.
   repeated TCPRoute tcp = 4;
+
+  // The visibility setting associated with this VirtualService. Set to
+  // PRIVATE if this virtual service should not be exported, i.e. restrict
+  // the applicability of this virtual service to only workloads in the same
+  // namespace as the virtual service.
+  ConfigScope config_scope = 6;
 }
 
 // Destination indicates the network addressable service to which the
@@ -385,24 +392,49 @@ message HTTPRoute {
   // for further details about cross origin resource sharing.
   CorsPolicy cors_policy = 10;
 
-  // Use of `append_headers` is deprecated. Use the `append_request_headers`
+  // Use of `append_headers` is deprecated. Use the `headers`
   // field instead.
   map<string, string> append_headers = 11 [deprecated=true];
 
-  // HTTP headers to remove before returning a response to the caller.
-  repeated string remove_response_headers = 12;
+  // Use of `remove_response_header` is deprecated. Use the `headers`
+  // field instead.
+  repeated string remove_response_headers = 12 [deprecated=true];
 
-  // Additional HTTP headers to add before returning a response to the
-  // caller.
-  map<string, string> append_response_headers = 13;
+  // Use of `append_response_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_response_headers = 13 [deprecated=true];
 
-  // HTTP headers to remove before forwarding a request to the
-  // destination service.
-  repeated string remove_request_headers = 14;
+  // Use of `remove_request_headers` is deprecated. Use the `headers`
+  // field instead.
+  repeated string remove_request_headers = 14 [deprecated=true];
 
-  // Additional HTTP headers to add before forwarding a request to the
-  // destination service.
-  map<string, string> append_request_headers = 15;
+  // Use of `append_request_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_request_headers = 15 [deprecated=true];
+
+  // Header manipulation rules
+  Headers headers = 16;
+}
+
+// Header manipulation rules
+message Headers {
+  // Header manipulation rules to apply before forwarding a request 
+  // to the destination service
+  HeaderOperations request = 1;
+  // Header manipulation rules to apply before returning a response
+  // to the caller
+  HeaderOperations response = 2;
+
+  // HeaderOperations Describes the header manipulations to apply
+  message HeaderOperations {
+    // Overwrite the headers specified by key with the given values
+    map<string, string> set = 1;
+    // Apppend the given values to the the headers specified by keys 
+    // (will create a comma seperated list of values)
+    map<string, string> add = 2;
+    // Remove a the specified headers
+    repeated string remove = 3;
+  }
 }
 
 // Describes match conditions and actions for routing unterminated TLS
@@ -659,20 +691,24 @@ message HTTPRouteDestination {
   // be 100.
   int32 weight = 2;
 
-  // HTTP headers to remove before returning a response to the caller.
-  repeated string remove_response_headers = 3;
+  // Use of `remove_response_header` is deprecated. Use the `headers`
+  // field instead.
+  repeated string remove_response_headers = 3 [deprecated=true];
 
-  // Additional HTTP headers to add before returning a response to the
-  // caller.
-  map<string, string> append_response_headers = 4;
+  // Use of `append_response_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_response_headers = 4 [deprecated=true];
 
-  // HTTP headers to remove before forwarding a request to the
-  // destination service.
-  repeated string remove_request_headers = 5;
+  // Use of `remove_request_headers` is deprecated. Use the `headers`
+  // field instead.
+  repeated string remove_request_headers = 5 [deprecated=true];
 
-  // Additional HTTP headers to add before forwarding a request to the
-  // destination service.
-  map<string, string> append_request_headers = 6;
+  // Use of `append_request_headers` is deprecated. Use the `headers`
+  // field instead.
+  map<string, string> append_request_headers = 6 [deprecated=true];
+
+  // Header manipulation rules
+  Headers headers = 7;
 }
 
 // L4 routing rule weighted destination.
