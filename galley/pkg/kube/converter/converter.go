@@ -15,17 +15,20 @@
 package converter
 
 import (
-	json2 "encoding/json"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -54,6 +57,7 @@ var converters = func() map[string]Fn {
 	m["legacy-mixer-resource"] = legacyMixerResource
 	m["auth-policy-resource"] = authPolicyResource
 	m["kube-ingress-resource"] = kubeIngressResource
+	m["kube-service-resource"] = kubeServiceResource
 
 	return m
 }()
@@ -66,6 +70,16 @@ func Get(name string) Fn {
 	}
 
 	return fn
+}
+
+// Converts between different representations of the same JSON-compatible
+// object (eg. type struct and map[string]interface{}),
+func convertJSON(from, to interface{}) error {
+	js, err := json.Marshal(from)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(js, to)
 }
 
 func identity(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
@@ -183,17 +197,12 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 	creationTime := time.Time{}
 	var p *extensions.IngressSpec
 	if u != nil {
-		json, err := u.MarshalJSON()
-		if err != nil {
+		ing := &extensions.Ingress{}
+		if err := convertJSON(u, ing); err != nil {
 			return nil, err
 		}
 
 		creationTime = u.GetCreationTimestamp().Time
-
-		ing := &extensions.Ingress{}
-		if err = json2.Unmarshal(json, ing); err != nil {
-			return nil, err
-		}
 
 		if !shouldProcessIngress(cfg, ing) {
 			return nil, nil
@@ -209,6 +218,39 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 	}
 
 	return []Entry{e}, nil
+}
+
+func kubeServiceResource(_ *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+	var service corev1.Service
+	if err := convertJSON(u, &service); err != nil {
+		return nil, err
+	}
+	se := networking.ServiceEntry{
+		// TODO: What's the difference between the name argument and <service.Name>/<service.Namespace>?
+		Hosts:     []string{fmt.Sprintf("%s.%s.svc.cluster.local", service.Name, service.Namespace)},
+		Addresses: append([]string{service.Spec.ClusterIP}, service.Spec.ExternalIPs...),
+	}
+	for _, kubePort := range service.Spec.Ports {
+		istioPort := &networking.Port{
+			Name:   kubePort.Name,
+			Number: uint32(kubePort.Port),
+		}
+		// TODO: Is there existing code that handles magic port prefixes?
+		if kubePort.Name == "http" || strings.HasPrefix(kubePort.Name, "http-") {
+			if kubePort.Protocol != "TCP" {
+				return nil, fmt.Errorf("port %s: HTTP over %s not supported", kubePort.Name, kubePort.Protocol)
+			}
+			istioPort.Protocol = "HTTP"
+		} else {
+			istioPort.Protocol = string(kubePort.Protocol)
+		}
+		se.Ports = append(se.Ports, istioPort)
+	}
+	return []Entry{{
+		Key:          name,
+		CreationTime: service.CreationTimestamp.Time,
+		Resource:     &se,
+	}}, nil
 }
 
 // shouldProcessIngress determines whether the given ingress resource should be processed
