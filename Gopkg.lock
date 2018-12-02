@@ -1921,13 +1921,14 @@
   revision = "56e7a63b5e38b614bb7cb8c49ed26dc991b324c4"
 
 [[projects]]
-  digest = "1:cb964e36388b4b7d141d595794fd8e384ff69e25badbe374e62fd7dc24e82fba"
+  digest = "1:61afc667d3eff7def576e30f6da1184200be629c050651bdb8138ecca632489d"
   name = "k8s.io/helm"
   packages = [
     "pkg/chartutil",
     "pkg/engine",
     "pkg/ignore",
     "pkg/proto/hapi/chart",
+    "pkg/proto/hapi/release",
     "pkg/proto/hapi/version",
     "pkg/sympath",
     "pkg/timeconv",
@@ -2200,10 +2201,12 @@
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
+    "k8s.io/client-go/util/retry",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/engine",
     "k8s.io/helm/pkg/proto/hapi/chart",
+    "k8s.io/helm/pkg/proto/hapi/release",
     "k8s.io/helm/pkg/proto/hapi/version",
     "k8s.io/helm/pkg/timeconv",
     "k8s.io/kubernetes/pkg/apis/core",
