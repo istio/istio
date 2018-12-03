@@ -330,13 +330,18 @@ func (ps *PushContext) UpdateMetrics() {
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	out := []*Service{}
-	if proxy == nil || ps.sharedNamespaces == nil {
+	if proxy == nil {
 		for _, publicServices := range ps.publicServicesByNamespace {
 			out = append(out, publicServices...)
 		}
 		for _, privateServices := range ps.privateServicesByNamespace {
 			out = append(out, privateServices...)
 		}
+	} else if ps.sharedNamespaces == nil {
+		for _, publicServices := range ps.publicServicesByNamespace {
+			out = append(out, publicServices...)
+		}
+		out = append(out, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
 	} else {
 		out = append(out, ps.publicServicesByNamespace[proxy.ConfigNamespace]...)
 		out = append(out, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
@@ -357,13 +362,18 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	out := make([]Config, 0)
 
 	// filter out virtual services not reachable
-	if proxy == nil || ps.sharedNamespaces == nil {
+	if proxy == nil {
 		for _, virtualSvcs := range ps.publicVirtualServicesByNamespace {
 			configs = append(configs, virtualSvcs...)
 		}
 		for _, virtualSvcs := range ps.privateVirtualServicesByNamespace {
 			configs = append(configs, virtualSvcs...)
 		}
+	} else if ps.sharedNamespaces == nil {
+		for _, virtualSvcs := range ps.publicVirtualServicesByNamespace {
+			configs = append(configs, virtualSvcs...)
+		}
+		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
 	} else {
 		configs = append(configs, ps.publicVirtualServicesByNamespace[proxy.ConfigNamespace]...)
 		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
