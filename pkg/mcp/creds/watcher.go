@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/filewatcher"
@@ -104,13 +105,28 @@ func DefaultOptions() *Options {
 //
 // Cobra is the command-line processor that Istio uses. This command attaches
 // the necessary set of flags to configure the MCP options.
-func (c *Options) AttachCobraFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVarP(&c.CertificateFile, "certFile", "", c.CertificateFile,
+func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVarP(&o.CertificateFile, "certFile", "", o.CertificateFile,
 		"The location of the certificate file for mutual TLS")
-	cmd.PersistentFlags().StringVarP(&c.KeyFile, "keyFile", "", c.KeyFile,
+	cmd.PersistentFlags().StringVarP(&o.KeyFile, "keyFile", "", o.KeyFile,
 		"The location of the key file for mutual TLS")
-	cmd.PersistentFlags().StringVarP(&c.CACertificateFile, "caCertFile", "", c.CACertificateFile,
+	cmd.PersistentFlags().StringVarP(&o.CACertificateFile, "caCertFile", "", o.CACertificateFile,
 		"The location of the certificate file for the root certificate authority")
+}
+
+// Validate validates the credential watcher's command line options.
+func (o *Options) Validate() error {
+	var errs *multierror.Error
+	if o.KeyFile == "" {
+		errs = multierror.Append(errs, fmt.Errorf("--keyFile not set"))
+	}
+	if o.CertificateFile == "" {
+		errs = multierror.Append(errs, fmt.Errorf("--certFile not set"))
+	}
+	if o.CACertificateFile == "" {
+		errs = multierror.Append(errs, fmt.Errorf("--caCertFile not set"))
+	}
+	return errs.ErrorOrNil()
 }
 
 // WatchFiles loads certificate & key files from the file system. The method will start a background

@@ -88,12 +88,12 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	s := &Server{}
 	var err error
 	if err = p.logConfigure(a.LoggingOptions); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to configure logger: %v", err)
 	}
 
 	mesh, err := p.newMeshConfigCache(a.MeshConfigFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load mesh config from %v: %v", a.MeshConfigFile, err)
 	}
 	converterCfg := &converter.Config{Mesh: mesh}
 

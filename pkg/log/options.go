@@ -121,6 +121,11 @@ type Options struct {
 	stackTraceLevels string
 }
 
+// Validate validates the logger's command line options.
+func (o *Options) Validate() error {
+	return nil // no-op
+}
+
 // DefaultOptions returns a new set of options, initialized to the defaults
 func DefaultOptions() *Options {
 	return &Options{

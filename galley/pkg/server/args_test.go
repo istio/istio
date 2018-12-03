@@ -50,3 +50,32 @@ func TestArgs_String(t *testing.T) {
 	// Should not crash
 	_ = a.String()
 }
+
+func TestValidate(t *testing.T) {
+	a := DefaultArgs()
+	if err := a.Validate(); err != nil {
+		t.Fatalf("DefaultArgs() is not valid: %v", err)
+	}
+
+	a = DefaultArgs()
+	a.APIAddress = "localhost:9901"
+	if err := a.Validate(); err != nil {
+		t.Fatal("APIAddress=localhost:9901 should not fail validation")
+	}
+
+	a = DefaultArgs()
+	a.CredentialOptions.KeyFile = ""
+	if err := a.Validate(); err == nil {
+		t.Fatal("Empty CredentialOptions.KeyFile  should fail validation")
+	}
+	a.Insecure = true
+	if err := a.Validate(); err != nil {
+		t.Fatalf("Empty CredentialOptions.KeyFile with Insecure should not fail validation: %v", err)
+	}
+
+	a = DefaultArgs()
+	a.MeshConfigFile = ""
+	if err := a.Validate(); err == nil {
+		t.Fatal("Empty MeshConfigFile should fail validation")
+	}
+}

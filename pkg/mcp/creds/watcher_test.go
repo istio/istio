@@ -345,3 +345,28 @@ func TestAttachCobraFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestValidate(t *testing.T) {
+	o := DefaultOptions()
+	if err := o.Validate(); err != nil {
+		t.Fatalf("DefaultOptions() should be valid: %v", err)
+	}
+
+	o = DefaultOptions()
+	o.KeyFile = ""
+	if o.Validate() == nil {
+		t.Fatal("Empty KeyFile should fail validation")
+	}
+
+	o = DefaultOptions()
+	o.CertificateFile = ""
+	if o.Validate() == nil {
+		t.Fatal("Empty CertificateFile should fail validation")
+	}
+
+	o = DefaultOptions()
+	o.CACertificateFile = ""
+	if o.Validate() == nil {
+		t.Fatal("Empty CACertificateFile should fail validation")
+	}
+}

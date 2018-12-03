@@ -17,7 +17,12 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
@@ -128,4 +133,39 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)
 
 	return buf.String()
+}
+
+func (args *Args) Validate() error {
+	if !args.EnableServer {
+		return nil
+	}
+
+	var errs *multierror.Error
+	if args.APIAddress == "" {
+		addr := args.APIAddress
+		if idx := strings.Index(addr, "://"); idx < 0 {
+			addr = "tcp://" + addr
+		}
+		if _, err := url.Parse(addr); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("cannot parse %v: %v", args.APIAddress, err))
+		}
+	}
+	if !args.Insecure {
+		if err := args.CredentialOptions.Validate(); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		if args.AccessListFile == "" {
+			errs = multierror.Append(errs, errors.New("--accessListFile is not set"))
+		}
+	}
+	if err := args.LoggingOptions.Validate(); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+	if err := args.IntrospectionOptions.Validate(); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+	if args.MeshConfigFile == "" {
+		errs = multierror.Append(errs, errors.New("--meshConfigFile is not set"))
+	}
+	return errs.ErrorOrNil()
 }

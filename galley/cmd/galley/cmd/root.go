@@ -72,6 +72,7 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			serverArgs.CredentialOptions.KeyFile = validationArgs.KeyFile
 			serverArgs.CredentialOptions.CertificateFile = validationArgs.CertFile
 			serverArgs.LoggingOptions = loggingOptions
+
 			if livenessProbeOptions.IsValid() {
 				livenessProbeController = probe.NewFileController(&livenessProbeOptions)
 			}
@@ -81,6 +82,10 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			}
 			if !serverArgs.EnableServer && !validationArgs.EnableValidation {
 				fatalf("Galley must be running under at least one mode: server or validation")
+			}
+
+			if err := serverArgs.Validate(); err != nil {
+				fatalf("Invalid serverArgs: %v", err)
 			}
 
 			if err := validationArgs.Validate(); err != nil {
