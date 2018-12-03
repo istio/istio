@@ -98,7 +98,7 @@ var (
 		"Directory name for the cluster registry config. When provided a multicluster test to be run across two clusters.")
 	useGalleyConfigValidator = flag.Bool("use_galley_config_validator", false, "Use galley configuration validation webhook")
 	installer                = flag.String("installer", "kubectl", "Istio installer, default to kubectl, or helm")
-	useMCP                   = flag.Bool("use_mcp", false, "use MCP for configuring Istio components")
+	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
 
@@ -776,11 +776,15 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	if *useAutomaticInjection {
 		setValue += " --set sidecarInjectorWebhook.enabled=true"
 	}
+
 	if *useMCP {
 		setValue += " --set galley.enabled=true --set global.useMCP=true"
 	} else if *useGalleyConfigValidator {
-		setValue += " --set galley.enabled=true"
+		setValue += " --set galley.enabled=true --set global.useMCP=false"
+	} else {
+		setValue += " --set galley.enabled=false --set global.useMCP=false"
 	}
+
 	// hubs and tags replacement.
 	// Helm chart assumes hub and tag are the same among multiple istio components.
 	if *pilotHub != "" && *pilotTag != "" {
