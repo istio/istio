@@ -38,7 +38,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 		return nil, err
 	}
 
-	services := push.Services
+	services := push.Services(node)
 
 	switch node.Type {
 	case model.Sidecar:
@@ -106,10 +106,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			nameToServiceMap[svc.Hostname] = svc
 		} else {
 			if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
+
+				svc.Mutex.RLock()
+				clusterVIPs := make(map[string]string, len(svc.ClusterVIPs))
+				for k, v := range svc.ClusterVIPs {
+					clusterVIPs[k] = v
+				}
+				svc.Mutex.RUnlock()
+
 				nameToServiceMap[svc.Hostname] = &model.Service{
 					Hostname:     svc.Hostname,
 					Address:      svc.Address,
-					ClusterVIPs:  svc.ClusterVIPs,
+					ClusterVIPs:  clusterVIPs,
 					MeshExternal: svc.MeshExternal,
 					Ports:        []*model.Port{svcPort},
 				}

@@ -20,10 +20,12 @@ import (
 	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
+	mixerpb "istio.io/api/mixer/v1"
+	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
@@ -104,16 +106,7 @@ func (s *session) ensureParallelism(minParallelism int) {
 
 func (s *session) dispatch() error {
 	// Determine namespace to scope config resolution
-	namespace, err := getIdentityNamespace(s.bag)
-	if err != nil {
-		// early return.
-		stats.Record(s.ctx,
-			monitoring.DestinationsPerRequest.M(0),
-			monitoring.InstancesPerRequest.M(0))
-
-		log.Warnf("unable to determine identity namespace: '%v', operation='%d'", err, s.variety)
-		return err
-	}
+	namespace := getIdentityNamespace(s.bag)
 	destinations := s.rc.Routes.GetDestinations(s.variety, namespace)
 
 	// Ensure that we can run dispatches to all destinations in parallel.
@@ -122,6 +115,7 @@ func (s *session) dispatch() error {
 	foundQuota := false
 	ninputs := 0
 	ndestinations := 0
+
 	for _, destination := range destinations.Entries() {
 		var state *dispatchState
 
@@ -161,6 +155,7 @@ func (s *session) dispatch() error {
 				}
 
 				var instance interface{}
+				var err error
 				if instance, err = input.Builder(s.bag); err != nil {
 					log.Errorf("error creating instance: destination='%v', error='%v'", destination.FriendlyName, err)
 					s.err = multierror.Append(s.err, err)
@@ -186,6 +181,10 @@ func (s *session) dispatch() error {
 				state.quotaArgs.BestEffort = s.quotaArgs.BestEffort
 				state.quotaArgs.DeduplicationID = s.quotaArgs.DeduplicationID
 				state.quotaArgs.QuotaAmount = s.quotaArgs.Amount
+
+				state.outputPrefix = input.ActionName + ".output."
+
+				// TODO(kuat) make output bag concurrency safe
 				s.dispatchToHandler(state)
 			}
 		}
@@ -203,6 +202,51 @@ func (s *session) dispatch() error {
 		s.quotaResult.Amount = s.quotaArgs.Amount
 		s.quotaResult.ValidDuration = defaultValidDuration
 		log.Warnf("Requested quota '%s' is not configured", s.quotaArgs.Quota)
+	}
+
+	// aggregate directive after filtering by attribute conditions
+	if s.variety == tpb.TEMPLATE_VARIETY_CHECK && status.IsOK(s.checkResult.Status) {
+		for _, directiveGroup := range destinations.Directives() {
+			if directiveGroup.Condition != nil {
+				if matches, err := directiveGroup.Condition.EvaluateBoolean(s.bag); err != nil || !matches {
+					continue
+				}
+			}
+
+			for _, op := range directiveGroup.Operations {
+				hop := mixerpb.HeaderOperation{
+					Name: op.HeaderName,
+				}
+				switch op.Operation {
+				case descriptor.APPEND:
+					hop.Operation = mixerpb.APPEND
+				case descriptor.REMOVE:
+					hop.Operation = mixerpb.REMOVE
+				case descriptor.REPLACE:
+					hop.Operation = mixerpb.REPLACE
+				}
+
+				if op.Operation != descriptor.REMOVE {
+					var verr error
+					hop.Value, verr = op.HeaderValue.EvaluateString(s.responseBag)
+					if verr != nil {
+						log.Warnf("Failed to evaluate header value: %v", verr)
+						continue
+					}
+				}
+
+				if s.checkResult.RouteDirective == nil {
+					s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
+				}
+
+				switch op.Type {
+				case routing.RequestHeaderOperation:
+					s.checkResult.RouteDirective.RequestHeaderOperations = append(s.checkResult.RouteDirective.RequestHeaderOperations, hop)
+				case routing.ResponseHeaderOperation:
+					s.checkResult.RouteDirective.ResponseHeaderOperations = append(s.checkResult.RouteDirective.ResponseHeaderOperations, hop)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -261,6 +305,11 @@ func (s *session) waitForDispatched() {
 				}
 			}
 			st = state.checkResult.Status
+
+			if state.outputBag != nil {
+				s.responseBag.Merge(state.outputBag)
+				state.outputBag.Done()
+			}
 
 		case tpb.TEMPLATE_VARIETY_QUOTA:
 			if s.quotaResult.IsDefault() {

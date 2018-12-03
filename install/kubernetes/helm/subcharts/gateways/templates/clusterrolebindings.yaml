@@ -1,12 +1,12 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "enabled") }}
+{{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: {{ $key }}-{{ $.Release.Namespace }}
   labels:
-    app: {{ template "gateway.name" $ }}
+    app: {{ $spec.labels.istio }}
     chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}

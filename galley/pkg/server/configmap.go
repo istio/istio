@@ -20,6 +20,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v2"
+
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/mcp/server"
 )

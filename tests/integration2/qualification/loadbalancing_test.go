@@ -17,13 +17,6 @@ package qualification
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/ids"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	"sort"
 	"sync"
 	"testing"
@@ -34,6 +27,13 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/ids"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
+	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 )
 
 const (

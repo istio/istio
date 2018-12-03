@@ -133,6 +133,16 @@ func (m *HttpConnectionManager) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetRequestTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				Field:  "RequestTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	if v, ok := interface{}(m.GetDrainTimeout()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return HttpConnectionManagerValidationError{
@@ -390,14 +400,32 @@ func (m *HttpFilter) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return HttpFilterValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	switch m.ConfigType.(type) {
+
+	case *HttpFilter_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpFilterValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
+	case *HttpFilter_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpFilterValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil

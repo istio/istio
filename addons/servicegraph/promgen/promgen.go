@@ -32,6 +32,8 @@ import (
 )
 
 const reqsFmt = "sum(rate(istio_requests_total{reporter=\"destination\"%s}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
+
+// nolint: lll
 const tcpFmt = "sum(rate(istio_tcp_received_bytes_total{reporter=\"destination\"%s}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
 const emptyFilter = " > 0"
 

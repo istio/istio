@@ -29,9 +29,6 @@ var (
 	// percentage, should be 0.0 - 100.0 Precision to 0.01
 	TraceSampling = os.Getenv("PILOT_TRACE_SAMPLING")
 
-	// CacheSquash is the max interval to squash a series of events.
-	CacheSquash = os.Getenv("PILOT_CACHE_SQUASH")
-
 	// PushThrottle limits the qps of the actual push.
 	PushThrottle = os.Getenv("PILOT_PUSH_THROTTLE")
 	// PushBurst limits the burst of the actual push.

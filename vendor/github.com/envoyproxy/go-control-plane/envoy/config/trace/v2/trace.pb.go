@@ -40,7 +40,7 @@ func (m *Tracing) Reset()         { *m = Tracing{} }
 func (m *Tracing) String() string { return proto.CompactTextString(m) }
 func (*Tracing) ProtoMessage()    {}
 func (*Tracing) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_e144e0a39c4b7b5c, []int{0}
+	return fileDescriptor_trace_95c0dfdb288314a4, []int{0}
 }
 func (m *Tracing) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -78,25 +78,35 @@ func (m *Tracing) GetHttp() *Tracing_Http {
 
 type Tracing_Http struct {
 	// The name of the HTTP trace driver to instantiate. The name must match a
-	// supported HTTP trace driver. *envoy.lightstep*, *envoy.zipkin*, and
-	// *envoy.dynamic.ot* are built-in trace drivers.
+	// supported HTTP trace driver. Built-in trace drivers:
+	//
+	// - *envoy.lightstep*
+	// - *envoy.zipkin*
+	// - *envoy.dynamic.ot*
+	// - *envoy.tracers.datadog*
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Trace driver specific configuration which depends on the driver being
-	// instantiated. See the :ref:`LightstepConfig
-	// <envoy_api_msg_config.trace.v2.LightstepConfig>`, :ref:`ZipkinConfig
-	// <envoy_api_msg_config.trace.v2.ZipkinConfig>`, and :ref:`DynamicOtConfig
-	// <envoy_api_msg_config.trace.v2.DynamicOtConfig>` trace drivers for examples.
-	Config               *types.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+	// Trace driver specific configuration which depends on the driver being instantiated.
+	// See the trace drivers for examples:
+	//
+	// - :ref:`LightstepConfig <envoy_api_msg_config.trace.v2.LightstepConfig>`
+	// - :ref:`ZipkinConfig <envoy_api_msg_config.trace.v2.ZipkinConfig>`
+	// - :ref:`DynamicOtConfig <envoy_api_msg_config.trace.v2.DynamicOtConfig>`
+	// - :ref:`DatadogConfig <envoy_api_msg_config.trace.v2.DatadogConfig>`
+	//
+	// Types that are valid to be assigned to ConfigType:
+	//	*Tracing_Http_Config
+	//	*Tracing_Http_TypedConfig
+	ConfigType           isTracing_Http_ConfigType `protobuf_oneof:"config_type"`
+	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
+	XXX_unrecognized     []byte                    `json:"-"`
+	XXX_sizecache        int32                     `json:"-"`
 }
 
 func (m *Tracing_Http) Reset()         { *m = Tracing_Http{} }
 func (m *Tracing_Http) String() string { return proto.CompactTextString(m) }
 func (*Tracing_Http) ProtoMessage()    {}
 func (*Tracing_Http) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_e144e0a39c4b7b5c, []int{0, 0}
+	return fileDescriptor_trace_95c0dfdb288314a4, []int{0, 0}
 }
 func (m *Tracing_Http) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -125,6 +135,29 @@ func (m *Tracing_Http) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Tracing_Http proto.InternalMessageInfo
 
+type isTracing_Http_ConfigType interface {
+	isTracing_Http_ConfigType()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Tracing_Http_Config struct {
+	Config *types.Struct `protobuf:"bytes,2,opt,name=config,oneof"`
+}
+type Tracing_Http_TypedConfig struct {
+	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,oneof"`
+}
+
+func (*Tracing_Http_Config) isTracing_Http_ConfigType()      {}
+func (*Tracing_Http_TypedConfig) isTracing_Http_ConfigType() {}
+
+func (m *Tracing_Http) GetConfigType() isTracing_Http_ConfigType {
+	if m != nil {
+		return m.ConfigType
+	}
+	return nil
+}
+
 func (m *Tracing_Http) GetName() string {
 	if m != nil {
 		return m.Name
@@ -133,10 +166,91 @@ func (m *Tracing_Http) GetName() string {
 }
 
 func (m *Tracing_Http) GetConfig() *types.Struct {
-	if m != nil {
-		return m.Config
+	if x, ok := m.GetConfigType().(*Tracing_Http_Config); ok {
+		return x.Config
 	}
 	return nil
+}
+
+func (m *Tracing_Http) GetTypedConfig() *types.Any {
+	if x, ok := m.GetConfigType().(*Tracing_Http_TypedConfig); ok {
+		return x.TypedConfig
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Tracing_Http) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Tracing_Http_OneofMarshaler, _Tracing_Http_OneofUnmarshaler, _Tracing_Http_OneofSizer, []interface{}{
+		(*Tracing_Http_Config)(nil),
+		(*Tracing_Http_TypedConfig)(nil),
+	}
+}
+
+func _Tracing_Http_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Tracing_Http)
+	// config_type
+	switch x := m.ConfigType.(type) {
+	case *Tracing_Http_Config:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Config); err != nil {
+			return err
+		}
+	case *Tracing_Http_TypedConfig:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.TypedConfig); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Tracing_Http.ConfigType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Tracing_Http_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Tracing_Http)
+	switch tag {
+	case 2: // config_type.config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Struct)
+		err := b.DecodeMessage(msg)
+		m.ConfigType = &Tracing_Http_Config{msg}
+		return true, err
+	case 3: // config_type.typed_config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Any)
+		err := b.DecodeMessage(msg)
+		m.ConfigType = &Tracing_Http_TypedConfig{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Tracing_Http_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Tracing_Http)
+	// config_type
+	switch x := m.ConfigType.(type) {
+	case *Tracing_Http_Config:
+		s := proto.Size(x.Config)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Tracing_Http_TypedConfig:
+		s := proto.Size(x.TypedConfig)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
 }
 
 // Configuration for the LightStep tracer.
@@ -155,7 +269,7 @@ func (m *LightstepConfig) Reset()         { *m = LightstepConfig{} }
 func (m *LightstepConfig) String() string { return proto.CompactTextString(m) }
 func (*LightstepConfig) ProtoMessage()    {}
 func (*LightstepConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_e144e0a39c4b7b5c, []int{1}
+	return fileDescriptor_trace_95c0dfdb288314a4, []int{1}
 }
 func (m *LightstepConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -222,7 +336,7 @@ func (m *ZipkinConfig) Reset()         { *m = ZipkinConfig{} }
 func (m *ZipkinConfig) String() string { return proto.CompactTextString(m) }
 func (*ZipkinConfig) ProtoMessage()    {}
 func (*ZipkinConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_e144e0a39c4b7b5c, []int{2}
+	return fileDescriptor_trace_95c0dfdb288314a4, []int{2}
 }
 func (m *ZipkinConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -298,7 +412,7 @@ func (m *DynamicOtConfig) Reset()         { *m = DynamicOtConfig{} }
 func (m *DynamicOtConfig) String() string { return proto.CompactTextString(m) }
 func (*DynamicOtConfig) ProtoMessage()    {}
 func (*DynamicOtConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_e144e0a39c4b7b5c, []int{3}
+	return fileDescriptor_trace_95c0dfdb288314a4, []int{3}
 }
 func (m *DynamicOtConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -341,6 +455,64 @@ func (m *DynamicOtConfig) GetConfig() *types.Struct {
 	return nil
 }
 
+// Configuration for the Datadog tracer.
+type DatadogConfig struct {
+	// The cluster to use for submitting traces to the Datadog agent.
+	CollectorCluster string `protobuf:"bytes,1,opt,name=collector_cluster,json=collectorCluster,proto3" json:"collector_cluster,omitempty"`
+	// The name used for the service when traces are generated by envoy.
+	ServiceName          string   `protobuf:"bytes,2,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DatadogConfig) Reset()         { *m = DatadogConfig{} }
+func (m *DatadogConfig) String() string { return proto.CompactTextString(m) }
+func (*DatadogConfig) ProtoMessage()    {}
+func (*DatadogConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_trace_95c0dfdb288314a4, []int{4}
+}
+func (m *DatadogConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DatadogConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DatadogConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *DatadogConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DatadogConfig.Merge(dst, src)
+}
+func (m *DatadogConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *DatadogConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_DatadogConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DatadogConfig proto.InternalMessageInfo
+
+func (m *DatadogConfig) GetCollectorCluster() string {
+	if m != nil {
+		return m.CollectorCluster
+	}
+	return ""
+}
+
+func (m *DatadogConfig) GetServiceName() string {
+	if m != nil {
+		return m.ServiceName
+	}
+	return ""
+}
+
 // Configuration structure.
 type TraceServiceConfig struct {
 	// The upstream gRPC cluster that hosts the metrics service.
@@ -354,7 +526,7 @@ func (m *TraceServiceConfig) Reset()         { *m = TraceServiceConfig{} }
 func (m *TraceServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*TraceServiceConfig) ProtoMessage()    {}
 func (*TraceServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_e144e0a39c4b7b5c, []int{4}
+	return fileDescriptor_trace_95c0dfdb288314a4, []int{5}
 }
 func (m *TraceServiceConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -396,6 +568,7 @@ func init() {
 	proto.RegisterType((*LightstepConfig)(nil), "envoy.config.trace.v2.LightstepConfig")
 	proto.RegisterType((*ZipkinConfig)(nil), "envoy.config.trace.v2.ZipkinConfig")
 	proto.RegisterType((*DynamicOtConfig)(nil), "envoy.config.trace.v2.DynamicOtConfig")
+	proto.RegisterType((*DatadogConfig)(nil), "envoy.config.trace.v2.DatadogConfig")
 	proto.RegisterType((*TraceServiceConfig)(nil), "envoy.config.trace.v2.TraceServiceConfig")
 }
 func (m *Tracing) Marshal() (dAtA []byte, err error) {
@@ -450,15 +623,12 @@ func (m *Tracing_Http) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintTrace(dAtA, i, uint64(len(m.Name)))
 		i += copy(dAtA[i:], m.Name)
 	}
-	if m.Config != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintTrace(dAtA, i, uint64(m.Config.Size()))
-		n2, err := m.Config.MarshalTo(dAtA[i:])
+	if m.ConfigType != nil {
+		nn2, err := m.ConfigType.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += nn2
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -466,6 +636,34 @@ func (m *Tracing_Http) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *Tracing_Http_Config) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Config != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(m.Config.Size()))
+		n3, err := m.Config.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	return i, nil
+}
+func (m *Tracing_Http_TypedConfig) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.TypedConfig != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(m.TypedConfig.Size()))
+		n4, err := m.TypedConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
 func (m *LightstepConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -540,11 +738,11 @@ func (m *ZipkinConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintTrace(dAtA, i, uint64(m.SharedSpanContext.Size()))
-		n3, err := m.SharedSpanContext.MarshalTo(dAtA[i:])
+		n5, err := m.SharedSpanContext.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n5
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -577,11 +775,44 @@ func (m *DynamicOtConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTrace(dAtA, i, uint64(m.Config.Size()))
-		n4, err := m.Config.MarshalTo(dAtA[i:])
+		n6, err := m.Config.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n6
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *DatadogConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DatadogConfig) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.CollectorCluster) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(len(m.CollectorCluster)))
+		i += copy(dAtA[i:], m.CollectorCluster)
+	}
+	if len(m.ServiceName) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintTrace(dAtA, i, uint64(len(m.ServiceName)))
+		i += copy(dAtA[i:], m.ServiceName)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -608,11 +839,11 @@ func (m *TraceServiceConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTrace(dAtA, i, uint64(m.GrpcService.Size()))
-		n5, err := m.GrpcService.MarshalTo(dAtA[i:])
+		n7, err := m.GrpcService.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n5
+		i += n7
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -649,9 +880,8 @@ func (m *Tracing_Http) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTrace(uint64(l))
 	}
-	if m.Config != nil {
-		l = m.Config.Size()
-		n += 1 + l + sovTrace(uint64(l))
+	if m.ConfigType != nil {
+		n += m.ConfigType.Size()
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -659,6 +889,24 @@ func (m *Tracing_Http) Size() (n int) {
 	return n
 }
 
+func (m *Tracing_Http_Config) Size() (n int) {
+	var l int
+	_ = l
+	if m.Config != nil {
+		l = m.Config.Size()
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	return n
+}
+func (m *Tracing_Http_TypedConfig) Size() (n int) {
+	var l int
+	_ = l
+	if m.TypedConfig != nil {
+		l = m.TypedConfig.Size()
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	return n
+}
 func (m *LightstepConfig) Size() (n int) {
 	var l int
 	_ = l
@@ -709,6 +957,23 @@ func (m *DynamicOtConfig) Size() (n int) {
 	}
 	if m.Config != nil {
 		l = m.Config.Size()
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *DatadogConfig) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.CollectorCluster)
+	if l > 0 {
+		n += 1 + l + sovTrace(uint64(l))
+	}
+	l = len(m.ServiceName)
+	if l > 0 {
 		n += 1 + l + sovTrace(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -911,12 +1176,43 @@ func (m *Tracing_Http) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Config == nil {
-				m.Config = &types.Struct{}
-			}
-			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &types.Struct{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.ConfigType = &Tracing_Http_Config{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TypedConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.Any{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ConfigType = &Tracing_Http_TypedConfig{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1324,6 +1620,115 @@ func (m *DynamicOtConfig) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *DatadogConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTrace
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DatadogConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DatadogConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CollectorCluster", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CollectorCluster = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTrace
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTrace
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServiceName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTrace(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTrace
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *TraceServiceConfig) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1514,41 +1919,46 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/trace/v2/trace.proto", fileDescriptor_trace_e144e0a39c4b7b5c)
+	proto.RegisterFile("envoy/config/trace/v2/trace.proto", fileDescriptor_trace_95c0dfdb288314a4)
 }
 
-var fileDescriptor_trace_e144e0a39c4b7b5c = []byte{
-	// 509 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x53, 0xcd, 0x6e, 0x13, 0x31,
-	0x10, 0x96, 0xd3, 0xd0, 0x52, 0xb7, 0x28, 0x89, 0x11, 0x6a, 0x14, 0x41, 0x14, 0x52, 0x84, 0x7a,
-	0xf2, 0x8a, 0x20, 0xa0, 0xe7, 0x94, 0x7f, 0x81, 0x90, 0x36, 0x55, 0x0f, 0xbd, 0xac, 0x1c, 0x67,
-	0xb2, 0xb1, 0xea, 0xda, 0x96, 0xd7, 0x59, 0xc8, 0x8d, 0x33, 0x8f, 0xc0, 0xa3, 0x70, 0xe2, 0xc8,
-	0x91, 0x47, 0x40, 0xb9, 0x71, 0xe7, 0x01, 0xd0, 0xda, 0x0e, 0x2d, 0x84, 0x0b, 0xe2, 0x66, 0xcf,
-	0xf7, 0x7d, 0x33, 0xdf, 0x8c, 0xc7, 0xf8, 0x36, 0xa8, 0x52, 0x2f, 0x12, 0xae, 0xd5, 0x54, 0xe4,
-	0x89, 0xb3, 0x8c, 0x43, 0x52, 0x0e, 0xc2, 0x81, 0x1a, 0xab, 0x9d, 0x26, 0x37, 0x3c, 0x85, 0x06,
-	0x0a, 0x0d, 0x48, 0x39, 0xe8, 0xdc, 0x09, 0x4a, 0x66, 0x44, 0x25, 0xe0, 0xda, 0x42, 0x92, 0x5b,
-	0xc3, 0xb3, 0x02, 0x6c, 0x29, 0x56, 0xe2, 0xce, 0xcd, 0x5c, 0xeb, 0x5c, 0x42, 0xe2, 0x6f, 0xe3,
-	0xf9, 0x34, 0x29, 0x9c, 0x9d, 0x73, 0x17, 0xd1, 0xee, 0x9f, 0xe8, 0x5b, 0xcb, 0x8c, 0x01, 0x5b,
-	0x44, 0x7c, 0xaf, 0x64, 0x52, 0x4c, 0x98, 0x83, 0x64, 0x75, 0x08, 0x40, 0xff, 0x23, 0xc2, 0x5b,
-	0xc7, 0x96, 0x71, 0xa1, 0x72, 0xf2, 0x08, 0xd7, 0x67, 0xce, 0x99, 0x36, 0xea, 0xa1, 0x83, 0x9d,
-	0xc1, 0x3e, 0xfd, 0xab, 0x5d, 0x1a, 0xd9, 0xf4, 0xb9, 0x73, 0x26, 0xf5, 0x82, 0xce, 0x09, 0xae,
-	0x57, 0x37, 0x72, 0x0b, 0xd7, 0x15, 0x3b, 0x07, 0x9f, 0x60, 0x7b, 0xb8, 0xfd, 0xe9, 0xfb, 0xe7,
-	0x8d, 0xba, 0xad, 0xf5, 0x50, 0xea, 0xc3, 0x24, 0xc1, 0x9b, 0x21, 0x59, 0xbb, 0xe6, 0x2b, 0xec,
-	0xd1, 0xe0, 0x9a, 0xae, 0x5c, 0xd3, 0x91, 0xef, 0x29, 0x8d, 0xb4, 0xfe, 0x7b, 0x84, 0x1b, 0xaf,
-	0x44, 0x3e, 0x73, 0x85, 0x03, 0x73, 0xe4, 0x63, 0xe4, 0x21, 0x6e, 0x71, 0x2d, 0x25, 0x70, 0xa7,
-	0x6d, 0xc6, 0xe5, 0xbc, 0x70, 0x60, 0xd7, 0x0b, 0x36, 0x7f, 0x71, 0x8e, 0x02, 0x85, 0x3c, 0xc0,
-	0x2d, 0xc6, 0x39, 0x14, 0x45, 0xe6, 0xf4, 0x19, 0xa8, 0x6c, 0x2a, 0x24, 0x78, 0x1f, 0xbf, 0xe9,
-	0x1a, 0x81, 0x73, 0x5c, 0x51, 0x9e, 0x0a, 0x09, 0xfd, 0x1f, 0x08, 0xef, 0x9e, 0x0a, 0x73, 0x26,
-	0xd4, 0x7f, 0xd6, 0x3f, 0xc4, 0xe4, 0x42, 0x07, 0x6a, 0x62, 0xb4, 0x50, 0x6e, 0xdd, 0xc0, 0x45,
-	0xf2, 0x27, 0x91, 0x43, 0xee, 0xe2, 0x86, 0x1f, 0x7e, 0x26, 0x26, 0xd9, 0xbd, 0xc1, 0xe1, 0x58,
-	0xb8, 0xf6, 0x46, 0x0f, 0x1d, 0x5c, 0x4d, 0xaf, 0xf9, 0xf0, 0x8b, 0x49, 0x08, 0x92, 0x97, 0xf8,
-	0x7a, 0x31, 0x63, 0x16, 0x26, 0x59, 0x61, 0x98, 0xca, 0xb8, 0x56, 0x0e, 0xde, 0xb9, 0x76, 0xdd,
-	0xcf, 0xba, 0xb3, 0x36, 0xeb, 0xa1, 0xd6, 0xf2, 0x84, 0xc9, 0x39, 0xa4, 0xad, 0x20, 0x1b, 0x19,
-	0x56, 0x35, 0x59, 0x89, 0xfa, 0x39, 0x6e, 0x3c, 0x5e, 0x28, 0x76, 0x2e, 0xf8, 0x1b, 0x17, 0x1b,
-	0xdf, 0xc7, 0x5b, 0x52, 0x8c, 0x2d, 0xb3, 0x8b, 0xf5, 0x76, 0x57, 0xc8, 0xbf, 0x3f, 0x31, 0xc7,
-	0xa4, 0x5a, 0x28, 0x18, 0x85, 0x65, 0x8f, 0xb5, 0x5e, 0xe3, 0xdd, 0xcb, 0x5f, 0x20, 0x6e, 0x64,
-	0x37, 0x6e, 0x24, 0x33, 0xa2, 0x5a, 0xc4, 0xea, 0xa7, 0xd0, 0x67, 0xd6, 0xf0, 0xa8, 0x1d, 0xe2,
-	0xca, 0xd0, 0x95, 0x0f, 0xa8, 0xd6, 0x44, 0xe9, 0x4e, 0x7e, 0x09, 0x68, 0x7e, 0x59, 0x76, 0xd1,
-	0xd7, 0x65, 0x17, 0x7d, 0x5b, 0x76, 0xd1, 0x69, 0xad, 0x1c, 0x8c, 0x37, 0xbd, 0x9f, 0xfb, 0x3f,
-	0x03, 0x00, 0x00, 0xff, 0xff, 0x89, 0x57, 0xb6, 0x36, 0xb6, 0x03, 0x00, 0x00,
+var fileDescriptor_trace_95c0dfdb288314a4 = []byte{
+	// 585 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0xcd, 0x6e, 0x13, 0x3d,
+	0x14, 0xad, 0xd3, 0x7c, 0xed, 0x57, 0x27, 0x55, 0x1a, 0x03, 0x6a, 0x88, 0x20, 0x2a, 0x53, 0x84,
+	0x58, 0xa0, 0x19, 0x35, 0x08, 0x28, 0x4b, 0xd2, 0x02, 0x01, 0xf1, 0x23, 0x4d, 0x2a, 0x16, 0xdd,
+	0x8c, 0x1c, 0x8f, 0x33, 0xb1, 0x3a, 0xb1, 0x2d, 0x8f, 0x33, 0x30, 0x3b, 0xd6, 0x3c, 0x06, 0x8f,
+	0xc1, 0x8a, 0x25, 0x4b, 0x1e, 0x01, 0x65, 0x83, 0xd8, 0xf3, 0x00, 0x68, 0x6c, 0x87, 0x96, 0x0e,
+	0x0b, 0xa4, 0xee, 0xec, 0x7b, 0xce, 0xf1, 0xbd, 0xf7, 0xcc, 0xbd, 0x03, 0x6f, 0x50, 0x9e, 0x8b,
+	0x22, 0x20, 0x82, 0x4f, 0x58, 0x12, 0x68, 0x85, 0x09, 0x0d, 0xf2, 0xbe, 0x3d, 0xf8, 0x52, 0x09,
+	0x2d, 0xd0, 0x15, 0x43, 0xf1, 0x2d, 0xc5, 0xb7, 0x48, 0xde, 0xef, 0xde, 0xb4, 0x4a, 0x2c, 0x59,
+	0x29, 0x20, 0x42, 0xd1, 0x20, 0x51, 0x92, 0x44, 0x19, 0x55, 0x39, 0x5b, 0x8a, 0xbb, 0x57, 0x13,
+	0x21, 0x92, 0x94, 0x06, 0xe6, 0x36, 0x9e, 0x4f, 0x02, 0xcc, 0x0b, 0x07, 0x5d, 0x3b, 0x0f, 0x65,
+	0x5a, 0xcd, 0x89, 0x76, 0x68, 0xef, 0x3c, 0xfa, 0x56, 0x61, 0x29, 0xa9, 0xca, 0x1c, 0xbe, 0x9d,
+	0xe3, 0x94, 0xc5, 0x58, 0xd3, 0x60, 0x79, 0xb0, 0x80, 0xf7, 0x1d, 0xc0, 0xf5, 0x23, 0x85, 0x09,
+	0xe3, 0x09, 0x7a, 0x00, 0xeb, 0x53, 0xad, 0x65, 0x07, 0xec, 0x80, 0xdb, 0x8d, 0xfe, 0xae, 0xff,
+	0xd7, 0x4e, 0x7c, 0xc7, 0xf6, 0x87, 0x5a, 0xcb, 0xd0, 0x08, 0xba, 0x1f, 0x01, 0xac, 0x97, 0x57,
+	0x74, 0x1d, 0xd6, 0x39, 0x9e, 0x51, 0xf3, 0xc2, 0xc6, 0x60, 0xe3, 0xd3, 0x8f, 0xcf, 0xab, 0x75,
+	0x55, 0xdb, 0x01, 0xa1, 0x09, 0xa3, 0x3d, 0xb8, 0x66, 0x5f, 0xeb, 0xd4, 0x4c, 0x8a, 0x6d, 0xdf,
+	0x96, 0xed, 0x2f, 0xcb, 0xf6, 0x47, 0xa6, 0xa9, 0xe1, 0x4a, 0xe8, 0x88, 0xe8, 0x21, 0x6c, 0xea,
+	0x42, 0xd2, 0x38, 0x72, 0xc2, 0x55, 0x23, 0xbc, 0x5c, 0x11, 0x3e, 0xe2, 0xc5, 0x70, 0x25, 0x6c,
+	0x18, 0xee, 0x81, 0xa1, 0x0e, 0x36, 0x61, 0xc3, 0x8a, 0xa2, 0x32, 0xea, 0xbd, 0x07, 0xb0, 0xf5,
+	0x82, 0x25, 0x53, 0x9d, 0x69, 0x2a, 0x2d, 0x05, 0xdd, 0x87, 0x6d, 0x22, 0xd2, 0x94, 0x12, 0x2d,
+	0x54, 0x44, 0xd2, 0x79, 0xa6, 0xa9, 0xaa, 0x16, 0xbf, 0xf5, 0x9b, 0x73, 0x60, 0x29, 0xe8, 0x1e,
+	0x6c, 0x63, 0x42, 0x68, 0x96, 0x45, 0x5a, 0x9c, 0x50, 0x1e, 0x4d, 0x58, 0x4a, 0x4d, 0x4f, 0x7f,
+	0xe8, 0x5a, 0x96, 0x73, 0x54, 0x52, 0x9e, 0xb0, 0x94, 0x7a, 0x3f, 0x01, 0x6c, 0x1e, 0x33, 0x79,
+	0xc2, 0xf8, 0x05, 0xf3, 0xef, 0x43, 0x74, 0xaa, 0xa3, 0x3c, 0x96, 0x82, 0x71, 0x5d, 0x2d, 0xe0,
+	0xf4, 0xf1, 0xc7, 0x8e, 0x83, 0x6e, 0xc1, 0x96, 0xf9, 0x92, 0x11, 0x8b, 0xa3, 0xbd, 0xfe, 0xfe,
+	0x98, 0x69, 0x63, 0xe9, 0xff, 0xe1, 0xa6, 0x09, 0x3f, 0x8b, 0x6d, 0x10, 0x3d, 0x87, 0x97, 0xb2,
+	0x29, 0x56, 0x34, 0x8e, 0x32, 0x89, 0x79, 0xe9, 0xbe, 0xa6, 0xef, 0x74, 0xa7, 0x6e, 0xec, 0xef,
+	0x56, 0xec, 0x1f, 0x08, 0x91, 0xbe, 0xc1, 0xe9, 0x9c, 0x86, 0x6d, 0x2b, 0x1b, 0x49, 0x5c, 0x36,
+	0x59, 0x8a, 0xbc, 0x04, 0xb6, 0x0e, 0x0b, 0x8e, 0x67, 0x8c, 0xbc, 0xd6, 0xae, 0xf1, 0x5d, 0xb8,
+	0x9e, 0xb2, 0xb1, 0xc2, 0xaa, 0xa8, 0xb6, 0xbb, 0x44, 0x50, 0xf0, 0x8f, 0xe3, 0xb2, 0x1c, 0x16,
+	0x6f, 0x0e, 0x37, 0x0f, 0xb1, 0xc6, 0xb1, 0x48, 0x2e, 0xe8, 0xef, 0x1d, 0xd8, 0x74, 0x8b, 0x19,
+	0x99, 0x79, 0xae, 0x38, 0xdb, 0x70, 0xf0, 0x2b, 0x3c, 0xa3, 0x1e, 0x81, 0xa8, 0x5c, 0x0a, 0x3a,
+	0xb2, 0x31, 0x97, 0xfb, 0x25, 0x6c, 0x9e, 0xdd, 0x70, 0xb7, 0x55, 0x3d, 0xb7, 0x55, 0x58, 0xb2,
+	0x72, 0x99, 0xca, 0x1f, 0x81, 0xff, 0x54, 0x49, 0xe2, 0xb4, 0x03, 0x58, 0xe6, 0xf8, 0xef, 0x03,
+	0xa8, 0x6d, 0x81, 0xb0, 0x91, 0x9c, 0x01, 0xb6, 0xbe, 0x2c, 0x7a, 0xe0, 0xeb, 0xa2, 0x07, 0xbe,
+	0x2d, 0x7a, 0xe0, 0xb8, 0x96, 0xf7, 0xc7, 0x6b, 0xc6, 0x86, 0xbb, 0xbf, 0x02, 0x00, 0x00, 0xff,
+	0xff, 0x52, 0x7f, 0x27, 0xce, 0x95, 0x04, 0x00, 0x00,
 }

@@ -88,7 +88,7 @@ func (m *RouteConfiguration) Reset()         { *m = RouteConfiguration{} }
 func (m *RouteConfiguration) String() string { return proto.CompactTextString(m) }
 func (*RouteConfiguration) ProtoMessage()    {}
 func (*RouteConfiguration) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rds_2cdbcdf15bb9c97b, []int{0}
+	return fileDescriptor_rds_1faaa42d10ae455e, []int{0}
 }
 func (m *RouteConfiguration) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1049,9 +1049,9 @@ var (
 	ErrIntOverflowRds   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/rds.proto", fileDescriptor_rds_2cdbcdf15bb9c97b) }
+func init() { proto.RegisterFile("envoy/api/v2/rds.proto", fileDescriptor_rds_1faaa42d10ae455e) }
 
-var fileDescriptor_rds_2cdbcdf15bb9c97b = []byte{
+var fileDescriptor_rds_1faaa42d10ae455e = []byte{
 	// 567 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0x31, 0x6f, 0xd3, 0x40,
 	0x14, 0xee, 0x25, 0x21, 0xa5, 0x97, 0x20, 0xb5, 0x97, 0x34, 0x49, 0x23, 0xe4, 0x44, 0x11, 0x43,

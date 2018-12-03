@@ -15,12 +15,13 @@
 package citadel
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"testing"
 )
 
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,

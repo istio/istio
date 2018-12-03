@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "enabled") }}
+{{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -125,6 +125,11 @@ spec:
 {{ toYaml $.Values.global.defaultResources | indent 12 }}
 {{- end }}
           env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -143,15 +148,20 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name             
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
-          {{ end }}
+          {{- end }}
           volumeMounts:
-          {{ if $.Values.global.sds.enabled }}
+          {{- if $.Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
           {{- end }}
@@ -167,7 +177,7 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{ if $.Values.global.sds.enabled }}
+      {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
           path: /var/run/sds

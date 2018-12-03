@@ -97,6 +97,12 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	}
 }
 
+func TestInboundListenerConfig_HTTP(t *testing.T) {
+	// Add a service and verify it's config
+	testInboundListenerConfig(t,
+		buildService("test.com", wildcardIP, model.ProtocolHTTP, tnow))
+}
+
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	t.Helper()
 
@@ -124,6 +130,23 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	}
 }
 
+func testInboundListenerConfig(t *testing.T, services ...*model.Service) {
+	t.Helper()
+	oldestService := getOldestService(services...)
+	p := &fakePlugin{}
+	listeners := buildInboundListeners(p, services...)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+	oldestProtocol := oldestService.Ports[0].Protocol
+	if oldestProtocol != model.ProtocolHTTP && isHTTPListener(listeners[0]) {
+		t.Fatal("expected TCP listener, found HTTP")
+	} else if oldestProtocol == model.ProtocolHTTP && !isHTTPListener(listeners[0]) {
+		t.Fatal("expected HTTP listener, found TCP")
+	}
+	verifyInboundHTTPListenerServerName(t, listeners[0])
+}
+
 func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname model.Hostname) {
 	t.Helper()
 	if len(l.FilterChains) != 1 {
@@ -135,9 +158,26 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostnam
 	}
 	f := fc.Filters[0]
 	expectedStatPrefix := fmt.Sprintf("outbound|8080||%s", hostname)
-	statPrefix := f.Config.Fields["stat_prefix"].GetStringValue()
+	statPrefix := f.GetConfig().Fields["stat_prefix"].GetStringValue()
 	if statPrefix != expectedStatPrefix {
 		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)
+	}
+}
+
+func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 1 {
+		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	expectedServerName := "istio-envoy"
+	serverName := f.GetConfig().Fields["server_name"].GetStringValue()
+	if serverName != expectedServerName {
+		t.Fatalf("expected listener to contain server_name %s, found %s", expectedServerName, serverName)
 	}
 }
 
@@ -167,6 +207,22 @@ func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsa
 		}
 	}
 	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances, services)
+}
+
+func buildInboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsapi.Listener {
+	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	env := buildListenerEnv(services)
+	if err := env.PushContext.InitContext(&env); err != nil {
+		return nil
+	}
+	instances := make([]*model.ServiceInstance, len(services))
+	for i, s := range services {
+		instances[i] = &model.ServiceInstance{
+			Service:  s,
+			Endpoint: buildEndpoint(s),
+		}
+	}
+	return configgen.buildSidecarInboundListeners(&env, &proxy, env.PushContext, instances)
 }
 
 type fakePlugin struct {
@@ -219,6 +275,12 @@ func buildService(hostname string, ip string, protocol model.Protocol, creationT
 			},
 		},
 		Resolution: model.Passthrough,
+	}
+}
+
+func buildEndpoint(service *model.Service) model.NetworkEndpoint {
+	return model.NetworkEndpoint{
+		ServicePort: service.Ports[0],
 	}
 }
 

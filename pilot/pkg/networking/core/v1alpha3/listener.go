@@ -34,6 +34,7 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -56,18 +57,44 @@ const (
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
 
-	// EnvoyHTTPLogFormat format for envoy access logs
-	EnvoyHTTPLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
+	// EnvoyTextLogFormat format for envoy text based access logs
+	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
 		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
 		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
 		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME%\n"
 
-	// EnvoyTCPLogFormat format for envoy access logs
-	EnvoyTCPLogFormat = "[%START_TIME%] %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% " +
-		"%DURATION% \"%UPSTREAM_HOST%\" %UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
-		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME%\n"
+	// EnvoyServerName for istio's envoy
+	EnvoyServerName = "istio-envoy"
+)
+
+var (
+	// EnvoyJSONLogFormat map of values for envoy json based access logs
+	EnvoyJSONLogFormat = &google_protobuf.Struct{
+		Fields: map[string]*google_protobuf.Value{
+			"start_time":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
+			"method":                    &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%START_TIME%"}},
+			"path":                      &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
+			"protocol":                  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"response_code":             &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
+			"response_flags":            &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
+			"bytes_received":            &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
+			"bytes_sent":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%BYTES_SENT%"}},
+			"duration":                  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DURATION%"}},
+			"upstream_service_time":     &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
+			"x_forwarded_for":           &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
+			"user_agent":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
+			"request_id":                &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
+			"authority":                 &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
+			"upstream_host":             &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
+			"upstream_cluster":          &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+			"upstream_local_address":    &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_local_address":  &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_remote_address": &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
+			"requested_server_name":     &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
+		},
+	}
 )
 
 var (
@@ -111,7 +138,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
-	services := push.Services
+	services := push.Services(node)
 
 	listeners := make([]*xdsapi.Listener, 0)
 
@@ -158,8 +185,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 				{
 					Filters: []listener.Filter{
 						{
-							Name:   xdsutil.TCPProxy,
-							Config: util.MessageToStruct(passthroughTCPProxy),
+							Name: xdsutil.TCPProxy,
+							ConfigType: &listener.Filter_Config{
+								Config: util.MessageToStruct(passthroughTCPProxy),
+							},
 						},
 					},
 				},
@@ -260,8 +289,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Append and forward client cert to backend.
 					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+					ServerName:               EnvoyServerName,
 				},
 			}
+			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
+			if endpoint.ServicePort.Protocol.IsHTTP2() {
+				httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+				if endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
+					httpOpts.addGRPCWebFilter = true
+				}
+			}
+
 		case plugin.ListenerProtocolTCP:
 			tcpNetworkFilters = buildInboundNetworkFilters(env, node, instance)
 
@@ -404,7 +442,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	configs := push.VirtualServices(meshGateway)
+	configs := push.VirtualServices(node, meshGateway)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
@@ -673,7 +711,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 	// assumes that inbound connections/requests are sent to the endpoint address
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
-		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolTCP,
+		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolGRPCWeb, model.ProtocolTCP,
 			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis:
 
 			instance := &model.ServiceInstance{
@@ -721,6 +759,9 @@ type httpListenerOpts struct {
 	// stat prefix for the http connection manager
 	// DO not set this field. Will be overridden by marshalFilters
 	statPrefix string
+	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
+	// should be added.
+	addGRPCWebFilter bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -748,7 +789,15 @@ type buildListenerOpts struct {
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
 	httpFilters []*http_conn.HttpFilter) *http_conn.HttpConnectionManager {
-	filters := append(httpFilters,
+
+	filters := make([]*http_conn.HttpFilter, len(httpFilters))
+	copy(filters, httpFilters)
+
+	if httpOpts.addGRPCWebFilter {
+		filters = append(filters, &http_conn.HttpFilter{Name: xdsutil.GRPCWeb})
+	}
+
+	filters = append(filters,
 		&http_conn.HttpFilter{Name: xdsutil.CORS},
 		&http_conn.HttpFilter{Name: xdsutil.Fault},
 		&http_conn.HttpFilter{Name: xdsutil.Router},
@@ -800,15 +849,24 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		}
 
 		if util.Is11Proxy(node) {
-			fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
-				Format: EnvoyHTTPLogFormat,
+			switch env.Mesh.AccessLogEncoding {
+			case meshconfig.MeshConfig_TEXT:
+				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+					Format: EnvoyTextLogFormat,
+				}
+			case meshconfig.MeshConfig_JSON:
+				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+					JsonFormat: EnvoyJSONLogFormat,
+				}
+			default:
+				log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
 			}
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
 			{
-				Config: util.MessageToStruct(fl),
-				Name:   xdsutil.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)},
+				Name:       xdsutil.FileAccessLog,
 			},
 		}
 	}
@@ -947,8 +1005,8 @@ func marshalFilters(node *model.Proxy, l *xdsapi.Listener, opts buildListenerOpt
 			opt.httpOpts.statPrefix = l.Name
 			connectionManager := buildHTTPConnectionManager(node, opts.env, opt.httpOpts, chain.HTTP)
 			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
-				Name:   xdsutil.HTTPConnectionManager,
-				Config: util.MessageToStruct(connectionManager),
+				Name:       xdsutil.HTTPConnectionManager,
+				ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(connectionManager)},
 			})
 			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", len(connectionManager.HttpFilters), l.Name, i)
 		}

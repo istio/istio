@@ -332,6 +332,7 @@ func TestCriticalCrdsAreReady(t *testing.T) {
 		return fakeDiscovery, nil
 	}
 	s.criticalKinds = []string{"Handler", "Action"}
+	s.bgRetryInterval = 1 * time.Millisecond
 	err := s.Init([]string{"Handler", "Action", "Whatever"})
 	if err != nil {
 		t.Errorf("Got error %v from Init", err)

@@ -149,8 +149,6 @@ func setTestConfig() error {
 	}
 	tc.CommonConfig = cc
 
-	tc.Kube.InstallAddons = true // zipkin is used
-
 	appDir, err := ioutil.TempDir(os.TempDir(), "pilot_test")
 	if err != nil {
 		return err
@@ -158,7 +156,7 @@ func setTestConfig() error {
 	tc.AppDir = appDir
 
 	// Add additional apps for this test suite.
-	apps := getApps(tc)
+	apps := getApps()
 	for i := range apps {
 		tc.Kube.AppManager.AddApp(&apps[i])
 		if tc.Kube.RemoteKubeConfig != "" {
@@ -190,7 +188,7 @@ func check(err error, msg string) {
 }
 
 // runRetriableTest runs the given test function the provided number of times.
-func runRetriableTest(t *testing.T, cluster, testName string, retries int, f func() error, errorFunc ...func()) {
+func runRetriableTest(t *testing.T, testName string, retries int, f func() error, errorFunc ...func()) {
 	t.Run(testName, func(t *testing.T) {
 		// Run all request tests in parallel.
 		// TODO(nmittler): Consider t.Parallel()?
@@ -353,7 +351,7 @@ func (t *testConfig) Teardown() (err error) {
 	return
 }
 
-func getApps(tc *testConfig) []framework.App {
+func getApps() []framework.App {
 	appsWithSidecar = []string{"a-", "b-", "c-", "d-", "headless-"}
 	return []framework.App{
 		// deploy a healthy mix of apps, with and without proxy
@@ -586,7 +584,7 @@ func (a *accessLogs) checkLog(t *testing.T, cluster, app string, pods map[string
 		container = inject.ProxyContainerName
 	}
 
-	runRetriableTest(t, cluster, app, defaultRetryBudget, func() error {
+	runRetriableTest(t, app, defaultRetryBudget, func() error {
 		// find all ids and counts
 		// TODO: this can be optimized for many string submatching
 		counts := make(map[string]int)

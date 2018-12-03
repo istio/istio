@@ -441,6 +441,18 @@ func (m *CommonTlsContext) Validate() error {
 			}
 		}
 
+	case *CommonTlsContext_CombinedValidationContext:
+
+		if v, ok := interface{}(m.GetCombinedValidationContext()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CommonTlsContextValidationError{
+					Field:  "CombinedValidationContext",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -774,3 +786,82 @@ func (e SecretValidationError) Error() string {
 }
 
 var _ error = SecretValidationError{}
+
+// Validate checks the field values on
+// CommonTlsContext_CombinedCertificateValidationContext with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if m.GetDefaultValidationContext() == nil {
+		return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+			Field:  "DefaultValidationContext",
+			Reason: "value is required",
+		}
+	}
+
+	if v, ok := interface{}(m.GetDefaultValidationContext()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+				Field:  "DefaultValidationContext",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if m.GetValidationContextSdsSecretConfig() == nil {
+		return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+			Field:  "ValidationContextSdsSecretConfig",
+			Reason: "value is required",
+		}
+	}
+
+	if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+				Field:  "ValidationContextSdsSecretConfig",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// CommonTlsContext_CombinedCertificateValidationContextValidationError is the
+// validation error returned by
+// CommonTlsContext_CombinedCertificateValidationContext.Validate if the
+// designated constraints aren't met.
+type CommonTlsContext_CombinedCertificateValidationContextValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e CommonTlsContext_CombinedCertificateValidationContextValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCommonTlsContext_CombinedCertificateValidationContext.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = CommonTlsContext_CombinedCertificateValidationContextValidationError{}

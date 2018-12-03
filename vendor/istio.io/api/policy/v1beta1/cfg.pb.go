@@ -65,9 +65,12 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type Rule_HeaderOperationTemplate_Operation int32
 
 const (
+	// Replace a header by name.
 	REPLACE Rule_HeaderOperationTemplate_Operation = 0
-	REMOVE  Rule_HeaderOperationTemplate_Operation = 1
-	APPEND  Rule_HeaderOperationTemplate_Operation = 2
+	// Remove a header by name. Values are ignored.
+	REMOVE Rule_HeaderOperationTemplate_Operation = 1
+	// Append values to the existing header values.
+	APPEND Rule_HeaderOperationTemplate_Operation = 2
 )
 
 var Rule_HeaderOperationTemplate_Operation_name = map[int32]string{
@@ -258,10 +261,10 @@ type Rule struct {
 	Match string `protobuf:"bytes,1,opt,name=match,proto3" json:"match,omitempty"`
 	// Optional. The actions that will be executed when match evaluates to `true`.
 	Actions []*Action `protobuf:"bytes,2,rep,name=actions" json:"actions,omitempty"`
-	// Optional. Templatized operations on the request headers using attributes produced by the
+	// Optional. Templatized operations on the request headers using values produced by the
 	// rule actions.
 	RequestHeaderOperations []*Rule_HeaderOperationTemplate `protobuf:"bytes,3,rep,name=request_header_operations,json=requestHeaderOperations" json:"request_header_operations,omitempty"`
-	// Optional. Templatized operations on the response headers using attributes produced by the
+	// Optional. Templatized operations on the response headers using values produced by the
 	// rule actions.
 	ResponseHeaderOperations []*Rule_HeaderOperationTemplate `protobuf:"bytes,4,rep,name=response_header_operations,json=responseHeaderOperations" json:"response_header_operations,omitempty"`
 	// $hide_from_docs
@@ -312,11 +315,20 @@ func (m *Rule) GetSampling() *Sampling {
 	return nil
 }
 
-// A template for an HTTP header manipulation.
+// A template for an HTTP header manipulation. Values in the template are expressions
+// that may reference action outputs by name. For example, if an action `x` produces an output
+// with a field `f`, then the header value expressions may use attribute `x.output.f` to reference
+// the field value:
+// ```yaml
+// request_header_operations:
+// - name: x-istio-header
+//   values:
+//   - x.output.f
+// ```
 type Rule_HeaderOperationTemplate struct {
-	// Required. Header name.
+	// Required. Header name literal value.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Optional. Header values to replace or append.
+	// Optional. Header value expressions.
 	Values []string `protobuf:"bytes,2,rep,name=values" json:"values,omitempty"`
 	// Optional. Header operation type. Default operation is to replace the value of the header by name.
 	Operation Rule_HeaderOperationTemplate_Operation `protobuf:"varint,3,opt,name=operation,proto3,enum=istio.policy.v1beta1.Rule_HeaderOperationTemplate_Operation" json:"operation,omitempty"`

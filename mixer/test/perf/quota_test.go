@@ -19,7 +19,7 @@ import (
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/perf"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 )
 
 // Tests single quota call into Mixer that dispatches instances to multiple noop inproc adapters.
@@ -382,7 +382,7 @@ func Benchmark_Quota_4Clients_5SameCallsEach_1MilliSecSlowApa(b *testing.B) {
 	validateQuotaBehavior(spyAdapter, b)
 }
 
-func validateQuotaBehavior(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+func validateQuotaBehavior(spyAdapter *spyadapter.Adapter, b *testing.B) {
 	// validate all went as expected.
 	//
 	// based on the config, there must be, for each quota check call from client,

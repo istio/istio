@@ -69,7 +69,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			// manager. Ideally, the merge gateway function should take care of this and intelligently create multiple
 			// groups of servers based on their TLS types as well. For now, we simply assume that if HTTPS,
 			// and the first server in the group is not a passthrough, then this is a HTTP connection manager.
-			if servers[0].Tls != nil && servers[0].Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+			if servers[0].Tls != nil && !model.IsPassThroughServer(servers[0]) {
 				protocol = model.ProtocolHTTP2
 			}
 		}
@@ -215,7 +215,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 	port := int(servers[0].Port.Number)
 	// NOTE: WE DO NOT SUPPORT two gateways on same workload binding to same virtual service
-	virtualServices := push.VirtualServices(merged.Names)
+	virtualServices := push.VirtualServices(node, merged.Names)
 	vHostDedupMap := make(map[string]*route.VirtualHost)
 
 	for _, v := range virtualServices {
@@ -296,7 +296,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 // to process HTTP and HTTPS servers along with virtualService.HTTP rules
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	node *model.Proxy, env *model.Environment, push *model.PushContext, servers []*networking.Server, gatewaysForWorkload map[string]bool) []*filterChainOpts {
+	_ *model.Proxy, _ *model.Environment, _ *model.PushContext, servers []*networking.Server, _ map[string]bool) []*filterChainOpts {
 
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
 	// Are we processing plaintext servers or HTTPS servers?
@@ -321,6 +321,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 						Uri:     true,
 						Dns:     true,
 					},
+					ServerName: EnvoyServerName,
 				},
 			},
 		}
@@ -348,6 +349,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 							Uri:     true,
 							Dns:     true,
 						},
+						ServerName: EnvoyServerName,
 					},
 				},
 			}
@@ -360,7 +362,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 
 func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
-	if server.Tls == nil || server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH {
+	if server.Tls == nil || model.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
@@ -453,7 +455,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 					networkFilters: filters,
 				})
 			}
-		} else if server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+		} else if !model.IsPassThroughServer(server) {
 			// TCP with TLS termination and forwarding. Setup TLS context to terminate, find matching services with TCP blocks
 			// and forward to backend
 			// Validation ensures that non-passthrough servers will have certs
@@ -489,7 +491,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := push.VirtualServices(gatewaysForWorkload)
+	virtualServices := push.VirtualServices(node, gatewaysForWorkload)
 	for _, spec := range virtualServices {
 		vsvc := spec.Spec.(*networking.VirtualService)
 		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
@@ -527,26 +529,36 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 		gatewayServerHosts[model.Hostname(host)] = true
 	}
 
-	virtualServices := push.VirtualServices(gatewaysForWorkload)
 	filterChains := make([]*filterChainOpts, 0)
-	for _, spec := range virtualServices {
-		vsvc := spec.Spec.(*networking.VirtualService)
-		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
-		if len(matchingHosts) == 0 {
-			// the VirtualService's hosts don't include hosts advertised by server
-			continue
-		}
 
-		// For every matching TLS block, generate a filter chain with sni match
-		for _, tls := range vsvc.Tls {
-			for _, match := range tls.Match {
-				if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewaysForWorkload) {
-					// the sni hosts in the match will become part of a filter chain match
-					filterChains = append(filterChains, &filterChainOpts{
-						sniHosts:       match.SniHosts,
-						tlsContext:     nil, // NO TLS context because this is passthrough
-						networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, spec.ConfigMeta),
-					})
+	if server.Tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH {
+		// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
+		filterChains = append(filterChains, &filterChainOpts{
+			sniHosts:       server.Hosts,
+			tlsContext:     nil, // NO TLS context because this is passthrough
+			networkFilters: buildOutboundAutoPassthroughFilterStack(env, node, port),
+		})
+	} else {
+		virtualServices := push.VirtualServices(node, gatewaysForWorkload)
+		for _, spec := range virtualServices {
+			vsvc := spec.Spec.(*networking.VirtualService)
+			matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
+			if len(matchingHosts) == 0 {
+				// the VirtualService's hosts don't include hosts advertised by server
+				continue
+			}
+
+			// For every matching TLS block, generate a filter chain with sni match
+			for _, tls := range vsvc.Tls {
+				for _, match := range tls.Match {
+					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewaysForWorkload) {
+						// the sni hosts in the match will become part of a filter chain match
+						filterChains = append(filterChains, &filterChainOpts{
+							sniHosts:       match.SniHosts,
+							tlsContext:     nil, // NO TLS context because this is passthrough
+							networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, spec.ConfigMeta),
+						})
+					}
 				}
 			}
 		}

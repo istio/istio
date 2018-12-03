@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istio_networking "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -109,7 +110,6 @@ var (
 		plugin.Health,
 		plugin.Mixer,
 		plugin.Envoyfilter,
-		plugin.Snidnat,
 	}
 )
 
@@ -197,6 +197,7 @@ type Server struct {
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
 	fileWatcher      filewatcher.FileWatcher
+	secureGrpcMutex  sync.RWMutex
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -216,6 +217,8 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{
 		fileWatcher: filewatcher.NewWatcher(),
 	}
+
+	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
@@ -255,7 +258,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 
 // Start starts all components of the Pilot discovery service on the port specified in DiscoveryServiceOptions.
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
-// but is executed asynchronously. Serving can be cancelled at any time by closing the provided stop channel.
+// but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
@@ -370,8 +373,11 @@ func (s *Server) initMesh(args *PilotArgs) error {
 			}
 			if !reflect.DeepEqual(mesh, s.mesh) {
 				log.Infof("mesh configurtion file updated to: %s", spew.Sdump(mesh))
-
-				//TODO Handle mesh config updates wherever necessary
+				if !reflect.DeepEqual(mesh.ConfigSources, s.mesh.ConfigSources) {
+					log.Infof("mesh configuration sources have changed")
+					//TODO Need to re-create or reload initConfigController()
+				}
+				s.EnvoyXdsServer.ConfigUpdate(true)
 			}
 		})
 	}
@@ -415,6 +421,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 		return nil
 	}
 	log.Infof("mesh networks configuration %s", spew.Sdump(meshNetworks))
+	util.ResolveHostsInNetworksConfig(s.meshNetworks)
 	s.meshNetworks = meshNetworks
 
 	// Watch the networks config file for changes and reload if it got modified
@@ -427,6 +434,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
 			log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
 			s.EnvoyXdsServer.ConfigUpdate(true)
 		}
@@ -779,6 +787,7 @@ func (s *Server) makeFileMonitor(fileDir string, configController model.ConfigSt
 func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
+	args.Config.ControllerOptions.ClusterID = clusterID
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
@@ -961,21 +970,20 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		log.Infof("Discovery service started at http=%s grpc=%s", listener.Addr().String(), grpcListener.Addr().String())
+		log.Infof("Discovery service started at http=%s grpc=%s secure grpc=%s", listener.Addr(), grpcListener.Addr(), secureGrpcListener.Addr())
 
 		go func() {
-			if err = s.httpServer.Serve(listener); err != nil {
+			if err := s.httpServer.Serve(listener); err != nil {
 				log.Warna(err)
 			}
 		}()
 		go func() {
-			if err = s.grpcServer.Serve(grpcListener); err != nil {
+			if err := s.grpcServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
 			}
 		}()
-		if len(args.DiscoveryOptions.SecureGrpcAddr) > 0 {
-			go s.secureGrpcStart(secureGrpcListener)
-		}
+
+		go s.secureGrpcStart(secureGrpcListener)
 
 		go func() {
 			<-stop
@@ -983,7 +991,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			err = s.httpServer.Shutdown(ctx)
+			err := s.httpServer.Shutdown(ctx)
 			if err != nil {
 				log.Warna(err)
 			}
@@ -992,7 +1000,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
 				s.secureHTTPServer.Shutdown(ctx)
+				s.secureGrpcMutex.RLock()
 				s.secureGRPCServer.Stop()
+				s.secureGrpcMutex.RUnlock()
 			}
 		}()
 
@@ -1029,90 +1039,79 @@ func (s *Server) initGrpcServer() {
 func (s *Server) secureGrpcStart(listener net.Listener) {
 	certDir := pilot.CertDir
 	if certDir == "" {
-		certDir = PilotCertDir // /etc/certs
-	}
-	if !strings.HasSuffix(certDir, "/") {
-		certDir = certDir + "/"
+		certDir = PilotCertDir
 	}
 
-	for i := 0; i < 30; i++ {
-		opts := s.grpcServerOptions()
+	ca := path.Join(certDir, model.RootCertFilename)
+	key := path.Join(certDir, model.KeyFilename)
+	cert := path.Join(certDir, model.CertChainFilename)
 
-		// This is used for the grpc h2 implementation. It doesn't appear to be needed in
-		// the case of golang h2 stack.
-		creds, err := credentials.NewServerTLSFromFile(certDir+model.CertChainFilename,
-			certDir+model.KeyFilename)
-		// certs not ready yet.
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
+	var err error
+	defer func() {
+		if err != http.ErrServerClosed {
+			log.Errorf("Failed to start secure grpc server %v", err)
+			// Exit - mesh is in MTLS mode, but certificates are missing or bad.
+			// k8s may allocate to a different machine.
+			if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+				os.Exit(403)
+			}
 		}
+	}()
+	// This is used for the grpc h2 implementation. It doesn't appear to be needed in
+	// the case of golang h2 stack.
+	creds, err := credentials.NewServerTLSFromFile(cert, key)
+	// certs not ready yet.
+	if err != nil {
+		return
+	}
 
-		// TODO: parse the file to determine expiration date. Restart listener before expiration
-		cert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename,
-			certDir+model.KeyFilename)
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		caCertFile := certDir + model.RootCertFilename
-		caCert, err := ioutil.ReadFile(caCertFile)
-		if err != nil {
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
+	// TODO: parse the file to determine expiration date. Restart listener before expiration
+	certificate, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		return
+	}
 
-		opts = append(opts, grpc.Creds(creds))
-		s.secureGRPCServer = grpc.NewServer(opts...)
+	caCert, err := ioutil.ReadFile(ca)
+	if err != nil {
+		return
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
 
-		s.EnvoyXdsServer.Register(s.secureGRPCServer)
+	opts := s.grpcServerOptions()
+	opts = append(opts, grpc.Creds(creds))
+	s.secureGRPCServer = grpc.NewServer(opts...)
 
-		log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
+	s.EnvoyXdsServer.Register(s.secureGRPCServer)
 
-		s.secureHTTPServer = &http.Server{
-			TLSConfig: &tls.Config{
-				Certificates: []tls.Certificate{cert},
-				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-					// For now accept any certs - pilot is not authenticating the caller, TLS used for
-					// privacy
-					return nil
-				},
-				NextProtos: []string{"h2", "http/1.1"},
-				//ClientAuth: tls.NoClientCert,
-				//ClientAuth: tls.RequestClientCert,
-				ClientAuth: tls.RequireAndVerifyClientCert,
-				ClientCAs:  caCertPool,
+	log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
+
+	s.secureHTTPServer = &http.Server{
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{certificate},
+			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+				// For now accept any certs - pilot is not authenticating the caller, TLS used for
+				// privacy
+				return nil
 			},
-			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.ProtoMajor == 2 && strings.HasPrefix(
-					r.Header.Get("Content-Type"), "application/grpc") {
-					s.secureGRPCServer.ServeHTTP(w, r)
-				} else {
-					s.mux.ServeHTTP(w, r)
-				}
-			}),
-		}
-
-		// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
-		// on a listener
-		_ = s.secureHTTPServer.ServeTLS(listener, certDir+model.CertChainFilename, certDir+model.KeyFilename)
-
-		// The other way to set TLS - but you can't add http handlers, and the h2 stack is
-		// different.
-		//if err := s.secureGRPCServer.Serve(listener); err != nil {
-		//	log.Warna(err)
-		//}
+			NextProtos: []string{"h2", "http/1.1"},
+			ClientAuth: tls.RequireAndVerifyClientCert,
+			ClientCAs:  caCertPool,
+		},
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && strings.HasPrefix(
+				r.Header.Get("Content-Type"), "application/grpc") {
+				s.secureGRPCServer.ServeHTTP(w, r)
+			} else {
+				s.mux.ServeHTTP(w, r)
+			}
+		}),
 	}
 
-	log.Errorf("Failed to find certificates for GRPC secure in %s", certDir)
-
-	// Exit - mesh is in MTLS mode, but certificates are missing or bad.
-	// k8s may allocate to a different machine.
-	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		os.Exit(403)
-	}
+	// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+	// on a listener
+	err = s.secureHTTPServer.ServeTLS(listener, "", "")
+	log.Infof("Stoppped listening on %s", listener.Addr().String())
 }
 
 func (s *Server) grpcServerOptions() []grpc.ServerOption {
@@ -1120,8 +1119,6 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 		// setup server prometheus monitoring (as final interceptor in chain)
 		prometheus.UnaryServerInterceptor,
 	}
-
-	prometheus.EnableHandlingTimeHistogram()
 
 	// Temp setting, default should be enough for most supported environments. Can be used for testing
 	// envoy with lower values.

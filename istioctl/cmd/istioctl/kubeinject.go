@@ -259,7 +259,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
 			// so must be specified together. hub and tag no longer have defaults.
 			if hub != "" || tag != "" {
-				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behaviour.
+				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behavior.
 				if !getBoolEnv("ISTIOCTL_USE_BUILTIN_DEFAULTS", false) {
 					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
 						"use the following command to get the current injector file\n" +
@@ -375,7 +375,7 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
 		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
 			"The default policy is IfNotPresent.")
-	injectCmd.PersistentFlags().IntVar(&statusPort, "statusPort", inject.DefaultStatusPort,
+	injectCmd.PersistentFlags().IntVar(&statusPort, inject.StatusPortCmdFlagName, inject.DefaultStatusPort,
 		"HTTP Port on which to serve pilot agent status. The path /healthz/ can be used for health checking. "+
 			"If zero, agent status will not be provided.")
 	injectCmd.PersistentFlags().Uint32Var(&readinessInitialDelaySeconds, "readinessInitialDelaySeconds", inject.DefaultReadinessInitialDelaySeconds,

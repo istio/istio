@@ -60,10 +60,10 @@ type ADSC struct {
 	// Set after Dial is called.
 	stream ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 
+	conn *grpc.ClientConn
+
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
-
-	done chan error
 
 	certDir string
 	url     string
@@ -115,7 +115,6 @@ var (
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc := &ADSC{
-		done:        make(chan error),
 		Updates:     make(chan string, 100),
 		VersionInfo: map[string]string{},
 		certDir:     certDir,
@@ -137,7 +136,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
 
-	err := adsc.Reconnect()
+	err := adsc.Run()
 	return adsc, err
 }
 
@@ -187,19 +186,20 @@ func tlsConfig(certDir string) (*tls.Config, error) {
 	}, nil
 }
 
-// Close the stream. Reconnect() can be called to restore the connection, to
-// simulate envoy restart behavior.
+// Close the stream.
 func (a *ADSC) Close() {
+	a.mutex.Lock()
 	if a.stream != nil {
 		a.stream.CloseSend()
 	}
+	a.conn.Close()
+	a.mutex.Unlock()
 }
 
-// Reconnect will reconnect after close.
-func (a *ADSC) Reconnect() error {
+// Run will run the ADS client.
+func (a *ADSC) Run() error {
 
 	// TODO: pass version info, nonce properly
-	var conn *grpc.ClientConn
 	var err error
 	if len(a.certDir) > 0 {
 		tlsCfg, err := tlsConfig(a.certDir)
@@ -212,12 +212,12 @@ func (a *ADSC) Reconnect() error {
 			// Verify Pilot cert and service account
 			grpc.WithTransportCredentials(creds),
 		}
-		conn, err = grpc.Dial(a.url, opts...)
+		a.conn, err = grpc.Dial(a.url, opts...)
 		if err != nil {
 			return err
 		}
 	} else {
-		conn, err = grpc.Dial(a.url, grpc.WithInsecure())
+		a.conn, err = grpc.Dial(a.url, grpc.WithInsecure())
 		if err != nil {
 			return err
 		}
@@ -226,7 +226,7 @@ func (a *ADSC) Reconnect() error {
 		return err
 	}
 
-	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
+	xds := ads.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
@@ -281,7 +281,9 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// TODO: add hook to inject nacks
+		a.mutex.Lock()
 		a.ack(msg)
+		a.mutex.Unlock()
 
 		if len(listeners) > 0 {
 			a.handleLDS(listeners)
@@ -315,7 +317,7 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		}
 		if f0.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
-			c := f0.Config.Fields["cluster"].GetStringValue()
+			c := f0.GetConfig().Fields["cluster"].GetStringValue()
 			clusters = append(clusters, c)
 			//log.Printf("TCP: %s -> %s", l.Name, c)
 		} else if f0.Name == "envoy.http_connection_manager" {
@@ -327,6 +329,8 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			//log.Printf("HTTP: %s -> %d", l.Name, port)
 		} else if f0.Name == "envoy.mongo_proxy" {
 			// ignore for now
+		} else if f0.Name == "envoy.redis_proxy" {
+			// ignore for now
 		} else {
 			tm := &jsonpb.Marshaler{Indent: "  "}
 			log.Println(tm.MarshalToString(l))
@@ -334,11 +338,11 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	}
 
 	log.Println("LDS: http=", len(lh), "tcp=", len(lt), "size=", ldsSize)
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if len(routes) > 0 {
 		a.sendRsc(routeType, routes)
 	}
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
 	a.HTTPListeners = lh
 	a.TCPListeners = lt
 

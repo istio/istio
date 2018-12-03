@@ -4,6 +4,13 @@
 		"name": "PROXY_REPO_SHA",
 		"repoName": "proxy",
 		"file": "",
-		"lastStableSHA": "67a0375be569f9158b361e8f5c2a76a0c1b0a02e"
-	}
+		"lastStableSHA": "255ac3c8181844e01b20c14d91147a9ae2a11b59"
+	},
+	{
+                "_comment": "",
+                "name": "CNI_REPO_SHA",
+                "repoName": "cni",
+                "file": "",
+                "lastStableSHA": "9a54dd033002125d5768c64b51486628995446c1i"
+        }
 ]

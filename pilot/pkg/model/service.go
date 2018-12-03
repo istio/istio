@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
@@ -55,6 +56,8 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
+	// Protect concurrent ClusterVIPs read/write
+	Mutex sync.RWMutex
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
@@ -133,6 +136,8 @@ type Protocol string
 const (
 	// ProtocolGRPC declares that the port carries gRPC traffic
 	ProtocolGRPC Protocol = "GRPC"
+	// ProtocolGRPCWeb declares that the port carries gRPC traffic
+	ProtocolGRPCWeb Protocol = "GRPC-Web"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
@@ -199,6 +204,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolUDP
 	case "grpc":
 		return ProtocolGRPC
+	case "grpc-web":
+		return ProtocolGRPCWeb
 	case "http":
 		return ProtocolHTTP
 	case "http2":
@@ -219,7 +226,7 @@ func ParseProtocol(s string) Protocol {
 // IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
 func (p Protocol) IsHTTP2() bool {
 	switch p {
-	case ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolHTTP2, ProtocolGRPC, ProtocolGRPCWeb:
 		return true
 	default:
 		return false
@@ -229,7 +236,7 @@ func (p Protocol) IsHTTP2() bool {
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
 	switch p {
-	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC, ProtocolGRPCWeb:
 		return true
 	default:
 		return false
@@ -298,6 +305,12 @@ type NetworkEndpoint struct {
 
 	// The network where this endpoint is present
 	Network string
+
+	// The locality where the endpoint is present. / separated string
+	Locality string
+
+	// The load balancing weight associated with this endpoint.
+	LbWeight uint32
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -340,11 +353,10 @@ type ProbeList []*Probe
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint         NetworkEndpoint `json:"endpoint,omitempty"`
-	Service          *Service        `json:"service,omitempty"`
-	Labels           Labels          `json:"labels,omitempty"`
-	AvailabilityZone string          `json:"az,omitempty"`
-	ServiceAccount   string          `json:"serviceaccount,omitempty"`
+	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
+	Service        *Service        `json:"service,omitempty"`
+	Labels         Labels          `json:"labels,omitempty"`
+	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
 const (
@@ -353,15 +365,14 @@ const (
 	AZLabel = "istio-az"
 )
 
-// GetAZ returns the availability zone from an instance.
+// GetLocality returns the availability zone from an instance.
 // - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
 // - consul: defaults to 'instance.Datacenter'
 //
-// This is used by EDS to group the endpoints by AZ and by .
-// TODO: remove me?
-func (si *ServiceInstance) GetAZ() string {
-	if si.AvailabilityZone != "" {
-		return si.AvailabilityZone
+// This is used by CDS/EDS to group the endpoints by locality.
+func (si *ServiceInstance) GetLocality() string {
+	if si.Endpoint.Locality != "" {
+		return si.Endpoint.Locality
 	}
 	return si.Labels[AZLabel]
 }
@@ -369,7 +380,7 @@ func (si *ServiceInstance) GetAZ() string {
 // IstioEndpoint has the information about a single address+port for a specific
 // service and shard.
 //
-// This will eventually replace NetworkEndpoint and ServiceInstance:
+// TODO: Replace NetworkEndpoint and ServiceInstance with Istio endpoints
 // - ServicePortName replaces ServicePort, since port number and protocol may not
 // be available when endpoint callbacks are made.
 // - It no longer splits into one ServiceInstance and one NetworkEndpoint - both
@@ -413,6 +424,12 @@ type IstioEndpoint struct {
 
 	// Network holds the network where this endpoint is present
 	Network string
+
+	// The locality where the endpoint is present. / separated string
+	Locality string
+
+	// The load balancing weight associated with this endpoint.
+	LbWeight uint32
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -898,7 +915,9 @@ func ParseLabelsString(s string) Labels {
 }
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
-func (s Service) GetServiceAddressForProxy(node *Proxy) string {
+func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
 	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
 		return s.ClusterVIPs[node.ClusterID]
 	}

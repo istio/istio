@@ -32,7 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -454,7 +454,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		log.Debugf("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v required:%v %s",
 			metadata.Namespace,
 			potentialPodName(metadata),
-			config,
+			config.Policy,
 			useDefault,
 			inject,
 			required,
@@ -482,8 +482,11 @@ func directory(filepath string) string {
 	return dir
 }
 
-func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
+	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
+	*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
+		log.Infof("Invalid annotations: %v %v\n", err, metadata.GetAnnotations())
 		return nil, "", err
 	}
 
@@ -511,6 +514,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 	temp := template.New("inject").Delims(sidecarTemplateDelimBegin, sidecarTemplateDelimEnd)
 	t := template.Must(temp.Funcs(funcMap).Parse(sidecarTemplate))
 	if err := t.Execute(&tmpl, &data); err != nil {
+		log.Infof("Invalid template: %v %v\n", err, sidecarTemplate)
 		return nil, "", err
 	}
 
@@ -681,8 +685,13 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	}
 
 	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)
+
 	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
+
+	// Modify application containers' HTTP probe after appending injected containers.
+	// Because we need to extract istio-proxy's statusPort.
+	rewriteAppHTTPProbe(spec, podSpec)
 
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)

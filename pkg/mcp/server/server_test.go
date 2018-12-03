@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )

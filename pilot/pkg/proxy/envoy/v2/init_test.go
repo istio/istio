@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/tests/util"
 	"net"
 	"time"
 
@@ -63,36 +64,38 @@ func testIp(id uint32) string {
 	return net.IP(ipb).String()
 }
 
-func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, error) {
-	conn, err := grpc.Dial(url, grpc.WithInsecure())
+func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
+	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		return nil, fmt.Errorf("GRPC dial failed: %s", err)
+		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
 	}
-
 	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("Stream resources failed: %s", err)
+		return nil, nil, fmt.Errorf("Stream resources failed: %s", err)
 	}
 
-	return edsstr, nil
+	return edsstr, func() {
+		edsstr.CloseSend()
+		conn.Close()
+	}, nil
 }
 
-func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, error) {
+func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, util.TearDownFunc, error) {
 	certDir := env.IstioSrc + "/tests/testdata/certs/default/"
 
 	clientCert, err := tls.LoadX509KeyPair(certDir+model.CertChainFilename, certDir+model.KeyFilename)
 	if err != nil {
-		return nil, fmt.Errorf("failed loading clients certs: %s", err)
+		return nil, nil, fmt.Errorf("failed loading clients certs: %s", err)
 	}
 
 	serverCABytes, err := ioutil.ReadFile(certDir + model.RootCertFilename)
 	if err != nil {
-		return nil, fmt.Errorf("failed loading CA certs: %s", err)
+		return nil, nil, fmt.Errorf("failed loading CA certs: %s", err)
 	}
 	serverCAs := x509.NewCertPool()
 	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
-		return nil, fmt.Errorf("failed adding CA certs to pool: %s", err)
+		return nil, nil, fmt.Errorf("failed adding CA certs to pool: %s", err)
 	}
 
 	tlsCfg := &tls.Config{
@@ -106,18 +109,22 @@ func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedRes
 	opts := []grpc.DialOption{
 		// Verify Pilot cert and service account
 		grpc.WithTransportCredentials(creds),
+		grpc.WithBlock(),
 	}
 	conn, err := grpc.Dial(url, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("GRPC dial failed: %s", err)
+		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
 	}
 
 	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("Stream resources failed: %s", err)
+		return nil, nil, fmt.Errorf("Stream resources failed: %s", err)
 	}
-	return edsstr, nil
+	return edsstr, func() {
+		edsstr.CloseSend()
+		conn.Close()
+	}, nil
 }
 
 func adsReceive(ads ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, to time.Duration) (*xdsapi.DiscoveryResponse, error) {

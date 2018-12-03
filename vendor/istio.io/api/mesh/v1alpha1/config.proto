@@ -71,6 +71,9 @@ message MeshConfig {
   // Connection timeout used by Envoy. (MUST BE >=1ms)
   google.protobuf.Duration connect_timeout = 6;
 
+  // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+  istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive tcp_keepalive = 28;
+
   // Class of ingress resources to be processed by Istio ingress
   // controller.  This corresponds to the value of
   // "kubernetes.io/ingress.class" annotation.
@@ -110,7 +113,8 @@ message MeshConfig {
   // $hide_from_docs
   AuthPolicy auth_policy = 10 [deprecated=true];
 
-  reserved 11;
+  // $hide_from_docs
+  google.protobuf.Duration rds_refresh_delay = 11 [deprecated=true];
 
   // Flag to control generation of trace spans and request IDs.
   // Requires a trace span collector defined in the proxy configuration.
@@ -120,9 +124,18 @@ message MeshConfig {
   // Empty value disables access logging.
   string access_log_file = 13;
   
-  // Format for the proxy access log (text or json).
-  // Default value is text.
+  // Format for the proxy access log 
+  // Empty value results in proxy's default access log format 
   string access_log_format = 24;
+
+  enum AccessLogEncoding {
+    TEXT = 0;
+    JSON = 1;
+  }
+
+  // Encoding for the proxy access log (text or json).
+  // Default value is text.
+  AccessLogEncoding access_log_encoding = 27;
 
   // Default proxy config used by the proxy injection mechanism operating in the mesh
   // (e.g. Kubernetes admission controller)
@@ -132,8 +145,31 @@ message MeshConfig {
   ProxyConfig default_config = 14;
 
   reserved 15;
-  reserved 16;
-  reserved 17;
+  
+  // $hide_from_docs
+  string mixer_address = 16 [deprecated=true];
+  
+  message OutboundTrafficPolicy {
+    enum Mode {
+      // outbound traffic will be restricted to services defined in the service registry as well as those defined
+      // through ServiceEntries
+      REGISTRY_ONLY = 0 [deprecated=true];
+      // outbound traffic to unknown destinations will be allowed
+      ALLOW_ANY = 1 [deprecated=true];
+      // not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only
+      VIRTUAL_SERVICE_ONLY = 2 [deprecated=true];
+    }
+    Mode mode = 1 [deprecated=true];
+  }
+
+  // Set the default behavior of the sidecar for handling outbound traffic from the application.
+  // While the default mode should work out of the box, if your application uses one or more external services that
+  // are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
+  // requested destination.
+  // Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
+  // instead of using allow_any.
+  OutboundTrafficPolicy outbound_traffic_policy = 17 [deprecated=true];
+
   reserved 18;
 
   // Enables clide side policy checks.
@@ -143,7 +179,8 @@ message MeshConfig {
   // Use secret-mount files instead of SDS if set to empty.
   string sds_uds_path = 20;
   
-  reserved 21;
+  // $hide_from_docs
+  google.protobuf.Duration sds_refresh_delay = 21 [deprecated=true];
 
   // ConfigSource describes a source of configuration data for networking
   // rules, and other Istio configuration artifacts. Multiple data sources
@@ -162,8 +199,41 @@ message MeshConfig {
   // Fallback to old identity format(without trust domain) if not set.
   string trust_domain = 26;
 
+  // Default service dependency settings for each workload in the
+  // mesh. ServiceDependencycontrols the reachability of workloads to other
+  // services in the mesh.
+  message DefaultServiceDependency {
+    enum Mode {
+      // Configure routes to services in all namespaces, i.e. import
+      // services from all namespaces.
+      ALL_NAMESPACES = 0;
+
+      // Only configure routes to services that are in the same namespace
+      // as the workload as well as services in namespaces specified in
+      // importNamespaces.
+      SAME_NAMESPACE = 1;
+    }
+
+    // REQUIRED: The default import setting for every workload in the mesh.
+    Mode import_mode = 1;
+
+    // Specifies one or more namespaces that should be imported by default
+    // in all user defined ServiceDependency resources in addition to the
+    // namespaces explicitly specified by the end user. Use this setting to
+    // automatically import services/resources from namespaces such as
+    // istio-system that all workloads in the mesh depend upon.
+    repeated string import_namespaces = 2;
+  }
+
+  // The default service dependency setting associated with every workload
+  // in the mesh.  Pilot will program the routes in the sidecars and
+  // gateways accordingly. If omitted, sidecars will be configured to reach
+  // every service in the mesh. The default scope can be overriden by
+  // supplying a ServiceDependency resource per namespace.
+  DefaultServiceDependency default_service_dependency = 29;
+
   // $hide_from_docs
-  // Next available field number: 27
+  // Next available field number: 30
 }
 
 // ConfigSource describes information about a configuration store inside a
@@ -172,7 +242,7 @@ message MeshConfig {
 message ConfigSource {
   // Address of the server implementing the Istio Mesh Configuration
   // protocol (MCP). Can be IP address or a fully qualified DNS name.
-  // Use file:/// to specify a file-based backend with absolute path to the directory.
+  // Use fs:/// to specify a file-based backend with absolute path to the directory.
   string address = 1;
 
   // Use the tls_settings to specify the tls mode to use. If the MCP server

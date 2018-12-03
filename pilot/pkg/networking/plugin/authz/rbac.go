@@ -258,7 +258,7 @@ func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metada
 }
 
 // createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
-func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
+func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.MetadataMatcher {
 	filterName := authn.AuthnFilterName
 	if k == attrSrcNamespace {
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
@@ -279,7 +279,11 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */)
 	if !attributesFromAuthN(k) {
 		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", k)
-		filterName = rbacHTTPFilterName
+		if forTCPFilter {
+			filterName = rbacTCPFilterName
+		} else {
+			filterName = rbacHTTPFilterName
+		}
 	}
 	return generateMetadataStringMatcher(k, stringMatcher, filterName)
 }
@@ -417,11 +421,13 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption) *listener.Filte
 	config := convertRbacRulesToFilterConfig(service, option)
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
-		Config: util.MessageToStruct(&network_config.RBAC{
-			Rules:       config.Rules,
-			ShadowRules: config.ShadowRules,
-			StatPrefix:  rbacTCPFilterStatPrefix,
-		}),
+		ConfigType: &listener.Filter_Config{
+			Config: util.MessageToStruct(&network_config.RBAC{
+				Rules:       config.Rules,
+				ShadowRules: config.ShadowRules,
+				StatPrefix:  rbacTCPFilterStatPrefix,
+			}),
+		},
 	}
 	rbacLog.Debugf("generated tcp filter config: %v", tcpConfig)
 	return &tcpConfig
@@ -434,8 +440,8 @@ func buildHTTPFilter(service *serviceMetadata, option rbacOption) *http_conn.Htt
 	config := convertRbacRulesToFilterConfig(service, option)
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	return &http_conn.HttpFilter{
-		Name:   rbacHTTPFilterName,
-		Config: util.MessageToStruct(config),
+		Name:       rbacHTTPFilterName,
+		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)},
 	}
 }
 
@@ -796,7 +802,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Pri
 			},
 		}
 	default:
-		if matcher := createDynamicMetadataMatcher(key, value); matcher != nil {
+		if matcher := createDynamicMetadataMatcher(key, value, forTCPFilter); matcher != nil {
 			return &policyproto.Principal{
 				Identifier: &policyproto.Principal_Metadata{
 					Metadata: matcher,

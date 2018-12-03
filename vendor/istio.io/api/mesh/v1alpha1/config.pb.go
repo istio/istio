@@ -23,7 +23,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import google_protobuf "github.com/gogo/protobuf/types"
-import istio_networking_v1alpha31 "istio.io/api/networking/v1alpha3"
+import istio_networking_v1alpha32 "istio.io/api/networking/v1alpha3"
 
 import io "io"
 
@@ -99,6 +99,87 @@ func (MeshConfig_AuthPolicy) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorConfig, []int{0, 1}
 }
 
+type MeshConfig_AccessLogEncoding int32
+
+const (
+	MeshConfig_TEXT MeshConfig_AccessLogEncoding = 0
+	MeshConfig_JSON MeshConfig_AccessLogEncoding = 1
+)
+
+var MeshConfig_AccessLogEncoding_name = map[int32]string{
+	0: "TEXT",
+	1: "JSON",
+}
+var MeshConfig_AccessLogEncoding_value = map[string]int32{
+	"TEXT": 0,
+	"JSON": 1,
+}
+
+func (x MeshConfig_AccessLogEncoding) String() string {
+	return proto.EnumName(MeshConfig_AccessLogEncoding_name, int32(x))
+}
+func (MeshConfig_AccessLogEncoding) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptorConfig, []int{0, 2}
+}
+
+type MeshConfig_OutboundTrafficPolicy_Mode int32
+
+const (
+	// outbound traffic will be restricted to services defined in the service registry as well as those defined
+	// through ServiceEntries
+	MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY MeshConfig_OutboundTrafficPolicy_Mode = 0
+	// outbound traffic to unknown destinations will be allowed
+	MeshConfig_OutboundTrafficPolicy_ALLOW_ANY MeshConfig_OutboundTrafficPolicy_Mode = 1
+	// not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only
+	MeshConfig_OutboundTrafficPolicy_VIRTUAL_SERVICE_ONLY MeshConfig_OutboundTrafficPolicy_Mode = 2
+)
+
+var MeshConfig_OutboundTrafficPolicy_Mode_name = map[int32]string{
+	0: "REGISTRY_ONLY",
+	1: "ALLOW_ANY",
+	2: "VIRTUAL_SERVICE_ONLY",
+}
+var MeshConfig_OutboundTrafficPolicy_Mode_value = map[string]int32{
+	"REGISTRY_ONLY":        0,
+	"ALLOW_ANY":            1,
+	"VIRTUAL_SERVICE_ONLY": 2,
+}
+
+func (x MeshConfig_OutboundTrafficPolicy_Mode) String() string {
+	return proto.EnumName(MeshConfig_OutboundTrafficPolicy_Mode_name, int32(x))
+}
+func (MeshConfig_OutboundTrafficPolicy_Mode) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptorConfig, []int{0, 0, 0}
+}
+
+type MeshConfig_DefaultServiceDependency_Mode int32
+
+const (
+	// Configure routes to services in all namespaces, i.e. import
+	// services from all namespaces.
+	MeshConfig_DefaultServiceDependency_ALL_NAMESPACES MeshConfig_DefaultServiceDependency_Mode = 0
+	// Only configure routes to services that are in the same namespace
+	// as the workload as well as services in namespaces specified in
+	// importNamespaces.
+	MeshConfig_DefaultServiceDependency_SAME_NAMESPACE MeshConfig_DefaultServiceDependency_Mode = 1
+)
+
+var MeshConfig_DefaultServiceDependency_Mode_name = map[int32]string{
+	0: "ALL_NAMESPACES",
+	1: "SAME_NAMESPACE",
+}
+var MeshConfig_DefaultServiceDependency_Mode_value = map[string]int32{
+	"ALL_NAMESPACES": 0,
+	"SAME_NAMESPACE": 1,
+}
+
+func (x MeshConfig_DefaultServiceDependency_Mode) String() string {
+	return proto.EnumName(MeshConfig_DefaultServiceDependency_Mode_name, int32(x))
+}
+func (MeshConfig_DefaultServiceDependency_Mode) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptorConfig, []int{0, 1, 0}
+}
+
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 // Istio service mesh.
 //
@@ -135,6 +216,8 @@ type MeshConfig struct {
 	ProxyHttpPort int32 `protobuf:"varint,5,opt,name=proxy_http_port,json=proxyHttpPort,proto3" json:"proxy_http_port,omitempty"`
 	// Connection timeout used by Envoy. (MUST BE >=1ms)
 	ConnectTimeout *google_protobuf.Duration `protobuf:"bytes,6,opt,name=connect_timeout,json=connectTimeout" json:"connect_timeout,omitempty"`
+	// If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+	TcpKeepalive *istio_networking_v1alpha32.ConnectionPoolSettings_TCPSettings_TcpKeepalive `protobuf:"bytes,28,opt,name=tcp_keepalive,json=tcpKeepalive" json:"tcp_keepalive,omitempty"`
 	// Class of ingress resources to be processed by Istio ingress
 	// controller.  This corresponds to the value of
 	// "kubernetes.io/ingress.class" annotation.
@@ -145,26 +228,42 @@ type MeshConfig struct {
 	IngressControllerMode MeshConfig_IngressControllerMode `protobuf:"varint,9,opt,name=ingress_controller_mode,json=ingressControllerMode,proto3,enum=istio.mesh.v1alpha1.MeshConfig_IngressControllerMode" json:"ingress_controller_mode,omitempty"`
 	// $hide_from_docs
 	AuthPolicy MeshConfig_AuthPolicy `protobuf:"varint,10,opt,name=auth_policy,json=authPolicy,proto3,enum=istio.mesh.v1alpha1.MeshConfig_AuthPolicy" json:"auth_policy,omitempty"`
+	// $hide_from_docs
+	RdsRefreshDelay *google_protobuf.Duration `protobuf:"bytes,11,opt,name=rds_refresh_delay,json=rdsRefreshDelay" json:"rds_refresh_delay,omitempty"`
 	// Flag to control generation of trace spans and request IDs.
 	// Requires a trace span collector defined in the proxy configuration.
 	EnableTracing bool `protobuf:"varint,12,opt,name=enable_tracing,json=enableTracing,proto3" json:"enable_tracing,omitempty"`
 	// File address for the proxy access log (e.g. /dev/stdout).
 	// Empty value disables access logging.
 	AccessLogFile string `protobuf:"bytes,13,opt,name=access_log_file,json=accessLogFile,proto3" json:"access_log_file,omitempty"`
-	// Format for the proxy access log (text or json).
-	// Default value is text.
+	// Format for the proxy access log
+	// Empty value results in proxy's default access log format
 	AccessLogFormat string `protobuf:"bytes,24,opt,name=access_log_format,json=accessLogFormat,proto3" json:"access_log_format,omitempty"`
+	// Encoding for the proxy access log (text or json).
+	// Default value is text.
+	AccessLogEncoding MeshConfig_AccessLogEncoding `protobuf:"varint,27,opt,name=access_log_encoding,json=accessLogEncoding,proto3,enum=istio.mesh.v1alpha1.MeshConfig_AccessLogEncoding" json:"access_log_encoding,omitempty"`
 	// Default proxy config used by the proxy injection mechanism operating in the mesh
 	// (e.g. Kubernetes admission controller)
 	// In case of Kubernetes, the proxy config is applied once during the injection process,
 	// and remain constant for the duration of the pod. The rest of the mesh config can be changed
 	// at runtime and config gets distributed dynamically.
 	DefaultConfig *ProxyConfig `protobuf:"bytes,14,opt,name=default_config,json=defaultConfig" json:"default_config,omitempty"`
+	// $hide_from_docs
+	MixerAddress string `protobuf:"bytes,16,opt,name=mixer_address,json=mixerAddress,proto3" json:"mixer_address,omitempty"`
+	// Set the default behavior of the sidecar for handling outbound traffic from the application.
+	// While the default mode should work out of the box, if your application uses one or more external services that
+	// are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
+	// requested destination.
+	// Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
+	// instead of using allow_any.
+	OutboundTrafficPolicy *MeshConfig_OutboundTrafficPolicy `protobuf:"bytes,17,opt,name=outbound_traffic_policy,json=outboundTrafficPolicy" json:"outbound_traffic_policy,omitempty"`
 	// Enables clide side policy checks.
 	EnableClientSidePolicyCheck bool `protobuf:"varint,19,opt,name=enable_client_side_policy_check,json=enableClientSidePolicyCheck,proto3" json:"enable_client_side_policy_check,omitempty"`
 	// Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
 	// Use secret-mount files instead of SDS if set to empty.
 	SdsUdsPath string `protobuf:"bytes,20,opt,name=sds_uds_path,json=sdsUdsPath,proto3" json:"sds_uds_path,omitempty"`
+	// $hide_from_docs
+	SdsRefreshDelay *google_protobuf.Duration `protobuf:"bytes,21,opt,name=sds_refresh_delay,json=sdsRefreshDelay" json:"sds_refresh_delay,omitempty"`
 	// ConfigSource describes a source of configuration data for networking
 	// rules, and other Istio configuration artifacts. Multiple data sources
 	// can be configured for a single control plane.
@@ -179,6 +278,12 @@ type MeshConfig struct {
 	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	// Fallback to old identity format(without trust domain) if not set.
 	TrustDomain string `protobuf:"bytes,26,opt,name=trust_domain,json=trustDomain,proto3" json:"trust_domain,omitempty"`
+	// The default service dependency setting associated with every workload
+	// in the mesh.  Pilot will program the routes in the sidecars and
+	// gateways accordingly. If omitted, sidecars will be configured to reach
+	// every service in the mesh. The default scope can be overriden by
+	// supplying a ServiceDependency resource per namespace.
+	DefaultServiceDependency *MeshConfig_DefaultServiceDependency `protobuf:"bytes,29,opt,name=default_service_dependency,json=defaultServiceDependency" json:"default_service_dependency,omitempty"`
 }
 
 func (m *MeshConfig) Reset()                    { *m = MeshConfig{} }
@@ -235,6 +340,13 @@ func (m *MeshConfig) GetConnectTimeout() *google_protobuf.Duration {
 	return nil
 }
 
+func (m *MeshConfig) GetTcpKeepalive() *istio_networking_v1alpha32.ConnectionPoolSettings_TCPSettings_TcpKeepalive {
+	if m != nil {
+		return m.TcpKeepalive
+	}
+	return nil
+}
+
 func (m *MeshConfig) GetIngressClass() string {
 	if m != nil {
 		return m.IngressClass
@@ -263,6 +375,13 @@ func (m *MeshConfig) GetAuthPolicy() MeshConfig_AuthPolicy {
 	return MeshConfig_NONE
 }
 
+func (m *MeshConfig) GetRdsRefreshDelay() *google_protobuf.Duration {
+	if m != nil {
+		return m.RdsRefreshDelay
+	}
+	return nil
+}
+
 func (m *MeshConfig) GetEnableTracing() bool {
 	if m != nil {
 		return m.EnableTracing
@@ -284,9 +403,30 @@ func (m *MeshConfig) GetAccessLogFormat() string {
 	return ""
 }
 
+func (m *MeshConfig) GetAccessLogEncoding() MeshConfig_AccessLogEncoding {
+	if m != nil {
+		return m.AccessLogEncoding
+	}
+	return MeshConfig_TEXT
+}
+
 func (m *MeshConfig) GetDefaultConfig() *ProxyConfig {
 	if m != nil {
 		return m.DefaultConfig
+	}
+	return nil
+}
+
+func (m *MeshConfig) GetMixerAddress() string {
+	if m != nil {
+		return m.MixerAddress
+	}
+	return ""
+}
+
+func (m *MeshConfig) GetOutboundTrafficPolicy() *MeshConfig_OutboundTrafficPolicy {
+	if m != nil {
+		return m.OutboundTrafficPolicy
 	}
 	return nil
 }
@@ -303,6 +443,13 @@ func (m *MeshConfig) GetSdsUdsPath() string {
 		return m.SdsUdsPath
 	}
 	return ""
+}
+
+func (m *MeshConfig) GetSdsRefreshDelay() *google_protobuf.Duration {
+	if m != nil {
+		return m.SdsRefreshDelay
+	}
+	return nil
 }
 
 func (m *MeshConfig) GetConfigSources() []*ConfigSource {
@@ -326,18 +473,78 @@ func (m *MeshConfig) GetTrustDomain() string {
 	return ""
 }
 
+func (m *MeshConfig) GetDefaultServiceDependency() *MeshConfig_DefaultServiceDependency {
+	if m != nil {
+		return m.DefaultServiceDependency
+	}
+	return nil
+}
+
+type MeshConfig_OutboundTrafficPolicy struct {
+	Mode MeshConfig_OutboundTrafficPolicy_Mode `protobuf:"varint,1,opt,name=mode,proto3,enum=istio.mesh.v1alpha1.MeshConfig_OutboundTrafficPolicy_Mode" json:"mode,omitempty"`
+}
+
+func (m *MeshConfig_OutboundTrafficPolicy) Reset()         { *m = MeshConfig_OutboundTrafficPolicy{} }
+func (m *MeshConfig_OutboundTrafficPolicy) String() string { return proto.CompactTextString(m) }
+func (*MeshConfig_OutboundTrafficPolicy) ProtoMessage()    {}
+func (*MeshConfig_OutboundTrafficPolicy) Descriptor() ([]byte, []int) {
+	return fileDescriptorConfig, []int{0, 0}
+}
+
+func (m *MeshConfig_OutboundTrafficPolicy) GetMode() MeshConfig_OutboundTrafficPolicy_Mode {
+	if m != nil {
+		return m.Mode
+	}
+	return MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY
+}
+
+// Default service dependency settings for each workload in the
+// mesh. ServiceDependencycontrols the reachability of workloads to other
+// services in the mesh.
+type MeshConfig_DefaultServiceDependency struct {
+	// REQUIRED: The default import setting for every workload in the mesh.
+	ImportMode MeshConfig_DefaultServiceDependency_Mode `protobuf:"varint,1,opt,name=import_mode,json=importMode,proto3,enum=istio.mesh.v1alpha1.MeshConfig_DefaultServiceDependency_Mode" json:"import_mode,omitempty"`
+	// Specifies one or more namespaces that should be imported by default
+	// in all user defined ServiceDependency resources in addition to the
+	// namespaces explicitly specified by the end user. Use this setting to
+	// automatically import services/resources from namespaces such as
+	// istio-system that all workloads in the mesh depend upon.
+	ImportNamespaces []string `protobuf:"bytes,2,rep,name=import_namespaces,json=importNamespaces" json:"import_namespaces,omitempty"`
+}
+
+func (m *MeshConfig_DefaultServiceDependency) Reset()         { *m = MeshConfig_DefaultServiceDependency{} }
+func (m *MeshConfig_DefaultServiceDependency) String() string { return proto.CompactTextString(m) }
+func (*MeshConfig_DefaultServiceDependency) ProtoMessage()    {}
+func (*MeshConfig_DefaultServiceDependency) Descriptor() ([]byte, []int) {
+	return fileDescriptorConfig, []int{0, 1}
+}
+
+func (m *MeshConfig_DefaultServiceDependency) GetImportMode() MeshConfig_DefaultServiceDependency_Mode {
+	if m != nil {
+		return m.ImportMode
+	}
+	return MeshConfig_DefaultServiceDependency_ALL_NAMESPACES
+}
+
+func (m *MeshConfig_DefaultServiceDependency) GetImportNamespaces() []string {
+	if m != nil {
+		return m.ImportNamespaces
+	}
+	return nil
+}
+
 // ConfigSource describes information about a configuration store inside a
 // mesh. A single control plane instance can interact with one or more data
 // sources.
 type ConfigSource struct {
 	// Address of the server implementing the Istio Mesh Configuration
 	// protocol (MCP). Can be IP address or a fully qualified DNS name.
-	// Use file:/// to specify a file-based backend with absolute path to the directory.
+	// Use fs:/// to specify a file-based backend with absolute path to the directory.
 	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// Use the tls_settings to specify the tls mode to use. If the MCP server
 	// uses Istio MTLS and shares the root CA with Pilot, specify the TLS
 	// mode as ISTIO_MUTUAL.
-	TlsSettings *istio_networking_v1alpha31.TLSSettings `protobuf:"bytes,2,opt,name=tls_settings,json=tlsSettings" json:"tls_settings,omitempty"`
+	TlsSettings *istio_networking_v1alpha32.TLSSettings `protobuf:"bytes,2,opt,name=tls_settings,json=tlsSettings" json:"tls_settings,omitempty"`
 }
 
 func (m *ConfigSource) Reset()                    { *m = ConfigSource{} }
@@ -352,7 +559,7 @@ func (m *ConfigSource) GetAddress() string {
 	return ""
 }
 
-func (m *ConfigSource) GetTlsSettings() *istio_networking_v1alpha31.TLSSettings {
+func (m *ConfigSource) GetTlsSettings() *istio_networking_v1alpha32.TLSSettings {
 	if m != nil {
 		return m.TlsSettings
 	}
@@ -361,9 +568,14 @@ func (m *ConfigSource) GetTlsSettings() *istio_networking_v1alpha31.TLSSettings 
 
 func init() {
 	proto.RegisterType((*MeshConfig)(nil), "istio.mesh.v1alpha1.MeshConfig")
+	proto.RegisterType((*MeshConfig_OutboundTrafficPolicy)(nil), "istio.mesh.v1alpha1.MeshConfig.OutboundTrafficPolicy")
+	proto.RegisterType((*MeshConfig_DefaultServiceDependency)(nil), "istio.mesh.v1alpha1.MeshConfig.DefaultServiceDependency")
 	proto.RegisterType((*ConfigSource)(nil), "istio.mesh.v1alpha1.ConfigSource")
 	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_IngressControllerMode", MeshConfig_IngressControllerMode_name, MeshConfig_IngressControllerMode_value)
 	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_AuthPolicy", MeshConfig_AuthPolicy_name, MeshConfig_AuthPolicy_value)
+	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_AccessLogEncoding", MeshConfig_AccessLogEncoding_name, MeshConfig_AccessLogEncoding_value)
+	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_OutboundTrafficPolicy_Mode", MeshConfig_OutboundTrafficPolicy_Mode_name, MeshConfig_OutboundTrafficPolicy_Mode_value)
+	proto.RegisterEnum("istio.mesh.v1alpha1.MeshConfig_DefaultServiceDependency_Mode", MeshConfig_DefaultServiceDependency_Mode_name, MeshConfig_DefaultServiceDependency_Mode_value)
 }
 func (m *MeshConfig) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -444,6 +656,16 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.AuthPolicy))
 	}
+	if m.RdsRefreshDelay != nil {
+		dAtA[i] = 0x5a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.RdsRefreshDelay.Size()))
+		n2, err := m.RdsRefreshDelay.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
 	if m.EnableTracing {
 		dAtA[i] = 0x60
 		i++
@@ -464,11 +686,31 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x72
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.DefaultConfig.Size()))
-		n2, err := m.DefaultConfig.MarshalTo(dAtA[i:])
+		n3, err := m.DefaultConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n3
+	}
+	if len(m.MixerAddress) > 0 {
+		dAtA[i] = 0x82
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.MixerAddress)))
+		i += copy(dAtA[i:], m.MixerAddress)
+	}
+	if m.OutboundTrafficPolicy != nil {
+		dAtA[i] = 0x8a
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.OutboundTrafficPolicy.Size()))
+		n4, err := m.OutboundTrafficPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
 	}
 	if m.EnableClientSidePolicyCheck {
 		dAtA[i] = 0x98
@@ -489,6 +731,18 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.SdsUdsPath)))
 		i += copy(dAtA[i:], m.SdsUdsPath)
+	}
+	if m.SdsRefreshDelay != nil {
+		dAtA[i] = 0xaa
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.SdsRefreshDelay.Size()))
+		n5, err := m.SdsRefreshDelay.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
 	}
 	if len(m.ConfigSources) > 0 {
 		for _, msg := range m.ConfigSources {
@@ -544,6 +798,98 @@ func (m *MeshConfig) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.TrustDomain)))
 		i += copy(dAtA[i:], m.TrustDomain)
 	}
+	if m.AccessLogEncoding != 0 {
+		dAtA[i] = 0xd8
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.AccessLogEncoding))
+	}
+	if m.TcpKeepalive != nil {
+		dAtA[i] = 0xe2
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.TcpKeepalive.Size()))
+		n6, err := m.TcpKeepalive.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	if m.DefaultServiceDependency != nil {
+		dAtA[i] = 0xea
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.DefaultServiceDependency.Size()))
+		n7, err := m.DefaultServiceDependency.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	return i, nil
+}
+
+func (m *MeshConfig_OutboundTrafficPolicy) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MeshConfig_OutboundTrafficPolicy) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Mode != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.Mode))
+	}
+	return i, nil
+}
+
+func (m *MeshConfig_DefaultServiceDependency) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MeshConfig_DefaultServiceDependency) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.ImportMode != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.ImportMode))
+	}
+	if len(m.ImportNamespaces) > 0 {
+		for _, s := range m.ImportNamespaces {
+			dAtA[i] = 0x12
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
 	return i, nil
 }
 
@@ -572,11 +918,11 @@ func (m *ConfigSource) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(m.TlsSettings.Size()))
-		n3, err := m.TlsSettings.MarshalTo(dAtA[i:])
+		n8, err := m.TlsSettings.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n8
 	}
 	return i, nil
 }
@@ -628,6 +974,10 @@ func (m *MeshConfig) Size() (n int) {
 	if m.AuthPolicy != 0 {
 		n += 1 + sovConfig(uint64(m.AuthPolicy))
 	}
+	if m.RdsRefreshDelay != nil {
+		l = m.RdsRefreshDelay.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
 	if m.EnableTracing {
 		n += 2
 	}
@@ -639,11 +989,23 @@ func (m *MeshConfig) Size() (n int) {
 		l = m.DefaultConfig.Size()
 		n += 1 + l + sovConfig(uint64(l))
 	}
+	l = len(m.MixerAddress)
+	if l > 0 {
+		n += 2 + l + sovConfig(uint64(l))
+	}
+	if m.OutboundTrafficPolicy != nil {
+		l = m.OutboundTrafficPolicy.Size()
+		n += 2 + l + sovConfig(uint64(l))
+	}
 	if m.EnableClientSidePolicyCheck {
 		n += 3
 	}
 	l = len(m.SdsUdsPath)
 	if l > 0 {
+		n += 2 + l + sovConfig(uint64(l))
+	}
+	if m.SdsRefreshDelay != nil {
+		l = m.SdsRefreshDelay.Size()
 		n += 2 + l + sovConfig(uint64(l))
 	}
 	if len(m.ConfigSources) > 0 {
@@ -665,6 +1027,41 @@ func (m *MeshConfig) Size() (n int) {
 	l = len(m.TrustDomain)
 	if l > 0 {
 		n += 2 + l + sovConfig(uint64(l))
+	}
+	if m.AccessLogEncoding != 0 {
+		n += 2 + sovConfig(uint64(m.AccessLogEncoding))
+	}
+	if m.TcpKeepalive != nil {
+		l = m.TcpKeepalive.Size()
+		n += 2 + l + sovConfig(uint64(l))
+	}
+	if m.DefaultServiceDependency != nil {
+		l = m.DefaultServiceDependency.Size()
+		n += 2 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+
+func (m *MeshConfig_OutboundTrafficPolicy) Size() (n int) {
+	var l int
+	_ = l
+	if m.Mode != 0 {
+		n += 1 + sovConfig(uint64(m.Mode))
+	}
+	return n
+}
+
+func (m *MeshConfig_DefaultServiceDependency) Size() (n int) {
+	var l int
+	_ = l
+	if m.ImportMode != 0 {
+		n += 1 + sovConfig(uint64(m.ImportMode))
+	}
+	if len(m.ImportNamespaces) > 0 {
+		for _, s := range m.ImportNamespaces {
+			l = len(s)
+			n += 1 + l + sovConfig(uint64(l))
+		}
 	}
 	return n
 }
@@ -970,6 +1367,39 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RdsRefreshDelay", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RdsRefreshDelay == nil {
+				m.RdsRefreshDelay = &google_protobuf.Duration{}
+			}
+			if err := m.RdsRefreshDelay.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		case 12:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field EnableTracing", wireType)
@@ -1052,6 +1482,68 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 16:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MixerAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MixerAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 17:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OutboundTrafficPolicy", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.OutboundTrafficPolicy == nil {
+				m.OutboundTrafficPolicy = &MeshConfig_OutboundTrafficPolicy{}
+			}
+			if err := m.OutboundTrafficPolicy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		case 19:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field EnableClientSidePolicyCheck", wireType)
@@ -1100,6 +1592,39 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.SdsUdsPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 21:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SdsRefreshDelay", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SdsRefreshDelay == nil {
+				m.SdsRefreshDelay = &google_protobuf.Duration{}
+			}
+			if err := m.SdsRefreshDelay.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		case 22:
 			if wireType != 2 {
@@ -1230,6 +1755,258 @@ func (m *MeshConfig) Unmarshal(dAtA []byte) error {
 			}
 			m.TrustDomain = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 27:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccessLogEncoding", wireType)
+			}
+			m.AccessLogEncoding = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.AccessLogEncoding |= (MeshConfig_AccessLogEncoding(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 28:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TcpKeepalive", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.TcpKeepalive == nil {
+				m.TcpKeepalive = &istio_networking_v1alpha32.ConnectionPoolSettings_TCPSettings_TcpKeepalive{}
+			}
+			if err := m.TcpKeepalive.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 29:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DefaultServiceDependency", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DefaultServiceDependency == nil {
+				m.DefaultServiceDependency = &MeshConfig_DefaultServiceDependency{}
+			}
+			if err := m.DefaultServiceDependency.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MeshConfig_OutboundTrafficPolicy) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: OutboundTrafficPolicy: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: OutboundTrafficPolicy: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Mode", wireType)
+			}
+			m.Mode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Mode |= (MeshConfig_OutboundTrafficPolicy_Mode(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MeshConfig_DefaultServiceDependency) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DefaultServiceDependency: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DefaultServiceDependency: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ImportMode", wireType)
+			}
+			m.ImportMode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ImportMode |= (MeshConfig_DefaultServiceDependency_Mode(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ImportNamespaces", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ImportNamespaces = append(m.ImportNamespaces, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipConfig(dAtA[iNdEx:])
@@ -1336,7 +2113,7 @@ func (m *ConfigSource) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.TlsSettings == nil {
-				m.TlsSettings = &istio_networking_v1alpha31.TLSSettings{}
+				m.TlsSettings = &istio_networking_v1alpha32.TLSSettings{}
 			}
 			if err := m.TlsSettings.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -1471,59 +2248,83 @@ var (
 func init() { proto.RegisterFile("mesh/v1alpha1/config.proto", fileDescriptorConfig) }
 
 var fileDescriptorConfig = []byte{
-	// 857 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0x5d, 0x4f, 0x23, 0x37,
-	0x14, 0xdd, 0x81, 0x2c, 0x84, 0x9b, 0x0f, 0x06, 0xa7, 0xb0, 0x26, 0x95, 0x68, 0x96, 0xaa, 0x34,
-	0x42, 0xd5, 0x44, 0x1b, 0xd4, 0x87, 0x3e, 0x42, 0xd8, 0x74, 0x89, 0xc2, 0x82, 0x26, 0xe1, 0xa5,
-	0x2f, 0xd6, 0x30, 0xe3, 0x64, 0x2c, 0x1c, 0x7b, 0x64, 0x7b, 0xb6, 0xbb, 0xff, 0xb0, 0x4f, 0x55,
-	0x7f, 0x42, 0xc5, 0x2f, 0xa9, 0xc6, 0x9e, 0x90, 0x20, 0x45, 0xea, 0xa3, 0xcf, 0x39, 0xbe, 0xf7,
-	0xf8, 0xde, 0xeb, 0x0b, 0xed, 0x05, 0xd5, 0x69, 0xef, 0xcb, 0x87, 0x88, 0x67, 0x69, 0xf4, 0xa1,
-	0x17, 0x4b, 0x31, 0x63, 0xf3, 0x20, 0x53, 0xd2, 0x48, 0xd4, 0x62, 0xda, 0x30, 0x19, 0x14, 0x8a,
-	0x60, 0xa9, 0x68, 0x9f, 0xcc, 0xa5, 0x9c, 0x73, 0xda, 0xb3, 0x92, 0xc7, 0x7c, 0xd6, 0x4b, 0x72,
-	0x15, 0x19, 0x26, 0x85, 0xbb, 0xd4, 0x3e, 0x7e, 0x1d, 0x30, 0x53, 0xf2, 0xeb, 0xb7, 0x92, 0x3a,
-	0x17, 0xd4, 0xfc, 0x29, 0xd5, 0x13, 0x13, 0xf3, 0xa5, 0xe0, 0xa2, 0x97, 0x50, 0x6d, 0x98, 0xb0,
-	0x11, 0x88, 0xca, 0x39, 0x75, 0xda, 0xd3, 0xbf, 0xf7, 0x00, 0x6e, 0xa9, 0x4e, 0x07, 0xd6, 0x10,
-	0xfa, 0x05, 0xd0, 0x82, 0x7d, 0xa5, 0x8a, 0xc4, 0x29, 0x8d, 0x9f, 0x88, 0xa6, 0xea, 0x0b, 0x55,
-	0xd8, 0xeb, 0x78, 0xdd, 0xbd, 0xd0, 0xb7, 0xcc, 0xa0, 0x20, 0x26, 0x16, 0x47, 0x01, 0xb4, 0x9c,
-	0x5a, 0xd1, 0x4c, 0x2a, 0xb3, 0x94, 0x6f, 0x59, 0xf9, 0x81, 0xa5, 0x42, 0xcb, 0x94, 0xfa, 0x3e,
-	0x1c, 0x26, 0x4c, 0x47, 0x8f, 0x9c, 0x92, 0x4c, 0x72, 0x16, 0x7f, 0x73, 0x69, 0x34, 0xde, 0xee,
-	0x78, 0xdd, 0x6a, 0xd8, 0x2a, 0xc9, 0x7b, 0xcb, 0xd9, 0x44, 0x1a, 0x9d, 0xc3, 0x81, 0x7d, 0x1b,
-	0xe1, 0x4c, 0x1b, 0x2a, 0x48, 0x11, 0x0e, 0x57, 0x3a, 0x5e, 0xf7, 0x6d, 0xb8, 0x6f, 0x89, 0xb1,
-	0xc5, 0xef, 0xa5, 0x32, 0xe8, 0x0c, 0x1c, 0x44, 0x52, 0x63, 0x32, 0xa7, 0x7c, 0x6b, 0x95, 0x0d,
-	0x0b, 0x7f, 0x32, 0x26, 0xb3, 0xba, 0x2b, 0xd8, 0x8f, 0xa5, 0x10, 0x34, 0x36, 0xc4, 0xb0, 0x05,
-	0x95, 0xb9, 0xc1, 0x3b, 0x1d, 0xaf, 0x5b, 0xeb, 0x1f, 0x07, 0xae, 0xea, 0xc1, 0xb2, 0xea, 0xc1,
-	0x75, 0x59, 0xf5, 0xb0, 0x59, 0xde, 0x98, 0xba, 0x0b, 0xe8, 0x47, 0x68, 0x30, 0x31, 0x57, 0x54,
-	0x6b, 0x12, 0xf3, 0x48, 0x6b, 0xbc, 0x6b, 0x5f, 0x5d, 0x2f, 0xc1, 0x41, 0x81, 0xa1, 0x9f, 0x61,
-	0x7f, 0x29, 0x2a, 0x6a, 0xc3, 0x62, 0x8a, 0xab, 0x56, 0xd6, 0x2c, 0xe1, 0x89, 0x43, 0xd1, 0x02,
-	0xde, 0xbd, 0x44, 0x93, 0xc2, 0x28, 0xc9, 0x39, 0x55, 0x64, 0x21, 0x13, 0x8a, 0xf7, 0x3a, 0x5e,
-	0xb7, 0xd9, 0xff, 0x35, 0xd8, 0x30, 0x24, 0xc1, 0xaa, 0x73, 0xc1, 0x4d, 0x99, 0xf7, 0xe5, 0xf6,
-	0xad, 0x4c, 0x68, 0x78, 0xc8, 0x36, 0xc1, 0xe8, 0x0e, 0x6a, 0x51, 0x6e, 0xd2, 0xb2, 0x0b, 0x18,
-	0x6c, 0x8a, 0xf3, 0xff, 0x4b, 0x71, 0x99, 0x9b, 0xd4, 0xf5, 0xe6, 0x6a, 0x0b, 0x7b, 0x21, 0x44,
-	0x2f, 0x67, 0xf4, 0x13, 0x34, 0xa9, 0xb0, 0x8d, 0x35, 0x2a, 0x8a, 0x99, 0x98, 0xe3, 0xba, 0x6d,
-	0x69, 0xc3, 0xa1, 0x53, 0x07, 0x16, 0x0d, 0x8a, 0xe2, 0xb8, 0x78, 0x25, 0x97, 0x73, 0x32, 0x63,
-	0x9c, 0xe2, 0x86, 0xad, 0x47, 0xc3, 0xc1, 0x63, 0x39, 0x1f, 0x32, 0x4e, 0xd1, 0xef, 0xd0, 0x4c,
-	0xe8, 0x2c, 0xca, 0xb9, 0x21, 0xee, 0xa7, 0xe0, 0xa6, 0xed, 0x4f, 0x67, 0xa3, 0xc5, 0xfb, 0xa2,
-	0xb9, 0xce, 0x63, 0xd8, 0x28, 0xef, 0x95, 0xf3, 0x7c, 0x0d, 0x3f, 0x94, 0xbe, 0x62, 0xce, 0xa8,
-	0x30, 0x44, 0xb3, 0xe4, 0xf5, 0xf0, 0xe1, 0x96, 0x35, 0xfa, 0xbd, 0x93, 0x0d, 0xac, 0x6a, 0xc2,
-	0x92, 0xf5, 0x21, 0x44, 0x1d, 0xa8, 0xeb, 0x44, 0x93, 0x3c, 0xd1, 0x24, 0x8b, 0x4c, 0x8a, 0xbf,
-	0xb3, 0x9e, 0x41, 0x27, 0xfa, 0x21, 0xd1, 0xf7, 0x91, 0x49, 0xd1, 0x27, 0x68, 0x3a, 0xa3, 0x44,
-	0xcb, 0x5c, 0xc5, 0x54, 0xe3, 0xa3, 0xce, 0x76, 0xb7, 0xd6, 0x7f, 0xbf, 0xd1, 0xb0, 0x33, 0x37,
-	0xb1, 0xca, 0xb0, 0x11, 0xaf, 0x9d, 0x34, 0xba, 0x80, 0xa3, 0xd2, 0x71, 0x91, 0xd2, 0xc8, 0x27,
-	0x2a, 0xc8, 0x42, 0xe6, 0xc2, 0xe0, 0x77, 0xee, 0x93, 0x38, 0x76, 0x92, 0xe8, 0x69, 0xc1, 0xdd,
-	0x16, 0x54, 0xf1, 0x49, 0xd6, 0xeb, 0x2a, 0xd5, 0x22, 0x32, 0x18, 0x5b, 0x97, 0xfb, 0xab, 0xca,
-	0x5a, 0xb8, 0x48, 0xb0, 0xfe, 0x7e, 0x32, 0x8b, 0x18, 0x27, 0x32, 0xa3, 0x02, 0x1f, 0xbb, 0x04,
-	0xd9, 0xea, 0xe5, 0xc3, 0x88, 0xf1, 0xbb, 0x8c, 0x0a, 0xf4, 0x1e, 0xea, 0x46, 0xe5, 0xda, 0x90,
-	0x44, 0x2e, 0x22, 0x26, 0x70, 0xdb, 0xc6, 0xae, 0x59, 0xec, 0xda, 0x42, 0xa7, 0xbf, 0xc1, 0xe1,
-	0xc6, 0x19, 0x44, 0xbb, 0xb0, 0x7d, 0x37, 0x1c, 0xfa, 0x6f, 0x50, 0x0d, 0x76, 0xaf, 0x3f, 0x0e,
-	0x2f, 0x1f, 0xc6, 0x53, 0xdf, 0x43, 0x00, 0x3b, 0x93, 0x69, 0x78, 0x33, 0x98, 0xfa, 0x5b, 0xa7,
-	0x67, 0x00, 0xab, 0xd9, 0x42, 0x55, 0xa8, 0x7c, 0xbe, 0xfb, 0xfc, 0xd1, 0x7f, 0x83, 0x9a, 0x00,
-	0xb7, 0x0f, 0xd3, 0x87, 0xcb, 0x31, 0x99, 0x8e, 0x27, 0xbe, 0x37, 0xaa, 0x54, 0x6b, 0x7e, 0x7d,
-	0x54, 0xa9, 0xee, 0xfb, 0xfe, 0xa8, 0x52, 0xf5, 0xfd, 0x83, 0x51, 0xa5, 0x7a, 0xe0, 0xa3, 0x51,
-	0xa5, 0x8a, 0xfc, 0xd6, 0xa8, 0x52, 0x3d, 0xf4, 0x8f, 0x4e, 0x35, 0xd4, 0xd7, 0xcb, 0x8b, 0x30,
-	0xec, 0x46, 0x49, 0x52, 0xd8, 0x2a, 0xd7, 0xd8, 0xf2, 0x88, 0x6e, 0xa0, 0x6e, 0x78, 0xf1, 0x31,
-	0x8d, 0x61, 0x62, 0xae, 0xed, 0xda, 0xaa, 0xf5, 0xcf, 0xca, 0x8e, 0xad, 0x76, 0xe8, 0xb2, 0x6f,
-	0x17, 0xc1, 0x74, 0x3c, 0x99, 0x94, 0xea, 0xb0, 0x66, 0xb8, 0x5e, 0x1e, 0xae, 0xba, 0x7f, 0x3d,
-	0x9f, 0x78, 0xff, 0x3c, 0x9f, 0x78, 0xff, 0x3e, 0x9f, 0x78, 0x7f, 0xb4, 0x5d, 0x04, 0x26, 0x7b,
-	0x51, 0xc6, 0x7a, 0xaf, 0xf6, 0xf4, 0xe3, 0x8e, 0xdd, 0x2c, 0x17, 0xff, 0x05, 0x00, 0x00, 0xff,
-	0xff, 0x36, 0x90, 0xf4, 0x9e, 0x10, 0x06, 0x00, 0x00,
+	// 1235 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0x5d, 0x6f, 0xdb, 0xb6,
+	0x1a, 0x8e, 0x92, 0xb4, 0x49, 0x5f, 0x7f, 0x44, 0x66, 0x9a, 0x96, 0x75, 0x7b, 0x72, 0xdc, 0x1c,
+	0x9c, 0xd6, 0xe8, 0x39, 0xb0, 0xd1, 0x04, 0x03, 0xb6, 0x01, 0xbb, 0x70, 0x6d, 0xa7, 0x75, 0xe6,
+	0xd8, 0x86, 0xa4, 0x74, 0xeb, 0x2e, 0x46, 0x28, 0x12, 0x6d, 0x13, 0x91, 0x45, 0x4d, 0xa4, 0xb3,
+	0xe6, 0xb7, 0xed, 0x0f, 0xec, 0x72, 0x77, 0xbb, 0x1d, 0xfa, 0x1f, 0x76, 0x3f, 0x90, 0x94, 0x62,
+	0xb7, 0x75, 0x97, 0xa1, 0x77, 0xe2, 0xf3, 0x7e, 0xf1, 0x7d, 0xde, 0x0f, 0x0a, 0xaa, 0x33, 0x2a,
+	0xa6, 0xcd, 0xcb, 0xe7, 0x7e, 0x94, 0x4c, 0xfd, 0xe7, 0xcd, 0x80, 0xc7, 0x63, 0x36, 0x69, 0x24,
+	0x29, 0x97, 0x1c, 0xed, 0x32, 0x21, 0x19, 0x6f, 0x28, 0x8d, 0x46, 0xae, 0x51, 0xdd, 0x9f, 0x70,
+	0x3e, 0x89, 0x68, 0x53, 0xab, 0x9c, 0xcf, 0xc7, 0xcd, 0x70, 0x9e, 0xfa, 0x92, 0xf1, 0xd8, 0x18,
+	0x55, 0x1f, 0xbc, 0xef, 0x30, 0x49, 0xf9, 0xdb, 0xab, 0x4c, 0xf4, 0x2c, 0xa6, 0xf2, 0x67, 0x9e,
+	0x5e, 0xb0, 0x78, 0x92, 0x2b, 0x1c, 0x35, 0x43, 0x2a, 0x24, 0x8b, 0xb5, 0x07, 0x92, 0xce, 0x23,
+	0x6a, 0x74, 0x0f, 0xfe, 0xac, 0x00, 0x9c, 0x52, 0x31, 0x6d, 0xeb, 0x0b, 0xa1, 0xff, 0x03, 0x9a,
+	0xb1, 0xb7, 0x34, 0x25, 0xc1, 0x94, 0x06, 0x17, 0x44, 0xd0, 0xf4, 0x92, 0xa6, 0xd8, 0xaa, 0x59,
+	0xf5, 0x3b, 0x8e, 0xad, 0x25, 0x6d, 0x25, 0x70, 0x35, 0x8e, 0x1a, 0xb0, 0x6b, 0xb4, 0x53, 0x9a,
+	0xf0, 0x54, 0xe6, 0xea, 0xeb, 0x5a, 0xbd, 0xa2, 0x45, 0x8e, 0x96, 0x64, 0xfa, 0x87, 0xb0, 0x17,
+	0x32, 0xe1, 0x9f, 0x47, 0x94, 0x24, 0x3c, 0x62, 0xc1, 0x95, 0x09, 0x23, 0xf0, 0x46, 0xcd, 0xaa,
+	0x6f, 0x3b, 0xbb, 0x99, 0x70, 0xa4, 0x65, 0x3a, 0x90, 0x40, 0xcf, 0xa0, 0xa2, 0x73, 0x23, 0x11,
+	0x13, 0x92, 0xc6, 0x44, 0xb9, 0xc3, 0x9b, 0x35, 0xab, 0x7e, 0xcb, 0xd9, 0xd1, 0x82, 0xbe, 0xc6,
+	0x47, 0x3c, 0x95, 0xe8, 0x09, 0x18, 0x88, 0x4c, 0xa5, 0x4c, 0x8c, 0xe6, 0x2d, 0xad, 0x59, 0xd2,
+	0xf0, 0x2b, 0x29, 0x13, 0xad, 0xf7, 0x02, 0x76, 0x02, 0x1e, 0xc7, 0x34, 0x90, 0x44, 0xb2, 0x19,
+	0xe5, 0x73, 0x89, 0x6f, 0xd7, 0xac, 0x7a, 0xe1, 0xf0, 0x41, 0xc3, 0xb0, 0xde, 0xc8, 0x59, 0x6f,
+	0x74, 0x32, 0xd6, 0x9d, 0x72, 0x66, 0xe1, 0x19, 0x03, 0xf4, 0x1f, 0x28, 0xb1, 0x78, 0x92, 0x52,
+	0x21, 0x48, 0x10, 0xf9, 0x42, 0xe0, 0x2d, 0x9d, 0x75, 0x31, 0x03, 0xdb, 0x0a, 0x43, 0x4f, 0x61,
+	0x27, 0x57, 0x52, 0xdc, 0xb0, 0x80, 0xe2, 0x6d, 0xad, 0x56, 0xce, 0x60, 0xd7, 0xa0, 0x68, 0x06,
+	0xf7, 0xaf, 0xbd, 0xf1, 0x58, 0xa6, 0x3c, 0x8a, 0x68, 0x4a, 0x66, 0x3c, 0xa4, 0xf8, 0x4e, 0xcd,
+	0xaa, 0x97, 0x0f, 0xbf, 0x68, 0xac, 0x68, 0x92, 0xc6, 0xa2, 0x72, 0x8d, 0x5e, 0x16, 0xf7, 0xda,
+	0xfa, 0x94, 0x87, 0xd4, 0xd9, 0x63, 0xab, 0x60, 0x34, 0x84, 0x82, 0x3f, 0x97, 0xd3, 0xac, 0x0a,
+	0x18, 0x74, 0x88, 0x67, 0x37, 0x85, 0x68, 0xcd, 0xe5, 0xd4, 0xd4, 0xe6, 0xc5, 0x3a, 0xb6, 0x1c,
+	0xf0, 0xaf, 0xcf, 0xa8, 0x07, 0x95, 0x34, 0x14, 0x24, 0xa5, 0xe3, 0x94, 0x8a, 0x29, 0x09, 0x69,
+	0xe4, 0x5f, 0xe1, 0xc2, 0x0d, 0x9c, 0x6a, 0x2f, 0x3b, 0x69, 0x28, 0x1c, 0x63, 0xd6, 0x51, 0x56,
+	0xe8, 0xbf, 0x50, 0xa6, 0xb1, 0xee, 0x11, 0x99, 0xfa, 0x01, 0x8b, 0x27, 0xb8, 0xa8, 0xbb, 0xa3,
+	0x64, 0x50, 0xcf, 0x80, 0xaa, 0xd6, 0x7e, 0x10, 0x28, 0xc2, 0x22, 0x3e, 0x21, 0x63, 0x16, 0x51,
+	0x5c, 0xd2, 0xd4, 0x96, 0x0c, 0xdc, 0xe7, 0x93, 0x63, 0x16, 0x51, 0xf4, 0x12, 0xca, 0x21, 0x1d,
+	0xfb, 0xf3, 0x48, 0x12, 0x33, 0x74, 0xb8, 0xac, 0xaf, 0x55, 0x5b, 0x99, 0xed, 0x48, 0xf5, 0x89,
+	0x49, 0xd7, 0x29, 0x65, 0x76, 0xd9, 0x68, 0x3c, 0x85, 0x92, 0x69, 0x76, 0x3f, 0x0c, 0x15, 0xa5,
+	0xd8, 0x56, 0xe1, 0x74, 0x0e, 0x45, 0x2d, 0x68, 0x19, 0x1c, 0xfd, 0x04, 0xf7, 0xf9, 0x5c, 0x9e,
+	0xf3, 0x79, 0x1c, 0xaa, 0x14, 0xc6, 0x63, 0x16, 0xe4, 0x44, 0x57, 0x74, 0xe8, 0x1b, 0x6b, 0x39,
+	0xcc, 0xcc, 0x3d, 0x63, 0xbd, 0xc4, 0xf9, 0x1e, 0x5f, 0x25, 0x42, 0x1d, 0xf8, 0x77, 0xc6, 0x59,
+	0x10, 0x31, 0x1a, 0x4b, 0x22, 0x58, 0xf8, 0xfe, 0x8c, 0xe1, 0x5d, 0x4d, 0xe2, 0x43, 0xa3, 0xd6,
+	0xd6, 0x5a, 0x2e, 0x0b, 0x97, 0x67, 0x0d, 0xd5, 0xa0, 0x28, 0x42, 0x41, 0xe6, 0xa1, 0x20, 0x89,
+	0x2f, 0xa7, 0xf8, 0xae, 0xe6, 0x13, 0x44, 0x28, 0xce, 0x42, 0x31, 0xf2, 0xe5, 0x54, 0x95, 0x59,
+	0x7c, 0x54, 0xe6, 0xbd, 0x7f, 0x54, 0x66, 0xf1, 0x41, 0x99, 0x5f, 0x41, 0xd9, 0xd4, 0x83, 0x08,
+	0x3e, 0x4f, 0x03, 0x2a, 0xf0, 0xbd, 0xda, 0x46, 0xbd, 0x70, 0xf8, 0x78, 0x25, 0x39, 0x86, 0x18,
+	0x57, 0x6b, 0x3a, 0xa5, 0x60, 0xe9, 0x24, 0xd0, 0x11, 0xdc, 0xcb, 0x92, 0x57, 0x77, 0x93, 0xfc,
+	0x82, 0xc6, 0x64, 0xc6, 0xe7, 0xb1, 0xc4, 0xf7, 0xcd, 0x5a, 0x31, 0x52, 0x37, 0x14, 0x9e, 0x92,
+	0x9d, 0x2a, 0x91, 0x5a, 0x2b, 0xcb, 0xed, 0xc3, 0xd3, 0x99, 0x2f, 0x31, 0xd6, 0x09, 0xef, 0x2c,
+	0x1a, 0x48, 0xc3, 0x2a, 0xc0, 0x32, 0x95, 0x64, 0xec, 0xb3, 0x88, 0xf0, 0x84, 0xc6, 0xf8, 0x81,
+	0x09, 0x90, 0x2c, 0x48, 0x3c, 0xf6, 0x59, 0x34, 0x4c, 0x68, 0x8c, 0x1e, 0x43, 0x51, 0xa6, 0x73,
+	0x21, 0x49, 0xc8, 0x67, 0x3e, 0x8b, 0x71, 0x55, 0xfb, 0x2e, 0x68, 0xac, 0xa3, 0x21, 0xe4, 0xc3,
+	0xee, 0xd2, 0x1d, 0x68, 0x1c, 0xf0, 0x50, 0xb5, 0xfb, 0x43, 0x3d, 0x8d, 0xcf, 0x6f, 0x9c, 0xc6,
+	0xfc, 0x96, 0xdd, 0xcc, 0xd0, 0xa9, 0xf8, 0x1f, 0x42, 0x88, 0x43, 0x49, 0x06, 0x09, 0xb9, 0xa0,
+	0x34, 0xf1, 0x23, 0x76, 0x49, 0xf1, 0x23, 0x5d, 0xac, 0x93, 0xcc, 0xf9, 0xe2, 0xa1, 0xc8, 0x43,
+	0x1c, 0x29, 0xaa, 0xd5, 0x9e, 0x63, 0x3c, 0x1e, 0x71, 0x1e, 0xb9, 0x54, 0x4a, 0x16, 0x4f, 0x44,
+	0xc3, 0x6b, 0x8f, 0x16, 0xdf, 0x41, 0xf2, 0x6d, 0xee, 0xd1, 0x29, 0xca, 0xa5, 0x13, 0xba, 0x84,
+	0x6a, 0x3e, 0x6e, 0xd9, 0xc6, 0x23, 0x21, 0x4d, 0x68, 0x1c, 0xd2, 0x38, 0xb8, 0xc2, 0xff, 0xd2,
+	0xd1, 0xbf, 0xbc, 0x29, 0xb5, 0x8e, 0xf1, 0x90, 0x2d, 0xc7, 0xce, 0xb5, 0xbd, 0x83, 0xc3, 0x4f,
+	0x48, 0xaa, 0xbf, 0x58, 0xb0, 0xb7, 0x72, 0x6c, 0x90, 0x03, 0x9b, 0x7a, 0x8f, 0x5a, 0x9a, 0xd6,
+	0xaf, 0x3f, 0x6b, 0xf6, 0x1a, 0x6a, 0x6b, 0xea, 0x3e, 0xd6, 0xbe, 0x0e, 0x06, 0xb0, 0xa9, 0xf7,
+	0xe8, 0x1e, 0x94, 0x9c, 0xee, 0xcb, 0x9e, 0xeb, 0x39, 0x6f, 0xc8, 0x70, 0xd0, 0x7f, 0x63, 0xaf,
+	0x55, 0xd7, 0xb7, 0x2d, 0x54, 0x81, 0x3b, 0xad, 0x7e, 0x7f, 0xf8, 0x1d, 0x69, 0x0d, 0xde, 0xd8,
+	0x96, 0x86, 0x1e, 0xc1, 0xdd, 0xd7, 0x3d, 0xc7, 0x3b, 0x6b, 0xf5, 0x89, 0xdb, 0x75, 0x5e, 0xf7,
+	0xda, 0x5d, 0x63, 0xb0, 0xae, 0xa4, 0xd5, 0xdf, 0x2d, 0xc0, 0x9f, 0x4a, 0x1a, 0xfd, 0x08, 0x05,
+	0x36, 0xd3, 0xef, 0xeb, 0x52, 0x1e, 0xdf, 0x7c, 0x2e, 0x87, 0x3a, 0x15, 0x07, 0x8c, 0x47, 0x9d,
+	0xc4, 0xff, 0xa0, 0x92, 0xf9, 0x8f, 0xfd, 0x19, 0x15, 0x89, 0xaf, 0x86, 0x71, 0xbd, 0xb6, 0xa1,
+	0x9e, 0x7c, 0x23, 0x18, 0x5c, 0xe3, 0x07, 0x8d, 0x2c, 0x73, 0x04, 0xe5, 0x56, 0xbf, 0x4f, 0x06,
+	0xad, 0xd3, 0xae, 0x3b, 0x6a, 0xb5, 0xbb, 0xae, 0xbd, 0xa6, 0x30, 0xb7, 0x75, 0xda, 0x5d, 0x80,
+	0xb6, 0x75, 0xf0, 0x15, 0xec, 0xad, 0x7c, 0x99, 0xd0, 0x16, 0x6c, 0x0c, 0x8f, 0x8f, 0xed, 0x35,
+	0x54, 0x80, 0xad, 0x4e, 0xf7, 0xb8, 0x75, 0xd6, 0xf7, 0x6c, 0x0b, 0x01, 0xdc, 0x76, 0x3d, 0xa7,
+	0xd7, 0xf6, 0xec, 0xf5, 0x83, 0x27, 0x00, 0x8b, 0x17, 0x07, 0x6d, 0xc3, 0xe6, 0x60, 0x38, 0xe8,
+	0xda, 0x6b, 0xa8, 0x0c, 0x70, 0x7a, 0xa6, 0x99, 0xf4, 0xfa, 0xae, 0x6d, 0x1d, 0x3c, 0x85, 0xca,
+	0x47, 0xb3, 0xa0, 0xd4, 0xbd, 0xee, 0xf7, 0x9e, 0xbd, 0xa6, 0xbe, 0x4e, 0xdc, 0xe1, 0xc0, 0xb6,
+	0x4e, 0x36, 0xb7, 0x77, 0x6c, 0xfb, 0x64, 0x73, 0x1b, 0xd9, 0xbb, 0x07, 0x02, 0x8a, 0xcb, 0x3b,
+	0x05, 0x61, 0xd8, 0xca, 0xf7, 0xba, 0xf9, 0xdb, 0xc9, 0x8f, 0xa8, 0x07, 0x45, 0x19, 0xa9, 0xf7,
+	0xdb, 0x34, 0xbf, 0xfe, 0xbb, 0x29, 0x1c, 0x3e, 0xf9, 0x9b, 0x09, 0xf2, 0xfa, 0x6e, 0x3e, 0x2a,
+	0x4e, 0x41, 0x46, 0x22, 0x3f, 0xbc, 0xa8, 0xff, 0xfa, 0x6e, 0xdf, 0xfa, 0xed, 0xdd, 0xbe, 0xf5,
+	0xc7, 0xbb, 0x7d, 0xeb, 0x87, 0xaa, 0xf1, 0xc0, 0x78, 0xd3, 0x4f, 0x58, 0xf3, 0xbd, 0xdf, 0xb9,
+	0xf3, 0xdb, 0x7a, 0x8b, 0x1e, 0xfd, 0x15, 0x00, 0x00, 0xff, 0xff, 0xa2, 0xcc, 0xca, 0xe8, 0x37,
+	0x0a, 0x00, 0x00,
 }

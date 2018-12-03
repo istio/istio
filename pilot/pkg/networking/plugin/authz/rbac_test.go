@@ -221,7 +221,7 @@ func TestBuildTCPFilter(t *testing.T) {
 			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
 			rbacConfig := &network_config.RBAC{}
-			if err := util.StructToMessage(filter.Config, rbacConfig); err != nil {
+			if err := util.StructToMessage(filter.GetConfig(), rbacConfig); err != nil {
 				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
 			} else {
 				if rbacConfig.StatPrefix != "tcp." {
@@ -310,7 +310,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
 			rbacConfig := &http_config.RBAC{}
-			if err := util.StructToMessage(filter.Config, rbacConfig); err != nil {
+			if err := util.StructToMessage(filter.GetConfig(), rbacConfig); err != nil {
 				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
 			} else {
 				rbac := rbacConfig.Rules
@@ -1316,10 +1316,11 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 	cases := []struct {
 		k      string
 		v      string
+		tcp    bool
 		expect *metadata.MetadataMatcher
 	}{
 		{
-			k: attrSrcNamespace, v: "test-ns*",
+			k: attrSrcNamespace, v: "test-ns*", tcp: false,
 			expect: generateMetadataStringMatcher(attrSrcPrincipal, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Regex{
 					Regex: `.*/ns/test-ns.*/.*`,
@@ -1327,15 +1328,15 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 			}, authn.AuthnFilterName),
 		},
 		{
-			k: attrRequestClaims + "[groups]", v: "group*",
+			k: attrRequestClaims + "[groups]", v: "group*", tcp: false,
 			expect: generateMetadataListMatcher([]string{attrRequestClaims, "groups"}, "group*"),
 		},
 		{
-			k: attrRequestClaims + "[iss]", v: "test-iss",
+			k: attrRequestClaims + "[iss]", v: "test-iss", tcp: false,
 			expect: generateMetadataListMatcher([]string{attrRequestClaims, "iss"}, "test-iss"),
 		},
 		{
-			k: attrSrcUser, v: "*test-user",
+			k: attrSrcUser, v: "*test-user", tcp: false,
 			expect: generateMetadataStringMatcher(attrSrcUser, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Suffix{
 					Suffix: "test-user",
@@ -1343,7 +1344,7 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 			}, authn.AuthnFilterName),
 		},
 		{
-			k: attrRequestAudiences, v: "test-audiences",
+			k: attrRequestAudiences, v: "test-audiences", tcp: false,
 			expect: generateMetadataStringMatcher(attrRequestAudiences, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Exact{
 					Exact: "test-audiences",
@@ -1351,7 +1352,7 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 			}, authn.AuthnFilterName),
 		},
 		{
-			k: attrRequestPresenter, v: "*",
+			k: attrRequestPresenter, v: "*", tcp: false,
 			expect: generateMetadataStringMatcher(attrRequestPresenter, &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Regex{
 					Regex: ".*",
@@ -1359,17 +1360,25 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 			}, authn.AuthnFilterName),
 		},
 		{
-			k: "custom.attribute", v: "custom-value",
+			k: "custom.attribute", v: "custom-value", tcp: false,
 			expect: generateMetadataStringMatcher("custom.attribute", &metadata.StringMatcher{
 				MatchPattern: &metadata.StringMatcher_Exact{
 					Exact: "custom-value",
 				},
 			}, rbacHTTPFilterName),
 		},
+		{
+			k: "custom.attribute", v: "custom-value", tcp: true,
+			expect: generateMetadataStringMatcher("custom.attribute", &metadata.StringMatcher{
+				MatchPattern: &metadata.StringMatcher_Exact{
+					Exact: "custom-value",
+				},
+			}, rbacTCPFilterName),
+		},
 	}
 
 	for _, tc := range cases {
-		actual := createDynamicMetadataMatcher(tc.k, tc.v)
+		actual := createDynamicMetadataMatcher(tc.k, tc.v, tc.tcp)
 		if !reflect.DeepEqual(*actual, *tc.expect) {
 			t.Errorf("(%s, %v): expecting %v, but got %v", tc.k, tc.v, *tc.expect, *actual)
 		}

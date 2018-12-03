@@ -541,9 +541,10 @@ func echoClientHandler(w http.ResponseWriter, r *http.Request) {
 			<-throttle
 			wg.Add(1)
 
+			ic := i
 			go func() {
 				defer wg.Done()
-				e := j(i, w)
+				e := j(ic, w)
 				if e != nil {
 					m.Lock()
 					err = e

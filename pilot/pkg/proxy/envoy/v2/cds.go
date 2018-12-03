@@ -64,9 +64,9 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	}
 	pushes.With(prometheus.Labels{"type": "cds"}).Add(1)
 
-	// The response can't be easily read due to 'any' marshalling.
+	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
-		con.modelNode.ID, con.PeerAddr, len(rawClusters), len(push.Services))
+		con.modelNode.ID, con.PeerAddr, len(rawClusters), len(push.Services(nil)))
 	return nil
 }
 

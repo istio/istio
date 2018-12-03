@@ -114,10 +114,10 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 			Address:     MakeIP(service, version),
 			Port:        target,
 			ServicePort: port,
+			Locality:    az,
 		},
-		Service:          service,
-		Labels:           map[string]string{"version": fmt.Sprintf("v%d", version)},
-		AvailabilityZone: az,
+		Service: service,
+		Labels:  map[string]string{"version": fmt.Sprintf("v%d", version)},
 	}
 }
 

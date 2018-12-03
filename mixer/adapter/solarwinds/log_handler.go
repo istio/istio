@@ -36,7 +36,7 @@ type logHandler struct {
 	paperTrailLogger papertrail.LoggerInterface
 }
 
-func newLogHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (logHandlerInterface, error) {
+func newLogHandler(env adapter.Env, cfg *config.Params) (logHandlerInterface, error) {
 	var ppi papertrail.LoggerInterface
 	var err error
 	if strings.TrimSpace(cfg.PapertrailUrl) != "" {

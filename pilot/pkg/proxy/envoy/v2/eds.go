@@ -17,7 +17,6 @@ package v2
 import (
 	"context"
 	"errors"
-	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -64,11 +63,6 @@ var (
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
-)
-
-const (
-	// The range of LoadBalancingWeight is [1, 128]
-	maxLoadBalancingWeight = 128
 )
 
 // EdsCluster tracks eds-related info for monitored clusters. In practice it'll include
@@ -240,17 +234,12 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 			}
 			cnt++
 
-			// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
-			// Once we do that, the key must be a | separated tupple.
-			locality := (el.Labels)[model.AZLabel] // may be ""
-			locLbEps, found := localityEpMap[locality]
+			locLbEps, found := localityEpMap[el.Locality]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: &core.Locality{
-						Zone: locality,
-					},
+					Locality: util.ConvertLocality(el.Locality),
 				}
-				localityEpMap[locality] = locLbEps
+				localityEpMap[el.Locality] = locLbEps
 			}
 			if el.EnvoyEndpoint == nil {
 				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort, el.Network)
@@ -278,6 +267,9 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
+
+	// Normalize LoadBalancingWeight in range [1, 128]
+	locEps = LoadBalancingWeightNormalize(locEps)
 
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
@@ -315,7 +307,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 	for _, registry := range registries {
 		// Each registry acts as a shard - we don't want to combine them because some
 		// may individually update their endpoints incrementally
-		for _, svc := range push.Services {
+		for _, svc := range push.Services(nil) {
 			entries := []*model.IstioEndpoint{}
 			hostname := string(svc.Hostname)
 			for _, port := range svc.Ports {
@@ -339,6 +331,8 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 						UID:             ep.Endpoint.UID,
 						ServiceAccount:  ep.ServiceAccount,
 						Network:         ep.Endpoint.Network,
+						Locality:        ep.GetLocality(),
+						LbWeight:        ep.Endpoint.LbWeight,
 					})
 					if ep.ServiceAccount != "" {
 						account, f := svc2account[hostname]
@@ -400,6 +394,10 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
+
+	// Normalize LoadBalancingWeight in range [1, 128]
+	locEps = LoadBalancingWeightNormalize(locEps)
+
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -432,8 +430,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 // Only clusters that changed are updated/pushed.
 func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*EndpointShardsByService) {
 	adsLog.Infof("XDS:EDSInc Pushing %s Services: %v, "+
-		"VirtualServices: %d, ConnectedEndpoints: %d", version, edsUpdates,
-		len(push.VirtualServiceConfigs), adsClientCount())
+		"ConnectedEndpoints: %d", version, edsUpdates, adsClientCount())
 	t0 := time.Now()
 
 	// First update all cluster load assignments. This is computed for each cluster once per config change
@@ -561,10 +558,15 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
 
-	if requireFull {
-		s.ConfigUpdate(true)
-	} else {
-		s.ConfigUpdate(false)
+	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
+	// no need to trigger push here.
+	// It is done in DiscoveryServer.Push --> AdsPushAll
+	if !internal {
+		if requireFull {
+			s.ConfigUpdate(true)
+		} else {
+			s.ConfigUpdate(false)
+		}
 	}
 }
 
@@ -581,15 +583,11 @@ func localityLbEndpointsFromInstances(instances []*model.ServiceInstance) []endp
 			totalXDSInternalErrors.Add(1)
 			continue
 		}
-		// TODO: Need to accommodate region, zone and subzone. Older Pilot datamodel only has zone = availability zone.
-		// Once we do that, the key must be a | separated tupple.
-		locality := instance.GetAZ()
+		locality := instance.GetLocality()
 		locLbEps, found := localityEpMap[locality]
 		if !found {
 			locLbEps = &endpoint.LocalityLbEndpoints{
-				Locality: &core.Locality{
-					Zone: locality,
-				},
+				Locality: util.ConvertLocality(locality),
 			}
 			localityEpMap[locality] = locLbEps
 		}
@@ -616,7 +614,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	emptyClusters := 0
 	endpoints := 0
 	empty := []string{}
-
 	updated := []string{}
 
 	for _, clusterName := range con.Clusters {
@@ -648,19 +645,18 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			l = loadAssignment(c)
 		}
 
-		// Apply registered endpoints filter functions and create a new
-		// ClusterLoadAssignment to be pushed with filtered endpoints
-		if len(s.endpointsFilterFuncs) > 0 {
+		// If networks are set (by default they aren't) apply the Split Horizon
+		// EDS filter on the endpoints
+		if s.Env.MeshNetworks != nil && len(s.Env.MeshNetworks.Networks) > 0 {
+			endpoints := EndpointsByNetworkFilter(l.Endpoints, con, s.Env)
+			endpoints = LoadBalancingWeightNormalize(endpoints)
 			filteredCLA := &xdsapi.ClusterLoadAssignment{
 				ClusterName: l.ClusterName,
-				Endpoints:   s.applyEndpointsFilterFuncs(l.Endpoints, con),
+				Endpoints:   endpoints,
 				Policy:      l.Policy,
 			}
 			l = filteredCLA
 		}
-
-		// Normalize LoadBalancingWeight in range [1, 128]
-		l.Endpoints = normalizeLoadBalancingWeight(l.Endpoints)
 
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
@@ -779,27 +775,4 @@ func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.Discov
 // StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
 func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
 	return errors.New("unsupported streaming method")
-}
-
-// normalizeLoadBalancingWeight set LoadBalancingWeight with a valid value.
-func normalizeLoadBalancingWeight(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
-	var totalLbEndpointsNum uint32
-
-	for _, localityLbEndpoint := range endpoints {
-		totalLbEndpointsNum += localityLbEndpoint.GetLoadBalancingWeight().GetValue()
-	}
-	if totalLbEndpointsNum == 0 {
-		return endpoints
-	}
-
-	out := make([]endpoint.LocalityLbEndpoints, len(endpoints))
-	for i, localityLbEndpoint := range endpoints {
-		weight := float64(localityLbEndpoint.GetLoadBalancingWeight().GetValue()*maxLoadBalancingWeight) / float64(totalLbEndpointsNum)
-		localityLbEndpoint.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(math.Ceil(weight)),
-		}
-		out[i] = localityLbEndpoint
-	}
-
-	return out
 }

@@ -42,15 +42,17 @@ func NewPlugin() plugin.Plugin {
 func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: xdsutil.HealthCheck,
-		Config: util.MessageToStruct(&hcfilter.HealthCheck{
-			PassThroughMode: proto.BoolTrue,
-			Headers: []*envoy_api_v2_route.HeaderMatcher{
-				{
-					Name:                 ":path",
-					HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: probe.Path},
+		ConfigType: &http_conn.HttpFilter_Config{
+			Config: util.MessageToStruct(&hcfilter.HealthCheck{
+				PassThroughMode: proto.BoolTrue,
+				Headers: []*envoy_api_v2_route.HeaderMatcher{
+					{
+						Name:                 ":path",
+						HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: probe.Path},
+					},
 				},
-			},
-		}),
+			}),
+		},
 	}
 }
 

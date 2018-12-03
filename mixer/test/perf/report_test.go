@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/perf"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 	"istio.io/istio/mixer/test/spyAdapter/template"
 )
 
@@ -654,9 +654,9 @@ spec:
 `
 )
 
-func settingsWithAdapterAndTmpls() (perf.Settings, *spyAdapter.Adapter) {
+func settingsWithAdapterAndTmpls() (perf.Settings, *spyadapter.Adapter) {
 	setting := baseSettings
-	a := spyAdapter.NewSpyAdapter(spyAdapter.AdapterBehavior{Name: "spyadapter", Handler: spyAdapter.HandlerBehavior{
+	a := spyadapter.NewSpyAdapter(spyadapter.AdapterBehavior{Name: "spyadapter", Handler: spyadapter.HandlerBehavior{
 		HandleSampleCheckResult: adapter.CheckResult{ValidUseCount: 10000, ValidDuration: 5 * time.Minute}}})
 	setting.Adapters = append(setting.Adapters, a.GetAdptInfoFn())
 	for k, v := range template.SupportedTmplInfo {
@@ -665,11 +665,11 @@ func settingsWithAdapterAndTmpls() (perf.Settings, *spyAdapter.Adapter) {
 	return setting, a
 }
 
-func settingsWith1milliSecApaAdapterAndTmpls() (perf.Settings, *spyAdapter.Adapter) {
+func settingsWith1milliSecApaAdapterAndTmpls() (perf.Settings, *spyadapter.Adapter) {
 	setting := baseSettings
 
-	a := spyAdapter.NewSpyAdapter(spyAdapter.AdapterBehavior{Name: "spyadapter",
-		Handler: spyAdapter.HandlerBehavior{GenerateSampleApaSleep: time.Millisecond,
+	a := spyadapter.NewSpyAdapter(spyadapter.AdapterBehavior{Name: "spyadapter",
+		Handler: spyadapter.HandlerBehavior{GenerateSampleApaSleep: time.Millisecond,
 			HandleSampleCheckResult: adapter.CheckResult{ValidUseCount: 10000, ValidDuration: 5 * time.Minute}}})
 	setting.Adapters = append(setting.Adapters, a.GetAdptInfoFn())
 	for k, v := range template.SupportedTmplInfo {
@@ -678,7 +678,7 @@ func settingsWith1milliSecApaAdapterAndTmpls() (perf.Settings, *spyAdapter.Adapt
 	return setting, a
 }
 
-func validateReportBehavior(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+func validateReportBehavior(spyAdapter *spyadapter.Adapter, b *testing.B) {
 	// validate all went as expected. Note: logentry goes to the noop adapter so we cannot inspect that. However,
 	// anything that is going to spy adapter, based on the config below, can be inspected.
 	//

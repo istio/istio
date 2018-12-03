@@ -24,11 +24,11 @@ func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
 		{ // case 0
 			args:           strings.Split("proxy-status", " "),
-			expectedString: "PROXY     CDS     LDS     EDS     RDS     PILOT",
+			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
 		},
 		{ // case 1 short name "ps"
 			args:           strings.Split("ps", " "),
-			expectedString: "PROXY     CDS     LDS     EDS     RDS     PILOT",
+			expectedString: "NAME     CDS     LDS     EDS     RDS     PILOT",
 		},
 	}
 
