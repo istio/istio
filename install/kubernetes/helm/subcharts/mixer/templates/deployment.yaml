@@ -41,11 +41,6 @@
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
-          {{- if $.Values.global.mixer.useAdapterCRDs }}
-          - --useAdapterCRDs=true
-          {{- else }}
-          - --useAdapterCRDs=false
-          {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
@@ -176,11 +171,6 @@
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
-          {{- if $.Values.global.mixer.useAdapterCRDs }}
-          - --useAdapterCRDs=true
-          {{- else }}
-          - --useAdapterCRDs=false
-          {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
