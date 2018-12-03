@@ -25,7 +25,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -269,25 +268,6 @@ func (node *Proxy) SetNamespaceDependencies(dependency *meshconfig.MeshConfig_De
 			node.NamespaceDependencies[ns] = true
 		}
 	}
-}
-
-// CanImport returns whether the node can import config of namespace 'ns' with ConfigScope 'scope'.
-func (node *Proxy) CanImport(ns string, scope networking.ConfigScope) bool {
-	if node == nil {
-		return true
-	}
-
-	if len(node.NamespaceDependencies) == 0 ||
-		node.NamespaceDependencies[ns] {
-		if scope == networking.ConfigScope_PUBLIC {
-			return true
-		}
-		if scope == networking.ConfigScope_PRIVATE && ns == node.ConfigNamespace {
-			return true
-		}
-	}
-
-	return false
 }
 
 const (
