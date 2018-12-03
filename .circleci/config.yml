@@ -863,9 +863,6 @@ workflows:
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
-      - e2e-mixer-noauth-v1alpha3-v2-non-mcp:
-          requires:
-            - build
       - e2e-galley:
           requires:
             - build
@@ -876,9 +873,6 @@ workflows:
           requires:
             - test
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
           requires:
             - build
       - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2
