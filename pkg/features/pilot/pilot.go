@@ -71,8 +71,8 @@ var (
 	// NetworkScopes isolates namespaces, limiting configuration for
 	// egress and other mesh services to only hosts defined in same namespace or
 	// 'admin' namespaces. Using services from any other namespaces will require the new NetworkScope
-	// config.
-	NetworkScopes = os.Getenv("ISOLATE_NAMESPACE")
+	// config. In most cases 'istio-system' should be included.
+	NetworkScopes = os.Getenv("DEFAULT_NAMESPACE_DEPENDENCIES")
 
 )
 

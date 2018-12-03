@@ -327,10 +327,10 @@ func (ps *PushContext) Services(p *Proxy) []*Service {
 }
 
 // OnConnect is called when a node connects. Will update per-node data.
-func (ps *PushContext) OnConnect(p *Proxy) {
+func (ps *PushContext) OnConnect(proxy *Proxy) {
 	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
 	// bindings.
-	if pilot.NetworkScopes != "" && p.Type == Sidecar {
+	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {
 		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
 		// reviewed ), or from an env variable.
 		adminNs := strings.Split(pilot.NetworkScopes, ",")
@@ -339,18 +339,18 @@ func (ps *PushContext) OnConnect(p *Proxy) {
 			globalDeps[ns] = true
 		}
 
-		p.mutex.RLock()
-		defer p.mutex.RUnlock()
+		proxy.mutex.RLock()
+		defer proxy.mutex.RUnlock()
 		res := []*Service{}
 		for _, s := range ps.allServices {
-			podNamespace := s.Attributes.Namespace
-			if podNamespace == "" {
+			serviceNamespace := s.Attributes.Namespace
+			if serviceNamespace == "" {
 				res = append(res, s)
-			} else if globalDeps[podNamespace] || podNamespace == p.ConfigNamespace {
+			} else if globalDeps[serviceNamespace] || serviceNamespace == proxy.ConfigNamespace {
 				res = append(res, s)
 			}
 		}
-		p.serviceDependencies = res
+		proxy.serviceDependencies = res
 
 		// TODO: read Gateways,NetworkScopes/etc to populate additional entries
 	}

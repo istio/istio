@@ -43,7 +43,7 @@ var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 const (
 	// defaultCertDir is the default directory in which MCP options reside.
-	defaultCertDir = "/etc/certs/"
+	defaultCertDir = "/etc/istio/certs/"
 	// defaultCertificateFile is the default name to use for the certificate file.
 	defaultCertificateFile = "cert-chain.pem"
 	// defaultKeyFile is the default name to use for the key file.
