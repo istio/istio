@@ -50,14 +50,15 @@ jaeger:
           max-traces: 50000
         es:
           server-urls: http://elasticsearch:9200
-          username: elastic
-          password: changeme
         cassandra:
           servers: cassandra
           keyspace: jaeger_v1_datacenter3
       cassandraCreateSchema:
         datacenter: "datacenter3"
         mode: "test"
+      # Setup a secret to contain the environment variables for use with storage
+      # See https://github.com/jaegertracing/jaeger-operator#secrets-support
+      secretName: ""
     ui:
       options:
         dependencies:
