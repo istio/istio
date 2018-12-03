@@ -119,14 +119,13 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 	}
 	recordConverterResult(true, spec.Version, spec.Group, spec.Kind)
 
+	if len(entries) == 0 {
+		scope.Debugf("Did not receive any entries from converter: kind=%v, key=%v, rv=%s", kind, key, resourceVersion)
+		return
+	}
+
 	switch kind {
 	case resource.Added, resource.Updated:
-
-		if len(entries) == 0 {
-			scope.Debugf("Did not receive any entries from converter: kind=%v, key=%v, rv=%s", kind, key, resourceVersion)
-			return
-		}
-
 		event = resource.Event{
 			Kind: kind,
 		}
