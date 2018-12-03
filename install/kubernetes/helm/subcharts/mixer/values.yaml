@@ -29,3 +29,5 @@ podAnnotations: {}
 adapters:
   prometheus:
     metricsExpiryDuration: 10m
+  # Setting this to false sets the useAdapterCRDs mixer startup argument to false
+  useAdapterCRDs: true
