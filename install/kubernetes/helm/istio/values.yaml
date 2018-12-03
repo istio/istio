@@ -149,7 +149,11 @@ global:
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
-    # configure the access log for sidecar to JSON or TEXT. 
+    # Configure how and what fields are displayed in sidecar access log. Setting to 
+    # empty string will result in default log format
+    accessLogFormat: ""
+
+    # Configure the access log for sidecar to JSON or TEXT. 
     accessLogEncoding: TEXT
 
     #If set to true, istio-proxy container will have privileged securityContext
