@@ -80,7 +80,7 @@ type XdsEvent struct {
 // NewFakeXDS creates a XdsUpdater reporting events via a channel.
 func NewFakeXDS() *FakeXdsUpdater {
 	return &FakeXdsUpdater{
-		Events: make(chan XdsEvent, 100),
+		Events: make(chan XdsEvent, 1000),
 	}
 }
 
