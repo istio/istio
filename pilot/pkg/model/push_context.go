@@ -23,6 +23,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -51,12 +52,18 @@ type PushContext struct {
 	// only those in the proxy's config namespace. Keep them private
 	// and use accessor functions to return the appropriate data
 
+	// sharedNamespaces defines the list of namespaces which can be reachable through the mesh.
+	//   1. Nil means services of all namespaces are reachable globally
+	//   2. []string{} means services are reachable through the same namespace
+	//   3. if not empty, services in the listed namespaces are reachable globally,
+	//      services which are in this list can be only reached through the same namespace.
+	sharedNamespaces []string
+
 	// namespace-->services map, publicServices are reachable by all other namespaces.
 	// privateServices are reachable by the same namespace.
 	publicServicesByNamespace  map[string][]*Service
 	privateServicesByNamespace map[string][]*Service
 
-	virtualServiceConfigs             []Config
 	publicVirtualServicesByNamespace  map[string][]Config
 	privateVirtualServicesByNamespace map[string][]Config
 
@@ -323,17 +330,19 @@ func (ps *PushContext) UpdateMetrics() {
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	out := []*Service{}
-	for _, publicServices := range ps.publicServicesByNamespace {
-		out = append(out, publicServices...)
-	}
-	if proxy == nil {
+	if proxy == nil || ps.sharedNamespaces == nil {
+		for _, publicServices := range ps.publicServicesByNamespace {
+			out = append(out, publicServices...)
+		}
 		for _, privateServices := range ps.privateServicesByNamespace {
 			out = append(out, privateServices...)
 		}
 	} else {
-		for ns := range proxy.NamespaceDependencies {
-			if ns == proxy.ConfigNamespace {
-				out = append(out, ps.privateServicesByNamespace[ns]...)
+		out = append(out, ps.publicServicesByNamespace[proxy.ConfigNamespace]...)
+		out = append(out, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
+		for _, ns := range ps.sharedNamespaces {
+			if ns != proxy.ConfigNamespace {
+				out = append(out, ps.publicServicesByNamespace[ns]...)
 			}
 		}
 	}
@@ -348,17 +357,19 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	out := make([]Config, 0)
 
 	// filter out virtual services not reachable
-	for _, virtualSvcs := range ps.publicVirtualServicesByNamespace {
-		configs = append(configs, virtualSvcs...)
-	}
-	if proxy == nil {
+	if proxy == nil || ps.sharedNamespaces == nil {
+		for _, virtualSvcs := range ps.publicVirtualServicesByNamespace {
+			configs = append(configs, virtualSvcs...)
+		}
 		for _, virtualSvcs := range ps.privateVirtualServicesByNamespace {
 			configs = append(configs, virtualSvcs...)
 		}
 	} else {
-		for ns := range proxy.NamespaceDependencies {
-			if ns == proxy.ConfigNamespace {
-				configs = append(configs, ps.privateVirtualServicesByNamespace[ns]...)
+		configs = append(configs, ps.publicVirtualServicesByNamespace[proxy.ConfigNamespace]...)
+		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
+		for _, ns := range ps.sharedNamespaces {
+			if ns != proxy.ConfigNamespace {
+				configs = append(configs, ps.publicVirtualServicesByNamespace[ns]...)
 			}
 		}
 	}
@@ -430,6 +441,10 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 	ps.Env = env
 	var err error
+	if err = ps.initSharedNamespaces(env); err != nil {
+		return err
+	}
+
 	if err = ps.initServiceRegistry(env); err != nil {
 		return err
 	}
@@ -450,6 +465,24 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	// TODO: everything else that is used in config generation - the generation
 	// should not have any deps on config store.
 	ps.initDone = true
+	return nil
+}
+
+// Creates a list of shared namespaces which is reachable through the mesh.
+func (ps *PushContext) initSharedNamespaces(env *Environment) error {
+	ps.sharedNamespaces = nil
+	dependency := env.Mesh.DefaultServiceDependency
+	if dependency == nil || dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_ALL_NAMESPACES {
+		return nil
+	}
+
+	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_SAME_NAMESPACE {
+		ps.sharedNamespaces = []string{}
+		if len(dependency.ImportNamespaces) == 0 {
+			ps.sharedNamespaces = dependency.ImportNamespaces
+		}
+	}
+
 	return nil
 }
 

@@ -86,10 +86,6 @@ type Proxy struct {
 	// NOTE: DO NOT USE THIS FIELD TO CONSTRUCT DNS NAMES
 	ConfigNamespace string
 
-	// NamespaceDependencies contains a list of namespaces that should be used to configure
-	// services for this node.
-	NamespaceDependencies map[string]bool
-
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 }
@@ -250,24 +246,6 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	return parts[1]
-}
-
-// SetNamespaceDependencies sets the namespaces of the reachable services.
-func (node *Proxy) SetNamespaceDependencies(dependency *meshconfig.MeshConfig_DefaultServiceDependency) {
-	if node == nil || dependency == nil {
-		return
-	}
-	node.NamespaceDependencies = make(map[string]bool)
-	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_ALL_NAMESPACES {
-		return
-	}
-
-	if dependency.ImportMode == meshconfig.MeshConfig_DefaultServiceDependency_SAME_NAMESPACE {
-		node.NamespaceDependencies[node.ConfigNamespace] = true
-		for _, ns := range dependency.ImportNamespaces {
-			node.NamespaceDependencies[ns] = true
-		}
-	}
 }
 
 const (

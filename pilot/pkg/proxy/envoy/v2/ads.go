@@ -615,7 +615,6 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(&nt)
-	nt.SetNamespaceDependencies(s.Env.Mesh.DefaultServiceDependency)
 
 	con.mu.Lock()
 	defer con.mu.Unlock()
