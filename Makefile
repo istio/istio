@@ -13,7 +13,7 @@
 ## limitations under the License.
 
 #-----------------------------------------------------------------------------
-# Global Variables
+# Global Variables - DO NOT MERGE THIS CHANGE
 #-----------------------------------------------------------------------------
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
