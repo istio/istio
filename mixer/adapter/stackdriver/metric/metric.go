@@ -24,12 +24,10 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	gax "github.com/googleapis/gax-go"
 	xcontext "golang.org/x/net/context"
-	labelpb "google.golang.org/genproto/googleapis/api/label"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	"istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -93,23 +91,6 @@ const (
 )
 
 var (
-	// TODO: evaluate how we actually want to do this mapping - this first stab w/ everything as String probably
-	// isn't what we really want.
-	// The better path forward is probably to constrain the input types and err on bad combos.
-	labelMap = map[descriptor.ValueType]labelpb.LabelDescriptor_ValueType{
-		descriptor.STRING:        labelpb.LabelDescriptor_STRING,
-		descriptor.INT64:         labelpb.LabelDescriptor_INT64,
-		descriptor.DOUBLE:        labelpb.LabelDescriptor_INT64,
-		descriptor.BOOL:          labelpb.LabelDescriptor_BOOL,
-		descriptor.TIMESTAMP:     labelpb.LabelDescriptor_INT64,
-		descriptor.IP_ADDRESS:    labelpb.LabelDescriptor_STRING,
-		descriptor.EMAIL_ADDRESS: labelpb.LabelDescriptor_STRING,
-		descriptor.URI:           labelpb.LabelDescriptor_STRING,
-		descriptor.DNS_NAME:      labelpb.LabelDescriptor_STRING,
-		descriptor.DURATION:      labelpb.LabelDescriptor_INT64,
-		descriptor.STRING_MAP:    labelpb.LabelDescriptor_STRING,
-	}
-
 	_ metric.HandlerBuilder = &builder{}
 	_ metric.Handler        = &handler{}
 )

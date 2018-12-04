@@ -24,6 +24,7 @@ import (
 
 	proto "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -169,9 +170,8 @@ func transformistio_mixer_adapter_metricentryResource1MsgMap(insts map[string]*i
 func transformistio_mixer_adapter_metricentryResource2Msg(inst *istio_mixer_adapter_metricentry.Resource2Msg) *istio_mixer_adapter_metricentry.Resource2 {
 	return &istio_mixer_adapter_metricentry.Resource2{
 
-		Str:  inst.Str,
-		Res3: transformistio_mixer_adapter_metricentryResource3Msg(inst.Res3),
-
+		Str:      inst.Str,
+		Res3:     transformistio_mixer_adapter_metricentryResource3Msg(inst.Res3),
 		Res3List: transformistio_mixer_adapter_metricentryResource3MsgSlice(inst.Res3List),
 		Res3Map:  transformistio_mixer_adapter_metricentryResource3MsgMap(inst.Res3Map),
 	}
@@ -203,8 +203,7 @@ func transformistio_mixer_adapter_metricentryResource3Msg(inst *istio_mixer_adap
 	}
 	return &istio_mixer_adapter_metricentry.Resource3{
 
-		Value: transformValue(inst.Value.GetValue()),
-
+		Value:            transformValue(inst.Value.GetValue()),
 		Dimensions:       transformValueMap(inst.Dimensions),
 		Int64Primitive:   inst.Int64Primitive,
 		BoolPrimitive:    inst.BoolPrimitive,
@@ -247,8 +246,7 @@ func istio_mixer_adapter_metricentryInstances(in []*istio_mixer_adapter_metricen
 		out = append(out, &istio_mixer_adapter_metricentry.Instance{
 			Name: inst.Name,
 
-			Value: transformValue(inst.Value.GetValue()),
-
+			Value:            transformValue(inst.Value.GetValue()),
 			Dimensions:       transformValueMap(inst.Dimensions),
 			Int64Primitive:   inst.Int64Primitive,
 			BoolPrimitive:    inst.BoolPrimitive,
@@ -261,9 +259,8 @@ func istio_mixer_adapter_metricentryInstances(in []*istio_mixer_adapter_metricen
 			DnsName:          adapter.DNSName(inst.DnsName.Value),
 			EmailAddr:        adapter.EmailAddress(inst.EmailAddr.Value),
 			Uri:              adapter.URI(inst.Uri.Value),
-
-			Res3List: transformistio_mixer_adapter_metricentryResource3MsgSlice(inst.Res3List),
-			Res3Map:  transformistio_mixer_adapter_metricentryResource3MsgMap(inst.Res3Map),
+			Res3List:         transformistio_mixer_adapter_metricentryResource3MsgSlice(inst.Res3List),
+			Res3Map:          transformistio_mixer_adapter_metricentryResource3MsgMap(inst.Res3Map),
 		})
 	}
 	return out
@@ -304,8 +301,7 @@ func foo_bar_mylistcheckerInstance(inst *foo_bar_mylistchecker.InstanceMsg) *foo
 	return &foo_bar_mylistchecker.Instance{
 		Name: inst.Name,
 
-		CheckExpression: inst.CheckExpression,
-
+		CheckExpression:  inst.CheckExpression,
 		Dimensions:       transformValueMap(inst.Dimensions),
 		Int64Primitive:   inst.Int64Primitive,
 		BoolPrimitive:    inst.BoolPrimitive,
@@ -432,7 +428,7 @@ func (s *NoSession) Addr() string {
 // Run starts the server run
 func (s *NoSession) Run() {
 	s.shutdown = make(chan error, 1)
-	go func() {
+	go func() { //nolint:adapterlinter
 		err := s.server.Serve(s.listener)
 
 		// notify closer we're done

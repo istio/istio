@@ -24,6 +24,7 @@ import (
 
 	proto "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
+
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
 	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
@@ -263,14 +264,6 @@ func transformValueMap(in map[string]*v1beta1.Value) map[string]interface{} {
 	return out
 }
 
-func transformValueSlice(in []interface{}) []interface{} {
-	out := make([]interface{}, 0, len(in))
-	for _, inst := range in {
-		out = append(out, transformValue(inst))
-	}
-	return out
-}
-
 func transformValue(in interface{}) interface{} {
 	switch t := in.(type) {
 	case *v1beta1.Value_StringValue:
@@ -360,7 +353,7 @@ func (s *NoSession) Addr() string {
 // Run starts the server run
 func (s *NoSession) Run() {
 	s.shutdown = make(chan error, 1)
-	go func() {
+	go func() { //nolint:adapterlinter
 		err := s.server.Serve(s.listener)
 
 		// notify closer we're done

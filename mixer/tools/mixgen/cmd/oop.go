@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/format"
 	"os"
@@ -18,8 +19,8 @@ import (
 )
 
 type (
-	// ServerGenerator generates server code for out of process adapter.
-	ServerGenerator struct {
+	// OOPGenerator generates scafolding code for out of process adapter.
+	OOPGenerator struct {
 		OutCmdDir            string
 		OutHelmDir           string
 		AdapterName          string
@@ -33,25 +34,25 @@ type (
 	fillTemplateFunc func() ([]byte, error)
 )
 
-func serverGenCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
-	var outServerFile string
+func oopGenCmd(fatalf shared.FormatFn) *cobra.Command {
+	var outDir string
 	var adapterName string
 	var templateFiles []string
 	var adapterPackage string
 	var configPackage string
-	serverCmd := &cobra.Command{
-		Use:   "server",
-		Short: "creates server code from the given templates for an out of process adapter",
+	oopCmd := &cobra.Command{
+		Use:   "oop",
+		Short: "creates scalfolding code from the given templates for an out of process adapter",
 		Run: func(cmd *cobra.Command, args []string) {
 			var err error
-			outServerFile, err = filepath.Abs(outServerFile)
+			outDir, err = filepath.Abs(outDir)
 			if err != nil {
-				fatalf("Invalid path %s: %v", outServerFile, err)
+				fatalf("Invalid path %s: %v", outDir, err)
 			}
 
-			generator := ServerGenerator{
-				OutCmdDir:            outServerFile + "/cmd",
-				OutHelmDir:           outServerFile + "/helm",
+			generator := OOPGenerator{
+				OutCmdDir:            outDir + "/cmd",
+				OutHelmDir:           outDir + "/helm",
 				AdapterName:          adapterName,
 				AdapterPackage:       adapterPackage,
 				AdapterConfigPackage: configPackage,
@@ -78,20 +79,20 @@ func serverGenCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Comma
 			}
 		},
 	}
-	serverCmd.PersistentFlags().StringArrayVarP(&templateFiles, "templates", "t", nil,
+	oopCmd.PersistentFlags().StringArrayVarP(&templateFiles, "templates", "t", nil,
 		"paths to the descriptor files for all the templates that the adapter supports.")
-	serverCmd.PersistentFlags().StringVar(&adapterName, "adapter_name", "",
+	oopCmd.PersistentFlags().StringVar(&adapterName, "adapter_name", "",
 		"name of the adapter.")
-	serverCmd.PersistentFlags().StringVar(&outServerFile, "out_dir", "./",
-		"output directory for out of process adapter server code.")
-	serverCmd.PersistentFlags().StringVar(&adapterPackage, "adapter_package", "",
+	oopCmd.PersistentFlags().StringVar(&outDir, "out_dir", "./",
+		"output directory for out of process adapter scafolding code.")
+	oopCmd.PersistentFlags().StringVar(&adapterPackage, "adapter_package", "",
 		"adapter package, e.g. istio.io/mixer/adapter/prometheus")
-	serverCmd.PersistentFlags().StringVar(&configPackage, "config_package", "",
+	oopCmd.PersistentFlags().StringVar(&configPackage, "config_package", "",
 		"adapter config package, e.g. istio.io/mixer/adapter/prometheus/config")
-	return serverCmd
+	return oopCmd
 }
 
-func (sg *ServerGenerator) generateFile(filePath string, ft fillTemplateFunc, isGo bool) error {
+func (sg *OOPGenerator) generateFile(filePath string, ft fillTemplateFunc, isGo bool) error {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -114,8 +115,8 @@ func (sg *ServerGenerator) generateFile(filePath string, ft fillTemplateFunc, is
 	return nil
 }
 
-// Generate generates server and main go code for out of process adapter.
-func (sg *ServerGenerator) Generate() error {
+// Generate generates nosession and main go code for out of process adapter.
+func (sg *OOPGenerator) Generate() error {
 	if _, err := os.Stat(sg.OutCmdDir + "/server"); os.IsNotExist(err) {
 		err = os.MkdirAll(sg.OutCmdDir+"/server", 0755)
 		if err != nil {
@@ -157,7 +158,7 @@ func (sg *ServerGenerator) Generate() error {
 	return nil
 }
 
-func (sg *ServerGenerator) getNoSessionServer() ([]byte, error) {
+func (sg *OOPGenerator) getNoSessionServer() ([]byte, error) {
 	importProto := false
 	serverTmpl, err := template.New("ProcServer").Funcs(
 		template.FuncMap{
@@ -208,7 +209,7 @@ func (sg *ServerGenerator) getNoSessionServer() ([]byte, error) {
 	return retBytes, nil
 }
 
-func (sg *ServerGenerator) getMainGoContent() ([]byte, error) {
+func (sg *OOPGenerator) getMainGoContent() ([]byte, error) {
 	type cmdMain struct {
 		AdapterName string
 		PackagePath string
@@ -218,6 +219,9 @@ func (sg *ServerGenerator) getMainGoContent() ([]byte, error) {
 		template.FuncMap{
 			"Capitalize": strings.Title,
 		}).Parse(oopMainTempl)
+	if err != nil {
+		return nil, errors.New("cannot parse template")
+	}
 	mainBuf := new(bytes.Buffer)
 	err = mainTmpl.Execute(mainBuf, cm)
 	if err != nil {
@@ -226,12 +230,15 @@ func (sg *ServerGenerator) getMainGoContent() ([]byte, error) {
 	return mainBuf.Bytes(), nil
 }
 
-func (sg *ServerGenerator) getMakeFileContent() ([]byte, error) {
+func (sg *OOPGenerator) getMakeFileContent() ([]byte, error) {
 	type cmdMake struct {
 		AdapterName string
 	}
 	cm := cmdMake{AdapterName: sg.AdapterName}
 	makeTmpl, err := template.New("ProcMake").Parse(makeFileTmpl)
+	if err != nil {
+		return nil, errors.New("cannot parse template")
+	}
 	makeBuf := new(bytes.Buffer)
 	err = makeTmpl.Execute(makeBuf, cm)
 	if err != nil {
@@ -240,12 +247,15 @@ func (sg *ServerGenerator) getMakeFileContent() ([]byte, error) {
 	return makeBuf.Bytes(), nil
 }
 
-func (sg *ServerGenerator) getDockerFileContent() ([]byte, error) {
+func (sg *OOPGenerator) getDockerFileContent() ([]byte, error) {
 	type cmdDocker struct {
 		AdapterName string
 	}
 	cm := cmdDocker{AdapterName: sg.AdapterName}
 	dockerTmpl, err := template.New("ProcDocker").Parse(dockerFileTmpl)
+	if err != nil {
+		return nil, errors.New("cannot parse template")
+	}
 	dockerBuf := new(bytes.Buffer)
 	err = dockerTmpl.Execute(dockerBuf, cm)
 	if err != nil {
@@ -254,12 +264,15 @@ func (sg *ServerGenerator) getDockerFileContent() ([]byte, error) {
 	return dockerBuf.Bytes(), nil
 }
 
-func (sg *ServerGenerator) getChartFileContent() ([]byte, error) {
+func (sg *OOPGenerator) getChartFileContent() ([]byte, error) {
 	type cmdChart struct {
 		AdapterName string
 	}
 	cm := cmdChart{AdapterName: sg.AdapterName}
 	chartTmpl, err := template.New("ProcChart").Parse(helmChartTmpl)
+	if err != nil {
+		return nil, errors.New("cannot parse template")
+	}
 	chartBuf := new(bytes.Buffer)
 	err = chartTmpl.Execute(chartBuf, cm)
 	if err != nil {
@@ -268,12 +281,15 @@ func (sg *ServerGenerator) getChartFileContent() ([]byte, error) {
 	return chartBuf.Bytes(), nil
 }
 
-func (sg *ServerGenerator) getChartValueFileContent() ([]byte, error) {
+func (sg *OOPGenerator) getChartValueFileContent() ([]byte, error) {
 	type cmdChartValue struct {
 		AdapterName string
 	}
 	cm := cmdChartValue{AdapterName: sg.AdapterName}
 	chartValueTmpl, err := template.New("ProcChartValue").Parse(helmValueTemp)
+	if err != nil {
+		return nil, errors.New("cannot parse template")
+	}
 	chartValueBuf := new(bytes.Buffer)
 	err = chartValueTmpl.Execute(chartValueBuf, cm)
 	if err != nil {
@@ -282,12 +298,15 @@ func (sg *ServerGenerator) getChartValueFileContent() ([]byte, error) {
 	return chartValueBuf.Bytes(), nil
 }
 
-func (sg *ServerGenerator) getServiceYamlFileContent() ([]byte, error) {
+func (sg *OOPGenerator) getServiceYamlFileContent() ([]byte, error) {
 	type cmdServiceYaml struct {
 		AdapterName string
 	}
 	cm := cmdServiceYaml{AdapterName: sg.AdapterName}
 	serviceYamlTmpl, err := template.New("ProcService").Parse(helmServiceTmpl)
+	if err != nil {
+		return nil, errors.New("cannot parse template")
+	}
 	serviceYamlBuf := new(bytes.Buffer)
 	err = serviceYamlTmpl.Execute(serviceYamlBuf, cm)
 	if err != nil {
@@ -296,12 +315,15 @@ func (sg *ServerGenerator) getServiceYamlFileContent() ([]byte, error) {
 	return serviceYamlBuf.Bytes(), nil
 }
 
-func (sg *ServerGenerator) getDeploymentYamlFileContent() ([]byte, error) {
+func (sg *OOPGenerator) getDeploymentYamlFileContent() ([]byte, error) {
 	type cmdDeploymentYaml struct {
 		AdapterName string
 	}
 	cm := cmdDeploymentYaml{AdapterName: sg.AdapterName}
 	deploymentYamlTmpl, err := template.New("ProcDeployment").Parse(helmDeploymentTmpl)
+	if err != nil {
+		return nil, errors.New("cannot parse template")
+	}
 	deploymentYamlBuf := new(bytes.Buffer)
 	err = deploymentYamlTmpl.Execute(deploymentYamlBuf, cm)
 	if err != nil {
