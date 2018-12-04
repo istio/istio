@@ -237,16 +237,8 @@ check-tree:
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${OUT_DIR}/logs
 
-# Sync target will pull from master and sync the modules. It is the first step of the
-# circleCI build, developers should call it periodically.
-sync: init git.pullmaster
-
-# Merge master. To be used in CI or by developers, assumes the
-# remote is called 'origin' (git default). Will fail on conflicts
-# Note: in a branch, this will get the latest from master. In master it has no effect.
-# This should be run after a 'git fetch' (typically done in the checkout step in CI)
-git.pullmaster:
-	git merge master
+# Sync is the same as init in release branch. In master this pulls from master.
+sync: init
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
