@@ -157,7 +157,7 @@ sf64: 12345`,
 			data: `
 flt: 1.12
 dbl: 123.456`,
-			want: map[string]interface{}{"flt": float32(1.12), "dbl": 123.456},
+			want: map[string]interface{}{"flt": float64(float32(1.12)), "dbl": 123.456},
 		},
 		{
 			name: "repeated fixed encoding",
@@ -182,7 +182,7 @@ r_flt:
 				"r_f64":  []interface{}{int64(12345)},
 				"r_sf64": []interface{}{int64(123456)},
 				"r_dbl":  []interface{}{123.123, 456.456},
-				"r_flt":  []interface{}{float32(1.1), float32(1.13)},
+				"r_flt":  []interface{}{float64(float32(1.1)), float64(float32(1.13))},
 			},
 		},
 		{
@@ -208,7 +208,7 @@ r_flt_unpacked:
 				"r_f64_unpacked":  []interface{}{int64(12345)},
 				"r_sf64_unpacked": []interface{}{int64(123456)},
 				"r_dbl_unpacked":  []interface{}{123.123, 456.456},
-				"r_flt_unpacked":  []interface{}{float32(1.1), float32(1.13)},
+				"r_flt_unpacked":  []interface{}{float64(float32(1.1)), float64(float32(1.13))},
 			},
 		},
 		{
@@ -372,8 +372,25 @@ duration_istio_value:
 				}
 			}
 
-			if !reflect.DeepEqual(got, td.want) {
+			if len(got) != len(td.want) {
 				tt.Errorf("yaml.Decode(%q) => got %#v, want %#v", td.name, got, td.want)
+			}
+
+			for k, v := range got {
+				switch vt := v.(type) {
+				case attribute.StringMap:
+					if !vt.Equal(attribute.NewStringMapForTesting(k, td.want[k].(map[string]string))) {
+						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
+					}
+				case attribute.List:
+					if !vt.Equal(attribute.NewListForTesting(k, td.want[k].([]interface{}))) {
+						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
+					}
+				default:
+					if !reflect.DeepEqual(v, td.want[k]) {
+						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
+					}
+				}
 			}
 		})
 		t.Run(td.name+"/type-check", func(tt *testing.T) {

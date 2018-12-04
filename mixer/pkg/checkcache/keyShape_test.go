@@ -108,7 +108,7 @@ func TestKeyShape(t *testing.T) {
 						"f":            []byte{0, 1, 2},
 						"g":            time.Now(),
 						"h":            time.Second * 10,
-						"i":            map[string]string{"j": "k"},
+						"i":            attribute.NewStringMapForTesting("i", map[string]string{"j": "k"}),
 					},
 					true,
 					true,
@@ -161,7 +161,7 @@ func TestKeyShape(t *testing.T) {
 						"f": []byte{0, 1, 2},
 						"g": time.Now(),
 						"h": time.Second * 10,
-						"i": map[string]string{"j": "j", "k": "k"},
+						"i": attribute.NewStringMapForTesting("i", map[string]string{"j": "j", "k": "k"}),
 					},
 					true,
 					true,
@@ -178,7 +178,7 @@ func TestKeyShape(t *testing.T) {
 						"f": []byte{0, 1, 2},
 						"g": time.Now(),
 						"h": 10 * time.Second,
-						"i": map[string]string{"j": "j", "k": "k", "l": "l"},
+						"i": attribute.NewStringMapForTesting("i", map[string]string{"j": "j", "k": "k", "l": "l"}),
 						"j": "k",
 					},
 					true,
@@ -186,6 +186,7 @@ func TestKeyShape(t *testing.T) {
 				},
 
 				{
+					// TODO(kuat)
 					"ra with many exact entries, bag matching all, except map key",
 					map[string]interface{}{
 						"a": "0",
@@ -196,7 +197,7 @@ func TestKeyShape(t *testing.T) {
 						"f": []byte{0, 1, 2},
 						"g": time.Now(),
 						"h": 10 * time.Second,
-						"i": map[string]string{"X": "k", "l": "m"},
+						"i": attribute.NewStringMapForTesting("i", map[string]string{"X": "k", "l": "m"}),
 					},
 					false,
 					true,
@@ -233,8 +234,8 @@ func TestKeyShape(t *testing.T) {
 					"ra with many absent entries, three unrelated entries in bag",
 					map[string]interface{}{
 						"x": "y",
-						"z": map[string]string{"Y": "Y"},
-						"i": map[string]string{"Y": "Y"},
+						"z": attribute.NewStringMapForTesting("z", map[string]string{"Y": "Y"}),
+						"i": attribute.NewStringMapForTesting("i", map[string]string{"Y": "Y"}),
 					},
 					true,
 					true,
@@ -244,7 +245,7 @@ func TestKeyShape(t *testing.T) {
 					"ra with many absent entries, two unrelated entries in bag and an absent entry present",
 					map[string]interface{}{
 						"x": "y",
-						"z": map[string]string{"Y": "Y"},
+						"z": attribute.NewStringMapForTesting("z", map[string]string{"Y": "Y"}),
 						"a": 0,
 					},
 					true,
@@ -255,8 +256,8 @@ func TestKeyShape(t *testing.T) {
 					"ra with many absent entries, absent key in string map",
 					map[string]interface{}{
 						"x": "y",
-						"z": map[string]string{"Y": "Y"},
-						"i": map[string]string{"j": "j", "k": "k"},
+						"z": attribute.NewStringMapForTesting("z", map[string]string{"Y": "Y"}),
+						"i": attribute.NewStringMapForTesting("i", map[string]string{"j": "j", "k": "k"}),
 					},
 					true,
 					false,
@@ -301,11 +302,11 @@ func TestKeyShape(t *testing.T) {
 				bag := attribute.GetMutableBagForTesting(ac.bag)
 
 				if ok := shape.checkAbsentAttrs(bag); ok != ac.checkAbsent {
-					t.Errorf("Expecting %v, got %v", ac.checkAbsent, ok)
+					t.Errorf("Expecting checkAbsent %v, got %v", ac.checkAbsent, ok)
 				}
 
 				if ok := shape.checkPresentAttrs(bag); ok != ac.checkPresent {
-					t.Errorf("Expecting %v, got %v", ac.checkPresent, ok)
+					t.Errorf("Expecting checkPresent %v, got %v", ac.checkPresent, ok)
 				}
 
 				if ok := shape.isCompatible(bag); ok != ac.checkAbsent && ac.checkPresent {

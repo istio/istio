@@ -90,14 +90,16 @@ type decodeVisitor struct {
 func (dv *decodeVisitor) setValue(f *descriptor.FieldDescriptorProto, val interface{}) {
 	name := dv.attrPrefix + f.GetName()
 	if f.IsRepeated() {
-		var arr []interface{}
+		var arr attribute.List
 		old, ok := dv.out.Get(name)
 		if !ok {
-			arr = make([]interface{}, 0, 1)
+			arr = attribute.NewList(name)
 		} else {
-			arr = old.([]interface{})
+			arr = old.(attribute.List)
 		}
-		dv.out.Set(name, append(arr, val))
+		// value semantics
+		arr = arr.Append(val)
+		dv.out.Set(name, arr)
 	} else {
 		dv.out.Set(name, val)
 	}
@@ -142,7 +144,7 @@ func (dv *decodeVisitor) Fixed32(n wire.Number, v uint32) {
 	case descriptor.FieldDescriptorProto_TYPE_SFIXED32:
 		val = int64(v)
 	case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-		val = math.Float32frombits(v)
+		val = float64(math.Float32frombits(v))
 	default:
 		dv.err = multierror.Append(dv.err, fmt.Errorf("unexpected field type %q for fixed32 encoding", f.GetType()))
 		return
@@ -218,13 +220,12 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 			}
 
 			// translate map<X, Y> proto3 field type to record Mixer type (map[string]string)
-			var m map[string]string
+			var m attribute.StringMap
 			val, ok := dv.out.Get(name)
 			if !ok {
-				m = make(map[string]string)
-				dv.out.Set(name, m)
+				m = attribute.NewStringMap(name)
 			} else {
-				m = val.(map[string]string)
+				m = val.(attribute.StringMap)
 			}
 
 			visitor := &mapVisitor{desc: mapType}
@@ -237,7 +238,8 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 				v = v[m:]
 			}
 
-			m[visitor.key] = visitor.value
+			m.Set(visitor.key, visitor.value)
+			dv.out.Set(name, m)
 			return
 		}
 

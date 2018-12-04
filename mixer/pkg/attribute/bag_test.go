@@ -15,7 +15,6 @@
 package attribute
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"testing"
@@ -37,8 +36,8 @@ var (
 func TestBag(t *testing.T) {
 	sm1 := mixerpb.StringMap{Entries: map[int32]int32{-16: -16}}
 	sm2 := mixerpb.StringMap{Entries: map[int32]int32{-17: -17}}
-	m1 := map[string]string{"N16": "N16"}
-	m3 := map[string]string{"N42": "FourtyTwo"}
+	m1 := StringMap{entries: map[string]string{"N16": "N16"}}
+	m3 := StringMap{entries: map[string]string{"N42": "FourtyTwo"}}
 
 	attrs := mixerpb.CompressedAttributes{
 		Words:      []string{"N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10", "N11", "N12", "N13", "N14", "N15", "N16", "N17"},
@@ -96,8 +95,8 @@ func TestBag(t *testing.T) {
 				t.Error("Got false, expecting true")
 			}
 
-			if !reflect.DeepEqual(v, r.value) {
-				t.Errorf("Got %v, expected %v", v, r.value)
+			if !Equal(v, r.value) {
+				t.Errorf("Got %v, expected %v for %s", v, r.value, r.name)
 			}
 		})
 	}
@@ -220,7 +219,7 @@ func TestProtoBag(t *testing.T) {
 		{"M2", t9},
 		{"M3", d1},
 		{"M4", []byte{11}},
-		{"M5", map[string]string{"M6": "M7"}},
+		{"M5", StringMap{entries: map[string]string{"M6": "M7"}}},
 	}
 
 	for j := 0; j < 2; j++ {
@@ -245,7 +244,7 @@ func TestProtoBag(t *testing.T) {
 						t.Error("Got false, expected true")
 					}
 
-					if ok, _ := compareAttributeValues(v, c.value); !ok {
+					if !Equal(v, c.value) {
 						t.Errorf("Got %v, expected %v", v, c.value)
 					}
 				})
@@ -274,11 +273,7 @@ func TestProtoBag(t *testing.T) {
 			mb := GetMutableBag(pb)
 			for _, n := range names {
 				v, _ := pb.Get(n)
-				if m, ok := v.(StringMap); ok {
-					mb.Set(n, m.entries)
-				} else {
-					mb.Set(n, v)
-				}
+				mb.Set(n, v)
 			}
 
 			var a2 mixerpb.CompressedAttributes
@@ -539,59 +534,12 @@ func compareBags(b1 Bag, b2 Bag) bool {
 		v1, _ := b1.Get(name)
 		v2, _ := b2.Get(name)
 
-		match, _ := compareAttributeValues(v1, v2)
-		if !match {
+		if !Equal(v1, v2) {
 			return false
 		}
 	}
 
 	return true
-}
-
-func compareAttributeValues(v1, v2 interface{}) (bool, error) {
-	var result bool
-	switch t1 := v1.(type) {
-	case string:
-		t2, ok := v2.(string)
-		result = ok && t1 == t2
-	case int64:
-		t2, ok := v2.(int64)
-		result = ok && t1 == t2
-	case float64:
-		t2, ok := v2.(float64)
-		result = ok && t1 == t2
-	case bool:
-		t2, ok := v2.(bool)
-		result = ok && t1 == t2
-	case time.Time:
-		t2, ok := v2.(time.Time)
-		result = ok && t1 == t2
-	case time.Duration:
-		t2, ok := v2.(time.Duration)
-		result = ok && t1 == t2
-
-	case []byte:
-		t2, ok := v2.([]byte)
-		if result = ok && len(t1) == len(t2); result {
-			for i := 0; i < len(t1); i++ {
-				if t1[i] != t2[i] {
-					result = false
-					break
-				}
-			}
-		}
-
-	case StringMap:
-		return reflect.DeepEqual(t1.entries, v2), nil
-
-	case map[string]string:
-		return reflect.DeepEqual(t1, v2), nil
-
-	default:
-		return false, fmt.Errorf("unsupported attribute value type: %T", v1)
-	}
-
-	return result, nil
 }
 
 func TestBogusProto(t *testing.T) {
@@ -902,23 +850,6 @@ func TestToProtoForTesting(t *testing.T) {
 		t.Errorf("Didn't find C")
 	} else if v.(int64) != 3 {
 		t.Errorf("Got %v, expecting 3", v)
-	}
-}
-
-func TestToProtoUnknwonType(t *testing.T) {
-	var attrs mixerpb.CompressedAttributes
-
-	b := GetMutableBag(nil)
-	b.Set("M1", interface{}(func() {}))
-
-	if err := withPanic(func() { b.ToProto(&attrs, nil, 0) }); err == nil {
-		t.Error("Expected panic")
-	}
-
-	b = GetMutableBag(nil)
-	b.Set("M2", map[string]interface{}{"a": "b"})
-	if err := withPanic(func() { b.ToProto(&attrs, nil, 0) }); err == nil {
-		t.Error("Expected panic")
 	}
 }
 

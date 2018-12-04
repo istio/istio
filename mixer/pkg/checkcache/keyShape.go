@@ -17,6 +17,7 @@ package checkcache
 import (
 	"crypto/md5"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"sort"
 	"time"
@@ -92,7 +93,7 @@ func (ks keyShape) checkAbsentAttrs(attrs attribute.Bag) bool {
 			continue
 		}
 
-		sm, ok := v.(map[string]string)
+		sm, ok := v.(attribute.StringMap)
 		if !ok {
 			// attribute is present and it's not a string map, so this bag isn't compatible
 			return false
@@ -100,7 +101,7 @@ func (ks keyShape) checkAbsentAttrs(attrs attribute.Bag) bool {
 
 		// since absentAttrs is sorted by name, continue processing stringMaps until a new name is found.
 		for {
-			_, ok := sm[ks.absentAttrs[i].mapKey]
+			_, ok := sm.Get(ks.absentAttrs[i].mapKey)
 			if ok {
 				// if the map key is present, then this bag won't work
 				return false
@@ -129,7 +130,7 @@ func (ks keyShape) checkPresentAttrs(attrs attribute.Bag) bool {
 			return false
 		}
 
-		sm, ok := v.(map[string]string)
+		sm, ok := v.(attribute.StringMap)
 		if !ok {
 			// not a string map, so we're good
 			continue
@@ -137,7 +138,7 @@ func (ks keyShape) checkPresentAttrs(attrs attribute.Bag) bool {
 
 		// since presentAttrs is sorted by name, continue processing stringMaps until a new name is found.
 		for {
-			_, ok := sm[ks.presentAttrs[i].mapKey]
+			_, ok := sm.Get(ks.presentAttrs[i].mapKey)
 			if !ok {
 				// string map key is missing, not compatible
 				return false
@@ -195,10 +196,10 @@ func (ks keyShape) makeKey(attrs attribute.Bag) string {
 			binary.LittleEndian.PutUint64(b, uint64(v.UnixNano()))
 			buf.Write(b)
 
-		case map[string]string:
+		case attribute.StringMap:
 			// Since presentAttrs is sorted by name, continue processing stringMaps until a new name is found.
 			for {
-				v2 := v[ks.presentAttrs[i].mapKey]
+				v2, _ := v.Get(ks.presentAttrs[i].mapKey)
 
 				buf.WriteString(ks.presentAttrs[i].mapKey)
 				buf.WriteByte(delimiter)
@@ -211,6 +212,9 @@ func (ks keyShape) makeKey(attrs attribute.Bag) string {
 				}
 				i++
 			}
+
+		default:
+			panic(fmt.Errorf("unexpected type %T", v))
 		}
 
 		buf.WriteByte(delimiter)

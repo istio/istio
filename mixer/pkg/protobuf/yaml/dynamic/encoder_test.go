@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -825,7 +824,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		"test.i64":              int64(-123),
 		"test.i32":              int64(123),
 		"test.bool":             true,
-		"source.ip":             net.IP{8, 0, 0, 1},
+		"source.ip":             []byte{8, 0, 0, 1},
 		"response.duration":     10 * time.Second,
 		"context.timestamp":     time.Date(2018, 8, 15, 0, 0, 1, 0, time.UTC).UTC(),
 		"test.dns_name":         "google.com",
