@@ -186,7 +186,6 @@ func TestKeyShape(t *testing.T) {
 				},
 
 				{
-					// TODO(kuat)
 					"ra with many exact entries, bag matching all, except map key",
 					map[string]interface{}{
 						"a": "0",

@@ -124,7 +124,7 @@ func DefaultArgs() *Args {
 		ReadinessProbeOptions:  &probe.Options{},
 		IntrospectionOptions:   ctrlz.DefaultOptions(),
 		EnableProfiling:        true,
-		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
+		NumCheckCacheEntries:   0, // prior value 5000 * 5 * 60, 5000 QPS with average TTL of 5 minutes
 		UseAdapterCRDs:         true,
 		LoadSheddingOptions:    loadshedding.DefaultOptions(),
 	}

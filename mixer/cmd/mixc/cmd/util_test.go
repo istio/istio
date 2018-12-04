@@ -72,7 +72,7 @@ func TestAttributeHandling(t *testing.T) {
 		{"p", 42 * time.Second},
 		{"q", []byte{1}},
 		{"r", []byte{0x34, 0x56}},
-		{"s", map[string]string{"k1": "v1", "k2": "v2"}},
+		{"s", attribute.NewStringMapForTesting("s", map[string]string{"k1": "v1", "k2": "v2"})},
 		{"t", "XYZ"},
 		{"u", int64(2)},
 		{"v", 3.0},
@@ -80,7 +80,7 @@ func TestAttributeHandling(t *testing.T) {
 		{"x", time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)},
 		{"y", 42 * time.Second},
 		{"z", []byte{0x98, 0x76}},
-		{"zz", map[string]string{"k3": "v3"}},
+		{"zz", attribute.NewStringMapForTesting("zz", map[string]string{"k3": "v3"})},
 	}
 
 	for _, r := range results {

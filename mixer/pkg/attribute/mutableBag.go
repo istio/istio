@@ -191,6 +191,7 @@ func (mb *MutableBag) Set(name string, value interface{}) {
 		panic(fmt.Errorf("attempt to use a bag after its Done method has been called"))
 	}
 
+	// lenient update for backwards compatibility
 	if m, ok := value.(map[string]string); ok {
 		mb.values[name] = StringMap{name: name, entries: m}
 		return
@@ -199,6 +200,7 @@ func (mb *MutableBag) Set(name string, value interface{}) {
 	if !CheckType(value) {
 		panic(fmt.Errorf("invalid type %T for %q", value, name))
 	}
+
 	mb.values[name] = value
 }
 
