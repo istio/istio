@@ -36,3 +36,16 @@ roleRef:
   kind: ClusterRole
   name: aspen-mesh-agent-istio-write
   apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: aspen-mesh-agent-istio-view
+subjects:
+- kind: ServiceAccount
+  name: aspen-mesh-agent-service-account
+  namespace: istio-system
+roleRef:
+  kind: ClusterRole
+  name: aspen-mesh-agent-istio-view
+  apiGroup: rbac.authorization.k8s.io
