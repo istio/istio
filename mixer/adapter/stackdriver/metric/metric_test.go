@@ -29,7 +29,6 @@ import (
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/stackdriver/config"
 	helper "istio.io/istio/mixer/adapter/stackdriver/helper"
 	"istio.io/istio/mixer/pkg/adapter/test"
@@ -58,32 +57,24 @@ var dummyMetadataGenerator = helper.NewMetadataGenerator(dummyShouldFill, dummyM
 
 func TestFactory_NewMetricsAspect(t *testing.T) {
 	tests := []struct {
-		name           string
-		cfg            *config.Params
-		metricNames    []string
-		missingMetrics []string // We check that the method logged these metric names because they're not mapped in cfg
-		err            string   // If != "" we expect an error containing this string
+		name        string
+		cfg         *config.Params
+		metricNames []string
+		err         string // If != "" we expect an error containing this string
 	}{
-		{"empty", &config.Params{}, []string{}, []string{}, ""},
-		{"missing metric", &config.Params{}, []string{"request_count"}, []string{"request_count"}, ""},
+		{"empty", &config.Params{}, []string{}, ""},
 		{
 			"happy path",
 			&config.Params{MetricInfo: map[string]*config.Params_MetricInfo{"request_count": {}}},
 			[]string{"request_count"},
-			[]string{},
 			"",
 		},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			metrics := make(map[string]*metrict.Type)
-			for _, name := range tt.metricNames {
-				metrics[name] = &metrict.Type{}
-			}
 			env := test.NewEnv(t)
 			b := &builder{createClient: clientFunc(nil), mg: dummyMetadataGenerator}
-			b.SetMetricTypes(metrics)
 			b.SetAdapterConfig(tt.cfg)
 			_, err := b.Build(context.Background(), env)
 			if err != nil || tt.err != "" {
@@ -93,22 +84,10 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
 				}
 			}
-			// If we expect missing metrics make sure they're present in the logs; otherwise make sure none were missing.
-			if len(tt.missingMetrics) > 0 {
-				for _, missing := range tt.missingMetrics {
-					found := false
-					for _, log := range env.GetLogs() {
-						found = found || strings.Contains(log, missing)
-					}
-					if !found {
-						t.Errorf("Wanted missing log %s, got logs: %v", missing, env.GetLogs())
-					}
-				}
-			} else {
-				for _, log := range env.GetLogs() {
-					if strings.Contains(log, "No stackdriver info found for metric") {
-						t.Errorf("Expected no missing metrics, found log entry: %s", log)
-					}
+
+			for _, log := range env.GetLogs() {
+				if strings.Contains(log, "No stackdriver info found for metric") {
+					t.Errorf("Expected no missing metrics, found log entry: %s", log)
 				}
 			}
 		})
@@ -195,17 +174,14 @@ func TestRecord(t *testing.T) {
 		"gauge": {
 			ttype: "type",
 			minfo: &config.Params_MetricInfo{Kind: metricpb.MetricDescriptor_GAUGE, Value: metricpb.MetricDescriptor_INT64},
-			vtype: descriptor.INT64,
 		},
 		"cumulative": {
 			ttype: "type",
 			minfo: &config.Params_MetricInfo{Kind: metricpb.MetricDescriptor_CUMULATIVE, Value: metricpb.MetricDescriptor_STRING},
-			vtype: descriptor.STRING,
 		},
 		"delta": {
 			ttype: "type",
 			minfo: &config.Params_MetricInfo{Kind: metricpb.MetricDescriptor_DELTA, Value: metricpb.MetricDescriptor_BOOL},
-			vtype: descriptor.BOOL,
 		},
 		"distribution-linear": {
 			ttype: "type",
@@ -220,7 +196,6 @@ func TestRecord(t *testing.T) {
 						Width:            5,
 					}}},
 			},
-			vtype: descriptor.DOUBLE,
 		},
 		"distribution-exp": {
 			ttype: "type",
@@ -235,7 +210,6 @@ func TestRecord(t *testing.T) {
 						GrowthFactor:     10,
 					}}},
 			},
-			vtype: descriptor.INT64,
 		},
 		"distribution-explicit": {
 			ttype: "type",
@@ -248,7 +222,6 @@ func TestRecord(t *testing.T) {
 						Bounds: []float64{1, 10, 100},
 					}}},
 			},
-			vtype: descriptor.DURATION,
 		},
 	}
 	now := time.Now()
@@ -461,7 +434,6 @@ func TestProjectMetadata(t *testing.T) {
 		"metric": {
 			ttype: "type",
 			minfo: &config.Params_MetricInfo{Kind: metricpb.MetricDescriptor_GAUGE, Value: metricpb.MetricDescriptor_INT64},
-			vtype: descriptor.INT64,
 		},
 	}
 

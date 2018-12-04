@@ -38,6 +38,6 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd.AddCommand(adapterCfgCmd(args, printf, fatalf))
 	rootCmd.AddCommand(templateCfgCmd(args, printf, fatalf))
 	rootCmd.AddCommand(apiGenCmd(fatalf))
-	rootCmd.AddCommand(serverGenCmd(args, printf, fatalf))
+	rootCmd.AddCommand(oopGenCmd(fatalf))
 	return rootCmd
 }

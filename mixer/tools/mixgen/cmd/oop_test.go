@@ -33,8 +33,10 @@ func TestOOPGenerator_Generate(t *testing.T) {
 
 	tmpDir := path.Join(os.TempDir(), "/oopScafolding")
 	_ = os.MkdirAll(tmpDir, os.ModeDir|os.ModePerm)
-
-	args := []string{"server", "--out_dir", tmpDir, "--adapter_name", adapterName,
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+	args := []string{"oop", "--out_dir", tmpDir, "--adapter_name", adapterName,
 		"--adapter_package", adapterPackage, "--config_package", configPackge}
 	for _, t := range templates {
 		args = append(args, "-t", t)
@@ -64,7 +66,7 @@ func TestOOPGenerator_Generate(t *testing.T) {
 		}
 
 		if !bytes.Equal(wantBytes, gotBytes) {
-			t.Errorf("generated file %v does not match baseline %v", bfp, gfp)
+			t.Errorf("generated file %v does not match baseline %v", gfp, bfp)
 		}
 	}
 }

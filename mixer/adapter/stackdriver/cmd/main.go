@@ -42,7 +42,7 @@ func defaultArgs() *Args {
 }
 
 // GetCmd returns the cobra command-tree.
-func GetCmd(args []string) *cobra.Command {
+func GetCmd(_ []string) *cobra.Command {
 	sa := defaultArgs()
 	cmd := &cobra.Command{
 		Use:   "stackdriver",

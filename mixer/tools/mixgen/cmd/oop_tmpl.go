@@ -44,7 +44,7 @@ func defaultArgs() *Args {
 }
 
 // GetCmd returns the cobra command-tree.
-func GetCmd(args []string) *cobra.Command {
+func GetCmd(_ []string) *cobra.Command {
 	sa := defaultArgs()
 	cmd := &cobra.Command{
 		Use:   "{{.AdapterName}}",
@@ -112,6 +112,8 @@ import (
 	"sync"
 
 	"google.golang.org/grpc"
+	$$additional_imports$$
+
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -124,7 +126,6 @@ import (
 	{{if ne .AdapterConfigPackage "" -}}
 	config "{{.AdapterConfigPackage}}"
 	{{end -}}
-	$$additional_imports$$
 )
 
 type (
@@ -216,7 +217,13 @@ func (s *NoSession) get{{.InterfaceName -}}Handler(rawcfg []byte) ({{.GoPackageN
 		{{.GoName}}: transform{{FindPackage .}}{{TrimGoType .ProtoType.MapValue.Name}}MsgMap(inst.{{.GoName}}),
 		{{else if eq .ProtoType.MapValue.Name "istio.policy.v1beta1.Value" -}}
 		{{.GoName}}: transformValueMap(inst.{{.GoName}}),
-		{{else if or (eq .ProtoType.MapValue.Name "string") (eq .ProtoType.MapValue.Name "int") (eq .ProtoType.MapValue.Name "double") (eq .ProtoType.MapValue.Name "bool") -}}
+		{{else if eq .ProtoType.MapValue.Name "string" -}}
+		{{.GoName}}: inst.{{.GoName}},
+		{{else if eq .ProtoType.MapValue.Name "int" -}}
+		{{.GoName}}: inst.{{.GoName}},
+		{{else if eq .ProtoType.MapValue.Name "double" -}}
+		{{.GoName}}: inst.{{.GoName}},
+		{{else if eq .ProtoType.MapValue.Name "bool" -}}
 		{{.GoName}}: inst.{{.GoName}},
 		{{end -}}
 		{{else if .ProtoType.IsResourceMessage -}}
@@ -453,7 +460,7 @@ func (s *NoSession) Addr() string {
 // Run starts the server run
 func (s *NoSession) Run() {
 	s.shutdown = make(chan error, 1)
-	go func() {
+	go func() { //nolint:adapterlinter
 		err := s.server.Serve(s.listener)
 
 		// notify closer we're done
