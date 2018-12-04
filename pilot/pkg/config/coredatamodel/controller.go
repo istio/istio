@@ -190,55 +190,56 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		delete(innerStore, clusterScopedNamespace)
 	}
 
-	var prevStore map[string]map[string]model.Config
+	// var prevStore map[string]map[string]model.Config
 
 	c.configStoreMu.Lock()
-	prevStore = c.configStore[descriptor.Type]
+	// prevStore = c.configStore[descriptor.Type]
 	c.configStore[descriptor.Type] = innerStore
 	if meshType != "" {
 		c.configStore[meshType] = meshTypeInnerStore
 	}
 	c.configStoreMu.Unlock()
 
-	dispatch := func(model model.Config, event model.Event) {}
-	if handlers, ok := c.eventHandlers[descriptor.Type]; ok {
-		dispatch = func(model model.Config, event model.Event) {
-			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
-			for _, handler := range handlers {
-				handler(model, event)
-			}
-		}
-	}
+	//dispatch := func(model model.Config, event model.Event) {}
+	//if handlers, ok := c.eventHandlers[descriptor.Type]; ok {
+	//	dispatch = func(model model.Config, event model.Event) {
+	//		log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
+	//		for _, handler := range handlers {
+	//			handler(model, event)
+	//		}
+	//	}
+	//}
 
-	// add/update
-	for namespace, byName := range innerStore {
-		for name, config := range byName {
-			if prevByNamespace, ok := prevStore[namespace]; ok {
-				if prevConfig, ok := prevByNamespace[name]; ok {
-					if config.ResourceVersion != prevConfig.ResourceVersion {
-						dispatch(config, model.EventUpdate)
-					}
-				} else {
-					dispatch(config, model.EventAdd)
-				}
-			} else {
-				dispatch(config, model.EventAdd)
-			}
-		}
-	}
-
-	// remove
-	for namespace, prevByName := range prevStore {
-		for name, prevConfig := range prevByName {
-			if byNamespace, ok := innerStore[namespace]; ok {
-				if _, ok := byNamespace[name]; !ok {
-					dispatch(prevConfig, model.EventDelete)
-				}
-			} else {
-				dispatch(prevConfig, model.EventDelete)
-			}
-		}
-	}
+	//
+	//// add/update
+	//for namespace, byName := range innerStore {
+	//	for name, config := range byName {
+	//		if prevByNamespace, ok := prevStore[namespace]; ok {
+	//			if prevConfig, ok := prevByNamespace[name]; ok {
+	//				if config.ResourceVersion != prevConfig.ResourceVersion {
+	//					dispatch(config, model.EventUpdate)
+	//				}
+	//			} else {
+	//				dispatch(config, model.EventAdd)
+	//			}
+	//		} else {
+	//			dispatch(config, model.EventAdd)
+	//		}
+	//	}
+	//}
+	//
+	//// remove
+	//for namespace, prevByName := range prevStore {
+	//	for name, prevConfig := range prevByName {
+	//		if byNamespace, ok := innerStore[namespace]; ok {
+	//			if _, ok := byNamespace[name]; !ok {
+	//				dispatch(prevConfig, model.EventDelete)
+	//			}
+	//		} else {
+	//			dispatch(prevConfig, model.EventDelete)
+	//		}
+	//	}
+	//}
 
 	return nil
 }
