@@ -61,7 +61,7 @@ var (
 
 			stop := make(chan struct{})
 
-			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
+			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, serverOptions.CAProviderName, serverOptions.CATLSRootCertFile, true)
 			if err != nil {
 				log.Errorf("failed to create caClient: %v", err)
 				return fmt.Errorf("failed to create caClient")
@@ -110,6 +110,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", caProvider, "CA provider")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CATLSRootCertFile, "caTLSRootCertFile", "", "The root certificate to call CA via TLS")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.TrustDomain, "trustDomain",
 		os.Getenv(trustDomain), "The trust domain this node agent run in")

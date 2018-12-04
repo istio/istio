@@ -51,6 +51,9 @@ type Options struct {
 	// The CA provider name.
 	CAProviderName string
 
+	// The root of trust to call the CA service through TLS.
+	CATLSRootCertFile string
+
 	// TrustDomain corresponds to the trust root of a system.
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string

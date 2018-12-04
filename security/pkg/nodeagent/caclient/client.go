@@ -15,46 +15,26 @@
 package caclient
 
 import (
-	"crypto/x509"
-	"errors"
 	"fmt"
 	"strings"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-
-	"istio.io/istio/pkg/log"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 )
 
-const googleCA = "GoogleCA"
+const googleCAName = "GoogleCA"
+const citadelName = "Citadel"
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
-	var opts grpc.DialOption
-	if tlsFlag {
-		pool, err := x509.SystemCertPool()
-		if err != nil {
-			log.Errorf("could not get SystemCertPool: %v", err)
-			return nil, errors.New("could not get SystemCertPool")
-		}
-		creds := credentials.NewClientTLSFromCert(pool, "")
-		opts = grpc.WithTransportCredentials(creds)
-	} else {
-		opts = grpc.WithInsecure()
-	}
-
-	conn, err := grpc.Dial(endpoint, opts)
-	if err != nil {
-		log.Errorf("Failed to connect to endpoint %q: %v", endpoint, err)
-		return nil, fmt.Errorf("failed to connect to endpoint %q", endpoint)
-	}
-
+func NewCAClient(endpoint, CAProviderName, caTLSRootCertFile string, tlsFlag bool) (caClientInterface.Client, error) {
 	switch CAProviderName {
-	case googleCA:
-		return gca.NewGoogleCAClient(conn), nil
+	case googleCAName:
+		return gca.NewGoogleCAClient(endpoint, tlsFlag)
+	case citadelName:
+		return citadel.NewCitadelClient(endpoint, tlsFlag, caTLSRootCertFile)
 	default:
-		return nil, fmt.Errorf("CA provider %q isn't supported. Currently Istio only supports %q", CAProviderName, strings.Join([]string{googleCA}, ","))
+		return nil, fmt.Errorf(
+			"CA provider %q isn't supported. Currently Istio supports %q", CAProviderName, strings.Join([]string{googleCAName, citadelName}, ","))
 	}
 }
