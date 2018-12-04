@@ -1,16 +1,15 @@
 {{- if .Values.global.enableHelmTest }}
-{{- if .Values.tracing.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ template "zipkin.fullname" . }}-test
+  name: {{ template "security.fullname" . }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger-test
+    app: istio-citadel-test
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: jaeger
+    istio: citadel
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""
     sidecar.istio.io/inject: "false"
@@ -20,13 +19,12 @@ spec:
   priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
   containers:
-    - name: "{{ template "zipkin.fullname" . }}-test"
+    - name: "{{ template "security.fullname" . }}-test"
       image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
-      args: ['http://tracing:80']
+      args: ['http://istio-citadel:8060']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
-{{- end }}
 {{- end }}

@@ -1,16 +1,15 @@
 {{- if .Values.global.enableHelmTest }}
-{{- if .Values.grafana.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ template "grafana.fullname" . }}-test
+  name: {{ template "servicegraph.fullname" . }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: grafana-test
+    app: servicegraph-test
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: grafana
+    istio: servicegraph
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""
     sidecar.istio.io/inject: "false"
@@ -20,13 +19,12 @@ spec:
   priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
   containers:
-    - name: "{{ template "grafana.fullname" . }}-test"
+    - name: "{{ template "servicegraph.fullname" . }}-test"
       image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
-      args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
+      args: ['http://servicegraph:{{ .Values.servicegraph.service.externalPort }}']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
-{{- end }}
 {{- end }}

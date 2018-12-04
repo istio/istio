@@ -1,16 +1,15 @@
 {{- if .Values.global.enableHelmTest }}
-{{- if .Values.security.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ template "security.fullname" . }}-test
+  name: {{ template "kiali.fullname" . }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-citadel-test
+    app: kiali-test
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: citadel
+    istio: kiali
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""
     sidecar.istio.io/inject: "false"
@@ -20,13 +19,12 @@ spec:
   priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
   containers:
-    - name: "{{ template "security.fullname" . }}-test"
+    - name: "{{ template "kiali.fullname" . }}-test"
       image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
-      args: ['http://istio-citadel:8060']
+      args: ['http://kiali:20001']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
-{{- end }}
 {{- end }}

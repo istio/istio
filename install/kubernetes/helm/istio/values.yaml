@@ -378,4 +378,3 @@ global:
   # If set to false, 'helm template ...' will ignore the helm test yaml files
   # when generating the template
   enableHelmTest: true
-  

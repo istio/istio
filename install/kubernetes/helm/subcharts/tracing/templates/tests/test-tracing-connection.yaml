@@ -1,16 +1,14 @@
 {{- if .Values.global.enableHelmTest }}
-{{- if .Values.servicegraph.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ template "servicegraph.fullname" . }}-test
+  name: {{ .Release.Name }}-{{ .Values.provider }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: servicegraph-test
+    app: {{ .Values.provider }}-test
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
-    istio: servicegraph
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""
     sidecar.istio.io/inject: "false"
@@ -20,13 +18,12 @@ spec:
   priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
   containers:
-    - name: "{{ template "servicegraph.fullname" . }}-test"
+    - name: "{{ .Values.provider }}-test"
       image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
-      args: ['http://servicegraph:{{ .Values.servicegraph.service.externalPort }}']
+      args: ['http://tracing:80']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
-{{- end }}
 {{- end }}
