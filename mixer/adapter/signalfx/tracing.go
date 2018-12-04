@@ -225,18 +225,20 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 		span.LocalEndpoint.ServiceName = &n
 	}
 
-	if ip, ok := istioSpan.SpanTags["source.ip"].(net.IP); ok {
-		ips := ip.String()
+	if ip, ok := istioSpan.SpanTags["source.ip"].([]byte); ok {
+		ips := net.IP(ip).String()
 		span.LocalEndpoint.Ipv4 = &ips
+		tags["source.ip"] = ips
 	}
 
 	if n, ok := istioSpan.SpanTags["destination.name"].(string); ok && n != "" {
 		span.RemoteEndpoint.ServiceName = &n
 	}
 
-	if ip, ok := istioSpan.SpanTags["destination.ip"].(net.IP); ok {
-		ips := ip.String()
+	if ip, ok := istioSpan.SpanTags["destination.ip"].([]byte); ok {
+		ips := net.IP(ip).String()
 		span.RemoteEndpoint.Ipv4 = &ips
+		tags["destination.ip"] = ips
 	}
 
 	if istioSpan.ParentSpanId != "" {

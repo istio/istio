@@ -55,6 +55,10 @@ type Bag interface {
 
 // Equal compares two attribute values.
 func Equal(this, that interface{}) bool {
+	if this == nil && that == nil {
+		return true
+	}
+
 	switch x := this.(type) {
 	case int64, string, float64, bool:
 		return x == that

@@ -17,7 +17,6 @@ package interpreter
 import (
 	"errors"
 	"fmt"
-	"net"
 	"strings"
 	"testing"
 	"time"
@@ -1695,7 +1694,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end
 		`,
-			expected: net.ParseIP("1.2.4.6"),
+			expected: []byte{0x1, 0x2, 0x4, 0x6},
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func() []byte {
 					return []byte{0x1, 0x2, 0x4, 0x6}
@@ -1852,7 +1851,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			ret
 		end
 		`,
-			expected: net.ParseIP("1.2.4.6"),
+			expected: []byte{0x1, 0x2, 0x4, 0x6},
 			input: map[string]interface{}{
 				"a": []byte{0x1, 0x2, 0x4, 0x6},
 			},
@@ -2422,7 +2421,7 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 
 		r := s.Result()
 		actual := r.AsInterface()
-		if !areEqual(actual, test.expected) {
+		if !attribute.Equal(actual, test.expected) {
 			t.Fatalf("(stepper) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
 		}
 	}
@@ -2444,20 +2443,8 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 		}
 
 		actual := r.AsInterface()
-		if !areEqual(actual, test.expected) {
+		if !attribute.Equal(actual, test.expected) {
 			t.Fatalf("(interpreter) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
 		}
 	}
-}
-
-func areEqual(a1 interface{}, a2 interface{}) bool {
-	b1, b1Ok := a1.(net.IP)
-	b2, b2Ok := a2.(net.IP)
-	if b1Ok != b2Ok {
-		return false
-	}
-	if b1Ok {
-		return b1.Equal(b2)
-	}
-	return a1 == a2
 }

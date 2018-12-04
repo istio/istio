@@ -2048,7 +2048,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = vIface.(net.IP)
+		r.IpAddr = net.IP(vIface.([]byte))
 
 	}
 
@@ -3475,7 +3475,7 @@ func (b *builder_istio_mixer_template_list_Res2) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = vIface.(net.IP)
+		r.IpAddr = net.IP(vIface.([]byte))
 
 	}
 

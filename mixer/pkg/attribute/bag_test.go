@@ -36,8 +36,8 @@ var (
 func TestBag(t *testing.T) {
 	sm1 := mixerpb.StringMap{Entries: map[int32]int32{-16: -16}}
 	sm2 := mixerpb.StringMap{Entries: map[int32]int32{-17: -17}}
-	m1 := StringMap{entries: map[string]string{"N16": "N16"}}
-	m3 := StringMap{entries: map[string]string{"N42": "FourtyTwo"}}
+	m1 := WrapStringMap(map[string]string{"N16": "N16"})
+	m3 := WrapStringMap(map[string]string{"N42": "FourtyTwo"})
 
 	attrs := mixerpb.CompressedAttributes{
 		Words:      []string{"N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10", "N11", "N12", "N13", "N14", "N15", "N16", "N17"},
@@ -219,7 +219,7 @@ func TestProtoBag(t *testing.T) {
 		{"M2", t9},
 		{"M3", d1},
 		{"M4", []byte{11}},
-		{"M5", StringMap{entries: map[string]string{"M6": "M7"}}},
+		{"M5", WrapStringMap(map[string]string{"M6": "M7"})},
 	}
 
 	for j := 0; j < 2; j++ {
@@ -375,11 +375,11 @@ func TestUpdateFromProto(t *testing.T) {
 	}
 
 	refBag := GetMutableBag(nil)
-	refBag.Set("M1", StringMap{entries: map[string]string{"M7": "M6"}})
+	refBag.Set("M1", WrapStringMap(map[string]string{"M7": "M6"}))
 	refBag.Set("M2", t9)
 	refBag.Set("M3", d1)
 	refBag.Set("M4", []byte{11})
-	refBag.Set("M5", StringMap{entries: map[string]string{"M7": "M6"}})
+	refBag.Set("M5", WrapStringMap(map[string]string{"M7": "M6"}))
 	refBag.Set("G4", "G5")
 	refBag.Set("G6", int64(142))
 	refBag.Set("G7", 142.0)
@@ -453,11 +453,11 @@ func TestUpdateFromProtoWithDupes(t *testing.T) {
 
 func TestCopyBag(t *testing.T) {
 	refBag := GetMutableBag(nil)
-	refBag.Set("M1", StringMap{entries: map[string]string{"M7": "M6"}})
+	refBag.Set("M1", WrapStringMap(map[string]string{"M7": "M6"}))
 	refBag.Set("M2", t9)
 	refBag.Set("M3", d1)
 	refBag.Set("M4", []byte{11})
-	refBag.Set("M5", StringMap{entries: map[string]string{"M7": "M6"}})
+	refBag.Set("M5", WrapStringMap(map[string]string{"M7": "M6"}))
 	refBag.Set("G4", "G5")
 	refBag.Set("G6", int64(142))
 	refBag.Set("G7", 142.0)

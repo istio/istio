@@ -23,6 +23,7 @@ import (
 
 	descriptor "istio.io/api/policy/v1beta1"
 	pb "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
@@ -505,7 +506,7 @@ end`,
 		E:          `destination.ip| ip("10.1.12.3")`,
 		Type:       descriptor.IP_ADDRESS,
 		I:          map[string]interface{}{},
-		R:          net.ParseIP("10.1.12.3"),
+		R:          []byte(net.ParseIP("10.1.12.3")),
 		Referenced: []string{"destination.ip"},
 		conf:       exprEvalAttrs,
 	},
@@ -562,7 +563,7 @@ fn eval() interface
   ret
 end
 `,
-		R:          map[string]string{},
+		R:          attribute.WrapStringMap(nil),
 		I:          map[string]interface{}{},
 		Referenced: []string{},
 		conf:       exprEvalAttrs,
@@ -571,7 +572,7 @@ end
 		E:          `source.labels | emptyStringMap()`,
 		Type:       descriptor.STRING_MAP,
 		I:          map[string]interface{}{},
-		R:          map[string]string{},
+		R:          attribute.WrapStringMap(nil),
 		Referenced: []string{"source.labels"},
 		conf:       exprEvalAttrs,
 	},
@@ -579,8 +580,8 @@ end
 	{
 		E:          `emptyStringMap() | source.labels`,
 		Type:       descriptor.STRING_MAP,
-		I:          map[string]interface{}{"source.labels": map[string]string{"test": "foo"}},
-		R:          map[string]string{},
+		I:          map[string]interface{}{"source.labels": attribute.WrapStringMap(map[string]string{"test": "foo"})},
+		R:          attribute.WrapStringMap(nil),
 		Referenced: []string{},
 		conf:       exprEvalAttrs,
 	},
@@ -2542,7 +2543,7 @@ end`,
 		I: map[string]interface{}{
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 		},
-		R: net.ParseIP("1.2.3.4"),
+		R: []byte{0x1, 0x2, 0x3, 0x4},
 	},
 	{
 		E:    `aip | bip`,
@@ -2550,7 +2551,7 @@ end`,
 		I: map[string]interface{}{
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
 		},
-		R: net.ParseIP("4.5.6.7"),
+		R: []byte{0x4, 0x5, 0x6, 0x7},
 	},
 	{
 		E:    `aip | bip`,
@@ -2559,12 +2560,12 @@ end`,
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
 		},
-		R: net.ParseIP("1.2.3.4"),
+		R: []byte{0x1, 0x2, 0x3, 0x4},
 	},
 	{
 		E:    `ip("0.0.0.0")`,
 		Type: descriptor.IP_ADDRESS,
-		R:    net.IPv4zero,
+		R:    []byte(net.IPv4zero),
 		IL: `fn eval() interface
   apush_s "0.0.0.0"
   call ip
@@ -2695,7 +2696,7 @@ fn eval() interface
   ret
 end
 		`,
-		R: net.ParseIP("1.2.3.4"),
+		R: []byte(net.ParseIP("1.2.3.4")),
 	},
 
 	{
@@ -2711,7 +2712,7 @@ fn eval() interface
   ret
 end
 		`,
-		R: net.ParseIP("1.2.3.4"),
+		R: []byte(net.ParseIP("1.2.3.4")),
 	},
 
 	{
@@ -2727,7 +2728,7 @@ L0:
   ret
 end
 		`,
-		R: net.ParseIP("1.2.3.4"),
+		R: []byte(net.ParseIP("1.2.3.4")),
 	},
 
 	{
@@ -2743,7 +2744,7 @@ L0:
   ret
 end
 `,
-		R: net.ParseIP("5.6.7.8"),
+		R: []byte(net.ParseIP("5.6.7.8")),
 	},
 
 	{
@@ -2752,7 +2753,7 @@ end
 		I: map[string]interface{}{
 			"bs": "1.2.3.4",
 		},
-		R: net.ParseIP("1.2.3.4"),
+		R: []byte(net.ParseIP("1.2.3.4")),
 	},
 
 	{
@@ -2775,7 +2776,7 @@ end
 		I: map[string]interface{}{
 			"ar": map[string]string{"foo": "1.2.3.4"},
 		},
-		R: net.ParseIP("1.2.3.4"),
+		R: []byte(net.ParseIP("1.2.3.4")),
 	},
 
 	{
@@ -2796,7 +2797,7 @@ L0:
   ret
 end
 `,
-		R: net.ParseIP("1.2.3.4"),
+		R: []byte(net.ParseIP("1.2.3.4")),
 	},
 
 	{
@@ -3418,7 +3419,7 @@ end`,
 	{
 		E:    `conditional(ab, aip, bip)`,
 		Type: descriptor.IP_ADDRESS,
-		R:    net.IPv4(0x1, 0x2, 0x3, 0x4),
+		R:    []byte{0x1, 0x2, 0x3, 0x4},
 		I: map[string]interface{}{
 			"ab":  true,
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},

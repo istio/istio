@@ -298,7 +298,7 @@ func TestValueTypeEncoder(t *testing.T) {
 			bag := attribute.GetMutableBagForTesting(tst.bag)
 			var ba []byte
 			if ba, err = enc.Encode(bag, ba); err != nil {
-				t.Fatalf("unexpected encoder  error: %v", err)
+				t.Fatalf("unexpected encoder error: %v", err)
 			}
 
 			bout, _ := tst.output.Marshal()

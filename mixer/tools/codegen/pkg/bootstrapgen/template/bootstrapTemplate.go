@@ -700,7 +700,7 @@ var (
                             {{if containsValueTypeOrResMsg $f.GoType}}
                                 r.{{$f.GoName}} = vIface
                             {{else}}
-                                {{if isAliasTypeSkipIp $f.GoType.Name}}
+                                {{if isAliasType $f.GoType.Name}}
                                     r.{{$f.GoName}} = {{$f.GoType.Name}}(vIface.({{getAliasType .GoType.Name}}))
                                 {{else}}
                                     r.{{$f.GoName}} = vIface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}
