@@ -24,6 +24,9 @@ rules:
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["externaladmissionhookconfigurations", "initializerconfigurations", "validatingwebhookconfigurations"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.aspenmesh.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
