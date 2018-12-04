@@ -941,6 +941,15 @@ func TestParentRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTypes(t *testing.T) {
+	if Equal(List{}, &List{}) {
+		t.Error("unexpected equality")
+	}
+	if CheckType(List{}) {
+		t.Error("expect a list pointer")
+	}
+}
+
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.DefaultOptions()
