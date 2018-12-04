@@ -104,9 +104,26 @@ var (
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
-	valueFile = flag.String("valueFile", "", "Istio value yaml file when helm is used")
-	values    = flag.String("values", "", "Helm set values when helm is used")
+	valueFile     = flag.String("valueFile", "", "Istio value yaml file when helm is used")
+	values        = flag.String("values", "", "Helm set values when helm is used")
+	helmSetValues helmSetValueList
 )
+
+// Support for multiple values for helm installation
+type helmSetValueList []string
+
+func (h *helmSetValueList) String() string {
+	return fmt.Sprintf("%v", *h)
+}
+func (h *helmSetValueList) Set(value string) error {
+	if len(*h) > 0 {
+		return errors.New("helmSetValueList flag already set")
+	}
+	for _, v := range strings.Split(value, ",") {
+		*h = append(*h, v)
+	}
+	return nil
+}
 
 type appPodsInfo struct {
 	// A map of app label values to the pods for that app
@@ -818,7 +835,10 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	if *values != "" {
 		setValue += " --set " + *values
 	}
-
+	flag.Var(&helmSetValues, "helmSetValueList", "Additional helm values parsed, eg: galley.enabled=true,global.useMCP=true")
+	for _, v := range helmSetValues {
+		setValue += " --set " + v
+	}
 	err := util.HelmClientInit()
 	if err != nil {
 		// helm client init
