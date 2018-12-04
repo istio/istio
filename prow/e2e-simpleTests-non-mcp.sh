@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2017 Istio Authors
+# Copyright 2018 Istio Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,11 @@
 # limitations under the License.
 
 
-################################################
-#                                              #
-#             e2e-bookInfoTests (v1alpha3)     #
-#                                              #
-################################################
+#######################################
+#                                     #
+#             e2e-suite               #
+#                                     #
+#######################################
 
 # Exit immediately for non zero status
 set -e
@@ -28,5 +28,5 @@ set -u
 # Print commands
 set -x
 
-echo 'Running bookinfo test with rbac, auth Tests'
-./prow/e2e-suite.sh  --use_mcp=true --single_test e2e_bookinfo_envoyv2_v1alpha3 "$@"
+echo 'Running Simple test with rbac, auth Tests'
+./prow/e2e-suite.sh --auth_enable --use_mcp=false --single_test e2e_simple --installer helm "$@"
