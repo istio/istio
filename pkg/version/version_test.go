@@ -35,6 +35,7 @@ User: root@71a9470ea93c
 Hub: docker.io/istio
 GolangVersion: go1.10.1
 BuildStatus: Clean
+GitTag: tag
 `,
 			false,
 			BuildInfo{Version: "1.0.0",
@@ -42,7 +43,8 @@ BuildStatus: Clean
 				User:          "root@71a9470ea93c",
 				DockerHub:     "docker.io/istio",
 				GolangVersion: "go1.10.1",
-				BuildStatus:   "Clean"},
+				BuildStatus:   "Clean",
+				GitTag:        "tag"},
 		},
 		{
 			"Invalid input 1",
@@ -77,7 +79,7 @@ BuildStatus: Clean
 
 func TestBuildInfo(t *testing.T) {
 	versionedString := fmt.Sprintf(`version.BuildInfo{Version:"unknown", GitRevision:"unknown", User:"unknown", `+
-		`Host:"unknown", GolangVersion:"%s", DockerHub:"unknown", BuildStatus:"unknown"}`,
+		`Host:"unknown", GolangVersion:"%s", DockerHub:"unknown", BuildStatus:"unknown", GitTag:"unknown"}`,
 		runtime.Version())
 
 	cases := []struct {
@@ -93,9 +95,10 @@ func TestBuildInfo(t *testing.T) {
 			GolangVersion: "GOLANGVER",
 			DockerHub:     "DH",
 			User:          "USER",
-			BuildStatus:   "STATUS"},
+			BuildStatus:   "STATUS",
+			GitTag:        "TAG"},
 			"USER@HOST-DH-VER-GITREV-STATUS",
-			`version.BuildInfo{Version:"VER", GitRevision:"GITREV", User:"USER", Host:"HOST", GolangVersion:"GOLANGVER", DockerHub:"DH", BuildStatus:"STATUS"}`},
+			`version.BuildInfo{Version:"VER", GitRevision:"GITREV", User:"USER", Host:"HOST", GolangVersion:"GOLANGVER", DockerHub:"DH", BuildStatus:"STATUS", GitTag:"TAG"}`},
 
 		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown", versionedString}}
 
