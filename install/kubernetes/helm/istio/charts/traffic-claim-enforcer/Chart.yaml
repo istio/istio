@@ -1,0 +1,19 @@
+apiVersion: v1
+name: traffic-claim-enforcer
+version: 1.0.0
+description: Helm chart for traffic claim enforcer
+maintainers:
+  - name: Andrew Jenkins
+    email: andrew@aspenmesh.io
+    url: https://aspenmesh.io
+keywords:
+  - aspen-mesh
+  - policy
+  - traffic-claim
+  - tce
+  - istio
+sources:
+  - https://aspenmesh.io/
+  - https://github.com/aspenmesh/tce
+engine: gotpl
+icon: https://aspenmesh.io/wp-content/uploads/2018/06/favicon-192.png

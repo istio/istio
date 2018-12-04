@@ -1,0 +1,30 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: traffic-claim-enforcer
+  labels:
+    app: traffic-claim-enforcer
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+subjects:
+- kind: ServiceAccount
+  name: traffic-claim-enforcer-service-account
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: traffic-claim-enforcer
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: traffic-claim-enforcer-certs
+subjects:
+- kind: ServiceAccount
+  name: traffic-claim-enforcer-certs-service-account
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: traffic-claim-enforcer-certs
+  apiGroup: rbac.authorization.k8s.io

@@ -10,6 +10,8 @@ global:
   imagePullSecrets: []
   aspenMeshCloud:
     enabled: false
+  traffic-claim-enforcer:
+    enabled: false
 prometheus:
   scrapeTargets:
     kubernetesApiservers: true

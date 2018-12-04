@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: traffic-claim-enforcer-certs
+  labels:
+    app: traffic-claim-enforcer
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["*"]
+

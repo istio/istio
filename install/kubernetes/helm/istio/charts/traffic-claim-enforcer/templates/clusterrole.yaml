@@ -1,0 +1,29 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: traffic-claim-enforcer
+  labels:
+    app: traffic-claim-enforcer
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+rules:
+- apiGroups: ["networking.aspenmesh.io"]
+  resources: ["trafficclaims"]
+  verbs: ["get", "watch", "list"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: traffic-claim-enforcer-certs
+rules:
+- apiGroups: ["certificates.k8s.io"]
+  resources: ["certificatesigningrequests", "certificatesigningrequests/approval"]
+  verbs: ["*"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["get", "patch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get"]
+

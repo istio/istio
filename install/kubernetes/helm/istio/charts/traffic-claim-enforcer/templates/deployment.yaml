@@ -1,0 +1,47 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: traffic-claim-enforcer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: traffic-claim-enforcer
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: traffic-claim-enforcer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: traffic-claim-enforcer
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: traffic-claim-enforcer-service-account
+      containers:
+      - command:
+        - tce
+        - -tlsCertFile=/etc/webhook/certs/cert.pem
+        - -tlsKeyFile=/etc/webhook/certs/key.pem
+        - -alsologtostderr
+        - -v=4
+        image: "{{ .Values.image }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        name: traffic-claim-enforcer
+        ports:
+        - containerPort: 443
+          name: https
+          protocol: TCP
+        volumeMounts:
+          - name: webhook-certs
+            mountPath: /etc/webhook/certs
+            readOnly: true
+        resources:
+{{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: webhook-certs
+          secret:
+            secretName: traffic-claim-enforcer-webhook-certs
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

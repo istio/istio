@@ -18,9 +18,15 @@ echo 'Checking Pilot types generation ....'
 bin/check_pilot_codegen.sh
 echo 'Pilot types generation OK'
 
-echo 'Running format/imports check ....'
-bin/fmt.sh -c
-echo 'Format/imports check OK'
+echo 'Skipping format/imports check ....'
+# FIXME: goimports is broken and go get doesn't let you pick a version
+# Turn it off for now to avoid spurious whitenoise changes that will make
+# merges hard.
+# https://github.com/golang/go/issues/28200
+# https://github.com/istio/istio/pull/9526
+#echo 'Running format/imports check ....'
+#bin/fmt.sh -c
+#echo 'Format/imports check OK'
 
 echo 'Checking licenses'
 bin/check_license.sh
