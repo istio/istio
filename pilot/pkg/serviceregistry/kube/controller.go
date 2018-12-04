@@ -735,7 +735,6 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		}
 		c.updateEDS(ep)
 
-		log.Debugf("Handle endpoint %s in namespace %s", ep.Name, ep.Namespace)
 		return nil
 	})
 

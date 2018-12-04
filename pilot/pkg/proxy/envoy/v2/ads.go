@@ -496,11 +496,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					sort.Strings(routes)
 					sort.Strings(con.Routes)
 
-					if reflect.DeepEqual(con.Routes, routes) || len(routes) == 0 {
+					if reflect.DeepEqual(con.Routes, routes) {
 						// Not logging full request, can be very long.
 						adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 						// Already got a list of routes to watch and has same length as the request, this is an ack
-						if discReq.ErrorDetail == nil && discReq.ResponseNonce != "" {
+						if discReq.ResponseNonce != "" {
 							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
 							con.mu.Unlock()
