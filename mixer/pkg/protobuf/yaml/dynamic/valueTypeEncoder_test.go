@@ -139,21 +139,21 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 			input:        "test.uri",
 			encoderError: errors.New("error converting value"),
 			bag: map[string]interface{}{
-				"test.uri": 5,
+				"test.uri": int64(5),
 			},
 		},
 		{
 			input:        "test.dns_name",
 			encoderError: errors.New("error converting value"),
 			bag: map[string]interface{}{
-				"test.dns_name": 5,
+				"test.dns_name": int64(5),
 			},
 		},
 		{
 			input:        "test.email_address",
 			encoderError: errors.New("error converting value"),
 			bag: map[string]interface{}{
-				"test.email_address": 5,
+				"test.email_address": int64(5),
 			},
 		},
 	} {

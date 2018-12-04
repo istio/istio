@@ -379,7 +379,7 @@ duration_istio_value:
 			for k, v := range got {
 				switch vt := v.(type) {
 				case attribute.StringMap:
-					if !vt.Equal(attribute.NewStringMapForTesting(k, td.want[k].(map[string]string))) {
+					if !vt.Equal(attribute.WrapStringMap(td.want[k].(map[string]string))) {
 						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
 					}
 				case *attribute.List:

@@ -23,7 +23,7 @@ import (
 // Bag is a generic mechanism to access a set of attributes.
 //
 // The type of an attribute value is guaranteed to be one of the following:
-// - int64, int
+// - int64
 // - string
 // - float64
 // - bool
@@ -56,7 +56,7 @@ type Bag interface {
 // Equal compares two attribute values.
 func Equal(this, that interface{}) bool {
 	switch x := this.(type) {
-	case int64, int, string, float64, bool:
+	case int64, string, float64, bool:
 		return x == that
 	case time.Time:
 		if y, ok := that.(time.Time); ok {
@@ -85,7 +85,7 @@ func Equal(this, that interface{}) bool {
 // CheckType validates that an attribute value has a supported type.
 func CheckType(value interface{}) bool {
 	switch value.(type) {
-	case int64, int, string, float64, bool, time.Time, time.Duration, []byte, StringMap, *List:
+	case int64, string, float64, bool, time.Time, time.Duration, []byte, StringMap, *List:
 		return true
 	default:
 		return false

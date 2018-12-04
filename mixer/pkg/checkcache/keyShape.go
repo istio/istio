@@ -169,6 +169,8 @@ func (ks keyShape) makeKey(attrs attribute.Bag) string {
 		buf.WriteByte(delimiter)
 
 		v, _ := attrs.Get(name) // no need to check for errors, since isCompatible already checked this
+
+		// refer to attribute.Bag for the supported attribute value types
 		switch v := v.(type) {
 		case string:
 			buf.WriteString(v)

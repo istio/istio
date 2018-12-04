@@ -478,11 +478,11 @@ var (
 
 							case "out_ip":
 
-								return []uint8(out.OutIp), true
+								return []byte(out.OutIp), true
 
 							case "out_str_map":
 
-								return out.OutStrMap, true
+								return attribute.WrapStringMap(out.OutStrMap), true
 
 							default:
 								return nil, false

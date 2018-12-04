@@ -39,12 +39,9 @@ func NewStringMap(name string) StringMap {
 	}
 }
 
-// NewStringMapForTesting should only be used for testing.
-func NewStringMapForTesting(name string, entries map[string]string) StringMap {
-	return StringMap{
-		name:    name,
-		entries: entries,
-	}
+// WrapStringMap wraps a string map value without reference tracking.
+func WrapStringMap(entries map[string]string) StringMap {
+	return StringMap{entries: entries}
 }
 
 // Set wraps a string map set operation.

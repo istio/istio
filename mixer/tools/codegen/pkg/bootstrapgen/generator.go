@@ -71,7 +71,9 @@ var aliasTypes = map[string]string{
 	"adapter.DNSName":      strString,
 	"adapter.EmailAddress": strString,
 	"adapter.URI":          strString,
-	"net.IP":               "[]uint8",
+	"net.IP":               "[]byte",
+	"int":                  strInt64,
+	"map[string]string":    "attribute.WrapStringMap",
 }
 
 func containsValueTypeOrResMsg(ti modelgen.TypeInfo) bool {

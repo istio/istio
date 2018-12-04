@@ -325,7 +325,11 @@ var (
 
             if out != nil {
               {{range .OutputTemplateMessage.Fields}}
-              out.Set(outPrefix + "{{.ProtoName}}", obj.{{.GoName}})
+								{{if isAliasType .GoType.Name}}
+									out.Set(outPrefix + "{{.ProtoName}}", {{getAliasType .GoType.Name}}(obj.{{.GoName}}))
+								{{else}}
+									out.Set(outPrefix + "{{.ProtoName}}", obj.{{.GoName}})
+								{{end}}
               {{end}}
             }
             return res, err

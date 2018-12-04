@@ -375,11 +375,11 @@ func TestUpdateFromProto(t *testing.T) {
 	}
 
 	refBag := GetMutableBag(nil)
-	refBag.Set("M1", map[string]string{"M7": "M6"})
+	refBag.Set("M1", StringMap{entries: map[string]string{"M7": "M6"}})
 	refBag.Set("M2", t9)
 	refBag.Set("M3", d1)
 	refBag.Set("M4", []byte{11})
-	refBag.Set("M5", map[string]string{"M7": "M6"})
+	refBag.Set("M5", StringMap{entries: map[string]string{"M7": "M6"}})
 	refBag.Set("G4", "G5")
 	refBag.Set("G6", int64(142))
 	refBag.Set("G7", 142.0)
@@ -453,11 +453,11 @@ func TestUpdateFromProtoWithDupes(t *testing.T) {
 
 func TestCopyBag(t *testing.T) {
 	refBag := GetMutableBag(nil)
-	refBag.Set("M1", map[string]string{"M7": "M6"})
+	refBag.Set("M1", StringMap{entries: map[string]string{"M7": "M6"}})
 	refBag.Set("M2", t9)
 	refBag.Set("M3", d1)
 	refBag.Set("M4", []byte{11})
-	refBag.Set("M5", map[string]string{"M7": "M6"})
+	refBag.Set("M5", StringMap{entries: map[string]string{"M7": "M6"}})
 	refBag.Set("G4", "G5")
 	refBag.Set("G6", int64(142))
 	refBag.Set("G7", 142.0)
@@ -809,15 +809,15 @@ func TestGlobalWordCount(t *testing.T) {
 
 func TestMutableBagForTesting(t *testing.T) {
 	m := map[string]interface{}{
-		"A": 1,
-		"B": 2,
+		"A": int64(1),
+		"B": int64(2),
 	}
 
 	mb := GetMutableBagForTesting(m)
 	if v, found := mb.Get("A"); !found {
 		t.Errorf("Didn't find A")
-	} else if v.(int) != 1 {
-		t.Errorf("Got %d, expecting 1", v.(int))
+	} else if v.(int64) != 1 {
+		t.Errorf("Got %d, expecting 1", v)
 	}
 }
 
@@ -825,7 +825,7 @@ func TestToProtoForTesting(t *testing.T) {
 	m := map[string]interface{}{
 		"A": 1.0,
 		"B": 2.0,
-		"C": 3,
+		"C": int64(3),
 	}
 
 	ca := GetProtoForTesting(m)
