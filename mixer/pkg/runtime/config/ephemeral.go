@@ -742,11 +742,11 @@ func (e *Ephemeral) processRuleConfigs(
 
 		rule := &Rule{
 			// nolint: goimports
-			Name:           ruleName,
-			Namespace:      ruleKey.Namespace,
-			ActionsStatic:  actionsStat,
-			ActionsDynamic: actionsDynamic,
-			Match:          cfg.Match,
+			Name:                     ruleName,
+			Namespace:                ruleKey.Namespace,
+			ActionsStatic:            actionsStat,
+			ActionsDynamic:           actionsDynamic,
+			Match:                    cfg.Match,
 			RequestHeaderOperations:  cfg.RequestHeaderOperations,
 			ResponseHeaderOperations: cfg.ResponseHeaderOperations,
 		}
@@ -787,7 +787,7 @@ func (e *Ephemeral) processDynamicTemplateConfigs(ctx context.Context, errs *mul
 
 		result[templateName] = &Template{
 			// nolint: goimports
-			Name: templateName,
+			Name:                       templateName,
 			InternalPackageDerivedName: name,
 			FileDescSet:                fds,
 			PackageName:                desc.GetPackage(),

@@ -14,12 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-################################################
-#                                              #
-#             e2e-bookInfoTests (v1alpha3)     #
-#                                              #
-################################################
+#######################################
+#                                     #
+#        pilot-e2e (v1alpha3)         #
+#                                     #
+#######################################
 
 # Exit immediately for non zero status
 set -e
@@ -28,5 +27,10 @@ set -u
 # Print commands
 set -x
 
-echo 'Running bookinfo test with rbac, auth Tests'
-./prow/e2e-suite.sh  --use_mcp=true --single_test e2e_bookinfo_envoyv2_v1alpha3 "$@"
+# Run tests with auth disabled
+#echo 'Running pilot e2e tests (v1alpha3, noauth)'
+./prow/e2e-suite.sh --use_mcp=false --single_test e2e_pilotv2_v1alpha3
+
+# Run tests with auth enabled
+#echo 'Running pilot e2e tests (v1alpha3, auth)'
+#./prow/e2e-suite.sh --auth_enable=true --v1alpha1=false --single_test e2e_pilot "$@"
