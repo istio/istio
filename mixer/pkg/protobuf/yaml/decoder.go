@@ -90,16 +90,15 @@ type decodeVisitor struct {
 func (dv *decodeVisitor) setValue(f *descriptor.FieldDescriptorProto, val interface{}) {
 	name := dv.attrPrefix + f.GetName()
 	if f.IsRepeated() {
-		var arr attribute.List
+		var arr *attribute.List
 		old, ok := dv.out.Get(name)
 		if !ok {
 			arr = attribute.NewList(name)
+			dv.out.Set(name, arr)
 		} else {
-			arr = old.(attribute.List)
+			arr = old.(*attribute.List)
 		}
-		// value semantics
-		arr = arr.Append(val)
-		dv.out.Set(name, arr)
+		arr.Append(val)
 	} else {
 		dv.out.Set(name, val)
 	}

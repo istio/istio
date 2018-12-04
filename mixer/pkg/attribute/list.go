@@ -28,35 +28,32 @@ type List struct {
 }
 
 // NewList creates a new list
-func NewList(name string) List {
-	return List{
+func NewList(name string) *List {
+	return &List{
 		name:    name,
 		entries: make([]interface{}, 0, 1),
 	}
 }
 
 // NewListForTesting should only be used for testing.
-func NewListForTesting(name string, entries []interface{}) List {
-	return List{
+func NewListForTesting(name string, entries []interface{}) *List {
+	return &List{
 		name:    name,
 		entries: entries,
 	}
 }
 
-// Append adds an element to the list
-func (l List) Append(val interface{}) List {
-	return List{
-		name:    l.name,
-		entries: append(l.entries, val),
-	}
+// Append mutates a list by appending an element to the end.
+func (l *List) Append(val interface{}) {
+	l.entries = append(l.entries, val)
 }
 
-// String prints the entries in the list
-func (l List) String() string {
+// String returns the string representation of the entries in the list
+func (l *List) String() string {
 	return fmt.Sprintf("%v", l.entries)
 }
 
 // Equal compares the list entries
-func (l List) Equal(m List) bool {
+func (l *List) Equal(m *List) bool {
 	return reflect.DeepEqual(l.entries, m.entries)
 }

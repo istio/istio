@@ -56,7 +56,7 @@ func (s StringMap) Set(key, val string) {
 func (s StringMap) Get(key string) (string, bool) {
 	str, found := s.entries[key]
 
-	// the string map may be de-touched from the owning bag
+	// the string map may be detached from the owning bag
 	if s.pb != nil {
 		cond := mixerpb.ABSENCE
 		if found {
@@ -66,6 +66,7 @@ func (s StringMap) Get(key string) (string, bool) {
 		// TODO add REGEX condition
 		s.pb.trackMapReference(s.name, key, cond)
 	}
+
 	return str, found
 }
 
@@ -77,7 +78,7 @@ func (s StringMap) copyValue() StringMap {
 	return StringMap{name: s.name, entries: c, pb: s.pb}
 }
 
-// String prints the entries in the string map
+// String returns a string representation of the entries in the string map
 func (s StringMap) String() string {
 	return fmt.Sprintf("string%v", s.entries)
 }

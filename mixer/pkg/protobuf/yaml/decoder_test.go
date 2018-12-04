@@ -382,7 +382,7 @@ duration_istio_value:
 					if !vt.Equal(attribute.NewStringMapForTesting(k, td.want[k].(map[string]string))) {
 						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
 					}
-				case attribute.List:
+				case *attribute.List:
 					if !vt.Equal(attribute.NewListForTesting(k, td.want[k].([]interface{}))) {
 						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
 					}

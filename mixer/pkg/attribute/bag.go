@@ -36,7 +36,7 @@ import (
 // For example, IP addresses are represented as []byte.
 //
 // The following types are not fully implemented at the surface level:
-// - attribute.List (backed by []interface{})
+// - *attribute.List (note the pointer, backed by []interface{})
 type Bag interface {
 	fmt.Stringer
 
@@ -74,8 +74,8 @@ func Equal(this, that interface{}) bool {
 		if y, ok := that.(StringMap); ok {
 			return x.Equal(y)
 		}
-	case List:
-		if y, ok := that.(List); ok {
+	case *List:
+		if y, ok := that.(*List); ok {
 			return x.Equal(y)
 		}
 	}
@@ -85,7 +85,7 @@ func Equal(this, that interface{}) bool {
 // CheckType validates that an attribute value has a supported type.
 func CheckType(value interface{}) bool {
 	switch value.(type) {
-	case int64, int, string, float64, bool, time.Time, time.Duration, []byte, StringMap, List:
+	case int64, int, string, float64, bool, time.Time, time.Duration, []byte, StringMap, *List:
 		return true
 	default:
 		return false
