@@ -73,9 +73,7 @@ func GetMutableBagForTesting(values map[string]interface{}) *MutableBag {
 	m := GetMutableBag(nil)
 	m.values = values
 	for k, v := range values {
-		switch v.(type) {
-		case int64, int, string, float64, bool, time.Time, time.Duration, []byte, StringMap, List:
-		default:
+		if !CheckType(v) {
 			panic(fmt.Errorf("unexpected type for the testing bag %T: %q = %q", v, k, v))
 		}
 	}
