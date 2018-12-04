@@ -124,6 +124,9 @@ func (h *helmSetValueList) Set(value string) error {
 	}
 	return nil
 }
+func init() {
+	flag.Var(&helmSetValues, "helmSetValueList", "Additional helm values parsed, eg: galley.enabled=true,global.useMCP=true")
+}
 
 type appPodsInfo struct {
 	// A map of app label values to the pods for that app
@@ -835,7 +838,6 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	if *values != "" {
 		setValue += " --set " + *values
 	}
-	flag.Var(&helmSetValues, "helmSetValueList", "Additional helm values parsed, eg: galley.enabled=true,global.useMCP=true")
 	for _, v := range helmSetValues {
 		setValue += " --set " + v
 	}
