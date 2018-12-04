@@ -106,7 +106,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-simple-mcp:
+  e2e-simple-non-mcp:
     <<: *integrationDefaults
     environment:
             - KUBECONFIG: /go/out/minikube.conf
@@ -129,7 +129,7 @@ jobs:
             make docker.all
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: E2E_ARGS="--use_mcp" make test/local/auth/e2e_simple
+      - run: E2E_ARGS="--use_mcp=false" make test/local/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
@@ -181,7 +181,7 @@ jobs:
       - store_artifacts:
           path: /var/lib/localkube/
 
-  e2e-dashboard-mcp:
+  e2e-dashboard-non-mcp:
     <<: *integrationDefaults
     environment:
             - KUBECONFIG: /go/out/minikube.conf
@@ -207,7 +207,7 @@ jobs:
       - run:
           command: |
             PATH=$GOPATH/bin:$PATH \
-            E2E_ARGS="--skip_cleanup -use_local_cluster --use_mcp -test.v" \
+            E2E_ARGS="--skip_cleanup -use_local_cluster --use_mcp=false -test.v" \
             set -o pipefail
             make e2e_dashboard | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
@@ -256,7 +256,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-mixer-noauth-v1alpha3-v2-mcp:
+  e2e-mixer-noauth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
     steps:
       - <<: *initWorkingDir
@@ -279,9 +279,9 @@ jobs:
           no_output_timeout: 20m
           # Run the test even if previous failed
           when: always
-          name: make e2e_mixer (mcp)
+          name: make e2e_mixer (non-mcp)
           command: |
-            E2E_ARGS="--use_mcp" \
+            E2E_ARGS="--use_mcp=false" \
             make test/local/noauth/e2e_mixer_envoyv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
@@ -395,7 +395,7 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-pilot-noauth-v1alpha3-v2-mcp:
+  e2e-pilot-noauth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -423,7 +423,7 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                E2E_ARGS="--use_mcp" \
+                E2E_ARGS="--use_mcp=false" \
                 make test/local/noauth/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
@@ -534,7 +534,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-pilot-auth-v1alpha3-v2-mcp:
+  e2e-pilot-auth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
     steps:
       - <<: *initWorkingDir
@@ -558,7 +558,7 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                E2E_ARGS="--use_mcp" \
+                E2E_ARGS="--use_mcp=false" \
                 make test/local/auth/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
@@ -815,13 +815,13 @@ workflows:
       - e2e-simple:
           requires:
             - build
-      - e2e-simple-mcp:
+      - e2e-simple-non-mcp:
           requires:
             - build
       - e2e-dashboard:
           requires:
             - build
-      - e2e-dashboard-mcp:
+      - e2e-dashboard-non-mcp:
           requires:
             - build
       - benchcheck:
@@ -831,7 +831,7 @@ workflows:
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
-      - e2e-mixer-noauth-v1alpha3-v2-mcp:
+      - e2e-mixer-noauth-v1alpha3-v2-non-mcp:
           requires:
             - build
       - e2e-galley:
@@ -843,13 +843,13 @@ workflows:
       - e2e-pilot-noauth-v1alpha3-v2: # no auth+v1alpha3+v2
           requires:
             - build
-      - e2e-pilot-noauth-v1alpha3-v2-mcp: # no auth+v1alpha3+v2
+      - e2e-pilot-noauth-v1alpha3-v2-non-mcp: # no auth+v1alpha3+v2
           requires:
             - build
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
           requires:
             - build
-      - e2e-pilot-auth-v1alpha3-v2-mcp: # auth+v1alpha3+v2 with MCP
+      - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
           requires:
             - build
       - test-integration-local:
@@ -869,9 +869,6 @@ workflows:
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
-      - e2e-mixer-noauth-v1alpha3-v2-mcp:
-          requires:
-            - build
       - e2e-galley:
           requires:
             - build
@@ -882,9 +879,6 @@ workflows:
           requires:
             - test
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-auth-v1alpha3-v2-mcp: # auth+v1alpha3+v2 with MCP
           requires:
             - build
       - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2

@@ -29,4 +29,4 @@ set -u
 set -x
 
 echo 'Running bookinfo test with rbac, auth Tests'
-./prow/e2e-suite.sh  --use_mcp=true --single_test e2e_bookinfo_envoyv2_v1alpha3 "$@"
+./prow/e2e-suite.sh  --use_mcp=false --single_test e2e_bookinfo_envoyv2_v1alpha3 "$@"
