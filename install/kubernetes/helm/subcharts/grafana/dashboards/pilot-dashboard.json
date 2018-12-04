@@ -1,4 +1,40 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "5.2.3"
+    },
+    {
+      "type": "panel",
+      "id": "graph",
+      "name": "Graph",
+      "version": "5.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "5.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": "5.0.0"
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -15,15 +51,116 @@
   "editable": false,
   "gnetId": null,
   "graphTooltip": 1,
+  "id": null,
   "links": [],
   "panels": [
+    {
+      "content": "<center><h2>Deployed Versions</h2></center>",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "height": "40",
+      "id": 58,
+      "links": [],
+      "mode": "html",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "id": 56,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(istio_build{component=\"pilot\"}) by (tag)",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ tag }}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Pilot Versions",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
     {
       "content": "<center><h2>Resource Usage</h2></center>",
       "gridPos": {
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 8
       },
       "height": "40",
       "id": 29,
@@ -44,7 +181,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 3
+        "y": 11
       },
       "id": 5,
       "legend": {
@@ -197,7 +334,7 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 3
+        "y": 11
       },
       "id": 6,
       "legend": {
@@ -301,7 +438,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 3
+        "y": 11
       },
       "id": 7,
       "legend": {
@@ -397,7 +534,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 3
+        "y": 11
       },
       "id": 4,
       "legend": {
@@ -477,7 +614,7 @@
         "h": 3,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 18
       },
       "id": 28,
       "links": [],
@@ -497,7 +634,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 13
+        "y": 21
       },
       "id": 40,
       "legend": {
@@ -582,7 +719,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 13
+        "y": 21
       },
       "id": 42,
       "legend": {
@@ -667,7 +804,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 13
+        "y": 21
       },
       "id": 41,
       "legend": {
@@ -752,7 +889,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 19
+        "y": 27
       },
       "id": 45,
       "legend": {
@@ -857,7 +994,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 19
+        "y": 27
       },
       "id": 47,
       "legend": {
@@ -999,7 +1136,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 19
+        "y": 27
       },
       "id": 49,
       "legend": {
@@ -1083,7 +1220,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 27
+        "y": 35
       },
       "id": 52,
       "legend": {
@@ -1167,7 +1304,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 27
+        "y": 35
       },
       "id": 54,
       "legend": {
@@ -1251,7 +1388,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 27
+        "y": 35
       },
       "id": 53,
       "legend": {
@@ -1337,7 +1474,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 34
+        "y": 42
       },
       "id": 51,
       "legend": {
@@ -1453,7 +1590,6 @@
     ]
   },
   "timezone": "browser",
-  "title": "Pilot Dashboard",
-  "uid": "3",
-  "version": 1
+  "title": "Istio Pilot Dashboard",
+  "version": 4
 }
