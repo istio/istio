@@ -270,7 +270,7 @@ func validateDNS1123Labels(domain string) error {
 	parts := strings.Split(domain, ".")
 	lastPart := parts[len(parts)-1]
 	lastPartArray := strings.SplitN(lastPart, ":", 2)
-	
+
 	// Allow port in domain name
 	if len(lastPartArray) > 1 {
 		port, err := strconv.Atoi(lastPartArray[1])
