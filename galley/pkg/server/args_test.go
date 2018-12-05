@@ -74,8 +74,33 @@ func TestValidate(t *testing.T) {
 	}
 
 	a = DefaultArgs()
+	a.AccessListFile = ""
+	if err := a.Validate(); err == nil {
+		t.Fatalf("Empty CredentialOptions.KeyFile with Insecure and empty accesslist should fail validation: %v", err)
+	}
+
+	a = DefaultArgs()
 	a.MeshConfigFile = ""
 	if err := a.Validate(); err == nil {
 		t.Fatal("Empty MeshConfigFile should fail validation")
+	}
+
+	a = DefaultArgs()
+	a.LoggingOptions.OutputPaths = []string{}
+	if err := a.Validate(); err == nil {
+		t.Fatal("Unset LoggingOptions.OutputPaths should fail validation")
+	}
+
+	a = DefaultArgs()
+	a.APIAddress = "http://us\ner:pass\nword@foo.com/" // invalid URL
+	if err := a.Validate(); err == nil {
+		t.Fatal("Invalid APIAddress should fail validation")
+	}
+
+	a = DefaultArgs()
+	a.EnableServer = false
+	a.CredentialOptions.KeyFile = ""
+	if err := a.Validate(); err != nil {
+		t.Fatalf("Invalid argument validation should be skipped if server is disabled: %v", err)
 	}
 }

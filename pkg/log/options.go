@@ -15,9 +15,12 @@
 package log
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/hashicorp/go-multierror"
 
 	"github.com/spf13/cobra"
 )
@@ -119,11 +122,6 @@ type Options struct {
 	outputLevels     string
 	logCallers       string
 	stackTraceLevels string
-}
-
-// Validate validates the logger's command line options.
-func (o *Options) Validate() error {
-	return nil // no-op
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults
@@ -393,4 +391,13 @@ func (o *Options) AttachFlags(
 
 	// NOTE: we don't currently expose a command-line option to control ErrorOutputPaths since it
 	// seems too esoteric.
+}
+
+// Validate validates the logger's command line options.
+func (o *Options) Validate() error {
+	var errs *multierror.Error
+	if len(o.OutputPaths) == 0 {
+		errs = multierror.Append(errs, errors.New("--log_target is not set"))
+	}
+	return errs.ErrorOrNil()
 }

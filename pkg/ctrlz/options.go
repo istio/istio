@@ -46,8 +46,3 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&o.Address, "ctrlz_address", o.Address,
 		"The IP Address to listen on for the ControlZ introspection facility. Use '*' to indicate all addresses.")
 }
-
-// Validate validates the ctrlz command line options
-func (o *Options) Validate() error {
-	return nil // no-op
-}

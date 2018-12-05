@@ -142,7 +142,7 @@ func (a *Args) Validate() error {
 	}
 
 	var errs *multierror.Error
-	if a.APIAddress == "" {
+	if a.APIAddress != "" {
 		addr := a.APIAddress
 		if idx := strings.Index(addr, "://"); idx < 0 {
 			addr = "tcp://" + addr
@@ -160,9 +160,6 @@ func (a *Args) Validate() error {
 		}
 	}
 	if err := a.LoggingOptions.Validate(); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-	if err := a.IntrospectionOptions.Validate(); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 	if a.MeshConfigFile == "" {
