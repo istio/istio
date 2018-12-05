@@ -137,35 +137,35 @@ func (a *Args) String() string {
 
 // Validate validates the servers command line options.
 func (a *Args) Validate() error {
-	if !args.EnableServer {
+	if !a.EnableServer {
 		return nil
 	}
 
 	var errs *multierror.Error
-	if args.APIAddress == "" {
-		addr := args.APIAddress
+	if a.APIAddress == "" {
+		addr := a.APIAddress
 		if idx := strings.Index(addr, "://"); idx < 0 {
 			addr = "tcp://" + addr
 		}
 		if _, err := url.Parse(addr); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("cannot parse %v: %v", args.APIAddress, err))
+			errs = multierror.Append(errs, fmt.Errorf("cannot parse %v: %v", a.APIAddress, err))
 		}
 	}
-	if !args.Insecure {
-		if err := args.CredentialOptions.Validate(); err != nil {
+	if !a.Insecure {
+		if err := a.CredentialOptions.Validate(); err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		if args.AccessListFile == "" {
+		if a.AccessListFile == "" {
 			errs = multierror.Append(errs, errors.New("--accessListFile is not set"))
 		}
 	}
-	if err := args.LoggingOptions.Validate(); err != nil {
+	if err := a.LoggingOptions.Validate(); err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	if err := args.IntrospectionOptions.Validate(); err != nil {
+	if err := a.IntrospectionOptions.Validate(); err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	if args.MeshConfigFile == "" {
+	if a.MeshConfigFile == "" {
 		errs = multierror.Append(errs, errors.New("--meshConfigFile is not set"))
 	}
 	return errs.ErrorOrNil()
