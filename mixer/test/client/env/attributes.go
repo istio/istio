@@ -22,29 +22,6 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 )
 
-func verifyRawStringMap(actual map[string]string, expected map[string]interface{}) error {
-	for k, v := range expected {
-		vstring := v.(string)
-		// "-" make sure the key does not exist.
-		if vstring == "-" {
-			if _, ok := actual[k]; ok {
-				return fmt.Errorf("key %+v is NOT expected", k)
-			}
-		} else {
-			if val, ok := actual[k]; ok {
-				// "*" only check key exist
-				if val != vstring && vstring != "*" {
-					return fmt.Errorf("key %+v value doesn't match. Actual %+v, expected %+v",
-						k, val, vstring)
-				}
-			} else {
-				return fmt.Errorf("key %+v is expected", k)
-			}
-		}
-	}
-	return nil
-}
-
 // TODO: remove duplicated code by change StringMap object to expose the whole map
 func verifyObjStringMap(actual attribute.StringMap, expected map[string]interface{}) error {
 	for k, v := range expected {
