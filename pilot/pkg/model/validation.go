@@ -1368,13 +1368,25 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 
 	allHostsValid := true
 	for _, host := range virtualService.Hosts {
-		if err := ValidateWildcardDomain(host); err != nil {
-			ipAddr := net.ParseIP(host) // Could also be an IP
+		hostAndPort := strings.SplitN(host, ":", 2)
+		// Allow port in domain name
+		if len(hostAndPort) > 1 {
+			port, err := strconv.Atoi(hostAndPort[1])
+			if err != nil {
+				errs = appendErrors(errs, fmt.Errorf("port (%s) is not a number: %v", hostAndPort[1], err))
+			}
+			if err = ValidatePort(int(port)); err != nil {
+				errs = appendErrors(errs, err)
+			}
+		}
+
+		if err := ValidateWildcardDomain(hostAndPort[0]); err != nil {
+			ipAddr := net.ParseIP(hostAndPort[0]) // Could also be an IP
 			if ipAddr == nil {
 				errs = appendErrors(errs, err)
 				allHostsValid = false
 			}
-		} else if appliesToMesh && host == "*" {
+		} else if appliesToMesh && hostAndPort[0] == "*" {
 			errs = appendErrors(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
 			allHostsValid = false
 		}
