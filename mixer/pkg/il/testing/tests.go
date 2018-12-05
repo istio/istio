@@ -3941,7 +3941,7 @@ func (t *TestInfo) CheckEvaluationResult(r interface{}, err error) error {
 		return fmt.Errorf("unexpected evaluation error: '%v'", err)
 	}
 
-	if !AreEqual(t.R, r) {
+	if !attribute.Equal(t.R, r) {
 		return fmt.Errorf("evaluation result mismatch: '%v' != '%v'", r, t.R)
 	}
 
