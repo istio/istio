@@ -15,13 +15,14 @@
 package v1alpha3
 
 import (
+	"net"
+	"strings"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"net"
-	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -31,16 +32,14 @@ import (
 )
 
 // We process EnvoyFilter CRDs after calling all plugins and building the listener with the required filter chains
-// Having the entire filter chain is essential because users can specify one or more filters to be inserted before/after
-// a filter or remove one or more filters.
+// Having the entire filter chain is essential because users can specify one or more filters to be inserted
+// before/after  a filter or remove one or more filters.
 // We use the plugin.InputParams as a convenience object to pass around parameters like proxy, proxyInstances, ports,
 // etc., instead of having a long argument list
-// NOTE: this function is called for every chain in an array of filter chains in the listener
-// A chain could be a stack of network filters, network filters+http connection manager (which has its own filters)
-// If there is a http connection manager, then the caller is expected to pass the connection manager object as well
-// If one or more filters are added to the HTTP connection manager, we will update the last filter in the listener filter chain
-// (which is the http connection manager) with the updated object.
-func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener, httpConnectionManagers []*http_conn.HttpConnectionManager) error {
+// If one or more filters are added to the HTTP connection manager, we will update the last filter in the listener
+// filter chain (which is the http connection manager) with the updated object.
+func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
+	httpConnectionManagers []*http_conn.HttpConnectionManager) error {
 	filterCRD := getUserFiltersForWorkload(in)
 	if filterCRD == nil {
 		return nil
@@ -70,9 +69,11 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener, httpCo
 		} else {
 			// tcp listener with some opaque filter or http listener with some opaque filter
 			// We treat both as insert network filter X into network filter chain.
-			// We cannot insert a HTTP in filter in network filter chain. Even HTTP connection manager is a network filter
+			// We cannot insert a HTTP in filter in network filter chain.
+			// Even HTTP connection manager is a network filter
 			if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-				log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain", f.FilterName)
+				log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain",
+					f.FilterName)
 				continue
 			}
 			for cnum := range listener.FilterChains {
@@ -149,7 +150,8 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 			if in.Node.Type != model.Router {
 				return false // We don't care about direction for gateways
 			}
-		case networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND, networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND:
+		case networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
+			networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND:
 			if in.Node.Type != model.Sidecar {
 				return false
 			}
@@ -200,7 +202,8 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 	return true
 }
 
-func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager, envoyFilter *networking.EnvoyFilter_Filter) {
+func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
+	envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig},
@@ -245,10 +248,12 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 		Name:       xdsutil.HTTPConnectionManager,
 		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(hcm)},
 	}
-	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)", listenerName, oldLen, len(hcm.HttpFilters))
+	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
+		listenerName, oldLen, len(hcm.HttpFilters))
 }
 
-func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain, envoyFilter *networking.EnvoyFilter_Filter) {
+func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
+	envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &listener.Filter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &listener.Filter_Config{Config: envoyFilter.FilterConfig},
@@ -284,5 +289,6 @@ func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
 			}
 		}
 	}
-	log.Infof("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)", listenerName, oldLen, len(filterChain.Filters))
+	log.Infof("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)",
+		listenerName, oldLen, len(filterChain.Filters))
 }
