@@ -209,6 +209,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	}
 
 	if descriptor.Type == model.ServiceEntry.Type {
+		dispatch(model.Config{}, model.EventUpdate)
 		//// add/update
 		//for namespace, byName := range innerStore {
 		//	for name, config := range byName {
