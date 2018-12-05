@@ -35,8 +35,8 @@ import (
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
-	networking "istio.io/api/networking/v1alpha3"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -270,7 +270,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					},
 				},
 			}},
-			bindToPort: true,
+			bindToPort:      true,
 			skipUserFilters: true,
 		}
 		l := buildListener(opts)
@@ -346,7 +346,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			ProxyInstances:   proxyInstances,
 			ServiceInstance:  instance,
 			Port:             endpoint.ServicePort,
-			Push: push,
+			Push:             push,
 		}
 		switch listenerProtocol {
 		case plugin.ListenerProtocolHTTP:
@@ -796,7 +796,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 				Env:              env,
 				Node:             node,
-				Port: mPort,
+				Port:             mPort,
 			}
 			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
 			if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {

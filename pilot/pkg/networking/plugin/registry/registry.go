@@ -26,10 +26,10 @@ import (
 )
 
 var availablePlugins = map[string]plugin.Plugin{
-	plugin.Authn:       authn.NewPlugin(),
-	plugin.Authz:       authz.NewPlugin(),
-	plugin.Health:      health.NewPlugin(),
-	plugin.Mixer:       mixer.NewPlugin(),
+	plugin.Authn:  authn.NewPlugin(),
+	plugin.Authz:  authz.NewPlugin(),
+	plugin.Health: health.NewPlugin(),
+	plugin.Mixer:  mixer.NewPlugin(),
 }
 
 // NewPlugins returns a slice of default Plugins.

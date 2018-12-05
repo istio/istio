@@ -15,19 +15,19 @@
 package v1alpha3
 
 import (
-	"net"
-	"strings"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"net"
+	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/log"
 )
 
 // We process EnvoyFilter CRDs after calling all plugins and building the listener with the required filter chains
@@ -241,7 +241,7 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 
 	// Rebuild the HTTP connection manager in the network filter chain
 	// Its the last filter in the filter chain
-	filterChain.Filters[len(filterChain.Filters) - 1] = listener.Filter{
+	filterChain.Filters[len(filterChain.Filters)-1] = listener.Filter{
 		Name:       xdsutil.HTTPConnectionManager,
 		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(hcm)},
 	}
