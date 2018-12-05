@@ -2200,6 +2200,7 @@
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
+    "k8s.io/client-go/util/jsonpath",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/engine",
