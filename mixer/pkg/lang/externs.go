@@ -49,6 +49,9 @@ var Externs = map[string]interpreter.Extern{
 	"endsWith":          interpreter.ExternFromFn("endsWith", externEndsWith),
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
+	"_string_bool":      interpreter.ExternFromFn("_string_bool", externBoolAsString),
+	"_string_ipaddress": interpreter.ExternFromFn("_string_ipaddress", externIpAsString),
+	"ip_as_string":      interpreter.ExternFromFn("ip_as_string", externIpAsString),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -113,6 +116,16 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 		Name:          "conditionalString",
 		ReturnType:    config.STRING,
 		ArgumentTypes: []config.ValueType{config.BOOL, config.STRING, config.STRING},
+	},
+	{
+		Name:          "string",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED},
+	},
+	{
+		Name:          "ip_as_string",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.IP_ADDRESS},
 	},
 }
 
@@ -333,4 +346,20 @@ func externConditionalString(condition bool, trueStr, falseStr string) string {
 		return trueStr
 	}
 	return falseStr
+}
+
+//func externIpAsString(ip []byte) (string, error) {
+//	i := net.IPv4(ip[0], ip[1], ip[2], ip[3])
+//	return i.String(), nil
+//}
+func externIpAsString(ip []byte) string {
+	return net.IP(ip).String()
+}
+
+func externBoolAsString(b bool) string {
+	if b {
+		return "true"
+	}
+
+	return "false"
 }
