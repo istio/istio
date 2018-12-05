@@ -63,6 +63,8 @@ spec:
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
+        - name: kiali-cert
+          mountPath: "/kiali-cert"
         resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | indent 10 }}
@@ -73,3 +75,6 @@ spec:
       - name: kiali-configuration
         configMap:
           name: kiali
+      - name: kiali-cert
+        secret:
+          secretName: istio.kiali
