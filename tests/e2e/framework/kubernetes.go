@@ -105,7 +105,6 @@ var (
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
 	valueFile     = flag.String("valueFile", "", "Istio value yaml file when helm is used")
-	values        = flag.String("values", "", "Helm set values when helm is used")
 	helmSetValues helmSetValueList
 )
 
@@ -835,9 +834,6 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	setValue += " --set global.crds=false"
 
 	// add additional values passed from test
-	if *values != "" {
-		setValue += " --set " + *values
-	}
 	for _, v := range helmSetValues {
 		setValue += " --set " + v
 	}
