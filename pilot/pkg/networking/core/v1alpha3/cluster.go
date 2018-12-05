@@ -129,7 +129,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			// create default cluster
 			discoveryType := convertResolution(service.Resolution)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-			serviceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []int{port.Port})
+			serviceAccounts := env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []int{port.Port}, env.Mesh.TrustDomain)
 			defaultCluster := buildDefaultCluster(env, clusterName, discoveryType, lbEndpoints)
 
 			updateEds(defaultCluster)
@@ -364,7 +364,7 @@ func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
 }
 
 // conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, trustDomain string, serviceAccounts []string, sni string) *networking.TLSSettings {
+func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, serviceAccounts []string, sni string) *networking.TLSSettings {
 	if tls == nil {
 		return nil
 	}
@@ -375,31 +375,19 @@ func conditionallyConvertToIstioMtls(tls *networking.TLSSettings, trustDomain st
 		if len(sniToUse) == 0 {
 			sniToUse = sni
 		}
-		return buildIstioMutualTLS(serviceAccounts, trustDomain, sniToUse)
+		return buildIstioMutualTLS(serviceAccounts, sniToUse)
 	}
 	return tls
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTLS(serviceAccounts []string, trustDomain, sni string) *networking.TLSSettings {
-	var accounts []string
-	accounts = append(accounts, serviceAccounts...)
-	// When trust domain is set, and the service account is a k8s service account with format like 'spiffe://cluster.local/ns/foo/sa/bar',
-	// add account with format like 'spiffe://trustDomain/ns/foo/sa/bar' to SubjectAltNames, which will be used for secure naming.
-	// Put two formats for now until switch is done.
-	if trustDomain != "" {
-		for _, sa := range serviceAccounts {
-			ac := strings.Replace(sa, "cluster.local", trustDomain, -1)
-			accounts = append(accounts, ac)
-		}
-	}
-
+func buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.TLSSettings {
 	return &networking.TLSSettings{
 		Mode:              networking.TLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    path.Join(model.AuthCertsPath, model.RootCertFilename),
 		ClientCertificate: path.Join(model.AuthCertsPath, model.CertChainFilename),
 		PrivateKey:        path.Join(model.AuthCertsPath, model.KeyFilename),
-		SubjectAltNames:   accounts,
+		SubjectAltNames:   serviceAccounts,
 		Sni:               sni,
 	}
 }
@@ -462,7 +450,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *v2.Cluster, policy *net
 	applyOutlierDetection(cluster, outlierDetection)
 	applyLoadBalancer(cluster, loadBalancer)
 	if clusterMode != SniDnatClusterMode {
-		tls = conditionallyConvertToIstioMtls(tls, env.Mesh.TrustDomain, serviceAccounts, defaultSni)
+		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni)
 		applyUpstreamTLSSettings(env, cluster, tls)
 	}
 }

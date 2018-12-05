@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -602,7 +603,7 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int, trustDomain string) []string {
 	saSet := make(map[string]bool)
 
 	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
@@ -645,7 +646,21 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 		saArray = append(saArray, sa)
 	}
 
-	return saArray
+	var accounts []string
+	accounts = append(accounts, saArray...)
+	// When trust domain is set, and the service account is a k8s service account with format like 'spiffe://cluster.local/ns/foo/sa/bar',
+	// add account with format like 'spiffe://trustDomain/ns/foo/sa/bar', which will be used for secure naming.
+	// Put two formats for now until switch is done.
+	if trustDomain != "" {
+		for _, sa := range saArray {
+			if strings.Contains(trustDomain, "cluster.local") {
+				ac := strings.Replace(sa, "cluster.local", trustDomain, -1)
+				accounts = append(accounts, ac)
+			}
+		}
+	}
+
+	return accounts
 }
 
 // AppendServiceHandler implements a service catalog operation

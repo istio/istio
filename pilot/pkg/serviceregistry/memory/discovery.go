@@ -256,7 +256,7 @@ func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
+func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int, trustDomain string) []string {
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
 			"spiffe://cluster.local/ns/default/sa/serviceaccount1",

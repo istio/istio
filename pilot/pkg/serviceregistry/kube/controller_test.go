@@ -506,7 +506,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 
 	hostname := serviceHostname("svc1", "nsA", domainSuffix)
-	sa := controller.GetIstioServiceAccounts(hostname, []int{8080})
+	sa := controller.GetIstioServiceAccounts(hostname, []int{8080}, "test_td")
 	sort.Sort(sort.StringSlice(sa))
 	expected := []string{
 		canonicalSaOnVM,
@@ -518,7 +518,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 	}
 
 	hostname = serviceHostname("svc2", "nsA", domainSuffix)
-	sa = controller.GetIstioServiceAccounts(hostname, []int{})
+	sa = controller.GetIstioServiceAccounts(hostname, []int{}, "")
 	if len(sa) != 0 {
 		t.Error("Failure: Expected to resolve 0 service accounts, but got: ", sa)
 	}
