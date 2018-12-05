@@ -2189,7 +2189,6 @@
     "google.golang.org/api/option",
     "google.golang.org/genproto/googleapis/api/distribution",
     "google.golang.org/genproto/googleapis/api/expr/v1alpha1",
-    "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
     "google.golang.org/genproto/googleapis/api/monitoredres",
     "google.golang.org/genproto/googleapis/iam/credentials/v1",
