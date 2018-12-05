@@ -135,7 +135,8 @@ func (a *Args) String() string {
 	return buf.String()
 }
 
-func (args *Args) Validate() error {
+// Validate validates the servers command line options.
+func (a *Args) Validate() error {
 	if !args.EnableServer {
 		return nil
 	}
