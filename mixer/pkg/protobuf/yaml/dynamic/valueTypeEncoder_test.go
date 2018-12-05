@@ -52,7 +52,7 @@ func checkErrors(t *testing.T, gotError error, wantError error) {
 }
 
 func TestValueTypeEncoder_Errors(t *testing.T) {
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 
 	for _, tst := range []struct {
 		input        interface{}
@@ -180,7 +180,7 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 }
 
 func TestValueTypeEncoder(t *testing.T) {
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 	now := time.Now()
 	ts, err := types.TimestampProto(now)
 	if err != nil {

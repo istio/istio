@@ -15,7 +15,6 @@
 package yaml
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -279,10 +278,10 @@ map_str_str:
   key2: val2`,
 			fields: map[string]bool{"map_str_str": true},
 			want: map[string]interface{}{
-				"map_str_str": map[string]string{
+				"map_str_str": attribute.WrapStringMap(map[string]string{
 					"key1": "val1",
 					"key2": "val2",
-				},
+				}),
 			},
 		},
 		{
@@ -378,16 +377,12 @@ duration_istio_value:
 
 			for k, v := range got {
 				switch vt := v.(type) {
-				case attribute.StringMap:
-					if !vt.Equal(attribute.WrapStringMap(td.want[k].(map[string]string))) {
-						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
-					}
 				case *attribute.List:
 					if !vt.Equal(attribute.NewListForTesting(k, td.want[k].([]interface{}))) {
 						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
 					}
 				default:
-					if !reflect.DeepEqual(v, td.want[k]) {
+					if !attribute.Equal(v, td.want[k]) {
 						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
 					}
 				}
@@ -454,7 +449,7 @@ duration_istio_value:
 					if got != v1beta1.TIMESTAMP {
 						t.Errorf("field %q incorrect deduced type: got %v, want timestamp", field.GetName(), got)
 					}
-				case map[string]string:
+				case attribute.StringMap:
 					if got != v1beta1.STRING_MAP {
 						t.Errorf("field %q incorrect deduced type: got %v, want string map", field.GetName(), got)
 					}

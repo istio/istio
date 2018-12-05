@@ -67,6 +67,11 @@ func (s StringMap) Get(key string) (string, bool) {
 	return str, found
 }
 
+// Entries returns the wrapped string map.
+func (s StringMap) Entries() map[string]string {
+	return s.entries
+}
+
 func (s StringMap) copyValue() StringMap {
 	c := make(map[string]string, len(s.entries))
 	for k2, v2 := range s.entries {

@@ -122,6 +122,7 @@ str: "'mystring'"
 i64: response.size| 0
 mapStrStr:
   source_service: source.service | "unknown"
+  source_version: source.labels["version"] | "unknown"
 oth:
   inenum: "'INNERTHREE'"
 enm: request.reason
@@ -144,6 +145,7 @@ str: mystring
 i64: 200
 mapStrStr:
   source_service: a.svc.cluster.local
+  source_version: v1
 oth:
   inenum: INNERTHREE
 enm: TWO
@@ -617,7 +619,7 @@ func TestStaticPrecoded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 	res := protoyaml.NewResolver(fds)
 
 	b := NewEncoderBuilder(res, compiler, false)
@@ -694,7 +696,7 @@ func TestDynamicEncoder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 	res := protoyaml.NewResolver(fds)
 	for _, td := range []testdata{
 		{
@@ -816,6 +818,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		"request.reason":        "TWO",
 		"response.size":         int64(200),
 		"response.code":         int64(662),
+		"source.labels":         attribute.WrapStringMap(map[string]string{"version": "v1"}),
 		"source.service":        "a.svc.cluster.local",
 		"request.path":          "INNERTHREE",
 		"connection.sent.bytes": int64(2),
@@ -881,8 +884,8 @@ func Test_transFormQuotedString(t *testing.T) {
 	}
 }
 
-// StatdardVocabulary returns Istio standard vocabulary
-func StatdardVocabulary() ast.AttributeDescriptorFinder {
+// StandardVocabulary returns Istio standard vocabulary
+func StandardVocabulary() ast.AttributeDescriptorFinder {
 	attrs := map[string]*v1beta1.AttributeManifest_AttributeInfo{
 		"api.operation":                   {ValueType: v1beta1.STRING},
 		"api.protocol":                    {ValueType: v1beta1.STRING},

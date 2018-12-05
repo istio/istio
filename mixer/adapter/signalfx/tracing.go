@@ -28,6 +28,7 @@ import (
 	octrace "go.opencensus.io/trace"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/template/tracespan"
 )
 
@@ -160,16 +161,16 @@ func convertInstance(istioSpan *tracespan.Instance) *trace.Span {
 
 	tags := map[string]string{}
 
-	if labels, ok := istioSpan.SpanTags["destination.labels"].(map[string]string); ok {
-		for k, v := range labels {
+	if labels, ok := istioSpan.SpanTags["destination.labels"].(attribute.StringMap); ok {
+		for k, v := range labels.Entries() {
 			if k != "" && v != "" {
 				tags["destination.labels."+k] = v
 			}
 		}
 	}
 
-	if labels, ok := istioSpan.SpanTags["source.labels"].(map[string]string); ok {
-		for k, v := range labels {
+	if labels, ok := istioSpan.SpanTags["source.labels"].(attribute.StringMap); ok {
+		for k, v := range labels.Entries() {
 			if k != "" && v != "" {
 				tags["source.labels."+k] = v
 			}

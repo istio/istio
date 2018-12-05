@@ -15,6 +15,7 @@
 package attribute_test
 
 import (
+	"reflect"
 	"testing"
 
 	"istio.io/istio/mixer/pkg/attribute"
@@ -29,5 +30,8 @@ func TestStringMapEqual(t *testing.T) {
 	}
 	if !attribute.Equal(a, b) {
 		t.Errorf("Equal(%v, %v) => got false", a, b)
+	}
+	if !reflect.DeepEqual(map[string]string{"x": "y"}, b.Entries()) {
+		t.Errorf("Entries() => got %#v, want 'x': 'y'", b.Entries())
 	}
 }

@@ -671,7 +671,7 @@ var (
                                 {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
                                     r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
                                 {{else}}
-                                    {{if isAliasTypeSkipIp $f.GoType.MapValue.Name}}
+                                    {{if isAliasType $f.GoType.MapValue.Name}}
                                         r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}({{getLocalVar $f.GoType.MapValue}}.({{getAliasType $f.GoType.MapValue.Name}}))
                                     {{else}}
                                         r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}

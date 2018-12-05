@@ -288,7 +288,7 @@ func TestBuilderErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := yaml.NewResolver(fds)
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 
 	for _, td := range []struct {
 		desc        string
