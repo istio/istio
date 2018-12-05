@@ -44,7 +44,6 @@ const (
 	pilotDebugPort     = 5555
 	pilotGrpcPort      = 15010
 	sidecarServicePort = 15022
-	mcpServerAddr      = "127.0.0.1:5557"
 
 	cfRouteOne      = "public.example.com"
 	cfRouteTwo      = "public2.example.com"
@@ -86,7 +85,7 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defer copilotMCPServer.Close()
 
-	tearDown := initLocalPilotTestEnv(t, mcpServerAddr, pilotGrpcPort, pilotDebugPort)
+	tearDown := initLocalPilotTestEnv(t, copilotMCPServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()
 
 	t.Log("checking if pilot received routes from copilot")
@@ -167,7 +166,7 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defer copilotMCPServer.Close()
 
-	tearDown := initLocalPilotTestEnv(t, mcpServerAddr, pilotGrpcPort, pilotDebugPort)
+	tearDown := initLocalPilotTestEnv(t, copilotMCPServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()
 
 	g.Eventually(func() (string, error) {
@@ -212,7 +211,7 @@ func startMCPCopilot(serverResponse func(req *mcp.MeshConfigRequest) (*mcpserver
 		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
 	}
 
-	server, err := mockmcp.NewServer(mcpServerAddr, supportedTypes, serverResponse)
+	server, err := mockmcp.NewServer(supportedTypes, serverResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -232,9 +231,9 @@ func runFakeApp(port int) {
 	go http.ListenAndServe(fmt.Sprintf(":%d", port), fakeAppHandler) // nolint: errcheck
 }
 
-func addMcpAddrs(mcpServerAddr string) func(*bootstrap.PilotArgs) {
+func addMcpAddrs(mcpServerPort int) func(*bootstrap.PilotArgs) {
 	return func(arg *bootstrap.PilotArgs) {
-		arg.MCPServerAddrs = []string{"mcp://" + mcpServerAddr}
+		arg.MCPServerAddrs = []string{fmt.Sprintf("mcp://127.0.0.1:%d", mcpServerPort)}
 	}
 }
 
@@ -250,11 +249,11 @@ func setupPilotDiscoveryGrpcAddr(grpc string) func(*bootstrap.PilotArgs) {
 	}
 }
 
-func initLocalPilotTestEnv(t *testing.T, mcpAddr string, grpcPort, debugPort int) util.TearDownFunc {
+func initLocalPilotTestEnv(t *testing.T, mcpPort, grpcPort, debugPort int) util.TearDownFunc {
 	mixerEnv.NewTestSetup(mixerEnv.PilotMCPTest, t)
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
-	_, tearDown := util.EnsureTestServer(addMcpAddrs(mcpAddr), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
+	_, tearDown := util.EnsureTestServer(addMcpAddrs(mcpPort), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
 	return tearDown
 }
 
