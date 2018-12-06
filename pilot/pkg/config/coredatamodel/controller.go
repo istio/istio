@@ -208,41 +208,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		}
 	}
 
-	if descriptor.Type == model.ServiceEntry.Type {
-		dispatch(model.Config{}, model.EventUpdate)
-		//// add/update
-		//for namespace, byName := range innerStore {
-		//	for name, config := range byName {
-		//		if prevByNamespace, ok := prevStore[namespace]; ok {
-		//			if prevConfig, ok := prevByNamespace[name]; ok {
-		//				if config.ResourceVersion != prevConfig.ResourceVersion {
-		//					dispatch(config, model.EventUpdate)
-		//				}
-		//			} else {
-		//				dispatch(config, model.EventAdd)
-		//			}
-		//		} else {
-		//			dispatch(config, model.EventAdd)
-		//		}
-		//	}
-		//}
-		//
-		//// remove
-		//for namespace, prevByName := range prevStore {
-		//	for name, prevConfig := range prevByName {
-		//		if byNamespace, ok := innerStore[namespace]; ok {
-		//			if _, ok := byNamespace[name]; !ok {
-		//				dispatch(prevConfig, model.EventDelete)
-		//			}
-		//		} else {
-		//			dispatch(prevConfig, model.EventDelete)
-		//		}
-		//	}
-		//}
-	} else {
-		// dummy event
-		dispatch(model.Config{}, model.EventUpdate)
-	}
+	dispatch(model.Config{}, model.EventUpdate)
 
 	return nil
 }
