@@ -16,11 +16,15 @@ package secretfetcher
 
 import (
 	"fmt"
+	"os"
+	"sync"
+	"time"
+
 	"istio.io/istio/pkg/log"
 	ca "istio.io/istio/security/pkg/nodeagent/caclient"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,9 +32,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"sync"
-	"time"
 )
 
 const (

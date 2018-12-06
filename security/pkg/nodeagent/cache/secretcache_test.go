@@ -40,7 +40,7 @@ func TestGenerateSecret(t *testing.T) {
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 2 * time.Second,
 	}
-	fetcher := secretfetcher.SecretFetcher{
+	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
 		CaClient:    fakeCACli,
 	}
@@ -130,7 +130,7 @@ func TestRefreshSecret(t *testing.T) {
 		RotationInterval: 200 * time.Microsecond,
 		EvictionDuration: 10 * time.Second,
 	}
-	fetcher := secretfetcher.SecretFetcher{
+	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: true,
 		CaClient:    fakeCACli,
 	}
