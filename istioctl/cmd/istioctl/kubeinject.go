@@ -274,6 +274,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:                    inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:                   inject.ProxyImageName(hub, tag, debugMode),
+					RewriteAppHTTPProbe:          false,
 					Verbosity:                    verbosity,
 					SidecarProxyUID:              sidecarProxyUID,
 					Version:                      versionStr,
