@@ -653,7 +653,7 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 	// Put two formats for now until switch is done.
 	if trustDomain != "" {
 		for _, sa := range saArray {
-			if strings.Contains(trustDomain, "cluster.local") {
+			if strings.Contains(sa, "cluster.local") {
 				ac := strings.Replace(sa, "cluster.local", trustDomain, -1)
 				accounts = append(accounts, ac)
 			}
