@@ -237,16 +237,8 @@ check-tree:
 init: check-tree check-go-version $(ISTIO_OUT)/istio_is_init
 	mkdir -p ${OUT_DIR}/logs
 
-# Sync target will pull from master and sync the modules. It is the first step of the
-# circleCI build, developers should call it periodically.
-sync: init git.pullmaster
-
-# Merge master. To be used in CI or by developers, assumes the
-# remote is called 'origin' (git default). Will fail on conflicts
-# Note: in a branch, this will get the latest from master. In master it has no effect.
-# This should be run after a 'git fetch' (typically done in the checkout step in CI)
-git.pullmaster:
-	git merge master
+# Sync is the same as init in release branch. In master this pulls from master.
+sync: init
 
 # I tried to make this dependent on what I thought was the appropriate
 # lock file, but it caused the rule for that file to get run (which
@@ -708,8 +700,11 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set global.proxy.concurrency=1 \
 		--set prometheus.scrapeInterval=1s \
 		--set gateways.istio-ingressgateway.autoscaleMax=1 \
+		--set mixer.policy.replicaCount=2 \
+		--set mixer.policy.autoscaleEnabled=false \
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio.yaml
 
@@ -721,8 +716,11 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--set global.mtls.enabled=true \
 		--set prometheus.scrapeInterval=1s \
 		--set gateways.istio-ingressgateway.autoscaleMax=1 \
+		--set mixer.policy.replicaCount=2 \
+		--set mixer.policy.autoscaleEnabled=false \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set global.proxy.concurrency=1 \
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 

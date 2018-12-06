@@ -34,7 +34,7 @@ cp "${ROOTDIR}"/codecov.skip "${CODECOV_SKIP}"
 cp "${ROOTDIR}"/codecov.threshold "${THRESHOLD_FILE}"
 
 # First run codecov from current workspace (PR)
-OUT_DIR="${REPORT_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh || echo "Some tests have failed"
+OUT_DIR="${REPORT_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh
 
 if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   TMP_GITHUB_TOKEN=$(mktemp /tmp/XXXXX.github)
@@ -47,23 +47,27 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
 
   go get -u istio.io/test-infra/toolbox/githubctl
   BASE_SHA=$("${GOPATH}"/bin/githubctl --token_file="${TMP_GITHUB_TOKEN}" --op=getBaseSHA --repo=istio --pr_num="${CIRCLE_PR_NUMBER}")
+  git clean -f -d
   git checkout "${BASE_SHA}"
 
   cp "${TMP_CODECOV_SH}" ./bin/codecov.sh
 
   # Run test at the base SHA
-  OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh || echo "Some tests have failed"
+  OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh
 
   # Get back to the PR head
-  git reset HEAD --hard
+  git clean -f -d
   git checkout "${CIRCLE_SHA1}"
 
   # Test that coverage is not dropped
-  go test istio.io/istio/tests/codecov/...  --report_file="${REPORT_PATH}/coverage.html" --baseline_file="${BASELINE_PATH}/coverage.html" --threshold_file="${THRESHOLD_FILE}" | tee  "${GOPATH}"/out/codecov/out.log
-  go-junit-report < "${GOPATH}"/out/codecov/out.log > "${GOPATH}"/out/codecov/junit.xml
-
-  # Merge codecov junit into the one creared by unit tests at PR head.
-  go get github.com/imsky/junit-merger/...
-  junit-merger "${GOPATH}"/out/codecov/pr/junit.xml "${GOPATH}"/out/codecov/junit.xml  > "${GOPATH}"/out/tests/junit.xml
+  go test -v istio.io/istio/tests/codecov/... \
+    --report_file="${REPORT_PATH}/coverage.html" \
+    --baseline_file="${BASELINE_PATH}/coverage.html" \
+    --threshold_file="${THRESHOLD_FILE}" \
+    | tee "${GOPATH}"/out/codecov/out.log \
+    | tee >(go-junit-report > "${GOPATH}"/out/tests/junit.xml)
+else
+  # Upload to codecov.io in post submit only for visualization
+  bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/pr/coverage.cov
 fi
 

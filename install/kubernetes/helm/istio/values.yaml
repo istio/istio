@@ -149,7 +149,11 @@ global:
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
-    # configure the access log for sidecar to JSON or TEXT. 
+    # Configure how and what fields are displayed in sidecar access log. Setting to 
+    # empty string will result in default log format
+    accessLogFormat: ""
+
+    # Configure the access log for sidecar to JSON or TEXT. 
     accessLogEncoding: TEXT
 
     #If set to true, istio-proxy container will have privileged securityContext
@@ -333,7 +337,7 @@ global:
 
   # Use the Mesh Control Protocol (MCP) for configuring Mixer and
   # Pilot. Requires galley (`--set galley.enabled=true`).
-  useMCP: false
+  useMCP: true
 
   # The trust domain corresponds to the trust root of a system
   # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain

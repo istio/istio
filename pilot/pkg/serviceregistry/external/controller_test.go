@@ -71,17 +71,7 @@ func TestController(t *testing.T) {
 		t.Errorf("got %d notifications from controller, want %d", c, 0)
 	}
 
-	config := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.ServiceEntry.Type,
-			Name:      "example",
-			Namespace: "default",
-			Domain:    "cluster.local",
-		},
-		Spec: httpStatic,
-	}
-
-	_, err = configController.Create(config)
+	_, err = configController.Create(*httpStatic)
 	if err != nil {
 		t.Errorf("error occurred crearting ServiceEntry config: %v", err)
 	}

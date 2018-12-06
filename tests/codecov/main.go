@@ -16,7 +16,6 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -118,21 +117,15 @@ func findDelta(report, baseline map[string]float64) map[string]float64 {
 	return deltas
 }
 
-func checkDelta(deltas, report, baseline, thresholds map[string]float64) bool {
-	result := true
-	// First print all coverage change.
-	for pkg, delta := range deltas {
-		glog.Infof("Coverage change: %s:%f%% (%f%% to %f%%)", pkg, delta, baseline[pkg], report[pkg])
-	}
-
-	// Then generate errors for reduced coverage.
+func checkDelta(deltas, report, baseline, thresholds map[string]float64) []string {
+	dropMsgs := []string{}
 	for pkg, delta := range deltas {
 		if delta+getThreshold(thresholds, pkg) < 0 {
-			glog.Errorf("Coverage dropped: %s:%f%% (%f%% to %f%%)", pkg, delta, baseline[pkg], report[pkg])
-			result = false
+			dropMsg := fmt.Sprintf("%s:%f%% (%f%% to %f%%)", pkg, delta, baseline[pkg], report[pkg])
+			dropMsgs = append(dropMsgs, dropMsg)
 		}
 	}
-	return result
+	return dropMsgs
 }
 
 func getThreshold(thresholds map[string]float64, path string) float64 {
@@ -163,8 +156,12 @@ func checkCoverage(reportFile, baselineFile, thresholdFile string) error {
 	}
 	deltas := findDelta(report, baseline)
 
-	if !checkDelta(deltas, report, baseline, thresholds) {
-		return errors.New("some test coverage has dropped more than the allowed threshold")
+	// Then generate errors for reduced coverage.
+	dropMsgs := checkDelta(deltas, report, baseline, thresholds)
+	if len(dropMsgs) > 0 {
+		errMsgs := []string{"Coverage dropped:"}
+		errMsgs = append(errMsgs, dropMsgs...)
+		return fmt.Errorf("%s", strings.Join(errMsgs, "\n"))
 	}
 	return nil
 }

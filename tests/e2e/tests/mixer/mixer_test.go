@@ -1065,15 +1065,6 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		}
 	}()
 
-	if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 2, tc.Kube.KubeConfig); err != nil {
-		fatalf(t, "Could not scale up istio-policy pod: %v", err)
-	}
-	defer func() {
-		if err := util.KubeScale(tc.Kube.Namespace, "deployment/istio-policy", 1, tc.Kube.KubeConfig); err != nil {
-			t.Fatalf("Could not scale down istio-policy pod.: %v", err)
-		}
-	}()
-
 	allowRuleSync()
 
 	// setup prometheus API
@@ -1092,8 +1083,11 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings")
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
-		fatalf(t, "no 429 is allotted time: prior429s:%v", prior429s)
+		fatalf(t, "no 429 in allotted time: prior429s:%v", prior429s)
 	}
+
+	// print baseline metrics on istio-policy handling
+	logPolicyMetrics(t, "redisquota", "ratings")
 
 	res := sendTraffic(t, "Sending traffic...", 300)
 	allowPrometheusSync()
@@ -1110,13 +1104,15 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	// consider only successful requests (as recorded at productpage service)
 	callsToRatings := succReqs
 
-	// the rate-limit is 0.1 rps from ratings to reviews.
-	want200s := 0.1 * actualDuration
+	want200s := 50.0
 
 	// everything in excess of 200s should be 429s (ideally)
 	want429s := callsToRatings - want200s
 
 	t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/actualDuration, want429s, want429s/actualDuration)
+
+	// print metrics on istio-policy handling
+	logPolicyMetrics(t, "redisquota", "ratings")
 
 	// if we received less traffic than the expected enforced limit to ratings
 	// then there is no way to determine if the rate limit was applied at all
@@ -1164,7 +1160,7 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 
 	got = got - prior200s
 
-	t.Logf("Actual 200s: %f (%f rps), expecting ~1 rps", got, got/actualDuration)
+	t.Logf("Actual 200s: %f (%f rps), expecting ~1.666rps", got, got/actualDuration)
 
 	// establish some baseline to protect against flakiness due to randomness in routing
 	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
@@ -1179,13 +1175,73 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 	// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 25% - should be only 5% or so
-	want200s = math.Ceil(want200s * 1.5)
+	want200s = math.Ceil(want200s * 1.25)
 	if got > want200s {
 		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
 			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 200), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
 		t.Logf("prometheus values for istio_requests_total for 200's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
+}
+
+func logPolicyMetrics(t *testing.T, adapter, app string) {
+	t.Helper()
+
+	promAPI, err := promAPI()
+	if err != nil {
+		fatalf(t, "Could not build prometheus API client: %v", err)
+	}
+
+	// Get check cache hit baseline.
+	envoyHits, err := getCheckCacheHits(promAPI, app)
+	if err != nil {
+		fatalf(t, "Could not retrieve valid cache hit number for app '%s': %v", app, err)
+	}
+
+	mixerCacheHits, err := mixerCheckCacheHits(promAPI)
+	if err != nil {
+		fatalf(t, "Could not retrieve cache hits for mixer: %v", err)
+	}
+
+	dispatches, err := adapterDispatches(promAPI, adapter)
+	if err != nil {
+		fatalf(t, "Could not retrieve dispatches for adapter '%s': %v", adapter, err)
+	}
+
+	requests, err := mixerRequests(promAPI, "istio-policy", app)
+	if err != nil {
+		fatalf(t, "Could not retrieve requests to istio-policy from app '%s': %v", app, err)
+	}
+
+	t.Logf("istio-policy stats (from: '%s'):  envoy checkcache hit count: %f, grpc requests: %f (total: %f) ", app, envoyHits, requests, envoyHits+requests)
+	t.Logf("istio-policy stats (all requests): mixer checkcache hits: %f, adapter '%s' dispatches: %f", mixerCacheHits, adapter, dispatches)
+}
+
+func mixerCheckCacheHits(promAPI v1.API) (float64, error) {
+	query := "sum(mixer_checkcache_cache_hits_total{job=\"istio-policy\"})"
+	return queryValue(promAPI, query)
+}
+
+func adapterDispatches(promAPI v1.API, adapter string) (float64, error) {
+	query := fmt.Sprintf("sum(mixer_runtime_dispatches_total{adapter=\"%s\"})", adapter)
+	return queryValue(promAPI, query)
+}
+
+func mixerRequests(promAPI v1.API, svcName, app string) (float64, error) {
+	query := fmt.Sprintf("sum(istio_requests_total{source_app=\"%s\", destination_service_name=\"%s\"})", app, svcName)
+	return queryValue(promAPI, query)
+}
+
+func queryValue(promAPI v1.API, query string) (float64, error) {
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("could not get results for query: %s: %v", query, err)
+	}
+	returnVal, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		return 0, fmt.Errorf("could not get extract value from: %#v: %v", value, err)
+	}
+	return returnVal, nil
 }
 
 func TestRedisQuotaRollingWindow(t *testing.T) {

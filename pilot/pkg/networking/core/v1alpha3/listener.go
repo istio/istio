@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -97,6 +98,48 @@ var (
 	}
 )
 
+func buildAccessLog(fl *fileaccesslog.FileAccessLog, env *model.Environment) {
+	switch env.Mesh.AccessLogEncoding {
+	case meshconfig.MeshConfig_TEXT:
+		formatString := EnvoyTextLogFormat
+		if env.Mesh.AccessLogFormat != "" {
+			formatString = env.Mesh.AccessLogFormat
+		}
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+			Format: formatString,
+		}
+	case meshconfig.MeshConfig_JSON:
+		var jsonLog *google_protobuf.Struct
+		// TODO potential optimization to avoid recomputing the user provided format for every listener
+		// mesh AccessLogFormat field could change so need a way to have a cached value that can be cleared
+		// on changes
+		if env.Mesh.AccessLogFormat != "" {
+			jsonFields := map[string]string{}
+			err := json.Unmarshal([]byte(env.Mesh.AccessLogFormat), &jsonFields)
+			if err == nil {
+				jsonLog = &google_protobuf.Struct{
+					Fields: make(map[string]*google_protobuf.Value, len(jsonFields)),
+				}
+				fmt.Println(jsonFields)
+				for key, value := range jsonFields {
+					jsonLog.Fields[key] = &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: value}}
+				}
+			} else {
+				fmt.Println(env.Mesh.AccessLogFormat)
+				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
+			}
+		}
+		if jsonLog == nil {
+			jsonLog = EnvoyJSONLogFormat
+		}
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+			JsonFormat: jsonLog,
+		}
+	default:
+		log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
+	}
+}
+
 var (
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
@@ -138,7 +181,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
-	services := push.Services
+	services := push.Services(node)
 
 	listeners := make([]*xdsapi.Listener, 0)
 
@@ -442,7 +485,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	configs := push.VirtualServices(meshGateway)
+	configs := push.VirtualServices(node, meshGateway)
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
@@ -849,18 +892,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		}
 
 		if util.Is11Proxy(node) {
-			switch env.Mesh.AccessLogEncoding {
-			case meshconfig.MeshConfig_TEXT:
-				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
-					Format: EnvoyTextLogFormat,
-				}
-			case meshconfig.MeshConfig_JSON:
-				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormat,
-				}
-			default:
-				log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
-			}
+			buildAccessLog(fl, env)
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{

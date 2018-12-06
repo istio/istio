@@ -67,9 +67,9 @@ istioctl experimental metrics productpage-v1
 istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
 `,
 		// nolint: goimports
-		Aliases: []string{"m"},
-		Args:    cobra.MinimumNArgs(1),
-		RunE:    run,
+		Aliases:               []string{"m"},
+		Args:                  cobra.MinimumNArgs(1),
+		RunE:                  run,
 		DisableFlagsInUseLine: true,
 	}
 )
