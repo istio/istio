@@ -601,7 +601,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	con.mu.RUnlock()
 
 	if discReq.Node == nil || discReq.Node.Id == "" {
-		return errors.New("Missing node id")
+		return errors.New("missing node id")
 	}
 	nt, err := model.ParseServiceNode(discReq.Node.Id)
 	if err != nil {
