@@ -17,6 +17,7 @@ package cache
 import (
 	"bytes"
 	"context"
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -39,7 +40,11 @@ func TestGenerateSecret(t *testing.T) {
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 2 * time.Second,
 	}
-	sc := NewSecretCache(fakeCACli, notifyCb, opt)
+	fetcher := secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
@@ -125,7 +130,11 @@ func TestRefreshSecret(t *testing.T) {
 		RotationInterval: 200 * time.Microsecond,
 		EvictionDuration: 10 * time.Second,
 	}
-	sc := NewSecretCache(fakeCACli, notifyCb, opt)
+	fetcher := secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()

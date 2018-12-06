@@ -57,6 +57,9 @@ type Options struct {
 
 	// PluginNames is plugins' name for certain authentication provider.
 	PluginNames []string
+
+	// IngressGatewayAgent indicates whether node agent works as ingress gateway agent.
+	IngressGatewayAgent bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
