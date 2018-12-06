@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package envoyfilter
+package v1alpha3
 
 import (
 	"net"
@@ -39,7 +39,7 @@ func TestListenerMatch(t *testing.T) {
 		name           string
 		inputParams    *plugin.InputParams
 		listenerIP     net.IP
-		direction      string
+		direction      networking.EnvoyFilter_ListenerMatch_ListenerType
 		matchCondition *networking.EnvoyFilter_ListenerMatch
 		result         bool
 	}{
@@ -63,7 +63,7 @@ func TestListenerMatch(t *testing.T) {
 		{
 			name:           "match by listener type",
 			inputParams:    inputParams,
-			direction:      OutboundDirection,
+			direction:      networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 			matchCondition: &networking.EnvoyFilter_ListenerMatch{ListenerType: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND},
 			result:         true,
 		},
@@ -84,7 +84,7 @@ func TestListenerMatch(t *testing.T) {
 			name:        "match outbound sidecar http listeners on 10.10.10.0/24:80, with port name prefix http-*",
 			inputParams: inputParams,
 			listenerIP:  net.ParseIP("10.10.10.10"),
-			direction:   OutboundDirection,
+			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 			matchCondition: &networking.EnvoyFilter_ListenerMatch{
 				PortNumber:       80,
 				PortNamePrefix:   "http",
@@ -98,7 +98,7 @@ func TestListenerMatch(t *testing.T) {
 			name:        "does not match: outbound sidecar http listeners on 10.10.10.0/24:80, with port name prefix tcp-*",
 			inputParams: inputParams,
 			listenerIP:  net.ParseIP("10.10.10.10"),
-			direction:   OutboundDirection,
+			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 			matchCondition: &networking.EnvoyFilter_ListenerMatch{
 				PortNumber:       80,
 				PortNamePrefix:   "tcp",
@@ -111,7 +111,7 @@ func TestListenerMatch(t *testing.T) {
 		{
 			name:        "does not match: inbound sidecar http listeners with port name prefix http-*",
 			inputParams: inputParams,
-			direction:   OutboundDirection,
+			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 			matchCondition: &networking.EnvoyFilter_ListenerMatch{
 				PortNamePrefix:   "http",
 				ListenerType:     networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
@@ -123,7 +123,7 @@ func TestListenerMatch(t *testing.T) {
 			name:        "does not match: outbound gateway http listeners on 10.10.10.0/24:80, with port name prefix http-*",
 			inputParams: inputParams,
 			listenerIP:  net.ParseIP("10.10.10.10"),
-			direction:   OutboundDirection,
+			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 			matchCondition: &networking.EnvoyFilter_ListenerMatch{
 				PortNumber:       80,
 				PortNamePrefix:   "http",
@@ -137,7 +137,7 @@ func TestListenerMatch(t *testing.T) {
 			name:        "does not match: outbound sidecar listeners on 172.16.0.1/16:80, with port name prefix http-*",
 			inputParams: inputParams,
 			listenerIP:  net.ParseIP("10.10.10.10"),
-			direction:   OutboundDirection,
+			direction:   networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 			matchCondition: &networking.EnvoyFilter_ListenerMatch{
 				PortNumber:       80,
 				PortNamePrefix:   "http",
@@ -150,7 +150,8 @@ func TestListenerMatch(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		ret := listenerMatch(tc.inputParams, tc.direction, tc.listenerIP, tc.matchCondition)
+		tc.inputParams.ListenerCategory = tc.direction
+		ret := listenerMatch(tc.inputParams, tc.listenerIP, tc.matchCondition)
 		if tc.result != ret {
 			t.Errorf("%s: expecting %v but got %v", tc.name, tc.result, ret)
 		}
