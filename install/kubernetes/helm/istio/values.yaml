@@ -11,7 +11,7 @@ gateways:
 #
 sidecarInjectorWebhook:
   enabled: true
-  rewriteHTTPProbe: false
+  rewriteAppHTTPProbe: false
 
 #
 # galley configuration, refer to charts/galley/values.yaml
