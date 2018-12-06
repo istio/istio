@@ -156,7 +156,7 @@ test/local/noauth/e2e_simple: out_dir generate_yaml
 	--egress=false --ingress=false \
 	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/e2e_mixer: out_dir generate_yaml
+test/local/e2e_mixer: out_dir generate_e2e_test_yaml
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
@@ -195,7 +195,7 @@ test/local/auth/e2e_bookinfo_envoyv2: out_dir generate_yaml
 		--auth_enable=true --egress=true --ingress=false --rbac_enable=false \
 		--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
-test/local/noauth/e2e_mixer_envoyv2: out_dir generate_yaml
+test/local/noauth/e2e_mixer_envoyv2: out_dir generate_e2e_test_yaml
 	set -o pipefail; go test -v -timeout 35m ./tests/e2e/tests/mixer \
 	--auth_enable=false --egress=false --ingress=false --rbac_enable=false \
 	--cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
