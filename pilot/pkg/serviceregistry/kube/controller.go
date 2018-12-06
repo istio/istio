@@ -603,7 +603,7 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as
 // "spiffe://cluster.local/ns/foo/sa/bar".
-func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int, trustDomain string) []string {
+func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	saSet := make(map[string]bool)
 
 	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
@@ -651,10 +651,10 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 	// When trust domain is set, and the service account is a k8s service account with format like 'spiffe://cluster.local/ns/foo/sa/bar',
 	// add account with format like 'spiffe://trustDomain/ns/foo/sa/bar', which will be used for secure naming.
 	// Put two formats for now until switch is done.
-	if trustDomain != "" {
+	if c.Env != nil && c.Env.Mesh != nil && c.Env.Mesh.TrustDomain != "" {
 		for _, sa := range saArray {
 			if strings.Contains(sa, "cluster.local") {
-				ac := strings.Replace(sa, "cluster.local", trustDomain, -1)
+				ac := strings.Replace(sa, "cluster.local", c.Env.Mesh.TrustDomain, -1)
 				accounts = append(accounts, ac)
 			}
 		}

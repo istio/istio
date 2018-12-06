@@ -399,7 +399,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService.Hostname, []int{}, "")
+	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService.Hostname, []int{})
 	expected := []string{}
 
 	if len(accounts) != len(expected) {
@@ -413,7 +413,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	}
 
 	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService.Hostname, []int{}, "")
+	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService.Hostname, []int{})
 	expected = []string{
 		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
 		"spiffe://cluster.local/ns/default/sa/serviceaccount2",

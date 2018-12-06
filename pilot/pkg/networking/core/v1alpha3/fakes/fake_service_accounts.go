@@ -24,7 +24,7 @@ type ServiceAccounts struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ServiceAccounts) GetIstioServiceAccounts(hostname model.Hostname, ports []int, trustDomain string) []string {
+func (fake *ServiceAccounts) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	var portsCopy []int
 	if ports != nil {
 		portsCopy = make([]int, len(ports))
