@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,8 +26,8 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	ca "istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/nodeagent/sds"
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 )
 
 const (
@@ -42,6 +43,9 @@ const (
 	// The trust domain corresponds to the trust root of a system.
 	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	trustDomain = "Trust_Domain"
+
+	// Node agent could act as ingress gateway agent.
+	ingressGatewayAgent = "Ingress_GateWay_Agent"
 )
 
 var (
@@ -61,15 +65,14 @@ var (
 
 			stop := make(chan struct{})
 
-			caClient, err := ca.NewCAClient(serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
+			secretFetcher, err := secretfetcher.NewSecretFetcher(serverOptions.IngressGatewayAgent, serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
 			if err != nil {
-				log.Errorf("failed to create caClient: %v", err)
-				return fmt.Errorf("failed to create caClient")
+				log.Errorf("failed to create secretFetcher: %v", err)
+				return fmt.Errorf("failed to create secretFetcher")
 			}
-
 			cacheOptions.TrustDomain = serverOptions.TrustDomain
 			cacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
-			sc := cache.NewSecretCache(caClient, sds.NotifyProxy, cacheOptions)
+			sc := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, cacheOptions)
 			defer sc.Close()
 
 			server, err := sds.NewServer(serverOptions, sc)
@@ -87,14 +90,28 @@ var (
 )
 
 func init() {
+	ingressGatewayAgentEnv := os.Getenv(ingressGatewayAgent)
+	enableIngressGatewayAgentMode := false
+	if ingressGatewayAgentEnv != "" {
+		v, err := strconv.ParseBool(ingressGatewayAgentEnv)
+		if err == nil {
+			enableIngressGatewayAgentMode = v
+		}
+	}
+
+	sdsUdsPath := "/var/run/sds/uds_path"
+	if enableIngressGatewayAgentMode {
+		sdsUdsPath = "/var/run/ingress_gateway_agent/uds_path"
+	}
+
 	caProvider := os.Getenv(caProvider)
-	if caProvider == "" {
+	if caProvider == "" && !enableIngressGatewayAgentMode {
 		log.Error("CA Provider is missing")
 		os.Exit(1)
 	}
 
 	caAddr := os.Getenv(caAddress)
-	if caAddr == "" {
+	if caAddr == "" && !enableIngressGatewayAgentMode {
 		log.Error("CA Endpoint is missing")
 		os.Exit(1)
 	}
@@ -106,7 +123,11 @@ func init() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
-		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with proxies")
+		sdsUdsPath, "Unix domain socket through which SDS server communicates with proxies")
+
+	rootCmd.PersistentFlags().BoolVar(&serverOptions.IngressGatewayAgent, "IngressGatewayAgent",
+		enableIngressGatewayAgentMode,
+		"If true, node agent works as ingress gateway agent and watches kubernetes secrets instead of sending CSR to CA.")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", caProvider, "CA provider")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
