@@ -21,12 +21,11 @@ import (
 	"runtime"
 	"strings"
 
-	"istio.io/istio/pkg/log"
-
-	"go.opencensus.io/stats/view"
-
 	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+
+	"istio.io/istio/pkg/log"
 )
 
 // The following fields are populated at build time using -ldflags -X.
