@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
+
 	ca "istio.io/istio/security/pkg/nodeagent/caclient"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"

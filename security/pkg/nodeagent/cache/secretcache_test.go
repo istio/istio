@@ -17,13 +17,13 @@ package cache
 import (
 	"bytes"
 	"context"
-	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 )
 
 var (
