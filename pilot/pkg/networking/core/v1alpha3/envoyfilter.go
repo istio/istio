@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package envoyfilter
+package v1alpha3
 
 import (
 	"net"
@@ -22,92 +22,62 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 )
 
-type envoyfilterplugin struct{}
-
-const (
-	// InboundDirection indicates onInboundListener callback
-	InboundDirection = "inbound"
-	// OutboundDirection indicates onOutboundListener callback
-	OutboundDirection = "outbound"
-)
-
-// NewPlugin returns an ptr to an initialized envoyfilter.Plugin.
-func NewPlugin() plugin.Plugin {
-	return envoyfilterplugin{}
-}
-
-// OnOutboundListener implements the Callbacks interface method.
-func (envoyfilterplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	return insertUserSpecifiedFilters(in, mutable, OutboundDirection)
-}
-
-// OnInboundListener implements the Callbacks interface method.
-func (envoyfilterplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	return insertUserSpecifiedFilters(in, mutable, InboundDirection)
-}
-
-// OnOutboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
-	// do nothing
-}
-
-// OnInboundCluster implements the Plugin interface method.
-func (envoyfilterplugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
-	// do nothing
-}
-
-// OnOutboundRouteConfiguration implements the Plugin interface method.
-func (envoyfilterplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	// do nothing
-}
-
-// OnInboundRouteConfiguration implements the Plugin interface method.
-func (envoyfilterplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
-	// do nothing
-}
-
-// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
-func (envoyfilterplugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
-	return nil
-}
-
-func insertUserSpecifiedFilters(in *plugin.InputParams, mutable *plugin.MutableObjects, direction string) error {
-	filterCRD := getFilterForWorkload(in)
+// We process EnvoyFilter CRDs after calling all plugins and building the listener with the required filter chains
+// Having the entire filter chain is essential because users can specify one or more filters to be inserted
+// before/after  a filter or remove one or more filters.
+// We use the plugin.InputParams as a convenience object to pass around parameters like proxy, proxyInstances, ports,
+// etc., instead of having a long argument list
+// If one or more filters are added to the HTTP connection manager, we will update the last filter in the listener
+// filter chain (which is the http connection manager) with the updated object.
+func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
+	httpConnectionManagers []*http_conn.HttpConnectionManager) error {
+	filterCRD := getUserFiltersForWorkload(in)
 	if filterCRD == nil {
 		return nil
 	}
 
-	listenerIPAddress := getListenerIPAddress(&mutable.Listener.Address)
+	listenerIPAddress := getListenerIPAddress(&listener.Address)
 	if listenerIPAddress == nil {
 		log.Warnf("Failed to parse IP Address from plugin listener")
 	}
 
 	for _, f := range filterCRD.Filters {
-		if !listenerMatch(in, direction, listenerIPAddress, f.ListenerMatch) {
+		if !listenerMatch(in, listenerIPAddress, f.ListenerMatch) {
 			continue
 		}
+		// 4 cases of filter insertion
+		// http listener, http filter
+		// tcp listener, tcp filter
+		// http listener, tcp filter
+		// tcp listener, http filter -- invalid
+
+		// http, http case
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP && f.FilterType == networking.EnvoyFilter_Filter_HTTP {
 			// Insert into http connection manager
-			for cnum := range mutable.FilterChains {
-				insertHTTPFilter(&mutable.FilterChains[cnum], f)
+			for cnum := range listener.FilterChains {
+				insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f)
 			}
 		} else {
 			// tcp listener with some opaque filter or http listener with some opaque filter
 			// We treat both as insert network filter X into network filter chain.
-			// We cannot insert a HTTP in filter in network filter chain. Even HTTP connection manager is a network filter
+			// We cannot insert a HTTP in filter in network filter chain.
+			// Even HTTP connection manager is a network filter
 			if f.FilterType == networking.EnvoyFilter_Filter_HTTP {
-				log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain", f.FilterName)
+				log.Warnf("Ignoring filter %s. Cannot insert HTTP filter in network filter chain",
+					f.FilterName)
 				continue
 			}
-			for cnum := range mutable.FilterChains {
-				insertNetworkFilter(&mutable.FilterChains[cnum], f)
+			for cnum := range listener.FilterChains {
+				insertNetworkFilter(listener.Name, &listener.FilterChains[cnum], f)
 			}
 		}
 	}
@@ -116,7 +86,7 @@ func insertUserSpecifiedFilters(in *plugin.InputParams, mutable *plugin.MutableO
 
 // NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
 // is undefined.
-func getFilterForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
+func getUserFiltersForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
 	env := in.Env
 	// collect workload labels
 	workloadInstances := in.ProxyInstances
@@ -149,7 +119,7 @@ func getListenerIPAddress(address *core.Address) net.IP {
 	return nil
 }
 
-func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
+func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 	matchCondition *networking.EnvoyFilter_ListenerMatch) bool {
 	if matchCondition == nil {
 		return true
@@ -167,21 +137,25 @@ func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
 		}
 	}
 
-	// Listener type
-	switch matchCondition.ListenerType {
-	case networking.EnvoyFilter_ListenerMatch_GATEWAY:
-		if in.Node.Type != model.Router {
-			return false // We don't care about direction for gateways
-		}
-	case networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND:
-		if in.Node.Type != model.Sidecar || direction != InboundDirection {
+	// case ANY implies do not care about proxy type or direction
+	if matchCondition.ListenerType != networking.EnvoyFilter_ListenerMatch_ANY {
+		// check if the current listener category matches with the user specified type
+		if matchCondition.ListenerType != in.ListenerCategory {
 			return false
 		}
-	case networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND:
-		if in.Node.Type != model.Sidecar || direction != OutboundDirection {
-			return false
+
+		// Check if the node's role matches properly with the listener category
+		switch matchCondition.ListenerType {
+		case networking.EnvoyFilter_ListenerMatch_GATEWAY:
+			if in.Node.Type != model.Router {
+				return false // We don't care about direction for gateways
+			}
+		case networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
+			networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND:
+			if in.Node.Type != model.Sidecar {
+				return false
+			}
 		}
-		// case ANY implies do not care about proxy type or direction
 	}
 
 	// Listener protocol
@@ -228,7 +202,8 @@ func listenerMatch(in *plugin.InputParams, direction string, listenerIP net.IP,
 	return true
 }
 
-func insertHTTPFilter(filterChain *plugin.FilterChain, envoyFilter *networking.EnvoyFilter_Filter) {
+func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
+	envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig},
@@ -239,35 +214,46 @@ func insertHTTPFilter(filterChain *plugin.FilterChain, envoyFilter *networking.E
 		position = envoyFilter.InsertPosition.Index
 	}
 
+	oldLen := len(hcm.HttpFilters)
 	switch position {
 	case networking.EnvoyFilter_InsertPosition_FIRST, networking.EnvoyFilter_InsertPosition_BEFORE:
-		filterChain.HTTP = append([]*http_conn.HttpFilter{filter}, filterChain.HTTP...)
+		hcm.HttpFilters = append([]*http_conn.HttpFilter{filter}, hcm.HttpFilters...)
 		if position == networking.EnvoyFilter_InsertPosition_BEFORE {
 			// bubble the filter to the right position scanning from beginning
-			for i := 1; i < len(filterChain.HTTP); i++ {
-				if filterChain.HTTP[i].Name != envoyFilter.InsertPosition.RelativeTo {
-					filterChain.HTTP[i-1], filterChain.HTTP[i] = filterChain.HTTP[i], filterChain.HTTP[i-1]
+			for i := 1; i < len(hcm.HttpFilters); i++ {
+				if hcm.HttpFilters[i].Name != envoyFilter.InsertPosition.RelativeTo {
+					hcm.HttpFilters[i-1], hcm.HttpFilters[i] = hcm.HttpFilters[i], hcm.HttpFilters[i-1]
 				} else {
 					break
 				}
 			}
 		}
 	case networking.EnvoyFilter_InsertPosition_LAST, networking.EnvoyFilter_InsertPosition_AFTER:
-		filterChain.HTTP = append(filterChain.HTTP, filter)
+		hcm.HttpFilters = append(hcm.HttpFilters, filter)
 		if position == networking.EnvoyFilter_InsertPosition_AFTER {
 			// bubble the filter to the right position scanning from end
-			for i := len(filterChain.HTTP) - 2; i >= 0; i-- {
-				if filterChain.HTTP[i].Name != envoyFilter.InsertPosition.RelativeTo {
-					filterChain.HTTP[i+1], filterChain.HTTP[i] = filterChain.HTTP[i], filterChain.HTTP[i+1]
+			for i := len(hcm.HttpFilters) - 2; i >= 0; i-- {
+				if hcm.HttpFilters[i].Name != envoyFilter.InsertPosition.RelativeTo {
+					hcm.HttpFilters[i+1], hcm.HttpFilters[i] = hcm.HttpFilters[i], hcm.HttpFilters[i+1]
 				} else {
 					break
 				}
 			}
 		}
 	}
+
+	// Rebuild the HTTP connection manager in the network filter chain
+	// Its the last filter in the filter chain
+	filterChain.Filters[len(filterChain.Filters)-1] = listener.Filter{
+		Name:       xdsutil.HTTPConnectionManager,
+		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(hcm)},
+	}
+	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
+		listenerName, oldLen, len(hcm.HttpFilters))
 }
 
-func insertNetworkFilter(filterChain *plugin.FilterChain, envoyFilter *networking.EnvoyFilter_Filter) {
+func insertNetworkFilter(listenerName string, filterChain *listener.FilterChain,
+	envoyFilter *networking.EnvoyFilter_Filter) {
 	filter := &listener.Filter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &listener.Filter_Config{Config: envoyFilter.FilterConfig},
@@ -278,27 +264,31 @@ func insertNetworkFilter(filterChain *plugin.FilterChain, envoyFilter *networkin
 		position = envoyFilter.InsertPosition.Index
 	}
 
+	oldLen := len(filterChain.Filters)
 	switch position {
 	case networking.EnvoyFilter_InsertPosition_FIRST, networking.EnvoyFilter_InsertPosition_BEFORE:
-		filterChain.TCP = append([]listener.Filter{*filter}, filterChain.TCP...)
+		filterChain.Filters = append([]listener.Filter{*filter}, filterChain.Filters...)
 		if position == networking.EnvoyFilter_InsertPosition_BEFORE {
 			// bubble the filter to the right position scanning from beginning
-			for i := 1; i < len(filterChain.TCP); i++ {
-				if filterChain.TCP[i].Name != envoyFilter.InsertPosition.RelativeTo {
-					filterChain.TCP[i-1], filterChain.TCP[i] = filterChain.TCP[i], filterChain.TCP[i-1]
+			for i := 1; i < len(filterChain.Filters); i++ {
+				if filterChain.Filters[i].Name != envoyFilter.InsertPosition.RelativeTo {
+					filterChain.Filters[i-1], filterChain.Filters[i] = filterChain.Filters[i], filterChain.Filters[i-1]
+					break
 				}
 			}
 		}
 	case networking.EnvoyFilter_InsertPosition_LAST, networking.EnvoyFilter_InsertPosition_AFTER:
-		filterChain.TCP = append(filterChain.TCP, *filter)
+		filterChain.Filters = append(filterChain.Filters, *filter)
 		if position == networking.EnvoyFilter_InsertPosition_AFTER {
 			// bubble the filter to the right position scanning from end
-			for i := len(filterChain.TCP) - 2; i >= 0; i-- {
-				if filterChain.TCP[i].Name != envoyFilter.InsertPosition.RelativeTo {
-					filterChain.TCP[i+1], filterChain.TCP[i] = filterChain.TCP[i], filterChain.TCP[i+1]
+			for i := len(filterChain.Filters) - 2; i >= 0; i-- {
+				if filterChain.Filters[i].Name != envoyFilter.InsertPosition.RelativeTo {
+					filterChain.Filters[i+1], filterChain.Filters[i] = filterChain.Filters[i], filterChain.Filters[i+1]
+					break
 				}
 			}
 		}
 	}
-
+	log.Infof("EnvoyFilters: Rebuilt network filter stack for listener %s (from %d filters to %d filters)",
+		listenerName, oldLen, len(filterChain.Filters))
 }

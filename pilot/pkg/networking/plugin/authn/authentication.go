@@ -144,7 +144,7 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, enableSdsTo
 			{
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       tls,
-				RequiredListenerFilters: []ldsv2.ListenerFilter{
+				ListenerFilters: []ldsv2.ListenerFilter{
 					{
 						Name:       EnvoyTLSInspectorFilterName,
 						ConfigType: &ldsv2.ListenerFilter_Config{Config: &types.Struct{}},
