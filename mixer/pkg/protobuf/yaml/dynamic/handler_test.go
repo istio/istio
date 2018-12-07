@@ -408,7 +408,7 @@ func TestHandlerTimeout(t *testing.T) {
 		t.Fatalf("want HandleRemoteReport return deadline exceeded, got %v", err)
 	}
 	elapse := time.Since(start)
-	if elapse > 20*time.Millisecond {
-		t.Errorf("want elapse time less than 20 milliseconds, got %v", elapse)
+	if elapse > 300*time.Millisecond {
+		t.Errorf("want elapse time less than 300 milliseconds, got %v", elapse)
 	}
 }
