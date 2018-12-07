@@ -320,8 +320,8 @@ func (ps *PushContext) UpdateMetrics() {
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	out := []*Service{}
-	out = append(out, ps.publicServices...)
 
+	// First add private services
 	if proxy == nil {
 		for _, privateServices := range ps.privateServicesByNamespace {
 			out = append(out, privateServices...)
@@ -329,6 +329,9 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	} else {
 		out = append(out, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
 	}
+
+	// Second add public services
+	out = append(out, ps.publicServices...)
 
 	return out
 }
@@ -370,8 +373,8 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	configs := make([]Config, 0)
 	out := make([]Config, 0)
 
-	configs = append(configs, ps.publicVirtualServices...)
 	// filter out virtual services not reachable
+	// First private virtual service
 	if proxy == nil {
 		for _, virtualSvcs := range ps.privateVirtualServicesByNamespace {
 			configs = append(configs, virtualSvcs...)
@@ -379,6 +382,8 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	} else {
 		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
 	}
+	// Second public virtual service
+	configs = append(configs, ps.publicVirtualServices...)
 
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
