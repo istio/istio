@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"istio.io/istio/pkg/features/pilot"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -54,8 +54,8 @@ type PushContext struct {
 	// and use accessor functions to return the appropriate data
 
 	// all services in the system at the time push started.
-	allServices            []*Service `json:"-,omitempty"`
-	virtualServiceConfigs  []Config   `json:"-,omitempty"`
+	allServices            []*Service
+	virtualServiceConfigs  []Config
 	destinationRuleHosts   []Hostname
 	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 	////////// END ////////
@@ -64,7 +64,7 @@ type PushContext struct {
 	// Namespace specific views do not apply here.
 
 	// ServiceByHostname has all services, indexed by hostname.
-	ServiceByHostname map[Hostname]*Service `json:"-,omitempty"`
+	ServiceByHostname map[Hostname]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.

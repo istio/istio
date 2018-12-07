@@ -609,10 +609,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 	// Update the config namespace associated with this proxy
-	nt.ConfigNamespace = model.GetProxyConfigNamespace(&nt)
+	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
 
 	con.mu.Lock()
-	con.modelNode = &nt
+	con.modelNode = nt
 	if con.ConID == "" {
 		// first request
 		con.ConID = connectionID(discReq.Node.Id)
