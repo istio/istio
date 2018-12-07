@@ -415,25 +415,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				// Remote side closed connection.
 				return receiveError
 			}
-			if discReq.Node == nil || discReq.Node.Id == "" {
-				adsLog.Infof("Missing node id %s", discReq.String())
-				continue
-			}
-			nt, err := model.ParseServiceNode(discReq.Node.Id)
+			err = s.initConnectionNode(discReq, con)
 			if err != nil {
 				return err
 			}
-			nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
-			// Update the config namespace associated with this proxy
-			nt.ConfigNamespace = model.GetProxyConfigNamespace(&nt)
-
-			con.mu.Lock()
-			con.modelNode = &nt
-			if con.ConID == "" {
-				// first request
-				con.ConID = connectionID(discReq.Node.Id)
-			}
-			con.mu.Unlock()
 
 			switch discReq.TypeUrl {
 			case ClusterType:
@@ -549,7 +534,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 					// Already got a list of endpoints to watch and it is the same as the request, this is an ack
 					if reflect.DeepEqual(con.Clusters, clusters) {
-						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+						adsLog.Debugf("ADS:EDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 						if discReq.ResponseNonce != "" {
 							con.mu.Lock()
 							con.EndpointNonceAcked = discReq.ResponseNonce
@@ -606,6 +591,42 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 }
 
+// update the node associated with the connection, after receiving a a packet from envoy.
+func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, con *XdsConnection) error {
+	con.mu.RLock() // may not be needed - once per connection, but locking for consistency.
+	if con.modelNode != nil {
+		con.mu.RUnlock()
+		return nil // only need to init the node on first request in the stream
+	}
+	con.mu.RUnlock()
+
+	if discReq.Node == nil || discReq.Node.Id == "" {
+		return errors.New("missing node id")
+	}
+	nt, err := model.ParseServiceNode(discReq.Node.Id)
+	if err != nil {
+		return err
+	}
+	nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
+	// Update the config namespace associated with this proxy
+	nt.ConfigNamespace = model.GetProxyConfigNamespace(&nt)
+
+	con.mu.Lock()
+	con.modelNode = &nt
+	if con.ConID == "" {
+		// first request
+		con.ConID = connectionID(discReq.Node.Id)
+	}
+	con.mu.Unlock()
+
+	s.globalPushContext().OnConnect(con.modelNode)
+
+	// TODO
+	// use networkScope to update the list of namespace and service dependencies
+
+	return nil
+}
+
 // IncrementalAggregatedResources is not implemented.
 func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDiscoveryService_IncrementalAggregatedResourcesServer) error {
 	return status.Errorf(codes.Unimplemented, "not implemented")
@@ -614,6 +635,8 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 // Compute and send the new configuration. This is blocking and may be slow
 // for large configs.
 func (s *DiscoveryServer) pushAll(con *XdsConnection, pushEv *XdsEvent) error {
+	// TODO: update the service deps based on NetworkScope
+
 	if pushEv.edsUpdatedServices != nil {
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)

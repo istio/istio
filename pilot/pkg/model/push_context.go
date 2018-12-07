@@ -18,10 +18,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"istio.io/istio/pkg/features/pilot"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -310,13 +312,48 @@ func (ps *PushContext) UpdateMetrics() {
 }
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
-func (ps *PushContext) Services(proxy *Proxy) []*Service {
+func (ps *PushContext) Services(p *Proxy) []*Service {
 	// TODO: use network scopes here, and return services in the proxy namespace if
 	// configured to use current_namespace as the scope and proxy is not nil
-	//if proxy == nil {
-	//	return ps.allServices
-	//}
+	if p == nil {
+		return ps.allServices
+	}
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+	if p.serviceDependencies != nil {
+		return p.serviceDependencies
+	}
 	return ps.allServices
+}
+
+// OnConnect is called when a node connects. Will update per-node data.
+func (ps *PushContext) OnConnect(proxy *Proxy) {
+	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
+	// bindings.
+	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {
+		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
+		// reviewed ), or from an env variable.
+		adminNs := strings.Split(pilot.NetworkScopes, ",")
+		globalDeps := map[string]bool{}
+		for _, ns := range adminNs {
+			globalDeps[ns] = true
+		}
+
+		proxy.mutex.RLock()
+		defer proxy.mutex.RUnlock()
+		res := []*Service{}
+		for _, s := range ps.allServices {
+			serviceNamespace := s.Attributes.Namespace
+			if serviceNamespace == "" {
+				res = append(res, s)
+			} else if globalDeps[serviceNamespace] || serviceNamespace == proxy.ConfigNamespace {
+				res = append(res, s)
+			}
+		}
+		proxy.serviceDependencies = res
+
+		// TODO: read Gateways,NetworkScopes/etc to populate additional entries
+	}
 }
 
 // VirtualServices lists all virtual services bound to the specified gateways

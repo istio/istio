@@ -50,7 +50,7 @@ type CertSource struct {
 }
 
 type watcher struct {
-	role     model.Proxy
+	role     *model.Proxy
 	config   meshconfig.ProxyConfig
 	certs    []CertSource
 	pilotSAN []string
@@ -61,7 +61,7 @@ type watcher struct {
 // (directories with files in them)
 func NewWatcher(
 	config meshconfig.ProxyConfig,
-	role model.Proxy,
+	role *model.Proxy,
 	certs []CertSource,
 	pilotSAN []string,
 	updates chan<- interface{}) Watcher {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pkg/features/pilot"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -33,7 +34,7 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network, found := conn.modelNode.Metadata["NETWORK"]
+	network, found := conn.modelNode.Metadata[pilot.NodeMetadataNetwork]
 	if !found {
 		// Couldn't find the sidecar network, using default/local
 		network = ""
@@ -122,6 +123,11 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 
 	return filtered
 }
+
+// TODO: remove this, filtering should be done before generating the config, and
+// network metadata should not be included in output. A node only receives endpoints
+// in the same network as itself - so passing an network meta, with exactly
+// same value that the node itself had, on each endpoint is a bit absurd.
 
 // Checks whether there is an istio metadata string value for the provided key
 // within the endpoint metadata. If exists, it will return the value.
