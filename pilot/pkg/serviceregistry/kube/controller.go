@@ -734,6 +734,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			return nil
 		}
 		c.updateEDS(ep)
+
 		return nil
 	})
 

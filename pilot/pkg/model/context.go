@@ -19,6 +19,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -62,19 +63,27 @@ type Environment struct {
 	MeshNetworks *meshconfig.MeshNetworks
 }
 
-// Proxy defines the proxy attributes used by xDS identification
+// Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
+// etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
+// 'node' info in the protocol as well as data extracted from registries.
+//
+// In current Istio implementation nodes use a 4-parts '~' delimited ID.
+// Type~IPAddress~ID~Domain
 type Proxy struct {
-	// ClusterID specifies the cluster where the proxy resides
+	// ClusterID specifies the cluster where the proxy resides.
+	// TODO: clarify if this is needed in the new 'network' model, likely needs to
+	// be renamed to 'network'
 	ClusterID string
 
-	// Type specifies the node type
+	// Type specifies the node type. First part of the ID.
 	Type NodeType
 
 	// IPAddress is the IP address of the proxy used to identify it and its
-	// co-located service instances. Example: "10.60.1.6"
+	// co-located service instances. Example: "10.60.1.6". Second part of the ID.
 	IPAddress string
 
-	// ID is the unique platform-specific sidecar proxy ID
+	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
+	// namespace.
 	ID string
 
 	// Domain defines the DNS domain suffix for short hostnames (e.g.
@@ -88,6 +97,18 @@ type Proxy struct {
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
+
+	// mutex control access to mutable fields in the Proxy. On-demand will modify the
+	// list of services based on calls from envoy.
+	mutex sync.RWMutex
+
+	// serviceDependencies, if set, controls the list of outbound listeners and routes
+	// for which the proxy will receive configurations. If nil, the proxy will get config
+	// for all visible services.
+	// The list will be populated either from explicit declarations or using 'on-demand'
+	// feature, before generation takes place. Each node may have a different list, based on
+	// the requests handled by envoy.
+	serviceDependencies []*Service
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
