@@ -453,9 +453,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ResponseNonce != "" {
 						con.ClusterNonceAcked = discReq.ResponseNonce
 					}
-					if pilot.WaitAck {
-						con.ackChannel <- discReq
-					}
 					adsLog.Debugf("ADS:CDS: ACK %v %v", peerAddr, discReq.String())
 					continue
 				}
@@ -479,9 +476,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ResponseNonce != "" {
 						con.ListenerNonceAcked = discReq.ResponseNonce
 					}
-					if pilot.WaitAck {
-						con.ackChannel <- discReq
-					}
 					adsLog.Debugf("ADS:LDS: ACK %v", discReq.String())
 					continue
 				}
@@ -498,9 +492,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 					rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 					totalXDSRejects.Add(1)
-					if pilot.WaitAck {
-						con.ackChannel <- discReq
-					}
 					continue
 				}
 				routes := discReq.GetResourceNames()
@@ -524,9 +515,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
 							con.mu.Unlock()
-							if pilot.WaitAck {
-								con.ackChannel <- discReq
-							}
 							continue
 						}
 					} else if discReq.ErrorDetail != nil || routes == nil {
@@ -539,9 +527,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": "Protocol error"}).Add(1)
 							totalXDSRejects.Add(1)
-						}
-						if pilot.WaitAck {
-							con.ackChannel <- discReq
 						}
 						continue
 					}
@@ -673,7 +658,7 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		// TODO: according to the docs, we can pro-actively push all the config, without waiting for requests.
 		// Will require pre-computing the expected RDS - we now rely on Envoy to build and maintain the list.
 
-		if discReq.ErrorDetail != nil {
+		if discReq.ErrorDetail != nil  {
 			s.handleNack(discReq, peerAddr, con)
 			continue
 		}
@@ -701,7 +686,9 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			if err != nil {
 				return err
 			}
-			// s.waitAck(con, ..)
+			if pilot.WaitAck {
+				_ = s.waitAck(con)
+			}
 
 		case ListenerType:
 			if con.LDSWatch {
@@ -716,6 +703,9 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			err := s.pushLds(con, s.globalPushContext(), true, versionInfo())
 			if err != nil {
 				return err
+			}
+			if pilot.WaitAck {
+				_ = s.waitAck(con)
 			}
 
 		case RouteType:
@@ -732,6 +722,9 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			err := s.pushRoute(con, s.globalPushContext())
 			if err != nil {
 				return err
+			}
+			if pilot.WaitAck {
+				_ = s.waitAck(con)
 			}
 
 		case EndpointType:
@@ -765,6 +758,9 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			err := s.pushEds(s.globalPushContext(), con, true, nil)
 			if err != nil {
 				return err
+			}
+			if pilot.WaitAck {
+				_ = s.waitAck(con)
 			}
 
 		default:
@@ -812,7 +808,9 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 	con.mu.Unlock()
 	adsLog.Debugf("ADS:%s: ACK %v %v", discReq.TypeUrl, peerAddr, discReq.String())
 	if pilot.WaitAck {
-		con.ackChannel <- discReq
+		select {
+			case con.ackChannel <- discReq:
+		}
 	}
 }
 
@@ -830,7 +828,9 @@ func (s *DiscoveryServer) handleNack(discReq *xdsapi.DiscoveryRequest, peerAddr 
 	adsLog.Warnf("ADS:%s: ACK ERROR %v %s %v", discReq.TypeUrl, peerAddr, con.ConID, discReq.String())
 	totalXDSRejects.Add(1)
 	if pilot.WaitAck {
-		con.ackChannel <- discReq
+		select {
+			case con.ackChannel <- discReq:
+		}
 	}
 }
 
@@ -875,6 +875,20 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
+// waitAck waits for an ack/nacks, returns true if an ack was received, false for error or timeout.
+// Will wait at most PushTimeout (5 sec) - after this time the node push will be considered failed anyways.
+func (s *DiscoveryServer) waitAck(con *XdsConnection) bool {
+	// TODO: confirm the nonce is the same with the sent request.
+	select {
+	case ackMsg := <-con.ackChannel:
+		return ackMsg.ErrorDetail == nil
+	case <-time.After(PushTimeout):
+		adsLog.Infof("Timeout waiting ACK %v", con.ConID)
+	return false
+	}
+	return true
+}
+
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
@@ -886,6 +900,10 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if len(con.Clusters) > 0 {
 			if err := s.pushEds(pushEv.push, con, false, pushEv.edsUpdatedServices); err != nil {
 				return err
+			}
+			// Ignore the response - this is an incremental push, a log will be generated for the NACK
+			if pilot.WaitAck {
+				_ = s.waitAck(con)
 			}
 		}
 		return nil
@@ -927,6 +945,11 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+		if pilot.WaitAck {
+			if ok := s.waitAck(con); !ok {
+				return errors.New("CDS NACK")
+			}
+		}
 	}
 
 	if len(con.Clusters) > 0 {
@@ -934,17 +957,32 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		if err != nil {
 			return err
 		}
+		if pilot.WaitAck {
+			if ok := s.waitAck(con); !ok {
+				return errors.New("EDS NACK")
+			}
+		}
 	}
 	if con.LDSWatch {
 		err := s.pushLds(con, pushEv.push, false, pushEv.version)
 		if err != nil {
 			return err
 		}
+		if pilot.WaitAck {
+			if ok := s.waitAck(con); !ok {
+				return errors.New("LDS NACK")
+			}
+		}
 	}
 	if len(con.Routes) > 0 {
 		err := s.pushRoute(con, pushEv.push)
 		if err != nil {
 			return err
+		}
+		if pilot.WaitAck {
+			if ok := s.waitAck(con); !ok {
+				return errors.New("RDS NACK")
+			}
 		}
 	}
 	return nil
