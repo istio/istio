@@ -356,11 +356,23 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-		out.RequestHeadersToAdd = append(translateAppendHeaders(in.AppendRequestHeaders), translateAppendHeaders(in.AppendHeaders)...)
-		out.ResponseHeadersToAdd = translateAppendHeaders(in.AppendResponseHeaders)
-
-		out.RequestHeadersToRemove = in.RemoveRequestHeaders
-		out.ResponseHeadersToRemove = in.RemoveResponseHeaders
+		requestHeadersToAdd := translateAppendHeaders(in.Headers.GetRequest().GetSet(), false)
+		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.Headers.GetRequest().GetAdd(), true)...)
+		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.AppendRequestHeaders, true)...)
+		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.AppendHeaders, true)...)
+		out.RequestHeadersToAdd = requestHeadersToAdd
+		responseHeadersToAdd := translateAppendHeaders(in.Headers.GetResponse().GetSet(), false)
+		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.Headers.GetResponse().GetAdd(), true)...)
+		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.AppendResponseHeaders, true)...)
+		out.ResponseHeadersToAdd = responseHeadersToAdd
+		requestHeadersToRemove := make([]string, 0)
+		requestHeadersToRemove = append(requestHeadersToRemove, in.Headers.GetRequest().GetRemove()...)
+		requestHeadersToRemove = append(requestHeadersToRemove, in.RemoveRequestHeaders...)
+		out.RequestHeadersToRemove = requestHeadersToRemove
+		responseHeadersToRemove := make([]string, 0)
+		responseHeadersToRemove = append(responseHeadersToRemove, in.Headers.GetResponse().GetRemove()...)
+		responseHeadersToRemove = append(responseHeadersToRemove, in.RemoveResponseHeaders...)
+		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
 			n := GetDestinationCluster(in.Mirror, serviceRegistry[model.Hostname(in.Mirror.Host)], port)
@@ -381,16 +393,29 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				}
 			}
 
+			requestHeadersToAdd := translateAppendHeaders(dst.Headers.GetRequest().GetSet(), false)
+			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.Headers.GetRequest().GetAdd(), true)...)
+			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.AppendRequestHeaders, true)...)
+			responseHeadersToAdd := translateAppendHeaders(dst.Headers.GetResponse().GetSet(), false)
+			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.Headers.GetResponse().GetAdd(), true)...)
+			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.AppendResponseHeaders, true)...)
+			requestHeadersToRemove := make([]string, 0)
+			requestHeadersToRemove = append(requestHeadersToRemove, dst.Headers.GetRequest().GetRemove()...)
+			requestHeadersToRemove = append(requestHeadersToRemove, dst.RemoveRequestHeaders...)
+			responseHeadersToRemove := make([]string, 0)
+			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
+			responseHeadersToRemove = append(responseHeadersToRemove, dst.RemoveResponseHeaders...)
+
 			hostname := model.Hostname(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
 
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
 				Name:                    n,
 				Weight:                  weight,
-				RequestHeadersToAdd:     translateAppendHeaders(dst.AppendRequestHeaders),
-				RequestHeadersToRemove:  dst.RemoveRequestHeaders,
-				ResponseHeadersToAdd:    translateAppendHeaders(dst.AppendResponseHeaders),
-				ResponseHeadersToRemove: dst.RemoveResponseHeaders,
+				RequestHeadersToAdd:     requestHeadersToAdd,
+				RequestHeadersToRemove:  requestHeadersToRemove,
+				ResponseHeadersToAdd:    responseHeadersToAdd,
+				ResponseHeadersToRemove: responseHeadersToRemove,
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -451,14 +476,16 @@ func (b SortHeaderValueOption) Swap(i, j int) {
 }
 
 // translateAppendHeaders translates headers
-func translateAppendHeaders(headers map[string]string) []*core.HeaderValueOption {
+func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
 	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
+	appendValue := &types.BoolValue{Value: appendFlag}
 	for key, value := range headers {
 		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
 			Header: &core.HeaderValue{
 				Key:   key,
 				Value: value,
 			},
+			Append: appendValue,
 		})
 	}
 	sort.Stable(SortHeaderValueOption(headerValueOptionList))
