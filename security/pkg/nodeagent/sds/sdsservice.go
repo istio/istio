@@ -89,12 +89,15 @@ type sdsConnection struct {
 
 type sdsservice struct {
 	st cache.SecretManager
+	// skipToken indicates whether token is required.
+	skipToken bool
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager) *sdsservice {
+func newSDSService(st cache.SecretManager, skipToken bool) *sdsservice {
 	return &sdsservice{
 		st: st,
+		skipToken: skipToken,
 	}
 }
 
@@ -104,11 +107,16 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 }
 
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	ctx := stream.Context()
-	token, err := getCredentialToken(ctx)
-	if err != nil {
-		log.Errorf("Failed to get credential token from incoming request: %v", err)
-		return err
+	token := ""
+	var ctx context.Context
+	if !s.skipToken {
+		ctx = stream.Context()
+		t, err := getCredentialToken(ctx)
+		if err != nil {
+			log.Errorf("Failed to get credential token from incoming request: %v", err)
+			return err
+		}
+		token = t
 	}
 
 	var receiveError error
@@ -187,10 +195,14 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 }
 
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	token, err := getCredentialToken(ctx)
-	if err != nil {
-		log.Errorf("Failed to get credential token: %v", err)
-		return nil, err
+	token := ""
+	if !s.skipToken {
+		t, err := getCredentialToken(ctx)
+		if err != nil {
+			log.Errorf("Failed to get credential token: %v", err)
+			return nil, err
+		}
+		token = t
 	}
 
 	resourceName, err := parseDiscoveryRequest(discReq)

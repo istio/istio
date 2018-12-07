@@ -73,7 +73,7 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, st cache.SecretManager) (*Server, error) {
 	s := &Server{
-		envoySds: newSDSService(st),
+		envoySds: newSDSService(st, options.IngressGatewayAgent),
 	}
 	if err := s.initDiscoveryService(&options); err != nil {
 		log.Errorf("Failed to initialize secret discovery service: %v", err)
