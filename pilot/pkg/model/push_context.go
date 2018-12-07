@@ -49,16 +49,18 @@ type PushContext struct {
 	// data should not be changed by plugins.
 	Mutex sync.Mutex `json:"-"`
 
-	// publicServices are services reachable within the mesh.
 	// privateServices are reachable within the same namespace.
-	publicServices             []*Service
 	privateServicesByNamespace map[string][]*Service
+	// publicServices are services reachable within the mesh.
+	publicServices []*Service
 
-	publicVirtualServices             []Config
 	privateVirtualServicesByNamespace map[string][]Config
+	publicVirtualServices             []Config
 
-	destinationRuleHosts   []Hostname
-	destinationRuleByHosts map[Hostname]*combinedDestinationRule
+	privateDestRuleHostsByNamespace  map[string][]Hostname
+	privateDestRuleByHostByNamespace map[string]map[Hostname]*combinedDestinationRule
+	publicDestRuleHosts              []Hostname
+	publicDestRuleByHost             map[Hostname]*combinedDestinationRule
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -137,7 +139,7 @@ type PushMetric struct {
 }
 
 type combinedDestinationRule struct {
-	subsets map[string]bool // list of subsets seen so far
+	subsets map[string]struct{} // list of subsets seen so far
 	// We are not doing ports
 	config *Config
 }
@@ -275,6 +277,10 @@ func NewPushContext() *PushContext {
 		privateServicesByNamespace:        map[string][]*Service{},
 		publicVirtualServices:             []Config{},
 		privateVirtualServicesByNamespace: map[string][]Config{},
+		publicDestRuleByHost:              map[Hostname]*combinedDestinationRule{},
+		publicDestRuleHosts:               []Hostname{},
+		privateDestRuleByHostByNamespace:  map[string]map[Hostname]*combinedDestinationRule{},
+		privateDestRuleHostsByNamespace:   map[string][]Hostname{},
 
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
@@ -416,10 +422,19 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
-	// TODO: use the proxy namespace to return only public destination rules if in different namespace
-	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		return ps.destinationRuleByHosts[c].config
+	if proxy == nil {
+		return nil
 	}
+	// take private DestinationRule in same namespace first
+	if host, ok := MostSpecificHostMatch(hostname, ps.privateDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
+		return ps.privateDestRuleByHostByNamespace[proxy.ConfigNamespace][host].config
+	}
+
+	// if private rule matched, then match public rule
+	if host, ok := MostSpecificHostMatch(hostname, ps.publicDestRuleHosts); ok {
+		return ps.publicDestRuleByHost[host].config
+	}
+
 	return nil
 }
 
@@ -608,49 +623,93 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
 	sortConfigByCreationTime(configs)
+	privateHostsByNamespace := make(map[string][]Hostname, 0)
+	privateCombinedDestinationRuleMap := make(map[string]map[Hostname]*combinedDestinationRule, 0)
 	hosts := make([]Hostname, 0)
-	combinedDestinationRuleMap := make(map[Hostname]*combinedDestinationRule, len(configs))
+	combinedDestinationRuleMap := make(map[Hostname]*combinedDestinationRule, 0)
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
 		resolvedHost := ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
-		if mdr, exists := combinedDestinationRuleMap[resolvedHost]; exists {
-			combinedRule := mdr.config.Spec.(*networking.DestinationRule)
-			// we have an another destination rule for same host.
-			// concatenate both of them -- essentially add subsets from one to other.
-			for _, subset := range rule.Subsets {
-				if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
-					mdr.subsets[subset.Name] = true
-					combinedRule.Subsets = append(combinedRule.Subsets, subset)
-				} else {
-					ps.Add(DuplicatedSubsets, string(resolvedHost), nil,
-						fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
-							subset.Name, string(resolvedHost)))
-				}
-
-				// If there is no top level policy and the incoming rule has top level
-				// traffic policy, use the one from the incoming rule.
-				if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
-					combinedRule.TrafficPolicy = rule.TrafficPolicy
-				}
+		if rule.ConfigScope == networking.ConfigScope_PRIVATE {
+			if _, exist := privateCombinedDestinationRuleMap[configs[i].Namespace]; !exist {
+				privateCombinedDestinationRuleMap[configs[i].Namespace] = map[Hostname]*combinedDestinationRule{}
 			}
-			continue
-		}
 
-		combinedDestinationRuleMap[resolvedHost] = &combinedDestinationRule{
-			subsets: make(map[string]bool),
-			config:  &configs[i],
+			if mdr, exists := privateCombinedDestinationRuleMap[configs[i].Namespace][resolvedHost]; exists {
+				combinedRule := mdr.config.Spec.(*networking.DestinationRule)
+				// we have an another destination rule for same host.
+				// concatenate both of them -- essentially add subsets from one to other.
+				for _, subset := range rule.Subsets {
+					if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
+						mdr.subsets[subset.Name] = struct{}{}
+						combinedRule.Subsets = append(combinedRule.Subsets, subset)
+					} else {
+						ps.Add(DuplicatedSubsets, string(resolvedHost), nil,
+							fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
+								subset.Name, string(resolvedHost)))
+					}
+
+					// If there is no top level policy and the incoming rule has top level
+					// traffic policy, use the one from the incoming rule.
+					if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
+						combinedRule.TrafficPolicy = rule.TrafficPolicy
+					}
+				}
+				continue
+			}
+			privateCombinedDestinationRuleMap[configs[i].Namespace][resolvedHost] = &combinedDestinationRule{
+				subsets: make(map[string]struct{}),
+				config:  &configs[i],
+			}
+			for _, subset := range rule.Subsets {
+				privateCombinedDestinationRuleMap[configs[i].Namespace][resolvedHost].subsets[subset.Name] = struct{}{}
+			}
+			privateHostsByNamespace[configs[i].Namespace] = append(privateHostsByNamespace[configs[i].Namespace], resolvedHost)
+		} else {
+			if mdr, exists := combinedDestinationRuleMap[resolvedHost]; exists {
+				combinedRule := mdr.config.Spec.(*networking.DestinationRule)
+				// we have an another destination rule for same host.
+				// concatenate both of them -- essentially add subsets from one to other.
+				for _, subset := range rule.Subsets {
+					if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
+						mdr.subsets[subset.Name] = struct{}{}
+						combinedRule.Subsets = append(combinedRule.Subsets, subset)
+					} else {
+						ps.Add(DuplicatedSubsets, string(resolvedHost), nil,
+							fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
+								subset.Name, string(resolvedHost)))
+					}
+
+					// If there is no top level policy and the incoming rule has top level
+					// traffic policy, use the one from the incoming rule.
+					if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
+						combinedRule.TrafficPolicy = rule.TrafficPolicy
+					}
+				}
+				continue
+			}
+
+			combinedDestinationRuleMap[resolvedHost] = &combinedDestinationRule{
+				subsets: make(map[string]struct{}),
+				config:  &configs[i],
+			}
+			for _, subset := range rule.Subsets {
+				combinedDestinationRuleMap[resolvedHost].subsets[subset.Name] = struct{}{}
+			}
+			hosts = append(hosts, resolvedHost)
 		}
-		for _, subset := range rule.Subsets {
-			combinedDestinationRuleMap[resolvedHost].subsets[subset.Name] = true
-		}
-		hosts = append(hosts, resolvedHost)
 	}
 
 	// presort it so that we don't sort it for each DestinationRule call.
+	for ns := range privateHostsByNamespace {
+		sort.Sort(Hostnames(privateHostsByNamespace[ns]))
+	}
+	ps.privateDestRuleHostsByNamespace = privateHostsByNamespace
+	ps.privateDestRuleByHostByNamespace = privateCombinedDestinationRuleMap
 	sort.Sort(Hostnames(hosts))
-	ps.destinationRuleHosts = hosts
-	ps.destinationRuleByHosts = combinedDestinationRuleMap
+	ps.publicDestRuleHosts = hosts
+	ps.publicDestRuleByHost = combinedDestinationRuleMap
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
