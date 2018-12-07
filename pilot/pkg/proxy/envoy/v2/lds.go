@@ -16,6 +16,7 @@ package v2
 
 import (
 	"fmt"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, onConnect bool, version string) error {
+func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, _ bool, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 
 	rawListeners, err := s.generateRawListeners(con, push)

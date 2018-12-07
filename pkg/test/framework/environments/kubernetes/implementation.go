@@ -23,7 +23,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
-	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/environment"
@@ -41,9 +40,6 @@ type Implementation struct {
 	ctx  environment.ComponentContext
 
 	Accessor *kube.Accessor
-
-	// Both rest.Config and kube config path is used by different parts of the code.
-	config *rest.Config
 
 	systemNamespace     *namespace
 	dependencyNamespace *namespace

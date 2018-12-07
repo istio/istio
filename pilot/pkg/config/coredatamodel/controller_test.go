@@ -33,8 +33,6 @@ import (
 )
 
 var (
-	baseURL = "type.googleapis.com/"
-
 	gateway = &networking.Gateway{
 		Servers: []*networking.Server{
 			{

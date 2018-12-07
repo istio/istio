@@ -19,10 +19,10 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
-	"istio.io/istio/pkg/features/pilot"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 // EndpointsFilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
@@ -104,7 +104,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 							Address: &addr,
 						},
 						LoadBalancingWeight: &types.UInt32Value{
-							Value: uint32(w),
+							Value: w,
 						},
 					}
 				}

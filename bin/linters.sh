@@ -93,9 +93,6 @@ function install_golangcilint() {
 }
 
 function run_gometalinter() {
-    echo 'Running gometalinter ....'
-    $gometalinter --config=./lintconfig_base.json ./...
-    echo 'gometalinter OK'
     echo 'Running gometalinter on adapters ....'
     pushd mixer/tools/adapterlinter
     go install .
@@ -113,14 +110,8 @@ function run_gometalinter() {
 }
 
 function run_golangcilint() {
-  COMPONENTS="addons galley istioctl mixer \
-    pilot/cmd pilot/pkg/model pilot/pkg/networking pilot/test \
-    security tests tools"
-  echo 'Running golangci-lint ...'
-  for component in $COMPONENTS; do
-    echo "Running golangci-lint on ${component} ..."
-    golangci-lint run ./"${component}"/...
-  done
+    echo 'Running golangci-lint ...'
+    golangci-lint run ./...
 }
 
 function run_helm_lint() {

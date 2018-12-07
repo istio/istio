@@ -125,7 +125,6 @@ type Controller struct {
 
 type cacheHandler struct {
 	informer cache.SharedIndexInformer
-	lister   cache.GenericLister
 	handler  *ChainHandler
 }
 

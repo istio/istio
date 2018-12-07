@@ -211,14 +211,6 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	// Set to the current push status when a push is started.
-	// Null after the push all completes for the node.
-	currentPush *model.PushContext
-
-	// Set if a push request is received while a push is in progress.
-	// Will keep getting updated with the latest push version.
-	nextPush *model.PushContext
-
 	// doneChannel will be closed when the client is closed.
 	doneChannel chan struct{}
 
@@ -487,7 +479,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					routeVersionInfoSent := con.RouteVersionInfoSent
 					con.mu.RUnlock()
 					if routeNonceSent != discReq.ResponseNonce {
-						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%s), sent %s, received %s",
+						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%v), sent %s, received %s",
 							peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
 						rdsExpiredNonce.Inc()
 						continue
@@ -496,7 +488,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						sort.Strings(routes)
 						sortedRoutes = routes
 						if reflect.DeepEqual(con.Routes, sortedRoutes) {
-							adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+							adsLog.Debugf("ADS:RDS: ACK %s %s (%v) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
 							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
 							con.mu.Unlock()
@@ -505,11 +497,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ErrorDetail != nil || routes == nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%v) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 							totalXDSRejects.Add(1)
 						} else { // protocol error
-							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%v) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": "Protocol error"}).Add(1)
 							totalXDSRejects.Add(1)
 							continue
