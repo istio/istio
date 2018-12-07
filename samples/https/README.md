@@ -16,7 +16,7 @@ To use it:
     $ kubectl create secret tls nginxsecret --key /tmp/nginx.key --cert /tmp/nginx.crt
     ```
 
-2. Create a configmap used for the HTTPS service
+2. Create a `ConfigMap` used for the HTTPS service
 
     ```console
     $ kubectl create configmap nginxconfigmap --from-file=samples/https/default.conf
