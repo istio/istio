@@ -25,6 +25,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -111,9 +112,10 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			Name:        svc.Name,
+			Namespace:   svc.Namespace,
+			UID:         fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			ConfigScope: networking.ConfigScope_PUBLIC,
 		},
 	}
 }
