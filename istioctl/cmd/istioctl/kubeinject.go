@@ -375,7 +375,7 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
 		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
 			"The default policy is IfNotPresent.")
-	injectCmd.PersistentFlags().IntVar(&statusPort, "statusPort", inject.DefaultStatusPort,
+	injectCmd.PersistentFlags().IntVar(&statusPort, inject.StatusPortCmdFlagName, inject.DefaultStatusPort,
 		"HTTP Port on which to serve pilot agent status. The path /healthz/ can be used for health checking. "+
 			"If zero, agent status will not be provided.")
 	injectCmd.PersistentFlags().Uint32Var(&readinessInitialDelaySeconds, "readinessInitialDelaySeconds", inject.DefaultReadinessInitialDelaySeconds,
