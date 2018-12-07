@@ -2,11 +2,11 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: istio-kiali-gateway
+  name: istio-prometheus-gateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "kiali.name" . }}
-    chart: {{ template "kiali.chart" . }}
+    app: {{ template "prometheus.name" . }}
+    chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
@@ -14,24 +14,24 @@ spec:
     istio: ingressgateway
   servers:
   - port:
-      number: 15029
-      name: http-kiali
-      protocol: HTTP
+      number: 15030
+      name: http2-prometheus
+      protocol: HTTP2
     hosts:
     - "*"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: kiali
+  name: prometheus
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "kiali.name" . }}
-    chart: {{ template "kiali.chart" . }}
+    app: {{ template "prometheus.name" . }}
+    chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  host: kiali.{{ .Release.Namespace }}.svc.cluster.local
+  host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -39,24 +39,24 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: kiali-virtual-service
+  name: prometheus-virtual-service
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "kiali.name" . }}
-    chart: {{ template "kiali.chart" . }}
+    app: {{ template "prometheus.name" . }}
+    chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
   hosts:
   - "*"
   gateways:
-  - istio-kiali-gateway
+  - istio-prometheus-gateway
   http:
   - match:
-    - port: 15029
+    - port: 15030
     route:
     - destination:
-        host: kiali.{{ .Release.Namespace }}.svc.cluster.local
+        host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
         port:
-          number: 20001
+          number: 9090
 {{- end }}
