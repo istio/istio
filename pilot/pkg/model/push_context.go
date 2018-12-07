@@ -336,8 +336,12 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	return out
 }
 
-// OnConnect is called when a node connects. Will update per-node data.
-func (ps *PushContext) OnConnect(proxy *Proxy) {
+// UpdateNodeIsolation will update per-node data holding visible services and configs for the node.
+// It is called:
+// - on connect
+// - on config change events (full push)
+// - TODO: on-demand events from Envoy
+func (ps *PushContext) UpdateNodeIsolation(proxy *Proxy) {
 	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
 	// bindings.
 	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {

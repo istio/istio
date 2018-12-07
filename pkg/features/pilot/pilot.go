@@ -73,6 +73,16 @@ var (
 	// 'admin' namespaces. Using services from any other namespaces will require the new NetworkScope
 	// config. In most cases 'istio-system' should be included. Comma separated (ns1,ns2,istio-system)
 	NetworkScopes = os.Getenv("DEFAULT_NAMESPACE_DEPENDENCIES")
+
+	// SingleThreadPerNode eliminates 1/2 of the pilot go-routines and optimizes the push handling.
+	// This is a temporary safety flag.
+	SingleThreadPerNode = os.Getenv("THREAD_PER_NODE") == "1"
+
+	// WaitAck waits for an ACK/NACK after pushing any config. If a nack is received the other configs will not
+	// be pushed, but connection will not be closed.
+	// This is a temporary safety flag.
+	WaitAck = os.Getenv("WAIT_ACK") == "1"
+
 )
 
 const (
