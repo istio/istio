@@ -67,14 +67,14 @@ func TestSplitHorizonEds(t *testing.T) {
 
 	tests := []struct {
 		network   string
-		sidecarId string
+		sidecarID string
 		want      expectedResults
 	}{
 		{
 			// Verify that EDS from network1 will return 1 local endpoint with local VIP + 2 remote
 			// endpoints weighted accordingly with the IP of the ingress gateway.
 			network:   "network1",
-			sidecarId: sidecarId("10.1.0.1", "app3"),
+			sidecarID: sidecarID("10.1.0.1", "app3"),
 			want: expectedResults{
 				endpoints: []string{"10.1.0.1", "159.122.219.2", "159.122.219.3", "179.114.119.3"},
 				weights:   map[string]uint32{"159.122.219.2": 2, "159.122.219.3": 3},
@@ -84,7 +84,7 @@ func TestSplitHorizonEds(t *testing.T) {
 			// Verify that EDS from network2 will return 2 local endpoints with local VIPs + 2 remote
 			// endpoints weighted accordingly with the IP of the ingress gateway.
 			network:   "network2",
-			sidecarId: sidecarId("10.2.0.1", "app3"),
+			sidecarID: sidecarID("10.2.0.1", "app3"),
 			want: expectedResults{
 				endpoints: []string{"10.2.0.1", "10.2.0.2", "159.122.219.1", "159.122.219.3", "179.114.119.3"},
 				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.3": 3, "179.114.119.3": 3},
@@ -94,7 +94,7 @@ func TestSplitHorizonEds(t *testing.T) {
 			// Verify that EDS from network3 will return 3 local endpoints with local VIPs + 2 remote
 			// endpoints weighted accordingly with the IP of the ingress gateway.
 			network:   "network3",
-			sidecarId: sidecarId("10.3.0.1", "app3"),
+			sidecarID: sidecarID("10.3.0.1", "app3"),
 			want: expectedResults{
 				endpoints: []string{"10.3.0.1", "10.3.0.2", "10.3.0.3", "159.122.219.1", "159.122.219.2"},
 				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2},
@@ -104,7 +104,7 @@ func TestSplitHorizonEds(t *testing.T) {
 			// Verify that EDS from network4 will return 4 local endpoint with local VIP + 4 remote
 			// endpoints weighted accordingly with the IP of the ingress gateway.
 			network:   "network4",
-			sidecarId: sidecarId("10.4.0.1", "app3"),
+			sidecarID: sidecarID("10.4.0.1", "app3"),
 			want: expectedResults{
 				endpoints: []string{"10.4.0.1", "10.4.0.2", "10.4.0.3", "10.4.0.4", "159.122.219.1", "159.122.219.2", "159.122.219.3", "179.114.119.3"},
 				weights:   map[string]uint32{"159.122.219.1": 1, "159.122.219.2": 2, "159.122.219.3": 3, "179.114.119.3": 3},
@@ -113,13 +113,13 @@ func TestSplitHorizonEds(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.network, func(t *testing.T) {
-			verifySplitHorizonResponse(t, tt.network, tt.sidecarId, tt.want)
+			verifySplitHorizonResponse(t, tt.network, tt.sidecarID, tt.want)
 		})
 	}
 }
 
 // Tests whether an EDS response from the provided network matches the expected results
-func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, expected expectedResults) {
+func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, expected expectedResults) {
 	t.Helper()
 	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
@@ -132,7 +132,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 		"NETWORK":             {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 
-	err = sendCDSReqWithMetadata(sidecarId, metadata, edsstr)
+	err = sendCDSReqWithMetadata(sidecarID, metadata, edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 		t.Fatal(err)
 	}
 
-	err = sendEDSReqWithMetadata([]string{"outbound|1080||service5.default.svc.cluster.local"}, sidecarId, metadata, edsstr)
+	err = sendEDSReqWithMetadata([]string{"outbound|1080||service5.default.svc.cluster.local"}, sidecarID, metadata, edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,12 +156,12 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 	eps := cla.Endpoints
 
 	if len(eps) != 1 {
-		t.Fatal(fmt.Errorf("Expecting 1 locality endpoint but got %d", len(eps)))
+		t.Fatal(fmt.Errorf("expecting 1 locality endpoint but got %d", len(eps)))
 	}
 
 	lbEndpoints := eps[0].LbEndpoints
 	if len(lbEndpoints) != len(expected.endpoints) {
-		t.Fatal(fmt.Errorf("Number of endpoints should be %d but got %d", len(expected.endpoints), len(lbEndpoints)))
+		t.Fatal(fmt.Errorf("number of endpoints should be %d but got %d", len(expected.endpoints), len(lbEndpoints)))
 	}
 
 	for addr, weight := range expected.weights {
@@ -173,10 +173,10 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarId string, 
 			}
 		}
 		if match == nil {
-			t.Fatal(fmt.Errorf("Couldn't find endpoint with address %s", addr))
+			t.Fatal(fmt.Errorf("couldn't find endpoint with address %s", addr))
 		}
 		if match.LoadBalancingWeight.Value != weight {
-			t.Fatal(fmt.Errorf("Weight for endpoint %s is expected to be %d but got %d", addr, weight, match.LoadBalancingWeight.Value))
+			t.Fatal(fmt.Errorf("weight for endpoint %s is expected to be %d but got %d", addr, weight, match.LoadBalancingWeight.Value))
 		}
 	}
 }
