@@ -14,7 +14,7 @@ data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
     template: |-
-      rewriteAppHTTPProbe: {{ .Values.global.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
+      rewriteAppHTTPProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
 {{- if not .Values.istio_cni.enabled }}
