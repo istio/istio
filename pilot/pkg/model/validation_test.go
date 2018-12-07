@@ -576,7 +576,7 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
-		clone := proto.Clone(valid).(*meshconfig.ProxyConfig)
+		clone := proto.Clone(config).(*meshconfig.ProxyConfig)
 		fieldSetter(clone)
 		return clone
 	}
@@ -2505,7 +2505,7 @@ func TestValidateConnectionPool(t *testing.T) {
 }
 
 func TestValidateLoadBalancer(t *testing.T) {
-	duration := time.Duration(time.Hour)
+	duration := time.Hour
 	cases := []struct {
 		name  string
 		in    networking.LoadBalancerSettings

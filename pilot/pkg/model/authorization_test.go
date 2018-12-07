@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
+
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -294,8 +296,7 @@ func TestNewAuthzPolicies(t *testing.T) {
 	}
 }
 
-func storeWithConfig(
-	clusterRbacConfig *rbacproto.RbacConfig, rbacConfig *rbacproto.RbacConfig) model.IstioConfigStore {
+func storeWithConfig(clusterRbacConfig, rbacConfig proto.Message) model.IstioConfigStore {
 	store := memory.Make(model.IstioConfigTypes)
 
 	if clusterRbacConfig != nil {
