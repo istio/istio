@@ -2127,6 +2127,7 @@
     "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/encoding/gzip",
     "google.golang.org/grpc/grpclog",
+    "google.golang.org/grpc/keepalive",
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/peer",
     "google.golang.org/grpc/reflection",
