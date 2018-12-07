@@ -2,7 +2,7 @@
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
-    
+    "locality": {},
     "metadata": {"INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_PROXY_VERSION":"istio-proxy:version","ISTIO_VERSION":"release-3.1","POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","istio":"sidecar","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}"}
   },
   "stats_config": {
