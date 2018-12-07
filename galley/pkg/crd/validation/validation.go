@@ -47,6 +47,11 @@ const (
 
 var dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 
+// This is for lint fix
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // createMixerValidator creates a mixer backend validator.
 // TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
 // config validation to remove galley dependency on mixer internal
@@ -62,7 +67,7 @@ func createMixerValidator() store.BackendValidator {
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
 }
 
-func webhookHTTPSHandlerReady(client *http.Client, vc *WebhookParameters) error {
+func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
 		Host:   fmt.Sprintf("localhost:%v", vc.Port),
