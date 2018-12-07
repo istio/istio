@@ -506,7 +506,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	for _, configSource := range s.mesh.ConfigSources {
 		url, err := url.Parse(configSource.Address)
 		if err != nil {
-			cancel()
 			return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 		}
 		if url.Scheme == fsScheme {
