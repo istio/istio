@@ -19,6 +19,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,8 +55,9 @@ type (
 )
 
 var (
-	tc      *testConfig
-	gcpProj *string
+	tc         *testConfig
+	gcpProj    *string
+	saCredPath *string
 )
 
 func (t *testConfig) Setup() error {
@@ -111,12 +114,36 @@ func (t *testConfig) Teardown() error {
 	return nil
 }
 
+func getGCloudProjectID() string {
+	cmd := fmt.Sprintf("gcloud config list core/project")
+	output, err := util.ShellMuteOutput(cmd)
+	if err != nil {
+		return ""
+	}
+	re, _ := regexp.Compile(".*project = (.*?)\n.*")
+	match := re.FindStringSubmatch(output)
+	if len(match) < 1 {
+		return ""
+	}
+	ret := strings.TrimSpace(match[1])
+	return ret
+}
+
 func TestMain(m *testing.M) {
 	gcpProj = flag.String("gcp_proj", os.Getenv("GCP_PROJ"), "GCP Project ID, required")
+	saCredPath = flag.String("sa_cred", "", "Path to the service account credential.")
 	flag.Parse()
 	check(framework.InitLogging(), "cannot setup logging")
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
+	if *gcpProj == "" {
+		*gcpProj = getGCloudProjectID()
+	}
+	if *saCredPath != "" {
+		if _, err := os.Stat(*saCredPath); !os.IsNotExist(err) {
+			os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", *saCredPath)
+		}
+	}
 	os.Exit(tc.RunTest(m))
 }
 

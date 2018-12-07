@@ -14,7 +14,9 @@ This test uses the E2E framework to:
 Normally E2E tests only use `kubectl` to interact with the cluster,
 however this test needs to know the GCP project that the cluster is in
 to read from the Stackdriver APIs. This is provided by setting the
-`GCP_PROJ` envorinment variable.
+`GCP_PROJ` envorinment variable. If `GCP_PROJ` env variable is not
+set, the test code will try to use `gcloud` to find out the project
+id.
 
 On the cluster side, the Stackdriver adapter determines the project
 via the GCE metadata server.
@@ -44,7 +46,9 @@ The test uses Application Default Credentials to read from the
 Stackdriver APIs. This usually means you either have `gcloud`
 installed and have run `gcloud auth application-default login`, or you
 have a Service Account json file, and have set the
-`GOOGLE_APPLICATION_CREDENTIALS` to the path of that json file. See
+`GOOGLE_APPLICATION_CREDENTIALS` to the path of that json file. You can
+also set `sa_cred` param to the Service Account json file path, and
+the test code will take care of setting environment variable. See
 the [Authentication
 Overview](https://cloud.google.com/docs/authentication/) for more
 info.
