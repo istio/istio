@@ -24,6 +24,8 @@ To use it:
 
 3. Deploy a NGINX-based HTTPS service
 
-    `kubectl apply -f samples/https/nginx-app.yaml`
+    ```console
+    $ kubectl apply -f samples/https/nginx-app.yaml
+    ```
 
 Call my-nginx service `curl https://my-nginx -k` to verify this creation.
