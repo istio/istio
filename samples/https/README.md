@@ -18,7 +18,9 @@ To use it:
 
 2. Create a configmap used for the HTTPS service
 
-    `kubectl create configmap nginxconfigmap --from-file=samples/https/default.conf`
+    ```console
+    $ kubectl create configmap nginxconfigmap --from-file=samples/https/default.conf
+    ```
 
 3. Deploy a NGINX-based HTTPS service
 
