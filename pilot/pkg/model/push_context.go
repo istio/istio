@@ -160,10 +160,8 @@ func (ps *PushContext) Add(metric *PushMetric, key string, proxy *Proxy, msg str
 		log.Infof("Metric without context %s %v %s", key, proxy, msg)
 		return
 	}
-	log.Infof("XDS: 2222-444444 -111111111 ")
 	ps.proxyStatusMutex.Lock()
 	defer ps.proxyStatusMutex.Unlock()
-	log.Infof("XDS: 2222-444444 -222222222 ")
 
 	metricMap, f := ps.ProxyStatus[metric.Name]
 	if !f {
@@ -286,7 +284,7 @@ func (ps *PushContext) JSON() ([]byte, error) {
 	}
 	ps.proxyStatusMutex.RLock()
 	defer ps.proxyStatusMutex.RUnlock()
-	return json.MarshalIndent(ps.ProxyStatus, "", "    ")
+	return json.MarshalIndent(ps, "", "    ")
 }
 
 // OnConfigChange is called when a config change is detected.
