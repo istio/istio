@@ -423,14 +423,24 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
 	if proxy == nil {
-		return nil
+		// TODO: this may be not correct, but we can not get ConfigNamespace,
+		// so match public rule first
+		if host, ok := MostSpecificHostMatch(hostname, ps.publicDestRuleHosts); ok {
+			return ps.publicDestRuleByHost[host].config
+		}
+
+		for ns, privateDestHosts := range ps.privateDestRuleHostsByNamespace {
+			if host, ok := MostSpecificHostMatch(hostname, privateDestHosts); ok {
+				return ps.privateDestRuleByHostByNamespace[ns][host].config
+			}
+		}
 	}
 	// take private DestinationRule in same namespace first
 	if host, ok := MostSpecificHostMatch(hostname, ps.privateDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
 		return ps.privateDestRuleByHostByNamespace[proxy.ConfigNamespace][host].config
 	}
 
-	// if private rule matched, then match public rule
+	// if no private rule matched, then match public rule
 	if host, ok := MostSpecificHostMatch(hostname, ps.publicDestRuleHosts); ok {
 		return ps.publicDestRuleByHost[host].config
 	}
