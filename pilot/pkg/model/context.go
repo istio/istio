@@ -218,9 +218,9 @@ func ParseMetadata(metadata *types.Struct) map[string]string {
 }
 
 // ParseServiceNode is the inverse of service node function
-func ParseServiceNode(s string) (Proxy, error) {
+func ParseServiceNode(s string) (*Proxy, error) {
 	parts := strings.Split(s, serviceNodeSeparator)
-	out := Proxy{}
+	out := &Proxy{}
 
 	if len(parts) != 4 {
 		return out, fmt.Errorf("missing parts in the service node %q", s)

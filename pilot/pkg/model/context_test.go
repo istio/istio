@@ -26,15 +26,15 @@ import (
 
 func TestServiceNode(t *testing.T) {
 	nodes := []struct {
-		in  model.Proxy
+		in  *model.Proxy
 		out string
 	}{
 		{
-			in:  memory.HelloProxyV0,
+			in:  &memory.HelloProxyV0,
 			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
 		},
 		{
-			in: model.Proxy{
+			in: &model.Proxy{
 				Type:   model.Ingress,
 				ID:     "random",
 				Domain: "local",

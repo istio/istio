@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"istio.io/istio/pkg/features/pilot"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -47,7 +47,7 @@ type PushContext struct {
 	// Mutex is used to protect the below store.
 	// All data is set when the PushContext object is populated in `InitContext`,
 	// data should not be changed by plugins.
-	Mutex sync.Mutex `json:"-,omitempty"`
+	Mutex sync.Mutex `json:"-"`
 
 	// publicServices are services reachable within the mesh.
 	// privateServices are reachable within the same namespace.
@@ -65,14 +65,14 @@ type PushContext struct {
 	// Namespace specific views do not apply here.
 
 	// ServiceByHostname has all services, indexed by hostname.
-	ServiceByHostname map[Hostname]*Service `json:"-,omitempty"`
+	ServiceByHostname map[Hostname]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
-	AuthzPolicies *AuthorizationPolicies
+	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
 	// Env has a pointer to the shared environment used to create the snapshot.
-	Env *Environment `json:"-,omitempty"`
+	Env *Environment `json:"-"`
 
 	// ServicePort2Name is used to keep track of service name and port mapping.
 	// This is needed because ADS names use port numbers, while endpoints use
