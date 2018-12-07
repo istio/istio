@@ -41,10 +41,11 @@ import (
 const (
 	secretResyncPeriod = time.Minute
 
+	// The type of kubernetes secrets for ingress gateway.
 	IngressSecretType = "istio.io/ingress-key-cert"
-
+	// The namespace of kubernetes secrets to watch.
 	IngressSecretNameSpace = "istio-ingress"
-
+	// The config file name for kubernetes client.
 	KubeConfigFile = "kube-config"
 
 	// The prefix of a key which maps to a kubernetes secret. The resource name in a SDS request sent
@@ -92,6 +93,7 @@ func createClientset() *kubernetes.Clientset {
 	return cs
 }
 
+// NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
 func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
