@@ -62,16 +62,7 @@ func createMixerValidator() store.BackendValidator {
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
 }
 
-func webhookHTTPSHandlerReady(vc *WebhookParameters) error {
-	client := &http.Client{
-		Timeout: time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
-
+func webhookHTTPSHandlerReady(client *http.Client, vc *WebhookParameters) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
 		Host:   fmt.Sprintf("localhost:%v", vc.Port),
@@ -87,6 +78,7 @@ func webhookHTTPSHandlerReady(vc *WebhookParameters) error {
 	if err != nil {
 		return fmt.Errorf("HTTP request to %v failed: %v", readinessURL, err)
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %v returned non-200 status=%v",
 			readinessURL, response.StatusCode)
@@ -126,8 +118,17 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 
 		go func() {
 			ready := false
+			client := &http.Client{
+				Timeout: time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				},
+			}
+
 			for {
-				if err := webhookHTTPSHandlerReady(vc); err != nil {
+				if err := webhookHTTPSHandlerReady(client, vc); err != nil {
 					validationReadinessProbe.SetAvailable(errors.New("not ready"))
 					scope.Infof("https handler for validation webhook is not ready: %v", err)
 					ready = false
