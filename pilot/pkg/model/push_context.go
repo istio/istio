@@ -434,6 +434,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config 
 				return ps.privateDestRuleByHostByNamespace[ns][host].config
 			}
 		}
+		return nil
 	}
 	// take private DestinationRule in same namespace first
 	if host, ok := MostSpecificHostMatch(hostname, ps.privateDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
