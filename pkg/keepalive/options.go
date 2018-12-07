@@ -15,8 +15,9 @@
 package keepalive
 
 import (
-	"github.com/spf13/cobra"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 // Options defines the set of options used for grpc keepalive.
