@@ -12,7 +12,9 @@ To use it:
     $ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /tmp/nginx.key -out /tmp/nginx.crt -subj "/CN=my-nginx/O=my-nginx"
     ```
 
-    `kubectl create secret tls nginxsecret --key /tmp/nginx.key --cert /tmp/nginx.crt`
+    ```console
+    $ kubectl create secret tls nginxsecret --key /tmp/nginx.key --cert /tmp/nginx.crt
+    ```
 
 2. Create a configmap used for the HTTPS service
 
