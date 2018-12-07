@@ -44,7 +44,7 @@ import (
 )
 
 var (
-	role             model.Proxy
+	role             = &model.Proxy{}
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
 	applicationPorts []string

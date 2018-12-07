@@ -18,12 +18,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -45,15 +47,16 @@ type PushContext struct {
 	// Mutex is used to protect the below store.
 	// All data is set when the PushContext object is populated in `InitContext`,
 	// data should not be changed by plugins.
-	Mutex sync.Mutex `json:"-,omitempty"`
+	Mutex sync.Mutex `json:"-"`
 
-	// The following data can be either obtained as a whole or
-	// only those in the proxy's config namespace. Keep them private
-	// and use accessor functions to return the appropriate data
+	// publicServices are services reachable within the mesh.
+	// privateServices are reachable within the same namespace.
+	publicServices             []*Service
+	privateServicesByNamespace map[string][]*Service
 
-	// all services in the system at the time push started.
-	allServices            []*Service `json:"-,omitempty"`
-	virtualServiceConfigs  []Config   `json:"-,omitempty"`
+	publicVirtualServices             []Config
+	privateVirtualServicesByNamespace map[string][]Config
+
 	destinationRuleHosts   []Hostname
 	destinationRuleByHosts map[Hostname]*combinedDestinationRule
 	////////// END ////////
@@ -62,14 +65,14 @@ type PushContext struct {
 	// Namespace specific views do not apply here.
 
 	// ServiceByHostname has all services, indexed by hostname.
-	ServiceByHostname map[Hostname]*Service `json:"-,omitempty"`
+	ServiceByHostname map[Hostname]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
-	AuthzPolicies *AuthorizationPolicies
+	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
 	// Env has a pointer to the shared environment used to create the snapshot.
-	Env *Environment `json:"-,omitempty"`
+	Env *Environment `json:"-"`
 
 	// ServicePort2Name is used to keep track of service name and port mapping.
 	// This is needed because ADS names use port numbers, while endpoints use
@@ -268,6 +271,11 @@ var (
 func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
+		publicServices:                    []*Service{},
+		privateServicesByNamespace:        map[string][]*Service{},
+		publicVirtualServices:             []Config{},
+		privateVirtualServicesByNamespace: map[string][]Config{},
+
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
 		ServicePort2Name:  map[string]PortList{},
@@ -311,20 +319,72 @@ func (ps *PushContext) UpdateMetrics() {
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	// TODO: use network scopes here, and return services in the proxy namespace if
-	// configured to use current_namespace as the scope and proxy is not nil
-	//if proxy == nil {
-	//	return ps.allServices
-	//}
-	return ps.allServices
+	out := []*Service{}
+
+	// First add private services
+	if proxy == nil {
+		for _, privateServices := range ps.privateServicesByNamespace {
+			out = append(out, privateServices...)
+		}
+	} else {
+		out = append(out, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
+	}
+
+	// Second add public services
+	out = append(out, ps.publicServices...)
+
+	return out
+}
+
+// OnConnect is called when a node connects. Will update per-node data.
+func (ps *PushContext) OnConnect(proxy *Proxy) {
+	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
+	// bindings.
+	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {
+		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
+		// reviewed ), or from an env variable.
+		adminNs := strings.Split(pilot.NetworkScopes, ",")
+		globalDeps := map[string]bool{}
+		for _, ns := range adminNs {
+			globalDeps[ns] = true
+		}
+
+		proxy.mutex.RLock()
+		defer proxy.mutex.RUnlock()
+		res := []*Service{}
+		for _, s := range ps.publicServices {
+			serviceNamespace := s.Attributes.Namespace
+			if serviceNamespace == "" {
+				res = append(res, s)
+			} else if globalDeps[serviceNamespace] || serviceNamespace == proxy.ConfigNamespace {
+				res = append(res, s)
+			}
+		}
+		res = append(res, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
+		proxy.serviceDependencies = res
+
+		// TODO: read Gateways,NetworkScopes/etc to populate additional entries
+	}
 }
 
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
 func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
-	// TODO: use the proxy namespace with NetworkScopes to return the correct set of VirtualServices
-	configs := ps.virtualServiceConfigs
+	configs := make([]Config, 0)
 	out := make([]Config, 0)
+
+	// filter out virtual services not reachable
+	// First private virtual service
+	if proxy == nil {
+		for _, virtualSvcs := range ps.privateVirtualServicesByNamespace {
+			configs = append(configs, virtualSvcs...)
+		}
+	} else {
+		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
+	}
+	// Second public virtual service
+	configs = append(configs, ps.publicVirtualServices...)
+
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
@@ -392,6 +452,7 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 	ps.Env = env
 	var err error
+
 	if err = ps.initServiceRegistry(env); err != nil {
 		return err
 	}
@@ -423,8 +484,15 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		return err
 	}
 	// Sort the services in order of creation.
-	ps.allServices = sortServicesByCreationTime(services)
-	for _, s := range services {
+	allServices := sortServicesByCreationTime(services)
+	for _, s := range allServices {
+		ns := s.Attributes.Namespace
+		switch s.Attributes.ConfigScope {
+		case networking.ConfigScope_PRIVATE:
+			ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
+		default:
+			ps.publicServices = append(ps.publicServices, s)
+		}
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
@@ -447,9 +515,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	}
 
 	sortConfigByCreationTime(vservices)
-	ps.virtualServiceConfigs = vservices
+
 	// convert all shortnames in virtual services into FQDNs
-	for _, r := range ps.virtualServiceConfigs {
+	for _, r := range vservices {
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
@@ -504,6 +572,18 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			}
 		}
 	}
+
+	for _, virtualService := range vservices {
+		ns := virtualService.Namespace
+		rule := virtualService.Spec.(*networking.VirtualService)
+		switch rule.ConfigScope {
+		case networking.ConfigScope_PRIVATE:
+			ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+		default:
+			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+		}
+	}
+
 	return nil
 }
 

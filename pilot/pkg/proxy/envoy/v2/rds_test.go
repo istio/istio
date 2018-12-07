@@ -34,7 +34,7 @@ func TestRDS(t *testing.T) {
 		}
 		defer cancel()
 
-		err = sendRDSReq(sidecarId(app3Ip, "app3"), []string{"80", "8080"}, rdsr)
+		err = sendRDSReq(sidecarId(app3Ip, "app3"), []string{"80", "8080"}, "", rdsr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,7 +59,7 @@ func TestRDS(t *testing.T) {
 		}
 		defer cancel()
 
-		err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, rdsr)
+		err = sendRDSReq(gatewayId(gatewayIP), []string{"http.80", "https.443.https"}, "", rdsr)
 		if err != nil {
 			t.Fatal(err)
 		}

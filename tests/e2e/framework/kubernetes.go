@@ -42,8 +42,8 @@ const (
 	istioInstallDir                = "install/kubernetes"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
-	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
-	authWithMCPInstallFile         = "istio-auth-mcp.yaml"
+	nonAuthWithoutMCPInstallFile   = "istio-mcp.yaml"
+	authWithoutMCPInstallFile      = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
@@ -178,15 +178,15 @@ func getClusterWideInstallFile() string {
 	var istioYaml string
 	if *authEnable {
 		if *useMCP {
-			istioYaml = authWithMCPInstallFile
-		} else {
 			istioYaml = authInstallFile
+		} else {
+			istioYaml = authWithoutMCPInstallFile
 		}
 	} else {
 		if *useMCP {
-			istioYaml = nonAuthWithMCPInstallFile
-		} else {
 			istioYaml = nonAuthInstallFile
+		} else {
+			istioYaml = nonAuthWithoutMCPInstallFile
 		}
 	}
 	return istioYaml

@@ -368,7 +368,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
 		labels := push.SubsetToLabels(subsetName, hostname)
-		instances, err := edsCluster.discovery.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
+		instances, err := s.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
 		if err != nil {
 			adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
 			totalXDSInternalErrors.Add(1)

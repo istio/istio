@@ -680,8 +680,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			ports[port.Name] = uint32(port.Port)
 			portsByNum[uint32(port.Port)] = port.Name
 		}
-		// EDS needs the port mapping.
-		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		svcConv := convertService(*svc, c.domainSuffix)
 		instances := externalNameServiceInstances(*svc, svcConv)
@@ -701,6 +699,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 			c.Unlock()
 		}
+		// EDS needs the port mapping.
+		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		f(svcConv, event)
 
@@ -734,6 +734,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			return nil
 		}
 		c.updateEDS(ep)
+
 		return nil
 	})
 

@@ -521,7 +521,7 @@ func (a *ADSC) Watch() {
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	a.stream.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
+		ResponseNonce: "",
 		Node:          a.node(),
 		TypeUrl:       typeurl,
 		ResourceNames: rsc,
@@ -533,5 +533,6 @@ func (a *ADSC) ack(msg *xdsapi.DiscoveryResponse) {
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
 		Node:          a.node(),
+		VersionInfo:   msg.VersionInfo,
 	})
 }
