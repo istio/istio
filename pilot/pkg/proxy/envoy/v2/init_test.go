@@ -229,9 +229,9 @@ func sendLDSNack(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggreg
 	return nil
 }
 
-func sendRDSReq(node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+func sendRDSReq(node string, routes []string, nonce string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
+		ResponseNonce: nonce,
 		Node: &core.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
@@ -245,9 +245,9 @@ func sendRDSReq(node string, routes []string, rdsstr ads.AggregatedDiscoveryServ
 	return nil
 }
 
-func sendRDSNack(node string, _ []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+func sendRDSNack(node string, routes []string, nonce string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
+		ResponseNonce: nonce,
 		Node: &core.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
