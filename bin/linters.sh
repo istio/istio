@@ -93,9 +93,6 @@ function install_golangcilint() {
 }
 
 function run_gometalinter() {
-    echo 'Running gometalinter ....'
-    $gometalinter --config=./lintconfig_base.json ./...
-    echo 'gometalinter OK'
     echo 'Running gometalinter on adapters ....'
     pushd mixer/tools/adapterlinter
     go install .
