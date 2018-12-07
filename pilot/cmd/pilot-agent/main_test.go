@@ -15,11 +15,13 @@
 package main
 
 import (
-	"github.com/onsi/gomega"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"os"
 	"testing"
+
+	"github.com/onsi/gomega"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 )
 
 func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
@@ -57,7 +59,7 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"}))
 }
 
-// This test is used to ensure that the former behaviour is unchanged
+// This test is used to ensure that the former behavior is unchanged
 // When pilot is started without a trust domain, the SPIFFE URI doesn't contain a host and is not valid
 func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -149,7 +151,7 @@ func TestPilotSanIfAuthenticationMutualStdDomainKubernetes(t *testing.T) {
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"}))
 }
 
-// This test is used to ensure that the former behaviour is unchanged
+// This test is used to ensure that the former behavior is unchanged
 // When pilot is started without a trust domain, the SPIFFE URI doesn't contain a host and is not valid
 func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
