@@ -13,5 +13,5 @@ roleRef:
   name: prometheus-{{ .Release.Namespace }}
 subjects:
 - kind: ServiceAccount
-  name: prometheus
+  name: prometheus-service-account
   namespace: {{ .Release.Namespace }}
