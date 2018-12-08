@@ -65,7 +65,7 @@ ingress:
     # - secretName: tracing-tls
     #   hosts:
     #     - tracing.local
-gatewayName: ingressgateway
 
 gateway:
   enabled: false
+  name: ingressgateway

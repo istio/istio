@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
-    istio: {{ .Values.gatewayName }}
+    istio: {{ .Values.gateway.name }}
   servers:
   - port:
       number: 15032
