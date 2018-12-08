@@ -1,4 +1,4 @@
-{{- if .Values.gateway.enabled }}
+{{- if and (.Values.enabled) (.Values.gateway.enabled) }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:

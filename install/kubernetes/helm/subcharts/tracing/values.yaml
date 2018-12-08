@@ -66,3 +66,6 @@ ingress:
     #   hosts:
     #     - tracing.local
 gatewayName: ingressgateway
+
+gateway:
+  enabled: false

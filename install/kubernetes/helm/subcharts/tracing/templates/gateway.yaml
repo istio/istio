@@ -1,3 +1,4 @@
+{{- if and (.Values.enabled) (.Values.gateway.enabled) }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -44,3 +45,4 @@ spec:
         port:
           number: 80
 ---
+{{- end }}
