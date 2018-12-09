@@ -317,7 +317,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 			CertificateChain: secretItem.CertificateChain,
 			PrivateKey:       secretItem.PrivateKey,
 			ResourceName:     resourceName,
-			Token:            token,
 			CreatedTime:      t,
 			Version:          t.String(),
 		}, nil

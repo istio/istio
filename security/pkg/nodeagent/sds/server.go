@@ -36,8 +36,16 @@ var availablePlugins = map[string]plugin.Plugin{
 
 // Options provides all of the configuration parameters for secret discovery service.
 type Options struct {
-	// UDSPath is the unix domain socket through which SDS server communicates with proxies.
-	UDSPath string
+	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
+	EnableWorkloadSDS bool
+	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
+	WorkloadUDSPath string
+
+	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
+	EnableIngressGatewaySDS bool
+	// IngressGatewayUDSPath is the unix domain socket through which SDS server communicates with
+	// ingress gateway proxies.
+	IngressGatewayUDSPath string
 
 	// CertFile is the path of Cert File for gRPC server TLS settings.
 	CertFile string
@@ -57,9 +65,6 @@ type Options struct {
 
 	// PluginNames is plugins' name for certain authentication provider.
 	PluginNames []string
-
-	// IngressGatewayAgent indicates whether node agent works as ingress gateway agent.
-	IngressGatewayAgent bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -80,7 +85,7 @@ func NewServer(options Options, st cache.SecretManager) (*Server, error) {
 		return nil, err
 	}
 
-	log.Infof("SDS gRPC server start, listen %q \n", options.UDSPath)
+	log.Infof("SDS gRPC server start, listen %q \n", options.WorkloadUDSPath)
 
 	return s, nil
 }
@@ -116,27 +121,27 @@ func (s *Server) initDiscoveryService(options *Options) error {
 	s.envoySds.register(s.grpcServer)
 
 	// Remove unix socket before use.
-	if err := os.Remove(options.UDSPath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(options.WorkloadUDSPath); err != nil && !os.IsNotExist(err) {
 		// Anything other than "file not found" is an error.
-		log.Errorf("Failed to remove unix://%s: %v", options.UDSPath, err)
-		return fmt.Errorf("failed to remove unix://%s", options.UDSPath)
+		log.Errorf("Failed to remove unix://%s: %v", options.WorkloadUDSPath, err)
+		return fmt.Errorf("failed to remove unix://%s", options.WorkloadUDSPath)
 	}
 
 	var err error
-	s.grpcListener, err = net.Listen("unix", options.UDSPath)
+	s.grpcListener, err = net.Listen("unix", options.WorkloadUDSPath)
 	if err != nil {
-		log.Errorf("Failed to listen on unix socket %q: %v", options.UDSPath, err)
+		log.Errorf("Failed to listen on unix socket %q: %v", options.WorkloadUDSPath, err)
 		return err
 	}
 
 	// Update SDS UDS file permission so that istio-proxy has permission to access it.
-	if _, err := os.Stat(options.UDSPath); err != nil {
-		log.Errorf("SDS uds file %q doesn't exist", options.UDSPath)
-		return fmt.Errorf("sds uds file %q doesn't exist", options.UDSPath)
+	if _, err := os.Stat(options.WorkloadUDSPath); err != nil {
+		log.Errorf("SDS uds file %q doesn't exist", options.WorkloadUDSPath)
+		return fmt.Errorf("sds uds file %q doesn't exist", options.WorkloadUDSPath)
 	}
-	if err := os.Chmod(options.UDSPath, 0666); err != nil {
-		log.Errorf("Failed to update %q permission", options.UDSPath)
-		return fmt.Errorf("failed to update %q permission", options.UDSPath)
+	if err := os.Chmod(options.WorkloadUDSPath, 0666); err != nil {
+		log.Errorf("Failed to update %q permission", options.WorkloadUDSPath)
+		return fmt.Errorf("failed to update %q permission", options.WorkloadUDSPath)
 	}
 
 	go func() {

@@ -73,7 +73,7 @@ type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse,
 
 func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	arg := Options{
-		UDSPath: testSocket,
+		WorkloadUDSPath: testSocket,
 	}
 	st := &mockSecretStore{}
 	server, err := NewServer(arg, st)
@@ -127,7 +127,7 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 func TestStreamSecretsPush(t *testing.T) {
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	arg := Options{
-		UDSPath: socket,
+		WorkloadUDSPath: socket,
 	}
 	st := &mockSecretStore{}
 	server, err := NewServer(arg, st)

@@ -45,7 +45,7 @@ const (
 	trustDomain = "Trust_Domain"
 
 	// Node agent could act as ingress gateway agent.
-	ingressGatewayAgent = "Ingress_GateWay_Agent"
+	ingressGatewayAgent = "INGRESS_GATEWAY_AGENT"
 )
 
 var (
@@ -61,6 +61,15 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
+			}
+
+			if serverOptions.CAProviderName == "" && serverOptions.EnableWorkloadSDS {
+				log.Error("CA Provider is missing")
+				os.Exit(1)
+			}
+			if serverOptions.CAEndpoint == "" && serverOptions.EnableWorkloadSDS {
+				log.Error("CA Endpoint is missing")
+				os.Exit(1)
 			}
 
 			stop := make(chan struct{})
@@ -90,47 +99,26 @@ var (
 )
 
 func init() {
-	ingressGatewayAgentEnv := os.Getenv(ingressGatewayAgent)
-	enableIngressGatewayAgentMode := false
-	if ingressGatewayAgentEnv != "" {
-		v, err := strconv.ParseBool(ingressGatewayAgentEnv)
-		if err == nil {
-			enableIngressGatewayAgentMode = v
-		}
-	}
-
-	sdsUdsPath := "/var/run/sds/uds_path"
-	if enableIngressGatewayAgentMode {
-		sdsUdsPath = "/var/run/ingress_gateway_agent/uds_path"
-	}
-
-	caProvider := os.Getenv(caProvider)
-	if caProvider == "" && !enableIngressGatewayAgentMode {
-		log.Error("CA Provider is missing")
-		os.Exit(1)
-	}
-
-	caAddr := os.Getenv(caAddress)
-	if caAddr == "" && !enableIngressGatewayAgentMode {
-		log.Error("CA Endpoint is missing")
-		os.Exit(1)
-	}
-
 	pluginNames := os.Getenv(pluginNames)
 	pns := []string{}
 	if pluginNames != "" {
 		pns = strings.Split(pluginNames, ",")
 	}
 
-	rootCmd.PersistentFlags().StringVar(&serverOptions.UDSPath, "sdsUdsPath",
-		sdsUdsPath, "Unix domain socket through which SDS server communicates with proxies")
+	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "EnableWorkloadSDS",
+		true,
+		"If true, node agent works as SDS server and provisions key/certificate to workload proxies.")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.WorkloadUDSPath, "WorkloadUDSPath",
+		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with workload proxies")
 
-	rootCmd.PersistentFlags().BoolVar(&serverOptions.IngressGatewayAgent, "IngressGatewayAgent",
-		enableIngressGatewayAgentMode,
-		"If true, node agent works as ingress gateway agent and watches kubernetes secrets instead of sending CSR to CA.")
+	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableIngressGatewaySDS, "EnableIngressGatewaySDS",
+		false,
+		"If true, node agent works as SDS server and watches kubernetes secrets for ingress gateway.")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.IngressGatewayUDSPath, "sdsUdsPath",
+		"/var/run/ingress_gateway/uds_path", "Unix domain socket through which SDS server communicates with ingress gateway proxies.")
 
-	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", caProvider, "CA provider")
-	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", caAddr, "CA endpoint")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", os.Getenv(caProvider), "CA provider")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", os.Getenv(caAddress), "CA endpoint")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.TrustDomain, "trustDomain",
 		os.Getenv(trustDomain), "The trust domain this node agent run in")
