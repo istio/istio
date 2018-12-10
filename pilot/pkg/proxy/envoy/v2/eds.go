@@ -524,21 +524,23 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
 	// After debounce, the services are merged and pushed.
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
+	s.mutex.RLock()
 	ep, f := s.EndpointShardsByService[serviceName]
+	s.mutex.RUnlock()
 	if !f {
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
 		// EndpointsShardsByService to be initialized with all services.
+		s.mutex.Lock()
 		ep = &model.EndpointShardsByService{
 			Shards:          map[string]*model.EndpointShard{},
 			ServiceAccounts: map[string]bool{},
 		}
 		s.EndpointShardsByService[serviceName] = ep
+		s.mutex.Unlock()
 		if !internal {
 			adsLog.Infof("Full push, new service %s", serviceName)
 			s.ConfigUpdater.ConfigUpdate(true)
@@ -555,7 +557,9 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	for _, e := range entries {
 		ce.Entries = append(ce.Entries, e)
 		if e.ServiceAccount != "" {
+			s.mutex.RLock()
 			_, f = ep.ServiceAccounts[e.ServiceAccount]
+			s.mutex.RUnlock()
 			if !f && !internal {
 				// The entry has a service account that was not previously associated.
 				// Requires a CDS push and full sync.
@@ -564,8 +568,10 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 			}
 		}
 	}
+	s.mutex.Lock()
 	ep.Shards[shard] = ce
 	s.edsUpdates[serviceName] = ep
+	s.mutex.Unlock()
 
 	return nil
 }
