@@ -503,7 +503,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					con.mu.RUnlock()
 					if routeNonceSent != discReq.ResponseNonce {
 						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%s), sent %s, received %s",
-							peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
+							peerAddr, con.ConID, con.modelNode.ID, routeNonceSent, discReq.ResponseNonce)
 						rdsExpiredNonce.Inc()
 						continue
 					}
@@ -511,7 +511,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						sort.Strings(routes)
 						sortedRoutes = routes
 						if reflect.DeepEqual(con.Routes, sortedRoutes) {
-							adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+							adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 							con.mu.Lock()
 							con.RouteNonceAcked = discReq.ResponseNonce
 							con.mu.Unlock()
@@ -520,11 +520,11 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					} else if discReq.ErrorDetail != nil || routes == nil {
 						// If versions mismatch then we should either have an error detail or no routes if a protocol error has occurred
 						if discReq.ErrorDetail != nil {
-							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							adsLog.Warnf("ADS:RDS: ACK ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": discReq.ErrorDetail.Message}).Add(1)
 							totalXDSRejects.Add(1)
 						} else { // protocol error
-							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": "Protocol error"}).Add(1)
 							totalXDSRejects.Add(1)
 						}
@@ -658,7 +658,7 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		// TODO: according to the docs, we can pro-actively push all the config, without waiting for requests.
 		// Will require pre-computing the expected RDS - we now rely on Envoy to build and maintain the list.
 
-		if discReq.ErrorDetail != nil  {
+		if discReq.ErrorDetail != nil {
 			s.handleNack(discReq, peerAddr, con)
 			continue
 		}
@@ -711,7 +711,7 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		case RouteType:
 			routes := discReq.GetResourceNames()
 			if routes == nil {
-				adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode, discReq.String())
+				adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 				continue
 			}
 			var sortedRoutes []string
@@ -784,7 +784,7 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 		routeVersionInfoSent := con.RouteVersionInfoSent
 		if routeNonceSent != discReq.ResponseNonce {
 			adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%s), sent %s, received %s",
-				peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
+				peerAddr, con.ConID, con.modelNode.ID, routeNonceSent, discReq.ResponseNonce)
 			rdsExpiredNonce.Inc()
 		}
 		if discReq.VersionInfo == routeVersionInfoSent {
@@ -792,9 +792,9 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 			sort.Strings(routes)
 			sortedRoutes = routes
 			if reflect.DeepEqual(con.Routes, sortedRoutes) {
-				adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+				adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 			} else {
-				adsLog.Warnf("ADS:RDS: ACK with different routes %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode, discReq.VersionInfo, discReq.ResponseNonce)
+				adsLog.Warnf("ADS:RDS: ACK with different routes %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 			}
 			con.RouteNonceAcked = discReq.ResponseNonce
 		}
@@ -809,7 +809,7 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 	adsLog.Debugf("ADS:%s: ACK %v %v", discReq.TypeUrl, peerAddr, discReq.String())
 	if pilot.WaitAck {
 		select {
-			case con.ackChannel <- discReq:
+		case con.ackChannel <- discReq:
 		}
 	}
 }
@@ -829,7 +829,7 @@ func (s *DiscoveryServer) handleNack(discReq *xdsapi.DiscoveryRequest, peerAddr 
 	totalXDSRejects.Add(1)
 	if pilot.WaitAck {
 		select {
-			case con.ackChannel <- discReq:
+		case con.ackChannel <- discReq:
 		}
 	}
 }
@@ -884,7 +884,7 @@ func (s *DiscoveryServer) waitAck(con *XdsConnection) bool {
 		return ackMsg.ErrorDetail == nil
 	case <-time.After(PushTimeout):
 		adsLog.Infof("Timeout waiting ACK %v", con.ConID)
-	return false
+		return false
 	}
 	return true
 }
@@ -1109,7 +1109,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 					c <- true
 				}()
 				select {
-				case <- c:
+				case <-c:
 					client.LastPush = time.Now()
 					client.LastPushFailure = timeZero
 				case <-client.doneChannel: // connection was closed

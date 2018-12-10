@@ -40,7 +40,8 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 			},
 		})
 		if err != nil {
-			t.Fatalf("failed creating test namespace: %v", err)
+			// if tests are repeated the namespace may still exist.
+			t.Logf("failed creating test namespace, reuse: %v", err)
 		}
 
 		// K8S 1.10 also checks if service account exists
@@ -59,7 +60,7 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 			},
 		})
 		if err != nil {
-			t.Fatalf("failed creating test service account: %v", err)
+			t.Logf("failed creating test service account: %v", err)
 		}
 
 		_, err = ki.CoreV1().Secrets(n).Create(&v1.Secret{
@@ -76,7 +77,7 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *FakeXdsUpdater) {
 			},
 		})
 		if err != nil {
-			t.Fatalf("failed creating test secret: %v", err)
+			t.Logf("failed creating test secret: %v", err)
 		}
 	}
 	fx.Clear()

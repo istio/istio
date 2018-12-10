@@ -80,10 +80,9 @@ var (
 
 	// WaitAck waits for an ACK/NACK after pushing any config. If a nack is received the other configs will not
 	// be pushed, but connection will not be closed. This may slow down the push for a node - the EDS will wait for
-	// CDS to be acked for example, however it is safer. 
+	// CDS to be acked for example, however it is safer.
 	// This is a temporary safety flag.
 	WaitAck = os.Getenv("WAIT_ACK") == "1"
-
 )
 
 const (

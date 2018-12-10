@@ -45,7 +45,9 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, _ := adsReceive(edsstr, 5*time.Second)
-
+	if res == nil {
+		t.Fatal("No EDS response")
+	}
 	// closes old process
 	cancel()
 
