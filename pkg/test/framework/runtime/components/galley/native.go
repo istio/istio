@@ -44,9 +44,9 @@ var (
 )
 
 const (
-	galleyWorkdir = "galley-workdir"
-	configDir = "config"
-	meshConfigDir = "mesh-config"
+	galleyWorkdir  = "galley-workdir"
+	configDir      = "config"
+	meshConfigDir  = "mesh-config"
 	meshConfigFile = "meshconfig.yaml"
 )
 
