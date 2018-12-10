@@ -98,7 +98,8 @@ func TestBuildInfo(t *testing.T) {
 			BuildStatus:   "STATUS",
 			GitTag:        "TAG"},
 			"USER@HOST-DH-VER-GITREV-STATUS",
-			`version.BuildInfo{Version:"VER", GitRevision:"GITREV", User:"USER", Host:"HOST", GolangVersion:"GOLANGVER", DockerHub:"DH", BuildStatus:"STATUS", GitTag:"TAG"}`},
+			`version.BuildInfo{Version:"VER", GitRevision:"GITREV", User:"USER", Host:"HOST", GolangVersion:"GOLANGVER", DockerHub:"DH", ` +
+				`BuildStatus:"STATUS", GitTag:"TAG"}`},
 
 		{"init", Info, "unknown@unknown-unknown-unknown-unknown-unknown", versionedString}}
 
