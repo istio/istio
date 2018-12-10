@@ -519,6 +519,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 							adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 							rdsReject.With(prometheus.Labels{"node": discReq.Node.Id, "err": "Protocol error"}).Add(1)
 							totalXDSRejects.Add(1)
+							continue
 						}
 						continue
 					}
@@ -543,7 +544,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					continue
 				}
 				clusters := discReq.GetResourceNames()
-				if discReq.ResponseNonce != "" {
+				if clusters == nil && discReq.ResponseNonce != "" {
 					// There is no requirement that ACK includes clusters. The test doesn't.
 					con.mu.Lock()
 					con.EndpointNonceAcked = discReq.ResponseNonce
