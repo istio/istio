@@ -45,9 +45,8 @@ type Entry struct {
 }
 
 var converters = map[string]Fn{
-	// nolint: goimports
-	"identity":              identity,
-	"nil":                   nilConverter,
+	"identity": identity,
+	"nil":      nilConverter,
 	"legacy-mixer-resource": legacyMixerResource,
 	"auth-policy-resource":  authPolicyResource,
 	"kube-ingress-resource": kubeIngressResource,
