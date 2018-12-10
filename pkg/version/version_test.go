@@ -191,7 +191,6 @@ func TestRegisterStatsPanics(t *testing.T) {
 	cases := []struct {
 		name        string
 		newTagKeyFn func(string) (tag.Key, error)
-		// newTagCtxFn func(context.Context, ...tag.Mutator) (context.Context, error)
 	}{
 		{"tag", func(n string) (tag.Key, error) {
 			if n == "tag" {
@@ -208,7 +207,6 @@ func TestRegisterStatsPanics(t *testing.T) {
 		},
 		},
 		{"duplicate registration", tag.NewKey},
-		// {"context", tag.NewKey, func(context.Context, ...tag.Mutator) (context.Context, error) { return nil, errors.New("failure") }},
 	}
 
 	for _, v := range cases {
