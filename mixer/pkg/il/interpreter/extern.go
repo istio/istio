@@ -108,10 +108,6 @@ func ilType(t reflect.Type) il.Type {
 		return il.Integer
 	case reflect.Float64:
 		return il.Double
-	case reflect.Map:
-		if t.Key().Kind() == reflect.String || t.Elem().Kind() == reflect.String {
-			return il.Interface
-		}
 	case reflect.Slice:
 		if t.Elem().Kind() == reflect.Uint8 {
 			return il.Interface
@@ -119,6 +115,8 @@ func ilType(t reflect.Type) il.Type {
 	case reflect.Struct:
 		switch t.Name() {
 		case "Time":
+			return il.Interface
+		case "StringMap":
 			return il.Interface
 		}
 	case reflect.Interface:
