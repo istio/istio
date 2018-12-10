@@ -24,6 +24,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
