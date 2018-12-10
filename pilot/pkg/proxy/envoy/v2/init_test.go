@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/tests/util"
 	"net"
 	"time"
 
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/tests/util"
 )
 
 var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
@@ -58,7 +58,7 @@ func getLoadAssignment(res1 *xdsapi.DiscoveryResponse) (*xdsapi.ClusterLoadAssig
 	return cla, nil
 }
 
-func testIp(id uint32) string {
+func testIP(id uint32) string {
 	ipb := []byte{0, 0, 0, 0}
 	binary.BigEndian.PutUint32(ipb, id)
 	return net.IP(ipb).String()
@@ -72,7 +72,7 @@ func connectADS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedReso
 	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
-		return nil, nil, fmt.Errorf("Stream resources failed: %s", err)
+		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
 	}
 
 	return edsstr, func() {
@@ -119,7 +119,7 @@ func connectADSS(url string) (ads.AggregatedDiscoveryService_StreamAggregatedRes
 	xds := ads.NewAggregatedDiscoveryServiceClient(conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
-		return nil, nil, fmt.Errorf("Stream resources failed: %s", err)
+		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
 	}
 	return edsstr, func() {
 		edsstr.CloseSend()
@@ -161,7 +161,7 @@ func sendEDSReq(clusters []string, node string, edsstr ads.AggregatedDiscoverySe
 	return nil
 }
 
-func sendEDSNack(clusters []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+func sendEDSNack(_ []string, node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),
 		Node: &core.Node{
@@ -184,7 +184,7 @@ func sendEDSNack(clusters []string, node string, edsstr ads.AggregatedDiscoveryS
 func sendEDSReqReconnect(clusters []string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient, res *xdsapi.DiscoveryResponse) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		Node: &core.Node{
-			Id:       sidecarId(app3Ip, "app3"),
+			Id:       sidecarID(app3Ip, "app3"),
 			Metadata: nodeMetadata,
 		},
 		TypeUrl:       v2.EndpointType,
@@ -229,9 +229,9 @@ func sendLDSNack(node string, ldsstr ads.AggregatedDiscoveryService_StreamAggreg
 	return nil
 }
 
-func sendRDSReq(node string, routes []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+func sendRDSReq(node string, routes []string, nonce string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
+		ResponseNonce: nonce,
 		Node: &core.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
@@ -245,9 +245,9 @@ func sendRDSReq(node string, routes []string, rdsstr ads.AggregatedDiscoveryServ
 	return nil
 }
 
-func sendRDSNack(node string, _ []string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+func sendRDSNack(node string, _ []string, nonce string, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
+		ResponseNonce: nonce,
 		Node: &core.Node{
 			Id:       node,
 			Metadata: nodeMetadata,

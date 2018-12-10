@@ -305,15 +305,15 @@ Fallback to old identity format(without trust domain) if not set.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-default_network_scope">
-<td><code>defaultNetworkScope</code></td>
-<td><code><a href="#MeshConfig-DefaultNetworkScope">MeshConfig.DefaultNetworkScope</a></code></td>
+<tr id="MeshConfig-default_service_dependency">
+<td><code>defaultServiceDependency</code></td>
+<td><code><a href="#MeshConfig-DefaultServiceDependency">MeshConfig.DefaultServiceDependency</a></code></td>
 <td>
-<p>The default network scope associated with every workload in the mesh.
-Pilot will program the routes in the sidecars and gateways
-accordingly. If omitted, sidecars will be configured to reach every
-service in the mesh. The default scope can be overriden by supplying a
-NetworkScope resource per namespace.</p>
+<p>The default service dependency setting associated with every workload
+in the mesh.  Pilot will program the routes in the sidecars and
+gateways accordingly. If omitted, sidecars will be configured to reach
+every service in the mesh. The default scope can be overriden by
+supplying a ServiceDependency resource per namespace.</p>
 
 </td>
 </tr>
@@ -343,11 +343,11 @@ NetworkScope resource per namespace.</p>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig-DefaultNetworkScope">MeshConfig.DefaultNetworkScope</h2>
+<h2 id="MeshConfig-DefaultServiceDependency">MeshConfig.DefaultServiceDependency</h2>
 <section>
-<p>Default network scope settings for each workload in the mesh. Network
-scope controls the reachability of workloads to other services in the
-mesh.</p>
+<p>Default service dependency settings for each workload in the
+mesh. ServiceDependencycontrols the reachability of workloads to other
+services in the mesh.</p>
 
 <table class="message-fields">
 <thead>
@@ -358,20 +358,20 @@ mesh.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig-DefaultNetworkScope-import_mode">
+<tr id="MeshConfig-DefaultServiceDependency-import_mode">
 <td><code>importMode</code></td>
-<td><code><a href="#MeshConfig-DefaultNetworkScope-Mode">MeshConfig.DefaultNetworkScope.Mode</a></code></td>
+<td><code><a href="#MeshConfig-DefaultServiceDependency-Mode">MeshConfig.DefaultServiceDependency.Mode</a></code></td>
 <td>
 <p>REQUIRED: The default import setting for every workload in the mesh.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-DefaultNetworkScope-import_namespaces">
+<tr id="MeshConfig-DefaultServiceDependency-import_namespaces">
 <td><code>importNamespaces</code></td>
 <td><code>string[]</code></td>
 <td>
 <p>Specifies one or more namespaces that should be imported by default
-in all user defined NetworkScope resources in addition to the
+in all user defined ServiceDependency resources in addition to the
 namespaces explicitly specified by the end user. Use this setting to
 automatically import services/resources from namespaces such as
 istio-system that all workloads in the mesh depend upon.</p>
@@ -381,7 +381,7 @@ istio-system that all workloads in the mesh depend upon.</p>
 </tbody>
 </table>
 </section>
-<h2 id="MeshConfig-DefaultNetworkScope-Mode">MeshConfig.DefaultNetworkScope.Mode</h2>
+<h2 id="MeshConfig-DefaultServiceDependency-Mode">MeshConfig.DefaultServiceDependency.Mode</h2>
 <section>
 <table class="enum-values">
 <thead>
@@ -391,7 +391,7 @@ istio-system that all workloads in the mesh depend upon.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig-DefaultNetworkScope-Mode-ALL_NAMESPACES">
+<tr id="MeshConfig-DefaultServiceDependency-Mode-ALL_NAMESPACES">
 <td><code>ALL_NAMESPACES</code></td>
 <td>
 <p>Configure routes to services in all namespaces, i.e. import
@@ -399,7 +399,7 @@ services from all namespaces.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-DefaultNetworkScope-Mode-SAME_NAMESPACE">
+<tr id="MeshConfig-DefaultServiceDependency-Mode-SAME_NAMESPACE">
 <td><code>SAME_NAMESPACE</code></td>
 <td>
 <p>Only configure routes to services that are in the same namespace

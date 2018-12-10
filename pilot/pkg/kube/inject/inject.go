@@ -279,7 +279,7 @@ func parsePorts(portsString string) ([]int, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed parsing port '%d': %v", port, err)
 			}
-			ports = append(ports, int(port))
+			ports = append(ports, port)
 		}
 	}
 	return ports, nil
