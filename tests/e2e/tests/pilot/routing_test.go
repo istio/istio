@@ -653,3 +653,119 @@ func TestHeadersManipulations(t *testing.T) {
 		})
 	}
 }
+
+func TestDestinationRuleConfigScope(t *testing.T) {
+	samples := 100
+
+	var cfgs *deployableConfig
+	applyRuleFunc := func(t *testing.T, ruleYaml string) {
+		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
+		// a delay when we push the new config.
+		if cfgs != nil {
+			if err := cfgs.TeardownNoDelay(); err != nil {
+				t.Fatal(err)
+			}
+			cfgs = nil
+		}
+
+		// Apply the new rule
+		cfgs = &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{ruleYaml},
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Upon function exit, delete the active rule.
+	defer func() {
+		if cfgs != nil {
+			_ = cfgs.Teardown()
+		}
+	}()
+
+	cases := []struct {
+		testName        string
+		description     string
+		config          string
+		namespace       string
+		scheme          string
+		src             string
+		dst             string
+		expectedSuccess bool
+		operation       string
+		onFailure       func()
+	}{
+		{
+			testName:        "private destination rule in same namesapce",
+			description:     "routing all traffic to c-v1",
+			config:          "destination-rule-c-private.yaml",
+			namespace:       tc.Kube.Namespace,
+			scheme:          "http",
+			src:             "a",
+			dst:             "c",
+			expectedSuccess: true,
+			operation:       "c.istio-system.svc.cluster.local:80/*",
+		},
+		{
+			testName:        "private destination rule in different namespaces",
+			description:     "can not apply private destination rule",
+			config:          "destination-rule-c-private.yaml",
+			namespace:       "test-diff-ns",
+			scheme:          "http",
+			src:             "a",
+			dst:             "c",
+			expectedSuccess: false,
+			operation:       "c.istio-system.svc.cluster.local:80/*",
+		},
+	}
+
+	t.Run("v1alpha3", func(t *testing.T) {
+		cfgs := &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{"testdata/networking/v1alpha3/rule-default-route.yaml"},
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		// Teardown after, but no need to wait, since a delay will be applied by either the next rule's
+		// Setup() or the Teardown() for the final rule.
+		defer cfgs.TeardownNoDelay()
+
+		for _, c := range cases {
+			// Run each case in a function to scope the configuration's lifecycle.
+			func() {
+				if c.namespace != tc.Kube.Namespace {
+					if err := util.CreateNamespace(c.namespace, tc.Kube.KubeConfig); err != nil {
+						t.Errorf("Unable to create namespace %s: %v", c.namespace, err)
+					}
+					defer func() {
+						if err := util.DeleteNamespace(c.namespace, tc.Kube.KubeConfig); err != nil {
+							t.Errorf("Failed to delete namespace %s", c.namespace)
+						}
+					}()
+				}
+				ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", c.config)
+				outYaml := maybeAddTLSForDestinationRule(tc, ruleYaml)
+				applyRuleFunc(t, outYaml)
+
+				for cluster := range tc.Kube.Clusters {
+					testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
+					runRetriableTest(t, testName, 5, func() error {
+						reqURL := fmt.Sprintf("%s://%s/%s", c.scheme, c.dst, c.src)
+						resp := ClientRequest(cluster, c.src, reqURL, samples, "")
+						if c.expectedSuccess && resp.IsHTTPOk() {
+							return nil
+						}
+						if !c.expectedSuccess && resp.IsHTTPOk() {
+							return fmt.Errorf("expect failed request %s, but got success", reqURL)
+						}
+						return fmt.Errorf("failed request %s, %v", reqURL, resp.Code)
+					}, c.onFailure)
+				}
+			}()
+		}
+	})
+}
