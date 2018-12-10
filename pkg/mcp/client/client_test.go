@@ -28,7 +28,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
-	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
@@ -642,7 +641,7 @@ func TestInMemoryUpdater(t *testing.T) {
 				Metadata: &mcp.Metadata{
 					Name: "bar",
 				},
-				Resource: &empty.Empty{},
+				Resource: &types.Empty{},
 			},
 		},
 	}

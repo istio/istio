@@ -43,6 +43,13 @@ var (
 	_ api.Resettable    = &nativeComponent{}
 )
 
+const (
+	galleyWorkdir = "galley-workdir"
+	configDir = "config"
+	meshConfigDir = "mesh-config"
+	meshConfigFile = "meshconfig.yaml"
+)
+
 // NewNativeComponent factory function for the component
 func NewNativeComponent() (api.Component, error) {
 	return &nativeComponent{}, nil
@@ -113,25 +120,25 @@ func (c *nativeComponent) Reset() error {
 	_ = c.Close()
 
 	var err error
-	if c.homeDir, err = c.ctx.CreateTmpDirectory("galley-workdir"); err != nil {
+	if c.homeDir, err = c.ctx.CreateTmpDirectory(galleyWorkdir); err != nil {
 		scopes.Framework.Errorf("Error creating config directory for Galley: %v", err)
 		return err
 	}
 	scopes.Framework.Debugf("Galley home dir: %v", c.homeDir)
 
-	c.configDir = path.Join(c.homeDir, "config")
+	c.configDir = path.Join(c.homeDir, configDir)
 	if err = os.MkdirAll(c.configDir, os.ModePerm); err != nil {
 		return err
 	}
 	scopes.Framework.Debugf("Galley config dir: %v", c.configDir)
 
-	c.meshConfigDir = path.Join(c.homeDir, "mesh-config")
+	c.meshConfigDir = path.Join(c.homeDir, meshConfigDir)
 	if err = os.MkdirAll(c.meshConfigDir, os.ModePerm); err != nil {
 		return err
 	}
 	scopes.Framework.Debugf("Galley mesh config dir: %v", c.meshConfigDir)
 
-	c.meshConfigFile = path.Join(c.meshConfigDir, "meshconfig.yaml")
+	c.meshConfigFile = path.Join(c.meshConfigDir, meshConfigFile)
 	if err = ioutil.WriteFile(c.meshConfigFile, []byte{}, os.ModePerm); err != nil {
 		return err
 	}
