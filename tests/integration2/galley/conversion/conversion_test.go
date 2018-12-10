@@ -65,15 +65,6 @@ func TestConversion(t *testing.T) {
 				}
 			}
 
-			//expectedJSON, err := d.LoadExpectedFile()
-			//if err != nil {
-			//	t.Fatalf("unable to load expectedTypes test data: %v", err)
-			//}
-			//expected, err := createTypeURLMap(expectedJSON)
-			//if err != nil {
-			//	t.Fatal(err)
-			//}
-
 			expected, err := d.LoadExpectedResources()
 			if err != nil {
 				t.Fatalf("unable to load expected resources: %v", err)
@@ -91,24 +82,3 @@ func TestConversion(t *testing.T) {
 		})
 	}
 }
-//
-//// create a mapping from type URLs to the array of corresponding resources.
-//func createTypeURLMap(js []byte) (map[string][]map[string]interface{}, error) {
-//	var expectedArray []interface{}
-//
-//	if err := json.Unmarshal(js, &expectedArray); err != nil {
-//		return nil, fmt.Errorf("error parsing expectedTypes JSON: %v", err)
-//	}
-//
-//	m := make(map[string][]map[string]interface{})
-//	for _, e := range expectedArray {
-//		exp := e.(map[string]interface{})
-//
-//		typeURL := exp["TypeURL"].(string)
-//		arr := m[typeURL]
-//		arr = append(arr, exp)
-//		m[typeURL] = arr
-//	}
-//
-//	return m, nil
-//}

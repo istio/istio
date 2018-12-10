@@ -61,7 +61,7 @@ type nativeComponent struct {
 	// The folder that Galley reads the mesh config file from
 	meshConfigDir string
 
-	// The file that Galley that Galley reads the mesh config file from.
+	// The file that Galley reads the mesh config file from.
 	meshConfigFile string
 
 	server *server.Server
