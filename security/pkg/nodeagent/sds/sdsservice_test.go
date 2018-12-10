@@ -74,8 +74,8 @@ type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse,
 func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	arg := Options{
 		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS: true,
-		WorkloadUDSPath: testSocket,
+		EnableWorkloadSDS:       true,
+		WorkloadUDSPath:         testSocket,
 	}
 	st := &mockSecretStore{}
 	server, err := NewServer(arg, st, nil)
@@ -130,8 +130,8 @@ func TestStreamSecretsPush(t *testing.T) {
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	arg := Options{
 		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS: true,
-		WorkloadUDSPath: socket,
+		EnableWorkloadSDS:       true,
+		WorkloadUDSPath:         socket,
 	}
 	st := &mockSecretStore{}
 	server, err := NewServer(arg, st, nil)
