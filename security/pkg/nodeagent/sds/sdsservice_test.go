@@ -73,10 +73,12 @@ type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse,
 
 func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS: true,
 		WorkloadUDSPath: testSocket,
 	}
 	st := &mockSecretStore{}
-	server, err := NewServer(arg, st)
+	server, err := NewServer(arg, st, nil)
 	defer server.Stop()
 
 	if err != nil {
@@ -127,10 +129,12 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 func TestStreamSecretsPush(t *testing.T) {
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS: true,
 		WorkloadUDSPath: socket,
 	}
 	st := &mockSecretStore{}
-	server, err := NewServer(arg, st)
+	server, err := NewServer(arg, st, nil)
 	defer server.Stop()
 
 	if err != nil {
