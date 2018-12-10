@@ -99,6 +99,9 @@
         - --controlPlaneAuthPolicy
         - NONE
       {{- end }}
+      {{- if $.Values.global.trustDomain }}
+        - --trust-domain={{ $.Values.global.trustDomain }}
+      {{- end }}
         env:
         - name: POD_NAME
           valueFrom:

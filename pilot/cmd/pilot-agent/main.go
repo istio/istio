@@ -119,17 +119,6 @@ var (
 					role.ID = role.IPAddress
 				}
 			}
-			pilotDomain := role.Domain
-			if len(role.Domain) == 0 {
-				if registry == serviceregistry.KubernetesRegistry {
-					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-					pilotDomain = "cluster.local"
-				} else if registry == serviceregistry.ConsulRegistry {
-					role.Domain = "service.consul"
-				} else {
-					role.Domain = ""
-				}
-			}
 
 			log.Infof("Proxy role: %#v", role)
 
@@ -149,11 +138,11 @@ var (
 			proxyConfig.Concurrency = int32(concurrency)
 
 			var pilotSAN []string
+			ns := ""
 			switch controlPlaneAuthPolicy {
 			case meshconfig.AuthenticationPolicy_NONE.String():
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
-				var ns string
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if registry == serviceregistry.KubernetesRegistry {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
@@ -176,8 +165,9 @@ var (
 						}
 					}
 				}
-				pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
 			}
+			role.DNSDomain = getDNSDomain(role.DNSDomain)
+			pilotSAN = getPilotSAN(role.DNSDomain, ns)
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -305,6 +295,39 @@ var (
 	}
 )
 
+func getPilotSAN(domain string, ns string) []string {
+	var pilotSAN []string
+	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+		pilotTrustDomain := role.TrustDomain
+		if len(pilotTrustDomain) == 0 {
+			if registry == serviceregistry.KubernetesRegistry &&
+				(domain == os.Getenv("POD_NAMESPACE")+".svc.cluster.local" || domain == "") {
+				pilotTrustDomain = "cluster.local"
+			} else if registry == serviceregistry.ConsulRegistry &&
+				(domain == "service.consul" || domain == "") {
+				pilotTrustDomain = ""
+			} else {
+				pilotTrustDomain = domain
+			}
+		}
+		pilotSAN = envoy.GetPilotSAN(pilotTrustDomain, ns)
+	}
+	return pilotSAN
+}
+
+func getDNSDomain(domain string) string {
+	if len(domain) == 0 {
+		if registry == serviceregistry.KubernetesRegistry {
+			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+		} else if registry == serviceregistry.ConsulRegistry {
+			domain = "service.consul"
+		} else {
+			domain = ""
+		}
+	}
+	return domain
+}
+
 func parseApplicationPorts() ([]uint16, error) {
 	parsedPorts := make([]uint16, len(applicationPorts))
 	for _, port := range applicationPorts {
@@ -338,8 +361,10 @@ func init() {
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
-	proxyCmd.PersistentFlags().StringVar(&role.Domain, "domain", "",
+	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
+	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
+		"The domain to use for identities")
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
 		"HTTP Port on which to serve pilot agent status. If zero, agent status will not be provided.")
 	proxyCmd.PersistentFlags().StringSliceVar(&applicationPorts, "applicationPorts", []string{},
