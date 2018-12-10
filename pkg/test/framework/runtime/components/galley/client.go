@@ -27,13 +27,11 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
-	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 type client struct {
-	env     api.Environment
 	address string
 }
 
@@ -59,7 +57,7 @@ func (c *client) waitForSnapshot(typeURL string, snapshot []map[string]interface
 		items := u.Get(typeURL)
 		err := checkSnapshot(items, snapshot)
 		return nil, err == nil, err
-	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*10))
+	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*20))
 
 	return err
 }

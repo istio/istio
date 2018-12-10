@@ -32,7 +32,7 @@ type Galley interface {
 	SetMeshConfig(yamlText string) error
 
 	// WaitForSnapshot waits until the given snapshot is observed for the given type URL.
-	WaitForSnapshot(typeUrl string, snapshot ...map[string]interface{}) error
+	WaitForSnapshot(typeURL string, snapshot ...map[string]interface{}) error
 }
 
 // GetGalley from the repository
