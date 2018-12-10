@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpclient "istio.io/istio/pkg/mcp/client"
