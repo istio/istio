@@ -142,6 +142,9 @@ func (mixerplugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Clus
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return
+	}
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		host := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(host.Routes); j++ {
@@ -153,6 +156,9 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return
+	}
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
 		// copy structs in place

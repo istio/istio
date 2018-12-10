@@ -234,6 +234,7 @@ func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 	out := make([]*model.Service, 0, len(sd.services))
 	for _, service := range sd.services {
 		// Make a new service out of the existing one
+		// nolint: govet
 		newSvc := *service
 		out = append(out, &newSvc)
 	}
@@ -253,6 +254,7 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 		return nil, errors.New("missing service")
 	}
 	// Make a new service out of the existing one
+	// nolint: govet
 	newSvc := *val
 	return &newSvc, sd.GetServiceError
 }

@@ -192,7 +192,6 @@ func (s *httpServer) stop() error {
 type grpcServer struct {
 	tlsCert string
 	tlsCKey string
-	version string
 	port    *model.Port
 	h       *handler
 

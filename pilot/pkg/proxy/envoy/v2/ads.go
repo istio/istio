@@ -212,14 +212,6 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	// Set to the current push status when a push is started.
-	// Null after the push all completes for the node.
-	currentPush *model.PushContext
-
-	// Set if a push request is received while a push is in progress.
-	// Will keep getting updated with the latest push version.
-	nextPush *model.PushContext
-
 	// doneChannel will be closed when the client is closed.
 	doneChannel chan struct{}
 

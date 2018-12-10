@@ -35,9 +35,9 @@ func TestServiceNode(t *testing.T) {
 		},
 		{
 			in: &model.Proxy{
-				Type:   model.Ingress,
-				ID:     "random",
-				Domain: "local",
+				Type:      model.Ingress,
+				ID:        "random",
+				DNSDomain: "local",
 			},
 			out: "ingress~~random~local",
 		},

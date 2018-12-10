@@ -497,6 +497,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*mcpclient.Client
 	var conns []*grpc.ClientConn
@@ -505,10 +506,12 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	for _, configSource := range s.mesh.ConfigSources {
 		url, err := url.Parse(configSource.Address)
 		if err != nil {
+			cancel()
 			return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 		}
 		if url.Scheme == fsScheme {
 			if url.Path == "" {
+				cancel()
 				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 			}
 			store := memory.Make(model.IstioConfigTypes)
@@ -516,6 +519,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 			err := s.makeFileMonitor(url.Path, configController)
 			if err != nil {
+				cancel()
 				return err
 			}
 			configStores = append(configStores, configController)

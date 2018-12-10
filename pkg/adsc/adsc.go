@@ -82,9 +82,6 @@ type ADSC struct {
 	// If nil, the defaults will be used.
 	Metadata map[string]string
 
-	rdsNames     []string
-	clusterNames []string
-
 	// Updates includes the type of the last update received from the server.
 	Updates     chan string
 	VersionInfo map[string]string

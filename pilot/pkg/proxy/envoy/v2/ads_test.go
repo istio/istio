@@ -40,7 +40,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestAdsReconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestAdsReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel2()
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr2)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestTLS(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel()
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 	defer cancel()
 
 	var sendEDSReqAndVerify = func(clusterName string) {
-		err = sendEDSReq([]string{clusterName}, sidecarId("1.1.1.1", "app3"), edsstr)
+		err = sendEDSReq([]string{clusterName}, sidecarID("1.1.1.1", "app3"), edsstr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -196,7 +196,7 @@ func TestAdsUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarId("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	// wait for debounce
 	time.Sleep(3 * v2.DebounceAfter)
 
-	err = sendRDSReq(gatewayId(gatewayIP), []string{routeA, routeB}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,12 +283,12 @@ func TestEnvoyRDSProtocolError(t *testing.T) {
 	}
 
 	// send a protocol error
-	err = sendRDSReq(gatewayId(gatewayIP), nil, res.Nonce, edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), nil, res.Nonce, edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Refresh routes
-	err = sendRDSReq(gatewayId(gatewayIP), []string{routeA, routeB}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +316,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	// wait for debounce
 	time.Sleep(3 * v2.DebounceAfter)
 
-	err = sendRDSReq(gatewayId(gatewayIP), []string{routeA}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	}
 
 	// Test update from A -> B
-	err = sendRDSReq(gatewayId(gatewayIP), []string{routeB}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeB}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -367,7 +367,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	}
 
 	// Test update from B -> A, B
-	err = sendRDSReq(gatewayId(gatewayIP), []string{routeA, routeB}, res.Nonce, edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, res.Nonce, edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +399,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 
 	// Test update from B, B -> A
 
-	err = sendRDSReq(gatewayId(gatewayIP), []string{routeA}, "", edsstr)
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
