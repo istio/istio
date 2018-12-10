@@ -1609,7 +1609,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:2c03bd1d930cb8e093a81fffa6366a32c922ecac853b9cc555a382cde60f054f"
+  digest = "1:68ba16d82682d764ae807dc99eb4527cefc541d0f1d8d2827881536e727fa115"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1625,7 +1625,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "4f643c98546f632307978debedc7d5dbd0452aa2"
+  revision = "49946a7daf8033a750d8bb966022255fcb38558d"
 
 [[projects]]
   branch = "release-1.11"
@@ -2127,6 +2127,7 @@
     "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/encoding/gzip",
     "google.golang.org/grpc/grpclog",
+    "google.golang.org/grpc/keepalive",
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/peer",
     "google.golang.org/grpc/reflection",

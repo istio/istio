@@ -116,6 +116,7 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 	return nil
 }
 
+// nolint: unparam
 func (pc *PodCache) getPodKey(addr string) (string, bool) {
 	pc.RLock()
 	defer pc.RUnlock()

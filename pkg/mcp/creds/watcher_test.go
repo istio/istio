@@ -58,17 +58,6 @@ func (w *fakeWatcher) Errors(path string) chan error {
 }
 func (w *fakeWatcher) Remove(path string) error { panic("not supported") }
 
-func newFakeWatcherFunc() (func() filewatcher.FileWatcher, *fakeWatcher) {
-	w := &fakeWatcher{
-		events: make(map[string]chan fsnotify.Event),
-		errors: make(map[string]chan error),
-		added:  make(chan struct{}, 100),
-	}
-	return func() filewatcher.FileWatcher {
-		return w
-	}, w
-}
-
 var (
 	certFile   = "foo.pem"
 	keyFile    = "key.pem"

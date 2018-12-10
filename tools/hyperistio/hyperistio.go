@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -173,7 +174,8 @@ func startPilot() error {
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
-		MeshConfig: &mcfg,
+		MeshConfig:       &mcfg,
+		KeepaliveOptions: keepalive.DefaultOption(),
 	}
 	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 

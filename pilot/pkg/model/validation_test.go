@@ -576,7 +576,7 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
-		clone := proto.Clone(valid).(*meshconfig.ProxyConfig)
+		clone := proto.Clone(config).(*meshconfig.ProxyConfig)
 		fieldSetter(clone)
 		return clone
 	}
@@ -2023,6 +2023,107 @@ func TestValidateHTTPRoute(t *testing.T) {
 				"": "value",
 			},
 		}, valid: false},
+		{name: "valid headers", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "",
+						},
+						Set: map[string]string{
+							"name": "",
+						},
+						Remove: []string{
+							"name",
+						},
+					},
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "",
+						},
+						Set: map[string]string{
+							"name": "",
+						},
+						Remove: []string{
+							"name",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "empty header name - request add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - request set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - request remove", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Remove: []string{
+							"",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response remove", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Remove: []string{
+							"",
+						},
+					},
+				},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -2505,7 +2606,7 @@ func TestValidateConnectionPool(t *testing.T) {
 }
 
 func TestValidateLoadBalancer(t *testing.T) {
-	duration := time.Duration(time.Hour)
+	duration := time.Hour
 	cases := []struct {
 		name  string
 		in    networking.LoadBalancerSettings

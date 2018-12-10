@@ -47,7 +47,7 @@ func TestRunSendConfig(t *testing.T) {
 		configCh: make(chan interface{}),
 	}
 	config := model.DefaultProxyConfig()
-	node := model.Proxy{
+	node := &model.Proxy{
 		Type: model.Ingress,
 		ID:   "random",
 	}

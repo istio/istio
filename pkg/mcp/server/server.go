@@ -38,7 +38,7 @@ var (
 )
 
 func envInt(name string, def int) int {
-	if v := os.Getenv("NEW_CONNECTION_BURST_SIZE"); v != "" {
+	if v := os.Getenv(name); v != "" {
 		if a, err := strconv.Atoi(v); err == nil {
 			return a
 		}
@@ -47,7 +47,7 @@ func envInt(name string, def int) int {
 }
 
 func envDur(name string, def time.Duration) time.Duration {
-	if v := os.Getenv("NEW_CONNECTION_FREQ"); v != "" {
+	if v := os.Getenv(name); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			return d
 		}
