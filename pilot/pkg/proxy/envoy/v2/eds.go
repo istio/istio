@@ -72,7 +72,7 @@ var (
 // all clusters until we support on-demand cluster loading.
 type EdsCluster struct {
 	// mutex protects changes to this cluster
-	mutex sync.Mutex
+	mutex sync.RWMutex
 
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
@@ -264,8 +264,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// better to accept the extra computations.
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
-	defer edsCluster.mutex.Unlock()
-
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -273,6 +271,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 		edsCluster.NonEmptyTime = time.Now()
 	}
+	edsCluster.mutex.Unlock()
 	return nil
 }
 
@@ -391,7 +390,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	// better to accept the extra computations.
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
-	defer edsCluster.mutex.Unlock()
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
 		Endpoints:   locEps,
@@ -399,6 +397,8 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 		edsCluster.NonEmptyTime = time.Now()
 	}
+	edsCluster.mutex.Unlock()
+
 	return nil
 }
 
@@ -459,22 +459,25 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
 func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if labels == nil {
 		// No push needed - the Endpoints object will also be triggered.
+		s.mutex.Lock()
 		delete(s.WorkloadsByID, id)
+		s.mutex.Unlock()
 		return
 	}
+	s.mutex.RLock()
 	w, f := s.WorkloadsByID[id]
+	s.mutex.RUnlock()
 	if !f {
 		// First time this workload has been seen. Likely never connected, no need to
 		// push
+		s.mutex.Lock()
 		s.WorkloadsByID[id] = &Workload{
 			Labels:      labels,
 			Annotations: annotations,
 		}
+		s.mutex.Unlock()
 		return
 	}
 	if reflect.DeepEqual(w.Labels, labels) {
@@ -507,11 +510,10 @@ func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
 // Once proxy/envoy/discovery is merged into v2 discovery this can become non-public.
 func (s *DiscoveryServer) BeforePush() map[string]*model.EndpointShardsByService {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	edsUpdates := s.edsUpdates
 	// Reset - any new updates will be tracked by the new map
 	s.edsUpdates = map[string]*model.EndpointShardsByService{}
+	s.mutex.Unlock()
 
 	return edsUpdates
 }
@@ -755,10 +757,9 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 		return
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
+	c.mutex.RLock()
 	oldcon := c.EdsClients[node]
+	c.mutex.RUnlock()
 	if oldcon == nil {
 		adsLog.Warnf("EDS: Envoy restart %s %v, cleanup old connection missing %v", node, connection.PeerAddr, c.EdsClients)
 		return
@@ -767,16 +768,21 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 		adsLog.Infof("EDS: Envoy restart %s %v, cleanup old connection %v", node, connection.PeerAddr, oldcon.PeerAddr)
 		return
 	}
+	c.mutex.Lock()
 	delete(c.EdsClients, node)
 	if len(c.EdsClients) == 0 {
-		edsClusterMutex.Lock()
-		defer edsClusterMutex.Unlock()
+
 		// This happens when a previously used cluster is no longer watched by any
 		// sidecar. It should not happen very often - normally all clusters are sent
 		// in CDS requests to all sidecars. It may happen if all connections are closed.
 		adsLog.Infof("EDS: remove unwatched cluster node=%s cluster=%s", node, clusterName)
+
+		// Special case where both locks must be held.
+		edsClusterMutex.Lock()
 		delete(edsClusters, clusterName)
+		edsClusterMutex.Unlock()
 	}
+	c.mutex.Unlock()
 }
 
 // FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
