@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"runtime"
 	"testing"
+
+	"go.opencensus.io/stats/view"
 )
 
 func TestNewBuildInfoFromOldString(t *testing.T) {
@@ -112,6 +114,46 @@ func TestBuildInfo(t *testing.T) {
 			if v.in.LongForm() != v.longWant {
 				t.Errorf("got\n%s\nwant\n%s", v.in.LongForm(), v.longWant)
 			}
+		})
+	}
+}
+
+func TestRecordComponentBuildTag(t *testing.T) {
+	cases := []struct {
+		name    string
+		in      BuildInfo
+		wantTag string
+	}{
+		{"record", BuildInfo{
+			Version:       "VER",
+			GitRevision:   "GITREV",
+			Host:          "HOST",
+			GolangVersion: "GOLANGVER",
+			DockerHub:     "DH",
+			User:          "USER",
+			BuildStatus:   "STATUS",
+			GitTag:        "1.0.5-test"},
+			"1.0.5-test",
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			v.in.RecordComponentBuildTag("test")
+
+			d1, _ := view.RetrieveData("istio/build")
+			gauge := d1[0].Data.(*view.LastValueData)
+			if got, want := gauge.Value, 1.0; got != want {
+				t.Errorf("bad value for build tag gauge: got %f, want %f", got, want)
+			}
+
+			for _, tag := range d1[0].Tags {
+				if tag.Key == gitTagKey && tag.Value == v.wantTag {
+					return
+				}
+			}
+
+			t.Errorf("build tag not found for metric: %#v", d1)
 		})
 	}
 }
