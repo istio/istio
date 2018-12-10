@@ -69,23 +69,37 @@ type Options struct {
 
 // Server is the gPRC server that exposes SDS through UDS.
 type Server struct {
-	envoySds *sdsservice
+	workloadSds *sdsservice
+	gatewaySds  *sdsservice
 
-	grpcListener net.Listener
-	grpcServer   *grpc.Server
+	grpcWorkloadListener net.Listener
+	grpcGatewayListener  net.Listener
+
+	grpcWorkloadServer *grpc.Server
+	grpcGatewayServer  *grpc.Server
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options Options, st cache.SecretManager) (*Server, error) {
+func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		envoySds: newSDSService(st, options.IngressGatewayAgent),
+		workloadSds: newSDSService(workloadSecretCache, options.EnableWorkloadSDS),
+		gatewaySds:  newSDSService(gatewaySecretCache, options.EnableIngressGatewaySDS),
 	}
-	if err := s.initDiscoveryService(&options); err != nil {
-		log.Errorf("Failed to initialize secret discovery service: %v", err)
-		return nil, err
+	if options.EnableWorkloadSDS {
+		if err := s.initWorkloadSdsService(&options); err != nil {
+			log.Errorf("Failed to initialize secret discovery service for workload proxies: %v", err)
+			return nil, err
+		}
+		log.Infof("SDS gRPC server start, listen %q \n", options.WorkloadUDSPath)
 	}
 
-	log.Infof("SDS gRPC server start, listen %q \n", options.WorkloadUDSPath)
+	if options.EnableIngressGatewaySDS {
+		if err := s.initGatewaySdsService(&options); err != nil {
+			log.Errorf("Failed to initialize secret discovery service for ingress gateway: %v", err)
+			return nil, err
+		}
+		log.Infof("SDS gRPC server start, listen %q \n", options.IngressGatewayUDSPath)
+	}
 
 	return s, nil
 }
@@ -96,12 +110,18 @@ func (s *Server) Stop() {
 		return
 	}
 
-	if s.grpcListener != nil {
-		s.grpcListener.Close()
+	if s.grpcWorkloadListener != nil {
+		s.grpcWorkloadListener.Close()
+	}
+	if s.grpcGatewayListener != nil {
+		s.grpcGatewayListener.Close()
 	}
 
-	if s.grpcServer != nil {
-		s.grpcServer.Stop()
+	if s.grpcWorkloadServer != nil {
+		s.grpcWorkloadServer.Stop()
+	}
+	if s.grpcGatewayServer != nil {
+		s.grpcGatewayServer.Stop()
 	}
 }
 
@@ -116,9 +136,9 @@ func NewPlugins(in []string) []plugin.Plugin {
 	return plugins
 }
 
-func (s *Server) initDiscoveryService(options *Options) error {
-	s.grpcServer = grpc.NewServer(s.grpcServerOptions(options)...)
-	s.envoySds.register(s.grpcServer)
+func (s *Server) initWorkloadSdsService(options *Options) error {
+	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions(options)...)
+	s.workloadSds.register(s.grpcWorkloadServer)
 
 	// Remove unix socket before use.
 	if err := os.Remove(options.WorkloadUDSPath); err != nil && !os.IsNotExist(err) {
@@ -128,7 +148,7 @@ func (s *Server) initDiscoveryService(options *Options) error {
 	}
 
 	var err error
-	s.grpcListener, err = net.Listen("unix", options.WorkloadUDSPath)
+	s.grpcWorkloadListener, err = net.Listen("unix", options.WorkloadUDSPath)
 	if err != nil {
 		log.Errorf("Failed to listen on unix socket %q: %v", options.WorkloadUDSPath, err)
 		return err
@@ -145,7 +165,46 @@ func (s *Server) initDiscoveryService(options *Options) error {
 	}
 
 	go func() {
-		if err = s.grpcServer.Serve(s.grpcListener); err != nil {
+		if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
+			log.Errorf("SDS grpc server failed to start: %v", err)
+		}
+
+		log.Info("SDS grpc server started")
+	}()
+
+	return nil
+}
+
+func (s *Server) initGatewaySdsService(options *Options) error {
+	s.grpcGatewayServer = grpc.NewServer(s.grpcServerOptions(options)...)
+	s.gatewaySds.register(s.grpcGatewayServer)
+
+	// Remove unix socket before use.
+	if err := os.Remove(options.IngressGatewayUDSPath); err != nil && !os.IsNotExist(err) {
+		// Anything other than "file not found" is an error.
+		log.Errorf("Failed to remove unix://%s: %v", options.IngressGatewayUDSPath, err)
+		return fmt.Errorf("failed to remove unix://%s", options.IngressGatewayUDSPath)
+	}
+
+	var err error
+	s.grpcGatewayListener, err = net.Listen("unix", options.IngressGatewayUDSPath)
+	if err != nil {
+		log.Errorf("Failed to listen on unix socket %q: %v", options.IngressGatewayUDSPath, err)
+		return err
+	}
+
+	// Update SDS UDS file permission so that istio-proxy has permission to access it.
+	if _, err := os.Stat(options.IngressGatewayUDSPath); err != nil {
+		log.Errorf("SDS uds file %q doesn't exist", options.IngressGatewayUDSPath)
+		return fmt.Errorf("sds uds file %q doesn't exist", options.IngressGatewayUDSPath)
+	}
+	if err := os.Chmod(options.IngressGatewayUDSPath, 0666); err != nil {
+		log.Errorf("Failed to update %q permission", options.IngressGatewayUDSPath)
+		return fmt.Errorf("failed to update %q permission", options.IngressGatewayUDSPath)
+	}
+
+	go func() {
+		if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
 			log.Errorf("SDS grpc server failed to start: %v", err)
 		}
 

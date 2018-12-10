@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -43,9 +42,6 @@ const (
 	// The trust domain corresponds to the trust root of a system.
 	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	trustDomain = "Trust_Domain"
-
-	// Node agent could act as ingress gateway agent.
-	ingressGatewayAgent = "INGRESS_GATEWAY_AGENT"
 )
 
 var (
@@ -63,6 +59,11 @@ var (
 				return err
 			}
 
+			if serverOptions.EnableIngressGatewaySDS && serverOptions.EnableWorkloadSDS &&
+				serverOptions.IngressGatewayUDSPath == serverOptions.WorkloadUDSPath {
+				log.Error("UDS paths for ingress gateway and workload are the same")
+				os.Exit(1)
+			}
 			if serverOptions.CAProviderName == "" && serverOptions.EnableWorkloadSDS {
 				log.Error("CA Provider is missing")
 				os.Exit(1)
@@ -74,17 +75,15 @@ var (
 
 			stop := make(chan struct{})
 
-			secretFetcher, err := secretfetcher.NewSecretFetcher(serverOptions.IngressGatewayAgent, serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
-			if err != nil {
-				log.Errorf("failed to create secretFetcher: %v", err)
-				return fmt.Errorf("failed to create secretFetcher")
+			workloadSecretCache, gatewaySecretCache := newSecretCache(serverOptions)
+			if workloadSecretCache != nil {
+				defer workloadSecretCache.Close()
 			}
-			cacheOptions.TrustDomain = serverOptions.TrustDomain
-			cacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
-			sc := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, cacheOptions)
-			defer sc.Close()
+			if gatewaySecretCache != nil {
+				defer gatewaySecretCache.Close()
+			}
 
-			server, err := sds.NewServer(serverOptions, sc)
+			server, err := sds.NewServer(serverOptions, workloadSecretCache, gatewaySecretCache)
 			defer server.Stop()
 			if err != nil {
 				log.Errorf("failed to create sds service: %v", err)
@@ -97,6 +96,35 @@ var (
 		},
 	}
 )
+
+func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
+	if serverOptions.EnableWorkloadSDS {
+		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
+		if err != nil {
+			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
+			os.Exit(1)
+		}
+		cacheOptions.TrustDomain = serverOptions.TrustDomain
+		cacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, cacheOptions)
+	} else {
+		workloadSecretCache = nil
+	}
+
+	if serverOptions.EnableIngressGatewaySDS {
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
+		if err != nil {
+			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+			os.Exit(1)
+		}
+		cacheOptions.TrustDomain = serverOptions.TrustDomain
+		cacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+		gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, cacheOptions)
+	} else {
+		gatewaySecretCache = nil
+	}
+	return workloadSecretCache, gatewaySecretCache
+}
 
 func init() {
 	pluginNames := os.Getenv(pluginNames)

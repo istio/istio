@@ -48,9 +48,6 @@ const (
 	// The config file name for kubernetes client.
 	KubeConfigFile = "kube-config"
 
-	// The prefix of a key which maps to a kubernetes secret. The resource name in a SDS request sent
-	// by an ingress gateway is secret.<secret name>. We use the same format as key for secret lookup.
-	resourcePrefix = "secret."
 	// The ID/name for the certificate chain in kubernetes secret.
 	scrtCert = "cert"
 	// The ID/name for the key in kubernetes secret.
@@ -138,7 +135,7 @@ func (sc *SecretFetcher) scrtAdded(obj interface{}) {
 	}
 
 	t := time.Now()
-	resourceName := resourcePrefix + scrt.GetName()
+	resourceName := scrt.GetName()
 
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
@@ -158,7 +155,7 @@ func (sc *SecretFetcher) scrtDeleted(obj interface{}) {
 		return
 	}
 
-	key := resourcePrefix + scrt.GetName()
+	key := scrt.GetName()
 	sc.secrets.Delete(key)
 	log.Debugf("secret %s is deleted", scrt.GetName())
 }
