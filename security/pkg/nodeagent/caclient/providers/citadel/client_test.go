@@ -59,7 +59,7 @@ func TestCitadelClient(t *testing.T) {
 	// The goroutine starting the server may not be ready, results in flakiness.
 	time.Sleep(1 * time.Second)
 
-	cli, err := NewCitadelClient(lis.Addr().String(), false, "")
+	cli, err := NewCitadelClient(lis.Addr().String(), false, nil)
 	if err != nil {
 		t.Fatalf("failed to create ca client: %v", err)
 	}

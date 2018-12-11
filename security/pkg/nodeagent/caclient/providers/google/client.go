@@ -35,7 +35,7 @@ type googleCAClient struct {
 	client     gcapb.IstioCertificateServiceClient
 }
 
-// NewGoogleCAClient create an CA client for Google CA.
+// NewGoogleCAClient create a CA client for Google CA.
 func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, error) {
 	c := &googleCAClient{
 		caEndpoint: endpoint,
@@ -63,6 +63,7 @@ func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, err
 	return c, nil
 }
 
+// CSR Sign calls Google CA to sign a CSR.
 func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &gcapb.IstioCertificateRequest{

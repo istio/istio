@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -34,18 +33,18 @@ import (
 const caServerName = "istio-citadel"
 
 type citadelClient struct {
-	caEndpoint        string
-	enableTLS         bool
-	caTLSRootCertFile string
-	client            pb.IstioCertificateServiceClient
+	caEndpoint    string
+	enableTLS     bool
+	caTLSRootCert []byte
+	client        pb.IstioCertificateServiceClient
 }
 
-// NewCitadelClient create an CA client for Google CA.
-func NewCitadelClient(endpoint string, tls bool, rootFile string) (caClientInterface.Client, error) {
+// NewCitadelClient create a CA client for Citadel.
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte) (caClientInterface.Client, error) {
 	c := &citadelClient{
-		caEndpoint:        endpoint,
-		enableTLS:         tls,
-		caTLSRootCertFile: rootFile,
+		caEndpoint:    endpoint,
+		enableTLS:     tls,
+		caTLSRootCert: rootCert,
 	}
 
 	var opts grpc.DialOption
@@ -69,6 +68,7 @@ func NewCitadelClient(endpoint string, tls bool, rootFile string) (caClientInter
 	return c, nil
 }
 
+// CSR Sign calls Citadel to sign a CSR.
 func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
@@ -95,12 +95,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Load the TLS root certificate from the specified file.
 	// Create a certificate pool
 	certPool := x509.NewCertPool()
-	bs, err := ioutil.ReadFile(c.caTLSRootCertFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CA cert file %s. %v", c.caTLSRootCertFile, err)
-	}
-
-	ok := certPool.AppendCertsFromPEM(bs)
+	ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
 	if !ok {
 		return nil, fmt.Errorf("failed to append certificates")
 	}

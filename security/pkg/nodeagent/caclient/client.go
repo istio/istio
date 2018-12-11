@@ -15,26 +15,75 @@
 package caclient
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
+
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/k8s/controller"
 
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 )
 
-const googleCAName = "GoogleCA"
-const citadelName = "Citadel"
+const (
+	googleCAName = "GoogleCA"
+	citadelName  = "Citadel"
+
+	retryInterval = time.Second * 2
+	maxRetries    = 100
+)
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint, CAProviderName, caTLSRootCertFile string, tlsFlag bool) (caClientInterface.Client, error) {
+func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
 	switch CAProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
 	case citadelName:
-		return citadel.NewCitadelClient(endpoint, tlsFlag, caTLSRootCertFile)
+		rootCert, err := getCATLSRootCertFromConfigMap()
+		if err != nil {
+			return nil, err
+		}
+		return citadel.NewCitadelClient(endpoint, tlsFlag, rootCert)
 	default:
 		return nil, fmt.Errorf(
 			"CA provider %q isn't supported. Currently Istio supports %q", CAProviderName, strings.Join([]string{googleCAName, citadelName}, ","))
 	}
+}
+
+func getCATLSRootCertFromConfigMap() ([]byte, error) {
+	// Get the kubeconfig from the K8s cluster the node agent is running in.
+	kubeconfig, err := restclient.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot load kubeconfig: %v", err)
+	}
+	clientSet, err := kubernetes.NewForConfig(kubeconfig)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create a clientset (error: %v)", err)
+	}
+	controller := controller.NewConfigMapController("", clientSet.CoreV1())
+
+	cert := ""
+	// Keep retrying until the root cert is fetched.
+	for i := 0; i < maxRetries; i++ {
+		cert, err = controller.GetCATLSRootCert()
+		if err == nil {
+			break
+		}
+		time.Sleep(retryInterval)
+		log.Infof("unalbe to fetch CA TLS root cert, retry in %v", retryInterval)
+	}
+	if cert == "" {
+		return nil, fmt.Errorf("exhausted all the retries (%d) to fetch the CA root cert", maxRetries)
+	}
+
+	certDecoded, err := base64.StdEncoding.DecodeString(cert)
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode root cert used to call Citadel: %v", err)
+	}
+	return certDecoded, nil
 }
