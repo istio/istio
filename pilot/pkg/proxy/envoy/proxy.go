@@ -92,7 +92,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	} else {
 		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ())
 		if err != nil {
-			log.Errora("Failed to generate bootstrap config", err)
+			log.Errora("Failed to generate bootstrap config ", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report
 			return err
 		}
