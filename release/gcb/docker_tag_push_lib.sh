@@ -87,9 +87,7 @@ function add_docker_creds() {
   if [[ "${PUSH_HUB}" == gcr.io* ]]; then
     gcloud auth configure-docker -q
     return
-  fi
-
-  if [[ "${PUSH_HUB}" == "docker.io/testistio" ]]; then
+  elif [[ "${PUSH_HUB}" == "docker.io/testistio" ]]; then
     gsutil -q cp "gs://istio-secrets/docker.test.json" "$HOME/.docker/config.json"
   fi
 }
