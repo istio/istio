@@ -118,6 +118,9 @@ spec:
           - istio-pilot:15010
           {{- end }}
         {{- end }}
+        {{- if $.Values.global.trustDomain }}
+          - --trust-domain={{ $.Values.global.trustDomain }}
+        {{- end }}
           resources:
 {{- if $spec.resources }}
 {{ toYaml $spec.resources | indent 12 }}

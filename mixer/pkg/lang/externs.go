@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/idna"
 
 	config "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/lang/ast"
 )
@@ -324,8 +325,8 @@ func externEndsWith(str string, suffix string) bool {
 	return strings.HasSuffix(str, suffix)
 }
 
-func externEmptyStringMap() map[string]string {
-	return map[string]string{}
+func externEmptyStringMap() attribute.StringMap {
+	return attribute.WrapStringMap(nil)
 }
 
 func externConditionalString(condition bool, trueStr, falseStr string) string {

@@ -617,7 +617,7 @@ var defaultReportInstanceParam = sample_report.InstanceParam{
 var defaultReportInstance = &sample_report.Instance{
 	Name:            "instance1",
 	Value:           int64(1),
-	Dimensions:      map[string]interface{}{"s": int64(2), "p": net.ParseIP("2.3.4.5")},
+	Dimensions:      map[string]interface{}{"s": int64(2), "p": []byte(net.ParseIP("2.3.4.5"))},
 	BoolPrimitive:   true,
 	DoublePrimitive: 1.2,
 	Int64Primitive:  54362,
