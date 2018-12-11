@@ -47,8 +47,8 @@ type Entry struct {
 var converters = func() map[string]Fn {
 	m := make(map[string]Fn)
 
-	// Why not simply declare it as a map? Because "make format" doesn't handle formatting in a way that
-	// is acceptable to the lint check gateway, not nolint annotations do not work.
+	// Why not simply declare it as a map? Because "make format" doesn't format in a way that
+	// is acceptable to the lint check-in gate, and nolint annotations do not work.
 	m["identity"] = identity
 	m["nil"] = nilConverter
 	m["legacy-mixer-resource"] = legacyMixerResource
