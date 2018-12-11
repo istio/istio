@@ -82,33 +82,15 @@ function add_docker_creds() {
   local PUSH_HUB
   PUSH_HUB="$1"
 
-  local ADD_DOCKER_KEY
-  ADD_DOCKER_KEY="true"
-  if [[ "${ADD_DOCKER_KEY}" != "true" ]]; then
-     return
-  fi
-
-  if [[ "${PUSH_HUB}" == "docker.io/istio" ]]; then
-    echo "using istio cred for docker"
-    KEYRING="Secrets"
-    KEY="DockerHub"
-
-    gsutil -q cp gs://istio-secrets/dockerhub_config.json.enc "$HOME/.docker/config.json.enc"
-    gcloud kms decrypt \
-       --ciphertext-file="$HOME/.docker/config.json.enc" \
-       --plaintext-file="$HOME/.docker/config.json" \
-       --location=global \
-       --keyring="${KEYRING}" \
-       --key="${KEY}"
+  cp -r "${DOCKER_CONFIG}" "$HOME/.docker"
+  export DOCKER_CONFIG="$HOME/.docker"
+  if [[ "${PUSH_HUB}" == gcr.io* ]]; then
+    gcloud auth configure-docker -q
     return
   fi
 
   if [[ "${PUSH_HUB}" == "docker.io/testistio" ]]; then
     gsutil -q cp "gs://istio-secrets/docker.test.json" "$HOME/.docker/config.json"
-  fi
-
-  if [[ "${PUSH_HUB}" == gcr.io* ]]; then
-    gcloud auth configure-docker -q
   fi
 }
 
