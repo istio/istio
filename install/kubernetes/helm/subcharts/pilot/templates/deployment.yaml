@@ -65,8 +65,8 @@ spec:
           - --mcpServerAddrs=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
     {{- end }}
 {{- end }}
-{{- if .Values.global.identityDomain }}
-          - --identity-domain={{ .Values.global.identityDomain }}
+{{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
           ports:
           - containerPort: 8080

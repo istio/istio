@@ -162,8 +162,8 @@ func init() {
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate")
-	flags.StringVar(&opts.trustDomain, "trust-domain", spiffe.DefaultTrustDomain,
-		fmt.Sprintf("The domain serves to identify the system with spiffe (default: %s)", spiffe.DefaultTrustDomain))
+	flags.StringVar(&opts.trustDomain, "trust-domain", "",
+		"The domain serves to identify the system with spiffe ")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
 		"CA. When set, the CA will rely on the upstream Citadel to provision its own certificate.")
@@ -404,7 +404,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, "", len(opts.kubeConfigFile) != 0))
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL,  opts.dualUse,
+			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
 			opts.istioCaStorageNamespace, client)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)

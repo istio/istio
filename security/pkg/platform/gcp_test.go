@@ -17,7 +17,6 @@ package platform
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"testing"
 
@@ -57,7 +56,6 @@ func (fetcher *mockTokenFetcher) FetchServiceAccount() (string, error) {
 }
 
 func TestGcpGetServiceIdentity(t *testing.T) {
-	spiffe.SetIdentityDomain("cluster.local")
 	testCases := map[string]struct {
 		rootCertFile string
 		sa           string

@@ -468,7 +468,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 }
 
 func TestController_GetIstioServiceAccounts(t *testing.T) {
+	oldTrustDomain := spiffe.GetTrustDomain()
 	spiffe.SetTrustDomain(domainSuffix)
+	defer spiffe.SetTrustDomain(oldTrustDomain)
+
 	controller, fx := newFakeController(t)
 	defer controller.Stop()
 

@@ -49,7 +49,6 @@ type testStruct struct {
 }
 
 func TestSpiffeID(t *testing.T) {
-	spiffe.SetIdentityDomain("cluster.local")
 	testCases := []testStruct {
 		{
 			name:      "foo",

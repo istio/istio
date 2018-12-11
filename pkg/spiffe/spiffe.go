@@ -9,10 +9,10 @@ const (
 	Scheme = "spiffe"
 
 	// The default SPIFFE URL value for trust domain
-	DefaultTrustDomain = "cluster.local"
+	defaultTrustDomain = "cluster.local"
 )
 
-var trustDomain = DefaultTrustDomain
+var trustDomain = defaultTrustDomain
 
 func SetTrustDomain(value string) {
 	trustDomain = value
@@ -35,7 +35,7 @@ func DetermineTrustDomain(commandLineTrustDomain string, domain string, isKubern
 		return domain
 	}
 	if isKubernetes {
-		return DefaultTrustDomain
+		return defaultTrustDomain
 	} else {
 		return domain
 	}

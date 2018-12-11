@@ -191,7 +191,7 @@ func TestExtractIDs(t *testing.T) {
 		},
 		"Extensions with bad SAN": {
 			exts: []pkix.Extension{
-				{Id: asn1.ObjectIdentifier{2, 5, 29, 17}, Value: []byte("bad spiffe bytes")},
+				{Id: asn1.ObjectIdentifier{2, 5, 29, 17}, Value: []byte("bad san bytes")},
 			},
 			expectedIDs:    nil,
 			expectedErrMsg: "failed to extract identities from SAN extension (error asn1: syntax error: data truncated)",

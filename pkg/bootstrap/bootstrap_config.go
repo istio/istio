@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/istio/pkg/spiffe"
 	"net"
 	"os"
 	"os/exec"
@@ -49,6 +50,11 @@ const (
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 )
+
+func defaultPilotSan() []string {
+	return []string{
+		spiffe.MustGenSpiffeURI("istio-system","istio-pilot-service-account")}
+}
 
 func configFile(config string, epoch int) string {
 	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch))
@@ -213,13 +219,10 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 	opts["config"] = config
 
-
-
 	if pilotSAN == nil {
-		//panic("pilotSAN should not be nil")
-
-		opts["pilot_SAN"] = pilotSAN
+		pilotSAN = defaultPilotSan()
 	}
+	opts["pilot_SAN"] = pilotSAN
 
 	// Simplify the template
 	opts["connect_timeout"] = (&types.Duration{Seconds: config.ConnectTimeout.Seconds, Nanos: config.ConnectTimeout.Nanos}).String()

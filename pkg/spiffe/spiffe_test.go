@@ -6,7 +6,6 @@ import (
 )
 
 func TestGenSpiffeURI(t *testing.T) {
-	SetIdentityDomain("cluster.local")
 	testCases := []struct {
 		namespace      string
 		serviceAccount string

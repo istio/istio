@@ -16,12 +16,12 @@ package kube
 
 import (
 	"fmt"
+	multierror "github.com/hashicorp/go-multierror"
 	"istio.io/istio/pkg/spiffe"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -140,11 +140,6 @@ func externalNameServiceInstances(k8sSvc v1.Service, svc *model.Service) []*mode
 // serviceHostname produces FQDN for a k8s service
 func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 	return model.Hostname(fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix))
-}
-
-// canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
-func canonicalToIstioServiceAccount(saname string) string {
-	return fmt.Sprintf("%v://%s/%v", spiffe.Scheme, spiffe.GetTrustDomain(), saname)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

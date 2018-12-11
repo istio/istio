@@ -17,7 +17,6 @@ package aggregate
 import (
 	"errors"
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"testing"
 
@@ -397,7 +396,6 @@ func TestInstancesError(t *testing.T) {
 }
 
 func TestGetIstioServiceAccounts(t *testing.T) {
-	spiffe.SetIdentityDomain("cluster.local")
 	aggregateCtl := buildMockController()
 
 	// Get accounts from mockAdapter1
