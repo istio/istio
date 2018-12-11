@@ -1609,7 +1609,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:68ba16d82682d764ae807dc99eb4527cefc541d0f1d8d2827881536e727fa115"
+  digest = "1:d2018eecbaf5e4b1c1d12fa0653ede7e8690c67b6b9ef1addbddec3f36b1a8fb"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",

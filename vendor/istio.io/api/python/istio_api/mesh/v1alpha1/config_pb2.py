@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mesh/v1alpha1/config.proto',
   package='istio.mesh.v1alpha1',
   syntax='proto3',
-  serialized_pb=_b('\n\x1amesh/v1alpha1/config.proto\x12\x13istio.mesh.v1alpha1\x1a\x1egoogle/protobuf/duration.proto\x1a\x19mesh/v1alpha1/proxy.proto\x1a*networking/v1alpha3/destination_rule.proto\"\xf7\r\n\nMeshConfig\x12\x1a\n\x12mixer_check_server\x18\x01 \x01(\t\x12\x1b\n\x13mixer_report_server\x18\x02 \x01(\t\x12\x1d\n\x15\x64isable_policy_checks\x18\x03 \x01(\x08\x12\x1e\n\x16policy_check_fail_open\x18\x19 \x01(\x08\x12\x19\n\x11proxy_listen_port\x18\x04 \x01(\x05\x12\x17\n\x0fproxy_http_port\x18\x05 \x01(\x05\x12\x32\n\x0f\x63onnect_timeout\x18\x06 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x61\n\rtcp_keepalive\x18\x1c \x01(\x0b\x32J.istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive\x12\x15\n\ringress_class\x18\x07 \x01(\t\x12\x17\n\x0fingress_service\x18\x08 \x01(\t\x12V\n\x17ingress_controller_mode\x18\t \x01(\x0e\x32\x35.istio.mesh.v1alpha1.MeshConfig.IngressControllerMode\x12\x43\n\x0b\x61uth_policy\x18\n \x01(\x0e\x32*.istio.mesh.v1alpha1.MeshConfig.AuthPolicyB\x02\x18\x01\x12\x38\n\x11rds_refresh_delay\x18\x0b \x01(\x0b\x32\x19.google.protobuf.DurationB\x02\x18\x01\x12\x16\n\x0e\x65nable_tracing\x18\x0c \x01(\x08\x12\x17\n\x0f\x61\x63\x63\x65ss_log_file\x18\r \x01(\t\x12\x19\n\x11\x61\x63\x63\x65ss_log_format\x18\x18 \x01(\t\x12N\n\x13\x61\x63\x63\x65ss_log_encoding\x18\x1b \x01(\x0e\x32\x31.istio.mesh.v1alpha1.MeshConfig.AccessLogEncoding\x12\x38\n\x0e\x64\x65\x66\x61ult_config\x18\x0e \x01(\x0b\x32 .istio.mesh.v1alpha1.ProxyConfig\x12\x19\n\rmixer_address\x18\x10 \x01(\tB\x02\x18\x01\x12Z\n\x17outbound_traffic_policy\x18\x11 \x01(\x0b\x32\x35.istio.mesh.v1alpha1.MeshConfig.OutboundTrafficPolicyB\x02\x18\x01\x12\'\n\x1f\x65nable_client_side_policy_check\x18\x13 \x01(\x08\x12\x14\n\x0csds_uds_path\x18\x14 \x01(\t\x12\x38\n\x11sds_refresh_delay\x18\x15 \x01(\x0b\x32\x19.google.protobuf.DurationB\x02\x18\x01\x12\x39\n\x0e\x63onfig_sources\x18\x16 \x03(\x0b\x32!.istio.mesh.v1alpha1.ConfigSource\x12\x1e\n\x16\x65nable_sds_token_mount\x18\x17 \x01(\x08\x12\x14\n\x0ctrust_domain\x18\x1a \x01(\t\x12\\\n\x1a\x64\x65\x66\x61ult_service_dependency\x18\x1d \x01(\x0b\x32\x38.istio.mesh.v1alpha1.MeshConfig.DefaultServiceDependency\x1a\xb5\x01\n\x15OutboundTrafficPolicy\x12L\n\x04mode\x18\x01 \x01(\x0e\x32:.istio.mesh.v1alpha1.MeshConfig.OutboundTrafficPolicy.ModeB\x02\x18\x01\"N\n\x04Mode\x12\x15\n\rREGISTRY_ONLY\x10\x00\x1a\x02\x08\x01\x12\x11\n\tALLOW_ANY\x10\x01\x1a\x02\x08\x01\x12\x1c\n\x14VIRTUAL_SERVICE_ONLY\x10\x02\x1a\x02\x08\x01\x1a\xb9\x01\n\x18\x44\x65\x66\x61ultServiceDependency\x12R\n\x0bimport_mode\x18\x01 \x01(\x0e\x32=.istio.mesh.v1alpha1.MeshConfig.DefaultServiceDependency.Mode\x12\x19\n\x11import_namespaces\x18\x02 \x03(\t\".\n\x04Mode\x12\x12\n\x0e\x41LL_NAMESPACES\x10\x00\x12\x12\n\x0eSAME_NAMESPACE\x10\x01\"9\n\x15IngressControllerMode\x12\x07\n\x03OFF\x10\x00\x12\x0b\n\x07\x44\x45\x46\x41ULT\x10\x01\x12\n\n\x06STRICT\x10\x02\"&\n\nAuthPolicy\x12\x08\n\x04NONE\x10\x00\x12\x0e\n\nMUTUAL_TLS\x10\x01\"\'\n\x11\x41\x63\x63\x65ssLogEncoding\x12\x08\n\x04TEXT\x10\x00\x12\x08\n\x04JSON\x10\x01J\x04\x08\x0f\x10\x10J\x04\x08\x12\x10\x13\"]\n\x0c\x43onfigSource\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12<\n\x0ctls_settings\x18\x02 \x01(\x0b\x32&.istio.networking.v1alpha3.TLSSettingsB\x1cZ\x1aistio.io/api/mesh/v1alpha1b\x06proto3')
+  serialized_pb=_b('\n\x1amesh/v1alpha1/config.proto\x12\x13istio.mesh.v1alpha1\x1a\x1egoogle/protobuf/duration.proto\x1a\x19mesh/v1alpha1/proxy.proto\x1a*networking/v1alpha3/destination_rule.proto\"\x93\x0e\n\nMeshConfig\x12\x1a\n\x12mixer_check_server\x18\x01 \x01(\t\x12\x1b\n\x13mixer_report_server\x18\x02 \x01(\t\x12\x1d\n\x15\x64isable_policy_checks\x18\x03 \x01(\x08\x12\x1e\n\x16policy_check_fail_open\x18\x19 \x01(\x08\x12\x19\n\x11proxy_listen_port\x18\x04 \x01(\x05\x12\x17\n\x0fproxy_http_port\x18\x05 \x01(\x05\x12\x32\n\x0f\x63onnect_timeout\x18\x06 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x61\n\rtcp_keepalive\x18\x1c \x01(\x0b\x32J.istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive\x12\x15\n\ringress_class\x18\x07 \x01(\t\x12\x17\n\x0fingress_service\x18\x08 \x01(\t\x12V\n\x17ingress_controller_mode\x18\t \x01(\x0e\x32\x35.istio.mesh.v1alpha1.MeshConfig.IngressControllerMode\x12\x43\n\x0b\x61uth_policy\x18\n \x01(\x0e\x32*.istio.mesh.v1alpha1.MeshConfig.AuthPolicyB\x02\x18\x01\x12\x38\n\x11rds_refresh_delay\x18\x0b \x01(\x0b\x32\x19.google.protobuf.DurationB\x02\x18\x01\x12\x16\n\x0e\x65nable_tracing\x18\x0c \x01(\x08\x12\x17\n\x0f\x61\x63\x63\x65ss_log_file\x18\r \x01(\t\x12\x19\n\x11\x61\x63\x63\x65ss_log_format\x18\x18 \x01(\t\x12N\n\x13\x61\x63\x63\x65ss_log_encoding\x18\x1b \x01(\x0e\x32\x31.istio.mesh.v1alpha1.MeshConfig.AccessLogEncoding\x12\x38\n\x0e\x64\x65\x66\x61ult_config\x18\x0e \x01(\x0b\x32 .istio.mesh.v1alpha1.ProxyConfig\x12\x19\n\rmixer_address\x18\x10 \x01(\tB\x02\x18\x01\x12Z\n\x17outbound_traffic_policy\x18\x11 \x01(\x0b\x32\x35.istio.mesh.v1alpha1.MeshConfig.OutboundTrafficPolicyB\x02\x18\x01\x12\'\n\x1f\x65nable_client_side_policy_check\x18\x13 \x01(\x08\x12\x14\n\x0csds_uds_path\x18\x14 \x01(\t\x12\x38\n\x11sds_refresh_delay\x18\x15 \x01(\x0b\x32\x19.google.protobuf.DurationB\x02\x18\x01\x12\x39\n\x0e\x63onfig_sources\x18\x16 \x03(\x0b\x32!.istio.mesh.v1alpha1.ConfigSource\x12\x1e\n\x16\x65nable_sds_token_mount\x18\x17 \x01(\x08\x12\x1a\n\x12sds_use_k8s_sa_jwt\x18\x1e \x01(\x08\x12\x14\n\x0ctrust_domain\x18\x1a \x01(\t\x12\\\n\x1a\x64\x65\x66\x61ult_service_dependency\x18\x1d \x01(\x0b\x32\x38.istio.mesh.v1alpha1.MeshConfig.DefaultServiceDependency\x1a\xb5\x01\n\x15OutboundTrafficPolicy\x12L\n\x04mode\x18\x01 \x01(\x0e\x32:.istio.mesh.v1alpha1.MeshConfig.OutboundTrafficPolicy.ModeB\x02\x18\x01\"N\n\x04Mode\x12\x15\n\rREGISTRY_ONLY\x10\x00\x1a\x02\x08\x01\x12\x11\n\tALLOW_ANY\x10\x01\x1a\x02\x08\x01\x12\x1c\n\x14VIRTUAL_SERVICE_ONLY\x10\x02\x1a\x02\x08\x01\x1a\xb9\x01\n\x18\x44\x65\x66\x61ultServiceDependency\x12R\n\x0bimport_mode\x18\x01 \x01(\x0e\x32=.istio.mesh.v1alpha1.MeshConfig.DefaultServiceDependency.Mode\x12\x19\n\x11import_namespaces\x18\x02 \x03(\t\".\n\x04Mode\x12\x12\n\x0e\x41LL_NAMESPACES\x10\x00\x12\x12\n\x0eSAME_NAMESPACE\x10\x01\"9\n\x15IngressControllerMode\x12\x07\n\x03OFF\x10\x00\x12\x0b\n\x07\x44\x45\x46\x41ULT\x10\x01\x12\n\n\x06STRICT\x10\x02\"&\n\nAuthPolicy\x12\x08\n\x04NONE\x10\x00\x12\x0e\n\nMUTUAL_TLS\x10\x01\"\'\n\x11\x41\x63\x63\x65ssLogEncoding\x12\x08\n\x04TEXT\x10\x00\x12\x08\n\x04JSON\x10\x01J\x04\x08\x0f\x10\x10J\x04\x08\x12\x10\x13\"]\n\x0c\x43onfigSource\x12\x0f\n\x07\x61\x64\x64ress\x18\x01 \x01(\t\x12<\n\x0ctls_settings\x18\x02 \x01(\x0b\x32&.istio.networking.v1alpha3.TLSSettingsB\x1cZ\x1aistio.io/api/mesh/v1alpha1b\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,mesh_dot_v1alpha1_dot_proxy__pb2.DESCRIPTOR,networking_dot_v1alpha3_dot_destination__rule__pb2.DESCRIPTOR,])
 
@@ -49,8 +49,8 @@ _MESHCONFIG_OUTBOUNDTRAFFICPOLICY_MODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1520,
-  serialized_end=1598,
+  serialized_start=1548,
+  serialized_end=1626,
 )
 _sym_db.RegisterEnumDescriptor(_MESHCONFIG_OUTBOUNDTRAFFICPOLICY_MODE)
 
@@ -71,8 +71,8 @@ _MESHCONFIG_DEFAULTSERVICEDEPENDENCY_MODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1740,
-  serialized_end=1786,
+  serialized_start=1768,
+  serialized_end=1814,
 )
 _sym_db.RegisterEnumDescriptor(_MESHCONFIG_DEFAULTSERVICEDEPENDENCY_MODE)
 
@@ -97,8 +97,8 @@ _MESHCONFIG_INGRESSCONTROLLERMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1788,
-  serialized_end=1845,
+  serialized_start=1816,
+  serialized_end=1873,
 )
 _sym_db.RegisterEnumDescriptor(_MESHCONFIG_INGRESSCONTROLLERMODE)
 
@@ -119,8 +119,8 @@ _MESHCONFIG_AUTHPOLICY = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1847,
-  serialized_end=1885,
+  serialized_start=1875,
+  serialized_end=1913,
 )
 _sym_db.RegisterEnumDescriptor(_MESHCONFIG_AUTHPOLICY)
 
@@ -141,8 +141,8 @@ _MESHCONFIG_ACCESSLOGENCODING = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=1887,
-  serialized_end=1926,
+  serialized_start=1915,
+  serialized_end=1954,
 )
 _sym_db.RegisterEnumDescriptor(_MESHCONFIG_ACCESSLOGENCODING)
 
@@ -174,8 +174,8 @@ _MESHCONFIG_OUTBOUNDTRAFFICPOLICY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1417,
-  serialized_end=1598,
+  serialized_start=1445,
+  serialized_end=1626,
 )
 
 _MESHCONFIG_DEFAULTSERVICEDEPENDENCY = _descriptor.Descriptor(
@@ -212,8 +212,8 @@ _MESHCONFIG_DEFAULTSERVICEDEPENDENCY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1601,
-  serialized_end=1786,
+  serialized_start=1629,
+  serialized_end=1814,
 )
 
 _MESHCONFIG = _descriptor.Descriptor(
@@ -399,14 +399,21 @@ _MESHCONFIG = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='trust_domain', full_name='istio.mesh.v1alpha1.MeshConfig.trust_domain', index=25,
+      name='sds_use_k8s_sa_jwt', full_name='istio.mesh.v1alpha1.MeshConfig.sds_use_k8s_sa_jwt', index=25,
+      number=30, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='trust_domain', full_name='istio.mesh.v1alpha1.MeshConfig.trust_domain', index=26,
       number=26, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='default_service_dependency', full_name='istio.mesh.v1alpha1.MeshConfig.default_service_dependency', index=26,
+      name='default_service_dependency', full_name='istio.mesh.v1alpha1.MeshConfig.default_service_dependency', index=27,
       number=29, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
@@ -428,7 +435,7 @@ _MESHCONFIG = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=155,
-  serialized_end=1938,
+  serialized_end=1966,
 )
 
 
@@ -465,8 +472,8 @@ _CONFIGSOURCE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1940,
-  serialized_end=2033,
+  serialized_start=1968,
+  serialized_end=2061,
 )
 
 _MESHCONFIG_OUTBOUNDTRAFFICPOLICY.fields_by_name['mode'].enum_type = _MESHCONFIG_OUTBOUNDTRAFFICPOLICY_MODE
