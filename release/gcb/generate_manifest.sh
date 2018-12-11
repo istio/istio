@@ -28,10 +28,23 @@ set -x
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb/gcb_lib.sh
+# this function sets variable TEST_INFRA_DIR and githubctl
+function githubctl_setup() {
+  GOPATH=$PWD/go
+  mkdir -p go/bin
+  GOBIN=$GOPATH/bin
 
-source "${SCRIPTPATH}/gcb_lib.sh"
+  go get -u istio.io/test-infra/toolbox/githubctl
+  githubctl="$GOBIN/githubctl"
+  export githubctl
+  TEST_INFRA_DIR="$GOPATH/src/istio.io/test-infra/"
+  export TEST_INFRA_DIR
+}
+
+function github_keys() {
+  GITHUB_KEYFILE="${GITHUB_TOKEN_FILE}"
+  export GITHUB_KEYFILE
+}
 
 function checkout_code() {
   local REPO=$1
@@ -205,20 +218,19 @@ popd
 CLONE_DIR=$(mktemp -d)
 pushd "${CLONE_DIR}"
   githubctl_setup
-  gsutil -q cp -P "$githubctl" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/"
 
+  MANIFEST_FILE="/workspace/manifest.txt"
   BASE_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/${CB_BRANCH}-manifest.txt"
   BASE_MASTER_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/master-manifest.txt"
 
   NEW_BRANCH="false"
-  gsutil -q cp "${BASE_MANIFEST_URL}" "manifest.txt"  || NEW_BRANCH="true"
+  gsutil -q cp "${BASE_MANIFEST_URL}" "$MANIFEST_FILE"  || NEW_BRANCH="true"
   if [[ "${NEW_BRANCH}" == "true" ]]; then
    if [[ "${CB_COMMIT}" == "" ]]; then
      CB_COMMIT="HEAD" # just use head of branch as green sha
    fi
-   gsutil -q cp "${BASE_MASTER_MANIFEST_URL}" "manifest.txt"
+   gsutil -q cp "${BASE_MASTER_MANIFEST_URL}" "$MANIFEST_FILE"
   fi
-  MANIFEST_FILE="$PWD/manifest.txt"
 
   git clone "https://github.com/${CB_GITHUB_ORG}/istio" -b "${CB_BRANCH}"
 
@@ -234,8 +246,3 @@ pushd "${CLONE_DIR}"
 
 popd # "${CLONE_DIR}"
 rm -rf "${CLONE_DIR}"
-
-  gsutil -mq cp -P istio/release/gcb/*sh      "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb/"
-  gsutil -mq cp -P istio/release/gcb/*json    "gs://${CB_GCS_RELEASE_TOOLS_PATH}/gcb/"
-  gsutil -mq cp -P istio/release/pipeline/*sh "gs://${CB_GCS_RELEASE_TOOLS_PATH}/pipeline/"
-
