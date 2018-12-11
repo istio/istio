@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 
@@ -354,4 +355,60 @@ func TestBuildHandler_ConnectError(t *testing.T) {
 			t.Fatalf("unable to build handler: %v", err)
 		}
 		h.Close()*/
+}
+
+func TestHandlerTimeout(t *testing.T) {
+	args := spy.DefaultArgs()
+	args.Behavior.HandleMetricResult = &v1beta1.ReportResult{}
+	args.Behavior.HandleMetricSleep = 1 * time.Second
+	var s spy.Server
+	var err error
+	if s, err = spy.NewNoSessionServer(args); err != nil {
+		t.Fatalf("unable to start Spy")
+	}
+	s.Run()
+	defer func() {
+		_ = s.Close()
+	}()
+
+	t.Logf("Started server at: %v", s.Addr())
+
+	metricDi := loadInstance(t, "metric", "template/metric/template_handler_service.descriptor_set",
+		v1beta1.TEMPLATE_VARIETY_REPORT)
+
+	adapterConfig := &types.Any{
+		TypeUrl: "@abc",
+		Value:   []byte("abcd"),
+	}
+	timeout := 10 * time.Millisecond
+	h, err := BuildHandler("spy",
+		&attributeV1beta1.Connection{Address: s.Addr().String(), Timeout: &timeout}, false, adapterConfig,
+		[]*TemplateConfig{metricDi})
+	if err != nil {
+		t.Fatalf("cannot connect to remote handler %v", err)
+	}
+
+	minst := &metric.InstanceMsg{
+		Name: metricDi.Name,
+		Value: &attributeV1beta1.Value{
+			Value: &attributeV1beta1.Value_StringValue{
+				StringValue: "aaaaaaaaaaaaaaaa",
+			},
+		},
+	}
+	minstBa, _ := minst.Marshal()
+	mi := &adapter.EncodedInstance{
+		Name: metricDi.Name,
+		Data: minstBa,
+	}
+	start := time.Now()
+	if err := h.HandleRemoteReport(context.Background(), []*adapter.EncodedInstance{mi}); err == nil {
+		t.Fatalf("want HandleRemoteReport return error, got nil")
+	} else if !strings.Contains(err.Error(), "DeadlineExceeded") {
+		t.Fatalf("want HandleRemoteReport return deadline exceeded, got %v", err)
+	}
+	elapse := time.Since(start)
+	if elapse > 300*time.Millisecond {
+		t.Errorf("want elapse time less than 300 milliseconds, got %v", elapse)
+	}
 }
