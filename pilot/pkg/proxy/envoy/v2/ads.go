@@ -761,7 +761,6 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		}
 
 	}
-	return nil
 }
 
 func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.DiscoveryRequest, peerAddr string) {
@@ -879,7 +878,6 @@ func (s *DiscoveryServer) waitAck(con *XdsConnection) bool {
 		adsLog.Infof("Timeout waiting ACK %v", con.ConID)
 		return false
 	}
-	return true
 }
 
 // Compute and send the new configuration for a connection. This is blocking and may be slow
