@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
@@ -56,6 +57,9 @@ type (
 
 		// n generates dedupeID when not given.
 		n *atomic.Uint64
+
+		// timeout for remote handle calls.
+		timeout time.Duration
 	}
 
 	// Svc encapsulates abstract service
@@ -95,11 +99,16 @@ func BuildHandler(name string, connConfig *policypb.Connection, sessionBased boo
 		return nil, errors.Errorf("empty connection address")
 	}
 
+	timeout := time.Duration(0)
+	if ct := connConfig.GetTimeout(); ct != nil {
+		timeout = *ct
+	}
 	hh = &Handler{
 		Name:       name,
 		svcMap:     make(map[string]*Svc, len(templateConfig)),
 		connConfig: connConfig,
 		n:          &atomic.Uint64{},
+		timeout:    timeout,
 	}
 
 	// RemoteAdapterSvc is bound to a template
@@ -175,6 +184,11 @@ func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 	}
 
 	codec := grpc.CallCustomCodec(Codec{decode: svc.decoder})
+	if h.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, h.timeout)
+		defer cancel()
+	}
 	if err := h.conn.Invoke(ctx, svc.GrpcPath(), ba, resultPtr, codec); err != nil {
 		handlerLog.Warnf("unable to connect to:%s, %s", svc.GrpcPath(), h.connConfig.Address)
 		return errors.WithStack(err)
