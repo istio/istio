@@ -85,7 +85,7 @@ func (k *KubeInfo) generateRemoteIstio(src, dst string) error {
 		return fmt.Errorf("cannot read remote yaml file %s", src)
 	}
 
-	svcs := []string{"istio-pilot", "istio-policy", "istio-statsd-prom-bridge", "istio-ingress", "istio-telemetry"}
+	svcs := []string{"istio-pilot", "istio-policy", "istio-ingress", "istio-telemetry"}
 	for _, svc := range svcs {
 		var ip string
 		ip, err = k.getEndpointIPForService(svc)

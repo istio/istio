@@ -14,10 +14,10 @@ spec:
       kind: Deployment
       name: {{ $key }}
     metrics:
-      - type: Resource
-        resource:
-          name: cpu
-          targetAverageUtilization: 60
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ $spec.cpu.targetAverageUtilization }}
 ---
 {{- end }}
 {{- end }}

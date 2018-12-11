@@ -144,7 +144,7 @@ func loadInstance(t *testing.T, name string, variety v1beta1.TemplateVariety) *T
 	}
 }
 
-func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
+func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 	listentryDi := loadInstance(t, "listentry", v1beta1.TEMPLATE_VARIETY_CHECK)
 	metricDi := loadInstance(t, "metric", v1beta1.TEMPLATE_VARIETY_REPORT)
 	quotaDi := loadInstance(t, "quota", v1beta1.TEMPLATE_VARIETY_QUOTA)
@@ -235,9 +235,8 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) error {
 	if err == nil || !strings.Contains(err.Error(), "did not respond with the requested quota") {
 		t.Fatalf("HandleRemoteCheck unexpected error: got %v, want: no quota", err)
 	}
-
-	return nil
 }
+
 func asAdapterQuotaResult(qRes *v1beta1.QuotaResult, qname string) *adapter.QuotaResult {
 	return &adapter.QuotaResult{
 		ValidDuration: qRes.Quotas[qname].ValidDuration,

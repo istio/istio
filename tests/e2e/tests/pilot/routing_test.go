@@ -175,7 +175,7 @@ func TestRoutes(t *testing.T) {
 			config:        "virtualservice-route-tcp-a.yaml",
 			scheme:        "http",
 			src:           "a",
-			dst:           "c:9090",
+			dst:           "c:90",
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 0, "v2": 100},
@@ -187,7 +187,7 @@ func TestRoutes(t *testing.T) {
 			config:        "virtualservice-route-tcp-a.yaml",
 			scheme:        "http",
 			src:           "b",
-			dst:           "c:9090",
+			dst:           "c:90",
 			headerKey:     "",
 			headerVal:     "",
 			expectedCount: map[string]int{"v1": 100, "v2": 0},
@@ -196,10 +196,11 @@ func TestRoutes(t *testing.T) {
 	}
 
 	t.Run("v1alpha3", func(t *testing.T) {
-		destRule := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
+		destRule1 := maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml")
+		destRule2 := "testdata/networking/v1alpha3/destination-rule-c-headersubset.yaml"
 		cfgs := &deployableConfig{
 			Namespace:  tc.Kube.Namespace,
-			YamlFiles:  []string{destRule},
+			YamlFiles:  []string{destRule1, destRule2},
 			kubeconfig: tc.Kube.KubeConfig,
 		}
 		if err := cfgs.Setup(); err != nil {

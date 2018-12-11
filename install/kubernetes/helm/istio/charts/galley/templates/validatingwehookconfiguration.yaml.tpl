@@ -60,8 +60,7 @@ webhooks:
         - destinationrules
         - envoyfilters
         - gateways
-        # disabled per @costinm's request
-        # - serviceentries
+        - serviceentries
         - virtualservices
     failurePolicy: Fail
   - name: mixer.validation.istio.io

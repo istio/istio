@@ -26,12 +26,17 @@ import (
 
 // Registry specifies the collection of service registry related interfaces
 type Registry struct {
-	Name      serviceregistry.ServiceRegistry
+	// Name is the type of the registry - Kubernetes, Consul, etc.
+	Name serviceregistry.ServiceRegistry
+	// ClusterID is used when multiple registries of the same type are used,
+	// for example in the case of K8S multicluster.
 	ClusterID string
 	model.Controller
 	model.ServiceDiscovery
 	model.ServiceAccounts
 }
+
+// TODO: rename Name to Type and ClusterID to Name ?
 
 var (
 	clusterAddressesMutex sync.Mutex
@@ -165,20 +170,6 @@ func (c *Controller) GetService(hostname model.Hostname) (*model.Service, error)
 			return service, nil
 		}
 
-	}
-	return nil, errs
-}
-
-// GetServiceAttributes retrieves the custom attributes of a service if exists
-func (c *Controller) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	var errs error
-	for _, r := range c.GetRegistries() {
-		svc, err := r.GetService(hostname)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		} else if svc != nil {
-			return r.GetServiceAttributes(svc.Hostname)
-		}
 	}
 	return nil, errs
 }

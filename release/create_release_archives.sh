@@ -44,7 +44,7 @@ function usage() {
 function error_exit() {
   # ${BASH_SOURCE[1]} is the file name of the caller.
   echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
-  exit ${2:-1}
+  exit "${2:-1}"
 }
 
 while getopts d:f:i:o:v: arg ; do
@@ -58,9 +58,9 @@ while getopts d:f:i:o:v: arg ; do
   esac
 done
 
-[[ -z "${BASE_DIR}"  ]] && usage
-[[ -z "${OUTPUT_PATH}"  ]] && usage
-[[ -z "${VER_STRING}"   ]] && usage
+[[ -z "${BASE_DIR}"    ]] && usage
+[[ -z "${OUTPUT_PATH}" ]] && usage
+[[ -z "${VER_STRING}"  ]] && usage
 
 if [[ -n "${FLAVOR}" ]]; then
   PKG_NAME="${PKG_NAME}-${FLAVOR}"
@@ -71,14 +71,10 @@ BIN_DIR="${COMMON_FILES_DIR}/bin"
 mkdir -p "${BIN_DIR}"
 
 # On mac, brew install gnu-tar gnu-cp
-# and set CP=gcp TAR=gtar
+# and set CP="gcp" TAR="gtar"
 
-if [[ -z "${CP}" ]] ; then
-  CP=cp
-fi
-if [[ -z "${TAR}" ]] ; then
-  TAR=tar
-fi
+CP=${CP:-"cp"}
+TAR=${TAR:-"tar"}
 
 aspenctl_s3_path=s3://aspenmesh-ci-artifacts/aspenctl/jenkins-apiserver/215
 
@@ -91,7 +87,7 @@ function create_linux_archive() {
   aws s3 cp "${aspenctl_s3_path}/aspenctl-linux-amd64" "${BIN_DIR}/aspenctl"
   chmod 755 "${BIN_DIR}/aspenctl"
 
-  ${TAR} --owner releng --group releng -czvf \
+  ${TAR} --owner releng --group releng -czf \
     "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-linux.tar.gz" "${PKG_NAME}-${VER_STRING}" \
     || error_exit 'Could not create linux archive'
   rm "${istioctl_path}"
@@ -106,7 +102,7 @@ function create_osx_archive() {
   aws s3 cp "${aspenctl_s3_path}/aspenctl-darwin-amd64" "${BIN_DIR}/aspenctl"
   chmod 755 "${BIN_DIR}/aspenctl"
 
-  ${TAR} --owner releng --group releng -czvf \
+  ${TAR} --owner releng --group releng -czf \
     "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-osx.tar.gz" "${PKG_NAME}-${VER_STRING}" \
     || error_exit 'Could not create osx archive'
   rm "${istioctl_path}"
@@ -117,7 +113,7 @@ function create_windows_archive() {
 
   ${CP} "${OUTPUT_PATH}/${ISTIOCTL_SUBDIR}/istioctl-win.exe" "${istioctl_path}"
 
-  zip -r "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-win.zip" "${PKG_NAME}-${VER_STRING}" \
+  zip -r -q "${OUTPUT_PATH}/${PKG_NAME}-${VER_STRING}-win.zip" "${PKG_NAME}-${VER_STRING}" \
     || error_exit 'Could not create windows archive'
   rm "${istioctl_path}"
 }
@@ -127,6 +123,7 @@ ${CP} istio.VERSION LICENSE README.md "${COMMON_FILES_DIR}"/
 find samples install -type f \( \
   -name "*.yaml" \
   -o -name "*.yml" \
+  -o -name "*.json" \
   -o -name "*.cfg" \
   -o -name "*.j2" \
   -o -name "cleanup*" \
@@ -139,9 +136,9 @@ find samples install -type f \( \
   -o -name "webhook-create-signed-cert.sh" \
   -o -name "webhook-patch-ca-bundle.sh" \
   \) \
-  -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
-find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
-find tools -type f -not -name "githubContrib*" -not -name ".*" -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
+  -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
+find install/tools -type f -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
+find tools -type f -not -name "githubContrib*" -not -name ".*" -exec "${CP}" --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
 for unwanted_manifest in \
@@ -156,7 +153,7 @@ for unwanted_manifest in \
   rm -f "${COMMON_FILES_DIR}/install/kubernetes/${unwanted_manifest}"
 done
 
-ls -l  ${COMMON_FILES_DIR}/install/kubernetes/
+ls -l  "${COMMON_FILES_DIR}/install/kubernetes/"
 
 # Remove unsupported files from aspen mesh
 rm -rf ${COMMON_FILES_DIR}/install/consul
@@ -189,4 +186,4 @@ create_osx_archive
 create_windows_archive
 popd
 
-rm -rf $TEMP_DIR
+rm -rf "$TEMP_DIR"

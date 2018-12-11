@@ -15,7 +15,7 @@ spec:
       route:
       - destination:
           host: c
-          subset: v2
+          subset: headersubset
         weight: 100
     - route:
       - destination:

@@ -77,9 +77,16 @@ spec:
                 name: aspenmesh
                 key: CLUSTER_NAME
           {{- end }}
+          - mountPath: /etc/istio-certs
+            name: istio-certs
       volumes:
       - name: config-volume
         configMap:
           name: prometheus
+      - name: istio-certs
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: istio.default
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

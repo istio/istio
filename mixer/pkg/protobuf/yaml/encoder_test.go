@@ -259,6 +259,9 @@ map_str_sint32:
     key1: 123
 map_str_sint64:
     key1: 123
+
+google_protobuf_duration: 10s
+google_protobuf_timestamp: 2018-08-15T00:00:01Z
 `
 
 	simpleNoValues = `

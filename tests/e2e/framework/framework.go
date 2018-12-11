@@ -25,6 +25,7 @@ import (
 
 var (
 	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
+	skipLogSave = flag.Bool("skip_log_save", false, "Debug, skip log save")
 	// TestVM is true if in this test run user wants to test VM on istio
 	TestVM = flag.Bool("test_vm", false, "whether to test VM on istio")
 )
@@ -192,6 +193,9 @@ func (c *CommonConfig) saveLogs(r int) error {
 	// Logs are fetched even if skip_cleanup is called - the namespace is left around.
 	if c.Info == nil {
 		log.Warn("Skipping log saving as Info is not initialized")
+		return nil
+	}
+	if *skipLogSave {
 		return nil
 	}
 	log.Info("Saving logs")

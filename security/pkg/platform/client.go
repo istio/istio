@@ -17,7 +17,9 @@ package platform
 import (
 	"fmt"
 
-	"cloud.google.com/go/compute/metadata"
+	// Temporarily disable ID token authentication on CSR API.
+	// [TODO](myidpt): enable when the Citadel authz can work correctly.
+	// "cloud.google.com/go/compute/metadata"
 	"google.golang.org/grpc"
 )
 
@@ -41,13 +43,19 @@ func NewClient(platform, rootCertFile, keyFile, certChainFile, caAddr string) (C
 	case "onprem":
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
 	case "gcp":
-		return NewGcpClientImpl(rootCertFile, caAddr), nil
+		// Temporarily disable ID token authentication on CSR API.
+		// [TODO](myidpt): enable when the Citadel authz can work correctly.
+		return nil, fmt.Errorf("GCP credential authentication in CSR API is disabled")
 	case "aws":
-		return NewAwsClientImpl(rootCertFile), nil
+		// Temporarily disable ID token authentication on CSR API.
+		// [TODO](myidpt): enable when the Citadel authz can work correctly.
+		return nil, fmt.Errorf("AWS credential authentication in CSR API is disabled")
 	case "unspecified":
-		if metadata.OnGCE() {
-			return NewGcpClientImpl(rootCertFile, caAddr), nil
-		}
+		// Temporarily disable ID token authentication on CSR API.
+		// [TODO](myidpt): enable when the Citadel authz can work correctly.
+		// if metadata.OnGCE() {
+		//   return NewGcpClientImpl(rootCertFile, caAddr), nil
+		// }
 		return NewOnPremClientImpl(rootCertFile, keyFile, certChainFile)
 	default:
 		return nil, fmt.Errorf("invalid env %s specified", platform)

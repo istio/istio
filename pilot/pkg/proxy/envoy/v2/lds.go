@@ -24,14 +24,16 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, onConnect bool, version string) error {
+func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, onConnect bool, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 
 	rawListeners, err := s.generateRawListeners(con, push)
 	if err != nil {
 		return err
 	}
-	con.HTTPListeners = rawListeners
+	if s.DebugConfigs {
+		con.LDSListeners = rawListeners
+	}
 	response := ldsDiscoveryResponse(rawListeners, *con.modelNode, version)
 	if version != versionInfo() {
 		// Just report for now - after debugging we can suppress the push.
@@ -49,12 +51,13 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushStatus, on
 	}
 	pushes.With(prometheus.Labels{"type": "lds"}).Add(1)
 
-	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d", con.modelNode.ID, con.PeerAddr, len(rawListeners))
+	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d %d", con.modelNode.ID, con.PeerAddr, len(rawListeners),
+		response.Size())
 	return nil
 }
 
-func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushStatus) ([]*xdsapi.Listener, error) {
-	rawListeners, err := s.ConfigGenerator.BuildListeners(s.env, con.modelNode, push)
+func (s *DiscoveryServer) generateRawListeners(con *XdsConnection, push *model.PushContext) ([]*xdsapi.Listener, error) {
+	rawListeners, err := s.ConfigGenerator.BuildListeners(s.Env, con.modelNode, push)
 	if err != nil {
 		adsLog.Warnf("LDS: Failed to generate listeners for node %s: %v", con.modelNode, err)
 		pushes.With(prometheus.Labels{"type": "lds_builderr"}).Add(1)
@@ -85,6 +88,7 @@ func ldsDiscoveryResponse(ls []*xdsapi.Listener, node model.Proxy, version strin
 	for _, ll := range ls {
 		if ll == nil {
 			adsLog.Errora("Nil listener ", ll)
+			totalXDSInternalErrors.Add(1)
 			continue
 		}
 		lr, _ := types.MarshalAny(ll)

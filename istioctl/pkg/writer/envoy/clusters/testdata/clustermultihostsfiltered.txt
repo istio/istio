@@ -1,0 +1,83 @@
+[
+    {
+        "name": "outbound|9080||reviews.default.svc.cluster.local",
+        "addedViaApi": true,
+        "hostStatuses": [
+            {
+                "address": {
+                    "socketAddress": {
+                        "address": "172.17.0.24",
+                        "portValue": 9080
+                    }
+                },
+                "stats": {
+                    "cx_active": {
+                        "type": "GAUGE"
+                    },
+                    "cx_connect_fail": {},
+                    "cx_total": {},
+                    "rq_active": {
+                        "type": "GAUGE"
+                    },
+                    "rq_error": {},
+                    "rq_success": {},
+                    "rq_timeout": {},
+                    "rq_total": {}
+                },
+                "healthStatus": {
+                    "edsHealthStatus": "HEALTHY"
+                }
+            },
+            {
+                "address": {
+                    "socketAddress": {
+                        "address": "172.17.0.26",
+                        "portValue": 9080
+                    }
+                },
+                "stats": {
+                    "cx_active": {
+                        "type": "GAUGE"
+                    },
+                    "cx_connect_fail": {},
+                    "cx_total": {},
+                    "rq_active": {
+                        "type": "GAUGE"
+                    },
+                    "rq_error": {},
+                    "rq_success": {},
+                    "rq_timeout": {},
+                    "rq_total": {}
+                },
+                "healthStatus": {
+                    "edsHealthStatus": "HEALTHY"
+                }
+            },
+            {
+                "address": {
+                    "socketAddress": {
+                        "address": "172.17.0.27",
+                        "portValue": 9080
+                    }
+                },
+                "stats": {
+                    "cx_active": {
+                        "type": "GAUGE"
+                    },
+                    "cx_connect_fail": {},
+                    "cx_total": {},
+                    "rq_active": {
+                        "type": "GAUGE"
+                    },
+                    "rq_error": {},
+                    "rq_success": {},
+                    "rq_timeout": {},
+                    "rq_total": {}
+                },
+                "healthStatus": {
+                    "edsHealthStatus": "HEALTHY"
+                }
+            }
+        ]
+    }
+]

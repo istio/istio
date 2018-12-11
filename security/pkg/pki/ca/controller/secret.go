@@ -305,7 +305,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 			}
 		}
 		// Custom overrides using CLI
-		if e, ok := sc.dnsNames[saName+"."+saName]; ok {
+		if e, ok := sc.dnsNames[saName+"."+saNamespace]; ok {
 			for _, d := range e.CustomDomains {
 				id += "," + d
 			}

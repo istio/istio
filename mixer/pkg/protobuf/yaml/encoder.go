@@ -25,16 +25,19 @@ import (
 )
 
 type (
+	namedEncoderFn func(data interface{}) ([]byte, error)
+
 	// Encoder transforms yaml that represents protobuf data into []byte
 	Encoder struct {
-		resolver Resolver
+		resolver     Resolver
+		namedEncoder map[string]namedEncoderFn
 	}
 )
 
 // NewEncoder creates an Encoder
 func NewEncoder(fds *descriptor.FileDescriptorSet) *Encoder {
 	resolver := NewResolver(fds)
-	return &Encoder{resolver: resolver}
+	return &Encoder{resolver: resolver, namedEncoder: namedEncoderRegistry}
 }
 
 // EncodeBytes creates []byte from a yaml representation of a proto.
@@ -59,7 +62,10 @@ func (e *Encoder) EncodeBytes(data map[string]interface{}, msgName string, skipU
 			return nil, err
 		}
 	}
-	return buf.Bytes(), nil
+
+	out := make([]byte, len(buf.Bytes()))
+	copy(out, buf.Bytes())
+	return out, nil
 }
 
 func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDescriptorProto, skipUnknown bool, buffer *proto.Buffer) error {
@@ -589,6 +595,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			for i, iface := range v {
 				c, ok := ToInt64(iface)
 				if !ok {
+					PutBuffer(tmpBuffer)
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeZigzag32(uint64(c))
@@ -673,6 +680,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			for i, iface := range v {
 				c, ok := ToInt64(iface)
 				if !ok {
+					PutBuffer(tmpBuffer)
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeZigzag64(uint64(c))
@@ -845,15 +853,24 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			//		return 0, err
 			//	}
 			//	i += n1
-			v, ok := data.(map[string]interface{})
-			if !ok {
-				return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
+			var bytes []byte
+			var err error
+			ne := e.namedEncoder[field.GetTypeName()]
+			if ne != nil {
+				bytes, err = ne(data)
+			} else {
+				v, ok := data.(map[string]interface{})
+				if !ok {
+					return badTypeError(name, strings.TrimPrefix(field.GetTypeName(), "."), data)
+				}
+
+				bytes, err = e.EncodeBytes(v, field.GetTypeName(), skipUnknown)
 			}
 
-			bytes, err := e.EncodeBytes(v, field.GetTypeName(), skipUnknown)
 			if err != nil {
 				return fmt.Errorf("/%s: '%v'", name, err)
 			}
+
 			_ = buffer.EncodeVarint(encodeIndexAndType(fieldNumber, wireType))
 			_ = buffer.EncodeRawBytes(bytes)
 
