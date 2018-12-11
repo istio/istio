@@ -586,8 +586,8 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 		`round(sum(irate(istio_requests_total[1m])), 0.001)`,
 		`sum(irate(istio_requests_total{response_code=~"4.*"}[1m]))`,
 		`sum(irate(istio_requests_total{response_code=~"5.*"}[1m]))`,
-		`sum(rate(istio_tcp_received_bytes_total{reporter="source"}[1m])`,
-		`sum(rate(istio_tcp_sent_bytes_total{reporter="source"}[1m])`,
+		`istio_tcp_received_bytes_total{reporter="source"}`,
+		`istio_tcp_sent_bytes_total{reporter="source"}`,
 	}
 
 	for _, duration := range waitDurations {
