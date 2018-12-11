@@ -139,28 +139,10 @@ func (s *Server) initWorkloadSdsService(options *Options) error {
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions(options)...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 
-	// Remove unix socket before use.
-	if err := os.Remove(options.WorkloadUDSPath); err != nil && !os.IsNotExist(err) {
-		// Anything other than "file not found" is an error.
-		log.Errorf("Failed to remove unix://%s: %v", options.WorkloadUDSPath, err)
-		return fmt.Errorf("failed to remove unix://%s", options.WorkloadUDSPath)
-	}
-
 	var err error
-	s.grpcWorkloadListener, err = net.Listen("unix", options.WorkloadUDSPath)
+	s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
 	if err != nil {
-		log.Errorf("Failed to listen on unix socket %q: %v", options.WorkloadUDSPath, err)
-		return err
-	}
-
-	// Update SDS UDS file permission so that istio-proxy has permission to access it.
-	if _, err := os.Stat(options.WorkloadUDSPath); err != nil {
-		log.Errorf("SDS uds file %q doesn't exist", options.WorkloadUDSPath)
-		return fmt.Errorf("sds uds file %q doesn't exist", options.WorkloadUDSPath)
-	}
-	if err := os.Chmod(options.WorkloadUDSPath, 0666); err != nil {
-		log.Errorf("Failed to update %q permission", options.WorkloadUDSPath)
-		return fmt.Errorf("failed to update %q permission", options.WorkloadUDSPath)
+		log.Errorf("SDS grpc server failed to start: %v", err)
 	}
 
 	go func() {
@@ -178,28 +160,10 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	s.grpcGatewayServer = grpc.NewServer(s.grpcServerOptions(options)...)
 	s.gatewaySds.register(s.grpcGatewayServer)
 
-	// Remove unix socket before use.
-	if err := os.Remove(options.IngressGatewayUDSPath); err != nil && !os.IsNotExist(err) {
-		// Anything other than "file not found" is an error.
-		log.Errorf("Failed to remove unix://%s: %v", options.IngressGatewayUDSPath, err)
-		return fmt.Errorf("failed to remove unix://%s", options.IngressGatewayUDSPath)
-	}
-
 	var err error
-	s.grpcGatewayListener, err = net.Listen("unix", options.IngressGatewayUDSPath)
+	s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
 	if err != nil {
-		log.Errorf("Failed to listen on unix socket %q: %v", options.IngressGatewayUDSPath, err)
-		return err
-	}
-
-	// Update SDS UDS file permission so that istio-proxy has permission to access it.
-	if _, err := os.Stat(options.IngressGatewayUDSPath); err != nil {
-		log.Errorf("SDS uds file %q doesn't exist", options.IngressGatewayUDSPath)
-		return fmt.Errorf("sds uds file %q doesn't exist", options.IngressGatewayUDSPath)
-	}
-	if err := os.Chmod(options.IngressGatewayUDSPath, 0666); err != nil {
-		log.Errorf("Failed to update %q permission", options.IngressGatewayUDSPath)
-		return fmt.Errorf("failed to update %q permission", options.IngressGatewayUDSPath)
+		log.Errorf("SDS grpc server failed to start: %v", err)
 	}
 
 	go func() {
@@ -211,6 +175,34 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	}()
 
 	return nil
+}
+
+func setUpUds(udsPath string) (net.Listener, error) {
+	// Remove unix socket before use.
+	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
+		// Anything other than "file not found" is an error.
+		log.Errorf("Failed to remove unix://%s: %v", udsPath, err)
+		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
+	}
+
+	var err error
+	udsListener, err := net.Listen("unix", udsPath)
+	if err != nil {
+		log.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
+		return nil, err
+	}
+
+	// Update SDS UDS file permission so that istio-proxy has permission to access it.
+	if _, err := os.Stat(udsPath); err != nil {
+		log.Errorf("SDS uds file %q doesn't exist", udsPath)
+		return nil, fmt.Errorf("sds uds file %q doesn't exist", udsPath)
+	}
+	if err := os.Chmod(udsPath, 0666); err != nil {
+		log.Errorf("Failed to update %q permission", udsPath)
+		return nil, fmt.Errorf("failed to update %q permission", udsPath)
+	}
+
+	return udsListener, nil
 }
 
 func (s *Server) grpcServerOptions(options *Options) []grpc.ServerOption {

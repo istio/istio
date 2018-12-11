@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
@@ -115,7 +116,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 	}
 
 	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
