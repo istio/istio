@@ -54,6 +54,10 @@ func (c *Compiler) CompileExpression(text string) (uint32, descriptor.ValueType,
 		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, err
 	}
 
+	// see issue https://github.com/istio/istio/issues/9432
+	ci := newCaseInsensitiveStringMap("request.headers", "response.headers")
+	ci.rewrite(expression)
+
 	exprType, err := expression.EvalType(c.finder, c.functions)
 	if err != nil {
 		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, err
@@ -133,6 +137,10 @@ func Compile(text string, finder ast.AttributeDescriptorFinder, functions map[st
 	if err != nil {
 		return nil, err
 	}
+
+	// see issue https://github.com/istio/istio/issues/9432
+	ci := newCaseInsensitiveStringMap("request.headers", "response.headers")
+	ci.rewrite(expression)
 
 	exprType, err := expression.EvalType(finder, functions)
 	if err != nil {

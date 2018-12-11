@@ -307,6 +307,29 @@ end`,
 		conf: exprEvalAttrs,
 	},
 	{
+		E:    `request.headers[source.uid] == "curlish"`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"request.headers": map[string]string{
+				"user-agent": "curlish",
+			},
+			"source.uid": "user-agent",
+		},
+		R:    true,
+		conf: istio06AttributeSet,
+	},
+	{
+		E:    `request.headers["USER-AGENT"] == "curlish"`,
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"request.headers": map[string]string{
+				"user-agent": "curlish",
+			},
+		},
+		R:    true,
+		conf: istio06AttributeSet,
+	},
+	{
 		E:    `match(request.headers["user-agent"], "curl*")`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
