@@ -39,13 +39,13 @@ import (
 )
 
 const (
-	secretResyncPeriod = time.Minute
+	secretResyncPeriod = 15 * time.Second
 
-	// The type of kubernetes secrets for ingress gateway.
+	// IngressSecretType the type of kubernetes secrets for ingress gateway.
 	IngressSecretType = "istio.io/ingress-key-cert"
-	// The namespace of kubernetes secrets to watch.
+	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
 	IngressSecretNameSpace = "istio-ingress"
-	// The config file name for kubernetes client.
+	// KubeConfigFile the config file name for kubernetes client.
 	KubeConfigFile = "kube-config"
 
 	// The ID/name for the certificate chain in kubernetes secret.
@@ -114,6 +114,8 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 				DeleteFunc: ret.scrtDeleted,
 				// TODO(jimmycyj): add handler for UpdateFunc.
 			})
+		ch := make(chan struct{})
+		ret.scrtController.Run(ch)
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag)
 		if err != nil {

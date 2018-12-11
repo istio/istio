@@ -30,10 +30,6 @@ import (
 
 const maxStreams = 100000
 
-var availablePlugins = map[string]plugin.Plugin{
-	plugin.GoogleIAM: iamclient.NewPlugin(),
-}
-
 // Options provides all of the configuration parameters for secret discovery service.
 type Options struct {
 	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
@@ -127,6 +123,9 @@ func (s *Server) Stop() {
 
 // NewPlugins returns a slice of default Plugins.
 func NewPlugins(in []string) []plugin.Plugin {
+	var availablePlugins = map[string]plugin.Plugin{
+		plugin.GoogleIAM: iamclient.NewPlugin(),
+	}
 	var plugins []plugin.Plugin
 	for _, pl := range in {
 		if p, exist := availablePlugins[pl]; exist {
