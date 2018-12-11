@@ -63,7 +63,7 @@ func getCATLSRootCertFromConfigMap() ([]byte, error) {
 	}
 	clientSet, err := kubernetes.NewForConfig(kubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create a clientset (error: %v)", err)
+		return nil, fmt.Errorf("failed to create a clientset (error: %v)", err)
 	}
 	controller := controller.NewConfigMapController("", clientSet.CoreV1())
 

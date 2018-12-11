@@ -43,11 +43,11 @@ func NewConfigMapController(namespace string, core corev1.CoreV1Interface) *Conf
 func (c ConfigMapController) InsertCATLSRootCert(value string) error {
 	configmap, err := c.core.ConfigMaps(c.namespace).Get(istioSecurityConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("Configmap %s write error %v", istioSecurityConfigMapName, err)
+		return fmt.Errorf("configmap %s write error %v", istioSecurityConfigMapName, err)
 	}
 	configmap.Data[caTLSRootCertName] = value
 	if _, err = c.core.ConfigMaps(c.namespace).Update(configmap); err != nil {
-		return fmt.Errorf("Configmap %s write error %v", istioSecurityConfigMapName, err)
+		return fmt.Errorf("configmap %s write error %v", istioSecurityConfigMapName, err)
 	}
 	return nil
 }
@@ -56,11 +56,11 @@ func (c ConfigMapController) InsertCATLSRootCert(value string) error {
 func (c ConfigMapController) GetCATLSRootCert() (string, error) {
 	configmap, err := c.core.ConfigMaps(c.namespace).Get(istioSecurityConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("Configmap %s write error %v", istioSecurityConfigMapName, err)
+		return "", fmt.Errorf("configmap %s write error %v", istioSecurityConfigMapName, err)
 	}
 	rootCert := configmap.Data[caTLSRootCertName]
 	if rootCert == "" {
-		return "", fmt.Errorf("Failed to retrieve the CA TLS root certificate from configmap %s:%s",
+		return "", fmt.Errorf("failed to retrieve the CA TLS root certificate from configmap %s:%s",
 			istioSecurityConfigMapName, caTLSRootCertName)
 	}
 
