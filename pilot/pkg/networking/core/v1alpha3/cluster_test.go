@@ -49,7 +49,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 		ClusterID: "some-cluster-id",
 		Type:      model.Router,
 		IPAddress: "6.6.6.6",
-		Domain:    "default.example.org",
+		DNSDomain: "default.example.org",
 		Metadata:  make(map[string]string),
 	}
 
@@ -143,7 +143,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 		ClusterID: "some-cluster-id",
 		Type:      model.Sidecar,
 		IPAddress: "6.6.6.6",
-		Domain:    "com",
+		DNSDomain: "com",
 		Metadata:  make(map[string]string),
 	}
 
@@ -249,7 +249,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 		ClusterID: "some-cluster-id",
 		Type:      model.Sidecar,
 		IPAddress: "6.6.6.6",
-		Domain:    "com",
+		DNSDomain: "com",
 		Metadata:  make(map[string]string),
 	}
 

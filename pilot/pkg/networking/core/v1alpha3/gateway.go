@@ -110,27 +110,28 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			}
 		}
 
+		pluginParams := &plugin.InputParams{
+			ListenerProtocol: listenerType,
+			ListenerCategory: networking.EnvoyFilter_ListenerMatch_GATEWAY,
+			Env:              env,
+			Node:             node,
+			ProxyInstances:   workloadInstances,
+			Push:             push,
+			ServiceInstance:  si,
+			Port: &model.Port{
+				Name:     servers[0].Port.Name,
+				Port:     int(portNumber),
+				Protocol: protocol,
+			},
+		}
 		for _, p := range configgen.Plugins {
-			params := &plugin.InputParams{
-				ListenerProtocol: listenerType,
-				Env:              env,
-				Node:             node,
-				ProxyInstances:   workloadInstances,
-				Push:             push,
-				ServiceInstance:  si,
-				Port: &model.Port{
-					Name:     servers[0].Port.Name,
-					Port:     int(portNumber),
-					Protocol: protocol,
-				},
-			}
-			if err = p.OnOutboundListener(params, mutable); err != nil {
+			if err = p.OnOutboundListener(pluginParams, mutable); err != nil {
 				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err = marshalFilters(node, mutable.Listener, opts, mutable.FilterChains); err != nil {
+		if err = buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}

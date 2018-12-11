@@ -211,6 +211,26 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
 		{
+			in:                           "hello-readiness.yaml",
+			want:                         "hello-readiness.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			in:                           "hello-readiness-multi.yaml",
+			want:                         "hello-readiness-multi.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
 			in:                           "multi-init.yaml",
 			want:                         "multi-init.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
@@ -387,7 +407,7 @@ func TestIntoResourceFile(t *testing.T) {
 		{
 			in:                           "format-duration.yaml",
 			want:                         "format-duration.yaml.injected",
-			duration:                     time.Duration(42 * time.Second),
+			duration:                     42 * time.Second,
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
 			statusPort:                   DefaultStatusPort,
@@ -537,7 +557,10 @@ func TestIntoResourceFile(t *testing.T) {
 			wantBytes := stripVersion(wantedBytes)
 			gotBytes = stripVersion(gotBytes)
 
+			//ioutil.WriteFile(wantFilePath, gotBytes, 0644)
+
 			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
+
 		})
 	}
 }

@@ -77,7 +77,6 @@ type StatusInfo struct {
 	client               *mcp.Client
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
-	totalWatches         int
 }
 
 // Watches returns the number of open watches.

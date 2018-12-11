@@ -692,7 +692,7 @@
             ]
           },
           {
-            "name": "DefaultNetworkScope.Mode",
+            "name": "DefaultServiceDependency.Mode",
             "enum_fields": [
               {
                 "name": "ALL_NAMESPACES",
@@ -842,8 +842,8 @@
               },
               {
                 "id": 29,
-                "name": "default_network_scope",
-                "type": "DefaultNetworkScope"
+                "name": "default_service_dependency",
+                "type": "DefaultServiceDependency"
               }
             ],
             "reserved_ids": [
@@ -862,7 +862,7 @@
                 ]
               },
               {
-                "name": "DefaultNetworkScope",
+                "name": "DefaultServiceDependency",
                 "fields": [
                   {
                     "id": 1,
@@ -3150,7 +3150,7 @@
       }
     },
     {
-      "protopath": "networking:/:v1alpha3:/:network_scope.proto",
+      "protopath": "networking:/:v1alpha3:/:service_dependency.proto",
       "def": {
         "enums": [
           {
@@ -3169,7 +3169,7 @@
         ],
         "messages": [
           {
-            "name": "NetworkScope",
+            "name": "ServiceDependency",
             "fields": [
               {
                 "id": 1,

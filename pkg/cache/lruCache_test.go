@@ -36,7 +36,7 @@ func TestLRUExpiration(t *testing.T) {
 
 func TestLRUEvicter(t *testing.T) {
 	lru := NewLRU(5*time.Second, 1*time.Millisecond, 500)
-	testCacheEvicter(lru, t)
+	testCacheEvicter(lru)
 }
 
 func TestLRUEvictExpired(t *testing.T) {
@@ -46,7 +46,7 @@ func TestLRUEvictExpired(t *testing.T) {
 
 func TestLRUFinalizer(t *testing.T) {
 	lru := NewLRU(5*time.Second, 1*time.Millisecond, 500).(*lruWrapper)
-	testCacheFinalizer(&lru.evicterTerminated, t)
+	testCacheFinalizer(&lru.evicterTerminated)
 }
 
 func TestLRUBehavior(t *testing.T) {

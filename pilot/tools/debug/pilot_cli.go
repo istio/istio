@@ -239,6 +239,7 @@ func resolveKubeConfigPath(kubeConfig string) string {
 	return ret
 }
 
+// nolint: golint
 func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) {
 	if pilotURL != "" {
 		// No need to port-forward, url is already provided.

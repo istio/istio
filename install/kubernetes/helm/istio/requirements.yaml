@@ -63,4 +63,8 @@ dependencies:
     version: ">=0.0.1"
     repository: "@istio.io"
     condition: istio_cni.enabled
+  - name: telemetry-gateway
+    version: 1.1.0
+    condition: or telemetry-gateway.grafanaEnabled telemetry-gateway.prometheusEnabled
+    repository: file://../subcharts/telemetry-gateway
 

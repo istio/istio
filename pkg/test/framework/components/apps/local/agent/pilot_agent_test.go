@@ -23,16 +23,15 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/environments/local/service"
-
-	"istio.io/istio/pkg/test/application"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	proxyEnvoy "istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
+	"istio.io/istio/pkg/test/framework/environments/local/service"
 )
 
 const (
@@ -247,6 +246,7 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
 			Registries: []string{},
 		},
+		KeepaliveOptions: keepalive.DefaultOption(),
 	}
 
 	// Create the server for the discovery service.

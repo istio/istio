@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ilt
+package attribute_test
 
 import (
-	"net"
-	"reflect"
+	"testing"
+
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
-// AreEqual checks for equality of given values. It handles comparison of []byte as a special case.
-func AreEqual(e interface{}, a interface{}) bool {
-	if eb, ok := e.(net.IP); ok {
-		if ab, ok := a.(net.IP); ok {
-			return ab.Equal(eb)
-		}
-
-		return false
+func TestListEqual(t *testing.T) {
+	a := attribute.NewList("attr")
+	a.Append("x")
+	b := attribute.NewListForTesting("attr", []interface{}{"x"})
+	if !a.Equal(b) {
+		t.Errorf("%v.Equal(%v) => got false", a, b)
 	}
-
-	return reflect.DeepEqual(a, e)
+	if !attribute.Equal(a, b) {
+		t.Errorf("Equal(%v, %v) => got false", a, b)
+	}
 }

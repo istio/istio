@@ -72,7 +72,6 @@ func (c *localComponent) Init(ctx environment.ComponentContext, deps map[depende
 }
 
 type appsImpl struct {
-	tlsCKey          string
 	tlsCert          string
 	discoveryAddress *net.TCPAddr
 	serviceManager   *service.Manager

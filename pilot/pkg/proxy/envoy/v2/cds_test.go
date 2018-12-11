@@ -31,7 +31,7 @@ func TestCDS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), cdsr)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), cdsr)
 	if err != nil {
 		t.Fatal(err)
 	}

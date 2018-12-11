@@ -72,7 +72,7 @@ func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 
 		outPath := path.Join(workDir, fmt.Sprintf("%s_%s.yaml", namespace, pod.Name))
 
-		if err := ioutil.WriteFile(outPath, []byte(by), os.ModePerm); err != nil {
+		if err := ioutil.WriteFile(outPath, by, os.ModePerm); err != nil {
 			scopes.CI.Infof("Error writing out pod yaml to file: %v", err)
 		}
 	}
