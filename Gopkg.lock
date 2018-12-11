@@ -1625,7 +1625,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "49946a7daf8033a750d8bb966022255fcb38558d"
+  revision = "b1978437bd1f98da05c1c172efe1c250223513ef"
 
 [[projects]]
   branch = "release-1.11"
