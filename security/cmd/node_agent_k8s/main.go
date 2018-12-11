@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 const (
@@ -45,8 +46,9 @@ const (
 )
 
 var (
-	cacheOptions  cache.Options
-	serverOptions sds.Options
+	workloadSdsCacheOptions cache.Options
+	gatewaySdsCacheOptions cache.Options
+	serverOptions           sds.Options
 
 	loggingOptions = log.DefaultOptions()
 
@@ -58,6 +60,7 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+			gatewaySdsCacheOptions = workloadSdsCacheOptions
 
 			if serverOptions.EnableIngressGatewaySDS && serverOptions.EnableWorkloadSDS &&
 				serverOptions.IngressGatewayUDSPath == serverOptions.WorkloadUDSPath {
@@ -104,9 +107,9 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
 		}
-		cacheOptions.TrustDomain = serverOptions.TrustDomain
-		cacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
-		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, cacheOptions)
+		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+		workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
+		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, workloadSdsCacheOptions)
 	} else {
 		workloadSecretCache = nil
 	}
@@ -117,9 +120,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
 		}
-		cacheOptions.TrustDomain = serverOptions.TrustDomain
-		cacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
-		gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, cacheOptions)
+		gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
 	} else {
 		gatewaySecretCache = nil
 	}
@@ -133,13 +134,13 @@ func init() {
 		pns = strings.Split(pluginNames, ",")
 	}
 
-	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "EnableWorkloadSDS",
+	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "enableWorkloadSDS",
 		true,
 		"If true, node agent works as SDS server and provisions key/certificate to workload proxies.")
-	rootCmd.PersistentFlags().StringVar(&serverOptions.WorkloadUDSPath, "WorkloadUDSPath",
+	rootCmd.PersistentFlags().StringVar(&serverOptions.WorkloadUDSPath, "workloadUDSPath",
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with workload proxies")
 
-	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableIngressGatewaySDS, "EnableIngressGatewaySDS",
+	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableIngressGatewaySDS, "enableIngressGatewaySDS",
 		false,
 		"If true, node agent works as SDS server and watches kubernetes secrets for ingress gateway.")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.IngressGatewayUDSPath, "sdsUdsPath",
@@ -156,13 +157,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.KeyFile, "sdsKeyFile", "", "SDS gRPC TLS server-side key")
 
-	rootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretTTL, "secretTtl",
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretTTL, "secretTtl",
 		24*time.Hour, "Secret's TTL")
-	rootCmd.PersistentFlags().DurationVar(&cacheOptions.SecretRefreshGraceDuration, "secretRefreshGraceDuration",
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretRefreshGraceDuration, "secretRefreshGraceDuration",
 		time.Hour, "Secret's Refresh Grace Duration")
-	rootCmd.PersistentFlags().DurationVar(&cacheOptions.RotationInterval, "secretRotationInterval",
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.RotationInterval, "secretRotationInterval",
 		10*time.Minute, "Secret rotation job running interval")
-	rootCmd.PersistentFlags().DurationVar(&cacheOptions.EvictionDuration, "secretEvictionDuration",
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
 
 	// Attach the Istio logging options to the command.
