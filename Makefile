@@ -79,6 +79,7 @@ endif
 export GOOS ?= $(GOOS_LOCAL)
 
 export ENABLE_COREDUMP ?= false
+export ENABLE_KIALI ?= false
 
 # Enable Istio CNI in helm template commands
 export ENABLE_ISTIO_CNI ?= false
@@ -686,6 +687,10 @@ generate_yaml_coredump: export ENABLE_COREDUMP=true
 generate_yaml_coredump:
 	$(MAKE) generate_yaml
 
+generate_yaml_kiali: export ENABLE_KIALI=true
+generate_yaml_kiali:
+	$(MAKE) generate_e2e_test_yaml
+
 generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
@@ -695,6 +700,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set kiali.enabled=${ENABLE_KIALI} \
 		--set global.proxy.concurrency=1 \
 		--set prometheus.scrapeInterval=1s \
 		--set gateways.istio-ingressgateway.autoscaleMax=1 \
@@ -715,6 +721,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--set mixer.policy.autoscaleEnabled=false \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set kiali.enabled=${ENABLE_KIALI} \
 		--set global.proxy.concurrency=1 \
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
@@ -725,6 +732,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set kiali.enabled=${ENABLE_KIALI} \
 		--set global.proxy.concurrency=1 \
 		--set prometheus.scrapeInterval=1s \
 		--set gateways.istio-ingressgateway.autoscaleMax=1 \
@@ -746,6 +754,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--set mixer.policy.autoscaleEnabled=false \
 		--set global.controlPlaneSecurityEnabled=true \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set kiali.enabled=${ENABLE_KIALI} \
 		--set global.proxy.concurrency=1 \
 		--set global.useMCP=false \
 		--values install/kubernetes/helm/istio/values.yaml \
