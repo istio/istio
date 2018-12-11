@@ -454,15 +454,16 @@ func (ds *DiscoveryService) doPush() {
 	// more config update events may happen while doPush is processing.
 	// we don't want to lose updates.
 	clearCacheMutex.Lock()
-
 	clearCacheTimerSet = false
 	lastClearCache = time.Now()
 	full := ds.fullPush
+	clearCacheMutex.Unlock()
+
 	edsUpdates := BeforePush()
 
 	// Update the config values, next ConfigUpdate and eds updates will use this
+	clearCacheMutex.Lock()
 	ds.fullPush = false
-
 	clearCacheMutex.Unlock()
 
 	Push(full, edsUpdates)
@@ -477,17 +478,20 @@ func (ds *DiscoveryService) clearCache() {
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 // It replaces the 'clear cache' from v1.
 func (ds *DiscoveryService) ConfigUpdate(full bool) {
-	clearCacheMutex.Lock()
-	defer clearCacheMutex.Unlock()
 
 	if full {
+		clearCacheMutex.Lock()
 		ds.fullPush = true
+		clearCacheMutex.Unlock()
 	}
+
+	clearCacheMutex.Lock()
 	clearCacheEvents++
+	clearCacheMutex.Unlock()
 
 	if DebounceAfter > 0 {
+		clearCacheMutex.Lock()
 		lastClearCacheEvent = time.Now()
-
 		if !clearCacheTimerSet {
 			clearCacheTimerSet = true
 			startDebounce := lastClearCacheEvent
@@ -495,6 +499,8 @@ func (ds *DiscoveryService) ConfigUpdate(full bool) {
 				ds.debouncePush(startDebounce)
 			})
 		}
+		clearCacheMutex.Unlock()
+
 		return
 	}
 
