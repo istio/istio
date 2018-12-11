@@ -313,7 +313,7 @@ end`,
 			"request.headers": map[string]string{
 				"user-agent": "curlish",
 			},
-			"source.uid": "user-agent",
+			"source.uid": "uSeR-agEnT",
 		},
 		R:    true,
 		conf: istio06AttributeSet,
