@@ -47,7 +47,7 @@ func TestServiceNode(t *testing.T) {
 				Type:        model.Sidecar,
 				ID:          "random",
 				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
-				Domain:      "local",
+				DNSDomain:   "local",
 				Metadata: map[string]string{
 					"ISTIO_META_INSTANCE_IPS": "10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
 				},
