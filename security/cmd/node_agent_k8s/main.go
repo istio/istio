@@ -47,7 +47,7 @@ const (
 
 var (
 	workloadSdsCacheOptions cache.Options
-	gatewaySdsCacheOptions cache.Options
+	gatewaySdsCacheOptions  cache.Options
 	serverOptions           sds.Options
 
 	loggingOptions = log.DefaultOptions()
