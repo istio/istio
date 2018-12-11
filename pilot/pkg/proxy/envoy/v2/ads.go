@@ -234,6 +234,12 @@ type XdsConnection struct {
 	EndpointNonceSent, EndpointNonceAcked string
 	EndpointPercent                       int
 
+	// Last sent nonce for each type.
+	nonceSent map[string]string
+
+	// last nonce sent on this connection. When waitNonce is enabled, each config waits to be confirmed.
+	lastNonce string
+
 	// current list of clusters monitored by the client
 	Clusters []string
 
@@ -343,6 +349,7 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 		Connect:      time.Now(),
 		stream:       stream,
 		LDSListeners: []*xdsapi.Listener{},
+		nonceSent:    map[string]string{},
 		RouteConfigs: map[string]*xdsapi.RouteConfiguration{},
 	}
 }
@@ -653,12 +660,25 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 
 		if discReq.ErrorDetail != nil {
 			s.handleNack(discReq, peerAddr, con)
-			continue
+			if con.nonceSent[discReq.TypeUrl] == discReq.ResponseNonce {
+				continue
+			}
+			// NACK for a message sent in a previous connection. Will log/count it, but still process
+			// the request and send again a response in this connection. The old request may have been
+			// earlier, or on a bad pilot.
 		}
 
+		// Initial request may contain nonces from a previously closed connection, combined with
+		// new resources.
 		if discReq.ResponseNonce != "" {
-			s.handleAck(con, discReq, peerAddr)
-			continue
+			if con.nonceSent[discReq.TypeUrl] == discReq.ResponseNonce {
+				s.handleAck(con, discReq, peerAddr)
+				continue
+			}
+
+			// This is a reconnect request, acking a response from a previous connection.
+			// Will log, and process the request again.
+			adsLog.Infof("ADS: Reconnect ACK %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 		}
 
 		// TODO: handle 'on-demand' requests.
@@ -679,9 +699,6 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			if err != nil {
 				return err
 			}
-			if pilot.WaitAck {
-				_ = s.waitAck(con)
-			}
 
 		case ListenerType:
 			if con.LDSWatch {
@@ -697,27 +714,22 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			if err != nil {
 				return err
 			}
-			if pilot.WaitAck {
-				_ = s.waitAck(con)
-			}
 
 		case RouteType:
+			// The list of routes can be updated dynamically - both for on-demand and for normal protocol.
 			routes := discReq.GetResourceNames()
 			if routes == nil {
-				adsLog.Warnf("ADS:RDS: ACK PROTOCOL ERROR %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+				adsLog.Warnf("ADS:RDS: PROTOCOL ERROR, no routes %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
 				continue
 			}
 			var sortedRoutes []string
 			sort.Strings(routes)
 			sortedRoutes = routes
 			con.Routes = sortedRoutes
-			adsLog.Debugf("ADS:RDS: REQ %s %s  routes: %d", peerAddr, con.ConID, len(con.Routes))
+			adsLog.Infof("ADS:RDS: REQ %s %s  routes: %d %v", peerAddr, con.ConID, len(con.Routes), con.Routes)
 			err := s.pushRoute(con, s.globalPushContext())
 			if err != nil {
 				return err
-			}
-			if pilot.WaitAck {
-				_ = s.waitAck(con)
 			}
 
 		case EndpointType:
@@ -751,9 +763,6 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			err := s.pushEds(s.globalPushContext(), con, true, nil)
 			if err != nil {
 				return err
-			}
-			if pilot.WaitAck {
-				_ = s.waitAck(con)
 			}
 
 		default:
@@ -798,7 +807,8 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 		}
 	}
 	con.mu.Unlock()
-	adsLog.Debugf("ADS:%s: ACK %v %v", discReq.TypeUrl, peerAddr, discReq.String())
+	// TODO: this log will replace the ADS: XXX: PUSH log (when send is called) - so we know the actual result and timing
+	adsLog.Infof("ADS:%s: ACK %v %v", discReq.TypeUrl, peerAddr, discReq.ResourceNames)
 	if pilot.WaitAck {
 		select {
 		case con.ackChannel <- discReq:
@@ -871,14 +881,19 @@ func (s *DiscoveryServer) IncrementalAggregatedResources(stream ads.AggregatedDi
 // Will wait at most PushTimeout (5 sec) - after this time the node push will be considered failed anyways.
 func (s *DiscoveryServer) waitAck(con *XdsConnection) bool {
 	// TODO: confirm the nonce is the same with the sent request.
-	select {
-	case ackMsg := <-con.ackChannel:
-		return ackMsg.ErrorDetail == nil
-	case <-time.After(PushTimeout):
-		adsLog.Infof("Timeout waiting ACK %v", con.ConID)
-		return false
+	for {
+		select {
+		case ackMsg := <-con.ackChannel:
+			if con.lastNonce == ackMsg.ResponseNonce {
+				return ackMsg.ErrorDetail == nil
+			}
+		case <-time.After(PushTimeout):
+			adsLog.Infof("Timeout waiting ACK %v", con.ConID)
+			return false
+		}
 	}
 }
+
 
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.
@@ -1217,6 +1232,8 @@ func (conn *XdsConnection) send(res *xdsapi.DiscoveryResponse) error {
 				conn.EndpointNonceSent = res.Nonce
 			}
 		}
+		conn.nonceSent[res.TypeUrl] = res.Nonce
+		conn.lastNonce = res.Nonce
 		if res.TypeUrl == RouteType {
 			conn.RouteVersionInfoSent = res.VersionInfo
 		}

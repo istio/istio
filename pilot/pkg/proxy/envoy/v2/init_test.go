@@ -261,6 +261,22 @@ func sendRDSNack(node string, _ []string, nonce string, rdsstr ads.AggregatedDis
 	return nil
 }
 
+func sendAck(node string, res *xdsapi.DiscoveryResponse, rdsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
+	err := rdsstr.Send(&xdsapi.DiscoveryRequest{
+		ResponseNonce: res.Nonce,
+		Node: &core.Node{
+			Id:       node,
+			Metadata: nodeMetadata,
+		},
+		TypeUrl: res.TypeUrl,
+	})
+	if err != nil {
+		return fmt.Errorf("ACK failed: %s", err)
+	}
+
+	return nil
+}
+
 func sendCDSReq(node string, edsstr ads.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
 	err := edsstr.Send(&xdsapi.DiscoveryRequest{
 		ResponseNonce: time.Now().String(),

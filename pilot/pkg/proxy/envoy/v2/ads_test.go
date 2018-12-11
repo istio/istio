@@ -324,6 +324,9 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Ack the response !
+	sendAck(gatewayID(gatewayIP), res, edsstr)
+
 	if res == nil || len(res.Resources) == 0 {
 		t.Fatal("No routes returned")
 	}
@@ -338,6 +341,8 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sendAck(gatewayID(gatewayIP), res, edsstr)
+
 	if res == nil || len(res.Resources) == 0 {
 		t.Fatal("No routes returned")
 	}
@@ -358,12 +363,13 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sendAck(gatewayID(gatewayIP), res, edsstr)
 	if res == nil || len(res.Resources) == 0 {
 		t.Fatal("No routes returned")
 	}
 	route1, err = unmarshallRoute(res.Resources[0].Value)
 	if err != nil || len(res.Resources) != 1 || route1.Name != routeB {
-		t.Fatal("Expected only the http.80 route to be returned")
+		t.Fatal("Expected only the http.80 route to be returned", route1, err, len(res.Resources))
 	}
 
 	// Test update from B -> A, B
@@ -376,6 +382,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sendAck(gatewayID(gatewayIP), res, edsstr)
 
 	if res == nil || len(res.Resources) == 0 {
 		t.Fatal("No routes after protocol error")
@@ -407,6 +414,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sendAck(gatewayID(gatewayIP), res, edsstr)
 	if res == nil || len(res.Resources) == 0 {
 		t.Fatal("No routes returned")
 	}
