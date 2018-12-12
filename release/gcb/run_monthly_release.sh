@@ -20,7 +20,7 @@ set -x
 gsutil -m cp -r "gs://$CB_GCS_BUILD_PATH" "gs://$CB_GCS_FULL_STAGING_PATH"
 
 
-cd /workspace
+cd /workspace || exit 1
 # for testing use your own GITHUB_ORG (your own private org)
 # also set CB_TEST_GITHUB_TOKEN_FILE_PATH so that your github creds are used
 
