@@ -50,7 +50,7 @@ var (
 	workloadSdsCacheOptions cache.Options
 	gatewaySdsCacheOptions  cache.Options
 	serverOptions           sds.Options
-
+	gatewaySecretChan				chan struct{}
 	loggingOptions = log.DefaultOptions()
 
 	// rootCmd defines the command for node agent.
@@ -103,7 +103,7 @@ var (
 
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
-		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint, serverOptions.CAProviderName, true)
+		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint, serverOptions.CAProviderName, true, nil)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
@@ -116,11 +116,13 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 	}
 
 	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false)
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
 		}
+		gatewaySecretChan = make(chan struct{})
+		gSecretFetcher.Run(gatewaySecretChan)
 		gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
 	} else {
 		gatewaySecretCache = nil

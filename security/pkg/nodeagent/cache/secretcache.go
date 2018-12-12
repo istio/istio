@@ -227,6 +227,12 @@ func (sc *SecretCache) keyCertRotationJob() {
 }
 
 func (sc *SecretCache) rotate() {
+	// Skip secret rotation for kubernetes secrets.
+	if !sc.fetcher.UseCaClient {
+		atomic.AddUint64(&sc.secretChangedCount, 1)
+		return
+	}
+
 	log.Debug("Refresh job running")
 
 	secretMap := map[ConnKey]*model.SecretItem{}

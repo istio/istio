@@ -42,16 +42,17 @@ const (
 	secretResyncPeriod = 15 * time.Second
 
 	// IngressSecretType the type of kubernetes secrets for ingress gateway.
-	IngressSecretType = "istio.io/ingress-key-cert"
+	IngressSecretType = "istio.io/ingress-k8sKey-cert"
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
 	IngressSecretNameSpace = "istio-ingress"
 	// KubeConfigFile the config file name for kubernetes client.
-	KubeConfigFile = "kube-config"
+	// Specifies empty file name to use InClusterConfig.
+	KubeConfigFile = ""
 
 	// The ID/name for the certificate chain in kubernetes secret.
-	scrtCert = "cert"
-	// The ID/name for the key in kubernetes secret.
-	scrtKey = "key"
+	ScrtCert = "cert"
+	// The ID/name for the k8sKey in kubernetes secret.
+	ScrtKey = "k8sKey"
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
@@ -64,7 +65,7 @@ type SecretFetcher struct {
 	scrtController cache.Controller
 	scrtStore      cache.Store
 
-	// secrets maps key to secrets
+	// secrets maps k8sKey to secrets
 	secrets sync.Map
 }
 
@@ -78,7 +79,7 @@ func fatalf(template string, args ...interface{}) {
 }
 
 // createClientset creates kubernetes client to watch kubernetes secrets.
-func createClientset() *kubernetes.Clientset {
+func createClientset() kubernetes.Interface {
 	c, err := clientcmd.BuildConfigFromFlags("", KubeConfigFile)
 	if err != nil {
 		fatalf("Failed to create a config for kubernetes client (error: %s)", err)
@@ -91,13 +92,16 @@ func createClientset() *kubernetes.Clientset {
 }
 
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool) (*SecretFetcher, error) {
+func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool, clientSet kubernetes.Interface) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
 	if ingressGatewayAgent {
 		ret.UseCaClient = false
 		istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IngressSecretType}).String()
-		cs := createClientset()
+		cs := clientSet
+		if cs == nil {
+			cs = createClientset()
+		}
 		scrtLW := &cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector = istioSecretSelector
@@ -114,8 +118,6 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 				DeleteFunc: ret.scrtDeleted,
 				// TODO(jimmycyj): add handler for UpdateFunc.
 			})
-		ch := make(chan struct{})
-		ret.scrtController.Run(ch)
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag)
 		if err != nil {
@@ -129,7 +131,12 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 	return ret, nil
 }
 
-func (sc *SecretFetcher) scrtAdded(obj interface{}) {
+// Run starts the SecretFetcher until a value is sent to ch.
+func (sf *SecretFetcher) Run(ch chan struct{}) {
+	go sf.scrtController.Run(ch)
+}
+
+func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
 		log.Warnf("Failed to convert to secret object: %v", obj)
@@ -141,16 +148,16 @@ func (sc *SecretFetcher) scrtAdded(obj interface{}) {
 
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
-		CertificateChain: scrt.Data[scrtCert],
-		PrivateKey:       scrt.Data[scrtKey],
+		CertificateChain: scrt.Data[ScrtCert],
+		PrivateKey:       scrt.Data[ScrtKey],
 		CreatedTime:      t,
 		Version:          t.String(),
 	}
-	sc.secrets.Store(resourceName, *ns)
+	sf.secrets.Store(resourceName, *ns)
 	log.Debugf("secret %s is added", scrt.GetName())
 }
 
-func (sc *SecretFetcher) scrtDeleted(obj interface{}) {
+func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
 		log.Warnf("Failed to convert to secret object: %v", obj)
@@ -158,17 +165,22 @@ func (sc *SecretFetcher) scrtDeleted(obj interface{}) {
 	}
 
 	key := scrt.GetName()
-	sc.secrets.Delete(key)
+	sf.secrets.Delete(key)
 	log.Debugf("secret %s is deleted", scrt.GetName())
 }
 
-// FindIngressGatewaySecret returns the secret for a key, or empty secret if no
+// FindIngressGatewaySecret returns the secret for a k8sKey, or empty secret if no
 // secret is present. The ok result indicates whether secret was found.
-func (sc *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
-	val, exist := sc.secrets.Load(key)
+func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
+	val, exist := sf.secrets.Load(key)
 	if !exist {
 		return model.SecretItem{}, false
 	}
 	e := val.(model.SecretItem)
 	return e, true
+}
+
+// AddSecret adds obj into local store. Only used for testing.
+func (sf *SecretFetcher) AddSecret(obj interface{}) {
+	sf.scrtAdded(obj)
 }
