@@ -1198,10 +1198,13 @@ func logPolicyMetrics(t *testing.T, adapter, app string) {
 		fatalf(t, "Could not retrieve valid cache hit number for app '%s': %v", app, err)
 	}
 
+	/* Disabled per https://github.com/istio/istio/issues/9596
 	mixerCacheHits, err := mixerCheckCacheHits(promAPI)
 	if err != nil {
 		fatalf(t, "Could not retrieve cache hits for mixer: %v", err)
 	}
+	*/
+	mixerCacheHits := 0.0
 
 	dispatches, err := adapterDispatches(promAPI, adapter)
 	if err != nil {
@@ -1217,6 +1220,7 @@ func logPolicyMetrics(t *testing.T, adapter, app string) {
 	t.Logf("istio-policy stats (all requests): mixer checkcache hits: %f, adapter '%s' dispatches: %f", mixerCacheHits, adapter, dispatches)
 }
 
+// nolint: deadcode
 func mixerCheckCacheHits(promAPI v1.API) (float64, error) {
 	query := "sum(mixer_checkcache_cache_hits_total{job=\"istio-policy\"})"
 	return queryValue(promAPI, query)
@@ -1323,7 +1327,7 @@ func allowRuleSync() {
 
 func allowPrometheusSync() {
 	log.Info("Sleeping to allow prometheus to record metrics...")
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 }
 
 func promAPI() (v1.API, error) {

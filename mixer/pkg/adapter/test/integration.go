@@ -379,14 +379,16 @@ func getServerArgs(
 func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
 	for k, v := range attrs {
-		switch v.(type) {
+		switch v := v.(type) {
+		case map[string]string:
+			requestBag.Set(k, attribute.WrapStringMap(v))
 		case map[string]interface{}:
-			mapCast := make(map[string]string, len(v.(map[string]interface{})))
+			mapCast := make(map[string]string, len(v))
 
-			for k1, v1 := range v.(map[string]interface{}) {
+			for k1, v1 := range v {
 				mapCast[k1] = v1.(string)
 			}
-			requestBag.Set(k, mapCast)
+			requestBag.Set(k, attribute.WrapStringMap(mapCast))
 		default:
 			requestBag.Set(k, v)
 		}
