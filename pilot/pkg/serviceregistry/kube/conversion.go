@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/spiffe"
 
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +28,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
