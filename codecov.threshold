@@ -20,4 +20,3 @@ istio.io/istio/mixer/adapter/solarwinds/internal/papertrail/papertrail_logger.go
 istio.io/istio/pilot/pkg/config/memory/monitor.go=10
 istio.io/istio/pilot/pkg/proxy/envoy/v2=10
 istio.io/istio/pilot/pkg/serviceregistry/consul/monitor.go=10
-istio.io/istio/pilot/pkg/networking/plugin/mixer=75
