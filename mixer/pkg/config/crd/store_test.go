@@ -313,9 +313,9 @@ func TestCriticalCrdsAreReady(t *testing.T) {
 			},
 		},
 	}
-	callCount := 0
+	var callCount int32
 	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 		fakeDiscovery.Resources[0].APIResources = append(
 			fakeDiscovery.Resources[0].APIResources,
 			metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
@@ -337,7 +337,7 @@ func TestCriticalCrdsAreReady(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got error %v from Init", err)
 	}
-	if callCount != 1 {
+	if atomic.LoadInt32(&callCount) != 1 {
 		t.Errorf("callCount is not expected, got %v wang 1", callCount)
 	}
 	s.Stop()
