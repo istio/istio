@@ -196,7 +196,7 @@ func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
 	}
 }
 
-func constructsdsconfighelper(config *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
+func constructsdsconfighelper(metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
 	return &core.ConfigSource{
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
@@ -215,7 +215,7 @@ func constructsdsconfighelper(config *v2alpha.FileBasedMetadataConfig) *core.Con
 											FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 												Name: "envoy.grpc_credentials.file_based_metadata",
 												ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
-													protoToStruct(config)},
+													protoToStruct(metaConfig)},
 											},
 										},
 									},
