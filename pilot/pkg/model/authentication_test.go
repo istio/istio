@@ -21,6 +21,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 )
 
@@ -196,7 +197,7 @@ func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
 	}
 }
 
-func constructsdsconfighelper(metaConfig *v2alpha.FileBasedMetadataConfig) *core.ConfigSource {
+func constructsdsconfighelper(metaConfig proto.Message) *core.ConfigSource {
 	return &core.ConfigSource{
 		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 			ApiConfigSource: &core.ApiConfigSource{
