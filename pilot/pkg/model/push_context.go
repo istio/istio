@@ -25,6 +25,8 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
+	aspenmeshconfig "github.com/aspenmesh/aspenmesh-crd/pkg/apis/config/v1alpha1"
+
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -88,6 +90,10 @@ type PushContext struct {
 	// port names. The key is the service name. If a service or port are not found,
 	// the endpoint needs to be re-evaluated later (eventual consistency)
 	ServicePort2Name map[string]PortList `json:"-"`
+
+	// AspenMeshExperiments returns all Experiments in a map keyed by the Original
+	// Service
+	AspenMeshExperiments func() map[string][]*aspenmeshconfig.ExperimentSpec `json:"-"`
 
 	initDone bool
 }
