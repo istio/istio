@@ -31,9 +31,9 @@ if [[ -z "$CB_PIPELINE_TYPE" ]]; then
 fi
 if [[ -z "$CB_COMMIT" ]]; then
   git clone "https://github.com/istio/istio" -b "${CB_BRANCH}" --depth 1
-  pushd istio
+  pushd istio || exit 1
     CB_COMMIT=$(git rev-parse HEAD)
-  popd
+  popd || exit 2
 fi
 
 
