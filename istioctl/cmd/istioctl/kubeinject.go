@@ -128,6 +128,7 @@ var (
 	verbosity                    int
 	versionStr                   string // override build version
 	enableCoreDump               bool
+	rewriteAppHTTPProbe          bool
 	imagePullPolicy              string
 	statusPort                   int
 	readinessInitialDelaySeconds uint32
@@ -274,7 +275,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:                    inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:                   inject.ProxyImageName(hub, tag, debugMode),
-					RewriteAppHTTPProbe:          false,
+					RewriteAppHTTPProbe:          rewriteAppHTTPProbe,
 					Verbosity:                    verbosity,
 					SidecarProxyUID:              sidecarProxyUID,
 					Version:                      versionStr,
@@ -373,6 +374,8 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected Envoy sidecar (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
+	injectCmd.PersistentFlags().BoolVar(&rewriteAppHTTPProbe, "rewriteAppProbe", false, "Whether injector "+
+		"rewrites the liveness health check to let kubelet health check the app when mtls is on.")
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
 		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
 			"The default policy is IfNotPresent.")
