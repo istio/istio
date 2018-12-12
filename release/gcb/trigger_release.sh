@@ -14,20 +14,19 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+GOPATH=$PWD/go
+mkdir -p go/bin
+GOBIN=$GOPATH/bin
 
-# This script is meant to be sourced, has a set of functions used by scripts on gcb
+time go get -u istio.io/test-infra/toolbox/githubctl
 
-#sets GITHUB_KEYFILE to github auth file
-function github_keys() {
-  GITHUB_KEYFILE="${GITHUB_TOKEN_FILE}"
-  export GITHUB_KEYFILE
-  
-  if [[ -n "$CB_TEST_GITHUB_TOKEN_FILE_PATH" ]]; then
-    local LOCAL_DIR
-    LOCAL_DIR="$(mktemp -d /tmp/github.XXXX)"
-    local KEYFILE_TEMP
-    KEYFILE_TEMP="$LOCAL_DIR/keyfile.txt"
-    GITHUB_KEYFILE="${KEYFILE_TEMP}"
-    gsutil -q cp "gs://${CB_TEST_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_TEMP}"
-  fi
-}
+# this setting is required by githubctl, which runs git commands
+git config --global user.name "TestRunnerBot"
+git config --global user.email "testrunner@istio.io"
+
+"$GOBIN/githubctl" \
+    --token_file="$GITHUB_TOKEN_FILE" \
+    --op=relPipelineRelease \
+    --base_branch="$CB_BRANCH" \
+    --tag="$CB_VERSION" \
+    --pipeline="$CB_PIPELINE_TYPE"

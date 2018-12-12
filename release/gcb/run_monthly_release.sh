@@ -14,20 +14,16 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+set -x
 
-# This script is meant to be sourced, has a set of functions used by scripts on gcb
+#copy files over to final destination
+gsutil -m cp -r "gs://$CB_GCS_BUILD_PATH" "gs://$CB_GCS_FULL_STAGING_PATH"
 
-#sets GITHUB_KEYFILE to github auth file
-function github_keys() {
-  GITHUB_KEYFILE="${GITHUB_TOKEN_FILE}"
-  export GITHUB_KEYFILE
-  
-  if [[ -n "$CB_TEST_GITHUB_TOKEN_FILE_PATH" ]]; then
-    local LOCAL_DIR
-    LOCAL_DIR="$(mktemp -d /tmp/github.XXXX)"
-    local KEYFILE_TEMP
-    KEYFILE_TEMP="$LOCAL_DIR/keyfile.txt"
-    GITHUB_KEYFILE="${KEYFILE_TEMP}"
-    gsutil -q cp "gs://${CB_TEST_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_TEMP}"
-  fi
-}
+
+cd /workspace || exit 1
+# for testing use your own GITHUB_ORG (your own private org)
+# also set CB_TEST_GITHUB_TOKEN_FILE_PATH so that your github creds are used
+
+# run the release steps
+./github_publish_release.sh
+./github_tag_release.sh
