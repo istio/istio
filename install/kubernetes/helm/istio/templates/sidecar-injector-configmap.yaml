@@ -202,7 +202,7 @@ data:
             - NET_ADMIN
           runAsGroup: 1337
           {{ "[[ else -]]" }}
-          {{ if and .Values.global.sds.enabled .Values.global.sds.enableTokenMount }}
+          {{ if and .Values.global.sds.enabled .Values.global.sds.useK8sSATrustworthyJwt }}
           runAsGroup: 1337
           {{- end }}
           runAsUser: 1337
