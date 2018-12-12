@@ -231,7 +231,6 @@ func isWithinPercentage(count int, total int, rate float64, tolerance float64) b
 }
 
 func TestDbRoutingMongo(t *testing.T) {
-	t.Skipf("%s is skipped for now.", "TestDbRoutingMongo")
 	var rules = []string{testDbRule}
 	doTestDbRoutingMongo(t, "v1alpha3", rules)
 }
@@ -255,7 +254,6 @@ func doTestDbRoutingMongo(t *testing.T, configVersion string, rules []string) {
 }
 
 func TestDbRoutingMysql(t *testing.T) {
-	t.Skipf("%s is skipped for now.", "TestDbRoutingMysql")
 	var rules = []string{testMysqlRule}
 
 	doTestDbRoutingMysql(t, "v1alpha3", rules)
