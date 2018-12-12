@@ -16,6 +16,7 @@ package iamclient
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"strings"
@@ -69,11 +70,12 @@ func (*mockIAMServer) SignJwt(context.Context, *iam.SignJwtRequest) (*iam.SignJw
 }
 
 func TestIAMClientPlugin(t *testing.T) {
-	testHelper(t, true)
-	testHelper(t, false)
+	testHelper(t, true, false)
+	testHelper(t, false, false)
+	testHelper(t, true, true)
 }
 
-func testHelper(t *testing.T, createGoodToken bool) {
+func testHelper(t *testing.T, createGoodToken bool, mockCertPool bool) {
 	// create a local grpc server
 	s := grpc.NewServer()
 	defer s.Stop()
@@ -97,13 +99,27 @@ func testHelper(t *testing.T, createGoodToken bool) {
 	time.Sleep(1 * time.Second)
 
 	iamEndpoint = lis.Addr().String()
-	tlsFlag = false
+	if mockCertPool {
+		tlsFlag = true
+		certFunc = func() (*x509.CertPool, error) {
+			return nil, fmt.Errorf("there are no certs")
+		}
+	} else {
+		tlsFlag = false
+	}
 	defer func() {
 		iamEndpoint = "iamcredentials.googleapis.com:443"
 		tlsFlag = true
+		certFunc = x509.SystemCertPool
 	}()
 
 	p := NewPlugin()
+	if mockCertPool {
+		if p != nil {
+			t.Errorf("NewPlugin should return nil when getting certs returns error")
+		}
+		return
+	}
 	outputToken, expireTime, err := p.ExchangeToken(context.Background(), "fakeTrustDomain", "fakeInputToken")
 	if createGoodToken {
 		if err != nil {
