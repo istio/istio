@@ -14,20 +14,26 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+# Exit immediately for non zero status
+set -e
+# Check unset variables
+set -u
+# Print commands
+set -x
 
-# This script is meant to be sourced, has a set of functions used by scripts on gcb
+cd /workspace || exit 1
+# /output is used to store release artifacts
+mkdir /output
 
-#sets GITHUB_KEYFILE to github auth file
-function github_keys() {
-  GITHUB_KEYFILE="${GITHUB_TOKEN_FILE}"
-  export GITHUB_KEYFILE
-  
-  if [[ -n "$CB_TEST_GITHUB_TOKEN_FILE_PATH" ]]; then
-    local LOCAL_DIR
-    LOCAL_DIR="$(mktemp -d /tmp/github.XXXX)"
-    local KEYFILE_TEMP
-    KEYFILE_TEMP="$LOCAL_DIR/keyfile.txt"
-    GITHUB_KEYFILE="${KEYFILE_TEMP}"
-    gsutil -q cp "gs://${CB_TEST_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_TEMP}"
-  fi
-}
+# start actual build steps
+/workspace/generate_manifest.sh
+/workspace/istio_checkout_code.sh
+
+cd /workspace/go/src/istio.io/istio || exit 2
+/workspace/cloud_builder.sh
+
+cd /workspace || exit 3
+/workspace/store_artifacts.sh
+/workspace/rel_push_docker_build_version.sh
+/workspace/helm_charts.sh
+/workspace/helm_values.sh
