@@ -16,7 +16,7 @@ package iamclient
 
 import (
 	"context"
-	"github.com/pkg/errors"
+	"fmt"
 	"net"
 	"strings"
 	"testing"
@@ -48,7 +48,7 @@ func (is *mockIAMServer) GenerateIdentityBindingAccessToken(ctx context.Context,
 			ExpireTime:  et,
 		}, nil
 	}
-	return &iam.GenerateIdentityBindingAccessTokenResponse{}, errors.Errorf("test error")
+	return &iam.GenerateIdentityBindingAccessTokenResponse{}, fmt.Errorf("test error")
 }
 
 func (*mockIAMServer) GenerateAccessToken(context.Context, *iam.GenerateAccessTokenRequest) (*iam.GenerateAccessTokenResponse, error) {
