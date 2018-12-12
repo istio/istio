@@ -17,6 +17,8 @@ package controller
 import (
 	"fmt"
 
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -42,12 +44,31 @@ func NewConfigMapController(namespace string, core corev1.CoreV1Interface) *Conf
 // InsertCATLSRootCert updates the CA TLS root certificate in the configmap.
 func (c ConfigMapController) InsertCATLSRootCert(value string) error {
 	configmap, err := c.core.ConfigMaps(c.namespace).Get(istioSecurityConfigMapName, metav1.GetOptions{})
+	exists := true
 	if err != nil {
-		return fmt.Errorf("configmap %s write error %v", istioSecurityConfigMapName, err)
+		if errors.IsNotFound(err) {
+			// Create a new ConfigMap.
+			configmap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      istioSecurityConfigMapName,
+					Namespace: c.namespace,
+				},
+				Data: map[string]string{},
+			}
+			exists = false
+		} else {
+			return fmt.Errorf("configmap %s get error %v", istioSecurityConfigMapName, err)
+		}
 	}
 	configmap.Data[caTLSRootCertName] = value
-	if _, err = c.core.ConfigMaps(c.namespace).Update(configmap); err != nil {
-		return fmt.Errorf("configmap %s write error %v", istioSecurityConfigMapName, err)
+	if exists {
+		if _, err = c.core.ConfigMaps(c.namespace).Update(configmap); err != nil {
+			return fmt.Errorf("configmap %s update error %v", istioSecurityConfigMapName, err)
+		}
+	} else {
+		if _, err = c.core.ConfigMaps(c.namespace).Create(configmap); err != nil {
+			return fmt.Errorf("configmap %s creation error %v", istioSecurityConfigMapName, err)
+		}
 	}
 	return nil
 }
@@ -56,7 +77,7 @@ func (c ConfigMapController) InsertCATLSRootCert(value string) error {
 func (c ConfigMapController) GetCATLSRootCert() (string, error) {
 	configmap, err := c.core.ConfigMaps(c.namespace).Get(istioSecurityConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("configmap %s write error %v", istioSecurityConfigMapName, err)
+		return "", fmt.Errorf("configmap %s get error %v", istioSecurityConfigMapName, err)
 	}
 	rootCert := configmap.Data[caTLSRootCertName]
 	if rootCert == "" {
