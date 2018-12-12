@@ -20,14 +20,14 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/k8s/controller"
-
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
 )
 
 const (
