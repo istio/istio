@@ -38,13 +38,22 @@ const (
 	maxRetries    = 100
 )
 
+type configMap interface {
+	GetCATLSRootCert() (string, error)
+}
+
 // NewCAClient create an CA client.
 func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
 	switch CAProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
 	case citadelName:
-		rootCert, err := getCATLSRootCertFromConfigMap()
+		cs, err := createClientSet()
+		if err != nil {
+			return nil, err
+		}
+		controller := controller.NewConfigMapController("", cs.CoreV1())
+		rootCert, err := getCATLSRootCertFromConfigMap(controller, retryInterval, maxRetries)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +64,30 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 	}
 }
 
-func getCATLSRootCertFromConfigMap() ([]byte, error) {
+func getCATLSRootCertFromConfigMap(controller configMap, interval time.Duration, max int) ([]byte, error) {
+	cert := ""
+	var err error
+	// Keep retrying until the root cert is fetched or the number of retries is exhausted.
+	for i := 0; i < max+1; i++ {
+		cert, err = controller.GetCATLSRootCert()
+		if err == nil {
+			break
+		}
+		time.Sleep(retryInterval)
+		log.Infof("unalbe to fetch CA TLS root cert, retry in %v", interval)
+	}
+	if cert == "" {
+		return nil, fmt.Errorf("exhausted all the retries (%d) to fetch the CA TLS root cert", max)
+	}
+
+	certDecoded, err := base64.StdEncoding.DecodeString(cert)
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode the CA TLS root cert: %v", err)
+	}
+	return certDecoded, nil
+}
+
+func createClientSet() (*kubernetes.Clientset, error) {
 	// Get the kubeconfig from the K8s cluster the node agent is running in.
 	kubeconfig, err := restclient.InClusterConfig()
 	if err != nil {
@@ -65,25 +97,5 @@ func getCATLSRootCertFromConfigMap() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a clientset (error: %v)", err)
 	}
-	controller := controller.NewConfigMapController("", clientSet.CoreV1())
-
-	cert := ""
-	// Keep retrying until the root cert is fetched.
-	for i := 0; i < maxRetries; i++ {
-		cert, err = controller.GetCATLSRootCert()
-		if err == nil {
-			break
-		}
-		time.Sleep(retryInterval)
-		log.Infof("unalbe to fetch CA TLS root cert, retry in %v", retryInterval)
-	}
-	if cert == "" {
-		return nil, fmt.Errorf("exhausted all the retries (%d) to fetch the CA TLS root cert", maxRetries)
-	}
-
-	certDecoded, err := base64.StdEncoding.DecodeString(cert)
-	if err != nil {
-		return nil, fmt.Errorf("cannot decode the CA TLS root cert: %v", err)
-	}
-	return certDecoded, nil
+	return clientSet, nil
 }

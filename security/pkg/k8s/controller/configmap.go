@@ -43,7 +43,7 @@ func NewConfigMapController(namespace string, core corev1.CoreV1Interface) *Conf
 }
 
 // InsertCATLSRootCert updates the CA TLS root certificate in the configmap.
-func (c ConfigMapController) InsertCATLSRootCert(value string) error {
+func (c *ConfigMapController) InsertCATLSRootCert(value string) error {
 	configmap, err := c.core.ConfigMaps(c.namespace).Get(istioSecurityConfigMapName, metav1.GetOptions{})
 	exists := true
 	if err != nil {
@@ -75,7 +75,7 @@ func (c ConfigMapController) InsertCATLSRootCert(value string) error {
 }
 
 // GetCATLSRootCert gets the CA TLS root certificate from the configmap.
-func (c ConfigMapController) GetCATLSRootCert() (string, error) {
+func (c *ConfigMapController) GetCATLSRootCert() (string, error) {
 	configmap, err := c.core.ConfigMaps(c.namespace).Get(istioSecurityConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get CA TLS root cert: %v", err)
