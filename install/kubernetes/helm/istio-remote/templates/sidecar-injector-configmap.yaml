@@ -170,6 +170,9 @@ data:
             - NET_ADMIN
           runAsGroup: 1337
           {{ "[[ else -]]" }}
+          {{ if and .Values.global.sds.enabled .Values.global.sds.enableTokenMount }}
+          runAsGroup: 1337
+          {{- end }}
           runAsUser: 1337
           {{ "[[- end ]]" }}
         resources:
