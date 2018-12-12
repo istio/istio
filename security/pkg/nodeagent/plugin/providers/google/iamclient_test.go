@@ -116,6 +116,9 @@ func testHelper(t *testing.T, createGoodToken bool) {
 			t.Errorf("resp expireTime: got %+v, expected %q", expireTime, fakeAccessTokenExpireTime)
 		}
 	} else {
+		if err == nil {
+			t.Errorf("function ExchangeToken should return error")
+		}
 		strings.Compare(err.Error(), "failed to exchange token")
 	}
 }
