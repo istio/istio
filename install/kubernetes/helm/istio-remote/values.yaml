@@ -258,8 +258,8 @@ global:
   sds:
     enabled: false
     udsPath: ""
-    useK8sSATrustworthyJwt: false
-    useK8sSANormalJwt: false
+    useTrustworthyJwt: false
+    useNormalJwt: false
 
   # Sets an identifier for the remote network to be used for Split Horizon EDS. The network will be sent
   # to the Pilot when connected by the sidecar and will affect the results returned in EDS requests.
