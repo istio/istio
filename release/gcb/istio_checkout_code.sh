@@ -52,7 +52,9 @@ function istio_code_init_manifest() {
   checkout_code "cni" "${CNI_SHA}" "/workspace/go/src/istio.io"
   checkout_code "proxy" "${PROXY_SHA}" "/workspace/src"
   checkout_code "api"     "${API_SHA}" "/workspace/go/src/istio.io"
-  checkout_code "istio" "${ISTIO_SHA}" "/workspace/go/src/istio.io"
+
+# istio is checkout by the initialization script in pipeline repo
+# checkout_code "istio" "${ISTIO_SHA}" "/workspace/go/src/istio.io"
 }
 
 istio_code_init_manifest         "/workspace/manifest.txt"
