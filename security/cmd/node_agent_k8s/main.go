@@ -50,8 +50,8 @@ var (
 	workloadSdsCacheOptions cache.Options
 	gatewaySdsCacheOptions  cache.Options
 	serverOptions           sds.Options
-	gatewaySecretChan				chan struct{}
-	loggingOptions = log.DefaultOptions()
+	gatewaySecretChan       chan struct{}
+	loggingOptions          = log.DefaultOptions()
 
 	// rootCmd defines the command for node agent.
 	rootCmd = &cobra.Command{

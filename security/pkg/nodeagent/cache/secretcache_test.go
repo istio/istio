@@ -26,27 +26,27 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 var (
 	mockCertChain1st    = []string{"foo", "rootcert"}
 	mockCertChainRemain = []string{"bar", "rootcert"}
-	testResourceName = "default"
+	testResourceName    = "default"
 
 	k8sKey        = []byte("fake private k8sKey")
 	k8sCertChain  = []byte("fake cert chain")
 	k8sSecretName = "test-scrt"
 	k8sTestSecret = &v1.Secret{
 		Data: map[string][]byte{
-			secretfetcher.ScrtCert:    k8sCertChain,
-			secretfetcher.ScrtKey:   k8sKey,
+			secretfetcher.ScrtCert: k8sCertChain,
+			secretfetcher.ScrtKey:  k8sKey,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        k8sSecretName,
-			Namespace:   secretfetcher.IngressSecretNameSpace,
+			Name:      k8sSecretName,
+			Namespace: secretfetcher.IngressSecretNameSpace,
 		},
 		Type: secretfetcher.IngressSecretType,
 	}
