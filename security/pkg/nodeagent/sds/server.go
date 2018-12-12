@@ -142,15 +142,15 @@ func (s *Server) initWorkloadSdsService(options *Options) error {
 	var err error
 	s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
 	if err != nil {
-		log.Errorf("SDS grpc server failed to start: %v", err)
+		log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 	}
 
 	go func() {
 		if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
-			log.Errorf("SDS grpc server failed to start: %v", err)
+			log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 		}
 
-		log.Info("SDS grpc server started")
+		log.Info("SDS grpc server for workload proxies started")
 	}()
 
 	return nil
@@ -163,15 +163,15 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	var err error
 	s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
 	if err != nil {
-		log.Errorf("SDS grpc server failed to start: %v", err)
+		log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 	}
 
 	go func() {
 		if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
-			log.Errorf("SDS grpc server failed to start: %v", err)
+			log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 		}
 
-		log.Info("SDS grpc server started")
+		log.Info("SDS grpc server for ingress gateway proxy started")
 	}()
 
 	return nil

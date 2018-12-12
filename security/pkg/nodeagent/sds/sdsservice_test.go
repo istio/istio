@@ -59,26 +59,59 @@ var (
 	}
 )
 
-func TestStreamSecrets(t *testing.T) {
-	socket := fmt.Sprintf("/tmp/gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, socket, sdsRequestStream)
+func TestStreamSecretsForWorkloadSds(t *testing.T) {
+	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID()))
+	testHelper(t, workloadSocket, "", sdsRequestStream, false, true)
 }
 
-func TestFetchSecrets(t *testing.T) {
-	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
-	testHelper(t, socket, sdsRequestFetch)
+func TestStreamSecretsForGatewaySds(t *testing.T) {
+	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
+	testHelper(t, "", gatewaySocket, sdsRequestStream, true, false)
+}
+
+func TestStreamSecretsForBothSds(t *testing.T) {
+	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID()))
+	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
+	testHelper(t, workloadSocket, gatewaySocket, sdsRequestStream, true, true)
+}
+
+func TestFetchSecretsForWorkloadSds(t *testing.T) {
+	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID()))
+	testHelper(t, workloadSocket, "", sdsRequestFetch, false, true)
+}
+
+func TestFetchSecretsForGatewaySds(t *testing.T) {
+	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
+	testHelper(t, "", gatewaySocket, sdsRequestFetch, true, false)
+}
+
+func TestFetchSecretsForBothSds(t *testing.T) {
+	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID()))
+	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
+	testHelper(t, workloadSocket, gatewaySocket, sdsRequestFetch, true, true)
 }
 
 type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse, error)
 
-func testHelper(t *testing.T, testSocket string, cb secretCallback) {
+func testHelper(t *testing.T, wTestSocket, gTestSocket string, cb secretCallback, enableGatewaySds, enableWorkloadSds bool) {
 	arg := Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		WorkloadUDSPath:         testSocket,
+		EnableIngressGatewaySDS: enableGatewaySds,
+		EnableWorkloadSDS:       enableWorkloadSds,
+		WorkloadUDSPath:         wTestSocket,
+		IngressGatewayUDSPath:   gTestSocket,
 	}
-	st := &mockSecretStore{}
-	server, err := NewServer(arg, st, nil)
+	var wst, gst cache.SecretManager
+	if enableWorkloadSds {
+		wst = &mockSecretStore{}
+	} else {
+		wst = nil
+	}
+	if enableGatewaySds {
+		gst = &mockSecretStore{}
+	} else {
+		gst = nil
+	}
+	server, err := NewServer(arg, wst, gst)
 	defer server.Stop()
 
 	if err != nil {
@@ -86,6 +119,32 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
+	if enableWorkloadSds {
+		sendRequestAndVerifyResponse(t, cb, wTestSocket, proxyID)
+
+		// Request for root certificate.
+		sendRequestForRootCertAndVerifyResponse(t, cb, wTestSocket, proxyID)
+	}
+	if enableGatewaySds {
+		sendRequestAndVerifyResponse(t, cb, gTestSocket, proxyID)
+	}
+}
+
+func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) {
+	rootCertReq := &api.DiscoveryRequest{
+		ResourceNames: []string{"ROOTCA"},
+		Node: &core.Node{
+			Id: proxyID,
+		},
+	}
+	resp, err := cb(socket, rootCertReq)
+	if err != nil {
+		t.Fatalf("failed to get root cert through SDS")
+	}
+	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
+}
+
+func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) {
 	req := &api.DiscoveryRequest{
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
@@ -98,7 +157,7 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	for ; retry < 5; retry++ {
 		time.Sleep(wait)
 		// Try to call the server
-		resp, err := cb(testSocket, req)
+		resp, err := cb(socket, req)
 		if err == nil {
 			//Verify secret.
 			verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
@@ -109,21 +168,8 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	}
 
 	if retry == 5 {
-		t.Fatalf("failed to start grpc server for SDS")
+		t.Fatal("failed to start grpc server for SDS")
 	}
-
-	// Request for root certificate.
-	rootCertReq := &api.DiscoveryRequest{
-		ResourceNames: []string{"ROOTCA", "sub1"},
-		Node: &core.Node{
-			Id: proxyID,
-		},
-	}
-	resp, err := cb(testSocket, rootCertReq)
-	if err != nil {
-		t.Fatalf("failed to get root cert through SDS")
-	}
-	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
 }
 
 func TestStreamSecretsPush(t *testing.T) {
@@ -242,7 +288,6 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, ex
 						InlineBytes: expectedRootCert,
 					},
 				},
-				VerifySubjectAltName: []string{"sub1"},
 			},
 		},
 	}

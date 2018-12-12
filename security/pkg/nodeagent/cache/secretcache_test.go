@@ -278,52 +278,6 @@ func verifySecret(gotSecret *model.SecretItem) error {
 	return nil
 }
 
-// TestGatewayAgentRefreshSecret verifies that ingress gateway agent updates refresh counters correctly.
-func TestGatewayAgentRefreshSecret(t *testing.T) {
-	client := fake.NewSimpleClientset()
-	fetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, client)
-	if err != nil {
-		t.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-	}
-	ch := make(chan struct{})
-	fetcher.Run(ch)
-	fetcher.AddSecret(k8sTestSecret)
-	opt := Options{
-		SecretTTL:        200 * time.Microsecond,
-		RotationInterval: 200 * time.Microsecond,
-		EvictionDuration: 10 * time.Second,
-	}
-
-	sc := NewSecretCache(fetcher, notifyCb, opt)
-	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
-	defer func() {
-		sc.Close()
-		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
-	}()
-
-	_, err = sc.GenerateSecret(context.Background(), "proxy1-id", k8sSecretName, "")
-	if err != nil {
-		t.Fatalf("Failed to get secrets: %v", err)
-	}
-
-	// Wait until key rotation job run to update cached secret.
-	wait := 200 * time.Millisecond
-	retries := 0
-	for ; retries < 5; retries++ {
-		time.Sleep(wait)
-		if atomic.LoadUint64(&sc.secretChangedCount) == uint64(0) {
-			// Retry after some sleep.
-			wait *= 2
-			continue
-		}
-
-		break
-	}
-	if retries == 5 {
-		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
-	}
-}
-
 func notifyCb(string, string, *model.SecretItem) error {
 	return nil
 }
