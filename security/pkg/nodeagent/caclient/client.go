@@ -78,12 +78,12 @@ func getCATLSRootCertFromConfigMap() ([]byte, error) {
 		log.Infof("unalbe to fetch CA TLS root cert, retry in %v", retryInterval)
 	}
 	if cert == "" {
-		return nil, fmt.Errorf("exhausted all the retries (%d) to fetch the CA root cert", maxRetries)
+		return nil, fmt.Errorf("exhausted all the retries (%d) to fetch the CA TLS root cert", maxRetries)
 	}
 
 	certDecoded, err := base64.StdEncoding.DecodeString(cert)
 	if err != nil {
-		return nil, fmt.Errorf("cannot decode root cert used to call Citadel: %v", err)
+		return nil, fmt.Errorf("cannot decode the CA TLS root cert: %v", err)
 	}
 	return certDecoded, nil
 }
