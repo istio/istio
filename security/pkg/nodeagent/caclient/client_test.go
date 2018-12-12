@@ -72,7 +72,7 @@ func TestGetCATLSRootCertFromConfigMap(t *testing.T) {
 			expectedErr:  "",
 		},
 		"Controller error": {
-			cm:           &mockConfigMap{Cert: encoded, Err: fmt.Errorf("Test_error")},
+			cm:           &mockConfigMap{Cert: encoded, Err: fmt.Errorf("test_error")},
 			expectedCert: nil,
 			expectedErr:  "exhausted all the retries (0) to fetch the CA TLS root cert",
 		},
