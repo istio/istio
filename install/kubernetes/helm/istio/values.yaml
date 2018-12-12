@@ -348,7 +348,8 @@ global:
     # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
     enabled: false
     udsPath: ""
-    enableTokenMount: false
+    useK8sSATrustworthyJwt: false
+    useK8sSANormalJwt: false
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
   # 
