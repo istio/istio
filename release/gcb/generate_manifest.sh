@@ -84,23 +84,15 @@ EOF
  popd
 
   if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
-     checkout_code "proxy" "HEAD" .
+     # Consistency check not needed for CNI
+     checkout_code "proxy" "PROXY_REPO_SHA" .
      pushd proxy 
-       PROXY_HEAD_SHA=$(git rev-parse HEAD)
-       PROXY_HEAD_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
+       PROXY_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
      popd
-      if [ "$PROXY_HEAD_SHA" != "$PROXY_REPO_SHA" ]; then
-        echo "inconsistent shas PROXY_HEAD_SHA         $PROXY_HEAD_SHA != $PROXY_REPO_SHA PROXY_REPO_SHA" 1>&2
-        exit 16
-      fi
-      if [ "$PROXY_HEAD_API_SHA" != "$API_REPO_SHA" ]; then
-        echo "inconsistent shas PROXY_HEAD_API_SHA $PROXY_HEAD_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
-        exit 17
-      fi
-      if [ "$ISTIO_HEAD_SHA" != "$ISTIO_REPO_SHA" ]; then
-        echo "inconsistent shas ISTIO_HEAD_SHA         $ISTIO_HEAD_SHA != $ISTIO_REPO_SHA ISTIO_REPO_SHA" 1>&2
-        exit 18
-      fi
+     if [ "$PROXY_API_SHA" != "$API_REPO_SHA" ]; then
+       echo "inconsistent shas PROXY_API_SHA $PROXY_API_SHA !=   $API_REPO_SHA   API_REPO_SHA" 1>&2
+       exit 17
+     fi
   fi
 }
 
