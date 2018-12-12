@@ -21,10 +21,7 @@ set -u
 # Print commands
 set -x
 
-source "/workspace/gcb_env.sh"
-
-
-cd /workspace
+cd /workspace || exit 1
 # /output is used to store release artifacts
 mkdir /output
 
@@ -32,10 +29,10 @@ mkdir /output
 /workspace/generate_manifest.sh
 /workspace/istio_checkout_code.sh
 
-cd /workspace/go/src/istio.io/istio
+cd /workspace/go/src/istio.io/istio || exit 2
 /workspace/cloud_builder.sh
 
-cd /workspace
+cd /workspace || exit 3
 /workspace/store_artifacts.sh
 /workspace/rel_push_docker_build_version.sh
 /workspace/helm_charts.sh

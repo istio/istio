@@ -26,7 +26,7 @@ if [[ "$CB_GITHUB_ORG" != "istio" ]]; then
   fi
 fi
 
-cd /workspace
+cd /workspace || exit 1
 # run the release steps
 ./rel_push_docker_daily.sh
 ./rel_daily_complete.sh
