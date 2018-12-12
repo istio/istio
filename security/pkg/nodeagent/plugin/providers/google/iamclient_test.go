@@ -16,7 +16,9 @@ package iamclient
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,15 +35,20 @@ var (
 	fakeAccessTokenExpireTime = time.Date(2050, 12, 31, 1, 0, 0, 0, time.UTC)
 )
 
-type mockIAMServer struct{}
+type mockIAMServer struct{
+	GenerateGoodToken bool
+}
 
-func (*mockIAMServer) GenerateIdentityBindingAccessToken(ctx context.Context,
+func (is *mockIAMServer) GenerateIdentityBindingAccessToken(ctx context.Context,
 	in *iam.GenerateIdentityBindingAccessTokenRequest) (*iam.GenerateIdentityBindingAccessTokenResponse, error) {
-	et, _ := ptypes.TimestampProto(fakeAccessTokenExpireTime)
-	return &iam.GenerateIdentityBindingAccessTokenResponse{
-		AccessToken: fakeAccessToken,
-		ExpireTime:  et,
-	}, nil
+	if is.GenerateGoodToken {
+		et, _ := ptypes.TimestampProto(fakeAccessTokenExpireTime)
+		return &iam.GenerateIdentityBindingAccessTokenResponse{
+			AccessToken: fakeAccessToken,
+			ExpireTime:  et,
+		}, nil
+	}
+	return &iam.GenerateIdentityBindingAccessTokenResponse{}, errors.Errorf("test error")
 }
 
 func (*mockIAMServer) GenerateAccessToken(context.Context, *iam.GenerateAccessTokenRequest) (*iam.GenerateAccessTokenResponse, error) {
@@ -62,6 +69,11 @@ func (*mockIAMServer) SignJwt(context.Context, *iam.SignJwtRequest) (*iam.SignJw
 }
 
 func TestIAMClientPlugin(t *testing.T) {
+	testHelper(t, true)
+	testHelper(t, false)
+}
+
+func testHelper(t *testing.T, createGoodToken bool) {
 	// create a local grpc server
 	s := grpc.NewServer()
 	defer s.Stop()
@@ -69,7 +81,10 @@ func TestIAMClientPlugin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
-	serv := mockIAMServer{}
+
+	serv := mockIAMServer{
+		GenerateGoodToken: createGoodToken,
+	}
 
 	go func() {
 		iam.RegisterIAMCredentialsServer(s, &serv)
@@ -90,13 +105,17 @@ func TestIAMClientPlugin(t *testing.T) {
 
 	p := NewPlugin()
 	outputToken, expireTime, err := p.ExchangeToken(context.Background(), "fakeTrustDomain", "fakeInputToken")
-	if err != nil {
-		t.Fatalf("failed to call ExchangeToken: %v", err)
-	}
-	if outputToken != fakeAccessToken {
-		t.Errorf("resp outputToken: got %+v, expected %q", outputToken, fakeAccessToken)
-	}
-	if expireTime != fakeAccessTokenExpireTime {
-		t.Errorf("resp expireTime: got %+v, expected %q", expireTime, fakeAccessTokenExpireTime)
+	if createGoodToken {
+		if err != nil {
+			t.Fatalf("failed to call ExchangeToken: %v", err)
+		}
+		if outputToken != fakeAccessToken {
+			t.Errorf("resp outputToken: got %+v, expected %q", outputToken, fakeAccessToken)
+		}
+		if expireTime != fakeAccessTokenExpireTime {
+			t.Errorf("resp expireTime: got %+v, expected %q", expireTime, fakeAccessTokenExpireTime)
+		}
+	} else {
+		strings.Compare(err.Error(), "failed to exchange token")
 	}
 }

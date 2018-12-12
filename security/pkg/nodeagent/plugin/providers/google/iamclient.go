@@ -88,10 +88,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 		return "", time.Now(), errors.New("failed to exchange token")
 	}
 
-	expireTime, err := ptypes.Timestamp(r.ExpireTime)
-	if err != nil {
-		return "", time.Now(), errors.New("failed to exchange token")
-	}
+	expireTime, _ := ptypes.Timestamp(r.ExpireTime)
 
 	return r.AccessToken, expireTime, nil
 }
