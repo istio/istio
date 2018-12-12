@@ -15,10 +15,10 @@
 package kube
 
 import (
-	"github.com/pkg/errors"
-	"istio.io/istio/pkg/spiffe"
 	"reflect"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,42 +42,42 @@ type serviceAccountPair struct {
 }
 
 type testStruct struct {
-		name          string
-		namespace     string
-		expected      string
-		errorExpected bool
+	name          string
+	namespace     string
+	expected      string
+	errorExpected bool
 }
 
 func TestSpiffeID(t *testing.T) {
-	testCases := []testStruct {
+	testCases := []testStruct{
 		{
-			name:      "foo",
-			namespace: "bar",
-			expected:  "spiffe://cluster.local/ns/bar/sa/foo",
+			name:          "foo",
+			namespace:     "bar",
+			expected:      "spiffe://cluster.local/ns/bar/sa/foo",
 			errorExpected: false,
 		},
 		{
-			name:      "foo",
-			namespace: "",
-			expected:  "spiffe://cluster.local/ns//sa/foo",
+			name:          "foo",
+			namespace:     "",
+			expected:      "spiffe://cluster.local/ns//sa/foo",
 			errorExpected: true,
 		},
 		{
-			name:      "",
-			namespace: "bar",
-			expected:  "spiffe://cluster.local/ns/bar/sa/",
+			name:          "",
+			namespace:     "bar",
+			expected:      "spiffe://cluster.local/ns/bar/sa/",
 			errorExpected: true,
 		},
 		{
-			name:      "",
-			namespace: "",
-			expected:  "spiffe://cluster.local/ns//sa/",
+			name:          "",
+			namespace:     "",
+			expected:      "spiffe://cluster.local/ns//sa/",
 			errorExpected: true,
 		},
 		{
-			name:      "svc@test.serviceaccount.com",
-			namespace: "default",
-			expected:  "spiffe://cluster.local/ns/default/sa/svc@test.serviceaccount.com",
+			name:          "svc@test.serviceaccount.com",
+			namespace:     "default",
+			expected:      "spiffe://cluster.local/ns/default/sa/svc@test.serviceaccount.com",
 			errorExpected: false,
 		},
 	}
@@ -88,16 +88,16 @@ func TestSpiffeID(t *testing.T) {
 	}
 }
 
-func getSpiffeIDOrError(s testStruct) (spiffeId string, err error) {
+func getSpiffeIDOrError(s testStruct) (spiffeID string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			spiffeId = ""
-			err = errors.New("Panic received")
+			spiffeID = ""
+			err = errors.New("panic received")
 			return
 		}
 	}()
 	err = nil
-	spiffeId = getSpiffeID(createServiceAccount(s.name, s.namespace))
+	spiffeID = getSpiffeID(createServiceAccount(s.name, s.namespace))
 	return
 }
 

@@ -24,9 +24,10 @@ package authz
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"sort"
 	"strings"
+
+	"istio.io/istio/pkg/spiffe"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"

@@ -17,6 +17,7 @@ package citadel
 import (
 	"crypto/x509"
 	"fmt"
+
 	"istio.io/istio/pkg/spiffe"
 
 	"k8s.io/api/core/v1"

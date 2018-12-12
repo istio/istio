@@ -16,6 +16,7 @@ package platform
 
 import (
 	"fmt"
+
 	"istio.io/istio/pkg/spiffe"
 
 	"cloud.google.com/go/compute/metadata"

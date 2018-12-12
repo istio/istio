@@ -18,9 +18,10 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"net"
 	"strings"
+
+	"istio.io/istio/pkg/spiffe"
 )
 
 // IdentityType represents type of an identity. This is used to properly encode

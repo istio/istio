@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/spiffe"
 	"net"
 	"os"
 	"os/exec"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"github.com/gogo/protobuf/types"
 
@@ -53,7 +54,7 @@ const (
 
 func defaultPilotSan() []string {
 	return []string{
-		spiffe.MustGenSpiffeURI("istio-system","istio-pilot-service-account")}
+		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
 }
 
 func configFile(config string, epoch int) string {

@@ -291,6 +291,7 @@ var (
 
 			log.Infof("PilotSAN %#v", pilotSAN)
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
+
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 

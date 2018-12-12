@@ -16,9 +16,10 @@ package main
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"os"
 	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"

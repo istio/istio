@@ -36,9 +36,8 @@ func DetermineTrustDomain(commandLineTrustDomain string, domain string, isKubern
 	}
 	if isKubernetes {
 		return defaultTrustDomain
-	} else {
-		return domain
 	}
+	return domain
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate.

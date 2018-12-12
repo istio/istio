@@ -15,9 +15,10 @@
 package envoy
 
 import (
-	"istio.io/istio/pkg/spiffe"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
