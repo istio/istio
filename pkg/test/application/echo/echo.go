@@ -181,7 +181,7 @@ func (s *httpServer) start() error {
 	}
 
 	// Start serving HTTP traffic.
-	go s.server.Serve(listener)
+	go func() { _ = s.server.Serve(listener) }()
 	return nil
 }
 
@@ -222,7 +222,7 @@ func (s *grpcServer) start() error {
 	proto.RegisterEchoTestServiceServer(s.server, s.h)
 
 	// Start serving GRPC traffic.
-	go s.server.Serve(listener)
+	go func() { _ = s.server.Serve(listener) }()
 	return nil
 }
 
