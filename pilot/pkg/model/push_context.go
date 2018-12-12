@@ -280,10 +280,10 @@ func NewPushContext() *PushContext {
 		publicVirtualServices:             []Config{},
 		privateVirtualServicesByNamespace: map[string][]Config{},
 
-		ServiceByHostname: map[Hostname]*Service{},
-		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServicePort2Name:  map[string]PortList{},
-		Start:             time.Now(),
+		ServiceByHostname:         map[Hostname]*Service{},
+		ProxyStatus:               map[string]map[string]ProxyPushStatus{},
+		ServicePort2Name:          map[string]PortList{},
+		Start:                     time.Now(),
 		MixerPerRouteFilterConfig: map[string]*types.Struct{},
 	}
 }
