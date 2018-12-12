@@ -187,6 +187,9 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 func TestGatewayAgentGenerateSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	fetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, client)
+	if err != nil {
+		t.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+	}
 	ch := make(chan struct{})
 	fetcher.Run(ch)
 	opt := Options{
@@ -279,6 +282,9 @@ func verifySecret(gotSecret *model.SecretItem) error {
 func TestGatewayAgentRefreshSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	fetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, client)
+	if err != nil {
+		t.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+	}
 	ch := make(chan struct{})
 	fetcher.Run(ch)
 	fetcher.AddSecret(k8sTestSecret)
