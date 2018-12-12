@@ -351,9 +351,9 @@ func TestCriticalCrdsAreNotReadyRetryTimeout(t *testing.T) {
 			},
 		},
 	}
-	callCount := 0
+	var callCount int32
 	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 		return true, nil, nil
 	})
 
@@ -371,8 +371,8 @@ func TestCriticalCrdsAreNotReadyRetryTimeout(t *testing.T) {
 	} else if err.Error() != errorMsg {
 		t.Errorf("got Init error message %v, want %v", err.Error(), errorMsg)
 	}
-	if callCount < 1 || callCount > 3 {
-		t.Errorf("got callCount %v, want call count to be more than 1 and less than 3 times", callCount)
+	if atomic.LoadInt32(&callCount) < 1 || atomic.LoadInt32(&callCount) > 3 {
+		t.Errorf("got callCount %v, want call count to be more than 1 and less than 3 times", atomic.LoadInt32(&callCount))
 	}
 	s.Stop()
 }
@@ -385,16 +385,16 @@ func TestCriticalCrdsRetryMakeSucceed(t *testing.T) {
 			},
 		},
 	}
-	callCount := 0
+	var callCount int32
 	// Gradually increase the number of API resources.
 	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		callCount++
-		if callCount == 2 {
+		atomic.AddInt32(&callCount, 1)
+		if atomic.LoadInt32(&callCount) == 2 {
 			fakeDiscovery.Resources[0].APIResources = append(
 				fakeDiscovery.Resources[0].APIResources,
 				metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
 			)
-		} else if callCount == 3 {
+		} else if atomic.LoadInt32(&callCount) == 3 {
 			fakeDiscovery.Resources[0].APIResources = append(
 				fakeDiscovery.Resources[0].APIResources,
 				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
@@ -415,8 +415,8 @@ func TestCriticalCrdsRetryMakeSucceed(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if callCount != 3 {
-		t.Errorf("Got %d, Want 3", callCount)
+	if atomic.LoadInt32(&callCount) != 3 {
+		t.Errorf("Got %d, Want 3", atomic.LoadInt32(&callCount))
 	}
 	s.Stop()
 }
