@@ -50,6 +50,7 @@ var Externs = map[string]interpreter.Extern{
 	"endsWith":          interpreter.ExternFromFn("endsWith", externEndsWith),
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
+	"toLower":           interpreter.ExternFromFn("toLower", externToLower),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -114,6 +115,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 		Name:          "conditionalString",
 		ReturnType:    config.STRING,
 		ArgumentTypes: []config.ValueType{config.BOOL, config.STRING, config.STRING},
+	},
+	{
+		Name:          "toLower",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 }
 
@@ -334,4 +340,8 @@ func externConditionalString(condition bool, trueStr, falseStr string) string {
 		return trueStr
 	}
 	return falseStr
+}
+
+func externToLower(str string) string {
+	return strings.ToLower(str)
 }
