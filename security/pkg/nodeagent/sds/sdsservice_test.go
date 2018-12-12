@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,6 +45,7 @@ var (
 
 	fakeCredentialToken = "faketoken"
 	testResourceName    = "default"
+	extraResourceName   = "extra resource name"
 
 	fakeSecret = &model.SecretItem{
 		CertificateChain: fakeCertificateChain,
@@ -61,39 +63,44 @@ var (
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, "", sdsRequestStream, false, true)
+	testHelper(t, workloadSocket, "", sdsRequestStream, false, true, false)
 }
 
 func TestStreamSecretsForGatewaySds(t *testing.T) {
 	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, "", gatewaySocket, sdsRequestStream, true, false)
+	testHelper(t, "", gatewaySocket, sdsRequestStream, true, false, false)
 }
 
 func TestStreamSecretsForBothSds(t *testing.T) {
 	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID()))
 	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, gatewaySocket, sdsRequestStream, true, true)
+	testHelper(t, workloadSocket, gatewaySocket, sdsRequestStream, true, true, false)
 }
 
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, "", sdsRequestFetch, false, true)
+	testHelper(t, workloadSocket, "", sdsRequestFetch, false, true, false)
 }
 
 func TestFetchSecretsForGatewaySds(t *testing.T) {
 	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, "", gatewaySocket, sdsRequestFetch, true, false)
+	testHelper(t, "", gatewaySocket, sdsRequestFetch, true, false, false)
 }
 
 func TestFetchSecretsForBothSds(t *testing.T) {
 	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID()))
 	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, gatewaySocket, sdsRequestFetch, true, true)
+	testHelper(t, workloadSocket, gatewaySocket, sdsRequestFetch, true, true, false)
+}
+
+func TestStreamSecretsInvalidResourceName(t *testing.T) {
+	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID()))
+	testHelper(t, workloadSocket, "", sdsRequestStream, false, true, true)
 }
 
 type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse, error)
 
-func testHelper(t *testing.T, wTestSocket, gTestSocket string, cb secretCallback, enableGatewaySds, enableWorkloadSds bool) {
+func testHelper(t *testing.T, wTestSocket, gTestSocket string, cb secretCallback, enableGatewaySds, enableWorkloadSds, testInvalidResourceNames bool) {
 	arg := Options{
 		EnableIngressGatewaySDS: enableGatewaySds,
 		EnableWorkloadSDS:       enableWorkloadSds,
@@ -113,20 +120,24 @@ func testHelper(t *testing.T, wTestSocket, gTestSocket string, cb secretCallback
 	}
 	server, err := NewServer(arg, wst, gst)
 	defer server.Stop()
-
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
+	if testInvalidResourceNames && enableWorkloadSds {
+		sendRequestAndVerifyResponse(t, cb, wTestSocket, proxyID, testInvalidResourceNames)
+		return
+	}
+
 	if enableWorkloadSds {
-		sendRequestAndVerifyResponse(t, cb, wTestSocket, proxyID)
+		sendRequestAndVerifyResponse(t, cb, wTestSocket, proxyID, testInvalidResourceNames)
 
 		// Request for root certificate.
 		sendRequestForRootCertAndVerifyResponse(t, cb, wTestSocket, proxyID)
 	}
 	if enableGatewaySds {
-		sendRequestAndVerifyResponse(t, cb, gTestSocket, proxyID)
+		sendRequestAndVerifyResponse(t, cb, gTestSocket, proxyID, testInvalidResourceNames)
 	}
 }
 
@@ -144,9 +155,14 @@ func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, so
 	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
 }
 
-func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) {
+func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string, testInvalidResourceNames bool) {
+	rn := []string{testResourceName}
+	// Only one resource name is allowed, add extra name to create an error.
+	if testInvalidResourceNames {
+		rn = append(rn, extraResourceName)
+	}
 	req := &api.DiscoveryRequest{
-		ResourceNames: []string{testResourceName},
+		ResourceNames: rn,
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -158,18 +174,28 @@ func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxy
 		time.Sleep(wait)
 		// Try to call the server
 		resp, err := cb(socket, req)
-		if err == nil {
-			//Verify secret.
-			verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
-			return
+		if testInvalidResourceNames {
+			if ok := verifyResponseForInvalidResourceNames(err); ok {
+				return
+			}
+		} else {
+			if err == nil {
+				//Verify secret.
+				verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
+				return
+			}
 		}
-
 		wait *= 2
 	}
 
 	if retry == 5 {
 		t.Fatal("failed to start grpc server for SDS")
 	}
+}
+
+func verifyResponseForInvalidResourceNames(err error) bool {
+	s := fmt.Sprintf("has invalid resourceNames [%s %s]", testResourceName, extraResourceName)
+	return strings.Contains(err.Error(), s)
 }
 
 func TestStreamSecretsPush(t *testing.T) {

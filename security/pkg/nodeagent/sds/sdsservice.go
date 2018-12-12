@@ -149,7 +149,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			resourceName, err := parseDiscoveryRequest(discReq)
 			if err != nil {
 				log.Errorf("Failed to parse discovery request: %v", err)
-				continue
+				return err
 			}
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
