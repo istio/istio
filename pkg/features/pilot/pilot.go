@@ -73,6 +73,11 @@ var (
 	// 'admin' namespaces. Using services from any other namespaces will require the new NetworkScope
 	// config. In most cases 'istio-system' should be included. Comma separated (ns1,ns2,istio-system)
 	NetworkScopes = os.Getenv("DEFAULT_NAMESPACE_DEPENDENCIES")
+
+	// DisableSourceRouting is an experimental flag that when set will disable
+	// source routing features in virtual services for sidecars only. Disabling source routing for sidecars
+	// will enable us to compute LDS and RDS only once and serve it to all sidecars.
+	DisableSourceRouting = os.Getenv("DISABLE_SOURCE_ROUTING") == "1"
 )
 
 const (

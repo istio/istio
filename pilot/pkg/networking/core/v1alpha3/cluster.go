@@ -113,7 +113,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	networkView := model.GetNetworkView(proxy)
 
 	// NOTE: Proxy can be nil here due to precomputed CDS
-	// TODO: get rid of precomputed CDS when adding NetworkScopes as precomputed CDS is not useful in that context
 	for _, service := range push.Services(proxy) {
 		config := push.DestinationRule(proxy, service.Hostname)
 		for _, port := range service.Ports {

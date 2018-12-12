@@ -206,7 +206,9 @@ func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsa
 			Service: s,
 		}
 	}
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances, services)
+
+	listeners, _ := configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances)
+	return listeners
 }
 
 func buildInboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsapi.Listener {

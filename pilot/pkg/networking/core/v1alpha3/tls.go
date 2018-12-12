@@ -19,6 +19,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	featureflags "istio.io/istio/pkg/features/pilot"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
@@ -34,7 +35,11 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels model.LabelsCollec
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
+	labelMatch := true
+
+	if !featureflags.DisableSourceRouting {
+		labelMatch = proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
+	}
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 
@@ -54,7 +59,11 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollect
 		gatewayMatch = gatewayMatch || gateways[gateway]
 	}
 
-	labelMatch := proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
+	labelMatch := true
+
+	if !featureflags.DisableSourceRouting {
+		labelMatch = proxyLabels.IsSupersetOf(model.Labels(match.SourceLabels))
+	}
 
 	portMatch := match.Port == 0 || match.Port == uint32(port)
 

@@ -86,6 +86,8 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 
 // NOTE: There can be only one filter for a workload. If multiple filters are defined, the behavior
 // is undefined.
+// NOTE: If source routing is disabled, this will only pick envoy filter crds that dont have any workload
+// selector, for the outbound listeners.
 func getUserFiltersForWorkload(in *plugin.InputParams) *networking.EnvoyFilter {
 	env := in.Env
 	// collect workload labels

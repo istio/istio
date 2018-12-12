@@ -62,9 +62,6 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 	}
 
 	attrs := attributes{
-		"source.uid":            attrUID(in.Node),
-		"source.namespace":      attrNamespace(in.Node),
-		"context.reporter.uid":  attrUID(in.Node),
 		"context.reporter.kind": attrStringValue("outbound"),
 	}
 
@@ -189,7 +186,7 @@ func buildUpstreamName(address string) string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(host), v)
 }
 
-func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
+func buildTransport(mesh *meshconfig.MeshConfig, _ *model.Proxy) *mccpb.TransportConfig {
 	networkFailPolicy := mccpb.FAIL_CLOSE
 	if mesh.PolicyCheckFailOpen {
 		networkFailPolicy = mccpb.FAIL_OPEN
@@ -198,14 +195,6 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
 		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
 		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: networkFailPolicy},
-		// internal telemetry forwarding
-		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": attrUID(node)}},
-	}
-
-	// These settings are not backward compatible with 0.8.
-	// Proxy version is only available from 1.0 onwards.
-	if _, found := node.GetProxyVersion(); !found {
-		res.AttributesForMixerProxy = nil
 	}
 
 	return res
@@ -223,10 +212,7 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 					},
 				},
 				MixerAttributes: &mpb.Attributes{Attributes: attrs},
-				ForwardAttributes: &mpb.Attributes{Attributes: attributes{
-					"source.uid": attrUID(node),
-				}},
-				Transport: buildTransport(mesh, node),
+				Transport:       buildTransport(mesh, node),
 			}),
 		},
 	}

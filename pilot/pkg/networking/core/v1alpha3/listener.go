@@ -182,31 +182,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
-	services := push.Services(node)
-
 	listeners := make([]*xdsapi.Listener, 0)
+	var outboundListeners, inboundListeners, mgmtListeners []*xdsapi.Listener
+	var httpProxyListener, virtualListener *xdsapi.Listener
+
+	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
+	if env.Mesh.ProxyHttpPort > 0 {
+		httpProxyListener = configgen.buildSidecarOutboundHTTPProxyListener(env, node, push, proxyInstances)
+	}
 
 	if mesh.ProxyListenPort > 0 {
-		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
-		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances, services)
+		inboundListeners = configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
 
-		listeners = append(listeners, inbound...)
-		listeners = append(listeners, outbound...)
-
-		mgmtListeners := buildSidecarInboundMgmtListeners(node, env, managementPorts, node.IPAddress)
-		// If management listener port and service port are same, bad things happen
-		// when running in kubernetes, as the probes stop responding. So, append
-		// non overlapping listeners only.
-		for i := range mgmtListeners {
-			m := mgmtListeners[i]
-			l := util.GetByAddress(listeners, m.Address.String())
-			if l != nil {
-				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address.String(), l.Name, l.Address.String())
-				continue
-			}
-			listeners = append(listeners, m)
+		if configgen.PrecomputedOutboundListeners != nil {
+			outboundListeners = configgen.PrecomputedOutboundListeners
+		} else {
+			outboundListeners, _ = configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
 		}
+
+		mgmtListeners = buildSidecarInboundMgmtListeners(node, env, managementPorts, node.IPAddress)
 
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		passthroughTCPProxy := &tcp_proxy.TcpProxy{
@@ -220,7 +214,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		}
 
 		// add an extra listener that binds to the port that is the recipient of the iptables redirect
-		listeners = append(listeners, &xdsapi.Listener{
+		virtualListener = &xdsapi.Listener{
 			Name:           VirtualListenerName,
 			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
 			Transparent:    transparent,
@@ -237,63 +231,37 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					},
 				},
 			},
-		})
+		}
 	}
 
-	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	if mesh.ProxyHttpPort > 0 {
-		useRemoteAddress := false
-		traceOperation := http_conn.EGRESS
-		listenAddress := LocalhostAddress
+	if inboundListeners != nil {
+		listeners = append(listeners, inboundListeners...)
+	}
 
-		if node.Type == model.Router {
-			useRemoteAddress = true
-			traceOperation = http_conn.INGRESS
-			listenAddress = WildcardAddress
-		}
+	if outboundListeners != nil {
+		listeners = append(listeners, outboundListeners...)
+	}
 
-		opts := buildListenerOpts{
-			env:            env,
-			proxy:          node,
-			proxyInstances: proxyInstances,
-			ip:             listenAddress,
-			port:           int(mesh.ProxyHttpPort),
-			filterChainOpts: []*filterChainOpts{{
-				httpOpts: &httpListenerOpts{
-					rds:              RDSHttpProxy,
-					useRemoteAddress: useRemoteAddress,
-					direction:        traceOperation,
-					connectionManager: &http_conn.HttpConnectionManager{
-						HttpProtocolOptions: &core.Http1ProtocolOptions{
-							AllowAbsoluteUrl: proto.BoolTrue,
-						},
-					},
-				},
-			}},
-			bindToPort:      true,
-			skipUserFilters: true,
+	if httpProxyListener != nil {
+		listeners = append(listeners, httpProxyListener)
+	}
+
+	// If management listener port and service port are same, bad things happen
+	// when running in kubernetes, as the probes stop responding. So, append
+	// non overlapping listeners only.
+	for i := range mgmtListeners {
+		m := mgmtListeners[i]
+		l := util.GetByAddress(listeners, m.Address.String())
+		if l != nil {
+			log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+				m.Name, m.Address.String(), l.Name, l.Address.String())
+			continue
 		}
-		l := buildListener(opts)
-		// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
-		// there is no mixer for http_proxy
-		mutable := &plugin.MutableObjects{
-			Listener:     l,
-			FilterChains: []plugin.FilterChain{{}},
-		}
-		pluginParams := &plugin.InputParams{
-			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-			Env:              env,
-			Node:             node,
-			ProxyInstances:   proxyInstances,
-			Push:             push,
-		}
-		if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
-			log.Warna("buildSidecarListeners ", err.Error())
-		} else {
-			listeners = append(listeners, l)
-		}
-		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
+		listeners = append(listeners, m)
+	}
+
+	if virtualListener != nil {
+		listeners = append(listeners, virtualListener)
 	}
 
 	return listeners, nil
@@ -320,11 +288,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		// Traffic sent to our service VIP is redirected by remote
 		// services' kubeproxy to our specific endpoint IP.
 		listenerOpts := buildListenerOpts{
-			env:            env,
-			proxy:          node,
-			proxyInstances: proxyInstances,
-			ip:             endpoint.Address,
-			port:           endpoint.Port,
+			env:   env,
+			proxy: node,
+			ip:    endpoint.Address,
+			port:  endpoint.Port,
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
@@ -487,8 +454,9 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
+	proxyInstances []*model.ServiceInstance) ([]*xdsapi.Listener, []string) {
 
+	services := push.Services(node)
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
@@ -497,7 +465,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	configs := push.VirtualServices(node, meshGateway)
 
+	rdsRoutes := make([]string, 0)
 	var tcpListeners, httpListeners []*xdsapi.Listener
+
 	// For conflict resolution
 	listenerMap := make(map[string]*listenerEntry)
 	for _, service := range services {
@@ -507,11 +477,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			var listenerMapKey string
 			var currentListenerEntry *listenerEntry
 			listenerOpts := buildListenerOpts{
-				env:            env,
-				proxy:          node,
-				proxyInstances: proxyInstances,
-				ip:             WildcardAddress,
-				port:           servicePort.Port,
+				env:   env,
+				proxy: node,
+				ip:    WildcardAddress,
+				port:  servicePort.Port,
 			}
 
 			pluginParams := &plugin.InputParams{
@@ -549,9 +518,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					continue
 				}
 
+				rdsRouteName := fmt.Sprintf("%d", servicePort.Port)
+				rdsRoutes = append(rdsRoutes, rdsRouteName)
 				listenerOpts.filterChainOpts = []*filterChainOpts{{
 					httpOpts: &httpListenerOpts{
-						rds:              fmt.Sprintf("%d", servicePort.Port),
+						rds:              rdsRouteName,
 						useRemoteAddress: false,
 						direction:        http_conn.EGRESS,
 					},
@@ -738,7 +709,67 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		}
 	}
 
-	return append(tcpListeners, httpListeners...)
+	return append(tcpListeners, httpListeners...), rdsRoutes
+}
+
+// buildSidecarOutboundHTTPProxyListener builds the HTTP Proxy listener for the sidecar
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPProxyListener(env *model.Environment, node *model.Proxy, push *model.PushContext,
+	proxyInstances []*model.ServiceInstance) *xdsapi.Listener {
+
+	// In the end, append the HTTP_PROXY listener if enabled.
+	var httpProxyListener *xdsapi.Listener
+	useRemoteAddress := false
+	traceOperation := http_conn.EGRESS
+	listenAddress := LocalhostAddress
+
+	if node.Type == model.Router {
+		useRemoteAddress = true
+		traceOperation = http_conn.INGRESS
+		listenAddress = WildcardAddress
+	}
+
+	opts := buildListenerOpts{
+		env:   env,
+		proxy: node,
+		ip:    listenAddress,
+		port:  int(env.Mesh.ProxyHttpPort),
+		filterChainOpts: []*filterChainOpts{{
+			httpOpts: &httpListenerOpts{
+				rds:              RDSHttpProxy,
+				useRemoteAddress: useRemoteAddress,
+				direction:        traceOperation,
+				connectionManager: &http_conn.HttpConnectionManager{
+					HttpProtocolOptions: &core.Http1ProtocolOptions{
+						AllowAbsoluteUrl: proto.BoolTrue,
+					},
+				},
+			},
+		}},
+		bindToPort:      true,
+		skipUserFilters: true,
+	}
+	httpProxyListener = buildListener(opts)
+	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
+	// TODO: there is no mixer for http_proxy: why?
+	mutable := &plugin.MutableObjects{
+		Listener:     httpProxyListener,
+		FilterChains: []plugin.FilterChain{{}},
+	}
+	pluginParams := &plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
+		Env:              env,
+		Node:             node,
+		ProxyInstances:   proxyInstances,
+		Push:             push,
+	}
+	if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
+		log.Warna("buildSidecarListeners ", err.Error())
+	} else {
+		httpProxyListener = nil
+	}
+
+	return httpProxyListener
 }
 
 // buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
@@ -846,7 +877,6 @@ type buildListenerOpts struct {
 	// nolint: maligned
 	env             *model.Environment
 	proxy           *model.Proxy
-	proxyInstances  []*model.ServiceInstance
 	ip              string
 	port            int
 	bindToPort      bool

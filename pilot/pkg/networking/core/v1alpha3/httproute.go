@@ -26,25 +26,36 @@ import (
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	featureflags "istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/proto"
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	routeName string) (*xdsapi.RouteConfiguration, error) {
-	// TODO: Move all this out
-	proxyInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		return nil, err
-	}
 
-	services := push.Services(node)
+	var proxyInstances []*model.ServiceInstance
+
+	// Compute proxyInstances only when source routing is enabled.
+	// Supplying nil proxyInstances to RDS logic automatically causes it
+	// to ignore virtualServices with source routing rules.
+	if !featureflags.DisableSourceRouting {
+		var err error
+		proxyInstances, err = env.GetProxyServiceInstances(node)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	switch node.Type {
 	case model.Sidecar:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, services, routeName), nil
+		// Check cached route first.
+		if configgen.PrecomputedOutboundRoutes[routeName] != nil {
+			return configgen.PrecomputedOutboundRoutes[routeName], nil
+		}
+		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
 	case model.Router, model.Ingress:
-		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
+		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
 	}
 	return nil, nil
 }
@@ -89,8 +100,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
+	services := push.Services(node)
 	listenerPort := 0
 	if routeName != RDSHttpProxy {
 		var err error
@@ -176,13 +188,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// call plugins
+	in := &plugin.InputParams{
+		ListenerProtocol: plugin.ListenerProtocolHTTP,
+		Env:              env,
+		Node:             node,
+		Push:             push,
+	}
 	for _, p := range configgen.Plugins {
-		in := &plugin.InputParams{
-			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              env,
-			Node:             node,
-			Push:             push,
-		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}
 
