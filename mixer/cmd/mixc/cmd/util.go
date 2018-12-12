@@ -106,7 +106,7 @@ func parseBytes(s string) (interface{}, error) {
 }
 
 func parseStringMap(s string) (interface{}, error) {
-	m := make(map[string]string)
+	m := attribute.NewStringMap("")
 	for _, pair := range strings.Split(s, ";") {
 		colon := strings.Index(pair, ":")
 		if colon < 0 {
@@ -115,7 +115,7 @@ func parseStringMap(s string) (interface{}, error) {
 
 		k := pair[0:colon]
 		v := pair[colon+1:]
-		m[k] = v
+		m.Set(k, v)
 	}
 
 	return m, nil
