@@ -717,5 +717,4 @@ func constructSDSConfig(name, sdsudspath string) *auth.SdsSecretConfig {
 			},
 		},
 	}
-
 }
