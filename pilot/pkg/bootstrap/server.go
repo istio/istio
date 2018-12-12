@@ -261,7 +261,7 @@ func NewServer(args PilotArgs) (*Server, error) {
 	pilotVersion := prom.NewGaugeVec(prom.GaugeOpts{
 		Name: "pilot_info",
 		Help: "Pilot version and build information.",
-	}, []string{"type"})
+	}, []string{"version"})
 	prom.MustRegister(pilotVersion)
 	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 
