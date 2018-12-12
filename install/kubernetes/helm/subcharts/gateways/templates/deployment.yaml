@@ -162,7 +162,7 @@ spec:
           {{- if $.Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
-          {{- if $.Values.global.sds.enableTokenMount }}
+          {{- if $.Values.global.sds.useTrustworthyJwt }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
           {{- end }}
@@ -183,7 +183,7 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
-      {{- if $.Values.global.sds.enableTokenMount }}
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
