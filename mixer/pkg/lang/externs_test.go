@@ -19,6 +19,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 func TestExternIp(t *testing.T) {
@@ -483,7 +485,7 @@ func TestExternEndsWith(t *testing.T) {
 
 func TestExternEmptyStringMap(t *testing.T) {
 	m := externEmptyStringMap()
-	if len(m) != 0 {
+	if !attribute.Equal(m, attribute.WrapStringMap(nil)) {
 		t.Errorf("emptyStringMap() returned non-empty map: %#v", m)
 	}
 }

@@ -16,9 +16,6 @@ package citadel
 
 import (
 	"fmt"
-
-	"github.com/hashicorp/go-multierror"
-
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -60,21 +57,18 @@ func (c *kubeComponent) Init(ctx environment.ComponentContext, deps map[dependen
 		return nil, fmt.Errorf("unsupported environment: %q", ctx.Environment().EnvironmentID())
 	}
 
-	result, err := c.doInit(e)
-	if err != nil {
-		return nil, multierror.Prefix(err, "citadel init failed:")
-	}
+	result := c.doInit(e)
 	return result, nil
 }
 
-func (c *kubeComponent) doInit(e *kubernetes.Implementation) (interface{}, error) {
+func (c *kubeComponent) doInit(e *kubernetes.Implementation) interface{} {
 	res := &deployedCitadel{
 		local: false,
 	}
 
 	s := e.Accessor.GetSecret(e.KubeSettings().IstioSystemNamespace)
 	res.secret = s
-	return res, nil
+	return res
 }
 
 type deployedCitadel struct {

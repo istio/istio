@@ -87,6 +87,7 @@ func (c *Controller) getServices() (map[string][]string, error) {
 	return data, nil
 }
 
+// nolint: unparam
 func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
 	endpoints, _, err := c.client.Catalog().Service(name, "", q)
 	if err != nil {

@@ -190,9 +190,19 @@ message MeshConfig {
   // $hide_from_docs
   // This flag is used by secret discovery service(SDS). 
   // If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount 
-  // for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which 
-  // will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+  // for k8s service account trustworthy JWT(which is avaialbe for k8s 1.12 or higher), so that K8s API server 
+  // mounts k8s service account trustworthy JWT to envoy container, which will be used to request key/cert eventually. 
+  // This isn't supported for non-k8s case.
   bool enable_sds_token_mount = 23;
+
+  // $hide_from_docs
+  // This flag is used by secret discovery service(SDS). 
+  // If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token' 
+  // (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod) 
+  // and pass to sds server, which will be used to request key/cert eventually. 
+  // If both enable_sds_token_mount and sds_use_k8s_sa_jwt are set to true, enable_sds_token_mount(trustworthy jwt) takes precedence. 
+  // This isn't supported for non-k8s case.
+  bool sds_use_k8s_sa_jwt = 30;
 
   // The trust domain corresponds to the trust root of a system.
   // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
@@ -233,7 +243,7 @@ message MeshConfig {
   DefaultServiceDependency default_service_dependency = 29;
 
   // $hide_from_docs
-  // Next available field number: 30
+  // Next available field number: 31
 }
 
 // ConfigSource describes information about a configuration store inside a

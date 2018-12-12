@@ -421,7 +421,7 @@ func TestIntoResourceFile(t *testing.T) {
 		{
 			in:                           "format-duration.yaml",
 			want:                         "format-duration.yaml.injected",
-			duration:                     time.Duration(42 * time.Second),
+			duration:                     42 * time.Second,
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
 			statusPort:                   DefaultStatusPort,
