@@ -202,6 +202,9 @@ data:
             - NET_ADMIN
           runAsGroup: 1337
           {{ "[[ else -]]" }}
+          {{ if and .Values.global.sds.enabled .Values.global.sds.useTrustworthyJwt }}
+          runAsGroup: 1337
+          {{- end }}
           runAsUser: 1337
           {{ "[[- end ]]" }}
         resources:
@@ -223,7 +226,7 @@ data:
         {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
-        {{- if .Values.global.sds.enableTokenMount }}
+        {{- if .Values.global.sds.useTrustworthyJwt }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
@@ -238,7 +241,7 @@ data:
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
-      {{- if .Values.global.sds.enableTokenMount }}
+      {{- if .Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
