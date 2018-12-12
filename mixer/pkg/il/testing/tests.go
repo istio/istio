@@ -307,7 +307,7 @@ end`,
 		conf: exprEvalAttrs,
 	},
 	{
-		E:    `request.headers[source.uid] == "curlish"`,
+		E:    `request.headers[toLower(source.uid)] == "curlish"`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.headers": map[string]string{
@@ -319,7 +319,7 @@ end`,
 		conf: istio06AttributeSet,
 	},
 	{
-		E:    `request.headers["USER-AGENT"] == "curlish"`,
+		E:    `request.headers[toLower("USER-AGENT")] == "curlish"`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.headers": map[string]string{
