@@ -71,6 +71,61 @@ func TestStatus(t *testing.T) {
 		t.Errorf("Got %v %v, expected rpc.DEADLINE_EXCEEDED Aborted!", s.Code, s.Message)
 	}
 
+	s = WithUnknown("Aborted!")
+	if s.Code != int32(rpc.UNKNOWN) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.UNKNOWN Aborted!", s.Code, s.Message)
+	}
+
+	s = WithNotFound("Aborted!")
+	if s.Code != int32(rpc.NOT_FOUND) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.NOT_FOUND Aborted!", s.Code, s.Message)
+	}
+
+	s = WithAlreadyExists("Aborted!")
+	if s.Code != int32(rpc.ALREADY_EXISTS) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.ALREADY_EXISTS Aborted!", s.Code, s.Message)
+	}
+
+	s = WithFailedPrecondition("Aborted!")
+	if s.Code != int32(rpc.FAILED_PRECONDITION) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.FAILED_PRECONDITION Aborted!", s.Code, s.Message)
+	}
+
+	s = WithAborted("Aborted!")
+	if s.Code != int32(rpc.ABORTED) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.ABORTED Aborted!", s.Code, s.Message)
+	}
+
+	s = WithOutOfRange("Aborted!")
+	if s.Code != int32(rpc.OUT_OF_RANGE) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.OUT_OF_RANGE Aborted!", s.Code, s.Message)
+	}
+
+	s = WithUnimplemented("Aborted!")
+	if s.Code != int32(rpc.UNIMPLEMENTED) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.UNIMPLEMENTED Aborted!", s.Code, s.Message)
+	}
+
+	s = WithUnavailable("Aborted!")
+	if s.Code != int32(rpc.UNAVAILABLE) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.UNAVAILABLE Aborted!", s.Code, s.Message)
+	}
+
+	s = WithOutOfRange("Aborted!")
+	if s.Code != int32(rpc.OUT_OF_RANGE) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.OUT_OF_RANGE Aborted!", s.Code, s.Message)
+	}
+
+	s = WithDataLoss("Aborted!")
+	if s.Code != int32(rpc.DATA_LOSS) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.DATA_LOSS Aborted!", s.Code, s.Message)
+	}
+
+	s = WithUnauthenticated("Aborted!")
+	if s.Code != int32(rpc.UNAUTHENTICATED) || s.Message != "Aborted!" {
+		t.Errorf("Got %v %v, expected rpc.UNAUTHENTICATED Aborted!", s.Code, s.Message)
+	}
+
 	msg := String(s)
 	if msg == "" {
 		t.Errorf("Expecting valid string, got nothing")
