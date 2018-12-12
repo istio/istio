@@ -38,6 +38,9 @@ package listEntry;
 
 import "mixer/adapter/model/v1beta1/extensions.proto";
 
+import "policy/v1beta1/type.proto";
+
+
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
 
 // The `listentry` template is used to verify the presence/absence of a string
@@ -47,6 +50,6 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_C
 // literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
 message Template {
-    // Specifies the entry to verify in the list.
-    string value = 1;
+    // Specifies the entry to verify in the list. This value can either be a string or an IP address.
+    istio.policy.v1beta1.Value value = 1;
 }
