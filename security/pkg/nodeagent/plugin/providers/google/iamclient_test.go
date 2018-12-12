@@ -35,7 +35,7 @@ var (
 	fakeAccessTokenExpireTime = time.Date(2050, 12, 31, 1, 0, 0, 0, time.UTC)
 )
 
-type mockIAMServer struct{
+type mockIAMServer struct {
 	GenerateGoodToken bool
 }
 
