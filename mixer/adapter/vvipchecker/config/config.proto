@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+// config for mygrpcchecker
+package adapter.vvipchecker.config;
+
+import "gogoproto/gogo.proto";
+option go_package="config";
+
+// config for vvipchecker 
+message Params {
+    // Path of the file to save the information about runtime requests.
+    string file_path = 1;
+    // List of supported IP Addresses 
+}

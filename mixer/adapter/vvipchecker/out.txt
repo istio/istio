@@ -1,0 +1,84 @@
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:http,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:http,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:http,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:http,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:http,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:http,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:http,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:grpc,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:grpc,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:grpc,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:vvgrpc,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,ValidProtocols:[http https gRPC],}
+  Instances: &InstanceMsg{Value:vvgrpc,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,ValidProtocols:[http https gRPC],}
+  Instances: &InstanceMsg{Value:vvgrpc,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,ValidProtocols:[http https gRPC],}
+  Instances: &InstanceMsg{Value:vvgrpc,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,ValidProtocols:[http https gRPC],}
+  Instances: &InstanceMsg{Value:gRPC,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,ValidProtocols:[http https gRPC],}
+  Instances: &InstanceMsg{Value:gRPC,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,ValidProtocols:[http https gRPC],}
+  Instances: &InstanceMsg{Value:vvgrpc,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,ValidProtocols:[http https gRPC],}
+  Instances: &InstanceMsg{Value:gRPC,Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 10],},Name:vvnewlistentry.instance.istio-system,}
+HandleListEntry invoked with:
+  Adapter config: &Params{FilePath:out.txt,}
+  Instances: &InstanceMsg{Value:&istio_policy_v1beta1.IPAddress{Value:[192 168 55 11],},Name:vvnewlistentry.instance.istio-system,}

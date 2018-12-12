@@ -1161,7 +1161,7 @@ figcaption {
 
 .notfound .error {
     padding: 2rem 0 0 0;
-    font-weight: 70%;
+    font-weight: 700;
     font-size: 200%
 }
 

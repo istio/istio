@@ -29,6 +29,9 @@
 // listentry
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/listentry/template.proto
 
+// listipentry
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/listipentry/template.proto
+
 // logentry
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/logentry/template.proto
 

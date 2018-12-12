@@ -1,3 +1,4 @@
+
 // GENERATED FILE -- DO NOT EDIT
 //
 //go:generate $GOPATH/src/istio.io/istio/galley/tools/gen-meta/gen-meta.sh runtime pkg/metadata/types.go
@@ -8,26 +9,28 @@ package metadata
 import (
 	// Pull in all the known proto types to ensure we get their types registered.
 
+	
 	// Register protos in istio.io/api/authentication/v1alpha1""
 	_ "istio.io/api/authentication/v1alpha1"
-
+	
 	// Register protos in istio.io/api/mixer/v1/config/client""
 	_ "istio.io/api/mixer/v1/config/client"
-
+	
 	// Register protos in istio.io/api/networking/v1alpha3""
 	_ "istio.io/api/networking/v1alpha3"
-
+	
 	// Register protos in istio.io/api/policy/v1beta1""
 	_ "istio.io/api/policy/v1beta1"
-
+	
 	// Register protos in istio.io/api/rbac/v1alpha1""
 	_ "istio.io/api/rbac/v1alpha1"
-
+	
 	// Register protos in istio.io/istio/galley/pkg/kube/converter/legacy""
 	_ "istio.io/istio/galley/pkg/kube/converter/legacy"
-
+	
 	// Register protos in k8s.io/api/extensions/v1beta1""
 	_ "k8s.io/api/extensions/v1beta1"
+
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
@@ -36,63 +39,64 @@ import (
 var Types *resource.Schema
 
 var (
-
-	// AttributeManifest metadata
-	AttributeManifest resource.Info
-
-	// DestinationRule metadata
-	DestinationRule resource.Info
-
-	// EnvoyFilter metadata
-	EnvoyFilter resource.Info
-
-	// Gateway metadata
-	Gateway resource.Info
-
-	// HTTPAPISpec metadata
-	HTTPAPISpec resource.Info
-
-	// HTTPAPISpecBinding metadata
-	HTTPAPISpecBinding resource.Info
-
-	// Handler metadata
-	Handler resource.Info
-
-	// IngressSpec metadata
-	IngressSpec resource.Info
-
-	// Instance metadata
-	Instance resource.Info
-
-	// LegacyMixerResource metadata
-	LegacyMixerResource resource.Info
-
-	// Policy metadata
-	Policy resource.Info
-
-	// QuotaSpec metadata
-	QuotaSpec resource.Info
-
-	// QuotaSpecBinding metadata
-	QuotaSpecBinding resource.Info
-
-	// RbacConfig metadata
-	RbacConfig resource.Info
-
-	// Rule metadata
-	Rule resource.Info
-
-	// ServiceEntry metadata
-	ServiceEntry resource.Info
-
-	// ServiceRole metadata
-	ServiceRole resource.Info
-
-	// ServiceRoleBinding metadata
-	ServiceRoleBinding resource.Info
-
-	// VirtualService metadata
-	VirtualService resource.Info
+	
+		// AttributeManifest metadata
+		AttributeManifest resource.Info
+	
+		// DestinationRule metadata
+		DestinationRule resource.Info
+	
+		// EnvoyFilter metadata
+		EnvoyFilter resource.Info
+	
+		// Gateway metadata
+		Gateway resource.Info
+	
+		// HTTPAPISpec metadata
+		HTTPAPISpec resource.Info
+	
+		// HTTPAPISpecBinding metadata
+		HTTPAPISpecBinding resource.Info
+	
+		// Handler metadata
+		Handler resource.Info
+	
+		// IngressSpec metadata
+		IngressSpec resource.Info
+	
+		// Instance metadata
+		Instance resource.Info
+	
+		// LegacyMixerResource metadata
+		LegacyMixerResource resource.Info
+	
+		// Policy metadata
+		Policy resource.Info
+	
+		// QuotaSpec metadata
+		QuotaSpec resource.Info
+	
+		// QuotaSpecBinding metadata
+		QuotaSpecBinding resource.Info
+	
+		// RbacConfig metadata
+		RbacConfig resource.Info
+	
+		// Rule metadata
+		Rule resource.Info
+	
+		// ServiceEntry metadata
+		ServiceEntry resource.Info
+	
+		// ServiceRole metadata
+		ServiceRole resource.Info
+	
+		// ServiceRoleBinding metadata
+		ServiceRoleBinding resource.Info
+	
+		// VirtualService metadata
+		VirtualService resource.Info
+	
 )
 
 func init() {
@@ -117,5 +121,5 @@ func init() {
 	ServiceRoleBinding = b.Register("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding")
 	VirtualService = b.Register("type.googleapis.com/istio.networking.v1alpha3.VirtualService")
 
-	Types = b.Build()
+    Types = b.Build()
 }

@@ -3849,6 +3849,116 @@ end
 		},
 		CompileErr: `ADD($as) arity mismatch. Got 1 arg(s), expected 2 arg(s)`,
 	},
+	{
+        E:    `ip_as_string(ip("0.0.0.0"))`,
+        Type: descriptor.STRING,
+        R:    "0.0.0.0",
+        IL: `
+fn eval() string
+  apush_s "0.0.0.0"
+  call ip
+  call ip_as_string
+  ret
+end`,
+    },
+    {
+        E:    `ip_as_string(source.ip) | ip_as_string(ip("0.0.0.0"))`,
+        Type: descriptor.STRING,
+        conf: istio06AttributeSet,
+        R:    "1.2.3.4",
+        Err: "lookup failed: 'source.ip'",
+    },
+    {
+        E:    `string(source.ip) | string(ip("0.0.0.0"))`,
+        Type: descriptor.STRING,
+        conf: istio06AttributeSet,
+        R:    "1.2.3.4",
+        I: map[string]interface{}{
+            "source.ip": []byte{0x1, 0x2, 0x3, 0x4},
+        },
+         IL: `
+fn eval() string
+  resolve_f "source.ip"
+  call _string_ipaddress
+  jmp L0
+  apush_s "0.0.0.0"
+  call ip
+  call _string_ipaddress
+L0:
+  ret
+end`,
+    },
+    {
+        E:    `string(source.ip) | string(ip("0.0.0.0"))`,
+        Type: descriptor.STRING,
+        conf: istio06AttributeSet,
+        R:    "1.2.3.4",
+        I: map[string]interface{}{
+            "source.ip": []byte{0x1, 0x2, 0x3, 0x4},
+        },
+         IL: `
+fn eval() string
+  resolve_f "source.ip"
+  call _string_ipaddress
+  jmp L0
+  apush_s "0.0.0.0"
+  call ip
+  call _string_ipaddress
+L0:
+  ret
+end`,
+    },
+    {
+        E:    `string(true)`,
+        Type: descriptor.STRING,
+        R:    "true",
+        IL: `
+fn eval() string
+  apush_b true
+  call _string_bool
+  ret
+end`,
+    },
+    {
+        E:    `string(bb)`,
+        Type: descriptor.STRING,
+        I: map[string]interface{} {
+            "bb": true,
+        },
+        R:    "true",
+        IL: `
+fn eval() string
+  resolve_b "bb"
+  call _string_bool
+  ret
+end`,
+    },
+    {
+        E:    `string("foo")`,
+        Type: descriptor.STRING,
+        I: map[string]interface{} {
+            "bb": true,
+        },
+        R:    "foo",
+        IL: `
+fn eval() string
+  apush_s "foo"
+  ret
+end`,
+    },
+    {
+        E:    `string(as)`,
+        Type: descriptor.STRING,
+        I: map[string]interface{} {
+            "as": "bar",
+        },
+        R:    "bar",
+        IL: `
+fn eval() string
+  resolve_s "as"
+  ret
+end`,
+    },
 }
 
 // TestInfo is a structure that contains detailed test information. Depending

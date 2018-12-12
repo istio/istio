@@ -280,6 +280,8 @@ func (g *generator) generateFunction(f *ast.Function, depth int, mode nilMode, v
 		g.generateOr(f, depth, mode, valueJmpLabel)
 	case "conditional":
 		g.generateConditional(f, depth, mode, valueJmpLabel)
+	case "string":
+		g.generateString(f, depth, mode, valueJmpLabel)
 	case "ADD":
 		g.generateAdd(f, depth)
 	default:
@@ -521,6 +523,31 @@ func (g *generator) generateConditional(f *ast.Function, depth int, mode nilMode
 		g.builder.Jmp(valueJmplLabel)
 	}
 }
+
+func (g *generator) generateString(f *ast.Function, depth int, mode nilMode, valueJmplLabel string) {
+    dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+     // If it is a string, simply push the value and return. Nothing else is needed.
+    // For other types, do a "virtual" function call to the appropriate overload.
+     var fnName string
+    switch dvt {
+    case descriptor.STRING:
+        g.generate(f.Args[0], depth+1, nmNone, "")
+        return
+    case descriptor.BOOL:
+        fnName = "_string_bool"
+    case descriptor.IP_ADDRESS:
+        fnName = "_string_ipaddress"
+    default:
+        // TODO
+        g.internalError("Not yet implemented: string() for type: %v", dvt.String())
+        return
+    }
+     fn := &ast.Function{}
+    fn.Name = fnName
+    fn.Args = f.Args
+    g.generateFunction(fn, depth, mode, valueJmplLabel)
+}
+
 
 func (g *generator) generateAdd(f *ast.Function, depth int) {
 	exprType := g.evalType(f.Args[0])
