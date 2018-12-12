@@ -32,13 +32,13 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 )
 
-type CertPoolFunc func()(*x509.CertPool, error)
+type CertPoolFunc func() (*x509.CertPool, error)
 
 var (
-	scope       = []string{"https://www.googleapis.com/auth/cloud-platform"}
-	iamEndpoint = "iamcredentials.googleapis.com:443"
-	tlsFlag     = true
-	certFunc CertPoolFunc = x509.SystemCertPool
+	scope                    = []string{"https://www.googleapis.com/auth/cloud-platform"}
+	iamEndpoint              = "iamcredentials.googleapis.com:443"
+	tlsFlag                  = true
+	certFunc    CertPoolFunc = x509.SystemCertPool
 )
 
 // Plugin for google IAM interaction.
