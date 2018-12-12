@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -290,6 +291,9 @@ var (
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
+			http.Post(fmt.Sprintf("http://127.0.0.1:%d/healthcheck/fail", proxyAdminPort), "", nil)
+			// TODO: support global configuration
+			time.Sleep(30 * time.Second)
 			return nil
 		},
 	}
