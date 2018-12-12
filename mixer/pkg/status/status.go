@@ -67,6 +67,56 @@ func WithDeadlineExceeded(message string) rpc.Status {
 	return rpc.Status{Code: int32(rpc.DEADLINE_EXCEEDED), Message: message}
 }
 
+// WithUnknown returns an initialized status with the rpc.UNKNOWN code and the given message.
+func WithUnknown(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.UNKNOWN), Message: message}
+}
+
+// WithNotFound returns an initialized status with the rpc.NOT_FOUND code and the given message.
+func WithNotFound(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.NOT_FOUND), Message: message}
+}
+
+// WithAlreadyExists returns an initialized status with the rpc.ALREADY_EXISTS code and the given message.
+func WithAlreadyExists(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.ALREADY_EXISTS), Message: message}
+}
+
+// WithFailedPrecondition returns an initialized status with the rpc.FAILED_PRECONDITION code and the given message.
+func WithFailedPrecondition(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.FAILED_PRECONDITION), Message: message}
+}
+
+// WithAborted returns an initialized status with the rpc.ABORTED code and the given message.
+func WithAborted(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.ABORTED), Message: message}
+}
+
+// WithOutOfRange returns an initialized status with the rpc.OUT_OF_RANGE code and the given message.
+func WithOutOfRange(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.OUT_OF_RANGE), Message: message}
+}
+
+// WithUnimplemented returns an initialized status with the rpc.UNIMPLEMENTED code and the given message.
+func WithUnimplemented(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.UNIMPLEMENTED), Message: message}
+}
+
+// WithUnavailable returns an initialized status with the rpc.UNAVAILABLE code and the given message.
+func WithUnavailable(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.UNAVAILABLE), Message: message}
+}
+
+// WithDataLoss returns an initialized status with the rpc.DATA_LOSS code and the given message.
+func WithDataLoss(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.DATA_LOSS), Message: message}
+}
+
+// WithUnauthenticated returns an initialized status with the rpc.UNAUTHENTICATED code and the given message.
+func WithUnauthenticated(message string) rpc.Status {
+	return rpc.Status{Code: int32(rpc.UNAUTHENTICATED), Message: message}
+}
+
 // IsOK returns true is the given status has the code rpc.OK
 func IsOK(status rpc.Status) bool {
 	return status.Code == int32(rpc.OK)
