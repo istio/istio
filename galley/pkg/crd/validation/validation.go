@@ -70,7 +70,7 @@ func createMixerValidator() store.BackendValidator {
 func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
-		Host:   fmt.Sprintf("localhost:%v", vc.Port),
+		Host:   fmt.Sprintf("127.0.0.1:%v", vc.Port),
 		Path:   httpsHandlerReadyPath,
 	}
 
