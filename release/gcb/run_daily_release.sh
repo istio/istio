@@ -14,20 +14,19 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+set -x
 
-# This script is meant to be sourced, has a set of functions used by scripts on gcb
+#copy files over to final destination
+gsutil -m cp -r "gs://$CB_GCS_BUILD_PATH" "gs://$CB_GCS_FULL_STAGING_PATH"
 
-#sets GITHUB_KEYFILE to github auth file
-function github_keys() {
-  GITHUB_KEYFILE="${GITHUB_TOKEN_FILE}"
-  export GITHUB_KEYFILE
-  
-  if [[ -n "$CB_TEST_GITHUB_TOKEN_FILE_PATH" ]]; then
-    local LOCAL_DIR
-    LOCAL_DIR="$(mktemp -d /tmp/github.XXXX)"
-    local KEYFILE_TEMP
-    KEYFILE_TEMP="$LOCAL_DIR/keyfile.txt"
-    GITHUB_KEYFILE="${KEYFILE_TEMP}"
-    gsutil -q cp "gs://${CB_TEST_GITHUB_TOKEN_FILE_PATH}" "${KEYFILE_TEMP}"
+if [[ "$CB_GITHUB_ORG" != "istio" ]]; then
+  if [[ "$CB_BRANCH" == *"release"* ]] || [[ "$CB_BRANCH" == "master" ]]; then
+    echo "not messing up daily builds with testing"
+    exit 0
   fi
-}
+fi
+
+cd /workspace || exit 1
+# run the release steps
+./rel_push_docker_daily.sh
+./rel_daily_complete.sh

@@ -14,40 +14,21 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
-# This script runs githubctl which sends a PR to github daily-releases
-# to test the build
-
-# Exit immediately for non zero status
-set -e
-# Check unset variables
-set -u
-# Print commands
 set -x
 
-# shellcheck disable=SC1091
-source "/workspace/gcb_env.sh"
+GOPATH=$PWD/go
+mkdir -p go/bin
+GOBIN=$GOPATH/bin
 
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb/gcb_lib.sh
-source "${SCRIPTPATH}/gcb_lib.sh"
-
-githubctl_setup
-github_keys
+time go get -u istio.io/test-infra/toolbox/githubctl
 
 # this setting is required by githubctl, which runs git commands
-git config --global user.name "TestRunnerBot"	
+git config --global user.name "TestRunnerBot"
 git config --global user.email "testrunner@istio.io"
 
-MANIFEST_FILE="/workspace/manifest.txt"
-ISTIO_SHA=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " ")
-
-"$githubctl" \
-    --token_file="$GITHUB_KEYFILE" \
-    --op=dailyRelQual \
+"$GOBIN/githubctl" \
+    --token_file="$GITHUB_TOKEN_FILE" \
+    --op=relPipelineQual \
     --base_branch="$CB_BRANCH" \
-    --hub="$CB_DOCKER_HUB" \
-    --gcs_path="$CB_GCS_BUILD_PATH" \
     --tag="$CB_VERSION" \
-    --ref_sha="$ISTIO_SHA"
-
+    --pipeline="$CB_PIPELINE_TYPE"
