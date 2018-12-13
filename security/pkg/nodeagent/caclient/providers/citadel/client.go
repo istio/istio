@@ -16,6 +16,7 @@ package caclient
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -26,20 +27,24 @@ import (
 
 	"istio.io/istio/pkg/log"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
-	gcapb "istio.io/istio/security/proto/providers/google"
+	pb "istio.io/istio/security/proto"
 )
 
-type googleCAClient struct {
-	caEndpoint string
-	enableTLS  bool
-	client     gcapb.IstioCertificateServiceClient
+const caServerName = "istio-citadel"
+
+type citadelClient struct {
+	caEndpoint    string
+	enableTLS     bool
+	caTLSRootCert []byte
+	client        pb.IstioCertificateServiceClient
 }
 
-// NewGoogleCAClient create a CA client for Google CA.
-func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, error) {
-	c := &googleCAClient{
-		caEndpoint: endpoint,
-		enableTLS:  tls,
+// NewCitadelClient create a CA client for Citadel.
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte) (caClientInterface.Client, error) {
+	c := &citadelClient{
+		caEndpoint:    endpoint,
+		enableTLS:     tls,
+		caTLSRootCert: rootCert,
 	}
 
 	var opts grpc.DialOption
@@ -59,20 +64,20 @@ func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, err
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 
-	c.client = gcapb.NewIstioCertificateServiceClient(conn)
+	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return c, nil
 }
 
-// CSR Sign calls Google CA to sign a CSR.
-func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
+// CSR Sign calls Citadel to sign a CSR.
+func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	req := &gcapb.IstioCertificateRequest{
+	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
 
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
-	resp, err := cl.client.CreateCertificate(ctx, req)
+	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		log.Errorf("Failed to create certificate: %v", err)
 		return nil, err
@@ -86,13 +91,19 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	return resp.CertChain, nil
 }
 
-func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
-	// Load the system default root certificates.
-	pool, err := x509.SystemCertPool()
-	if err != nil {
-		log.Errorf("could not get SystemCertPool: %v", err)
-		return nil, errors.New("could not get SystemCertPool")
+func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
+	// Load the TLS root certificate from the specified file.
+	// Create a certificate pool
+	certPool := x509.NewCertPool()
+	ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
+	if !ok {
+		return nil, fmt.Errorf("failed to append certificates")
 	}
-	creds := credentials.NewClientTLSFromCert(pool, "")
-	return grpc.WithTransportCredentials(creds), nil
+
+	config := tls.Config{}
+	config.RootCAs = certPool
+	config.ServerName = caServerName
+
+	transportCreds := credentials.NewTLS(&config)
+	return grpc.WithTransportCredentials(transportCreds), nil
 }
