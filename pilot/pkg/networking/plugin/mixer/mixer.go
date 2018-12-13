@@ -114,13 +114,13 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
-		filter := buildInboundHTTPFilter(in.Env.Mesh, in.Node, attrs)
+		filter := buildInboundHTTPFilter(in.Env.Mesh, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs)
+		filter := buildInboundTCPFilter(in.Env.Mesh, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
@@ -224,7 +224,7 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 	}
 }
 
-func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) *http_conn.HttpFilter {
+func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		ConfigType: &http_conn.HttpFilter_Config{
@@ -323,7 +323,7 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 }
 
-func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) listener.Filter {
+func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes) listener.Filter {
 	return listener.Filter{
 		Name: mixer,
 		ConfigType: &listener.Filter_Config{
