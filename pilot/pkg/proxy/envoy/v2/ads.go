@@ -265,6 +265,7 @@ type XdsConnection struct {
 	LastPushFailure time.Time
 
 	// pushMutex prevents 2 overlapping pushes for this connection.
+	// It is held in pushConnection only.
 	pushMutex sync.Mutex
 }
 
@@ -416,14 +417,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		// Blocking - will receive and handle messages from envoy.
 		return s.newReceiveThread(con)
 	}
-	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 
 	// Reading from a stream is a blocking operation. Each connection needs to read
 	// discovery requests and wait for push commands on config change, so we add a
 	// go routine. If go grpc adds gochannel support for streams this will not be needed.
 	// This also detects close.
 	var receiveError error
-
+	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 	go receiveThread(con, reqChannel, &receiveError)
 
 	// IMPORTANT: please update newReceiveThread if you make any changes here. This code will be replaced after
@@ -655,17 +655,25 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 
 		peerAddr := con.PeerAddr
 
-		// TODO: according to the docs, we can pro-actively push all the config, without waiting for requests.
+		// TODO: according to the docs, we can proactively push all the config, without waiting for requests.
 		// Will require pre-computing the expected RDS - we now rely on Envoy to build and maintain the list.
 
+		// NACK and ACKS seem to also carry a new resource set, at least in the case of RDS tests.
+		// It does not seem to happen in practice with envoy ( it is supposed to ack each request ), but
+		// to be safe ack/nack is processed first, then the request is treated as an update request. If the
+		// watched resources change ( will happen for on-demand - doesn't happen for LDS/CDS in normal proto) -
+		// we send an immediate update.
 		if discReq.ErrorDetail != nil {
-			s.handleNack(discReq, peerAddr, con)
-			if con.nonceSent[discReq.TypeUrl] == discReq.ResponseNonce {
-				continue
-			}
 			// NACK for a message sent in a previous connection. Will log/count it, but still process
 			// the request and send again a response in this connection. The old request may have been
 			// earlier, or on a bad pilot.
+			s.handleNack(discReq, peerAddr, con)
+			// keep going - if same resources are requested again we'll ignore.
+			if con.nonceSent[discReq.TypeUrl] != discReq.ResponseNonce {
+				// This is a reconnect request, acking a response from a previous connection.
+				// Will log, and process the request again.
+				adsLog.Infof("ADS: Reconnect NACK %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
+			}
 		}
 
 		// Initial request may contain nonces from a previously closed connection, combined with
@@ -673,12 +681,12 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		if discReq.ResponseNonce != "" {
 			if con.nonceSent[discReq.TypeUrl] == discReq.ResponseNonce {
 				s.handleAck(con, discReq, peerAddr)
-				continue
+				// keep going, in case the ack is also updating the resource set.
+			} else {
+				// This is a reconnect request, acking a response from a previous connection.
+				// Will log, and process the request again.
+				adsLog.Infof("ADS: Reconnect ACK %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 			}
-
-			// This is a reconnect request, acking a response from a previous connection.
-			// Will log, and process the request again.
-			adsLog.Infof("ADS: Reconnect ACK %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
 		}
 
 		// TODO: handle 'on-demand' requests.
@@ -686,8 +694,7 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		case ClusterType:
 			if con.CDSWatch {
 				// Already received a cluster watch request, this is an ACK - but without nonce or error
-				// TODO: for on-demand, this is the on-demand request.
-				adsLog.Warnf("ADS:CDS: unexpected %v %s %v", peerAddr, con.ConID, discReq.String())
+				// TODO: for on-demand, this is the on-demand request, may update list of clusters.
 				continue
 			}
 			// CDS REQ is the first request an envoy makes. This shows up
@@ -703,8 +710,7 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		case ListenerType:
 			if con.LDSWatch {
 				// Already received a cluster watch request, this is an ACK - but without nonce or error
-				// TODO: for on-demand, this is the on-demand request.
-				adsLog.Warnf("ADS:LDS: unexpected %v %s %v", peerAddr, con.ConID, discReq.String())
+				// TODO: for on-demand, this is the on-demand request, may update list of listeners
 				continue
 			}
 			// too verbose - sent immediately after EDS response is received
@@ -718,13 +724,17 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		case RouteType:
 			// The list of routes can be updated dynamically - both for on-demand and for normal protocol.
 			routes := discReq.GetResourceNames()
-			if routes == nil {
-				adsLog.Warnf("ADS:RDS: PROTOCOL ERROR, no routes %v %s (%s) %v", peerAddr, con.ConID, con.modelNode.ID, discReq.String())
+			if discReq.GetResourceNames() == nil {
 				continue
 			}
+
 			var sortedRoutes []string
 			sort.Strings(routes)
 			sortedRoutes = routes
+			if reflect.DeepEqual(con.Routes, sortedRoutes) {
+				// Just an ACK/NACK without updating the list - keep going.
+				continue
+			}
 			con.Routes = sortedRoutes
 			adsLog.Infof("ADS:RDS: REQ %s %s  routes: %d %v", peerAddr, con.ConID, len(con.Routes), con.Routes)
 			err := s.pushRoute(con, s.globalPushContext())
@@ -735,8 +745,8 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		case EndpointType:
 			clusters := discReq.GetResourceNames()
 			// clusters and con.Clusters are all empty, this is not an ack and will do nothing.
-			if len(clusters) == 0 && len(con.Clusters) == 0 {
-				adsLog.Warnf("ADS:EDS: unexpected %v %s %v", peerAddr, con.ConID, discReq.String())
+			if clusters == nil || len(clusters) == 0 {
+				// ACK/NACK
 				continue
 			}
 			if len(clusters) == len(con.Clusters) {
@@ -745,18 +755,13 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 
 				// Already got a list of endpoints to watch and it is the same as the request, this is an ack without nonce ?
 				if reflect.DeepEqual(con.Clusters, clusters) {
-					adsLog.Warnf("ADS:EDS: ACK without nonce %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
+					// ACK/NACK including same set of resources.
 					continue
 				}
 			}
 
-			for _, cn := range con.Clusters {
-				s.removeEdsCon(cn, con.ConID, con)
-			}
-
-			for _, cn := range clusters {
-				s.addEdsCon(cn, con.ConID, con)
-			}
+			// edsClusters keeps track of all watched clusters, and for each cluster the list of client connections.
+			s.updateEdsCon(clusters, con.ConID, con)
 
 			con.Clusters = clusters
 			adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
@@ -764,7 +769,6 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			if err != nil {
 				return err
 			}
-
 		default:
 			adsLog.Warnf("ADS: Unknown watched resources %s", discReq.String())
 		}
@@ -795,7 +799,8 @@ func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.Discover
 			if reflect.DeepEqual(con.Routes, sortedRoutes) {
 				adsLog.Debugf("ADS:RDS: ACK %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
 			} else {
-				adsLog.Warnf("ADS:RDS: ACK with different routes %s %s (%s) %s %s", peerAddr, con.ConID, con.modelNode.ID, discReq.VersionInfo, discReq.ResponseNonce)
+				adsLog.Warnf("ADS:RDS: ACK with different routes %s %s (%s) %s %s %v %v", peerAddr, con.ConID, con.modelNode.ID,
+					discReq.VersionInfo, discReq.ResponseNonce, con.Routes, sortedRoutes)
 			}
 			con.RouteNonceAcked = discReq.ResponseNonce
 		}
@@ -1110,7 +1115,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 			if pilot.SingleThreadPerNode {
 				c := make(chan bool)
 				go func() {
-					// Blocking
+					// Blocking - will wait for ACKs
 					s.pushConnection(client, ev)
 					c <- true
 				}()
@@ -1126,11 +1131,11 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 					pushTimeouts.Add(1)
 					if client.LastPushFailure.IsZero() {
 						client.LastPushFailure = time.Now()
-						adsLog.Warnf("Failed to push, client busy %s", client.ConID)
+						adsLog.Warnf("Failed to write or ACK timeout %s", client.ConID)
 						pushErrors.With(prometheus.Labels{"type": "retry"}).Add(1)
 					} else {
 						if time.Since(client.LastPushFailure) > 10*time.Second {
-							adsLog.Warnf("Repeated failure to push %s", client.ConID)
+							adsLog.Warnf("Repeated failure to write or ACK timeouts %s", client.ConID)
 							// unfortunately grpc go doesn't allow closing (unblocking) the stream.
 							pushErrors.With(prometheus.Labels{"type": "unrecoverable"}).Add(1)
 							pushTimeoutFailures.Add(1)

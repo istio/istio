@@ -734,6 +734,33 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	return c
 }
 
+// updateEdsCon will update the list of watched resources.
+func (s *DiscoveryServer) updateEdsCon(newClusters []string, node string, con *XdsConnection) {
+	newClusterMap := map[string]string{}
+	oldClusterMap := map[string]string{}
+	for _, cn := range newClusters {
+		newClusterMap[cn] = cn
+	}
+	for _, cn := range con.Clusters {
+		oldClusterMap[cn] = cn
+	}
+
+	for _, cn := range con.Clusters {
+		if _, f := newClusterMap[cn]; !f {
+			// Cluster was previously watched, no longer - remove
+			s.removeEdsCon(cn, con.ConID, con)
+		}
+	}
+
+	for _, cn := range newClusters {
+		if _, f := oldClusterMap[cn]; !f {
+			// Cluster was not previously watched - add
+			s.addEdsCon(cn, con.ConID, con)
+		}
+	}
+
+}
+
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the
 // stream. As of 0.7 envoy watches a single cluster per gprc stream.
 func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connection *XdsConnection) {

@@ -335,7 +335,8 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 		t.Fatal("Expected only the http.80 route to be returned")
 	}
 
-	v2.AdsPushAll(server.EnvoyXdsServer)
+	// This is a blocking call - we need to receive and ack in parallel
+	go v2.AdsPushAll(server.EnvoyXdsServer)
 
 	res, err = adsReceive(edsstr, 5*time.Second)
 	if err != nil {
@@ -363,7 +364,6 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sendAck(gatewayID(gatewayIP), res, edsstr)
 	if res == nil || len(res.Resources) == 0 {
 		t.Fatal("No routes returned")
 	}
@@ -373,6 +373,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	}
 
 	// Test update from B -> A, B
+	// Includes the ACK.
 	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, res.Nonce, edsstr)
 	if err != nil {
 		t.Fatal(err)
