@@ -593,11 +593,11 @@ istio-remote.yaml: $(HELM)
 
 # creates aspenmesh.yaml aspenmesh-auth.yaml, etc
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
-aspenmesh.yaml aspenmesh%.yaml: $(HELM)
+aspenmes%.yaml: $(HELM)
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	$(HELM) template --set global.tag=${TAG} \
 		--namespace=istio-system \
-		--name=aspenmesh$*-${TAG} \
+		--name=aspenmes$*-${TAG} \
 		--set global.hub=${HUB} \
 		--set global.hub_public=${PUBLIC_HUB} \
 		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
