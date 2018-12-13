@@ -45,32 +45,32 @@ func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environmen
 	// Ideally we need to run this code for each proxy version we support because
 	// the networking code builds configs according to the version of envoy on the data plane.
 	// And with introduction of configScopes, we need to build it for each namespace as well.
-	node := &model.Proxy{
-		Type: model.Sidecar,
-		Metadata: map[string]string{
-			"ISTIO_PROXY_VERSION": "1.1.0",
-		},
-	}
-	var rdsRoutes []string
+	//node := &model.Proxy{
+	//	Type: model.Sidecar,
+	//	Metadata: map[string]string{
+	//		"ISTIO_PROXY_VERSION": "1.1.0",
+	//	},
+	//}
+	//var rdsRoutes []string
 
 	configgen.PrecomputedOutboundClusters = configgen.buildOutboundClusters(env, nil, push)
-	configgen.PrecomputedOutboundRoutes = make(map[string]*xdsapi.RouteConfiguration)
-
-	// Compute all outbound listeners and also the associated RDS routes.
-	if env.Mesh.ProxyListenPort > 0 {
-		configgen.PrecomputedOutboundListeners, rdsRoutes = configgen.buildSidecarOutboundListeners(env, node, push, nil)
-		for _, r := range rdsRoutes {
-			configgen.PrecomputedOutboundRoutes[r] = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, nil, r)
-		}
-	}
-
-	// Compute the outbound listener for HTTP Proxy port as well as its associated RDS route
-	if env.Mesh.ProxyHttpPort > 0 {
-		configgen.PrecomputedOutboundListeners = append(configgen.PrecomputedOutboundListeners,
-			configgen.buildSidecarOutboundHTTPProxyListener(env, node, push, nil))
-		// Add another RDS for HTTP proxy
-		configgen.PrecomputedOutboundRoutes[RDSHttpProxy] = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, nil, RDSHttpProxy)
-	}
+	//configgen.PrecomputedOutboundRoutes = make(map[string]*xdsapi.RouteConfiguration)
+	//
+	//// Compute all outbound listeners and also the associated RDS routes.
+	//if env.Mesh.ProxyListenPort > 0 {
+	//	configgen.PrecomputedOutboundListeners, rdsRoutes = configgen.buildSidecarOutboundListeners(env, node, push, nil)
+	//	for _, r := range rdsRoutes {
+	//		configgen.PrecomputedOutboundRoutes[r] = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, nil, r)
+	//	}
+	//}
+	//
+	//// Compute the outbound listener for HTTP Proxy port as well as its associated RDS route
+	//if env.Mesh.ProxyHttpPort > 0 {
+	//	configgen.PrecomputedOutboundListeners = append(configgen.PrecomputedOutboundListeners,
+	//		configgen.buildSidecarOutboundHTTPProxyListener(env, node, push, nil))
+	//	// Add another RDS for HTTP proxy
+	//	configgen.PrecomputedOutboundRoutes[RDSHttpProxy] = configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, nil, RDSHttpProxy)
+	//}
 
 	return nil
 }
