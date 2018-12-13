@@ -59,7 +59,6 @@
         - containerPort: 9091
         - containerPort: 15004
 {{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
-        ports:
         - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
           protocol: TCP
           name: http-envoy-prom
@@ -167,7 +166,6 @@
         - containerPort: 9091
         - containerPort: 15004
 {{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
-        ports:
         - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
           protocol: TCP
           name: http-envoy-prom
