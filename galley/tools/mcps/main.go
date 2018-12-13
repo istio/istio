@@ -11,7 +11,7 @@ import (
 
 var (
 	serverAddr     = flag.String("server", "127.0.0.1:9901", "The server address")
-	kubeConfig     = flag.String("kubeConfig", "/Users/iris/oti/DevAdvocacy/istioworkshop/virtualbox/config", "The path to kube configuration file")
+	kubeConfig     = flag.String("kubeConfig", "", "The path to kube configuration file")
 	configPath     = flag.String("configPath", "../../../tests/testdata/config", "The config files which galley will monitor")
 	meshConfigFile = flag.String("meshConfigFile", "../../../istioctl/cmd/istioctl/testdata/mesh-config.yaml", "The path for mesh config")
 )
