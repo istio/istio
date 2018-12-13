@@ -65,9 +65,6 @@ func (wh *Webhook) waitForEndpointReady(stopCh <-chan struct{}) (shutdown bool) 
 		}
 	}()
 
-	controllerStopCh := make(chan struct{})
-	defer close(controllerStopCh)
-
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	defer queue.ShutDown()
 
@@ -97,21 +94,30 @@ func (wh *Webhook) waitForEndpointReady(stopCh <-chan struct{}) (shutdown bool) 
 			},
 		},
 	)
-	go controller.Run(stopCh)
+
+	controllerStopCh := make(chan struct{})
+	defer close(controllerStopCh)
+	go controller.Run(controllerStopCh)
 
 	if !cache.WaitForCacheSync(stopCh, controller.HasSynced) {
+		scope.Errorf("wait for cache sync failed")
 		return true
 	}
 
 	for {
-		ready := endpointReady(store, queue, wh.deploymentAndServiceNamespace, wh.serviceName)
-		switch ready {
-		case endpointCheckShutdown:
+		select {
+		case <-stopCh:
 			return true
-		case endpointCheckReady:
-			return false
-		case endpointCheckNotReady:
-			// continue waiting for endpoint to be ready
+		default:
+			ready := endpointReady(store, queue, wh.deploymentAndServiceNamespace, wh.serviceName)
+			switch ready {
+			case endpointCheckShutdown:
+				return true
+			case endpointCheckReady:
+				return false
+			case endpointCheckNotReady:
+				// continue waiting for endpoint to be ready
+			}
 		}
 	}
 }
