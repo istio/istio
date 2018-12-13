@@ -202,10 +202,19 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	}
 	c.configStoreMu.Unlock()
 
+	// only dispach add/update/delete events for service entries
+	if descriptor.Type == model.ServiceEntry.Type {
+		c.dispatchServiceEntryEvents(innerStore, prevStore)
+	}
+
+	return nil
+}
+
+func (c *Controller) dispatchServiceEntryEvents(currentStore, prevStore map[string]map[string]model.Config) {
 	dispatch := func(model model.Config, event model.Event) {}
-	if handlers, ok := c.eventHandlers[descriptor.Type]; ok {
+	if handlers, ok := c.eventHandlers[model.ServiceEntry.Type]; ok {
 		dispatch = func(model model.Config, event model.Event) {
-			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
+			log.Debugf("MCP service entry event dispatch: key=%v event=%v", model.Key(), event.String())
 			for _, handler := range handlers {
 				handler(model, event)
 			}
@@ -213,7 +222,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	}
 
 	// add/update
-	for namespace, byName := range innerStore {
+	for namespace, byName := range currentStore {
 		for name, config := range byName {
 			if prevByNamespace, ok := prevStore[namespace]; ok {
 				if prevConfig, ok := prevByNamespace[name]; ok {
@@ -232,7 +241,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	// remove
 	for namespace, prevByName := range prevStore {
 		for name, prevConfig := range prevByName {
-			if byNamespace, ok := innerStore[namespace]; ok {
+			if byNamespace, ok := currentStore[namespace]; ok {
 				if _, ok := byNamespace[name]; !ok {
 					dispatch(prevConfig, model.EventDelete)
 				}
@@ -241,8 +250,6 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 			}
 		}
 	}
-
-	return nil
 }
 
 // HasSynced returns true if the first batch of items has been popped
