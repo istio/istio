@@ -93,7 +93,7 @@ type PushContext struct {
 
 	// AspenMeshExperiments returns all Experiments in a map keyed by the Original
 	// Service
-	AspenMeshExperiments func() map[string][]*aspenmeshconfig.ExperimentSpec `json:"-"`
+	AspenMeshExperiments map[string][]*aspenmeshconfig.ExperimentSpec `json:"-"`
 
 	initDone bool
 }
@@ -453,6 +453,10 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
+	if err = ps.initAspenMeshExperiments(env); err != nil {
+		return err
+	}
+
 	// TODO: everything else that is used in config generation - the generation
 	// should not have any deps on config store.
 	ps.initDone = true
@@ -558,6 +562,12 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 		return err
 	}
 	ps.SetDestinationRules(configs)
+	return nil
+}
+
+// Populate the map of experiments
+func (ps *PushContext) initAspenMeshExperiments(env *Environment) error {
+	ps.AspenMeshExperiments = env.AspenMeshExperiments()
 	return nil
 }
 

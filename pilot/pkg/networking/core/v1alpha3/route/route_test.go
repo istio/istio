@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aspenmesh/aspenmesh-crd/pkg/apis/config/v1alpha1"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/onsi/gomega"
 
@@ -54,15 +53,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
-	pushC := model.NewPushContext()
-	pushC.AspenMeshExperiments = func() map[string][]*v1alpha1.ExperimentSpec {
-		return nil
-	}
+	push := &model.PushContext{}
 
 	t.Run("for virtual service", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(node, pushC, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -84,7 +80,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		configStore.DestinationRuleReturns(cnfg)
 
-		_, err := route.BuildHTTPRoutesForVirtualService(node, pushC, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
+		_, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, model.LabelsCollection{}, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
@@ -93,7 +89,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		ttl := time.Duration(time.Nanosecond * 100)
 		push := &model.PushContext{}
-		push.AspenMeshExperiments = pushC.AspenMeshExperiments
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -149,7 +144,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 
 		push := &model.PushContext{}
-		push.AspenMeshExperiments = pushC.AspenMeshExperiments
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
@@ -190,7 +184,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 
 		push := &model.PushContext{}
-		push.AspenMeshExperiments = pushC.AspenMeshExperiments
 		push.SetDestinationRules([]model.Config{
 			{
 
@@ -241,7 +234,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cnfg.Spec = networkingDestinationRule
 
 		push := &model.PushContext{}
-		push.AspenMeshExperiments = pushC.AspenMeshExperiments
 		push.SetDestinationRules([]model.Config{
 			cnfg})
 
@@ -264,7 +256,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
 		push := &model.PushContext{}
-		push.AspenMeshExperiments = pushC.AspenMeshExperiments
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{

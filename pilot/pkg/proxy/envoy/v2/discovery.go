@@ -139,7 +139,6 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator) 
 		edsUpdates:              map[string]*model.EndpointShardsByService{},
 	}
 	env.PushContext = model.NewPushContext()
-	env.PushContext.AspenMeshExperiments = env.AspenMeshExperiments
 
 	go out.periodicRefresh()
 
@@ -259,7 +258,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.EndpointS
 	t0 := time.Now()
 	push := model.NewPushContext()
 	push.ServiceAccounts = s.ServiceAccounts
-	push.AspenMeshExperiments = s.Env.AspenMeshExperiments
 
 	if err := push.InitContext(s.Env); err != nil {
 		adsLog.Errorf("XDS: failed to update services %v", err)

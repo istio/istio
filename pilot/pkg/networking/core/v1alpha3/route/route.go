@@ -94,7 +94,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	virtualServices := push.VirtualServices(meshGateway)
-	amExperiments := push.AspenMeshExperiments()
+	amExperiments := push.AspenMeshExperiments
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
 		wrappers := buildVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, meshGateway)
@@ -256,7 +256,7 @@ func BuildHTTPRoutesForVirtualService(
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) ([]route.Route, error) {
 
-	amExperiments := push.AspenMeshExperiments()
+	amExperiments := push.AspenMeshExperiments
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
