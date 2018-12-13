@@ -337,8 +337,9 @@ func TestCriticalCrdsAreReady(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got error %v from Init", err)
 	}
-	if atomic.LoadInt32(&callCount) != 1 {
-		t.Errorf("callCount is not expected, got %v wang 1", callCount)
+	count := atomic.LoadInt32(&callCount)
+	if count != 1 {
+		t.Errorf("callCount is not expected, got %v wang 1", count)
 	}
 	s.Stop()
 }
@@ -371,8 +372,9 @@ func TestCriticalCrdsAreNotReadyRetryTimeout(t *testing.T) {
 	} else if err.Error() != errorMsg {
 		t.Errorf("got Init error message %v, want %v", err.Error(), errorMsg)
 	}
-	if atomic.LoadInt32(&callCount) < 1 || atomic.LoadInt32(&callCount) > 3 {
-		t.Errorf("got callCount %v, want call count to be more than 1 and less than 3 times", atomic.LoadInt32(&callCount))
+	count := atomic.LoadInt32(&callCount)
+	if count < 1 || count > 3 {
+		t.Errorf("got callCount %v, want call count to be more than 1 and less than 3 times", count)
 	}
 	s.Stop()
 }
@@ -388,13 +390,13 @@ func TestCriticalCrdsRetryMakeSucceed(t *testing.T) {
 	var callCount int32
 	// Gradually increase the number of API resources.
 	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
-		atomic.AddInt32(&callCount, 1)
-		if atomic.LoadInt32(&callCount) == 2 {
+		count := atomic.AddInt32(&callCount, 1)
+		if count == 2 {
 			fakeDiscovery.Resources[0].APIResources = append(
 				fakeDiscovery.Resources[0].APIResources,
 				metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
 			)
-		} else if atomic.LoadInt32(&callCount) == 3 {
+		} else if count == 3 {
 			fakeDiscovery.Resources[0].APIResources = append(
 				fakeDiscovery.Resources[0].APIResources,
 				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
@@ -415,8 +417,9 @@ func TestCriticalCrdsRetryMakeSucceed(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if atomic.LoadInt32(&callCount) != 3 {
-		t.Errorf("Got %d, Want 3", atomic.LoadInt32(&callCount))
+	count := atomic.LoadInt32(&callCount)
+	if count != 3 {
+		t.Errorf("Got %d, Want 3", count)
 	}
 	s.Stop()
 }
