@@ -16,6 +16,7 @@ package caclient
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"reflect"
 	"testing"
@@ -33,43 +34,76 @@ var (
 	fakeToken = "Bearer fakeToken"
 )
 
-type mockCAServer struct{}
-
-func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
-	return &pb.IstioCertificateResponse{CertChain: fakeCert}, nil
+type mockCAServer struct {
+	Certs []string
+	Err   error
 }
 
-func TestCitadelClient(t *testing.T) {
-	// create a local grpc server
-	s := grpc.NewServer()
-	defer s.Stop()
-	lis, err := net.Listen("tcp", mockServerAddress)
-	if err != nil {
-		t.Fatalf("failed to listen: %v", err)
+func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
+	if ca.Err == nil {
+		return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
 	}
-	serv := mockCAServer{}
+	return nil, ca.Err
+}
 
-	go func() {
-		pb.RegisterIstioCertificateServiceServer(s, &serv)
-		if err := s.Serve(lis); err != nil {
-			t.Fatalf("failed to serve: %v", err)
+func TestGoogleCAClient(t *testing.T) {
+	testCases := map[string]struct {
+		server       mockCAServer
+		expectedCert []string
+		expectedErr  string
+	}{
+		"Valid certs": {
+			server:       mockCAServer{Certs: fakeCert, Err: nil},
+			expectedCert: fakeCert,
+			expectedErr:  "",
+		},
+		"Error in response": {
+			server:       mockCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
+			expectedCert: nil,
+			expectedErr:  "rpc error: code = Unknown desc = test failure",
+		},
+		"Empty response": {
+			server:       mockCAServer{Certs: []string{}, Err: nil},
+			expectedCert: nil,
+			expectedErr:  "invalid response cert chain",
+		},
+	}
+
+	for id, tc := range testCases {
+		// create a local grpc server
+		s := grpc.NewServer()
+		defer s.Stop()
+		lis, err := net.Listen("tcp", mockServerAddress)
+		if err != nil {
+			t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
 		}
-	}()
 
-	// The goroutine starting the server may not be ready, results in flakiness.
-	time.Sleep(1 * time.Second)
+		go func() {
+			pb.RegisterIstioCertificateServiceServer(s, &tc.server)
+			if err := s.Serve(lis); err != nil {
+				t.Fatalf("Test case [%s]: failed to serve: %v", id, err)
+			}
+		}()
 
-	cli, err := NewCitadelClient(lis.Addr().String(), false, nil)
-	if err != nil {
-		t.Fatalf("failed to create ca client: %v", err)
-	}
+		// The goroutine starting the server may not be ready, results in flakiness.
+		time.Sleep(1 * time.Second)
 
-	resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
-	if err != nil {
-		t.Fatalf("failed to call CSR sign: %v", err)
-	}
+		cli, err := NewCitadelClient(lis.Addr().String(), false, nil)
+		if err != nil {
+			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
+		}
 
-	if !reflect.DeepEqual(resp, fakeCert) {
-		t.Errorf("resp: got %+v, expected %q", resp, fakeCert)
+		resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
+		if err != nil {
+			if err.Error() != tc.expectedErr {
+				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+			}
+		} else {
+			if tc.expectedErr != "" {
+				t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
+			} else if !reflect.DeepEqual(resp, tc.expectedCert) {
+				t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+			}
+		}
 	}
 }
