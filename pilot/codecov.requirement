@@ -16,6 +16,9 @@ istio.io/istio/pilot/pkg/model:83 [85.8]
 istio.io/istio/pilot/pkg/model/test:0 [0]
 istio.io/istio/pilot/pkg/proxy:95 [98.8]
 istio.io/istio/pilot/pkg/proxy/envoy:72 [75.4]
+# Some of the code will be flag protected in 1.1, tests are checking the 
+# new implementation but the old one can be used in case of problems.
+istio.io/istio/pilot/pkg/proxy/envoy/v2:60 [75.4]
 istio.io/istio/pilot/pkg/serviceregistry:0 [0]
 istio.io/istio/pilot/pkg/serviceregistry/consul:40 [43.6]
 istio.io/istio/pilot/pkg/serviceregistry/kube:60 [63.8]

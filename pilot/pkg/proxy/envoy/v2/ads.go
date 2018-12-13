@@ -356,7 +356,8 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 }
 
 // receiveThread handles messages from Envoy.
-//
+// Messages are passed on a channel to a second goroutine that is processing the messages or handles pushes.
+// Deprecated: newReceiveThread will be used in future.
 func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
@@ -761,7 +762,7 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			}
 
 			// edsClusters keeps track of all watched clusters, and for each cluster the list of client connections.
-			s.updateEdsCon(clusters, con.ConID, con)
+			s.updateEdsCon(clusters, con)
 
 			con.Clusters = clusters
 			adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
@@ -898,7 +899,6 @@ func (s *DiscoveryServer) waitAck(con *XdsConnection) bool {
 		}
 	}
 }
-
 
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.

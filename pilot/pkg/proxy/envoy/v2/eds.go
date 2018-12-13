@@ -735,7 +735,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 }
 
 // updateEdsCon will update the list of watched resources.
-func (s *DiscoveryServer) updateEdsCon(newClusters []string, node string, con *XdsConnection) {
+func (s *DiscoveryServer) updateEdsCon(newClusters []string, con *XdsConnection) {
 	newClusterMap := map[string]string{}
 	oldClusterMap := map[string]string{}
 	for _, cn := range newClusters {
