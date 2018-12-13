@@ -19,14 +19,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"istio.io/istio/pkg/log"
-	ca "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -91,7 +92,7 @@ type SecretCache struct {
 	// map key is Envoy instance ID, map value is secretItem.
 	secrets        sync.Map
 	rotationTicker *time.Ticker
-	caClient       ca.Client
+	fetcher        *secretfetcher.SecretFetcher
 
 	// configOptions includes all configurable params for the cache.
 	configOptions Options
@@ -116,9 +117,9 @@ type SecretCache struct {
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(cl ca.Client, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
+func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
 	ret := &SecretCache{
-		caClient:       cl,
+		fetcher:        fetcher,
 		closing:        make(chan bool),
 		notifyCallback: notifyCb,
 		rootCertMutex:  &sync.Mutex{},
@@ -226,6 +227,11 @@ func (sc *SecretCache) keyCertRotationJob() {
 }
 
 func (sc *SecretCache) rotate() {
+	// Skip secret rotation for kubernetes secrets.
+	if !sc.fetcher.UseCaClient {
+		return
+	}
+
 	log.Debug("Refresh job running")
 
 	secretMap := map[ConnKey]*model.SecretItem{}
@@ -304,6 +310,23 @@ func (sc *SecretCache) rotate() {
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {
+	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
+	// CSR to CA.
+	if sc.fetcher.UseCaClient == false {
+		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
+		if !exist {
+			return nil, fmt.Errorf("cannot find secret %s for ingress gateway", resourceName)
+		}
+
+		return &model.SecretItem{
+			CertificateChain: secretItem.CertificateChain,
+			PrivateKey:       secretItem.PrivateKey,
+			ResourceName:     resourceName,
+			CreatedTime:      t,
+			Version:          t.String(),
+		}, nil
+	}
+
 	options := util.CertOptions{
 		Host:       resourceName,
 		RSAKeySize: keySize,
@@ -329,7 +352,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
-	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+	certChainPEM, err := sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 	if err != nil {
 		log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
 		return nil, err
