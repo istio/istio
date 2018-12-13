@@ -39,10 +39,6 @@ func TestNewCAClient(t *testing.T) {
 		provider    string
 		expectedErr string
 	}{
-		"Citadel": {
-			provider:    citadelName,
-			expectedErr: "cannot load kubeconfig: unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined",
-		},
 		"Not supported": {
 			provider:    "random",
 			expectedErr: "CA provider \"random\" isn't supported. Currently Istio supports \"GoogleCA,Citadel\"",
@@ -93,8 +89,7 @@ func TestGetCATLSRootCertFromConfigMap(t *testing.T) {
 		} else {
 			if tc.expectedErr != "" {
 				t.Errorf("Test case [%s]: expect error: %s", id, tc.expectedErr)
-			}
-			if bytes.Compare(cert, tc.expectedCert) != 0 {
+			} else if bytes.Compare(cert, tc.expectedCert) != 0 {
 				t.Errorf("Test case [%s]: cert from ConfigMap %v does not match expected value %v", id, cert, tc.expectedCert)
 			}
 		}
