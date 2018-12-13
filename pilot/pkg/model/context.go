@@ -78,7 +78,7 @@ type Proxy struct {
 	// Type specifies the node type. First part of the ID.
 	Type NodeType
 
-	// IPAddresses are the IP addresses of the proxy used to identify it and its
+	// IPAddresses is the IP addresses of the proxy used to identify it and its
 	// co-located service instances. Example: "10.60.1.6". In some cases, the host
 	// where the poxy and service instances reside may have more than one IP address
 	IPAddresses []string
@@ -446,7 +446,7 @@ func ParsePort(addr string) int {
 	return port
 }
 
-// ParseIPAddresses extracts IPs from a string
+// parseIPAddresses extracts IPs from a string
 func parseIPAddresses(s string) ([]string, error) {
 	ipAddresses := strings.Split(s, ",")
 	if len(ipAddresses) == 0 {

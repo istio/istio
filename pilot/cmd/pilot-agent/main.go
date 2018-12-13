@@ -110,7 +110,7 @@ var (
 				}
 			}
 
-			//Obtain all the IPs form the node
+			// Obtain all the IPs from the node
 			if ipAddr, ok := proxy.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddr)
 				role.IPAddresses = append(role.IPAddresses, ipAddr...)
