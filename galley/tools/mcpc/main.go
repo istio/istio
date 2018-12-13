@@ -29,7 +29,7 @@ import (
 
 	// Import the resource package to pull in all proto types.
 	_ "istio.io/istio/galley/pkg/kube/converter/legacy"
-	_ "istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/metadata"
 )
 
 var (
@@ -64,7 +64,9 @@ func main() {
 	flag.Parse()
 
 	typeNames := strings.Split(*types, ",")
-
+	if *types == "" {
+		typeNames = metadata.Types.TypeURLs()
+	}
 	u := &updater{}
 
 	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
