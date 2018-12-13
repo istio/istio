@@ -44,13 +44,15 @@ function checkout_code() {
 function istio_code_init_manifest() {
   local MANIFEST_FILE=$1
 
-  ISTIO_SHA=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " ")
   API_SHA=$(  grep "api"   "$MANIFEST_FILE" | cut -f 2 -d " ")
   PROXY_SHA=$(grep "proxy" "$MANIFEST_FILE" | cut -f 2 -d " ")
 
   checkout_code "proxy" "${PROXY_SHA}" "/workspace/src"
   checkout_code "api"     "${API_SHA}" "/workspace/go/src/istio.io"
-  checkout_code "istio" "${ISTIO_SHA}" "/workspace/go/src/istio.io"
+
+# istio is checkout by the initialization script in pipeline repo
+# ISTIO_SHA=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " ")
+# checkout_code "istio" "${ISTIO_SHA}" "/workspace/go/src/istio.io"
 }
 
 istio_code_init_manifest         "/workspace/manifest.txt"

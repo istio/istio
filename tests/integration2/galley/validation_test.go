@@ -20,7 +20,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 )
 
 type testData string
@@ -58,7 +60,9 @@ func loadTestData(t *testing.T) []testData {
 }
 
 func TestValidation(t *testing.T) {
-	framework.Requires(t, dependency.APIServer)
+	// Call Requires to explicitly initialize dependencies that the test needs.
+	ctx := framework.GetContext(t)
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment)
 
 	dataset := loadTestData(t)
 
@@ -75,15 +79,14 @@ func TestValidation(t *testing.T) {
 				t.SkipNow()
 				return
 			}
-			env := framework.AcquireEnvironment(t)
 
 			yml, err := d.load()
 			if err != nil {
 				t.Fatalf("Unable to load test data: %v", err)
 			}
 
-			apiServer := env.GetAPIServerOrFail(t)
-			err = apiServer.ApplyYaml(yml)
+			env := kube.GetEnvironmentOrFail(ctx, t)
+			_, err = env.ApplyContents(env.TestNamespace(), yml)
 
 			switch {
 			case err != nil && d.isValid():
