@@ -5,6 +5,8 @@ enabled: false
 replicaCount: 1
 hub: docker.io/kiali
 tag: v0.10
+loadBalancerIP: ""
+type: ClusterIP # change to NodePort, ClusterIP or LoadBalancer if need be
 contextPath: /kiali
 ingress:
   enabled: false
