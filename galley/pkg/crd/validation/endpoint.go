@@ -39,7 +39,10 @@ func endpointReady(store cache.KeyGetter, queue workqueue.RateLimitingInterface,
 	if err != nil || !exists {
 		return endpointCheckNotReady
 	}
-	endpoints := item.(*v1.Endpoints)
+	endpoints, ok := item.(*v1.Endpoints)
+	if !ok {
+		return endpointCheckNotReady
+	}
 	if len(endpoints.Subsets) == 0 {
 		scope.Warnf("%s/%v endpoint not ready: no subsets", namespace, name)
 		return endpointCheckNotReady
