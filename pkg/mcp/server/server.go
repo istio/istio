@@ -342,7 +342,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 
 	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, 1))
 
-	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, types)
+	scope.Debugf("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
 }
 
@@ -442,7 +442,7 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 
 		return "", err
 	}
-	scope.Infof("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
+	scope.Debugf("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
 	return msg.Nonce, nil
 }
 
@@ -505,7 +505,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 					w.mu.Unlock()
 				}
 			} else {
-				scope.Infof("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
+				scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
 					con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
 				con.reporter.RecordRequestAck(req.TypeUrl, con.id)
 			}

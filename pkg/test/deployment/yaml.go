@@ -14,10 +14,18 @@
 
 package deployment
 
-// NewYamlDeployment creates a new yaml-based deployment.
+// NewYamlDeployment creates a new deployment from a yaml file.
 func NewYamlDeployment(namespace, yamlFile string) *Instance {
 	return &Instance{
 		namespace:    namespace,
 		yamlFilePath: yamlFile,
+	}
+}
+
+// NewYamlContentDeployment creates a new deployment from the contents of a yaml document.
+func NewYamlContentDeployment(namespace, yamlContents string) *Instance {
+	return &Instance{
+		namespace:    namespace,
+		yamlContents: yamlContents,
 	}
 }
