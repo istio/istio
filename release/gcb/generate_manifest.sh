@@ -70,7 +70,7 @@ EOF
 
   if [[ "${CB_VERIFY_CONSISTENCY}" == "true" ]]; then
      # Consistency check not needed for CNI
-     checkout_code "proxy" "PROXY_REPO_SHA" .
+     checkout_code "proxy" "${PROXY_REPO_SHA}" .
      pushd proxy 
        PROXY_API_SHA=$(grep ISTIO_API istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')
      popd
