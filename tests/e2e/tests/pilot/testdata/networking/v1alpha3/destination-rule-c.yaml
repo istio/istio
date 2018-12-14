@@ -16,4 +16,4 @@ spec:
     - name: v2
       labels:
         version: v2
-  configScope: 0
+  configScope: PUBLIC

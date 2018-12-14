@@ -53,13 +53,13 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	recomputeOutboundClusters := true
 	if configgen.CanUsePrecomputedCDS(proxy) {
 		if configgen.PrecomputedOutboundClusters != nil {
-			clusters = append(clusters, configgen.PrecomputedOutboundClusters...)
+			clusters = configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace]
 			recomputeOutboundClusters = false
 		}
 	}
 
 	if recomputeOutboundClusters {
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+		clusters = configgen.buildOutboundClusters(env, proxy, push)
 	}
 
 	if proxy.Type == model.Sidecar {
