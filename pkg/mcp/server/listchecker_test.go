@@ -47,7 +47,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name:     "empty tlsinfo",
-			mode: AuthWhiteList,
+			mode:     AuthWhiteList,
 			authInfo: credentials.TLSInfo{},
 			err:      "no allowed identity found in peer's authentication info",
 		},
@@ -180,18 +180,18 @@ func (a *authInfo) AuthType() string {
 }
 
 func TestListAuthChecker_Allowed(t *testing.T) {
-	cases := []struct{
-		mode AuthListMode
-		id   string
+	cases := []struct {
+		mode   AuthListMode
+		id     string
 		testid string
 		expect bool
 	}{
-		{ mode: AuthBlackList, testid: "foo", expect: true},
-		{ mode: AuthBlackList, id: "foo", testid: "foo", expect: false},
-		{ mode: AuthBlackList, id: "foo", testid: "bar", expect: true},
-		{ mode: AuthWhiteList, testid: "foo", expect: false},
-		{ mode: AuthWhiteList, id: "foo", testid: "foo", expect: true},
-		{ mode: AuthWhiteList, id: "foo", testid: "bar", expect: false},
+		{mode: AuthBlackList, testid: "foo", expect: true},
+		{mode: AuthBlackList, id: "foo", testid: "foo", expect: false},
+		{mode: AuthBlackList, id: "foo", testid: "bar", expect: true},
+		{mode: AuthWhiteList, testid: "foo", expect: false},
+		{mode: AuthWhiteList, id: "foo", testid: "foo", expect: true},
+		{mode: AuthWhiteList, id: "foo", testid: "bar", expect: false},
 	}
 
 	for i, c := range cases {
