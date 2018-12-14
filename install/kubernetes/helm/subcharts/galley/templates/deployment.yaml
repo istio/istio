@@ -42,10 +42,7 @@ spec:
           - containerPort: 9901
           command:
           - /usr/local/bin/galley
-          - --meshConfigFile=/etc/istio/mesh-config/mesh
-          - --caCertFile=/etc/istio/certs/root-cert.pem
-          - --tlsCertFile=/etc/istio/certs/cert-chain.pem
-          - --tlsKeyFile=/etc/istio/certs/key.pem
+          - --meshConfigFile=/etc/mesh-config/mesh
           - --livenessProbeInterval=1s
           - --livenessProbePath=/healthliveness
           - --readinessProbePath=/healthready
@@ -56,17 +53,17 @@ spec:
           - --insecure=true
 {{- end }}
           - --validation-webhook-config-file
-          - /etc/istio/config/validatingwebhookconfiguration.yaml
+          - /etc/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
           volumeMounts:
           - name: certs
-            mountPath: /etc/istio/certs
+            mountPath: /etc/certs
             readOnly: true
           - name: config
-            mountPath: /etc/istio/config
+            mountPath: /etc/config
             readOnly: true
           - name: mesh-config
-            mountPath: /etc/istio/mesh-config
+            mountPath: /etc/mesh-config
             readOnly: true
           livenessProbe:
             exec:
