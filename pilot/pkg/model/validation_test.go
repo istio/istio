@@ -2181,6 +2181,17 @@ func TestValidateRouteDestination(t *testing.T) {
 		}, &networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      0,
+		}}, valid: true},
+		{name: "weight = 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      0,
+		}}, valid: true},
+		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      0,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      0,
 		}}, valid: false},
 	}
 
