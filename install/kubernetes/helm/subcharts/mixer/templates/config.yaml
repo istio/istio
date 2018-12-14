@@ -795,7 +795,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  match: context.protocol == "http" || context.protocol == "grpc"
+  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false)
   actions:
   - handler: prometheus
     instances:
