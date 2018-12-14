@@ -51,6 +51,9 @@ const (
 	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
+
+	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
+	IngressGatewaySdsUdsPath = "/var/run/ingress_gateway/uds_path"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.

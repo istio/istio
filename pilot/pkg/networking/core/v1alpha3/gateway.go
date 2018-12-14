@@ -471,7 +471,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				push, server, gatewaysForWorkload); len(filters) > 0 {
 				opts = append(opts, &filterChainOpts{
 					sniHosts:       getSNIHostsForServer(server),
-					tlsContext:     buildGatewayListenerTLSContext(server),
+					tlsContext:     buildGatewayListenerTLSContext(server, false),
 					networkFilters: filters,
 				})
 			}
