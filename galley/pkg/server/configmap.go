@@ -26,8 +26,6 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 )
 
-type MCPCheckMode bool
-
 type accessList struct {
 	IsBlackList bool
 	Allowed     []string
