@@ -75,7 +75,7 @@ func TestSyncz(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		node, _ := model.ParseServiceNode(sidecarID(app3Ip, "syncApp"))
+		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp"), nil)
 		verifySyncStatus(t, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
@@ -122,7 +122,7 @@ func TestSyncz(t *testing.T) {
 		if err := sendRDSNack(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, rdsResponse.Nonce, adsstr); err != nil {
 			t.Fatal(err)
 		}
-		node, _ := model.ParseServiceNode(sidecarID(app3Ip, "syncApp2"))
+		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp2"), nil)
 		verifySyncStatus(t, node.ID, true, false)
 	})
 }

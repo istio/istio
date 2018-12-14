@@ -45,6 +45,7 @@ import (
 
 var (
 	role             = &model.Proxy{}
+	proxyIP          string
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
 	applicationPorts []string
@@ -97,26 +98,31 @@ var (
 				}
 			}
 
-			// set values from registry platform
-			if len(role.IPAddress) == 0 {
-				if registry == serviceregistry.KubernetesRegistry {
-					role.IPAddress = os.Getenv("INSTANCE_IP")
+			//Do we need to get IP from the command line or environment?
+			if len(proxyIP) != 0 {
+				role.IPAddresses = append(role.IPAddresses, proxyIP)
+			} else {
+				envIP := os.Getenv("INSTANCE_IP")
+				if len(envIP) > 0 {
+					role.IPAddresses = append(role.IPAddresses, envIP)
 				} else {
-					if ipAddr, ok := proxy.GetPrivateIP(context.Background()); ok {
-						log.Infof("Obtained private IP %v", ipAddr)
-						role.IPAddress = ipAddr.String()
-					} else {
-						role.IPAddress = "127.0.0.1"
-					}
+					role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 				}
 			}
+
+			// Obtain all the IPs from the node
+			if ipAddr, ok := proxy.GetPrivateIPs(context.Background()); ok {
+				log.Infof("Obtained private IP %v", ipAddr)
+				role.IPAddresses = append(role.IPAddresses, ipAddr...)
+			}
+
 			if len(role.ID) == 0 {
 				if registry == serviceregistry.KubernetesRegistry {
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
 				} else if registry == serviceregistry.ConsulRegistry {
-					role.ID = role.IPAddress + ".service.consul"
+					role.ID = role.IPAddresses[0] + ".service.consul"
 				} else {
-					role.ID = role.IPAddress
+					role.ID = role.IPAddresses[0]
 				}
 			}
 
@@ -280,7 +286,7 @@ var (
 				go statusServer.Run(ctx)
 			}
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, role, certs, pilotSAN, agent.ConfigCh())
 
@@ -357,7 +363,7 @@ func init() {
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s, %s, %s}",
 			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry,
 			serviceregistry.MCPRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
-	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
+	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
