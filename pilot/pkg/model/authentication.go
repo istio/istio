@@ -48,6 +48,9 @@ const (
 	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
+
+	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway proxy to get credentials via SDS.
+	IngressGatewaySdsUdsPath = "/var/run/ingress_gateway/uds_path"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -67,56 +70,64 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 	return nil
 }
 
-// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
-func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string, enableSdsTokenMount bool) *auth.SdsSecretConfig {
-	if name == "" || sdsUdsPath == "" {
+func constructGrpcConfig(sdsUdsPath string, addCredential bool, tokenMountFileName string, enableSdsTokenMount bool) *core.GrpcService_GoogleGrpc {
+	if sdsUdsPath == "" {
 		return nil
 	}
 
 	gRPCConfig := &core.GrpcService_GoogleGrpc{
 		TargetUri:  sdsUdsPath,
 		StatPrefix: SDSStatPrefix,
-		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+	}
+
+	if addCredential {
+		gRPCConfig.ChannelCredentials = &core.GrpcService_GoogleGrpc_ChannelCredentials{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
 				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
 			},
-		},
-	}
-
-	if enableSdsTokenMount {
-		// If k8s sa jwt token volume mount file exists, envoy only handles plugin credentials.
-		tokenMountConfig := &v2alpha.FileBasedMetadataConfig{
-			SecretData: &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: tokenMountFileName,
-				},
-			},
-
-			HeaderKey: k8sSAJwtTokenHeaderKey,
 		}
-
-		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-			&core.GrpcService_GoogleGrpc_CallCredentials{
-				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-					FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-						Name: fileBasedMetadataPlugName,
-						ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
-							Config: protoToStruct(tokenMountConfig)},
+		if enableSdsTokenMount {
+			// If k8s sa jwt token volume mount file exists, envoy only handles plugin credentials.
+			tokenMountConfig := &v2alpha.FileBasedMetadataConfig{
+				SecretData: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: tokenMountFileName,
 					},
 				},
-			},
-		}
-	} else {
-		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-			&core.GrpcService_GoogleGrpc_CallCredentials{
-				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-					GoogleComputeEngine: &types.Empty{},
+
+				HeaderKey: k8sSAJwtTokenHeaderKey,
+			}
+
+			gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+			gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
+				&core.GrpcService_GoogleGrpc_CallCredentials{
+					CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
+						FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
+							Name: fileBasedMetadataPlugName,
+							ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
+								Config: protoToStruct(tokenMountConfig)},
+						},
+					},
 				},
-			},
+			}
+		} else {
+			gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
+				&core.GrpcService_GoogleGrpc_CallCredentials{
+					CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+						GoogleComputeEngine: &types.Empty{},
+					},
+				},
+			}
 		}
 	}
 
+	return gRPCConfig
+}
+
+func constructSdsSecretConfigHelper(name string, grpcConfig *core.GrpcService_GoogleGrpc) *auth.SdsSecretConfig {
+	if name == "" || grpcConfig == nil {
+		return nil
+	}
 	return &auth.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
@@ -126,7 +137,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string, enabl
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: gRPCConfig,
+								GoogleGrpc: grpcConfig,
 							},
 						},
 					},
@@ -134,6 +145,18 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string, enabl
 			},
 		},
 	}
+}
+
+// ConstructSdsSecretConfig constructs SDS secret configuration for ingress gateway.
+func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
+	gRPCConfig := constructGrpcConfig(sdsUdsPath, false, "", false)
+	return constructSdsSecretConfigHelper(name, gRPCConfig)
+}
+
+// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
+func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string, enableSdsTokenMount bool) *auth.SdsSecretConfig {
+	gRPCConfig := constructGrpcConfig(sdsUdsPath, true, tokenMountFileName, enableSdsTokenMount)
+	return constructSdsSecretConfigHelper(name, gRPCConfig)
 }
 
 // ConstructValidationContext constructs ValidationContext in CommonTlsContext.

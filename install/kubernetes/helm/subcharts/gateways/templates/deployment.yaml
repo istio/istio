@@ -54,6 +54,17 @@ spec:
             privileged: true
 {{- end }}
       containers:
+{{- if $.Values.ingressGatewayAgent.enabled }}
+        - name: ingress-gateway-agent
+{{- if contains "/" $.Values.ingressGatewayAgent.image }}
+          image: "{{ $.Values.ingressGatewayAgent.image }}"
+{{- else }}
+          image: "{{ $.Values.global.hub }}/{{ $.Values.ingressGatewayAgent.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          volumeMounts:
+          - mountPath: /var/run/ingress_gateway/uds_path
+            name: ingressGatewaySdsUdsPath
+{{- end }}
         - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
           image: "{{ $.Values.global.proxy.image }}"
@@ -167,6 +178,11 @@ spec:
             mountPath: /var/run/secrets/tokens
           {{- end }}
           {{- end }}
+          {{- if $.Values.ingressGatewayAgent.enabled }}
+          volumeMounts:
+          - mountPath: /var/run/ingress_gateway/uds_path
+            name: ingressGatewaySdsUdsPath
+          {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -179,6 +195,10 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      {{- if $.Values.ingressGatewayAgent.enabled }}
+      - name: ingressGatewaySdsUdsPath
+        hostPath: /var/run/ingress_gateway/uds_path
+      {{- end }}
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
