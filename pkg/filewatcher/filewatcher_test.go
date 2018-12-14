@@ -190,10 +190,8 @@ func TestWatchFile(t *testing.T) {
 		g := NewGomegaWithT(t)
 
 		// Given a file being watched
-		watchFile, cleanup := newWatchFile(t)
+		watchFile, cleanup := newWatchFileThatDoesNotExist(t)
 		defer cleanup()
-		_, err := os.Stat(watchFile)
-		g.Expect(err).NotTo(HaveOccurred())
 
 		w := NewWatcher()
 		w.Add(watchFile)
@@ -209,7 +207,7 @@ func TestWatchFile(t *testing.T) {
 		}()
 
 		// Overwriting the file and waiting its event to be received.
-		err = ioutil.WriteFile(watchFile, []byte("foo: baz\n"), 0640)
+		err := ioutil.WriteFile(watchFile, []byte("foo: baz\n"), 0640)
 		g.Expect(err).NotTo(HaveOccurred())
 		wg.Wait()
 	})
