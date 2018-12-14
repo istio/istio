@@ -10,8 +10,6 @@ spec:
       - headers:
           foo:
             regex: "b.*"
-        source_labels:
-          version: v1
       route:
       - destination:
           host: c

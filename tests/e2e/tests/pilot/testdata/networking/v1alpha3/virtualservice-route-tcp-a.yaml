@@ -9,21 +9,10 @@ spec:
   tcp:
   - match:
     - port: 90
-      source_labels:
-        app: a
     route:
     - destination:
         host: c
         subset: v2
-        port:
-          number: 90
-      weight: 100
-  - match:
-    - port: 90
-    route:
-    - destination:
-        host: c
-        subset: v1
         port:
           number: 90
       weight: 100

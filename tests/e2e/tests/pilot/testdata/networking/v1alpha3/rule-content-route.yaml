@@ -10,8 +10,6 @@ spec:
       - headers:
           version:
             exact: v2
-        source_labels:
-          version: v1
       route:
       - destination:
           host: c
