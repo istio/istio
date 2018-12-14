@@ -55,12 +55,12 @@ func (b *Batch) Run() ([]string, error) {
 	g, _ := errgroup.WithContext(context.Background())
 	responses := make([]string, b.options.Count)
 
-	var throttle <-chan time.Time
+	var throttle *time.Ticker
 
 	if b.options.QPS > 0 {
 		sleepTime := time.Second / time.Duration(b.options.QPS)
 		log.Printf("Sleeping %v between requests\n", sleepTime)
-		throttle = time.Tick(sleepTime)
+		throttle = time.NewTicker(sleepTime)
 	}
 
 	for i := 0; i < b.options.Count; i++ {
@@ -73,7 +73,7 @@ func (b *Batch) Run() ([]string, error) {
 		r.RequestID = i
 
 		if throttle != nil {
-			<-throttle
+			<-throttle.C
 		}
 
 		respIndex := i

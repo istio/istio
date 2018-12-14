@@ -39,8 +39,11 @@ const (
 	// SDSRootResourceName is the sdsconfig name for root CA, used for fetching root cert.
 	SDSRootResourceName = "ROOTCA"
 
-	// K8sSAJwtTokenFileName is the token volume mount file name for k8s jwt token.
-	K8sSAJwtTokenFileName = "/var/run/secrets/tokens/istio-token"
+	// K8sSATrustworthyJwtFileName is the token volume mount file name for k8s trustworthy jwt token.
+	K8sSATrustworthyJwtFileName = "/var/run/secrets/tokens/istio-token"
+
+	// K8sSAJwtFileName is the token volume mount file name for k8s jwt token.
+	K8sSAJwtFileName = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 	// fileBasedMetadataPlugName is File Based Metadata credentials plugin name.
 	fileBasedMetadataPlugName = "envoy.grpc_credentials.file_based_metadata"
@@ -48,9 +51,6 @@ const (
 	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
-
-	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway proxy to get credentials via SDS.
-	IngressGatewaySdsUdsPath = "/var/run/ingress_gateway/uds_path"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -70,64 +70,41 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 	return nil
 }
 
-func constructGrpcConfig(sdsUdsPath string, addCredential bool, tokenMountFileName string, enableSdsTokenMount bool) *core.GrpcService_GoogleGrpc {
-	if sdsUdsPath == "" {
+// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
+func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool) *auth.SdsSecretConfig {
+	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
 
 	gRPCConfig := &core.GrpcService_GoogleGrpc{
 		TargetUri:  sdsUdsPath,
 		StatPrefix: SDSStatPrefix,
-	}
-
-	if addCredential {
-		gRPCConfig.ChannelCredentials = &core.GrpcService_GoogleGrpc_ChannelCredentials{
+		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
 				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
 			},
-		}
-		if enableSdsTokenMount {
-			// If k8s sa jwt token volume mount file exists, envoy only handles plugin credentials.
-			tokenMountConfig := &v2alpha.FileBasedMetadataConfig{
-				SecretData: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tokenMountFileName,
-					},
-				},
+		},
+	}
 
-				HeaderKey: k8sSAJwtTokenHeaderKey,
-			}
-
-			gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-			gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-				&core.GrpcService_GoogleGrpc_CallCredentials{
-					CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-						FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-							Name: fileBasedMetadataPlugName,
-							ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
-								Config: protoToStruct(tokenMountConfig)},
-						},
-					},
+	// If useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
+	// pass it to SDS server to request key/cert; if trustworthy jwt isn't available, envoy will fetch and pass normal k8s sa jwt to
+	// request key/cert.
+	if useK8sSATrustworthyJwt {
+		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey)
+	} else if useK8sSANormalJwt {
+		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey)
+	} else {
+		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
+			&core.GrpcService_GoogleGrpc_CallCredentials{
+				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+					GoogleComputeEngine: &types.Empty{},
 				},
-			}
-		} else {
-			gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-				&core.GrpcService_GoogleGrpc_CallCredentials{
-					CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-						GoogleComputeEngine: &types.Empty{},
-					},
-				},
-			}
+			},
 		}
 	}
 
-	return gRPCConfig
-}
-
-func constructSdsSecretConfigHelper(name string, grpcConfig *core.GrpcService_GoogleGrpc) *auth.SdsSecretConfig {
-	if name == "" || grpcConfig == nil {
-		return nil
-	}
 	return &auth.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
@@ -137,7 +114,7 @@ func constructSdsSecretConfigHelper(name string, grpcConfig *core.GrpcService_Go
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: grpcConfig,
+								GoogleGrpc: gRPCConfig,
 							},
 						},
 					},
@@ -145,18 +122,6 @@ func constructSdsSecretConfigHelper(name string, grpcConfig *core.GrpcService_Go
 			},
 		},
 	}
-}
-
-// ConstructSdsSecretConfig constructs SDS secret configuration for ingress gateway.
-func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
-	gRPCConfig := constructGrpcConfig(sdsUdsPath, false, "", false)
-	return constructSdsSecretConfigHelper(name, gRPCConfig)
-}
-
-// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
-func ConstructSdsSecretConfig(name, sdsUdsPath, tokenMountFileName string, enableSdsTokenMount bool) *auth.SdsSecretConfig {
-	gRPCConfig := constructGrpcConfig(sdsUdsPath, true, tokenMountFileName, enableSdsTokenMount)
-	return constructSdsSecretConfigHelper(name, gRPCConfig)
 }
 
 // ConstructValidationContext constructs ValidationContext in CommonTlsContext.
@@ -224,4 +189,27 @@ func protoToStruct(msg proto.Message) *types.Struct {
 		return &types.Struct{}
 	}
 	return s
+}
+
+func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
+	// If k8s sa jwt token file exists, envoy only handles plugin credentials.
+	config := &v2alpha.FileBasedMetadataConfig{
+		SecretData: &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: tokenFileName,
+			},
+		},
+		HeaderKey: headerKey,
+	}
+	return []*core.GrpcService_GoogleGrpc_CallCredentials{
+		&core.GrpcService_GoogleGrpc_CallCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
+				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
+					Name: fileBasedMetadataPlugName,
+					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
+						Config: protoToStruct(config)},
+				},
+			},
+		},
+	}
 }

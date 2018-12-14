@@ -29,7 +29,9 @@ import (
 	"sync"
 	"testing"
 
+	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -118,7 +120,7 @@ type (
 		// Quota is the response from a check call to Mixer
 		Quota map[string]adapter.QuotaResult `json:"Quota"`
 		// Error is the error from call to Mixer
-		Error error `json:"Error"`
+		Error spb.Status `json:"Error"`
 	}
 )
 
@@ -294,7 +296,7 @@ func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int,
 
 		result, resultErr := client.Check(context.Background(), &req)
 		result.Precondition.ReferencedAttributes = &istio_mixer_v1.ReferencedAttributes{}
-		ret.Error = resultErr
+		ret.Error = errToStatus(resultErr)
 		ret.Check.RouteDirective = result.Precondition.RouteDirective
 		if len(c.Quotas) > 0 {
 			ret.Quota = make(map[string]adapter.QuotaResult)
@@ -315,7 +317,7 @@ func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int,
 				getAttrBag(c.Attrs)},
 		}
 		_, responseErr := client.Report(context.Background(), &req)
-		ret.Error = responseErr
+		ret.Error = errToStatus(responseErr)
 	}
 	returns[i] = ret
 	wg.Done()
@@ -397,4 +399,12 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 	var attrProto istio_mixer_v1.CompressedAttributes
 	requestBag.ToProto(&attrProto, nil, 0)
 	return attrProto
+}
+
+func errToStatus(err error) spb.Status {
+	var statusResp spb.Status
+	if s, ok := status.FromError(err); ok {
+		statusResp = *s.Proto()
+	}
+	return statusResp
 }

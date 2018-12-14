@@ -17,6 +17,7 @@
 package mockapi // import "istio.io/istio/mixer/pkg/mockapi"
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -26,6 +27,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	grpcstatus "google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -64,6 +66,10 @@ type AttributesServer struct {
 	// CheckGlobalDict indicates whether to check if proxy global dictionary
 	// is ahead of the one in mixer.
 	checkGlobalDict bool
+
+	// CheckMetadata indicates whether to check for presence of gRPC metadata for
+	// forwarded attributes.
+	checkMetadata func(*mixerpb.Attributes) error
 }
 
 // NewAttributesServer creates an AttributesServer. All channels are set to
@@ -76,11 +82,39 @@ func NewAttributesServer(handler AttributesHandler, checkDict bool) *AttributesS
 	}
 
 	return &AttributesServer{
-		globalDict,
-		false,
-		handler,
-		checkDict,
+		GlobalDict:        globalDict,
+		GenerateGRPCError: false,
+		Handler:           handler,
+		checkGlobalDict:   checkDict,
 	}
+}
+
+// SetCheckMetadata enables gRPC metadata checking.
+func (a *AttributesServer) SetCheckMetadata(checkMetadata func(*mixerpb.Attributes) error) {
+	a.checkMetadata = checkMetadata
+}
+
+func (a *AttributesServer) validateMetadata(ctx context.Context) error {
+	headers, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return errors.New("no gRPC metadata in the incoming context")
+	}
+	header := headers.Get("x-istio-attributes")
+	if len(header) != 1 {
+		return fmt.Errorf("incorrect x-istio-attributes metadata in gRPC context: %v", header)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(header[0])
+	if err != nil {
+		return err
+	}
+	var attrs mixerpb.Attributes
+	if err = attrs.Unmarshal(decoded); err != nil {
+		return err
+	}
+	if err = a.checkMetadata(&attrs); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Check sends a copy of the protocol buffers attributes wrapper for the preconditions
@@ -88,6 +122,12 @@ func NewAttributesServer(handler AttributesHandler, checkDict bool) *AttributesS
 // builds a CheckResponse based on server fields. All channel sends timeout to
 // prevent problematic tests from blocking indefinitely.
 func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mixerpb.CheckResponse, error) {
+	if a.checkMetadata != nil {
+		if err := a.validateMetadata(ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	if a.GenerateGRPCError {
 		return nil, errors.New("error handling check call")
 	}
@@ -141,6 +181,11 @@ func (a *AttributesServer) Check(ctx context.Context, req *mixerpb.CheckRequest)
 // Report iterates through the supplied attributes sets, applying the deltas
 // appropriately, and sending the generated bags to the channel.
 func (a *AttributesServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+	if a.checkMetadata != nil {
+		if err := a.validateMetadata(ctx); err != nil {
+			return nil, err
+		}
+	}
 
 	if a.GenerateGRPCError {
 		return nil, errors.New("error handling report call")
