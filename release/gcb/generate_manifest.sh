@@ -28,24 +28,6 @@ set -x
 # shellcheck disable=SC1091
 source "/workspace/gcb_env.sh"
 
-# this function sets variable TEST_INFRA_DIR and githubctl
-function githubctl_setup() {
-  GOPATH=$PWD/go
-  mkdir -p go/bin
-  GOBIN=$GOPATH/bin
-
-  go get -u istio.io/test-infra/toolbox/githubctl
-  githubctl="$GOBIN/githubctl"
-  export githubctl
-  TEST_INFRA_DIR="$GOPATH/src/istio.io/test-infra/"
-  export TEST_INFRA_DIR
-}
-
-function github_keys() {
-  GITHUB_KEYFILE="${GITHUB_TOKEN_FILE}"
-  export GITHUB_KEYFILE
-}
-
 function checkout_code() {
   local REPO=$1
   local REPO_SHA=$2
@@ -96,121 +78,37 @@ EOF
   fi
 }
 
-function get_later_sha_timestamp() {
-  local GSHA
-  GSHA=$1
-  local MANIFEST_FILE
-  MANIFEST_FILE=$2
-
-  local SHA_MFEST
-  SHA_MFEST=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " " )
-  local TS_MFEST
-  TS_MFEST=$(git show -s --format=%ct "$SHA_MFEST")
-  local GTS
-  GTS=$(   git show -s --format=%ct "$GSHA")
-  if [   "$TS_MFEST" -gt "$GTS" ]; then
-    # dont go backwards
-    echo "$SHA_MFEST"
-    return
-  fi
-  #go forward
-  echo   "$GSHA"
-}
-
-function get_later_sha_revlist() {
-  local GSHA
-  GSHA=$1
-  local MANIFEST_FILE
-  MANIFEST_FILE=$2
-
-  local SHA_MFEST
-  SHA_MFEST=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " ")
-
-  # if the old sha in the manifest file is wrong for some reason, use latest green sha
-  if ! git rev-list "$SHA_MFEST...$GSHA" > /dev/null; then
-     echo "$GSHA"
-     return
-  fi
-
-  local SHA_LATEST
-  SHA_LATEST=$(git rev-list "$SHA_MFEST...$GSHA" | grep "$GSHA")
-  if [[ -z "${SHA_LATEST}" ]]; then
-    # dont go backwards
-    echo "$SHA_MFEST"
-    return
-  fi
-  #go forward
-  echo   "$SHA_LATEST"
-}
-
-#sets ISTIO_SHA variable
-function get_istio_green_sha() {
-  local MANIFEST_FILE
-  MANIFEST_FILE="$1"
-
- pushd "${TEST_INFRA_DIR}"
-  github_keys
-  set +e
-  # GITHUB_KEYFILE has the github tokens
-  local GREEN_SHA
-  GREEN_SHA=$($githubctl --token_file="${GITHUB_KEYFILE}" --repo=istio \
-                         --op=getLatestGreenSHA           --base_branch="${CB_BRANCH}" \
-                         --logtostderr)
-  set -e
- popd # TEST_INFRA_DIR
-
- pushd istio
-  if [[ -z "${GREEN_SHA}" ]]; then
-    echo      "GREEN_SHA empty for branch ${CB_BRANCH} using HEAD"
-     ISTIO_SHA=$(git rev-parse HEAD)
-  else
-    ISTIO_SHA=$(get_later_sha_revlist "${GREEN_SHA}" "${MANIFEST_FILE}")
-  fi
- popd # istio
-}
-
-# also sets ISTIO_HEAD_SHA, and ISTIO_COMMIT variables
+# also sets ISTIO_HEAD_SHA variables
 function istio_checkout_green_sha() {
-  local MANIFEST_FILE
-  MANIFEST_FILE="$1"
-
-  if [[ "${CB_COMMIT}" == "" ]]; then
-     get_istio_green_sha "${MANIFEST_FILE}"
-     ISTIO_COMMIT="${ISTIO_SHA}"
-  else
-     ISTIO_COMMIT="${CB_COMMIT}"
-  fi
   pushd istio
     ISTIO_HEAD_SHA=$(git rev-parse HEAD)
-    # ISTIO_COMMIT now has the sha of branch, or branch name
-    git checkout "${ISTIO_COMMIT}"
+    # CB_COMMIT now has the sha of branch, or branch name
+    git checkout "${CB_COMMIT}"
   popd
 }
 
 function istio_check_green_sha_age() {
-pushd istio
-  if [[ "${CB_CHECK_GREEN_SHA_AGE}" == "true" ]]; then
-    local TS_SHA
-    TS_SHA=$( git show -s --format=%ct "${ISTIO_COMMIT}")
-    local TS_HEAD
-    TS_HEAD=$(git show -s --format=%ct "${ISTIO_HEAD_SHA}")
-    local DIFF_SEC
-    DIFF_SEC=$((TS_HEAD - TS_SHA))
-    local DIFF_DAYS
-    DIFF_DAYS=$((DIFF_SEC/86400))
+  pushd istio
+    if [[ "${CB_CHECK_GREEN_SHA_AGE}" == "true" ]]; then
+      local TS_SHA
+      TS_SHA=$( git show -s --format=%ct "${CB_COMMIT}")
+      local TS_HEAD
+      TS_HEAD=$(git show -s --format=%ct "${ISTIO_HEAD_SHA}")
+      local DIFF_SEC
+      DIFF_SEC=$((TS_HEAD - TS_SHA))
+      local DIFF_DAYS
+      DIFF_DAYS=$((DIFF_SEC/86400))
 
-    if [ "${CB_CHECK_GREEN_SHA_AGE}" = "true" ] && [ "$DIFF_DAYS" -gt "2" ]; then
-       echo ERROR: "${ISTIO_COMMIT}" is "$DIFF_DAYS" days older than head of branch "${CB_BRANCH}"
-       exit 12
+      if [ "$DIFF_DAYS" -gt "2" ]; then
+         echo ERROR: "${CB_COMMIT}" is "$DIFF_DAYS" days older than head of branch "${CB_BRANCH}"
+         exit 12
+      fi
     fi
-  fi
-popd
+  popd
 }
 
 CLONE_DIR=$(mktemp -d)
 pushd "${CLONE_DIR}"
-  githubctl_setup
-
   MANIFEST_FILE="/workspace/manifest.txt"
   BASE_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/${CB_BRANCH}-manifest.txt"
   BASE_MASTER_MANIFEST_URL="gs://${CB_GCS_BUILD_BUCKET}/release-tools/master-manifest.txt"
@@ -231,8 +129,7 @@ pushd "${CLONE_DIR}"
   create_manifest_check_consistency "${MANIFEST_FILE}"
 
   #copy the needed files
-  # TODO figure out how to avoid need for copying to BASE_MANIFEST_URL and consolidate getting
-  # branch istio sha into githubctl
+  # TODO figure out how to avoid need for copying to BASE_MANIFEST_URL
   gsutil -q cp "${MANIFEST_FILE}" "${BASE_MANIFEST_URL}"
   gsutil -q cp "${MANIFEST_FILE}" "gs://${CB_GCS_RELEASE_TOOLS_PATH}/manifest.txt"
 
