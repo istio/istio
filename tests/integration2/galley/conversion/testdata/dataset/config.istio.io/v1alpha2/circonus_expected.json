@@ -1,0 +1,28 @@
+{
+  "type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource": [
+    {
+      "Metadata": {
+        "name": "circonus/valid-circonus"
+      },
+      "Resource": {
+        "contents": {
+          "fields": {
+            "submission_interval": {
+              "Kind": {
+                "StringValue": "10s"
+              }
+            },
+            "submission_url": {
+              "Kind": {
+                "StringValue": "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret"
+              }
+            }
+          }
+        },
+        "kind": "circonus",
+        "name": "valid-circonus"
+      },
+      "TypeURL": "type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource"
+    }
+  ]
+}
