@@ -36,10 +36,10 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 
 	var proxyInstances []*model.ServiceInstance
 
-	// Compute proxyInstances only when source routing is enabled.
+	// Compute proxyInstances only when source routing is enabled for sidecars.
 	// Supplying nil proxyInstances to RDS logic automatically causes it
 	// to ignore virtualServices with source routing rules.
-	if !featureflags.DisableSourceRouting {
+	if node.Type == model.Router || !featureflags.DisableSourceRouting {
 		var err error
 		proxyInstances, err = env.GetProxyServiceInstances(node)
 		if err != nil {

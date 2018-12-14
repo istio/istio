@@ -153,7 +153,7 @@ func buildVirtualHostsForVirtualService(
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
-	gatewayName map[string]bool) []VirtualHostWrapper {
+	gatewayNames map[string]bool) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 	// Now group these services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in
@@ -180,7 +180,7 @@ func buildVirtualHostsForVirtualService(
 	}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, port, proxyLabels, gatewayName)
+		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, port, proxyLabels, gatewayNames)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
