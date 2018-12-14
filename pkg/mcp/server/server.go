@@ -269,6 +269,8 @@ type connection struct {
 
 // Reporter is used to report metrics for an MCP server.
 type Reporter interface {
+	io.Closer
+
 	SetClientsTotal(clients int64)
 	RecordSendError(err error, code codes.Code)
 	RecordRecvError(err error, code codes.Code)
