@@ -17,6 +17,7 @@ package server
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v2"
@@ -25,8 +26,11 @@ import (
 	"istio.io/istio/pkg/mcp/server"
 )
 
+type MCPCheckMode bool
+
 type accessList struct {
-	Allowed []string
+	IsBlackList bool
+	Allowed     []string
 }
 
 var (
@@ -43,6 +47,11 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 	}
 
 	checker := server.NewListAuthChecker()
+	if list.IsBlackList {
+		checker.SetMode(server.AuthBlackList)
+	} else {
+		checker.SetMode(server.AuthWhiteList)
+	}
 	checker.Set(list.Allowed...)
 
 	watcher := newFileWatcher()
@@ -59,8 +68,16 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 					if list, err = readAccessList(accessListFile); err != nil {
 						scope.Errorf("Error reading access list %q: %v", accessListFile, err)
 					} else {
+						if list.IsBlackList {
+							checker.SetMode(server.AuthBlackList)
+						} else {
+							checker.SetMode(server.AuthWhiteList)
+						}
 						checker.Set(list.Allowed...)
 					}
+				} else if e.Op&fsnotify.Remove == fsnotify.Remove {
+					checker.SetMode(server.AuthBlackList)
+					checker.Set()
 				}
 				if watchEventHandledProbe != nil {
 					watchEventHandledProbe()
@@ -80,6 +97,11 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 func readAccessList(accessListFile string) (accessList, error) {
 	b, err := readFile(accessListFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Treat a non-existent access list file as default open
+			return accessList{IsBlackList: true}, nil
+		}
+
 		return accessList{}, fmt.Errorf("unable to read access list file %q: %v", accessListFile, err)
 	}
 
