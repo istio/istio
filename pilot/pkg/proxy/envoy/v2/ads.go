@@ -903,7 +903,7 @@ func (s *DiscoveryServer) waitAck(con *XdsConnection) bool {
 // Compute and send the new configuration for a connection. This is blocking and may be slow
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) error {
-	// TODO: the channel used to initiate this code may no longer be needed, code can be simplified in pushAll.
+	// TODO: update the service deps based on NetworkScope
 
 	if pushEv.edsUpdatedServices != nil {
 		// Push only EDS. This is indexed already - push immediately

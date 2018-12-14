@@ -37,6 +37,7 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 		{
 			name: "one-container",
 			sidecar: &SidecarInjectionSpec{
+				RewriteAppHTTPProbe: true,
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
@@ -89,6 +90,7 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 		{
 			name: "both-readiness-liveness-rewrite",
 			sidecar: &SidecarInjectionSpec{
+				RewriteAppHTTPProbe: true,
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
@@ -160,6 +162,7 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 		{
 			name: "no-statusPort-find",
 			sidecar: &SidecarInjectionSpec{
+				RewriteAppHTTPProbe: true,
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
@@ -209,6 +212,7 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 		{
 			name: "-statusPort=15020-parsing",
 			sidecar: &SidecarInjectionSpec{
+				RewriteAppHTTPProbe: true,
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
@@ -261,6 +265,7 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 		{
 			name: "--statusPort=15020-parsing",
 			sidecar: &SidecarInjectionSpec{
+				RewriteAppHTTPProbe: true,
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
@@ -313,6 +318,7 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 		{
 			name: "two-container-rewrite",
 			sidecar: &SidecarInjectionSpec{
+				RewriteAppHTTPProbe: true,
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",

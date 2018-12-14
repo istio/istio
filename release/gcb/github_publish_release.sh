@@ -39,6 +39,7 @@ github_keys
 
 echo "Downloading files from $CB_GCS_FULL_STAGING_PATH to $UPLOAD_DIR"
 
+gsutil cp "gs://$CB_GCS_RELEASE_TOOLS_PATH/manifest.txt" "/workspace/manifest.txt"
 mkdir -p "${UPLOAD_DIR}/deb/"
 cp "/workspace/manifest.txt" "${UPLOAD_DIR}/"
 gsutil -q -m cp gs://"${CB_GCS_FULL_STAGING_PATH}"/deb/istio*.deb* "${UPLOAD_DIR}/deb/"

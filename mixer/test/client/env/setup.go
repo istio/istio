@@ -66,6 +66,9 @@ type TestSetup struct {
 
 	// AccessLogPath is the access log path for Envoy
 	AccessLogPath string
+
+	// expected source.uid attribute at the mixer gRPC metadata
+	mixerSourceUID string
 }
 
 // NewTestSetup creates a new test setup
@@ -170,6 +173,11 @@ func (s *TestSetup) SetNoBackend(no bool) {
 	s.noBackend = no
 }
 
+// SetMixerSourceUID sets the expected source.uid at the mixer server gRPC metadata
+func (s *TestSetup) SetMixerSourceUID(uid string) {
+	s.mixerSourceUID = uid
+}
+
 // SetUp setups Envoy, Mixer, and Backend server for test.
 func (s *TestSetup) SetUp() error {
 	var err error
@@ -185,7 +193,7 @@ func (s *TestSetup) SetUp() error {
 	}
 
 	if !s.noMixer {
-		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress, s.checkDict)
+		s.mixer, err = NewMixerServer(s.ports.MixerPort, s.stress, s.checkDict, s.mixerSourceUID)
 		if err != nil {
 			log.Printf("unable to create mixer server %v", err)
 		} else {
