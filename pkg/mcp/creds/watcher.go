@@ -52,8 +52,13 @@ const (
 	defaultCACertificateFile = "root-cert.pem"
 )
 
+type CertificateWatcher interface {
+	Get() tls.Certificate
+	certPool() *x509.CertPool
+}
+
 // CertificateWatcher watches a x509 cert/key file and loads it up in memory as needed.
-type CertificateWatcher struct {
+type certificateWatcher struct {
 	options Options
 
 	stopCh <-chan struct{}
@@ -66,13 +71,19 @@ type CertificateWatcher struct {
 	caCertPool *x509.CertPool
 }
 
+var _ CertificateWatcher = &certificateWatcher{}
+
+func (w *certificateWatcher) certPool() *x509.CertPool {
+	return w.caCertPool
+}
+
 // WatchFolder loads certificates from the given folder. It expects the
 // following files:
 // cert-chain.pem, key.pem: Certificate/key files for the client/server on this side.
 // root-cert.pem: certificate from the CA that will be used for validating peer's certificate.
 //
 // Internally WatchFolder will call WatchFiles.
-func WatchFolder(stop <-chan struct{}, folder string) (*CertificateWatcher, error) {
+func WatchFolder(stop <-chan struct{}, folder string) (*certificateWatcher, error) {
 	cred := &Options{
 		CertificateFile:   path.Join(folder, defaultCertificateFile),
 		KeyFile:           path.Join(folder, defaultKeyFile),
@@ -117,8 +128,8 @@ func (c *Options) AttachCobraFlags(cmd *cobra.Command) {
 // go-routine and watch for credential file changes. Callers should pass the return result to one of the
 // create functions to create a transport options that can dynamically use rotated certificates.
 // The supplied stop channel can be used to stop the go-routine and the watch.
-func WatchFiles(stopCh <-chan struct{}, credentials *Options) (*CertificateWatcher, error) {
-	w := &CertificateWatcher{
+func WatchFiles(stopCh <-chan struct{}, credentials *Options) (*certificateWatcher, error) {
+	w := &certificateWatcher{
 		options: *credentials,
 		stopCh:  stopCh,
 	}
@@ -132,7 +143,7 @@ func WatchFiles(stopCh <-chan struct{}, credentials *Options) (*CertificateWatch
 
 // start watching and stop when the stopCh is closed. Returns an error if the initial load of the certificate
 // fails.
-func (c *CertificateWatcher) start() error {
+func (c *certificateWatcher) start() error {
 	// Load CA Cert file
 	caCertPool, err := loadCACert(c.options.CACertificateFile)
 	if err != nil {
@@ -163,7 +174,7 @@ func (c *CertificateWatcher) start() error {
 	return nil
 }
 
-func (c *CertificateWatcher) watch(fw filewatcher.FileWatcher) {
+func (c *certificateWatcher) watch(fw filewatcher.FileWatcher) {
 	for {
 		select {
 		case e, more := <-fw.Events(c.options.CertificateFile):
@@ -209,14 +220,14 @@ func (c *CertificateWatcher) watch(fw filewatcher.FileWatcher) {
 }
 
 // set the certificate directly
-func (c *CertificateWatcher) set(cert *tls.Certificate) {
+func (c *certificateWatcher) set(cert *tls.Certificate) {
 	c.certMutex.Lock()
 	defer c.certMutex.Unlock()
 	c.cert = *cert
 }
 
-// get the currently loaded certificate.
-func (c *CertificateWatcher) get() tls.Certificate {
+// Get the currently loaded certificate.
+func (c *certificateWatcher) Get() tls.Certificate {
 	c.certMutex.Lock()
 	defer c.certMutex.Unlock()
 	return c.cert

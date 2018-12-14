@@ -20,9 +20,9 @@ import (
 
 func TestCreateForClientAndServer(t *testing.T) {
 	serverName := "foo-server"
-	got := CreateForClient(serverName, &CertificateWatcher{})
+	got := CreateForClient(serverName, &certificateWatcher{})
 	if got.Info().ServerName != serverName {
 		t.Fatalf("wrong server name: got %v want %v", got.Info().ServerName, serverName)
 	}
-	_ = CreateForServer(&CertificateWatcher{})
+	_ = CreateForServer(&certificateWatcher{})
 }
