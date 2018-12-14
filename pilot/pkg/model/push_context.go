@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -81,6 +82,9 @@ type PushContext struct {
 	ServicePort2Name map[string]PortList `json:"-"`
 
 	initDone bool
+
+	// MixerPerRouteFilterConfig has mixer Router Filter config, indexed by service hostname + outbound/inbound
+	MixerPerRouteFilterConfig map[string]*types.Struct `json:"-"`
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -276,10 +280,11 @@ func NewPushContext() *PushContext {
 		publicVirtualServices:             []Config{},
 		privateVirtualServicesByNamespace: map[string][]Config{},
 
-		ServiceByHostname: map[Hostname]*Service{},
-		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServicePort2Name:  map[string]PortList{},
-		Start:             time.Now(),
+		ServiceByHostname:         map[Hostname]*Service{},
+		ProxyStatus:               map[string]map[string]ProxyPushStatus{},
+		ServicePort2Name:          map[string]PortList{},
+		Start:                     time.Now(),
+		MixerPerRouteFilterConfig: map[string]*types.Struct{},
 	}
 }
 
