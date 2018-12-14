@@ -15,13 +15,13 @@
 package model
 
 import (
-	"os"
 	"reflect"
 	"testing"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 )
 
@@ -90,30 +90,30 @@ func TestParseJwksURI(t *testing.T) {
 }
 
 func TestConstructSdsSecretConfig(t *testing.T) {
-	testTokenFileName := "/tmp/randomtestFile"
-	if _, err := os.Stat(testTokenFileName); os.IsNotExist(err) {
-		// create test file if not exist
-		if _, err := os.Create(testTokenFileName); err != nil {
-			log.Fatal("failed for test token file")
-		}
-		defer os.Remove(testTokenFileName)
-	}
-
-	metaConfig := &v2alpha.FileBasedMetadataConfig{
+	trustworthyMetaConfig := &v2alpha.FileBasedMetadataConfig{
 		SecretData: &core.DataSource{
 			Specifier: &core.DataSource_Filename{
-				Filename: testTokenFileName,
+				Filename: K8sSATrustworthyJwtFileName,
+			},
+		},
+		HeaderKey: k8sSAJwtTokenHeaderKey,
+	}
+
+	normalMetaConfig := &v2alpha.FileBasedMetadataConfig{
+		SecretData: &core.DataSource{
+			Specifier: &core.DataSource_Filename{
+				Filename: K8sSAJwtFileName,
 			},
 		},
 		HeaderKey: k8sSAJwtTokenHeaderKey,
 	}
 
 	cases := []struct {
-		serviceAccount      string
-		sdsUdsPath          string
-		tokenFilePath       string
-		expected            *auth.SdsSecretConfig
-		enableSdsTokenMount bool
+		serviceAccount    string
+		sdsUdsPath        string
+		expected          *auth.SdsSecretConfig
+		useTrustworthyJwt bool
+		useNormalJwt      bool
 	}{
 		{
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -145,43 +145,21 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			},
 		},
 		{
-			serviceAccount:      "spiffe://cluster.local/ns/bar/sa/foo",
-			sdsUdsPath:          "/tmp/sdsuds.sock",
-			tokenFilePath:       testTokenFileName,
-			enableSdsTokenMount: true,
+			serviceAccount:    "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:        "/tmp/sdsuds.sock",
+			useTrustworthyJwt: true,
 			expected: &auth.SdsSecretConfig{
-				Name: "spiffe://cluster.local/ns/bar/sa/foo",
-				SdsConfig: &core.ConfigSource{
-					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-						ApiConfigSource: &core.ApiConfigSource{
-							ApiType: core.ApiConfigSource_GRPC,
-							GrpcServices: []*core.GrpcService{
-								{
-									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-										GoogleGrpc: &core.GrpcService_GoogleGrpc{
-											TargetUri:              "/tmp/sdsuds.sock",
-											StatPrefix:             SDSStatPrefix,
-											CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
-											ChannelCredentials:     constructLocalChannelCredConfig(),
-											CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
-												&core.GrpcService_GoogleGrpc_CallCredentials{
-													CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-														FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-															Name: "envoy.grpc_credentials.file_based_metadata",
-															ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
-																protoToStruct(metaConfig)},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-							RefreshDelay: nil,
-						},
-					},
-				},
+				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
+				SdsConfig: constructsdsconfighelper(trustworthyMetaConfig),
+			},
+		},
+		{
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:     "/tmp/sdsuds.sock",
+			useNormalJwt:   true,
+			expected: &auth.SdsSecretConfig{
+				Name:      "spiffe://cluster.local/ns/bar/sa/foo",
+				SdsConfig: constructsdsconfighelper(normalMetaConfig),
 			},
 		},
 		{
@@ -197,7 +175,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.tokenFilePath, c.enableSdsTokenMount); !reflect.DeepEqual(got, c.expected) {
+		if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
 		}
 	}
@@ -215,6 +193,40 @@ func constructGCECallCredConfig() *core.GrpcService_GoogleGrpc_CallCredentials {
 	return &core.GrpcService_GoogleGrpc_CallCredentials{
 		CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
 			GoogleComputeEngine: &types.Empty{},
+		},
+	}
+}
+
+func constructsdsconfighelper(metaConfig proto.Message) *core.ConfigSource {
+	return &core.ConfigSource{
+		ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+			ApiConfigSource: &core.ApiConfigSource{
+				ApiType: core.ApiConfigSource_GRPC,
+				GrpcServices: []*core.GrpcService{
+					{
+						TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+							GoogleGrpc: &core.GrpcService_GoogleGrpc{
+								TargetUri:              "/tmp/sdsuds.sock",
+								StatPrefix:             SDSStatPrefix,
+								CredentialsFactoryName: "envoy.grpc_credentials.file_based_metadata",
+								ChannelCredentials:     constructLocalChannelCredConfig(),
+								CallCredentials: []*core.GrpcService_GoogleGrpc_CallCredentials{
+									&core.GrpcService_GoogleGrpc_CallCredentials{
+										CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
+											FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
+												Name: "envoy.grpc_credentials.file_based_metadata",
+												ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
+													protoToStruct(metaConfig)},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RefreshDelay: nil,
+			},
 		},
 	}
 }
