@@ -670,7 +670,7 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 			// earlier, or on a bad pilot.
 			s.handleNack(discReq, peerAddr, con)
 			// keep going - if same resources are requested again we'll ignore.
-			if con.nonceSent[discReq.TypeUrl] != discReq.ResponseNonce {
+			if !con.myNonce(discReq.TypeUrl, discReq.ResponseNonce) {
 				// This is a reconnect request, acking a response from a previous connection.
 				// Will log, and process the request again.
 				adsLog.Infof("ADS: Reconnect NACK %v %s %v raw: %s", peerAddr, con.ConID, time.Since(t0), discReq.String())
@@ -680,7 +680,7 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		// Initial request may contain nonces from a previously closed connection, combined with
 		// new resources.
 		if discReq.ResponseNonce != "" {
-			if con.nonceSent[discReq.TypeUrl] == discReq.ResponseNonce {
+			if con.myNonce(discReq.TypeUrl, discReq.ResponseNonce) {
 				s.handleAck(con, discReq, peerAddr)
 				// keep going, in case the ack is also updating the resource set.
 			} else {
@@ -775,6 +775,13 @@ func (s *DiscoveryServer) newReceiveThread(con *XdsConnection) error {
 		}
 
 	}
+}
+
+// myNonce returns true if the nonce received in a request was the last sent in this connection.
+func (con *XdsConnection) myNonce(adsType, nonce string) bool{
+	con.mu.RLock()
+	defer con.mu.RUnlock()
+	return con.nonceSent[adsType] == nonce;
 }
 
 func (s *DiscoveryServer) handleAck(con *XdsConnection, discReq *xdsapi.DiscoveryRequest, peerAddr string) {
