@@ -123,7 +123,7 @@ func checkDelta(deltas, report, baseline, thresholds map[string]float64, skipDel
 	for pkg, delta := range deltas {
 		if delta+getThreshold(thresholds, pkg) < 0 {
 			if skipDeleted {
-				if _, err := os.Stat(os.Getenv("GOPATH") + "/src/" + pkg); !os.IsNotExist(err) {
+				if _, err := os.Stat(os.Getenv("GOPATH") + "/src/" + pkg); os.IsNotExist(err) {
 					// Don't report if the file has been deleted
 					continue
 				}
