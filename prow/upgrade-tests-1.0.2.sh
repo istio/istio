@@ -14,21 +14,19 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+# Exit immediately for non zero status
+set -e
+# Check unset variables
+set -u
+# Print commands
 set -x
 
-GOPATH=$PWD/go
-mkdir -p go/bin
-GOBIN=$GOPATH/bin
+# Set up inputs needed by test_upgrade.sh
+export SOURCE_VERSION=1.0.2
+export SOURCE_RELEASE_PATH="https://github.com/istio/istio/releases/download/${SOURCE_VERSION}"
+export TARGET_VERSION=${TAG}
+export TARGET_RELEASE_PATH=${ISTIO_REL_URL}
 
-time go get -u istio.io/test-infra/toolbox/githubctl
+# Run the corresponding test in istio source code.
+./prow/upgrade-tests.sh
 
-# this setting is required by githubctl, which runs git commands
-git config --global user.name "TestRunnerBot"
-git config --global user.email "testrunner@istio.io"
-
-"$GOBIN/githubctl" \
-    --token_file="$GITHUB_TOKEN_FILE" \
-    --op=relPipelineQual \
-    --base_branch="$CB_BRANCH" \
-    --tag="$CB_VERSION" \
-    --pipeline="$CB_PIPELINE_TYPE"
