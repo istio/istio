@@ -75,14 +75,86 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 
 // ConstructSdsSecretConfig constructs SDS secret configuration for ingress gateway.
 func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
-	gRPCConfig := constructGrpcConfig(sdsUdsPath, false, false, false)
-	return constructSdsSecretConfigHelper(name, gRPCConfig)
+	if name == "" || sdsUdsPath == "" {
+		return nil
+	}
+
+	gRPCConfig := &core.GrpcService_GoogleGrpc{
+		TargetUri:  sdsUdsPath,
+		StatPrefix: SDSStatPrefix,
+	}
+
+	return &auth.SdsSecretConfig{
+		Name: name,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: gRPCConfig,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
-// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
+// ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
 func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool) *auth.SdsSecretConfig {
-	gRPCConfig := constructGrpcConfig(sdsUdsPath, true, useK8sSATrustworthyJwt, useK8sSANormalJwt)
-	return constructSdsSecretConfigHelper(name, gRPCConfig)
+	if name == "" || sdsUdsPath == "" {
+		return nil
+	}
+
+	gRPCConfig := &core.GrpcService_GoogleGrpc{
+		TargetUri:  sdsUdsPath,
+		StatPrefix: SDSStatPrefix,
+		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
+			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
+				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
+			},
+		},
+	}
+
+	// If useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
+	// pass it to SDS server to request key/cert; if trustworthy jwt isn't available, envoy will fetch and pass normal k8s sa jwt to
+	// request key/cert.
+	if useK8sSATrustworthyJwt {
+		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey)
+	} else if useK8sSANormalJwt {
+		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
+		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey)
+	} else {
+		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
+			&core.GrpcService_GoogleGrpc_CallCredentials{
+				CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
+					GoogleComputeEngine: &types.Empty{},
+				},
+			},
+		}
+	}
+
+	return &auth.SdsSecretConfig{
+		Name: name,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: gRPCConfig,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 // ConstructValidationContext constructs ValidationContext in CommonTlsContext.
@@ -173,66 +245,4 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 			},
 		},
 	}
-}
-
-func constructSdsSecretConfigHelper(name string, grpcConfig *core.GrpcService_GoogleGrpc) *auth.SdsSecretConfig {
-	if name == "" || grpcConfig == nil {
-		return nil
-	}
-	return &auth.SdsSecretConfig{
-		Name: name,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType: core.ApiConfigSource_GRPC,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
-								GoogleGrpc: grpcConfig,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func constructGrpcConfig(sdsUdsPath string, addCredential bool, useK8sSATrustworthyJwt, useK8sSANormalJwt bool) *core.GrpcService_GoogleGrpc {
-	if sdsUdsPath == "" {
-		return nil
-	}
-
-	gRPCConfig := &core.GrpcService_GoogleGrpc{
-		TargetUri:  sdsUdsPath,
-		StatPrefix: SDSStatPrefix,
-	}
-
-	if addCredential {
-		gRPCConfig.ChannelCredentials = &core.GrpcService_GoogleGrpc_ChannelCredentials{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-			},
-		}
-
-		// If useK8sSATrustworthyJwt is set, envoy will fetch and pass k8s sa trustworthy jwt(which is available for k8s 1.10 or higher),
-		// pass it to SDS server to request key/cert; if trustworthy jwt isn't available, envoy will fetch and pass normal k8s sa jwt to
-		// request key/cert.
-		if useK8sSATrustworthyJwt {
-			gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-			gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey)
-		} else if useK8sSANormalJwt {
-			gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-			gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey)
-		} else {
-			gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
-				&core.GrpcService_GoogleGrpc_CallCredentials{
-					CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_GoogleComputeEngine{
-						GoogleComputeEngine: &types.Empty{},
-					},
-				},
-			}
-		}
-	}
-	return gRPCConfig
 }

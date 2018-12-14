@@ -54,6 +54,7 @@ spec:
             privileged: true
 {{- end }}
       containers:
+{{- if eq $key "istio-ingressgateway" }}
 {{- if $.Values.ingressGatewayAgent.enabled }}
         - name: ingress-gateway-agent
 {{- if contains "/" $.Values.ingressGatewayAgent.image }}
@@ -64,6 +65,7 @@ spec:
           volumeMounts:
           - mountPath: /var/run/ingress_gateway/uds_path
             name: ingressGatewaySdsUdsPath
+{{- end }}
 {{- end }}
         - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}

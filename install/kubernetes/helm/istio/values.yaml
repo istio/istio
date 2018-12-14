@@ -9,7 +9,7 @@ gateways:
 # ingress gateway agent configuration
 #
 ingressGatewayAgent:
-  enabled: true
+  enabled: false
   image: node-agent-k8s
 
 #

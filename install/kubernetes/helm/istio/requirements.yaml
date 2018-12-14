@@ -15,10 +15,6 @@ dependencies:
     version: 1.1.0
     condition: gateways.enabled
     repository: file://../subcharts/gateways
-  - name: ingressGatewayAgent
-    version: 1.1.0
-    condition: ingressGatewayAgent.enabled
-    repository: file://../subcharts/gateways
   - name: mixer
     version: 1.1.0
     condition: or mixer.policy.enabled mixer.telemetry.enabled
