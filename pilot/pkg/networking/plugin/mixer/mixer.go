@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	featureflags "istio.io/istio/pkg/features/pilot"
 )
 
 type mixerplugin struct{}
@@ -70,6 +71,12 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 
 	attrs := attributes{
 		"context.reporter.kind": attrStringValue("outbound"),
+	}
+
+	if in.Node.Type == model.Router || !featureflags.DisableSourceRouting {
+		attrs["source.uid"] = attrUID(in.Node)
+		attrs["source.namespace"] = attrNamespace(in.Node)
+		attrs["context.reporter.uid"] = attrUID(in.Node)
 	}
 
 	switch in.ListenerProtocol {
@@ -208,19 +215,29 @@ func buildTransport(mesh *meshconfig.MeshConfig) *mccpb.TransportConfig {
 }
 
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
+	filterConfig := &mccpb.HttpClientConfig{
+		DefaultDestinationService: defaultConfig,
+		ServiceConfigs: map[string]*mccpb.ServiceConfig{
+			defaultConfig: {
+				DisableCheckCalls: disableClientPolicyChecks(mesh, node),
+			},
+		},
+		MixerAttributes: &mpb.Attributes{Attributes: attrs},
+		Transport:       buildTransport(mesh),
+	}
+
+	if node.Type == model.Router || !featureflags.DisableSourceRouting {
+		filterConfig.ForwardAttributes = &mpb.Attributes{
+			Attributes: attributes{
+				"source.uid": attrUID(node),
+			},
+		}
+	}
+
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		ConfigType: &http_conn.HttpFilter_Config{
-			Config: util.MessageToStruct(&mccpb.HttpClientConfig{
-				DefaultDestinationService: defaultConfig,
-				ServiceConfigs: map[string]*mccpb.ServiceConfig{
-					defaultConfig: {
-						DisableCheckCalls: disableClientPolicyChecks(mesh, node),
-					},
-				},
-				MixerAttributes: &mpb.Attributes{Attributes: attrs},
-				Transport:       buildTransport(mesh),
-			}),
+			Config: util.MessageToStruct(filterConfig),
 		},
 	}
 }
