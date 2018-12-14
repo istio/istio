@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: destination-rule-c-non-exist-subset
+spec:
+  host: c
+  {{if eq .globalMTlsEnable "true"}}
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  {{end}}
+  subsets:
+    - name: non-exist
+      labels:
+        version: non-exist
+  configScope: PUBLIC

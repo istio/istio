@@ -688,8 +688,8 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 	cases := []struct {
 		testName        string
 		description     string
-		config          string
-		namespace       string
+		configs         []string
+		namespaces      []string
 		scheme          string
 		src             string
 		dst             string
@@ -698,10 +698,10 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		onFailure       func()
 	}{
 		{
-			testName:        "private destination rule in same namesapce",
+			testName:        "private destination rule in same namespace",
 			description:     "routing all traffic to c-v1",
-			config:          "destination-rule-c-private.yaml",
-			namespace:       tc.Kube.Namespace,
+			configs:         []string{"destination-rule-c-private.yaml"},
+			namespaces:      []string{tc.Kube.Namespace},
 			scheme:          "http",
 			src:             "a",
 			dst:             "c",
@@ -711,12 +711,23 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		{
 			testName:        "private destination rule in different namespaces",
 			description:     "can not apply private destination rule",
-			config:          "destination-rule-c-private.yaml",
-			namespace:       "test-diff-ns",
+			configs:         []string{"destination-rule-c-private.yaml"},
+			namespaces:      []string{"test-another-ns"},
 			scheme:          "http",
 			src:             "a",
 			dst:             "c",
 			expectedSuccess: false,
+			operation:       "c.istio-system.svc.cluster.local:80/*",
+		},
+		{
+			testName:        "private rule in a namespace overrides public rule in another namespace",
+			description:     "routing all traffic to c-v1",
+			configs:         []string{"destination-rule-c-private.yaml", "destination-rule-c-non-exist.yaml"},
+			namespaces:      []string{tc.Kube.Namespace, "test-another-ns"},
+			scheme:          "http",
+			src:             "a",
+			dst:             "c",
+			expectedSuccess: true,
 			operation:       "c.istio-system.svc.cluster.local:80/*",
 		},
 	}
@@ -737,19 +748,21 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		for _, c := range cases {
 			// Run each case in a function to scope the configuration's lifecycle.
 			func() {
-				if c.namespace != tc.Kube.Namespace {
-					if err := util.CreateNamespace(c.namespace, tc.Kube.KubeConfig); err != nil {
-						t.Errorf("Unable to create namespace %s: %v", c.namespace, err)
-					}
-					defer func() {
-						if err := util.DeleteNamespace(c.namespace, tc.Kube.KubeConfig); err != nil {
-							t.Errorf("Failed to delete namespace %s", c.namespace)
+				for i, ns := range c.namespaces {
+					if ns != tc.Kube.Namespace {
+						if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
+							t.Errorf("Unable to create namespace %s: %v", ns, err)
 						}
-					}()
+						defer func() {
+							if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
+								t.Errorf("Failed to delete namespace %s", ns)
+							}
+						}()
+					}
+					ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", c.configs[i])
+					outYaml := maybeAddTLSForDestinationRule(tc, ruleYaml)
+					applyRuleFunc(t, ns, outYaml)
 				}
-				ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", c.config)
-				outYaml := maybeAddTLSForDestinationRule(tc, ruleYaml)
-				applyRuleFunc(t, c.namespace, outYaml)
 
 				for cluster := range tc.Kube.Clusters {
 					testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
