@@ -30,6 +30,7 @@ var (
 	reportFile    = flag.String("report_file", "", "Code coverage report file")
 	baselineFile  = flag.String("baseline_file", "", "Code coverage baseline file")
 	thresholdFile = flag.String("threshold_file", "", "File containing package to threshold mappings, as overrides")
+	skipDeleted   = flag.Bool("skip_deleted", true, "Whehter deleted files should be skipped")
 )
 
 func parseReportLine(line string) (string, float64, error) {
@@ -117,10 +118,16 @@ func findDelta(report, baseline map[string]float64) map[string]float64 {
 	return deltas
 }
 
-func checkDelta(deltas, report, baseline, thresholds map[string]float64) []string {
+func checkDelta(deltas, report, baseline, thresholds map[string]float64, skipDeleted bool) []string {
 	dropMsgs := []string{}
 	for pkg, delta := range deltas {
 		if delta+getThreshold(thresholds, pkg) < 0 {
+			if skipDeleted {
+				if _, err := os.Stat(os.Getenv("GOPATH") + "/src/" + pkg); os.IsNotExist(err) {
+					// Don't report if the file has been deleted
+					continue
+				}
+			}
 			dropMsg := fmt.Sprintf("%s:%f%% (%f%% to %f%%)", pkg, delta, baseline[pkg], report[pkg])
 			dropMsgs = append(dropMsgs, dropMsg)
 		}
@@ -141,7 +148,7 @@ func getThreshold(thresholds map[string]float64, path string) float64 {
 	return matchedThreshold
 }
 
-func checkCoverage(reportFile, baselineFile, thresholdFile string) error {
+func checkCoverage(reportFile, baselineFile, thresholdFile string, skipMissingFile bool) error {
 	report, err := parseReport(reportFile)
 	if err != nil {
 		return fmt.Errorf("cannot open or parse report file: %s, %v", reportFile, err)
@@ -157,7 +164,7 @@ func checkCoverage(reportFile, baselineFile, thresholdFile string) error {
 	deltas := findDelta(report, baseline)
 
 	// Then generate errors for reduced coverage.
-	dropMsgs := checkDelta(deltas, report, baseline, thresholds)
+	dropMsgs := checkDelta(deltas, report, baseline, thresholds, skipMissingFile)
 	if len(dropMsgs) > 0 {
 		errMsgs := []string{"Coverage dropped:"}
 		errMsgs = append(errMsgs, dropMsgs...)
@@ -170,7 +177,7 @@ func checkCoverage(reportFile, baselineFile, thresholdFile string) error {
 // code coverage has dropped above the given threshold.
 func main() {
 	flag.Parse()
-	err := checkCoverage(*reportFile, *baselineFile, *thresholdFile)
+	err := checkCoverage(*reportFile, *baselineFile, *thresholdFile, *skipDeleted)
 	if err != nil {
 		glog.Error(err)
 		os.Exit(1)
