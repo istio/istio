@@ -127,7 +127,7 @@ type scenario struct {
 	expectedSequence int
 	// fileActin is the file operations for the testing
 	fileAction func(chan resource.Event, runtime.Source)
-	//checkResult is how the testing check result
+	// checkResult is how the testing check result
 	checkResult func(chan resource.Event, string, *testing.T, int)
 }
 
