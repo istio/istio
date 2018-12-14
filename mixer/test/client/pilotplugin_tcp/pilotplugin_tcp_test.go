@@ -47,6 +47,10 @@ admin:
 node:
   id: id
   cluster: unknown
+  metadata:
+    # these two must come together and they need to be set
+    NODE_UID: pod.ns
+    NODE_NAMESPACE: ns
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
@@ -143,6 +147,8 @@ func TestPilotPluginTCP(t *testing.T) {
 	}()
 	defer grpcServer.GracefulStop()
 
+	s.SetMixerSourceUID("pod.ns")
+
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -208,9 +214,6 @@ var (
 		Node: &model.Proxy{
 			ID:   "pod1.ns1",
 			Type: model.Sidecar,
-			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.1",
-			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -221,9 +224,6 @@ var (
 		Node: &model.Proxy{
 			ID:   "pod2.ns2",
 			Type: model.Sidecar,
-			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.1",
-			},
 		},
 		Service: &svc,
 		Push:    &pushContext,

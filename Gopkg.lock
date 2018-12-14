@@ -883,13 +883,11 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:c1c74479c219daed94a374e5ba7cdab754a279532e76c00df29cc616ebc0ce59"
+  digest = "1:feed851b93f9debbe8180092067c4e29a51c06dbb5fe2f643ec9feea039670a3"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
     "format",
-    "gbytes",
-    "gexec",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -2054,8 +2052,6 @@
     "github.com/mitchellh/go-homedir",
     "github.com/natefinch/lumberjack",
     "github.com/onsi/gomega",
-    "github.com/onsi/gomega/gbytes",
-    "github.com/onsi/gomega/gexec",
     "github.com/open-policy-agent/opa/ast",
     "github.com/open-policy-agent/opa/rego",
     "github.com/openshift/api/apps/v1",

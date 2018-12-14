@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -81,6 +82,9 @@ type PushContext struct {
 	ServicePort2Name map[string]PortList `json:"-"`
 
 	initDone bool
+
+	// MixerPerRouteFilterConfig has mixer Router Filter config, indexed by service hostname + outbound/inbound
+	MixerPerRouteFilterConfig map[string]*types.Struct `json:"-"`
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -276,10 +280,11 @@ func NewPushContext() *PushContext {
 		publicVirtualServices:             []Config{},
 		privateVirtualServicesByNamespace: map[string][]Config{},
 
-		ServiceByHostname: map[Hostname]*Service{},
-		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
-		ServicePort2Name:  map[string]PortList{},
-		Start:             time.Now(),
+		ServiceByHostname:         map[Hostname]*Service{},
+		ProxyStatus:               map[string]map[string]ProxyPushStatus{},
+		ServicePort2Name:          map[string]PortList{},
+		Start:                     time.Now(),
+		MixerPerRouteFilterConfig: map[string]*types.Struct{},
 	}
 }
 
@@ -336,8 +341,12 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	return out
 }
 
-// OnConnect is called when a node connects. Will update per-node data.
-func (ps *PushContext) OnConnect(proxy *Proxy) {
+// UpdateNodeIsolation will update per-node data holding visible services and configs for the node.
+// It is called:
+// - on connect
+// - on config change events (full push)
+// - TODO: on-demand events from Envoy
+func (ps *PushContext) UpdateNodeIsolation(proxy *Proxy) {
 	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
 	// bindings.
 	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {

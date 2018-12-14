@@ -1027,7 +1027,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 		}()
 
-		return err
+		return nil
 	})
 
 	return nil
