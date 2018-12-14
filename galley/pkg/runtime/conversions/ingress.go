@@ -202,7 +202,7 @@ func IngressToGateway(key resource.VersionedKey, i *ingress.IngressSpec) resourc
 			},
 			Hosts: tls.Hosts,
 			// While we accept multiple certs, we expect them to be mounted in
-			// /etc/istio/certs/namespace/secretname/tls.crt|tls.key
+			// /etc/certs/namespace/secretname/tls.crt|tls.key
 			Tls: &v1alpha3.Server_TLSOptions{
 				HttpsRedirect: false,
 				Mode:          v1alpha3.Server_TLSOptions_SIMPLE,
