@@ -104,7 +104,10 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	converterCfg := &converter.Config{Mesh: mesh}
+	converterCfg := &converter.Config{
+		Mesh:         mesh,
+		DomainSuffix: a.DomainSuffix,
+	}
 
 	var src runtime.Source
 	if a.ConfigPath != "" {

@@ -15,7 +15,10 @@
 package source
 
 import (
+	"fmt"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +34,38 @@ import (
 
 var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
 
+const convertEnvVar = "ISTIO_CONVERT_K8S_SERVICE"
+
+func enabledKubeTypes() ([]kube.ResourceSpec, error) {
+	x := os.Getenv(convertEnvVar)
+	if x == "" {
+		x = "false"
+	}
+	b, err := strconv.ParseBool(x)
+	if err != nil {
+		return nil, fmt.Errorf("the value of %s is invalid: %v", convertEnvVar, err)
+	}
+
+	allTypes := kube_meta.Types.All()
+	if b {
+		return allTypes, nil
+	}
+	var filteredTypes []kube.ResourceSpec
+	for _, t := range allTypes {
+		if t.Kind != "Service" {
+			filteredTypes = append(filteredTypes, t)
+		}
+	}
+	switch d := len(allTypes) - len(filteredTypes); d {
+	case 1:
+		return filteredTypes, nil
+	case 0:
+		return nil, fmt.Errorf("internal error: %s is set to false (or unset) but no service resource is registered", convertEnvVar)
+	default:
+		return nil, fmt.Errorf("internal error: multiple (%d) service resources registered", d)
+	}
+}
+
 // source is an implementation of runtime.Source.
 type sourceImpl struct {
 	cfg    *converter.Config
@@ -44,7 +79,11 @@ var _ runtime.Source = &sourceImpl{}
 
 // New returns a Kubernetes implementation of runtime.Source.
 func New(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config) (runtime.Source, error) {
-	return newSource(k, resyncPeriod, cfg, kube_meta.Types.All())
+	types, err := enabledKubeTypes()
+	if err != nil {
+		return nil, err
+	}
+	return newSource(k, resyncPeriod, cfg, types)
 }
 
 func newSource(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config, specs []kube.ResourceSpec) (runtime.Source, error) {

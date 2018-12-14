@@ -11,6 +11,15 @@ resources:
     protoPackage: "k8s.io/api/extensions/v1beta1"
     converter:    "kube-ingress-resource"
 
+  - kind:        "Service"
+    singular:    "service"
+    plural:      "services"
+    group:       "core"
+    version:     "v1beta1"
+    proto:       "k8s.io.api.core.v1.ServiceSpec"
+    protoPackage: "k8s.io/api/core/v1"
+    converter:    "kube-service-resource"
+
   - kind:        "VirtualService"
     singular:    "virtualservice"
     plural:      "virtualservices"

@@ -632,7 +632,7 @@ func TestKubeServiceResource(t *testing.T) {
 							TargetPort: intstr.FromInt(9080),
 						},
 						{
-							Name:       "http-web",
+							Name:       "https-web",
 							Protocol:   "TCP",
 							Port:       9081,
 							TargetPort: intstr.FromInt(9081),
@@ -647,8 +647,9 @@ func TestKubeServiceResource(t *testing.T) {
 				},
 			},
 			want: &networking.ServiceEntry{
-				Hosts:     []string{"reviews.default.svc.cluster.local"},
-				Addresses: []string{"10.39.241.161"},
+				Hosts:      []string{"reviews.default.svc.cluster.local"},
+				Addresses:  []string{"10.39.241.161"},
+				Resolution: networking.ServiceEntry_STATIC,
 				Ports: []*networking.Port{
 					{
 						Name:     "http",
@@ -656,9 +657,9 @@ func TestKubeServiceResource(t *testing.T) {
 						Protocol: "HTTP",
 					},
 					{
-						Name:     "http-web",
+						Name:     "https-web",
 						Number:   9081,
-						Protocol: "HTTP",
+						Protocol: "HTTPS",
 					},
 					{
 						Name:     "ssh",
@@ -682,11 +683,10 @@ func TestKubeServiceResource(t *testing.T) {
 				CreationTime: fakeCreateTime.Local(),
 				Resource:     c.want,
 			}}
-			got, err := kubeServiceResource(nil, resource.Info{}, want[0].Key, "kind", &u)
+			got, err := kubeServiceResource(&Config{DomainSuffix: "cluster.local"}, resource.Info{}, want[0].Key, "kind", &u)
 			if err != nil {
 				t.Fatalf("kubeServiceResource: %v", err)
 			}
-			// TODO: Use cmp.Equal+cmp.Diff?
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", got, want)
 			}

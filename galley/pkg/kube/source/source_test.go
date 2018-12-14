@@ -17,10 +17,12 @@ package source
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -43,13 +45,18 @@ func init() {
 	emptyInfo, _ = schema.Lookup("type.googleapis.com/google.protobuf.Empty")
 }
 
-func TestNewSource(t *testing.T) {
-	k := &mock.Kube{}
+func mockKubeMeta() *mock.Kube {
+	var k mock.Kube
+	//len(kube_meta.Types.All())
 	for i := 0; i < 100; i++ {
 		cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 		k.AddResponse(cl, nil)
 	}
+	return &k
+}
 
+func TestNewSource(t *testing.T) {
+	k := mockKubeMeta()
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
@@ -73,6 +80,60 @@ func TestNewSource_Error(t *testing.T) {
 	_, err := New(k, 0, &cfg)
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Expected error not found: %v", err)
+	}
+}
+
+func TestNewSource_ServiceEntry(t *testing.T) {
+	typeCount := len(kube_meta.Types.All())
+	tests := []struct {
+		name     string
+		envVal   string
+		wantLen  int
+		wantFail bool
+	}{
+		{
+			name:    "Unset",
+			wantLen: typeCount - 1,
+		},
+		{
+			name:    "Disabled",
+			envVal:  "false",
+			wantLen: typeCount - 1,
+		},
+		{
+			name:    "Enabled",
+			envVal:  "true",
+			wantLen: typeCount,
+		},
+		{
+			name:     "Bugous",
+			envVal:   "boo!",
+			wantFail: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			x := os.Getenv(convertEnvVar)
+			defer os.Setenv(convertEnvVar, x)
+			os.Setenv(convertEnvVar, test.envVal)
+
+			s, err := New(mockKubeMeta(), 0, &converter.Config{
+				Mesh: meshconfig.NewInMemory(),
+			})
+			if test.wantFail {
+				if err == nil {
+					t.Fatal("New expected to fail but succeeded")
+				}
+				t.Logf("New failed as expected: %v", err)
+				return
+			}
+			if err != nil {
+				t.Fatalf("New failed: %v", err)
+			}
+			if got := len(s.(*sourceImpl).listeners); got != test.wantLen {
+				t.Errorf("Constructed with %d listeners, want %d", got, test.wantLen)
+			}
+		})
 	}
 }
 

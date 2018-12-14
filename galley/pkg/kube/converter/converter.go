@@ -17,7 +17,6 @@ package converter
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -220,31 +219,22 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 	return []Entry{e}, nil
 }
 
-func kubeServiceResource(_ *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
+func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	var service corev1.Service
 	if err := convertJSON(u, &service); err != nil {
 		return nil, err
 	}
 	se := networking.ServiceEntry{
-		// TODO: What's the difference between the name argument and <service.Name>/<service.Namespace>?
-		Hosts:     []string{fmt.Sprintf("%s.%s.svc.cluster.local", service.Name, service.Namespace)},
-		Addresses: append([]string{service.Spec.ClusterIP}, service.Spec.ExternalIPs...),
+		Hosts:      []string{fmt.Sprintf("%s.%s.svc.%s", service.Name, service.Namespace, cfg.DomainSuffix)},
+		Addresses:  append([]string{service.Spec.ClusterIP}, service.Spec.ExternalIPs...),
+		Resolution: networking.ServiceEntry_STATIC,
 	}
 	for _, kubePort := range service.Spec.Ports {
-		istioPort := &networking.Port{
-			Name:   kubePort.Name,
-			Number: uint32(kubePort.Port),
-		}
-		// TODO: Is there existing code that handles magic port prefixes?
-		if kubePort.Name == "http" || strings.HasPrefix(kubePort.Name, "http-") {
-			if kubePort.Protocol != "TCP" {
-				return nil, fmt.Errorf("port %s: HTTP over %s not supported", kubePort.Name, kubePort.Protocol)
-			}
-			istioPort.Protocol = "HTTP"
-		} else {
-			istioPort.Protocol = string(kubePort.Protocol)
-		}
-		se.Ports = append(se.Ports, istioPort)
+		se.Ports = append(se.Ports, &networking.Port{
+			Name:     kubePort.Name,
+			Number:   uint32(kubePort.Port),
+			Protocol: string(kube.ConvertProtocol(kubePort.Name, kubePort.Protocol)),
+		})
 	}
 	return []Entry{{
 		Key:          name,
