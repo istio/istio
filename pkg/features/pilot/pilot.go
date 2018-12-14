@@ -77,7 +77,8 @@ var (
 	// DisableSourceRouting is an experimental flag that when set will disable
 	// source routing features in virtual services for sidecars only. Disabling source routing for sidecars
 	// will enable us to compute LDS and RDS only once and serve it to all sidecars.
-	DisableSourceRouting = os.Getenv("DISABLE_SOURCE_ROUTING") == "1"
+	// TEMP HACK for testing
+	DisableSourceRouting = true //os.Getenv("DISABLE_SOURCE_ROUTING") == "1"
 )
 
 const (
