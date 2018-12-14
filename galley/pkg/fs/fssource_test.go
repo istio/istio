@@ -117,7 +117,7 @@ type fsTestSourceState struct {
 }
 
 type scenario struct {
-	// initFile is the intial content for istio config
+	// initFile is the initial content for istio config
 	initFile string
 	// initFileName is the initial istio config file name
 	initFileName string
