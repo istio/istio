@@ -116,8 +116,13 @@ func CreateNamespace(n string, kubeconfig string) error {
 
 // DeleteNamespace delete a kubernetes namespace
 func DeleteNamespace(n string, kubeconfig string) error {
-	_, err := Shell("kubectl delete namespace %s --kubeconfig=%s", n, kubeconfig)
-	return err
+	if _, err := Shell("kubectl delete namespace %s --kubeconfig=%s", n, kubeconfig); err != nil {
+		if !strings.Contains(err.Error(), "not found") {
+			return err
+		}
+	}
+	log.Infof("namespace n deleted\n", n)
+	return nil
 }
 
 // DeleteDeployment deletes deployment from the specified namespace

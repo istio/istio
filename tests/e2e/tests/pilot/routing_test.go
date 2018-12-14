@@ -657,31 +657,39 @@ func TestHeadersManipulations(t *testing.T) {
 func TestDestinationRuleConfigScope(t *testing.T) {
 	samples := 100
 
-	var cfgs *deployableConfig
-	applyRuleFunc := func(t *testing.T, ns, ruleYaml string) {
+	var cfgs []*deployableConfig
+	applyRuleFunc := func(t *testing.T, namesapces, ruleYamls []string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
 		// a delay when we push the new config.
-		if cfgs != nil {
-			if err := cfgs.TeardownNoDelay(); err != nil {
-				t.Fatal(err)
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				if err := cfg.TeardownNoDelay(); err != nil {
+					t.Fatal(err)
+				}
+				cfg = nil
 			}
-			cfgs = nil
 		}
 
-		// Apply the new rule
-		cfgs = &deployableConfig{
-			Namespace:  ns,
-			YamlFiles:  []string{ruleYaml},
-			kubeconfig: tc.Kube.KubeConfig,
-		}
-		if err := cfgs.Setup(); err != nil {
-			t.Fatal(err)
+		cfgs = make([]*deployableConfig, 0)
+		for i, ns := range namesapces {
+			// Apply the new rule
+			cfg := &deployableConfig{
+				Namespace:  ns,
+				YamlFiles:  []string{ruleYamls[i]},
+				kubeconfig: tc.Kube.KubeConfig,
+			}
+			if err := cfg.Setup(); err != nil {
+				t.Fatal(err)
+			}
+			cfgs = append(cfgs, cfg)
 		}
 	}
 	// Upon function exit, delete the active rule.
 	defer func() {
-		if cfgs != nil {
-			_ = cfgs.Teardown()
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				_ = cfg.Teardown()
+			}
 		}
 	}()
 
@@ -712,7 +720,7 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 			testName:        "private destination rule in different namespaces",
 			description:     "can not apply private destination rule",
 			configs:         []string{"destination-rule-c-private.yaml"},
-			namespaces:      []string{"test-another-ns"},
+			namespaces:      []string{"test-another-ns1"},
 			scheme:          "http",
 			src:             "a",
 			dst:             "c",
@@ -723,7 +731,7 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 			testName:        "private rule in a namespace overrides public rule in another namespace",
 			description:     "routing all traffic to c-v1",
 			configs:         []string{"destination-rule-c-private.yaml", "destination-rule-c-non-exist.yaml"},
-			namespaces:      []string{tc.Kube.Namespace, "test-another-ns"},
+			namespaces:      []string{tc.Kube.Namespace, "test-another-ns2"},
 			scheme:          "http",
 			src:             "a",
 			dst:             "c",
@@ -753,16 +761,17 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 						if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
 							t.Errorf("Unable to create namespace %s: %v", ns, err)
 						}
-						defer func() {
+						defer func(ns string) {
 							if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
 								t.Errorf("Failed to delete namespace %s", ns)
 							}
-						}()
+						}(ns)
 					}
 					ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", c.configs[i])
-					outYaml := maybeAddTLSForDestinationRule(tc, ruleYaml)
-					applyRuleFunc(t, ns, outYaml)
+					c.configs[i] = maybeAddTLSForDestinationRule(tc, ruleYaml)
 				}
+
+				applyRuleFunc(t, c.namespaces, c.configs)
 
 				for cluster := range tc.Kube.Clusters {
 					testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)

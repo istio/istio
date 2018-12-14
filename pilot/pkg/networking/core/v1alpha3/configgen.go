@@ -44,6 +44,7 @@ func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environmen
 	for _, svc := range services {
 		namespaceMap[svc.Attributes.Namespace] = struct{}{}
 	}
+	namespaceMap[""] = struct{}{}
 	for ns := range namespaceMap {
 		dummyNode := model.Proxy{
 			ConfigNamespace: ns,
