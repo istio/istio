@@ -281,16 +281,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 		return configNamespace
 	}
 
-	// If its not present, fallback to parsing the namespace from the proxyID
-	// NOTE: This is a hack for Kubernetes only where we assume that the
-	// proxy ID is of the form name.namespace. Other platforms should
-	// set ISTIO_META_CONFIG_NAMESPACE in the sidecar bootstrap config.
-	parts := strings.Split(proxy.ID, ".")
-	if len(parts) != 2 {
-		return ""
-	}
-
-	return parts[1]
+	return ""
 }
 
 const (
