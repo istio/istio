@@ -49,6 +49,8 @@ data:
             cpu: 10m
             memory: 10Mi
         securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
           capabilities:
             add:
             - NET_ADMIN
@@ -73,6 +75,8 @@ data:
         imagePullPolicy: IfNotPresent
         resources: {}
         securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
           privileged: true
       {{ end }}
 {{- end }}
