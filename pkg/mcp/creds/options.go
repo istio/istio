@@ -51,4 +51,3 @@ func (c *Options) AttachCobraFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&c.CACertificateFile, "caCertFile", "", c.CACertificateFile,
 		"The location of the certificate file for the root certificate authority")
 }
-

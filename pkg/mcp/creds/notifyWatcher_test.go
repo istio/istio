@@ -101,10 +101,11 @@ func TestWatchRotation(t *testing.T) {
 	// We expect two files to be watched (key+cert). Wait for the watch
 	// to be added before proceeding.
 	wgAddedWatch.Add(2)
-	watcher, err := WatchFiles(stopCh, &options)
+	w, err := WatchFiles(stopCh, &options)
 	if err != nil {
 		t.Fatalf("Initial WatchFiles() failed: %v", err)
 	}
+	watcher := w.(*notifyWatcher)
 	wgAddedWatch.Wait()
 
 	var wgCertEvent sync.WaitGroup

@@ -59,7 +59,7 @@ func (n *notifyWatcher) certPool() *x509.CertPool {
 // root-cert.pem: certificate from the CA that will be used for validating peer's certificate.
 //
 // Internally WatchFolder will call WatchFiles.
-func WatchFolder(stop <-chan struct{}, folder string) (*notifyWatcher, error) {
+func WatchFolder(stop <-chan struct{}, folder string) (CertificateWatcher, error) {
 	cred := &Options{
 		CertificateFile:   path.Join(folder, defaultCertificateFile),
 		KeyFile:           path.Join(folder, defaultKeyFile),
@@ -72,7 +72,7 @@ func WatchFolder(stop <-chan struct{}, folder string) (*notifyWatcher, error) {
 // go-routine and watch for credential file changes. Callers should pass the return result to one of the
 // create functions to create a transport options that can dynamically use rotated certificates.
 // The supplied stop channel can be used to stop the go-routine and the watch.
-func WatchFiles(stopCh <-chan struct{}, credentials *Options) (*notifyWatcher, error) {
+func WatchFiles(stopCh <-chan struct{}, credentials *Options) (CertificateWatcher, error) {
 	w := &notifyWatcher{
 		options: *credentials,
 		stopCh:  stopCh,
