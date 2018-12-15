@@ -84,7 +84,7 @@ func NewPlugin() plugin.Plugin {
 func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string) (
 	string /*access token*/, time.Time /*expireTime*/, error) {
 	var jsonStr = constructFederatedTokenRequest(trustDomain, k8sSAjwt)
-	req, err := http.NewRequest("POST", secureTokenEndpoint, bytes.NewBuffer(jsonStr))
+	req, _ := http.NewRequest("POST", secureTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := p.hTTPClient.Do(req)
