@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -38,21 +39,33 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 
 func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment, push *model.PushContext) error {
 	namespaceMap := map[string]struct{}{}
-	clusters := map[string][]*xdsapi.Cluster{}
+	clustersByNamespace := map[string][]*xdsapi.Cluster{}
 
 	services := push.Services(nil)
 	for _, svc := range services {
 		namespaceMap[svc.Attributes.Namespace] = struct{}{}
 	}
 	namespaceMap[""] = struct{}{}
-	for ns := range namespaceMap {
-		dummyNode := model.Proxy{
-			ConfigNamespace: ns,
-		}
-		clusters[ns] = configgen.buildOutboundClusters(env, &dummyNode, push)
-	}
-	configgen.PrecomputedOutboundClusters = clusters
 
+	// generate outbound for all namespaces in parallel.
+	wg := &sync.WaitGroup{}
+	mutex := &sync.Mutex{}
+	wg.Add(len(namespaceMap))
+	for ns := range namespaceMap {
+		go func(ns string) {
+			defer wg.Done()
+			dummyNode := model.Proxy{
+				ConfigNamespace: ns,
+			}
+			clusters := configgen.buildOutboundClusters(env, &dummyNode, push)
+			mutex.Lock()
+			clustersByNamespace[ns] = clusters
+			mutex.Unlock()
+		}(ns)
+	}
+	wg.Wait()
+
+	configgen.PrecomputedOutboundClusters = clustersByNamespace
 	return nil
 }
 

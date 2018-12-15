@@ -97,7 +97,7 @@ func CreateAndFill(outDir, templateFile string, values interface{}) (string, err
 		return "", err
 	}
 	if err := Fill(outFile, templateFile, values); err != nil {
-		log.Errorf("Failed to generate yaml for template %s", templateFile)
+		log.Errorf("Failed to generate yaml for template %s: %v", templateFile, err)
 		return "", err
 	}
 	return outFile, nil
