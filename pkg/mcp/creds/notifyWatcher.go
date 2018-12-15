@@ -17,8 +17,6 @@ package creds
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"path"
 	"sync"
@@ -34,17 +32,6 @@ var (
 
 	watchCertEventHandledProbe func()
 	watchKeyEventHandledProbe  func()
-)
-
-const (
-	// defaultCertDir is the default directory in which MCP options reside.
-	defaultCertDir = "/etc/istio/certs/"
-	// defaultCertificateFile is the default name to use for the certificate file.
-	defaultCertificateFile = "cert-chain.pem"
-	// defaultKeyFile is the default name to use for the key file.
-	defaultKeyFile = "key.pem"
-	// defaultCACertificateFile is the default name to use for the Certificate Authority's certificate file.
-	defaultCACertificateFile = "root-cert.pem"
 )
 
 type notifyWatcher struct {
@@ -188,38 +175,4 @@ func (n *notifyWatcher) Get() tls.Certificate {
 	n.certMutex.Lock()
 	defer n.certMutex.Unlock()
 	return n.cert
-}
-
-// loadCertPair from the given set of files.
-func loadCertPair(certFile, keyFile string) (tls.Certificate, error) {
-	certPEMBlock, err := readFile(certFile)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-	keyPEMBlock, err := readFile(keyFile)
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-	cert, err := tls.X509KeyPair(certPEMBlock, keyPEMBlock)
-	if err != nil {
-		err = fmt.Errorf("error loading client certificate files (%s, %s): %v", certFile, keyFile, err)
-	}
-	return cert, err
-}
-
-// loadCACert, create a certPool and return.
-func loadCACert(caCertFile string) (*x509.CertPool, error) {
-	certPool := x509.NewCertPool()
-	ca, err := readFile(caCertFile)
-	if err != nil {
-		err = fmt.Errorf("error loading CA certificate file (%s): %v", caCertFile, err)
-		return nil, err
-	}
-
-	if ok := certPool.AppendCertsFromPEM(ca); !ok {
-		err = errors.New("failed to append loaded CA certificate to the certificate pool")
-		return nil, err
-	}
-
-	return certPool, nil
 }

@@ -23,6 +23,17 @@ import (
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
+const (
+	// defaultCertDir is the default directory in which MCP options reside.
+	defaultCertDir = "/etc/istio/certs/"
+	// defaultCertificateFile is the default name to use for the certificate file.
+	defaultCertificateFile = "cert-chain.pem"
+	// defaultKeyFile is the default name to use for the key file.
+	defaultKeyFile = "key.pem"
+	// defaultCACertificateFile is the default name to use for the Certificate Authority's certificate file.
+	defaultCACertificateFile = "root-cert.pem"
+)
+
 // CertificateWatcher watches a x509 cert/key file and loads it up in memory as needed.
 type CertificateWatcher interface {
 	Get() tls.Certificate
