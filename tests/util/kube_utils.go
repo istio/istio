@@ -121,7 +121,7 @@ func DeleteNamespace(n string, kubeconfig string) error {
 			return err
 		}
 	}
-	log.Infof("namespace n deleted\n", n)
+	log.Infof("namespace %s deleted\n", n)
 	return nil
 }
 
