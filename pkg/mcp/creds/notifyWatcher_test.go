@@ -140,7 +140,7 @@ func TestWatchRotation(t *testing.T) {
 	wgCertEvent.Wait()
 	wgKeyEvent.Wait()
 	want, _ := tls.X509KeyPair(testcerts.RotatedCert, testcerts.RotatedKey)
-	if !reflect.DeepEqual(watcher.cert, want) {
+	if !reflect.DeepEqual(watcher.Get(), want) {
 		t.Fatalf("wrong rotated certificate: \ngot %v \nwant %v", watcher.cert, want)
 	}
 

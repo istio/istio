@@ -17,6 +17,7 @@ package creds
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"os"
 	"path"
 	"sync"
@@ -24,7 +25,8 @@ import (
 )
 
 type pollingWatcher struct {
-	options Options
+	options      Options
+	pollInterval time.Duration
 
 	stopCh <-chan struct{}
 
@@ -34,6 +36,12 @@ type pollingWatcher struct {
 	// Even though CA cert is not being watched, this type is still responsible for holding on to it
 	// to pass into one of the create methods.
 	caCertPool *x509.CertPool
+
+	certModTime time.Time
+	keyModTime  time.Time
+
+	// Keep the current error encountered when loading cert files while polling. This helps with testing.
+	pollErr error
 }
 
 var _ CertificateWatcher = &pollingWatcher{}
@@ -62,9 +70,14 @@ func PollFolder(stop <-chan struct{}, folder string) (CertificateWatcher, error)
 // create functions to create a transport options that can dynamically use rotated certificates.
 // The supplied stop channel can be used to stop the go-routine and the watch.
 func PollFiles(stopCh <-chan struct{}, credentials *Options) (CertificateWatcher, error) {
+	return pollFiles(stopCh, credentials, time.Minute)
+}
+
+func pollFiles(stopCh <-chan struct{}, credentials *Options, interval time.Duration) (CertificateWatcher, error) {
 	w := &pollingWatcher{
-		options: *credentials,
-		stopCh:  stopCh,
+		options:      *credentials,
+		pollInterval: interval,
+		stopCh:       stopCh,
 	}
 
 	if err := w.start(); err != nil {
@@ -83,65 +96,28 @@ func (p *pollingWatcher) start() error {
 		return err
 	}
 
-	var modKeyFile, modCertFile time.Time
-
-	var fi os.FileInfo
-	// Get the initial modification times.
-	if fi, err = os.Stat(p.options.KeyFile); err != nil {
+	if err = p.loadFiles(); err != nil {
 		return err
 	}
-	modKeyFile = fi.ModTime()
-
-	if fi, err = os.Stat(p.options.CertificateFile); err != nil {
-		return err
-	}
-	modCertFile = fi.ModTime()
-
-	cert, err := loadCertPair(p.options.CertificateFile, p.options.KeyFile)
-	if err != nil {
-		return err
-	}
-	p.set(&cert)
 
 	scope.Debugf("Begin polling certificate files: %s, %s: ",
 		p.options.CertificateFile, p.options.KeyFile)
 
-	go p.poll(modKeyFile, modCertFile)
+	go p.poll()
 
 	p.caCertPool = caCertPool
 
 	return nil
 }
 
-func (p *pollingWatcher) poll(modKeyFile, modCertFile time.Time) {
-	t := time.NewTicker(time.Minute)
+func (p *pollingWatcher) poll() {
+	t := time.NewTicker(p.pollInterval)
 	for {
 		select {
 		case <-t.C:
-			var newModKeyFile, newModCertFile time.Time
-
-			// Loop through files and stat.
-			if fi, err := os.Stat(p.options.KeyFile); err != nil {
-				scope.Errorf("Unable to check the stats of cert key file(%q): %v", p.options.KeyFile, err)
-			} else {
-				newModKeyFile = fi.ModTime()
-			}
-
-			if fi, err := os.Stat(p.options.CertificateFile); err != nil {
-				scope.Errorf("Unable to check the stats of cert key file(%q): %v", p.options.CertificateFile, err)
-			} else {
-				newModCertFile = fi.ModTime()
-			}
-
-			if !newModKeyFile.Equal(modKeyFile) || !newModCertFile.Equal(modCertFile) {
-				cert, err := loadCertPair(p.options.CertificateFile, p.options.KeyFile)
-				if err != nil {
-					scope.Errorf("error loading certificates after watch event: %v", err)
-				} else {
-					p.set(&cert)
-					modCertFile = newModCertFile
-					modKeyFile = newModKeyFile
-				}
+			err := p.loadFiles()
+			if err != nil {
+				scope.Errorf("Error polling certificate files: %v", err)
 			}
 
 		case <-p.stopCh:
@@ -152,11 +128,51 @@ func (p *pollingWatcher) poll(modKeyFile, modCertFile time.Time) {
 	}
 }
 
-// set the certificate directly
-func (p *pollingWatcher) set(cert *tls.Certificate) {
+func (p *pollingWatcher) loadFiles() (err error) {
 	p.certMutex.Lock()
 	defer p.certMutex.Unlock()
-	p.cert = *cert
+
+	defer func() {
+		p.pollErr = err
+	}()
+
+	var newKeyModTime, newCertModTime time.Time
+
+	var fi os.FileInfo
+
+	// Go through files and stat.
+	if fi, err = os.Stat(p.options.KeyFile); err != nil {
+		err = fmt.Errorf("unable to read key file(%q): %v", p.options.KeyFile, err)
+		return
+	}
+	newKeyModTime = fi.ModTime()
+
+	if fi, err = os.Stat(p.options.CertificateFile); err != nil {
+		err = fmt.Errorf("unable to read cert file(%q): %v", p.options.CertificateFile, err)
+		return
+	}
+	newCertModTime = fi.ModTime()
+
+	if !newKeyModTime.Equal(p.keyModTime) || !newCertModTime.Equal(p.certModTime) {
+		var cert tls.Certificate
+		cert, err = loadCertPair(p.options.CertificateFile, p.options.KeyFile)
+		if err != nil {
+			err = fmt.Errorf("unable load cert files as pair: %v", err)
+			return
+		}
+
+		p.cert = cert
+		p.keyModTime = newKeyModTime
+		p.certModTime = newCertModTime
+	}
+
+	return
+}
+
+func (p *pollingWatcher) pollError() error {
+	p.certMutex.Lock()
+	defer p.certMutex.Unlock()
+	return p.pollErr
 }
 
 // Get the currently loaded certificate.
