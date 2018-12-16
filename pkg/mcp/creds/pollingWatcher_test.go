@@ -323,7 +323,7 @@ func TestPollingWatcher_Symlinks(t *testing.T) {
 	_, err := retry.Do(func() (interface{}, bool, error) {
 		want, _ := tls.X509KeyPair(testcerts.RotatedCert, testcerts.RotatedKey)
 		if !reflect.DeepEqual(f.w.Get(), want) {
-			return nil, false, fmt.Errorf("Expected certificate not found:\ngot %v \nwant %v", f.w.Get(), want)
+			return nil, false, fmt.Errorf("expected certificate not found:\ngot %v \nwant %v", f.w.Get(), want)
 		}
 
 		return nil, true, nil
