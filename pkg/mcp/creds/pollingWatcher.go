@@ -15,9 +15,12 @@
 package creds
 
 import (
+	"bufio"
+	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"sync"
@@ -37,8 +40,8 @@ type pollingWatcher struct {
 	// to pass into one of the create methods.
 	caCertPool *x509.CertPool
 
-	certModTime time.Time
-	keyModTime  time.Time
+	certHash string
+	keyHash  string
 
 	// Keep the current error encountered when loading cert files while polling. This helps with testing.
 	pollErr error
@@ -70,6 +73,7 @@ func PollFolder(stop <-chan struct{}, folder string) (CertificateWatcher, error)
 // create functions to create a transport options that can dynamically use rotated certificates.
 // The supplied stop channel can be used to stop the go-routine and the watch.
 func PollFiles(stopCh <-chan struct{}, credentials *Options) (CertificateWatcher, error) {
+	// TODO: Make interval configurable
 	return pollFiles(stopCh, credentials, time.Minute)
 }
 
@@ -136,24 +140,20 @@ func (p *pollingWatcher) loadFiles() (err error) {
 		p.pollErr = err
 	}()
 
-	var newKeyModTime, newCertModTime time.Time
-
-	var fi os.FileInfo
+	var newKeyHash, newCertHash string
 
 	// Go through files and stat.
-	if fi, err = os.Stat(p.options.KeyFile); err != nil {
+	if newKeyHash, err = getHashSum(p.options.KeyFile); err != nil {
 		err = fmt.Errorf("unable to read key file(%q): %v", p.options.KeyFile, err)
 		return
 	}
-	newKeyModTime = fi.ModTime()
 
-	if fi, err = os.Stat(p.options.CertificateFile); err != nil {
+	if newCertHash, err = getHashSum(p.options.CertificateFile); err != nil {
 		err = fmt.Errorf("unable to read cert file(%q): %v", p.options.CertificateFile, err)
 		return
 	}
-	newCertModTime = fi.ModTime()
 
-	if !newKeyModTime.Equal(p.keyModTime) || !newCertModTime.Equal(p.certModTime) {
+	if newKeyHash != p.keyHash || newCertHash != p.certHash {
 		var cert tls.Certificate
 		cert, err = loadCertPair(p.options.CertificateFile, p.options.KeyFile)
 		if err != nil {
@@ -162,8 +162,8 @@ func (p *pollingWatcher) loadFiles() (err error) {
 		}
 
 		p.cert = cert
-		p.keyModTime = newKeyModTime
-		p.certModTime = newCertModTime
+		p.keyHash = newKeyHash
+		p.certHash = newCertHash
 	}
 
 	return
@@ -180,4 +180,23 @@ func (p *pollingWatcher) Get() tls.Certificate {
 	p.certMutex.Lock()
 	defer p.certMutex.Unlock()
 	return p.cert
+}
+
+// getHashSum is a helper func to calculate sha1 sum.
+func getHashSum(file string) (string, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+
+	h := sha1.New()
+
+	_, err = io.Copy(h, r)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
