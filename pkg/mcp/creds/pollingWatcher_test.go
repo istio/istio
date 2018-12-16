@@ -280,6 +280,60 @@ func TestPollingWatcher_PollingUpdates_BogusKeyFile(t *testing.T) {
 	f.waitForNoPollError(t)
 }
 
+func TestPollingWatcher_Symlinks(t *testing.T) {
+	f := newFixture(t)
+	defer f.cleanup()
+
+	// create actual files to symlink to
+	actualCertFile := f.newTmpFile(t)
+	actualKeyFile := f.newTmpFile(t)
+	actualCaCertFile := f.newTmpFile(t)
+
+	moveFile(t, f.keyFile, actualKeyFile)
+	moveFile(t, f.certFile, actualCertFile)
+	moveFile(t, f.caCertFile, actualCaCertFile)
+
+	writeSymlink(t, f.certFile, actualCertFile)
+	writeSymlink(t, f.keyFile, actualKeyFile)
+	writeSymlink(t, f.caCertFile, actualCaCertFile)
+
+	if err := f.newWatcher(); err != nil {
+		t.Fatalf("error starting watch: %v", err)
+	}
+
+	want, _ := tls.X509KeyPair(testcerts.ServerCert, testcerts.ServerKey)
+	if !reflect.DeepEqual(f.w.Get(), want) {
+		t.Fatalf("wrong certificate: \ngot %v \nwant %v", f.w.Get(), want)
+	}
+
+	// Check for reload of certs via symlink
+
+	updatedCertFile := f.newTmpFile(t)
+	updatedKeyFile := f.newTmpFile(t)
+
+	writeFile(t, updatedKeyFile, testcerts.RotatedKey)
+	writeFile(t, updatedCertFile, testcerts.RotatedCert)
+
+	deleteFile(t, f.keyFile)
+	deleteFile(t, f.certFile)
+	writeSymlink(t, f.keyFile, updatedKeyFile)
+	writeSymlink(t, f.certFile, updatedCertFile)
+
+	// wait until cert is updated
+	_, err := retry.Do(func() (interface{}, bool, error) {
+		want, _ := tls.X509KeyPair(testcerts.RotatedCert, testcerts.RotatedKey)
+		if !reflect.DeepEqual(f.w.Get(), want) {
+			return nil, false, fmt.Errorf("Expected certificate not found:\ngot %v \nwant %v", f.w.Get(), want)
+		}
+
+		return nil, true, nil
+	})
+
+	if err != nil {
+		t.Fatalf("Error getting updated cert: %v", err)
+	}
+}
+
 type watcherFixture struct {
 	w  CertificateWatcher
 	ch chan struct{}
@@ -366,6 +420,22 @@ func (f *watcherFixture) waitForNoPollError(t *testing.T) {
 	return
 }
 
+func (f *watcherFixture) newTmpFile(t *testing.T) string {
+	t.Helper()
+
+	fi, err := ioutil.TempFile(f.folder, "")
+	if err != nil {
+		t.Fatalf("Error creating temp file: %v", err)
+	}
+
+	// Make sure the file doesn't exist
+	if err = os.Remove(fi.Name()); err != nil {
+		t.Fatalf("error deleting the just-created ttemp file: %v", err)
+	}
+
+	return fi.Name()
+}
+
 func (f *watcherFixture) cleanup() {
 	if f.ch != nil {
 		close(f.ch)
@@ -388,5 +458,22 @@ func deleteFile(t *testing.T, filename string) {
 	err := os.Remove(filename)
 	if err != nil {
 		t.Fatalf("Error deleting file(%q): %v", filename, err)
+	}
+}
+
+func moveFile(t *testing.T, source, destination string) {
+	t.Helper()
+
+	if err := os.Rename(source, destination); err != nil {
+		t.Fatalf("Error moving file: %v", err)
+	}
+}
+
+func writeSymlink(t *testing.T, linkfile string, sourcefile string) {
+	t.Helper()
+
+	err := os.Symlink(sourcefile, linkfile)
+	if err != nil {
+		t.Fatalf("error creating symlink file: %v", err)
 	}
 }
