@@ -211,7 +211,7 @@ func TestIngressGateway503DuringRuleChange(t *testing.T) {
 	}
 	defer newVirtService.Teardown()
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	var wg sync.WaitGroup
 	for cluster := range tc.Kube.Clusters {
 		wg.Add(1)

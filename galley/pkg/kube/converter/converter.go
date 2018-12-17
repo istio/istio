@@ -44,14 +44,19 @@ type Entry struct {
 	Resource     proto.Message
 }
 
-var converters = map[string]Fn{
-	// nolint: goimports
-	"identity":              identity,
-	"nil":                   nilConverter,
-	"legacy-mixer-resource": legacyMixerResource,
-	"auth-policy-resource":  authPolicyResource,
-	"kube-ingress-resource": kubeIngressResource,
-}
+var converters = func() map[string]Fn {
+	m := make(map[string]Fn)
+
+	// Why not simply declare it as a map? Because "make format" doesn't format in a way that
+	// is acceptable to the lint check-in gate, and nolint annotations do not work.
+	m["identity"] = identity
+	m["nil"] = nilConverter
+	m["legacy-mixer-resource"] = legacyMixerResource
+	m["auth-policy-resource"] = authPolicyResource
+	m["kube-ingress-resource"] = kubeIngressResource
+
+	return m
+}()
 
 // Get returns the named converter function, or panics if it is not found.
 func Get(name string) Fn {

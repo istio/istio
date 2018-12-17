@@ -485,7 +485,9 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
-	proxyIP := proxy.IPAddress
+
+	// There is only one IP for kube registry
+	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""
 
 	pod := c.pods.getPodByIP(proxyIP)
@@ -557,12 +559,15 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 					continue
 				}
 
-				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
-					out = append(out, getEndpoints(proxy.IPAddress, c, port, svcPort, svc))
+				// There is only one IP for kube registry
+				proxyIP := proxy.IPAddresses[0]
+
+				if hasProxyIP(ss.Addresses, proxyIP) {
+					out = append(out, getEndpoints(proxyIP, c, port, svcPort, svc))
 				}
 
-				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
-					nrEP := getEndpoints(proxy.IPAddress, c, port, svcPort, svc)
+				if hasProxyIP(ss.NotReadyAddresses, proxyIP) {
+					nrEP := getEndpoints(proxyIP, c, port, svcPort, svc)
 					out = append(out, nrEP)
 					if c.Env != nil {
 						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")

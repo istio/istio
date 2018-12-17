@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google"
+	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 )
 
 const maxStreams = 100000
@@ -124,7 +125,8 @@ func (s *Server) Stop() {
 // NewPlugins returns a slice of default Plugins.
 func NewPlugins(in []string) []plugin.Plugin {
 	var availablePlugins = map[string]plugin.Plugin{
-		plugin.GoogleIAM: iamclient.NewPlugin(),
+		plugin.GoogleIAM:           iamclient.NewPlugin(),
+		plugin.GoogleTokenExchange: stsclient.NewPlugin(),
 	}
 	var plugins []plugin.Plugin
 	for _, pl := range in {
