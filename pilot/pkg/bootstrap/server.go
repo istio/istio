@@ -218,6 +218,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if args.Namespace == "" {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
 	}
+	if args.KeepaliveOptions == nil {
+		args.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
 	if args.Config.ClusterRegistriesNamespace == "" {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace

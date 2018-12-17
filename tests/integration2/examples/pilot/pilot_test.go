@@ -16,13 +16,14 @@ package pilot
 
 import (
 	"fmt"
+	"testing"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
@@ -67,6 +68,23 @@ func TestHTTPKubernetes(t *testing.T) {
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Apps)
 
 	testHTTP(t, ctx)
+}
+
+func TestPermissive(t *testing.T) {
+	ctx := framework.GetContext(t)
+	ctx.RequireOrSkip(t, lifecycle.Test, &ids.Apps)
+	ctx.RequireOrSkip(t, lifecycle.Test, &ids.Galley)
+	gal := components.GetGalley(ctx, t)
+	gal.ApplyConfig(`
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "MeshPolicy"
+metadata:
+	name: "default"
+spec:
+	peers:
+	- mtls:
+			mode: PERMISSIVE
+`)
 }
 
 func TestHTTPNative(t *testing.T) {
