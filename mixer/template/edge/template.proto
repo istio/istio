@@ -34,7 +34,7 @@ option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_R
 // note that if the datatype of a field is not
 // istio.mixer.adapter.model.v1beta1.Value, then the expression's
 // [inferred
-// type](https://istio.io/docs/reference/config/mixer/expression-language#type-checking)
+// type](https://istio.io/docs/reference/config/mixer/expression-language/#type-checking)
 // must match the datatype of the field.
 //
 // Example config:
