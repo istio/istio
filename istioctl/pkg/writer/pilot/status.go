@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
@@ -103,5 +104,17 @@ func xdsStatus(sent, acked string) string {
 	if sent == acked {
 		return "SYNCED"
 	}
-	return "STALE"
+	timeSent, _ := parseTime(sent)
+	timeAcked, _ := parseTime(acked)
+	if timeAcked.Equal(time.Time{}) {
+		return "STALE (Never Acknowledged)"
+	}
+	timeDiff := timeSent.Sub(timeAcked)
+	return fmt.Sprintf("STALE (%v)", timeDiff.String())
+}
+
+func parseTime(s string) (time.Time, error) {
+	s = strings.Split(s, " m=+")[0]
+	layout := "2006-01-02 15:04:05 +0000 MST"
+	return time.Parse(layout, s)
 }
