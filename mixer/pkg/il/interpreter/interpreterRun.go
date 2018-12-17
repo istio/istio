@@ -868,6 +868,21 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			opstack[sp+1] = uint32(tu64 & 0xFFFFFFFF)
 			sp = sp + 2
 
+		case il.SizeS:
+			if sp < 1 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			sp = sp - 1
+			if t1 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tStr = heap[t1].(string)
+			ti64 := int64(len(tStr))
+			opstack[sp] = uint32(ti64 >> 32)
+			opstack[sp+1] = uint32(ti64 & 0xFFFFFFFF)
+			sp = sp + 2
+
 		case il.Jmp:
 			t1 = body[ip]
 			ip++

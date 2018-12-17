@@ -310,6 +310,9 @@ const (
 	// AddS pops two string values from the stack, adds their value and pushes the result
 	// back into stack. The operation follows Go's string concatenation semantics.
 	AddS Opcode = 215
+
+	// SizeS pops a string value from the stack, and pushes its length back into stack.
+	SizeS Opcode = 216
 )
 
 const (
@@ -770,6 +773,9 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 		// The name of the attribute.
 		OpcodeArgString,
 	}},
+
+	// SizeS pops a string and pushes it length.
+	SizeS: {name: "SizeS", keyword: "size_s"},
 }
 
 var opcodesByKeyword = func() map[string]Opcode {

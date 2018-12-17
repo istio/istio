@@ -3873,6 +3873,40 @@ end
 		},
 		CompileErr: `ADD($as) arity mismatch. Got 1 arg(s), expected 2 arg(s)`,
 	},
+	{
+		E:    `size("x")`,
+		Type: descriptor.INT64,
+		R:    int64(1),
+		IL: `
+fn eval() integer
+  apush_i 1
+  ret
+end
+`,
+	},
+	{
+		E:    `size(as)`,
+		Type: descriptor.INT64,
+		I: map[string]interface{}{
+			"as": "two",
+		},
+		R: int64(3),
+		IL: `
+fn eval() integer
+  resolve_s "as"
+  size_s
+  ret
+end
+`,
+	},
+	{
+		E:          `size(1)`,
+		CompileErr: `internal compiler error -- Size for type not yet implemented: integer`,
+	},
+	{
+		E:          `size()`,
+		CompileErr: `size() arity mismatch. Got 0 arg(s), expected 1 arg(s)`,
+	},
 }
 
 // TestInfo is a structure that contains detailed test information. Depending
