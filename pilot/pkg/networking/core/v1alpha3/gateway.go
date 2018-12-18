@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -299,7 +298,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 // to process HTTP and HTTPS servers along with virtualService.HTTP rules
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	_ *model.Proxy, _ *model.Environment, _ *model.PushContext, servers []*networking.Server, _ map[string]bool) []*filterChainOpts {
+	node *model.Proxy, _ *model.Environment, _ *model.PushContext, servers []*networking.Server, _ map[string]bool) []*filterChainOpts {
 
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
 	// Are we processing plaintext servers or HTTPS servers?
@@ -333,15 +332,17 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// Build a filter chain for each HTTPS server
 		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 		// where HTTPS server's TLS mode is not passthrough and not nil
-		enVal := os.Getenv("ENABLE_INGRESS_GATEWAY_AGENT")
-		enableIngressGatewayAgent, _ := strconv.ParseBool(enVal)
+		enableIngressSdsAgent := false
+		if enableSds, found := node.Metadata["INGRESS_SDS"]; found {
+			enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
+		}
 		for _, server := range servers {
 			o := &filterChainOpts{
 				// This works because we validate that only HTTPS servers can have same port but still different port names
 				// and that no two non-HTTPS servers can be on same port or share port names.
 				// Validation is done per gateway and also during merging
 				sniHosts:   getSNIHostsForServer(server),
-				tlsContext: buildGatewayListenerTLSContext(server, enableIngressGatewayAgent),
+				tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
 				httpOpts: &httpListenerOpts{
 					rds:              model.GatewayRDSRouteName(server),
 					useRemoteAddress: true,

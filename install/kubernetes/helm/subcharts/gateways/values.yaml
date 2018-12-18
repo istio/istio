@@ -9,6 +9,12 @@ enabled: true
 
 istio-ingressgateway:
   enabled: true
+  #
+  # ingress sds configuration
+  #
+  ingressSds:
+    enabled: false
+    image: node-agent-k8s
   labels:
     app: istio-ingressgateway
     istio: ingressgateway

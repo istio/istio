@@ -55,12 +55,12 @@ spec:
 {{- end }}
       containers:
 {{- if eq $key "istio-ingressgateway" }}
-{{- if $.Values.ingressGatewayAgent.enabled }}
-        - name: ingress-gateway-agent
-{{- if contains "/" $.Values.ingressGatewayAgent.image }}
-          image: "{{ $.Values.ingressGatewayAgent.image }}"
+{{- if $spec.ingressSds.enabled }}
+        - name: ingress-sds
+{{- if contains "/" $spec.ingressSds.image }}
+          image: "{{ $spec.ingressSds.image }}"
 {{- else }}
-          image: "{{ $.Values.global.hub }}/{{ $.Values.ingressGatewayAgent.image }}:{{ .Values.global.tag }}"
+          image: "{{ $.Values.global.hub }}/{{ $spec.ingressSds.image }}:{{ .Values.global.tag }}"
 {{- end }}
           volumeMounts:
           - mountPath: /var/run/ingress_gateway/uds_path
@@ -165,6 +165,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          {{- if eq $key "istio-ingressgateway" }}
+          {{- if $spec.ingressSds.enabled }}
+          - name: ISTIO_META_INGRESS_SDS
+            value: "true"
+          {{- end }}
+          {{- end }}
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
@@ -180,10 +186,12 @@ spec:
             mountPath: /var/run/secrets/tokens
           {{- end }}
           {{- end }}
-          {{- if $.Values.ingressGatewayAgent.enabled }}
+          {{- if eq $key "istio-ingressgateway" }}
+          {{- if $spec.ingressSds.enabled }}
           volumeMounts:
           - mountPath: /var/run/ingress_gateway/uds_path
             name: ingressGatewaySdsUdsPath
+          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -197,9 +205,11 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{- if $.Values.ingressGatewayAgent.enabled }}
+      {{- if eq $key "istio-ingressgateway" }}
+      {{- if $spec.ingressSds.enabled }}
       - name: ingressGatewaySdsUdsPath
         hostPath: /var/run/ingress_gateway/uds_path
+      {{- end }}
       {{- end }}
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath

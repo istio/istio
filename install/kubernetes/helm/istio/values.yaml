@@ -6,13 +6,6 @@ gateways:
   enabled: true
 
 #
-# ingress gateway agent configuration
-#
-ingressGatewayAgent:
-  enabled: false
-  image: node-agent-k8s
-
-#
 # sidecar-injector webhook configuration, refer to the
 # charts/sidecarInjectorWebhook/values.yaml for detailed configuration
 #

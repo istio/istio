@@ -1,0 +1,16 @@
+{{- range $key, $spec := .Values }}
+{{- if eq $key "istio-ingressgateway" }}
+{{- if $spec.ingressSds.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: {{ $key }}-sds-{{ .Release.Namespace }}
+  namespace: {{ $.Release.Namespace }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+---
+{{- end }}
+{{- end }}
+{{- end }}

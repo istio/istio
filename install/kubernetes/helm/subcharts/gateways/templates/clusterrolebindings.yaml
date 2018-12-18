@@ -19,28 +19,6 @@ subjects:
   name: {{ $key }}-service-account
   namespace: {{ $.Release.Namespace }}
 ---
-{{- if eq $key "istio-ingressgateway" }}
-{{- if .Values.ingressGatewayAgent.enabled }}
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: {{ $key }}-agent-{{ .Release.Namespace }}
-  labels:
-    app: {{ $spec.labels.istio }}
-    chart: {{ template "gateway.chart" $ }}
-    heritage: {{ $.Release.Service }}
-    release: {{ $.Release.Name }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ $key }}-agent-{{ .Release.Namespace }}
-subjects:
-- kind: ServiceAccount
-  name: {{ $key }}-service-account
-  namespace: {{ $.Release.Namespace }}
-{{- end }}
-{{- end }}
----
 {{- end }}
 {{- end }}
 {{- end }}

@@ -92,8 +92,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: ENABLE_INGRESS_GATEWAY_AGENT
-            value: "{{ .Values.ingressGatewayAgent.enabled }}"
           {{- if .Values.env }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
