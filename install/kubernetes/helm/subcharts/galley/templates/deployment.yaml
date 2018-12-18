@@ -55,6 +55,9 @@ spec:
 {{- else }}
           - --insecure=true
 {{- end }}
+{{- if not $.Values.global.useMCP }}
+          - --enable-server=false
+{{- end }}
           - --validation-webhook-config-file
           - /etc/istio/config/validatingwebhookconfiguration.yaml
           - --monitoringPort={{ .Values.global.monitoringPort }}
