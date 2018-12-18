@@ -561,7 +561,7 @@ func init() {
 		ListKind:  "ServiceList",
 		Singular:  "service",
 		Plural:    "services",
-		Version:   "v1beta1",
+		Version:   "v1",
 		Group:     "core",
 		Target:    metadata.Types.Get("type.googleapis.com/k8s.io.api.core.v1.ServiceSpec"),
 		Converter: converter.Get("kube-service-resource"),

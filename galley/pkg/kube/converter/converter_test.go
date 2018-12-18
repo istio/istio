@@ -650,6 +650,7 @@ func TestKubeServiceResource(t *testing.T) {
 				Hosts:      []string{"reviews.default.svc.cluster.local"},
 				Addresses:  []string{"10.39.241.161"},
 				Resolution: networking.ServiceEntry_STATIC,
+				Location:   networking.ServiceEntry_MESH_INTERNAL,
 				Ports: []*networking.Port{
 					{
 						Name:     "http",

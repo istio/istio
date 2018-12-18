@@ -228,6 +228,7 @@ func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _
 		Hosts:      []string{fmt.Sprintf("%s.%s.svc.%s", service.Name, service.Namespace, cfg.DomainSuffix)},
 		Addresses:  append([]string{service.Spec.ClusterIP}, service.Spec.ExternalIPs...),
 		Resolution: networking.ServiceEntry_STATIC,
+		Location:   networking.ServiceEntry_MESH_INTERNAL,
 	}
 	for _, kubePort := range service.Spec.Ports {
 		se.Ports = append(se.Ports, &networking.Port{
