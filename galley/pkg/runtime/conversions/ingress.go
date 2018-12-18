@@ -17,6 +17,7 @@ package conversions
 import (
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -99,6 +100,11 @@ func IngressToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, 
 		if f {
 			vs := old.Item.(*v1alpha3.VirtualService)
 			vs.Http = append(vs.Http, httpRoutes...)
+
+			// Preserve ordering
+			sort.Slice(vs.Http, func(i, j int) bool {
+				return strings.Compare(vs.Http[i].Match[0].Uri.String(), vs.Http[j].Match[0].Uri.String()) < 0
+			})
 		} else {
 			ingressByHost[host] = resource.Entry{
 				ID: resource.VersionedKey{
