@@ -4038,6 +4038,19 @@
                 "integer": 1
               }
             ]
+          },
+          {
+            "name": "Tls.AuthHeader",
+            "enum_fields": [
+              {
+                "name": "PLAIN",
+                "integer": 0
+              },
+              {
+                "name": "BEARER",
+                "integer": 1
+              }
+            ]
           }
         ],
         "messages": [
@@ -4237,6 +4250,11 @@
                 "id": 3,
                 "name": "timeout",
                 "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 4,
+                "name": "authentication",
+                "type": "Authentication"
               }
             ]
           },
@@ -4307,6 +4325,107 @@
                 "id": 2,
                 "name": "denominator",
                 "type": "DenominatorType"
+              }
+            ]
+          },
+          {
+            "name": "Authentication",
+            "fields": [
+              {
+                "id": 1,
+                "name": "tls",
+                "type": "Tls"
+              },
+              {
+                "id": 2,
+                "name": "mutual",
+                "type": "Mutual"
+              }
+            ]
+          },
+          {
+            "name": "Tls",
+            "fields": [
+              {
+                "id": 1,
+                "name": "ca_certificates",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "token_path",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "oauth",
+                "type": "OAuth"
+              },
+              {
+                "id": 4,
+                "name": "auth_header",
+                "type": "AuthHeader"
+              },
+              {
+                "id": 5,
+                "name": "custom_header",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "OAuth",
+            "fields": [
+              {
+                "id": 1,
+                "name": "client_id",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "client_secret",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "token_url",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "scopes",
+                "type": "string",
+                "is_repeated": true
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 5,
+                  "name": "endpoint_params",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Mutual",
+            "fields": [
+              {
+                "id": 1,
+                "name": "private_key",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "client_certificate",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "ca_certificates",
+                "type": "string"
               }
             ]
           }

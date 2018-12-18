@@ -388,7 +388,7 @@ message HTTPRoute {
   Destination mirror = 9;
 
   // Cross-Origin Resource Sharing policy (CORS). Refer to
-  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+  // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
   // for further details about cross origin resource sharing.
   CorsPolicy cors_policy = 10;
 

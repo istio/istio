@@ -407,7 +407,7 @@ type HTTPRoute struct {
 	// destination.
 	Mirror *Destination `protobuf:"bytes,9,opt,name=mirror" json:"mirror,omitempty"`
 	// Cross-Origin Resource Sharing policy (CORS). Refer to
-	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
 	// for further details about cross origin resource sharing.
 	CorsPolicy *CorsPolicy `protobuf:"bytes,10,opt,name=cors_policy,json=corsPolicy" json:"cors_policy,omitempty"`
 	// Use of `append_headers` is deprecated. Use the `headers`
