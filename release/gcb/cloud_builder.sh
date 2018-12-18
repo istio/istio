@@ -91,9 +91,10 @@ mkdir "/cni_tmp"
 
 cp -r "${CNI_OUT}/docker" "/cni_tmp"
 
+ls /cni_tmp
 go run ../istio/tools/license/get_dep_licenses.go --branch "${CB_BRANCH}" > LICENSES.txt
 add_license_to_tar_images "${REL_DOCKER_HUB}" "${ISTIO_VERSION}" "/cni_tmp"
-cp -r "/cni_tmp" "${OUTPUT_PATH}/"
+cp -r "/cni_tmp/docker" "${OUTPUT_PATH}/"
 
 # log where git thinks the build might be dirty
 git status
