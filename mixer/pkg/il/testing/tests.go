@@ -3901,7 +3901,7 @@ end
 	},
 	{
 		E:          `size(1)`,
-		CompileErr: `internal compiler error -- Size for type not yet implemented: integer`,
+		CompileErr: `size(1) arg 1 (1) typeError got INT64, expected STRING`,
 	},
 	{
 		E:          `size()`,
