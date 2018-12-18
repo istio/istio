@@ -257,7 +257,7 @@ def find_pilot_url():
     port_forward_pid = ""
     if pilot_svc:
         pilot_spec = json.loads(pilot_svc)['spec']
-        disovery_port = ""
+        discovery_port = ""
         legacy_discovery_port = ""
         for port in pilot_spec['ports']:
             if port['name'] == 'http-legacy-discovery':
