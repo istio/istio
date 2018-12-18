@@ -288,7 +288,7 @@ var (
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
-			watcher := envoy.NewWatcher(proxyConfig, role, certs, pilotSAN, agent.ConfigCh())
+			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
 			go agent.Run(ctx)
 			go watcher.Run(ctx)
