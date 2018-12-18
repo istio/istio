@@ -36,10 +36,6 @@ endif
 #.PHONY: test.integration.all
 test.integration.all: test.integration test.integration.kube
 
-# Generate integration test targets for local environment.
-test.integration.%:
-	$(GO) test -p 1 ${T} ./tests/integration2/$*/... --istio.test.env local
-
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube:
 	$(GO) test -p 1 ${T} ./tests/integration2/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} \
@@ -49,6 +45,9 @@ test.integration.%.kube:
 	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
 	${_INTEGRATION_TEST_INGRESS_FLAG}
 
+# Generate integration test targets for local environment.
+test.integration.%:
+	$(GO) test -p 1 ${T} ./tests/integration2/$*/... --istio.test.env local
 
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")

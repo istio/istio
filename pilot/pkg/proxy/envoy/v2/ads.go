@@ -861,11 +861,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	if discReq.Node == nil || discReq.Node.Id == "" {
 		return errors.New("missing node id")
 	}
-	nt, err := model.ParseServiceNode(discReq.Node.Id)
+	nt, err := model.ParseServiceNodeWithMetadata(discReq.Node.Id, model.ParseMetadata(discReq.Node.Metadata))
 	if err != nil {
 		return err
 	}
-	nt.Metadata = model.ParseMetadata(discReq.Node.Metadata)
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
 

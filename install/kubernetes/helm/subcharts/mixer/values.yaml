@@ -27,5 +27,11 @@ telemetry:
 podAnnotations: {}
 
 adapters:
+  kubernetesenv:
+    enabled: true
+  stdio:
+    enabled: true
+    outputAsJson: true
   prometheus:
+    enabled: true
     metricsExpiryDuration: 10m

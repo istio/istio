@@ -78,6 +78,11 @@ func intrinsics() []FunctionMetadata {
 			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
 			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
 		},
+		{
+			Name:          "size",
+			ReturnType:    config.INT64,
+			ArgumentTypes: []config.ValueType{config.STRING},
+		},
 	}
 }
 

@@ -234,11 +234,15 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 
-	instances, found := d.ip2instance[node.IPAddress]
-	if found {
-		return instances, nil
+	out := make([]*model.ServiceInstance, 0)
+
+	for _, ip := range node.IPAddresses {
+		instances, found := d.ip2instance[ip]
+		if found {
+			out = append(out, instances...)
+		}
 	}
-	return []*model.ServiceInstance{}, nil
+	return out, nil
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg

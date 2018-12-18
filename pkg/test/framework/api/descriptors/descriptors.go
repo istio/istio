@@ -53,6 +53,15 @@ var (
 		},
 	}
 
+	// Galley component
+	Galley = component.Descriptor{
+		ID:                ids.Galley,
+		IsSystemComponent: true,
+		Requires: []component.Requirement{
+			&ids.Environment,
+		},
+	}
+
 	// Citadel component
 	Citadel = component.Descriptor{
 		ID:                ids.Citadel,

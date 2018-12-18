@@ -17,6 +17,6 @@ opentracing==1.2.2
 opentracing-instrumentation==2.4.3
 requests==2.20.0
 simplejson==3.13.2
-urllib3==1.22
+urllib3==1.23
 visitor==0.1.3
 Werkzeug==0.13
