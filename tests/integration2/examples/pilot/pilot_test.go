@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -72,19 +74,23 @@ func TestHTTPKubernetes(t *testing.T) {
 
 func TestPermissive(t *testing.T) {
 	ctx := framework.GetContext(t)
-	ctx.RequireOrSkip(t, lifecycle.Test, &ids.Apps)
-	ctx.RequireOrSkip(t, lifecycle.Test, &ids.Galley)
-	gal := components.GetGalley(ctx, t)
-	gal.ApplyConfig(`
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "MeshPolicy"
-metadata:
-	name: "default"
-spec:
-	peers:
-	- mtls:
-			mode: PERMISSIVE
+	// TODO(incfly): rewrite tests to run it on both k8s and native env.
+	// switch go galley.Apply once it's turned on by default and supports k8s env.
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Apps)
+	env := kube.GetEnvironmentOrFail(ctx, t)
+	_, err := env.ApplyContents(env.TestNamespace(), `
+	apiVersion: "authentication.istio.io/v1alpha1"
+	kind: "MeshPolicy"
+	metadata:
+		name: "default"
+	spec:
+		peers:
+		- mtls:
+				mode: PERMISSIVE
 `)
+	if err != nil {
+		t.Fatalf("failed to apply content %v", err)
+	}
 }
 
 func TestHTTPNative(t *testing.T) {
