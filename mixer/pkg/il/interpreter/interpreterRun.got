@@ -635,6 +635,13 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			tu64 = math.Float64bits(tf64)
 			STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
 
+		case il.SizeS:
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t1)
+			GET_HEAP_VALUE_STRING(t1, tStr)
+			ti64 = int64(len(tStr))
+			STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
+
 		case il.Jmp:
 			LOAD_OP_CODE(t1)
 			ip = t1
