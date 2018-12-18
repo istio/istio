@@ -158,7 +158,7 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `gateways.enabled` | Specifies whether gateway(both Ingres and Egress) should be installed | true/false | `true` |
 | `gateways.istio-ingressgateway.enabled` | Specifies whether Ingress gateway should be installed | true/false | `true` |
 | `gateways.istio-egressgateway.enabled` | Specifies whether Egress gateway should be installed | true/false | `true` |
-| `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | `true` |
+| `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | true/false | `true` |
 | `galley.enabled` | Specifies whether Galley should be installed for server-side config validation | true/false | `true` |
 | `security.enabled` | Specifies whether Citadel should be installed | true/false | `true` |
 | `mixer.policy.enabled` | Specifies whether Mixer Policy should be installed | true/false | `true` |

@@ -25,8 +25,6 @@ import (
 
 	"github.com/howeyc/fsnotify"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -50,27 +48,18 @@ type CertSource struct {
 }
 
 type watcher struct {
-	role     *model.Proxy
-	config   meshconfig.ProxyConfig
-	certs    []CertSource
-	pilotSAN []string
-	updates  chan<- interface{}
+	certs   []CertSource
+	updates chan<- interface{}
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
 func NewWatcher(
-	config meshconfig.ProxyConfig,
-	role *model.Proxy,
 	certs []CertSource,
-	pilotSAN []string,
 	updates chan<- interface{}) Watcher {
 	return &watcher{
-		role:     role,
-		config:   config,
-		certs:    certs,
-		pilotSAN: pilotSAN,
-		updates:  updates,
+		certs:   certs,
+		updates: updates,
 	}
 }
 

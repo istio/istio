@@ -282,6 +282,8 @@ func (g *generator) generateFunction(f *ast.Function, depth int, mode nilMode, v
 		g.generateConditional(f, depth, mode, valueJmpLabel)
 	case "ADD":
 		g.generateAdd(f, depth)
+	case "size":
+		g.generateSize(f, depth)
 	default:
 		// The parameters to a function (and the function itself) is expected to exist, regardless of whether
 		// we're in a nillable context. The call will either succeed or error out.
@@ -321,6 +323,8 @@ func (g *generator) generateEq(f *ast.Function, depth int) {
 
 	case il.String:
 		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
+		// TODO: this does not handle constArg1 for extern calls -- not a problem since IL does not produce
+		// constant DNS, email, or URI values
 		switch dvt {
 		case descriptor.DNS_NAME:
 			g.builder.Call("dnsName_equal")
@@ -536,6 +540,24 @@ func (g *generator) generateAdd(f *ast.Function, depth int) {
 		g.builder.AddInteger()
 	default:
 		g.internalError("Add for type not yet implemented: %v", exprType)
+	}
+}
+
+func (g *generator) generateSize(f *ast.Function, depth int) {
+	// eliminate polymorphic size function in bytecode
+	exprType := g.evalType(f.Args[0])
+
+	switch exprType {
+	case il.String:
+		if f.Args[0].Const != nil {
+			constArg0 := f.Args[0].Const.Value.(string)
+			g.builder.APushInt(int64(len(constArg0)))
+		} else {
+			g.generate(f.Args[0], depth+1, nmNone, "")
+			g.builder.SizeString()
+		}
+	default:
+		g.internalError("Size for type not yet implemented: %v", exprType)
 	}
 }
 
