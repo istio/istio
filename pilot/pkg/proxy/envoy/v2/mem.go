@@ -309,9 +309,11 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 		return sd.WantGetProxyServiceInstances, nil
 	}
 	out := make([]*model.ServiceInstance, 0)
-	si, found := sd.ip2instance[node.IPAddress]
-	if found {
-		out = append(out, si...)
+	for _, ip := range node.IPAddresses {
+		si, found := sd.ip2instance[ip]
+		if found {
+			out = append(out, si...)
+		}
 	}
 	return out, sd.GetProxyServiceInstancesError
 }

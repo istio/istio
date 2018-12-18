@@ -447,7 +447,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 	var svcNode model.Proxy
 	svcNode.Type = model.Ingress
-	svcNode.IPAddress = "128.0.0.1"
+	svcNode.IPAddresses = []string{"128.0.0.1"}
 	svcNode.ID = "pod1.nsa"
 	svcNode.DNSDomain = "nsa.svc.cluster.local"
 	services, err := controller.GetProxyServiceInstances(&svcNode)

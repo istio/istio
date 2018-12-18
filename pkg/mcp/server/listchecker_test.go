@@ -28,6 +28,7 @@ import (
 func TestListAuthChecker(t *testing.T) {
 	testCases := []struct {
 		name         string
+		mode         AuthListMode
 		authInfo     credentials.AuthInfo
 		extractIDsFn func(exts []pkix.Extension) ([]string, error)
 		err          string
@@ -46,11 +47,13 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name:     "empty tlsinfo",
+			mode:     AuthWhiteList,
 			authInfo: credentials.TLSInfo{},
 			err:      "no allowed identity found in peer's authentication info",
 		},
 		{
 			name: "empty cert chain",
+			mode: AuthWhiteList,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -59,6 +62,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "error extracting ids",
+			mode: AuthWhiteList,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -69,6 +73,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "id mismatch",
+			mode: AuthWhiteList,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -79,6 +84,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "success",
+			mode: AuthWhiteList,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -88,6 +94,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "removed",
+			mode: AuthWhiteList,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -97,12 +104,34 @@ func TestListAuthChecker(t *testing.T) {
 			remove: true,
 			err:    "no allowed identity found in peer's authentication info",
 		},
+		{
+			name: "blacklist allow",
+			mode: AuthBlackList,
+			authInfo: credentials.TLSInfo{
+				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
+			},
+			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
+				return []string{}, nil
+			},
+		},
+		{
+			name: "blacklist block",
+			mode: AuthBlackList,
+			authInfo: credentials.TLSInfo{
+				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
+			},
+			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
+				return []string{"foo"}, nil
+			},
+			err: "id is blacklisted: foo",
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
 			c := NewListAuthChecker()
+			c.SetMode(testCase.mode)
 			if testCase.extractIDsFn != nil {
 				c.extractIDsFn = testCase.extractIDsFn
 			}
@@ -148,4 +177,56 @@ var _ credentials.AuthInfo = &authInfo{}
 
 func (a *authInfo) AuthType() string {
 	return ""
+}
+
+func TestListAuthChecker_Allowed(t *testing.T) {
+	cases := []struct {
+		mode   AuthListMode
+		id     string
+		testid string
+		expect bool
+	}{
+		{mode: AuthBlackList, testid: "foo", expect: true},
+		{mode: AuthBlackList, id: "foo", testid: "foo", expect: false},
+		{mode: AuthBlackList, id: "foo", testid: "bar", expect: true},
+		{mode: AuthWhiteList, testid: "foo", expect: false},
+		{mode: AuthWhiteList, id: "foo", testid: "foo", expect: true},
+		{mode: AuthWhiteList, id: "foo", testid: "bar", expect: false},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			checker := NewListAuthChecker()
+			if c.id != "" {
+				checker.Set(c.id)
+			}
+			checker.SetMode(c.mode)
+
+			result := checker.Allowed(c.testid)
+			if result != c.expect {
+				t.Fatalf("Mismatch: Got:%v, Wanted:%v", result, c.expect)
+			}
+		})
+	}
+}
+
+func TestListAuthChecker_String(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Panic detected: %v", r)
+		}
+	}()
+
+	c := NewListAuthChecker()
+	c.SetMode(AuthBlackList)
+
+	c.Set("1", "2", "3")
+
+	// Make sure it doesn't crash
+	_ = c.String()
+
+	c.SetMode(AuthWhiteList)
+
+	// Make sure it doesn't crash
+	_ = c.String()
 }

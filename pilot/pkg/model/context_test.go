@@ -35,11 +35,24 @@ func TestServiceNode(t *testing.T) {
 		},
 		{
 			in: &model.Proxy{
-				Type:      model.Ingress,
-				ID:        "random",
-				DNSDomain: "local",
+				Type:        model.Ingress,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3"},
+				DNSDomain:   "local",
 			},
-			out: "ingress~~random~local",
+			out: "ingress~10.3.3.3~random~local",
+		},
+		{
+			in: &model.Proxy{
+				Type:        model.Sidecar,
+				ID:          "random",
+				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
+				DNSDomain:   "local",
+				Metadata: map[string]string{
+					"ISTIO_META_INSTANCE_IPS": "10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6",
+				},
+			},
+			out: "sidecar~10.3.3.3~random~local",
 		},
 	}
 
@@ -48,7 +61,8 @@ func TestServiceNode(t *testing.T) {
 		if out != node.out {
 			t.Errorf("%#v.ServiceNode() => Got %s, want %s", node.in, out, node.out)
 		}
-		in, err := model.ParseServiceNode(node.out)
+		in, err := model.ParseServiceNodeWithMetadata(node.out, node.in.Metadata)
+
 		if err != nil {
 			t.Errorf("ParseServiceNode(%q) => Got error %v", node.out, err)
 		}

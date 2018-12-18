@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/components/citadel"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
+	"istio.io/istio/pkg/test/framework/runtime/components/galley"
 	"istio.io/istio/pkg/test/framework/runtime/components/ingress"
 	"istio.io/istio/pkg/test/framework/runtime/components/mixer"
 	"istio.io/istio/pkg/test/framework/runtime/components/pilot"
@@ -46,6 +47,7 @@ var (
 func init() {
 	// Register native components.
 	Native.Register(descriptors.Apps, true, apps.NewNativeComponent)
+	Native.Register(descriptors.Galley, true, galley.NewNativeComponent)
 	Native.Register(descriptors.Mixer, true, mixer.NewNativeComponent)
 	Native.Register(descriptors.Pilot, true, pilot.NewNativeComponent)
 	Native.Register(descriptors.PolicyBackend, true, policybackend.NewNativeComponent)
