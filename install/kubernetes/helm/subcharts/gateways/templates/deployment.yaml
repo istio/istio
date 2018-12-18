@@ -188,7 +188,6 @@ spec:
           {{- end }}
           {{- if eq $key "istio-ingressgateway" }}
           {{- if $spec.ingressSds.enabled }}
-          volumeMounts:
           - mountPath: /var/run/ingress_gateway/uds_path
             name: ingressGatewaySdsUdsPath
           {{- end }}
