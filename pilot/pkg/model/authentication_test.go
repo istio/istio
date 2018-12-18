@@ -183,9 +183,9 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 
 func TestConstructSdsSecretConfigForGatewayListener(t *testing.T) {
 	cases := []struct {
-		serviceAccount    string
-		sdsUdsPath        string
-		expected          *auth.SdsSecretConfig
+		serviceAccount string
+		sdsUdsPath     string
+		expected       *auth.SdsSecretConfig
 	}{
 		{
 			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
@@ -200,8 +200,8 @@ func TestConstructSdsSecretConfigForGatewayListener(t *testing.T) {
 								{
 									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 										GoogleGrpc: &core.GrpcService_GoogleGrpc{
-											TargetUri:          "/tmp/sdsuds.sock",
-											StatPrefix:         SDSStatPrefix,
+											TargetUri:  "/tmp/sdsuds.sock",
+											StatPrefix: SDSStatPrefix,
 										},
 									},
 								},
