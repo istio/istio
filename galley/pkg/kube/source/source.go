@@ -16,9 +16,7 @@ package source
 
 import (
 	"fmt"
-	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -29,25 +27,15 @@ import (
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/features/galley"
 	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
 
-const convertEnvVar = "ISTIO_CONVERT_K8S_SERVICE"
-
 func enabledKubeTypes() ([]kube.ResourceSpec, error) {
-	x := os.Getenv(convertEnvVar)
-	if x == "" {
-		x = "false"
-	}
-	b, err := strconv.ParseBool(x)
-	if err != nil {
-		return nil, fmt.Errorf("the value of %s is invalid: %v", convertEnvVar, err)
-	}
-
 	allTypes := kube_meta.Types.All()
-	if b {
+	if galley.ConvertK8SService {
 		return allTypes, nil
 	}
 	var filteredTypes []kube.ResourceSpec
@@ -60,7 +48,7 @@ func enabledKubeTypes() ([]kube.ResourceSpec, error) {
 	case 1:
 		return filteredTypes, nil
 	case 0:
-		return nil, fmt.Errorf("internal error: %s is set to false (or unset) but no service resource is registered", convertEnvVar)
+		return nil, fmt.Errorf("internal error: ConvertK8SService is false but no service resource is registered")
 	default:
 		return nil, fmt.Errorf("internal error: multiple (%d) service resources registered", d)
 	}

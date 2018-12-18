@@ -17,12 +17,12 @@ package source
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	"istio.io/istio/pkg/features/galley"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -86,10 +86,9 @@ func TestNewSource_Error(t *testing.T) {
 func TestNewSource_ServiceEntry(t *testing.T) {
 	typeCount := len(kube_meta.Types.All())
 	tests := []struct {
-		name     string
-		envVal   string
-		wantLen  int
-		wantFail bool
+		name    string
+		convert bool
+		wantLen int
 	}{
 		{
 			name:    "Unset",
@@ -97,36 +96,26 @@ func TestNewSource_ServiceEntry(t *testing.T) {
 		},
 		{
 			name:    "Disabled",
-			envVal:  "false",
+			convert: false,
 			wantLen: typeCount - 1,
 		},
 		{
 			name:    "Enabled",
-			envVal:  "true",
+			convert: true,
 			wantLen: typeCount,
-		},
-		{
-			name:     "Bugous",
-			envVal:   "boo!",
-			wantFail: true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			x := os.Getenv(convertEnvVar)
-			defer os.Setenv(convertEnvVar, x)
-			os.Setenv(convertEnvVar, test.envVal)
+			x := galley.ConvertK8SService
+			defer func() {
+				galley.ConvertK8SService = x
+			}()
+			galley.ConvertK8SService = test.convert
 
 			s, err := New(mockKubeMeta(), 0, &converter.Config{
 				Mesh: meshconfig.NewInMemory(),
 			})
-			if test.wantFail {
-				if err == nil {
-					t.Fatal("New expected to fail but succeeded")
-				}
-				t.Logf("New failed as expected: %v", err)
-				return
-			}
 			if err != nil {
 				t.Fatalf("New failed: %v", err)
 			}
