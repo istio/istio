@@ -14,7 +14,6 @@ resources:
   - kind:        "Service"
     singular:    "service"
     plural:      "services"
-    group:       "core"
     version:     "v1"
     proto:       "k8s.io.api.core.v1.ServiceSpec"
     protoPackage: "k8s.io/api/core/v1"

@@ -562,7 +562,7 @@ func init() {
 		Singular:  "service",
 		Plural:    "services",
 		Version:   "v1",
-		Group:     "core",
+		Group:     "",
 		Target:    metadata.Types.Get("type.googleapis.com/k8s.io.api.core.v1.ServiceSpec"),
 		Converter: converter.Get("kube-service-resource"),
 	})
