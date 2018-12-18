@@ -16,6 +16,7 @@ package creds
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
@@ -40,8 +41,8 @@ type pollingWatcher struct {
 	// to pass into one of the create methods.
 	caCertPool *x509.CertPool
 
-	certHash string
-	keyHash  string
+	certHash []byte
+	keyHash  []byte
 
 	// Keep the current error encountered when loading cert files while polling. This helps with testing.
 	pollErr error
@@ -140,7 +141,7 @@ func (p *pollingWatcher) loadFiles() (err error) {
 		p.pollErr = err
 	}()
 
-	var newKeyHash, newCertHash string
+	var newKeyHash, newCertHash []byte
 
 	// Go through files and stat.
 	if newKeyHash, err = getHashSum(p.options.KeyFile); err != nil {
@@ -153,7 +154,7 @@ func (p *pollingWatcher) loadFiles() (err error) {
 		return
 	}
 
-	if newKeyHash != p.keyHash || newCertHash != p.certHash {
+	if !bytes.Equal(newKeyHash, p.keyHash) || !bytes.Equal(newCertHash, p.certHash) {
 		var cert tls.Certificate
 		cert, err = loadCertPair(p.options.CertificateFile, p.options.KeyFile)
 		if err != nil {
@@ -183,10 +184,10 @@ func (p *pollingWatcher) Get() tls.Certificate {
 }
 
 // getHashSum is a helper func to calculate sha1 sum.
-func getHashSum(file string) (string, error) {
+func getHashSum(file string) ([]byte, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer f.Close()
 	r := bufio.NewReader(f)
@@ -195,8 +196,8 @@ func getHashSum(file string) (string, error) {
 
 	_, err = io.Copy(h, r)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
+	return h.Sum(nil), nil
 }
