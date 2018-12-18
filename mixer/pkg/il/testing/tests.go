@@ -400,6 +400,12 @@ end`,
 		conf: exprEvalAttrs,
 	},
 	{
+		E:    `request.header["user"] | "unknown"`,
+		Type: descriptor.STRING,
+		R:    "unknown",
+		conf: exprEvalAttrs,
+	},
+	{
 		E:    `origin.name | "users"`,
 		Type: descriptor.STRING,
 		I:    map[string]interface{}{},
@@ -5013,18 +5019,18 @@ end
 		CompileErr: `ADD(1, $as) arg 2 ($as) typeError got STRING, expected INT64`,
 	},
 	{
-		E: `as + 1.0`,
+		E: `as + 1.1`,
 		I: map[string]interface{}{
 			"as": "a",
 		},
-		CompileErr: `ADD($as, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
+		CompileErr: `ADD($as, 1.1) arg 2 (1.1) typeError got DOUBLE, expected STRING`,
 	},
 	{
-		E: `as + 1.0`,
+		E: `as + 1.1`,
 		I: map[string]interface{}{
 			"as": "a",
 		},
-		CompileErr: `ADD($as, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
+		CompileErr: `ADD($as, 1.1) arg 2 (1.1) typeError got DOUBLE, expected STRING`,
 	},
 	{
 		E: `ab + bb`,

@@ -35,7 +35,7 @@ import (
 // Externs contains the list of standard external functions used during evaluation.
 var Externs = map[string]interpreter.Extern{
 	"ip":                interpreter.ExternFromFn("ip", externIP),
-	"ip_equal":          interpreter.ExternFromFn("ip_equal", externIPEqual),
+	"ip_equal":          interpreter.ExternFromFn("ip_equal", ExternIPEqual),
 	"timestamp":         interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal":   interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
 	"timestamp_lt":      interpreter.ExternFromFn("timestamp_lt", externTimestampLt),
@@ -43,11 +43,11 @@ var Externs = map[string]interpreter.Extern{
 	"timestamp_gt":      interpreter.ExternFromFn("timestamp_gt", externTimestampGt),
 	"timestamp_ge":      interpreter.ExternFromFn("timestamp_ge", externTimestampGe),
 	"dnsName":           interpreter.ExternFromFn("dnsName", externDNSName),
-	"dnsName_equal":     interpreter.ExternFromFn("dnsName_equal", externDNSNameEqual),
+	"dnsName_equal":     interpreter.ExternFromFn("dnsName_equal", ExternDNSNameEqual),
 	"email":             interpreter.ExternFromFn("email", externEmail),
-	"email_equal":       interpreter.ExternFromFn("email_equal", externEmailEqual),
+	"email_equal":       interpreter.ExternFromFn("email_equal", ExternEmailEqual),
 	"uri":               interpreter.ExternFromFn("uri", externURI),
-	"uri_equal":         interpreter.ExternFromFn("uri_equal", externURIEqual),
+	"uri_equal":         interpreter.ExternFromFn("uri_equal", ExternURIEqual),
 	"match":             interpreter.ExternFromFn("match", externMatch),
 	"matches":           interpreter.ExternFromFn("matches", externMatches),
 	"startsWith":        interpreter.ExternFromFn("startsWith", externStartsWith),
@@ -134,7 +134,8 @@ func externIP(in string) ([]byte, error) {
 	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
 }
 
-func externIPEqual(a []byte, b []byte) bool {
+// ExternIPEqual compares two IP addresses for equality
+func ExternIPEqual(a []byte, b []byte) bool {
 	// net.IP is an alias for []byte, so these are safe to convert
 	ip1 := net.IP(a)
 	ip2 := net.IP(b)
@@ -190,7 +191,8 @@ func externDNSName(in string) (string, error) {
 var externDNSNameEqualProfile = idna.New(idna.MapForLookup(),
 	idna.BidiRule())
 
-func externDNSNameEqual(n1 string, n2 string) (bool, error) {
+// ExternDNSNameEqual compares two DNS names for equality
+func ExternDNSNameEqual(n1 string, n2 string) (bool, error) {
 	var err error
 
 	if n1, err = externDNSNameEqualProfile.ToUnicode(n1); err != nil {
@@ -234,7 +236,8 @@ func externEmail(in string) (string, error) {
 	return in, nil
 }
 
-func externEmailEqual(e1 string, e2 string) (bool, error) {
+// ExternEmailEqual compares two email addresses for equality
+func ExternEmailEqual(e1 string, e2 string) (bool, error) {
 	a1, err := mail.ParseAddress(e1)
 	if err != nil {
 		return false, err
@@ -248,7 +251,7 @@ func externEmailEqual(e1 string, e2 string) (bool, error) {
 	local1, domain1 := getEmailParts(a1.Address)
 	local2, domain2 := getEmailParts(a2.Address)
 
-	domainEq, err := externDNSNameEqual(domain1, domain2)
+	domainEq, err := ExternDNSNameEqual(domain1, domain2)
 	if err != nil {
 		return false, fmt.Errorf("error comparing e-mails '%s' and '%s': %v", e1, e2, err)
 	}
@@ -271,7 +274,8 @@ func externURI(in string) (string, error) {
 	return in, nil
 }
 
-func externURIEqual(u1 string, u2 string) (bool, error) {
+// ExternURIEqual compares two URIs for equality
+func ExternURIEqual(u1 string, u2 string) (bool, error) {
 	url1, err := url.Parse(u1)
 	if err != nil {
 		return false, fmt.Errorf("error converting string to uri '%s': '%v'", u1, err)
@@ -296,7 +300,7 @@ func externURIEqual(u1 string, u2 string) (bool, error) {
 	if scheme1 == "http" || scheme1 == "https" {
 		// Special case http(s) URLs
 
-		dnsEq, err := externDNSNameEqual(url1.Hostname(), url2.Hostname())
+		dnsEq, err := ExternDNSNameEqual(url1.Hostname(), url2.Hostname())
 		if err != nil {
 			return false, err
 		}
