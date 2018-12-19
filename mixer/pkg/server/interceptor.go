@@ -86,6 +86,15 @@ func TracingServerInterceptor(tracer opentracing.Tracer) grpc.UnaryServerInterce
 		if !ok {
 			md = metadata.New(nil)
 		}
+
+		sampled := true
+		for _, val := range md.Get("x-b3-sampled") {
+			if strings.EqualFold(strings.ToLower(val), "0") {
+				sampled = false
+				break
+			}
+		}
+
 		spanContext, err := tracer.Extract(opentracing.HTTPHeaders, metadataReaderWriter{md})
 		if err != nil && err != opentracing.ErrSpanContextNotFound {
 			// TODO: establish some sort of error reporting mechanism here. We
@@ -95,7 +104,8 @@ func TracingServerInterceptor(tracer opentracing.Tracer) grpc.UnaryServerInterce
 			fmt.Printf("non nil error in trace extraction: %#v\n", err)
 		}
 		var serverSpan opentracing.Span
-		if err == opentracing.ErrSpanContextNotFound {
+
+		if !sampled || err == opentracing.ErrSpanContextNotFound {
 			serverSpan = defaultNoopSpan
 			fmt.Println("using noop span")
 		} else {
