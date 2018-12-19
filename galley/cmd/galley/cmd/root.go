@@ -107,11 +107,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resyncPeriod", 0,
 		"Resync period for rescanning Kubernetes resources")
-	rootCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "tlsCertFile", "/etc/istio/certs/cert-chain.pem",
+	rootCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "tlsCertFile", "/etc/certs/cert-chain.pem",
 		"File containing the x509 Certificate for HTTPS.")
-	rootCmd.PersistentFlags().StringVar(&validationArgs.KeyFile, "tlsKeyFile", "/etc/istio/certs/key.pem",
+	rootCmd.PersistentFlags().StringVar(&validationArgs.KeyFile, "tlsKeyFile", "/etc/certs/key.pem",
 		"File containing the x509 private key matching --tlsCertFile.")
-	rootCmd.PersistentFlags().StringVar(&validationArgs.CACertFile, "caCertFile", "/etc/istio/certs/root-cert.pem",
+	rootCmd.PersistentFlags().StringVar(&validationArgs.CACertFile, "caCertFile", "/etc/certs/root-cert.pem",
 		"File containing the caBundle that signed the cert/key specified by --tlsCertFile and --tlsKeyFile.")
 	rootCmd.PersistentFlags().StringVar(&livenessProbeOptions.Path, "livenessProbePath", server.DefaultLivenessProbeFilePath,
 		"Path to the file for the Galley liveness probe.")

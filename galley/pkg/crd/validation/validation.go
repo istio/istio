@@ -164,9 +164,9 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
 		Port:                          443,
-		CertFile:                      "/etc/istio/certs/cert-chain.pem",
-		KeyFile:                       "/etc/istio/certs/key.pem",
-		CACertFile:                    "/etc/istio/certs/root-cert.pem",
+		CertFile:                      "/etc/certs/cert-chain.pem",
+		KeyFile:                       "/etc/certs/key.pem",
+		CACertFile:                    "/etc/certs/root-cert.pem",
 		DeploymentAndServiceNamespace: "istio-system",
 		DeploymentName:                "istio-galley",
 		ServiceName:                   "istio-galley",

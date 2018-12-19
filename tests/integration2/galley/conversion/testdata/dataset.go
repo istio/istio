@@ -12,14 +12,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package galley
+package testdata
 
-import (
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
-)
-
-func TestMain(m *testing.M) {
-	framework.Run("galley_test", m)
-}
+//go:generate go-bindata --nocompress --nometadata --pkg testdata -o dataset.gen.go dataset/...

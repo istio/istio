@@ -275,6 +275,11 @@ func (f *Builder) AddInteger() {
 	f.op0(AddI)
 }
 
+// SizeString appends the "size_s" instruction to the byte code.
+func (f *Builder) SizeString() {
+	f.op0(SizeS)
+}
+
 func (f *Builder) jump(op Opcode, label string) {
 	adr, exists := f.labels[label]
 	if !exists {

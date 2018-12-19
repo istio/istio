@@ -175,7 +175,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	push *model.PushContext) ([]*xdsapi.Listener, error) {
 
 	mesh := env.Mesh
-	managementPorts := env.ManagementPorts(node.IPAddress)
 
 	proxyInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
@@ -200,7 +199,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			outboundListeners, _ = configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
 		}
 
-		mgmtListeners = buildSidecarInboundMgmtListeners(node, env, managementPorts, node.IPAddress)
+    // Let ServiceDiscovery decide which IP and Port are used for management if
+		// there are multiple IPs
+		mgmtListeners = make([]*xdsapi.Listener, 0)
+		for _, ip := range node.IPAddresses {
+			managementPorts := env.ManagementPorts(ip)
+			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
+			mgmtListeners = append(mgmtListeners, management...)
+		}
 
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		passthroughTCPProxy := &tcp_proxy.TcpProxy{
