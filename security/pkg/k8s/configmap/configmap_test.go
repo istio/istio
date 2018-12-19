@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package configmap
 
 import (
+	"fmt"
 	"testing"
 
 	"k8s.io/api/core/v1"
@@ -79,7 +80,7 @@ func TestInsertCATLSRootCert(t *testing.T) {
 		}
 
 		client.ClearActions()
-		controller := NewConfigMapController(tc.namespace, client.CoreV1())
+		controller := NewController(tc.namespace, client.CoreV1())
 
 		err := controller.InsertCATLSRootCert(tc.certToAdd)
 
@@ -154,7 +155,7 @@ func TestGetCATLSRootCert(t *testing.T) {
 		}
 
 		client.ClearActions()
-		controller := NewConfigMapController(tc.namespace, client.CoreV1())
+		controller := NewController(tc.namespace, client.CoreV1())
 
 		cert, err := controller.GetCATLSRootCert()
 
@@ -185,4 +186,21 @@ func createConfigMap(namespace string, data map[string]string) *v1.ConfigMap {
 		},
 		Data: data,
 	}
+}
+
+func checkActions(actual, expected []ktesting.Action) error {
+	if len(actual) != len(expected) {
+		return fmt.Errorf("unexpected number of actions, want %d but got %d", len(expected), len(actual))
+	}
+
+	for i, action := range actual {
+		expectedAction := expected[i]
+		verb := expectedAction.GetVerb()
+		resource := expectedAction.GetResource().Resource
+		if !action.Matches(verb, resource) {
+			return fmt.Errorf("unexpected %dth action, want %q but got %q", i, expectedAction, action)
+		}
+	}
+
+	return nil
 }
