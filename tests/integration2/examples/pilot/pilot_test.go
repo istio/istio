@@ -17,9 +17,6 @@ package pilot
 import (
 	"fmt"
 	"testing"
-	"time"
-
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
@@ -77,65 +74,16 @@ func TestPermissive(t *testing.T) {
 	ctx := framework.GetContext(t)
 	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment, &ids.Apps, &ids.Galley, &ids.Pilot)
-	// 	gal := components.GetGalley(ctx, t)
-	// 	gal.ApplyConfig(`
-	// apiVersion: "authentication.istio.io/v1alpha1"
-	// kind: "MeshPolicy"
-	// metadata:
-	// 	name: "default"
-	// spec:
-	// 	peers:
-	// 	- mtls:
-	// 			mode: PERMISSIVE
-	// `)
-	env, err := native.GetEnvironment(ctx)
-	if err != nil {
-		t.Error(err)
+	apps := components.GetApps(ctx, t)
+	a := apps.GetAppOrFail("a", t)
+	b := apps.GetAppOrFail("b", t)
+
+	be := b.EndpointsForProtocol(model.ProtocolGRPC)[0]
+	result := a.CallOrFail(be, components.AppCallOptions{}, t)[0]
+
+	if !result.IsOK() {
+		t.Fatalf("gRPC Request unsuccessful: %s", result.Body)
 	}
-	// _, err = env.ServiceManager.ConfigStore.Create(
-	// 	model.Config{
-	// 		ConfigMeta: model.ConfigMeta{
-	// 			Type:      model.AuthenticationPolicy.Type,
-	// 			Name:      "default",
-	// 			Namespace: "default",
-	// 		},
-	// 		Spec: &authn.Policy{
-	// 			// TODO: investigate why the policy can't work return err when target is specified.
-	// 			// Targets: []*authn.TargetSelector{
-	// 			// 	{
-	// 			// 		Name: "a",
-	// 			// 	},
-	// 			// },
-	// 			Peers: []*authn.PeerAuthenticationMethod{{
-	// 				Params: &authn.PeerAuthenticationMethod_Mtls{
-	// 					Mtls: &authn.MutualTls{
-	// 						Mode: authn.MutualTls_PERMISSIVE,
-	// 					},
-	// 				},
-	// 			}},
-	// 		},
-	// 	},
-	// )
-	// if err != nil {
-	// 	t.Error(err)
-	// }
-	for i := 0; i < 10; i++ {
-		specs, err := env.ServiceManager.ConfigStore.List(model.AuthenticationPolicy.Type, "default")
-		fmt.Println("jianfeih debug list specs, ", specs, env.ServiceManager.ConfigStore, "default", err)
-		time.Sleep(5 * time.Second)
-	}
-
-	// pilot := components.GetPilot(ctx, t)
-	// apps := components.GetApps(ctx, t)
-	// a := apps.GetAppOrFail("a", t)
-	// b := apps.GetAppOrFail("b", t)
-
-	// be := b.EndpointsForProtocol(model.ProtocolGRPC)[0]
-	// result := a.CallOrFail(be, components.AppCallOptions{}, t)[0]
-
-	// if !result.IsOK() {
-	// 	t.Fatalf("gRPC Request unsuccessful: %s", result.Body)
-	// }
 }
 
 func TestHTTPNative(t *testing.T) {
