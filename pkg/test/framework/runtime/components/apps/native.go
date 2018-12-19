@@ -238,6 +238,10 @@ func configDumpStr(a components.App) (string, error) {
 	return envoy.GetConfigDumpStr(a.(*nativeApp).agent.GetAdminPort())
 }
 
+func ConfigDumpStr(a components.App) (string, error) {
+	return envoy.GetConfigDumpStr(a.(*nativeApp).agent.GetAdminPort())
+}
+
 type appConfig struct {
 	serviceName      string
 	version          string
