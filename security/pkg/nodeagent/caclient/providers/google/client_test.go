@@ -46,6 +46,13 @@ func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCe
 	return nil, ca.Err
 }
 
+func (ca *mockCAServer) CreatePodCertificate(ctx context.Context, in *gcapb.IstioCertificateRequest) (*gcapb.IstioCertificateResponse, error) {
+	if ca.Err == nil {
+		return &gcapb.IstioCertificateResponse{CertChain: ca.Certs}, nil
+	}
+	return nil, ca.Err
+}
+
 func TestGoogleCAClient(t *testing.T) {
 	testCases := map[string]struct {
 		server       mockCAServer
