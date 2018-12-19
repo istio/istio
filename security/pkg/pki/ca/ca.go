@@ -245,7 +245,7 @@ func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, root
 }
 
 func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, keyCertBundle util.KeyCertBundle) error {
-	cert, _, _, _ := keyCertBundle.GetAllPem()
+	_, _, _, cert := keyCertBundle.GetAllPem()
 	certEncoded := base64.StdEncoding.EncodeToString(cert)
 	cmc := configmap.NewController(namespace, client)
 	return cmc.InsertCATLSRootCert(certEncoded)

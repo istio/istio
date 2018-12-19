@@ -150,7 +150,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	if err != nil {
 		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
 	}
-	cert, _, _, _ := ca.GetCAKeyCertBundle().GetAllPem()
+	_, _, _, cert := ca.GetCAKeyCertBundle().GetAllPem()
 	certFromConfigMap, err := base64.StdEncoding.DecodeString(strCertFromConfigMap)
 	if err != nil {
 		t.Errorf("Cannot decode the CA cert from configmap (%v)", err)
@@ -219,7 +219,7 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	if err != nil {
 		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
 	}
-	cert, _, _, _ := ca.GetCAKeyCertBundle().GetAllPem()
+	_, _, _, cert := ca.GetCAKeyCertBundle().GetAllPem()
 	certFromConfigMap, err := base64.StdEncoding.DecodeString(strCertFromConfigMap)
 	if err != nil {
 		t.Errorf("Cannot decode the CA cert from configmap (%v)", err)
@@ -275,7 +275,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	if err != nil {
 		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
 	}
-	cert, _, _, _ := ca.GetCAKeyCertBundle().GetAllPem()
+	_, _, _, cert := ca.GetCAKeyCertBundle().GetAllPem()
 	certFromConfigMap, err := base64.StdEncoding.DecodeString(strCertFromConfigMap)
 	if err != nil {
 		t.Errorf("Cannot decode the CA cert from configmap (%v)", err)
