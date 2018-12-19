@@ -15,6 +15,7 @@
 package conversion
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -50,34 +51,42 @@ func TestConversion(t *testing.T) {
 
 			gal := components.GetGalley(ctx, t)
 
-			input, err := d.LoadInputFile()
-			if err != nil {
-				t.Fatalf("Unable to load input test data: %v", err)
-			}
-
-			if d.HasMeshConfigFile() {
-				mc, err := d.LoadMeshConfigFile()
-				if err != nil {
-					t.Fatalf("Error loading Mesh config file: %v", err)
+			for i, fset := range d.FileSets() {
+				testName := d.TestName()
+				if len(d.FileSets()) != 1 {
+					testName = fmt.Sprintf("%s_%d", d.TestName(), i)
 				}
-				if err = gal.SetMeshConfig(string(mc)); err != nil {
-					t.Fatalf("Error setting Mesh config file: %v", err)
-				}
-			}
+				t.Run(testName, func(t *testing.T) {
+					input, err := fset.LoadInputFile()
+					if err != nil {
+						t.Fatalf("Unable to load input test data: %v", err)
+					}
 
-			expected, err := d.LoadExpectedResources()
-			if err != nil {
-				t.Fatalf("unable to load expected resources: %v", err)
-			}
+					if fset.HasMeshConfigFile() {
+						mc, err := fset.LoadMeshConfigFile()
+						if err != nil {
+							t.Fatalf("Error loading Mesh config file: %v", err)
+						}
+						if err = gal.SetMeshConfig(string(mc)); err != nil {
+							t.Fatalf("Error setting Mesh config file: %v", err)
+						}
+					}
 
-			if err = gal.ApplyConfig(string(input)); err != nil {
-				t.Fatalf("unable to apply config to Galley: %v", err)
-			}
+					expected, err := fset.LoadExpectedResources()
+					if err != nil {
+						t.Fatalf("unable to load expected resources: %v", err)
+					}
 
-			for typeURL, e := range expected {
-				if err = gal.WaitForSnapshot(typeURL, e...); err != nil {
-					t.Errorf("Error waiting for %s:\n%v\n", typeURL, err)
-				}
+					if err = gal.ApplyConfig(string(input)); err != nil {
+						t.Fatalf("unable to apply config to Galley: %v", err)
+					}
+
+					for typeURL, e := range expected {
+						if err = gal.WaitForSnapshot(typeURL, e...); err != nil {
+							t.Errorf("Error waiting for %s:\n%v\n", typeURL, err)
+						}
+					}
+				})
 			}
 		})
 	}

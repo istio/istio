@@ -22,34 +22,43 @@ import (
 
 // TestInfo about a particular test.
 type TestInfo struct {
+	files []*FileSet
+	Skipped        bool
+}
+
+// FileSet is the set of files to apply at each stage of running a test.
+type FileSet struct {
 	inputFile      string
 	expectedFile   string
 	meshConfigFile string
-	Skipped        bool
 }
 
 // TestName that is generated for this test.
 func (t TestInfo) TestName() string {
-	name := t.inputFile[:len(t.inputFile)-len(".yaml")]
+	name := t.files[0].inputFile[:len(t.files[0].inputFile)-len(".yaml")]
 	name = name[strings.Index(name, "/")+1:]
 	name = strings.Replace(name, "/", "_", -1)
 
 	return name
 }
 
+func (t TestInfo) FileSets() []*FileSet {
+	return t.files
+}
+
 // LoadInputFile returns the input yaml file for this test.
-func (t TestInfo) LoadInputFile() ([]byte, error) {
-	return Asset(t.inputFile)
+func (f FileSet) LoadInputFile() ([]byte, error) {
+	return Asset(f.inputFile)
 }
 
 // LoadExpectedFile returns the expected file for this test.
-func (t TestInfo) LoadExpectedFile() ([]byte, error) {
-	return Asset(t.expectedFile)
+func (f FileSet) LoadExpectedFile() ([]byte, error) {
+	return Asset(f.expectedFile)
 }
 
 // LoadExpectedResources loads and parses the expected resources from the expected file.
-func (t TestInfo) LoadExpectedResources() (map[string][]map[string]interface{}, error) {
-	b, err := t.LoadExpectedFile()
+func (f FileSet) LoadExpectedResources() (map[string][]map[string]interface{}, error) {
+	b, err := f.LoadExpectedFile()
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +91,11 @@ func (t TestInfo) LoadExpectedResources() (map[string][]map[string]interface{}, 
 }
 
 // HasMeshConfigFile returns true if there is a mesh config file for this test.
-func (t TestInfo) HasMeshConfigFile() bool {
-	return t.meshConfigFile != ""
+func (f FileSet) HasMeshConfigFile() bool {
+	return f.meshConfigFile != ""
 }
 
 // LoadMeshConfigFile returns the meshconfigfile for this test.
-func (t TestInfo) LoadMeshConfigFile() ([]byte, error) {
-	return Asset(t.meshConfigFile)
+func (f FileSet) LoadMeshConfigFile() ([]byte, error) {
+	return Asset(f.meshConfigFile)
 }
