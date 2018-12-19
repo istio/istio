@@ -15,8 +15,12 @@ spec:
   servers:
   - port:
       number: 15031
-      name: http2-grafana
-      protocol: HTTP2
+      name: https-grafana
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/certs/cert-chain.pem
+      privateKey: /etc/certs/key.pem
     hosts:
     - "*"
 ---

@@ -10,8 +10,12 @@ spec:
   servers:
   - port:
       number: 15032
-      name: http2-tracing
-      protocol: HTTP2
+      name: https-tracing
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/certs/cert-chain.pem
+      privateKey: /etc/certs/key.pem
     hosts:
     - "*"
 ---
