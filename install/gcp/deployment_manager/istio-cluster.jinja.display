@@ -112,6 +112,22 @@ input:
       section: MONITORING
       boolean_group: MONITORING_GROUP
 
+    - name: enableKiali
+      title: Enable Kiali for deployment visualization
+      tooltip: Enable Kiali on the cluster
+      section: MONITORING
+      boolean_group: MONITORING_GROUP
+
+    - name: kialiUsername
+      title: Default Admin username for Kiali
+      tooltip: Default Admin username for Kiali
+      section: MONITORING
+
+    - name: kialiPassword
+      title: Default Password for Kiali
+      tooltip: Default Password username for Kiali
+      section: MONITORING
+
   sections:
     - name: server
       title: Baseline GKE Cluster config
