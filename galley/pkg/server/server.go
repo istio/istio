@@ -41,7 +41,7 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-var scope = log.RegisterScope("runtime", "Galley runtime", 0)
+var scope = log.RegisterScope("server", "Galley server debugging", 0)
 
 // Server is the main entry point into the Galley code.
 type Server struct {
@@ -120,6 +120,13 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		}
 	}
 
+	defer func() {
+		// If return with error, need to close the server.
+		if err != nil {
+			_ = s.Close()
+		}
+	}()
+
 	processorCfg := runtime.Config{
 		DomainSuffix: a.DomainSuffix,
 		Mesh:         mesh,
@@ -165,7 +172,6 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	}
 
 	if s.listener, err = p.netListen(network, address); err != nil {
-		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
@@ -200,7 +206,6 @@ func (s *Server) Wait() error {
 	}
 
 	err := <-s.shutdown
-	s.shutdown = nil
 	return err
 }
 
@@ -214,6 +219,7 @@ func (s *Server) Close() error {
 	if s.shutdown != nil {
 		s.grpcServer.GracefulStop()
 		_ = s.Wait()
+		s.shutdown = nil
 	}
 
 	if s.controlZ != nil {
