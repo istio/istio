@@ -2,11 +2,13 @@ package performance
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,9 +32,9 @@ import (
 )
 
 var (
-	serviceEntryCount = flag.Int("count", 1000, "Number of Service Entries to register")
-	terminateAfter    = flag.Int("after", 60, "Number of seconds to run the test")
-	// TODO: configure number of envoys
+	serviceEntryCount = flag.Int("serviceEntryCount", 1000, "Number of Service Entries to register")
+	terminateAfter    = flag.Int("terminateAfter", 60, "Number of seconds to run the test")
+	envoyCount        = flag.Int("adsc", 1, "Number of concurrent envoys to connect to pilot")
 )
 
 const (
@@ -42,6 +44,11 @@ const (
 )
 
 func TestServiceEntry(t *testing.T) {
+	t.Logf("running performance test with the following parameters { Number of ServiceEntry: %d, Number of Envoys: %d, Total test time: %ds }",
+		*serviceEntryCount,
+		*envoyCount,
+		*terminateAfter)
+
 	g := gomega.NewGomegaWithT(t)
 
 	t.Log("building & starting mock mcp server...")
@@ -51,12 +58,17 @@ func TestServiceEntry(t *testing.T) {
 
 	go runSnapshot(mcpServer)
 
-	tearDown := initLocalPilotTestEnv(t, mcpServer.Port, pilotGrpcPort, pilotDebugPort)
+	debugAddr := fmt.Sprintf("127.0.0.1:%d", pilotDebugPort)
+	pilotAddr := fmt.Sprintf("127.0.0.1:%d", pilotGrpcPort)
+
+	tearDown := initLocalPilotTestEnv(t, mcpServer.Port, pilotAddr, debugAddr)
 	defer tearDown()
 
-	t.Log("run edge router envoy...")
-	adsc := adsConnectAndWait(pilotGrpcPort)
-	defer adsc.Close()
+	t.Log("run sidecar envoy(s)...")
+	adscs := adsConnectAndWait(*envoyCount, pilotAddr)
+	for _, adsc := range adscs {
+		defer adsc.Close()
+	}
 
 	t.Log("check for service entries in pilot's debug endpoint...")
 	g.Eventually(func() (int, error) {
@@ -64,14 +76,19 @@ func TestServiceEntry(t *testing.T) {
 	}, "30s", "1s").Should(gomega.Equal(*serviceEntryCount))
 
 	t.Log("check for registered endpoints in envoys's debug endpoint...")
-	g.Eventually(func() (int, error) {
-		var data map[string]interface{}
-		err = json.Unmarshal([]byte(adsc.EndpointsJSON()), &data)
-		if err != nil {
-			return 0, err
+	g.Eventually(func() error {
+		for _, adsc := range adscs {
+			var data map[string]interface{}
+			err = json.Unmarshal([]byte(adsc.EndpointsJSON()), &data)
+			if err != nil {
+				return err
+			}
+			if len(data) != *serviceEntryCount {
+				return errors.New("endpoint not registered")
+			}
 		}
-		return len(data), nil
-	}, "30s", "1s").Should(gomega.Equal(*serviceEntryCount))
+		return nil
+	}, "30s", "1s").ShouldNot(gomega.HaveOccurred())
 
 	terminate()
 }
@@ -126,24 +143,26 @@ func terminate() {
 	<-time.After(time.Second * time.Duration(*terminateAfter))
 }
 
-func adsConnectAndWait(grpcPort uint16) *adsc.ADSC {
-	pilotAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
-	c, err := adsc.Dial(pilotAddr, "", &adsc.Config{
-		IP: "127.0.0.1",
-	})
-	if err != nil {
-		log.Fatalf("Error connecting %s\n", err)
-	}
-	c.Watch()
-	_, err = c.Wait("rds", 10*time.Second)
-	if err != nil {
-		log.Fatalf("Error getting initial config %s\n", err)
-	}
+func adsConnectAndWait(n int, pilotAddr string) (adscs []*adsc.ADSC) {
+	for i := 0; i < n; i++ {
+		c, err := adsc.Dial(pilotAddr, "", &adsc.Config{
+			IP: net.IPv4(10, 10, byte(i/256), byte(i%256)).String(),
+		})
+		if err != nil {
+			log.Fatalf("Error connecting %s\n", err)
+		}
+		c.Watch()
+		_, err = c.Wait("rds", 10*time.Second)
+		if err != nil {
+			log.Fatalf("Error getting initial config %s\n", err)
+		}
 
-	if len(c.EDS) == 0 {
-		log.Fatal("No endpoints")
+		if len(c.EDS) == 0 {
+			log.Fatal("No endpoints")
+		}
+		adscs = append(adscs, c)
 	}
-	return c
+	return adscs
 }
 
 func runMcpServer() (*mcptest.Server, error) {
@@ -151,7 +170,7 @@ func runMcpServer() (*mcptest.Server, error) {
 	for i, m := range model.IstioConfigTypes {
 		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
 	}
-	server, err := mcptest.NewServer(8898, supportedTypes)
+	server, err := mcptest.NewServer(0, supportedTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -159,10 +178,8 @@ func runMcpServer() (*mcptest.Server, error) {
 	return server, nil
 }
 
-func initLocalPilotTestEnv(t *testing.T, mcpPort, grpcPort, debugPort int) util.TearDownFunc {
+func initLocalPilotTestEnv(t *testing.T, mcpPort int, grpcAddr, debugAddr string) util.TearDownFunc {
 	mixerEnv.NewTestSetup(mixerEnv.PilotMCPTest, t)
-	debugAddr := fmt.Sprintf("127.0.0.1:%d", debugPort)
-	grpcAddr := fmt.Sprintf("127.0.0.1:%d", grpcPort)
 	_, tearDown := util.EnsureTestServer(addMcpAddrs(mcpPort), setupPilotDiscoveryHTTPAddr(debugAddr), setupPilotDiscoveryGrpcAddr(grpcAddr))
 	return tearDown
 }
