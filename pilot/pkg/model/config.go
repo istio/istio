@@ -817,6 +817,7 @@ func (store *istioConfigStore) AuthenticationPolicyByDestination(service *Servic
 	}
 	namespace := service.Attributes.Namespace
 	specs, err := store.List(AuthenticationPolicy.Type, namespace)
+	fmt.Println("jianfeih debug list in the config.go ", specs, namespace, service.Hostname)
 	if err != nil {
 		return nil
 	}

@@ -62,7 +62,7 @@ func NewEnvironment() (api.Component, error) {
 			ConfigMeta: model.ConfigMeta{
 				Type:      model.AuthenticationPolicy.Type,
 				Name:      "default",
-				Namespace: "default",
+				Namespace: "istio-system",
 			},
 			Spec: &authn.Policy{
 				// TODO: investigate why the policy can't work return err when target is specified.
