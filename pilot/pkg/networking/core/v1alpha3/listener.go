@@ -386,6 +386,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 		for _, p := range configgen.Plugins {
 			chains := p.OnInboundFilterChains(pluginParams)
+			if instance.Service.Hostname == "a.istio-system.svc.local" {
+				fmt.Println("jianfeih debug inbound filter chains ", instance.Service.Hostname, chains, instance.Endpoint.Port)
+			}
 			if len(chains) == 0 {
 				continue
 			}

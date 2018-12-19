@@ -86,7 +86,7 @@ func TestPermissive(t *testing.T) {
 		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
 	}
 
-	config, err := appst.ConfigDumpStr(a)
+	config, err := appst.ConfigDumpStr(b)
 	fmt.Println("jianfeih debug config ", config, err)
 }
 

@@ -384,6 +384,7 @@ func (a *pilotAgent) start(serviceName, version string, serviceManager *service.
 	}
 
 	nodeID := f.generateServiceNode(serviceName)
+	fmt.Println("jianfeih debug current nodeid ", nodeID)
 
 	// Create the YAML configuration file for Envoy.
 	if err = a.createYamlFile(serviceName, nodeID, f); err != nil {

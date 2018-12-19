@@ -167,10 +167,10 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	port := in.ServiceInstance.Endpoint.ServicePort
 	authnPolicy := model.GetConsolidateAuthenticationPolicy(in.Env.IstioConfigStore, in.ServiceInstance.Service, port)
-	fmt.Println("jianfeih debug hitting authn plugin ", in.Env.IstioConfigStore)
-	if authnPolicy != nil {
-		fmt.Println("jianfeih debug333 authn plugin ", *authnPolicy)
-	}
+	// fmt.Println("jianfeih debug hitting authn plugin ", in.Env.IstioConfigStore)
+	// if authnPolicy != nil {
+	// 	fmt.Println("jianfeih debug333 authn plugin ", *authnPolicy)
+	// }
 	return setupFilterChains(authnPolicy, in.Env.Mesh.SdsUdsPath, in.Env.Mesh.EnableSdsTokenMount, in.Env.Mesh.SdsUseK8SSaJwt)
 }
 
