@@ -13,7 +13,6 @@ metadata:
 data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
-    rewriteAppHTTPProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
     template: |-
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:

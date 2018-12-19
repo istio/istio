@@ -145,13 +145,10 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
-	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
-	// will be rewritten to be redirected by pilot agent.
-	RewriteAppHTTPProbe bool                          `yaml:"rewriteAppHTTPProbe"`
-	InitContainers      []corev1.Container            `yaml:"initContainers"`
-	Containers          []corev1.Container            `yaml:"containers"`
-	Volumes             []corev1.Volume               `yaml:"volumes"`
-	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
+	InitContainers   []corev1.Container            `yaml:"initContainers"`
+	Containers       []corev1.Container            `yaml:"containers"`
+	Volumes          []corev1.Volume               `yaml:"volumes"`
+	ImagePullSecrets []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -184,7 +181,6 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 // into a kubernetes resource.
 type Params struct {
 	InitImage                    string                 `json:"initImage"`
-	RewriteAppHTTPProbe          bool                   `json:"rewriteAppHTTPProbe"`
 	ProxyImage                   string                 `json:"proxyImage"`
 	Verbosity                    int                    `json:"verbosity"`
 	SidecarProxyUID              uint64                 `json:"sidecarProxyUID"`

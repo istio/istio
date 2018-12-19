@@ -82,7 +82,6 @@ func TestIntoResourceFile(t *testing.T) {
 		readinessPeriodSeconds       uint32
 		readinessFailureThreshold    uint32
 		tproxy                       bool
-		rewriteAppHTTPProbe          bool
 	}{
 		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
@@ -131,16 +130,6 @@ func TestIntoResourceFile(t *testing.T) {
 		},
 		{
 			in:                           "hello-probes.yaml",
-			want:                         "hello-probes.yaml.no-rewrite.injected",
-			includeIPRanges:              DefaultIncludeIPRanges,
-			includeInboundPorts:          DefaultIncludeInboundPorts,
-			statusPort:                   DefaultStatusPort,
-			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
-			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
-			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
-		},
-		{
-			in:                           "hello-probes.yaml",
 			want:                         "hello-probes.yaml.injected",
 			includeIPRanges:              DefaultIncludeIPRanges,
 			includeInboundPorts:          DefaultIncludeInboundPorts,
@@ -148,7 +137,6 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
-			rewriteAppHTTPProbe:          true,
 		},
 		{
 			in:                           "hello.yaml",
@@ -231,7 +219,6 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
-			rewriteAppHTTPProbe:          true,
 		},
 		{
 			in:                           "hello-readiness-multi.yaml",
@@ -242,7 +229,6 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
-			rewriteAppHTTPProbe:          true,
 		},
 		{
 			in:                           "multi-init.yaml",
@@ -544,7 +530,6 @@ func TestIntoResourceFile(t *testing.T) {
 				ReadinessInitialDelaySeconds: c.readinessInitialDelaySeconds,
 				ReadinessPeriodSeconds:       c.readinessPeriodSeconds,
 				ReadinessFailureThreshold:    c.readinessFailureThreshold,
-				RewriteAppHTTPProbe:          c.rewriteAppHTTPProbe,
 			}
 			if c.imagePullPolicy != "" {
 				params.ImagePullPolicy = c.imagePullPolicy
