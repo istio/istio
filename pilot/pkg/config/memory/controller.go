@@ -69,11 +69,13 @@ func (c *controller) Get(typ, key, namespace string) *model.Config {
 
 func (c *controller) Create(config model.Config) (revision string, err error) {
 	if revision, err = c.configStore.Create(config); err == nil {
+		// fmt.Println("jianfeih debug mem controller create ", config)
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			config: config,
 			event:  model.EventAdd,
 		})
 	}
+	// fmt.Println("jianfeih debug mem controller ", revision, err)
 	return
 }
 

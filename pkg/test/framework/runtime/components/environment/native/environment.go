@@ -20,6 +20,7 @@ import (
 	"testing"
 	"text/template"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/api/component"
@@ -51,11 +52,41 @@ type Environment struct {
 // NewEnvironment factory function for the component
 func NewEnvironment() (api.Component, error) {
 	mesh := model.DefaultMeshConfig()
-	return &Environment{
+	env := &Environment{
 		Namespace:      service.Namespace,
 		Mesh:           &mesh,
 		ServiceManager: service.NewManager(),
-	}, nil
+	}
+	_, err := env.ServiceManager.ConfigStore.Create(
+		model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.AuthenticationPolicy.Type,
+				Name:      "default",
+				Namespace: "default",
+			},
+			Spec: &authn.Policy{
+				// TODO: investigate why the policy can't work return err when target is specified.
+				// Targets: []*authn.TargetSelector{
+				// 	{
+				// 		Name: "a",
+				// 	},
+				// },
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{
+						Mtls: &authn.MutualTls{
+							Mode: authn.MutualTls_PERMISSIVE,
+						},
+					},
+				}},
+			},
+		},
+	)
+	// for i := 0; i < 10; i++ {
+	// 	specs, err := env.ServiceManager.ConfigStore.List(model.AuthenticationPolicy.Type, "default")
+	// 	fmt.Println("jianfeih debug list specs, ", specs, env.ServiceManager.ConfigStore, "default", err)
+	// 	time.Sleep(5 * time.Second)
+	// }
+	return env, err
 }
 
 // GetEnvironment from the repository.

@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 )
@@ -93,39 +92,40 @@ func TestPermissive(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = env.ServiceManager.ConfigStore.Create(
-		model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      model.AuthenticationPolicy.Type,
-				Name:      "default",
-				Namespace: "default",
-			},
-			Spec: &authn.Policy{
-				// Targets: []*authn.TargetSelector{
-				// 	{
-				// 		Name: "a",
-				// 	},
-				// },
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{
-						Mtls: &authn.MutualTls{
-							Mode: authn.MutualTls_PERMISSIVE,
-						},
-					},
-				}},
-			},
-		},
-	)
-	if err != nil {
-		t.Error(err)
-	}
+	// _, err = env.ServiceManager.ConfigStore.Create(
+	// 	model.Config{
+	// 		ConfigMeta: model.ConfigMeta{
+	// 			Type:      model.AuthenticationPolicy.Type,
+	// 			Name:      "default",
+	// 			Namespace: "default",
+	// 		},
+	// 		Spec: &authn.Policy{
+	// 			// TODO: investigate why the policy can't work return err when target is specified.
+	// 			// Targets: []*authn.TargetSelector{
+	// 			// 	{
+	// 			// 		Name: "a",
+	// 			// 	},
+	// 			// },
+	// 			Peers: []*authn.PeerAuthenticationMethod{{
+	// 				Params: &authn.PeerAuthenticationMethod_Mtls{
+	// 					Mtls: &authn.MutualTls{
+	// 						Mode: authn.MutualTls_PERMISSIVE,
+	// 					},
+	// 				},
+	// 			}},
+	// 		},
+	// 	},
+	// )
+	// if err != nil {
+	// 	t.Error(err)
+	// }
 	for i := 0; i < 10; i++ {
 		specs, err := env.ServiceManager.ConfigStore.List(model.AuthenticationPolicy.Type, "default")
 		fmt.Println("jianfeih debug list specs, ", specs, env.ServiceManager.ConfigStore, "default", err)
 		time.Sleep(5 * time.Second)
 	}
 
-	// // pilot := components.GetPilot(ctx)
+	// pilot := components.GetPilot(ctx, t)
 	// apps := components.GetApps(ctx, t)
 	// a := apps.GetAppOrFail("a", t)
 	// b := apps.GetAppOrFail("b", t)
