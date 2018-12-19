@@ -17,8 +17,9 @@ package pilot
 import (
 	"fmt"
 	"testing"
+	"time"
 
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 
+	authn "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test"
 )
@@ -74,23 +76,66 @@ func TestHTTPKubernetes(t *testing.T) {
 
 func TestPermissive(t *testing.T) {
 	ctx := framework.GetContext(t)
-	// TODO(incfly): rewrite tests to run it on both k8s and native env.
-	// switch go galley.Apply once it's turned on by default and supports k8s env.
-	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Apps)
-	env := kube.GetEnvironmentOrFail(ctx, t)
-	_, err := env.ApplyContents(env.TestNamespace(), `
-	apiVersion: "authentication.istio.io/v1alpha1"
-	kind: "MeshPolicy"
-	metadata:
-		name: "default"
-	spec:
-		peers:
-		- mtls:
-				mode: PERMISSIVE
-`)
+	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment, &ids.Apps, &ids.Galley, &ids.Pilot)
+	// 	gal := components.GetGalley(ctx, t)
+	// 	gal.ApplyConfig(`
+	// apiVersion: "authentication.istio.io/v1alpha1"
+	// kind: "MeshPolicy"
+	// metadata:
+	// 	name: "default"
+	// spec:
+	// 	peers:
+	// 	- mtls:
+	// 			mode: PERMISSIVE
+	// `)
+	env, err := native.GetEnvironment(ctx)
 	if err != nil {
-		t.Fatalf("failed to apply content %v", err)
+		t.Error(err)
 	}
+	_, err = env.ServiceManager.ConfigStore.Create(
+		model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      model.AuthenticationPolicy.Type,
+				Name:      "default",
+				Namespace: "default",
+			},
+			Spec: &authn.Policy{
+				// Targets: []*authn.TargetSelector{
+				// 	{
+				// 		Name: "a",
+				// 	},
+				// },
+				Peers: []*authn.PeerAuthenticationMethod{{
+					Params: &authn.PeerAuthenticationMethod_Mtls{
+						Mtls: &authn.MutualTls{
+							Mode: authn.MutualTls_PERMISSIVE,
+						},
+					},
+				}},
+			},
+		},
+	)
+	if err != nil {
+		t.Error(err)
+	}
+	for i := 0; i < 10; i++ {
+		specs, err := env.ServiceManager.ConfigStore.List(model.AuthenticationPolicy.Type, "default")
+		fmt.Println("jianfeih debug list specs, ", specs, env.ServiceManager.ConfigStore, "default", err)
+		time.Sleep(5 * time.Second)
+	}
+
+	// // pilot := components.GetPilot(ctx)
+	// apps := components.GetApps(ctx, t)
+	// a := apps.GetAppOrFail("a", t)
+	// b := apps.GetAppOrFail("b", t)
+
+	// be := b.EndpointsForProtocol(model.ProtocolGRPC)[0]
+	// result := a.CallOrFail(be, components.AppCallOptions{}, t)[0]
+
+	// if !result.IsOK() {
+	// 	t.Fatalf("gRPC Request unsuccessful: %s", result.Body)
+	// }
 }
 
 func TestHTTPNative(t *testing.T) {
