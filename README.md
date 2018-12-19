@@ -48,33 +48,6 @@ Istio is composed of these components:
    tracing and telemetry collection.
 
 - **Pilot** - A component responsible for configuring the proxies at runtime.
-
-- **Citadel** - A centralized component responsible for certificate issuance and rotation.
-
-- **Node Agent** - A per-node component responsible for certificate issuance and rotation.
-
-- **Galley**- Central component for validating, ingesting, aggregating, transforming and distributing config within Istio.
-
-Istio currently supports Kubernetes and Consul-based environments. We plan support for additional platforms such as
-Cloud Foundry, and Mesos in the near future.
-
-## Repositories
-
-The Istio project is divided across a few GitHub repositories.
-
-- [istio/istio](README.md). This is the main repository that you are
-currently looking at. It hosts Istio's core components and also
-the sample programs and the various documents that govern the Istio open source
-project. It includes:
-  - [security](security/). This directory contains security related code,
-including Citadel (acting as Certificate Authority), node agent, etc.
-  - [pilot](pilot/). This directory
-contains platform-specific code to populate the
-[abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
-when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/reference/config/istio.networking.v1alpha3/) into proxy specific configuration.
-  - [istioctl](istioctl/). This directory contains code for the
-[_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
   - [mixer](mixer/). This directory
 contains code to enforce various policies for traffic passing through the
 proxies, and collect telemetry data from proxies and services. There
