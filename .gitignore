@@ -56,6 +56,8 @@ install/kubernetes/istio-multicluster.yaml
 install/kubernetes/istio-remote.yaml
 install/kubernetes/istio-mcp.yaml
 install/kubernetes/istio-auth-mcp.yaml
+install/kubernetes/helm/istio/requirements.lock
+install/kubernetes/helm/istio-remote/requirements.lock
 samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 *.orig
 # Avoid accidental istio.VERSION changes
