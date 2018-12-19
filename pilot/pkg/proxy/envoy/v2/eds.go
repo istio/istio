@@ -89,7 +89,7 @@ type EdsCluster struct {
 // TODO: add prom metrics !
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
+func (s *DiscoveryServer) endpoints(_ []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for EDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: EndpointType,
@@ -368,7 +368,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
 		labels := push.SubsetToLabels(subsetName, hostname)
-		instances, err := edsCluster.discovery.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
+		instances, err := s.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
 		if err != nil {
 			adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
 			totalXDSInternalErrors.Add(1)

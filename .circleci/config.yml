@@ -236,7 +236,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make docker.all generate_e2e_test_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -272,7 +272,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make docker.all generate_e2e_test_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -485,7 +485,7 @@ jobs:
               export PATH=$GOPATH/bin:$PATH
               make localTestEnv
               set -o pipefail
-              make test.integration T=-v | tee -a /go/out/tests/build-log.txt
+              make test.integration.local T=-v | tee -a /go/out/tests/build-log.txt
         - <<: *recordZeroExitCodeIfTestPassed
         - <<: *recordNonzeroExitCodeIfTestFailed
         - <<: *markJobFinishesOnGCS
@@ -827,6 +827,9 @@ workflows:
           requires:
             - build
       - e2e-simple:
+          requires:
+            - build
+      - e2e-dashboard:
           requires:
             - build
       - racetest:

@@ -473,6 +473,7 @@ func (s *DiscoveryServer) ready(w http.ResponseWriter, req *http.Request) {
 	if s.ConfigController != nil {
 		if !s.ConfigController.HasSynced() {
 			w.WriteHeader(503)
+			return
 		}
 	}
 	w.WriteHeader(200)

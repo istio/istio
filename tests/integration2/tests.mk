@@ -7,9 +7,12 @@
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 _INTEGRATION_TEST_LOGGING_FLAG =
-_INTEGRATION_TEST_INGRESS_FLAG =
 ifneq ($(CI),)
     _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info
+endif
+
+_INTEGRATION_TEST_INGRESS_FLAG =
+ifeq (${TEST_ENV},minikube)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
 endif
 
@@ -33,10 +36,6 @@ endif
 #.PHONY: test.integration.all
 test.integration.all: test.integration test.integration.kube
 
-# Generate integration test targets for local environment.
-test.integration.%:
-	$(GO) test -p 1 ${T} ./tests/integration2/$*/... --istio.test.env local
-
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube:
 	$(GO) test -p 1 ${T} ./tests/integration2/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} \
@@ -46,6 +45,9 @@ test.integration.%.kube:
 	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
 	${_INTEGRATION_TEST_INGRESS_FLAG}
 
+# Generate integration test targets for local environment.
+test.integration.%:
+	$(GO) test -p 1 ${T} ./tests/integration2/$*/... --istio.test.env local
 
 JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
 JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
@@ -54,8 +56,8 @@ JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/
 TEST_PACKAGES = $(shell go list ./tests/integration2/... | grep -v /qualification | grep -v /examples)
 
 # All integration tests targeting local environment.
-.PHONY: test.integration
-test.integration: | $(JUNIT_REPORT)
+.PHONY: test.integration.local
+test.integration.local: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
 	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env local \

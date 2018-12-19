@@ -36,8 +36,10 @@ import (
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/hashicorp/go-multierror"
+	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,6 +71,7 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/filewatcher"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	mcpclient "istio.io/istio/pkg/mcp/client"
@@ -117,6 +120,14 @@ func init() {
 	// get the grpc server wired up
 	// This should only be set before any RPCs are sent or received by this program.
 	grpc.EnableTracing = true
+
+	// Export pilot version as metric for fleet analytics.
+	pilotVersion := prom.NewGaugeVec(prom.GaugeOpts{
+		Name: "pilot_info",
+		Help: "Pilot version and build information.",
+	}, []string{"version"})
+	prom.MustRegister(pilotVersion)
+	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
 }
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -168,6 +179,7 @@ type PilotArgs struct {
 	MCPServerAddrs       []string
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
+	KeepaliveOptions     *istiokeepalive.Options
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -191,13 +203,14 @@ type Server struct {
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
 	secureHTTPServer *http.Server
+	secureHTTPMutex  sync.RWMutex
 	secureGRPCServer *grpc.Server
+	secureGrpcMutex  sync.RWMutex
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
 	fileWatcher      filewatcher.FileWatcher
-	secureGrpcMutex  sync.RWMutex
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -494,6 +507,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*mcpclient.Client
 	var conns []*grpc.ClientConn
@@ -502,10 +516,12 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	for _, configSource := range s.mesh.ConfigSources {
 		url, err := url.Parse(configSource.Address)
 		if err != nil {
+			cancel()
 			return fmt.Errorf("invalid config URL %s %v", configSource.Address, err)
 		}
 		if url.Scheme == fsScheme {
 			if url.Path == "" {
+				cancel()
 				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 			}
 			store := memory.Make(model.IstioConfigTypes)
@@ -513,6 +529,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 			err := s.makeFileMonitor(url.Path, configController)
 			if err != nil {
+				cancel()
 				return err
 			}
 			configStores = append(configStores, configController)
@@ -575,8 +592,12 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 		}
 
+		keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:    args.KeepaliveOptions.Time,
+			Timeout: args.KeepaliveOptions.Timeout,
+		})
 		msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(args.MCPMaxMessageSize))
-		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption)
+		conn, err := grpc.DialContext(ctx, configSource.Address, securityOption, msgSizeOption, keepaliveOption)
 		if err != nil {
 			log.Errorf("Unable to dial MCP Server %q: %v", configSource.Address, err)
 			cancel()
@@ -839,9 +860,10 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case serviceregistry.MCPRegistry:
 			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
-			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
+			return fmt.Errorf("service registry %s is not supported", r)
 		}
 	}
+
 	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
 
 	// add service entry registry to aggregator by default
@@ -926,7 +948,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.mux = s.discoveryService.RestContainer.ServeMux
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
-	s.initGrpcServer()
+	s.initGrpcServer(args.KeepaliveOptions)
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
 		istio_networking.NewConfigGenerator(args.Plugins),
@@ -983,7 +1005,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 		}()
 
-		go s.secureGrpcStart(secureGrpcListener)
+		go s.secureGrpcStart(secureGrpcListener, args.KeepaliveOptions)
 
 		go func() {
 			<-stop
@@ -999,14 +1021,16 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			if s.secureGRPCServer != nil {
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
+				s.secureHTTPMutex.RLock()
 				s.secureHTTPServer.Shutdown(ctx)
+				s.secureHTTPMutex.RUnlock()
 				s.secureGrpcMutex.RLock()
 				s.secureGRPCServer.Stop()
 				s.secureGrpcMutex.RUnlock()
 			}
 		}()
 
-		return err
+		return nil
 	})
 
 	return nil
@@ -1030,13 +1054,13 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 	return nil
 }
 
-func (s *Server) initGrpcServer() {
-	grpcOptions := s.grpcServerOptions()
+func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
+	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 }
 
 // The secure grpc will start when the credentials are found.
-func (s *Server) secureGrpcStart(listener net.Listener) {
+func (s *Server) secureGrpcStart(listener net.Listener, options *istiokeepalive.Options) {
 	certDir := pilot.CertDir
 	if certDir == "" {
 		certDir = PilotCertDir
@@ -1078,7 +1102,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
-	opts := s.grpcServerOptions()
+	opts := s.grpcServerOptions(options)
 	opts = append(opts, grpc.Creds(creds))
 	s.secureGRPCServer = grpc.NewServer(opts...)
 
@@ -1086,6 +1110,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 
 	log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
 
+	s.secureHTTPMutex.Lock()
 	s.secureHTTPServer = &http.Server{
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{certificate},
@@ -1107,6 +1132,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 			}
 		}),
 	}
+	s.secureHTTPMutex.Unlock()
 
 	// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 	// on a listener
@@ -1114,7 +1140,7 @@ func (s *Server) secureGrpcStart(listener net.Listener) {
 	log.Infof("Stoppped listening on %s", listener.Addr().String())
 }
 
-func (s *Server) grpcServerOptions() []grpc.ServerOption {
+func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
 		prometheus.UnaryServerInterceptor,
@@ -1134,6 +1160,10 @@ func (s *Server) grpcServerOptions() []grpc.ServerOption {
 	grpcOptions := []grpc.ServerOption{
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    options.Time,
+			Timeout: options.Timeout,
+		}),
 	}
 
 	return grpcOptions

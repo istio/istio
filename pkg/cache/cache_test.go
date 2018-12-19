@@ -239,7 +239,7 @@ func testCacheEvictExpired(c ExpiringCache, t *testing.T) {
 	}
 }
 
-func testCacheEvicter(c ExpiringCache, t *testing.T) {
+func testCacheEvicter(c ExpiringCache) {
 	c.SetWithExpiration("A", "A", 1*time.Millisecond)
 
 	// loop until eviction happens. If eviction doesn't happen, this loop will get stuck forever which is fine
@@ -254,7 +254,7 @@ func testCacheEvicter(c ExpiringCache, t *testing.T) {
 	}
 }
 
-func testCacheFinalizer(gate *sync.WaitGroup, t *testing.T) {
+func testCacheFinalizer(gate *sync.WaitGroup) {
 	runtime.GC()
 	gate.Wait()
 }

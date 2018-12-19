@@ -61,9 +61,6 @@ spec:
 {{- if $.Values.global.useMCP }}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --mcpServerAddrs=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
     {{- else }}
           - --mcpServerAddrs=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
     {{- end }}
@@ -143,6 +140,9 @@ spec:
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
+        {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
           env:
           - name: POD_NAME

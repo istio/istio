@@ -42,10 +42,11 @@ type envoy struct {
 	pilotSAN  []string
 	opts      map[string]interface{}
 	errChan   chan error
+	nodeIPs   []string
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilotSAN []string, nodeIPs []string) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if logLevel != "" {
@@ -57,6 +58,7 @@ func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string, pilot
 		node:      node,
 		extraArgs: args,
 		pilotSAN:  pilotSAN,
+		nodeIPs:   nodeIPs,
 	}
 }
 
@@ -90,7 +92,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.config.CustomConfigFile
 	} else {
-		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ())
+		out, err := bootstrap.WriteBootstrap(&e.config, e.node, epoch, e.pilotSAN, e.opts, os.Environ(), e.nodeIPs)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config", err)
 			os.Exit(1) // Prevent infinite loop attempting to write the file, let k8s/systemd report

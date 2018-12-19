@@ -103,7 +103,7 @@ func inClusterRegistry(_ []string, fatalf shared.FormatFn, cr *closerRegister) *
 		Use:   "in_cluster_registry",
 		Short: "sets up a in-cluster registry in your Kubernetes cluster",
 		Run: func(cmd *cobra.Command, args []string) {
-			accessor, err := testKube.NewAccessor(sa.kubeconfig)
+			accessor, err := testKube.NewAccessor(sa.kubeconfig, "")
 			if err != nil {
 				fatalf("failed to create accessor. %v", err)
 			}

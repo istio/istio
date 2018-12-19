@@ -2,11 +2,17 @@
   "node": {
     "id": "{{ .nodeID }}",
     "cluster": "{{ .cluster }}",
-    {{ if .zone }}
     "locality": {
-      "zone": "{{ .zone }}"
+      {{ if .region }}
+      "region": "{{ .region }}",
+      {{ end }}
+      {{ if .zone }}
+      "zone": "{{ .zone }}",
+      {{ end }}
+      {{ if .sub_zone }}
+      "sub_zone": "{{ .sub_zone }}",
+      {{ end }}
     },
-    {{ end }}
     "metadata": {{ .meta_json_str }}
   },
   "stats_config": {

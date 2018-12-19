@@ -41,7 +41,11 @@ type StatsContext struct {
 	requestNacksTotal *stats.Int64Measure
 	sendFailuresTotal *stats.Int64Measure
 	recvFailuresTotal *stats.Int64Measure
+
+	views []*view.View
 }
+
+var _ Reporter = &StatsContext{}
 
 // SetClientsTotal updates the current client count to the given argument.
 func (s *StatsContext) SetClientsTotal(clients int64) {
@@ -107,6 +111,11 @@ func (s *StatsContext) RecordRequestNack(typeURL string, connectionID int64) {
 	stats.Record(ctx, s.requestNacksTotal.M(1))
 }
 
+func (s *StatsContext) Close() error {
+	view.Unregister(s.views...)
+	return nil
+}
+
 // NewStatsContext creates a new context for recording metrics using
 // OpenCensus. The specified prefix is prepended to all metric names and must
 // be a non-empty string.
@@ -154,20 +163,30 @@ func NewStatsContext(prefix string) *StatsContext {
 			stats.UnitDimensionless),
 	}
 
-	err := view.Register(
-		newView(ctx.clientsTotal, []tag.Key{}, view.LastValue()),
-		newView(ctx.requestSizesBytes, []tag.Key{ConnectionIDTag}, view.Distribution(byteBuckets...)),
-		newView(ctx.requestAcksTotal, []tag.Key{TypeURLTag}, view.Count()),
-		newView(ctx.requestNacksTotal, []tag.Key{ErrorCodeTag, TypeURLTag}, view.Count()),
-		newView(ctx.sendFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
-		newView(ctx.recvFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
-	)
+	ctx.addView(ctx.clientsTotal, []tag.Key{}, view.LastValue())
+	ctx.addView(ctx.requestSizesBytes, []tag.Key{ConnectionIDTag}, view.Distribution(byteBuckets...))
+	ctx.addView(ctx.requestAcksTotal, []tag.Key{TypeURLTag}, view.Count())
+	ctx.addView(ctx.requestNacksTotal, []tag.Key{ErrorCodeTag, TypeURLTag}, view.Count())
+	ctx.addView(ctx.sendFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count())
+	ctx.addView(ctx.recvFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count())
 
-	if err != nil {
+	return ctx
+}
+
+func (s *StatsContext) addView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) {
+	v := &view.View{
+		Name:        measure.Name(),
+		Description: measure.Description(),
+		Measure:     measure,
+		TagKeys:     keys,
+		Aggregation: aggregation,
+	}
+
+	if err := view.Register(v); err != nil {
 		panic(err)
 	}
 
-	return ctx
+	s.views = append(s.views, v)
 }
 
 var (
@@ -183,16 +202,6 @@ var (
 	// buckets are powers of 4
 	byteBuckets = []float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824}
 )
-
-func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-	return &view.View{
-		Name:        measure.Name(),
-		Description: measure.Description(),
-		Measure:     measure,
-		TagKeys:     keys,
-		Aggregation: aggregation,
-	}
-}
 
 func init() {
 	var err error

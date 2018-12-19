@@ -31,9 +31,6 @@
 {{- if $.Values.global.useMCP }}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
     {{- else }}
           - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
     {{- end }}
@@ -41,6 +38,11 @@
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
+          {{- if $.Values.adapters.useAdapterCRDs }}
+          - --useAdapterCRDs=true
+          {{- else }}
+          - --useAdapterCRDs=false
+          {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
@@ -98,6 +100,9 @@
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
+      {{- end }}
+      {{- if $.Values.global.trustDomain }}
+        - --trust-domain={{ $.Values.global.trustDomain }}
       {{- end }}
         env:
         - name: POD_NAME
@@ -171,6 +176,11 @@
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
+          {{- if $.Values.adapters.useAdapterCRDs }}
+          - --useAdapterCRDs=true
+          {{- else }}
+          - --useAdapterCRDs=false
+          {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}

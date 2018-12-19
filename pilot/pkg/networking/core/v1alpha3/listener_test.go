@@ -34,10 +34,10 @@ var (
 	tnow  = time.Now()
 	tzero = time.Time{}
 	proxy = model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: "1.1.1.1",
-		ID:        "v0.default",
-		Domain:    "default.example.org",
+		Type:        model.Sidecar,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
 	}
 )
 

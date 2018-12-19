@@ -14,9 +14,29 @@
 
 package attribute
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+	"time"
+)
 
 // Bag is a generic mechanism to access a set of attributes.
+//
+// The type of an attribute value is guaranteed to be one of the following:
+// - int64
+// - string
+// - float64
+// - bool
+// - time.Time
+// - time.Duration
+// - []byte (backed by a byte array)
+// - attribute.StringMap (backed by a map[string]string)
+//
+// Attribute value types are physical representation of the semantic Mixer types.
+// For example, IP addresses are represented as []byte.
+//
+// The following types are not fully implemented at the surface level:
+// - *attribute.List (note the pointer, backed by []interface{})
 type Bag interface {
 	fmt.Stringer
 
@@ -31,4 +51,47 @@ type Bag interface {
 
 	// Done indicates the bag can be reclaimed.
 	Done()
+}
+
+// Equal compares two attribute values.
+func Equal(this, that interface{}) bool {
+	if this == nil && that == nil {
+		return true
+	}
+
+	switch x := this.(type) {
+	case int64, string, float64, bool:
+		return x == that
+	case time.Time:
+		if y, ok := that.(time.Time); ok {
+			return x.Equal(y)
+		}
+	case time.Duration:
+		if y, ok := that.(time.Duration); ok {
+			return x == y
+		}
+	case []byte:
+		if y, ok := that.([]byte); ok {
+			return reflect.DeepEqual(x, y)
+		}
+	case StringMap:
+		if y, ok := that.(StringMap); ok {
+			return x.Equal(y)
+		}
+	case *List:
+		if y, ok := that.(*List); ok {
+			return x.Equal(y)
+		}
+	}
+	return false
+}
+
+// CheckType validates that an attribute value has a supported type.
+func CheckType(value interface{}) bool {
+	switch value.(type) {
+	case int64, string, float64, bool, time.Time, time.Duration, []byte, StringMap, *List:
+		return true
+	default:
+		return false
+	}
 }

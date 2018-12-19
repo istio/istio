@@ -50,6 +50,7 @@ type Server struct {
 	grpcServer *grpc.Server
 	processor  *runtime.Processor
 	mcp        *server.Server
+	reporter   server.Reporter
 	listener   net.Listener
 	controlZ   *ctrlz.Server
 	stopCh     chan struct{}
@@ -149,7 +150,8 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
-	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker, p.mcpMetricReporter("galley/"))
+	s.reporter = p.mcpMetricReporter("galley/")
+	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker, s.reporter)
 
 	// get the network stuff setup
 	network := "tcp"
@@ -224,6 +226,10 @@ func (s *Server) Close() error {
 
 	if s.listener != nil {
 		_ = s.listener.Close()
+	}
+
+	if s.reporter != nil {
+		_ = s.reporter.Close()
 	}
 
 	// final attempt to purge buffered logs

@@ -47,6 +47,11 @@ const (
 
 var dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 
+// This is for lint fix
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // createMixerValidator creates a mixer backend validator.
 // TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
 // config validation to remove galley dependency on mixer internal
@@ -62,19 +67,10 @@ func createMixerValidator() store.BackendValidator {
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
 }
 
-func webhookHTTPSHandlerReady(vc *WebhookParameters) error {
-	client := &http.Client{
-		Timeout: time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
-
+func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
-		Host:   fmt.Sprintf("localhost:%v", vc.Port),
+		Host:   fmt.Sprintf("127.0.0.1:%v", vc.Port),
 		Path:   httpsHandlerReadyPath,
 	}
 
@@ -87,6 +83,7 @@ func webhookHTTPSHandlerReady(vc *WebhookParameters) error {
 	if err != nil {
 		return fmt.Errorf("HTTP request to %v failed: %v", readinessURL, err)
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %v returned non-200 status=%v",
 			readinessURL, response.StatusCode)
@@ -126,8 +123,17 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 
 		go func() {
 			ready := false
+			client := &http.Client{
+				Timeout: time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				},
+			}
+
 			for {
-				if err := webhookHTTPSHandlerReady(vc); err != nil {
+				if err := webhookHTTPSHandlerReady(client, vc); err != nil {
 					validationReadinessProbe.SetAvailable(errors.New("not ready"))
 					scope.Infof("https handler for validation webhook is not ready: %v", err)
 					ready = false
@@ -158,9 +164,9 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 func DefaultArgs() *WebhookParameters {
 	return &WebhookParameters{
 		Port:                          443,
-		CertFile:                      "/etc/istio/certs/cert-chain.pem",
-		KeyFile:                       "/etc/istio/certs/key.pem",
-		CACertFile:                    "/etc/istio/certs/root-cert.pem",
+		CertFile:                      "/etc/certs/cert-chain.pem",
+		KeyFile:                       "/etc/certs/key.pem",
+		CACertFile:                    "/etc/certs/root-cert.pem",
 		DeploymentAndServiceNamespace: "istio-system",
 		DeploymentName:                "istio-galley",
 		ServiceName:                   "istio-galley",

@@ -62,8 +62,7 @@ func (c *httpProtocol) setHost(r *http.Request, host string) {
 	if r.URL.Scheme == "https" {
 		// Set SNI value to be same as the request Host
 		// For use with SNI routing tests
-		var httpTransport *http.Transport
-		httpTransport = c.client.Transport.(*http.Transport)
+		httpTransport := c.client.Transport.(*http.Transport)
 		httpTransport.TLSClientConfig.ServerName = host
 	}
 }

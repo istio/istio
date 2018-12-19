@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/idna"
 
 	config "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/lang/ast"
 )
@@ -49,6 +50,7 @@ var Externs = map[string]interpreter.Extern{
 	"endsWith":          interpreter.ExternFromFn("endsWith", externEndsWith),
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
+	"toLower":           interpreter.ExternFromFn("toLower", externToLower),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -113,6 +115,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 		Name:          "conditionalString",
 		ReturnType:    config.STRING,
 		ArgumentTypes: []config.ValueType{config.BOOL, config.STRING, config.STRING},
+	},
+	{
+		Name:          "toLower",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 }
 
@@ -324,8 +331,8 @@ func externEndsWith(str string, suffix string) bool {
 	return strings.HasSuffix(str, suffix)
 }
 
-func externEmptyStringMap() map[string]string {
-	return map[string]string{}
+func externEmptyStringMap() attribute.StringMap {
+	return attribute.WrapStringMap(nil)
 }
 
 func externConditionalString(condition bool, trueStr, falseStr string) string {
@@ -333,4 +340,8 @@ func externConditionalString(condition bool, trueStr, falseStr string) string {
 		return trueStr
 	}
 	return falseStr
+}
+
+func externToLower(str string) string {
+	return strings.ToLower(str)
 }

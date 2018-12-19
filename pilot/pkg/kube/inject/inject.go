@@ -32,7 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -145,10 +145,13 @@ const (
 // SidecarInjectionSpec collects all container types and volumes for
 // sidecar mesh injection
 type SidecarInjectionSpec struct {
-	InitContainers   []corev1.Container            `yaml:"initContainers"`
-	Containers       []corev1.Container            `yaml:"containers"`
-	Volumes          []corev1.Volume               `yaml:"volumes"`
-	ImagePullSecrets []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
+	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
+	// will be rewritten to be redirected by pilot agent.
+	RewriteAppHTTPProbe bool                          `yaml:"rewriteAppHTTPProbe"`
+	InitContainers      []corev1.Container            `yaml:"initContainers"`
+	Containers          []corev1.Container            `yaml:"containers"`
+	Volumes             []corev1.Volume               `yaml:"volumes"`
+	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -181,6 +184,7 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 // into a kubernetes resource.
 type Params struct {
 	InitImage                    string                 `json:"initImage"`
+	RewriteAppHTTPProbe          bool                   `json:"rewriteAppHTTPProbe"`
 	ProxyImage                   string                 `json:"proxyImage"`
 	Verbosity                    int                    `json:"verbosity"`
 	SidecarProxyUID              uint64                 `json:"sidecarProxyUID"`
@@ -279,7 +283,7 @@ func parsePorts(portsString string) ([]int, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed parsing port '%d': %v", port, err)
 			}
-			ports = append(ports, int(port))
+			ports = append(ports, port)
 		}
 	}
 	return ports, nil
@@ -482,7 +486,9 @@ func directory(filepath string) string {
 	return dir
 }
 
-func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec, metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (*SidecarInjectionSpec, string, error) { // nolint: lll
+func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
+	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
+	*SidecarInjectionSpec, string, error) { // nolint: lll
 	if err := validateAnnotations(metadata.GetAnnotations()); err != nil {
 		log.Infof("Invalid annotations: %v %v\n", err, metadata.GetAnnotations())
 		return nil, "", err
@@ -683,8 +689,23 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	}
 
 	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)
+
 	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
+
+	// Modify application containers' HTTP probe after appending injected containers.
+	// Because we need to extract istio-proxy's statusPort.
+	rewriteAppHTTPProbe(spec, podSpec)
+
+	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
+	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
+	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+	if meshconfig.EnableSdsTokenMount && meshconfig.SdsUdsPath != "" {
+		var grp = int64(1337)
+		podSpec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup: &grp,
+		}
+	}
 
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)

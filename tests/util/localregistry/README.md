@@ -7,7 +7,6 @@ Istio by allowing a developer to push docker images locally rather than to some 
 To run the local registry in your kubernetes cluster:
 
 ```shell
-$ kubectl create ns docker-registry
 $ kubectl apply -f ./tests/util/localregistry/localregistry.yaml
 ```
 

@@ -46,11 +46,11 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
-		ClusterID: "some-cluster-id",
-		Type:      model.Router,
-		IPAddress: "6.6.6.6",
-		Domain:    "default.example.org",
-		Metadata:  make(map[string]string),
+		ClusterID:   "some-cluster-id",
+		Type:        model.Router,
+		IPAddresses: []string{"6.6.6.6"},
+		DNSDomain:   "default.example.org",
+		Metadata:    make(map[string]string),
 	}
 
 	env := buildEnvForClustersWithRingHashLb()
@@ -140,11 +140,11 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
-		ClusterID: "some-cluster-id",
-		Type:      model.Sidecar,
-		IPAddress: "6.6.6.6",
-		Domain:    "com",
-		Metadata:  make(map[string]string),
+		ClusterID:   "some-cluster-id",
+		Type:        model.Sidecar,
+		IPAddresses: []string{"6.6.6.6"},
+		DNSDomain:   "com",
+		Metadata:    make(map[string]string),
 	}
 
 	env := buildEnvForClustersWithIstioMutualWithSNI("foo.com")
@@ -246,11 +246,11 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
-		ClusterID: "some-cluster-id",
-		Type:      model.Sidecar,
-		IPAddress: "6.6.6.6",
-		Domain:    "com",
-		Metadata:  make(map[string]string),
+		ClusterID:   "some-cluster-id",
+		Type:        model.Sidecar,
+		IPAddresses: []string{"6.6.6.6"},
+		DNSDomain:   "com",
+		Metadata:    make(map[string]string),
 	}
 
 	// Do not set tcp_keepalive anywhere
