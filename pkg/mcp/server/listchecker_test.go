@@ -25,6 +25,39 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+func TestListAuthChecker_String(t *testing.T) {
+	c := NewListAuthChecker()
+
+	want := `Allowed ids:
+`
+	if got := c.String(); got != want {
+		t.Fatalf("Wrong initial value: got %q want %q", got, want)
+	}
+
+	c.Add("foo")
+	want = `Allowed ids:
+foo`
+	if got := c.String(); got != want {
+		t.Fatalf("Wrong value after first Add(): got %q want %q", got, want)
+	}
+
+	c.Add("bar")
+	want = `Allowed ids:
+bar
+foo`
+	if got := c.String(); got != want {
+		t.Fatalf("Wrong value after second Add(): got %q want %q", got, want)
+	}
+
+	c.Set()
+	want = `Allowed ids:
+`
+	if got := c.String(); got != want {
+		t.Fatalf("Wrong value after clearing ids: got %q want %q", got, want)
+	}
+
+}
+
 func TestListAuthChecker(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -33,21 +66,26 @@ func TestListAuthChecker(t *testing.T) {
 		err          string
 		remove       bool // Remove the added entry
 		set          bool // Use set to add the entry
+		ids          []string
+		allowed      []string
 	}{
 		{
 			name:     "nil",
 			authInfo: nil,
 			err:      "denying by default",
+			ids:      []string{"foo"},
 		},
 		{
 			name:     "non-tlsinfo",
 			authInfo: &nonTLSInfo{},
 			err:      "unable to extract TLS info",
+			ids:      []string{"foo"},
 		},
 		{
 			name:     "empty tlsinfo",
 			authInfo: credentials.TLSInfo{},
 			err:      "no allowed identity found in peer's authentication info",
+			ids:      []string{"foo"},
 		},
 		{
 			name: "empty cert chain",
@@ -56,6 +94,7 @@ func TestListAuthChecker(t *testing.T) {
 			},
 
 			err: "no allowed identity found in peer's authentication info",
+			ids: []string{"foo"},
 		},
 		{
 			name: "error extracting ids",
@@ -66,6 +105,7 @@ func TestListAuthChecker(t *testing.T) {
 				return nil, fmt.Errorf("error extracting ids")
 			},
 			err: "no allowed identity found in peer's authentication info",
+			ids: []string{"foo"},
 		},
 		{
 			name: "id mismatch",
@@ -76,6 +116,7 @@ func TestListAuthChecker(t *testing.T) {
 				return []string{"bar"}, nil
 			},
 			err: "no allowed identity found in peer's authentication info",
+			ids: []string{"foo"},
 		},
 		{
 			name: "success",
@@ -85,6 +126,19 @@ func TestListAuthChecker(t *testing.T) {
 			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
 				return []string{"foo"}, nil
 			},
+			ids:     []string{"foo"},
+			allowed: []string{"foo"},
+		},
+		{
+			name: "success with Set()",
+			authInfo: credentials.TLSInfo{
+				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
+			},
+			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
+				return []string{"foo", "bar"}, nil
+			},
+			ids:     []string{"foo", "bar"},
+			allowed: []string{"foo", "bar"},
 		},
 		{
 			name: "removed",
@@ -96,6 +150,7 @@ func TestListAuthChecker(t *testing.T) {
 			},
 			remove: true,
 			err:    "no allowed identity found in peer's authentication info",
+			ids:    []string{"foo"},
 		},
 	}
 
@@ -107,10 +162,13 @@ func TestListAuthChecker(t *testing.T) {
 				c.extractIDsFn = testCase.extractIDsFn
 			}
 
-			if testCase.set {
-				c.Set("foo")
-			} else {
-				c.Add("foo")
+			switch len(testCase.ids) {
+			case 0:
+				t.Fatal("broken test: no ids set")
+			case 1:
+				c.Add(testCase.ids[0])
+			default:
+				c.Set(testCase.ids...)
 			}
 
 			if testCase.remove {
@@ -127,6 +185,14 @@ func TestListAuthChecker(t *testing.T) {
 			} else if testCase.err != "" {
 				t.Fatalf("Expected error not found: %s", testCase.err)
 			}
+
+			for _, id := range testCase.allowed {
+				if !c.Allowed(id) {
+					t.Fatalf("Allowed(%v) failed", id)
+				}
+			}
+
+			fmt.Println(c)
 		})
 	}
 }
