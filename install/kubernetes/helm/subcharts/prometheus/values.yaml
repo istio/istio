@@ -15,3 +15,6 @@ service:
   nodePort:
     enabled: false
     port: 32090
+
+gateway:
+  enabled: false
