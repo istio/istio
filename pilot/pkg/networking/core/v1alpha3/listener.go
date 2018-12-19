@@ -186,20 +186,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	var httpProxyListener, virtualListener *xdsapi.Listener
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	if env.Mesh.ProxyHttpPort > 0 {
+	if mesh.ProxyHttpPort > 0 {
 		httpProxyListener = configgen.buildSidecarOutboundHTTPProxyListener(env, node, push, proxyInstances)
 	}
 
 	if mesh.ProxyListenPort > 0 {
 		inboundListeners = configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
 
-		if configgen.PrecomputedOutboundListeners != nil {
+		if util.Is11Proxy(node) && configgen.PrecomputedOutboundListeners != nil {
 			outboundListeners = configgen.PrecomputedOutboundListeners
 		} else {
 			outboundListeners, _ = configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
 		}
 
-    // Let ServiceDiscovery decide which IP and Port are used for management if
+		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
 		mgmtListeners = make([]*xdsapi.Listener, 0)
 		for _, ip := range node.IPAddresses {

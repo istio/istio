@@ -677,19 +677,12 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 	out := xdshttpfault.HTTPFault{}
 	if in.Delay != nil {
 		out.Delay = &xdsfault.FaultDelay{Type: xdsfault.FaultDelay_FIXED}
-		if util.Is11Proxy(node) {
-			if in.Delay.Percentage != nil {
-				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
-			} else {
-				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
-			}
+		if in.Delay.Percentage != nil {
+			out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 		} else {
-			if in.Delay.Percentage != nil {
-				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
-			} else {
-				out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
-			}
+			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent)
 		}
+
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:
 			delayDuration := util.GogoDurationToDuration(d.FixedDelay)

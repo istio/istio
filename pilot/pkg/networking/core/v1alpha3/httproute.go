@@ -50,7 +50,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	switch node.Type {
 	case model.Sidecar:
 		// Check cached route first.
-		if configgen.PrecomputedOutboundRoutes[routeName] != nil {
+		if configgen.PrecomputedOutboundRoutes != nil && configgen.PrecomputedOutboundRoutes[routeName] != nil {
 			return configgen.PrecomputedOutboundRoutes[routeName], nil
 		}
 		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
