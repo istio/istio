@@ -25,39 +25,6 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func TestListAuthChecker_String(t *testing.T) {
-	c := NewListAuthChecker()
-
-	want := `Allowed ids:
-`
-	if got := c.String(); got != want {
-		t.Fatalf("Wrong initial value: got %q want %q", got, want)
-	}
-
-	c.Add("foo")
-	want = `Allowed ids:
-foo`
-	if got := c.String(); got != want {
-		t.Fatalf("Wrong value after first Add(): got %q want %q", got, want)
-	}
-
-	c.Add("bar")
-	want = `Allowed ids:
-bar
-foo`
-	if got := c.String(); got != want {
-		t.Fatalf("Wrong value after second Add(): got %q want %q", got, want)
-	}
-
-	c.Set()
-	want = `Allowed ids:
-`
-	if got := c.String(); got != want {
-		t.Fatalf("Wrong value after clearing ids: got %q want %q", got, want)
-	}
-
-}
-
 func TestListAuthChecker(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -137,6 +104,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "success with Set()",
+			mode: AuthWhiteList,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -168,6 +136,7 @@ func TestListAuthChecker(t *testing.T) {
 			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
 				return []string{}, nil
 			},
+			allowed: []string{"foo", "bar", "baz"},
 		},
 		{
 			name: "blacklist block",
@@ -178,7 +147,9 @@ func TestListAuthChecker(t *testing.T) {
 			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
 				return []string{"foo"}, nil
 			},
-			err: "id is blacklisted: foo",
+			err:     "id is blacklisted: foo",
+			ids:     []string{"foo"},
+			allowed: []string{"bar", "baz"},
 		},
 	}
 
@@ -192,8 +163,6 @@ func TestListAuthChecker(t *testing.T) {
 			}
 
 			switch len(testCase.ids) {
-			case 0:
-				t.Fatal("broken test: no ids set")
 			case 1:
 				c.Add(testCase.ids[0])
 			default:
@@ -216,9 +185,17 @@ func TestListAuthChecker(t *testing.T) {
 			}
 
 			for _, id := range testCase.allowed {
-				if !c.Allowed(id) {
-					t.Fatalf("Allowed(%v) failed", id)
+				if testCase.mode == AuthWhiteList {
+					if !c.Allowed(id) {
+						t.Fatalf("Allowed(%v) failed", id)
+					}
 				}
+				//} else {
+				//	if c.Allowed(id) {
+				//		t.Fatalf("Allowed(%v) failed", id)
+				//	}
+				//}
+
 			}
 
 			fmt.Println(c)
