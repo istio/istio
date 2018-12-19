@@ -74,23 +74,18 @@ func TestHTTPKubernetes(t *testing.T) {
 func TestPermissive(t *testing.T) {
 	ctx := framework.GetContext(t)
 	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
-	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment, &ids.Apps, &ids.Galley, &ids.Pilot)
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment, &ids.Apps)
 	apps := components.GetApps(ctx, t)
 	a := apps.GetAppOrFail("a", t)
+	b := apps.GetAppOrFail("b", t)
 
-	// TODO(jianfeih): investigate why http call starts to fail.
-	// b := apps.GetAppOrFail("b", t)
+	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
+	result := a.CallOrFail(be, components.AppCallOptions{}, t)[0]
 
-	// be := b.EndpointsForProtocol(model.ProtocolGRPC)[0]
-	// result := a.CallOrFail(be, components.AppCallOptions{}, t)[0]
+	if !result.IsOK() {
+		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
+	}
 
-	// if !result.IsOK() {
-	// 	t.Fatalf("gRPC Request unsuccessful: %s", result.Body)
-	// }
-
-	// pilot := components.GetPilot(ctx, t)
-	// resp, err := pilot.CallDiscovery(&xdsapi.DiscoveryRequest{})
-	// fmt.Println("jianfeih debug resp, err ", resp, err)
 	config, err := appst.ConfigDumpStr(a)
 	fmt.Println("jianfeih debug config ", config, err)
 }
