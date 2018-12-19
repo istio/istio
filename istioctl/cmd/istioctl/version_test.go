@@ -29,9 +29,9 @@ import (
 )
 
 var meshInfo = version.MeshInfo{
-	{"Pilot", version.BuildInfo{"1.0.0", "gitSHA123", "user1", "host1", "go1.10", "hub.docker.com", "Clean"}},
-	{"Injector", version.BuildInfo{"1.0.1", "gitSHAabc", "user2", "host2", "go1.10.1", "hub.docker.com", "Modified"}},
-	{"Citadel", version.BuildInfo{"1.2", "gitSHA321", "user3", "host3", "go1.11.0", "hub.docker.com", "Clean"}},
+	{"Pilot", version.BuildInfo{"1.0.0", "gitSHA123", "user1", "host1", "go1.10", "hub.docker.com", "Clean", "Tag"}},
+	{"Injector", version.BuildInfo{"1.0.1", "gitSHAabc", "user2", "host2", "go1.10.1", "hub.docker.com", "Modified", "OtherTag"}},
+	{"Citadel", version.BuildInfo{"1.2", "gitSHA321", "user3", "host3", "go1.11.0", "hub.docker.com", "Clean", "Tag"}},
 }
 
 type outputKind int
@@ -74,7 +74,7 @@ func TestVersion(t *testing.T) {
 			configs: []model.Config{},
 			args:    strings.Split("version --remote=false", " "),
 			expectedRegexp: regexp.MustCompile("version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
-				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9\\.]+)\", DockerHub:\"unknown\", BuildStatus:\"unknown\"}"),
+				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9+?(\\.)?]+)\", DockerHub:\"unknown\", BuildStatus:\"unknown\", GitTag:\"unknown\"}"),
 		},
 		{ // case 1 client-side only, short output
 			configs:        []model.Config{},
@@ -85,11 +85,12 @@ func TestVersion(t *testing.T) {
 			configs: []model.Config{},
 			args:    strings.Split("version --remote=false -o yaml", " "),
 			expectedRegexp: regexp.MustCompile("clientVersion:\n" +
-				"  golang_version: go1.([0-9\\.]+)\n" +
+				"  golang_version: go1.([0-9+?(\\.)?]+)\n" +
 				"  host: unknown\n" +
 				"  hub: unknown\n" +
 				"  revision: unknown\n" +
 				"  status: unknown\n" +
+				"  tag: unknown\n" +
 				"  user: unknown\n" +
 				"  version: unknown\n\n"),
 		},
@@ -102,9 +103,10 @@ func TestVersion(t *testing.T) {
 				"    \"revision\": \"unknown\",\n" +
 				"    \"user\": \"unknown\",\n" +
 				"    \"host\": \"unknown\",\n" +
-				"    \"golang_version\": \"go1.([0-9\\.]+)\",\n" +
+				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+)\",\n" +
 				"    \"hub\": \"unknown\",\n" +
-				"    \"status\": \"unknown\"\n" +
+				"    \"status\": \"unknown\",\n" +
+				"    \"tag\": \"unknown\"\n" +
 				"  }\n" +
 				"}\n"),
 		},
@@ -113,7 +115,7 @@ func TestVersion(t *testing.T) {
 			configs: []model.Config{},
 			args:    strings.Split("version --remote=true --short=false --output=", " "),
 			expectedRegexp: regexp.MustCompile("client version: version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
-				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9\\.]+)\", DockerHub:\"unknown\", BuildStatus:\"unknown\"}\n" +
+				"User:\"unknown\", Host:\"unknown\", GolangVersion:\"go1.([0-9+?(\\.)?]+)\", DockerHub:\"unknown\", BuildStatus:\"unknown\", GitTag:\"unknown\"}\n" +
 				printMeshVersion(rawOutputMock)),
 		},
 		{ // case 5 remote, short output
@@ -125,11 +127,12 @@ func TestVersion(t *testing.T) {
 			configs: []model.Config{},
 			args:    strings.Split("version --remote=true -o yaml", " "),
 			expectedRegexp: regexp.MustCompile("clientVersion:\n" +
-				"  golang_version: go1.([0-9\\.]+)\n" +
+				"  golang_version: go1.([0-9+?(\\.)?]+)\n" +
 				"  host: unknown\n" +
 				"  hub: unknown\n" +
 				"  revision: unknown\n" +
 				"  status: unknown\n" +
+				"  tag: unknown\n" +
 				"  user: unknown\n" +
 				"  version: unknown\n" + printMeshVersion(yamlOutputMock)),
 		},
@@ -142,9 +145,10 @@ func TestVersion(t *testing.T) {
 				"    \"revision\": \"unknown\",\n" +
 				"    \"user\": \"unknown\",\n" +
 				"    \"host\": \"unknown\",\n" +
-				"    \"golang_version\": \"go1.([0-9\\.]+)\",\n" +
+				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+)\",\n" +
 				"    \"hub\": \"unknown\",\n" +
-				"    \"status\": \"unknown\"\n" +
+				"    \"status\": \"unknown\",\n" +
+				"    \"tag\": \"unknown\"\n" +
 				"  },\n" +
 				printMeshVersion(jsonOutputMock)),
 		},
