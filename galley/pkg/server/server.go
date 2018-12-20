@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -45,8 +46,7 @@ var scope = log.RegisterScope("server", "Galley server debugging", 0)
 
 // Server is the main entry point into the Galley code.
 type Server struct {
-	shutdown chan error
-
+	serveWG    sync.WaitGroup
 	grpcServer *grpc.Server
 	processor  *runtime.Processor
 	mcp        *server.Server
@@ -86,8 +86,16 @@ func New(a *Args) (*Server, error) {
 }
 
 func newServer(a *Args, p patchTable) (*Server, error) {
-	s := &Server{}
 	var err error
+	s := &Server{}
+
+	defer func() {
+		// If return with error, need to close the server.
+		if err != nil {
+			_ = s.Close()
+		}
+	}()
+
 	if err = p.logConfigure(a.LoggingOptions); err != nil {
 		return nil, err
 	}
@@ -119,13 +127,6 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			return nil, err
 		}
 	}
-
-	defer func() {
-		// If return with error, need to close the server.
-		if err != nil {
-			_ = s.Close()
-		}
-	}()
 
 	processorCfg := runtime.Config{
 		DomainSuffix: a.DomainSuffix,
@@ -184,29 +185,20 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 // Run enables Galley to start receiving gRPC requests on its main API port.
 func (s *Server) Run() {
-	s.shutdown = make(chan error, 1)
+	s.serveWG.Add(1)
 	go func() {
+		defer s.serveWG.Done()
 		err := s.processor.Start()
 		if err != nil {
-			s.shutdown <- err
-			return
+			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
 		}
 
 		// start serving
 		err = s.grpcServer.Serve(s.listener)
-		// notify closer we're done
-		s.shutdown <- err
+		if err != nil {
+			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
+		}
 	}()
-}
-
-// Wait waits for the server to exit.
-func (s *Server) Wait() error {
-	if s.shutdown == nil {
-		return fmt.Errorf("server not running")
-	}
-
-	err := <-s.shutdown
-	return err
 }
 
 // Close cleans up resources used by the server.
@@ -216,10 +208,9 @@ func (s *Server) Close() error {
 		s.stopCh = nil
 	}
 
-	if s.shutdown != nil {
+	if s.grpcServer != nil {
 		s.grpcServer.GracefulStop()
-		_ = s.Wait()
-		s.shutdown = nil
+		s.serveWG.Wait()
 	}
 
 	if s.controlZ != nil {
@@ -267,9 +258,7 @@ func RunServer(sa *Args, printf, fatalf shared.FormatFn, livenessProbeController
 		serverReadinessProbe.RegisterProbe(readinessProbeController, "serverReadiness")
 		defer serverReadinessProbe.SetAvailable(errors.New("stopped"))
 	}
-	err = s.Wait()
-	if err != nil {
-		fatalf("Galley Server unexpectedly terminated: %v", err)
-	}
+
+	s.serveWG.Wait()
 	_ = s.Close()
 }
