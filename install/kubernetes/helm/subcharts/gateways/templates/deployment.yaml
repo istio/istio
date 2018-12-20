@@ -54,18 +54,22 @@ spec:
             privileged: true
 {{- end }}
       containers:
-{{- if eq $key "istio-ingressgateway" }}
-{{- if $spec.ingressSds.enabled }}
+{{- if $spec.sds.enabled }}
         - name: ingress-sds
-{{- if contains "/" $spec.ingressSds.image }}
-          image: "{{ $spec.ingressSds.image }}"
+{{- if contains "/" $spec.sds.image }}
+          image: "{{ $spec.sds.image }}"
 {{- else }}
-          image: "{{ $.Values.global.hub }}/{{ $spec.ingressSds.image }}:{{ .Values.global.tag }}"
+          image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ .Values.global.tag }}"
 {{- end }}
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+            fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
           volumeMounts:
-          - mountPath: /var/run/ingress_gateway/uds_path
+          - mountPath: /var/run/ingress_gateway/sds
             name: ingressGatewaySdsUdsPath
-{{- end }}
 {{- end }}
         - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
@@ -165,11 +169,9 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- if eq $key "istio-ingressgateway" }}
-          {{- if $spec.ingressSds.enabled }}
+          {{- if $spec.sds.enabled }}
           - name: ISTIO_META_INGRESS_SDS
             value: "true"
-          {{- end }}
           {{- end }}
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
@@ -186,11 +188,9 @@ spec:
             mountPath: /var/run/secrets/tokens
           {{- end }}
           {{- end }}
-          {{- if eq $key "istio-ingressgateway" }}
-          {{- if $spec.ingressSds.enabled }}
-          - mountPath: /var/run/ingress_gateway/uds_path
+          {{- if $spec.sds.enabled }}
+          - mountPath: /var/run/ingress_gateway/sds
             name: ingressGatewaySdsUdsPath
-          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -204,11 +204,9 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{- if eq $key "istio-ingressgateway" }}
-      {{- if $spec.ingressSds.enabled }}
+      {{- if $spec.sds.enabled }}
       - name: ingressGatewaySdsUdsPath
-        hostPath: /var/run/ingress_gateway/uds_path
-      {{- end }}
+        hostPath: /var/run/ingress_gateway/sds
       {{- end }}
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
