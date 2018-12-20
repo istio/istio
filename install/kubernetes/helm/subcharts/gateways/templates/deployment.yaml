@@ -59,7 +59,7 @@ spec:
 {{- if contains "/" $spec.sds.image }}
           image: "{{ $spec.sds.image }}"
 {{- else }}
-          image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ .Values.global.tag }}"
+          image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
 {{- end }}
           env:
           - name: POD_NAMESPACE
