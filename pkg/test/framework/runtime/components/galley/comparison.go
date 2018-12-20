@@ -61,9 +61,9 @@ func (r *comparisonResult) generateError() (err error) {
 		}
 
 		diff := difflib.UnifiedDiff{
-			FromFile:   fmt.Sprintf("Expected %q", n),
+			FromFile: fmt.Sprintf("Expected %q", n),
 			A:        difflib.SplitLines(string(ejs)),
-			ToFile: fmt.Sprintf("Actual %q", n),
+			ToFile:   fmt.Sprintf("Actual %q", n),
 			B:        difflib.SplitLines(string(ajs)),
 			Context:  10,
 		}
