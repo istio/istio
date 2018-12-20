@@ -191,6 +191,7 @@ func (s *Server) Run() {
 		err := s.processor.Start()
 		if err != nil {
 			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
+			return
 		}
 
 		// start serving
