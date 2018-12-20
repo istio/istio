@@ -15,8 +15,12 @@ spec:
   servers:
   - port:
       number: 15030
-      name: http2-prometheus
-      protocol: HTTP2
+      name: https-prometheus
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/certs/cert-chain.pem
+      privateKey: /etc/certs/key.pem
     hosts:
     - "*"
 ---

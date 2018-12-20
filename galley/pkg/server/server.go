@@ -139,7 +139,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 			return nil, err
 		}
 
-		watcher, err := creds.WatchFiles(s.stopCh, a.CredentialOptions)
+		watcher, err := creds.PollFiles(s.stopCh, a.CredentialOptions)
 		if err != nil {
 			return nil, err
 		}
