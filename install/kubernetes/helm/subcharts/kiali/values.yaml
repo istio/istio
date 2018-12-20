@@ -4,7 +4,7 @@
 enabled: false
 replicaCount: 1
 hub: docker.io/kiali
-tag: v0.10
+tag: v0.11
 contextPath: /kiali
 ingress:
   enabled: false
