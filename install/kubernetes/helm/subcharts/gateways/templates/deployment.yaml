@@ -62,11 +62,6 @@ spec:
           image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
 {{- end }}
           env:
-          - name: POD_NAMESPACE
-            valueFrom:
-            fieldRef:
-            apiVersion: v1
-            fieldPath: metadata.namespace
           volumeMounts:
           - mountPath: /var/run/ingress_gateway/sds
             name: ingressGatewaySdsUdsPath
