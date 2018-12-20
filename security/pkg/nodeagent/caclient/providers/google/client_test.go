@@ -30,13 +30,15 @@ import (
 const mockServerAddress = "localhost:0"
 
 var (
-	fakeCert  = []string{"foo", "bar"}
-	fakeToken = "Bearer fakeToken"
+	fakeCert            = []string{"foo", "bar"}
+	fakeCertPodIdentity = []string{"podfoo", "podbar"}
+	fakeToken           = "Bearer fakeToken"
 )
 
 type mockCAServer struct {
-	Certs []string
-	Err   error
+	Certs            []string
+	CertsPodIdentity []string
+	Err              error
 }
 
 func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCertificateRequest) (*gcapb.IstioCertificateResponse, error) {
@@ -48,21 +50,28 @@ func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCe
 
 func (ca *mockCAServer) CreatePodCertificate(ctx context.Context, in *gcapb.IstioCertificateRequest) (*gcapb.IstioCertificateResponse, error) {
 	if ca.Err == nil {
-		return &gcapb.IstioCertificateResponse{CertChain: ca.Certs}, nil
+		return &gcapb.IstioCertificateResponse{CertChain: ca.CertsPodIdentity}, nil
 	}
 	return nil, ca.Err
 }
 
 func TestGoogleCAClient(t *testing.T) {
 	testCases := map[string]struct {
-		server       mockCAServer
-		expectedCert []string
-		expectedErr  string
+		server         mockCAServer
+		usePodIdentity bool
+		expectedCert   []string
+		expectedErr    string
 	}{
 		"Valid certs": {
 			server:       mockCAServer{Certs: fakeCert, Err: nil},
 			expectedCert: fakeCert,
 			expectedErr:  "",
+		},
+		"Valid certs for pod identity": {
+			server:         mockCAServer{CertsPodIdentity: fakeCertPodIdentity, Err: nil},
+			usePodIdentity: true,
+			expectedCert:   fakeCertPodIdentity,
+			expectedErr:    "",
 		},
 		"Error in response": {
 			server:       mockCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
@@ -94,6 +103,13 @@ func TestGoogleCAClient(t *testing.T) {
 
 		// The goroutine starting the server may not be ready, results in flakiness.
 		time.Sleep(1 * time.Second)
+
+		if tc.usePodIdentity == true {
+			usePodDefaultFlag = true
+		}
+		defer func() {
+			usePodDefaultFlag = false
+		}()
 
 		cli, err := NewGoogleCAClient(lis.Addr().String(), false)
 		if err != nil {
