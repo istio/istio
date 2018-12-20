@@ -126,36 +126,36 @@ func (c *client) checkSnapshot(actual []*mcpclient.Object, expected []map[string
 		actualMap[name] = o
 	}
 
-	var leftActual []string
-	var leftExpected []string
-	var conflicts []string
+	var extraActual []string
+	var missingExpected []string
+	var conflicting []string
 
 	for name, a := range actualMap {
 		e, found := expectedMap[name]
 		if !found {
-			leftActual = append(leftActual, name)
+			extraActual = append(extraActual, name)
 			continue
 		}
 
 		if !reflect.DeepEqual(a, e) {
-			conflicts = append(conflicts, name)
+			conflicting = append(conflicting, name)
 		}
 	}
 
 	for name := range expectedMap {
 		_, found := actualMap[name]
 		if !found {
-			leftExpected = append(leftExpected, name)
+			missingExpected = append(missingExpected, name)
 			continue
 		}
 	}
 
 	return &comparisonResult{
-		expectedMap:     expectedMap,
-		actualMap:       actualMap,
-		extraActual:     leftActual,
-		missingExpected: leftExpected,
-		conflicts:       conflicts,
+		expected:        expectedMap,
+		actual:          actualMap,
+		extraActual:     extraActual,
+		missingExpected: missingExpected,
+		conflicting:     conflicting,
 	}, nil
 }
 

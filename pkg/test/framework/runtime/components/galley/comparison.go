@@ -23,20 +23,22 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/pmezard/go-difflib/difflib"
+	"k8s.io/apimachinery/pkg/util/diff"
 )
 
 type comparisonResult struct {
-	actualMap       map[string]interface{}
-	expectedMap     map[string]interface{}
+	actual          map[string]interface{}
+	expected        map[string]interface{}
 	extraActual     []string
 	missingExpected []string
-	conflicts       []string
+	conflicting     []string
 }
 
 func (r *comparisonResult) generateError() (err error) {
 
 	for _, n := range r.missingExpected {
-		js, er := json.MarshalIndent(r.expectedMap[n], "", "  ")
+		js, er := json.MarshalIndent(r.expected[n], "", "  ")
 		if er != nil {
 			return er
 		}
@@ -45,7 +47,7 @@ func (r *comparisonResult) generateError() (err error) {
 	}
 
 	for _, n := range r.extraActual {
-		js, er := json.MarshalIndent(r.expectedMap[n], "", "  ")
+		js, er := json.MarshalIndent(r.expected[n], "", "  ")
 		if er != nil {
 			return er
 		}
@@ -53,12 +55,12 @@ func (r *comparisonResult) generateError() (err error) {
 		err = multierror.Append(err, fmt.Errorf("extra resource not found: %s\n%v\n", n, string(js)))
 	}
 
-	for _, n := range r.conflicts {
-		ajs, er := json.MarshalIndent(r.actualMap[n], "", "  ")
+	for _, n := range r.conflicting {
+		ajs, er := json.MarshalIndent(r.actual[n], "", "  ")
 		if er != nil {
 			return er
 		}
-		ejs, er := json.MarshalIndent(r.expectedMap[n], "", "  ")
+		ejs, er := json.MarshalIndent(r.expected[n], "", "  ")
 		if er != nil {
 			return er
 		}
@@ -81,27 +83,29 @@ func (r *comparisonResult) generateDiffFolders(dir string) (string, string, erro
 		return "", "", err
 	}
 
-	for n, a := range r.actualMap {
+	for n, a := range r.actual {
 		ajs, err := json.MarshalIndent(a, "", "  ")
 		if err != nil {
 			return "", "", err
 		}
 
-		if err = ioutil.WriteFile(path.Join(actualPath, strings.Replace(n, "/", "_", -1)+".json"), ajs, os.ModePerm); err != nil {
+		fileName := path.Join(actualPath, strings.Replace(n, "/", "_", -1)+".json")
+		if err = ioutil.WriteFile(fileName, ajs, os.ModePerm); err != nil {
 			return "", "", err
 		}
 	}
 
-	for n, a := range r.expectedMap {
+	for n, a := range r.expected {
 		ajs, err := json.MarshalIndent(a, "", "  ")
 		if err != nil {
 			return "", "", err
 		}
 
-		if err = ioutil.WriteFile(path.Join(expectedPath, strings.Replace(n, "/", "_", -1)+".json"), ajs, os.ModePerm); err != nil {
+		fileName := path.Join(expectedPath, strings.Replace(n, "/", "_", -1)+".json")
+		if err = ioutil.WriteFile(fileName, ajs, os.ModePerm); err != nil {
 			return "", "", err
 		}
 	}
-
+	f := difflib.Match{}
 	return actualPath, expectedPath, nil
 }
