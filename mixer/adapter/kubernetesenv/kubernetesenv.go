@@ -73,6 +73,7 @@ type (
 		k8sCache cacheController
 		env      adapter.Env
 		params   *config.Params
+		stopCh   chan struct{}
 	}
 
 	// used strictly for testing purposes
@@ -146,6 +147,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		env:      env,
 		k8sCache: controller,
 		params:   paramsProto,
+		stopCh:   stopChan,
 	}, nil
 }
 
@@ -183,7 +185,13 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 	return out, nil
 }
 
-func (h *handler) Close() error {
+func (h *handler) Close() (err error) {
+	defer func() {
+		if recover() != nil {
+			err = h.env.Logger().Errorf("cache stop channel already closed; cannot close again.")
+		}
+	}()
+	close(h.stopCh)
 	return nil
 }
 

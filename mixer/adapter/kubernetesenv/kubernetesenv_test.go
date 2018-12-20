@@ -152,6 +152,24 @@ func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
 	}
 }
 
+func TestClose(t *testing.T) {
+	builder := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
+		return fake.NewSimpleClientset(k8sobjs...), nil
+	})
+	handler, err := builder.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("failed to build handler for test: %v", err)
+	}
+	err = handler.Close()
+	if err != nil {
+		t.Fatalf("failed to close handler: %v", err)
+	}
+	err = handler.Close()
+	if err == nil {
+		t.Fatal("no failure recorded, expected second handler close should result in a failure")
+	}
+}
+
 func TestKubegen_Generate(t *testing.T) {
 
 	builder := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
