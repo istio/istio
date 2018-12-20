@@ -45,8 +45,8 @@ func Load() ([]*TestInfo, error) {
 			continue
 		}
 
-		meshConfigFile := fmt.Sprintf("%s_meshconfig%s.yaml", baseFileName, idxSuffix)
-		expectedFile := fmt.Sprintf("%s_expected%s.json", baseFileName, idxSuffix)
+		meshConfigFile := fmt.Sprintf("%s%s_meshconfig.yaml", baseFileName, idxSuffix)
+		expectedFile := fmt.Sprintf("%s%s_expected.json", baseFileName, idxSuffix)
 
 		// The expected file is required
 		if _, err := AssetInfo(expectedFile); err != nil {
@@ -68,12 +68,14 @@ func Load() ([]*TestInfo, error) {
 		// stages;
 		info, found := infos[baseFileName]
 		if !found {
-			info = &TestInfo{}
+			info = &TestInfo{
+				baseName: baseFileName,
+			}
 			infos[baseFileName] = info
 		}
 
 		if len(info.files) <= index {
-			arr := make([]*FileSet, index + 1)
+			arr := make([]*FileSet, index+1)
 			copy(arr, info.files)
 			info.files = arr
 		}
@@ -92,7 +94,7 @@ func Load() ([]*TestInfo, error) {
 	for _, i := range infos {
 		for j, fs := range i.files {
 			if fs == nil {
-				return nil, fmt.Errorf("Missing stage '%d' for test %q", j, i.TestName())
+				return nil, fmt.Errorf("missing stage '%d' for test %q", j, i.TestName())
 			}
 		}
 		result = append(result, i)
@@ -124,6 +126,6 @@ func parseFileName(name string) (baseName, suffix string, stage int, err error) 
 	}
 
 	suffix = "_" + suffix
-	baseName = nameNoExtension[0:len(nameNoExtension) - len(suffix)]
+	baseName = nameNoExtension[0 : len(nameNoExtension)-len(suffix)]
 	return baseName, suffix, int(i), nil
 }

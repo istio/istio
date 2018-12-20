@@ -22,18 +22,20 @@ import (
 	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
+	tcontext "istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 type client struct {
 	address string
+	ctx     tcontext.Instance
 }
 
 func (c *client) waitForSnapshot(typeURL string, snapshot []map[string]interface{}) error {
@@ -54,11 +56,30 @@ func (c *client) waitForSnapshot(typeURL string, snapshot []map[string]interface
 	mcpc := mcpclient.New(cl, urls, u, "", map[string]string{}, mcptestmon.NewInMemoryClientStatsContext())
 	go mcpc.Run(ctx)
 
+	var result *comparisonResult
 	_, err = retry.Do(func() (interface{}, bool, error) {
 		items := u.Get(typeURL)
-		err := checkSnapshot(items, snapshot)
+		result, err = c.checkSnapshot(items, snapshot)
+		if err != nil {
+			return nil, false, err
+		}
+		err = result.generateError()
 		return nil, err == nil, err
-	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*20))
+	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*5))
+
+	if err != nil {
+		// Create diffable folder structure
+		dir, er := c.ctx.CreateTmpDirectory("snapshot")
+		if er != nil {
+			return multierror.Append(err, er)
+		}
+		actualPath, expectPath, er := result.generateDiffFolders(dir)
+		if er != nil {
+			return multierror.Append(err, er)
+		}
+
+		multierror.Append(err, fmt.Errorf("you can diff files here:\ndiff %s %s", expectPath, actualPath))
+	}
 
 	return err
 }
@@ -76,70 +97,90 @@ func (c *client) waitForStartup() (err error) {
 	return
 }
 
-func checkSnapshot(actual []*mcpclient.Object, expected []map[string]interface{}) (err error) {
-	var actualArr []interface{}
-	for _, a := range actual {
+func (c *client) checkSnapshot(actual []*mcpclient.Object, expected []map[string]interface{}) (*comparisonResult, error) {
+	expectedMap := make(map[string]interface{})
+	for _, e := range expected {
+		name, err := extractName(e)
+		if err != nil {
+			return nil, err
+		}
+		expectedMap[name] = e
+	}
 
+	actualMap := make(map[string]interface{})
+	for _, a := range actual {
 		// Exclude ephemeral fields from comparison
 		a.Metadata.CreateTime = nil
 		a.Metadata.Version = ""
 
 		b, err := json.Marshal(a)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		o := make(map[string]interface{})
 		if err = json.Unmarshal(b, &o); err != nil {
-			return err
+			return nil, err
 		}
-		actualArr = append(actualArr, o)
+
+		name := a.Metadata.Name
+		actualMap[name] = o
 	}
 
-	expectedArr := make([]map[string]interface{}, len(expected), len(expected))
-	copy(expectedArr, expected)
+	var leftActual []string
+	var leftExpected []string
+	var conflicts []string
 
-mainloop:
-	for i, a := range actualArr {
-		for j, e := range expectedArr {
-			if e == nil {
-				// This was visited before.
-				continue
-			}
-
-			if reflect.DeepEqual(a, e) {
-				expectedArr[j] = nil
-				actualArr[i] = nil
-				continue mainloop
-			}
-		}
-	}
-
-	// If any of the actual or expected left, build errors for them.
-	for _, e := range expectedArr {
-		if e == nil {
+	for name, a := range actualMap {
+		e, found := expectedMap[name]
+		if !found {
+			leftActual = append(leftActual, name)
 			continue
 		}
 
-		js, er := json.MarshalIndent(e, "", "  ")
-		if er != nil {
-			return er
+		if !reflect.DeepEqual(a, e) {
+			conflicts = append(conflicts, name)
 		}
-		err = multierror.Append(err, fmt.Errorf("expected resource not found: %v", string(js)))
 	}
 
-	for _, a := range actualArr {
-		if a == nil {
+	for name := range expectedMap {
+		_, found := actualMap[name]
+		if !found {
+			leftExpected = append(leftExpected, name)
 			continue
 		}
-
-		js, er := json.MarshalIndent(a, "", "  ")
-		if er != nil {
-			return er
-		}
-		err = multierror.Append(err, fmt.Errorf("unexpected resource: %v", string(js)))
 	}
 
-	return err
+	return &comparisonResult{
+		expectedMap:     expectedMap,
+		actualMap:       actualMap,
+		extraActual:     leftActual,
+		missingExpected: leftExpected,
+		conflicts:       conflicts,
+	}, nil
+}
+
+func extractName(i map[string]interface{}) (string, error) {
+	m, found := i["Metadata"]
+	if !found {
+		return "", fmt.Errorf("metadata section not found in resource")
+	}
+
+	meta, ok := m.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("metadata section is not a map")
+	}
+
+	n, found := meta["name"]
+	if !found {
+		return "", fmt.Errorf("metadata section does not contain name")
+	}
+
+	name, ok := n.(string)
+	if !ok {
+		return "", fmt.Errorf("name field is not a string")
+	}
+
+	return name, nil
 }
 
 func (c *client) dialGrpc() (*grpc.ClientConn, error) {

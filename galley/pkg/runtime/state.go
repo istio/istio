@@ -17,6 +17,8 @@ package runtime
 import (
 	"bytes"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
@@ -149,7 +151,7 @@ func (s *State) buildProjections(b *snapshot.InMemoryBuilder) {
 }
 
 func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
-	ingressByHost := make(map[string]resource.Entry)
+	ingressByHost := make(map[string]*resource.Entry)
 
 	// Build ingress projections
 	state := s.entries[metadata.IngressSpec.TypeURL]
@@ -157,7 +159,17 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 		return
 	}
 
-	for name, entry := range state.entries {
+	var orderedNames []resource.FullName
+	for name := range state.entries {
+		orderedNames = append(orderedNames, name)
+	}
+	sort.Slice(orderedNames, func(i, j int) bool {
+		return strings.Compare(orderedNames[i].String(), orderedNames[j].String()) < 0
+	})
+
+	for _, name := range orderedNames {
+		entry := state.entries[name]
+
 		ingress, err := conversions.ToIngressSpec(entry)
 		key := extractKey(name, entry, state.versions[name])
 		if err != nil {
@@ -178,6 +190,8 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 		if err != nil {
 			scope.Errorf("Unable to set gateway entry: %v", err)
 		}
+		// TODO: This is borked
+		b.SetVersion(metadata.Gateway.TypeURL.String(), string(gw.ID.Version))
 	}
 
 	for _, e := range ingressByHost {
@@ -190,6 +204,8 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 		if err != nil {
 			scope.Errorf("Unable to set virtualservice entry: %v", err)
 		}
+		// TODO: This is borked
+		b.SetVersion(metadata.VirtualService.TypeURL.String(), string(e.ID.Version))
 	}
 }
 

@@ -17,7 +17,6 @@ package conversions
 import (
 	"fmt"
 	"path"
-	"sort"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -53,7 +52,7 @@ func ToIngressSpec(e *mcp.Envelope) (*ingress.IngressSpec, error) {
 }
 
 // IngressToVirtualService converts from ingress spec to Istio VirtualServices
-func IngressToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, domainSuffix string, ingressByHost map[string]resource.Entry) {
+func IngressToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, domainSuffix string, ingressByHost map[string]*resource.Entry) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
@@ -101,18 +100,15 @@ func IngressToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, 
 			vs := old.Item.(*v1alpha3.VirtualService)
 			vs.Http = append(vs.Http, httpRoutes...)
 
-			// Preserve ordering
-			sort.Slice(vs.Http, func(i, j int) bool {
-				return strings.Compare(vs.Http[i].Match[0].Uri.String(), vs.Http[j].Match[0].Uri.String()) < 0
-			})
+			old.ID.Version = resource.Version(fmt.Sprintf("%s-%s-%s", old.ID.Version, key.FullName, key.Version))
 		} else {
-			ingressByHost[host] = resource.Entry{
+			ingressByHost[host] = &resource.Entry{
 				ID: resource.VersionedKey{
 					Key: resource.Key{
 						FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
 						TypeURL:  metadata.VirtualService.TypeURL,
 					},
-					Version:    key.Version,
+					Version:    resource.Version(fmt.Sprintf("%s-%s", key.FullName, key.Version)),
 					CreateTime: key.CreateTime,
 				},
 				Item: virtualService,

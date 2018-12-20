@@ -77,6 +77,10 @@ func TestConversion(t *testing.T) {
 						t.Fatalf("unable to load expected resources: %v", err)
 					}
 
+					if err = gal.ClearConfig(); err != nil {
+						t.Fatalf("unable to clear config from Galley: %v", err)
+					}
+
 					if err = gal.ApplyConfig(string(input)); err != nil {
 						t.Fatalf("unable to apply config to Galley: %v", err)
 					}
