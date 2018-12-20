@@ -5,7 +5,7 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
-  name: {{ $key }}-sds-{{ .Release.Namespace }}
+  name: {{ $key }}-sds
   namespace: {{ $.Release.Namespace }}
 rules:
 - apiGroups: [""]

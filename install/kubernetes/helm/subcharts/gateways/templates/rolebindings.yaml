@@ -5,11 +5,11 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
-  name: {{ $key }}-sds-{{ .Release.Namespace }}
+  name: {{ $key }}-sds
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ $key }}-sds-{{ .Release.Namespace }}
+  name: {{ $key }}-sds
 subjects:
 - kind: ServiceAccount
   name: {{ $key }}-service-account
