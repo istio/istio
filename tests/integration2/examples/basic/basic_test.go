@@ -16,12 +16,11 @@
 package basic
 
 import (
-	"testing"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
+	"testing"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
@@ -50,10 +49,4 @@ spec:
 
 	// As an example, the following method calls the Report operation against Mixer's own API directly.
 	mixer.Report(t, map[string]interface{}{})
-}
-
-func TestPermissiveALPN(t *testing.T) {
-	ctx := framework.GetContext(t)
-	ctx.RequireOrFail(t, lifecycle.Test, &ids.Apps)
-	ctx.RequireOrFail(t, lifecycle.Test, &ids.Pilot)
 }

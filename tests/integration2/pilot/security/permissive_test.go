@@ -16,59 +16,87 @@
 package security
 
 import (
-	"fmt"
+	"reflect"
 	"testing"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
+	proto "github.com/gogo/protobuf/types"
+	"istio.io/istio/pilot/pkg/networking/plugin/authn"
+	appst "istio.io/istio/pkg/test/framework/runtime/components/apps"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
 func TestMain(m *testing.M) {
-	fmt.Println("jianfeih debug1")
 	framework.Run("permissive_test", m)
 }
 
-// func TestBasic(t *testing.T) {
-// 	// Call Requires to explicitly initialize dependencies that the test needs.
-// 	ctx := framework.GetContext(t)
-// 	ctx.RequireOrSkip(t, lifecycle.Test, &ids.Mixer)
-
-// 	// Call environment.Configure to set Istio-wide configuration for the test.
-// 	mixer := components.GetMixer(ctx, t)
-// 	mixer.Configure(t, lifecycle.Test, `
-// apiVersion: "config.istio.io/v1alpha2"
-// kind: metric
-// metadata:
-//  name: metric1
-// spec:
-//  value: "2"
-//  dimensions:
-//    source: source.name | "mysrc"
-//    target_ip: destination.name | "mytarget"
-// `)
-
-// 	// As an example, the following method calls the Report operation against Mixer's own API directly.
-// 	mixer.Report(t, map[string]interface{}{})
-// }
+func veriyListener(listener *xdsapi.Listener, t *testing.T) bool {
+	t.Helper()
+	if listener == nil {
+		return false
+	}
+	if len(listener.ListenerFilters) == 0 {
+		return false
+	}
+	inspector := false
+	for _, lf := range listener.ListenerFilters {
+		if lf.Name == authn.EnvoyTLSInspectorFilterName {
+			// fmt.Printf("listner is %+v\n", *listener)
+			inspector = true
+			break
+		}
+	}
+	if !inspector {
+		return false
+	}
+	// Check filter chain match.
+	if len(listener.FilterChains) != 2 {
+		return false
+	}
+	mtlsChain := listener.FilterChains[0]
+	if !reflect.DeepEqual(mtlsChain.FilterChainMatch.ApplicationProtocols, []string{"istio"}) {
+		return false
+	}
+	if mtlsChain.TlsContext == nil {
+		return false
+	}
+	defaultChain := listener.FilterChains[1]
+	if !reflect.DeepEqual(defaultChain.FilterChainMatch, &lis.FilterChainMatch{}) {
+		return false
+	}
+	if defaultChain.TlsContext != nil {
+		return false
+	}
+	return true
+}
 
 func TestPermissive(t *testing.T) {
-	fmt.Println("jianfeih debug")
 	ctx := framework.GetContext(t)
-	ctx.RequireOrFail(t, lifecycle.Test, &ids.Apps)
-	ctx.RequireOrFail(t, lifecycle.Test, &ids.Galley)
-	gal := components.GetGalley(ctx, t)
-	gal.ApplyConfig(`
-apiVersion: "config.istio.io/v1alpha2"
-kind: metric
-metadata:
-	name: metric1
-spec:
-	value: "2"
-	dimensions:
-		source: source.name | "mysrc"
-		target_ip: destination.name | "mytarget"
-`)
+	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment, &ids.Apps)
+	apps := components.GetApps(ctx, t)
+	a := apps.GetAppOrFail("a", t)
+	pilot := components.GetPilot(ctx, t)
+	req := appst.ConstructDiscoveryRequest(a)
+	resp, err := pilot.CallDiscovery(req)
+	if err != nil {
+		t.Errorf("failed to call discovery %v", err)
+	}
+	for _, r := range resp.Resources {
+		foo := &xdsapi.Listener{}
+		if err := proto.UnmarshalAny(&r, foo); err != nil {
+			t.Errorf("failed to unmarshal %v", err)
+		}
+		if veriyListener(foo, t) {
+			return
+		}
+	}
+	t.Errorf("failed to find any listeners having multiplexing filter chain")
 }

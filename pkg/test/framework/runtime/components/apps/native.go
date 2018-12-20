@@ -240,12 +240,7 @@ func configDumpStr(a components.App) (string, error) {
 	return envoy.GetConfigDumpStr(a.(*nativeApp).agent.GetAdminPort())
 }
 
-func ConfigDumpStr(a components.App) (string, error) {
-	return envoy.GetConfigDumpStr(a.(*nativeApp).agent.GetAdminPort())
-}
-
 func ConstructDiscoveryRequest(a components.App) *xdsapi.DiscoveryRequest {
-	// nodeID := a.agent.GetNodeId()
 	nodeID := agent.GetNodeId(a.(*nativeApp).agent)
 	return &xdsapi.DiscoveryRequest{
 		Node: &core.Node{
