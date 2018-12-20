@@ -1,4 +1,6 @@
 {{- range $key, $spec := .Values }}
+{{- if ne $key "enabled" }}
+{{- if $spec.enabled }}
 {{- if ($spec.sds) and $spec.sds.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
@@ -10,5 +12,7 @@ rules:
   resources: ["secrets"]
   verbs: ["get", "watch", "list"]
 ---
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
