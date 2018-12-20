@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -65,21 +64,7 @@ func (c *client) waitForSnapshot(typeURL string, snapshot []map[string]interface
 		}
 		err = result.generateError()
 		return nil, err == nil, err
-	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*5))
-
-	if err != nil {
-		// Create diffable folder structure
-		dir, er := c.ctx.CreateTmpDirectory("snapshot")
-		if er != nil {
-			return multierror.Append(err, er)
-		}
-		actualPath, expectPath, er := result.generateDiffFolders(dir)
-		if er != nil {
-			return multierror.Append(err, er)
-		}
-
-		multierror.Append(err, fmt.Errorf("you can diff files here:\ndiff %s %s", expectPath, actualPath))
-	}
+	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*20))
 
 	return err
 }

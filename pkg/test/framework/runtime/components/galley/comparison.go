@@ -17,14 +17,9 @@ package galley
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pmezard/go-difflib/difflib"
-	"k8s.io/apimachinery/pkg/util/diff"
 )
 
 type comparisonResult struct {
@@ -65,47 +60,21 @@ func (r *comparisonResult) generateError() (err error) {
 			return er
 		}
 
-		err = multierror.Append(err, fmt.Errorf("resource mismatch: %s\ngot:\n%v\nwanted:\n%v\n",
-			n, string(ajs), string(ejs)))
+		diff := difflib.UnifiedDiff{
+			FromFile:   fmt.Sprintf("Expected %q", n),
+			A:        difflib.SplitLines(string(ejs)),
+			ToFile: fmt.Sprintf("Actual %q", n),
+			B:        difflib.SplitLines(string(ajs)),
+			Context:  10,
+		}
+		text, er := difflib.GetUnifiedDiffString(diff)
+		if er != nil {
+			return er
+		}
+
+		err = multierror.Append(err, fmt.Errorf("resource mismatch: %q\n%s\n",
+			n, text))
 	}
 
 	return multierror.Append(err).ErrorOrNil()
-}
-
-func (r *comparisonResult) generateDiffFolders(dir string) (string, string, error) {
-	actualPath := path.Join(dir, "actual")
-	if err := os.Mkdir(actualPath, os.ModePerm); err != nil {
-		return "", "", err
-	}
-
-	expectedPath := path.Join(dir, "expected")
-	if err := os.Mkdir(expectedPath, os.ModePerm); err != nil {
-		return "", "", err
-	}
-
-	for n, a := range r.actual {
-		ajs, err := json.MarshalIndent(a, "", "  ")
-		if err != nil {
-			return "", "", err
-		}
-
-		fileName := path.Join(actualPath, strings.Replace(n, "/", "_", -1)+".json")
-		if err = ioutil.WriteFile(fileName, ajs, os.ModePerm); err != nil {
-			return "", "", err
-		}
-	}
-
-	for n, a := range r.expected {
-		ajs, err := json.MarshalIndent(a, "", "  ")
-		if err != nil {
-			return "", "", err
-		}
-
-		fileName := path.Join(expectedPath, strings.Replace(n, "/", "_", -1)+".json")
-		if err = ioutil.WriteFile(fileName, ajs, os.ModePerm); err != nil {
-			return "", "", err
-		}
-	}
-	f := difflib.Match{}
-	return actualPath, expectedPath, nil
 }
