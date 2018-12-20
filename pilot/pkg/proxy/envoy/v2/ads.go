@@ -17,11 +17,9 @@ package v2
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -617,9 +615,9 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	if discReq.Node == nil || discReq.Node.Id == "" {
 		return errors.New("missing node id")
 	}
-	if strings.HasPrefix(discReq.Node.Id, "sidecar~127.0.0.1~b") {
-		fmt.Printf("jianfeih debug initConnectionNode %+v\n", *discReq)
-	}
+	// if strings.HasPrefix(discReq.Node.Id, "sidecar~127.0.0.1~b") {
+	// 	fmt.Printf("jianfeih debug initConnectionNode %+v\n", *discReq)
+	// }
 	nt, err := model.ParseServiceNodeWithMetadata(discReq.Node.Id, model.ParseMetadata(discReq.Node.Metadata))
 	if err != nil {
 		return err
