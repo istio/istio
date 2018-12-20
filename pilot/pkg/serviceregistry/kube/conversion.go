@@ -27,6 +27,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 const (
@@ -103,6 +104,13 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	}
 	sort.Sort(sort.StringSlice(serviceaccounts))
 
+	configScope := networking.ConfigScope_PUBLIC
+	if svc.Labels != nil {
+		if svc.Labels[pilot.ServiceScopeLabel] == networking.ConfigScope_name[int32(networking.ConfigScope_PRIVATE)] {
+			configScope = networking.ConfigScope_PRIVATE
+		}
+	}
+
 	return &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:           ports,
@@ -115,7 +123,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			Name:        svc.Name,
 			Namespace:   svc.Namespace,
 			UID:         fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
-			ConfigScope: networking.ConfigScope_PUBLIC,
+			ConfigScope: configScope,
 		},
 	}
 }
