@@ -15,7 +15,6 @@
 package source
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -33,10 +32,10 @@ import (
 
 var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
 
-func enabledKubeTypes() ([]kube.ResourceSpec, error) {
+func enabledKubeTypes() []kube.ResourceSpec {
 	allTypes := kube_meta.Types.All()
 	if galley.ConvertK8SService {
-		return allTypes, nil
+		return allTypes
 	}
 	var filteredTypes []kube.ResourceSpec
 	for _, t := range allTypes {
@@ -44,14 +43,7 @@ func enabledKubeTypes() ([]kube.ResourceSpec, error) {
 			filteredTypes = append(filteredTypes, t)
 		}
 	}
-	switch d := len(allTypes) - len(filteredTypes); d {
-	case 1:
-		return filteredTypes, nil
-	case 0:
-		return nil, fmt.Errorf("internal error: ConvertK8SService is false but no service resource is registered")
-	default:
-		return nil, fmt.Errorf("internal error: multiple (%d) service resources registered", d)
-	}
+	return filteredTypes
 }
 
 // source is an implementation of runtime.Source.
@@ -67,11 +59,7 @@ var _ runtime.Source = &sourceImpl{}
 
 // New returns a Kubernetes implementation of runtime.Source.
 func New(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config) (runtime.Source, error) {
-	types, err := enabledKubeTypes()
-	if err != nil {
-		return nil, err
-	}
-	return newSource(k, resyncPeriod, cfg, types)
+	return newSource(k, resyncPeriod, cfg, enabledKubeTypes())
 }
 
 func newSource(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config, specs []kube.ResourceSpec) (runtime.Source, error) {

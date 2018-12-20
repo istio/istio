@@ -30,9 +30,9 @@ import (
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/meshconfig"
+	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"
-	kube_meta "istio.io/istio/ogalley/pkg/metadata/kube"
 	"istio.io/istio/pkg/features/galley"
 )
 
@@ -47,7 +47,6 @@ func init() {
 
 func mockKubeMeta() *mock.Kube {
 	var k mock.Kube
-	//len(kube_meta.Types.All())
 	for i := 0; i < 100; i++ {
 		cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
 		k.AddResponse(cl, nil)
@@ -90,10 +89,6 @@ func TestNewSource_ServiceEntry(t *testing.T) {
 		convert bool
 		wantLen int
 	}{
-		{
-			name:    "Unset",
-			wantLen: typeCount - 1,
-		},
 		{
 			name:    "Disabled",
 			convert: false,
