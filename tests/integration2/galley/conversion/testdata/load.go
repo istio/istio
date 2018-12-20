@@ -68,8 +68,11 @@ func Load() ([]*TestInfo, error) {
 		// stages;
 		info, found := infos[baseFileName]
 		if !found {
+			testName := baseFileName
+			testName = testName[strings.Index(testName, "/")+1:] // Strip dataset
+			testName = strings.Replace(testName, "/", "_", -1)
 			info = &TestInfo{
-				baseName: baseFileName,
+				testName: testName,
 			}
 			infos[baseFileName] = info
 		}
@@ -107,7 +110,7 @@ func Load() ([]*TestInfo, error) {
 }
 
 // parseFileName that is in the form foo/bar_1.yaml or foo/bar.yaml
-// baseName will be foo/bar.
+// testName will be foo/bar.
 // suffix will be either _1, _2 etc, or it will be empty if there is a single stage.
 // stage is the stage number for the files. If no numeric suffix is defined, stage will default to 0.
 func parseFileName(name string) (baseName, suffix string, stage int, err error) {

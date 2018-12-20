@@ -54,44 +54,49 @@ func TestConversion(t *testing.T) {
 			for i, fset := range d.FileSets() {
 				testName := d.TestName()
 				if len(d.FileSets()) != 1 {
+					runTest(t, fset, gal)
 					testName = fmt.Sprintf("%s_%d", d.TestName(), i)
 				}
 				t.Run(testName, func(t *testing.T) {
-					input, err := fset.LoadInputFile()
-					if err != nil {
-						t.Fatalf("Unable to load input test data: %v", err)
-					}
-
-					if fset.HasMeshConfigFile() {
-						mc, err := fset.LoadMeshConfigFile()
-						if err != nil {
-							t.Fatalf("Error loading Mesh config file: %v", err)
-						}
-						if err = gal.SetMeshConfig(string(mc)); err != nil {
-							t.Fatalf("Error setting Mesh config file: %v", err)
-						}
-					}
-
-					expected, err := fset.LoadExpectedResources()
-					if err != nil {
-						t.Fatalf("unable to load expected resources: %v", err)
-					}
-
-					if err = gal.ClearConfig(); err != nil {
-						t.Fatalf("unable to clear config from Galley: %v", err)
-					}
-
-					if err = gal.ApplyConfig(string(input)); err != nil {
-						t.Fatalf("unable to apply config to Galley: %v", err)
-					}
-
-					for typeURL, e := range expected {
-						if err = gal.WaitForSnapshot(typeURL, e...); err != nil {
-							t.Errorf("Error waiting for %s:\n%v\n", typeURL, err)
-						}
-					}
+					runTest(t, fset, gal)
 				})
 			}
 		})
+	}
+}
+
+func runTest(t *testing.T, fset *testdata.FileSet, gal components.Galley) {
+	input, err := fset.LoadInputFile()
+	if err != nil {
+		t.Fatalf("Unable to load input test data: %v", err)
+	}
+
+	if fset.HasMeshConfigFile() {
+		mc, err := fset.LoadMeshConfigFile()
+		if err != nil {
+			t.Fatalf("Error loading Mesh config file: %v", err)
+		}
+		if err = gal.SetMeshConfig(string(mc)); err != nil {
+			t.Fatalf("Error setting Mesh config file: %v", err)
+		}
+	}
+
+	expected, err := fset.LoadExpectedResources()
+	if err != nil {
+		t.Fatalf("unable to load expected resources: %v", err)
+	}
+
+	if err = gal.ClearConfig(); err != nil {
+		t.Fatalf("unable to clear config from Galley: %v", err)
+	}
+
+	if err = gal.ApplyConfig(string(input)); err != nil {
+		t.Fatalf("unable to apply config to Galley: %v", err)
+	}
+
+	for typeURL, e := range expected {
+		if err = gal.WaitForSnapshot(typeURL, e...); err != nil {
+			t.Errorf("Error waiting for %s:\n%v\n", typeURL, err)
+		}
 	}
 }

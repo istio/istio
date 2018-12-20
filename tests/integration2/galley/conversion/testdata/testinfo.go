@@ -17,14 +17,13 @@ package testdata
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 // TestInfo about a particular test.
 type TestInfo struct {
-	baseName string
-	files   []*FileSet
-	Skipped bool
+	testName string
+	files    []*FileSet
+	Skipped  bool
 }
 
 // FileSet is the set of files to apply at each stage of running a test.
@@ -36,11 +35,7 @@ type FileSet struct {
 
 // TestName that is generated for this test.
 func (t TestInfo) TestName() string {
-	name := t.baseName
-	name = name[strings.Index(name, "/")+1:]
-	name = strings.Replace(name, "/", "_", -1)
-
-	return name
+	return t.testName
 }
 
 // FileSets returns the filesets for each stage.
