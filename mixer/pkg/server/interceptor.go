@@ -95,6 +95,14 @@ func TracingServerInterceptor(tracer opentracing.Tracer) grpc.UnaryServerInterce
 			}
 		}
 
+		// allow for compressed header too
+		for _, val := range md.Get("b3") {
+			if strings.EqualFold(strings.ToLower(val), "0") {
+				sampled = false
+				break
+			}
+		}
+
 		spanContext, err := tracer.Extract(opentracing.HTTPHeaders, metadataReaderWriter{md})
 		if err != nil && err != opentracing.ErrSpanContextNotFound {
 			// TODO: establish some sort of error reporting mechanism here. We
