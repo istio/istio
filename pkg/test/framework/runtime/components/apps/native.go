@@ -26,6 +26,8 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
@@ -240,6 +242,17 @@ func configDumpStr(a components.App) (string, error) {
 
 func ConfigDumpStr(a components.App) (string, error) {
 	return envoy.GetConfigDumpStr(a.(*nativeApp).agent.GetAdminPort())
+}
+
+func ConstructDiscoveryRequest(a components.App) *xdsapi.DiscoveryRequest {
+	// nodeID := a.agent.GetNodeId()
+	nodeID := agent.GetNodeId(a.(*nativeApp).agent)
+	return &xdsapi.DiscoveryRequest{
+		Node: &core.Node{
+			Id: nodeID,
+		},
+		TypeUrl: "type.googleapis.com/envoy.api.v2.Listener",
+	}
 }
 
 type appConfig struct {
