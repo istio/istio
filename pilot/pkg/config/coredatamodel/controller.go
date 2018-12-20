@@ -202,19 +202,72 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	}
 	c.configStoreMu.Unlock()
 
-	// only dispach add/update/delete events for service entries
 	if descriptor.Type == model.ServiceEntry.Type {
-		c.dispatchServiceEntryEvents(innerStore, prevStore)
+		c.serviceEntryEvents(innerStore, prevStore)
+	} else {
+		c.discoveryServerClearCacheEvent(descriptor.Type, innerStore, prevStore)
 	}
 
 	return nil
 }
 
-func (c *Controller) dispatchServiceEntryEvents(currentStore, prevStore map[string]map[string]model.Config) {
+// HasSynced returns true if the first batch of items has been popped
+func (c *Controller) HasSynced() bool {
+	var notReady []string
+
+	c.syncedMu.Lock()
+	for messageName, synced := range c.synced {
+		if !synced {
+			notReady = append(notReady, messageName)
+		}
+	}
+	c.syncedMu.Unlock()
+
+	if len(notReady) > 0 {
+		log.Infof("Configuration not synced: first push for %v not received", notReady)
+		return false
+	}
+	return true
+}
+
+// RegisterEventHandler registers a handler using the type as a key
+func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
+	c.eventHandlers[typ] = append(c.eventHandlers[typ], handler)
+}
+
+// Run is not implemented
+func (c *Controller) Run(stop <-chan struct{}) {
+	log.Warnf("Run: %s", errUnsupported)
+}
+
+// Get is not implemented
+func (c *Controller) Get(typ, name, namespace string) *model.Config {
+	log.Warnf("get %s", errUnsupported)
+	return nil
+}
+
+// Update is not implemented
+func (c *Controller) Update(config model.Config) (newRevision string, err error) {
+	log.Warnf("update %s", errUnsupported)
+	return "", errUnsupported
+}
+
+// Create is not implemented
+func (c *Controller) Create(config model.Config) (revision string, err error) {
+	log.Warnf("create %s", errUnsupported)
+	return "", errUnsupported
+}
+
+// Delete is not implemented
+func (c *Controller) Delete(typ, name, namespace string) error {
+	return errUnsupported
+}
+
+func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]model.Config) {
 	dispatch := func(model model.Config, event model.Event) {}
 	if handlers, ok := c.eventHandlers[model.ServiceEntry.Type]; ok {
 		dispatch = func(model model.Config, event model.Event) {
-			log.Debugf("MCP service entry event dispatch: key=%v event=%v", model.Key(), event.String())
+			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
 			for _, handler := range handlers {
 				handler(model, event)
 			}
@@ -252,56 +305,28 @@ func (c *Controller) dispatchServiceEntryEvents(currentStore, prevStore map[stri
 	}
 }
 
-// HasSynced returns true if the first batch of items has been popped
-func (c *Controller) HasSynced() bool {
-	var notReady []string
-
-	c.syncedMu.Lock()
-	for messageName, synced := range c.synced {
-		if !synced {
-			notReady = append(notReady, messageName)
+func (c *Controller) discoveryServerClearCacheEvent(descriptorType string, currentStore, prevStore map[string]map[string]model.Config) {
+	// dummy event since it is ignored by the caller
+	dispatch := func(model model.Config, event model.Event) {}
+	if handlers, ok := c.eventHandlers[descriptorType]; ok {
+		dispatch = func(model model.Config, event model.Event) {
+			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
+			for _, handler := range handlers {
+				handler(model, event)
+			}
 		}
 	}
-	c.syncedMu.Unlock()
-
-	if len(notReady) > 0 {
-		log.Infof("Configuration not synced: first push for %v not received", notReady)
-		return false
+	for namespace, prevByName := range prevStore {
+		for name, prevConfig := range prevByName {
+			if byNamespace, ok := currentStore[namespace]; ok {
+				if _, ok := byNamespace[name]; !ok {
+					dispatch(prevConfig, model.EventUpdate)
+				}
+			} else {
+				dispatch(prevConfig, model.EventUpdate)
+			}
+		}
 	}
-	return true
-}
-
-// Run is not implemented
-func (c *Controller) Run(stop <-chan struct{}) {
-	log.Warnf("Run: %s", errUnsupported)
-}
-
-// RegisterEventHandler is not implemented
-func (c *Controller) RegisterEventHandler(typ string, handler func(model.Config, model.Event)) {
-	c.eventHandlers[typ] = append(c.eventHandlers[typ], handler)
-}
-
-// Get is not implemented
-func (c *Controller) Get(typ, name, namespace string) *model.Config {
-	log.Warnf("get %s", errUnsupported)
-	return nil
-}
-
-// Update is not implemented
-func (c *Controller) Update(config model.Config) (newRevision string, err error) {
-	log.Warnf("update %s", errUnsupported)
-	return "", errUnsupported
-}
-
-// Create is not implemented
-func (c *Controller) Create(config model.Config) (revision string, err error) {
-	log.Warnf("create %s", errUnsupported)
-	return "", errUnsupported
-}
-
-// Delete is not implemented
-func (c *Controller) Delete(typ, name, namespace string) error {
-	return errUnsupported
 }
 
 func extractNameNamespace(metadataName string) (string, string) {
