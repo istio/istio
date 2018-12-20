@@ -21,8 +21,6 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
-	"istio.io/istio/pkg/features/galley"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -34,6 +32,8 @@ import (
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"
+	kube_meta "istio.io/istio/ogalley/pkg/metadata/kube"
+	"istio.io/istio/pkg/features/galley"
 )
 
 var emptyInfo resource.Info
