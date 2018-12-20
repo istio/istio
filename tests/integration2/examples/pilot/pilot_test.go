@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	proto "github.com/gogo/protobuf/types"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -77,30 +79,22 @@ func TestPermissive(t *testing.T) {
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment, &ids.Apps)
 	apps := components.GetApps(ctx, t)
 	a := apps.GetAppOrFail("a", t)
-	b := apps.GetAppOrFail("b", t)
-
-	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
-	result := a.CallOrFail(be, components.AppCallOptions{}, t)[0]
-
-	if !result.IsOK() {
-		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
-	}
 	pilot := components.GetPilot(ctx, t)
 	req := appst.ConstructDiscoveryRequest(a)
-	fmt.Println("jianfeih debug calling something ", *req)
 	resp, err := pilot.CallDiscovery(req)
-	fmt.Println("jianfeih debug calling response ", resp, err)
-	// pilot.CallDiscovery(&xdsapi.DiscoveryRequest{
-	// 	VersionInfo: "",
-	// 	Node: &core.Node{
-	// 		Id: a.
-	// 	},
-	// 	// {VersionInfo: Node:id:"sidecar~127.0.0.1~b.vORuSIDOC7~istio-system.svc.local" cluster:"local" build_version:"35381896313b5f5c5d899e3dfeeae16f05c4f972/1.9.0-dev/Clean/DEBUG"  ResourceNames:[] T     ypeUrl:type.googleapis.com/envoy.api.v2.Cluster ResponseNonce: ErrorDetail:nil XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
-	// 	// jianfeih debug  { id:"sidecar~127.0.0.1~b.pdv-LRJFGF~istio-system.svc.local" cluster:"local" build_version:"35381896313b5f5c5d899e3dfeeae16f05c4f972/1.9.0-dev/Clean/DEBUG"  [] type.googleapis.com/envoy.api.v2.Cluster  nil {} [     ] 0}
-	// })
-
-	// config, err := appst.ConfigDumpStr(b)
-	// fmt.Println("jianfeih debug config ", config, err)
+	if err != nil {
+		t.Errorf("failed to call discovery %v", err)
+	}
+	for _, r := range resp.Resources {
+		foo := &xdsapi.Listener{}
+		if err := proto.UnmarshalAny(&r, foo); err != nil {
+			t.Errorf("failed to unmarshal %v", err)
+		}
+		if len(foo.ListenerFilters) != 0 {
+			fmt.Println("jianfeih debug ", foo)
+			return
+		}
+	}
 }
 
 func TestHTTPNative(t *testing.T) {
