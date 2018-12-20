@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if $spec.sds and $spec.sds.enabled }}
+{{- if ($spec.sds) and $spec.sds.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
