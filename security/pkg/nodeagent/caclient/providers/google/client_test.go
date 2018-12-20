@@ -56,6 +56,10 @@ func (ca *mockCAServer) CreatePodCertificate(ctx context.Context, in *gcapb.Isti
 }
 
 func TestGoogleCAClient(t *testing.T) {
+	defer func() {
+		usePodDefaultFlag = false
+	}()
+
 	testCases := map[string]struct {
 		server         mockCAServer
 		usePodIdentity bool
@@ -63,25 +67,28 @@ func TestGoogleCAClient(t *testing.T) {
 		expectedErr    string
 	}{
 		"Valid certs": {
-			server:       mockCAServer{Certs: fakeCert, Err: nil},
-			expectedCert: fakeCert,
-			expectedErr:  "",
+			server:         mockCAServer{Certs: fakeCert, CertsPodIdentity: fakeCertPodIdentity, Err: nil},
+			usePodIdentity: false,
+			expectedCert:   fakeCert,
+			expectedErr:    "",
 		},
 		"Valid certs for pod identity": {
-			server:         mockCAServer{CertsPodIdentity: fakeCertPodIdentity, Err: nil},
+			server:         mockCAServer{Certs: fakeCert, CertsPodIdentity: fakeCertPodIdentity, Err: nil},
 			usePodIdentity: true,
 			expectedCert:   fakeCertPodIdentity,
 			expectedErr:    "",
 		},
 		"Error in response": {
-			server:       mockCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
-			expectedCert: nil,
-			expectedErr:  "rpc error: code = Unknown desc = test failure",
+			server:         mockCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
+			usePodIdentity: false,
+			expectedCert:   nil,
+			expectedErr:    "rpc error: code = Unknown desc = test failure",
 		},
 		"Empty response": {
-			server:       mockCAServer{Certs: []string{}, Err: nil},
-			expectedCert: nil,
-			expectedErr:  "invalid response cert chain",
+			server:         mockCAServer{Certs: []string{}, Err: nil},
+			usePodIdentity: false,
+			expectedCert:   nil,
+			expectedErr:    "invalid response cert chain",
 		},
 	}
 
@@ -104,13 +111,7 @@ func TestGoogleCAClient(t *testing.T) {
 		// The goroutine starting the server may not be ready, results in flakiness.
 		time.Sleep(1 * time.Second)
 
-		if tc.usePodIdentity == true {
-			usePodDefaultFlag = true
-		}
-		defer func() {
-			usePodDefaultFlag = false
-		}()
-
+		usePodDefaultFlag = tc.usePodIdentity
 		cli, err := NewGoogleCAClient(lis.Addr().String(), false)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
