@@ -5,7 +5,7 @@ enabled: false
 replicaCount: 1
 image:
   repository: grafana/grafana
-  tag: 5.2.3
+  tag: 5.4.0
 persist: false
 storageClassName: ""
 accessMode: ReadWriteMany
@@ -21,6 +21,9 @@ service:
   externalPort: 3000
   loadBalancerIP:
   loadBalancerSourceRanges:
+
+gateway:
+  enabled: false
 
 datasources:
   datasources.yaml:

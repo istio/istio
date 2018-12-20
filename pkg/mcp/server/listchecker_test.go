@@ -34,22 +34,27 @@ func TestListAuthChecker(t *testing.T) {
 		err          string
 		remove       bool // Remove the added entry
 		set          bool // Use set to add the entry
+		ids          []string
+		allowed      []string
 	}{
 		{
 			name:     "nil",
 			authInfo: nil,
 			err:      "denying by default",
+			ids:      []string{"foo"},
 		},
 		{
 			name:     "non-tlsinfo",
 			authInfo: &nonTLSInfo{},
 			err:      "unable to extract TLS info",
+			ids:      []string{"foo"},
 		},
 		{
 			name:     "empty tlsinfo",
 			mode:     AuthWhiteList,
 			authInfo: credentials.TLSInfo{},
 			err:      "no allowed identity found in peer's authentication info",
+			ids:      []string{"foo"},
 		},
 		{
 			name: "empty cert chain",
@@ -59,6 +64,7 @@ func TestListAuthChecker(t *testing.T) {
 			},
 
 			err: "no allowed identity found in peer's authentication info",
+			ids: []string{"foo"},
 		},
 		{
 			name: "error extracting ids",
@@ -70,6 +76,7 @@ func TestListAuthChecker(t *testing.T) {
 				return nil, fmt.Errorf("error extracting ids")
 			},
 			err: "no allowed identity found in peer's authentication info",
+			ids: []string{"foo"},
 		},
 		{
 			name: "id mismatch",
@@ -81,6 +88,7 @@ func TestListAuthChecker(t *testing.T) {
 				return []string{"bar"}, nil
 			},
 			err: "no allowed identity found in peer's authentication info",
+			ids: []string{"foo"},
 		},
 		{
 			name: "success",
@@ -91,6 +99,20 @@ func TestListAuthChecker(t *testing.T) {
 			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
 				return []string{"foo"}, nil
 			},
+			ids:     []string{"foo"},
+			allowed: []string{"foo"},
+		},
+		{
+			name: "success with Set()",
+			mode: AuthWhiteList,
+			authInfo: credentials.TLSInfo{
+				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
+			},
+			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
+				return []string{"foo", "bar"}, nil
+			},
+			ids:     []string{"foo", "bar"},
+			allowed: []string{"foo", "bar"},
 		},
 		{
 			name: "removed",
@@ -103,6 +125,7 @@ func TestListAuthChecker(t *testing.T) {
 			},
 			remove: true,
 			err:    "no allowed identity found in peer's authentication info",
+			ids:    []string{"foo"},
 		},
 		{
 			name: "blacklist allow",
@@ -113,6 +136,7 @@ func TestListAuthChecker(t *testing.T) {
 			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
 				return []string{}, nil
 			},
+			allowed: []string{"foo", "bar", "baz"},
 		},
 		{
 			name: "blacklist block",
@@ -123,7 +147,9 @@ func TestListAuthChecker(t *testing.T) {
 			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
 				return []string{"foo"}, nil
 			},
-			err: "id is blacklisted: foo",
+			err:     "id is blacklisted: foo",
+			ids:     []string{"foo"},
+			allowed: []string{"bar", "baz"},
 		},
 	}
 
@@ -136,10 +162,11 @@ func TestListAuthChecker(t *testing.T) {
 				c.extractIDsFn = testCase.extractIDsFn
 			}
 
-			if testCase.set {
-				c.Set("foo")
-			} else {
-				c.Add("foo")
+			switch len(testCase.ids) {
+			case 1:
+				c.Add(testCase.ids[0])
+			default:
+				c.Set(testCase.ids...)
 			}
 
 			if testCase.remove {
@@ -156,6 +183,22 @@ func TestListAuthChecker(t *testing.T) {
 			} else if testCase.err != "" {
 				t.Fatalf("Expected error not found: %s", testCase.err)
 			}
+
+			for _, id := range testCase.allowed {
+				if testCase.mode == AuthWhiteList {
+					if !c.Allowed(id) {
+						t.Fatalf("Allowed(%v) failed", id)
+					}
+				}
+				//} else {
+				//	if c.Allowed(id) {
+				//		t.Fatalf("Allowed(%v) failed", id)
+				//	}
+				//}
+
+			}
+
+			fmt.Println(c)
 		})
 	}
 }
