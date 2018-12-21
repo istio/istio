@@ -63,8 +63,8 @@ spec:
 {{- end }}
           env:
           volumeMounts:
-          - mountPath: /var/run/ingress_gateway/sds
-            name: ingressGatewaySdsUdsPath
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway/sds
 {{- end }}
         - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
@@ -184,8 +184,8 @@ spec:
           {{- end }}
           {{- end }}
           {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
-          - mountPath: /var/run/ingress_gateway/sds
-            name: ingressGatewaySdsUdsPath
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway/sds
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -200,7 +200,7 @@ spec:
 {{- end }}
       volumes:
       {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
-      - name: ingressGatewaySdsUdsPath
+      - name: ingressgatewaysdsudspath
         hostPath:
           path: /var/run/ingress_gateway/sds
       {{- end }}
