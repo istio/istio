@@ -64,7 +64,7 @@ func (c *client) waitForSnapshot(typeURL string, snapshot []map[string]interface
 		}
 		err = result.generateError()
 		return nil, err == nil, err
-	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*20))
+	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*5))
 
 	return err
 }

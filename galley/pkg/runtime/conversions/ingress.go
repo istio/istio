@@ -19,11 +19,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	ingress "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -32,24 +30,6 @@ import (
 )
 
 var scope = log.RegisterScope("conversions", "proto converters for runtime state", 0)
-
-// ToIngressSpec unwraps an enveloped proto
-func ToIngressSpec(e *mcp.Envelope) (*ingress.IngressSpec, error) {
-
-	p := metadata.IngressSpec.NewProtoInstance()
-	i, ok := p.(*ingress.IngressSpec)
-	if !ok {
-		// Shouldn't happen
-		return nil, fmt.Errorf("unable to convert proto to Ingress: %v", p)
-	}
-
-	if err := proto.Unmarshal(e.Resource.Value, p); err != nil {
-		// Shouldn't happen
-		return nil, fmt.Errorf("unable to unmarshal Ingress during projection: %v", err)
-	}
-
-	return i, nil
-}
 
 // IngressToVirtualService converts from ingress spec to Istio VirtualServices
 func IngressToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, domainSuffix string, ingressByHost map[string]*resource.Entry) {
@@ -233,7 +213,7 @@ func IngressToGateway(key resource.VersionedKey, i *ingress.IngressSpec) resourc
 		ID: resource.VersionedKey{
 			Key: resource.Key{
 				FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
-				TypeURL:  metadata.VirtualService.TypeURL,
+				TypeURL:  metadata.Gateway.TypeURL,
 			},
 			Version:    key.Version,
 			CreateTime: key.CreateTime,

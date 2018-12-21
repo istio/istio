@@ -214,7 +214,6 @@ func TestState_Apply_Delete(t *testing.T) {
 			ID: resource.VersionedKey{Version: "v2", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}},
 		},
 	}
-	s.apply(e)
 
 	changed = s.apply(e)
 	if !changed {
