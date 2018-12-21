@@ -24,10 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"

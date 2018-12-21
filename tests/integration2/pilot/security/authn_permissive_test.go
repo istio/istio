@@ -19,8 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	proto "github.com/gogo/protobuf/types"
@@ -28,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	appst "istio.io/istio/pkg/test/framework/runtime/components/apps"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
