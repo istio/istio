@@ -22,6 +22,7 @@ import (
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	proto "github.com/gogo/protobuf/types"
+
 	authnv1alpha "istio.io/api/authentication/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
@@ -40,7 +41,7 @@ func TestMain(m *testing.M) {
 	framework.Run("authn_permissive_test", m)
 }
 
-func veriyListener(listener *xdsapi.Listener, t *testing.T) bool {
+func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
 	t.Helper()
 	if listener == nil {
 		return false
@@ -128,7 +129,7 @@ func TestAuthnPermissive(t *testing.T) {
 		if err := proto.UnmarshalAny(&r, foo); err != nil {
 			t.Errorf("failed to unmarshal %v", err)
 		}
-		if veriyListener(foo, t) {
+		if verifyListener(foo, t) {
 			return
 		}
 	}
