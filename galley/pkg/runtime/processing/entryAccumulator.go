@@ -16,12 +16,14 @@ package processing
 
 import "istio.io/istio/galley/pkg/runtime/resource"
 
+// EntryAccumulator handles resource events and stores entries in an EntryCollection
 type EntryAccumulator struct {
 	collection *EntryCollection
 }
 
 var _ Handler = &EntryAccumulator{}
 
+// NewEntryAccumulator creates a new EntryAccumulator
 func NewEntryAccumulator(c *EntryCollection) *EntryAccumulator {
 	return &EntryAccumulator{
 		collection: c,
@@ -42,4 +44,3 @@ func (a *EntryAccumulator) Handle(ev resource.Event) bool {
 		return false
 	}
 }
-

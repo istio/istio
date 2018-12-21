@@ -26,9 +26,10 @@ type Pipeline interface {
 }
 
 type pipeline struct {
-	handler Handler
+	handler     Handler
 	snapshotter Snapshotter
 }
+
 var _ Pipeline = &pipeline{}
 
 // Handle implements Handler
@@ -43,7 +44,7 @@ func (p *pipeline) Snapshot() snapshot.Snapshot {
 
 // PipelineBuilder builds a new pipeline
 type PipelineBuilder struct {
-	views []View
+	views   []View
 	builder *DispatcherBuilder
 }
 
@@ -68,8 +69,8 @@ func (b *PipelineBuilder) AddView(v View) {
 func (b *PipelineBuilder) Build() Pipeline {
 	handler := b.builder.Build()
 	snapshotter := NewSnapshotter(b.views)
-	return &pipeline {
-		handler: handler,
+	return &pipeline{
+		handler:     handler,
 		snapshotter: snapshotter,
 	}
 }

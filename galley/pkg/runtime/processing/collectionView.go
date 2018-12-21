@@ -45,7 +45,7 @@ func NewCollectionView(typeURL resource.TypeURL, c *Collection, xform ToEnvelope
 		}
 	}
 	return &CollectionView{
-		xform: xform,
+		xform:      xform,
 		typeURL:    typeURL,
 		collection: c,
 	}
