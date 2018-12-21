@@ -251,7 +251,8 @@ func (a *pilotAgent) GetPorts() []*MappedPort {
 	return a.ports
 }
 
-func GetNodeId(agent Agent) string {
+// GetNodeID returns the envoy metadata ID for pilot's service discovery.
+func GetNodeID(agent Agent) string {
 	pa := agent.(*pilotAgent)
 	return pa.nodeID
 }

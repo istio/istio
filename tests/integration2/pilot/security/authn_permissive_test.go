@@ -144,6 +144,6 @@ func TestAuthnPermissive(t *testing.T) {
 func TestAuthentictionPermissiveE2E(t *testing.T) {
 	// Steps:
 	// Configure authn policy.
-	// Wait for config propogation.
+	// Wait for config propagation.
 	// Send HTTP requests between apps.
 }
