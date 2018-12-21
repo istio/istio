@@ -396,7 +396,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		}
 		// Construct the default filter chain.
 		if len(allChains) == 0 {
-			log.Infof("Use default filter chain for %v", endpoint)
+			log.Warnf("Use default filter chain for %v", endpoint)
 			// add one empty entry to the list so we generate a default listener below
 			allChains = []plugin.FilterChain{{}}
 		}

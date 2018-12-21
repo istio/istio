@@ -142,4 +142,8 @@ func TestAuthnPermissive(t *testing.T) {
 // - app A to app B via https, terminating traffic at application, not sidecar.
 // TODO(incfly): implement this
 func TestAuthentictionPermissiveE2E(t *testing.T) {
+	// Steps:
+	// Configure authn policy.
+	// Wait for config propogation.
+	// Send HTTP requests between apps.
 }

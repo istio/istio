@@ -96,8 +96,8 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 	}
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			// TODO(incfly): should this be {"istio", "http1.1", "h2"}?
-			// Currently it works: when server is in permissive mode, client sidecar can send tls traffic.
+			// Note even though for PERMISSIVE mode, we match filter chain on ALPN = "istio".
+			// Server's ALPN does not need to include "istio". That's only for filter chain selection.
 			AlpnProtocols: util.ALPNHttp,
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
