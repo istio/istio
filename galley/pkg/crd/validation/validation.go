@@ -121,9 +121,9 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 		validationReadinessProbe := probe.NewProbe()
 		validationReadinessProbe.SetAvailable(errors.New("init"))
 		validationReadinessProbe.RegisterProbe(readinessProbeController, "validationReadiness")
+		defer validationReadinessProbe.SetAvailable(errors.New("stopped"))
 
 		go func() {
-			ready := false
 			client := &http.Client{
 				Timeout: time.Second,
 				Transport: &http.Transport{
@@ -137,14 +137,10 @@ func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeCo
 				if err := webhookHTTPSHandlerReady(client, vc); err != nil {
 					validationReadinessProbe.SetAvailable(errors.New("not ready"))
 					scope.Infof("https handler for validation webhook is not ready: %v", err)
-					ready = false
 				} else {
 					validationReadinessProbe.SetAvailable(nil)
-
-					if !ready {
-						scope.Info("https handler for validation webhook is ready")
-						ready = true
-					}
+					scope.Info("https handler for validation webhook is ready")
+					return
 				}
 				select {
 				case <-stop:
