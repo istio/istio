@@ -897,10 +897,12 @@ func (k *KubeInfo) executeHelmTest() error {
 	if !util.CheckPodsRunning(k.Namespace, k.KubeConfig) {
 		return fmt.Errorf("can't get all pods running")
 	}
-	
+
 	if err := util.HelmTest("istio"); err != nil {
-		return fmt.Errorf("helm test istio failed.")
+		return fmt.Errorf("helm test istio failed")
 	}
+
+	return nil
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
