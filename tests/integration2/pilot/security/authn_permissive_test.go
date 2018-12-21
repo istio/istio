@@ -137,9 +137,12 @@ func TestAuthnPermissive(t *testing.T) {
 }
 
 // TestAuthentictionPermissiveE2E these cases are covered end to end
-// - app A to app B via mTLS.
-// - app A to app B via plaintext.
-// - app A to app B via https, terminating traffic at application, not sidecar.
+// app A to app B using plaintext (mTLS),
+// app A to app B using HTTPS (mTLS),
+// app A to app B using plaintext (legacy),
+// app A to app B using HTTPS (legacy).
+// explained: app-to-app-protocol(sidecar-to-sidecar-protocol). "legacy" means
+// no client sidecar, unable to send "istio" alpn indicator.
 // TODO(incfly): implement this
 func TestAuthentictionPermissiveE2E(t *testing.T) {
 	// Steps:
