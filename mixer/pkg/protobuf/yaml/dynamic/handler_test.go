@@ -207,8 +207,12 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 
 	// check
 	linst := &listentry.InstanceMsg{
-		Name:  "n1",
-		Value: "v1",
+		Name: "n1",
+		Value: &attributeV1beta1.Value{
+			Value: &attributeV1beta1.Value_StringValue{
+				StringValue: "v1",
+			},
+		},
 	}
 	linstBa, _ := linst.Marshal()
 	le, err := h.HandleRemoteCheck(context.Background(), &adapter.EncodedInstance{Name: listentryDi.Name, Data: linstBa}, nil, "")
