@@ -86,7 +86,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
-		SecureGrpcAddr: ":0",
+		SecureGrpcAddr: "",
 	}
 
 	bootstrapArgs := bootstrap.PilotArgs{

@@ -85,7 +85,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		DiscoveryOptions: envoy.DiscoveryServiceOptions{
 			HTTPAddr:        httpAddr,
 			GrpcAddr:        ":0",
-			SecureGrpcAddr:  ":0",
+			SecureGrpcAddr:  "",
 			EnableCaching:   true,
 			EnableProfiling: true,
 		},

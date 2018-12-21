@@ -955,14 +955,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
-	// create grpc/http/secure grpc server
+	// create grpc/http server
 	s.initGrpcServer(args.KeepaliveOptions)
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
 		Handler: s.mux,
-	}
-	if err := s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
-		return err
 	}
 
 	// create http listener
@@ -979,15 +976,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.GRPCListeningAddr = grpcListener.Addr()
 
-	// create secure grpc listener
-	secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
-	if err != nil {
-		return err
-	}
-	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
-
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		log.Infof("starting discovery service at http=%s grpc=%s secure grpc=%s", listener.Addr(), grpcListener.Addr(), secureGrpcListener.Addr())
+		log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
 		go func() {
 			if err := s.httpServer.Serve(listener); err != nil {
 				log.Warna(err)
@@ -996,18 +986,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		go func() {
 			if err := s.grpcServer.Serve(grpcListener); err != nil {
 				log.Warna(err)
-			}
-		}()
-		go func() {
-			// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
-			// on a listener
-			err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
-			msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
-			select {
-			case <-stop:
-				log.Info(msg)
-			default:
-				panic(fmt.Sprintf("%s due to error: %v", msg, err))
 			}
 		}()
 
@@ -1022,16 +1000,49 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				log.Warna(err)
 			}
 			s.grpcServer.GracefulStop()
-			if s.secureGRPCServer != nil {
-				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-				defer cancel()
-				s.secureHTTPServer.Shutdown(ctx)
-				s.secureGRPCServer.Stop()
-			}
 		}()
 
 		return nil
 	})
+
+	// run secure grpc server
+	if args.DiscoveryOptions.SecureGrpcAddr != "" {
+		// create secure grpc server
+		if err := s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
+			return err
+		}
+		// create secure grpc listener
+		secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
+		if err != nil {
+			return err
+		}
+		s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
+
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			log.Infof("starting discovery service at secure grpc=%s", secureGrpcListener.Addr())
+			go func() {
+				// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+				// on a listener
+				err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
+				msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
+				select {
+				case <-stop:
+					log.Info(msg)
+				default:
+					panic(fmt.Sprintf("%s due to error: %v", msg, err))
+				}
+			}()
+			go func() {
+				<-stop
+				s.grpcServer.GracefulStop()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				s.secureHTTPServer.Shutdown(ctx)
+				s.secureGRPCServer.Stop()
+			}()
+			return nil
+		})
+	}
 
 	return nil
 }
