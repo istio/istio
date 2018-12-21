@@ -181,7 +181,6 @@ func (c *nativeComponent) Close() (err error) {
 		if err != nil {
 			scopes.Framework.Infof("Error while Galley server close during reset: %v", err)
 		}
-		_ = c.server.Wait()
 		c.server = nil
 	}
 	return
