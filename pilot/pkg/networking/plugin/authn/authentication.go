@@ -96,10 +96,15 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 	}
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			// Note in PERMISSIVE mode, we match filter chain on ALPN = "istio".
-			// Client sidecar outbound cluster needs to set TLSContext.ALPN to include "istio".
-			// However, server sidecar listener's TLSContext.ALPN does not need to include "istio".
-			// That's only for filter chain selection.
+			// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
+			// which is used to differentiate between service mesh and legacy traffic.
+			//
+			// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
+			//
+			// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
+			// include "istio" for the secure traffic, but its TLSContext.ALPN must not
+			// include "istio", which would interfere with negotiation of the underlying
+			// protocol, e.g. HTTP/2.
 			AlpnProtocols: util.ALPNHttp,
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
