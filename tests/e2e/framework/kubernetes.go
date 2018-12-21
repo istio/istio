@@ -351,6 +351,12 @@ func (k *KubeInfo) Setup() error {
 				log.Error("Failed to deploy Istio with helm.")
 				return err
 			}
+
+			// execute helm test for istio
+			if err = k.executeHelmTest(); err != nil {
+				log.Error("Failed to execute Istio helm tests.")
+				return err
+			}
 		} else {
 			if err = k.deployIstio(); err != nil {
 				log.Error("Failed to deploy Istio.")
@@ -882,6 +888,16 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	return nil
+}
+
+func (k *KubeInfo) executeHelmTest() error {
+	if !util.CheckPodsRunning(k.Namespace, k.KubeConfig) {
+		return fmt.Errorf("can't get all pods running")
+	}
+	
+	if err := util.HelmTest("istio"); err != nil {
+		return fmt.Errorf("helm test istio failed.")
+	}
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {

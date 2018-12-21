@@ -45,6 +45,12 @@ func HelmInstall(chartDir, chartName, valueFile, namespace, setValue string) err
 	return err
 }
 
+// HelmTest helm test a chart release
+func HelmTest(releaseName string) error {
+	_, err := Shell("helm test %s", releaseName)
+	return err
+}
+
 // HelmTemplate helm template from a chart for a given namespace
 //      --set stringArray        set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
 func HelmTemplate(chartDir, chartName, namespace, setValue, outfile string) error {
