@@ -33,7 +33,6 @@ type snapshotter struct {
 
 var _ Snapshotter = &snapshotter{}
 
-
 // NewSnapshotter returns accumulator new instance of Snapshotter
 func NewSnapshotter(views []View) Snapshotter {
 	m := make(map[resource.TypeURL][]View)

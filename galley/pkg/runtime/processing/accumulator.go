@@ -22,7 +22,7 @@ type TransformFn func(entry resource.Entry) (interface{}, error)
 // Accumulator handles incoming events, optionally applies a conversion function, before setting the values
 // in a backing collection
 type Accumulator struct {
-	xform TransformFn
+	xform      TransformFn
 	collection *Collection
 }
 
@@ -35,7 +35,7 @@ func NewAccumulator(c *Collection, xform TransformFn) *Accumulator {
 	}
 
 	return &Accumulator{
-		xform: xform,
+		xform:      xform,
 		collection: c,
 	}
 }
@@ -59,4 +59,3 @@ func (a *Accumulator) Handle(ev resource.Event) bool {
 		return false
 	}
 }
-

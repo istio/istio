@@ -112,7 +112,7 @@ func TestIngressConversion(t *testing.T) {
 		},
 	}
 
-	cfgs := map[string]resource.Entry{}
+	cfgs := map[string]*resource.Entry{}
 	IngressToVirtualService(key, &ingress, "mydomain", cfgs)
 	IngressToVirtualService(key2, &ingress2, "mydomain", cfgs)
 

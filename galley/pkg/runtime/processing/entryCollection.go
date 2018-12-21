@@ -16,11 +16,13 @@ package processing
 
 import "istio.io/istio/galley/pkg/runtime/resource"
 
+// EntryCollection is an efficient collection for entries.
 type EntryCollection struct {
 	generation int64
 	resources  map[resource.FullName]resource.Entry
 }
 
+// NewEntryCollection returns a new EntryCollection
 func NewEntryCollection() *EntryCollection {
 	return &EntryCollection{
 		generation: 0,
@@ -80,4 +82,3 @@ func (c *EntryCollection) ForEachItem(fn func(e resource.Entry)) {
 		fn(item)
 	}
 }
-

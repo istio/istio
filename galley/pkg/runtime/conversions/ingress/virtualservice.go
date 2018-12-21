@@ -19,36 +19,22 @@ import (
 	"sort"
 	"strings"
 
-
-mcp "istio.io/api/mcp/v1alpha1"
-"istio.io/istio/galley/pkg/metadata"
-"istio.io/istio/galley/pkg/runtime/conversions"
-"istio.io/istio/galley/pkg/runtime/conversions/envelope"
-"istio.io/istio/galley/pkg/runtime/processing"
-"istio.io/istio/galley/pkg/runtime/resource"
-"k8s.io/api/extensions/v1beta1"
-
+	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/runtime/conversions"
+	"istio.io/istio/galley/pkg/runtime/conversions/envelope"
+	"istio.io/istio/galley/pkg/runtime/processing"
+	"istio.io/istio/galley/pkg/runtime/resource"
+	"k8s.io/api/extensions/v1beta1"
 )
 
-//
-//import (
-//	"sort"
-//	"strings"
-//
-//	"istio.io/istio/galley/pkg/metadata"
-//	"istio.io/istio/galley/pkg/runtime/conversions"
-//	"istio.io/istio/galley/pkg/runtime/processing"
-//	"istio.io/istio/galley/pkg/runtime/resource"
-//	"k8s.io/api/extensions/v1beta1"
-//)
-//
 type virtualServiceView struct {
 	generation int64
 	collection *processing.EntryCollection
 	config     *Config
 
 	// track collections generation to detect any changes that should retrigger a rebuild of cached state
-	lastCollectionGen int64
+	lastCollectionGen     int64
 	previousIngressByHost map[string]*resource.Entry
 }
 

@@ -21,5 +21,4 @@
 // View: A component that provides a view of a particular type of resources, in final, enveloped form.
 // Snapshotter: A component that create a snapshot out of views.
 // Collection: A generic collection that store entries, and versions by resource.FullName.
-
 package processing

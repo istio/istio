@@ -38,7 +38,7 @@ func (r *comparisonResult) generateError() (err error) {
 			return er
 		}
 
-		err = multierror.Append(err, fmt.Errorf("expected resource not found: %s\n%v\n", n, string(js)))
+		err = multierror.Append(err, fmt.Errorf("expected resource not found: %s\n%v", n, string(js)))
 	}
 
 	for _, n := range r.extraActual {
@@ -47,7 +47,7 @@ func (r *comparisonResult) generateError() (err error) {
 			return er
 		}
 
-		err = multierror.Append(err, fmt.Errorf("extra resource not found: %s\n%v\n", n, string(js)))
+		err = multierror.Append(err, fmt.Errorf("extra resource not found: %s\n%v", n, string(js)))
 	}
 
 	for _, n := range r.conflicting {
@@ -72,7 +72,7 @@ func (r *comparisonResult) generateError() (err error) {
 			return er
 		}
 
-		err = multierror.Append(err, fmt.Errorf("resource mismatch: %q\n%s\n",
+		err = multierror.Append(err, fmt.Errorf("resource mismatch: %q\n%s",
 			n, text))
 	}
 

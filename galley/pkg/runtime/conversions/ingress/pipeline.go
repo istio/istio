@@ -59,7 +59,7 @@ func addVirtualServicePipeline(cfg *Config, b *processing.PipelineBuilder) {
 	// Create a view on top of the ingress collection that generate the virtual services.
 	vsView := &virtualServiceView{
 		collection: c,
-		config: cfg,
+		config:     cfg,
 	}
 
 	// Handle incoming ingress resources and accumulate them to the collection
