@@ -839,6 +839,9 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// CRDs installed ahead of time with 2.9.x
 	setValue += " --set global.crds=false"
 
+	// enable helm test for istio
+	setValue += " --set global.enableHelmTest=true"
+
 	// add additional values passed from test
 	for _, v := range helmSetValues {
 		setValue += " --set " + v

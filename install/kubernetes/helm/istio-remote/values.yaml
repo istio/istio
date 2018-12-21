@@ -269,10 +269,10 @@ global:
   # Must match the names in the meshNetworks section in the Istio local.
   network: ""
   
-  # Include the helm test templates when generating the template.
-  # If set to false, 'helm template ...' will ignore the helm test yaml files
-  # when generating the template
-  enableHelmTest: true
+  # Specifies whether helm test is enabled or not.
+  # This field is set to false by default, so 'helm template ...' 
+  # will ignore the helm test yaml files when generating the template
+  enableHelmTest: false
 
 #
 # Istio CNI plugin enabled
