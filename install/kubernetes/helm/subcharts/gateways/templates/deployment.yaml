@@ -201,7 +201,8 @@ spec:
       volumes:
       {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
       - name: ingressGatewaySdsUdsPath
-        hostPath: /var/run/ingress_gateway/sds
+        hostPath:
+          path: /var/run/ingress_gateway/sds
       {{- end }}
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
