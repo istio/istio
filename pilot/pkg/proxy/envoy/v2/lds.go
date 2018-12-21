@@ -53,10 +53,6 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, _
 
 	adsLog.Infof("LDS: PUSH for node:%s addr:%q listeners:%d %d", con.modelNode.ID, con.PeerAddr, len(rawListeners),
 		response.Size())
-	// TODO(incfly): here, it contains the tls_inspector, but admin configdump is not... TODO figure out.
-	// if strings.HasPrefix(con.ConID, "sidecar~127.0.0.1~b") {
-	// 	adsLog.Infof("jianfeih debug b listeners %v", rawListeners[0])
-	// }
 	return nil
 }
 
