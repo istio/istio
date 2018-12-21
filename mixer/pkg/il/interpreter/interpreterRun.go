@@ -1032,7 +1032,11 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if t2 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
-			tVal = heap[t2]
+			if t2 == 0 {
+				tVal = attribute.NewStringMap("")
+			} else {
+				tVal = heap[t2]
+			}
 			tStr, tFound = il.MapGet(tVal, tStr)
 			if tFound {
 				if hp == heapSize-1 {
@@ -1063,7 +1067,11 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if t2 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
-			tVal = heap[t2]
+			if t2 == 0 {
+				tVal = attribute.NewStringMap("")
+			} else {
+				tVal = heap[t2]
+			}
 			tStr, tFound = il.MapGet(tVal, tStr)
 			if !tFound {
 				if t1 >= hp {

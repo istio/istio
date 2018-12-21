@@ -67,7 +67,7 @@ func (c *Compiler) CompileExpression(text string) (uint32, descriptor.ValueType,
 	}
 
 	returnType := g.toIlType(exprType)
-	g.generate(expression, 0, nmNone, "")
+	g.generate(expression, 0, celMode, "")
 	if g.err != nil {
 		log.Warnf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
 		return 0, descriptor.VALUE_TYPE_UNSPECIFIED, g.err
@@ -113,6 +113,9 @@ const (
 	// the emitted code will "fallthrough" and allow the immediately-following piece of code to handle
 	// the nil  case.
 	nmJmpOnValue
+
+	// CEL mode relies on CEL semantics to interpret expressions
+	celMode
 )
 
 // Result is returned as the result of compilation.
@@ -147,7 +150,7 @@ func Compile(text string, finder ast.AttributeDescriptorFinder, functions map[st
 	}
 
 	returnType := g.toIlType(exprType)
-	g.generate(expression, 0, nmNone, "")
+	g.generate(expression, 0, celMode, "")
 	if g.err != nil {
 		log.Warnf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
 		return nil, g.err
@@ -222,6 +225,12 @@ func (g *generator) generateVariable(v *ast.Variable, mode nilMode, valueJmpLabe
 		case nmJmpOnValue:
 			g.builder.TResolveInt(v.Name)
 			g.builder.Jnz(valueJmpLabel)
+		case celMode:
+			g.builder.TResolveInt(v.Name)
+			end := g.builder.AllocateLabel()
+			g.builder.Jnz(end)
+			g.builder.APushInt(0)
+			g.builder.SetLabelPos(end)
 		}
 
 	case il.String:
@@ -231,6 +240,12 @@ func (g *generator) generateVariable(v *ast.Variable, mode nilMode, valueJmpLabe
 		case nmJmpOnValue:
 			g.builder.TResolveString(v.Name)
 			g.builder.Jnz(valueJmpLabel)
+		case celMode:
+			g.builder.TResolveString(v.Name)
+			end := g.builder.AllocateLabel()
+			g.builder.Jnz(end)
+			g.builder.APushStr("")
+			g.builder.SetLabelPos(end)
 		}
 
 	case il.Bool:
@@ -240,6 +255,12 @@ func (g *generator) generateVariable(v *ast.Variable, mode nilMode, valueJmpLabe
 		case nmJmpOnValue:
 			g.builder.TResolveBool(v.Name)
 			g.builder.Jnz(valueJmpLabel)
+		case celMode:
+			g.builder.TResolveBool(v.Name)
+			end := g.builder.AllocateLabel()
+			g.builder.Jnz(end)
+			g.builder.APushBool(false)
+			g.builder.SetLabelPos(end)
 		}
 
 	case il.Double:
@@ -249,6 +270,12 @@ func (g *generator) generateVariable(v *ast.Variable, mode nilMode, valueJmpLabe
 		case nmJmpOnValue:
 			g.builder.TResolveDouble(v.Name)
 			g.builder.Jnz(valueJmpLabel)
+		case celMode:
+			g.builder.TResolveDouble(v.Name)
+			end := g.builder.AllocateLabel()
+			g.builder.Jnz(end)
+			g.builder.APushDouble(0)
+			g.builder.SetLabelPos(end)
 		}
 
 	case il.Interface:
@@ -258,6 +285,13 @@ func (g *generator) generateVariable(v *ast.Variable, mode nilMode, valueJmpLabe
 		case nmJmpOnValue:
 			g.builder.TResolveInterface(v.Name)
 			g.builder.Jnz(valueJmpLabel)
+		case celMode:
+			g.builder.TResolveInterface(v.Name)
+			end := g.builder.AllocateLabel()
+			g.builder.Jnz(end)
+			// null interface value
+			g.builder.APushInt(0)
+			g.builder.SetLabelPos(end)
 		}
 	default:
 		g.internalError("unrecognized variable type: '%v'", i.ValueType)
@@ -288,10 +322,10 @@ func (g *generator) generateFunction(f *ast.Function, depth int, mode nilMode, v
 		// The parameters to a function (and the function itself) is expected to exist, regardless of whether
 		// we're in a nillable context. The call will either succeed or error out.
 		if f.Target != nil {
-			g.generate(f.Target, depth, nmNone, "")
+			g.generate(f.Target, depth, celMode, "")
 		}
 		for _, arg := range f.Args {
-			g.generate(arg, depth, nmNone, "")
+			g.generate(arg, depth, celMode, "")
 		}
 		g.builder.Call(f.Name)
 		// If we're in a nillable context, then simply short-circuit to the end. The function is either
@@ -304,13 +338,13 @@ func (g *generator) generateFunction(f *ast.Function, depth int, mode nilMode, v
 
 func (g *generator) generateEq(f *ast.Function, depth int) {
 	exprType := g.evalType(f.Args[0])
-	g.generate(f.Args[0], depth+1, nmNone, "")
+	g.generate(f.Args[0], depth+1, celMode, "")
 
 	var constArg1 interface{}
 	if f.Args[1].Const != nil {
 		constArg1 = f.Args[1].Const.Value
 	} else {
-		g.generate(f.Args[1], depth+1, nmNone, "")
+		g.generate(f.Args[1], depth+1, celMode, "")
 	}
 
 	switch exprType {
@@ -376,7 +410,7 @@ func (g *generator) generateNeq(f *ast.Function, depth int) {
 }
 
 func (g *generator) generateLor(f *ast.Function, depth int) {
-	g.generate(f.Args[0], depth+1, nmNone, "")
+	g.generate(f.Args[0], depth+1, celMode, "")
 	lr := g.builder.AllocateLabel()
 	le := g.builder.AllocateLabel()
 	g.builder.Jz(lr)
@@ -387,7 +421,7 @@ func (g *generator) generateLor(f *ast.Function, depth int) {
 		g.builder.Jmp(le)
 	}
 	g.builder.SetLabelPos(lr)
-	g.generate(f.Args[1], depth+1, nmNone, "")
+	g.generate(f.Args[1], depth+1, celMode, "")
 
 	if depth != 0 {
 		g.builder.SetLabelPos(le)
@@ -402,7 +436,7 @@ func (g *generator) generateLand(f *ast.Function, depth int) {
 	lend := g.builder.AllocateLabel()
 
 	for i, a := range f.Args {
-		g.generate(a, depth+1, nmNone, "")
+		g.generate(a, depth+1, celMode, "")
 		if i < len(f.Args)-1 {
 			// if this is not the last argument, check and jump to the false label.
 			g.builder.Jz(lfalse)
@@ -420,6 +454,12 @@ func (g *generator) generateLand(f *ast.Function, depth int) {
 func (g *generator) generateIndex(f *ast.Function, depth int, mode nilMode, valueJmpLabel string) {
 
 	switch mode {
+	case celMode:
+		// should throw an error
+		g.generate(f.Args[0], depth+1, celMode, "")
+		g.generate(f.Args[1], depth+1, celMode, "")
+		g.builder.Lookup()
+
 	case nmNone:
 		// Assume both the indexing target (arg[0]) and the index variable (arg[1]) are non-nil.
 		g.generate(f.Args[0], depth+1, nmNone, "")
@@ -484,6 +524,40 @@ func (g *generator) generateOr(f *ast.Function, depth int, mode nilMode, valueJm
 	// TODO: Optimize code generation to check whether the first argument can be guaranteed to return a value (or error)
 	// If so, we can elide the right-hand-side entirely.
 	switch mode {
+	case celMode:
+
+		lEnd := g.builder.AllocateLabel()
+		switch {
+		case f.Args[0].Fn != nil && f.Args[0].Fn.Name == "OR":
+			// rebalance expression (a | b) | c into a | (b | c)
+			g.generateOr(&ast.Function{
+				Name: "OR",
+				Args: []*ast.Expression{f.Args[0].Fn.Args[0], &ast.Expression{
+					Fn: &ast.Function{
+						Name: "OR",
+						Args: []*ast.Expression{f.Args[0].Fn.Args[1], f.Args[1]},
+					},
+				}},
+			}, depth, celMode, valueJmpLabel)
+			return
+
+		case f.Args[0].Fn != nil && f.Args[0].Fn.Name == "INDEX":
+			lhs := f.Args[0].Fn
+			g.generate(lhs.Args[0], depth+1, celMode, "")
+			g.generate(lhs.Args[1], depth+1, celMode, "")
+			g.builder.TLookup()
+			g.builder.Jnz(lEnd)
+		case f.Args[0].Var != nil:
+			g.generate(f.Args[0], depth+1, nmJmpOnValue, lEnd)
+		case f.Args[0].Const != nil:
+			g.generate(f.Args[0], depth+1, nmJmpOnValue, lEnd)
+		default:
+			g.internalError("unexpected LHS expression: %#v", f.Args[0].Fn)
+			break
+		}
+
+		g.generate(f.Args[1], depth+1, celMode, "")
+		g.builder.SetLabelPos(lEnd)
 	case nmNone:
 		// If the caller expects non-null result, evaluate Args[1] as non-null, and jump to end if
 		// it resolves to a value.
@@ -507,17 +581,17 @@ func (g *generator) generateOr(f *ast.Function, depth int, mode nilMode, valueJm
 }
 
 func (g *generator) generateConditional(f *ast.Function, depth int, mode nilMode, valueJmplLabel string) {
-	g.generate(f.Args[0], depth+1, nmNone, "")
+	g.generate(f.Args[0], depth+1, celMode, "")
 
 	labelFalse := g.builder.AllocateLabel()
 	g.builder.Jz(labelFalse)
-	g.generate(f.Args[1], depth+1, nmNone, "")
+	g.generate(f.Args[1], depth+1, celMode, "")
 
 	labelEnd := g.builder.AllocateLabel()
 	g.builder.Jmp(labelEnd)
 
 	g.builder.SetLabelPos(labelFalse)
-	g.generate(f.Args[2], depth+1, nmNone, "")
+	g.generate(f.Args[2], depth+1, celMode, "")
 
 	g.builder.SetLabelPos(labelEnd)
 
@@ -528,8 +602,8 @@ func (g *generator) generateConditional(f *ast.Function, depth int, mode nilMode
 
 func (g *generator) generateAdd(f *ast.Function, depth int) {
 	exprType := g.evalType(f.Args[0])
-	g.generate(f.Args[0], depth+1, nmNone, "")
-	g.generate(f.Args[1], depth+1, nmNone, "")
+	g.generate(f.Args[0], depth+1, celMode, "")
+	g.generate(f.Args[1], depth+1, celMode, "")
 
 	switch exprType {
 	case il.String:
@@ -553,7 +627,7 @@ func (g *generator) generateSize(f *ast.Function, depth int) {
 			constArg0 := f.Args[0].Const.Value.(string)
 			g.builder.APushInt(int64(len(constArg0)))
 		} else {
-			g.generate(f.Args[0], depth+1, nmNone, "")
+			g.generate(f.Args[0], depth+1, celMode, "")
 			g.builder.SizeString()
 		}
 	default:
@@ -588,6 +662,9 @@ func (g *generator) generateConstant(c *ast.Constant, mode nilMode, valueJmpLabe
 
 	case nmJmpOnValue:
 		g.builder.Jmp(valueJmpLabel)
+
+	case celMode:
+		break
 
 	default:
 		g.internalError("unhandled nil mode: %v", mode)
