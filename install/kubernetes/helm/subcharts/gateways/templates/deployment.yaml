@@ -63,9 +63,8 @@ spec:
 {{- end }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           args:
-          - --enableWorkloadSDS=false
-          - --enableIngressGatewaySDS=true
-          env:
+            - --enableWorkloadSDS=false
+            - --enableIngressGatewaySDS=true
           volumeMounts:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway/sds
