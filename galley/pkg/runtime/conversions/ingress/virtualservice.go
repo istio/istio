@@ -35,12 +35,13 @@ type virtualServiceView struct {
 	config     *Config
 
 	// track collections generation to detect any changes that should retrigger a rebuild of cached state
-	lastCollectionGen     int64
-	previousIngressByHost map[string]*resource.Entry
+	lastCollectionGen int64
+	ingressByHosts    map[string]*resource.Entry
 }
 
 var _ processing.View = &virtualServiceView{}
 
+// rebuild the internal state of the view
 func (v *virtualServiceView) rebuild() {
 	if v.collection.Generation() == v.lastCollectionGen {
 		// No need to rebuild
@@ -64,8 +65,8 @@ func (v *virtualServiceView) rebuild() {
 		conversions.IngressToVirtualService(entry.ID, ingress, v.config.DomainSuffix, ingressByHost)
 	}
 
-	if v.previousIngressByHost == nil || !reflect.DeepEqual(v.previousIngressByHost, ingressByHost) {
-		v.previousIngressByHost = ingressByHost
+	if v.ingressByHosts == nil || !reflect.DeepEqual(v.ingressByHosts, ingressByHost) {
+		v.ingressByHosts = ingressByHost
 		v.lastCollectionGen = v.collection.Generation()
 		v.generation++
 	}
@@ -86,8 +87,8 @@ func (v *virtualServiceView) Generation() int64 {
 func (v *virtualServiceView) Get() []*mcp.Envelope {
 	v.rebuild()
 
-	result := make([]*mcp.Envelope, 0, len(v.previousIngressByHost))
-	for _, e := range v.previousIngressByHost {
+	result := make([]*mcp.Envelope, 0, len(v.ingressByHosts))
+	for _, e := range v.ingressByHosts {
 		env, err := envelope.Envelope(*e)
 		if err != nil {
 			scope.Errorf("Unable to envelope virtual service resource: %v", err)
