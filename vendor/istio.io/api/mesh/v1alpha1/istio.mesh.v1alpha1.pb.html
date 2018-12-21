@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 18
+number_of_entries: 16
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -148,6 +148,15 @@ to connect to Mixer.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-sidecar_to_telemetry_session_affinity">
+<td><code>sidecarToTelemetrySessionAffinity</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enable session affinity for envoy mixer reports so that calls from a proxy will
+always target the same mixer instance.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-proxy_listen_port">
 <td><code>proxyListenPort</code></td>
 <td><code>int32</code></td>
@@ -259,12 +268,14 @@ at runtime and config gets distributed dynamically.</p>
 <td><code>outboundTrafficPolicy</code></td>
 <td><code><a href="#MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</a></code></td>
 <td>
-<p>Set the default behavior of the sidecar for handling outbound traffic from the application.
-While the default mode should work out of the box, if your application uses one or more external services that
-are not known apriori, setting the policy to ALLOW<em>ANY will cause the sidecars to route traffic to the any
-requested destination.
-Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
-instead of using allow</em>any.</p>
+<p>Set the default behavior of the sidecar for handling outbound traffic
+from the application.  If your application uses one or more external
+services that are not known apriori, setting the policy to ALLOW<em>ANY
+will cause the sidecars to route any unknown traffic originating from
+the application to its requested destination.  Users are strongly
+encouraged to use ServiceEntries to explicitly declare any external
+dependencies, instead of using allow</em>any, so that traffic to these
+services can be monitored.</p>
 
 </td>
 </tr>
@@ -305,18 +316,6 @@ Fallback to old identity format(without trust domain) if not set.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-default_service_dependency">
-<td><code>defaultServiceDependency</code></td>
-<td><code><a href="#MeshConfig-DefaultServiceDependency">MeshConfig.DefaultServiceDependency</a></code></td>
-<td>
-<p>The default service dependency setting associated with every workload
-in the mesh.  Pilot will program the routes in the sidecars and
-gateways accordingly. If omitted, sidecars will be configured to reach
-every service in the mesh. The default scope can be overriden by
-supplying a ServiceDependency resource per namespace.</p>
-
-</td>
-</tr>
 </tbody>
 </table>
 </section>
@@ -338,74 +337,6 @@ supplying a ServiceDependency resource per namespace.</p>
 <tr id="MeshConfig-AccessLogEncoding-JSON">
 <td><code>JSON</code></td>
 <td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-DefaultServiceDependency">MeshConfig.DefaultServiceDependency</h2>
-<section>
-<p>Default service dependency settings for each workload in the
-mesh. ServiceDependencycontrols the reachability of workloads to other
-services in the mesh.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-DefaultServiceDependency-import_mode">
-<td><code>importMode</code></td>
-<td><code><a href="#MeshConfig-DefaultServiceDependency-Mode">MeshConfig.DefaultServiceDependency.Mode</a></code></td>
-<td>
-<p>REQUIRED: The default import setting for every workload in the mesh.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-DefaultServiceDependency-import_namespaces">
-<td><code>importNamespaces</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>Specifies one or more namespaces that should be imported by default
-in all user defined ServiceDependency resources in addition to the
-namespaces explicitly specified by the end user. Use this setting to
-automatically import services/resources from namespaces such as
-istio-system that all workloads in the mesh depend upon.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-DefaultServiceDependency-Mode">MeshConfig.DefaultServiceDependency.Mode</h2>
-<section>
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-DefaultServiceDependency-Mode-ALL_NAMESPACES">
-<td><code>ALL_NAMESPACES</code></td>
-<td>
-<p>Configure routes to services in all namespaces, i.e. import
-services from all namespaces.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-DefaultServiceDependency-Mode-SAME_NAMESPACE">
-<td><code>SAME_NAMESPACE</code></td>
-<td>
-<p>Only configure routes to services that are in the same namespace
-as the workload as well as services in namespaces specified in
-importNamespaces.</p>
-
 </td>
 </tr>
 </tbody>
@@ -486,22 +417,16 @@ cloud-provided ingress controller).</p>
 <tr id="MeshConfig-OutboundTrafficPolicy-Mode-REGISTRY_ONLY">
 <td><code>REGISTRY_ONLY</code></td>
 <td>
-<p>outbound traffic will be restricted to services defined in the service registry as well as those defined
-through ServiceEntries</p>
+<p>outbound traffic will be restricted to services defined in the
+service registry as well as those defined through ServiceEntries</p>
 
 </td>
 </tr>
 <tr id="MeshConfig-OutboundTrafficPolicy-Mode-ALLOW_ANY">
 <td><code>ALLOW_ANY</code></td>
 <td>
-<p>outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-VIRTUAL_SERVICE_ONLY" class="deprecated ">
-<td><code>VIRTUAL_SERVICE_ONLY</code></td>
-<td>
-<p>not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only</p>
+<p>outbound traffic to unknown destinations will be allowed, in case
+there are no services or ServiceEntries for the destination port</p>
 
 </td>
 </tr>
@@ -656,7 +581,7 @@ adding ISTIO<em>META</em>NETWORK environment variable to the sidecar.</p></li>
 </ol>
 
 <p>a. By matching the registry name with one of the &ldquo;from<em>registries&rdquo;
-   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assinged to a
+   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assigned to a
    single network.</p>
 
 <p>b. By matching the IP against one of the CIDR ranges in a mesh

@@ -177,7 +177,7 @@ const (
 var (
 	key      = "node-id"
 	metadata = map[string]string{"foo": "bar"}
-	client   *mcp.Client
+	client   *mcp.SinkNode
 
 	supportedTypeUrls = []string{
 		fakeType0TypeURL,
@@ -193,12 +193,12 @@ var (
 	badUnmarshal = &unmarshalErrorType{fakeTypeBase{"unmarshal_error"}}
 
 	// initialized in init()
-	fakeResource0_0      *mcp.Envelope
-	fakeResource0_1      *mcp.Envelope
-	fakeResource0_2      *mcp.Envelope
-	fakeResource1        *mcp.Envelope
-	fakeResource2        *mcp.Envelope
-	badUnmarshalEnvelope *mcp.Envelope
+	fakeResource0_0      *mcp.Resource
+	fakeResource0_1      *mcp.Resource
+	fakeResource0_2      *mcp.Resource
+	fakeResource1        *mcp.Resource
+	fakeResource2        *mcp.Resource
+	badUnmarshalResource *mcp.Resource
 )
 
 func mustMarshalAny(pb proto.Message) *types.Any {
@@ -216,43 +216,43 @@ func init() {
 	proto.RegisterType((*fakeType2)(nil), fakeType2MessageName)
 	proto.RegisterType((*unmarshalErrorType)(nil), unmarshalErrorMessageName)
 
-	fakeResource0_0 = &mcp.Envelope{
+	fakeResource0_0 = &mcp.Resource{
 		Metadata: &mcp.Metadata{Name: "f0_0", Version: "type0/v0"},
-		Resource: mustMarshalAny(fake0_0),
+		Body:     mustMarshalAny(fake0_0),
 	}
-	fakeResource0_1 = &mcp.Envelope{
+	fakeResource0_1 = &mcp.Resource{
 		Metadata: &mcp.Metadata{Name: "f0_1", Version: "type0/v1"},
-		Resource: mustMarshalAny(fake0_1),
+		Body:     mustMarshalAny(fake0_1),
 	}
-	fakeResource0_2 = &mcp.Envelope{
+	fakeResource0_2 = &mcp.Resource{
 		Metadata: &mcp.Metadata{Name: "f0_2", Version: "type0/v2"},
-		Resource: mustMarshalAny(fake0_2),
+		Body:     mustMarshalAny(fake0_2),
 	}
-	fakeResource1 = &mcp.Envelope{
+	fakeResource1 = &mcp.Resource{
 		Metadata: &mcp.Metadata{Name: "f1", Version: "type1/v0"},
-		Resource: mustMarshalAny(fake1),
+		Body:     mustMarshalAny(fake1),
 	}
-	fakeResource2 = &mcp.Envelope{
+	fakeResource2 = &mcp.Resource{
 		Metadata: &mcp.Metadata{Name: "f2", Version: "type2/v0"},
-		Resource: mustMarshalAny(fake2),
+		Body:     mustMarshalAny(fake2),
 	}
-	badUnmarshalEnvelope = &mcp.Envelope{
+	badUnmarshalResource = &mcp.Resource{
 		Metadata: &mcp.Metadata{Name: "unmarshal_error"},
-		Resource: mustMarshalAny(badUnmarshal),
+		Body:     mustMarshalAny(badUnmarshal),
 	}
 
-	client = &mcp.Client{
-		Id:       key,
-		Metadata: &types.Struct{Fields: map[string]*types.Value{}},
+	client = &mcp.SinkNode{
+		Id:          key,
+		Annotations: map[string]string{},
 	}
 	for k, v := range metadata {
-		client.Metadata.Fields[k] = &types.Value{Kind: &types.Value_StringValue{StringValue: v}}
+		client.Annotations[k] = v
 	}
 }
 
 func makeRequest(typeURL, version, nonce string, errorCode codes.Code) *mcp.MeshConfigRequest {
 	req := &mcp.MeshConfigRequest{
-		Client:        client,
+		SinkNode:      client,
 		TypeUrl:       typeURL,
 		VersionInfo:   version,
 		ResponseNonce: nonce,
@@ -263,14 +263,14 @@ func makeRequest(typeURL, version, nonce string, errorCode codes.Code) *mcp.Mesh
 	return req
 }
 
-func makeResponse(typeURL, version, nonce string, envelopes ...*mcp.Envelope) *mcp.MeshConfigResponse {
+func makeResponse(typeURL, version, nonce string, resources ...*mcp.Resource) *mcp.MeshConfigResponse {
 	r := &mcp.MeshConfigResponse{
 		TypeUrl:     typeURL,
 		VersionInfo: version,
 		Nonce:       nonce,
 	}
-	for _, envelope := range envelopes {
-		r.Envelopes = append(r.Envelopes, *envelope)
+	for _, resource := range resources {
+		r.Resources = append(r.Resources, *resource)
 	}
 	return r
 }
@@ -340,7 +340,7 @@ func TestSingleTypeCases(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
-					Resource: fake0_0,
+					Body:     fake0_0,
 				}},
 			},
 		},
@@ -353,7 +353,7 @@ func TestSingleTypeCases(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType1TypeURL,
 					Metadata: fakeResource1.Metadata,
-					Resource: fake1,
+					Body:     fake1,
 				}},
 			},
 		},
@@ -366,7 +366,7 @@ func TestSingleTypeCases(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType2TypeURL,
 					Metadata: fakeResource2.Metadata,
-					Resource: fake2,
+					Body:     fake2,
 				}},
 			},
 		},
@@ -379,20 +379,20 @@ func TestSingleTypeCases(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
-					Resource: fake0_0,
+					Body:     fake0_0,
 				}},
 			},
 		},
 		{
 			name:         "NACK request (unmarshal error)",
-			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n2", badUnmarshalEnvelope),
+			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n2", badUnmarshalResource),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n2", codes.Unknown),
 			wantChange: &Change{
 				TypeURL: fakeType0TypeURL,
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
-					Resource: fake0_0,
+					Body:     fake0_0,
 				}},
 			},
 		},
@@ -405,7 +405,7 @@ func TestSingleTypeCases(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
-					Resource: fake0_0,
+					Body:     fake0_0,
 				}},
 			},
 		},
@@ -419,7 +419,7 @@ func TestSingleTypeCases(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
-					Resource: fake0_0,
+					Body:     fake0_0,
 				}},
 			},
 		},
@@ -432,11 +432,11 @@ func TestSingleTypeCases(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
-					Resource: fake0_1,
+					Body:     fake0_1,
 				}, {
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_2.Metadata,
-					Resource: fake0_2,
+					Body:     fake0_2,
 				}},
 			},
 			wantJournal: nil,
@@ -508,7 +508,7 @@ func TestReconnect(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
-					Resource: fake0_0,
+					Body:     fake0_0,
 				}},
 			},
 		},
@@ -521,7 +521,7 @@ func TestReconnect(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
-					Resource: fake0_0,
+					Body:     fake0_0,
 				}},
 			},
 		},
@@ -534,7 +534,7 @@ func TestReconnect(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
-					Resource: fake0_0,
+					Body:     fake0_0,
 				}},
 			},
 			sendError: true,
@@ -548,7 +548,7 @@ func TestReconnect(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
-					Resource: fake0_1,
+					Body:     fake0_1,
 				}},
 			},
 		},
@@ -561,7 +561,7 @@ func TestReconnect(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
-					Resource: fake0_1,
+					Body:     fake0_1,
 				}},
 			},
 			recvError: true,
@@ -575,7 +575,7 @@ func TestReconnect(t *testing.T) {
 				Objects: []*Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_2.Metadata,
-					Resource: fake0_2,
+					Body:     fake0_2,
 				}},
 			},
 		},
@@ -641,7 +641,7 @@ func TestInMemoryUpdater(t *testing.T) {
 				Metadata: &mcp.Metadata{
 					Name: "bar",
 				},
-				Resource: &types.Empty{},
+				Body: &types.Empty{},
 			},
 		},
 	}
