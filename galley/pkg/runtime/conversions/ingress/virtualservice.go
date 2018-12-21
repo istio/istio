@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/conversions/envelope"
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/resource"
+
 	"k8s.io/api/extensions/v1beta1"
 )
 
@@ -70,15 +71,18 @@ func (v *virtualServiceView) rebuild() {
 	}
 }
 
+// Type implements processing.View
 func (v *virtualServiceView) Type() resource.TypeURL {
 	return metadata.VirtualService.TypeURL
 }
 
+// Generation implements processing.View
 func (v *virtualServiceView) Generation() int64 {
 	v.rebuild()
 	return v.generation
 }
 
+// Get implements processing.View
 func (v *virtualServiceView) Get() []*mcp.Envelope {
 	v.rebuild()
 
