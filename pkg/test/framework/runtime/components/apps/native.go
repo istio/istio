@@ -240,13 +240,14 @@ func configDumpStr(a components.App) (string, error) {
 	return envoy.GetConfigDumpStr(a.(*nativeApp).agent.GetAdminPort())
 }
 
-func ConstructDiscoveryRequest(a components.App) *xdsapi.DiscoveryRequest {
-	nodeID := agent.GetNodeId(a.(*nativeApp).agent)
+// ConstructDiscoveryRequest returns an Envoy discovery request.
+func ConstructDiscoveryRequest(a components.App, typeURL string) *xdsapi.DiscoveryRequest {
+	nodeID := agent.GetNodeID(a.(*nativeApp).agent)
 	return &xdsapi.DiscoveryRequest{
 		Node: &core.Node{
 			Id: nodeID,
 		},
-		TypeUrl: "type.googleapis.com/envoy.api.v2.Listener",
+		TypeUrl: typeURL,
 	}
 }
 

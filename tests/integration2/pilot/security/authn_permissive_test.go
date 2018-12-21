@@ -83,7 +83,7 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
 }
 
 // TestAuthnPermissive checks when authentication policy is permissive, Pilot generates expected
-// listener output.
+// listener configuration.
 func TestAuthnPermissive(t *testing.T) {
 	ctx := framework.GetContext(t)
 	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
@@ -119,7 +119,7 @@ func TestAuthnPermissive(t *testing.T) {
 	apps := components.GetApps(ctx, t)
 	a := apps.GetAppOrFail("a", t)
 	pilot := components.GetPilot(ctx, t)
-	req := appst.ConstructDiscoveryRequest(a)
+	req := appst.ConstructDiscoveryRequest(a, "type.googleapis.com/envoy.api.v2.Listener")
 	resp, err := pilot.CallDiscovery(req)
 	if err != nil {
 		t.Errorf("failed to call discovery %v", err)
