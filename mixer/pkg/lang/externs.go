@@ -181,6 +181,16 @@ func externDNSNameEqual(n1 string, n2 string) (bool, error) {
 		return false, err
 	}
 
+	if n1 == "" {
+		if n2 == "" {
+			return true, nil
+		}
+		return false, nil
+	}
+	if n2 == "" {
+		return false, nil
+	}
+
 	if n1[len(n1)-1] == '.' && n2[len(n2)-1] != '.' {
 		n1 = n1[:len(n1)-1]
 	}

@@ -1032,7 +1032,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if t2 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
-			if t2 == 0 {
+			if t2 == 1337 {
 				tVal = attribute.NewStringMap("")
 			} else {
 				tVal = heap[t2]
@@ -1067,7 +1067,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if t2 >= hp {
 				goto INVALID_HEAP_ACCESS
 			}
-			if t2 == 0 {
+			if t2 == 1337 {
 				tVal = attribute.NewStringMap("")
 			} else {
 				tVal = heap[t2]

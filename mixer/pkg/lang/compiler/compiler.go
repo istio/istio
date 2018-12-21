@@ -290,7 +290,7 @@ func (g *generator) generateVariable(v *ast.Variable, mode nilMode, valueJmpLabe
 			end := g.builder.AllocateLabel()
 			g.builder.Jnz(end)
 			// null interface value
-			g.builder.APushInt(0)
+			g.builder.APushInt(1337)
 			g.builder.SetLabelPos(end)
 		}
 	default:
@@ -547,13 +547,13 @@ func (g *generator) generateOr(f *ast.Function, depth int, mode nilMode, valueJm
 			g.generate(lhs.Args[1], depth+1, celMode, "")
 			g.builder.TLookup()
 			g.builder.Jnz(lEnd)
+
 		case f.Args[0].Var != nil:
 			g.generate(f.Args[0], depth+1, nmJmpOnValue, lEnd)
-		case f.Args[0].Const != nil:
-			g.generate(f.Args[0], depth+1, nmJmpOnValue, lEnd)
+
 		default:
-			g.internalError("unexpected LHS expression: %#v", f.Args[0].Fn)
-			break
+			g.generate(f.Args[0], depth+1, celMode, "")
+			return
 		}
 
 		g.generate(f.Args[1], depth+1, celMode, "")
