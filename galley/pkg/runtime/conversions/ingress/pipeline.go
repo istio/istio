@@ -23,10 +23,12 @@ import (
 var scope = log.RegisterScope("ingress-pipeline", "Galley Ingress processing pipeline", 0)
 
 // AddIngressPipeline attaches Ingress processing components to the given Pipeline builder.
-func AddIngressPipeline(b *processing.PipelineBuilder) {
+func AddIngressPipeline(cfg *Config, b *processing.PipelineBuilder) {
+	localCfg := *cfg
+
 	// Collection for collecting gateways
 	addGatewayPipeline(b)
-	addVirtualServicePipeline(b)
+	addVirtualServicePipeline(&localCfg, b)
 }
 
 func addGatewayPipeline(b *processing.PipelineBuilder) {
@@ -47,39 +49,22 @@ func addGatewayPipeline(b *processing.PipelineBuilder) {
 	b.AddView(v)
 }
 
-func addVirtualServicePipeline(b *processing.PipelineBuilder) {
-	//// Create a collection to store incoming ingresses
-	//ingressCollection := processing.NewCollection()
-	//ai := processing.NewAccumulator(ingressCollection, func(r resource.Entry)(interface{}, error) {
-	//	return r.Item, nil
-	//})
-	//
-	//// Create a view on top of the ingresses that generate the virtual services.
-	//vsView := &virtualServiceView{
-	//	ingresses: ingressCollection,
-	//}
-	//b.AddHandler(metadata.IngressSpec.TypeURL, ai)
-	//b.AddView(vsView)
-	//
-	////processing.TransformFn()
-	////acc := processing.NewAccumulator(c, func(e resource.Entry) (interface{}, error) {
-	////	ingress, ok := e.Item.(*v1beta1.IngressSpec)
-	////	if !ok {
-	////		return nil, fmt.Errorf("invalid resource item encountered while expecting ingress: %v", e.Item)
-	////	}
-	////
-	////	entry := conversions.IngressToGateway(e.ID, ingress)
-	////})
-	////
-	////v := processing.NewCollectionView(metadata.Gateway.TypeURL, c)
-	////
-	////
-	////acc := processing.NewEntryCollector()
-	////b.AddHandler(metadata.IngressSpec.TypeURL, acc)
-	////
-	////gwView := newGatewayView(acc)
-	////b.AddView(gwView)
-	////
-	////vsView := newVirtualServiceView(acc)
-	////b.AddView(vsView)
+func addVirtualServicePipeline(cfg *Config, b *processing.PipelineBuilder) {
+	// Create a collection to store incoming ingresses
+	c := processing.NewEntryCollection()
+
+	// Extract the Ingress Spec and store it directly in the collection
+	a := processing.NewEntryAccumulator(c)
+
+	// Create a view on top of the ingress collection that generate the virtual services.
+	vsView := &virtualServiceView{
+		collection: c,
+		config: cfg,
+	}
+
+	// Handle incoming ingress resources and accumulate them to the collection
+	b.AddHandler(metadata.IngressSpec.TypeURL, a)
+
+	// Add the view to expose the Virtual Services.
+	b.AddView(vsView)
 }

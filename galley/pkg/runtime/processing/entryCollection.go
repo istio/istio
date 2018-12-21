@@ -14,33 +14,27 @@
 
 package processing
 
-import (
-	"istio.io/istio/galley/pkg/runtime/resource"
-)
+import "istio.io/istio/galley/pkg/runtime/resource"
 
-// Collection is an in-memory store for resource name keyed data. It uses versions to detect changes.
-type Collection struct {
+type EntryCollection struct {
 	generation int64
-	resources  map[resource.FullName]interface{}
-	versions   map[resource.FullName]resource.Version
+	resources  map[resource.FullName]resource.Entry
 }
 
-// NewCollection returns new Collection instance.
-func NewCollection() *Collection {
-	return &Collection{
+func NewEntryCollection() *EntryCollection {
+	return &EntryCollection{
 		generation: 0,
-		resources:  make(map[resource.FullName]interface{}),
-		versions:   make(map[resource.FullName]resource.Version),
+		resources:  make(map[resource.FullName]resource.Entry),
 	}
 }
 
 // Generation is a unique id that changes every time the collection changes.
-func (c *Collection) Generation() int64 {
+func (c *EntryCollection) Generation() int64 {
 	return c.generation
 }
 
 // Names returns the set of known names.
-func (c *Collection) Names() []resource.FullName {
+func (c *EntryCollection) Names() []resource.FullName {
 	result := make([]resource.FullName, 0, len(c.resources))
 	for n := range c.resources {
 		result = append(result, n)
@@ -49,35 +43,16 @@ func (c *Collection) Names() []resource.FullName {
 }
 
 // Item returns the named item from the collection
-func (c *Collection) Item(name resource.FullName) interface{} {
+func (c *EntryCollection) Item(name resource.FullName) resource.Entry {
 	return c.resources[name]
-}
-
-// Item returns the named item from the collection
-func (c *Collection) Version(name resource.FullName) resource.Version {
-	return c.versions[name]
-}
-
-// Get returns the current set of items.
-func (c *Collection) Get() []interface{} {
-	result := make([]interface{}, len(c.resources))
-	i := 0
-	for _, v := range c.resources {
-		result[i] = v
-		i++
-	}
-
-	return result
 }
 
 // Set resource in the collection. If this has caused collection change (i.e. add or update w/ different version #)
 // then it returns true
-func (c *Collection) Set(key resource.VersionedKey, iface interface{}) bool {
-	previous, exists := c.versions[key.FullName]
-	updated := !exists || previous != key.Version
-	c.versions[key.FullName] = key.Version
-	c.resources[key.FullName] = iface
-
+func (c *EntryCollection) Set(entry resource.Entry) bool {
+	previous, exists := c.resources[entry.ID.FullName]
+	updated := !exists || previous.ID.Version != entry.ID.Version
+	c.resources[entry.ID.FullName] = entry
 	if updated {
 		c.generation++
 	}
@@ -85,10 +60,9 @@ func (c *Collection) Set(key resource.VersionedKey, iface interface{}) bool {
 }
 
 // Remove resource from the collection. Returns true if the resource was actually removed.
-func (c *Collection) Remove(key resource.FullName) bool {
+func (c *EntryCollection) Remove(key resource.FullName) bool {
 	_, found := c.resources[key]
 	delete(c.resources, key)
-	delete(c.versions, key)
 	if found {
 		c.generation++
 	}
@@ -96,13 +70,14 @@ func (c *Collection) Remove(key resource.FullName) bool {
 }
 
 // Count returns number of items in the collection
-func (c *Collection) Count() int {
+func (c *EntryCollection) Count() int {
 	return len(c.resources)
 }
 
 // ForEachItem applies the given function to each item in the collection
-func (c *Collection) ForEachItem(fn func(i interface{})) {
+func (c *EntryCollection) ForEachItem(fn func(e resource.Entry)) {
 	for _, item := range c.resources {
 		fn(item)
 	}
 }
+

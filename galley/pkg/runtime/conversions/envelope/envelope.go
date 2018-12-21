@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
-// Envelope accumulator resource
+// Envelope converts a resource entry into its enveloped form.
 func Envelope(e resource.Entry) (*mcp.Envelope, error) {
 
 	serialized, err := proto.Marshal(e.Item)

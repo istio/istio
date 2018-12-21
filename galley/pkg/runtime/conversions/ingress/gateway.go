@@ -33,6 +33,18 @@ func toEnvelopedGateway(entry resource.Entry) (interface{}, error) {
 	return enveloped, err
 }
 
+//		gw := conversions.IngressToGateway(key, ingress)
+//
+//		gwState := s.entries[metadata.Gateway.TypeURL]
+//		gwState.projections[gw.ID.FullName] = envelope
+//		err = b.SetEntry(
+//			metadata.Gateway.TypeURL.String(),
+//			gw.ID.FullName.String(),
+//			string(gw.ID.Version),
+//			gw.ID.CreateTime,
+//			gw.Item)
+
+
 //
 //import (
 //	"istio.io/istio/galley/pkg/metadata"

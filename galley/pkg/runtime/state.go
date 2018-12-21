@@ -56,7 +56,10 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 	}
 
 	// Add projection pipelines
-	ingress.AddIngressPipeline(b)
+	icfg := ingress.Config{
+		DomainSuffix: cfg.DomainSuffix,
+	}
+	ingress.AddIngressPipeline(&icfg, b)
 
 	s.pipeline = b.Build()
 

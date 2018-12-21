@@ -13,12 +13,28 @@
 //  limitations under the License.
 
 package ingress
+
+import (
+	"reflect"
+	"sort"
+	"strings"
+
+
+mcp "istio.io/api/mcp/v1alpha1"
+"istio.io/istio/galley/pkg/metadata"
+"istio.io/istio/galley/pkg/runtime/conversions"
+"istio.io/istio/galley/pkg/runtime/conversions/envelope"
+"istio.io/istio/galley/pkg/runtime/processing"
+"istio.io/istio/galley/pkg/runtime/resource"
+"k8s.io/api/extensions/v1beta1"
+
+)
+
 //
 //import (
 //	"sort"
 //	"strings"
 //
-//	mcp "istio.io/api/mcp/v1alpha1"
 //	"istio.io/istio/galley/pkg/metadata"
 //	"istio.io/istio/galley/pkg/runtime/conversions"
 //	"istio.io/istio/galley/pkg/runtime/processing"
@@ -26,82 +42,69 @@ package ingress
 //	"k8s.io/api/extensions/v1beta1"
 //)
 //
-//type virtualServiceView struct {
-//	generation int64
-//	ingresses *processing.Collection
-//}
-//
-//var _ processing.View = &virtualServiceView{}
-//
-//func (v *virtualServiceView) Type() resource.TypeURL {
-//	return metadata.VirtualService.TypeURL
-//}
-//
-//func (v *virtualServiceView) Generation() int64 {
-//	return v.ingresses.Generation()
-//}
-//
-//func (v *virtualServiceView) Get() []*mcp.Envelope {
-//	// Order names for stable generation.
-//	var orderedNames []resource.FullName
-//	for _, name := range v.ingresses.Names() {
-//		orderedNames = append(orderedNames, name)
-//	}
-//	sort.Slice(orderedNames, func(i, j int) bool {
-//		return strings.Compare(orderedNames[i].String(), orderedNames[j].String()) < 0
-//	})
-//
-//
-//		for _, name := range orderedNames {
-//			ingress := v.ingresses.Item(name).(*v1beta1.IngressSpec)
-//			version := v.ingresses.Version(name)
-//			key := resource.Key{
-//				TypeURL: metadata.IngressSpec.TypeURL,
-//				FullName: name,
-//			}
-//			vkey := resource.VersionedKey{
-//				Version: version,
-//				Key: vkey,
-//			}
-//	//
-//	//		ingress, err := conversions.ToIngressSpec(entry)
-//	//		key := extractKey(name, entry, state.versions[name])
-//	//		if err != nil {
-//	//			// Shouldn't happen
-//	//			scope.Errorf("error during ingress projection: %v", err)
-//	//			continue
-//	//		}
-//			conversions.IngressToVirtualService(key, ingress, s.config.DomainSuffix, ingressByHost)
-//	//
-//	//		gw := conversions.IngressToGateway(key, ingress)
-//	//
-//	//		gwState := s.entries[metadata.Gateway.TypeURL]
-//	//		gwState.projections[gw.ID.FullName] = envelope
-//	//		err = b.SetEntry(
-//	//			metadata.Gateway.TypeURL.String(),
-//	//			gw.ID.FullName.String(),
-//	//			string(gw.ID.Version),
-//	//			gw.ID.CreateTime,
-//	//			gw.Item)
-//	//		if err != nil {
-//	//			scope.Errorf("Unable to set gateway entry: %v", err)
-//	//		}
-//	//
-//	//		// TODO: This is borked
-//	//		b.SetVersion(metadata.Gateway.TypeURL.String(), string(gw.ID.Version))
-//		}
-//
-//	//	for _, e := range ingressByHost {
-//	//		err := b.SetEntry(
-//	//			metadata.VirtualService.TypeURL.String(),
-//	//			e.ID.FullName.String(),
-//	//			string(e.ID.Version),
-//	//			e.ID.CreateTime,
-//	//			e.Item)
-//	//		if err != nil {
-//	//			scope.Errorf("Unable to set virtualservice entry: %v", err)
-//	//		}
-//	//		// TODO: This is borked
-//	//		b.SetVersion(metadata.VirtualService.TypeURL.String(), string(e.ID.Version))
-//	//	}
-//}
+type virtualServiceView struct {
+	generation int64
+	collection *processing.EntryCollection
+	config     *Config
+
+	// track collections generation to detect any changes that should retrigger a rebuild of cached state
+	lastCollectionGen int64
+	previousIngressByHost map[string]*resource.Entry
+}
+
+var _ processing.View = &virtualServiceView{}
+
+func (v *virtualServiceView) rebuild() {
+	if v.collection.Generation() == v.lastCollectionGen {
+		// No need to rebuild
+		return
+	}
+
+	// Order names for stable generation.
+	var orderedNames []resource.FullName
+	for _, name := range v.collection.Names() {
+		orderedNames = append(orderedNames, name)
+	}
+	sort.Slice(orderedNames, func(i, j int) bool {
+		return strings.Compare(orderedNames[i].String(), orderedNames[j].String()) < 0
+	})
+
+	ingressByHost := make(map[string]*resource.Entry)
+	for _, name := range orderedNames {
+		entry := v.collection.Item(name)
+		ingress := entry.Item.(*v1beta1.IngressSpec) // TODO
+
+		conversions.IngressToVirtualService(entry.ID, ingress, v.config.DomainSuffix, ingressByHost)
+	}
+
+	if v.previousIngressByHost == nil || !reflect.DeepEqual(v.previousIngressByHost, ingressByHost) {
+		v.previousIngressByHost = ingressByHost
+		v.lastCollectionGen = v.collection.Generation()
+		v.generation++
+	}
+}
+
+func (v *virtualServiceView) Type() resource.TypeURL {
+	return metadata.VirtualService.TypeURL
+}
+
+func (v *virtualServiceView) Generation() int64 {
+	v.rebuild()
+	return v.generation
+}
+
+func (v *virtualServiceView) Get() []*mcp.Envelope {
+	v.rebuild()
+
+	result := make([]*mcp.Envelope, 0, len(v.previousIngressByHost))
+	for _, e := range v.previousIngressByHost {
+		env, err := envelope.Envelope(*e)
+		if err != nil {
+			scope.Errorf("Unable to envelope virtual service resource: %v", err)
+			continue
+		}
+		result = append(result, env)
+	}
+
+	return result
+}

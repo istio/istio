@@ -16,40 +16,23 @@ package processing
 
 import "istio.io/istio/galley/pkg/runtime/resource"
 
-// TransformFn transforms an entry to a custom type, before storing it in a collection.
-type TransformFn func(entry resource.Entry) (interface{}, error)
-
-// Accumulator handles incoming events, optionally applies a conversion function, before setting the values
-// in a backing collection
-type Accumulator struct {
-	xform TransformFn
-	collection *Collection
+type EntryAccumulator struct {
+	collection *EntryCollection
 }
 
-var _ Handler = &Accumulator{}
+var _ Handler = &EntryAccumulator{}
 
-// NewAccumulator returns a new Accumulator
-func NewAccumulator(c *Collection, xform TransformFn) *Accumulator {
-	if xform == nil {
-		xform = func(entry resource.Entry) (interface{}, error) { return entry, nil }
-	}
-
-	return &Accumulator{
-		xform: xform,
+func NewEntryAccumulator(c *EntryCollection) *EntryAccumulator {
+	return &EntryAccumulator{
 		collection: c,
 	}
 }
 
 // Handle implements Handler
-func (a *Accumulator) Handle(ev resource.Event) bool {
+func (a *EntryAccumulator) Handle(ev resource.Event) bool {
 	switch ev.Kind {
 	case resource.Added, resource.Updated:
-		i, err := a.xform(ev.Entry)
-		if err != nil {
-			scope.Errorf("Error appying transform function: %v", err)
-			return false
-		}
-		return a.collection.Set(ev.Entry.ID, i)
+		return a.collection.Set(ev.Entry)
 
 	case resource.Deleted:
 		return a.collection.Remove(ev.Entry.ID.FullName)

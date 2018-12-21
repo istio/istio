@@ -21,7 +21,7 @@ import (
 
 var scope = log.RegisterScope("pipeline", "Galley processing pipeline", 0)
 
-// Dispatcher is accumulator handler that can dispatch to sub-handlers based on Type URL.
+// Dispatcher can dispatch to sub-handlers based on Type URL.
 type Dispatcher struct {
 	handlers map[resource.TypeURL][]Handler
 }
@@ -45,25 +45,26 @@ func (d *Dispatcher) Handle(e resource.Event) bool {
 	return result
 }
 
-// DispatcherBuilders builds accumulator new Dispatcher
+// DispatcherBuilder builds Dispatchers
 type DispatcherBuilder struct {
 	handlers map[resource.TypeURL][]Handler
 }
 
-// NewDispatcherBuilder returns accumulator new dispatcher builder
+// NewDispatcherBuilder returns a new dispatcher builder
 func NewDispatcherBuilder() *DispatcherBuilder {
 	return &DispatcherBuilder{
 		handlers: make(map[resource.TypeURL][]Handler),
 	}
 }
 
-// Add accumulator new handler for the given type URL
+// Add a new handler for the given type URL
 func (d *DispatcherBuilder) Add(t resource.TypeURL, h Handler) {
 	handlers := d.handlers[t]
 	handlers = append(handlers, h)
 	d.handlers[t] = handlers
 }
 
+// Build a Dispatcher
 func (d *DispatcherBuilder) Build() *Dispatcher {
 	r := &Dispatcher{
 		handlers: d.handlers,
