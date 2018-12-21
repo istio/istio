@@ -61,6 +61,7 @@ spec:
 {{- else }}
           image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
 {{- end }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
           args:
           - --enableWorkloadSDS=false
           - --enableIngressGatewaySDS=true
