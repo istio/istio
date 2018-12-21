@@ -66,7 +66,13 @@ DEFAULT_EXTRA_E2E_ARGS += --galley_hub=${HUB}
 EXTRA_E2E_ARGS ?= ${DEFAULT_EXTRA_E2E_ARGS}
 
 e2e_simple: istioctl generate_yaml e2e_simple_run
-e2e_simple_auth: istioctl generate_yaml e2e_simple_auth_run
+
+e2e_simple_cni: istioctl
+e2e_simple_cni: export ENABLE_ISTIO_CNI=true
+e2e_simple_cni: export EXTRA_HELM_SETTINGS=--set istio-cni.excludeNamespaces={} --set istio-cni.pullPolicy=IfNotPresent --set istio-cni.tag=$(ISTIO_CNI_DOCKER_TAG) --set istio-cni.hub=$(ISTIO_CNI_DOCKER_HUB)
+e2e_simple_cni: export E2E_ARGS+=--kube_inject_configmap=istio-sidecar-injector
+e2e_simple_cni: generate_yaml e2e_simple_run
+
 e2e_simple_noauth: istioctl generate_yaml e2e_simple_noauth_run
 
 e2e_mixer: istioctl generate_e2e_test_yaml e2e_mixer_run
@@ -82,9 +88,8 @@ e2e_stackdriver: istioctl generate_yaml e2e_stackdriver_run
 e2e_all: istioctl generate_yaml e2e_all_run
 
 # *_run targets do not rebuild the artifacts and test with whatever is given
-e2e_simple_run: e2e_simple_auth_run
 
-e2e_simple_auth_run: out_dir
+e2e_simple_run: out_dir
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
 	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}

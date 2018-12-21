@@ -203,13 +203,14 @@ type Server struct {
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
 	secureHTTPServer *http.Server
+	secureHTTPMutex  sync.RWMutex
 	secureGRPCServer *grpc.Server
+	secureGrpcMutex  sync.RWMutex
 	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
 	fileWatcher      filewatcher.FileWatcher
-	secureGrpcMutex  sync.RWMutex
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -1023,7 +1024,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			if s.secureGRPCServer != nil {
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
+				s.secureHTTPMutex.RLock()
 				s.secureHTTPServer.Shutdown(ctx)
+				s.secureHTTPMutex.RUnlock()
 				s.secureGrpcMutex.RLock()
 				s.secureGRPCServer.Stop()
 				s.secureGrpcMutex.RUnlock()
@@ -1110,6 +1113,7 @@ func (s *Server) secureGrpcStart(listener net.Listener, options *istiokeepalive.
 
 	log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
 
+	s.secureHTTPMutex.Lock()
 	s.secureHTTPServer = &http.Server{
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{certificate},
@@ -1131,6 +1135,7 @@ func (s *Server) secureGrpcStart(listener net.Listener, options *istiokeepalive.
 			}
 		}),
 	}
+	s.secureHTTPMutex.Unlock()
 
 	// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
 	// on a listener

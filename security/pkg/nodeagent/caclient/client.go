@@ -24,7 +24,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/security/pkg/k8s/controller"
+	"istio.io/istio/security/pkg/k8s/configmap"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
@@ -52,7 +52,7 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 		if err != nil {
 			return nil, err
 		}
-		controller := controller.NewConfigMapController("", cs.CoreV1())
+		controller := configmap.NewController("", cs.CoreV1())
 		rootCert, err := getCATLSRootCertFromConfigMap(controller, retryInterval, maxRetries)
 		if err != nil {
 			return nil, err
