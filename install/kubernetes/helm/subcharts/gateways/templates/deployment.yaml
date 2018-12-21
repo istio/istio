@@ -61,6 +61,11 @@ spec:
 {{- else }}
           image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
 {{- end }}
+          args:
+          - --enableWorkloadSDS
+          - 'false'
+          - --enableIngressGatewaySDS
+          - 'true'
           env:
           volumeMounts:
           - name: ingressgatewaysdsudspath

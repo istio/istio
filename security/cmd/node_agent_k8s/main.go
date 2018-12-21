@@ -146,8 +146,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableIngressGatewaySDS, "enableIngressGatewaySDS",
 		false,
 		"If true, node agent works as SDS server and watches kubernetes secrets for ingress gateway.")
-	rootCmd.PersistentFlags().StringVar(&serverOptions.IngressGatewayUDSPath, "sdsUdsPath",
-		"/var/run/ingress_gateway/uds_path", "Unix domain socket through which SDS server communicates with ingress gateway proxies.")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.IngressGatewayUDSPath, "gatewayUdsPath",
+		"/var/run/ingress_gateway/sds", "Unix domain socket through which SDS server communicates with ingress gateway proxies.")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAProviderName, "caProvider", os.Getenv(caProvider), "CA provider")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CAEndpoint, "caEndpoint", os.Getenv(caAddress), "CA endpoint")
