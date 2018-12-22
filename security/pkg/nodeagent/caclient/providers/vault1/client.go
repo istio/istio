@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/hashicorp/vault/api"
 	"istio.io/istio/pkg/log"
@@ -64,25 +65,21 @@ func NewVaultClient1(tls bool,
 }
 
 // CSR Sign calls Vault to sign a CSR.
-func (c *vaultClient1) CSRSign(ctx context.Context, csrPEM []byte, token string,
+func (c *vaultClient1) CSRSign(ctx context.Context, csrPEM []byte, saToken string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-
-	saToken := token
-	token, err := loginVaultK8sAuthMethod(c.client, c.vaultLoginPath, c.vaultLoginRole, string(saToken[:]))
+	token, err := loginVaultK8sAuthMethod(c.client, c.vaultLoginPath, c.vaultLoginRole, saToken)
 	if err != nil {
-		log.Errorf("Failed to login Vault: %v", err)
-		return nil, fmt.Errorf("Failed to login Vault: %v", err)
+		return nil, fmt.Errorf("failed to login Vault: %v", err)
 	}
 	c.client.SetToken(token)
-	_, certChain, err := signCsrByVault(c.client, c.vaultSignCsrPath, csrPEM)
+	_, certChain, err := signCsrByVault(c.client, c.vaultSignCsrPath, certValidTTLInSec, csrPEM)
 	if err != nil {
-		log.Errorf("Failed to sign CSR: %v", err)
-		return nil, fmt.Errorf("Failed to sign CSR: %v", err)
+		return nil, fmt.Errorf("failed to sign CSR: %v", err)
 	}
 
 	if len(certChain) <= 1 {
-		log.Errorf("Certificate chain length is %d, expected more than 1", len(certChain))
-		return nil, fmt.Errorf("Invalid cert. chain in the response")
+		log.Errorf("certificate chain length is %d, expected more than 1", len(certChain))
+		return nil, fmt.Errorf("invalid cert. chain in the response")
 	}
 
 	return certChain, nil
@@ -96,6 +93,7 @@ func createVaultClient(vaultAddr string) (*api.Client, error) {
 
 	client, err := api.NewClient(config)
 	if err != nil {
+		log.Errorf("failed to create a Vault client: %v", err)
 		return nil, err
 	}
 
@@ -124,6 +122,7 @@ func createVaultClientTLS(vaultAddr string) (*api.Client, error) {
 
 	client, err := api.NewClient(config)
 	if err != nil {
+		log.Errorf("failed to create a Vault client: %v", err)
 		return nil, err
 	}
 
@@ -144,47 +143,72 @@ func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (st
 		})
 
 	if err != nil {
+		log.Errorf("failed to login Vault: %v", err)
 		return "", err
+	}
+	if resp == nil {
+		log.Errorf("login response is nil")
+		return "", fmt.Errorf("login response is nil")
+	}
+	if resp.Auth == nil {
+		log.Errorf("login response auth field is nil")
+		return "", fmt.Errorf("login response auth field is nil")
 	}
 	return resp.Auth.ClientToken, nil
 }
 
 // signCsrByVault signs the CSR and return the signed certifcate and the CA certificate chain
-// Return the signed certificate and the CA certificate chain when succeed.
+// Return the signed certificate and the certificate chain when succeed.
 // client: the Vault client
 // csrSigningPath: the path for signing a CSR
 // csr: the CSR to be signed, in pem format
-func signCsrByVault(client *api.Client, csrSigningPath string, csr []byte) ([]byte, []string, error) {
+func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int64, csr []byte) ([]byte, []string, error) {
 	m := map[string]interface{}{
 		"format": "pem",
 		"csr":    string(csr[:]),
+		"ttl":    strconv.FormatInt(certTTLInSec, 10) + "s",
 	}
 	res, err := client.Logical().Write(csrSigningPath, m)
 	if err != nil {
+		log.Errorf("failed to post to %v: %v", csrSigningPath, err)
 		return nil, nil, fmt.Errorf("failed to post to %v: %v", csrSigningPath, err)
+	}
+	if res == nil {
+		log.Errorf("sign response is nil")
+		return nil, nil, fmt.Errorf("sign response is nil")
+	}
+	if res.Data == nil {
+		log.Errorf("sign response has a nil Data field")
+		return nil, nil, fmt.Errorf("sign response has a nil Data field")
 	}
 	//Extract the certificate and the certificate chain
 	certificate, ok := res.Data["certificate"]
 	if !ok {
+		log.Errorf("no certificate in the CSR response")
 		return nil, nil, fmt.Errorf("no certificate in the CSR response")
 	}
 	cert, ok := certificate.(string)
 	if !ok {
+		log.Errorf("the certificate in the CSR response is not a string")
 		return nil, nil, fmt.Errorf("the certificate in the CSR response is not a string")
 	}
 	caChain, ok := res.Data["ca_chain"]
 	if !ok {
+		log.Errorf("no certificate chain in the CSR response")
 		return nil, nil, fmt.Errorf("no certificate chain in the CSR response")
 	}
 	chain, ok := caChain.([]interface{})
 	if !ok {
+		log.Errorf("the certificate chain in the CSR response is of unexpected format")
 		return nil, nil, fmt.Errorf("the certificate chain in the CSR response is of unexpected format")
 	}
 	var certChain []string
-	for _, c := range chain {
+	certChain = append(certChain, cert)
+	for idx, c := range chain {
 		_, ok := c.(string)
 		if !ok {
-			return nil, nil, fmt.Errorf("the certificate in the certificate chain is not a string")
+			log.Errorf("the certificate in the certificate chain %v is not a string", idx)
+			return nil, nil, fmt.Errorf("the certificate in the certificate chain %v is not a string", idx)
 		}
 		certChain = append(certChain, c.(string))
 	}
