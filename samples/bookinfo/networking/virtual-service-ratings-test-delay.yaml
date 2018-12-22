@@ -12,8 +12,7 @@ spec:
           exact: jason
     fault:
       delay:
-        percentage:
-          value: 100.0
+        percent: 100
         fixedDelay: 7s
     route:
     - destination:
