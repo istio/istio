@@ -28,11 +28,13 @@ import (
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	vault1 "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault1"
 )
 
 const (
 	googleCAName = "GoogleCA"
 	citadelName  = "Citadel"
+	vaultCAName1 = "VaultCA1"
 	ns           = "istio-system"
 
 	retryInterval = time.Second * 2
@@ -48,6 +50,9 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 	switch CAProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
+	case vaultCAName1:
+		//TO-DO (lei-tang): fill vault parameters from environmental variables
+		return vault1.NewVaultClient1(tlsFlag, "vaultAddr", "vaultLoginRole", "vaultLoginPath", "vaultSignCsrPath")
 	case citadelName:
 		cs, err := createClientSet()
 		if err != nil {
