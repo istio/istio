@@ -62,9 +62,11 @@ spec:
           image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
-          args:
-            - --enableWorkloadSDS=false
-            - --enableIngressGatewaySDS=true
+          env:
+          - name: "ENABLE_WORKLOAD_SDS"
+            value: "false"
+          - name: "ENABLE_INGRESS_GATEWAY_SDS"
+            value: "true"
           volumeMounts:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway/sds
@@ -204,8 +206,7 @@ spec:
       volumes:
       {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
       - name: ingressgatewaysdsudspath
-        hostPath:
-          path: /var/run/ingress_gateway/sds
+        emptyDir: {}
       {{- end }}
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath

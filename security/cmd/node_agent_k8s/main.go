@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +45,14 @@ const (
 	// The trust domain corresponds to the trust root of a system.
 	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	trustDomain = "Trust_Domain"
+
+	// The workload SDS mode allows node agent to provision credentials to workload proxy by sending
+	// CSR to CA.
+	enableWorkloadSDS = "ENABLE_WORKLOAD_SDS"
+
+	// The ingress gateway SDS mode allows node agent to provision credentials to ingress gateway
+	// proxy by watching kubernetes secrets.
+	enableIngressGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
 )
 
 var (
@@ -137,14 +146,25 @@ func init() {
 		pns = strings.Split(pluginNames, ",")
 	}
 
+	enableWorkloadSdsEnv := true
+	val := os.Getenv(enableWorkloadSDS)
+	if env, err := strconv.ParseBool(val); err == nil {
+		enableWorkloadSdsEnv = env
+	}
+	enableIngressGatewaySdsEnv := false
+	val = os.Getenv(enableIngressGatewaySDS)
+	if env, err := strconv.ParseBool(val); err == nil {
+		enableIngressGatewaySdsEnv = env
+	}
+
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "enableWorkloadSDS",
-		true,
+		enableWorkloadSdsEnv,
 		"If true, node agent works as SDS server and provisions key/certificate to workload proxies.")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.WorkloadUDSPath, "workloadUDSPath",
 		"/var/run/sds/uds_path", "Unix domain socket through which SDS server communicates with workload proxies")
 
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableIngressGatewaySDS, "enableIngressGatewaySDS",
-		false,
+		enableIngressGatewaySdsEnv,
 		"If true, node agent works as SDS server and watches kubernetes secrets for ingress gateway.")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.IngressGatewayUDSPath, "gatewayUdsPath",
 		"/var/run/ingress_gateway/sds", "Unix domain socket through which SDS server communicates with ingress gateway proxies.")
