@@ -416,7 +416,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
-	patch = append(patch, addSecurityContext(pod.Spec.SecurityContext, "/spec/securityContext")...)
+
+	if pod.Spec.SecurityContext != nil {
+		patch = append(patch, addSecurityContext(pod.Spec.SecurityContext, "/spec/securityContext")...)
+	}
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
