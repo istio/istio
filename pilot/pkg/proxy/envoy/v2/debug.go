@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/pprof"
 
 	"github.com/gogo/protobuf/jsonpb"
 
@@ -65,6 +66,12 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
 	mux.HandleFunc("/debug/config_dump", s.ConfigDump)
 	mux.HandleFunc("/debug/push_status", s.PushStatusHandler)
+
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 }
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
@@ -198,10 +205,10 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 				if err != nil {
 					return
 				}
-				for _, svc := range all {
+				for _, ep := range all {
 					fmt.Fprintf(w, "%s:%s %v %s:%d %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Family, svc.Endpoint.Address, svc.Endpoint.Port, svc.Labels,
-						svc.ServiceAccount)
+						p.Name, ep.Endpoint.Family, ep.Endpoint.Address, ep.Endpoint.Port, ep.Labels,
+						ep.ServiceAccount)
 				}
 			}
 		}
