@@ -206,7 +206,6 @@ type Server struct {
 	secureHTTPMutex  sync.RWMutex
 	secureGRPCServer *grpc.Server
 	secureGrpcMutex  sync.RWMutex
-	discoveryService *envoy.DiscoveryService
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
@@ -935,17 +934,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
-	// Set up discovery service
-	discovery, err := envoy.NewDiscoveryService(
-		environment,
-		args.DiscoveryOptions,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create discovery service: %v", err)
-	}
-	s.discoveryService = discovery
-
-	s.mux = s.discoveryService.RestContainer.ServeMux
+	s.mux = &http.ServeMux{}
 
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer(args.KeepaliveOptions)
@@ -970,7 +959,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
-		Handler: discovery.RestContainer}
+		Handler: s.mux}
 
 	listener, err := net.Listen("tcp", args.DiscoveryOptions.HTTPAddr)
 	if err != nil {
