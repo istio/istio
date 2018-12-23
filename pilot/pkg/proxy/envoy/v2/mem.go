@@ -17,6 +17,7 @@ package v2
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -115,6 +116,14 @@ func (sd *MemServiceDiscovery) AddHTTPService(name, vip string, port int) {
 
 // AddService adds an in-memory service.
 func (sd *MemServiceDiscovery) AddService(name model.Hostname, svc *model.Service) {
+	if svc.Attributes.Namespace == "" {
+		if strings.HasSuffix(string(svc.Hostname), "svc.cluster.local") {
+			sp := strings.Split(string(svc.Hostname), ".")
+			svc.Attributes.Namespace = sp[1]
+		} else {
+			svc.Attributes.Namespace = "testns"
+		}
+	}
 	sd.mutex.Lock()
 	sd.services[name] = svc
 	sd.mutex.Unlock()
