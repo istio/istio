@@ -34,6 +34,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+	"istio.io/istio/pkg/features/pilot"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -181,6 +182,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
+	noneMode := node.Metadata[pilot.InterceptionMode] == pilot.InterceptionModeNone
+
 	services := push.Services(node)
 
 	listeners := make([]*xdsapi.Listener, 0)
@@ -192,27 +195,29 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		// Let ServiceDiscovery decide which IP and Port are used for management if
-		// there are multiple IPs
-		mgmtListeners := make([]*xdsapi.Listener, 0)
-		for _, ip := range node.IPAddresses {
-			managementPorts := env.ManagementPorts(ip)
-			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
-			mgmtListeners = append(mgmtListeners, management...)
-		}
-
-		// If management listener port and service port are same, bad things happen
-		// when running in kubernetes, as the probes stop responding. So, append
-		// non overlapping listeners only.
-		for i := range mgmtListeners {
-			m := mgmtListeners[i]
-			l := util.GetByAddress(listeners, m.Address.String())
-			if l != nil {
-				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address.String(), l.Name, l.Address.String())
-				continue
+		if !noneMode {
+			// Let ServiceDiscovery decide which IP and Port are used for management if
+			// there are multiple IPs
+			mgmtListeners := make([]*xdsapi.Listener, 0)
+			for _, ip := range node.IPAddresses {
+				managementPorts := env.ManagementPorts(ip)
+				management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
+				mgmtListeners = append(mgmtListeners, management...)
 			}
-			listeners = append(listeners, m)
+
+			// If management listener port and service port are same, bad things happen
+			// when running in kubernetes, as the probes stop responding. So, append
+			// non overlapping listeners only.
+			for i := range mgmtListeners {
+				m := mgmtListeners[i]
+				l := util.GetByAddress(listeners, m.Address.String())
+				if l != nil {
+					log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+						m.Name, m.Address.String(), l.Name, l.Address.String())
+					continue
+				}
+				listeners = append(listeners, m)
+			}
 		}
 
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
@@ -222,7 +227,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		}
 
 		var transparent *google_protobuf.BoolValue
-		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
+		if mode := node.Metadata[pilot.InterceptionMode]; mode == pilot.InterceptionModeTproxy {
 			transparent = proto.BoolTrue
 		}
 
@@ -248,7 +253,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	if mesh.ProxyHttpPort > 0 {
+	httpProxyPort := mesh.ProxyHttpPort
+	if httpProxyPort == 0 && noneMode {
+		httpProxyPort = pilot.DefaultPortHttpProxy
+	}
+	if httpProxyPort > 0 {
 		useRemoteAddress := false
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
@@ -504,6 +513,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	configs := push.VirtualServices(node, meshGateway)
 
+	noneMode := node.Metadata[pilot.InterceptionMode] == pilot.InterceptionModeNone
+
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
 	listenerMap := make(map[string]*listenerEntry)
@@ -533,6 +544,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			}
 			switch pluginParams.ListenerProtocol {
 			case plugin.ListenerProtocolHTTP:
+				if noneMode {
+					// TODO: in future we may use the Sidecar config to still bind http ports. This will require DNS interception
+					// or /etc/hosts, to resolve the http requests to 127.0.0.1
+					continue // will use HTTP PROXY
+				}
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
 				// Check if this HTTP listener conflicts with an existing wildcard TCP listener
@@ -571,7 +587,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				// As a small optimization, CIDRs with /32 prefix will be converted
 				// into listener address so that there is a dedicated listener for this
 				// ip:port. This will reduce the impact of a listener reload
-
 				svcListenAddress := service.GetServiceAddressForProxy(node)
 				// We should never get an empty address.
 				// This is a safety guard, in case some platform adapter isn't doing things
@@ -584,6 +599,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						// filter chain match
 						destinationIPAddress = svcListenAddress
 					}
+				}
+
+				if noneMode &&
+						service.Resolution == model.ClientSideLB { // TODO: more conditions
+					listenerOpts.bindToPort = true
+					listenAddress = model.UnspecifiedIP // 0.0.0.0
 				}
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
