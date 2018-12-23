@@ -324,8 +324,14 @@ func (ps *PushContext) UpdateMetrics() {
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	out := []*Service{}
+	if proxy.Isolated() {
+		// Isolation enabled - only return visible nodes
+		proxy.mutex.RLock()
+		defer proxy.mutex.RUnlock()
+		return proxy.serviceDependencies
+	}
 
+	out := []*Service{}
 	// First add private services
 	if proxy == nil {
 		for _, privateServices := range ps.privateServicesByNamespace {
@@ -335,7 +341,7 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 		out = append(out, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
 	}
 
-	// Second add public services
+	// Second add public services.
 	out = append(out, ps.publicServices...)
 
 	return out
@@ -349,10 +355,12 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 func (ps *PushContext) UpdateNodeIsolation(proxy *Proxy) {
 	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
 	// bindings.
-	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {
+	scopes := pilot.NetworkScopes
+
+	if proxy.Isolated() {
 		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
 		// reviewed ), or from an env variable.
-		adminNs := strings.Split(pilot.NetworkScopes, ",")
+		adminNs := strings.Split(scopes, ",")
 		globalDeps := map[string]bool{}
 		for _, ns := range adminNs {
 			globalDeps[ns] = true
