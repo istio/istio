@@ -129,6 +129,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	if opts.Workload == "" {
 		opts.Workload = "test-1"
 	}
+	adsc.Metadata = opts.Meta
 
 	adsc.nodeID = fmt.Sprintf("sidecar~%s~%s.%s~%s.svc.cluster.local", opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
@@ -400,6 +401,12 @@ func (a *ADSC) node() *core.Node {
 		}
 	}
 	return n
+}
+
+func (a *ADSC) Send(req *xdsapi.DiscoveryRequest) error {
+	req.Node = a.node()
+	req.ResponseNonce = time.Now().String()
+	return a.stream.Send(req)
 }
 
 func (a *ADSC) handleEDS(eds []*xdsapi.ClusterLoadAssignment) {
