@@ -85,10 +85,41 @@ var (
 	WaitAck = os.Getenv("WAIT_ACK") != "0" // on by default for testing
 )
 
+// Node metadata. The constants used for metadata must be stable, they impact upgrade.
+// Any change should include upgrade testing checking that previous proxy can work with new pilot.
 const (
 
 	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a note and not on same network
 	// will be replaced with the gateway defined in the settings.
 	NodeMetadataNetwork = "NETWORK"
+
+	// InterceptionMode is a connection metadata indicating the the interception config of the workload.
+	// Default is REDIRECT, corresponding to iptables redirect
+	InterceptionMode = "INTERCEPTION_MODE"
+
+	// Config namespace is the new way to pass the namespace of the workload.
+	ConfigNamespace = "CONFIG_NAMESPACE"
+)
+
+// Supported values for the metadata.
+const (
+	// InterceptionModeTproxy (TPROXY) will use iptables in TPROXY mode, which is recommended by linux and scales better for large number
+	// of connections.
+	InterceptionModeTproxy = "TPROXY"
+
+	// InterceptionModeNone ( NONE ) indicates the workload is not using iptables. In this mode listeners will bind to
+	// port, and we can't support
+	// multiple TCP services on the same port. Inbound is required to use a different port for the local application.
+	// It will also trigger namespace isolation for the config generation, since full mesh is far more likely to result
+	// in port conflicts. Port 15002 (or ProxyHttpPort in mesh config) will be configured as a HTTP PROXY port instead
+	// of iptables. Stateful sets will run in TPROXY mode (TODO: explore bind on *:port with NET_ADMIN).
+	InterceptionModeNone = "NONE"
+)
+
+const (
+	// TODO: define all other default ports here, add docs
+
+	// DefaultPortHttpProxy is used as for HTTP PROXY mode. Can be overriden by ProxyHttpPort in mesh config.
+	DefaultPortHttpProxy = 15002
 )
