@@ -1,0 +1,113 @@
+# All configs for 'none' namespace, used to test interception without iptables.
+# In this mode the namespace isolation is required - the tests will also verify isolation
+# It is important to update the tests in ../envoy/v2 which verify the number of generated listeners.
+
+# This is the first test using the new isolated model, you can use it as a template to create more
+# isolated tests. It should be possible to also apply it to real k8s.
+
+# TODO: the IP addresses are not namespaced yet, so must be unique on the mesh (flat namespace) including in
+# ServiceEntry tests. Removing deps on ip in progress.
+
+---
+# "None" mode depends on unique ports for each defined service or service entry.
+# Not supported/require iptables:
+# - TCP with 'addresses' field - needs iptables
+# - resolution:NONE - 'original DST' - external services (for example https, ServiceEntry+address), stateful sets
+# - TCP with resolution:DNS - same issue
+# -
+
+# Local ServiceEntry (meshex, test) - the tests will use the IPs defined in the service when connecting.
+# This works on local mode where K8S Service controller doesn't exist, and can be used for testing in k8s by a test
+# pretending to have this address.
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: s1tcp
+  namespace: none
+spec:
+   hosts:
+   - s1tcp.none
+
+   ports:
+   - number: 2000
+     name: tcplocal
+     protocol: TCP
+
+   location: MESH_INTERNAL
+   resolution: STATIC
+
+   endpoints:
+    - address: 10.11.0.1
+      ports:
+        tcplocal: 7070
+
+---
+# Another inbound service, http type. Should generate a http listener on :7071
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: s1http
+  namespace: none
+spec:
+  hosts:
+  - s1http.none
+
+  ports:
+  - number: 2001
+    name: httplocal
+    protocol: HTTP
+
+  location: MESH_INTERNAL
+  resolution: STATIC
+
+  endpoints:
+  - address: 10.11.0.1
+    ports:
+      httplocal: 7071
+
+---
+
+# Regular outbound cluster (Default MeshExternal = true, Resolution ClientSideLB)
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: s2
+  namespace: none
+spec:
+  hosts:
+  - s2.external.test.istio.io
+
+  ports:
+  - number: 2005
+    name: http-remote # To verify port name doesn't confuse pilot - protocol is TCP
+    protocol: TCP
+  resolution: STATIC
+  endpoints:
+  - address: 10.11.0.2
+    ports:
+      http-remote: 7071
+  - address: 10.11.0.3
+    ports:
+      http-remote: 7072
+---
+
+# Currently not supported (will need SOCKS or similar mechanism).
+# Should generate old-style iptables bind=false
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: https
+  namespace: none
+spec:
+  hosts:
+  - https.external
+  ports:
+  - number: 443
+    name: tcphttps
+    protocol: TCP
+  resolution: DNS
+---
+# DestinationRules attach to services, have no impact on 'none' interception
+
+# VirtualService for HTTP affect routes, no impact on none interception
+
