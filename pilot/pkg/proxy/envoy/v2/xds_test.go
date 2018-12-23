@@ -67,7 +67,10 @@ const (
 	// 10.10.0.0/24 is service CIDR range
 
 	// 10.0.0.0/9 is instance CIDR range
+
+	// app3Ip is the mocked IP corresponding to service3.default.svc
 	app3Ip    = "10.2.0.1"
+
 	gatewayIP = "10.3.0.1"
 	ingressIP = "10.3.0.2"
 
@@ -134,7 +137,13 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
-	server, tearDown := util.EnsureTestServer()
+	server, tearDown := util.EnsureTestServer(func(arg *bootstrap.PilotArgs) {
+		arg.Service = bootstrap.ServiceArgs{
+			// removed the old mock, which provides the hello and world services.
+			// TODO: fully remove the old mock if no test is still using it, replace with memory registry
+			Registries: []string{},
+		}
+	})
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
@@ -145,6 +154,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 
 	// Service and endpoints for hello.default - used in v1 pilot tests
 	hostname := model.Hostname("hello.default.svc.cluster.local")
+
 	server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
 		Hostname: hostname,
 		Address:  "10.10.0.3",
