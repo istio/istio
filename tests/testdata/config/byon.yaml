@@ -3,6 +3,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: byon
+  namespace: testns
 spec:
    hosts:
    - byon.test.istio.io
@@ -20,6 +21,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: byon
+  namespace: testns
 spec:
   hosts:
     - mybyon.test.istio.io
@@ -34,6 +36,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: byon-docker
+  namespace: testns
 spec:
    hosts:
    - byon-docker.test.istio.io
@@ -51,6 +54,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: wikipedia-range
+  namespace: testns
 spec:
   hosts:
   - www.wikipedia.org
