@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/fs"
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
@@ -88,9 +87,6 @@ func New(a *Args) (*Server, error) {
 func newServer(a *Args, p patchTable) (*Server, error) {
 	s := &Server{}
 	var err error
-	if err = p.logConfigure(a.LoggingOptions); err != nil {
-		return nil, err
-	}
 
 	mesh, err := p.newMeshConfigCache(a.MeshConfigFile)
 	if err != nil {
@@ -239,15 +235,14 @@ func (s *Server) Close() error {
 }
 
 //RunServer start Galley Server mode
-func RunServer(sa *Args, printf, fatalf shared.FormatFn, livenessProbeController,
+func RunServer(sa *Args, livenessProbeController,
 	readinessProbeController probe.Controller) {
-	printf("Galley started with\n%s", sa)
+	log.Infof("Galley started with %s", sa)
 	s, err := New(sa)
 	if err != nil {
-		fatalf("Unable to initialize Galley Server: %v", err)
+		log.Fatalf("Unable to initialize Galley Server: %v", err)
 	}
-	printf("Istio Galley: %s", version.Info)
-	printf("Starting gRPC server on %v", sa.APIAddress)
+	log.Infof("Istio Galley: %s\nStarting gRPC server on %v", version.Info, sa.APIAddress)
 	s.Run()
 	if livenessProbeController != nil {
 		serverLivenessProbe := probe.NewProbe()
@@ -263,7 +258,7 @@ func RunServer(sa *Args, printf, fatalf shared.FormatFn, livenessProbeController
 	}
 	err = s.Wait()
 	if err != nil {
-		fatalf("Galley Server unexpectedly terminated: %v", err)
+		log.Fatalf("Galley Server unexpectedly terminated: %v", err)
 	}
 	_ = s.Close()
 }
