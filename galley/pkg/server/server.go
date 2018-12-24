@@ -56,7 +56,6 @@ type Server struct {
 }
 
 type patchTable struct {
-	logConfigure                func(*log.Options) error
 	newKubeFromConfigFile       func(string) (kube.Interfaces, error)
 	verifyResourceTypesPresence func(kube.Interfaces) error
 	newSource                   func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error)
@@ -68,7 +67,6 @@ type patchTable struct {
 
 func defaultPatchTable() patchTable {
 	return patchTable{
-		logConfigure:                log.Configure,
 		newKubeFromConfigFile:       kube.NewKubeFromConfigFile,
 		verifyResourceTypesPresence: source.VerifyResourceTypesPresence,
 		newSource:                   source.New,
