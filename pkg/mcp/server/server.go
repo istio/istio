@@ -202,7 +202,17 @@ type connection struct {
 	watches  map[string]*watch           // per-type watches
 	watcher  source.Watcher
 
-	reporter monitoring.Reporter
+	reporter Reporter
+}
+
+// Reporter is used to report metrics for an MCP server.
+type Reporter interface {
+	SetClientsTotal(clients int64)
+	RecordSendError(err error, code codes.Code)
+	RecordRecvError(err error, code codes.Code)
+	RecordRequestSize(typeURL string, connectionID int64, size int)
+	RecordRequestAck(typeURL string, connectionID int64)
+	RecordRequestNack(typeURL string, connectionID int64)
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).

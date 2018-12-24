@@ -43,6 +43,8 @@ var (
 
 // StatsContext enables metric collection backed by OpenCensus.
 type StatsContext struct {
+	views []*view.View
+
 	currentStreamCount       *stats.Int64Measure
 	requestSizesBytes        *stats.Int64Measure
 	requestAcksTotal         *stats.Int64Measure
@@ -51,7 +53,6 @@ type StatsContext struct {
 	recvFailuresTotal        *stats.Int64Measure
 	streamCreateSuccessTotal *stats.Int64Measure
 
-	views []*view.View
 }
 
 // Reporter is used to report metrics for an MCP server.
@@ -140,11 +141,6 @@ func (s *StatsContext) RecordRequestNack(collection string, connectionID int64, 
 	stats.Record(ctx, s.requestNacksTotal.M(1))
 }
 
-// RecordStreamCreateSuccess records a successful stream connection.
-func (s *StatsContext) RecordStreamCreateSuccess() {
-	stats.Record(context.Background(), s.streamCreateSuccessTotal.M(1))
-}
-
 func (s *StatsContext) Close() error {
 	view.Unregister(s.views...)
 	return nil
@@ -202,31 +198,31 @@ func NewStatsContext(prefix string) *StatsContext {
 			stats.UnitDimensionless),
 	}
 
-	ctx.addView(ctx.currentStreamCount, []tag.Key{}, view.LastValue())
-	ctx.addView(ctx.requestSizesBytes, []tag.Key{ConnectionIDTag}, view.Distribution(byteBuckets...))
-	ctx.addView(ctx.requestAcksTotal, []tag.Key{CollectionTag, ConnectionIDTag}, view.Count())
-	ctx.addView(ctx.requestNacksTotal, []tag.Key{CollectionTag, ConnectionIDTag, CodeTag}, view.Count())
-	ctx.addView(ctx.sendFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count())
-	ctx.addView(ctx.recvFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count())
-	ctx.addView(ctx.streamCreateSuccessTotal, []tag.Key{}, view.Count())
+	err := view.Register(
+		ctx.newView(ctx.currentStreamCount, []tag.Key{}, view.LastValue()),
+		ctx.newView(ctx.requestSizesBytes, []tag.Key{ConnectionIDTag}, view.Distribution(byteBuckets...)),
+		ctx.newView(ctx.requestAcksTotal, []tag.Key{TypeURLTag}, view.Count()),
+		ctx.newView(ctx.requestNacksTotal, []tag.Key{ErrorCodeTag, TypeURLTag}, view.Count()),
+		ctx.newView(ctx.sendFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
+		ctx.newView(ctx.recvFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count()),
+		ctx.newView(ctx.streamCreateSuccessTotal, []tag.Key{}, view.Count())
+	)
+
+	if err != nil {
+		panic(err)
+	}
 
 	return ctx
 }
 
-func (s *StatsContext) addView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) {
-	v := &view.View{
+func (s *StatsContext) newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
+	return &view.View{
 		Name:        measure.Name(),
 		Description: measure.Description(),
 		Measure:     measure,
 		TagKeys:     keys,
 		Aggregation: aggregation,
 	}
-
-	if err := view.Register(v); err != nil {
-		panic(err)
-	}
-
-	s.views = append(s.views, v)
 }
 
 var (

@@ -263,10 +263,6 @@ func (s *Server) Close() error {
 		_ = s.listener.Close()
 	}
 
-	if s.reporter != nil {
-		_ = s.reporter.Close()
-	}
-
 	// final attempt to purge buffered logs
 	_ = log.Sync()
 
