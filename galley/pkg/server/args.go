@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	defaultConfigMapFolder  = "/etc/istio/config/"
-	defaultMeshConfigFolder = "/etc/istio/mesh-config/"
+	defaultConfigMapFolder  = "/etc/config/"
+	defaultMeshConfigFolder = "/etc/mesh-config/"
 	defaultAccessListFile   = defaultConfigMapFolder + "accesslist.yaml"
 	defaultMeshConfigFile   = defaultMeshConfigFolder + "mesh"
 	defaultDomainSuffix     = "cluster.local"

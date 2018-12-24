@@ -539,7 +539,11 @@ func TestNoSessionBackend(t *testing.T) {
 					    		   "dedup_id": "stripped_for_test",
 					    		   "instance": {
 					    		    "name": "i3list.instance.istio-system",
-					    		    "value": "foobar"
+					    		    "value": {
+                                      "Value": {
+                                        "StringValue": "foobar"
+                                      }
+                                    }
 					    		   }
 					    		  }
 					    		 ],
@@ -572,7 +576,11 @@ func TestNoSessionBackend(t *testing.T) {
 					    		   "dedup_id": "stripped_for_test",
 					    		   "instance": {
 					    		    "name": "i3list.instance.istio-system",
-					                "value": "defaultstr"
+					                "value": {
+                                      "Value": {
+                                        "StringValue": "defaultstr"
+                                      }
+                                    }
 					    		   }
 					    		  }
 					    		 ],
@@ -609,7 +617,11 @@ func TestNoSessionBackend(t *testing.T) {
 					    		   "dedup_id": "stripped_for_test",
 					    		   "instance": {
 					    		    "name": "i3list.instance.istio-system",
-					    		    "value": "defaultstr"
+					    		    "value": {
+                                      "Value": {
+                                        "StringValue": "defaultstr"
+                                      }
+                                    }
 					    		   }
 					    		  },
 					    		  {
@@ -687,7 +699,11 @@ func TestNoSessionBackend(t *testing.T) {
 					    		   "dedup_id": "stripped_for_test",
 					    		   "instance": {
 					    		    "name": "i3list.instance.istio-system",
-					    		    "value": "defaultstr"
+					    		    "value": {
+                                      "Value": {
+                                        "StringValue": "defaultstr"
+                                      }
+                                    }
 					    		   }
 					    		  },
 					    		  {

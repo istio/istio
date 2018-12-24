@@ -47,16 +47,16 @@ istio-ingressgateway:
   ## Disable if not needed
   - port: 15029
     targetPort: 15029
-    name: http-kiali
+    name: https-kiali
   - port: 15030
     targetPort: 15030
-    name: http2-prometheus
+    name: https-prometheus
   - port: 15031
     targetPort: 15031
-    name: http2-grafana
+    name: https-grafana
   - port: 15032
     targetPort: 15032
-    name: http2-tracing
+    name: https-tracing
     # This is the port where sni routing happens
   - port: 15443
     targetPort: 15443
