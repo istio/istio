@@ -46,7 +46,7 @@ type listener struct {
 	resyncPeriod time.Duration
 
 	// The dynamic resource interface for accessing custom resources dynamically.
-	iface dynamic.ResourceInterface
+	resourceClient dynamic.ResourceInterface
 
 	// stopCh is used to quiesce the background activity during shutdown
 	stopCh chan struct{}
@@ -60,25 +60,25 @@ type listener struct {
 
 // newListener returns a new instance of an listener.
 func newListener(
-	ifaces kube.Interfaces, resyncPeriod time.Duration, spec kube.ResourceSpec, processor processorFn) (*listener, error) {
+	kubeInterface kube.Interfaces, resyncPeriod time.Duration, spec kube.ResourceSpec, processor processorFn) (*listener, error) {
 
 	if scope.DebugEnabled() {
 		scope.Debugf("Creating a new resource listener for: name='%s', gv:'%v'", spec.Singular, spec.GroupVersion())
 	}
 
-	client, err := ifaces.DynamicInterface(spec.GroupVersion(), spec.Kind, spec.ListKind)
+	client, err := kubeInterface.DynamicInterface()
 	if err != nil {
 		scope.Debugf("Error creating dynamic interface: %s: %v", spec.CanonicalResourceName(), err)
 		return nil, err
 	}
 
-	iface := client.Resource(spec.GroupVersion().WithResource(spec.Plural))
+	resourceClient := client.Resource(spec.GroupVersion().WithResource(spec.Plural))
 
 	return &listener{
-		spec:         spec,
-		resyncPeriod: resyncPeriod,
-		iface:        iface,
-		processor:    processor,
+		spec:           spec,
+		resyncPeriod:   resyncPeriod,
+		resourceClient: resourceClient,
+		processor:      processor,
 	}, nil
 }
 
@@ -99,11 +99,11 @@ func (l *listener) start() {
 	l.informer = cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return l.iface.List(options)
+				return l.resourceClient.List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.Watch = true
-				return l.iface.Watch(options)
+				return l.resourceClient.Watch(options)
 			},
 		},
 		&unstructured.Unstructured{},

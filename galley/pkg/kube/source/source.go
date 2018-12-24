@@ -51,6 +51,7 @@ func newSource(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Con
 	s := &sourceImpl{
 		cfg:    cfg,
 		ifaces: k,
+		ch:     make(chan resource.Event, 1024),
 	}
 
 	sort.Slice(specs, func(i, j int) bool {
@@ -77,8 +78,6 @@ func newSource(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Con
 
 // Start implements runtime.Source
 func (s *sourceImpl) Start() (chan resource.Event, error) {
-	s.ch = make(chan resource.Event, 1024)
-
 	for _, l := range s.listeners {
 		l.start()
 	}
