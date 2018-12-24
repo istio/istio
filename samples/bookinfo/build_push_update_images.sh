@@ -35,7 +35,6 @@ do
 done
 
 #push images
-# for IMAGE in ${IMAGES}; do docker push "${IMAGE}"; done
 for IMAGE in ${IMAGES}; 
 do 
   echo "Pushing: ${IMAGE}" 
