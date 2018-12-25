@@ -498,7 +498,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		} else {
 			if req.ErrorDetail != nil {
 				scope.Warnf("MCP: connection %s: NACK type_url=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
-					&con.peerAddr, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
+					con.peerAddr, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
 				con.reporter.RecordRequestNack(req.TypeUrl, con.id)
 
 				if version, ok := w.nonceVersionMap[req.ResponseNonce]; ok {
