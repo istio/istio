@@ -17,6 +17,7 @@ package caclient
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -76,6 +77,8 @@ type MockVaultServer struct {
 }
 
 type clientConfig struct {
+	tls              bool
+	tlsCert          []byte
 	vaultAddr        string
 	vaultLoginRole   string
 	vaultLoginPath   string
@@ -101,50 +104,58 @@ func TestClientOnMockVaultCA(t *testing.T) {
 		expectedErr  string
 	}{
 		"Valid certs 1": {
-			cliConfig:    clientConfig{vaultLoginPath: "login", vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login", vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
+			expectedCert: fakeCert,
+			expectedErr:  "",
+		},
+		"Valid certs 1 (TLS)": {
+			cliConfig:    clientConfig{tls: true, vaultLoginPath: "login", vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: fakeCert,
 			expectedErr:  "",
 		},
 		"Wrong Vault addr": {
-			cliConfig:    clientConfig{vaultAddr: "wrong-vault-addr", vaultLoginPath: "login", vaultSignCsrPath: "wrong-sign-path", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultAddr: "wrong-vault-addr", vaultLoginPath: "login", vaultSignCsrPath: "wrong-sign-path", clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: nil,
 			expectedErr:  "failed to login Vault",
 		},
 		"Wrong login path": {
-			cliConfig:    clientConfig{vaultLoginPath: "wrong-login-path", vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "wrong-login-path", vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: nil,
 			expectedErr:  "failed to login Vault",
 		},
 		"Wrong client token": {
-			cliConfig:    clientConfig{vaultLoginPath: "login", vaultSignCsrPath: "sign", clientToken: "wrong-client-token", csr: []byte{01}},
+			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login", vaultSignCsrPath: "sign", clientToken: "wrong-client-token", csr: []byte{01}},
 			expectedCert: nil,
 			expectedErr:  "failed to login Vault",
 		},
 		"Wrong sign path": {
-			cliConfig:    clientConfig{vaultLoginPath: "login", vaultSignCsrPath: "wrong-sign-path", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login", vaultSignCsrPath: "wrong-sign-path", clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: nil,
 			expectedErr:  "failed to sign CSR",
 		},
 	}
 
-	ch := make(chan *MockVaultServer)
-	go func() {
-		// create a test Vault server
-		server := NewMockVaultServer(t, "", "fake-client-token", vaultLoginResp, vaultSignResp)
-		ch <- server
-	}()
-	s := <-ch
-	defer s.httpServer.Close()
-
 	for id, tc := range testCases {
-		var vaultAddr string
-		if len(tc.cliConfig.vaultAddr) > 0 {
-			vaultAddr = tc.cliConfig.vaultAddr
-		} else {
+		ch := make(chan *MockVaultServer)
+		go func() {
+			// create a test Vault server
+			server := NewMockVaultServer(t, tc.cliConfig.tls, "", "fake-client-token", vaultLoginResp, vaultSignResp)
+			ch <- server
+		}()
+		s := <-ch
+		defer s.httpServer.Close()
+
+		if len(tc.cliConfig.vaultAddr) == 0 {
 			// If the address of Vault is not set by the test case, use that of the test server.
-			vaultAddr = s.httpServer.URL
+			tc.cliConfig.vaultAddr = s.httpServer.URL
 		}
-		cli, err := NewVaultClient1(false, vaultAddr, tc.cliConfig.vaultLoginRole,
+		if tc.cliConfig.tls {
+			tc.cliConfig.tlsCert = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.httpServer.Certificate().Raw})
+			if tc.cliConfig.tlsCert == nil {
+				t.Errorf("invalid TLS certificate")
+			}
+		}
+		cli, err := NewVaultClient1(tc.cliConfig.tls, tc.cliConfig.tlsCert, tc.cliConfig.vaultAddr, tc.cliConfig.vaultLoginRole,
 			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
@@ -178,7 +189,7 @@ func TestClientOnExampleHttpVaultCA(t *testing.T) {
 	for id, tc := range testCases {
 		var vaultAddr string
 		vaultAddr = tc.cliConfig.vaultAddr
-		cli, err := NewVaultClient1(false, vaultAddr, tc.cliConfig.vaultLoginRole,
+		cli, err := NewVaultClient1(false, []byte{}, vaultAddr, tc.cliConfig.vaultLoginRole,
 			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
@@ -197,14 +208,15 @@ func TestClientOnExampleHttpVaultCA(t *testing.T) {
 
 // NewMockVaultServer creates a mock Vault server for testing purpose.
 // token: required access token
-func NewMockVaultServer(t *testing.T, loginRole, token, loginResp, signResp string) *MockVaultServer {
+func NewMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, signResp string) *MockVaultServer {
 	vaultServer := &MockVaultServer{
 		loginRole:      loginRole,
 		token:          token,
 		vaultLoginResp: loginResp,
 		vaultSignResp:  signResp,
 	}
-	vaultServer.httpServer = httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		t.Logf("request: %+v", *req)
 		switch req.URL.Path {
 		case "/v1/login":
@@ -272,7 +284,13 @@ func NewMockVaultServer(t *testing.T, loginRole, token, loginResp, signResp stri
 			t.Logf("The request contains invalid path: %v", req.URL)
 			resp.WriteHeader(http.StatusNotFound)
 		}
-	}))
+	})
+
+	if tls {
+		vaultServer.httpServer = httptest.NewTLSServer(handler)
+	} else {
+		vaultServer.httpServer = httptest.NewServer(handler)
+	}
 
 	t.Logf("Serving Vault at: %v", vaultServer.httpServer.URL)
 

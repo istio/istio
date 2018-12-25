@@ -52,7 +52,7 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
 	case vaultCAName1:
 		//TO-DO (lei-tang): fill vault parameters from environmental variables
-		return vault1.NewVaultClient1(tlsFlag, "vaultAddr", "vaultLoginRole", "vaultLoginPath", "vaultSignCsrPath")
+		return vault1.NewVaultClient1(tlsFlag, nil, "vaultAddr", "vaultLoginRole", "vaultLoginPath", "vaultSignCsrPath")
 	case citadelName:
 		cs, err := createClientSet()
 		if err != nil {

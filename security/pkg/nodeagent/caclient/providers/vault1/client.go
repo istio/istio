@@ -28,7 +28,8 @@ import (
 )
 
 type vaultClient1 struct {
-	enableTLS bool
+	enableTLS   bool
+	tlsRootCert []byte
 
 	vaultAddr        string
 	vaultLoginRole   string
@@ -39,10 +40,11 @@ type vaultClient1 struct {
 }
 
 // NewVaultClient create a CA client for the Vault provider 1.
-func NewVaultClient1(tls bool,
+func NewVaultClient1(tls bool, tlsRootCert []byte,
 	vaultAddr, vaultLoginRole, vaultLoginPath, vaultSignCsrPath string) (caClientInterface.Client, error) {
 	c := &vaultClient1{
 		enableTLS:        tls,
+		tlsRootCert:      tlsRootCert,
 		vaultAddr:        vaultAddr,
 		vaultLoginRole:   vaultLoginRole,
 		vaultLoginPath:   vaultLoginPath,
@@ -52,7 +54,7 @@ func NewVaultClient1(tls bool,
 	var client *api.Client
 	var err error
 	if tls {
-		client, err = createVaultClientTLS(vaultAddr)
+		client, err = createVaultClientTLS(vaultAddr, tlsRootCert)
 	} else {
 		client, err = createVaultClient(vaultAddr)
 	}
@@ -102,12 +104,18 @@ func createVaultClient(vaultAddr string) (*api.Client, error) {
 
 // createVaultClientTLS creates a client to a Vault server
 // vaultAddr: the address of the Vault server (e.g., "https://127.0.0.1:8200").
-func createVaultClientTLS(vaultAddr string) (*api.Client, error) {
+func createVaultClientTLS(vaultAddr string, tlsRootCert []byte) (*api.Client, error) {
 	// Load the system default root certificates.
 	pool, err := x509.SystemCertPool()
 	if err != nil {
 		log.Errorf("could not get SystemCertPool: %v", err)
 		return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
+	}
+	if tlsRootCert != nil && len(tlsRootCert) > 0 {
+		ok := pool.AppendCertsFromPEM(tlsRootCert)
+		if !ok {
+			return nil, fmt.Errorf("failed to append a certificate (%v) to the certificate pool", string(tlsRootCert[:]))
+		}
 	}
 	tlsConfig := &tls.Config{
 		RootCAs: pool,
