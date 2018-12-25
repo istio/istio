@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 
 	"golang.org/x/net/context"
+
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 )
 

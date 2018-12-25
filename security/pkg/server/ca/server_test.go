@@ -352,7 +352,7 @@ func TestRun(t *testing.T) {
 			hostname:                    []string{"localhost"},
 			port:                        0,
 			expectedErr:                 "",
-			expectedAuthenticatorsLen:   1, // 2 when ID token authenticators are enabled.
+			expectedAuthenticatorsLen:   2, // 3 when ID token authenticators are enabled.
 			applyServerCertificateError: "cannot sign",
 		},
 		"Bad signed cert": {
@@ -360,16 +360,16 @@ func TestRun(t *testing.T) {
 			hostname:                  []string{"localhost"},
 			port:                      0,
 			expectedErr:               "",
-			expectedAuthenticatorsLen: 1, // 2 when ID token authenticators are enabled.
+			expectedAuthenticatorsLen: 2, // 3 when ID token authenticators are enabled.
 			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 		"Multiple hostname": {
 			// nolint: goimports
-			ca:       &mockca.FakeCA{SignedCert: []byte(csr)},
-			hostname: []string{"localhost", "fancyhost"},
-			port:     0,
-			expectedAuthenticatorsLen: 1, // 3 when ID token authenticators are enabled.
+			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname:                  []string{"localhost", "fancyhost"},
+			port:                      0,
+			expectedAuthenticatorsLen: 2, // 4 when ID token authenticators are enabled.
 			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},

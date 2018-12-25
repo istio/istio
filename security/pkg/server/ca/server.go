@@ -183,6 +183,16 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
 	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
+	log.Infof("added client certificate authenticator")
+
+	authenticator, err := authenticate.NewKubeJWTAuthenticator()
+	if err == nil {
+		authenticators = append(authenticators, authenticator)
+		log.Infof("added Kube JWT authenticator")
+	} else {
+		log.Warnf("failed to add create JWT authenticator: %v", err)
+	}
+
 	// Temporarily disable ID token authenticator by resetting the hostlist.
 	// [TODO](myidpt): enable ID token authenticator when the CSR API authz can work correctly.
 	hostlistForJwtAuth := make([]string, 0)
@@ -192,6 +202,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 			log.Errorf("failed to create JWT authenticator (error %v)", err)
 		} else {
 			authenticators = append(authenticators, jwtAuthenticator)
+			log.Infof("added generatl JWT authenticator")
 		}
 	}
 	return &Server{

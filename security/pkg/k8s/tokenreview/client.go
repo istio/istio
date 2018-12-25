@@ -21,12 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"strings"
 
-	"net/http"
+	k8sauth "k8s.io/api/authentication/v1"
 
 	"istio.io/istio/pkg/log"
-	k8sauth "k8s.io/api/authentication/v1"
 )
 
 type specForJWTValidationRequest struct {
@@ -39,15 +39,16 @@ type jwtValidationRequest struct {
 	Spec       specForJWTValidationRequest `json:"spec"`
 }
 
-type tokenReviewClient struct {
+// Client is the client to call the TokenReview API.
+type Client struct {
 	url         string
 	caCert      []byte
 	reviewerJWT string
 }
 
 // NewClient creates a new tokenReviewClient.
-func NewClient(url string, caCert []byte, reviewerJWT string) *tokenReviewClient {
-	return &tokenReviewClient{
+func NewClient(url string, caCert []byte, reviewerJWT string) *Client {
+	return &Client{
 		url:         url,
 		caCert:      caCert,
 		reviewerJWT: reviewerJWT,
@@ -57,7 +58,7 @@ func NewClient(url string, caCert []byte, reviewerJWT string) *tokenReviewClient
 // Review calls the K8s TokenReview API to verify a JWT, and returns the
 // <namespace>:<serviceaccountname> in the JWT if successful.
 // targetJWT: the target JWT to be verified.
-func (c *tokenReviewClient) Review(targetJWT string) (string, error) {
+func (c *Client) Review(targetJWT string) (string, error) {
 	resp, err := c.reviewJWTAtK8sAPIServer(targetJWT)
 	if err != nil {
 		return "", fmt.Errorf("failed to get a token review response: %v", err)
@@ -127,7 +128,7 @@ func (c *tokenReviewClient) Review(targetJWT string) (string, error) {
 
 // reviewJWTAtK8sAPIServer reviews the target JWT at k8s API server.
 // targetJWT: the target JWT to be verified.
-func (c *tokenReviewClient) reviewJWTAtK8sAPIServer(targetJWT string) (*http.Response, error) {
+func (c *Client) reviewJWTAtK8sAPIServer(targetJWT string) (*http.Response, error) {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(c.caCert)
 	req := jwtValidationRequest{
