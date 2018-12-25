@@ -54,9 +54,14 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if not .Values.sidecar }}
+{{- if $.Values.global.controlPlaneSecurityEnabled}}
+    {{- if not .Values.sidecar }}
           - --secureGrpcAddr
           - ":15011"
+    {{- end }}
+{{- else }}
+          - --secureGrpcAddr
+          - ""
 {{- end }}
 {{- if $.Values.global.useMCP }}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
