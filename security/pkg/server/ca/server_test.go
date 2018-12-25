@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -85,19 +86,19 @@ func (ca *mockCA) GetCertChain() []byte {
 }
 
 type mockAuthenticator struct {
-	authSource authSource
+	authSource authenticate.AuthSource
 	identities []string
 	errMsg     string
 }
 
-func (authn *mockAuthenticator) authenticate(ctx context.Context) (*caller, error) {
+func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
 	if len(authn.errMsg) > 0 {
 		return nil, fmt.Errorf("%v", authn.errMsg)
 	}
 
-	return &caller{
-		authSource: authn.authSource,
-		identities: authn.identities,
+	return &authenticate.Caller{
+		AuthSource: authn.authSource,
+		Identities: authn.identities,
 	}, nil
 }
 
@@ -106,7 +107,7 @@ type mockAuthorizer struct {
 }
 
 // nolint: unparam
-func (authz *mockAuthorizer) authorize(requester *caller, requestedIds []string) error {
+func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requestedIds []string) error {
 	if len(authz.errMsg) > 0 {
 		return fmt.Errorf("%v", authz.errMsg)
 	}
@@ -365,9 +366,9 @@ func TestRun(t *testing.T) {
 		},
 		"Multiple hostname": {
 			// nolint: goimports
-			ca:                        &mockca.FakeCA{SignedCert: []byte(csr)},
-			hostname:                  []string{"localhost", "fancyhost"},
-			port:                      0,
+			ca:       &mockca.FakeCA{SignedCert: []byte(csr)},
+			hostname: []string{"localhost", "fancyhost"},
+			port:     0,
 			expectedAuthenticatorsLen: 1, // 3 when ID token authenticators are enabled.
 			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
 				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
