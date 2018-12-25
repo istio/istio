@@ -112,7 +112,6 @@ var (
 		plugin.Authz,
 		plugin.Health,
 		plugin.Mixer,
-		plugin.Envoyfilter,
 	}
 )
 
