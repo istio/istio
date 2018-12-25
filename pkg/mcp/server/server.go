@@ -191,7 +191,6 @@ func (w *watch) schedulePush() {
 	if w.closed {
 		// unlock before channel write
 		w.mu.Unlock()
-
 		select {
 		case w.newPushResponseReadyChan <- newPushResponseStateClosed:
 		default:
@@ -241,6 +240,8 @@ func (w *watch) saveResponseAndSchedulePush(response *WatchResponse) {
 	w.newPushResponse = response
 	if response == nil {
 		w.closed = true
+		close(w.newPushResponseReadyChan)
+		return
 	}
 	w.mu.Unlock()
 
@@ -298,6 +299,9 @@ func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker, repo
 }
 
 func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) (*connection, error) {
+	if err := s.newConnectionLimiter.Wait(stream.Context()); err != nil {
+		return nil, err
+	}
 	peerAddr := "0.0.0.0"
 
 	peerInfo, ok := peer.FromContext(stream.Context())
@@ -321,7 +325,6 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		}
 		return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
-
 	con := &connection{
 		stream:   stream,
 		peerAddr: peerAddr,
@@ -344,7 +347,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 
 	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, 1))
 
-	scope.Debugf("MCP: connection %v: NEW, supported types: %#v", con, types)
+	scope.Debugf("MCP: connection %s: NEW", con.peerAddr)
 	return con, nil
 }
 
@@ -408,9 +411,6 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 			if err := con.processClientRequest(req); err != nil {
 				return err
 			}
-		case <-stream.Context().Done():
-			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
-			return stream.Context().Err()
 		}
 	}
 }
@@ -455,11 +455,11 @@ func (con *connection) receive() {
 		if err != nil {
 			code := status.Code(err)
 			if code == codes.Canceled || err == io.EOF {
-				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
+				scope.Infof("MCP: connection %s: TERMINATED %v", con.peerAddr, err)
 				return
 			}
 			con.reporter.RecordRecvError(err, code)
-			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
+			scope.Errorf("MCP: connection %s: TERMINATED with errors: %v", con.peerAddr, err)
 			// Save the stream error prior to closing the stream. The caller
 			// should access the error after the channel closure.
 			con.reqError = err
@@ -470,7 +470,7 @@ func (con *connection) receive() {
 }
 
 func (con *connection) close() {
-	scope.Infof("MCP: connection %v: CLOSED", con)
+	scope.Infof("MCP: connection %s: CLOSED", con.peerAddr)
 
 	for _, w := range con.watches {
 		if w.cancel != nil {
@@ -494,11 +494,11 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 	// nonces can be reused across streams; we verify nonce only if nonce is not initialized
 	if w.nonce == "" || w.nonce == req.ResponseNonce {
 		if w.nonce == "" {
-			scope.Infof("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
+			scope.Infof("MCP: connection %s: WATCH for %s", con.peerAddr, req.TypeUrl)
 		} else {
 			if req.ErrorDetail != nil {
-				scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
-					con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
+				scope.Warnf("MCP: connection %s: NACK type_url=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
+					&con.peerAddr, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
 				con.reporter.RecordRequestNack(req.TypeUrl, con.id)
 
 				if version, ok := w.nonceVersionMap[req.ResponseNonce]; ok {
@@ -507,8 +507,8 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 					w.mu.Unlock()
 				}
 			} else {
-				scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
-					con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
+				scope.Debugf("MCP: connection %s ACK type_url=%q version=%q with nonce=%q",
+					con.peerAddr, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
 				con.reporter.RecordRequestAck(req.TypeUrl, con.id)
 			}
 		}
@@ -522,12 +522,12 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		// latest watch's nonce value. These could be dup requests or out-of-order
 		// requests from a buggy client.
 		if req.ErrorDetail != nil {
-			scope.Errorf("MCP: connection %v: STALE NACK type_url=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
-				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
+			scope.Errorf("MCP: connection %s: STALE NACK type_url=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
+				con.peerAddr, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
 			con.reporter.RecordRequestNack(req.TypeUrl, con.id)
 		} else {
-			scope.Errorf("MCP: connection %v: STALE ACK type_url=%v version=%v with nonce=%q (w.nonce=%q)", // nolint: lll
-				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce)
+			scope.Errorf("MCP: connection %s: STALE ACK type_url=%v version=%v with nonce=%q (w.nonce=%q)", // nolint: lll
+				con.peerAddr, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce)
 			con.reporter.RecordRequestAck(req.TypeUrl, con.id)
 		}
 	}

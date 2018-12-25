@@ -145,7 +145,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushRe
 	info.watches[watchID] = &responseWatch{request: request, pushResponse: pushResponse}
 	info.mu.Unlock()
 
-	cancel := func() {
+	return func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if info, ok := c.status[group]; ok {
@@ -154,7 +154,6 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushRe
 			info.mu.Unlock()
 		}
 	}
-	return cancel
 }
 
 // SetSnapshot updates a snapshot for a group.
