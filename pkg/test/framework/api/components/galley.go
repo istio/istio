@@ -28,6 +28,9 @@ type Galley interface {
 	// ApplyConfig applies the given config yaml file via Galley.
 	ApplyConfig(yamlText string) error
 
+	// ClearConfig clears all applied config so far.
+	ClearConfig() error
+
 	// SetMeshConfig applies the given mesh config yaml file via Galley.
 	SetMeshConfig(yamlText string) error
 
