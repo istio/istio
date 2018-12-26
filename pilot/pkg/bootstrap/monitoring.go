@@ -45,7 +45,7 @@ func addMonitor(mux *http.ServeMux) error {
 
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry})
 	if err != nil {
-		return err
+		return fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
 	mux.Handle(metricsPath, exporter)
@@ -55,6 +55,7 @@ func addMonitor(mux *http.ServeMux) error {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
+
 	return nil
 }
 
@@ -77,7 +78,7 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, net.Addr, error) {
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how pilot reports its own metrics.
 	if err = addMonitor(mux); err != nil {
-		return nil, nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
+		return nil, nil, fmt.Errorf("could not establish self-monitoring: %v", err)
 	}
 	m.monitoringServer = &http.Server{
 		Handler: mux,
