@@ -18,6 +18,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 func TestCollectionView_TypeURL(t *testing.T) {
@@ -33,12 +35,12 @@ func TestCollectionView_Get(t *testing.T) {
 	c := NewTable()
 	v := NewTableView(emptyInfo.TypeURL, c, nil)
 
-	r1, err := Envelope(addRes1V1().Entry)
+	r1, err := resource.Envelope(addRes1V1().Entry)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	r2, err := Envelope(addRes2V1().Entry)
+	r2, err := resource.Envelope(addRes2V1().Entry)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -78,7 +78,7 @@ func TestSnapshotter_Snapshot(t *testing.T) {
 		}}
 
 	views := []View{ev1, ev2, sv1}
-	s := newSnapshotter("sn", views)
+	s := newSnapshotter(views)
 
 	sn := s.snapshot()
 

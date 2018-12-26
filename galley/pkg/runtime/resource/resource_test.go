@@ -234,3 +234,39 @@ func TestInfo_String(t *testing.T) {
 	// Ensure that it doesn't crash
 	_ = i.String()
 }
+
+func TestFullNameFromNamespaceAndName(t *testing.T) {
+	fn := FullNameFromNamespaceAndName("foo", "bar")
+	if fn.string != "foo/bar" {
+		t.Fatalf("unexpected name: %v", fn.string)
+	}
+}
+
+func TestFullNameFromNamespaceAndName_SingleName(t *testing.T) {
+	fn := FullNameFromNamespaceAndName("", "foo")
+	if fn.string != "foo" {
+		t.Fatalf("unexpected name: %v", fn.string)
+	}
+}
+
+func TestFullName_InterpretAsNamespaceAndName(t *testing.T) {
+	fn := FullName{"foo/bar"}
+	ns, n := fn.InterpretAsNamespaceAndName()
+	if ns != "foo" {
+		t.Fatalf("mismatch: got:%v\nwanted:%v", ns, "foo")
+	}
+	if n != "bar" {
+		t.Fatalf("mismatch: got:%v\nwanted:%v", n, "bar")
+	}
+}
+
+func TestFullName_InterpretAsNamespaceAndName_SingleName(t *testing.T) {
+	fn := FullName{"foo"}
+	ns, n := fn.InterpretAsNamespaceAndName()
+	if ns != "" {
+		t.Fatalf("mismatch: got:%v\nwanted:%v", ns, "")
+	}
+	if n != "foo" {
+		t.Fatalf("mismatch: got:%v\nwanted:%v", n, "foo")
+	}
+}

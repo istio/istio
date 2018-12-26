@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 

@@ -12,49 +12,24 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package conversions
+package ingress
 
 import (
 	"fmt"
 	"path"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	ingress "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
-	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
-
-	ingress "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var scope = log.RegisterScope("conversions", "proto converters for runtime state", 0)
-
-// ToIngressSpec unwraps an MCP resource proto
-func ToIngressSpec(e *mcp.Resource) (*ingress.IngressSpec, error) {
-
-	p := metadata.IngressSpec.NewProtoInstance()
-	i, ok := p.(*ingress.IngressSpec)
-	if !ok {
-		// Shouldn't happen
-		return nil, fmt.Errorf("unable to convert proto to Ingress: %v", p)
-	}
-
-	if err := proto.Unmarshal(e.Body.Value, p); err != nil {
-		// Shouldn't happen
-		return nil, fmt.Errorf("unable to unmarshal Ingress during projection: %v", err)
-	}
-
-	return i, nil
-}
-
-// IngressToVirtualService converts from ingress spec to Istio VirtualServices
-func IngressToVirtualService(key resource.VersionedKey, meta resource.Metadata, i *ingress.IngressSpec,
-	domainSuffix string, ingressByHost map[string]resource.Entry) {
+// ToVirtualService converts from ingress spec to Istio VirtualServices
+func ToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, domainSuffix string, ingressByHost map[string]*resource.Entry) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each
@@ -101,17 +76,19 @@ func IngressToVirtualService(key resource.VersionedKey, meta resource.Metadata, 
 		if f {
 			vs := old.Item.(*v1alpha3.VirtualService)
 			vs.Http = append(vs.Http, httpRoutes...)
+
+			old.ID.Version = resource.Version(fmt.Sprintf("%s-%s-%s", old.ID.Version, key.FullName, key.Version))
 		} else {
-			ingressByHost[host] = resource.Entry{
+			ingressByHost[host] = &resource.Entry{
 				ID: resource.VersionedKey{
 					Key: resource.Key{
 						FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
 						TypeURL:  metadata.VirtualService.TypeURL,
 					},
-					Version: key.Version,
+					Version:    resource.Version(fmt.Sprintf("%s-%s", key.FullName, key.Version)),
+					CreateTime: key.CreateTime,
 				},
-				Metadata: meta,
-				Item:     virtualService,
+				Item: virtualService,
 			}
 		}
 	}
@@ -180,8 +157,8 @@ func ingressBackendToHTTPRoute(backend *ingress.IngressBackend, namespace string
 	}
 }
 
-// IngressToGateway converts from ingress spec to Istio Gateway
-func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingress.IngressSpec) resource.Entry {
+// ToGateway converts from ingress spec to Istio Gateway
+func ToGateway(key resource.VersionedKey, i *ingress.IngressSpec) resource.Entry {
 	namespace, name := key.FullName.InterpretAsNamespaceAndName()
 
 	gateway := &v1alpha3.Gateway{
@@ -233,12 +210,12 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 		ID: resource.VersionedKey{
 			Key: resource.Key{
 				FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
-				TypeURL:  metadata.VirtualService.TypeURL,
+				TypeURL:  metadata.Gateway.TypeURL,
 			},
-			Version: key.Version,
+			Version:    key.Version,
+			CreateTime: key.CreateTime,
 		},
-		Metadata: meta,
-		Item:     gateway,
+		Item: gateway,
 	}
 
 	return gw

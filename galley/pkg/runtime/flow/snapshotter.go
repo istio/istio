@@ -27,7 +27,7 @@ type snapshotter struct {
 }
 
 // newSnapshotter returns accumulator new instance of snapshotter
-func newSnapshotter(name string, views []View) *snapshotter {
+func newSnapshotter(views []View) *snapshotter {
 	m := make(map[resource.TypeURL][]View)
 	for _, v := range views {
 		l := m[v.Type()]

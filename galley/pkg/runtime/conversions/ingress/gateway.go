@@ -12,31 +12,27 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package flow
+package ingress
 
 import (
-	"testing"
+	"fmt"
+
+	"istio.io/istio/galley/pkg/runtime/resource"
+
+	"k8s.io/api/extensions/v1beta1"
 )
 
-func TestEnvelope_Basic(t *testing.T) {
-	env, err := Envelope(addRes1V1().Entry)
+func toEnvelopedGateway(entry resource.Entry) (interface{}, error) {
+	ingress, ok := entry.Item.(*v1beta1.IngressSpec)
+	if !ok {
+		return nil, fmt.Errorf("error converting entry proto to IngressSpec: %v", entry.Item)
+	}
+	gwEntry := ToGateway(entry.ID, ingress)
+	enveloped, err := resource.Envelope(gwEntry)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+		scope.Errorf("Unable to envelope and store resource %q: %v", gwEntry.ID.String(), err)
+		return nil, err
 	}
 
-	if env.Metadata.Name != addRes1V1().Entry.ID.FullName.String() {
-		t.Fatalf("unexpected name: %v", env.Metadata.Name)
-	}
-
-	if env.Metadata.Version != string(addRes1V1().Entry.ID.Version) {
-		t.Fatalf("unexpected version: %v", env.Metadata.Version)
-	}
-
-	if env.Metadata.CreateTime == nil {
-		t.Fatal("CreateTime is nil")
-	}
-
-	if env.Resource == nil {
-		t.Fatal("Resource is nil is nil")
-	}
+	return enveloped, err
 }

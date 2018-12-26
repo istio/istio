@@ -5,7 +5,6 @@
 // dataset/extensions/v1beta1/ingress_basic.yaml
 // dataset/extensions/v1beta1/ingress_basic_expected.json
 // dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml
-// dataset/extensions/v1beta1/ingress_merge_0.skip
 // dataset/extensions/v1beta1/ingress_merge_0.yaml
 // dataset/extensions/v1beta1/ingress_merge_0_expected.json
 // dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml
@@ -224,23 +223,6 @@ func datasetExtensionsV1beta1Ingress_basic_meshconfigYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _datasetExtensionsV1beta1Ingress_merge_0Skip = []byte(``)
-
-func datasetExtensionsV1beta1Ingress_merge_0SkipBytes() ([]byte, error) {
-	return _datasetExtensionsV1beta1Ingress_merge_0Skip, nil
-}
-
-func datasetExtensionsV1beta1Ingress_merge_0Skip() (*asset, error) {
-	bytes, err := datasetExtensionsV1beta1Ingress_merge_0SkipBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "dataset/extensions/v1beta1/ingress_merge_0.skip", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1686,7 +1668,6 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/extensions/v1beta1/ingress_basic.yaml": datasetExtensionsV1beta1Ingress_basicYaml,
 	"dataset/extensions/v1beta1/ingress_basic_expected.json": datasetExtensionsV1beta1Ingress_basic_expectedJson,
 	"dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml": datasetExtensionsV1beta1Ingress_basic_meshconfigYaml,
-	"dataset/extensions/v1beta1/ingress_merge_0.skip": datasetExtensionsV1beta1Ingress_merge_0Skip,
 	"dataset/extensions/v1beta1/ingress_merge_0.yaml": datasetExtensionsV1beta1Ingress_merge_0Yaml,
 	"dataset/extensions/v1beta1/ingress_merge_0_expected.json": datasetExtensionsV1beta1Ingress_merge_0_expectedJson,
 	"dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml": datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml,
@@ -1754,7 +1735,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"ingress_basic.yaml": &bintree{datasetExtensionsV1beta1Ingress_basicYaml, map[string]*bintree{}},
 				"ingress_basic_expected.json": &bintree{datasetExtensionsV1beta1Ingress_basic_expectedJson, map[string]*bintree{}},
 				"ingress_basic_meshconfig.yaml": &bintree{datasetExtensionsV1beta1Ingress_basic_meshconfigYaml, map[string]*bintree{}},
-				"ingress_merge_0.skip": &bintree{datasetExtensionsV1beta1Ingress_merge_0Skip, map[string]*bintree{}},
 				"ingress_merge_0.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_0Yaml, map[string]*bintree{}},
 				"ingress_merge_0_expected.json": &bintree{datasetExtensionsV1beta1Ingress_merge_0_expectedJson, map[string]*bintree{}},
 				"ingress_merge_0_meshconfig.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml, map[string]*bintree{}},

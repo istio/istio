@@ -36,66 +36,66 @@ func NewEntryTable() *EntryTable {
 }
 
 // Generation is a unique id that changes every time the table changes.
-func (c *EntryTable) Generation() int64 {
-	return c.generation
+func (t *EntryTable) Generation() int64 {
+	return t.generation
 }
 
 // Names returns the set of known names.
-func (c *EntryTable) Names() []resource.FullName {
-	result := make([]resource.FullName, 0, len(c.resources))
-	for n := range c.resources {
+func (t *EntryTable) Names() []resource.FullName {
+	result := make([]resource.FullName, 0, len(t.resources))
+	for n := range t.resources {
 		result = append(result, n)
 	}
 	return result
 }
 
 // Item returns the named item from the table
-func (c *EntryTable) Item(name resource.FullName) resource.Entry {
-	return c.resources[name]
+func (t *EntryTable) Item(name resource.FullName) resource.Entry {
+	return t.resources[name]
 }
 
 // Set resource in the table. If this has caused table change (i.e. add or update w/ different version #)
 // then it returns true
-func (c *EntryTable) Set(entry resource.Entry) bool {
-	previous, exists := c.resources[entry.ID.FullName]
+func (t *EntryTable) Set(entry resource.Entry) bool {
+	previous, exists := t.resources[entry.ID.FullName]
 	updated := !exists || previous.ID.Version != entry.ID.Version
-	c.resources[entry.ID.FullName] = entry
+	t.resources[entry.ID.FullName] = entry
 	if updated {
-		c.generation++
+		t.generation++
 	}
 	return updated
 }
 
 // Remove resource from the table. Returns true if the resource was actually removed.
-func (c *EntryTable) Remove(key resource.FullName) bool {
-	_, found := c.resources[key]
-	delete(c.resources, key)
+func (t *EntryTable) Remove(key resource.FullName) bool {
+	_, found := t.resources[key]
+	delete(t.resources, key)
 	if found {
-		c.generation++
+		t.generation++
 	}
 	return found
 }
 
 // Count returns number of items in the table
-func (c *EntryTable) Count() int {
-	return len(c.resources)
+func (t *EntryTable) Count() int {
+	return len(t.resources)
 }
 
 // ForEachItem applies the given function to each item in the table
-func (c *EntryTable) ForEachItem(fn func(e resource.Entry)) {
-	for _, item := range c.resources {
+func (t *EntryTable) ForEachItem(fn func(e resource.Entry)) {
+	for _, item := range t.resources {
 		fn(item)
 	}
 }
 
 // Handle implements Handler
-func (a *EntryTable) Handle(ev resource.Event) bool {
+func (t *EntryTable) Handle(ev resource.Event) bool {
 	switch ev.Kind {
 	case resource.Added, resource.Updated:
-		return a.Set(ev.Entry)
+		return t.Set(ev.Entry)
 
 	case resource.Deleted:
-		return a.Remove(ev.Entry.ID.FullName)
+		return t.Remove(ev.Entry.ID.FullName)
 
 	default:
 		scope.Errorf("Unknown event kind encountered when processing %q: %v", ev.Entry.ID.String(), ev.Kind)

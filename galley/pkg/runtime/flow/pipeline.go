@@ -45,7 +45,6 @@ func (p *pipeline) Snapshot() snapshot.Snapshot {
 
 // PipelineBuilder builds a new pipeline
 type PipelineBuilder struct {
-	name    string
 	views   []View
 	builder *DispatcherBuilder
 }
@@ -70,7 +69,7 @@ func (b *PipelineBuilder) AddView(v View) {
 // Build creates and returns a pipeline
 func (b *PipelineBuilder) Build() Pipeline {
 	handler := b.builder.Build()
-	snapshotter := newSnapshotter("Default Snapshotter", b.views)
+	snapshotter := newSnapshotter(b.views)
 	return &pipeline{
 		handler:     handler,
 		snapshotter: snapshotter,
