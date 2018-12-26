@@ -116,6 +116,7 @@ find samples install -type f \( \
   -o -name "*.conf" \
   -o -name "*.pem" \
   -o -name "*.tpl" \
+  -o -name "*.txt" \
   -o -name "kubeconfig" \
   -o -name "*.jinja*" \
   -o -name "webhook-create-signed-cert.sh" \
