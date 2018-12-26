@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/istio/galley/pkg/testing/testdata"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"istio.io/istio/tests/integration2/galley/conversion/testdata"
 )
 
 func TestConversion(t *testing.T) {
