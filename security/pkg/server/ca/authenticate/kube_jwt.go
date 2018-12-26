@@ -23,13 +23,6 @@ import (
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 )
 
-// Config for Vault prototyping purpose
-const (
-	jwtPath         = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	caCertPath      = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	k8sAPIServerURL = "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews"
-)
-
 type tokenReviewClient interface {
 	Review(targetJWT string) (string, error)
 }
@@ -40,7 +33,7 @@ type KubeJWTAuthenticator struct {
 }
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator() (*KubeJWTAuthenticator, error) {
+func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath string) (*KubeJWTAuthenticator, error) {
 	// Read the CA certificate of the k8s apiserver
 	caCert, err := ioutil.ReadFile(caCertPath)
 	if err != nil {

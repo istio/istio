@@ -36,7 +36,13 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-const certExpirationBuffer = time.Minute
+// Config for Vault prototyping purpose
+const (
+	jwtPath              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	caCertPath           = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	k8sAPIServerURL      = "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews"
+	certExpirationBuffer = time.Minute
+)
 
 type authenticator interface {
 	Authenticate(ctx context.Context) (*authenticate.Caller, error)
@@ -185,10 +191,10 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
 	log.Infof("added client certificate authenticator")
 
-	authenticator, err := authenticate.NewKubeJWTAuthenticator()
+	authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath)
 	if err == nil {
 		authenticators = append(authenticators, authenticator)
-		log.Infof("added Kube JWT authenticator")
+		log.Infof("added K8s JWT authenticator")
 	} else {
 		log.Warnf("failed to add create JWT authenticator: %v", err)
 	}
