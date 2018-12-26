@@ -143,11 +143,11 @@ resources:
             kubectl label namespace default istio-injection=enabled
           {% endif %}
 
-          kubectl rollout status deployment.extensions/istio-pilot -n istio-system --timeout=60s
-          kubectl rollout status deployment.extensions/istio-citadel -n istio-system --timeout=60s
-          kubectl rollout status deployment.extensions/istio-policy -n istio-system --timeout=60s
-          kubectl rollout status deployment.extensions/istio-galley -n istio-system --timeout=60s
-          kubectl rollout status deployment.extensions/istio-ingressgateway -n istio-system --timeout=60s
+          if kubectl rollout status deployment.extensions/istio-pilot -n istio-system --timeout=120s && \
+             kubectl rollout status deployment.extensions/istio-citadel -n istio-system --timeout=120s && \
+             kubectl rollout status deployment.extensions/istio-policy -n istio-system --timeout=120s && \
+             kubectl rollout status deployment.extensions/istio-galley -n istio-system --timeout=120s && \
+             kubectl rollout status deployment.extensions/istio-ingressgateway -n istio-system --timeout=120s ; then
 
           {% if  properties['enableKiali'] %}
 
@@ -178,7 +178,7 @@ resources:
             {% endif %}
 
             {% if  properties['enableTracing'] %}
-              KIALI_OPTIONS=$KIALI_OPTIONS" --set kiali.dashboard.jaegerURL=http://$(kubectl get svc tracing -n istio-system -o jsonpath='{.spec.clusterIP}'):80"
+              KIALI_OPTIONS=$KIALI_OPTIONS" --set kiali.dashboard.jaegerURL=http://$(kubectl get svc tracing -n istio-system -o jsonpath='{.spec.clusterIP}'):9411"
             {% endif %}
 
             helm template install/kubernetes/helm/istio --name istio --namespace istio-system $KIALI_OPTIONS  > istio_kiali.yaml
@@ -192,14 +192,30 @@ resources:
             kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
             kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
-            kubectl rollout status deployment.extensions/productpage-v1 --timeout=60s
-            kubectl rollout status deployment.extensions/ratings-v1 --timeout=60s
-            kubectl rollout status deployment.extensions/details-v1 --timeout=60s
-            kubectl rollout status deployment.extensions/reviews-v1 --timeout=60s
-            kubectl rollout status deployment.extensions/reviews-v2 --timeout=60s
-            kubectl rollout status deployment.extensions/reviews-v3 --timeout=60s
+            {% if  properties['enableMutualTLS'] %}
+                kubectl apply -f samples/bookinfo/networking/destination-rule-all-mtls.yaml
+            {% else %}
+                kubectl apply -f samples/bookinfo/networking/destination-rule-all.yaml
+            {% endif %}
 
+            if kubectl rollout status deployment.extensions/productpage-v1 --timeout=120s && \
+               kubectl rollout status deployment.extensions/ratings-v1 --timeout=120s && \
+               kubectl rollout status deployment.extensions/details-v1 --timeout=120s && \
+               kubectl rollout status deployment.extensions/reviews-v1 --timeout=120s && \
+               kubectl rollout status deployment.extensions/reviews-v2 --timeout=120s && \
+               kubectl rollout status deployment.extensions/reviews-v3 --timeout=120s ; then
+
+              echo "Bookinfo deployment successful"
+            else
+              gcloud beta runtime-config configs variables set failure/{{ CLUSTER_NAME }}-waiter failure --config-name $(ref.{{ CLUSTER_NAME }}-config.name)
+              exit 1
+            fi
           {% endif %}
 
           gcloud beta runtime-config configs variables set success/{{ CLUSTER_NAME }}-waiter success --config-name $(ref.{{ CLUSTER_NAME }}-config.name)
+
+          else
+            gcloud beta runtime-config configs variables set failure/{{ CLUSTER_NAME }}-waiter failure --config-name $(ref.{{ CLUSTER_NAME }}-config.name)
+          fi
+
           gcloud -q compute instances delete {{ CLUSTER_NAME }}-vm --zone {{ properties['zone'] }}
