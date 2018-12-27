@@ -608,7 +608,7 @@ func l4SingleMatch(match *networking.L4MatchAttributes, server *networking.Serve
 
 func isPortMatch(port uint32, server *networking.Server) bool {
 	// if there's no port predicate, portMatch is true; otherwise we evaluate the port predicate against the server's port
-	portMatch := port == 0
+	portMatch := true
 	if port != 0 {
 		portMatch = server.Port.Number == port
 	}
@@ -617,7 +617,7 @@ func isPortMatch(port uint32, server *networking.Server) bool {
 
 func isGatewayMatch(gatewaysForWorkload map[string]bool, gateways []string) bool {
 	// if there's no gateway predicate, gatewayMatch is true; otherwise we match against the gateways for this workload
-	gatewayMatch := len(gateways) == 0
+	gatewayMatch := true
 	if len(gateways) > 0 {
 		for _, gateway := range gateways {
 			gatewayMatch = gatewayMatch || gatewaysForWorkload[gateway]
