@@ -47,22 +47,22 @@ var (
   `
 	vaultServerTlsCert = `
 -----BEGIN CERTIFICATE-----
-MIIC3TCCAcWgAwIBAgIQXXRrrPQBB8NTYWGrEhSoyjANBgkqhkiG9w0BAQsFADAQ
-MQ4wDAYDVQQKEwVWYXVsdDAgFw0xODEyMjYxMzQwMzJaGA8yMTE4MTIwMjEzNDAz
-MlowEDEOMAwGA1UEChMFVmF1bHQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-AoIBAQC/fWc/rC2suEpscBkdIkWmkCp3FKq+zgUAVR6vrteMYJZjmhTPk1JVlwIE
-i1/NFP04R/oAc2uP3e0jyL2mVLyZvUzP8EDAi6BGLGeN+/9L8Ei/GvXyqSPtNIiE
-4si/rgEL7uaSfx3VOU+g8EG6ctI/3ntCQmgTAtIKN+EyRWY3ZKZfpuD1sW5+IjUr
-ohTYbUesg8odyMKn3YgObV7DXtXqrSa5c5jWJstf3uekpi17ZrAAt9HMHwg2W7sI
-qPutU30E/Z42o5r+Klrcg4hPDH3V8rOey39IUDBjDuy5qL2sqzYE+C5iMzPBJyzM
-kSQe56WKEy29hXKLSflsQjP8hmRBAgMBAAGjMTAvMA4GA1UdDwEB/wQEAwIFoDAM
-BgNVHRMBAf8EAjAAMA8GA1UdEQQIMAaHBCPFXfgwDQYJKoZIhvcNAQELBQADggEB
-AGgzEcTggWjNm7qNjdbUK4u3QlWVBN3crgG65aYPrqDGWZHqgCqdEwHqtOHFSElT
-oq9ew1pMHR/b8xZDOEwqBD+xFU4XjendqFgi0EJK8hQwMht0lrLDcoKNYoAmBrjt
-9zWH6enR1ji/MKwDAXH0ithS/4PJ9YuVmX5IqjjysdMPkOyWGct83rwrOvFwDP2l
-c8Wm2dFQM2RQdmEcDRjwVIPDqrmxaAi6cUpS/z5X+qgyN1BkhV/ReHtBbj+Gwx2R
-sZFKyHcXC997hoz0YeS6wNpgdz5xghHYYwjKSXyAo7W4ZgD8EpkI0iX8qXiH7Wc6
-mz76sduZ5G1UgrLHkFZVcvo=
+MIIC3jCCAcagAwIBAgIRAIcSFH1jneS0XPz5r2QDbigwDQYJKoZIhvcNAQELBQAw
+EDEOMAwGA1UEChMFVmF1bHQwIBcNMTgxMjI2MDkwMDU3WhgPMjExODEyMDIwOTAw
+NTdaMBAxDjAMBgNVBAoTBVZhdWx0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+CgKCAQEA2q5lfJCLAOTEjX3xV8qMLEX8zUQpd0AjD6zzOMzx51GVM7Plf7CJmaDq
+yloRz3zcrTEltHUrln5fvouvp4TetOlqEU979vvccnFLgXrSpn+Zt/EyjE0rUYY3
+5e2qxy9bP2E7zJSKONIT6zRDd2zUQGH3zUem1ZG0GFY1ZL5qFSOIy+PvuQ4u8HCa
+1CcnHmI613fVDbFbaxuF2G2MIwCZ/Fg6KBd9kgU7uCOvkbR4AtRe0ntwweIjOIas
+FiohPQzVY4obrYZiTV43HT4lGti7ySn2c96UnRSnmHLWyBb7cafd4WZN/t+OmYSd
+ooxCVQ2Zqub6NlZ5OySYOz/0BJq6DQIDAQABozEwLzAOBgNVHQ8BAf8EBAMCBaAw
+DAYDVR0TAQH/BAIwADAPBgNVHREECDAGhwQj6fn5MA0GCSqGSIb3DQEBCwUAA4IB
+AQBORvUcW0wgg/Wo1aKFaZQuPPFVLjOZat0QpCJYNDhsSIO4Y0JS+Y1cEIkvXB3S
+Q3D7IfNP0gh1fhtP/d45LQSPqpyJF5vKWAvwa/LSPKpw2+Zys4oDahcH+SEKiQco
+IhkkHNEgC4LEKEaGvY4A8Cw7uWWquUJB16AapSSnkeD2vTcxErfCO59yR7yEWDa6
+8j6QNzmGNj2YXtT86+Mmedhfh65Rrh94mhAPQHBAdCNGCUwZ6zHPQ6Z1rj+x3Wm9
+gqpveVq2olloNbnLNmM3V6F9mqSZACgADmRqf42bixeHczkTfRDKThJcpY5U44vy
+w4Nm32yDWhD6AC68rDkXX68m
 -----END CERTIFICATE-----
   `
 	testCsr1 = `
@@ -85,8 +85,10 @@ SQYzPWVk89gu6nKV+fS2pA9C8dAnYOzVu9XXc+PGlcIhjnuS+/P74hN5D3aIGljW
 -----END CERTIFICATE REQUEST-----
   `
 	citadelSANonTLS = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tenRzN3ciLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjUyODUxNTNlLWY2ZGItMTFlOC04Y2ZhLTQyMDEwYThhMDAxNCIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.lxNRxmL2oLhh3XGLI7XPdhh2hpdQo02WPq9M8awhuguYExOMa2ToIAROe_ia0RkugLHCIX2jd-gohUcAyUxh5oBIFgeP8QVyu2hXUUVeZQgZLpjsd2nlPRq5CPw-21mXQntbWsmT4kFhQ-BF3m9H-5UDxRb4jt-t5YhQb4PHq-H-i9QN4_7seqLu3RPBjmkhzV-8tqr-baleRby2Kj5s-qWsnMtPcF8kWZ3hzoY9P2nKPSimhNFkv58K15t9gJ-EJTsQhsY-kozYGpfoFEfchw6t-qIBVjH74z3BrlP0edSnDh8UtADnwqArZrgcFzorOZ2bH3mlpiK7jZ0YDI4CqA"
-	citadelSATLS    = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tNTc4YjQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6Ijg1MzZmMjQ3LTA5MTUtMTFlOS1hYjdmLTQyMDEwYThhMDA5NSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.QNw4gbcIN4RM46k3DAYLKuqUCo-9tdJSqeq4bRl_v5ecGwWOGVOhBSvqHwdPwIsLUS6-pEUkoXUjIHbnCnUHnLe-TQ1OHKvfGCI3PNTNZYFx_WFQPXNzV2oB-5XUn52d-A3mZxYMjnlZw53ixqXfg8syE4nx5rY3tvSBxdQSxxwQ17Q5V2JJukt_f09KqurPprY1Ab9_nTs6Dck11uGV0FDNvwn_kvDSPQzZVy-zDMUnZo4imGO78-0HMbNvVxG3C_qN4E-B_zp8EkywCiBoE4ecOoHf5zeCGWxa9ZLBTGWB7_TOLMmmSceG1N0bUWtUyJwRDnMH4QTF8naiX62C-g"
+	citadelSATLS    = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.RNH1QbapJKPmktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3EdnlkrykGMepEjsdNuT6ndHfh8jRJAZuNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZxkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdvbgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5ry_KXTdrVAcTUvI6lxwRbONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4aSzC2o8aDtlQ"
 	fakeCert        = []string{"fake-certificate", "fake-ca1", "fake-ca2"}
+	vaultNonTLSAddr = "http://35.247.45.173:8200"
+	vaultTLSAddr    = "https://35.233.249.249:8200"
 )
 
 type MockVaultServer struct {
@@ -203,7 +205,7 @@ func TestClientOnExampleHttpVaultCA(t *testing.T) {
 		cliConfig clientConfig
 	}{
 		"Valid certs 1": {
-			cliConfig: clientConfig{vaultAddr: "http://35.247.45.173:8200", vaultLoginPath: "auth/kubernetes/login", vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role", clientToken: citadelSANonTLS, csr: []byte(testCsr1)},
+			cliConfig: clientConfig{vaultAddr: vaultNonTLSAddr, vaultLoginPath: "auth/kubernetes/login", vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role", clientToken: citadelSANonTLS, csr: []byte(testCsr1)},
 		},
 	}
 
@@ -232,7 +234,7 @@ func TestClientOnExampleHttpsVaultCA(t *testing.T) {
 		cliConfig clientConfig
 	}{
 		"Valid certs 1": {
-			cliConfig: clientConfig{vaultAddr: "https://35.197.93.248:8200", vaultLoginPath: "auth/kubernetes/login", vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role", clientToken: citadelSATLS, csr: []byte(testCsr1)},
+			cliConfig: clientConfig{vaultAddr: vaultTLSAddr, vaultLoginPath: "auth/kubernetes/login", vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role", clientToken: citadelSATLS, csr: []byte(testCsr1)},
 		},
 	}
 
