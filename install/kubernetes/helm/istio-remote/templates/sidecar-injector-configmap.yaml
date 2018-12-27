@@ -189,15 +189,17 @@ data:
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
         {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
         {{- if .Values.global.sds.useTrustworthyJwt }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        {{- end }}
+        {{- else }}
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
         {{- end }}
         {{- end }}
       volumes:
@@ -214,10 +216,7 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
       {{- end }}
-      {{- end }}
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
+      {{- else }}
       - name: istio-certs
         secret:
           optional: true
@@ -226,4 +225,9 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+      {{- end }}
+      {{- end }}
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
 {{- end }}

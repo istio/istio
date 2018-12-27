@@ -221,9 +221,6 @@ data:
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
         {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
@@ -231,6 +228,10 @@ data:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
+        {{- else }}
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
@@ -257,6 +258,15 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
       {{- end }}
+      {{- else }}
+      - name: istio-certs
+        secret:
+          optional: true
+          {{ "[[ if eq .Spec.ServiceAccountName \"\" -]]" }}
+          secretName: istio.default
+          {{ "[[ else -]]" }}
+          secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
+          {{ "[[ end -]]" }}
       {{- end }}
       {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
       - name: lightstep-certs
@@ -267,6 +277,7 @@ data:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+<<<<<<< HEAD
       - name: istio-certs
         secret:
           optional: true
@@ -281,6 +292,8 @@ data:
         {{ "[[ toYaml $value | indent 2 ]]" }}
         {{ "[[ end ]]" }}
         {{ "[[ end -]]" }}
+=======
+>>>>>>> remove secret volume mount from sidecar injector when sds is enabled
 {{- end }}
 {{- if .Values.global.podDNSSearchNamespaces }}
       dnsConfig:
