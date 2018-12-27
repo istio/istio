@@ -73,12 +73,66 @@ var (
 	// 'admin' namespaces. Using services from any other namespaces will require the new NetworkScope
 	// config. In most cases 'istio-system' should be included. Comma separated (ns1,ns2,istio-system)
 	NetworkScopes = os.Getenv("DEFAULT_NAMESPACE_DEPENDENCIES")
+
+	// SingleThreadPerNode eliminates 1/2 of the pilot go-routines and optimizes the push handling.
+	// This is a temporary safety flag.
+	SingleThreadPerNode = os.Getenv("THREAD_PER_NODE") != "0" // on by default for initial testing
+
+	// WaitAck waits for an ACK/NACK after pushing any config. If a nack is received the other configs will not
+	// be pushed, but connection will not be closed. This may slow down the push for a node - the EDS will wait for
+	// CDS to be acked for example, however it is safer.
+	// This is a temporary safety flag.
+	WaitAck = os.Getenv("WAIT_ACK") != "0" // on by default for testing
 )
 
+// Node metadata. The constants used for metadata must be stable, they impact upgrade.
+// Any change should include upgrade testing checking that previous proxy can work with new pilot.
 const (
 
 	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a note and not on same network
 	// will be replaced with the gateway defined in the settings.
+	// Added in 1.1
 	NodeMetadataNetwork = "NETWORK"
+
+	// InterceptionMode is a connection metadata indicating the the interception config of the workload.
+	// Default is REDIRECT, corresponding to iptables redirect
+	InterceptionMode = "INTERCEPTION_MODE"
+
+	// ConfigNamespace is the new way to pass the namespace of the workload. In Istio 0.2 to 1.0 namespace
+	// is extracted from the node ID.
+	// Added in 1.1
+	ConfigNamespace = "CONFIG_NAMESPACE"
+
+	// Isolation enables namespace isolation for a specific pod. Used for testing and gradual deployments, currently
+	// no long-term plan.
+	// Added in 1.1 for development/testing.
+	Isolation = "ISOLATION"
+)
+
+// Supported values for the metadata.
+const (
+	// InterceptionModeRedirect (REDIRECT) will use iptables in REDIRECT mode. This is the default, does no need to be
+	// specified.
+	InterceptionModeRedirect = "REDIRECT"
+
+	// InterceptionModeTproxy (TPROXY) will use iptables in TPROXY mode, which is recommended by linux and scales better for large number
+	// of connections.
+	InterceptionModeTproxy = "TPROXY"
+
+	// InterceptionModeNone (NONE) indicates the workload is not using iptables. In this mode listeners will bind to
+	// port, and we can't support
+	// multiple TCP services on the same port. Inbound is required to use a different port for the local application.
+	// It will also trigger namespace isolation for the config generation, since full mesh is far more likely to result
+	// in port conflicts. Port 15002 (or ProxyHttpPort in mesh config) will be configured as a HTTP PROXY port instead
+	// of iptables. Stateful sets will run in TPROXY mode (TODO: explore bind on *:port with NET_ADMIN).
+	// Added in 1.1
+	InterceptionModeNone = "NONE"
+)
+
+const (
+	// TODO: define all other default ports here, add docs
+
+	// DefaultPortHttpProxy is used as for HTTP PROXY mode. Can be overriden by ProxyHttpPort in mesh config.
+	DefaultPortHttpProxy = 15002
 )

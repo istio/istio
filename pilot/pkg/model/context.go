@@ -24,6 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/features/pilot"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
@@ -149,6 +150,35 @@ func (node *Proxy) ServiceNode() string {
 		string(node.Type), ip, node.ID, node.DNSDomain,
 	}, serviceNodeSeparator)
 
+}
+
+// Isolated return true if the node should only return services from its own namespace
+// or explicit imports.
+func (node *Proxy) Isolated() bool {
+	if node == nil {
+		return false
+	}
+
+	// Gateways use explicit imports (or explicit bind to gateway)
+	if node.Type != Sidecar {
+		return false
+	}
+
+	// None interception mode requires strict isolation, since it depends on port uniqueness for TCP services.
+	if node.Metadata[pilot.InterceptionMode] == pilot.InterceptionModeNone {
+		return true
+	}
+
+	if node.Metadata[pilot.Isolation] != "" {
+		return true
+	}
+
+	// Global enable flag, containing default namespaces
+	if pilot.NetworkScopes != "" {
+		return true
+	}
+
+	return false
 }
 
 // GetProxyVersion returns the proxy version string identifier, and whether it is present.
@@ -277,8 +307,13 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
-	if configNamespace, found := proxy.Metadata["CONFIG_NAMESPACE"]; found {
+	if configNamespace, found := proxy.Metadata[pilot.ConfigNamespace]; found {
 		return configNamespace
+	}
+
+	parts := strings.Split(proxy.ID, ".")
+	if len(parts) > 1 {
+		return parts[1]
 	}
 
 	return ""
