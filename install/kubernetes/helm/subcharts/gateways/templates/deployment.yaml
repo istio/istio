@@ -69,7 +69,7 @@ spec:
             value: "true"
           volumeMounts:
           - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway/sds
+            mountPath: /var/run/ingress_gateway
 {{- end }}
         - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
@@ -190,7 +190,7 @@ spec:
           {{- end }}
           {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
           - name: ingressgatewaysdsudspath
-            mountPath: /var/run/ingress_gateway/sds
+            mountPath: /var/run/ingress_gateway
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs

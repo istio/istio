@@ -166,6 +166,7 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
 	if err != nil {
 		log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+		return fmt.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 	}
 
 	go func() {
@@ -181,10 +182,14 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 
 func setUpUds(udsPath string) (net.Listener, error) {
 	// Remove unix socket before use.
-	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
-		// Anything other than "file not found" is an error.
-		log.Errorf("Failed to remove unix://%s: %v", udsPath, err)
-		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
+	if finfo, err := os.Stat(udsPath); !os.IsNotExist(err) {
+		log.Infof("file Info for %s\nName: %s\nMode: %s\nIsDir: %v\nSize: %d",
+			udsPath, finfo.Name(), finfo.Mode().String(), finfo.IsDir(), finfo.Size())
+		if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
+			// Anything other than "file not found" is an error.
+			log.Errorf("Failed to remove unix://%s: %v", udsPath, err)
+			return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
+		}
 	}
 
 	var err error
