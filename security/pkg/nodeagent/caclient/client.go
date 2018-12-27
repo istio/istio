@@ -33,6 +33,7 @@ import (
 const (
 	googleCAName = "GoogleCA"
 	citadelName  = "Citadel"
+	ns           = "istio-system"
 
 	retryInterval = time.Second * 2
 	maxRetries    = 100
@@ -52,7 +53,7 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 		if err != nil {
 			return nil, err
 		}
-		controller := configmap.NewController("", cs.CoreV1())
+		controller := configmap.NewController(ns, cs.CoreV1())
 		rootCert, err := getCATLSRootCertFromConfigMap(controller, retryInterval, maxRetries)
 		if err != nil {
 			return nil, err
@@ -74,7 +75,7 @@ func getCATLSRootCertFromConfigMap(controller configMap, interval time.Duration,
 			break
 		}
 		time.Sleep(retryInterval)
-		log.Infof("unalbe to fetch CA TLS root cert, retry in %v", interval)
+		log.Infof("unalbe to fetch CA TLS root cert: %v, retry in %v", err, interval)
 	}
 	if cert == "" {
 		return nil, fmt.Errorf("exhausted all the retries (%d) to fetch the CA TLS root cert", max)

@@ -49,5 +49,6 @@ EOF
 }
 
 create_gcb_env
+clone_cni
 
 time ./release/gcb/cloud_builder.sh

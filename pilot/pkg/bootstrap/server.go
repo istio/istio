@@ -112,7 +112,6 @@ var (
 		plugin.Authz,
 		plugin.Health,
 		plugin.Mixer,
-		plugin.Envoyfilter,
 	}
 )
 
@@ -203,7 +202,6 @@ type Server struct {
 	httpServer       *http.Server
 	grpcServer       *grpc.Server
 	secureHTTPServer *http.Server
-	secureHTTPMutex  sync.RWMutex
 	secureGRPCServer *grpc.Server
 	secureGrpcMutex  sync.RWMutex
 	istioConfigStore model.IstioConfigStore
@@ -942,47 +940,39 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
 		istio_networking.NewConfigGenerator(args.Plugins),
 		s.ServiceController, s.configController)
-
-	s.EnvoyXdsServer.Register(s.grpcServer)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
-		// TODO: maybe all registries should have his as an optional field ?
+		// TODO: maybe all registries should have this as an optional field ?
 		s.kubeRegistry.Env = environment
 		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
 	}
 
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
-
-	s.EnvoyXdsServer.ConfigController = s.configController
-
+	// create grpc/http server
+	s.initGrpcServer(args.KeepaliveOptions)
 	s.httpServer = &http.Server{
 		Addr:    args.DiscoveryOptions.HTTPAddr,
-		Handler: s.mux}
+		Handler: s.mux,
+	}
 
+	// create http listener
 	listener, err := net.Listen("tcp", args.DiscoveryOptions.HTTPAddr)
 	if err != nil {
 		return err
 	}
 	s.HTTPListeningAddr = listener.Addr()
 
+	// create grpc listener
 	grpcListener, err := net.Listen("tcp", args.DiscoveryOptions.GrpcAddr)
 	if err != nil {
 		return err
 	}
 	s.GRPCListeningAddr = grpcListener.Addr()
 
-	// TODO: only if TLS certs, go routine to check for late certs
-	secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
-	if err != nil {
-		return err
-	}
-	s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
-
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		log.Infof("Discovery service started at http=%s grpc=%s secure grpc=%s", listener.Addr(), grpcListener.Addr(), secureGrpcListener.Addr())
-
+		log.Infof("starting discovery service at http=%s grpc=%s", listener.Addr(), grpcListener.Addr())
 		go func() {
 			if err := s.httpServer.Serve(listener); err != nil {
 				log.Warna(err)
@@ -993,8 +983,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				log.Warna(err)
 			}
 		}()
-
-		go s.secureGrpcStart(secureGrpcListener, args.KeepaliveOptions)
 
 		go func() {
 			<-stop
@@ -1007,20 +995,49 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 				log.Warna(err)
 			}
 			s.grpcServer.GracefulStop()
-			if s.secureGRPCServer != nil {
-				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-				defer cancel()
-				s.secureHTTPMutex.RLock()
-				s.secureHTTPServer.Shutdown(ctx)
-				s.secureHTTPMutex.RUnlock()
-				s.secureGrpcMutex.RLock()
-				s.secureGRPCServer.Stop()
-				s.secureGrpcMutex.RUnlock()
-			}
 		}()
 
 		return nil
 	})
+
+	// run secure grpc server
+	if args.DiscoveryOptions.SecureGrpcAddr != "" {
+		// create secure grpc server
+		if err := s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
+			return err
+		}
+		// create secure grpc listener
+		secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
+		if err != nil {
+			return err
+		}
+		s.SecureGRPCListeningAddr = secureGrpcListener.Addr()
+
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			log.Infof("starting discovery service at secure grpc=%s", secureGrpcListener.Addr())
+			go func() {
+				// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
+				// on a listener
+				err := s.secureHTTPServer.ServeTLS(secureGrpcListener, "", "")
+				msg := fmt.Sprintf("Stoppped listening on %s", secureGrpcListener.Addr().String())
+				select {
+				case <-stop:
+					log.Info(msg)
+				default:
+					panic(fmt.Sprintf("%s due to error: %v", msg, err))
+				}
+			}()
+			go func() {
+				<-stop
+				s.grpcServer.GracefulStop()
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				s.secureHTTPServer.Shutdown(ctx)
+				s.secureGRPCServer.Stop()
+			}()
+			return nil
+		})
+	}
 
 	return nil
 }
@@ -1046,10 +1063,11 @@ func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, ar
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
+	s.EnvoyXdsServer.Register(s.grpcServer)
 }
 
-// The secure grpc will start when the credentials are found.
-func (s *Server) secureGrpcStart(listener net.Listener, options *istiokeepalive.Options) {
+// initialize secureGRPCServer
+func (s *Server) initSecureGrpcServer(options *istiokeepalive.Options) error {
 	certDir := pilot.CertDir
 	if certDir == "" {
 		certDir = PilotCertDir
@@ -1059,34 +1077,21 @@ func (s *Server) secureGrpcStart(listener net.Listener, options *istiokeepalive.
 	key := path.Join(certDir, model.KeyFilename)
 	cert := path.Join(certDir, model.CertChainFilename)
 
-	var err error
-	defer func() {
-		if err != http.ErrServerClosed {
-			log.Errorf("Failed to start secure grpc server %v", err)
-			// Exit - mesh is in MTLS mode, but certificates are missing or bad.
-			// k8s may allocate to a different machine.
-			if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-				os.Exit(403)
-			}
-		}
-	}()
-	// This is used for the grpc h2 implementation. It doesn't appear to be needed in
-	// the case of golang h2 stack.
 	creds, err := credentials.NewServerTLSFromFile(cert, key)
 	// certs not ready yet.
 	if err != nil {
-		return
+		return err
 	}
 
 	// TODO: parse the file to determine expiration date. Restart listener before expiration
 	certificate, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
-		return
+		return err
 	}
 
 	caCert, err := ioutil.ReadFile(ca)
 	if err != nil {
-		return
+		return err
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -1094,12 +1099,7 @@ func (s *Server) secureGrpcStart(listener net.Listener, options *istiokeepalive.
 	opts := s.grpcServerOptions(options)
 	opts = append(opts, grpc.Creds(creds))
 	s.secureGRPCServer = grpc.NewServer(opts...)
-
 	s.EnvoyXdsServer.Register(s.secureGRPCServer)
-
-	log.Infof("Starting GRPC secure on %v with certs in %s", listener.Addr(), certDir)
-
-	s.secureHTTPMutex.Lock()
 	s.secureHTTPServer = &http.Server{
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{certificate},
@@ -1121,12 +1121,8 @@ func (s *Server) secureGrpcStart(listener net.Listener, options *istiokeepalive.
 			}
 		}),
 	}
-	s.secureHTTPMutex.Unlock()
 
-	// This seems the only way to call setupHTTP2 - it may also be possible to set NextProto
-	// on a listener
-	err = s.secureHTTPServer.ServeTLS(listener, "", "")
-	log.Infof("Stoppped listening on %s", listener.Addr().String())
+	return nil
 }
 
 func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.ServerOption {

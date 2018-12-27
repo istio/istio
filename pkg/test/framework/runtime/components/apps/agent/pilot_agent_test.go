@@ -235,7 +235,7 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 			HTTPAddr:       ":0",
 			MonitoringAddr: ":0",
 			GrpcAddr:       ":0",
-			SecureGrpcAddr: ":0",
+			SecureGrpcAddr: "",
 		},
 		MeshConfig: &mesh,
 		Config: bootstrap.ConfigArgs{
