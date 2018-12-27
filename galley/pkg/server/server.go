@@ -90,7 +90,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	s := &Server{}
 
 	defer func() {
-		// If return with error, need to close the server.
+		// If returns with error, need to close the server.
 		if err != nil {
 			_ = s.Close()
 		}
