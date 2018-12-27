@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/pkg/features/pilot"
 
+	multierror "github.com/hashicorp/go-multierror"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 

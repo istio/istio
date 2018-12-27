@@ -69,9 +69,16 @@ spec:
   trafficPolicy:
     tls:
       mode: MUTUAL
-      clientCertificate: /etc/certs/myclientcert.pem
-      privateKey: /etc/certs/client_private_key.pem
-      caCertificates: /etc/certs/rootcacerts.pem
+      # Envoy test runs in pilot/pkg/proxy/envoy/v2 directory
+      # TODO: add a node metadata pointing to the base dir for certificates !!
+      clientCertificate: ../../../../../tests/testdata/certs/default/cert-chain.pem
+      privateKey: ../../../../../tests/testdata/certs/default/key.pem
+      caCertificates: ../../../../../tests/testdata/certs/default/root-cert.pem
+      # Not included in the example, added for testing
+      sni: v1.mymongodb.somedomain
+      subjectAltNames:
+      - service.mongodb.somedomain
+
 ---
 #The following example uses a combination of service entry and TLS
 #routing in virtual service to demonstrate the use of SNI routing to
