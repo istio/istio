@@ -37,12 +37,12 @@ type saValidationRequest struct {
 	Spec       specForSaValidationRequest `json:"spec"`
 }
 
-// ReviewServiceAccountAtK8sAPIServer reviews the CSR credential (k8s service account) at k8s API server.
+// reviewServiceAccountAtK8sAPIServer reviews the CSR credential (k8s service account) at k8s API server.
 // k8sAPIServerURL: the URL of k8s API Server
 // k8sAPIServerCaCert: the CA certificate of k8s API Server
 // reviewerToken: the service account of the k8s token reviewer
 // jwt: the JWT of the k8s service account
-func ReviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCert []byte,
+func reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCert []byte,
 	reviewerToken string, jwt []byte) (*http.Response, error) {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(k8sAPIServerCaCert)
@@ -85,7 +85,7 @@ func ReviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCe
 // jwt: the JWT to validate
 func ValidateK8sJwt(k8sAPIServerURL string, k8sAPIServerCaCert []byte, reviewerToken string,
 	jwt []byte) (string, error) {
-	resp, err := ReviewServiceAccountAtK8sAPIServer(k8sAPIServerURL, k8sAPIServerCaCert,
+	resp, err := reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL, k8sAPIServerCaCert,
 		reviewerToken, jwt)
 	if err != nil {
 		return "", fmt.Errorf("failed to get a token review response: %v", err)
