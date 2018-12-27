@@ -67,7 +67,7 @@ spec:
 
 ---
 
-# Regular outbound cluster (Default MeshExternal = true, Resolution ClientSideLB)
+# Regular TCP outbound cluster (Default MeshExternal = true, Resolution ClientSideLB)
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
@@ -89,10 +89,93 @@ spec:
   - address: 10.11.0.3
     ports:
       http-remote: 7072
+
+---
+# Another TCP outbound cluster, resolution DNS (Default MeshExternal = true)
+# Not supported, bind=false
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: s2dns
+  namespace: none
+spec:
+  hosts:
+  - s2dns.external.test.istio.io
+
+  ports:
+  - number: 2006
+    protocol: TCP
+    name: tcp1 # TODO: is it optional ? Why not ?
+  resolution: DNS
+
+---
+# Outbound TCP cluster, resolution DNS - for a '.svc' (in cluster) service.
+# As an optimization, this can be converted to EDS
+# The new Sidecar is the recommended way to declare deps to mesh services - however
+# DNS resolution is supposed to continue to work.
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: tcpmeshdns
+  namespace: none
+spec:
+  hosts:
+  - tcpmeshdns.seexamples.svc
+  ports:
+  - number: 2007
+    protocol: TCP
+    name: tcp1
+  resolution: DNS
+
+
 ---
 
-# Currently not supported (will need SOCKS or similar mechanism).
-# Should generate old-style iptables bind=false
+# Outbound TCP cluster, resolution STATIC - for a '.svc' (in cluster) service.
+# This binds on each endpoint address !
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: tcpmeshstatic
+  namespace: none
+spec:
+  hosts:
+  - tcpmeshstatic.seexamples.svc
+  ports:
+  - number: 2008
+    protocol: TCP
+    name: tcp1
+  resolution: STATIC
+  endpoints:
+  - address: 10.11.0.8
+    ports:
+      tcp1: 7070
+---
+# Outbound TCP cluster, resolution STATIC - for a '.svc' (in cluster) service.
+# This generates EDS
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: tcpmeshstaticint
+  namespace: none
+spec:
+  hosts:
+  - tcpmeshstaticint.seexamples.svc
+  ports:
+  - number: 2009
+    protocol: TCP
+    name: tcp1
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  # NEEDED FOR VALIDATION - LIKELY BUG
+  - address: 10.11.0.9
+    ports:
+      tcp1: 7070
+---
+
+# TODO: in progres, should bind to 127.0.0.1
+# will resolve using SNI
+# DNS or etc/hosts or code must override the address, but pass proper SNI
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
@@ -100,12 +183,49 @@ metadata:
   namespace: none
 spec:
   hosts:
-  - https.external
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  location: MESH_EXTERNAL
   ports:
   - number: 443
-    name: tcphttps
-    protocol: TCP
+    name: https
+    protocol: TLS
   resolution: DNS
+---
+# TODO: this should be auto-generated from ServiceEntry/protocol=TLS, it's just boilerplate
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tls-routing
+  namespace: seexamples
+spec:
+  hosts:
+  - api.dropboxapi.com
+  - www.googleapis.com
+  - api.facebook.com
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - api.dropboxapi.com
+    route:
+    - destination:
+        host: api.dropboxapi.com
+  - match:
+    - port: 443
+      sniHosts:
+      - www.googleapis.com
+    route:
+    - destination:
+        host: www.googleapis.com
+  - match:
+    - port: 443
+      sniHosts:
+      - api.facebook.com
+    route:
+    - destination:
+        host: api.facebook.com
 ---
 # DestinationRules attach to services, have no impact on 'none' interception
 

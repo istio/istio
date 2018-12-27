@@ -14,19 +14,15 @@
 package v2_test
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"testing"
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
-
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 )
 
 
@@ -55,8 +51,7 @@ func TestLDSIsolated(t *testing.T) {
 		}
 		defer ldsr.Close()
 
-		ldsr.Send(&xdsapi.DiscoveryRequest{
-			TypeUrl: v2.ListenerType})
+		ldsr.Watch()
 
 		_, err = ldsr.Wait("lds", 50000 * time.Second)
 		if err != nil {
@@ -64,10 +59,10 @@ func TestLDSIsolated(t *testing.T) {
 			return
 		}
 
-		strResponse, _ := json.MarshalIndent(ldsr.TCPListeners, "  ", "  ")
-		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar_none_tcp.json", strResponse, 0644)
-		strResponse, _ = json.MarshalIndent(ldsr.HTTPListeners, "  ", "  ")
-		_ = ioutil.WriteFile(env.IstioOut+"/ldsv2_sidecar_none_http.json", strResponse, 0644)
+		err = ldsr.Save(env.IstioOut+"/none")
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// s1http - inbound HTTP on 7071 (forwarding to app on 30000 + 7071 - or custom port)
 		// All outbound on http proxy
@@ -84,6 +79,77 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal("No response")
 		}
 		// TODO: check bind==true
+		// TODO: verify listeners for outbound are on 127.0.0.1 (not yet), port 2000, 2005, 2007
+		// TODO: verify virtual listeners for unsupported cases
+		// TODO: add and verify SNI listener on 127.0.0.1:443
+		// TODO: verify inbound service port is on 127.0.0.1, and containerPort on 0.0.0.0
+		// TODO: BUG, SE with empty endpoints is rejected - it is actually valid config (service may not have endpoints)
+	})
+
+	// Test for the examples in the ServiceEntry doc
+	t.Run("se_example", func(t *testing.T) {
+		// TODO: add a Service with EDS resolution in the none ns.
+		// The ServiceEntry only allows STATIC - both STATIC and EDS should generated TCP listeners on :port
+		// while DNS and NONE should generate old-style bind ports.
+		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
+
+		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+			Meta: map[string]string{
+				pilot.Isolation: "1",
+			},
+			IP: "10.12.0.1", // matches none.yaml s1tcp.none
+			Namespace: "seexamples",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer ldsr.Close()
+
+		ldsr.Watch()
+
+		_, err = ldsr.Wait("rds", 50000 * time.Second)
+		if err != nil {
+			t.Fatal("Failed to receive LDS", err)
+			return
+		}
+
+		err = ldsr.Save(env.IstioOut+"/seexample")
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Test for the examples in the ServiceEntry doc
+	t.Run("se_examplegw", func(t *testing.T) {
+		// TODO: add a Service with EDS resolution in the none ns.
+		// The ServiceEntry only allows STATIC - both STATIC and EDS should generated TCP listeners on :port
+		// while DNS and NONE should generate old-style bind ports.
+		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
+
+		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
+			Meta: map[string]string{
+				pilot.Isolation: "1",
+			},
+			IP: "10.13.0.1",
+			Namespace: "exampleegressgw",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer ldsr.Close()
+
+		ldsr.Watch()
+
+		_, err = ldsr.Wait("rds", 50000 * time.Second)
+		if err != nil {
+			t.Fatal("Failed to receive LDS", err)
+			return
+		}
+
+		err = ldsr.Save(env.IstioOut+"/seexample-eg")
+		if err != nil {
+			t.Fatal(err)
+		}
 	})
 
 }
@@ -175,3 +241,10 @@ func TestLDS(t *testing.T) {
 
 	// TODO: dynamic checks ( see EDS )
 }
+
+// TODO: helper to test the http listener content
+// - file access log
+// - generate request id
+// - cors, fault, router filters
+// - tracing
+//
