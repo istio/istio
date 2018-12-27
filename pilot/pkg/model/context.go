@@ -169,6 +169,10 @@ func (node *Proxy) Isolated() bool {
 		return true
 	}
 
+	if node.Metadata[pilot.Isolation] != "" {
+		return true
+	}
+
 	// Global enable flag, containing default namespaces
 	if pilot.NetworkScopes != "" {
 		return true

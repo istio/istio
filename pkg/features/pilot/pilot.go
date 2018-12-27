@@ -92,28 +92,41 @@ const (
 	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a note and not on same network
 	// will be replaced with the gateway defined in the settings.
+	// Added in 1.1
 	NodeMetadataNetwork = "NETWORK"
 
 	// InterceptionMode is a connection metadata indicating the the interception config of the workload.
 	// Default is REDIRECT, corresponding to iptables redirect
 	InterceptionMode = "INTERCEPTION_MODE"
 
-	// Config namespace is the new way to pass the namespace of the workload.
+	// ConfigNamespace is the new way to pass the namespace of the workload. In Istio 0.2 to 1.0 namespace
+	// is extracted from the node ID.
+	// Added in 1.1
 	ConfigNamespace = "CONFIG_NAMESPACE"
+
+	// Isolation enables namespace isolation for a specific pod. Used for testing and gradual deployments, currently
+	// no long-term plan.
+	// Added in 1.1 for development/testing.
+	Isolation = "ISOLATION"
 )
 
 // Supported values for the metadata.
 const (
+	// InterceptionModeRedirect (REDIRECT) will use iptables in REDIRECT mode. This is the default, does no need to be
+	// specified.
+	InterceptionModeRedirect = "REDIRECT"
+
 	// InterceptionModeTproxy (TPROXY) will use iptables in TPROXY mode, which is recommended by linux and scales better for large number
 	// of connections.
 	InterceptionModeTproxy = "TPROXY"
 
-	// InterceptionModeNone ( NONE ) indicates the workload is not using iptables. In this mode listeners will bind to
+	// InterceptionModeNone (NONE) indicates the workload is not using iptables. In this mode listeners will bind to
 	// port, and we can't support
 	// multiple TCP services on the same port. Inbound is required to use a different port for the local application.
 	// It will also trigger namespace isolation for the config generation, since full mesh is far more likely to result
 	// in port conflicts. Port 15002 (or ProxyHttpPort in mesh config) will be configured as a HTTP PROXY port instead
 	// of iptables. Stateful sets will run in TPROXY mode (TODO: explore bind on *:port with NET_ADMIN).
+	// Added in 1.1
 	InterceptionModeNone = "NONE"
 )
 
