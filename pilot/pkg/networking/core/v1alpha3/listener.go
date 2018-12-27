@@ -604,8 +604,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				if noneMode &&
 						service.Resolution == model.ClientSideLB { // TODO: more conditions
 					listenerOpts.bindToPort = true
-					listenAddress = model.UnspecifiedIP // 0.0.0.0
+					listenAddress = "127.0.0.1" // model.UnspecifiedIP // 0.0.0.0
+					svcListenAddress = "127.0.0.1"
 				}
+
+				// TODO: for DNS resolution and type TLS, we can generate bind=true, with client DNS overrides.
 
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
