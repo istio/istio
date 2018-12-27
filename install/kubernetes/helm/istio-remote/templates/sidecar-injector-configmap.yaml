@@ -226,7 +226,6 @@ data:
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
       {{- end }}
-      {{- end }}
       - emptyDir:
           medium: Memory
         name: istio-envoy
