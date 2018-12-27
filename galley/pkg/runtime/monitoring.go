@@ -20,13 +20,7 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 )
-
-const typeURL = "typeURL"
-
-// TypeURLTag holds the type URL for the context.
-var TypeURLTag tag.Key
 
 var (
 	strategyOnChangeTotal = stats.Int64(
@@ -65,10 +59,6 @@ var (
 		"galley/runtime/processor/snapshot_lifetime_duration_milliseconds",
 		"The duration of each snapshot",
 		stats.UnitMilliseconds)
-	stateTypeInstancesTotal = stats.Int64(
-		"galley/runtime/state/type_instances_total",
-		"The number of type instances per type URL",
-		stats.UnitDimensionless)
 
 	durationDistributionMs = view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8193, 16384, 32768, 65536,
 		131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608)
@@ -101,45 +91,26 @@ func recordProcessorSnapshotPublished(events int64, snapshotSpan time.Duration) 
 		processorSnapshotLifetimesMs.M(snapshotSpan.Nanoseconds()/1e6))
 }
 
-func recordStateTypeCount(typeURL string, count int) {
-	ctx, err := tag.New(context.Background(), tag.Insert(TypeURLTag, typeURL))
-	if err != nil {
-		scope.Errorf("Error creating monitoring context for counting state: %v", err)
-	} else {
-		stats.Record(ctx, stateTypeInstancesTotal.M(int64(count)))
-	}
-}
-
-func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
+func newView(measure stats.Measure, aggregation *view.Aggregation) *view.View {
 	return &view.View{
 		Name:        measure.Name(),
 		Description: measure.Description(),
 		Measure:     measure,
-		TagKeys:     keys,
 		Aggregation: aggregation,
 	}
 }
 
 func init() {
-	var err error
-	if TypeURLTag, err = tag.NewKey(typeURL); err != nil {
-		panic(err)
-	}
-
-	var noKeys []tag.Key
-	typeURLKeys := []tag.Key{TypeURLTag}
-
-	err = view.Register(
-		newView(strategyOnTimerResetTotal, noKeys, view.Count()),
-		newView(strategyOnChangeTotal, noKeys, view.Count()),
-		newView(strategyOnTimerMaxTimeReachedTotal, noKeys, view.Count()),
-		newView(strategyOnTimerQuiesceReachedTotal, noKeys, view.Count()),
-		newView(processorEventSpansMs, noKeys, durationDistributionMs),
-		newView(processorEventsProcessed, noKeys, view.Count()),
-		newView(processorSnapshotsPublished, noKeys, view.Count()),
-		newView(processorEventsPerSnapshot, noKeys, view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256)),
-		newView(stateTypeInstancesTotal, typeURLKeys, view.LastValue()),
-		newView(processorSnapshotLifetimesMs, noKeys, durationDistributionMs),
+	err := view.Register(
+		newView(strategyOnTimerResetTotal, view.Count()),
+		newView(strategyOnChangeTotal, view.Count()),
+		newView(strategyOnTimerMaxTimeReachedTotal, view.Count()),
+		newView(strategyOnTimerQuiesceReachedTotal, view.Count()),
+		newView(processorEventSpansMs, durationDistributionMs),
+		newView(processorEventsProcessed, view.Count()),
+		newView(processorSnapshotsPublished, view.Count()),
+		newView(processorEventsPerSnapshot, view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256)),
+		newView(processorSnapshotLifetimesMs, durationDistributionMs),
 	)
 
 	if err != nil {
