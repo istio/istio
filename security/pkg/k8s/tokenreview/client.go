@@ -25,8 +25,6 @@ import (
 	"strings"
 
 	k8sauth "k8s.io/api/authentication/v1"
-
-	"istio.io/istio/pkg/log"
 )
 
 type specForJWTValidationRequest struct {
@@ -74,37 +72,16 @@ func (c *Client) Review(targetJWT string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to read from the response body: %v", err)
 	}
-	log.Infof("Response body is: %v", string(bodyBytes))
 	tokenReview := &k8sauth.TokenReview{}
 	err = json.Unmarshal(bodyBytes, tokenReview)
 	if err != nil {
 		return "", fmt.Errorf("unmarshal response body returns an error: %v", err)
 	}
 	if tokenReview.Status.Error != "" {
-		return "", fmt.Errorf("the service account authentication returns an error: %v" + tokenReview.Status.Error)
+		return "", fmt.Errorf("the TokenReview server returns error status: %v", tokenReview.Status.Error)
 	}
-	// An example SA token:
-	// {"alg":"RS256","typ":"JWT"}
-	// {"iss":"kubernetes/serviceaccount",
-	//  "kubernetes.io/serviceaccount/namespace":"default",
-	//  "kubernetes.io/serviceaccount/secret.name":"example-pod-sa-token-h4jqx",
-	//  "kubernetes.io/serviceaccount/service-account.name":"example-pod-sa",
-	//  "kubernetes.io/serviceaccount/service-account.uid":"ff578a9e-65d3-11e8-aad2-42010a8a001d",
-	//  "sub":"system:serviceaccount:default:example-pod-sa"
-	//  }
-
-	// An example token review status
-	// "status":{
-	//   "authenticated":true,
-	//   "user":{
-	//     "username":"system:serviceaccount:default:example-pod-sa",
-	//     "uid":"ff578a9e-65d3-11e8-aad2-42010a8a001d",
-	//     "groups":["system:serviceaccounts","system:serviceaccounts:default","system:authenticated"]
-	//    }
-	// }
-
 	if !tokenReview.Status.Authenticated {
-		return "", fmt.Errorf("the JWT is not authenticated")
+		return "", fmt.Errorf("the TokenReview server authentication failed")
 	}
 	inServiceAccountGroup := false
 	for _, group := range tokenReview.Status.User.Groups {
@@ -120,7 +97,7 @@ func (c *Client) Review(targetJWT string) (string, error) {
 	// e.g., "username":"system:serviceaccount:default:example-pod-sa"
 	subStrings := strings.Split(tokenReview.Status.User.Username, ":")
 	if len(subStrings) != 4 {
-		return "", fmt.Errorf("invalid username field in the token review result")
+		return "", fmt.Errorf("invalid username field in the token review result: %s", tokenReview.Status.User.Username)
 	}
 
 	return subStrings[2] + ":" + subStrings[3], nil

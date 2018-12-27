@@ -189,12 +189,12 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
 	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
-	log.Infof("added client certificate authenticator")
+	log.Info("added client certificate authenticator")
 
 	authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath)
 	if err == nil {
 		authenticators = append(authenticators, authenticator)
-		log.Infof("added K8s JWT authenticator")
+		log.Info("added K8s JWT authenticator")
 	} else {
 		log.Warnf("failed to add create JWT authenticator: %v", err)
 	}
@@ -271,7 +271,8 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
 	for _, authn := range s.authenticators {
-		if u, _ := authn.Authenticate(ctx); u != nil {
+		if u, err := authn.Authenticate(ctx); u != nil {
+			log.Infof("Authentication failed: %v", err)
 			return u
 		}
 	}
