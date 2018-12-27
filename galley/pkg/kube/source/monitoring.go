@@ -111,14 +111,24 @@ func newTagKey(label string) tag.Key {
 	}
 }
 
+var views []*view.View
+
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-	return &view.View{
+	v := &view.View{
 		Name:        measure.Name(),
 		Description: measure.Description(),
 		Measure:     measure,
 		TagKeys:     keys,
 		Aggregation: aggregation,
 	}
+	views = append(views, v)
+
+	return v
+}
+
+// UnregisterKubeSourceMonitorViews unregisters all kube/source views
+func UnregisterKubeSourceMonitorViews() {
+	view.Unregister(views...)
 }
 
 func init() {

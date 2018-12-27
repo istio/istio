@@ -43,30 +43,14 @@ var (
 
 // StatsContext enables metric collection backed by OpenCensus.
 type StatsContext struct {
+	clientsTotal      *stats.Int64Measure
+	requestSizesBytes *stats.Int64Measure
+	requestAcksTotal  *stats.Int64Measure
+	requestNacksTotal *stats.Int64Measure
+	sendFailuresTotal *stats.Int64Measure
+	recvFailuresTotal *stats.Int64Measure
+
 	views []*view.View
-
-	currentStreamCount       *stats.Int64Measure
-	requestSizesBytes        *stats.Int64Measure
-	requestAcksTotal         *stats.Int64Measure
-	requestNacksTotal        *stats.Int64Measure
-	sendFailuresTotal        *stats.Int64Measure
-	recvFailuresTotal        *stats.Int64Measure
-	streamCreateSuccessTotal *stats.Int64Measure
-
-}
-
-// Reporter is used to report metrics for an MCP server.
-type Reporter interface {
-	io.Closer
-
-	RecordSendError(err error, code codes.Code)
-	RecordRecvError(err error, code codes.Code)
-	RecordRequestSize(collection string, connectionID int64, size int)
-	RecordRequestAck(collection string, connectionID int64)
-	RecordRequestNack(collection string, connectionID int64, code codes.Code)
-
-	SetStreamCount(clients int64)
-	RecordStreamCreateSuccess()
 }
 
 var (
@@ -141,6 +125,7 @@ func (s *StatsContext) RecordRequestNack(collection string, connectionID int64, 
 	stats.Record(ctx, s.requestNacksTotal.M(1))
 }
 
+// Close unregisters all mcp views
 func (s *StatsContext) Close() error {
 	view.Unregister(s.views...)
 	return nil
@@ -216,13 +201,17 @@ func NewStatsContext(prefix string) *StatsContext {
 }
 
 func (s *StatsContext) newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-	return &view.View{
+
+	v := &view.View{
 		Name:        measure.Name(),
 		Description: measure.Description(),
 		Measure:     measure,
 		TagKeys:     keys,
 		Aggregation: aggregation,
 	}
+	s.views = append(s.views, v)
+
+	return v
 }
 
 var (
