@@ -22,12 +22,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 	"strings"
 
 	k8sauth "k8s.io/api/authentication/v1"
-
-	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
 type specForSaValidationRequest struct {
@@ -44,15 +41,15 @@ type saValidationRequest struct {
 // k8sAPIServerURL: the URL of k8s API Server
 // k8sAPIServerCaCert: the CA certificate of k8s API Server
 // reviewerToken: the service account of the k8s token reviewer
-// csrCredential: the credential of the CSR requester
+// jwt: the JWT of the k8s service account
 func ReviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCert []byte,
-	reviewerToken string, csrCredential []byte) (*http.Response, error) {
+	reviewerToken string, jwt []byte) (*http.Response, error) {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(k8sAPIServerCaCert)
 	saReq := saValidationRequest{
 		APIVersion: "authentication.k8s.io/v1",
 		Kind:       "TokenReview",
-		Spec:       specForSaValidationRequest{Token: string(csrCredential[:])},
+		Spec:       specForSaValidationRequest{Token: string(jwt[:])},
 	}
 	saReqJSON, err := json.Marshal(saReq)
 	if err != nil {
@@ -79,39 +76,38 @@ func ReviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCe
 	return resp, nil
 }
 
-// ValidateCsrRequest validates that the identity in CSR request matches that in the requester's
-// credential.
-// Return nil when the validation passes. Otherwise, return the error.
+// ValidateK8sJwt validates a k8s JWT at API server.
+// Return <namespace>:<serviceaccountname> in the JWT when the validation passes.
+// Otherwise, return the error.
 // k8sAPIServerURL: the URL of k8s API Server
 // k8sAPIServerCaCert: the CA certificate of k8s API Server
 // reviewerToken: the service account of the k8s token reviewer
-// csr: CSR from the requester
-// csrCredential: the credential of the CSR requester
-func ValidateCsrRequest(k8sAPIServerURL string, k8sAPIServerCaCert []byte, reviewerToken string,
-	csr string, csrCredential []byte) error {
+// jwt: the JWT to validate
+func ValidateK8sJwt(k8sAPIServerURL string, k8sAPIServerCaCert []byte, reviewerToken string,
+	jwt []byte) (string, error) {
 	resp, err := ReviewServiceAccountAtK8sAPIServer(k8sAPIServerURL, k8sAPIServerCaCert,
-		reviewerToken, csrCredential)
+		reviewerToken, jwt)
 	if err != nil {
-		return fmt.Errorf("failed to get a token review response: %v", err)
+		return "", fmt.Errorf("failed to get a token review response: %v", err)
 	}
-	// Check that the SA is valid
+	// Check that the JWT is valid
 	if !(resp.StatusCode == http.StatusOK ||
 		resp.StatusCode == http.StatusCreated ||
 		resp.StatusCode == http.StatusAccepted) {
-		return fmt.Errorf("invalid review response status code %v", resp.StatusCode)
+		return "", fmt.Errorf("invalid review response status code %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read from the response body: %v", err)
+		return "", fmt.Errorf("failed to read from the response body: %v", err)
 	}
 	tokenReview := &k8sauth.TokenReview{}
 	err = json.Unmarshal(bodyBytes, tokenReview)
 	if err != nil {
-		return fmt.Errorf("unmarshal response body returns an error: %v", err)
+		return "", fmt.Errorf("unmarshal response body returns an error: %v", err)
 	}
 	if tokenReview.Status.Error != "" {
-		return fmt.Errorf("the service account authentication returns an error: %v" + tokenReview.Status.Error)
+		return "", fmt.Errorf("the service account authentication returns an error: %v" + tokenReview.Status.Error)
 	}
 	// An example SA token:
 	// {"alg":"RS256","typ":"JWT"}
@@ -134,7 +130,7 @@ func ValidateCsrRequest(k8sAPIServerURL string, k8sAPIServerCaCert []byte, revie
 	// }
 
 	if !tokenReview.Status.Authenticated {
-		return fmt.Errorf("the token is not authenticated")
+		return "", fmt.Errorf("the token is not authenticated")
 	}
 	inServiceAccountGroup := false
 	for _, group := range tokenReview.Status.User.Groups {
@@ -144,53 +140,16 @@ func ValidateCsrRequest(k8sAPIServerURL string, k8sAPIServerCaCert []byte, revie
 		}
 	}
 	if !inServiceAccountGroup {
-		return fmt.Errorf("the token is not a service account")
+		return "", fmt.Errorf("the token is not a service account")
 	}
 	// "username" is in the form of system:serviceaccount:{namespace}:{service account name}",
 	// e.g., "username":"system:serviceaccount:default:example-pod-sa"
 	subStrings := strings.Split(tokenReview.Status.User.Username, ":")
 	if len(subStrings) != 4 {
-		return fmt.Errorf("invalid username field in the token review result")
+		return "", fmt.Errorf("invalid username field in the token review result")
 	}
 	namespace := subStrings[2]
 	saName := subStrings[3]
 
-	err = ValidateCsrSpiffeMatchServiceAccount(csr, namespace, saName)
-	if err != nil {
-		return fmt.Errorf("failed to validate the SPIFFE id in CSR: %v", err)
-	}
-	return nil
-}
-
-// ValidateCsrSpiffeMatchServiceAccount validates that the SPIFFE identity in CSR matches the
-// namespace and service account name in the service account.
-// Return nil when matching. Otherwise, return the error.
-// csrPem: the CSR to validate.
-// namespace: the service account namespace.
-// saName: the service account name.
-func ValidateCsrSpiffeMatchServiceAccount(csrPem string, namespace string, saName string) error {
-	csr, err := pkiutil.ParsePemEncodedCSR([]byte(csrPem))
-	if err != nil {
-		return fmt.Errorf("failed to parse CSR: %v", err)
-	}
-
-	ids, err := pkiutil.ExtractIDs(csr.Extensions)
-	if err != nil {
-		return fmt.Errorf("failed to extract SPIFFE IDs from CSR: %v", err)
-	}
-	// Regular expression to parse a spiffe id,
-	// e.g., "spiffe://cluster.local/ns/example_namespace/sa/example_pod_sa"
-	rx, err := regexp.Compile(`:*/+`)
-	if err != nil {
-		return fmt.Errorf("failed to create the regular expression: %v", err)
-	}
-	for _, id := range ids {
-		substrs := rx.Split(id, -1)
-		if len(substrs) == 6 && strings.EqualFold(substrs[0], "spiffe") &&
-			namespace == substrs[3] && saName == substrs[5] {
-			// CSR contains a SPIFFE identity matching the identity in the service account
-			return nil
-		}
-	}
-	return fmt.Errorf("the SPIFFE identity in CSR does not match the identity in the service account")
+	return namespace + ":" + saName, nil
 }
