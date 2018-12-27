@@ -75,6 +75,8 @@ type MemServiceDiscovery struct {
 	// XDSUpdater will push EDS changes to the ADS model.
 	EDSUpdater model.XDSUpdater
 
+	ManagementPortList map[string]model.PortList
+
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
 }
@@ -331,7 +333,15 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	return model.PortList{{
+	if sd.ManagementPortList != nil {
+		res, f := sd.ManagementPortList[addr]
+		if f {
+			return res
+		}
+	}
+	return model.PortList{}
+	/* Example:
+	model.PortList{{
 		Name:     "http",
 		Port:     3333,
 		Protocol: model.ProtocolHTTP,
@@ -340,6 +350,7 @@ func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 		Port:     9999,
 		Protocol: model.ProtocolTCP,
 	}}
+	*/
 }
 
 // WorkloadHealthCheckInfo implements discovery interface
