@@ -255,7 +255,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	httpProxyPort := mesh.ProxyHttpPort
 	if httpProxyPort == 0 && noneMode {
-		httpProxyPort = pilot.DefaultPortHttpProxy
+		httpProxyPort = pilot.DefaultPortHTTPProxy
 	}
 	if httpProxyPort > 0 {
 		useRemoteAddress := false
@@ -603,10 +603,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 
 				if noneMode &&
-						service.Resolution == model.ClientSideLB { // TODO: more conditions
+					service.Resolution == model.ClientSideLB { // TODO: more conditions
 					listenerOpts.bindToPort = true
 					listenAddress = "127.0.0.1" // model.UnspecifiedIP // 0.0.0.0
-					svcListenAddress = "127.0.0.1"
 				}
 
 				// TODO: for DNS resolution and type TLS, we can generate bind=true, with client DNS overrides.

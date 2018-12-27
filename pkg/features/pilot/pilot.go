@@ -133,6 +133,6 @@ const (
 const (
 	// TODO: define all other default ports here, add docs
 
-	// DefaultPortHttpProxy is used as for HTTP PROXY mode. Can be overriden by ProxyHttpPort in mesh config.
-	DefaultPortHttpProxy = 15002
+	// DefaultPortHttpProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
+	DefaultPortHTTPProxy = 15002
 )

@@ -53,7 +53,7 @@ type Config struct {
 
 	// IP is currently the primary key used to locate inbound configs. It is sent by client,
 	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
-	IP       string
+	IP string
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -82,26 +82,23 @@ type ADSC struct {
 	HTTPListeners map[string]*xdsapi.Listener
 
 	// TCPListeners contains all listeners of type TCP (not-HTTP)
-	TCPListeners  map[string]*xdsapi.Listener
+	TCPListeners map[string]*xdsapi.Listener
 
 	// All received clusters, keyed by name
-	Clusters      map[string]*xdsapi.Cluster
+	Clusters map[string]*xdsapi.Cluster
 
 	// All received routes, keyed by route name
-	Routes        map[string]*xdsapi.RouteConfiguration
+	Routes map[string]*xdsapi.RouteConfiguration
 
-	// All recieved endpoints, keyed by cluster name
-	EDS           map[string]*xdsapi.ClusterLoadAssignment
+	// All received endpoints, keyed by cluster name
+	EDS map[string]*xdsapi.ClusterLoadAssignment
 
 	// DumpCfg will print all received config
-	DumpCfg 	bool
+	DumpCfg bool
 
 	// Metadata has the node metadata to send to pilot.
 	// If nil, the defaults will be used.
 	Metadata map[string]string
-
-	rdsNames     []string
-	clusterNames []string
 
 	// Updates includes the type of the last update received from the server.
 	Updates     chan string
@@ -321,8 +318,6 @@ func (a *ADSC) handleRecv() {
 
 }
 
-
-
 func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	lh := map[string]*xdsapi.Listener{}
 	lt := map[string]*xdsapi.Listener{}
@@ -412,7 +407,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base + "_lds_tcp.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_lds_tcp.json", strResponse, 0644)
 	if err != nil {
 		return err
 	}
@@ -420,7 +415,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base +"_lds_http.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_lds_http.json", strResponse, 0644)
 	if err != nil {
 		return err
 	}
@@ -428,7 +423,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base +"_rds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_rds.json", strResponse, 0644)
 	if err != nil {
 		return err
 	}
@@ -436,7 +431,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base + "_cds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_cds.json", strResponse, 0644)
 	if err != nil {
 		return err
 	}
@@ -444,7 +439,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base + "_eds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_eds.json", strResponse, 0644)
 	if err != nil {
 		return err
 	}

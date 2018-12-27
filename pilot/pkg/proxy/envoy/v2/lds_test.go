@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-
 // TestLDS using isolated namespaces
 func TestLDSIsolated(t *testing.T) {
 
@@ -43,7 +42,7 @@ func TestLDSIsolated(t *testing.T) {
 			Meta: map[string]string{
 				pilot.InterceptionMode: pilot.InterceptionModeNone,
 			},
-			IP: "10.11.0.1", // matches none.yaml s1tcp.none
+			IP:        "10.11.0.1", // matches none.yaml s1tcp.none
 			Namespace: "none",
 		})
 		if err != nil {
@@ -53,13 +52,13 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("lds", 50000 * time.Second)
+		_, err = ldsr.Wait("lds", 50000*time.Second)
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
 
-		err = ldsr.Save(env.IstioOut+"/none")
+		err = ldsr.Save(env.IstioOut + "/none")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,7 +96,7 @@ func TestLDSIsolated(t *testing.T) {
 			Meta: map[string]string{
 				pilot.Isolation: "1",
 			},
-			IP: "10.12.0.1", // matches none.yaml s1tcp.none
+			IP:        "10.12.0.1", // matches none.yaml s1tcp.none
 			Namespace: "seexamples",
 		})
 		if err != nil {
@@ -107,13 +106,13 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("rds", 50000 * time.Second)
+		_, err = ldsr.Wait("rds", 50000*time.Second)
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
 
-		err = ldsr.Save(env.IstioOut+"/seexample")
+		err = ldsr.Save(env.IstioOut + "/seexample")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -130,7 +129,7 @@ func TestLDSIsolated(t *testing.T) {
 			Meta: map[string]string{
 				pilot.Isolation: "1",
 			},
-			IP: "10.13.0.1",
+			IP:        "10.13.0.1",
 			Namespace: "exampleegressgw",
 		})
 		if err != nil {
@@ -140,13 +139,13 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("rds", 50000 * time.Second)
+		_, err = ldsr.Wait("rds", 50000*time.Second)
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
 		}
 
-		err = ldsr.Save(env.IstioOut+"/seexample-eg")
+		err = ldsr.Save(env.IstioOut + "/seexample-eg")
 		if err != nil {
 			t.Fatal(err)
 		}
