@@ -45,7 +45,7 @@ var (
 	  }
 	}
   `
-	vaultServerTlsCert = `
+	vaultServerTLSCert = `
 -----BEGIN CERTIFICATE-----
 MIIC3jCCAcagAwIBAgIRAIcSFH1jneS0XPz5r2QDbigwDQYJKoZIhvcNAQELBQAw
 EDEOMAwGA1UEChMFVmF1bHQwIBcNMTgxMjI2MDkwMDU3WhgPMjExODEyMDIwOTAw
@@ -84,14 +84,41 @@ SQYzPWVk89gu6nKV+fS2pA9C8dAnYOzVu9XXc+PGlcIhjnuS+/P74hN5D3aIGljW
 7WsYeEkp
 -----END CERTIFICATE REQUEST-----
   `
-	citadelSANonTLS = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tenRzN3ciLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjUyODUxNTNlLWY2ZGItMTFlOC04Y2ZhLTQyMDEwYThhMDAxNCIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.lxNRxmL2oLhh3XGLI7XPdhh2hpdQo02WPq9M8awhuguYExOMa2ToIAROe_ia0RkugLHCIX2jd-gohUcAyUxh5oBIFgeP8QVyu2hXUUVeZQgZLpjsd2nlPRq5CPw-21mXQntbWsmT4kFhQ-BF3m9H-5UDxRb4jt-t5YhQb4PHq-H-i9QN4_7seqLu3RPBjmkhzV-8tqr-baleRby2Kj5s-qWsnMtPcF8kWZ3hzoY9P2nKPSimhNFkv58K15t9gJ-EJTsQhsY-kozYGpfoFEfchw6t-qIBVjH74z3BrlP0edSnDh8UtADnwqArZrgcFzorOZ2bH3mlpiK7jZ0YDI4CqA"
-	citadelSATLS    = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.RNH1QbapJKPmktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3EdnlkrykGMepEjsdNuT6ndHfh8jRJAZuNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZxkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdvbgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5ry_KXTdrVAcTUvI6lxwRbONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4aSzC2o8aDtlQ"
+	citadelSANonTLS = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3Nlcn" +
+		"ZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY" +
+		"2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQub" +
+		"mFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tenRzN3ciLCJrdWJlcm5ldGVzLmlvL" +
+		"3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlb" +
+		"C1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50L" +
+		"nVpZCI6IjUyODUxNTNlLWY2ZGItMTFlOC04Y2ZhLTQyMDEwYThhMDAxNCIsInN1YiI6I" +
+		"nN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.lx" +
+		"NRxmL2oLhh3XGLI7XPdhh2hpdQo02WPq9M8awhuguYExOMa2ToIAROe_ia0RkugLHCIX" +
+		"2jd-gohUcAyUxh5oBIFgeP8QVyu2hXUUVeZQgZLpjsd2nlPRq5CPw-21mXQntbWsmT4k" +
+		"FhQ-BF3m9H-5UDxRb4jt-t5YhQb4PHq-H-i9QN4_7seqLu3RPBjmkhzV-8tqr-baleRb" +
+		"y2Kj5s-qWsnMtPcF8kWZ3hzoY9P2nKPSimhNFkv58K15t9gJ-EJTsQhsY-kozYGpfoFE" +
+		"fchw6t-qIBVjH74z3BrlP0edSnDh8UtADnwqArZrgcFzorOZ2bH3mlpiK7jZ0YDI4CqA"
+
+	citadelSATLS = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3" +
+		"NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3" +
+		"BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZX" +
+		"QubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLm" +
+		"lvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YW" +
+		"RlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW" +
+		"50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1Yi" +
+		"I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ" +
+		".RNH1QbapJKPmktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3Ednlkry" +
+		"kGMepEjsdNuT6ndHfh8jRJAZuNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZ" +
+		"xkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdvbgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf" +
+		"7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5ry_KXTdrVAcTUvI6lxwRb" +
+		"ONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4aSzC2o8aD" +
+		"tlQ"
+
 	fakeCert        = []string{"fake-certificate", "fake-ca1", "fake-ca2"}
 	vaultNonTLSAddr = "http://35.247.45.173:8200"
 	vaultTLSAddr    = "https://35.233.249.249:8200"
 )
 
-type MockVaultServer struct {
+type mockVaultServer struct {
 	httpServer     *httptest.Server
 	loginRole      string
 	token          string
@@ -127,58 +154,77 @@ func TestClientOnMockVaultCA(t *testing.T) {
 		expectedErr  string
 	}{
 		"Valid certs 1": {
-			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login", vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig: clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login",
+				vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: fakeCert,
 			expectedErr:  "",
 		},
 		"Valid certs 1 (TLS)": {
-			cliConfig:    clientConfig{tls: true, vaultLoginPath: "login", vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig: clientConfig{tls: true, vaultLoginPath: "login", vaultSignCsrPath: "sign",
+				clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: fakeCert,
 			expectedErr:  "",
 		},
 		"Wrong Vault addr": {
-			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultAddr: "wrong-vault-addr", vaultLoginPath: "login", vaultSignCsrPath: "wrong-sign-path", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig: clientConfig{tls: false, tlsCert: []byte{}, vaultAddr: "wrong-vault-addr",
+				vaultLoginPath: "login", vaultSignCsrPath: "wrong-sign-path",
+				clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: nil,
 			expectedErr:  "failed to login Vault",
 		},
 		"Wrong login path": {
-			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "wrong-login-path", vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig: clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "wrong-login-path",
+				vaultSignCsrPath: "sign", clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: nil,
 			expectedErr:  "failed to login Vault",
 		},
 		"Wrong client token": {
-			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login", vaultSignCsrPath: "sign", clientToken: "wrong-client-token", csr: []byte{01}},
+			cliConfig: clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login",
+				vaultSignCsrPath: "sign", clientToken: "wrong-client-token", csr: []byte{01}},
 			expectedCert: nil,
 			expectedErr:  "failed to login Vault",
 		},
 		"Wrong sign path": {
-			cliConfig:    clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login", vaultSignCsrPath: "wrong-sign-path", clientToken: "fake-client-token", csr: []byte{01}},
+			cliConfig: clientConfig{tls: false, tlsCert: []byte{}, vaultLoginPath: "login",
+				vaultSignCsrPath: "wrong-sign-path", clientToken: "fake-client-token", csr: []byte{01}},
 			expectedCert: nil,
 			expectedErr:  "failed to sign CSR",
 		},
 	}
 
-	for id, tc := range testCases {
-		ch := make(chan *MockVaultServer)
-		go func() {
-			// create a test Vault server
-			server := NewMockVaultServer(t, tc.cliConfig.tls, "", "fake-client-token", vaultLoginResp, vaultSignResp)
-			ch <- server
-		}()
-		s := <-ch
-		defer s.httpServer.Close()
+	ch := make(chan *mockVaultServer)
+	go func() {
+		// create a test TLS Vault server
+		server := newMockVaultServer(t, true, "", "fake-client-token", vaultLoginResp, vaultSignResp)
+		ch <- server
+	}()
+	s1 := <-ch
+	defer s1.httpServer.Close()
 
+	go func() {
+		// create a test non-TLS Vault server
+		server := newMockVaultServer(t, false, "", "fake-client-token", vaultLoginResp, vaultSignResp)
+		ch <- server
+	}()
+	s2 := <-ch
+	defer s2.httpServer.Close()
+
+	for id, tc := range testCases {
 		if len(tc.cliConfig.vaultAddr) == 0 {
 			// If the address of Vault is not set by the test case, use that of the test server.
-			tc.cliConfig.vaultAddr = s.httpServer.URL
+			if tc.cliConfig.tls {
+				tc.cliConfig.vaultAddr = s1.httpServer.URL
+			} else {
+				tc.cliConfig.vaultAddr = s2.httpServer.URL
+			}
 		}
 		if tc.cliConfig.tls {
-			tc.cliConfig.tlsCert = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s.httpServer.Certificate().Raw})
+			tc.cliConfig.tlsCert = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: s1.httpServer.Certificate().Raw})
 			if tc.cliConfig.tlsCert == nil {
 				t.Errorf("invalid TLS certificate")
 			}
 		}
-		cli, err := NewVaultClient1(tc.cliConfig.tls, tc.cliConfig.tlsCert, tc.cliConfig.vaultAddr, tc.cliConfig.vaultLoginRole,
+		cli, err := NewVaultClient(tc.cliConfig.tls, tc.cliConfig.tlsCert, tc.cliConfig.vaultAddr, tc.cliConfig.vaultLoginRole,
 			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
@@ -205,14 +251,16 @@ func TestClientOnExampleHttpVaultCA(t *testing.T) {
 		cliConfig clientConfig
 	}{
 		"Valid certs 1": {
-			cliConfig: clientConfig{vaultAddr: vaultNonTLSAddr, vaultLoginPath: "auth/kubernetes/login", vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role", clientToken: citadelSANonTLS, csr: []byte(testCsr1)},
+			cliConfig: clientConfig{vaultAddr: vaultNonTLSAddr, vaultLoginPath: "auth/kubernetes/login",
+				vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role",
+				clientToken: citadelSANonTLS, csr: []byte(testCsr1)},
 		},
 	}
 
 	for id, tc := range testCases {
 		var vaultAddr string
 		vaultAddr = tc.cliConfig.vaultAddr
-		cli, err := NewVaultClient1(false, []byte{}, vaultAddr, tc.cliConfig.vaultLoginRole,
+		cli, err := NewVaultClient(false, []byte{}, vaultAddr, tc.cliConfig.vaultLoginRole,
 			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
@@ -234,14 +282,16 @@ func TestClientOnExampleHttpsVaultCA(t *testing.T) {
 		cliConfig clientConfig
 	}{
 		"Valid certs 1": {
-			cliConfig: clientConfig{vaultAddr: vaultTLSAddr, vaultLoginPath: "auth/kubernetes/login", vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role", clientToken: citadelSATLS, csr: []byte(testCsr1)},
+			cliConfig: clientConfig{vaultAddr: vaultTLSAddr, vaultLoginPath: "auth/kubernetes/login",
+				vaultLoginRole: "istio-cert", vaultSignCsrPath: "istio_ca/sign/istio-pki-role",
+				clientToken: citadelSATLS, csr: []byte(testCsr1)},
 		},
 	}
 
 	for id, tc := range testCases {
 		var vaultAddr string
 		vaultAddr = tc.cliConfig.vaultAddr
-		cli, err := NewVaultClient1(true, []byte(vaultServerTlsCert), vaultAddr, tc.cliConfig.vaultLoginRole,
+		cli, err := NewVaultClient(true, []byte(vaultServerTLSCert), vaultAddr, tc.cliConfig.vaultLoginRole,
 			tc.cliConfig.vaultLoginPath, tc.cliConfig.vaultSignCsrPath)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
@@ -258,10 +308,10 @@ func TestClientOnExampleHttpsVaultCA(t *testing.T) {
 	}
 }
 
-// NewMockVaultServer creates a mock Vault server for testing purpose.
+// newMockVaultServer creates a mock Vault server for testing purpose.
 // token: required access token
-func NewMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, signResp string) *MockVaultServer {
-	vaultServer := &MockVaultServer{
+func newMockVaultServer(t *testing.T, tls bool, loginRole, token, loginResp, signResp string) *mockVaultServer {
+	vaultServer := &mockVaultServer{
 		loginRole:      loginRole,
 		token:          token,
 		vaultLoginResp: loginResp,
