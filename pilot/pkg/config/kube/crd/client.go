@@ -28,7 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/wait"             // import GKE cluster authentication plugin
+	"k8s.io/apimachinery/pkg/util/wait" // import GKE cluster authentication plugin
+	"k8s.io/apimachinery/pkg/watch"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/rest"
@@ -492,4 +493,50 @@ func (cl *Client) List(typ, namespace string) ([]model.Config, error) {
 		}
 	}
 	return out, errs
+}
+
+// ListFunc returns IstioObjectList for a given Istio CRD type
+func (cl *Client) ListFunc(typ, namespace string) (runtime.Object, error) {
+	s, ok := knownTypes[typ]
+	if !ok {
+		return nil, fmt.Errorf("unrecognized type %q", typ)
+	}
+	rc, ok := cl.clientset[apiVersion(&s.schema)]
+	if !ok {
+		return nil, fmt.Errorf("unrecognized apiVersion %v", s.schema)
+	}
+	schema, exists := rc.descriptor.GetByType(typ)
+	if !exists {
+		return nil, fmt.Errorf("missing type %q", typ)
+	}
+
+	list := knownTypes[schema.Type].collection.DeepCopyObject()
+	err := rc.dynamic.Get().
+		Namespace(namespace).
+		Resource(ResourceName(schema.Plural)).
+		Do().Into(list)
+
+	return list, err
+}
+
+// Watch returns a K8s watch interface or error
+func (cl *Client) Watch(opts meta_v1.ListOptions, typ string, namespace string) (watch.Interface, error) {
+	s, ok := knownTypes[typ]
+	if !ok {
+		return nil, fmt.Errorf("unrecognized type %q", typ)
+	}
+	rc, ok := cl.clientset[apiVersion(&s.schema)]
+	if !ok {
+		return nil, fmt.Errorf("unrecognized apiVersion %v", s.schema)
+	}
+	schema, exists := rc.descriptor.GetByType(typ)
+	if !exists {
+		return nil, fmt.Errorf("missing type %q", typ)
+	}
+	opts.Watch = true
+	return rc.dynamic.Get().
+		Namespace(namespace).
+		Resource(ResourceName(schema.Plural)).
+		VersionedParams(&opts, meta_v1.ParameterCodec).
+		Watch()
 }
