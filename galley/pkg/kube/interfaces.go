@@ -16,7 +16,6 @@ package kube
 
 import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import GKE cluster authentication plugin
 	"k8s.io/client-go/rest"
@@ -26,7 +25,7 @@ import (
 // Interfaces interface allows access to the Kubernetes API Service methods. It is mainly used for
 // test/injection purposes.
 type Interfaces interface {
-	DynamicInterface(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error)
+	DynamicInterface() (dynamic.Interface, error)
 	APIExtensionsClientset() (clientset.Interface, error)
 }
 
@@ -54,7 +53,7 @@ func NewKube(cfg *rest.Config) Interfaces {
 }
 
 // DynamicInterface returns a new dynamic.Interface for the specified API Group/Version.
-func (k *kube) DynamicInterface(gv schema.GroupVersion, kind, listKind string) (dynamic.Interface, error) {
+func (k *kube) DynamicInterface() (dynamic.Interface, error) {
 	return dynamic.NewForConfig(k.cfg)
 }
 

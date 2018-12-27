@@ -1,11 +1,11 @@
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
-  name: nodeagent
+  name: istio-nodeagent
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-nodeagent
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app: {{ template "nodeagent.name" . }}
+    chart: {{ template "nodeagent.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
     istio: nodeagent
@@ -13,13 +13,14 @@ spec:
   template:
     metadata:
       labels:
-        istio: nodeagent
-        app: nodeagent
-        chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        app: {{ template "nodeagent.name" . }}
+        chart: {{ template "nodeagent.chart" . }}
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
         version: {{ .Chart.Version }}
+        istio: nodeagent
     spec:
+      serviceAccountName: istio-nodeagent-service-account
       containers:
       - name: nodeagent
 {{- if contains "/" .Values.image }}
