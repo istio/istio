@@ -183,9 +183,10 @@ metadata:
   namespace: none
 spec:
   hosts:
-  - api.dropboxapi.com
-  - www.googleapis.com
-  - api.facebook.com
+  # TODO: Bug: without isolation (in the main test) it causes 'duplicated cluster', envoy rejects config
+  # This will happen if this is defined in multiple namespaces in 1.0
+  - www1.googleapis.com
+  - api1.facebook.com
   location: MESH_EXTERNAL
   ports:
   - number: 443
@@ -198,34 +199,26 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: tls-routing
-  namespace: seexamples
+  namespace: none
 spec:
   hosts:
-  - api.dropboxapi.com
-  - www.googleapis.com
-  - api.facebook.com
+  - www1.googleapis.com
+  - api1.facebook.com
   tls:
   - match:
     - port: 443
       sniHosts:
-      - api.dropboxapi.com
+      - www1.googleapis.com
     route:
     - destination:
-        host: api.dropboxapi.com
+        host: www1.googleapis.com
   - match:
     - port: 443
       sniHosts:
-      - www.googleapis.com
+      - api1.facebook.com
     route:
     - destination:
-        host: www.googleapis.com
-  - match:
-    - port: 443
-      sniHosts:
-      - api.facebook.com
-    route:
-    - destination:
-        host: api.facebook.com
+        host: api1.facebook.com
 ---
 # DestinationRules attach to services, have no impact on 'none' interception
 
