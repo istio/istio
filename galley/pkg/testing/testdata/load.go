@@ -31,8 +31,7 @@ func Load() ([]*TestInfo, error) {
 	for _, asset := range AssetNames() {
 		ext := path.Ext(asset)
 
-		// If there is an ignore file, then mark the relevant test as ignored.
-		// Otherwise, use the input file to drive the generation of TestInfo resources.
+		// Process .skip files and .yaml input files only.
 		if ext != ".skip" && ext != ".yaml" {
 			continue
 		}
@@ -57,6 +56,7 @@ func Load() ([]*TestInfo, error) {
 			infos[baseFileName] = info
 		}
 
+		// If there is a "skip"" file, then mark the relevant test as ignored.
 		if ext == ".skip" {
 			info.Skipped = true
 			continue
@@ -95,9 +95,7 @@ func Load() ([]*TestInfo, error) {
 
 	var result []*TestInfo
 
-	// Do a sanity check to ensure there is data for each stage. Also order the info, so that things can run
-	// in a consistent order.
-
+	// Do a sanity check to ensure there is data for each stage.
 	for _, i := range infos {
 		for j, fs := range i.files {
 			if fs == nil {
@@ -106,6 +104,8 @@ func Load() ([]*TestInfo, error) {
 		}
 		result = append(result, i)
 	}
+
+	// Order the infos, so that things can run  in a consistent order.
 	sort.Slice(result, func(i, j int) bool {
 		return strings.Compare(result[i].TestName(), result[j].TestName()) < 0
 	})
