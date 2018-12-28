@@ -219,6 +219,11 @@ data:
 {{- end }}
         {{ "[[ end -]]" }}
         volumeMounts:
+        {{- if ne .Values.global.sds.enabled true }}
+        - mountPath: /etc/certs/
+          name: istio-certs
+          readOnly: true
+        {{- end }}
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         {{- if .Values.global.sds.enabled }}
@@ -228,10 +233,6 @@ data:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
-        {{- else }}
-        - mountPath: /etc/certs/
-          name: istio-certs
-          readOnly: true
         {{- end }}
         {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
         - mountPath: {{ "[[ directory .ProxyConfig.GetTracing.GetLightstep.GetCacertPath ]]" }}
@@ -245,6 +246,9 @@ data:
           {{ "[[ end ]]" }}
           {{ "[[- end ]]" }}
       volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
       {{- if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
@@ -258,7 +262,8 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
       {{- end }}
-      {{- else }}
+      {{- end }}
+      {{- if ne .Values.global.sds.enabled true }}
       - name: istio-certs
         secret:
           optional: true
@@ -274,6 +279,7 @@ data:
           optional: true
           secretName: lightstep.cacert
       {{- end }}
+<<<<<<< HEAD
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -294,6 +300,8 @@ data:
         {{ "[[ end -]]" }}
 =======
 >>>>>>> remove secret volume mount from sidecar injector when sds is enabled
+=======
+>>>>>>> fix integration test
 {{- end }}
 {{- if .Values.global.podDNSSearchNamespaces }}
       dnsConfig:
