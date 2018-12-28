@@ -86,8 +86,8 @@ const (
 	// registry doesn't provide one.
 	AZLabel = "istio-az"
 
-	// ServiceScopeLabel configs the scope the service visible to.
+	// ServiceConfigScopeAnnotation configs the scope the service visible to.
 	//   "PUBLIC" which is the default, indicates it is reachable within the mesh
 	//   "PRIVATE" indicates it is reachable within its namespace
-	ServiceScopeLabel = "istio-config-scope"
+	ServiceConfigScopeAnnotation = "service.istio.io/config-scope"
 )

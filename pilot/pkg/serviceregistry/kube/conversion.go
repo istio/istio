@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -89,6 +89,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		ports = append(ports, convertPort(port))
 	}
 
+	configScope := networking.ConfigScope_PUBLIC
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[CanonicalServiceAccountsAnnotation] != "" {
@@ -101,15 +102,11 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, domainSuffix))
 			}
 		}
-	}
-	sort.Sort(sort.StringSlice(serviceaccounts))
-
-	configScope := networking.ConfigScope_PUBLIC
-	if svc.Labels != nil {
-		if svc.Labels[pilot.ServiceScopeLabel] == networking.ConfigScope_name[int32(networking.ConfigScope_PRIVATE)] {
+		if svc.Labels[pilot.ServiceConfigScopeAnnotation] == networking.ConfigScope_name[int32(networking.ConfigScope_PRIVATE)] {
 			configScope = networking.ConfigScope_PRIVATE
 		}
 	}
+	sort.Sort(sort.StringSlice(serviceaccounts))
 
 	return &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
