@@ -67,6 +67,11 @@ spec:
             value: "false"
           - name: "ENABLE_INGRESS_GATEWAY_SDS"
             value: "true"
+          - name: "INGRESS_GATEWAY_NAMESPACE"
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
           volumeMounts:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway

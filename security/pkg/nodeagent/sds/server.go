@@ -37,6 +37,8 @@ type Options struct {
 	EnableWorkloadSDS bool
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
+	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
+	IngressSecretNameSpace string
 
 	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
 	EnableIngressGatewaySDS bool
@@ -182,9 +184,7 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 
 func setUpUds(udsPath string) (net.Listener, error) {
 	// Remove unix socket before use.
-	if finfo, err := os.Stat(udsPath); !os.IsNotExist(err) {
-		log.Infof("file Info for %s\nName: %s\nMode: %s\nIsDir: %v\nSize: %d",
-			udsPath, finfo.Name(), finfo.Mode().String(), finfo.IsDir(), finfo.Size())
+	if _, err := os.Stat(udsPath); !os.IsNotExist(err) {
 		if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
 			// Anything other than "file not found" is an error.
 			log.Errorf("Failed to remove unix://%s: %v", udsPath, err)

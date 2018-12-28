@@ -53,6 +53,9 @@ const (
 	// The ingress gateway SDS mode allows node agent to provision credentials to ingress gateway
 	// proxy by watching kubernetes secrets.
 	enableIngressGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
+
+	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
+	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
 )
 
 var (
@@ -112,7 +115,7 @@ var (
 
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
-		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint, serverOptions.CAProviderName, true, nil)
+		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint, serverOptions.CAProviderName, "", true, nil)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
@@ -125,7 +128,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 	}
 
 	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil)
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", serverOptions.IngressSecretNameSpace, false, nil)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
@@ -157,6 +160,8 @@ func init() {
 		enableIngressGatewaySdsEnv = env
 	}
 
+	rootCmd.PersistentFlags().StringVar(&serverOptions.IngressSecretNameSpace, "ingressSecretNameSpace",
+		os.Getenv(ingressSecretNameSpace), "The namespace of kubernetes secrets to watch.")
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "enableWorkloadSDS",
 		enableWorkloadSdsEnv,
 		"If true, node agent works as SDS server and provisions key/certificate to workload proxies.")

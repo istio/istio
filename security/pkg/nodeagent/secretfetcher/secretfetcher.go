@@ -28,7 +28,7 @@ import (
 
 	"istio.io/istio/security/pkg/nodeagent/model"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,8 +43,7 @@ const (
 
 	// IngressSecretType the type of kubernetes secrets for ingress gateway.
 	IngressSecretType = "istio.io/ingress-k8sKey-cert"
-	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
-	IngressSecretNameSpace = "istio-ingress"
+
 	// KubeConfigFile the config file name for kubernetes client.
 	// Specifies empty file name to use InClusterConfig.
 	KubeConfigFile = ""
@@ -92,7 +91,7 @@ func createClientset() kubernetes.Interface {
 }
 
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool, clientSet kubernetes.Interface) (*SecretFetcher, error) {
+func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName, namespace string, tlsFlag bool, clientSet kubernetes.Interface) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
 	if ingressGatewayAgent {
@@ -105,11 +104,11 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		scrtLW := &cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				options.FieldSelector = istioSecretSelector
-				return cs.CoreV1().Secrets(IngressSecretNameSpace).List(options)
+				return cs.CoreV1().Secrets(namespace).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				options.FieldSelector = istioSecretSelector
-				return cs.CoreV1().Secrets(IngressSecretNameSpace).Watch(options)
+				return cs.CoreV1().Secrets(namespace).Watch(options)
 			},
 		}
 		ret.scrtStore, ret.scrtController =
