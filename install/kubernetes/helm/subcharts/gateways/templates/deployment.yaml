@@ -54,7 +54,8 @@ spec:
             privileged: true
 {{- end }}
       containers:
-{{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
+{{- if $spec.sds }}
+{{- if $spec.sds.enabled }}
         - name: ingress-sds
 {{- if contains "/" $spec.sds.image }}
           image: "{{ $spec.sds.image }}"
@@ -75,6 +76,7 @@ spec:
           volumeMounts:
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+{{- end }}
 {{- end }}
         - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
@@ -174,9 +176,11 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
-          {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
           - name: ISTIO_META_USER_SDS
             value: "true"
+          {{- end }}
           {{- end }}
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
@@ -193,9 +197,11 @@ spec:
             mountPath: /var/run/secrets/tokens
           {{- end }}
           {{- end }}
-          {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
           - name: ingressgatewaysdsudspath
             mountPath: /var/run/ingress_gateway
+          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -209,9 +215,11 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
+      {{- if $spec.sds }}
+      {{- if $spec.sds.enabled }}
       - name: ingressgatewaysdsudspath
         emptyDir: {}
+      {{- end }}
       {{- end }}
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
