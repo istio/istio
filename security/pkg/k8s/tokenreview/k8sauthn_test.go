@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package tokenreview
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"io/ioutil"
@@ -27,15 +28,16 @@ import (
 )
 
 type mockAPIServer struct {
-	httpServer *httptest.Server
-	apiPath    string
-	token      string
+	httpServer    *httptest.Server
+	apiPath       string
+	reviewerToken string
 }
 
 type clientConfig struct {
-	tlsCert     []byte
-	reviewPath  string
-	clientToken string
+	tlsCert       []byte
+	reviewPath    string
+	reviewerToken string
+	jwt           string
 }
 
 func TestOnMockAPIServer(t *testing.T) {
@@ -45,16 +47,39 @@ func TestOnMockAPIServer(t *testing.T) {
 		expectedErr  string
 	}{
 		"Valid request": {
-			cliConfig:   clientConfig{tlsCert: []byte{}, reviewPath: "review-path", clientToken: "Bearer fake-client-token"},
+			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "review-path",
+				reviewerToken: "fake-reviewer-token"},
 			expectedErr: "",
 		},
+		"Valid request without JWT": {
+			cliConfig: clientConfig{tlsCert: []byte{}, reviewPath: "review-path",
+				reviewerToken: "fake-reviewer-token"},
+			expectedErr: "the service account authentication returns an error",
+		},
+		"Invalid JWT": {
+			cliConfig: clientConfig{jwt: ":", tlsCert: []byte{}, reviewPath: "review-path",
+				reviewerToken: "fake-reviewer-token"},
+			expectedErr: "the service account authentication returns an error",
+		},
 		"Wrong review path": {
-			cliConfig:    clientConfig{tlsCert: []byte{}, reviewPath: "wrong-review-path", clientToken: "Bearer fake-client-token"},
+			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "wrong-review-path",
+				reviewerToken: "fake-reviewer-token"},
 			expectedCert: nil,
 			expectedErr:  "the service account authentication returns an error",
 		},
-		"Wrong client token": {
-			cliConfig:    clientConfig{tlsCert: []byte{}, reviewPath: "review-path", clientToken: "wrong-client-token"},
+		"No review path": {
+			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{},
+				reviewerToken: "fake-reviewer-token"},
+			expectedCert: nil,
+			expectedErr:  "the service account authentication returns an error",
+		},
+		"No reviewer token": {
+			cliConfig:   clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "review-path"},
+			expectedErr: "the service account authentication returns an error",
+		},
+		"Wrong reviewer token": {
+			cliConfig: clientConfig{jwt: "jwt", tlsCert: []byte{}, reviewPath: "review-path",
+				reviewerToken: "wrong-reviewer-token"},
 			expectedCert: nil,
 			expectedErr:  "the service account authentication returns an error",
 		},
@@ -63,7 +88,7 @@ func TestOnMockAPIServer(t *testing.T) {
 	ch := make(chan *mockAPIServer)
 	go func() {
 		// create a test Vault server
-		server := newMockAPIServer(t, "/review-path", "Bearer fake-client-token")
+		server := newMockAPIServer(t, "/review-path", "Bearer fake-reviewer-token")
 		ch <- server
 	}()
 	s := <-ch
@@ -75,14 +100,18 @@ func TestOnMockAPIServer(t *testing.T) {
 			t.Errorf("invalid TLS certificate")
 		}
 
-		_, err := ValidateK8sJwt(s.httpServer.URL+"/"+tc.cliConfig.reviewPath, tc.cliConfig.tlsCert, tc.cliConfig.clientToken, []byte{})
+		authn := NewK8sSvcAcctAuthn(s.httpServer.URL+"/"+tc.cliConfig.reviewPath, tc.cliConfig.tlsCert, tc.cliConfig.reviewerToken)
+
+		_, err := authn.ValidateK8sJwt([]byte(tc.cliConfig.jwt))
 
 		if err != nil {
+			t.Logf("Error: %v", err.Error())
 			match, _ := regexp.MatchString(tc.expectedErr+".+", err.Error())
 			if !match {
 				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
 			}
 		} else {
+			t.Logf("No error")
 			if tc.expectedErr != "" {
 				t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
 			}
@@ -92,11 +121,11 @@ func TestOnMockAPIServer(t *testing.T) {
 
 // newMockAPIServer creates a mock k8s API server for testing purpose.
 // apiPath: the path to call token review API
-// token: required access token
-func newMockAPIServer(t *testing.T, apiPath, token string) *mockAPIServer {
+// reviewerToken: the token of the reviewer
+func newMockAPIServer(t *testing.T, apiPath, reviewerToken string) *mockAPIServer {
 	apiServer := &mockAPIServer{
-		apiPath: apiPath,
-		token:   token,
+		apiPath:       apiPath,
+		reviewerToken: reviewerToken,
 	}
 
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
@@ -135,7 +164,7 @@ func newMockAPIServer(t *testing.T, apiPath, token string) *mockAPIServer {
 				return
 			}
 			t.Logf("saValidationRequest: %+v", saReq)
-			if apiServer.token != req.Header.Get("Authorization") {
+			if apiServer.reviewerToken != req.Header.Get("Authorization") {
 				t.Logf("invalid token: %v", req.Header.Get("Authorization"))
 				result := &k8sauth.TokenReview{
 					Status: k8sauth.TokenReviewStatus{
@@ -148,6 +177,21 @@ func newMockAPIServer(t *testing.T, apiPath, token string) *mockAPIServer {
 				resp.Write(resultJSON)
 			} else {
 				t.Logf("Valid token: %v", req.Header.Get("Authorization"))
+
+				dec, err := base64.StdEncoding.DecodeString(saReq.Spec.Token)
+				if err != nil || len(dec) == 0 {
+					t.Logf("invalid JWT")
+					result := &k8sauth.TokenReview{
+						Status: k8sauth.TokenReviewStatus{
+							Authenticated: false,
+							Error:         "invalid JWT",
+						},
+					}
+					resultJSON, _ := json.Marshal(result)
+					resp.Header().Set("Content-Type", "application/json")
+					resp.Write(resultJSON)
+					return
+				}
 				result := &k8sauth.TokenReview{
 					Status: k8sauth.TokenReviewStatus{
 						Authenticated: true,

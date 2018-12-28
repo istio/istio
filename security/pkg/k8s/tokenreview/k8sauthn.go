@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package tokenreview
 
 import (
 	"bytes"
@@ -37,12 +37,31 @@ type saValidationRequest struct {
 	Spec       specForSaValidationRequest `json:"spec"`
 }
 
+// K8sSvcAcctAuthn authenticates a k8s service account (JWT) through the k8s TokenReview API.
+type K8sSvcAcctAuthn struct {
+	apiServerAddr   string
+	apiServerCert   []byte
+	reviewerSvcAcct string
+}
+
+// NewK8sSvcAcctAuthn creates a new authenticator for k8s JWTs
+// apiServerURL: the URL of k8s API Server
+// apiServerCert: the CA certificate of k8s API Server
+// reviewerSvcAcct: the service account of the k8s token reviewer
+func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, reviewerSvcAcct string) *K8sSvcAcctAuthn {
+	return &K8sSvcAcctAuthn{
+		apiServerAddr:   apiServerAddr,
+		apiServerCert:   apiServerCert,
+		reviewerSvcAcct: reviewerSvcAcct,
+	}
+}
+
 // reviewServiceAccountAtK8sAPIServer reviews the CSR credential (k8s service account) at k8s API server.
 // k8sAPIServerURL: the URL of k8s API Server
 // k8sAPIServerCaCert: the CA certificate of k8s API Server
 // reviewerToken: the service account of the k8s token reviewer
 // jwt: the JWT of the k8s service account
-func reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCert []byte,
+func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCert []byte,
 	reviewerToken string, jwt []byte) (*http.Response, error) {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(k8sAPIServerCaCert)
@@ -79,14 +98,10 @@ func reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCe
 // ValidateK8sJwt validates a k8s JWT at API server.
 // Return <namespace>:<serviceaccountname> in the JWT when the validation passes.
 // Otherwise, return the error.
-// k8sAPIServerURL: the URL of k8s API Server
-// k8sAPIServerCaCert: the CA certificate of k8s API Server
-// reviewerToken: the service account of the k8s token reviewer
 // jwt: the JWT to validate
-func ValidateK8sJwt(k8sAPIServerURL string, k8sAPIServerCaCert []byte, reviewerToken string,
-	jwt []byte) (string, error) {
-	resp, err := reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL, k8sAPIServerCaCert,
-		reviewerToken, jwt)
+func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt []byte) (string, error) {
+	resp, err := authn.reviewServiceAccountAtK8sAPIServer(authn.apiServerAddr, authn.apiServerCert,
+		authn.reviewerSvcAcct, jwt)
 	if err != nil {
 		return "", fmt.Errorf("failed to get a token review response: %v", err)
 	}
