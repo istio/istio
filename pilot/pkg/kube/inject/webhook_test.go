@@ -717,8 +717,8 @@ func TestHelmInject(t *testing.T) {
 			wantFile:  "resource_annotations.yaml.injected",
 		},
 		{
-	    inputFile: "user-volume.yaml",
-		  wantFile:  "user-volume.yaml.injected",
+			inputFile: "user-volume.yaml",
+			wantFile:  "user-volume.yaml.injected",
 		},
 	}
 
