@@ -201,7 +201,6 @@ data:
           name: istio-certs
           readOnly: true
         {{- end }}
-        {{- end }}
       volumes:
       {{- if .Values.global.sds.enabled }}
       - name: sds-uds-path
