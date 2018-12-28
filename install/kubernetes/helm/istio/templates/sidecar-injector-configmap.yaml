@@ -219,13 +219,13 @@ data:
 {{- end }}
         {{ "[[ end -]]" }}
         volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
         {{- if ne .Values.global.sds.enabled true }}
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
         {{- end }}
-        - mountPath: /etc/istio/proxy
-          name: istio-envoy
         {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
