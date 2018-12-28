@@ -716,6 +716,10 @@ func TestHelmInject(t *testing.T) {
 			inputFile: "resource_annotations.yaml",
 			wantFile:  "resource_annotations.yaml.injected",
 		},
+		{
+	    inputFile: "user-volume.yaml",
+		  wantFile:  "user-volume.yaml.injected",
+		},
 	}
 
 	for ci, c := range cases {
