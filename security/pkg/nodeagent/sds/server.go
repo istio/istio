@@ -190,7 +190,6 @@ func setUpUds(udsPath string) (net.Listener, error) {
 		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
 	}
 
-
 	var err error
 	udsListener, err := net.Listen("unix", udsPath)
 	if err != nil {
