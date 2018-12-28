@@ -78,6 +78,9 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
+	if env.IstioSrc != "" {
+		cmd.Dir = env.IstioSrc
+	}
 	return &Envoy{
 		cmd:    cmd,
 		ports:  s.ports,

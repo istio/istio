@@ -104,6 +104,11 @@ const (
 	// Added in 1.1
 	ConfigNamespace = "CONFIG_NAMESPACE"
 
+	// BaseDir is the base directory for locating configs.
+	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
+	// be used, "/"
+	BaseDir = "BASE"
+
 	// Isolation enables namespace isolation for a specific pod. Used for testing and gradual deployments, currently
 	// no long-term plan.
 	// Added in 1.1 for development/testing.

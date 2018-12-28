@@ -678,7 +678,8 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt); !reflect.DeepEqual(got, c.expected) {
+		meta := map[string]string{}
+		if got := setupFilterChains(c.in, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, meta); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}
