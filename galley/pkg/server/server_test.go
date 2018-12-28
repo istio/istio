@@ -17,6 +17,7 @@ package server
 import (
 	"errors"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -106,7 +107,6 @@ func TestNewServer(t *testing.T) {
 	}
 
 	_ = s.Close()
-	_ = s.Wait()
 }
 
 func TestServer_Basic(t *testing.T) {
@@ -132,8 +132,14 @@ func TestServer_Basic(t *testing.T) {
 		t.Fatalf("Unexpected error creating service: %v", err)
 	}
 
-	s.Run()
+	var wg sync.WaitGroup
+	wg.Add(1)
 
+	go func() {
+		defer wg.Done()
+		s.Run()
+	}()
+
+	wg.Wait()
 	_ = s.Close()
-	_ = s.Wait()
 }
