@@ -33,7 +33,6 @@ import (
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/istio/pkg/features/galley"
 )
 
 var emptyInfo resource.Info
@@ -55,17 +54,38 @@ func mockKubeMeta() *mock.Kube {
 }
 
 func TestNewSource(t *testing.T) {
-	k := mockKubeMeta()
-	cfg := converter.Config{
-		Mesh: meshconfig.NewInMemory(),
+	typeCount := len(kube_meta.Types.All())
+	tests := []struct {
+		name          string
+		convert       bool
+		wantListeners int
+	}{
+		{
+			name:          "Simple",
+			wantListeners: typeCount - 1,
+		},
+		{
+			name:          "ConvertK8SService",
+			convert:       true,
+			wantListeners: typeCount,
+		},
 	}
-	p, err := New(k, 0, &cfg)
-	if err != nil {
-		t.Fatalf("Unexpected error found: %v", err)
-	}
-
-	if p == nil {
-		t.Fatal("expected non-nil source")
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			src, err := New(mockKubeMeta(), 0, &converter.Config{
+				Mesh:              meshconfig.NewInMemory(),
+				ConvertK8SService: test.convert,
+			})
+			if src == nil {
+				t.Fatal("Expected non-nil source")
+			}
+			if err != nil {
+				t.Fatalf("New failed: %v", err)
+			}
+			if got := len(src.(*sourceImpl).listeners); got != test.wantListeners {
+				t.Errorf("Constructed with %d listeners, want %d", got, test.wantListeners)
+			}
+		})
 	}
 }
 
@@ -79,45 +99,6 @@ func TestNewSource_Error(t *testing.T) {
 	_, err := New(k, 0, &cfg)
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Expected error not found: %v", err)
-	}
-}
-
-func TestNewSource_ServiceEntry(t *testing.T) {
-	typeCount := len(kube_meta.Types.All())
-	tests := []struct {
-		name    string
-		convert bool
-		wantLen int
-	}{
-		{
-			name:    "Disabled",
-			convert: false,
-			wantLen: typeCount - 1,
-		},
-		{
-			name:    "Enabled",
-			convert: true,
-			wantLen: typeCount,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			x := galley.ConvertK8SService
-			defer func() {
-				galley.ConvertK8SService = x
-			}()
-			galley.ConvertK8SService = test.convert
-
-			s, err := New(mockKubeMeta(), 0, &converter.Config{
-				Mesh: meshconfig.NewInMemory(),
-			})
-			if err != nil {
-				t.Fatalf("New failed: %v", err)
-			}
-			if got := len(s.(*sourceImpl).listeners); got != test.wantLen {
-				t.Errorf("Constructed with %d listeners, want %d", got, test.wantLen)
-			}
-		})
 	}
 }
 

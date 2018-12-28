@@ -26,25 +26,10 @@ import (
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/features/galley"
 	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
-
-func enabledKubeTypes() []kube.ResourceSpec {
-	allTypes := kube_meta.Types.All()
-	if galley.ConvertK8SService {
-		return allTypes
-	}
-	var filteredTypes []kube.ResourceSpec
-	for _, t := range allTypes {
-		if t.Kind != "Service" {
-			filteredTypes = append(filteredTypes, t)
-		}
-	}
-	return filteredTypes
-}
 
 // source is an implementation of runtime.Source.
 type sourceImpl struct {
@@ -59,7 +44,17 @@ var _ runtime.Source = &sourceImpl{}
 
 // New returns a Kubernetes implementation of runtime.Source.
 func New(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config) (runtime.Source, error) {
-	return newSource(k, resyncPeriod, cfg, enabledKubeTypes())
+	types := kube_meta.Types.All()
+	if !cfg.ConvertK8SService {
+		var filteredTypes []kube.ResourceSpec
+		for _, t := range types {
+			if t.Kind != "Service" {
+				filteredTypes = append(filteredTypes, t)
+			}
+		}
+		types = filteredTypes
+	}
+	return newSource(k, resyncPeriod, cfg, types)
 }
 
 func newSource(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config, specs []kube.ResourceSpec) (runtime.Source, error) {

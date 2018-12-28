@@ -16,6 +16,7 @@ package fs
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
 
 	"io/ioutil"
@@ -303,6 +304,9 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 
 // New returns a File System implementation of runtime.Source.
 func New(root string, config *converter.Config) (runtime.Source, error) {
+	if config.ConvertK8SService {
+		return nil, errors.New("converting k8s services not supported by fs source")
+	}
 	return newFsSource(root, config, kube_meta.Types.All())
 }
 

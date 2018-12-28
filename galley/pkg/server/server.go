@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -107,6 +109,13 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	converterCfg := &converter.Config{
 		Mesh:         mesh,
 		DomainSuffix: a.DomainSuffix,
+	}
+	if s := os.Getenv("ISTIO_CONVERT_K8S_SERVICE"); s != "" {
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			return nil, err
+		}
+		converterCfg.ConvertK8SService = b
 	}
 
 	var src runtime.Source
