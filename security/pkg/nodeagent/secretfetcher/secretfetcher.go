@@ -91,7 +91,8 @@ func createClientset() kubernetes.Interface {
 }
 
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName, namespace string, tlsFlag bool, clientSet kubernetes.Interface) (*SecretFetcher, error) {
+func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName, namespace string,
+	tlsFlag bool, clientSet kubernetes.Interface) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
 	if ingressGatewayAgent {
