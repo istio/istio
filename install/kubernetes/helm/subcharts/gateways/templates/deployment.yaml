@@ -175,7 +175,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           {{- if ($spec.sds) and (eq $spec.sds.enabled true) }}
-          - name: ISTIO_META_INGRESS_SDS
+          - name: ISTIO_META_USER_SDS
             value: "true"
           {{- end }}
           {{- if $spec.env }}
