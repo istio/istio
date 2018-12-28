@@ -69,6 +69,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         image: gcr.io/istio-release/proxyv2:master-latest-daily
@@ -150,4 +154,3 @@ spec:
           - key: some-key
             path: /some-path
 status: {}
-
