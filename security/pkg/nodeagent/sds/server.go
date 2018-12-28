@@ -184,13 +184,12 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 
 func setUpUds(udsPath string) (net.Listener, error) {
 	// Remove unix socket before use.
-	if _, err := os.Stat(udsPath); !os.IsNotExist(err) {
-		if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
-			// Anything other than "file not found" is an error.
-			log.Errorf("Failed to remove unix://%s: %v", udsPath, err)
-			return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
-		}
+	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
+		// Anything other than "file not found" is an error.
+		log.Errorf("Failed to remove unix://%s: %v", udsPath, err)
+		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
 	}
+
 
 	var err error
 	udsListener, err := net.Listen("unix", udsPath)
