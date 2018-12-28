@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
+	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
@@ -62,11 +64,11 @@ type patchTable struct {
 	logConfigure                func(*log.Options) error
 	newKubeFromConfigFile       func(string) (kube.Interfaces, error)
 	verifyResourceTypesPresence func(kube.Interfaces) error
-	newSource                   func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error)
+	newSource                   func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
 	mcpMetricReporter           func(string) server.Reporter
-	fsNew                       func(string, *converter.Config) (runtime.Source, error)
+	fsNew                       func(string, *kube.Schema, *converter.Config) (runtime.Source, error)
 }
 
 func defaultPatchTable() patchTable {
@@ -84,10 +86,18 @@ func defaultPatchTable() patchTable {
 
 // New returns a new instance of a Server.
 func New(a *Args) (*Server, error) {
-	return newServer(a, defaultPatchTable())
+	var convertK8SService bool
+	if s := os.Getenv("ISTIO_CONVERT_K8S_SERVICE"); s != "" {
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			return nil, err
+		}
+		convertK8SService = b
+	}
+	return newServer(a, defaultPatchTable(), convertK8SService)
 }
 
-func newServer(a *Args, p patchTable) (*Server, error) {
+func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	var err error
 	s := &Server{}
 
@@ -110,17 +120,28 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		Mesh:         mesh,
 		DomainSuffix: a.DomainSuffix,
 	}
-	if s := os.Getenv("ISTIO_CONVERT_K8S_SERVICE"); s != "" {
-		b, err := strconv.ParseBool(s)
-		if err != nil {
-			return nil, err
+	specs := kube_meta.Types.All()
+	if !convertK8SService {
+		var filtered []kube.ResourceSpec
+		for _, t := range specs {
+			if t.Kind != "Service" {
+				filtered = append(filtered, t)
+			}
 		}
-		converterCfg.ConvertK8SService = b
+		specs = filtered
 	}
+	sort.Slice(specs, func(i, j int) bool {
+		return strings.Compare(specs[i].CanonicalResourceName(), specs[j].CanonicalResourceName()) < 0
+	})
+	sb := kube.NewSchemaBuilder()
+	for _, s := range specs {
+		sb.Add(s)
+	}
+	schema := sb.Build()
 
 	var src runtime.Source
 	if a.ConfigPath != "" {
-		src, err = p.fsNew(a.ConfigPath, converterCfg)
+		src, err = p.fsNew(a.ConfigPath, schema, converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +155,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 				return nil, err
 			}
 		}
-		src, err = p.newSource(k, a.ResyncPeriod, converterCfg)
+		src, err = p.newSource(k, a.ResyncPeriod, schema, converterCfg)
 		if err != nil {
 			return nil, err
 		}

@@ -24,6 +24,4 @@ type Config struct {
 	Mesh meshconfig.Cache
 	// Domain suffix to use for service names.
 	DomainSuffix string
-	// Whether to convert Kubernetes service objects to Istio objects.
-	ConvertK8SService bool
 }
