@@ -298,15 +298,10 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 		}
 	}()
 	return s.ch, nil
-
 }
 
 // New returns a File System implementation of runtime.Source.
-func New(root string, config *converter.Config) (runtime.Source, error) {
-	return newFsSource(root, config, kube_meta.Types.All())
-}
-
-func newFsSource(root string, config *converter.Config, specs []kube.ResourceSpec) (runtime.Source, error) {
+func New(root string, schema *kube.Schema, config *converter.Config) (runtime.Source, error) {
 	fs := &fsSource{
 		config:          config,
 		root:            root,
@@ -316,7 +311,7 @@ func newFsSource(root string, config *converter.Config, specs []kube.ResourceSpe
 		shas:            map[resource.FullName][sha1.Size]byte{},
 		version:         0,
 	}
-	for _, spec := range specs {
+	for _, spec := range schema.All() {
 		fs.kinds[spec.Kind] = true
 	}
 	return fs, nil
