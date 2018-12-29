@@ -89,5 +89,5 @@ const (
 	// ServiceConfigScopeAnnotation configs the scope the service visible to.
 	//   "PUBLIC" which is the default, indicates it is reachable within the mesh
 	//   "PRIVATE" indicates it is reachable within its namespace
-	ServiceConfigScopeAnnotation = "networking.istio.io/config-scope"
+	ServiceConfigScopeAnnotation = "networking.istio.io/configScope"
 )
