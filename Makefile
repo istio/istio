@@ -134,9 +134,6 @@ export OUT_DIR=$(GO_TOP)/out
 export ISTIO_OUT:=$(GO_TOP)/out/$(GOOS)_$(GOARCH)/$(BUILDTYPE_DIR)
 export HELM=$(ISTIO_OUT)/helm
 
-# istioctl kube-inject uses builtin config only if this env var is set.
-export ISTIOCTL_USE_BUILTIN_DEFAULTS=1
-
 # scratch dir: this shouldn't be simply 'docker' since that's used for docker.save to store tar.gz files
 ISTIO_DOCKER:=${ISTIO_OUT}/docker_temp
 # Config file used for building istio:proxy container.

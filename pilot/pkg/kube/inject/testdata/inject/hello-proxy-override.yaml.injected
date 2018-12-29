@@ -39,10 +39,10 @@ spec:
         - 3s
         - --discoveryAddress
         - istio-pilot:15007
+        - --zipkinAddress
+        - ""
         - --connectTimeout
         - 1s
-        - --statsdUdpAddress
-        - ""
         - --proxyAdminPort
         - "15000"
         - --controlPlaneAuthPolicy
@@ -68,8 +68,18 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_METAJSON_ANNOTATIONS
+          value: |
+            {"sidecar.istio.io/proxyImage":"docker.io/istio/proxy2_debug:unittest"}
+        - name: ISTIO_METAJSON_LABELS
+          value: |
+            {"app":"hello","tier":"backend","track":"stable"}
         image: docker.io/istio/proxy2_debug:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -88,8 +98,8 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: true
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -112,15 +122,20 @@ spec:
         - "80"
         - -d
         - "15020"
-        image: docker.io/istio/proxy_init:unittest
+        image: gcr.io/istio-release/proxy_init:master-latest-daily
         imagePullPolicy: IfNotPresent
         name: istio-init
-        resources: {}
+        resources:
+          limits:
+            cpu: 10m
+            memory: 10Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory

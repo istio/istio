@@ -810,7 +810,7 @@ type configMapBody struct {
 	Template string `yaml:"template"`
 }
 
-func loadConfigMapWithHelm(t *testing.T) string {
+func loadConfigMapWithHelm(t testing.TB) string {
 	t.Helper()
 	c, err := chartutil.Load(helmChartDirectory)
 	if err != nil {
@@ -859,7 +859,7 @@ func loadConfigMapWithHelm(t *testing.T) string {
 	return body.Template
 }
 
-func getHelmValues(t *testing.T) string {
+func getHelmValues(t testing.TB) string {
 	t.Helper()
 	valuesFile := filepath.Join(helmChartDirectory, helmValuesFile)
 	return string(util.ReadFile(valuesFile, t))
@@ -1385,22 +1385,7 @@ func checkCert(t *testing.T, wh *Webhook, cert, key []byte) bool {
 }
 
 func BenchmarkInjectServe(b *testing.B) {
-	mesh := model.DefaultMeshConfig()
-	params := &Params{
-		InitImage:           InitImageName(unitTestHub, unitTestTag, false),
-		ProxyImage:          ProxyImageName(unitTestHub, unitTestTag, false),
-		ImagePullPolicy:     "IfNotPresent",
-		Verbosity:           DefaultVerbosity,
-		SidecarProxyUID:     DefaultSidecarProxyUID,
-		Version:             "12345678",
-		Mesh:                &mesh,
-		IncludeIPRanges:     DefaultIncludeIPRanges,
-		IncludeInboundPorts: DefaultIncludeInboundPorts,
-	}
-	sidecarTemplate, err := GenerateTemplateFromParams(params)
-	if err != nil {
-		b.Fatalf("GenerateTemplateFromParams(%v) failed: %v", params, err)
-	}
+	sidecarTemplate := loadConfigMapWithHelm(b)
 	wh, cleanup := createWebhook(b, sidecarTemplate)
 	defer cleanup()
 

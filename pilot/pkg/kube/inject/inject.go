@@ -701,18 +701,6 @@ func intoObject(sidecarTemplate string, meshconfig *meshconfig.MeshConfig, in ru
 	return out, nil
 }
 
-// GenerateTemplateFromParams generates a sidecar template from the legacy injection parameters
-func GenerateTemplateFromParams(params *Params) (string, error) {
-	// Validate the parameters before we go any farther.
-	if err := params.Validate(); err != nil {
-		return "", err
-	}
-
-	var tmp bytes.Buffer
-	err := template.Must(template.New("inject").Parse(parameterizedTemplate)).Execute(&tmp, params)
-	return tmp.String(), err
-}
-
 func getPortsForContainer(container corev1.Container) []string {
 	parts := make([]string, 0)
 	for _, p := range container.Ports {

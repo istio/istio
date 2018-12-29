@@ -20,7 +20,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -255,45 +254,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			}
 
 			var sidecarTemplate string
-
-			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
-			// so must be specified together. hub and tag no longer have defaults.
-			if hub != "" || tag != "" {
-				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behavior.
-				if !getBoolEnv("ISTIOCTL_USE_BUILTIN_DEFAULTS", false) {
-					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
-						"use the following command to get the current injector file\n" +
-						"kubectl -n istio-system get configmap istio-sidecar-injector " +
-						"-o=jsonpath='{.data.config}' > /tmp/injectConfigFile.yaml")
-				}
-
-				if hub == "" || tag == "" {
-					return fmt.Errorf("hub and tag are both required. got hub: '%v', tag: '%v'", hub, tag)
-				}
-
-				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
-					InitImage:                    inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:                   inject.ProxyImageName(hub, tag, debugMode),
-					Verbosity:                    verbosity,
-					SidecarProxyUID:              sidecarProxyUID,
-					Version:                      versionStr,
-					EnableCoreDump:               enableCoreDump,
-					Mesh:                         meshConfig,
-					ImagePullPolicy:              imagePullPolicy,
-					StatusPort:                   statusPort,
-					ReadinessInitialDelaySeconds: readinessInitialDelaySeconds,
-					ReadinessPeriodSeconds:       readinessPeriodSeconds,
-					ReadinessFailureThreshold:    readinessFailureThreshold,
-					IncludeIPRanges:              includeIPRanges,
-					ExcludeIPRanges:              excludeIPRanges,
-					IncludeInboundPorts:          includeInboundPorts,
-					ExcludeInboundPorts:          excludeInboundPorts,
-					DebugMode:                    debugMode,
-				}); err != nil {
-					return err
-				}
-
-			} else if injectConfigFile != "" {
+			if injectConfigFile != "" {
 				injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
 				if err != nil {
 					return err
@@ -326,13 +287,6 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 		},
 	}
 )
-
-func getBoolEnv(key string, defaultVal bool) bool {
-	if svalue, ok := os.LookupEnv(key); ok {
-		return strings.ToLower(svalue) == "true" || svalue == "1"
-	}
-	return defaultVal
-}
 
 const (
 	defaultMeshConfigMapName   = "istio"
