@@ -45,7 +45,7 @@ func (m *FileAccessLog) Reset()         { *m = FileAccessLog{} }
 func (m *FileAccessLog) String() string { return proto.CompactTextString(m) }
 func (*FileAccessLog) ProtoMessage()    {}
 func (*FileAccessLog) Descriptor() ([]byte, []int) {
-	return fileDescriptor_file_82a3aeb0b18e7cba, []int{0}
+	return fileDescriptor_file_f3ece1fa5088fe2b, []int{0}
 }
 func (m *FileAccessLog) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -549,10 +549,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/accesslog/v2/file.proto", fileDescriptor_file_82a3aeb0b18e7cba)
+	proto.RegisterFile("envoy/config/accesslog/v2/file.proto", fileDescriptor_file_f3ece1fa5088fe2b)
 }
 
-var fileDescriptor_file_82a3aeb0b18e7cba = []byte{
+var fileDescriptor_file_f3ece1fa5088fe2b = []byte{
 	// 248 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0x4c, 0x4e, 0x4e, 0x2d, 0x2e, 0xce,

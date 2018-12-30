@@ -1024,19 +1024,11 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		})
 	}
 
-	var deprecatedV1 *xdsapi.Listener_DeprecatedV1
-	if !opts.bindToPort {
-		deprecatedV1 = &xdsapi.Listener_DeprecatedV1{
-			BindToPort: proto.BoolFalse,
-		}
-	}
-
 	return &xdsapi.Listener{
 		Name:            fmt.Sprintf("%s_%d", opts.ip, opts.port),
 		Address:         util.BuildAddress(opts.ip, uint32(opts.port)),
 		ListenerFilters: listenerFilters,
 		FilterChains:    filterChains,
-		DeprecatedV1:    deprecatedV1,
 	}
 }
 

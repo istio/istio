@@ -69,7 +69,7 @@ func (m *Squash) Reset()         { *m = Squash{} }
 func (m *Squash) String() string { return proto.CompactTextString(m) }
 func (*Squash) ProtoMessage()    {}
 func (*Squash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_squash_521130158576fb9c, []int{0}
+	return fileDescriptor_squash_1ba86d7e66db497e, []int{0}
 }
 func (m *Squash) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -572,10 +572,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/squash/v2/squash.proto", fileDescriptor_squash_521130158576fb9c)
+	proto.RegisterFile("envoy/config/filter/http/squash/v2/squash.proto", fileDescriptor_squash_1ba86d7e66db497e)
 }
 
-var fileDescriptor_squash_521130158576fb9c = []byte{
+var fileDescriptor_squash_1ba86d7e66db497e = []byte{
 	// 338 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x90, 0x4f, 0x4e, 0x32, 0x31,
 	0x1c, 0x86, 0xd3, 0x81, 0x8f, 0x2f, 0xd4, 0xc4, 0x3f, 0x95, 0xc8, 0x48, 0xcc, 0x48, 0x70, 0xc3,

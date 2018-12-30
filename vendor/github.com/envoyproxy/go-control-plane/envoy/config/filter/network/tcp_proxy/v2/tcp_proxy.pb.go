@@ -81,7 +81,7 @@ func (m *TcpProxy) Reset()         { *m = TcpProxy{} }
 func (m *TcpProxy) String() string { return proto.CompactTextString(m) }
 func (*TcpProxy) ProtoMessage()    {}
 func (*TcpProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_tcp_proxy_13e130ddfa49bef5, []int{0}
+	return fileDescriptor_tcp_proxy_283d7398dbcb3c5e, []int{0}
 }
 func (m *TcpProxy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -290,7 +290,7 @@ func (m *TcpProxy_DeprecatedV1) Reset()         { *m = TcpProxy_DeprecatedV1{} }
 func (m *TcpProxy_DeprecatedV1) String() string { return proto.CompactTextString(m) }
 func (*TcpProxy_DeprecatedV1) ProtoMessage()    {}
 func (*TcpProxy_DeprecatedV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_tcp_proxy_13e130ddfa49bef5, []int{0, 0}
+	return fileDescriptor_tcp_proxy_283d7398dbcb3c5e, []int{0, 0}
 }
 func (m *TcpProxy_DeprecatedV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -375,7 +375,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Reset()         { *m = TcpProxy_Depreca
 func (m *TcpProxy_DeprecatedV1_TCPRoute) String() string { return proto.CompactTextString(m) }
 func (*TcpProxy_DeprecatedV1_TCPRoute) ProtoMessage()    {}
 func (*TcpProxy_DeprecatedV1_TCPRoute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_tcp_proxy_13e130ddfa49bef5, []int{0, 0, 0}
+	return fileDescriptor_tcp_proxy_283d7398dbcb3c5e, []int{0, 0, 0}
 }
 func (m *TcpProxy_DeprecatedV1_TCPRoute) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -454,7 +454,7 @@ func (m *TcpProxy_WeightedCluster) Reset()         { *m = TcpProxy_WeightedClust
 func (m *TcpProxy_WeightedCluster) String() string { return proto.CompactTextString(m) }
 func (*TcpProxy_WeightedCluster) ProtoMessage()    {}
 func (*TcpProxy_WeightedCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_tcp_proxy_13e130ddfa49bef5, []int{0, 1}
+	return fileDescriptor_tcp_proxy_283d7398dbcb3c5e, []int{0, 1}
 }
 func (m *TcpProxy_WeightedCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -508,7 +508,7 @@ func (m *TcpProxy_WeightedCluster_ClusterWeight) Reset() {
 func (m *TcpProxy_WeightedCluster_ClusterWeight) String() string { return proto.CompactTextString(m) }
 func (*TcpProxy_WeightedCluster_ClusterWeight) ProtoMessage()    {}
 func (*TcpProxy_WeightedCluster_ClusterWeight) Descriptor() ([]byte, []int) {
-	return fileDescriptor_tcp_proxy_13e130ddfa49bef5, []int{0, 1, 0}
+	return fileDescriptor_tcp_proxy_283d7398dbcb3c5e, []int{0, 1, 0}
 }
 func (m *TcpProxy_WeightedCluster_ClusterWeight) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1949,10 +1949,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/tcp_proxy/v2/tcp_proxy.proto", fileDescriptor_tcp_proxy_13e130ddfa49bef5)
+	proto.RegisterFile("envoy/config/filter/network/tcp_proxy/v2/tcp_proxy.proto", fileDescriptor_tcp_proxy_283d7398dbcb3c5e)
 }
 
-var fileDescriptor_tcp_proxy_13e130ddfa49bef5 = []byte{
+var fileDescriptor_tcp_proxy_283d7398dbcb3c5e = []byte{
 	// 800 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0x41, 0x6f, 0xdb, 0x36,
 	0x14, 0x0e, 0xe5, 0x24, 0xb5, 0xe9, 0xa4, 0x4b, 0xd8, 0x16, 0xd5, 0xb4, 0x2c, 0x4d, 0xb7, 0x8b,

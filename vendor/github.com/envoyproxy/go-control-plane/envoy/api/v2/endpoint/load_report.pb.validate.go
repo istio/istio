@@ -142,6 +142,16 @@ func (m *UpstreamEndpointStats) Validate() error {
 		}
 	}
 
+	if v, ok := interface{}(m.GetMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return UpstreamEndpointStatsValidationError{
+				Field:  "Metadata",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	// no validation rules for TotalSuccessfulRequests
 
 	// no validation rules for TotalRequestsInProgress

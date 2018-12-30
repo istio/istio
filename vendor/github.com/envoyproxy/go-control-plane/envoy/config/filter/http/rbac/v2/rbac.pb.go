@@ -41,7 +41,7 @@ func (m *RBAC) Reset()         { *m = RBAC{} }
 func (m *RBAC) String() string { return proto.CompactTextString(m) }
 func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_cb34eda8f516f2bd, []int{0}
+	return fileDescriptor_rbac_1ed01f9721ca3f08, []int{0}
 }
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -97,7 +97,7 @@ func (m *RBACPerRoute) Reset()         { *m = RBACPerRoute{} }
 func (m *RBACPerRoute) String() string { return proto.CompactTextString(m) }
 func (*RBACPerRoute) ProtoMessage()    {}
 func (*RBACPerRoute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_cb34eda8f516f2bd, []int{1}
+	return fileDescriptor_rbac_1ed01f9721ca3f08, []int{1}
 }
 func (m *RBACPerRoute) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -568,10 +568,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/rbac/v2/rbac.proto", fileDescriptor_rbac_cb34eda8f516f2bd)
+	proto.RegisterFile("envoy/config/filter/http/rbac/v2/rbac.proto", fileDescriptor_rbac_1ed01f9721ca3f08)
 }
 
-var fileDescriptor_rbac_cb34eda8f516f2bd = []byte{
+var fileDescriptor_rbac_1ed01f9721ca3f08 = []byte{
 	// 256 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0x4e, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,

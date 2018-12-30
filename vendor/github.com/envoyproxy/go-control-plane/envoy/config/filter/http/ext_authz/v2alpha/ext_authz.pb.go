@@ -49,7 +49,7 @@ func (m *ExtAuthz) Reset()         { *m = ExtAuthz{} }
 func (m *ExtAuthz) String() string { return proto.CompactTextString(m) }
 func (*ExtAuthz) ProtoMessage()    {}
 func (*ExtAuthz) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_e21a2e66251cf68d, []int{0}
+	return fileDescriptor_ext_authz_f362effcab29acea, []int{0}
 }
 func (m *ExtAuthz) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -248,7 +248,7 @@ func (m *HttpService) Reset()         { *m = HttpService{} }
 func (m *HttpService) String() string { return proto.CompactTextString(m) }
 func (*HttpService) ProtoMessage()    {}
 func (*HttpService) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_e21a2e66251cf68d, []int{1}
+	return fileDescriptor_ext_authz_f362effcab29acea, []int{1}
 }
 func (m *HttpService) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -327,7 +327,7 @@ func (m *ExtAuthzPerRoute) Reset()         { *m = ExtAuthzPerRoute{} }
 func (m *ExtAuthzPerRoute) String() string { return proto.CompactTextString(m) }
 func (*ExtAuthzPerRoute) ProtoMessage()    {}
 func (*ExtAuthzPerRoute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_e21a2e66251cf68d, []int{2}
+	return fileDescriptor_ext_authz_f362effcab29acea, []int{2}
 }
 func (m *ExtAuthzPerRoute) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -492,7 +492,7 @@ func (m *CheckSettings) Reset()         { *m = CheckSettings{} }
 func (m *CheckSettings) String() string { return proto.CompactTextString(m) }
 func (*CheckSettings) ProtoMessage()    {}
 func (*CheckSettings) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ext_authz_e21a2e66251cf68d, []int{3}
+	return fileDescriptor_ext_authz_f362effcab29acea, []int{3}
 }
 func (m *CheckSettings) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1622,10 +1622,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/ext_authz/v2alpha/ext_authz.proto", fileDescriptor_ext_authz_e21a2e66251cf68d)
+	proto.RegisterFile("envoy/config/filter/http/ext_authz/v2alpha/ext_authz.proto", fileDescriptor_ext_authz_f362effcab29acea)
 }
 
-var fileDescriptor_ext_authz_e21a2e66251cf68d = []byte{
+var fileDescriptor_ext_authz_f362effcab29acea = []byte{
 	// 630 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x53, 0xcf, 0x6b, 0x13, 0x4f,
 	0x14, 0xef, 0xe4, 0x47, 0xbf, 0x9b, 0x49, 0xfb, 0x25, 0x1d, 0xac, 0x8d, 0xb1, 0xc6, 0x10, 0x04,

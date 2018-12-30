@@ -66,7 +66,7 @@ func (m *RateLimit) Reset()         { *m = RateLimit{} }
 func (m *RateLimit) String() string { return proto.CompactTextString(m) }
 func (*RateLimit) ProtoMessage()    {}
 func (*RateLimit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rate_limit_33baaf9ae3219e20, []int{0}
+	return fileDescriptor_rate_limit_d7f84ecb2e10bbd2, []int{0}
 }
 func (m *RateLimit) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -567,10 +567,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/rate_limit/v2/rate_limit.proto", fileDescriptor_rate_limit_33baaf9ae3219e20)
+	proto.RegisterFile("envoy/config/filter/http/rate_limit/v2/rate_limit.proto", fileDescriptor_rate_limit_d7f84ecb2e10bbd2)
 }
 
-var fileDescriptor_rate_limit_33baaf9ae3219e20 = []byte{
+var fileDescriptor_rate_limit_d7f84ecb2e10bbd2 = []byte{
 	// 367 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x90, 0xbd, 0x6e, 0xdb, 0x30,
 	0x14, 0x85, 0x41, 0xf9, 0xa7, 0x35, 0xdd, 0xa2, 0xad, 0x50, 0xa0, 0xaa, 0x07, 0x59, 0xf6, 0x50,

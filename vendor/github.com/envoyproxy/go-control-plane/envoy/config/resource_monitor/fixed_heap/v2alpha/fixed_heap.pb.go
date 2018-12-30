@@ -34,7 +34,7 @@ func (m *FixedHeapConfig) Reset()         { *m = FixedHeapConfig{} }
 func (m *FixedHeapConfig) String() string { return proto.CompactTextString(m) }
 func (*FixedHeapConfig) ProtoMessage()    {}
 func (*FixedHeapConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_fixed_heap_5791aa3ac2da2b5a, []int{0}
+	return fileDescriptor_fixed_heap_de9752cd546c58fc, []int{0}
 }
 func (m *FixedHeapConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -309,10 +309,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/resource_monitor/fixed_heap/v2alpha/fixed_heap.proto", fileDescriptor_fixed_heap_5791aa3ac2da2b5a)
+	proto.RegisterFile("envoy/config/resource_monitor/fixed_heap/v2alpha/fixed_heap.proto", fileDescriptor_fixed_heap_de9752cd546c58fc)
 }
 
-var fileDescriptor_fixed_heap_5791aa3ac2da2b5a = []byte{
+var fileDescriptor_fixed_heap_de9752cd546c58fc = []byte{
 	// 176 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x72, 0x4c, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x2f, 0x4a, 0x2d, 0xce, 0x2f, 0x2d, 0x4a,

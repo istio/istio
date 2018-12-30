@@ -48,7 +48,7 @@ func (m *ResourceMonitor) Reset()         { *m = ResourceMonitor{} }
 func (m *ResourceMonitor) String() string { return proto.CompactTextString(m) }
 func (*ResourceMonitor) ProtoMessage()    {}
 func (*ResourceMonitor) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_671858f47cf26646, []int{0}
+	return fileDescriptor_overload_05a46ddd552e37f6, []int{0}
 }
 func (m *ResourceMonitor) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -208,7 +208,7 @@ func (m *ThresholdTrigger) Reset()         { *m = ThresholdTrigger{} }
 func (m *ThresholdTrigger) String() string { return proto.CompactTextString(m) }
 func (*ThresholdTrigger) ProtoMessage()    {}
 func (*ThresholdTrigger) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_671858f47cf26646, []int{1}
+	return fileDescriptor_overload_05a46ddd552e37f6, []int{1}
 }
 func (m *ThresholdTrigger) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -259,7 +259,7 @@ func (m *Trigger) Reset()         { *m = Trigger{} }
 func (m *Trigger) String() string { return proto.CompactTextString(m) }
 func (*Trigger) ProtoMessage()    {}
 func (*Trigger) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_671858f47cf26646, []int{2}
+	return fileDescriptor_overload_05a46ddd552e37f6, []int{2}
 }
 func (m *Trigger) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -394,7 +394,7 @@ func (m *OverloadAction) Reset()         { *m = OverloadAction{} }
 func (m *OverloadAction) String() string { return proto.CompactTextString(m) }
 func (*OverloadAction) ProtoMessage()    {}
 func (*OverloadAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_671858f47cf26646, []int{3}
+	return fileDescriptor_overload_05a46ddd552e37f6, []int{3}
 }
 func (m *OverloadAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -453,7 +453,7 @@ func (m *OverloadManager) Reset()         { *m = OverloadManager{} }
 func (m *OverloadManager) String() string { return proto.CompactTextString(m) }
 func (*OverloadManager) ProtoMessage()    {}
 func (*OverloadManager) Descriptor() ([]byte, []int) {
-	return fileDescriptor_overload_671858f47cf26646, []int{4}
+	return fileDescriptor_overload_05a46ddd552e37f6, []int{4}
 }
 func (m *OverloadManager) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1559,10 +1559,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/overload/v2alpha/overload.proto", fileDescriptor_overload_671858f47cf26646)
+	proto.RegisterFile("envoy/config/overload/v2alpha/overload.proto", fileDescriptor_overload_05a46ddd552e37f6)
 }
 
-var fileDescriptor_overload_671858f47cf26646 = []byte{
+var fileDescriptor_overload_05a46ddd552e37f6 = []byte{
 	// 499 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x52, 0x3f, 0x6f, 0xd3, 0x40,
 	0x14, 0xcf, 0xd9, 0x4d, 0xd3, 0x9c, 0x29, 0x09, 0xa7, 0x42, 0x93, 0x8a, 0x46, 0x91, 0x07, 0x14,

@@ -48,7 +48,7 @@ func (m *GrpcService) Reset()         { *m = GrpcService{} }
 func (m *GrpcService) String() string { return proto.CompactTextString(m) }
 func (*GrpcService) ProtoMessage()    {}
 func (*GrpcService) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0}
 }
 func (m *GrpcService) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -217,7 +217,7 @@ func (m *GrpcService_EnvoyGrpc) Reset()         { *m = GrpcService_EnvoyGrpc{} }
 func (m *GrpcService_EnvoyGrpc) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_EnvoyGrpc) ProtoMessage()    {}
 func (*GrpcService_EnvoyGrpc) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 0}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 0}
 }
 func (m *GrpcService_EnvoyGrpc) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -289,7 +289,7 @@ func (m *GrpcService_GoogleGrpc) Reset()         { *m = GrpcService_GoogleGrpc{}
 func (m *GrpcService_GoogleGrpc) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_GoogleGrpc) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 1}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 1}
 }
 func (m *GrpcService_GoogleGrpc) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -377,7 +377,7 @@ func (m *GrpcService_GoogleGrpc_SslCredentials) Reset()         { *m = GrpcServi
 func (m *GrpcService_GoogleGrpc_SslCredentials) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_GoogleGrpc_SslCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_SslCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 1, 0}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 1, 0}
 }
 func (m *GrpcService_GoogleGrpc_SslCredentials) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -443,7 +443,7 @@ func (m *GrpcService_GoogleGrpc_GoogleLocalCredentials) String() string {
 }
 func (*GrpcService_GoogleGrpc_GoogleLocalCredentials) ProtoMessage() {}
 func (*GrpcService_GoogleGrpc_GoogleLocalCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 1, 1}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 1, 1}
 }
 func (m *GrpcService_GoogleGrpc_GoogleLocalCredentials) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -491,7 +491,7 @@ func (m *GrpcService_GoogleGrpc_ChannelCredentials) Reset() {
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_GoogleGrpc_ChannelCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_ChannelCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 1, 2}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 1, 2}
 }
 func (m *GrpcService_GoogleGrpc_ChannelCredentials) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -685,7 +685,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials) Reset() {
 func (m *GrpcService_GoogleGrpc_CallCredentials) String() string { return proto.CompactTextString(m) }
 func (*GrpcService_GoogleGrpc_CallCredentials) ProtoMessage()    {}
 func (*GrpcService_GoogleGrpc_CallCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 1, 3}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 1, 3}
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -960,7 +960,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentia
 }
 func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) ProtoMessage() {}
 func (*GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 1, 3, 0}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 1, 3, 0}
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_ServiceAccountJWTAccessCredentials) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1019,7 +1019,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) String() s
 }
 func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) ProtoMessage() {}
 func (*GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 1, 3, 1}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 1, 3, 1}
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_GoogleIAMCredentials) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1081,7 +1081,7 @@ func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) S
 }
 func (*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) ProtoMessage() {}
 func (*GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) Descriptor() ([]byte, []int) {
-	return fileDescriptor_grpc_service_0ce422ee85be8a6d, []int{0, 1, 3, 2}
+	return fileDescriptor_grpc_service_d48ceca6bb08a52e, []int{0, 1, 3, 2}
 }
 func (m *GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4283,10 +4283,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/grpc_service.proto", fileDescriptor_grpc_service_0ce422ee85be8a6d)
+	proto.RegisterFile("envoy/api/v2/core/grpc_service.proto", fileDescriptor_grpc_service_d48ceca6bb08a52e)
 }
 
-var fileDescriptor_grpc_service_0ce422ee85be8a6d = []byte{
+var fileDescriptor_grpc_service_d48ceca6bb08a52e = []byte{
 	// 1062 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0xcb, 0x6e, 0x1b, 0x37,
 	0x17, 0x96, 0x2c, 0x39, 0x89, 0xce, 0x38, 0xb6, 0x4c, 0xeb, 0xb7, 0xe5, 0xf9, 0x63, 0xc1, 0x48,

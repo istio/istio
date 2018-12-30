@@ -49,7 +49,7 @@ func (x RBAC_Action) String() string {
 	return proto.EnumName(RBAC_Action_name, int32(x))
 }
 func (RBAC_Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_c08fb7dcc54fa775, []int{0, 0}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{0, 0}
 }
 
 // Role Based Access Control (RBAC) provides service-level and method-level access control for a
@@ -108,7 +108,7 @@ func (m *RBAC) Reset()         { *m = RBAC{} }
 func (m *RBAC) String() string { return proto.CompactTextString(m) }
 func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_c08fb7dcc54fa775, []int{0}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{0}
 }
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -172,7 +172,7 @@ func (m *Policy) Reset()         { *m = Policy{} }
 func (m *Policy) String() string { return proto.CompactTextString(m) }
 func (*Policy) ProtoMessage()    {}
 func (*Policy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_c08fb7dcc54fa775, []int{1}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{1}
 }
 func (m *Policy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -237,7 +237,7 @@ func (m *Permission) Reset()         { *m = Permission{} }
 func (m *Permission) String() string { return proto.CompactTextString(m) }
 func (*Permission) ProtoMessage()    {}
 func (*Permission) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_c08fb7dcc54fa775, []int{2}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{2}
 }
 func (m *Permission) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -594,7 +594,7 @@ func (m *Permission_Set) Reset()         { *m = Permission_Set{} }
 func (m *Permission_Set) String() string { return proto.CompactTextString(m) }
 func (*Permission_Set) ProtoMessage()    {}
 func (*Permission_Set) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_c08fb7dcc54fa775, []int{2, 0}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{2, 0}
 }
 func (m *Permission_Set) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -651,7 +651,7 @@ func (m *Principal) Reset()         { *m = Principal{} }
 func (m *Principal) String() string { return proto.CompactTextString(m) }
 func (*Principal) ProtoMessage()    {}
 func (*Principal) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_c08fb7dcc54fa775, []int{3}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{3}
 }
 func (m *Principal) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -983,7 +983,7 @@ func (m *Principal_Set) Reset()         { *m = Principal_Set{} }
 func (m *Principal_Set) String() string { return proto.CompactTextString(m) }
 func (*Principal_Set) ProtoMessage()    {}
 func (*Principal_Set) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_c08fb7dcc54fa775, []int{3, 0}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{3, 0}
 }
 func (m *Principal_Set) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1033,7 +1033,7 @@ func (m *Principal_Authenticated) Reset()         { *m = Principal_Authenticated
 func (m *Principal_Authenticated) String() string { return proto.CompactTextString(m) }
 func (*Principal_Authenticated) ProtoMessage()    {}
 func (*Principal_Authenticated) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_c08fb7dcc54fa775, []int{3, 1}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{3, 1}
 }
 func (m *Principal_Authenticated) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3110,10 +3110,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptor_rbac_c08fb7dcc54fa775)
+	proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptor_rbac_6ea35024e7e60c07)
 }
 
-var fileDescriptor_rbac_c08fb7dcc54fa775 = []byte{
+var fileDescriptor_rbac_6ea35024e7e60c07 = []byte{
 	// 847 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0x41, 0x8f, 0x1b, 0x35,
 	0x18, 0xcd, 0xcc, 0x64, 0x66, 0x27, 0xdf, 0x2a, 0x4b, 0xe4, 0xaa, 0x62, 0x88, 0xe8, 0x92, 0x86,

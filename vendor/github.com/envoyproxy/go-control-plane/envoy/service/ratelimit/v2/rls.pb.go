@@ -52,7 +52,7 @@ func (x RateLimitResponse_Code) String() string {
 	return proto.EnumName(RateLimitResponse_Code_name, int32(x))
 }
 func (RateLimitResponse_Code) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rls_d741846614ec53ad, []int{1, 0}
+	return fileDescriptor_rls_fcfbfd85039b3384, []int{1, 0}
 }
 
 type RateLimitResponse_RateLimit_Unit int32
@@ -89,7 +89,7 @@ func (x RateLimitResponse_RateLimit_Unit) String() string {
 	return proto.EnumName(RateLimitResponse_RateLimit_Unit_name, int32(x))
 }
 func (RateLimitResponse_RateLimit_Unit) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rls_d741846614ec53ad, []int{1, 0, 0}
+	return fileDescriptor_rls_fcfbfd85039b3384, []int{1, 0, 0}
 }
 
 // Main message for a rate limit request. The rate limit service is designed to be fully generic
@@ -119,7 +119,7 @@ func (m *RateLimitRequest) Reset()         { *m = RateLimitRequest{} }
 func (m *RateLimitRequest) String() string { return proto.CompactTextString(m) }
 func (*RateLimitRequest) ProtoMessage()    {}
 func (*RateLimitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rls_d741846614ec53ad, []int{0}
+	return fileDescriptor_rls_fcfbfd85039b3384, []int{0}
 }
 func (m *RateLimitRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -189,7 +189,7 @@ func (m *RateLimitResponse) Reset()         { *m = RateLimitResponse{} }
 func (m *RateLimitResponse) String() string { return proto.CompactTextString(m) }
 func (*RateLimitResponse) ProtoMessage()    {}
 func (*RateLimitResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rls_d741846614ec53ad, []int{1}
+	return fileDescriptor_rls_fcfbfd85039b3384, []int{1}
 }
 func (m *RateLimitResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -254,7 +254,7 @@ func (m *RateLimitResponse_RateLimit) Reset()         { *m = RateLimitResponse_R
 func (m *RateLimitResponse_RateLimit) String() string { return proto.CompactTextString(m) }
 func (*RateLimitResponse_RateLimit) ProtoMessage()    {}
 func (*RateLimitResponse_RateLimit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rls_d741846614ec53ad, []int{1, 0}
+	return fileDescriptor_rls_fcfbfd85039b3384, []int{1, 0}
 }
 func (m *RateLimitResponse_RateLimit) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -313,7 +313,7 @@ func (m *RateLimitResponse_DescriptorStatus) Reset()         { *m = RateLimitRes
 func (m *RateLimitResponse_DescriptorStatus) String() string { return proto.CompactTextString(m) }
 func (*RateLimitResponse_DescriptorStatus) ProtoMessage()    {}
 func (*RateLimitResponse_DescriptorStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rls_d741846614ec53ad, []int{1, 1}
+	return fileDescriptor_rls_fcfbfd85039b3384, []int{1, 1}
 }
 func (m *RateLimitResponse_DescriptorStatus) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1293,10 +1293,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/ratelimit/v2/rls.proto", fileDescriptor_rls_d741846614ec53ad)
+	proto.RegisterFile("envoy/service/ratelimit/v2/rls.proto", fileDescriptor_rls_fcfbfd85039b3384)
 }
 
-var fileDescriptor_rls_d741846614ec53ad = []byte{
+var fileDescriptor_rls_fcfbfd85039b3384 = []byte{
 	// 575 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x94, 0xdf, 0x6a, 0xd4, 0x40,
 	0x14, 0xc6, 0x9b, 0xdd, 0xb8, 0x6d, 0x4f, 0xfa, 0x27, 0x9d, 0x0b, 0x5d, 0x82, 0xac, 0x65, 0x11,

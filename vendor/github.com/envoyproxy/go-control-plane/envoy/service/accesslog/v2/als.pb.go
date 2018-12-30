@@ -37,7 +37,7 @@ func (m *StreamAccessLogsResponse) Reset()         { *m = StreamAccessLogsRespon
 func (m *StreamAccessLogsResponse) String() string { return proto.CompactTextString(m) }
 func (*StreamAccessLogsResponse) ProtoMessage()    {}
 func (*StreamAccessLogsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_60e1116a58a1b3de, []int{0}
+	return fileDescriptor_als_9183bfbc66256075, []int{0}
 }
 func (m *StreamAccessLogsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -88,7 +88,7 @@ func (m *StreamAccessLogsMessage) Reset()         { *m = StreamAccessLogsMessage
 func (m *StreamAccessLogsMessage) String() string { return proto.CompactTextString(m) }
 func (*StreamAccessLogsMessage) ProtoMessage()    {}
 func (*StreamAccessLogsMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_60e1116a58a1b3de, []int{1}
+	return fileDescriptor_als_9183bfbc66256075, []int{1}
 }
 func (m *StreamAccessLogsMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -250,7 +250,7 @@ func (m *StreamAccessLogsMessage_Identifier) Reset()         { *m = StreamAccess
 func (m *StreamAccessLogsMessage_Identifier) String() string { return proto.CompactTextString(m) }
 func (*StreamAccessLogsMessage_Identifier) ProtoMessage()    {}
 func (*StreamAccessLogsMessage_Identifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_60e1116a58a1b3de, []int{1, 0}
+	return fileDescriptor_als_9183bfbc66256075, []int{1, 0}
 }
 func (m *StreamAccessLogsMessage_Identifier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -309,7 +309,7 @@ func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) String() string {
 }
 func (*StreamAccessLogsMessage_HTTPAccessLogEntries) ProtoMessage() {}
 func (*StreamAccessLogsMessage_HTTPAccessLogEntries) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_60e1116a58a1b3de, []int{1, 1}
+	return fileDescriptor_als_9183bfbc66256075, []int{1, 1}
 }
 func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -362,7 +362,7 @@ func (m *StreamAccessLogsMessage_TCPAccessLogEntries) String() string {
 }
 func (*StreamAccessLogsMessage_TCPAccessLogEntries) ProtoMessage() {}
 func (*StreamAccessLogsMessage_TCPAccessLogEntries) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_60e1116a58a1b3de, []int{1, 2}
+	return fileDescriptor_als_9183bfbc66256075, []int{1, 2}
 }
 func (m *StreamAccessLogsMessage_TCPAccessLogEntries) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1408,10 +1408,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/accesslog/v2/als.proto", fileDescriptor_als_60e1116a58a1b3de)
+	proto.RegisterFile("envoy/service/accesslog/v2/als.proto", fileDescriptor_als_9183bfbc66256075)
 }
 
-var fileDescriptor_als_60e1116a58a1b3de = []byte{
+var fileDescriptor_als_9183bfbc66256075 = []byte{
 	// 470 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x93, 0x41, 0x8b, 0xd3, 0x40,
 	0x14, 0xc7, 0xf7, 0xa5, 0x5b, 0xb7, 0x7d, 0xbd, 0x94, 0xd9, 0x85, 0x96, 0x20, 0xa5, 0x2c, 0x0b,

@@ -95,7 +95,7 @@ func (m *MetadataMatcher) Reset()         { *m = MetadataMatcher{} }
 func (m *MetadataMatcher) String() string { return proto.CompactTextString(m) }
 func (*MetadataMatcher) ProtoMessage()    {}
 func (*MetadataMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metadata_68a424c5e967ef23, []int{0}
+	return fileDescriptor_metadata_626784a9898ad14e, []int{0}
 }
 func (m *MetadataMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -161,7 +161,7 @@ func (m *MetadataMatcher_PathSegment) Reset()         { *m = MetadataMatcher_Pat
 func (m *MetadataMatcher_PathSegment) String() string { return proto.CompactTextString(m) }
 func (*MetadataMatcher_PathSegment) ProtoMessage()    {}
 func (*MetadataMatcher_PathSegment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metadata_68a424c5e967ef23, []int{0, 0}
+	return fileDescriptor_metadata_626784a9898ad14e, []int{0, 0}
 }
 func (m *MetadataMatcher_PathSegment) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -751,10 +751,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/type/matcher/metadata.proto", fileDescriptor_metadata_68a424c5e967ef23)
+	proto.RegisterFile("envoy/type/matcher/metadata.proto", fileDescriptor_metadata_626784a9898ad14e)
 }
 
-var fileDescriptor_metadata_68a424c5e967ef23 = []byte{
+var fileDescriptor_metadata_626784a9898ad14e = []byte{
 	// 274 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4c, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0xcf,

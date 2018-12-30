@@ -378,13 +378,6 @@ func (m *CommonTlsContext) Validate() error {
 		}
 	}
 
-	if len(m.GetTlsCertificates()) > 1 {
-		return CommonTlsContextValidationError{
-			Field:  "TlsCertificates",
-			Reason: "value must contain no more than 1 item(s)",
-		}
-	}
-
 	for idx, item := range m.GetTlsCertificates() {
 		_, _ = idx, item
 
@@ -515,6 +508,16 @@ func (m *UpstreamTlsContext) Validate() error {
 	}
 
 	// no validation rules for AllowRenegotiation
+
+	if v, ok := interface{}(m.GetMaxSessionKeys()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return UpstreamTlsContextValidationError{
+				Field:  "MaxSessionKeys",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
 
 	return nil
 }

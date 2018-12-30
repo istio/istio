@@ -105,16 +105,6 @@ func (m *Listener) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ListenerValidationError{
-				Field:  "DeprecatedV1",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
 	// no validation rules for DrainType
 
 	for idx, item := range m.GetListenerFilters() {
@@ -130,6 +120,16 @@ func (m *Listener) Validate() error {
 			}
 		}
 
+	}
+
+	if v, ok := interface{}(m.GetListenerFiltersTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				Field:  "ListenerFiltersTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
 	}
 
 	if v, ok := interface{}(m.GetTransparent()).(interface{ Validate() error }); ok {
@@ -220,55 +220,3 @@ func (e ListenerValidationError) Error() string {
 }
 
 var _ error = ListenerValidationError{}
-
-// Validate checks the field values on Listener_DeprecatedV1 with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *Listener_DeprecatedV1) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	if v, ok := interface{}(m.GetBindToPort()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return Listener_DeprecatedV1ValidationError{
-				Field:  "BindToPort",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
-	}
-
-	return nil
-}
-
-// Listener_DeprecatedV1ValidationError is the validation error returned by
-// Listener_DeprecatedV1.Validate if the designated constraints aren't met.
-type Listener_DeprecatedV1ValidationError struct {
-	Field  string
-	Reason string
-	Cause  error
-	Key    bool
-}
-
-// Error satisfies the builtin error interface
-func (e Listener_DeprecatedV1ValidationError) Error() string {
-	cause := ""
-	if e.Cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
-	}
-
-	key := ""
-	if e.Key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sListener_DeprecatedV1.%s: %s%s",
-		key,
-		e.Field,
-		e.Reason,
-		cause)
-}
-
-var _ error = Listener_DeprecatedV1ValidationError{}

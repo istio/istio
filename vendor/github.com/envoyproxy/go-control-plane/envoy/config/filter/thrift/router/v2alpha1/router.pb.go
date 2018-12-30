@@ -30,7 +30,7 @@ func (m *Router) Reset()         { *m = Router{} }
 func (m *Router) String() string { return proto.CompactTextString(m) }
 func (*Router) ProtoMessage()    {}
 func (*Router) Descriptor() ([]byte, []int) {
-	return fileDescriptor_router_992b6025019cae3e, []int{0}
+	return fileDescriptor_router_2646378d5ce3d0bb, []int{0}
 }
 func (m *Router) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -271,10 +271,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/thrift/router/v2alpha1/router.proto", fileDescriptor_router_992b6025019cae3e)
+	proto.RegisterFile("envoy/config/filter/thrift/router/v2alpha1/router.proto", fileDescriptor_router_2646378d5ce3d0bb)
 }
 
-var fileDescriptor_router_992b6025019cae3e = []byte{
+var fileDescriptor_router_2646378d5ce3d0bb = []byte{
 	// 122 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x32, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,

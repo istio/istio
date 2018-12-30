@@ -39,7 +39,7 @@ func (m *CheckRequest) Reset()         { *m = CheckRequest{} }
 func (m *CheckRequest) String() string { return proto.CompactTextString(m) }
 func (*CheckRequest) ProtoMessage()    {}
 func (*CheckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_ef836df974545be5, []int{0}
+	return fileDescriptor_external_auth_7e3585ac8c9f8573, []int{0}
 }
 func (m *CheckRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -95,7 +95,7 @@ func (m *DeniedHttpResponse) Reset()         { *m = DeniedHttpResponse{} }
 func (m *DeniedHttpResponse) String() string { return proto.CompactTextString(m) }
 func (*DeniedHttpResponse) ProtoMessage()    {}
 func (*DeniedHttpResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_ef836df974545be5, []int{1}
+	return fileDescriptor_external_auth_7e3585ac8c9f8573, []int{1}
 }
 func (m *DeniedHttpResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -163,7 +163,7 @@ func (m *OkHttpResponse) Reset()         { *m = OkHttpResponse{} }
 func (m *OkHttpResponse) String() string { return proto.CompactTextString(m) }
 func (*OkHttpResponse) ProtoMessage()    {}
 func (*OkHttpResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_ef836df974545be5, []int{2}
+	return fileDescriptor_external_auth_7e3585ac8c9f8573, []int{2}
 }
 func (m *OkHttpResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -220,7 +220,7 @@ func (m *CheckResponse) Reset()         { *m = CheckResponse{} }
 func (m *CheckResponse) String() string { return proto.CompactTextString(m) }
 func (*CheckResponse) ProtoMessage()    {}
 func (*CheckResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_ef836df974545be5, []int{3}
+	return fileDescriptor_external_auth_7e3585ac8c9f8573, []int{3}
 }
 func (m *CheckResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1301,10 +1301,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor_external_auth_ef836df974545be5)
+	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor_external_auth_7e3585ac8c9f8573)
 }
 
-var fileDescriptor_external_auth_ef836df974545be5 = []byte{
+var fileDescriptor_external_auth_7e3585ac8c9f8573 = []byte{
 	// 477 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x52, 0x41, 0x6b, 0x13, 0x41,
 	0x18, 0xed, 0x24, 0xb6, 0xc5, 0x89, 0x69, 0x65, 0x0e, 0x76, 0x09, 0x12, 0x42, 0xf0, 0x10, 0x8b,
