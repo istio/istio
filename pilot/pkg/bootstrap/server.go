@@ -230,31 +230,31 @@ func NewServer(args PilotArgs) (*Server, error) {
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("kube client: %v", err)
 	}
 	if err := s.initMesh(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mesh: %v", err)
 	}
 	if err := s.initMeshNetworks(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mesh networks: %v", err)
 	}
 	if err := s.initMixerSan(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mixer san: %v", err)
 	}
 	if err := s.initConfigController(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("config controller: %v", err)
 	}
 	if err := s.initServiceControllers(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("service controllers: %v", err)
 	}
 	if err := s.initDiscoveryService(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("discovery service: %v", err)
 	}
 	if err := s.initMonitor(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("monitor: %v", err)
 	}
 	if err := s.initClusterRegistries(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
 	if args.CtrlZOptions != nil {
@@ -997,7 +997,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if args.DiscoveryOptions.SecureGrpcAddr != "" {
 		// create secure grpc server
 		if err := s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
-			return err
+			return fmt.Errorf("secure grpc server: %s", err)
 		}
 		// create secure grpc listener
 		secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
