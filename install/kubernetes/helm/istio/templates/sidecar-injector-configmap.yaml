@@ -237,6 +237,12 @@ data:
           name: lightstep-certs
           readOnly: true
         {{- end }}
+          {{ "[[- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount` ]]" }}
+          {{ "[[ range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount`) ]]" }}
+        - name: {{ "\"[[ $index ]]\"" }}
+          {{ "[[ toYaml $value | indent 4 ]]" }}
+          {{ "[[ end ]]" }}
+          {{ "[[- end ]]" }}
       volumes:
       {{- if .Values.global.sds.enabled }}
       - name: sds-uds-path
@@ -269,6 +275,12 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+        {{ "[[- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` ]]" }}
+        {{ "[[ range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) ]]" }}
+      - name: {{ "\"[[ $index ]]\"" }}
+        {{ "[[ toYaml $value | indent 2 ]]" }}
+        {{ "[[ end ]]" }}
+        {{ "[[ end -]]" }}
 {{- end }}
 {{- if .Values.global.podDNSSearchNamespaces }}
       dnsConfig:

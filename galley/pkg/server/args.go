@@ -111,7 +111,7 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "KubeConfig: %s\n", a.KubeConfig)
 	fmt.Fprintf(buf, "ResyncPeriod: %v\n", a.ResyncPeriod)
 	fmt.Fprintf(buf, "APIAddress: %s\n", a.APIAddress)
-	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.APIAddress)
+	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.EnableGRPCTracing)
 	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
