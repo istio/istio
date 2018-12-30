@@ -24,7 +24,7 @@ import (
 )
 
 type tokenReviewClient interface {
-	Review(targetJWT string) (string, error)
+	ValidateK8sJwt(targetJWT string) (string, error)
 }
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
@@ -44,7 +44,7 @@ func NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath string) (*Kube
 		return nil, fmt.Errorf("failed to read Citadel JWT: %v", err)
 	}
 	return &KubeJWTAuthenticator{
-		client: tokenreview.NewClient(k8sAPIServerURL, caCert, string(reviewerJWT[:])),
+		client: tokenreview.NewK8sSvcAcctAuthn(k8sAPIServerURL, caCert, string(reviewerJWT[:])),
 	}, nil
 }
 
@@ -54,7 +54,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
-	id, err := a.client.Review(targetJWT)
+	id, err := a.client.ValidateK8sJwt(targetJWT)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
 	}

@@ -32,7 +32,7 @@ type mockTokenReviewClient struct {
 	err error
 }
 
-func (c mockTokenReviewClient) Review(jwt string) (string, error) {
+func (c mockTokenReviewClient) ValidateK8sJwt(jwt string) (string, error) {
 	if c.id != "" {
 		return c.id, nil
 	}
@@ -89,7 +89,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 			t.Errorf("Case %s: Unexpected Error: %v", id, err)
 		}
 		expectedAuthenticator := &KubeJWTAuthenticator{
-			client: tokenreview.NewClient(url, caCertFileContent, string(jwtFileContent[:])),
+			client: tokenreview.NewK8sSvcAcctAuthn(url, caCertFileContent, string(jwtFileContent[:])),
 		}
 		if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
 			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v",

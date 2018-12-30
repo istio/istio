@@ -62,13 +62,13 @@ func NewK8sSvcAcctAuthn(apiServerAddr string, apiServerCert []byte, reviewerSvcA
 // reviewerToken: the service account of the k8s token reviewer
 // jwt: the JWT of the k8s service account
 func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL string, k8sAPIServerCaCert []byte,
-	reviewerToken string, jwt []byte) (*http.Response, error) {
+	reviewerToken string, jwt string) (*http.Response, error) {
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(k8sAPIServerCaCert)
 	saReq := saValidationRequest{
 		APIVersion: "authentication.k8s.io/v1",
 		Kind:       "TokenReview",
-		Spec:       specForSaValidationRequest{Token: string(jwt[:])},
+		Spec:       specForSaValidationRequest{Token: jwt},
 	}
 	saReqJSON, err := json.Marshal(saReq)
 	if err != nil {
@@ -99,7 +99,7 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL
 // Return <namespace>:<serviceaccountname> in the JWT when the validation passes.
 // Otherwise, return the error.
 // jwt: the JWT to validate
-func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt []byte) (string, error) {
+func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt string) (string, error) {
 	resp, err := authn.reviewServiceAccountAtK8sAPIServer(authn.apiServerAddr, authn.apiServerCert,
 		authn.reviewerSvcAcct, jwt)
 	if err != nil {
