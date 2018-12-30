@@ -18,10 +18,11 @@ import (
 	"fmt"
 
 	"istio.io/istio/security/pkg/registry"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
 type authorizer interface {
-	authorize(requester *caller, requestedIds []string) error
+	authorize(requester *authenticate.Caller, requestedIds []string) error
 }
 
 // sameIDAuthorizer approves a request if the requested identities matches the
@@ -29,16 +30,16 @@ type authorizer interface {
 // nolint
 type sameIDAuthorizer struct{}
 
-func (authZ *sameIDAuthorizer) authorize(requester *caller, requestedIDs []string) error {
-	if requester.authSource == authSourceIDToken {
+func (authZ *sameIDAuthorizer) authorize(requester *authenticate.Caller, requestedIDs []string) error {
+	if requester.AuthSource == authenticate.AuthSourceIDToken {
 		// TODO: currently the "sub" claim of an ID token returned by GCP
 		// metadata server contains obfuscated ID, so we cannot do
 		// authorization upon that.
 		return nil
 	}
 
-	idMap := make(map[string]bool, len(requester.identities))
-	for _, id := range requester.identities {
+	idMap := make(map[string]bool, len(requester.Identities))
+	for _, id := range requester.Identities {
 		idMap[id] = true
 	}
 
@@ -56,12 +57,12 @@ type registryAuthorizor struct {
 	reg registry.Registry
 }
 
-func (authZ *registryAuthorizor) authorize(requestor *caller, requestedIDs []string) error {
+func (authZ *registryAuthorizor) authorize(requestor *authenticate.Caller, requestedIDs []string) error {
 	// if auth source is JWT token, only check if any of its identities is registered,
 	// as we cannot predict what ID may it request yet
-	if requestor.authSource == authSourceIDToken {
+	if requestor.AuthSource == authenticate.AuthSourceIDToken {
 		valid := false
-		for _, identity := range requestor.identities {
+		for _, identity := range requestor.Identities {
 			if authZ.reg.Check(identity, identity) {
 				valid = true
 				break
@@ -77,7 +78,7 @@ func (authZ *registryAuthorizor) authorize(requestor *caller, requestedIDs []str
 	// from caller that supports it in registry
 	for _, requestedID := range requestedIDs {
 		valid := false
-		for _, identity := range requestor.identities {
+		for _, identity := range requestor.Identities {
 			if authZ.reg.Check(identity, requestedID) {
 				valid = true
 				break

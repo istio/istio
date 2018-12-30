@@ -102,7 +102,7 @@ func TestOnMockAPIServer(t *testing.T) {
 
 		authn := NewK8sSvcAcctAuthn(s.httpServer.URL+"/"+tc.cliConfig.reviewPath, tc.cliConfig.tlsCert, tc.cliConfig.reviewerToken)
 
-		_, err := authn.ValidateK8sJwt([]byte(tc.cliConfig.jwt))
+		_, err := authn.ValidateK8sJwt(tc.cliConfig.jwt)
 
 		if err != nil {
 			t.Logf("Error: %v", err.Error())
