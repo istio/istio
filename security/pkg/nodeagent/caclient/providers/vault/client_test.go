@@ -84,19 +84,19 @@ SQYzPWVk89gu6nKV+fS2pA9C8dAnYOzVu9XXc+PGlcIhjnuS+/P74hN5D3aIGljW
 7WsYeEkp
 -----END CERTIFICATE REQUEST-----
   `
-	citadelSANonTLS = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3Nlcn" +
-		"ZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY" +
-		"2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQub" +
-		"mFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tenRzN3ciLCJrdWJlcm5ldGVzLmlvL" +
-		"3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlb" +
-		"C1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50L" +
-		"nVpZCI6IjUyODUxNTNlLWY2ZGItMTFlOC04Y2ZhLTQyMDEwYThhMDAxNCIsInN1YiI6I" +
-		"nN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.lx" +
-		"NRxmL2oLhh3XGLI7XPdhh2hpdQo02WPq9M8awhuguYExOMa2ToIAROe_ia0RkugLHCIX" +
-		"2jd-gohUcAyUxh5oBIFgeP8QVyu2hXUUVeZQgZLpjsd2nlPRq5CPw-21mXQntbWsmT4k" +
-		"FhQ-BF3m9H-5UDxRb4jt-t5YhQb4PHq-H-i9QN4_7seqLu3RPBjmkhzV-8tqr-baleRb" +
-		"y2Kj5s-qWsnMtPcF8kWZ3hzoY9P2nKPSimhNFkv58K15t9gJ-EJTsQhsY-kozYGpfoFE" +
-		"fchw6t-qIBVjH74z3BrlP0edSnDh8UtADnwqArZrgcFzorOZ2bH3mlpiK7jZ0YDI4CqA"
+	citadelSANonTLS = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3Nlcn" +
+		"ZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2" +
+		"UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubm" +
+		"FtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tYjdyemsiLCJrdWJlcm5ldGVzLmlvL3" +
+		"NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YWRlbC" +
+		"1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Ln" +
+		"VpZCI6IjczMmFhMDYyLTBjYWYtMTFlOS1iNWFkLTQyMDEwYThhMDAwYyIsInN1YiI6In" +
+		"N5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ.BYX" +
+		"fKQHG3Eu384EY4KlnhFEk6iLZZHVnX03FIrC-xR-tft2AZP0wpGeRNmMMKMiFzXfBQ8j" +
+		"XzarGgPdoWFjVy0R1HuozX-g7WCAkhlMR38IhHr7EFOkue3_73dGNHAXoCQ4C9eAduDn" +
+		"r_yBClB3JMeoJXIS2tvbwZ4BrHJepu7zXJalbWE2n0oucOH2JLIrp_wcA0yCNu6wFXEX" +
+		"S7ghVsiDHKyL1_SmzsZ4gKyhlDUB1UAIbQ9XghXIAK_5Tmo_cKGbZ0MeqJeVUkDr2w-3" +
+		"ZRrnQD8lUEwhkGlgkIjEKAY4yKFliEOIDTft_gz0h6t9zGCn5OmhNolXQ4dIbsEcFgA"
 
 	citadelSATLS = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3" +
 		"NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3" +
@@ -114,7 +114,7 @@ SQYzPWVk89gu6nKV+fS2pA9C8dAnYOzVu9XXc+PGlcIhjnuS+/P74hN5D3aIGljW
 		"tlQ"
 
 	fakeCert        = []string{"fake-certificate", "fake-ca1", "fake-ca2"}
-	vaultNonTLSAddr = "http://35.247.45.173:8200"
+	vaultNonTLSAddr = "http://35.247.15.29:8200"
 	vaultTLSAddr    = "https://35.233.249.249:8200"
 )
 
