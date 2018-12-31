@@ -5,7 +5,8 @@
 ## Introduction
 
 This chart bootstraps [CRDs](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions)
-which are an internal implementation detail of Istio.
+which are an internal implementation detail of Istio.  CRDs contain all runtime configuration specified by the human
+operator.
 
 This chart must be run to completion prior to running other Istio charts, or other Istio charts will fail to initialize.
 
@@ -30,7 +31,7 @@ The chart deploys pods that consume minimum resources as specified in the resour
     $ helm init --service-account tiller
     ```
 
-1. Install the Istio initalizer chart:
+1. Install the Istio initializer chart:
     ```
     $ helm install install/kubernetes/helm/istio-init --name istio-init
     ```
@@ -41,12 +42,17 @@ This helm chart has no configuration options.
 
 ## Uninstalling the Chart
 
-To uninstall/delete the `istio` release but continue to track the release:
+> Uninstalling this chart does not delete Istio's registered CRDs.  Istio by design expects
+> CRDs to leak into the Kubernetes environment.  As CRDs contain all runtime configuration
+> data the Istio designers feel it is better to explicitly delete this configuration rather
+> then unexpectedly lose it.
+
+To uninstall/delete the `istio-init` release but continue to track the release:
     ```
     $ helm delete istio-init
     ```
 
-To uninstall/delete the `istio` release completely and make its name free for later use:
+To uninstall/delete the `istio-init` release completely and make its name free for later use:
     ```
     $ helm delete istio-init --purge
     ```
