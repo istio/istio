@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/vault/api"
+
 	"istio.io/istio/pkg/log"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 )
@@ -182,32 +183,32 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 		return nil, fmt.Errorf("failed to post to %v: %v", csrSigningPath, err)
 	}
 	if res == nil {
-		log.Errorf("sign response is nil")
+		log.Error("sign response is nil")
 		return nil, fmt.Errorf("sign response is nil")
 	}
 	if res.Data == nil {
-		log.Errorf("sign response has a nil Data field")
+		log.Error("sign response has a nil Data field")
 		return nil, fmt.Errorf("sign response has a nil Data field")
 	}
 	//Extract the certificate and the certificate chain
 	certificate, ok := res.Data["certificate"]
 	if !ok {
-		log.Errorf("no certificate in the CSR response")
+		log.Error("no certificate in the CSR response")
 		return nil, fmt.Errorf("no certificate in the CSR response")
 	}
 	cert, ok := certificate.(string)
 	if !ok {
-		log.Errorf("the certificate in the CSR response is not a string")
+		log.Error("the certificate in the CSR response is not a string")
 		return nil, fmt.Errorf("the certificate in the CSR response is not a string")
 	}
 	caChain, ok := res.Data["ca_chain"]
 	if !ok {
-		log.Errorf("no certificate chain in the CSR response")
+		log.Error("no certificate chain in the CSR response")
 		return nil, fmt.Errorf("no certificate chain in the CSR response")
 	}
 	chain, ok := caChain.([]interface{})
 	if !ok {
-		log.Errorf("the certificate chain in the CSR response is of unexpected format")
+		log.Error("the certificate chain in the CSR response is of unexpected format")
 		return nil, fmt.Errorf("the certificate chain in the CSR response is of unexpected format")
 	}
 	var certChain []string
