@@ -793,14 +793,28 @@ EOF`, k.KubeConfig, dummyValidationRule)
 	return nil
 }
 
-func (k *KubeInfo) deployIstioWithHelm() error {
-	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
+func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
+	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio-init", "files", kubernetesCRD)
 	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
 
 	// deploy CRDs first
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
 		log.Errorf("Failed to apply %s", yamlFileName)
 		return err
+	}
+	return nil
+}
+
+func (k *KubeInfo) deployIstioWithHelm() error {
+	// Note: When adding a CRD to the install, an entry is needed here as well
+	istioCRDFileNames := []string{"crd-10.yaml", "crd-11.yaml", "crd-certmanager-10.yaml"}
+
+	// deploy all CRDs in Istio first
+	for _, yamlFileName := range istioCRDFileNames {
+		if err := k.deployCRDs(yamlFileName); err != nil {
+			log.Errorf("Failed to apply all Istio-specific CRDs")
+			return err
+		}
 	}
 
 	// install istio helm chart, which includes addon
