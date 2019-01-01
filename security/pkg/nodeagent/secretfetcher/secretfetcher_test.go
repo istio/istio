@@ -44,7 +44,8 @@ var (
 // find secret by name, and delete secret by name.
 func TestSecretFetcher(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	gSecretFetcher, err := NewSecretFetcher(true, "", "", false, client)
+	gSecretFetcher, err := NewSecretFetcher(true, "", "", false,
+		client, "", "", "", "")
 	if err != nil {
 		t.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 	}
