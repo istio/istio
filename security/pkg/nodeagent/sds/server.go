@@ -62,6 +62,18 @@ type Options struct {
 
 	// PluginNames is plugins' name for certain authentication provider.
 	PluginNames []string
+
+	// The Vault CA address.
+	VaultAddress string
+
+	// The Vault auth path.
+	VaultAuthPath string
+
+	// The Vault role.
+	VaultRole string
+
+	// The Vault sign CSR path.
+	VaultSignCsrPath string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
