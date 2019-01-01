@@ -34,7 +34,7 @@ import (
 const (
 	googleCAName = "GoogleCA"
 	citadelName  = "Citadel"
-	vaultCAName1 = "VaultCA1"
+	vaultCAName  = "VaultCA"
 	ns           = "istio-system"
 
 	retryInterval = time.Second * 2
@@ -50,7 +50,7 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterfa
 	switch CAProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
-	case vaultCAName1:
+	case vaultCAName:
 		//TO-DO (lei-tang): fill vault parameters from environmental variables
 		return vault.NewVaultClient(tlsFlag, nil, "vaultAddr", "vaultLoginRole", "vaultLoginPath", "vaultSignCsrPath")
 	case citadelName:
