@@ -22,6 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	mcfg "istio.io/api/mesh/v1alpha1"
 	meshcfg "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -423,14 +424,14 @@ func TestKubeIngressResource(t *testing.T) {
 
 	meshCfgOff := meshconfig.NewInMemory()
 	meshCfgStrict := meshconfig.NewInMemory()
-	meshCfgStrict.Set(mcfg.MeshConfig{
+	meshCfgStrict.Set(meshcfg.MeshConfig{
 		IngressClass:          "cls",
-		IngressControllerMode: mcfg.MeshConfig_STRICT,
+		IngressControllerMode: meshcfg.MeshConfig_STRICT,
 	})
 	meshCfgDefault := meshconfig.NewInMemory()
-	meshCfgDefault.Set(mcfg.MeshConfig{
+	meshCfgDefault.Set(meshcfg.MeshConfig{
 		IngressClass:          "cls",
-		IngressControllerMode: mcfg.MeshConfig_DEFAULT,
+		IngressControllerMode: meshcfg.MeshConfig_DEFAULT,
 	})
 
 	cases := []struct {
@@ -604,5 +605,92 @@ func TestShouldProcessIngress(t *testing.T) {
 			t.Errorf("shouldProcessIngress(<ingress of class '%s'>) => %v, want %v",
 				c.ingressClass, !c.shouldProcess, c.shouldProcess)
 		}
+	}
+}
+
+func TestKubeServiceResource(t *testing.T) {
+	cases := []struct {
+		name string
+		from corev1.Service
+		want proto.Message
+	}{
+		{
+			name: "Simple",
+			from: corev1.Service{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name:              "reviews",
+					Namespace:         "default",
+					CreationTimestamp: meta_v1.Time{Time: fakeCreateTime},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: "10.39.241.161",
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Protocol:   "TCP",
+							Port:       9080,
+							TargetPort: intstr.FromInt(9080),
+						},
+						{
+							Name:       "https-web",
+							Protocol:   "TCP",
+							Port:       9081,
+							TargetPort: intstr.FromInt(9081),
+						},
+						{
+							Name:       "ssh",
+							Protocol:   "TCP",
+							Port:       9082,
+							TargetPort: intstr.FromInt(9082),
+						},
+					},
+				},
+			},
+			want: &networking.ServiceEntry{
+				Hosts:      []string{"reviews.default.svc.cluster.local"},
+				Addresses:  []string{"10.39.241.161"},
+				Resolution: networking.ServiceEntry_STATIC,
+				Location:   networking.ServiceEntry_MESH_INTERNAL,
+				Ports: []*networking.Port{
+					{
+						Name:     "http",
+						Number:   9080,
+						Protocol: "HTTP",
+					},
+					{
+						Name:     "https-web",
+						Number:   9081,
+						Protocol: "HTTPS",
+					},
+					{
+						Name:     "ssh",
+						Number:   9082,
+						Protocol: "TCP",
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var u unstructured.Unstructured
+			u.Object = make(map[string]interface{})
+			if err := convertJSON(&c.from, &u.Object); err != nil {
+				t.Fatalf("Internal test error: %v", err)
+			}
+			want := []Entry{{
+				Key:          resource.FullNameFromNamespaceAndName(c.from.Namespace, c.from.Name),
+				CreationTime: fakeCreateTime.Local(),
+				Resource:     c.want,
+			}}
+			got, err := kubeServiceResource(&Config{DomainSuffix: "cluster.local"}, resource.Info{}, want[0].Key, "kind", &u)
+			if err != nil {
+				t.Fatalf("kubeServiceResource: %v", err)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", got, want)
+			}
+		})
 	}
 }

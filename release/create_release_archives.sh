@@ -15,10 +15,6 @@
 #
 ################################################################################
 
-set -o errexit
-set -o pipefail
-set -x
-
 # This script primarily exists for Cloud Builder.  This script
 # reads artifacts from a specified directory, generates tar files
 # based on those artifacts, and then stores the tar files
@@ -29,6 +25,13 @@ BASE_DIR="$TEMP_DIR"
 ISTIOCTL_SUBDIR=istioctl
 OUTPUT_PATH=""
 VER_STRING=""
+
+function cleanup() {
+  rm -rf "$TEMP_DIR"
+}
+
+# do cleanup before the script exits
+trap cleanup EXIT
 
 function usage() {
   echo "$0
@@ -45,6 +48,11 @@ function error_exit() {
   exit "${2:-1}"
 }
 
+# since there are 2 required options, should show usage and exit with no args specified
+if (($# == 0)); then
+  usage
+fi
+
 while getopts d:i:o:v: arg ; do
   case "${arg}" in
     d) BASE_DIR="${OPTARG}";;
@@ -54,6 +62,10 @@ while getopts d:i:o:v: arg ; do
     *) usage;;
   esac
 done
+
+set -o errexit
+set -o pipefail
+set -x
 
 [[ -z "${BASE_DIR}"    ]] && usage
 [[ -z "${OUTPUT_PATH}" ]] && usage
@@ -159,4 +171,3 @@ create_osx_archive
 create_windows_archive
 popd
 
-rm -rf "$TEMP_DIR"

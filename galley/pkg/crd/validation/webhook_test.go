@@ -122,6 +122,12 @@ var (
 	}
 )
 
+func TestArgs_String(t *testing.T) {
+	p := DefaultArgs()
+	// Should not crash
+	_ = p.String()
+}
+
 func createTestWebhook(
 	t testing.TB,
 	cl clientset.Interface,

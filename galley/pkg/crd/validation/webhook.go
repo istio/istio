@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -132,6 +133,40 @@ var (
 			fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", name)))
 	}
 )
+
+// String produces a stringified version of the arguments for debugging.
+func (p *WebhookParameters) String() string {
+	buf := &bytes.Buffer{}
+
+	fmt.Fprintf(buf, "DomainSuffix: %s\n", p.DomainSuffix)
+	fmt.Fprintf(buf, "Port: %d\n", p.Port)
+	fmt.Fprintf(buf, "CertFile: %s\n", p.CertFile)
+	fmt.Fprintf(buf, "KeyFile: %s\n", p.KeyFile)
+	fmt.Fprintf(buf, "WebhookConfigFile: %s\n", p.WebhookConfigFile)
+	fmt.Fprintf(buf, "CACertFile: %s\n", p.CACertFile)
+	fmt.Fprintf(buf, "DeploymentAndServiceNamespace: %s\n", p.DeploymentAndServiceNamespace)
+	fmt.Fprintf(buf, "WebhookName: %s\n", p.WebhookName)
+	fmt.Fprintf(buf, "DeploymentName: %s\n", p.DeploymentName)
+	fmt.Fprintf(buf, "ServiceName: %s\n", p.ServiceName)
+	fmt.Fprintf(buf, "EnableValidation: %v\n", p.EnableValidation)
+
+	return buf.String()
+}
+
+// DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
+func DefaultArgs() *WebhookParameters {
+	return &WebhookParameters{
+		Port:                          443,
+		CertFile:                      "/etc/certs/cert-chain.pem",
+		KeyFile:                       "/etc/certs/key.pem",
+		CACertFile:                    "/etc/certs/root-cert.pem",
+		DeploymentAndServiceNamespace: "istio-system",
+		DeploymentName:                "istio-galley",
+		ServiceName:                   "istio-galley",
+		WebhookName:                   "istio-galley",
+		EnableValidation:              true,
+	}
+}
 
 // Webhook implements the validating admission webhook for validating Istio configuration.
 type Webhook struct {
