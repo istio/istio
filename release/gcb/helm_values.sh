@@ -37,6 +37,13 @@ function fix_values_yaml() {
   # Copy helm charts (build by helm_charts.sh) to be packaged in the tarball.
   mkdir -vp ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
   cp /workspace/charts/* ./"istio-${CB_VERSION}"/install/kubernetes/helm/charts
+  
+  # replace prerelease with release location for istio.io repo
+  if [ "${CB_PIPELINE_TYPE}" = "monthly" ]; then
+    sed -i.bak "s:istio-prerelease/daily-build.*$:istio-release/releases/${CB_VERSION}/charts:g" ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio/README.md
+    rm -rf ./"istio-${CB_VERSION}"/install/kubernetes/helm/istio/README.md.bak
+    echo "Done replacing pre-released charts with released charts for istio.io repo"
+  fi
 
   eval "$zip_cmd" "${tarball_name}" "istio-${CB_VERSION}"
   sha256sum       "${tarball_name}" > "${tarball_name}.sha256"
@@ -44,7 +51,7 @@ function fix_values_yaml() {
 
   gsutil -q cp "${tarball_name}"        "gs://${CB_GCS_BUILD_PATH}/${tarball_name}"
   gsutil -q cp "${tarball_name}.sha256" "gs://${CB_GCS_BUILD_PATH}/${tarball_name}.sha256"
-  echo "DONE fixing  gs://${CB_GCS_BUILD_PATH}/${tarball_name} with hub: ${CB_DOCKER_HUB} tag: ${CB_VERSION}"
+  echo "DONE fixing gs://${CB_GCS_BUILD_PATH}/${tarball_name} with hub: ${CB_DOCKER_HUB} tag: ${CB_VERSION}"
 }
 
 mkdir -p modification-tmp
