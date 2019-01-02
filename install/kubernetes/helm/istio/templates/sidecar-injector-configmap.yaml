@@ -262,28 +262,7 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
       {{- end }}
-      {{- end }}
-      {{- if ne .Values.global.sds.enabled true }}
-      - name: istio-certs
-        secret:
-          optional: true
-          {{ "[[ if eq .Spec.ServiceAccountName \"\" -]]" }}
-          secretName: istio.default
-          {{ "[[ else -]]" }}
-          secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
-          {{ "[[ end -]]" }}
-      {{- end }}
-      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-      - name: lightstep-certs
-        secret:
-          optional: true
-          secretName: lightstep.cacert
-      {{- end }}
-<<<<<<< HEAD
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
-<<<<<<< HEAD
+      {{- else }}
       - name: istio-certs
         secret:
           optional: true
@@ -298,10 +277,13 @@ data:
         {{ "[[ toYaml $value | indent 2 ]]" }}
         {{ "[[ end ]]" }}
         {{ "[[ end -]]" }}
-=======
->>>>>>> remove secret volume mount from sidecar injector when sds is enabled
-=======
->>>>>>> fix integration test
+      {{- end }}
+      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      - name: lightstep-certs
+        secret:
+          optional: true
+          secretName: lightstep.cacert
+      {{- end }}
 {{- end }}
 {{- if .Values.global.podDNSSearchNamespaces }}
       dnsConfig:
