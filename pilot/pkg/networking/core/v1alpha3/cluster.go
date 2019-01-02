@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 	"path"
 	"strconv"
 	"strings"
@@ -181,7 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, serviceAccounts,
+				applyTrafficPolicy(env, proxy, defaultCluster, destinationRule.TrafficPolicy, port, serviceAccounts,
 					defaultSni, DefaultClusterMode, model.TrafficDirectionOutbound)
 
 				for _, subset := range destinationRule.Subsets {
@@ -197,9 +198,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound)
 					updateEds(subsetCluster)
 					setUpstreamProtocol(subsetCluster, port)
-					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni,
+					applyTrafficPolicy(env, proxy, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni,
 						DefaultClusterMode, model.TrafficDirectionOutbound)
-					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni,
+					applyTrafficPolicy(env, proxy, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni,
 						DefaultClusterMode, model.TrafficDirectionOutbound)
 					// call plugins
 					for _, p := range configgen.Plugins {
@@ -244,7 +245,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
-				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, nil, "",
+				applyTrafficPolicy(env, proxy, defaultCluster, destinationRule.TrafficPolicy, port, nil, "",
 					SniDnatClusterMode, model.TrafficDirectionOutbound)
 
 				for _, subset := range destinationRule.Subsets {
@@ -257,9 +258,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					subsetCluster := buildDefaultCluster(env, subsetClusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound)
 					subsetCluster.TlsContext = nil
 					updateEds(subsetCluster)
-					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, nil, "",
+					applyTrafficPolicy(env, proxy, subsetCluster, destinationRule.TrafficPolicy, port, nil, "",
 						SniDnatClusterMode, model.TrafficDirectionOutbound)
-					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, nil, "",
+					applyTrafficPolicy(env, proxy, subsetCluster, subset.TrafficPolicy, port, nil, "",
 						SniDnatClusterMode, model.TrafficDirectionOutbound)
 					clusters = append(clusters, subsetCluster)
 				}
@@ -574,7 +575,7 @@ const (
 
 // FIXME: There are too many variables here. Create a clusterOpts struct and stick the values in it, just like
 // listenerOpts
-func applyTrafficPolicy(env *model.Environment, cluster *apiv2.Cluster, policy *networking.TrafficPolicy,
+func applyTrafficPolicy(env *model.Environment, proxy *model.Proxy, cluster *apiv2.Cluster, policy *networking.TrafficPolicy,
 	port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode, direction model.TrafficDirection) {
 	if policy == nil {
 		return
@@ -583,7 +584,7 @@ func applyTrafficPolicy(env *model.Environment, cluster *apiv2.Cluster, policy *
 
 	applyConnectionPool(env, cluster, connectionPool, direction)
 	applyOutlierDetection(cluster, outlierDetection)
-	applyLoadBalancer(cluster, loadBalancer)
+	applyLoadBalancer(proxy, cluster, loadBalancer)
 	if clusterMode != SniDnatClusterMode {
 		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni)
 		applyUpstreamTLSSettings(env, cluster, tls)
@@ -715,7 +716,7 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 }
 
-func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings) {
+func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings) {
 	if lb == nil {
 		return
 	}
@@ -743,6 +744,58 @@ func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettin
 				MinimumRingSize: &types.UInt64Value{Value: consistentHash.GetMinimumRingSize()},
 			},
 		}
+	}
+
+	// Locality weighted load balancing
+	cluster.CommonLbConfig = &apiv2.Cluster_CommonLbConfig{
+		LocalityConfigSpecifier: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+			LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
+		},
+	}
+
+	applyLBLocalityWeight(proxy, cluster.LoadAssignment, lb)
+}
+
+func applyLBLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAssignment, lb *networking.LoadBalancerSettings) {
+	if proxy == nil || proxy.Locality == "" {
+		return
+	}
+
+	for _, localityWeightSetting := range lb.LocalityWeightSettings {
+		if localityWeightSetting != nil &&
+			util.LocalityMatch(proxy.Locality, localityWeightSetting.From) {
+			misMatched := map[int]struct{}{}
+			for i := range loadAssignment.Endpoints {
+				misMatched[i] = struct{}{}
+			}
+			for locality, weight := range localityWeightSetting.To {
+				// index -> original weight
+				destLocMap := map[int]uint32{}
+				totalWeight := uint32(0)
+				for i, ep := range loadAssignment.Endpoints {
+					if util.LocalityMatch(util.LocalityToString(ep.Locality), locality) {
+						delete(misMatched, i)
+						destLocMap[i] = ep.LoadBalancingWeight.Value
+						totalWeight += destLocMap[i]
+					}
+				}
+				// in case wildcard dest matching multi groups of endpoints
+				// the load balancing weight for a locality is divided by the sum of the weights of all localities
+				for index, originalWeight := range destLocMap {
+					weight := float64(originalWeight*weight) / float64(totalWeight)
+					loadAssignment.Endpoints[index].LoadBalancingWeight = &types.UInt32Value{
+						Value: uint32(math.Ceil(weight)),
+					}
+				}
+			}
+
+			// remove groups of endpoints in a locality that miss matched
+			for i := range misMatched {
+				loadAssignment.Endpoints[i].LbEndpoints = nil
+			}
+			break
+		}
+
 	}
 }
 
@@ -904,7 +957,7 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)
-	applyTrafficPolicy(env, cluster, defaultTrafficPolicy, nil, nil, "",
+	applyTrafficPolicy(env, nil, cluster, defaultTrafficPolicy, nil, nil, "",
 		DefaultClusterMode, direction)
 	return cluster
 }

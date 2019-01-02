@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -620,7 +621,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
-
+	nt.Locality = util.LocalityToString(discReq.Node.Locality)
 	con.mu.Lock()
 	con.modelNode = nt
 	if con.ConID == "" {

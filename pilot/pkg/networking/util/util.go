@@ -259,22 +259,43 @@ func ConvertLocality(locality string) *core.Locality {
 		return nil
 	}
 
-	items := strings.Split(locality, "/")
+	region, zone, subzone := splitLocality(locality)
+	return &core.Locality{
+		Region:  region,
+		Zone:    zone,
+		SubZone: subzone,
+	}
+}
+
+func LocalityToString(locality *core.Locality) string {
+	if locality == nil {
+		return ""
+	}
+
+	return locality.Region + "/" + locality.Zone + "/" + locality.SubZone
+}
+
+func LocalityMatch(proxyLocality, ruleLocality string) bool {
+	region, zone, subzone := splitLocality(proxyLocality)
+	ruleRegion, ruleZone, ruleSubzone := splitLocality(ruleLocality)
+	regionMatch := ruleRegion == "*" || region == ruleRegion
+	zoneMatch := ruleZone == "*" || ruleZone == "" || zone == ruleZone
+	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || subzone == ruleSubzone
+
+	if regionMatch && zoneMatch && subzoneMatch {
+		return true
+	}
+	return false
+}
+
+func splitLocality(locality string) (region, zone, subzone string) {
+	items := strings.SplitN(locality, "/", 3)
 	switch len(items) {
 	case 1:
-		return &core.Locality{
-			Region: items[0],
-		}
+		return items[0], "", ""
 	case 2:
-		return &core.Locality{
-			Region: items[0],
-			Zone:   items[1],
-		}
+		return items[0], items[1], ""
 	default:
-		return &core.Locality{
-			Region:  items[0],
-			Zone:    items[1],
-			SubZone: items[2],
-		}
+		return items[0], items[1], items[2]
 	}
 }

@@ -86,6 +86,13 @@ type Proxy struct {
 	// namespace.
 	ID string
 
+	// Locality is the location of where proxy runs.
+	// For example:
+	// 'region1/zone1/subzone1' means complete region zone and subzone info.
+	// 'region1/zone1' means only region and zone info.
+	// 'region1' means only region info.
+	Locality string
+
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
 	DNSDomain string
