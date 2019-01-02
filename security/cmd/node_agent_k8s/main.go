@@ -54,8 +54,17 @@ const (
 	// proxy by watching kubernetes secrets.
 	enableIngressGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
 
-	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
-	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
+	// The environmental variable name for Vault CA address.
+	vaultAddress = "VAULT_ADDR"
+
+	// The environmental variable name for Vault auth path.
+	vaultAuthPath = "VAULT_AUTH_PATH"
+
+	// The environmental variable name for Vault role.
+	vaultRole = "VAULT_ROLE"
+
+	// The environmental variable name for Vault sign CSR path.
+	vaultSignCsrPath = "VAULT_SIGN_CSR_PATH"
 )
 
 var (
@@ -115,7 +124,8 @@ var (
 
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
-		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint, serverOptions.CAProviderName, "", true, nil)
+		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
+			serverOptions.CAProviderName, true, "", "", "", "")
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
@@ -128,7 +138,8 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 	}
 
 	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", serverOptions.IngressSecretNameSpace, false, nil)
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "",
+			false, "", "", "", "")
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
@@ -160,8 +171,6 @@ func init() {
 		enableIngressGatewaySdsEnv = env
 	}
 
-	rootCmd.PersistentFlags().StringVar(&serverOptions.IngressSecretNameSpace, "ingressSecretNameSpace",
-		os.Getenv(ingressSecretNameSpace), "The namespace of kubernetes secrets to watch.")
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "enableWorkloadSDS",
 		enableWorkloadSdsEnv,
 		"If true, node agent works as SDS server and provisions key/certificate to workload proxies.")
@@ -193,6 +202,15 @@ func init() {
 		10*time.Minute, "Secret rotation job running interval")
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
+
+	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAddress, "vaultAddress", os.Getenv(vaultAddress),
+		"Vault address")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultRole, "vaultRole", os.Getenv(vaultRole),
+		"Vault role")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAuthPath, "vaultAuthPath", os.Getenv(vaultAuthPath),
+		"Vault auth path")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultSignCsrPath, "vaultSignCsrPath", os.Getenv(vaultSignCsrPath),
+		"Vault sign CSR path")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

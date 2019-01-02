@@ -90,6 +90,22 @@ func (c *nativeComponent) SetMeshConfig(yamlText string) error {
 	return ioutil.WriteFile(c.meshConfigFile, []byte(yamlText), os.ModePerm)
 }
 
+// ClearConfig implements Galley.ClearConfig.
+func (c *nativeComponent) ClearConfig() (err error) {
+	infos, err := ioutil.ReadDir(c.configDir)
+	if err != nil {
+		return err
+	}
+	for _, i := range infos {
+		err := os.Remove(path.Join(c.configDir, i.Name()))
+		if err != nil {
+			return err
+		}
+	}
+
+	return
+}
+
 // ApplyConfig implements Galley.ApplyConfig.
 func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
 	fn := fmt.Sprintf("cfg-%d.yaml", time.Now().UnixNano())
@@ -161,6 +177,7 @@ func (c *nativeComponent) Reset() error {
 
 	c.client = &client{
 		address: a.APIAddress,
+		ctx:     c.ctx,
 	}
 
 	if err = c.client.waitForStartup(); err != nil {
@@ -181,7 +198,6 @@ func (c *nativeComponent) Close() (err error) {
 		if err != nil {
 			scopes.Framework.Infof("Error while Galley server close during reset: %v", err)
 		}
-		_ = c.server.Wait()
 		c.server = nil
 	}
 	return

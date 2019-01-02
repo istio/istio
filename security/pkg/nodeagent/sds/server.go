@@ -37,8 +37,6 @@ type Options struct {
 	EnableWorkloadSDS bool
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
-	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
-	IngressSecretNameSpace string
 
 	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
 	EnableIngressGatewaySDS bool
@@ -64,6 +62,18 @@ type Options struct {
 
 	// PluginNames is plugins' name for certain authentication provider.
 	PluginNames []string
+
+	// The Vault CA address.
+	VaultAddress string
+
+	// The Vault auth path.
+	VaultAuthPath string
+
+	// The Vault role.
+	VaultRole string
+
+	// The Vault sign CSR path.
+	VaultSignCsrPath string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

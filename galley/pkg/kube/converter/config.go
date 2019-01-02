@@ -22,4 +22,6 @@ import (
 type Config struct {
 	// The cached mesh configuration.
 	Mesh meshconfig.Cache
+	// Domain suffix to use for service names.
+	DomainSuffix string
 }

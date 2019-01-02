@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ca
+package authenticate
 
 import (
 	"fmt"
@@ -33,31 +33,28 @@ const (
 	idTokenIssuer     = "https://accounts.google.com"
 )
 
-// authSource represents where authentication result is derived from.
-type authSource int
+// AuthSource represents where authentication result is derived from.
+type AuthSource int
 
 const (
-	authSourceClientCertificate authSource = iota
-	authSourceIDToken
+	AuthSourceClientCertificate AuthSource = iota
+	AuthSourceIDToken
 )
 
-type caller struct {
-	authSource authSource
-	identities []string
+// Caller carries the identity and authentication source of a caller.
+type Caller struct {
+	AuthSource AuthSource
+	Identities []string
 }
 
-type authenticator interface {
-	authenticate(ctx context.Context) (*caller, error)
-}
+// ClientCertAuthenticator extracts identities from client certificate.
+type ClientCertAuthenticator struct{}
 
-// An authenticator that extracts identities from client certificate.
-type clientCertAuthenticator struct{}
-
-// authenticate extracts identities from presented client certificates. This
+// Authenticate extracts identities from presented client certificates. This
 // method assumes that certificate chain has been properly validated before
 // this method is called. In other words, this method does not do certificate
 // chain validation itself.
-func (cca *clientCertAuthenticator) authenticate(ctx context.Context) (*caller, error) {
+func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("no client certificate is presented")
@@ -78,35 +75,37 @@ func (cca *clientCertAuthenticator) authenticate(ctx context.Context) (*caller, 
 		return nil, err
 	}
 
-	return &caller{
-		authSource: authSourceClientCertificate,
-		identities: ids,
+	return &Caller{
+		AuthSource: AuthSourceClientCertificate,
+		Identities: ids,
 	}, nil
 }
 
-// An authenticator that extracts identity from JWT. The JWT is required to be
+// IDTokenAuthenticator extracts identity from JWT. The JWT is required to be
 // transmitted using the "Bearer" authentication scheme.
-type idTokenAuthenticator struct {
+type IDTokenAuthenticator struct {
 	verifier *oidc.IDTokenVerifier
 }
 
-func newIDTokenAuthenticator(aud string) (*idTokenAuthenticator, error) {
+// NewIDTokenAuthenticator creates a new IDTokenAuthenticator.
+func NewIDTokenAuthenticator(aud string) (*IDTokenAuthenticator, error) {
 	provider, err := oidc.NewProvider(context.Background(), idTokenIssuer)
 	if err != nil {
 		return nil, err
 	}
 
 	verifier := provider.Verifier(&oidc.Config{ClientID: aud})
-	return &idTokenAuthenticator{verifier}, nil
+	return &IDTokenAuthenticator{verifier}, nil
 }
 
-func (ja *idTokenAuthenticator) authenticate(ctx context.Context) (*caller, error) {
+// Authenticate authenticates a caller using the JWT in the context.
+func (a *IDTokenAuthenticator) Authenticate(ctx context.Context) (*Caller, error) {
 	bearerToken, err := extractBearerToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("ID token extraction error: %v", err)
 	}
 
-	idToken, err := ja.verifier.Verify(context.Background(), bearerToken)
+	idToken, err := a.verifier.Verify(context.Background(), bearerToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify the ID token (error %v)", err)
 	}
@@ -119,9 +118,9 @@ func (ja *idTokenAuthenticator) authenticate(ctx context.Context) (*caller, erro
 		return nil, fmt.Errorf("failed to extract email field from ID token: %v", err)
 	}
 
-	return &caller{
-		authSource: authSourceIDToken,
-		identities: []string{sa.Email},
+	return &Caller{
+		AuthSource: AuthSourceIDToken,
+		Identities: []string{sa.Email},
 	}, nil
 }
 
