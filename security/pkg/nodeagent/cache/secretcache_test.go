@@ -185,7 +185,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 
 // TestGatewayAgentGenerateSecret verifies that ingress gateway agent manages secret cache correctly.
 func TestGatewayAgentGenerateSecret(t *testing.T) {
-	fetcher := secretfetcher.SecretFetcher{
+	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
 	fetcher.Init(fake.NewSimpleClientset().CoreV1())

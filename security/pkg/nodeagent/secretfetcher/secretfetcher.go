@@ -68,7 +68,6 @@ type SecretFetcher struct {
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store
-	clientSet			 *kubernetes.Clientset
 
 	// secrets maps k8sKey to secrets
 	secrets sync.Map
@@ -125,17 +124,17 @@ func (sf *SecretFetcher) Run(ch chan struct{}) {
 }
 
 // Init initializes SecretFetcher to watch kubernetes secrets.
-func (sf *SecretFetcher) Init(ci corev1.CoreV1Interface) {
+func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) {
 	namespace := os.Getenv(ingressSecretNameSpace)
 	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IngressSecretType}).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = istioSecretSelector
-			return ci.Secrets(namespace).List(options)
+			return core.Secrets(namespace).List(options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.FieldSelector = istioSecretSelector
-			return ci.Secrets(namespace).Watch(options)
+			return core.Secrets(namespace).Watch(options)
 		},
 	}
 	sf.scrtStore, sf.scrtController =
