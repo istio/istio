@@ -175,6 +175,8 @@ def getForwardHeaders(request):
     if 'user' in session:
         headers['end-user'] = session['user']
 
+    incoming_headers = ['x-request-id']
+
     # Add user-agent to headers manually
     if 'user-agent' in request.headers:
         headers['user-agent'] = request.headers.get('user-agent')
