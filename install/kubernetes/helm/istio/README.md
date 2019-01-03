@@ -93,7 +93,7 @@ The chart deploys pods that consume minimum resources as specified in the resour
     YWRtaW4=
     ```
 
-    - Encode passphrase, you can change the passphrase to the passphrase as you want:
+    - Encode password, you can change the password to the password as you want:
     ```
     $ echo -n '1f2d1e2e67df' | base64
     MWYyZDFlMmU2N2Rm
@@ -112,7 +112,7 @@ The chart deploys pods that consume minimum resources as specified in the resour
     type: Opaque
     data:
       username: YWRtaW4=
-      passphrase: MWYyZDFlMmU2N2Rm
+      password: MWYyZDFlMmU2N2Rm
     EOF
     ```
 
