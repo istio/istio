@@ -785,19 +785,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		}
 	}
 
-	validateListeners:
-		for name, l := range listenerMap {
-			if err := l.listener.Validate(); err != nil {
-				log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
-				invalidOutboundListeners.Add(1)
-				continue
-			}
-			if l.servicePort.Protocol.IsTCP() {
-				tcpListeners = append(tcpListeners, l.listener)
-			} else {
-				httpListeners = append(httpListeners, l.listener)
-			}
+validateListeners:
+	for name, l := range listenerMap {
+		if err := l.listener.Validate(); err != nil {
+			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
+			invalidOutboundListeners.Add(1)
+			continue
 		}
+		if l.servicePort.Protocol.IsTCP() {
+			tcpListeners = append(tcpListeners, l.listener)
+		} else {
+			httpListeners = append(httpListeners, l.listener)
+		}
+	}
 
 	return append(tcpListeners, httpListeners...)
 }

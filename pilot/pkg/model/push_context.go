@@ -281,7 +281,7 @@ func NewPushContext() *PushContext {
 		publicDestRuleHosts:               []Hostname{},
 		privateDestRuleByHostByNamespace:  map[string]map[Hostname]*combinedDestinationRule{},
 		privateDestRuleHostsByNamespace:   map[string][]Hostname{},
-		sidecarsByNamespace: map[string][]*SidecarScope{},
+		sidecarsByNamespace:               map[string][]*SidecarScope{},
 
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
@@ -400,7 +400,7 @@ func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
-		// Currently we assume that there will be only one sidecar config for a namespace.	
+		// Currently we assume that there will be only one sidecar config for a namespace.
 		for _, wrapper := range sidecars {
 			sidecar := wrapper.Config.Spec.(*networking.Sidecar)
 			// if there is no workload selector, the config applies to all workloads

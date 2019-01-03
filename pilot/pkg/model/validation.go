@@ -587,9 +587,9 @@ func ValidateSidecarConfig(name, namespace string, msg proto.Message) (errs erro
 	}
 
 	//for _, e := range rule.Egress {
-		// there can be only one catch all egress listener with empty port, and it should be the last listener.
-		// ensure ports are unique if specified
-		// cannot specify default endpoint for catch all egress listener
+	// there can be only one catch all egress listener with empty port, and it should be the last listener.
+	// ensure ports are unique if specified
+	// cannot specify default endpoint for catch all egress listener
 	//}
 
 	// for both ingress and egress, validate that the hosts field is a slash separated value

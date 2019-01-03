@@ -22,7 +22,7 @@ import (
 
 const (
 	wildcardNamespace = "*"
-	wildcardService = Hostname("*")
+	wildcardService   = Hostname("*")
 )
 
 // SidecarScope is a wrapper over the Sidecar resource with some
@@ -61,7 +61,7 @@ func DefaultSidecarScope() *SidecarScope {
 	return &SidecarScope{
 		EgressListeners: []*IstioListenerWrapper{
 			{
-				importMap: map[string]Hostname{ wildcardNamespace : wildcardService },
+				importMap: map[string]Hostname{wildcardNamespace: wildcardService},
 			},
 		},
 	}
@@ -89,13 +89,13 @@ func ConvertToSidecarScope(sidecarConfig *Config) *SidecarScope {
 func convertIstioListenerToWrapper(istioListener *networking.IstioListener) *IstioListenerWrapper {
 	out := &IstioListenerWrapper{
 		IstioListener: istioListener,
-		importMap : make(map[string]Hostname),
+		importMap:     make(map[string]Hostname),
 	}
 
 	if istioListener.Port != nil {
 		out.Port = &Port{
-			Name: istioListener.Port.Name,
-			Port: int(istioListener.Port.Number),
+			Name:     istioListener.Port.Name,
+			Port:     int(istioListener.Port.Number),
 			Protocol: ParseProtocol(istioListener.Port.Protocol),
 		}
 	}
@@ -139,7 +139,7 @@ func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service 
 			// Check if the hostnames match per usual hostname matching rules
 			if hostMatch.Matches(s.Hostname) {
 				importedServices = append(importedServices, s)
-			}			
+			}
 		}
 	}
 
