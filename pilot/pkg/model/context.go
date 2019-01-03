@@ -101,10 +101,6 @@ type Proxy struct {
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
-
-	// mutex control access to mutable fields in the Proxy. On-demand will modify the
-	// list of services based on calls from envoy.
-	mutex sync.RWMutex
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
