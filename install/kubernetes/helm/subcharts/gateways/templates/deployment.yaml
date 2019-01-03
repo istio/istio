@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "enabled") (ne $key "nodeSelector") }}
+{{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -252,7 +252,7 @@ spec:
           optional: true
       {{- end }}
       affinity:
-      {{- include "nodeaffinity" $ | indent 6 }}
+      {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
 ---
 {{- end }}
 {{- end }}
