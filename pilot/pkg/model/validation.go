@@ -825,7 +825,91 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 		}
 	}
 
+	srcLocalities := []string{}
+
+	for _, locality := range settings.LocalityWeightSettings {
+		srcLocalities = append(srcLocalities, locality.From)
+		var totalWeight uint32
+		destLocalities := []string{}
+		for loc, weight := range locality.To {
+			destLocalities = append(destLocalities, loc)
+			if weight == 0 {
+				errs = appendErrors(errs, fmt.Errorf("locality weight must not be in range [1, 100]"))
+			}
+			totalWeight += weight
+		}
+		if totalWeight != 100 {
+			errs = appendErrors(errs, fmt.Errorf("total locality weight %v != 100", totalWeight))
+		}
+		errs = appendErrors(errs, validateLocalities(destLocalities))
+	}
+
+	errs = appendErrors(errs, validateLocalities(srcLocalities))
+
 	return
+}
+
+func validateLocalities(localities []string) error {
+	regionZoneSubZoneMap := map[string]map[string]map[string]bool{}
+
+	for _, locality := range localities {
+		if n := strings.Count(locality, "*"); n > 0 {
+			if n > 1 || !strings.HasSuffix(locality, "*") {
+				return fmt.Errorf("locality %s wildcard '*' number can not exceed 1 and must be in the end", locality)
+			}
+		}
+
+		items := strings.SplitN(locality, "/", 3)
+		for _, item := range items {
+			if item == "" {
+				return fmt.Errorf("locality %s must not contain empty region/zone/subzone info", locality)
+			}
+		}
+		if _, ok := regionZoneSubZoneMap["*"]; ok {
+			return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+		}
+		switch len(items) {
+		case 1:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+			}
+			regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{"*": {"*": true}}
+		case 2:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				}
+				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				} else {
+					regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{"*": true}
+				}
+			} else {
+				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {"*": true}}
+			}
+		case 3:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				}
+				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
+					if regionZoneSubZoneMap[items[0]][items[1]]["*"] {
+						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+					}
+					if regionZoneSubZoneMap[items[0]][items[1]][items[2]] {
+						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+					}
+					regionZoneSubZoneMap[items[0]][items[1]][items[2]] = true
+				} else {
+					regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{items[2]: true}
+				}
+			} else {
+				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {items[2]: true}}
+			}
+		}
+	}
+
+	return nil
 }
 
 func validateTLS(settings *networking.TLSSettings) (errs error) {
