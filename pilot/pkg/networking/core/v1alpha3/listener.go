@@ -162,7 +162,7 @@ var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
 	switch node.Type {
-	case model.Sidecar:
+	case model.SidecarProxy:
 		return configgen.buildSidecarListeners(env, node, push)
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayListeners(env, node, push)
@@ -310,7 +310,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, sidecarScope *model.SidecarScope) []*xdsapi.Listener {
+	proxyInstances []*model.ServiceInstance, _ *model.SidecarScope) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
 	listenerMap := make(map[string]*model.ServiceInstance)
@@ -563,7 +563,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	// Control reaches this stage when we need to build a catch all egress
 	// listener. We need to generate a listener for every unique service
 	// port across all imported services, if and only if this port was not
-	// specified in any of the preceeding listeners from the sidecarScope.
+	// specified in any of the preceding listeners from the sidecarScope.
 	// TODO: Implement the logic for ignoring service ports processed earlier.
 	for _, service := range importedServices {
 		for _, servicePort := range service.Ports {

@@ -351,7 +351,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod1.ns2",
-			Type: model.Sidecar,
+			Type: model.SidecarProxy,
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -361,7 +361,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod2.ns2",
-			Type: model.Sidecar,
+			Type: model.SidecarProxy,
 		},
 		Service: &svc,
 		Push:    &pushContext,

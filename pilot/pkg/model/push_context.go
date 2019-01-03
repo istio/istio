@@ -386,7 +386,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	return out
 }
 
-// GetSidecarConfig returns a sidecar rule applicable to the config
+// GetSidecarScope returns a sidecar rule applicable to the config
 // namespace associated with the proxy
 func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
 	if proxy == nil {
@@ -619,7 +619,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 // Caches list of Sidecar resources
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(SidecarConfig.Type, NamespaceAll)
+	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}

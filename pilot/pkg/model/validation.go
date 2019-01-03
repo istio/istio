@@ -568,8 +568,8 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 	return
 }
 
-// ValidateSidecarConfig checks sidecar config supplied by user
-func ValidateSidecarConfig(name, namespace string, msg proto.Message) (errs error) {
+// ValidateSidecar checks sidecar config supplied by user
+func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.Sidecar)
 	if !ok {
 		return fmt.Errorf("cannot cast to Sidecar")

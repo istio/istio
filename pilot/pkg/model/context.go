@@ -111,8 +111,8 @@ type Proxy struct {
 type NodeType string
 
 const (
-	// Sidecar type is used for sidecar proxies in the application containers
-	Sidecar NodeType = "sidecar"
+	// SidecarProxy type is used for sidecar proxies in the application containers
+	SidecarProxy NodeType = "sidecar"
 
 	// Ingress type is used for cluster ingress proxies
 	Ingress NodeType = "ingress"
@@ -124,7 +124,7 @@ const (
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
-	case Sidecar, Ingress, Router:
+	case SidecarProxy, Ingress, Router:
 		return true
 	default:
 		return false
@@ -232,7 +232,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	out.Type = NodeType(parts[0])
 
 	switch out.Type {
-	case Sidecar, Ingress, Router:
+	case SidecarProxy, Ingress, Router:
 	default:
 		return out, fmt.Errorf("invalid node type (valid types: ingress, sidecar, router in the service node %q", s)
 	}
@@ -252,7 +252,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Does query from ingress or router have to carry valid IP address?
-	if len(out.IPAddresses) == 0 && out.Type == Sidecar {
+	if len(out.IPAddresses) == 0 && out.Type == SidecarProxy {
 		return out, fmt.Errorf("no valid IP address in the service node id or metadata")
 	}
 
