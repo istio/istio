@@ -15,6 +15,7 @@
 syntax = "proto3";
 
 import "google/protobuf/struct.proto";
+import "networking/v1alpha3/gateway.proto";
 
 package istio.networking.v1alpha3;
 
@@ -68,6 +69,12 @@ message EnvoyFilter {
   // The behavior is undefined if multiple EnvoyFilter configurations are
   // specified for the same workload.
   map<string, string> workload_labels = 1;
+
+  // $hide_from_docs
+  // Criteria used to select the specific set of pods/VMs
+  // on which this EnvoyFilter configuration should be applied. Precisely
+  // one of workloadLabels or workloadSelector must be specified.
+  WorkloadSelector workload_selector = 3;
 
   // Select a listener to add the filter to based on the match conditions.
   // All conditions specified in the ListenerMatch must be met for the filter

@@ -58,6 +58,114 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - "istio-system/*"
 // ```
 //
+message Sidecar {
+  // $hide_from_docs
+  // Criteria used to select the specific set of pods/VMs on which this
+  // sidecar configuration should be applied. If omitted, the sidecar
+  // configuration will be applied to all workloads in the current config
+  // namespace.
+  WorkloadSelector workload_selector = 1;
+
+  // $hide_from_docs
+  // Ingress specifies the configuration of the sidecar for processing
+  // inbound traffic to the attached workload. If omitted, Istio will
+  // autoconfigure the sidecar based on the information about the workload
+  // obtained from the service registry (e.g., exposed ports, services,
+  // etc.).
+  repeated IstioListener ingress = 2;
+
+  // Egress specifies the configuration of the sidecar for processing
+  // outbound traffic from the attached workload to other services in the
+  // mesh. If omitted, Istio will autoconfigure the sidecar to be able to
+  // reach every service in the mesh.  etc.).
+  repeated IstioListener egress = 3;
+}
+
+// IstioListener specifies the properties of a single listener on the
+// sidecar proxy attached to a workload.
+message IstioListener {
+  // An optional arbitrary name associated with the listener used for
+  // emitting metrics.
+  string name = 1;
+
+  // $hide_from_docs
+  // REQUIRED for ingress. The port associated with the listener. If using
+  // unix domain socket, use 0 as the port number, with a valid
+  // protocol. In the egress path, the port if specified, will be used as
+  // the default destination port associated with the imported hosts. If
+  // the port is omitted, Istio will infer the listener ports based on the
+  // imported hosts. Note that when multiple egress listeners are
+  // specified, where one or more listeners have specific ports while
+  // others have no port, the hosts exposed on a listener port will be
+  // based on the listener with the most specific port.
+  Port port = 2;
+
+  // $hide_from_docs
+  // The ip or the unix domain socket to which the listener should be bound
+  // to. Port MUST be specified if bindAddress is not empty. Format:
+  // x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux abstract
+  // namespace). If omitted, Istio will autoconfigure the defaults based on
+  // imported services and the workload to which this configuration is
+  // applied to.
+  string bind_address = 3;
+
+  // $hide_from_docs
+  // When the bind address is an IP:port, the bindToPort option dictates
+  // whether or not the sidecar should bind its listener socket to the
+  // specified port. Set bindToPort to false (default) if application
+  // traffic entering/leaving a pod/VM is captured automatically through
+  // iptables redirection and forwarded to the sidecar on a specific port
+  // (see proxyListenPort in the global MeshConfig). When not using
+  // iptables for traffic capture, set bindToPort to true to force the
+  // sidecar to bind to the specified port. Note that the binding might
+  // fail if the application workload is already bound to the same port.
+  bool bind_to_port = 4;
+
+  // One or more services/virtualServices exposed by the listener in
+  // namespace/dnsName format.  _*Hosts will be ignored for ingress
+  // servers*_. For egress servers, the hosts field results in importing
+  // one or more publicly scoped services and VirtualServices from remote
+  // namespaces. The service in a namespace can be a service in the service
+  // registry (e.g., a kubernetes or cloud foundry service) or a service
+  // specified via ServiceEntry configuration. In addition, any publicly
+  // scoped DestinationRule associated with the imported services will also
+  // be imported.
+  //
+  // Set the namespace to * to import a particular service from any
+  // available namespace (e.g., "*/foo.example.com"). Set the dnsName field
+  // to * to import all services from the specified namespace (e.g.,
+  // "prod/*"). The services should be specified using FQDN format.
+  //
+  // NOTE: Only exported services and configuration artifacts from a
+  // namespace can be imported. Private services/configuration will not be
+  // imported. Refer to the scope setting associated with VirtualService,
+  // DestinationRule, ServiceEntry, etc. for details.
+  repeated string hosts = 5;
+
+  // The IP endpoint or unix domain socket to which traffic should be
+  // forwarded to by default. In the context of an ingress server, this
+  // configuration can be used to redirect traffic arriving at the bind
+  // point on the sidecar to a port or unix domain socket where the
+  // application workload is listening for connections. Format should be
+  // 127.0.0.1:PORT or unix:///path/to/socket
+  string default_endpoint = 6;
+}
+
+// ConfigScope defines the visibility of an Istio configuration artifact in
+// a namespace when the namespace is imported.  By default all
+// configuration artifacts are public. Configurations with private scope
+// will not be imported when the namespace containing the configuration is
+// imported in a Sidecar.
+enum ConfigScope {
+  // Config with this scope are visible to all workloads in the mesh
+  PUBLIC = 0;
+
+  // Configs with this scope are visible to only workloads in the same
+  // namespace as the configuration resource.
+  PRIVATE = 1;
+}
+
+// $hide_from_docs
 // The example below delcares a Sidecar resource in the prod-us1 namespace
 // that accepts inbound HTTP traffic on port 9080 and forwards
 // it to the attached workload listening on a unix domain socket. In the
@@ -89,112 +197,3 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //     - "prod-us1/*"
 // ```
 //
-message Sidecar {
-  // $hide_from_docs
-  // Criteria used to select the specific set of pods/VMs on which this
-  // sidecar configuration should be applied. If omitted, the sidecar
-  // configuration will be applied to all workloads in the current config
-  // namespace.
-  WorkloadSelector workload_selector = 1;
-
-  // Ingress specifies the configuration of the sidecar for processing
-  // inbound traffic to the attached workload. If omitted, Istio will
-  // autoconfigure the sidecar based on the information about the workload
-  // obtained from the service registry (e.g., exposed ports, services,
-  // etc.).
-  repeated IstioListener ingress = 2;
-
-  // Egress specifies the configuration of the sidecar for processing
-  // outbound traffic from the attached workload to other services in the
-  // mesh. If omitted, Istio will autoconfigure the sidecar to be able to
-  // reach every service in the mesh.  etc.).
-  repeated IstioListener egress = 3;
-}
-
-// IstioListener specifies the properties of a single listener on the
-// sidecar proxy attached to a workload.
-message IstioListener {
-  // An optional arbitrary name associated with the listener used for
-  // emitting metrics.
-  string name = 1;
-
-  // REQUIRED for ingress. The port associated with the listener. If using
-  // unix domain socket, use 0 as the port number, with a valid
-  // protocol. In the egress path, the port if specified, will be used as
-  // the default destination port associated with the imported hosts. If
-  // the port is omitted, Istio will infer the listener ports based on the
-  // imported hosts. Note that when multiple egress listeners are
-  // specified, where one or more listeners have specific ports while
-  // others have no port, the hosts exposed on a listener port will be
-  // based on the listener with the most specific port.
-  Port port = 2;
-
-  // The ip or the unix domain socket to which the listener should be bound
-  // to. Port MUST be specified if bindAddress is not empty. Format:
-  // x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux abstract
-  // namespace). If omitted, Istio will autoconfigure the defaults based on
-  // imported services and the workload to which this configuration is
-  // applied to.
-  string bind_address = 3;
-
-  // $hide_from_docs
-  // When the bind address is an IP:port, the bindToPort option dictates
-  // whether or not the sidecar should bind its listener socket to the
-  // specified port. Set bindToPort to false (default) if application
-  // traffic entering/leaving a pod/VM is captured automatically through
-  // iptables redirection and forwarded to the sidecar on a specific port
-  // (see proxyListenPort in the global MeshConfig). When not using
-  // iptables for traffic capture, set bindToPort to true to force the
-  // sidecar to bind to the specified port. Note that the binding might
-  // fail if the application workload is already bound to the same port.
-  bool bind_to_port = 4;
-
-  // Specifies the protocol associated with this listener.  Recognized
-  // values are HTTP|TCP|MONGO|MYSQL. Any other value will be treated as
-  // equivalent to TCP.
-  string protocol = 5;
-
-  // One or more services/virtualServices exposed by the listener in
-  // namespace/dnsName format.  _*Hosts will be ignored for ingress
-  // servers*_. For egress servers, the hosts field results in importing
-  // one or more publicly scoped services and VirtualServices from remote
-  // namespaces. The service in a namespace can be a service in the service
-  // registry (e.g., a kubernetes or cloud foundry service) or a service
-  // specified via ServiceEntry configuration. In addition, any publicly
-  // scoped DestinationRule associated with the imported services will also
-  // be imported.
-  //
-  // Set the namespace to * to import a particular service from any
-  // available namespace (e.g., "*/foo.example.com"). Set the dnsName field
-  // to * to import all services from the specified namespace (e.g.,
-  // "prod/*"). Wildcard DNS names can be used to import a specific set of
-  // services from the specified namespace (e.g., "prod/*.example.com").
-  //
-  // NOTE: Only exported services and configuration artifacts from a
-  // namespace can be imported. Private services/configuration will not be
-  // imported. Refer to the scope setting associated with VirtualService,
-  // DestinationRule, ServiceEntry, etc. for details.
-  repeated string hosts = 6;
-
-  // The IP endpoint or unix domain socket to which traffic should be
-  // forwarded to by default. In the context of an ingress server, this
-  // configuration can be used to redirect traffic arriving at the bind
-  // point on the sidecar to a port or unix domain socket where the
-  // application workload is listening for connections. Format should be
-  // 127.0.0.1:PORT or unix:///path/to/socket
-  string default_endpoint = 7;
-}
-
-// ConfigScope defines the visibility of an Istio configuration artifact in
-// a namespace when the namespace is imported.  By default all
-// configuration artifacts are public. Configurations with private scope
-// will not be imported when the namespace containing the configuration is
-// imported in a Sidecar.
-enum ConfigScope {
-  // Config with this scope are visible to all workloads in the mesh
-  PUBLIC = 0;
-
-  // Configs with this scope are visible to only workloads in the same
-  // namespace as the configuration resource.
-  PRIVATE = 1;
-}

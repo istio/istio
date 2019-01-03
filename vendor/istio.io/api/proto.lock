@@ -2879,6 +2879,11 @@
             "name": "EnvoyFilter",
             "fields": [
               {
+                "id": 3,
+                "name": "workload_selector",
+                "type": "WorkloadSelector"
+              },
+              {
                 "id": 2,
                 "name": "filters",
                 "type": "Filter",
@@ -3375,17 +3380,12 @@
               },
               {
                 "id": 5,
-                "name": "protocol",
-                "type": "string"
-              },
-              {
-                "id": 6,
                 "name": "hosts",
                 "type": "string",
                 "is_repeated": true
               },
               {
-                "id": 7,
+                "id": 6,
                 "name": "default_endpoint",
                 "type": "string"
               }

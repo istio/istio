@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='networking/v1alpha3/sidecar.proto',
   package='istio.networking.v1alpha3',
   syntax='proto3',
-  serialized_pb=_b('\n!networking/v1alpha3/sidecar.proto\x12\x19istio.networking.v1alpha3\x1a!networking/v1alpha3/gateway.proto\"\xc6\x01\n\x07Sidecar\x12\x46\n\x11workload_selector\x18\x01 \x01(\x0b\x32+.istio.networking.v1alpha3.WorkloadSelector\x12\x39\n\x07ingress\x18\x02 \x03(\x0b\x32(.istio.networking.v1alpha3.IstioListener\x12\x38\n\x06\x65gress\x18\x03 \x03(\x0b\x32(.istio.networking.v1alpha3.IstioListener\"\xb3\x01\n\rIstioListener\x12\x0c\n\x04name\x18\x01 \x01(\t\x12-\n\x04port\x18\x02 \x01(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\x14\n\x0c\x62ind_address\x18\x03 \x01(\t\x12\x14\n\x0c\x62ind_to_port\x18\x04 \x01(\x08\x12\x10\n\x08protocol\x18\x05 \x01(\t\x12\r\n\x05hosts\x18\x06 \x03(\t\x12\x18\n\x10\x64\x65\x66\x61ult_endpoint\x18\x07 \x01(\t*&\n\x0b\x43onfigScope\x12\n\n\x06PUBLIC\x10\x00\x12\x0b\n\x07PRIVATE\x10\x01\x42\"Z istio.io/api/networking/v1alpha3b\x06proto3')
+  serialized_pb=_b('\n!networking/v1alpha3/sidecar.proto\x12\x19istio.networking.v1alpha3\x1a!networking/v1alpha3/gateway.proto\"\xc6\x01\n\x07Sidecar\x12\x46\n\x11workload_selector\x18\x01 \x01(\x0b\x32+.istio.networking.v1alpha3.WorkloadSelector\x12\x39\n\x07ingress\x18\x02 \x03(\x0b\x32(.istio.networking.v1alpha3.IstioListener\x12\x38\n\x06\x65gress\x18\x03 \x03(\x0b\x32(.istio.networking.v1alpha3.IstioListener\"\xa1\x01\n\rIstioListener\x12\x0c\n\x04name\x18\x01 \x01(\t\x12-\n\x04port\x18\x02 \x01(\x0b\x32\x1f.istio.networking.v1alpha3.Port\x12\x14\n\x0c\x62ind_address\x18\x03 \x01(\t\x12\x14\n\x0c\x62ind_to_port\x18\x04 \x01(\x08\x12\r\n\x05hosts\x18\x05 \x03(\t\x12\x18\n\x10\x64\x65\x66\x61ult_endpoint\x18\x06 \x01(\t*&\n\x0b\x43onfigScope\x12\n\n\x06PUBLIC\x10\x00\x12\x0b\n\x07PRIVATE\x10\x01\x42\"Z istio.io/api/networking/v1alpha3b\x06proto3')
   ,
   dependencies=[networking_dot_v1alpha3_dot_gateway__pb2.DESCRIPTOR,])
 
@@ -42,8 +42,8 @@ _CONFIGSCOPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=482,
-  serialized_end=520,
+  serialized_start=464,
+  serialized_end=502,
 )
 _sym_db.RegisterEnumDescriptor(_CONFIGSCOPE)
 
@@ -134,22 +134,15 @@ _ISTIOLISTENER = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='protocol', full_name='istio.networking.v1alpha3.IstioListener.protocol', index=4,
-      number=5, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=_b("").decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
-    _descriptor.FieldDescriptor(
-      name='hosts', full_name='istio.networking.v1alpha3.IstioListener.hosts', index=5,
-      number=6, type=9, cpp_type=9, label=3,
+      name='hosts', full_name='istio.networking.v1alpha3.IstioListener.hosts', index=4,
+      number=5, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='default_endpoint', full_name='istio.networking.v1alpha3.IstioListener.default_endpoint', index=6,
-      number=7, type=9, cpp_type=9, label=1,
+      name='default_endpoint', full_name='istio.networking.v1alpha3.IstioListener.default_endpoint', index=5,
+      number=6, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -167,7 +160,7 @@ _ISTIOLISTENER = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=301,
-  serialized_end=480,
+  serialized_end=462,
 )
 
 _SIDECAR.fields_by_name['workload_selector'].message_type = networking_dot_v1alpha3_dot_gateway__pb2._WORKLOADSELECTOR

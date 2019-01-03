@@ -375,9 +375,12 @@ message Port {
 }
 
 // WorkloadSelector specifies the criteria used to determine if the Gateway
-// or Sidecar resource can be applied to a given workload. If multiple
-// conditions are specified, all conditions need to match in order for the
-// workload to be selected.
+// or Sidecar resource can be applied to a proxy. The matching criteria
+// includes the metadata associated with a proxy, workload info such as
+// labels attached to the pod/VM, or any other info that the proxy provides
+// to Istio during the initial handshake. If multiple conditions are
+// specified, all conditions need to match in order for the workload to be
+// selected. Currently, only label based selection mechanism is supported.
 message WorkloadSelector {
   // One or more labels that indicate a specific set of pods/VMs on which
   // this gateway/sidecar configuration should be applied. The scope of
@@ -386,7 +389,7 @@ message WorkloadSelector {
   map<string, string> labels = 1;
 
   // $hide_from_docs
-  // [#not-implemented-hide:]
-  // other forms of identification such as X509 fields, tenant IDs, JWT,
-  // etc. will be added in future.
+  // other forms of identification supplied by the proxy
+  // when connecting to Pilot, such as X509 fields, tenant IDs, JWT,
+  // etc. This has nothing to do with the request level authN etc.
 }

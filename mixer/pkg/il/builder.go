@@ -150,6 +150,134 @@ func (f *Builder) AEQString(v string) {
 	f.op1(AEqS, f.id(v))
 }
 
+// LTString appends the "lt_s" instruction to the byte code.
+func (f *Builder) LTString() {
+	f.op0(LtS)
+}
+
+// LTInteger appends the "lt_i" instruction to the byte code.
+func (f *Builder) LTInteger() {
+	f.op0(LtI)
+}
+
+// LTDouble appends the "lt_d" instruction to the byte code.
+func (f *Builder) LTDouble() {
+	f.op0(LtD)
+}
+
+// ALTString appends the "alt_s" instruction to the byte code.
+func (f *Builder) ALTString(v string) {
+	f.op1(ALtS, f.id(v))
+}
+
+// ALTInteger appends the "alt_i" instruction to the byte code.
+func (f *Builder) ALTInteger(v int64) {
+	a1, a2 := IntegerToByteCode(v)
+	f.op2(ALtI, a1, a2)
+}
+
+// ALTDouble appends the "alt_d" instruction to the byte code.
+func (f *Builder) ALTDouble(v float64) {
+	a1, a2 := DoubleToByteCode(v)
+	f.op2(ALtD, a1, a2)
+}
+
+// LEString appends the "le_s" instruction to the byte code.
+func (f *Builder) LEString() {
+	f.op0(LeS)
+}
+
+// LEInteger appends the "le_i" instruction to the byte code.
+func (f *Builder) LEInteger() {
+	f.op0(LeI)
+}
+
+// LEDouble appends the "le_d" instruction to the byte code.
+func (f *Builder) LEDouble() {
+	f.op0(LeD)
+}
+
+// ALEString appends the "ale_s" instruction to the byte code.
+func (f *Builder) ALEString(v string) {
+	f.op1(ALeS, f.id(v))
+}
+
+// ALEInteger appends the "ale_i" instruction to the byte code.
+func (f *Builder) ALEInteger(v int64) {
+	a1, a2 := IntegerToByteCode(v)
+	f.op2(ALeI, a1, a2)
+}
+
+// ALEDouble appends the "ale_d" instruction to the byte code.
+func (f *Builder) ALEDouble(v float64) {
+	a1, a2 := DoubleToByteCode(v)
+	f.op2(ALeD, a1, a2)
+}
+
+// GTString appends the "gt_s" instruction to the byte code.
+func (f *Builder) GTString() {
+	f.op0(GtS)
+}
+
+// GTInteger appends the "gt_i" instruction to the byte code.
+func (f *Builder) GTInteger() {
+	f.op0(GtI)
+}
+
+// GTDouble appends the "gt_d" instruction to the byte code.
+func (f *Builder) GTDouble() {
+	f.op0(GtD)
+}
+
+// AGTString appends the "agt_s" instruction to the byte code.
+func (f *Builder) AGTString(v string) {
+	f.op1(AGtS, f.id(v))
+}
+
+// AGTInteger appends the "agt_i" instruction to the byte code.
+func (f *Builder) AGTInteger(v int64) {
+	a1, a2 := IntegerToByteCode(v)
+	f.op2(AGtI, a1, a2)
+}
+
+// AGTDouble appends the "agt_d" instruction to the byte code.
+func (f *Builder) AGTDouble(v float64) {
+	a1, a2 := DoubleToByteCode(v)
+	f.op2(AGtD, a1, a2)
+}
+
+// GEString appends the "ge_s" instruction to the byte code.
+func (f *Builder) GEString() {
+	f.op0(GeS)
+}
+
+// GEInteger appends the "ge_i" instruction to the byte code.
+func (f *Builder) GEInteger() {
+	f.op0(GeI)
+}
+
+// GEDouble appends the "ge_d" instruction to the byte code.
+func (f *Builder) GEDouble() {
+	f.op0(GeD)
+}
+
+// AGEString appends the "age_s" instruction to the byte code.
+func (f *Builder) AGEString(v string) {
+	f.op1(AGeS, f.id(v))
+}
+
+// AGEInteger appends the "age_d" instruction to the byte code.
+func (f *Builder) AGEInteger(v int64) {
+	a1, a2 := IntegerToByteCode(v)
+	f.op2(AGeI, a1, a2)
+}
+
+// AGEDouble appends the "age_i" instruction to the byte code.
+func (f *Builder) AGEDouble(v float64) {
+	a1, a2 := DoubleToByteCode(v)
+	f.op2(AGeD, a1, a2)
+}
+
 // EQBool appends the "eq_b" instruction to the byte code.
 func (f *Builder) EQBool() {
 	f.op0(EqB)

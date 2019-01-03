@@ -2171,45 +2171,6 @@ emitting metrics.</p>
 
 </td>
 </tr>
-<tr id="IstioListener-port">
-<td><code>port</code></td>
-<td><code><a href="#Port">Port</a></code></td>
-<td>
-<p>REQUIRED for ingress. The port associated with the listener. If using
-unix domain socket, use 0 as the port number, with a valid
-protocol. In the egress path, the port if specified, will be used as
-the default destination port associated with the imported hosts. If
-the port is omitted, Istio will infer the listener ports based on the
-imported hosts. Note that when multiple egress listeners are
-specified, where one or more listeners have specific ports while
-others have no port, the hosts exposed on a listener port will be
-based on the listener with the most specific port.</p>
-
-</td>
-</tr>
-<tr id="IstioListener-bind_address">
-<td><code>bindAddress</code></td>
-<td><code>string</code></td>
-<td>
-<p>The ip or the unix domain socket to which the listener should be bound
-to. Port MUST be specified if bindAddress is not empty. Format:
-x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux abstract
-namespace). If omitted, Istio will autoconfigure the defaults based on
-imported services and the workload to which this configuration is
-applied to.</p>
-
-</td>
-</tr>
-<tr id="IstioListener-protocol">
-<td><code>protocol</code></td>
-<td><code>string</code></td>
-<td>
-<p>Specifies the protocol associated with this listener.  Recognized
-values are HTTP|TCP|MONGO|MYSQL. Any other value will be treated as
-equivalent to TCP.</p>
-
-</td>
-</tr>
 <tr id="IstioListener-hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
@@ -2227,8 +2188,7 @@ be imported.</p>
 <p>Set the namespace to * to import a particular service from any
 available namespace (e.g., &ldquo;*/foo.example.com&rdquo;). Set the dnsName field
 to * to import all services from the specified namespace (e.g.,
-&ldquo;prod/<em>&rdquo;). Wildcard DNS names can be used to import a specific set of
-services from the specified namespace (e.g., &ldquo;prod/</em>.example.com&rdquo;).</p>
+&ldquo;prod/*&rdquo;). The services should be specified using FQDN format.</p>
 
 <p>NOTE: Only exported services and configuration artifacts from a
 namespace can be imported. Private services/configuration will not be
@@ -3747,36 +3707,6 @@ spec:
     - &quot;istio-system/*&quot;
 </code></pre>
 
-<p>The example below delcares a Sidecar resource in the prod-us1 namespace
-that accepts inbound HTTP traffic on port 9080 and forwards
-it to the attached workload listening on a unix domain socket. In the
-egress direction, in addition to the istio-system namespace, the sidecar
-proxies only HTTP traffic bound for port 9080 for services in the
-prod-us1 namespace.</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: prod-us1
-spec:
-  ingress:
-  - port:
-      number: 9080
-      protocol: HTTP
-      name: somename
-    defaultEndpoint: unix:///var/run/someuds.sock
-  egress:
-  - hosts:
-    - &quot;istio-system/*&quot;
-  - port:
-      number: 9080
-      protocol: HTTP
-      name: egresshttp
-    hosts:
-    - &quot;prod-us1/*&quot;
-</code></pre>
-
 <table class="message-fields">
 <thead>
 <tr>
@@ -3786,18 +3716,6 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Sidecar-ingress">
-<td><code>ingress</code></td>
-<td><code><a href="#IstioListener">IstioListener[]</a></code></td>
-<td>
-<p>Ingress specifies the configuration of the sidecar for processing
-inbound traffic to the attached workload. If omitted, Istio will
-autoconfigure the sidecar based on the information about the workload
-obtained from the service registry (e.g., exposed ports, services,
-etc.).</p>
-
-</td>
-</tr>
 <tr id="Sidecar-egress">
 <td><code>egress</code></td>
 <td><code><a href="#IstioListener">IstioListener[]</a></code></td>
@@ -4580,9 +4498,12 @@ namespace as the virtual service.</p>
 <h2 id="WorkloadSelector">WorkloadSelector</h2>
 <section>
 <p>WorkloadSelector specifies the criteria used to determine if the Gateway
-or Sidecar resource can be applied to a given workload. If multiple
-conditions are specified, all conditions need to match in order for the
-workload to be selected.</p>
+or Sidecar resource can be applied to a proxy. The matching criteria
+includes the metadata associated with a proxy, workload info such as
+labels attached to the pod/VM, or any other info that the proxy provides
+to Istio during the initial handshake. If multiple conditions are
+specified, all conditions need to match in order for the workload to be
+selected. Currently, only label based selection mechanism is supported.</p>
 
 <table class="message-fields">
 <thead>

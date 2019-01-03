@@ -1607,7 +1607,7 @@
 
 [[projects]]
   branch = "sidecars"
-  digest = "1:6edfd6a3c067f03aade8ba5edf5e5ba941dc22a9f0e7b3a6d958428b6ceeb1bb"
+  digest = "1:b5bb525c7c5774abe57b21d00bf1b8fe50529b29796d96f41bb9a0d56975cb99"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1623,7 +1623,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "2686d00aecb8617f2748bd712cd8f2a6fd1859b5"
+  revision = "e2ab7c629bb5ed5b485965133672d621b568f03e"
   source = "github.com/rshriram/api"
 
 [[projects]]
