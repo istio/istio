@@ -9,30 +9,15 @@ import (
 	// Pull in all the known proto types to ensure we get their types registered.
 
 	// Register protos in istio.io/api/authentication/v1alpha1""
-	_ "istio.io/api/authentication/v1alpha1"
-
-	// Register protos in istio.io/api/mixer/v1/config/client""
-	_ "istio.io/api/mixer/v1/config/client"
-
-	// Register protos in istio.io/api/networking/v1alpha3""
-	_ "istio.io/api/networking/v1alpha3"
-
-	// Register protos in istio.io/api/policy/v1beta1""
-	_ "istio.io/api/policy/v1beta1"
-
-	// Register protos in istio.io/api/rbac/v1alpha1""
-	_ "istio.io/api/rbac/v1alpha1"
-
-	// Register protos in istio.io/istio/galley/pkg/kube/converter/legacy""
-	_ "istio.io/istio/galley/pkg/kube/converter/legacy"
-
-	// Register protos in k8s.io/api/core/v1""
-	_ "k8s.io/api/core/v1"
-
-	// Register protos in k8s.io/api/extensions/v1beta1""
-	_ "k8s.io/api/extensions/v1beta1"
-
+	_ "istio.io/api/authentication/v1alpha1"            // Register protos in istio.io/api/mixer/v1/config/client""
+	_ "istio.io/api/mixer/v1/config/client"             // Register protos in istio.io/api/networking/v1alpha3""
+	_ "istio.io/api/networking/v1alpha3"                // Register protos in istio.io/api/policy/v1beta1""
+	_ "istio.io/api/policy/v1beta1"                     // Register protos in istio.io/api/rbac/v1alpha1""
+	_ "istio.io/api/rbac/v1alpha1"                      // Register protos in istio.io/istio/galley/pkg/kube/converter/legacy""
+	_ "istio.io/istio/galley/pkg/kube/converter/legacy" // Register protos in k8s.io/api/core/v1""
 	"istio.io/istio/galley/pkg/runtime/resource"
+	_ "k8s.io/api/core/v1" // Register protos in k8s.io/api/extensions/v1beta1""
+	_ "k8s.io/api/extensions/v1beta1"
 )
 
 // Types of known resources.
@@ -97,6 +82,9 @@ var (
 	// ServiceSpec metadata
 	ServiceSpec resource.Info
 
+	// Sidecar metadata
+	Sidecar resource.Info
+
 	// VirtualService metadata
 	VirtualService resource.Info
 )
@@ -122,6 +110,7 @@ func init() {
 	ServiceRole = b.Register("type.googleapis.com/istio.rbac.v1alpha1.ServiceRole")
 	ServiceRoleBinding = b.Register("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding")
 	ServiceSpec = b.Register("type.googleapis.com/k8s.io.api.core.v1.ServiceSpec")
+	Sidecar = b.Register("type.googleapis.com/istio.networking.v1alpha3.Sidecar")
 	VirtualService = b.Register("type.googleapis.com/istio.networking.v1alpha3.VirtualService")
 
 	Types = b.Build()
