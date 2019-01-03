@@ -16,10 +16,11 @@ package kube
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/features/pilot"
 	"sort"
 	"strconv"
 	"strings"
+
+	"istio.io/istio/pkg/features/pilot"
 
 	multierror "github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
