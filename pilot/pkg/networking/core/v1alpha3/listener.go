@@ -365,7 +365,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Append and forward client cert to backend.
 					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-					ServerName:               EnvoyServerName,
+					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: &google_protobuf.BoolValue{Value: true},
+						Uri:     true,
+						Dns:     true,
+					},
+					ServerName: EnvoyServerName,
 				},
 			}
 			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
