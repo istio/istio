@@ -92,7 +92,7 @@ func startAll() error {
 }
 
 func startMixer() error {
-	srv, err := mixerEnv.NewMixerServer(9091, false, false,"")
+	srv, err := mixerEnv.NewMixerServer(9091, false, false, "")
 	if err != nil {
 		return err
 	}
