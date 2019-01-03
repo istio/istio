@@ -111,5 +111,10 @@ func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) b
 		return false
 	}
 
+	// If proxy locality set, support locality weighted load balancing
+	if proxy.Locality != "" {
+		return false
+	}
+
 	return networkView[model.UnnamedNetwork]
 }

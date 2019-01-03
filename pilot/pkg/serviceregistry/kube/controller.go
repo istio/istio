@@ -546,6 +546,17 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
+// GetProxyLocality returns the locality where the proxy runs.
+func (c *Controller) GetProxyLocality(proxy *model.Proxy) string {
+	proxyIP := proxy.IPAddress
+	locality := ""
+	pod := c.pods.getPodByIP(proxyIP)
+	if pod != nil {
+		locality = c.GetPodAZ(pod)
+	}
+	return locality
+}
+
 func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 

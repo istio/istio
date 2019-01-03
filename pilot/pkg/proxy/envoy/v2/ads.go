@@ -622,6 +622,9 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
 	nt.Locality = util.LocalityToString(discReq.Node.Locality)
+	if nt.Locality == "" {
+		nt.Locality = s.Env.GetProxyLocality(nt)
+	}
 	con.mu.Lock()
 	con.modelNode = nt
 	if con.ConID == "" {

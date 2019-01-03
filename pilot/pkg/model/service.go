@@ -496,6 +496,9 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
+	// GetProxyLocality returns the locality where the proxy runs.
+	GetProxyLocality(*Proxy) string
+
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
 	// tasks such as health checks, etc. In a scenario where the proxy functions in the
