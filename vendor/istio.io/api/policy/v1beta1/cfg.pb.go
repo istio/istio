@@ -20,6 +20,10 @@
 		RandomSampling
 		RateLimitSampling
 		FractionalPercent
+		Authentication
+		Tls
+		OAuth
+		Mutual
 		Value
 		IPAddress
 		Duration
@@ -114,6 +118,29 @@ var FractionalPercent_DenominatorType_value = map[string]int32{
 func (FractionalPercent_DenominatorType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptorCfg, []int{9, 0}
 }
+
+// AuthHeader specifies how to pass access token with authorization header.
+type Tls_AuthHeader int32
+
+const (
+	// Access token is passed in authorization header as what it is
+	// (authorization: some-token).
+	PLAIN Tls_AuthHeader = 0
+	// Access token is passed to adapter as bearer token (i.e. authorization:
+	// bearer some-token).
+	BEARER Tls_AuthHeader = 1
+)
+
+var Tls_AuthHeader_name = map[int32]string{
+	0: "PLAIN",
+	1: "BEARER",
+}
+var Tls_AuthHeader_value = map[string]int32{
+	"PLAIN":  0,
+	"BEARER": 1,
+}
+
+func (Tls_AuthHeader) EnumDescriptor() ([]byte, []int) { return fileDescriptorCfg, []int{11, 0} }
 
 // AttributeManifest describes a set of Attributes produced by some component
 // of an Istio deployment.
@@ -622,6 +649,9 @@ type Connection struct {
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	// Timeout for remote calls to the backend.
 	Timeout *time.Duration `protobuf:"bytes,3,opt,name=timeout,stdduration" json:"timeout,omitempty"`
+	// Auth config for the connection to the backend. If omitted, plain text will
+	// be used.
+	Authentication *Authentication `protobuf:"bytes,4,opt,name=authentication" json:"authentication,omitempty"`
 }
 
 func (m *Connection) Reset()                    { *m = Connection{} }
@@ -638,6 +668,13 @@ func (m *Connection) GetAddress() string {
 func (m *Connection) GetTimeout() *time.Duration {
 	if m != nil {
 		return m.Timeout
+	}
+	return nil
+}
+
+func (m *Connection) GetAuthentication() *Authentication {
+	if m != nil {
+		return m.Authentication
 	}
 	return nil
 }
@@ -795,6 +832,439 @@ func (m *FractionalPercent) GetDenominator() FractionalPercent_DenominatorType {
 	return HUNDRED
 }
 
+// Authentication allows the operator to specify the authentication of
+// connections to out-of-process infrastructure backend.
+type Authentication struct {
+	// Types that are valid to be assigned to AuthType:
+	//	*Authentication_Tls
+	//	*Authentication_Mutual
+	AuthType isAuthentication_AuthType `protobuf_oneof:"auth_type"`
+}
+
+func (m *Authentication) Reset()                    { *m = Authentication{} }
+func (*Authentication) ProtoMessage()               {}
+func (*Authentication) Descriptor() ([]byte, []int) { return fileDescriptorCfg, []int{10} }
+
+type isAuthentication_AuthType interface {
+	isAuthentication_AuthType()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Authentication_Tls struct {
+	Tls *Tls `protobuf:"bytes,1,opt,name=tls,oneof"`
+}
+type Authentication_Mutual struct {
+	Mutual *Mutual `protobuf:"bytes,2,opt,name=mutual,oneof"`
+}
+
+func (*Authentication_Tls) isAuthentication_AuthType()    {}
+func (*Authentication_Mutual) isAuthentication_AuthType() {}
+
+func (m *Authentication) GetAuthType() isAuthentication_AuthType {
+	if m != nil {
+		return m.AuthType
+	}
+	return nil
+}
+
+func (m *Authentication) GetTls() *Tls {
+	if x, ok := m.GetAuthType().(*Authentication_Tls); ok {
+		return x.Tls
+	}
+	return nil
+}
+
+func (m *Authentication) GetMutual() *Mutual {
+	if x, ok := m.GetAuthType().(*Authentication_Mutual); ok {
+		return x.Mutual
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Authentication) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Authentication_OneofMarshaler, _Authentication_OneofUnmarshaler, _Authentication_OneofSizer, []interface{}{
+		(*Authentication_Tls)(nil),
+		(*Authentication_Mutual)(nil),
+	}
+}
+
+func _Authentication_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Authentication)
+	// auth_type
+	switch x := m.AuthType.(type) {
+	case *Authentication_Tls:
+		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Tls); err != nil {
+			return err
+		}
+	case *Authentication_Mutual:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Mutual); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Authentication.AuthType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Authentication_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Authentication)
+	switch tag {
+	case 1: // auth_type.tls
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Tls)
+		err := b.DecodeMessage(msg)
+		m.AuthType = &Authentication_Tls{msg}
+		return true, err
+	case 2: // auth_type.mutual
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Mutual)
+		err := b.DecodeMessage(msg)
+		m.AuthType = &Authentication_Mutual{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Authentication_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Authentication)
+	// auth_type
+	switch x := m.AuthType.(type) {
+	case *Authentication_Tls:
+		s := proto.Size(x.Tls)
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Authentication_Mutual:
+		s := proto.Size(x.Mutual)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// Tls let operator specify client authentication setting when TLS is used for
+// connection to the backend.
+type Tls struct {
+	// The path to the file holding additional CA certificates to well known
+	// public certs.
+	CaCertificates string `protobuf:"bytes,1,opt,name=ca_certificates,json=caCertificates,proto3" json:"ca_certificates,omitempty"`
+	// Specifies how to get access token for client authn and authz.
+	//
+	// Types that are valid to be assigned to TokenSource:
+	//	*Tls_TokenPath
+	//	*Tls_Oauth
+	TokenSource isTls_TokenSource `protobuf_oneof:"token_source"`
+	// Specifies how to pass access token to the adapter backend.
+	//
+	// Types that are valid to be assigned to TokenType:
+	//	*Tls_AuthHeader_
+	//	*Tls_CustomHeader
+	TokenType isTls_TokenType `protobuf_oneof:"token_type"`
+}
+
+func (m *Tls) Reset()                    { *m = Tls{} }
+func (*Tls) ProtoMessage()               {}
+func (*Tls) Descriptor() ([]byte, []int) { return fileDescriptorCfg, []int{11} }
+
+type isTls_TokenSource interface {
+	isTls_TokenSource()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+type isTls_TokenType interface {
+	isTls_TokenType()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type Tls_TokenPath struct {
+	TokenPath string `protobuf:"bytes,2,opt,name=token_path,json=tokenPath,proto3,oneof"`
+}
+type Tls_Oauth struct {
+	Oauth *OAuth `protobuf:"bytes,3,opt,name=oauth,oneof"`
+}
+type Tls_AuthHeader_ struct {
+	AuthHeader Tls_AuthHeader `protobuf:"varint,4,opt,name=auth_header,json=authHeader,proto3,enum=istio.policy.v1beta1.Tls_AuthHeader,oneof"`
+}
+type Tls_CustomHeader struct {
+	CustomHeader string `protobuf:"bytes,5,opt,name=custom_header,json=customHeader,proto3,oneof"`
+}
+
+func (*Tls_TokenPath) isTls_TokenSource()  {}
+func (*Tls_Oauth) isTls_TokenSource()      {}
+func (*Tls_AuthHeader_) isTls_TokenType()  {}
+func (*Tls_CustomHeader) isTls_TokenType() {}
+
+func (m *Tls) GetTokenSource() isTls_TokenSource {
+	if m != nil {
+		return m.TokenSource
+	}
+	return nil
+}
+func (m *Tls) GetTokenType() isTls_TokenType {
+	if m != nil {
+		return m.TokenType
+	}
+	return nil
+}
+
+func (m *Tls) GetCaCertificates() string {
+	if m != nil {
+		return m.CaCertificates
+	}
+	return ""
+}
+
+func (m *Tls) GetTokenPath() string {
+	if x, ok := m.GetTokenSource().(*Tls_TokenPath); ok {
+		return x.TokenPath
+	}
+	return ""
+}
+
+func (m *Tls) GetOauth() *OAuth {
+	if x, ok := m.GetTokenSource().(*Tls_Oauth); ok {
+		return x.Oauth
+	}
+	return nil
+}
+
+func (m *Tls) GetAuthHeader() Tls_AuthHeader {
+	if x, ok := m.GetTokenType().(*Tls_AuthHeader_); ok {
+		return x.AuthHeader
+	}
+	return PLAIN
+}
+
+func (m *Tls) GetCustomHeader() string {
+	if x, ok := m.GetTokenType().(*Tls_CustomHeader); ok {
+		return x.CustomHeader
+	}
+	return ""
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Tls) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _Tls_OneofMarshaler, _Tls_OneofUnmarshaler, _Tls_OneofSizer, []interface{}{
+		(*Tls_TokenPath)(nil),
+		(*Tls_Oauth)(nil),
+		(*Tls_AuthHeader_)(nil),
+		(*Tls_CustomHeader)(nil),
+	}
+}
+
+func _Tls_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Tls)
+	// token_source
+	switch x := m.TokenSource.(type) {
+	case *Tls_TokenPath:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.TokenPath)
+	case *Tls_Oauth:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Oauth); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Tls.TokenSource has unexpected type %T", x)
+	}
+	// token_type
+	switch x := m.TokenType.(type) {
+	case *Tls_AuthHeader_:
+		_ = b.EncodeVarint(4<<3 | proto.WireVarint)
+		_ = b.EncodeVarint(uint64(x.AuthHeader))
+	case *Tls_CustomHeader:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.CustomHeader)
+	case nil:
+	default:
+		return fmt.Errorf("Tls.TokenType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Tls_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Tls)
+	switch tag {
+	case 2: // token_source.token_path
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.TokenSource = &Tls_TokenPath{x}
+		return true, err
+	case 3: // token_source.oauth
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(OAuth)
+		err := b.DecodeMessage(msg)
+		m.TokenSource = &Tls_Oauth{msg}
+		return true, err
+	case 4: // token_type.auth_header
+		if wire != proto.WireVarint {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeVarint()
+		m.TokenType = &Tls_AuthHeader_{Tls_AuthHeader(x)}
+		return true, err
+	case 5: // token_type.custom_header
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.TokenType = &Tls_CustomHeader{x}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _Tls_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*Tls)
+	// token_source
+	switch x := m.TokenSource.(type) {
+	case *Tls_TokenPath:
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.TokenPath)))
+		n += len(x.TokenPath)
+	case *Tls_Oauth:
+		s := proto.Size(x.Oauth)
+		n += proto.SizeVarint(3<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	// token_type
+	switch x := m.TokenType.(type) {
+	case *Tls_AuthHeader_:
+		n += proto.SizeVarint(4<<3 | proto.WireVarint)
+		n += proto.SizeVarint(uint64(x.AuthHeader))
+	case *Tls_CustomHeader:
+		n += proto.SizeVarint(5<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(len(x.CustomHeader)))
+		n += len(x.CustomHeader)
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// OAuth let operator specify config to fetch access token via oauth when using
+// TLS for connection to the backend.
+type OAuth struct {
+	// REQUIRED. OAuth client id for mixer.
+	ClientId string `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// REQUIRED. The path to the file holding the client secret for oauth.
+	ClientSecret string `protobuf:"bytes,2,opt,name=client_secret,json=clientSecret,proto3" json:"client_secret,omitempty"`
+	// REQUIRED. The Resource server's token endpoint URL.
+	TokenUrl string `protobuf:"bytes,3,opt,name=token_url,json=tokenUrl,proto3" json:"token_url,omitempty"`
+	// List of requested permissions.
+	Scopes []string `protobuf:"bytes,4,rep,name=scopes" json:"scopes,omitempty"`
+	// Additional parameters for requests to the token endpoint.
+	EndpointParams map[string]string `protobuf:"bytes,5,rep,name=endpoint_params,json=endpointParams" json:"endpoint_params,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (m *OAuth) Reset()                    { *m = OAuth{} }
+func (*OAuth) ProtoMessage()               {}
+func (*OAuth) Descriptor() ([]byte, []int) { return fileDescriptorCfg, []int{12} }
+
+func (m *OAuth) GetClientId() string {
+	if m != nil {
+		return m.ClientId
+	}
+	return ""
+}
+
+func (m *OAuth) GetClientSecret() string {
+	if m != nil {
+		return m.ClientSecret
+	}
+	return ""
+}
+
+func (m *OAuth) GetTokenUrl() string {
+	if m != nil {
+		return m.TokenUrl
+	}
+	return ""
+}
+
+func (m *OAuth) GetScopes() []string {
+	if m != nil {
+		return m.Scopes
+	}
+	return nil
+}
+
+func (m *OAuth) GetEndpointParams() map[string]string {
+	if m != nil {
+		return m.EndpointParams
+	}
+	return nil
+}
+
+// Mutual let operator specify tls config for mixer as client if mtls is used to
+// secure connection to adapter backend.
+type Mutual struct {
+	// The path to the file holding the private key for mtls. If omitted, the
+	// default mixer private key will be used.
+	PrivateKey string `protobuf:"bytes,1,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
+	// The path to the file holding client certificate for mtls. If omitted, the
+	// default mixer certificates will be used.
+	ClientCertificate string `protobuf:"bytes,2,opt,name=client_certificate,json=clientCertificate,proto3" json:"client_certificate,omitempty"`
+	// The path to the file holding additional CA certificates that are needed to
+	// verify the presented adapter certificates. By default mixer should already
+	// include Istio CA certificates and system certificates in cert pool.
+	CaCertificates string `protobuf:"bytes,3,opt,name=ca_certificates,json=caCertificates,proto3" json:"ca_certificates,omitempty"`
+}
+
+func (m *Mutual) Reset()                    { *m = Mutual{} }
+func (*Mutual) ProtoMessage()               {}
+func (*Mutual) Descriptor() ([]byte, []int) { return fileDescriptorCfg, []int{13} }
+
+func (m *Mutual) GetPrivateKey() string {
+	if m != nil {
+		return m.PrivateKey
+	}
+	return ""
+}
+
+func (m *Mutual) GetClientCertificate() string {
+	if m != nil {
+		return m.ClientCertificate
+	}
+	return ""
+}
+
+func (m *Mutual) GetCaCertificates() string {
+	if m != nil {
+		return m.CaCertificates
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*AttributeManifest)(nil), "istio.policy.v1beta1.AttributeManifest")
 	proto.RegisterType((*AttributeManifest_AttributeInfo)(nil), "istio.policy.v1beta1.AttributeManifest.AttributeInfo")
@@ -808,8 +1278,13 @@ func init() {
 	proto.RegisterType((*RandomSampling)(nil), "istio.policy.v1beta1.RandomSampling")
 	proto.RegisterType((*RateLimitSampling)(nil), "istio.policy.v1beta1.RateLimitSampling")
 	proto.RegisterType((*FractionalPercent)(nil), "istio.policy.v1beta1.FractionalPercent")
+	proto.RegisterType((*Authentication)(nil), "istio.policy.v1beta1.Authentication")
+	proto.RegisterType((*Tls)(nil), "istio.policy.v1beta1.Tls")
+	proto.RegisterType((*OAuth)(nil), "istio.policy.v1beta1.OAuth")
+	proto.RegisterType((*Mutual)(nil), "istio.policy.v1beta1.Mutual")
 	proto.RegisterEnum("istio.policy.v1beta1.Rule_HeaderOperationTemplate_Operation", Rule_HeaderOperationTemplate_Operation_name, Rule_HeaderOperationTemplate_Operation_value)
 	proto.RegisterEnum("istio.policy.v1beta1.FractionalPercent_DenominatorType", FractionalPercent_DenominatorType_name, FractionalPercent_DenominatorType_value)
+	proto.RegisterEnum("istio.policy.v1beta1.Tls_AuthHeader", Tls_AuthHeader_name, Tls_AuthHeader_value)
 }
 func (x Rule_HeaderOperationTemplate_Operation) String() string {
 	s, ok := Rule_HeaderOperationTemplate_Operation_name[int32(x)]
@@ -820,6 +1295,13 @@ func (x Rule_HeaderOperationTemplate_Operation) String() string {
 }
 func (x FractionalPercent_DenominatorType) String() string {
 	s, ok := FractionalPercent_DenominatorType_name[int32(x)]
+	if ok {
+		return s
+	}
+	return strconv.Itoa(int(x))
+}
+func (x Tls_AuthHeader) String() string {
+	s, ok := Tls_AuthHeader_name[int32(x)]
 	if ok {
 		return s
 	}
@@ -1116,6 +1598,9 @@ func (this *Connection) Equal(that interface{}) bool {
 	} else if that1.Timeout != nil {
 		return false
 	}
+	if !this.Authentication.Equal(that1.Authentication) {
+		return false
+	}
 	return true
 }
 func (this *Sampling) Equal(that interface{}) bool {
@@ -1228,6 +1713,298 @@ func (this *FractionalPercent) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Denominator != that1.Denominator {
+		return false
+	}
+	return true
+}
+func (this *Authentication) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Authentication)
+	if !ok {
+		that2, ok := that.(Authentication)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if that1.AuthType == nil {
+		if this.AuthType != nil {
+			return false
+		}
+	} else if this.AuthType == nil {
+		return false
+	} else if !this.AuthType.Equal(that1.AuthType) {
+		return false
+	}
+	return true
+}
+func (this *Authentication_Tls) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Authentication_Tls)
+	if !ok {
+		that2, ok := that.(Authentication_Tls)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Tls.Equal(that1.Tls) {
+		return false
+	}
+	return true
+}
+func (this *Authentication_Mutual) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Authentication_Mutual)
+	if !ok {
+		that2, ok := that.(Authentication_Mutual)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Mutual.Equal(that1.Mutual) {
+		return false
+	}
+	return true
+}
+func (this *Tls) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Tls)
+	if !ok {
+		that2, ok := that.(Tls)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.CaCertificates != that1.CaCertificates {
+		return false
+	}
+	if that1.TokenSource == nil {
+		if this.TokenSource != nil {
+			return false
+		}
+	} else if this.TokenSource == nil {
+		return false
+	} else if !this.TokenSource.Equal(that1.TokenSource) {
+		return false
+	}
+	if that1.TokenType == nil {
+		if this.TokenType != nil {
+			return false
+		}
+	} else if this.TokenType == nil {
+		return false
+	} else if !this.TokenType.Equal(that1.TokenType) {
+		return false
+	}
+	return true
+}
+func (this *Tls_TokenPath) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Tls_TokenPath)
+	if !ok {
+		that2, ok := that.(Tls_TokenPath)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.TokenPath != that1.TokenPath {
+		return false
+	}
+	return true
+}
+func (this *Tls_Oauth) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Tls_Oauth)
+	if !ok {
+		that2, ok := that.(Tls_Oauth)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Oauth.Equal(that1.Oauth) {
+		return false
+	}
+	return true
+}
+func (this *Tls_AuthHeader_) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Tls_AuthHeader_)
+	if !ok {
+		that2, ok := that.(Tls_AuthHeader_)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.AuthHeader != that1.AuthHeader {
+		return false
+	}
+	return true
+}
+func (this *Tls_CustomHeader) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Tls_CustomHeader)
+	if !ok {
+		that2, ok := that.(Tls_CustomHeader)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.CustomHeader != that1.CustomHeader {
+		return false
+	}
+	return true
+}
+func (this *OAuth) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*OAuth)
+	if !ok {
+		that2, ok := that.(OAuth)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.ClientId != that1.ClientId {
+		return false
+	}
+	if this.ClientSecret != that1.ClientSecret {
+		return false
+	}
+	if this.TokenUrl != that1.TokenUrl {
+		return false
+	}
+	if len(this.Scopes) != len(that1.Scopes) {
+		return false
+	}
+	for i := range this.Scopes {
+		if this.Scopes[i] != that1.Scopes[i] {
+			return false
+		}
+	}
+	if len(this.EndpointParams) != len(that1.EndpointParams) {
+		return false
+	}
+	for i := range this.EndpointParams {
+		if this.EndpointParams[i] != that1.EndpointParams[i] {
+			return false
+		}
+	}
+	return true
+}
+func (this *Mutual) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Mutual)
+	if !ok {
+		that2, ok := that.(Mutual)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.PrivateKey != that1.PrivateKey {
+		return false
+	}
+	if this.ClientCertificate != that1.ClientCertificate {
+		return false
+	}
+	if this.CaCertificates != that1.CaCertificates {
 		return false
 	}
 	return true
@@ -1363,10 +2140,13 @@ func (this *Connection) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 6)
+	s := make([]string, 0, 7)
 	s = append(s, "&v1beta1.Connection{")
 	s = append(s, "Address: "+fmt.Sprintf("%#v", this.Address)+",\n")
 	s = append(s, "Timeout: "+fmt.Sprintf("%#v", this.Timeout)+",\n")
+	if this.Authentication != nil {
+		s = append(s, "Authentication: "+fmt.Sprintf("%#v", this.Authentication)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1419,6 +2199,120 @@ func (this *FractionalPercent) GoString() string {
 	s = append(s, "&v1beta1.FractionalPercent{")
 	s = append(s, "Numerator: "+fmt.Sprintf("%#v", this.Numerator)+",\n")
 	s = append(s, "Denominator: "+fmt.Sprintf("%#v", this.Denominator)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Authentication) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&v1beta1.Authentication{")
+	if this.AuthType != nil {
+		s = append(s, "AuthType: "+fmt.Sprintf("%#v", this.AuthType)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Authentication_Tls) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&v1beta1.Authentication_Tls{` +
+		`Tls:` + fmt.Sprintf("%#v", this.Tls) + `}`}, ", ")
+	return s
+}
+func (this *Authentication_Mutual) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&v1beta1.Authentication_Mutual{` +
+		`Mutual:` + fmt.Sprintf("%#v", this.Mutual) + `}`}, ", ")
+	return s
+}
+func (this *Tls) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 9)
+	s = append(s, "&v1beta1.Tls{")
+	s = append(s, "CaCertificates: "+fmt.Sprintf("%#v", this.CaCertificates)+",\n")
+	if this.TokenSource != nil {
+		s = append(s, "TokenSource: "+fmt.Sprintf("%#v", this.TokenSource)+",\n")
+	}
+	if this.TokenType != nil {
+		s = append(s, "TokenType: "+fmt.Sprintf("%#v", this.TokenType)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Tls_TokenPath) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&v1beta1.Tls_TokenPath{` +
+		`TokenPath:` + fmt.Sprintf("%#v", this.TokenPath) + `}`}, ", ")
+	return s
+}
+func (this *Tls_Oauth) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&v1beta1.Tls_Oauth{` +
+		`Oauth:` + fmt.Sprintf("%#v", this.Oauth) + `}`}, ", ")
+	return s
+}
+func (this *Tls_AuthHeader_) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&v1beta1.Tls_AuthHeader_{` +
+		`AuthHeader:` + fmt.Sprintf("%#v", this.AuthHeader) + `}`}, ", ")
+	return s
+}
+func (this *Tls_CustomHeader) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&v1beta1.Tls_CustomHeader{` +
+		`CustomHeader:` + fmt.Sprintf("%#v", this.CustomHeader) + `}`}, ", ")
+	return s
+}
+func (this *OAuth) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 9)
+	s = append(s, "&v1beta1.OAuth{")
+	s = append(s, "ClientId: "+fmt.Sprintf("%#v", this.ClientId)+",\n")
+	s = append(s, "ClientSecret: "+fmt.Sprintf("%#v", this.ClientSecret)+",\n")
+	s = append(s, "TokenUrl: "+fmt.Sprintf("%#v", this.TokenUrl)+",\n")
+	s = append(s, "Scopes: "+fmt.Sprintf("%#v", this.Scopes)+",\n")
+	keysForEndpointParams := make([]string, 0, len(this.EndpointParams))
+	for k, _ := range this.EndpointParams {
+		keysForEndpointParams = append(keysForEndpointParams, k)
+	}
+	sortkeys.Strings(keysForEndpointParams)
+	mapStringForEndpointParams := "map[string]string{"
+	for _, k := range keysForEndpointParams {
+		mapStringForEndpointParams += fmt.Sprintf("%#v: %#v,", k, this.EndpointParams[k])
+	}
+	mapStringForEndpointParams += "}"
+	if this.EndpointParams != nil {
+		s = append(s, "EndpointParams: "+mapStringForEndpointParams+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Mutual) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&v1beta1.Mutual{")
+	s = append(s, "PrivateKey: "+fmt.Sprintf("%#v", this.PrivateKey)+",\n")
+	s = append(s, "ClientCertificate: "+fmt.Sprintf("%#v", this.ClientCertificate)+",\n")
+	s = append(s, "CaCertificates: "+fmt.Sprintf("%#v", this.CaCertificates)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1842,6 +2736,16 @@ func (m *Connection) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n6
 	}
+	if m.Authentication != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(m.Authentication.Size()))
+		n7, err := m.Authentication.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
 	return i, nil
 }
 
@@ -1864,21 +2768,21 @@ func (m *Sampling) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Random.Size()))
-		n7, err := m.Random.MarshalTo(dAtA[i:])
+		n8, err := m.Random.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
+		i += n8
 	}
 	if m.RateLimit != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.RateLimit.Size()))
-		n8, err := m.RateLimit.MarshalTo(dAtA[i:])
+		n9, err := m.RateLimit.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n8
+		i += n9
 	}
 	return i, nil
 }
@@ -1908,11 +2812,11 @@ func (m *RandomSampling) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.PercentSampled.Size()))
-		n9, err := m.PercentSampled.MarshalTo(dAtA[i:])
+		n10, err := m.PercentSampled.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n9
+		i += n10
 	}
 	if m.UseIndependentRandomness {
 		dAtA[i] = 0x18
@@ -1945,11 +2849,11 @@ func (m *RateLimitSampling) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintCfg(dAtA, i, uint64(types.SizeOfStdDuration(m.SamplingDuration)))
-	n10, err := types.StdDurationMarshalTo(m.SamplingDuration, dAtA[i:])
+	n11, err := types.StdDurationMarshalTo(m.SamplingDuration, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
-	i += n10
+	i += n11
 	if m.MaxUnsampledEntries != 0 {
 		dAtA[i] = 0x10
 		i++
@@ -1987,6 +2891,238 @@ func (m *FractionalPercent) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x10
 		i++
 		i = encodeVarintCfg(dAtA, i, uint64(m.Denominator))
+	}
+	return i, nil
+}
+
+func (m *Authentication) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Authentication) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.AuthType != nil {
+		nn12, err := m.AuthType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn12
+	}
+	return i, nil
+}
+
+func (m *Authentication_Tls) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Tls != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(m.Tls.Size()))
+		n13, err := m.Tls.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n13
+	}
+	return i, nil
+}
+func (m *Authentication_Mutual) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Mutual != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(m.Mutual.Size()))
+		n14, err := m.Mutual.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n14
+	}
+	return i, nil
+}
+func (m *Tls) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Tls) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.CaCertificates) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(len(m.CaCertificates)))
+		i += copy(dAtA[i:], m.CaCertificates)
+	}
+	if m.TokenSource != nil {
+		nn15, err := m.TokenSource.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn15
+	}
+	if m.TokenType != nil {
+		nn16, err := m.TokenType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn16
+	}
+	return i, nil
+}
+
+func (m *Tls_TokenPath) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x12
+	i++
+	i = encodeVarintCfg(dAtA, i, uint64(len(m.TokenPath)))
+	i += copy(dAtA[i:], m.TokenPath)
+	return i, nil
+}
+func (m *Tls_Oauth) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Oauth != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(m.Oauth.Size()))
+		n17, err := m.Oauth.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n17
+	}
+	return i, nil
+}
+func (m *Tls_AuthHeader_) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x20
+	i++
+	i = encodeVarintCfg(dAtA, i, uint64(m.AuthHeader))
+	return i, nil
+}
+func (m *Tls_CustomHeader) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x2a
+	i++
+	i = encodeVarintCfg(dAtA, i, uint64(len(m.CustomHeader)))
+	i += copy(dAtA[i:], m.CustomHeader)
+	return i, nil
+}
+func (m *OAuth) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *OAuth) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ClientId) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(len(m.ClientId)))
+		i += copy(dAtA[i:], m.ClientId)
+	}
+	if len(m.ClientSecret) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(len(m.ClientSecret)))
+		i += copy(dAtA[i:], m.ClientSecret)
+	}
+	if len(m.TokenUrl) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(len(m.TokenUrl)))
+		i += copy(dAtA[i:], m.TokenUrl)
+	}
+	if len(m.Scopes) > 0 {
+		for _, s := range m.Scopes {
+			dAtA[i] = 0x22
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.EndpointParams) > 0 {
+		for k, _ := range m.EndpointParams {
+			dAtA[i] = 0x2a
+			i++
+			v := m.EndpointParams[k]
+			mapSize := 1 + len(k) + sovCfg(uint64(len(k))) + 1 + len(v) + sovCfg(uint64(len(v)))
+			i = encodeVarintCfg(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCfg(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintCfg(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	return i, nil
+}
+
+func (m *Mutual) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Mutual) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.PrivateKey) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(len(m.PrivateKey)))
+		i += copy(dAtA[i:], m.PrivateKey)
+	}
+	if len(m.ClientCertificate) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(len(m.ClientCertificate)))
+		i += copy(dAtA[i:], m.ClientCertificate)
+	}
+	if len(m.CaCertificates) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCfg(dAtA, i, uint64(len(m.CaCertificates)))
+		i += copy(dAtA[i:], m.CaCertificates)
 	}
 	return i, nil
 }
@@ -2178,6 +3314,10 @@ func (m *Connection) Size() (n int) {
 		l = types.SizeOfStdDuration(*m.Timeout)
 		n += 1 + l + sovCfg(uint64(l))
 	}
+	if m.Authentication != nil {
+		l = m.Authentication.Size()
+		n += 1 + l + sovCfg(uint64(l))
+	}
 	return n
 }
 
@@ -2234,6 +3374,128 @@ func (m *FractionalPercent) Size() (n int) {
 	}
 	if m.Denominator != 0 {
 		n += 1 + sovCfg(uint64(m.Denominator))
+	}
+	return n
+}
+
+func (m *Authentication) Size() (n int) {
+	var l int
+	_ = l
+	if m.AuthType != nil {
+		n += m.AuthType.Size()
+	}
+	return n
+}
+
+func (m *Authentication_Tls) Size() (n int) {
+	var l int
+	_ = l
+	if m.Tls != nil {
+		l = m.Tls.Size()
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	return n
+}
+func (m *Authentication_Mutual) Size() (n int) {
+	var l int
+	_ = l
+	if m.Mutual != nil {
+		l = m.Mutual.Size()
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	return n
+}
+func (m *Tls) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.CaCertificates)
+	if l > 0 {
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	if m.TokenSource != nil {
+		n += m.TokenSource.Size()
+	}
+	if m.TokenType != nil {
+		n += m.TokenType.Size()
+	}
+	return n
+}
+
+func (m *Tls_TokenPath) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.TokenPath)
+	n += 1 + l + sovCfg(uint64(l))
+	return n
+}
+func (m *Tls_Oauth) Size() (n int) {
+	var l int
+	_ = l
+	if m.Oauth != nil {
+		l = m.Oauth.Size()
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	return n
+}
+func (m *Tls_AuthHeader_) Size() (n int) {
+	var l int
+	_ = l
+	n += 1 + sovCfg(uint64(m.AuthHeader))
+	return n
+}
+func (m *Tls_CustomHeader) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.CustomHeader)
+	n += 1 + l + sovCfg(uint64(l))
+	return n
+}
+func (m *OAuth) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.ClientId)
+	if l > 0 {
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	l = len(m.ClientSecret)
+	if l > 0 {
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	l = len(m.TokenUrl)
+	if l > 0 {
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	if len(m.Scopes) > 0 {
+		for _, s := range m.Scopes {
+			l = len(s)
+			n += 1 + l + sovCfg(uint64(l))
+		}
+	}
+	if len(m.EndpointParams) > 0 {
+		for k, v := range m.EndpointParams {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovCfg(uint64(len(k))) + 1 + len(v) + sovCfg(uint64(len(v)))
+			n += mapEntrySize + 1 + sovCfg(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *Mutual) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.PrivateKey)
+	if l > 0 {
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	l = len(m.ClientCertificate)
+	if l > 0 {
+		n += 1 + l + sovCfg(uint64(l))
+	}
+	l = len(m.CaCertificates)
+	if l > 0 {
+		n += 1 + l + sovCfg(uint64(l))
 	}
 	return n
 }
@@ -2367,6 +3629,7 @@ func (this *Connection) String() string {
 	s := strings.Join([]string{`&Connection{`,
 		`Address:` + fmt.Sprintf("%v", this.Address) + `,`,
 		`Timeout:` + strings.Replace(fmt.Sprintf("%v", this.Timeout), "Duration", "google_protobuf2.Duration", 1) + `,`,
+		`Authentication:` + strings.Replace(fmt.Sprintf("%v", this.Authentication), "Authentication", "Authentication", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -2413,6 +3676,124 @@ func (this *FractionalPercent) String() string {
 	s := strings.Join([]string{`&FractionalPercent{`,
 		`Numerator:` + fmt.Sprintf("%v", this.Numerator) + `,`,
 		`Denominator:` + fmt.Sprintf("%v", this.Denominator) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Authentication) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Authentication{`,
+		`AuthType:` + fmt.Sprintf("%v", this.AuthType) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Authentication_Tls) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Authentication_Tls{`,
+		`Tls:` + strings.Replace(fmt.Sprintf("%v", this.Tls), "Tls", "Tls", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Authentication_Mutual) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Authentication_Mutual{`,
+		`Mutual:` + strings.Replace(fmt.Sprintf("%v", this.Mutual), "Mutual", "Mutual", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Tls) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Tls{`,
+		`CaCertificates:` + fmt.Sprintf("%v", this.CaCertificates) + `,`,
+		`TokenSource:` + fmt.Sprintf("%v", this.TokenSource) + `,`,
+		`TokenType:` + fmt.Sprintf("%v", this.TokenType) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Tls_TokenPath) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Tls_TokenPath{`,
+		`TokenPath:` + fmt.Sprintf("%v", this.TokenPath) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Tls_Oauth) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Tls_Oauth{`,
+		`Oauth:` + strings.Replace(fmt.Sprintf("%v", this.Oauth), "OAuth", "OAuth", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Tls_AuthHeader_) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Tls_AuthHeader_{`,
+		`AuthHeader:` + fmt.Sprintf("%v", this.AuthHeader) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Tls_CustomHeader) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Tls_CustomHeader{`,
+		`CustomHeader:` + fmt.Sprintf("%v", this.CustomHeader) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *OAuth) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForEndpointParams := make([]string, 0, len(this.EndpointParams))
+	for k, _ := range this.EndpointParams {
+		keysForEndpointParams = append(keysForEndpointParams, k)
+	}
+	sortkeys.Strings(keysForEndpointParams)
+	mapStringForEndpointParams := "map[string]string{"
+	for _, k := range keysForEndpointParams {
+		mapStringForEndpointParams += fmt.Sprintf("%v: %v,", k, this.EndpointParams[k])
+	}
+	mapStringForEndpointParams += "}"
+	s := strings.Join([]string{`&OAuth{`,
+		`ClientId:` + fmt.Sprintf("%v", this.ClientId) + `,`,
+		`ClientSecret:` + fmt.Sprintf("%v", this.ClientSecret) + `,`,
+		`TokenUrl:` + fmt.Sprintf("%v", this.TokenUrl) + `,`,
+		`Scopes:` + fmt.Sprintf("%v", this.Scopes) + `,`,
+		`EndpointParams:` + mapStringForEndpointParams + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Mutual) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Mutual{`,
+		`PrivateKey:` + fmt.Sprintf("%v", this.PrivateKey) + `,`,
+		`ClientCertificate:` + fmt.Sprintf("%v", this.ClientCertificate) + `,`,
+		`CaCertificates:` + fmt.Sprintf("%v", this.CaCertificates) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -3805,6 +5186,39 @@ func (m *Connection) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authentication", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Authentication == nil {
+				m.Authentication = &Authentication{}
+			}
+			if err := m.Authentication.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCfg(dAtA[iNdEx:])
@@ -4280,6 +5694,730 @@ func (m *FractionalPercent) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *Authentication) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCfg
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Authentication: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Authentication: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tls", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Tls{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.AuthType = &Authentication_Tls{v}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Mutual", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Mutual{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.AuthType = &Authentication_Mutual{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCfg(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCfg
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Tls) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCfg
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Tls: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Tls: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaCertificates", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CaCertificates = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TokenPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TokenSource = &Tls_TokenPath{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Oauth", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &OAuth{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.TokenSource = &Tls_Oauth{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AuthHeader", wireType)
+			}
+			var v Tls_AuthHeader
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (Tls_AuthHeader(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.TokenType = &Tls_AuthHeader_{v}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CustomHeader", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TokenType = &Tls_CustomHeader{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCfg(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCfg
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *OAuth) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCfg
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: OAuth: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: OAuth: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ClientId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ClientId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ClientSecret", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ClientSecret = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TokenUrl", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TokenUrl = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Scopes", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Scopes = append(m.Scopes, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EndpointParams", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.EndpointParams == nil {
+				m.EndpointParams = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCfg
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCfg
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCfg
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCfg
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthCfg
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCfg(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCfg
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.EndpointParams[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCfg(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCfg
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Mutual) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCfg
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Mutual: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Mutual: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PrivateKey", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PrivateKey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ClientCertificate", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ClientCertificate = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaCertificates", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCfg
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCfg
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.CaCertificates = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCfg(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCfg
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipCfg(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -4388,75 +6526,99 @@ var (
 func init() { proto.RegisterFile("policy/v1beta1/cfg.proto", fileDescriptorCfg) }
 
 var fileDescriptorCfg = []byte{
-	// 1120 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x56, 0x4f, 0x6f, 0x1b, 0x45,
-	0x14, 0xf7, 0xc6, 0xae, 0xff, 0x3c, 0x37, 0x89, 0x33, 0x0d, 0x8d, 0x6b, 0xa2, 0x4d, 0x64, 0x90,
-	0xe8, 0x01, 0xad, 0x1b, 0x23, 0x28, 0x54, 0x11, 0x22, 0xa9, 0x5d, 0x25, 0xa2, 0x4d, 0xac, 0x49,
-	0x52, 0x44, 0x2f, 0xab, 0x89, 0x77, 0xe2, 0x8c, 0xf0, 0xce, 0x6e, 0x77, 0x67, 0xa3, 0xe4, 0xc6,
-	0x85, 0x7b, 0x8f, 0x7c, 0x04, 0xf8, 0x12, 0x5c, 0xc9, 0xb1, 0x52, 0x2f, 0x3d, 0x01, 0x31, 0x17,
-	0x2e, 0x48, 0x3d, 0xf0, 0x01, 0xd0, 0xce, 0xce, 0xec, 0xba, 0x8e, 0x53, 0x11, 0x6e, 0x3b, 0xef,
-	0xf7, 0xfe, 0xfd, 0xde, 0x7b, 0xf3, 0x76, 0xa0, 0xee, 0x7b, 0x43, 0xd6, 0x3f, 0x6b, 0x9d, 0xac,
-	0x1d, 0x52, 0x41, 0xd6, 0x5a, 0xfd, 0xa3, 0x81, 0xe5, 0x07, 0x9e, 0xf0, 0xd0, 0x22, 0x0b, 0x05,
-	0xf3, 0xac, 0x04, 0xb7, 0x14, 0xde, 0x58, 0x1c, 0x78, 0x03, 0x4f, 0x2a, 0xb4, 0xe2, 0xaf, 0x44,
-	0xb7, 0xb1, 0x3c, 0xf0, 0xbc, 0xc1, 0x90, 0xb6, 0xe4, 0xe9, 0x30, 0x3a, 0x6a, 0x85, 0x22, 0x88,
-	0xfa, 0x42, 0xa1, 0xe6, 0x24, 0xea, 0x44, 0x01, 0x11, 0xcc, 0xe3, 0x0a, 0x5f, 0x99, 0xc8, 0xe1,
-	0x84, 0x0c, 0x23, 0x6a, 0x8b, 0x33, 0x9f, 0x26, 0x0a, 0xcd, 0x1f, 0xf2, 0xb0, 0xb0, 0x21, 0x44,
-	0xc0, 0x0e, 0x23, 0x41, 0x9f, 0x10, 0xce, 0x8e, 0x68, 0x28, 0x50, 0x03, 0xca, 0x01, 0x3d, 0x61,
-	0x21, 0xf3, 0x78, 0xdd, 0x58, 0x35, 0xee, 0x56, 0x70, 0x7a, 0x46, 0x08, 0x0a, 0x9c, 0xb8, 0xb4,
-	0x3e, 0x23, 0xe5, 0xf2, 0x1b, 0x7d, 0x03, 0x40, 0xb4, 0x93, 0xb0, 0x9e, 0x5f, 0xcd, 0xdf, 0xad,
-	0xb6, 0xef, 0x5b, 0xd3, 0x58, 0x5a, 0x97, 0x82, 0x65, 0x92, 0xb0, 0xcb, 0x45, 0x70, 0x86, 0xc7,
-	0x5c, 0x35, 0x9e, 0xc3, 0x6c, 0x0a, 0x6f, 0xf3, 0x23, 0x0f, 0xad, 0x42, 0xd5, 0xa1, 0x61, 0x3f,
-	0x60, 0xbe, 0xc8, 0x92, 0x1b, 0x17, 0xa1, 0x2f, 0x01, 0x32, 0x96, 0x32, 0xcb, 0xb9, 0xf6, 0xca,
-	0xf4, 0x5c, 0x9e, 0xc6, 0x7a, 0xfb, 0x67, 0x3e, 0xc5, 0x95, 0x13, 0xfd, 0xd9, 0x10, 0x30, 0x3f,
-	0x91, 0x11, 0xaa, 0x41, 0xfe, 0x3b, 0x7a, 0xa6, 0x82, 0xc5, 0x9f, 0xe8, 0x6b, 0xb8, 0x21, 0x2d,
-	0xa4, 0xff, 0x6a, 0xfb, 0xd3, 0x6b, 0x73, 0x8d, 0xc9, 0xe0, 0xc4, 0xc7, 0x83, 0x99, 0xcf, 0x8d,
-	0xe6, 0x79, 0x01, 0x0a, 0x38, 0x1a, 0x52, 0xb4, 0x08, 0x37, 0x5c, 0x22, 0xfa, 0xc7, 0x2a, 0x5a,
-	0x72, 0x40, 0x9f, 0x41, 0x89, 0xf4, 0x63, 0x7a, 0x61, 0x7d, 0x46, 0x56, 0x77, 0xf9, 0x8a, 0x88,
-	0x52, 0x09, 0x6b, 0x65, 0xc4, 0xe1, 0x4e, 0x40, 0x9f, 0x47, 0x34, 0x14, 0xf6, 0x31, 0x25, 0x0e,
-	0x0d, 0x6c, 0xcf, 0xa7, 0xc9, 0x84, 0xe8, 0x3e, 0xb5, 0xa7, 0x7b, 0x8a, 0x93, 0xb1, 0xb6, 0xa4,
-	0xcd, 0xae, 0x36, 0xd9, 0xa7, 0xae, 0x3f, 0x24, 0x82, 0xe2, 0x25, 0xe5, 0x74, 0x02, 0x0f, 0x91,
-	0x0f, 0x8d, 0x80, 0x86, 0xbe, 0xc7, 0x43, 0x3a, 0x25, 0x60, 0xe1, 0x7f, 0x07, 0xac, 0x6b, 0xaf,
-	0x97, 0x22, 0x3e, 0x80, 0x72, 0x48, 0x5c, 0x7f, 0xc8, 0xf8, 0xa0, 0x7e, 0x43, 0x36, 0xc3, 0x9c,
-	0xee, 0x7f, 0x4f, 0x69, 0xe1, 0x54, 0xbf, 0xf1, 0xca, 0x80, 0xa5, 0x2b, 0x22, 0xa6, 0x63, 0x6e,
-	0x8c, 0x8d, 0xf9, 0x6d, 0x28, 0xca, 0x8e, 0x25, 0x4d, 0xa8, 0x60, 0x75, 0x42, 0xcf, 0xa0, 0x92,
-	0xb2, 0xac, 0xe7, 0xe5, 0xc4, 0xad, 0x5f, 0x9f, 0xa4, 0x95, 0x4a, 0x70, 0xe6, 0xae, 0x79, 0x0f,
-	0x2a, 0xa9, 0x1c, 0x55, 0xa1, 0x84, 0xbb, 0xbd, 0xc7, 0x1b, 0x0f, 0xbb, 0xb5, 0x1c, 0x02, 0x28,
-	0xe2, 0xee, 0x93, 0xdd, 0xa7, 0xdd, 0x9a, 0x11, 0x7f, 0x6f, 0xf4, 0x7a, 0xdd, 0x9d, 0x4e, 0x6d,
-	0xa6, 0xb9, 0x0f, 0xc5, 0x64, 0x0c, 0x50, 0x1d, 0x4a, 0xc7, 0x84, 0x3b, 0x43, 0x1a, 0xa8, 0xdb,
-	0xaa, 0x8f, 0x68, 0x19, 0x2a, 0x8c, 0x87, 0x82, 0xf0, 0xbe, 0xba, 0xaf, 0x15, 0x9c, 0x09, 0x52,
-	0xee, 0x85, 0x8c, 0x7b, 0xf3, 0xd7, 0x19, 0x28, 0x6f, 0x2b, 0x8d, 0xa9, 0xc5, 0x69, 0x40, 0x59,
-	0x28, 0x26, 0x2a, 0x5a, 0x7a, 0x46, 0x2d, 0x28, 0xfa, 0x24, 0x20, 0x6e, 0x28, 0xab, 0x53, 0x6d,
-	0x2f, 0x59, 0xc9, 0xde, 0xb2, 0xf4, 0xde, 0xb2, 0xf6, 0xe4, 0x56, 0xc3, 0x4a, 0x0d, 0x39, 0x80,
-	0xd2, 0x2d, 0x60, 0x1f, 0x32, 0xee, 0x30, 0x3e, 0xd0, 0xf3, 0x73, 0xc5, 0x65, 0xd3, 0xc9, 0x65,
-	0x77, 0x6c, 0x53, 0xd9, 0x25, 0x6b, 0x65, 0x81, 0x4c, 0xca, 0x91, 0x05, 0x0b, 0x7d, 0xcf, 0xf5,
-	0xd9, 0x90, 0x3a, 0x76, 0x9a, 0xfb, 0x3f, 0x7f, 0xff, 0xbc, 0x2a, 0xd3, 0xaf, 0x69, 0x4c, 0x37,
-	0xa8, 0xd1, 0x81, 0xdb, 0xd3, 0x9d, 0x4f, 0xd9, 0x10, 0x8b, 0xe3, 0x1b, 0xa2, 0x32, 0x7e, 0xd5,
-	0x5f, 0x1b, 0x50, 0xda, 0x52, 0x7d, 0x98, 0x56, 0xc8, 0x3a, 0x94, 0x88, 0x43, 0x7c, 0x91, 0x75,
-	0x4d, 0x1d, 0xaf, 0x5f, 0xc6, 0xaf, 0x00, 0xfa, 0x1e, 0xe7, 0x54, 0x8e, 0x83, 0x6c, 0x67, 0xb5,
-	0xbd, 0x3a, 0xbd, 0x7c, 0x0f, 0x53, 0x3d, 0x3c, 0x66, 0x83, 0x3e, 0x86, 0xb4, 0x0c, 0xb6, 0xce,
-	0x2a, 0xad, 0xd0, 0xbc, 0x86, 0x36, 0x12, 0xa4, 0x49, 0x00, 0x32, 0x3f, 0x09, 0x11, 0x27, 0xa0,
-	0x61, 0x98, 0x11, 0x91, 0x47, 0xf4, 0x05, 0x94, 0x04, 0x73, 0xa9, 0x17, 0x09, 0xc5, 0xe4, 0xce,
-	0x25, 0x26, 0x1d, 0xf5, 0x23, 0xdb, 0x2c, 0xfc, 0xf8, 0xfb, 0x8a, 0x81, 0xb5, 0x7e, 0xf3, 0x85,
-	0x01, 0x65, 0x7d, 0x95, 0xd1, 0x3a, 0x14, 0x03, 0xc2, 0x1d, 0xcf, 0x95, 0x05, 0xac, 0xb6, 0x3f,
-	0xbc, 0xe2, 0xd6, 0x49, 0x9d, 0x74, 0x01, 0x28, 0x1b, 0xf4, 0x08, 0x20, 0x20, 0x82, 0xda, 0x43,
-	0xe6, 0x32, 0xa1, 0x36, 0xf9, 0x47, 0x57, 0x79, 0x10, 0xf4, 0x71, 0xac, 0x96, 0x3a, 0xa9, 0x04,
-	0x5a, 0xd4, 0x7c, 0x65, 0xc0, 0xdc, 0xdb, 0x21, 0xd0, 0x1a, 0x2c, 0x66, 0xf3, 0x4b, 0x4f, 0xfd,
-	0x98, 0x75, 0xf6, 0xbf, 0xba, 0x95, 0x62, 0xdd, 0x14, 0x42, 0x3d, 0x98, 0xf7, 0x69, 0xd0, 0xa7,
-	0x5c, 0xd8, 0x72, 0x41, 0x51, 0xe7, 0xdd, 0x29, 0x3d, 0x0a, 0x92, 0x25, 0x4f, 0x86, 0xbd, 0xc4,
-	0x0c, 0xcf, 0x29, 0xfb, 0xbd, 0xc4, 0x1c, 0xad, 0x43, 0x23, 0x0a, 0xa9, 0xcd, 0xb8, 0x43, 0x7d,
-	0xca, 0x9d, 0xd8, 0x73, 0xc2, 0x9c, 0xc7, 0x2d, 0x89, 0x0b, 0x5f, 0xc6, 0xf5, 0x28, 0xa4, 0xdb,
-	0x99, 0x02, 0x4e, 0xf1, 0xe6, 0x2f, 0x06, 0x2c, 0x5c, 0xa2, 0x8d, 0x7a, 0xb0, 0xa0, 0xd7, 0xa7,
-	0xad, 0xdf, 0x1a, 0xaa, 0xf8, 0xef, 0xe8, 0x61, 0xf9, 0xfc, 0xb7, 0x95, 0x9c, 0xec, 0x63, 0x4d,
-	0x5b, 0x6b, 0x0c, 0xb5, 0xe1, 0x3d, 0x97, 0x9c, 0xda, 0x11, 0x57, 0xac, 0x6d, 0xca, 0x45, 0xc0,
-	0x68, 0x32, 0x33, 0x79, 0x7c, 0xcb, 0x25, 0xa7, 0x07, 0x1a, 0xeb, 0x26, 0x10, 0xfa, 0x00, 0x66,
-	0xd3, 0x2c, 0xe2, 0x3e, 0x48, 0x32, 0x79, 0x7c, 0x53, 0x0b, 0xe3, 0xbc, 0x25, 0x81, 0x4b, 0x45,
-	0x8a, 0x37, 0x1f, 0x8f, 0xdc, 0x78, 0xa1, 0x7a, 0x81, 0x4c, 0x7c, 0x16, 0x67, 0x02, 0xf4, 0x6d,
-	0xfc, 0xbc, 0xe0, 0x9e, 0xcb, 0xb8, 0xc4, 0x93, 0xd7, 0xc3, 0xfd, 0xff, 0xd8, 0x00, 0xab, 0x93,
-	0x99, 0xca, 0x57, 0xc5, 0xb8, 0xaf, 0xe6, 0x3d, 0x98, 0x9f, 0xc0, 0xe3, 0x75, 0xbe, 0x75, 0xb0,
-	0xd3, 0xc1, 0xdd, 0x4e, 0x2d, 0x87, 0x6a, 0x70, 0x73, 0xbf, 0xbb, 0x63, 0xef, 0x6f, 0xed, 0x1e,
-	0xec, 0x6d, 0xec, 0x74, 0x6a, 0xc6, 0xe6, 0xf6, 0xcb, 0x0b, 0x33, 0xf7, 0xfa, 0xc2, 0xcc, 0xbd,
-	0xb9, 0x30, 0x8d, 0xef, 0x47, 0xa6, 0xf1, 0xd3, 0xc8, 0x34, 0xce, 0x47, 0xa6, 0xf1, 0x72, 0x64,
-	0x1a, 0x7f, 0x8c, 0x4c, 0xe3, 0xaf, 0x91, 0x99, 0x7b, 0x33, 0x32, 0x8d, 0x17, 0x7f, 0x9a, 0xb9,
-	0x67, 0xef, 0x27, 0x49, 0x32, 0xaf, 0x45, 0x7c, 0xd6, 0x7a, 0xfb, 0xdd, 0x77, 0x58, 0x94, 0x3d,
-	0xf9, 0xe4, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x28, 0x43, 0xbf, 0xa9, 0x94, 0x0a, 0x00, 0x00,
+	// 1489 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x57, 0xcd, 0x6f, 0x13, 0x47,
+	0x1b, 0xf7, 0xc6, 0xb1, 0x13, 0x3f, 0x4e, 0x1c, 0x67, 0xc8, 0x0b, 0xc6, 0x20, 0x27, 0x32, 0xef,
+	0x2b, 0x38, 0xbc, 0xd8, 0x10, 0xf4, 0xc2, 0x5b, 0x84, 0xaa, 0x3a, 0xc4, 0xd4, 0x11, 0x21, 0xb1,
+	0x26, 0x0e, 0x6d, 0xb9, 0xac, 0x26, 0xbb, 0x93, 0x64, 0xc5, 0x7a, 0x76, 0xd9, 0x9d, 0x8d, 0xc8,
+	0xad, 0x95, 0xda, 0x3b, 0xc7, 0x4a, 0xfd, 0x07, 0xda, 0x53, 0x8f, 0xbd, 0xf5, 0x5a, 0x8e, 0x48,
+	0x5c, 0x38, 0xb5, 0x25, 0xbd, 0xf4, 0x52, 0x89, 0x43, 0xff, 0x80, 0x6a, 0x3e, 0x76, 0xd7, 0x49,
+	0xd6, 0xa8, 0xe9, 0x6d, 0xe7, 0xf9, 0x9a, 0xe7, 0xf7, 0x7c, 0xce, 0x42, 0xcd, 0xf7, 0x5c, 0xc7,
+	0x3a, 0x6c, 0x1f, 0xdc, 0xdc, 0xa1, 0x9c, 0xdc, 0x6c, 0x5b, 0xbb, 0x7b, 0x2d, 0x3f, 0xf0, 0xb8,
+	0x87, 0x16, 0x9c, 0x90, 0x3b, 0x5e, 0x4b, 0xf1, 0x5b, 0x9a, 0x5f, 0x5f, 0xd8, 0xf3, 0xf6, 0x3c,
+	0x29, 0xd0, 0x16, 0x5f, 0x4a, 0xb6, 0x7e, 0x79, 0xcf, 0xf3, 0xf6, 0x5c, 0xda, 0x96, 0xa7, 0x9d,
+	0x68, 0xb7, 0x1d, 0xf2, 0x20, 0xb2, 0xb8, 0xe6, 0x36, 0x4e, 0x72, 0xed, 0x28, 0x20, 0xdc, 0xf1,
+	0x98, 0xe6, 0x2f, 0x9e, 0xf0, 0xe1, 0x80, 0xb8, 0x11, 0x35, 0xf9, 0xa1, 0x4f, 0x95, 0x40, 0xf3,
+	0xab, 0x3c, 0xcc, 0x77, 0x38, 0x0f, 0x9c, 0x9d, 0x88, 0xd3, 0x47, 0x84, 0x39, 0xbb, 0x34, 0xe4,
+	0xa8, 0x0e, 0xd3, 0x01, 0x3d, 0x70, 0x42, 0xc7, 0x63, 0x35, 0x63, 0xc9, 0xb8, 0x56, 0xc2, 0xc9,
+	0x19, 0x21, 0x98, 0x64, 0x64, 0x48, 0x6b, 0x13, 0x92, 0x2e, 0xbf, 0xd1, 0x27, 0x00, 0x24, 0x36,
+	0x12, 0xd6, 0xf2, 0x4b, 0xf9, 0x6b, 0xe5, 0xe5, 0x3b, 0xad, 0x2c, 0x94, 0xad, 0x53, 0x97, 0xa5,
+	0x94, 0xb0, 0xcb, 0x78, 0x70, 0x88, 0x47, 0x4c, 0xd5, 0x9f, 0xc1, 0x6c, 0xc2, 0x5e, 0x63, 0xbb,
+	0x1e, 0x5a, 0x82, 0xb2, 0x4d, 0x43, 0x2b, 0x70, 0x7c, 0x9e, 0x3a, 0x37, 0x4a, 0x42, 0x1f, 0x02,
+	0xa4, 0x28, 0xa5, 0x97, 0x95, 0xe5, 0xc5, 0x6c, 0x5f, 0x1e, 0x0b, 0xb9, 0xc1, 0xa1, 0x4f, 0x71,
+	0xe9, 0x20, 0xfe, 0xac, 0x73, 0x98, 0x3b, 0xe1, 0x11, 0xaa, 0x42, 0xfe, 0x29, 0x3d, 0xd4, 0x97,
+	0x89, 0x4f, 0xf4, 0x10, 0x0a, 0x52, 0x43, 0xda, 0x2f, 0x2f, 0xff, 0xef, 0xcc, 0x58, 0x05, 0x18,
+	0xac, 0x6c, 0xdc, 0x9d, 0xf8, 0xbf, 0xd1, 0x7c, 0x39, 0x09, 0x93, 0x38, 0x72, 0x29, 0x5a, 0x80,
+	0xc2, 0x90, 0x70, 0x6b, 0x5f, 0xdf, 0xa6, 0x0e, 0xe8, 0x36, 0x4c, 0x11, 0x4b, 0xc0, 0x0b, 0x6b,
+	0x13, 0x32, 0xba, 0x97, 0xc7, 0xdc, 0x28, 0x85, 0x70, 0x2c, 0x8c, 0x18, 0x5c, 0x0c, 0xe8, 0xb3,
+	0x88, 0x86, 0xdc, 0xdc, 0xa7, 0xc4, 0xa6, 0x81, 0xe9, 0xf9, 0x54, 0x55, 0x48, 0x9c, 0xa7, 0xe5,
+	0x6c, 0x4b, 0xc2, 0x99, 0x56, 0x4f, 0xea, 0x6c, 0xc6, 0x2a, 0x03, 0x3a, 0xf4, 0x5d, 0xc2, 0x29,
+	0xbe, 0xa0, 0x8d, 0x9e, 0xe0, 0x87, 0xc8, 0x87, 0x7a, 0x40, 0x43, 0xdf, 0x63, 0x21, 0xcd, 0xb8,
+	0x70, 0xf2, 0x1f, 0x5f, 0x58, 0x8b, 0xad, 0x9e, 0xba, 0xf1, 0x2e, 0x4c, 0x87, 0x64, 0xe8, 0xbb,
+	0x0e, 0xdb, 0xab, 0x15, 0x64, 0x32, 0x1a, 0xd9, 0xf6, 0xb7, 0xb4, 0x14, 0x4e, 0xe4, 0xeb, 0xaf,
+	0x0d, 0xb8, 0x30, 0xe6, 0xc6, 0xa4, 0xcc, 0x8d, 0x91, 0x32, 0x3f, 0x0f, 0x45, 0x99, 0x31, 0x95,
+	0x84, 0x12, 0xd6, 0x27, 0xf4, 0x04, 0x4a, 0x09, 0xca, 0x5a, 0x5e, 0x56, 0xdc, 0xbd, 0xb3, 0x83,
+	0x6c, 0x25, 0x14, 0x9c, 0x9a, 0x6b, 0xde, 0x80, 0x52, 0x42, 0x47, 0x65, 0x98, 0xc2, 0xdd, 0xfe,
+	0x7a, 0xe7, 0x7e, 0xb7, 0x9a, 0x43, 0x00, 0x45, 0xdc, 0x7d, 0xb4, 0xf9, 0xb8, 0x5b, 0x35, 0xc4,
+	0x77, 0xa7, 0xdf, 0xef, 0x6e, 0xac, 0x56, 0x27, 0x9a, 0x03, 0x28, 0xaa, 0x32, 0x40, 0x35, 0x98,
+	0xda, 0x27, 0xcc, 0x76, 0x69, 0xa0, 0xbb, 0x35, 0x3e, 0xa2, 0xcb, 0x50, 0x72, 0x58, 0xc8, 0x09,
+	0xb3, 0x74, 0xbf, 0x96, 0x70, 0x4a, 0x48, 0xb0, 0x4f, 0xa6, 0xd8, 0x9b, 0x3f, 0x4d, 0xc0, 0xf4,
+	0x9a, 0x96, 0xc8, 0x0c, 0x4e, 0x1d, 0xa6, 0xb9, 0x46, 0xa2, 0x6f, 0x4b, 0xce, 0xa8, 0x0d, 0x45,
+	0x9f, 0x04, 0x64, 0x18, 0xca, 0xe8, 0x94, 0x97, 0x2f, 0xb4, 0xd4, 0xdc, 0x6a, 0xc5, 0x73, 0xab,
+	0xb5, 0x25, 0xa7, 0x1a, 0xd6, 0x62, 0xc8, 0x06, 0x94, 0x4c, 0x01, 0x73, 0xc7, 0x61, 0xb6, 0xc3,
+	0xf6, 0xe2, 0xfa, 0x19, 0xd3, 0x6c, 0xb1, 0x73, 0x69, 0x8f, 0xad, 0x68, 0x3d, 0x35, 0x56, 0xe6,
+	0xc9, 0x49, 0x3a, 0x6a, 0xc1, 0xbc, 0xe5, 0x0d, 0x7d, 0xc7, 0xa5, 0xb6, 0x99, 0xf8, 0xfe, 0xe7,
+	0x1f, 0xdf, 0x2d, 0x49, 0xf7, 0xab, 0x31, 0x2f, 0x4e, 0x50, 0x7d, 0x15, 0xce, 0x67, 0x1b, 0xcf,
+	0x98, 0x10, 0x0b, 0xa3, 0x13, 0xa2, 0x34, 0xda, 0xea, 0x6f, 0x0c, 0x98, 0xea, 0xe9, 0x3c, 0x64,
+	0x05, 0xb2, 0x06, 0x53, 0xc4, 0x26, 0x3e, 0x4f, 0xb3, 0xa6, 0x8f, 0x67, 0x0f, 0xe3, 0x47, 0x00,
+	0x96, 0xc7, 0x18, 0x95, 0xe5, 0x20, 0xd3, 0x59, 0x5e, 0x5e, 0xca, 0x0e, 0xdf, 0xfd, 0x44, 0x0e,
+	0x8f, 0xe8, 0xa0, 0xff, 0x42, 0x12, 0x06, 0x33, 0xf6, 0x2a, 0x89, 0xd0, 0x5c, 0xcc, 0xea, 0x28,
+	0x4e, 0xf3, 0x7b, 0x03, 0x20, 0x35, 0xa4, 0x90, 0xd8, 0x01, 0x0d, 0xc3, 0x14, 0x89, 0x3c, 0xa2,
+	0x0f, 0x60, 0x8a, 0x3b, 0x43, 0xea, 0x45, 0x5c, 0x43, 0xb9, 0x78, 0x0a, 0xca, 0xaa, 0xde, 0x64,
+	0x2b, 0x93, 0x5f, 0xff, 0xb2, 0x68, 0xe0, 0x58, 0x1e, 0xad, 0x43, 0x85, 0x44, 0x7c, 0x9f, 0x32,
+	0xee, 0x58, 0x64, 0x04, 0xd7, 0xbf, 0xc7, 0x4c, 0xc4, 0x63, 0xb2, 0xf8, 0x84, 0x6e, 0xf3, 0x85,
+	0x01, 0xd3, 0xf1, 0x64, 0x40, 0xf7, 0xa0, 0x18, 0x10, 0x66, 0x7b, 0x43, 0x99, 0x8f, 0xb1, 0x26,
+	0xb1, 0x94, 0x49, 0xe6, 0x89, 0xd6, 0x41, 0x0f, 0x00, 0x02, 0xc2, 0xa9, 0xe9, 0x3a, 0x43, 0x87,
+	0xeb, 0xc5, 0x70, 0x75, 0x9c, 0x05, 0x4e, 0xd7, 0x85, 0x58, 0x62, 0xa4, 0x14, 0xc4, 0xa4, 0xe6,
+	0x6b, 0x03, 0x2a, 0xc7, 0xaf, 0x40, 0x37, 0x61, 0x21, 0x6d, 0x07, 0xfa, 0xdc, 0x17, 0x31, 0x4c,
+	0xd7, 0xdf, 0xb9, 0x84, 0xd7, 0x4d, 0x58, 0xa8, 0x0f, 0x73, 0x3e, 0x0d, 0x2c, 0xca, 0xb8, 0x29,
+	0xe7, 0x1d, 0xb5, 0xdf, 0xef, 0xd2, 0x83, 0x40, 0xed, 0x0c, 0xe2, 0xf6, 0x95, 0x1a, 0xae, 0x68,
+	0xfd, 0x2d, 0xa5, 0x8e, 0xee, 0x41, 0x3d, 0x0a, 0xa9, 0xe9, 0x30, 0x9b, 0xfa, 0x94, 0xd9, 0xc2,
+	0xb2, 0x42, 0xce, 0x44, 0x82, 0x45, 0x1a, 0xa7, 0x71, 0x2d, 0x0a, 0xe9, 0x5a, 0x2a, 0x80, 0x13,
+	0x7e, 0xf3, 0x47, 0x03, 0xe6, 0x4f, 0xc1, 0x46, 0x7d, 0x98, 0x8f, 0xa7, 0xb1, 0x19, 0x3f, 0x5d,
+	0x74, 0xf0, 0xdf, 0x53, 0x11, 0xd3, 0x2f, 0x7f, 0x5e, 0xcc, 0xc9, 0xaa, 0xa8, 0xc6, 0xda, 0x31,
+	0x0f, 0x2d, 0xc3, 0xbf, 0x86, 0xe4, 0xb9, 0x19, 0x31, 0x8d, 0xda, 0xa4, 0x8c, 0x07, 0x0e, 0x55,
+	0x15, 0x98, 0xc7, 0xe7, 0x86, 0xe4, 0xf9, 0x76, 0xcc, 0xeb, 0x2a, 0x16, 0xba, 0x02, 0xb3, 0x89,
+	0x17, 0x22, 0x0f, 0x12, 0x4c, 0x1e, 0xcf, 0xc4, 0x44, 0xe1, 0xb7, 0x04, 0x70, 0x2a, 0x48, 0x62,
+	0x90, 0xb2, 0x68, 0x28, 0xe6, 0xb3, 0x17, 0x48, 0xc7, 0x67, 0x71, 0x4a, 0x40, 0x9f, 0x89, 0xd7,
+	0x0a, 0xf3, 0x86, 0x0e, 0x93, 0x7c, 0xf5, 0x18, 0xb9, 0xf3, 0x37, 0x13, 0xd0, 0x5a, 0x4d, 0x55,
+	0xe5, 0x23, 0x65, 0xd4, 0x56, 0xf3, 0x06, 0xcc, 0x9d, 0xe0, 0x8b, 0xed, 0xd0, 0xdb, 0xde, 0x58,
+	0xc5, 0xdd, 0xd5, 0x6a, 0x0e, 0x55, 0x61, 0x66, 0xd0, 0xdd, 0x30, 0x07, 0xbd, 0xcd, 0xed, 0xad,
+	0xce, 0xc6, 0x6a, 0xd5, 0x68, 0x7e, 0x69, 0x40, 0xe5, 0x78, 0x37, 0xa0, 0xeb, 0x90, 0xe7, 0x6e,
+	0x98, 0x04, 0x3c, 0xd3, 0xaf, 0x81, 0x1b, 0xf6, 0x72, 0x58, 0xc8, 0xa1, 0xdb, 0x50, 0x1c, 0x46,
+	0x3c, 0x22, 0xae, 0x2e, 0xa5, 0x31, 0x8f, 0x90, 0x47, 0x52, 0xa6, 0x97, 0xc3, 0x5a, 0x7a, 0xa5,
+	0x0c, 0x25, 0xd1, 0x76, 0xf2, 0x45, 0xd6, 0xfc, 0x61, 0x02, 0xf2, 0x03, 0x37, 0x44, 0x57, 0x61,
+	0xce, 0x22, 0xa6, 0x45, 0x03, 0xee, 0xec, 0x0a, 0x7f, 0x68, 0xa8, 0xcb, 0xb9, 0x62, 0x91, 0xfb,
+	0x23, 0x54, 0xb4, 0x08, 0xc0, 0xbd, 0xa7, 0x94, 0x99, 0x3e, 0xe1, 0xfb, 0x6a, 0x90, 0xf4, 0x72,
+	0xb8, 0x24, 0x69, 0x7d, 0xc2, 0xf7, 0xd1, 0x2d, 0x28, 0x78, 0xc2, 0xbe, 0x1e, 0x25, 0x97, 0xb2,
+	0xbd, 0xda, 0x14, 0xd8, 0x7b, 0x39, 0xac, 0x64, 0xd1, 0xc7, 0x50, 0x96, 0x3e, 0xa9, 0x57, 0x8a,
+	0x9c, 0x21, 0x95, 0x71, 0x0d, 0x3f, 0x70, 0x43, 0x39, 0x47, 0xd4, 0xe2, 0xee, 0x19, 0x18, 0x48,
+	0x72, 0x42, 0xff, 0x81, 0x59, 0x2b, 0x0a, 0xb9, 0x37, 0x8c, 0x4d, 0x15, 0xa4, 0x87, 0x06, 0x9e,
+	0x51, 0x64, 0x25, 0xd6, 0xbc, 0x02, 0x90, 0x9a, 0x40, 0x25, 0x28, 0xf4, 0xd7, 0x3b, 0x6b, 0x1b,
+	0x6a, 0x8d, 0xaf, 0x74, 0x3b, 0xb8, 0x8b, 0xab, 0xc6, 0x4a, 0x05, 0x66, 0x14, 0xd4, 0xd0, 0x8b,
+	0x02, 0x8b, 0xae, 0xcc, 0xc4, 0xd0, 0x65, 0xe4, 0xbe, 0x99, 0x80, 0x82, 0x44, 0x81, 0x2e, 0x41,
+	0xc9, 0x72, 0x1d, 0xd1, 0x81, 0x8e, 0x1d, 0x3f, 0xd0, 0x15, 0x61, 0xcd, 0x16, 0xd5, 0xac, 0x99,
+	0x21, 0xb5, 0x02, 0xca, 0xf5, 0xec, 0x9d, 0x51, 0xc4, 0x2d, 0x49, 0x13, 0x16, 0x94, 0xe5, 0x28,
+	0x70, 0x65, 0xdc, 0xc4, 0xba, 0x16, 0x84, 0xed, 0xc0, 0x15, 0xef, 0x9c, 0xd0, 0xf2, 0x7c, 0xaa,
+	0x36, 0x6e, 0x09, 0xeb, 0x13, 0xfa, 0x14, 0xe6, 0x28, 0xb3, 0x7d, 0xcf, 0x61, 0xdc, 0xd4, 0x8b,
+	0xa8, 0x20, 0x57, 0x72, 0xfb, 0x3d, 0x21, 0x6f, 0x75, 0xb5, 0x4a, 0x5f, 0x6a, 0xa8, 0x65, 0x5c,
+	0xa1, 0xc7, 0x88, 0xf5, 0x0e, 0x9c, 0xcb, 0x10, 0x3b, 0xd3, 0x5a, 0xfd, 0xc2, 0x80, 0xa2, 0xaa,
+	0x3c, 0xb4, 0x08, 0x65, 0x3f, 0x70, 0x0e, 0xc4, 0x30, 0x4e, 0xd5, 0x41, 0x93, 0x1e, 0xd2, 0x43,
+	0x74, 0x1d, 0x90, 0x0e, 0xd1, 0x48, 0xfd, 0x69, 0x93, 0xf3, 0x8a, 0x33, 0x52, 0x82, 0x59, 0xa5,
+	0x9a, 0xcf, 0x2a, 0xd5, 0x95, 0xb5, 0x57, 0x6f, 0x1b, 0xb9, 0x37, 0x6f, 0x1b, 0xb9, 0x77, 0x6f,
+	0x1b, 0xc6, 0xe7, 0x47, 0x0d, 0xe3, 0xdb, 0xa3, 0x86, 0xf1, 0xf2, 0xa8, 0x61, 0xbc, 0x3a, 0x6a,
+	0x18, 0xbf, 0x1e, 0x35, 0x8c, 0xdf, 0x8f, 0x1a, 0xb9, 0x77, 0x47, 0x0d, 0xe3, 0xc5, 0x6f, 0x8d,
+	0xdc, 0x93, 0x4b, 0x2a, 0x68, 0x8e, 0xd7, 0x26, 0xbe, 0xd3, 0x3e, 0xfe, 0xa7, 0xb6, 0x53, 0x94,
+	0x63, 0xef, 0xd6, 0x5f, 0x01, 0x00, 0x00, 0xff, 0xff, 0xf4, 0x86, 0x6e, 0xed, 0x46, 0x0e, 0x00,
+	0x00,
 }
