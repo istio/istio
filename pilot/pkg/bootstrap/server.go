@@ -841,8 +841,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
-		case serviceregistry.ConfigRegistry:
-			s.initConfigRegistry(serviceControllers)
 		case serviceregistry.MockRegistry:
 			s.initMemoryRegistry(serviceControllers)
 		case serviceregistry.KubernetesRegistry:
@@ -853,8 +851,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.MCPRegistry:
-			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
@@ -909,16 +905,6 @@ func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	}
 	serviceControllers.AddRegistry(registry1)
 	serviceControllers.AddRegistry(registry2)
-}
-
-func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
-	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
-	serviceControllers.AddRegistry(aggregate.Registry{
-		Name:             serviceregistry.ConfigRegistry,
-		ServiceDiscovery: serviceEntryStore,
-		ServiceAccounts:  serviceEntryStore,
-		Controller:       serviceEntryStore,
-	})
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
