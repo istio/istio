@@ -35,29 +35,71 @@ import (
 func convertType(typ v1beta1.ValueType) *exprpb.Type {
 	switch typ {
 	case v1beta1.STRING:
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}}
+		return decls.String
 	case v1beta1.INT64:
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_INT64}}
+		return decls.Int
 	case v1beta1.DOUBLE:
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_DOUBLE}}
+		return decls.Double
 	case v1beta1.BOOL:
-		return &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_BOOL}}
+		return decls.Bool
 	case v1beta1.TIMESTAMP:
-		return &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_TIMESTAMP}}
+		return decls.Timestamp
 	case v1beta1.DURATION:
-		return &exprpb.Type{TypeKind: &exprpb.Type_WellKnown{WellKnown: exprpb.Type_DURATION}}
+		return decls.Duration
 	case v1beta1.STRING_MAP:
 		return stringMapType
 	case v1beta1.IP_ADDRESS:
-		return ipAddressType
+		return decls.NewObjectType(ipAddressType)
 	case v1beta1.EMAIL_ADDRESS:
-		return emailAddressType
+		return decls.NewObjectType(emailAddressType)
 	case v1beta1.URI:
-		return uriType
+		return decls.NewObjectType(uriType)
 	case v1beta1.DNS_NAME:
-		return dnsType
+		return decls.NewObjectType(dnsType)
 	}
 	return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{}}
+}
+
+func recoverType(typ *exprpb.Type) v1beta1.ValueType {
+	if typ == nil {
+		return v1beta1.VALUE_TYPE_UNSPECIFIED
+	}
+	switch t := typ.TypeKind.(type) {
+	case *exprpb.Type_Primitive:
+		switch t.Primitive {
+		case exprpb.Type_STRING:
+			return v1beta1.STRING
+		case exprpb.Type_INT64:
+			return v1beta1.INT64
+		case exprpb.Type_DOUBLE:
+			return v1beta1.DOUBLE
+		case exprpb.Type_BOOL:
+			return v1beta1.BOOL
+		}
+	case *exprpb.Type_WellKnown:
+		switch t.WellKnown {
+		case exprpb.Type_TIMESTAMP:
+			return v1beta1.TIMESTAMP
+		case exprpb.Type_DURATION:
+			return v1beta1.DURATION
+		}
+	case *exprpb.Type_MessageType:
+		switch t.MessageType {
+		case ipAddressType:
+			return v1beta1.IP_ADDRESS
+		case emailAddressType:
+			return v1beta1.EMAIL_ADDRESS
+		case uriType:
+			return v1beta1.URI
+		case dnsType:
+			return v1beta1.DNS_NAME
+		}
+	case *exprpb.Type_MapType_:
+		if reflect.DeepEqual(t.MapType.KeyType, decls.String) && reflect.DeepEqual(t.MapType.ValueType, decls.String) {
+			return v1beta1.STRING_MAP
+		}
+	}
+	return v1beta1.VALUE_TYPE_UNSPECIFIED
 }
 
 func convertValue(typ v1beta1.ValueType, value interface{}) ref.Value {
@@ -116,13 +158,15 @@ var (
 	}}}
 	emptyStringMap = stringMapValue{value: attribute.NewStringMap("")}
 
-	ipAddressType    = decls.NewObjectType("istio.policy.v1beta1.IPAddress")
-	emailAddressType = decls.NewObjectType("istio.policy.v1beta1.EmailAddress")
-	uriType          = decls.NewObjectType("istio.policy.v1beta1.Uri")
-	dnsType          = decls.NewObjectType("istio.policy.v1beta1.DNSName")
-
 	// domain specific types do not implement any of type traits for now
 	wrapperType = types.NewTypeValue("wrapper")
+)
+
+const (
+	ipAddressType    = "istio.policy.v1beta1.IPAddress"
+	emailAddressType = "istio.policy.v1beta1.EmailAddress"
+	uriType          = "istio.policy.v1beta1.Uri"
+	dnsType          = "istio.policy.v1beta1.DNSName"
 )
 
 type stringMapValue struct {

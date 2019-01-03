@@ -112,8 +112,16 @@ func (ap *attributeProvider) newEnvironment() *checker.Env {
 
 	// populate with root-level identifiers
 	for name, node := range ap.root.children {
-		env.Add(decls.NewIdent(name, decls.NewObjectType(node.typeName), nil))
+		if node.typ != nil {
+			env.Add(decls.NewIdent(name, node.typ, nil))
+		} else {
+			env.Add(decls.NewIdent(name, decls.NewObjectType(node.typeName), nil))
+		}
 	}
+
+	// populate with standard overloads
+	env.Add(standardFunctions()...)
+
 	return env
 }
 

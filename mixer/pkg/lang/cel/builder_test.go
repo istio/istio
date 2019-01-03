@@ -18,51 +18,50 @@ import (
 	"testing"
 
 	ilt "istio.io/istio/mixer/pkg/il/testing"
-	"istio.io/istio/mixer/pkg/lang"
 	"istio.io/istio/mixer/pkg/lang/ast"
 )
 
-func TestCompiler_SingleExpressionSession(t *testing.T) {
-	t.Skip()
+func TestCEXLCompatibility(t *testing.T) {
 	for _, test := range ilt.TestData {
-		// If there is no expression in the test, skip it. It is most likely an interpreter test that directly runs
-		// off IL.
 		if test.E == "" {
 			continue
 		}
 
-		t.Run(test.TestName(), func(tt *testing.T) {
+		t.Run(test.TestName(), func(t *testing.T) {
+			converted, err := sourceCEXLToCEL(test.E)
+			if err != nil {
+				if test.AstErr != "" {
+					t.Logf("expected parse error %q, got %v", test.AstErr, err)
+					return
+				}
+				t.Fatal(err)
+			}
 
 			finder := ast.NewFinder(test.Conf())
+			builder := NewBuilder(finder)
+			ex, typ, err := builder.Compile(converted)
 
-			fns := lang.ExternFunctionMetadata
-			if test.Fns != nil {
-				fns = append(fns, test.Fns...)
+			if err != nil {
+				if test.CompileErr != "" {
+					t.Logf("expected compile error %q, got %v", test.CompileErr, err)
+					return
+				}
+				t.Fatalf("unexpected compile error %v for %s", err, ex)
 			}
-			_ = fns
 
-			// Also perform evaluation
-			_ = finder
+			// timestamp(2) is not a compile error in CEL
+			// division is also supported by CEL
+			if test.CompileErr != "" {
+				t.Logf("expected compile error %q", test.CompileErr)
+				return
+			}
+
+			if test.Type != typ {
+				t.Errorf("expected type %s, got %s", test.Type, typ)
+			}
+
+			b := ilt.NewFakeBag(test.I)
+			ex.Evaluate(b)
 		})
 	}
 }
-
-/*
-func doEval(test ilt.TestInfo, p *il.Program, fnID uint32) error {
-	b := ilt.NewFakeBag(test.I)
-
-	externs := make(map[string]interpreter.Extern)
-	for k, v := range lang.Externs {
-		externs[k] = v
-	}
-	if test.Externs != nil {
-		for k, v := range test.Externs {
-			externs[k] = interpreter.ExternFromFn(k, v)
-		}
-	}
-
-	i := interpreter.New(p, externs)
-	v, err := i.EvalFnID(fnID, b)
-	return test.CheckEvaluationResult(v.AsInterface(), err)
-}
-*/

@@ -111,6 +111,7 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 			args[i] = u.unroll(arg)
 		}
 
+		// rewrite conditional and elvis, recurse otherwise
 		switch v.CallExpr.Function {
 		case "conditional":
 			return &exprpb.Expr{
@@ -181,6 +182,18 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 				}
 			}
 			return out
+
+		default:
+			return &exprpb.Expr{
+				Id: in.Id,
+				ExprKind: &exprpb.Expr_CallExpr{
+					CallExpr: &exprpb.Expr_Call{
+						Function: v.CallExpr.Function,
+						Target:   target,
+						Args:     args,
+					},
+				},
+			}
 		}
 
 	default:

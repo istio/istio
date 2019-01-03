@@ -41,6 +41,21 @@ var (
 			result: true,
 		},
 		{
+			text:   `(1/0 == 0) || true`,
+			result: true,
+		},
+		{
+			text:   `(1/0 == 0) && false`,
+			result: false,
+		},
+		{
+			text: `test.bool ? 1/0 : 1`,
+			bag: map[string]interface{}{
+				"test.bool": true,
+			},
+			result: errors.New("divide by zero"),
+		},
+		{
 			text: `1 + 2 * request.size + size("test")`,
 			bag: map[string]interface{}{
 				"request.size": int64(5),
