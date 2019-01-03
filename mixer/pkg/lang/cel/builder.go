@@ -15,8 +15,11 @@
 package cel
 
 import (
+	"errors"
+
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/debug"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/interpreter"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
@@ -26,9 +29,7 @@ import (
 	"istio.io/istio/mixer/pkg/lang/compiled"
 )
 
-// ExpressionBuilder is used to create a set of pre-compiled expressions, backed by the same program and interpreter
-// instance. It is meant to be used to create a large number of precompiled expressions that are backed by an efficient
-// set of shared, immutable objects.
+// ExpressionBuilder creates a CEL interpreter from an attribute manifest.
 type ExpressionBuilder struct {
 	provider    *attributeProvider
 	env         *checker.Env
@@ -41,20 +42,48 @@ type expression struct {
 	eval     interpreter.Interpretable
 }
 
-func (ex *expression) Evaluate(bag attribute.Bag) (interface{}, error) {
-	return nil, nil
+func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New("panic during evaluation")
+		}
+	}()
+
+	result, _ := ex.eval.Eval(ex.provider.newActivation(bag))
+	out = result.Value()
+
+	if result.Type() == types.ErrType {
+		var ok bool
+		if err, ok = result.Value().(error); ok {
+			return
+		}
+		err = errors.New("unknown error")
+	}
+	return
 }
-func (ex *expression) EvaluateBoolean(bag attribute.Bag) (bool, error) {
-	return false, nil
+func (ex *expression) EvaluateBoolean(bag attribute.Bag) (b bool, err error) {
+	var out interface{}
+	out, err = ex.Evaluate(bag)
+	b, _ = out.(bool)
+	return
 }
-func (ex *expression) EvaluateString(bag attribute.Bag) (string, error) {
-	return "", nil
+func (ex *expression) EvaluateString(bag attribute.Bag) (s string, err error) {
+	var out interface{}
+	out, err = ex.Evaluate(bag)
+	s, _ = out.(string)
+	return
 }
-func (ex *expression) EvaluateInteger(bag attribute.Bag) (int64, error) {
-	return 0, nil
+func (ex *expression) EvaluateInteger(bag attribute.Bag) (i int64, err error) {
+	var out interface{}
+	out, err = ex.Evaluate(bag)
+	i, _ = out.(int64)
+	return
 }
-func (ex *expression) EvaluateDouble(bag attribute.Bag) (float64, error) {
-	return 0, nil
+func (ex *expression) EvaluateDouble(bag attribute.Bag) (d float64, err error) {
+	var out interface{}
+	out, err = ex.Evaluate(bag)
+	d, _ = out.(float64)
+	return
 }
 func (ex *expression) String() string {
 	return debug.ToDebugString(ex.expr)

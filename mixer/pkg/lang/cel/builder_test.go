@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"reflect"
 	"testing"
 
 	ilt "istio.io/istio/mixer/pkg/il/testing"
@@ -22,6 +23,7 @@ import (
 )
 
 func TestCEXLCompatibility(t *testing.T) {
+	t.Skip()
 	for _, test := range ilt.TestData {
 		if test.E == "" {
 			continue
@@ -61,7 +63,19 @@ func TestCEXLCompatibility(t *testing.T) {
 			}
 
 			b := ilt.NewFakeBag(test.I)
-			ex.Evaluate(b)
+
+			out, err := ex.Evaluate(b)
+			if err != nil {
+				if test.Err != "" {
+					t.Logf("expected evaluation error %q, got %v", test.Err, err)
+					return
+				}
+				t.Fatalf("unexpected evaluation error: %v", err)
+			}
+
+			if !reflect.DeepEqual(out, test.R) {
+				t.Fatalf("got %s, expected %s", out, test.R)
+			}
 		})
 	}
 }

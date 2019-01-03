@@ -70,6 +70,15 @@ var (
 			result: true,
 		},
 		{
+			text:   `as`,
+			result: "",
+		},
+		{
+			text:   `as`,
+			bag:    map[string]interface{}{"as": "test"},
+			result: "test",
+		},
+		{
 			text:   `context.reporter.kind`,
 			result: "",
 		},
@@ -190,6 +199,58 @@ var (
 			},
 			result: errors.New("size not implemented on stringmaps"),
 		},
+		{
+			text:   `email("user@istio.io")`,
+			result: "user@istio.io",
+		},
+		{
+			text:   `email("")`,
+			result: errors.New("error converting '' to e-mail: 'mail: no address'"),
+		},
+		{
+			text:   `dnsName("istio.io")`,
+			result: "istio.io",
+		},
+		{
+			text:   `dnsName("")`,
+			result: errors.New("error converting '' to dns name: 'idna: invalid label \"\"'"),
+		},
+		{
+			text:   `uri("http://istio.io")`,
+			result: "http://istio.io",
+		},
+		{
+			text:   `uri("")`,
+			result: errors.New("error converting string to uri: empty string"),
+		},
+		{
+			text:   `ip("127.0.0.1")`,
+			result: []byte(net.ParseIP("127.0.0.1")),
+		},
+		{
+			text:   `ip("blah")`,
+			result: errors.New("could not convert blah to IP_ADDRESS"),
+		},
+		{
+			text:   `"ab".startsWith("a")`,
+			result: true,
+		},
+		{
+			text:   `"ab".endsWith("a")`,
+			result: false,
+		},
+		{
+			text:   `"ab".reverse()`,
+			result: "ba",
+		},
+		{
+			text:   `reverse("ab")`,
+			result: "ba",
+		},
+		{
+			text:   `toLower("Ab")`,
+			result: "ab",
+		},
 		/*
 			{
 				text: `conditional(context.reporter.kind == "client", getOrElse("outbound", "test"), "inbound")`,
@@ -213,6 +274,7 @@ var (
 	}
 	// TODO: map reference tracking, attribute bag tracking, in for maps with references
 	attrs = map[string]*v1beta1.AttributeManifest_AttributeInfo{
+		"as":                        {ValueType: v1beta1.STRING},
 		"connection.duration":       {ValueType: v1beta1.DURATION},
 		"connection.id":             {ValueType: v1beta1.STRING},
 		"connection.received.bytes": {ValueType: v1beta1.INT64},

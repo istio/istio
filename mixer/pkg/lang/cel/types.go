@@ -29,6 +29,7 @@ import (
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/lang"
 )
 
@@ -117,7 +118,7 @@ func convertValue(typ v1beta1.ValueType, value interface{}) ref.Value {
 		d := value.(time.Duration)
 		return types.Duration{Duration: ptypes.DurationProto(d)}
 	case v1beta1.STRING_MAP:
-		sm := value.(attribute.StringMap)
+		sm := value.(il.StringMap)
 		return stringMapValue{value: sm}
 	case v1beta1.IP_ADDRESS:
 		return wrapperValue{typ: typ, bytes: value.([]byte)}
@@ -170,7 +171,7 @@ const (
 )
 
 type stringMapValue struct {
-	value attribute.StringMap
+	value il.StringMap
 }
 
 func (v stringMapValue) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {

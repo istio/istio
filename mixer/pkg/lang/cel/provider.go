@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 	"github.com/google/cel-go/interpreter"
+	"github.com/google/cel-go/interpreter/functions"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 	"istio.io/api/policy/v1beta1"
@@ -69,6 +70,12 @@ func (n *node) HasTrait(trait int) bool {
 	return trait == traits.IndexerType
 }
 func (n *node) TypeName() string {
+	return n.typeName
+}
+func (n *node) String() string {
+	if n.typ != nil {
+		return n.typeName + ":" + n.typ.String()
+	}
 	return n.typeName
 }
 
@@ -119,14 +126,20 @@ func (ap *attributeProvider) newEnvironment() *checker.Env {
 		}
 	}
 
-	// populate with standard overloads
+	// populate with standard functions
 	env.Add(standardFunctions()...)
 
 	return env
 }
 
 func (ap *attributeProvider) newInterpreter() interpreter.Interpreter {
-	return interpreter.NewStandardInterpreter(packages.DefaultPackage, ap)
+	dispatcher := interpreter.NewDispatcher()
+	dispatcher.Add(functions.StandardOverloads()...)
+
+	// populate with standard overloads
+	dispatcher.Add(standardOverloads()...)
+
+	return interpreter.NewInterpreter(dispatcher, packages.DefaultPackage, ap)
 }
 
 func (ap *attributeProvider) newActivation(bag attribute.Bag) interpreter.Activation {
@@ -204,6 +217,20 @@ func (v value) Type() ref.Type {
 func (v value) Value() interface{} {
 	return v
 }
+func (v value) String() string {
+	return v.node.String()
+}
+func resolve(n *node, bag attribute.Bag) ref.Value {
+	if n.typ == nil {
+		return value{node: n, bag: bag}
+	}
+	value, found := bag.Get(n.typeName[1:])
+	if found {
+		return convertValue(n.valueType, value)
+	}
+	return defaultValue(n.valueType)
+}
+
 func (v value) Get(index ref.Value) ref.Value {
 	if index.Type() != types.StringType {
 		return types.NewErr("select not implemented")
@@ -215,20 +242,12 @@ func (v value) Get(index ref.Value) ref.Value {
 		return types.NewErr("cannot evaluate select of %q from %s", field, v.node.typeName)
 	}
 
-	if child.typ == nil {
-		return value{node: child, bag: v.bag}
-	}
-
-	value, found := v.bag.Get(child.typeName[1:])
-	if found {
-		return convertValue(child.valueType, value)
-	}
-	return defaultValue(child.valueType)
+	return resolve(child, v.bag)
 }
 
 func (a *attributeActivation) ResolveName(name string) (ref.Value, bool) {
 	if node, ok := a.provider.root.children[name]; ok {
-		return value{node: node, bag: a.bag}, true
+		return resolve(node, a.bag), true
 	}
 	return nil, false
 }

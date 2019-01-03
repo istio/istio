@@ -24,7 +24,7 @@ import (
 )
 
 func TestExternIp(t *testing.T) {
-	b, err := externIP("1.2.3.4")
+	b, err := ExternIP("1.2.3.4")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestExternIp(t *testing.T) {
 }
 
 func TestExternIp_Error(t *testing.T) {
-	_, err := externIP("A.A.A.A")
+	_, err := ExternIP("A.A.A.A")
 	if err == nil {
 		t.Fatalf("Expected error not found.")
 	}
@@ -101,7 +101,7 @@ func TestExternDnsName_Positive(t *testing.T) {
 	}
 
 	for _, v := range positive {
-		o, err := externDNSName(v)
+		o, err := ExternDNSName(v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -126,7 +126,7 @@ func TestExternDnsName_Negative(t *testing.T) {
 	}
 
 	for _, v := range negative {
-		_, err := externDNSName(v)
+		_, err := ExternDNSName(v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v", v)
 		}
@@ -193,7 +193,7 @@ func TestExternEmail_Positive(t *testing.T) {
 	}
 
 	for _, v := range positive {
-		o, err := externEmail(v)
+		o, err := ExternEmail(v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -214,7 +214,7 @@ func TestExternEmail_Negative(t *testing.T) {
 	}
 
 	for _, v := range negative {
-		_, err := externEmail(v)
+		_, err := ExternEmail(v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: %v", v)
 		}
@@ -313,7 +313,7 @@ func TestExternUri_Positive(t *testing.T) {
 	}
 
 	for _, v := range positive {
-		o, err := externURI(v)
+		o, err := ExternURI(v)
 		if err != nil {
 			t.Fatalf("Error: %v for %s", err, v)
 		}
@@ -332,7 +332,7 @@ func TestExternUri_Negative(t *testing.T) {
 	}
 
 	for _, v := range negative {
-		_, err := externURI(v)
+		_, err := ExternURI(v)
 		if err == nil {
 			t.Fatalf("Expected error not found for: '%v'", v)
 		}
@@ -413,7 +413,7 @@ func TestExternMatch(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if externMatch(c.s, c.p) != c.e {
+		if ExternMatch(c.s, c.p) != c.e {
 			t.Fatalf("externMatch failure: %+v", c)
 		}
 	}
@@ -455,7 +455,7 @@ func TestExternStartsWith(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		m := externStartsWith(c.s, c.p)
+		m := ExternStartsWith(c.s, c.p)
 		if m != c.e {
 			t.Fatalf("startsWith failure: %+v", c)
 		}
@@ -476,7 +476,7 @@ func TestExternEndsWith(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		m := externEndsWith(c.s, c.u)
+		m := ExternEndsWith(c.s, c.u)
 		if m != c.e {
 			t.Fatalf("endsWith failure: %+v", c)
 		}
