@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/features/pilot"
 	"sort"
 	"strconv"
 	"strings"
