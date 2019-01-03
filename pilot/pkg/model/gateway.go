@@ -71,7 +71,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 							spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol, p[0].Port.Name, p[0].Port.Number, p[0].Port.Protocol)
 						continue
 					}
-					rdsName := GatewayRDSRouteName(spec, s)
+					rdsName := GatewayRDSRouteName(s)
 					if rdsName == "" {
 						log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 							spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
@@ -80,21 +80,19 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 					rdsRouteConfigNames[rdsName] = append(rdsRouteConfigNames[rdsName], s)
 				} else {
 					// We have duplicate port. Its not in plaintext servers. So, this has to be in TLS servers
-					// Check if this is also a HTTP server with TLS termination and if so, ensure uniqueness of port name
+					// Check if this is also a HTTP server and if so, ensure uniqueness of port name
 					if isHTTPServer(s) {
-						rdsName := GatewayRDSRouteName(spec, s)
+						rdsName := GatewayRDSRouteName(s)
 						if rdsName == "" {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
 							continue
 						}
 
-						// Both servers are HTTPS servers. Make sure the port names are different so that RDS can pick
-						// out individual servers.  Validation should catch this issue. The logic below is a failsafe. WE
-						// cannot have two servers with same port name because we need the port name to distinguish one
-						// HTTPS server from another WE cannot merge two HTTPS servers even if their TLS settings have
-						// same path to the keys, because we don't know if the contents of the keys are same. So we treat
-						// them as effectively different TLS settings.
+						// both servers are HTTPS servers. Make sure the port names are different so that RDS can pick out individual servers
+						// WE cannot have two servers with same port name because we need the port name to distinguish one HTTPS server from another
+						// WE cannot merge two HTTPS servers even if their TLS settings have same path to the keys, because we don't know if the contents
+						// of the keys are same. So we treat them as effectively different TLS settings.
 						if _, exists := rdsRouteConfigNames[rdsName]; exists {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: non unique port name for HTTPS port",
 								spec.Name, s.Port.Name, s.Port.Number, s.Port.Protocol)
@@ -168,12 +166,11 @@ func isHTTPServer(server *networking.Server) bool {
 //   Multiple HTTP servers can exist on the same port and the code will combine all of them into
 //   one single RDS payload for http.<portNumber>
 // HTTPS servers with TLS termination (i.e. envoy decoding the content, and making outbound http calls to backends)
-// will use route name https.<portnumber>.<portName>.<configName>.<configNamespace>. HTTPS servers using SNI
-// passthrough or non-HTTPS servers (e.g., TCP+TLS) with SNI passthrough will be setup as opaque TCP proxies without
-// terminating the SSL connection. They would inspect the SNI header and forward to the appropriate upstream as opaque
-// TCP.
+// will use route name https.<portnumber>.<portName>. HTTPS servers using SNI passthrough or
+// non-HTTPS servers (e.g., TCP+TLS) with SNI passthrough will be setup as opaque TCP proxies without terminating
+// the SSL connection. They would inspect the SNI header and forward to the appropriate upstream as opaque TCP.
 //
-// Within HTTPS servers terminating TLS, user could setup multiple servers in the gateway. Each server could have
+// Within HTTPS servers terminating TLS, user could setup multiple servers in the gateway. each server could have
 // one or more hosts but have different TLS certificates. In this case, we end up having separate filter chain
 // for each server, with the filter chain match matching on the server specific TLS certs and SNI headers.
 // We have two options here: either have all filter chains use the same RDS route name (e.g. "443") and expose
@@ -183,18 +180,18 @@ func isHTTPServer(server *networking.Server) bool {
 // so that when a RDS request comes in, we serve the virtual hosts and associated routes for that server.
 //
 // Note that the common case is one where multiple servers are exposed under a single multi-SAN cert on a single port.
-// In this case, we have a single https.<portnumber>.portname.configName.configNamespace RDS for the HTTPS server.
+// In this case, we have a single https.<portnumber>.portname RDS for the HTTPS server.
 // While we can use the same RDS route name for two servers (say HTTP and HTTPS) exposing the same set of hosts on
 // different ports, the optimization (one RDS instead of two) could quickly become useless the moment the set of
 // hosts on the two servers start differing -- necessitating the need for two different RDS routes.
-func GatewayRDSRouteName(config *Config, server *networking.Server) string {
+func GatewayRDSRouteName(server *networking.Server) string {
 	protocol := ParseProtocol(server.Port.Protocol)
 	if protocol.IsHTTP() {
 		return fmt.Sprintf("http.%d", server.Port.Number)
 	}
 
 	if protocol == ProtocolHTTPS && server.Tls != nil && !IsPassThroughServer(server) {
-		return fmt.Sprintf("https.%d.%s.%s.%s", server.Port.Number, server.Port.Name, config.Name, config.Namespace)
+		return fmt.Sprintf("https.%d.%s", server.Port.Number, server.Port.Name)
 	}
 
 	return ""

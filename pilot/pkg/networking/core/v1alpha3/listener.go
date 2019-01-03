@@ -182,7 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	}
 
 	services := push.Services(node)
-	sidecarScope := push.SidecarConfig(node, proxyInstances)
+	sidecarScope := push.GetSidecarScope(node, proxyInstances)
 
 	listeners := make([]*xdsapi.Listener, 0)
 
@@ -521,10 +521,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	// occurring in the end
 
 	var catchAllListener *model.IstioListenerWrapper
+	var importedServices []*model.Service
+	var importedConfigs []model.Config
 	// Add listeners based on the config in the sidecar.EgressListeners if
 	// no Sidecar CRD is provided for this config namespace,
 	// push.SidecarScope will generate a default catch all egress listener.
-	for _, egressListener := range sidecar.EgressListeners {
+	for _, egressListener := range sidecarScope.EgressListeners {
 		if egressListener.IstioListener != nil &&
 			egressListener.IstioListener.Port != nil {
 			// We have a non catch all listener on some user specified port
@@ -550,8 +552,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	// Only import services and virtualServices required by this listener
-	importedServices := catchAllListener.SelectServices(services)
-	importedConfigs := catchAllListener.SelectVirtualServices(configs)
+	importedServices = catchAllListener.SelectServices(services)
+	importedConfigs = catchAllListener.SelectVirtualServices(configs)
 
 	// Control reaches this stage when we need to build a catch all egress
 	// listener. We need to generate a listener for every unique service

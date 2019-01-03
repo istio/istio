@@ -568,8 +568,8 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 	return
 }
 
-// ValidateSidecar checks sidecar config supplied by user
-func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
+// ValidateSidecarConfig checks sidecar config supplied by user
+func ValidateSidecarConfig(name, namespace string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.Sidecar)
 	if !ok {
 		return fmt.Errorf("cannot cast to Sidecar")
@@ -586,11 +586,11 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		// ensure ports are unique
 	}
 
-	for _, e := range rule.Egress {
+	//for _, e := range rule.Egress {
 		// there can be only one catch all egress listener with empty port, and it should be the last listener.
 		// ensure ports are unique if specified
 		// cannot specify default endpoint for catch all egress listener
-	}
+	//}
 
 	// for both ingress and egress, validate that the hosts field is a slash separated value
 	// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com

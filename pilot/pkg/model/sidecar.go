@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -43,9 +42,9 @@ type SidecarScope struct {
 // IstioListenerWrapper is a wrapper for networking.IstioListener object.
 // It has the parsed form of the hosts field, encompassing a list of services
 // per sidecar listener object.
-type IstioListenerWrapper {
+type IstioListenerWrapper struct {
 	// The actual IstioListener api object
-	IstioListener *IstioListener
+	IstioListener *networking.IstioListener
 
 	// TODO: Unix domain socket
 
@@ -58,12 +57,14 @@ type IstioListenerWrapper {
 
 // DefaultSidecarScope is a sidecar scope object with a default
 // catch all egress listener
-const DefaultSidecarScope = SidecarScope{
-	EgressListeners: []*IstioListenerWrapper{
-		{
-			importMap: { wildcardNamespace : wildcardService },
+func DefaultSidecarScope() *SidecarScope {
+	return &SidecarScope{
+		EgressListeners: []*IstioListenerWrapper{
+			{
+				importMap: map[string]Hostname{ wildcardNamespace : wildcardService },
+			},
 		},
-	},
+	}
 }
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
@@ -73,19 +74,19 @@ func ConvertToSidecarScope(sidecarConfig *Config) *SidecarScope {
 	}
 
 	r := sidecarConfig.Spec.(*networking.Sidecar)
-	out.EgressListeners := make([]*IstioListenerWrapper, len(r.egress))
-	out.IngressListeners := make([]*IstioListenerWrapper, len(r.ingress))
-	for _, e := range r.egress {
+	out.EgressListeners = make([]*IstioListenerWrapper, len(r.Egress))
+	out.IngressListeners = make([]*IstioListenerWrapper, len(r.Ingress))
+	for _, e := range r.Egress {
 		out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(e))
 	}
-	for _, e := range r.ingress {
+	for _, e := range r.Ingress {
 		out.IngressListeners = append(out.IngressListeners, convertIstioListenerToWrapper(e))
 	}
+
+	return out
 }
 
-func convertIstioListenerToWrapper(istioListener *IstioListener) *IstioListenerWrapper {
-	var svcPort *Port
-
+func convertIstioListenerToWrapper(istioListener *networking.IstioListener) *IstioListenerWrapper {
 	out := &IstioListenerWrapper{
 		IstioListener: istioListener,
 		importMap : make(map[string]Hostname),
@@ -95,14 +96,14 @@ func convertIstioListenerToWrapper(istioListener *IstioListener) *IstioListenerW
 		out.Port = &Port{
 			Name: istioListener.Port.Name,
 			Port: int(istioListener.Port.Number),
-			Protocol: model.ParseProtocol(istioListener.Port.Protocol),
+			Protocol: ParseProtocol(istioListener.Port.Protocol),
 		}
 	}
 
 	if istioListener.Hosts != nil {
 		for _, h := range istioListener.Hosts {
-			namespace, name := strings.SplitN(h, "/", 2)
-			out.importMap[namespace] = Hostname(name)
+			parts := strings.SplitN(h, "/", 2)
+			out.importMap[parts[0]] = Hostname(parts[1])
 		}
 	}
 
@@ -112,7 +113,7 @@ func convertIstioListenerToWrapper(istioListener *IstioListener) *IstioListenerW
 // GetEgressListenerForPort returns the egress listener corresponding to
 // the listener port or the catch all listener
 func (sc *SidecarScope) GetEgressListenerForPort(port int) *IstioListenerWrapper {
-	for _, e := range sc.egress {
+	for _, e := range sc.EgressListeners {
 		if e.Port == nil || e.Port.Port == port {
 			return e
 		}
@@ -129,14 +130,14 @@ func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if hostMatch, nsFound := ilw.importMap[configNamespace]; nsFound {
 			// Check if the hostnames match per usual hostname matching rules
-			if hostMatch.Matches(s) {
+			if hostMatch.Matches(s.Hostname) {
 				importedServices = append(importedServices, s)
 			}
 		} else if hostMatch, wnsFound := ilw.importMap[wildcardNamespace]; wnsFound {
 			// Check if there is an import of form */host or */*
 
 			// Check if the hostnames match per usual hostname matching rules
-			if hostMatch.Matches(s) {
+			if hostMatch.Matches(s.Hostname) {
 				importedServices = append(importedServices, s)
 			}			
 		}
@@ -148,8 +149,8 @@ func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service 
 // SelectVirtualServices returns the list of virtual services selected
 // through the hosts field in the ingress/egress portion of the Sidecar
 // config
-func (ilw *IstioListenerWrapper) SelectVirtualServices(configs []*Config) []*Config {
-	importedConfigs := make([]*Config, 0)
+func (ilw *IstioListenerWrapper) SelectVirtualServices(configs []Config) []Config {
+	importedConfigs := make([]Config, 0)
 	for _, c := range configs {
 		configNamespace := c.Namespace
 		rule := c.Spec.(*networking.VirtualService)
@@ -160,7 +161,7 @@ func (ilw *IstioListenerWrapper) SelectVirtualServices(configs []*Config) []*Con
 				// TODO: This is a bug. VirtualServices can have many hosts
 				// while the user might be importing only a single host
 				// We need to generate a new VirtualService with just the matched host
-				if hostMatch.Matches(h) {
+				if hostMatch.Matches(Hostname(h)) {
 					importedConfigs = append(importedConfigs, c)
 					break
 				}
@@ -173,7 +174,7 @@ func (ilw *IstioListenerWrapper) SelectVirtualServices(configs []*Config) []*Con
 				// TODO: This is a bug. VirtualServices can have many hosts
 				// while the user might be importing only a single host
 				// We need to generate a new VirtualService with just the matched host
-				if hostMatch.Matches(h) {
+				if hostMatch.Matches(Hostname(h)) {
 					importedConfigs = append(importedConfigs, c)
 					break
 				}

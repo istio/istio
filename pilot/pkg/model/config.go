@@ -380,13 +380,13 @@ var (
 	}
 
 	// Sidecar describes the listeners associated with sidecars in a namespace
-	Sidecar = ProtoSchema{
+	SidecarConfig = ProtoSchema{
 		Type:        "sidecar",
 		Plural:      "sidecars",
 		Group:       "networking",
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Sidecar",
-		Validate:    ValidateSidecar,
+		Validate:    ValidateSidecarConfig,
 	}
 
 	// HTTPAPISpec describes an HTTP API specification.

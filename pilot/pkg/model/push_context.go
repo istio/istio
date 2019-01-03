@@ -17,14 +17,12 @@ package model
 import (
 	"encoding/json"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/features/pilot"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -283,7 +281,7 @@ func NewPushContext() *PushContext {
 		publicDestRuleHosts:               []Hostname{},
 		privateDestRuleByHostByNamespace:  map[string]map[Hostname]*combinedDestinationRule{},
 		privateDestRuleHostsByNamespace:   map[string][]Hostname{},
-		sidecarsByNamespace: map[string][]Config{},
+		sidecarsByNamespace: map[string][]*SidecarScope{},
 
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
@@ -390,9 +388,9 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 
 // GetSidecarConfig returns a sidecar rule applicable to the config
 // namespace associated with the proxy
-func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances *ServiceInstance) *SidecarScope {
+func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
 	if proxy == nil {
-		return &DefaultSidecarScope
+		return DefaultSidecarScope()
 	}
 
 	var workloadLabels LabelsCollection
@@ -418,7 +416,7 @@ func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances *ServiceInst
 		}
 	}
 
-	return &DefaultSidecarScope
+	return DefaultSidecarScope()
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
@@ -621,7 +619,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 // Caches list of Sidecar resources
 func (ps *PushContext) initSidecarScopes(env *Environment) error {
-	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
+	sidecarConfigs, err := env.List(SidecarConfig.Type, NamespaceAll)
 	if err != nil {
 		return err
 	}
@@ -630,7 +628,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	for _, sidecarConfig := range sidecarConfigs {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
-		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(sidecarConfig))
+		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(&sidecarConfig))
 	}
 
 	return nil

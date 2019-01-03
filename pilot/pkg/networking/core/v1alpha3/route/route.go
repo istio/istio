@@ -71,7 +71,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
 	serviceRegistry map[model.Hostname]*model.Service,
-	virtualServices []*model.Config,
+	virtualServices []model.Config,
 	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)

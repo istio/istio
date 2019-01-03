@@ -99,8 +99,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			return nil
 		}
 	}
-
-	sidecarScope := push.SidecarConfig(node, proxyInstances)
+	meshGateway := map[string]bool{model.IstioMeshGateway: true}
+	sidecarScope := push.GetSidecarScope(node, proxyInstances)
 	importedServices := services
 	virtualServices := push.VirtualServices(node, meshGateway)
 	importedVirtualServices := virtualServices
