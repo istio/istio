@@ -182,12 +182,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	}
 
 	services := push.Services(node)
+	sidecarScope := push.SidecarConfig(node, proxyInstances)
 
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
-		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
-		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances, services)
+		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances, sidecarScope)
+		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances, services, sidecarScope)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -309,7 +310,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
+	proxyInstances []*model.ServiceInstance, sidecarScope *model.SidecarScope) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
 	listenerMap := make(map[string]*model.ServiceInstance)
@@ -493,8 +494,9 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 // Connections to the ports of non-load balanced services are directed to
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, services []*model.Service) []*xdsapi.Listener {
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
+	push *model.PushContext, proxyInstances []*model.ServiceInstance,
+	services []*model.Service, sidecarScope *model.SidecarScope) []*xdsapi.Listener {
 
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {
@@ -507,7 +509,56 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
 	listenerMap := make(map[string]*listenerEntry)
-	for _, service := range services {
+
+	// The sidecarConfig if provided could filter the list of
+	// services/virtual services that we need to process. It could also
+	// define one or more listeners with specific ports. Once we generate
+	// listeners for these user specified ports, we will auto generate
+	// configs for other ports if and only if the sidecarConfig has an
+	// egressListener on wildcard port.
+	//
+	// Validation will ensure that we have utmost one wildcard egress listener
+	// occurring in the end
+
+	var catchAllListener *model.IstioListenerWrapper
+	// Add listeners based on the config in the sidecar.EgressListeners if
+	// no Sidecar CRD is provided for this config namespace,
+	// push.SidecarScope will generate a default catch all egress listener.
+	for _, egressListener := range sidecar.EgressListeners {
+		if egressListener.IstioListener != nil &&
+			egressListener.IstioListener.Port != nil {
+			// We have a non catch all listener on some user specified port
+			// The user specified port may or may not match a service port.
+			// If it does not match any service port, then we expect the
+			// user to provide a virtualService that will route to a proper
+			// Service. This is the reason why we can't reuse the big
+			// forloop logic below as it iterates over all services and
+			// their service ports.
+
+			// TODO: complete implementation
+			continue
+		}
+
+		// This is a catch all egress listener. This should be the last
+		// egress listener in the sidecar Scope.
+		catchAllListener = egressListener
+		break
+	}
+
+	if catchAllListener == nil {
+		goto validateListeners
+	}
+
+	// Only import services and virtualServices required by this listener
+	importedServices := catchAllListener.SelectServices(services)
+	importedConfigs := catchAllListener.SelectVirtualServices(configs)
+
+	// Control reaches this stage when we need to build a catch all egress
+	// listener. We need to generate a listener for every unique service
+	// port across all imported services, if and only if this port was not
+	// specified in any of the preceeding listeners from the sidecarScope.
+	// TODO: Implement the logic for ignoring service ports processed earlier.
+	for _, service := range importedServices {
 		for _, servicePort := range service.Ports {
 			listenAddress := WildcardAddress
 			var destinationIPAddress string
@@ -613,7 +664,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// The conflict resolution is done later in this code
 				}
 
-				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(env, node, push, configs,
+				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(env, node, push, importedConfigs,
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy
@@ -732,18 +783,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		}
 	}
 
-	for name, l := range listenerMap {
-		if err := l.listener.Validate(); err != nil {
-			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
-			invalidOutboundListeners.Add(1)
-			continue
+	validateListeners:
+		for name, l := range listenerMap {
+			if err := l.listener.Validate(); err != nil {
+				log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
+				invalidOutboundListeners.Add(1)
+				continue
+			}
+			if l.servicePort.Protocol.IsTCP() {
+				tcpListeners = append(tcpListeners, l.listener)
+			} else {
+				httpListeners = append(httpListeners, l.listener)
+			}
 		}
-		if l.servicePort.Protocol.IsTCP() {
-			tcpListeners = append(tcpListeners, l.listener)
-		} else {
-			httpListeners = append(httpListeners, l.listener)
-		}
-	}
 
 	return append(tcpListeners, httpListeners...)
 }

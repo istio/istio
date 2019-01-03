@@ -38,8 +38,9 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   name: my-gateway
 //   namespace: some-config-namespace
 // spec:
-//   selector:
-//     app: my-gateway-controller
+//   workloadSelector:
+//     labels:
+//       app: my-gateway-controller
 //   servers:
 //   - port:
 //       number: 80
@@ -157,12 +158,17 @@ message Gateway {
   // REQUIRED: A list of server specifications.
   repeated Server servers = 1;
 
-  // REQUIRED: One or more labels that indicate a specific set of pods/VMs
-  // on which this gateway configuration should be applied.
-  // The scope of label search is platform dependent.
-  // On Kubernetes, for example, the scope includes pods running in
-  // all reachable namespaces.
-  map<string, string> selector = 2;
+  // One or more labels that indicate a specific set of pods/VMs on which
+  // this gateway configuration should be applied.  The scope of label
+  // search is platform dependent.  On Kubernetes, for example, the scope
+  // includes pods running in all reachable namespaces. Precisely one of
+  // selector or workloadSelector MUST be specified.
+  map<string, string> selector = 2 [deprecated=true];
+
+  // Criteria used to select the specific set of pods/VMs on which this
+  // gateway configuration should be applied. Precisely one of selector
+  // or workloadSelector must be specified.
+  WorkloadSelector workload_selector = 3;
 }
 
 // `Server` describes the properties of the proxy on a given load balancer
@@ -174,8 +180,9 @@ message Gateway {
 // metadata:
 //   name: my-ingress
 // spec:
-//   selector:
-//     app: my-ingress-gateway
+//   workloadSelector:
+//     labels:
+//       app: my-ingress-gateway
 //   servers:
 //   - port:
 //       number: 80
@@ -193,8 +200,9 @@ message Gateway {
 // metadata:
 //   name: my-tcp-ingress
 // spec:
-//   selector:
-//     app: my-tcp-ingress-gateway
+//   workloadSelector:
+//     labels:
+//       app: my-tcp-ingress-gateway
 //   servers:
 //   - port:
 //       number: 27018
@@ -212,8 +220,9 @@ message Gateway {
 // metadata:
 //   name: my-tls-ingress
 // spec:
-//   selector:
-//     app: my-tls-ingress-gateway
+//   workloadSelector:
+//     labels:
+//       app: my-tls-ingress-gateway
 //   servers:
 //   - port:
 //       number: 443
@@ -227,9 +236,15 @@ message Gateway {
 //       privateKey: /etc/certs/privatekey.pem
 // ```
 message Server {
+  // An arbitrary name associated with this server. Used for emitting metrics.
+  string name = 6;
+
   // REQUIRED: The Port on which the proxy should listen for incoming
   // connections
   Port port = 1;
+
+  // The IP address to which the listener should be bound to.
+  string bind_address = 5;
 
   // REQUIRED. A list of hosts exposed by this gateway. At least one
   // host is required. While typically applicable to
@@ -334,6 +349,14 @@ message Server {
   // these options to control if all http requests should be redirected to
   // https, and the TLS modes to use.
   TLSOptions tls = 3;
+
+  // The IP endpoint or unix domain socket to which traffic should be
+  // forwarded to by default. In the context of an ingress server, this
+  // configuration can be used to redirect traffic arriving at the bind
+  // point on the sidecar to a port or unix domain socket where the
+  // application workload is listening for connections. Format should be
+  // 127.0.0.1:PORT or unix:///path/to/socket
+  string default_endpoint = 4;
 }
 
 // Port describes the properties of a specific port of a service.
@@ -349,4 +372,21 @@ message Port {
 
   // Label assigned to the port.
   string name = 3;
+}
+
+// WorkloadSelector specifies the criteria used to determine if the Gateway
+// or Sidecar resource can be applied to a given workload. If multiple
+// conditions are specified, all conditions need to match in order for the
+// workload to be selected.
+message WorkloadSelector {
+  // One or more labels that indicate a specific set of pods/VMs on which
+  // this gateway/sidecar configuration should be applied. The scope of
+  // label search is restricted to the configuration namespace in which the
+  // workload is present.
+  map<string, string> labels = 1;
+
+  // $hide_from_docs
+  // [#not-implemented-hide:]
+  // other forms of identification such as X509 fields, tenant IDs, JWT,
+  // etc. will be added in future.
 }

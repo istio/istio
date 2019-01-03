@@ -295,7 +295,8 @@ ignored = [
 
 [[constraint]]
   name = "istio.io/api"
-  branch = "release-1.1"
+  source = "github.com/rshriram/api"
+  branch = "sidecars"
 
 # fortio is latest tagged by default
 

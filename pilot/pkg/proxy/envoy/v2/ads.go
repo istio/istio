@@ -630,11 +630,6 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	con.mu.Unlock()
 
-	s.globalPushContext().UpdateNodeIsolation(con.modelNode)
-
-	// TODO
-	// use networkScope to update the list of namespace and service dependencies
-
 	return nil
 }
 
@@ -658,9 +653,6 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		}
 		return nil
 	}
-
-	// This needs to be called to update list of visible services in the node.
-	pushEv.push.UpdateNodeIsolation(con.modelNode)
 
 	adsLog.Infof("Pushing %v", con.ConID)
 

@@ -379,6 +379,16 @@ var (
 		Validate:    ValidateEnvoyFilter,
 	}
 
+	// Sidecar describes the listeners associated with sidecars in a namespace
+	Sidecar = ProtoSchema{
+		Type:        "sidecar",
+		Plural:      "sidecars",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.Sidecar",
+		Validate:    ValidateSidecar,
+	}
+
 	// HTTPAPISpec describes an HTTP API specification.
 	HTTPAPISpec = ProtoSchema{
 		Type:        "http-api-spec",

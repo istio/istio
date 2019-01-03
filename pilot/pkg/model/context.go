@@ -105,14 +105,6 @@ type Proxy struct {
 	// mutex control access to mutable fields in the Proxy. On-demand will modify the
 	// list of services based on calls from envoy.
 	mutex sync.RWMutex
-
-	// serviceDependencies, if set, controls the list of outbound listeners and routes
-	// for which the proxy will receive configurations. If nil, the proxy will get config
-	// for all visible services.
-	// The list will be populated either from explicit declarations or using 'on-demand'
-	// feature, before generation takes place. Each node may have a different list, based on
-	// the requests handled by envoy.
-	serviceDependencies []*Service
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh

@@ -568,6 +568,40 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 	return
 }
 
+// ValidateSidecar checks sidecar config supplied by user
+func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
+	rule, ok := msg.(*networking.Sidecar)
+	if !ok {
+		return fmt.Errorf("cannot cast to Sidecar")
+	}
+
+	if len(rule.Ingress) == 0 && len(rule.Egress) == 0 {
+		return fmt.Errorf("sidecar: missing ingress/egress listeners")
+	}
+
+	for _, i := range rule.Ingress {
+		if i.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
+		}
+		// ensure ports are unique
+	}
+
+	for _, e := range rule.Egress {
+		// there can be only one catch all egress listener with empty port, and it should be the last listener.
+		// ensure ports are unique if specified
+		// cannot specify default endpoint for catch all egress listener
+	}
+
+	// for both ingress and egress, validate that the hosts field is a slash separated value
+	// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
+
+	// for both ingress and egress, validate the port field (protocol, port, etc.).
+	// Allow port value of 0 if and only if the bind_address is a unix domain socket
+
+	// TODO: need more validation
+	return
+}
+
 func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy == nil {
 		return nil

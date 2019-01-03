@@ -60,6 +60,9 @@ type PushContext struct {
 	privateDestRuleByHostByNamespace map[string]map[Hostname]*combinedDestinationRule
 	publicDestRuleHosts              []Hostname
 	publicDestRuleByHost             map[Hostname]*combinedDestinationRule
+
+	// sidecars for each namespace
+	sidecarsByNamespace map[string][]*SidecarScope
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -280,6 +283,7 @@ func NewPushContext() *PushContext {
 		publicDestRuleHosts:               []Hostname{},
 		privateDestRuleByHostByNamespace:  map[string]map[Hostname]*combinedDestinationRule{},
 		privateDestRuleHostsByNamespace:   map[string][]Hostname{},
+		sidecarsByNamespace: map[string][]Config{},
 
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
@@ -341,41 +345,6 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	return out
 }
 
-// UpdateNodeIsolation will update per-node data holding visible services and configs for the node.
-// It is called:
-// - on connect
-// - on config change events (full push)
-// - TODO: on-demand events from Envoy
-func (ps *PushContext) UpdateNodeIsolation(proxy *Proxy) {
-	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
-	// bindings.
-	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {
-		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
-		// reviewed ), or from an env variable.
-		adminNs := strings.Split(pilot.NetworkScopes, ",")
-		globalDeps := map[string]bool{}
-		for _, ns := range adminNs {
-			globalDeps[ns] = true
-		}
-
-		proxy.mutex.RLock()
-		defer proxy.mutex.RUnlock()
-		res := []*Service{}
-		for _, s := range ps.publicServices {
-			serviceNamespace := s.Attributes.Namespace
-			if serviceNamespace == "" {
-				res = append(res, s)
-			} else if globalDeps[serviceNamespace] || serviceNamespace == proxy.ConfigNamespace {
-				res = append(res, s)
-			}
-		}
-		res = append(res, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
-		proxy.serviceDependencies = res
-
-		// TODO: read Gateways,NetworkScopes/etc to populate additional entries
-	}
-}
-
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
 func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
@@ -417,6 +386,39 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	}
 
 	return out
+}
+
+// GetSidecarConfig returns a sidecar rule applicable to the config
+// namespace associated with the proxy
+func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances *ServiceInstance) *SidecarScope {
+	if proxy == nil {
+		return &DefaultSidecarScope
+	}
+
+	var workloadLabels LabelsCollection
+	for _, w := range proxyInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
+	}
+
+	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
+		// TODO: logic to merge multiple sidecar resources
+		// Currently we assume that there will be only one sidecar config for a namespace.	
+		for _, wrapper := range sidecars {
+			sidecar := wrapper.Config.Spec.(*networking.Sidecar)
+			// if there is no workload selector, the config applies to all workloads
+			// if there is a workload selector, check for matching workload labels
+			if sidecar.GetWorkloadSelector() != nil {
+				workloadSelector := Labels(sidecar.GetWorkloadSelector().GetLabels())
+				if !workloadLabels.IsSupersetOf(workloadSelector) {
+					continue
+				}
+				return wrapper
+			}
+			return wrapper
+		}
+	}
+
+	return &DefaultSidecarScope
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
@@ -480,6 +482,10 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	var err error
 
 	if err = ps.initServiceRegistry(env); err != nil {
+		return err
+	}
+
+	if err = ps.initSidecarScopes(env); err != nil {
 		return err
 	}
 
@@ -608,6 +614,23 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		default:
 			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
 		}
+	}
+
+	return nil
+}
+
+// Caches list of Sidecar resources
+func (ps *PushContext) initSidecarScopes(env *Environment) error {
+	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(sidecarConfigs)
+
+	for _, sidecarConfig := range sidecarConfigs {
+		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
+		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(sidecarConfig))
 	}
 
 	return nil
