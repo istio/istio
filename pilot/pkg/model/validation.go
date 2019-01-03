@@ -881,9 +881,8 @@ func validateLocalities(localities []string) error {
 				}
 				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
 					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
-				} else {
-					regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{"*": true}
 				}
+				regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{"*": true}
 			} else {
 				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {"*": true}}
 			}
