@@ -18,12 +18,17 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"sync"
 
 	proto "github.com/gogo/protobuf/types"
+	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/policy/v1beta1"
@@ -43,7 +48,6 @@ type (
 	Server interface {
 		Addr() string
 		Close() error
-		PromPort() int
 		Run()
 	}
 
@@ -58,7 +62,41 @@ type (
 		builderLock sync.RWMutex
 		handlerMap  map[string]adapter.Handler
 	}
+
+	// Cert includes cert config for adapter server
+	Cert struct {
+		credentialFile    string
+		privateKeyFile    string
+		caCertificateFile string
+		enableTLS         bool
+		requireClientAuth bool
+	}
 )
+
+// DefaultCertOption return default cert option for adapter service
+func DefaultCertOption() *Cert {
+	return &Cert{
+		credentialFile:    "/etc/certs/cert-chain.pem",
+		privateKeyFile:    "/etc/certs/key.pem",
+		caCertificateFile: "/etc/certs/root-cert.pem",
+		enableTLS:         false,
+		requireClientAuth: false,
+	}
+}
+
+// AttachCobraFlags attach certs related flags.
+func (c *Cert) AttachCobraFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVarP(&c.credentialFile, "certFile", "", c.credentialFile,
+		"The location of the certificate file for TLS")
+	cmd.PersistentFlags().StringVarP(&c.privateKeyFile, "keyFile", "", c.privateKeyFile,
+		"The location of the key file for TLS")
+	cmd.PersistentFlags().StringVarP(&c.caCertificateFile, "caCertFile", "", c.caCertificateFile,
+		"The location of the certificate file for the root certificate authority")
+	cmd.PersistentFlags().BoolVarP(&c.enableTLS, "enableTLS", "", c.enableTLS,
+		"")
+	cmd.PersistentFlags().BoolVarP(&c.requireClientAuth, "requireClientAuth", "", c.requireClientAuth,
+		"")
+}
 
 var _ metric.HandleMetricServiceServer = &NoSession{}
 var _ logentry.HandleLogEntryServiceServer = &NoSession{}
@@ -264,6 +302,14 @@ func transformValueMap(in map[string]*v1beta1.Value) map[string]interface{} {
 	return out
 }
 
+func transformValueSlice(in []interface{}) []interface{} {
+	out := make([]interface{}, 0, len(in))
+	for _, inst := range in {
+		out = append(out, transformValue(inst))
+	}
+	return out
+}
+
 func transformValue(in interface{}) interface{} {
 	switch t := in.(type) {
 	case *v1beta1.Value_StringValue:
@@ -386,8 +432,36 @@ func (s *NoSession) Close() error {
 	return nil
 }
 
+func getServerTLSOption(c *Cert) (grpc.ServerOption, error) {
+	certificate, err := tls.LoadX509KeyPair(
+		c.credentialFile,
+		c.privateKeyFile,
+	)
+
+	certPool := x509.NewCertPool()
+	bs, err := ioutil.ReadFile(c.caCertificateFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read client ca cert: %s", err)
+	}
+
+	ok := certPool.AppendCertsFromPEM(bs)
+	if !ok {
+		return nil, fmt.Errorf("failed to append client certs")
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{certificate},
+		ClientCAs:    certPool,
+	}
+	if c.requireClientAuth {
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+
+	return grpc.Creds(credentials.NewTLS(tlsConfig)), nil
+}
+
 // NewStackdriverNoSessionServer creates a new no session server based on given args.
-func NewStackdriverNoSessionServer(addr uint16, poolSize int) (*NoSession, error) {
+func NewStackdriverNoSessionServer(addr uint16, poolSize int, c *Cert) (*NoSession, error) {
 	saddr := fmt.Sprintf(":%d", addr)
 
 	gp := pool.NewGoroutinePool(poolSize, false)
@@ -404,7 +478,15 @@ func NewStackdriverNoSessionServer(addr uint16, poolSize int) (*NoSession, error
 	}
 
 	fmt.Printf("listening on :%v\n", s.listener.Addr())
-	s.server = grpc.NewServer()
+	if c.enableTLS {
+		so, err := getServerTLSOption(c)
+		if err != nil {
+			return nil, err
+		}
+		s.server = grpc.NewServer(so)
+	} else {
+		s.server = grpc.NewServer()
+	}
 
 	metric.RegisterHandleMetricServiceServer(s.server, s)
 	logentry.RegisterHandleLogEntryServiceServer(s.server, s)

@@ -34,12 +34,16 @@ type Args struct {
 
 	// Size of adapter API worker pool
 	APIWorkerPoolSize int
+
+	// TLS server cert and credential
+	Cert *server.Cert
 }
 
 func defaultArgs() *Args {
 	return &Args{
 		AdapterPort:       uint16(8080),
 		APIWorkerPoolSize: 1024,
+		Cert:              server.DefaultCertOption(),
 	}
 }
 
@@ -63,8 +67,9 @@ func GetCmd(_ []string) *cobra.Command {
 	f := cmd.PersistentFlags()
 	f.Uint16VarP(&sa.AdapterPort, "port", "p", sa.AdapterPort,
 		"TCP port to use for gRPC Adapter API")
-	f.IntVarP(&sa.APIWorkerPoolSize, "api_pool", "a", sa.APIWorkerPoolSize,
+	f.IntVarP(&sa.APIWorkerPoolSize, "apiPool", "a", sa.APIWorkerPoolSize,
 		"Size of adapter API worker pool")
+	sa.Cert.AttachCobraFlags(cmd)
 	return cmd
 }
 
@@ -76,7 +81,7 @@ func main() {
 }
 
 func runServer(args *Args) {
-	s, err := server.New{{Capitalize .AdapterName}}NoSessionServer(args.AdapterPort, args.APIWorkerPoolSize)
+	s, err := server.NewStackdriverNoSessionServer(args.AdapterPort, args.APIWorkerPoolSize, args.Cert)
 	if err != nil {
 		fmt.Printf("unable to start server: %v", err)
 		os.Exit(-1)
@@ -107,11 +112,16 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"sync"
 
 	"google.golang.org/grpc"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/credentials"
 	$$additional_imports$$
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
@@ -133,7 +143,6 @@ type (
 	Server interface {
 		Addr() string
 		Close() error
-		PromPort() int
 		Run()
 	}
 
@@ -148,7 +157,41 @@ type (
 		builderLock sync.RWMutex
 		handlerMap map[string]adapter.Handler
 	}
+
+	// Cert includes cert config for adapter server
+	Cert struct {
+		credentialFile    string
+		privateKeyFile    string
+		caCertificateFile string
+		enableTLS         bool
+		requireClientAuth bool
+	}
 )
+
+// DefaultCertOption return default cert option for adapter service
+func DefaultCertOption() *Cert {
+	return &Cert{
+		credentialFile:    "/etc/certs/cert-chain.pem",
+		privateKeyFile:    "/etc/certs/key.pem",
+		caCertificateFile: "/etc/certs/root-cert.pem",
+		enableTLS:         false,
+		requireClientAuth: false,
+	}
+}
+
+// AttachCobraFlags attach certs related flags.
+func (c *Cert) AttachCobraFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVarP(&c.credentialFile, "certFile", "", c.credentialFile,
+		"The location of the certificate file for TLS")
+	cmd.PersistentFlags().StringVarP(&c.privateKeyFile, "keyFile", "", c.privateKeyFile,
+		"The location of the key file for TLS")
+	cmd.PersistentFlags().StringVarP(&c.caCertificateFile, "caCertFile", "", c.caCertificateFile,
+		"The location of the certificate file for the root certificate authority")
+	cmd.PersistentFlags().BoolVarP(&c.enableTLS, "enableTLS", "", c.enableTLS,
+		"")
+	cmd.PersistentFlags().BoolVarP(&c.requireClientAuth, "requireClientAuth", "", c.requireClientAuth,
+		"")
+}
 {{range .Models}}
 var _ {{.GoPackageName}}.Handle{{.InterfaceName -}}ServiceServer = &NoSession{}
 {{- end}}
@@ -493,8 +536,36 @@ func (s *NoSession) Close() error {
 	return nil
 }
 
+func getServerTLSOption(c *Cert) (grpc.ServerOption, error) {
+	certificate, err := tls.LoadX509KeyPair(
+		c.credentialFile,
+		c.privateKeyFile,
+	)
+
+	certPool := x509.NewCertPool()
+	bs, err := ioutil.ReadFile(c.caCertificateFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read client ca cert: %s", err)
+	}
+
+	ok := certPool.AppendCertsFromPEM(bs)
+	if !ok {
+		return nil, fmt.Errorf("failed to append client certs")
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{certificate},
+		ClientCAs:    certPool,
+	}
+	if c.requireClientAuth {
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+
+	return grpc.Creds(credentials.NewTLS(tlsConfig)), nil
+}
+
 // New{{Capitalize .AdapterName}}NoSessionServer creates a new no session server based on given args.
-func New{{Capitalize .AdapterName}}NoSessionServer(addr uint16, poolSize int) (*NoSession, error) {
+func New{{Capitalize .AdapterName}}NoSessionServer(addr uint16, poolSize int, c *Cert) (*NoSession, error) {
 	saddr := fmt.Sprintf(":%d", addr)
 
 	gp := pool.NewGoroutinePool(poolSize, false)
@@ -511,7 +582,15 @@ func New{{Capitalize .AdapterName}}NoSessionServer(addr uint16, poolSize int) (*
 	}
 
 	fmt.Printf("listening on :%v\n", s.listener.Addr())
-	s.server = grpc.NewServer()
+	if c.enableTLS {
+		so, err := getServerTLSOption(c)
+		if err != nil {
+			return nil, err
+		}
+		s.server = grpc.NewServer(so)
+	} else {
+		s.server = grpc.NewServer()
+	}
 	{{range .Models}}
 	{{.GoPackageName}}.RegisterHandle{{.InterfaceName -}}ServiceServer(s.server, s)
 	{{- end}}
