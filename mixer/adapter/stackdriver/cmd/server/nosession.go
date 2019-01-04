@@ -302,14 +302,6 @@ func transformValueMap(in map[string]*v1beta1.Value) map[string]interface{} {
 	return out
 }
 
-func transformValueSlice(in []interface{}) []interface{} {
-	out := make([]interface{}, 0, len(in))
-	for _, inst := range in {
-		out = append(out, transformValue(inst))
-	}
-	return out
-}
-
 func transformValue(in interface{}) interface{} {
 	switch t := in.(type) {
 	case *v1beta1.Value_StringValue:
@@ -437,7 +429,9 @@ func getServerTLSOption(c *Cert) (grpc.ServerOption, error) {
 		c.credentialFile,
 		c.privateKeyFile,
 	)
-
+	if err != nil {
+		return nil, fmt.Errorf("failed to load key cert pair.")
+	}
 	certPool := x509.NewCertPool()
 	bs, err := ioutil.ReadFile(c.caCertificateFile)
 	if err != nil {

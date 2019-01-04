@@ -541,7 +541,9 @@ func getServerTLSOption(c *Cert) (grpc.ServerOption, error) {
 		c.credentialFile,
 		c.privateKeyFile,
 	)
-
+	if err != nil {
+		return nil, fmt.Errorf("failed to load key cert pair.")
+	}
 	certPool := x509.NewCertPool()
 	bs, err := ioutil.ReadFile(c.caCertificateFile)
 	if err != nil {
