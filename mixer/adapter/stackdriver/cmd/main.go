@@ -32,12 +32,16 @@ type Args struct {
 
 	// Size of adapter API worker pool
 	APIWorkerPoolSize int
+
+	// TLS server cert and credential
+	Cert *server.Cert
 }
 
 func defaultArgs() *Args {
 	return &Args{
 		AdapterPort:       uint16(8080),
 		APIWorkerPoolSize: 1024,
+		Cert:              server.DefaultCertOption(),
 	}
 }
 
@@ -61,8 +65,9 @@ func GetCmd(_ []string) *cobra.Command {
 	f := cmd.PersistentFlags()
 	f.Uint16VarP(&sa.AdapterPort, "port", "p", sa.AdapterPort,
 		"TCP port to use for gRPC Adapter API")
-	f.IntVarP(&sa.APIWorkerPoolSize, "api_pool", "a", sa.APIWorkerPoolSize,
+	f.IntVarP(&sa.APIWorkerPoolSize, "apiPool", "a", sa.APIWorkerPoolSize,
 		"Size of adapter API worker pool")
+	sa.Cert.AttachCobraFlags(cmd)
 	return cmd
 }
 
@@ -74,7 +79,7 @@ func main() {
 }
 
 func runServer(args *Args) {
-	s, err := server.NewStackdriverNoSessionServer(args.AdapterPort, args.APIWorkerPoolSize)
+	s, err := server.NewStackdriverNoSessionServer(args.AdapterPort, args.APIWorkerPoolSize, args.Cert)
 	if err != nil {
 		fmt.Printf("unable to start server: %v", err)
 		os.Exit(-1)
