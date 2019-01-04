@@ -2,7 +2,7 @@ metadata:
   name: replace
   annotations:
     sidecar.istio.io/status: '{
-        "version":"test",
+        "version":"",
           "initContainers":[
             "injected0"
           ],

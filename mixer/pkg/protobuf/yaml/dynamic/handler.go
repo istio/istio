@@ -277,7 +277,11 @@ func (eb staticBag) Names() []string {
 	}
 	return ret
 }
-func (eb staticBag) Done()          {}
+func (eb staticBag) Done() {}
+func (eb staticBag) Contains(key string) bool {
+	_, found := eb.v[key]
+	return found
+}
 func (eb staticBag) String() string { return fmt.Sprintf("%v", eb.v) }
 
 const quotaRequestAttrName = "-quota-request-"

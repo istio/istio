@@ -13,8 +13,8 @@
     "monitoring/apiv3",
     "trace/apiv2"
   ]
-  revision = "0fd7230b2a7505833d5f69b75cbd6c9582401479"
-  version = "v0.23.0"
+  revision = "64a2037ec6be8a4b0c1d1f706ed35b428b989239"
+  version = "v0.26.0"
 
 [[projects]]
   branch = "master"
@@ -46,8 +46,8 @@
 [[projects]]
   name = "github.com/BurntSushi/toml"
   packages = ["."]
-  revision = "b26d9c308763d68093482582cea63d69be07a0f0"
-  version = "v0.3.0"
+  revision = "3012a1dbe2e4bd1391d42b32f0577cb7bbc7f005"
+  version = "v0.3.1"
 
 [[projects]]
   name = "github.com/DataDog/datadog-go"
@@ -796,10 +796,11 @@
     "api",
     "api/prometheus/v1",
     "prometheus",
+    "prometheus/internal",
     "prometheus/promhttp"
   ]
-  revision = "967789050ba94deca04a5e84cce8ad472ce313c1"
-  version = "v0.9.0-pre1"
+  revision = "1cafe34db7fdec6022e17e00e1c1ea501022f3e4"
+  version = "v0.9.0"
 
 [[projects]]
   branch = "master"
@@ -1064,6 +1065,7 @@
     "idna",
     "internal/timeseries",
     "lex/httplex",
+    "publicsuffix",
     "trace"
   ]
   revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
@@ -1314,7 +1316,7 @@
     "policy/v1beta1",
     "rbac/v1alpha1"
   ]
-  revision = "123b0a79a4dba5bd653dcac09cf731b8002e5341"
+  revision = "6bf9d6613f65c2754a3d90ae916e1806e9d74175"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1612,6 +1614,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "24aefef27a13e7964a7f8e90eaddb6915e78f122ddda2803c1a464323194ee59"
+  inputs-digest = "69790335428986f5f21432ba026947a5d45dba3d91734d997a6896caf6421140"
   solver-name = "gps-cdcl"
   solver-version = 1

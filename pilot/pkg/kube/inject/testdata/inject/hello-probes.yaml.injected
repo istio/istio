@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"c62757c15b560ddbb9ac3e8c1cbbcbce6bbc40ee79d1a4c9970fe27dc02434a6","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -70,6 +70,10 @@ spec:
         - "15000"
         - --controlPlaneAuthPolicy
         - NONE
+        - --statusPort
+        - "15020"
+        - --applicationPorts
+        - 80,90
         env:
         - name: POD_NAME
           valueFrom:
@@ -92,11 +96,21 @@ spec:
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /healthz/ready
+            port: 15020
+          initialDelaySeconds: 1
+          periodSeconds: 2
         resources:
           requests:
             cpu: 10m
         securityContext:
-          privileged: false
           readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:
@@ -118,9 +132,9 @@ spec:
         - -x
         - ""
         - -b
-        - 80, 90,
+        - 80,90
         - -d
-        - ""
+        - "15020"
         image: docker.io/istio/proxy_init:unittest
         imagePullPolicy: IfNotPresent
         name: istio-init

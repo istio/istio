@@ -367,36 +367,45 @@ func TestAuthenticationPolicyConfig(t *testing.T) {
 	}
 
 	cases := []struct {
-		hostname model.Hostname
-		port     int
-		expected string
+		hostname  model.Hostname
+		namespace string
+		port      int
+		expected  string
 	}{
 		{
-			hostname: "hello.default.svc.cluster.local",
-			port:     80,
-			expected: "hello",
+			hostname:  "hello.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected:  "hello",
 		},
 		{
-			hostname: "world.default.svc.cluster.local",
-			port:     80,
-			expected: "world",
+			hostname:  "world.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected:  "world",
 		},
 		{
-			hostname: "world.default.svc.cluster.local",
-			port:     8080,
-			expected: "default",
+			hostname:  "world.default.svc.cluster.local",
+			namespace: "default",
+			port:      8080,
+			expected:  "default",
 		},
 		{
-			hostname: "world.another-galaxy.svc.cluster.local",
-			port:     8080,
-			expected: "",
+			hostname:  "world.another-galaxy.svc.cluster.local",
+			namespace: "another-galaxy",
+			port:      8080,
+			expected:  "",
 		},
 	}
 
 	for _, testCase := range cases {
 		port := &model.Port{Port: testCase.port}
+		service := &model.Service{
+			Hostname:   testCase.hostname,
+			Attributes: model.ServiceAttributes{Namespace: testCase.namespace},
+		}
 		expected := authNPolicies[testCase.expected]
-		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+		out := store.AuthenticationPolicyByDestination(service, port)
 		if out == nil {
 			if expected != nil {
 				t.Errorf("AutheticationPolicy(%s:%d) => expected %#v but got nil",
@@ -473,40 +482,52 @@ func TestAuthenticationPolicyConfigWithGlobal(t *testing.T) {
 	}
 
 	cases := []struct {
-		hostname model.Hostname
-		port     int
-		expected *authn.Policy
+		hostname  model.Hostname
+		namespace string
+		port      int
+		expected  *authn.Policy
 	}{
 		{
-			hostname: "hello.default.svc.cluster.local",
-			port:     80,
-			expected: &helloPolicy,
+			hostname:  "hello.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected:  &helloPolicy,
 		},
 		{
-			hostname: "world.default.svc.cluster.local",
-			port:     80,
-			expected: &namespacePolicy,
+			hostname:  "world.default.svc.cluster.local",
+			namespace: "default",
+			port:      80,
+			expected:  &namespacePolicy,
 		},
 		{
-			hostname: "world.default.svc.cluster.local",
-			port:     8080,
-			expected: &namespacePolicy,
+			hostname:  "world.default.svc.cluster.local",
+			namespace: "default",
+			port:      8080,
+			expected:  &namespacePolicy,
 		},
 		{
-			hostname: "hello.another-galaxy.svc.cluster.local",
-			port:     8080,
-			expected: &globalPolicy,
+			hostname:  "hello.another-galaxy.svc.cluster.local",
+			namespace: "another-galaxy",
+			port:      8080,
+			expected:  &globalPolicy,
 		},
 		{
-			hostname: "world.another-galaxy.svc.cluster.local",
-			port:     9090,
-			expected: &globalPolicy,
+			hostname:  "world.another-galaxy.svc.cluster.local",
+			namespace: "another-galaxy",
+			port:      9090,
+			expected:  &globalPolicy,
 		},
 	}
 
 	for _, testCase := range cases {
 		port := &model.Port{Port: testCase.port}
-		out := store.AuthenticationPolicyByDestination(testCase.hostname, port)
+		service := &model.Service{
+			Hostname: testCase.hostname,
+			Attributes: model.ServiceAttributes{
+				Namespace: testCase.namespace,
+			},
+		}
+		out := store.AuthenticationPolicyByDestination(service, port)
 
 		if out == nil {
 			// With global authentication policy, it's guarantee AuthenticationPolicyByDestination always
@@ -563,10 +584,11 @@ func TestMostSpecificHostMatch(t *testing.T) {
 		needle model.Hostname
 		want   model.Hostname
 	}{
+		// this has to be a sorted list
 		{[]model.Hostname{}, "*", ""},
-		{[]model.Hostname{"*.com", "*.foo.com"}, "bar.foo.com", "*.foo.com"},
-		{[]model.Hostname{"*.com", "*.foo.com"}, "foo.com", "*.com"},
-		{[]model.Hostname{"*.com", "foo.com"}, "*.foo.com", "*.com"},
+		{[]model.Hostname{"*.foo.com", "*.com"}, "bar.foo.com", "*.foo.com"},
+		{[]model.Hostname{"*.foo.com", "*.com"}, "foo.com", "*.com"},
+		{[]model.Hostname{"foo.com", "*.com"}, "*.foo.com", "*.com"},
 
 		{[]model.Hostname{"*.foo.com", "foo.com"}, "foo.com", "foo.com"},
 		{[]model.Hostname{"*.foo.com", "foo.com"}, "*.foo.com", "*.foo.com"},

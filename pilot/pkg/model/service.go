@@ -90,6 +90,10 @@ type Service struct {
 
 	// CreationTime records the time this service was created, if available.
 	CreationTime time.Time `json:"creationTime,omitempty"`
+
+	// Attributes contains additional attributes associated with the service
+	// used mostly by mixer and RBAC for policy enforcement purposes.
+	Attributes ServiceAttributes
 }
 
 // Resolution indicates how the service instances need to be resolved before routing
@@ -174,6 +178,7 @@ const (
 	AddressFamilyUnix
 )
 
+// String converts addressfamily into string (tcp/unix)
 func (f AddressFamily) String() string {
 	switch f {
 	case AddressFamilyTCP:
@@ -384,10 +389,8 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
+	// Deprecated - do not use for anything other than tests
 	GetService(hostname Hostname) (*Service, error)
-
-	// GetServiceAttributes retrieves the custom attributes of a service
-	GetServiceAttributes(hostname Hostname) (*ServiceAttributes, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -406,7 +409,8 @@ type ServiceDiscovery interface {
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
-	// Deprecated: made obsolete by InstancesByPort
+	// Deprecated: made obsolete by InstancesByPort. Only used by (deprecated) ServiceAccounts,
+	// and discovery.ListAllEndpoints for debug. Will be removed in 1.1
 	Instances(hostname Hostname, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
@@ -467,9 +471,12 @@ type ServiceDiscovery interface {
 }
 
 // ServiceAccounts exposes Istio service accounts
+// Deprecated - service account tracking moved to XdsServer, incremental.
 type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
+	// Deprecated - service account tracking moved to XdsServer, incremental.
+	// Method only used in networking/core/v1a3/cluster.go
 	GetIstioServiceAccounts(hostname Hostname, ports []string) []string
 }
 
@@ -524,6 +531,36 @@ func (h Hostname) Matches(o Hostname) bool {
 		return false
 	}
 	return matches
+}
+
+// SubsetOf returns true if this hostname is a valid subset of the other hostname. The semantics are
+// the same as "Matches", but only in one direction.
+func (h Hostname) SubsetOf(o Hostname) bool {
+	if len(h) == 0 && len(o) == 0 {
+		return true
+	}
+
+	hWildcard := string(h[0]) == "*"
+	oWildcard := string(o[0]) == "*"
+	if !oWildcard {
+		if hWildcard {
+			return false
+		}
+		return h == o
+	}
+
+	longer, shorter := string(h), string(o)
+	if hWildcard {
+		longer = string(h[1:])
+	}
+	if oWildcard {
+		shorter = string(o[1:])
+	}
+	if len(longer) < len(shorter) {
+		return false
+	}
+
+	return strings.HasSuffix(longer, shorter)
 }
 
 // Hostnames is a collection of Hostname; it exists so it's easy to sort hostnames consistently across Pilot.

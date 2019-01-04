@@ -21,9 +21,12 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -39,11 +42,14 @@ import (
 // In future (post 1.0) it may be used for representing remote pilots.
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
-func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller) {
+func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, cfg model.ConfigUpdater) {
 	// For debugging and load testing v2 we add an memory registry.
 	s.MemRegistry = NewMemServiceDiscovery(
 		map[model.Hostname]*model.Service{ // mock.HelloService.Hostname: mock.HelloService,
 		}, 2)
+	s.MemRegistry.EDSUpdater = s
+	s.MemRegistry.ConfigUpdater = cfg
+	s.MemRegistry.ClusterID = "v2-debug"
 
 	sctl.AddRegistry(aggregate.Registry{
 		ClusterID:        "v2-debug",
@@ -62,6 +68,8 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	mux.HandleFunc("/debug/registryz", s.registryz)
 	mux.HandleFunc("/debug/endpointz", s.endpointz)
+	mux.HandleFunc("/debug/endpointShardz", s.endpointShardz)
+	mux.HandleFunc("/debug/workloadz", s.endpointShardz)
 	mux.HandleFunc("/debug/configz", s.configz)
 
 	mux.HandleFunc("/debug/authenticationz", s.authenticationz)
@@ -156,10 +164,12 @@ func (c *memServiceController) Run(<-chan struct{}) {}
 
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
-	services map[model.Hostname]*model.Service
-	// Endpoints table. Key is the fqdn of the service, ':', port
-	instancesByPortNum            map[string][]*model.ServiceInstance
-	instancesByPortName           map[string][]*model.ServiceInstance
+	services            map[model.Hostname]*model.Service
+	instancesByPortNum  map[string][]*model.ServiceInstance
+	instancesByPortName map[string][]*model.ServiceInstance
+
+	// Used by GetProxyServiceInstance, used to configure inbound (list of services per IP)
+	// We generally expect a single instance - conflicting services need to be reported.
 	ip2instance                   map[string][]*model.ServiceInstance
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
@@ -168,6 +178,11 @@ type MemServiceDiscovery struct {
 	InstancesError                error
 	GetProxyServiceInstancesError error
 	controller                    model.Controller
+	ClusterID                     string
+
+	// XDSUpdater will push EDS changes to the ADS model.
+	EDSUpdater    model.XDSUpdater
+	ConfigUpdater model.ConfigUpdater
 
 	// Single mutex for now - it's for debug only.
 	mutex sync.Mutex
@@ -179,6 +194,21 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 	sd.GetServiceError = nil
 	sd.InstancesError = nil
 	sd.GetProxyServiceInstancesError = nil
+}
+
+// AddHTTPService is a helper to add a service of type http, named 'http-main', with the
+// specified vip and port.
+func (sd *MemServiceDiscovery) AddHTTPService(name, vip string, port int) {
+	sd.AddService(model.Hostname(name), &model.Service{
+		Hostname: model.Hostname(name),
+		Ports: model.PortList{
+			{
+				Name:     "http-main",
+				Port:     port,
+				Protocol: model.ProtocolHTTP,
+			},
+		},
+	})
 }
 
 // AddService adds an in-memory service.
@@ -227,6 +257,73 @@ func (sd *MemServiceDiscovery) AddEndpoint(service model.Hostname, servicePortNa
 	return instance
 }
 
+// SetEndpoints update the list of endpoints for a service, similar with K8S controller.
+func (sd *MemServiceDiscovery) SetEndpoints(service string, endpoints []*model.IstioEndpoint) {
+
+	sh := model.Hostname(service)
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+
+	svc := sd.services[sh]
+	if svc == nil {
+		return
+	}
+
+	// remove old entries
+	for k, v := range sd.ip2instance {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.ip2instance, k)
+		}
+	}
+	for k, v := range sd.instancesByPortNum {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.instancesByPortNum, k)
+		}
+	}
+	for k, v := range sd.instancesByPortName {
+		if len(v) > 0 && v[0].Service.Hostname == sh {
+			delete(sd.instancesByPortName, k)
+		}
+	}
+
+	for _, e := range endpoints {
+		//servicePortName string, servicePort int, address string, port int
+		p, _ := svc.Ports.Get(e.ServicePortName)
+
+		instance := &model.ServiceInstance{
+			Service: svc,
+			Endpoint: model.NetworkEndpoint{
+				Address: e.Address,
+				ServicePort: &model.Port{
+					Name:     e.ServicePortName,
+					Port:     p.Port,
+					Protocol: model.ProtocolHTTP,
+				},
+			},
+			ServiceAccount: e.ServiceAccount,
+		}
+		sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
+
+		key := fmt.Sprintf("%s:%d", service, instance.Endpoint.ServicePort.Port)
+
+		instanceList := sd.instancesByPortNum[key]
+		sd.instancesByPortNum[key] = append(instanceList, instance)
+
+		key = fmt.Sprintf("%s:%s", service, instance.Endpoint.ServicePort.Name)
+		instanceList = sd.instancesByPortName[key]
+		sd.instancesByPortName[key] = append(instanceList, instance)
+
+	}
+
+	err := sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, endpoints)
+	if err != nil {
+		// Request a global push if we failed to do EDS only
+		sd.ConfigUpdater.ConfigUpdate(true)
+	} else {
+		sd.ConfigUpdater.ConfigUpdate(false)
+	}
+}
+
 // Services implements discovery interface
 // Each call to Services() should return a list of new *model.Service
 func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
@@ -261,13 +358,6 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	return &newSvc, sd.GetServiceError
 }
 
-// GetServiceAttributes implements discovery interface.
-func (sd *MemServiceDiscovery) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	return &model.ServiceAttributes{
-		Name:      hostname.String(),
-		Namespace: model.IstioDefaultConfigNamespace}, nil
-}
-
 // Instances filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
 func (sd *MemServiceDiscovery) Instances(hostname model.Hostname, ports []string,
@@ -295,6 +385,9 @@ func (sd *MemServiceDiscovery) InstancesByPort(hostname model.Hostname, port int
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
+	if strings.HasPrefix(string(hostname), "eds") {
+		adsLog.Info("hi")
+	}
 	if sd.InstancesError != nil {
 		return nil, sd.InstancesError
 	}
@@ -377,7 +470,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		s.MemRegistry.AddService(model.Hostname(svcName), svc)
 	}
 
-	all, err := s.env.ServiceDiscovery.Services()
+	all, err := s.Env.ServiceDiscovery.Services()
 	if err != nil {
 		return
 	}
@@ -391,6 +484,25 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintln(w, ",")
 	}
 	fmt.Fprintln(w, "{}]")
+}
+
+// Dumps info about the endpoint shards, tracked using the new direct interface.
+// Legacy registry provides are synced to the new data structure as well, during
+// the full push.
+func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
+	w.Write(out)
+}
+
+// Tracks info about workloads. Currently only K8S serviceregistry populates this, based
+// on pod labels and annotations. This is used to detect label changes and push.
+func (s *DiscoveryServer) workloadz(w http.ResponseWriter, req *http.Request) {
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
+	out, _ := json.MarshalIndent(s.WorkloadsByID, " ", " ")
+	w.Write(out)
 }
 
 // Endpoint debugging
@@ -412,10 +524,10 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	}
 	brief := req.Form.Get("brief")
 	if brief != "" {
-		svc, _ := s.env.ServiceDiscovery.Services()
+		svc, _ := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
-				all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+				all, err := s.Env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 				if err != nil {
 					return
 				}
@@ -429,11 +541,11 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	svc, _ := s.env.ServiceDiscovery.Services()
+	svc, _ := s.Env.ServiceDiscovery.Services()
 	fmt.Fprint(w, "[\n")
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
-			all, err := s.env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
+			all, err := s.Env.ServiceDiscovery.InstancesByPort(ss.Hostname, p.Port, nil)
 			if err != nil {
 				return
 			}
@@ -456,8 +568,8 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprintf(w, "\n[\n")
-	for _, typ := range s.env.IstioConfigStore.ConfigDescriptor() {
-		cfg, _ := s.env.IstioConfigStore.List(typ.Type, "")
+	for _, typ := range s.Env.IstioConfigStore.ConfigDescriptor() {
+		cfg, _ := s.Env.IstioConfigStore.List(typ.Type, "")
 		for _, c := range cfg {
 			b, err := json.MarshalIndent(c, "  ", "  ")
 			if err != nil {
@@ -522,7 +634,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 	interestedSvc := req.Form.Get("proxyID")
 
 	fmt.Fprintf(w, "\n[\n")
-	svc, _ := s.env.ServiceDiscovery.Services()
+	svc, _ := s.Env.ServiceDiscovery.Services()
 	for _, ss := range svc {
 		if interestedSvc != "" && interestedSvc != ss.Hostname.String() {
 			continue
@@ -532,23 +644,23 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 				Host: string(ss.Hostname),
 				Port: p.Port,
 			}
-			authnConfig := s.env.IstioConfigStore.AuthenticationPolicyByDestination(ss.Hostname, p)
+			authnConfig := s.Env.IstioConfigStore.AuthenticationPolicyByDestination(ss, p)
 			info.AuthenticationPolicyName = configName(authnConfig)
 			if authnConfig != nil {
 				policy := authnConfig.Spec.(*authn.Policy)
 				serverSideTLS, _ := authn_plugin.RequireTLS(policy, model.Sidecar)
 				info.ServerProtocol = mTLSModeToString(serverSideTLS)
 			} else {
-				info.ServerProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ServerProtocol = mTLSModeToString(s.Env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
 			}
 
-			destConfig := s.env.IstioConfigStore.DestinationRule(ss.Hostname)
+			destConfig := s.globalPushContext().DestinationRule(ss.Hostname)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
-				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.env.Mesh, rule, p))
+				info.ClientProtocol = mTLSModeToString(isMTlsOn(s.Env.Mesh, rule, p))
 			} else {
-				info.ClientProtocol = mTLSModeToString(s.env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
+				info.ClientProtocol = mTLSModeToString(s.Env.Mesh.AuthPolicy == meshconfig.MeshConfig_MUTUAL_TLS)
 			}
 
 			if info.ClientProtocol != info.ServerProtocol {
@@ -617,7 +729,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte("You must provide a proxyID in the query string"))
 }
 
-// PushStatusHandler dumps the last PushStatus
+// PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
 	if model.LastPushStatus == nil {
 		return
@@ -730,7 +842,7 @@ func cdsz(w http.ResponseWriter, req *http.Request) {
 
 func printListeners(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, ls := range c.HTTPListeners {
+	for _, ls := range c.LDSListeners {
 		if ls == nil {
 			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
@@ -750,7 +862,7 @@ func printListeners(w io.Writer, c *XdsConnection) {
 
 func printClusters(w io.Writer, c *XdsConnection) {
 	comma := false
-	for _, cl := range c.HTTPClusters {
+	for _, cl := range c.CDSClusters {
 		if cl == nil {
 			adsLog.Errorf("INVALID Cluster NIL")
 			continue
@@ -786,4 +898,62 @@ func printRoutes(w io.Writer, c *XdsConnection) {
 			return
 		}
 	}
+}
+
+// configDump converts the connection internal state into an Envoy Admin API config dump proto
+// It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
+func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump, error) {
+	configDump := &adminapi.ConfigDump{Configs: map[string]types.Any{}}
+
+	dynamicActiveClusters := []adminapi.ClustersConfigDump_DynamicCluster{}
+	clusters, err := s.generateRawClusters(conn, s.globalPushContext())
+	if err != nil {
+		return nil, err
+	}
+	for _, cs := range clusters {
+		dynamicActiveClusters = append(dynamicActiveClusters, adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs})
+	}
+	clustersAny, err := types.MarshalAny(&adminapi.ClustersConfigDump{
+		VersionInfo:           versionInfo(),
+		DynamicActiveClusters: dynamicActiveClusters,
+	})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["clusters"] = *clustersAny
+
+	dynamicActiveListeners := []adminapi.ListenersConfigDump_DynamicListener{}
+	listeners, err := s.generateRawListeners(conn, s.globalPushContext())
+	if err != nil {
+		return nil, err
+	}
+	for _, cs := range listeners {
+		dynamicActiveListeners = append(dynamicActiveListeners, adminapi.ListenersConfigDump_DynamicListener{Listener: cs})
+	}
+	listenersAny, err := types.MarshalAny(&adminapi.ListenersConfigDump{
+		VersionInfo:            versionInfo(),
+		DynamicActiveListeners: dynamicActiveListeners,
+	})
+	if err != nil {
+		return nil, err
+	}
+	configDump.Configs["listeners"] = *listenersAny
+
+	routes, err := s.generateRawRoutes(conn, s.globalPushContext())
+	if err != nil {
+		return nil, err
+	}
+	if len(routes) > 0 {
+		dynamicRouteConfig := []adminapi.RoutesConfigDump_DynamicRouteConfig{}
+		for _, rs := range routes {
+			dynamicRouteConfig = append(dynamicRouteConfig, adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs})
+		}
+		routeConfigAny, err := types.MarshalAny(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
+		if err != nil {
+			return nil, err
+		}
+		configDump.Configs["routes"] = *routeConfigAny
+	}
+
+	return configDump, nil
 }

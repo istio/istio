@@ -44,41 +44,21 @@ SINGLE_MODE=false
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
 # for existing resources types
-RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
-OWNER='e2e-suite'
-INFO_PATH="$(mktemp /tmp/XXXXX.boskos.info)"
-FILE_LOG="$(mktemp /tmp/XXXXX.boskos.log)"
-
-E2E_ARGS=(--mason_info="${INFO_PATH}")
+export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
+export OWNER="${OWNER:-e2e-suite}"
+export PILOT_CLUSTER="${PILOT_CLUSTER:-}"
+export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
+export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
 source "${ROOT}/prow/lib.sh"
-source "${ROOT}/prow/mason_lib.sh"
-source "${ROOT}/prow/cluster_lib.sh"
-
-function cleanup() {
-  mason_cleanup
-  cat "${FILE_LOG}"
-}
-
-setup_and_export_git_sha
-
-if [ "${CI:-}" == 'bootstrap' ]; then
-  # bootsrap upload all artifacts in _artifacts to the log bucket.
-  ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
-  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
-fi
+setup_e2e_cluster
 
 ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
-export TAG="${GIT_SHA}"
+export TAG="${TAG:-${GIT_SHA}}"
 
 make init
-
-trap cleanup EXIT
-get_resource "${RESOURCE_TYPE}" "${OWNER}" "${INFO_PATH}" "${FILE_LOG}"
-check_cluster
-setup_cluster
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do

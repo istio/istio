@@ -18,28 +18,28 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
-
-	"istio.io/istio/mixer/pkg/config/crd"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
-
-	"os"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
 	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
+	rc "istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/ctrlz"
@@ -144,11 +144,6 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
-	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
-	}
-
 	// get the network stuff setup
 	network := "tcp"
 	address := fmt.Sprintf(":%d", a.APIPort)
@@ -189,7 +184,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 		reg := store.NewRegistry(config.StoreInventory()...)
 		groupVersion := &schema.GroupVersion{Group: crd.ConfigAPIGroup, Version: crd.ConfigAPIVersion}
-		if st, err = reg.NewStore(configStoreURL, groupVersion); err != nil {
+		if st, err = reg.NewStore(configStoreURL, groupVersion, rc.CriticalKinds()); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to connect to the configuration server: %v", err)
 		}
@@ -205,10 +200,18 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
 
+	// this method initializes the store
 	if err = p.runtimeListen(rt); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
+
+	// block wait for the config store to sync
+	log.Info("Awaiting for config store sync...")
+	if err := st.WaitForSynced(30 * time.Second); err != nil {
+		return nil, err
+	}
+
 	s.dispatcher = rt.Dispatcher()
 
 	if a.NumCheckCacheEntries > 0 {
@@ -217,8 +220,15 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
+
+	throttler := loadshedding.NewThrottler(a.LoadSheddingOptions)
+	if eval := throttler.Evaluator(loadshedding.GRPCLatencyEvaluatorName); eval != nil {
+		grpcOptions = append(grpcOptions, grpc.StatsHandler(eval.(*loadshedding.GRPCLatencyEvaluator)))
+	}
+
 	s.server = grpc.NewServer(grpcOptions...)
-	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
+
+	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
 
 	if a.LivenessProbeOptions.IsValid() {
 		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
@@ -231,6 +241,12 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		rt.RegisterProbe(s.readinessProbe, "dispatcher")
 		st.RegisterProbe(s.readinessProbe, "store")
 		s.readinessProbe.Start()
+	}
+
+	log.Info("Starting monitor server...")
+	if s.monitor, err = p.startMonitor(a.MonitoringPort, a.EnableProfiling, p.listen); err != nil {
+		_ = s.Close()
+		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
 	}
 
 	go ctrlz.Run(a.IntrospectionOptions, nil)

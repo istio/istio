@@ -17,6 +17,7 @@ package validation
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
+
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/api/admissionregistration/v1beta1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -41,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 var (
@@ -51,6 +54,7 @@ var (
 
 const (
 	watchDebounceDelay = 100 * time.Millisecond
+	reconcilePeriod    = 5 * time.Second
 )
 
 // WebhookParameters contains the configuration for the Istio Pilot validation
@@ -117,6 +121,8 @@ type Webhook struct {
 	// mixer
 	validator store.BackendValidator
 
+	healthProbe          *probe.Probe
+	healthController     probe.Controller
 	healthCheckInterval  time.Duration
 	healthCheckFile      string
 	server               *http.Server
@@ -131,6 +137,7 @@ type Webhook struct {
 	deploymentName       string
 	ownerRefs            []v1.OwnerReference
 	webhookConfiguration *v1beta1.ValidatingWebhookConfiguration
+	endpointReadyOnce    bool
 }
 
 // NewWebhook creates a new instance of the admission webhook controller.
@@ -186,6 +193,17 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		clientset:           p.Clientset,
 		deploymentName:      p.DeploymentName,
 		deploymentNamespace: p.DeploymentNamespace,
+		healthProbe:         probe.NewProbe(),
+		healthController: probe.NewFileController(&probe.Options{
+			Path:           p.HealthCheckFile,
+			UpdateInterval: p.HealthCheckInterval,
+		}),
+	}
+
+	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
+		wh.healthProbe.RegisterProbe(wh.healthController, "validation")
+		wh.healthProbe.SetAvailable(errors.New("not ready"))
+		wh.healthController.Start()
 	}
 
 	if galleyDeployment, err := wh.clientset.ExtensionsV1beta1().Deployments(wh.deploymentNamespace).Get(wh.deploymentName, v1.GetOptions{}); err != nil { // nolint: lll
@@ -198,15 +216,6 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 				extensionsv1beta1.SchemeGroupVersion.WithKind("Deployment"),
 			),
 		}
-	}
-
-	if wh.webhookConfigFile != "" {
-		log.Info("server-side configuration validation enabled")
-		if err = wh.rebuildWebhookConfig(); err == nil {
-			wh.createOrUpdateWebhookConfig()
-		}
-	} else {
-		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
 	}
 
 	// mtls disabled because apiserver webhook cert usage is still TBD.
@@ -234,20 +243,24 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 	}()
 	defer wh.stop()
 
-	var healthC <-chan time.Time
-	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
-		t := time.NewTicker(wh.healthCheckInterval)
-		healthC = t.C
-		defer t.Stop()
-	}
-
 	// use a timer to debounce file updates
 	var keyCertTimerC <-chan time.Time
 	var configTimerC <-chan time.Time
 
+	if wh.webhookConfigFile != "" {
+		log.Info("server-side configuration validation enabled")
+	} else {
+		log.Info("server-side configuration validation disabled. Enable with --webhook-config-file")
+	}
+
 	var reconcileTickerC <-chan time.Time
 	if wh.webhookConfigFile != "" {
-		reconcileTickerC = time.NewTicker(time.Second).C
+		reconcileTickerC = time.NewTicker(reconcilePeriod).C
+	}
+
+	if wh.healthCheckInterval != 0 && wh.healthCheckFile != "" {
+		wh.healthProbe.SetAvailable(nil)
+		defer wh.healthController.Close()
 	}
 
 	for {
@@ -261,7 +274,11 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 				wh.createOrUpdateWebhookConfig()
 			}
 		case <-reconcileTickerC:
-			if wh.webhookConfiguration != nil {
+			if wh.webhookConfiguration == nil {
+				if err := wh.rebuildWebhookConfig(); err == nil {
+					wh.createOrUpdateWebhookConfig()
+				}
+			} else {
 				wh.createOrUpdateWebhookConfig()
 			}
 		case event, more := <-wh.keyCertWatcher.Event:
@@ -276,11 +293,6 @@ func (wh *Webhook) Run(stop <-chan struct{}) {
 			log.Errorf("keyCertWatcher error: %v", err)
 		case err := <-wh.configWatcher.Error:
 			log.Errorf("configWatcher error: %v", err)
-		case <-healthC:
-			content := []byte(`ok`)
-			if err := ioutil.WriteFile(wh.healthCheckFile, content, 0644); err != nil {
-				log.Errorf("Health check update of %q failed: %v", wh.healthCheckFile, err)
-			}
 		case <-stop:
 			return
 		}

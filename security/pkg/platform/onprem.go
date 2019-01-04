@@ -24,6 +24,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"strings"
+
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -36,6 +38,10 @@ type OnPremClientImpl struct {
 	// The cert chain file
 	certChainFile string
 }
+
+// CitadelDNSSan is the hardcoded DNS SAN used to identify citadel server.
+// The user may use an IP address to connect to the mesh.
+const CitadelDNSSan = "istio-citadel"
 
 // NewOnPremClientImpl creates a new OnPremClientImpl.
 func NewOnPremClientImpl(rootCert, key, certChain string) (*OnPremClientImpl, error) {
@@ -84,7 +90,12 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 		return "", err
 	}
 	if len(serviceIDs) != 1 {
-		return "", fmt.Errorf("cert has %v SAN fields, should be 1", len(serviceIDs))
+		for _, s := range serviceIDs {
+			if strings.HasPrefix(s, "spiffe://") {
+				return s, nil
+			}
+		}
+		return "", fmt.Errorf("cert does not have siffe:// SAN fields")
 	}
 	return serviceIDs[0], nil
 }
@@ -129,6 +140,7 @@ func getTLSCredentials(rootCertFile, keyFile, certChainFile string) (credentials
 		Certificates: []tls.Certificate{certificate},
 	}
 	config.RootCAs = certPool
+	config.ServerName = CitadelDNSSan
 
 	return credentials.NewTLS(&config), nil
 }

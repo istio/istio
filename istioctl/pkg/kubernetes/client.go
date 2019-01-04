@@ -83,7 +83,7 @@ func defaultRestConfig(kubeconfig, configContext string) (*rest.Config, error) {
 }
 
 // PodExec takes a command and the pod data to run the command in the specified pod
-func (client *Client) PodExec(podName, podNamespace, container string, command []string) (*bytes.Buffer, *bytes.Buffer, error) {
+func (client *Client) PodExec(podName, podNamespace, container string, command []string) (*bytes.Buffer, error) {
 	req := client.Post().
 		Resource("pods").
 		Name(podName).
@@ -101,7 +101,7 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 
 	exec, err := remotecommand.NewSPDYExecutor(client.Config, "POST", req.URL())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -112,7 +112,11 @@ func (client *Client) PodExec(podName, podNamespace, container string, command [
 		Tty:    false,
 	})
 
-	return &stdout, &stderr, err
+	if stderr.String() != "" {
+		fmt.Printf("Stderr when execute %v: %s\n", command, stderr.String())
+	}
+
+	return &stdout, err
 }
 
 // AllPilotsDiscoveryDo makes an http request to each Pilot discovery instance
@@ -125,16 +129,14 @@ func (client *Client) AllPilotsDiscoveryDo(pilotNamespace, method, path string, 
 		return nil, errors.New("unable to find any Pilot instances")
 	}
 	cmd := []string{"/usr/local/bin/pilot-discovery", "request", method, path, string(body)}
-	var stdout, stderr *bytes.Buffer
+	var stdout *bytes.Buffer
 	result := map[string][]byte{}
 	for _, pilot := range pilots {
-		stdout, stderr, err = client.PodExec(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
+		stdout, err = client.PodExec(pilot.Name, pilot.Namespace, discoveryContainer, cmd)
 		if err != nil {
 			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, discoveryContainer, err)
 		} else if stdout.String() != "" {
 			result[pilot.Name] = stdout.Bytes()
-		} else if stderr.String() != "" {
-			return nil, fmt.Errorf("error execing into %v %v container: %v", pilot.Name, discoveryContainer, stderr.String())
 		}
 	}
 	return result, err
@@ -150,12 +152,10 @@ func (client *Client) PilotDiscoveryDo(pilotNamespace, method, path string, body
 		return nil, errors.New("unable to find any Pilot instances")
 	}
 	cmd := []string{"/usr/local/bin/pilot-discovery", "request", method, path, string(body)}
-	var stdout, stderr *bytes.Buffer
-	stdout, stderr, err = client.PodExec(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
+	var stdout *bytes.Buffer
+	stdout, err = client.PodExec(pilots[0].Name, pilots[0].Namespace, discoveryContainer, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("error execing into %v %v container: %v", pilots[0].Name, discoveryContainer, err)
-	} else if stderr.String() != "" {
-		return nil, fmt.Errorf("error execing into %v %v container: %v", pilots[0].Name, discoveryContainer, stderr.String())
 	}
 	return stdout.Bytes(), err
 }
@@ -167,11 +167,9 @@ func (client *Client) EnvoyDo(podName, podNamespace, method, path string, body [
 		return nil, fmt.Errorf("unable to retrieve proxy container name: %v", err)
 	}
 	cmd := []string{"/usr/local/bin/pilot-agent", "request", method, path, string(body)}
-	stdout, stderr, err := client.PodExec(podName, podNamespace, container, cmd)
+	stdout, err := client.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
 		return stdout.Bytes(), err
-	} else if stderr.String() != "" {
-		return nil, fmt.Errorf("error execing into %v: %v", podName, stderr.String())
 	}
 	return stdout.Bytes(), nil
 }

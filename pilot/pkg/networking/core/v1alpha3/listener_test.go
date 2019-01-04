@@ -155,7 +155,11 @@ func getOldestService(services ...*model.Service) *model.Service {
 func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsapi.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-	env := buildListenerEnv()
+	env := buildListenerEnv(services)
+
+	if err := env.PushContext.InitContext(&env); err != nil {
+		return nil
+	}
 
 	instances := make([]*model.ServiceInstance, len(services))
 	for i, s := range services {
@@ -163,7 +167,7 @@ func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsa
 			Service: s,
 		}
 	}
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, instances, services)
+	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances, services)
 }
 
 type fakePlugin struct {
@@ -179,11 +183,11 @@ func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.M
 	return nil
 }
 
-func (p *fakePlugin) OnOutboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnOutboundCluster(env *model.Environment, push *model.PushContext, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
-func (p *fakePlugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushStatus, service *model.Service, servicePort *model.Port,
+func (p *fakePlugin) OnInboundCluster(env *model.Environment, node *model.Proxy, push *model.PushContext, service *model.Service, servicePort *model.Port,
 	cluster *xdsapi.Cluster) {
 }
 
@@ -217,14 +221,15 @@ func buildService(hostname string, ip string, protocol model.Protocol, creationT
 	}
 }
 
-func buildListenerEnv() model.Environment {
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+func buildListenerEnv(services []*model.Service) model.Environment {
+	serviceDiscovery := new(fakes.ServiceDiscovery)
+	serviceDiscovery.ServicesReturns(services, nil)
 
 	configStore := &fakes.IstioConfigStore{}
 
 	mesh := model.DefaultMeshConfig()
 	env := model.Environment{
-		PushStatus:       model.NewStatus(),
+		PushContext:      model.NewPushContext(),
 		ServiceDiscovery: serviceDiscovery,
 		ServiceAccounts:  &fakes.ServiceAccounts{},
 		IstioConfigStore: configStore,

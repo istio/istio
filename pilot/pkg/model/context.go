@@ -34,6 +34,7 @@ type Environment struct {
 	ServiceDiscovery
 
 	// Accounts interface for listing service accounts
+	// Deprecated - use PushContext.ServiceAccounts
 	ServiceAccounts
 
 	// Config interface for listing routing rules
@@ -45,9 +46,14 @@ type Environment struct {
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
 
-	// PushStatus holds informations during push generation. It is reset on config change, at the beginning
+	// PushContext holds informations during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
-	PushStatus *PushStatus
+	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
+	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
+	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
+	// CONFIG AND PUSH
+	// Deprecated - a local config for ads will be used instead
+	PushContext *PushContext
 }
 
 // Proxy defines the proxy attributes used by xDS identification
@@ -234,6 +240,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		MixerCheckServer:      "",
 		MixerReportServer:     "",
 		DisablePolicyChecks:   false,
+		PolicyCheckFailOpen:   false,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),
 		IngressClass:          "istio",

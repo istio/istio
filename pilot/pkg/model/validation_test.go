@@ -1303,7 +1303,8 @@ func TestValidateHTTPHeaderName(t *testing.T) {
 		valid bool
 	}{
 		{name: "header1", valid: true},
-		{name: "HEADER2", valid: false},
+		{name: "X-Requested-With", valid: true},
+		{name: "", valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -1335,7 +1336,7 @@ func TestValidateCORSPolicy(t *testing.T) {
 		{name: "bad header", in: &networking.CorsPolicy{
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
-			ExposeHeaders: []string{"HEADER3"},
+			ExposeHeaders: []string{""},
 			MaxAge:        &types.Duration{Seconds: 2},
 		}, valid: false},
 		{name: "bad max age", in: &networking.CorsPolicy{

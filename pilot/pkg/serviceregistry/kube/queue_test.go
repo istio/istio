@@ -25,11 +25,15 @@ import (
 func TestQueue(t *testing.T) {
 	q := NewQueue(1 * time.Microsecond)
 	stop := make(chan struct{})
+	done := make(chan struct{})
 	out := 0
 	err := true
 	add := func(obj interface{}, event model.Event) error {
 		t.Logf("adding %d, error: %t", obj.(int), err)
 		out = out + obj.(int)
+		if out == 4 {
+			close(done)
+		}
 		if !err {
 			return nil
 		}
@@ -39,19 +43,24 @@ func TestQueue(t *testing.T) {
 	go q.Run(stop)
 
 	q.Push(Task{handler: add, obj: 1})
-	q.Push(Task{handler: add, obj: 2})
+	q.Push(Task{handler: add, obj: 1})
 	q.Push(Task{handler: func(obj interface{}, event model.Event) error {
-		if out != 4 {
-			t.Errorf("Queue => %d, want %d", out, 4)
+		out = out + obj.(int)
+		if out != 3 {
+			t.Errorf("Queue => %d, want %d", out, 3)
 		}
-		close(stop)
 		return nil
-	}, obj: 0})
+	}, obj: 1})
+
+	// wait for all task processed
+	<-done
+	close(stop)
 }
 
 func TestChainedHandler(t *testing.T) {
 	q := NewQueue(1 * time.Microsecond)
 	stop := make(chan struct{})
+	done := make(chan struct{})
 	out := 0
 	f := func(i int) Handler {
 		return func(obj interface{}, event model.Event) error {
@@ -69,7 +78,10 @@ func TestChainedHandler(t *testing.T) {
 		if out != 3 {
 			t.Errorf("ChainedHandler => %d, want %d", out, 3)
 		}
-		close(stop)
+		close(done)
 		return nil
 	}, obj: 0})
+
+	<-done
+	close(stop)
 }

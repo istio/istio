@@ -9,18 +9,6 @@ spec:
   tcp:
   - match:
     - port: 90
-    route:
-    - destination:
-        host: c
-        subset: v1
-        port:
-          number: 90
-      weight: 100
-  tls:
-  - match:
-    - sni_hosts:
-      - "*"
-      port: 9090
       source_labels:
         app: a
     route:
@@ -28,12 +16,10 @@ spec:
         host: c
         subset: v2
         port:
-          number: 9090
+          number: 90
       weight: 100
   - match:
-    - sni_hosts:
-      - "*"
-      port: 9090
+    - port: 90
     route:
     - destination:
         host: c

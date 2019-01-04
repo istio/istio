@@ -16,8 +16,9 @@ package platform
 
 import (
 	"testing"
-
-	"cloud.google.com/go/compute/metadata"
+	// Temporarily disable ID token authentication on CSR API.
+	// [TODO](myidpt): enable when the Citadel authz can work correctly.
+	// "cloud.google.com/go/compute/metadata"
 )
 
 func TestNewClient(t *testing.T) {
@@ -43,7 +44,7 @@ func TestNewClient(t *testing.T) {
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
-			expectedErr:   "",
+			expectedErr:   "GCP credential authentication in CSR API is disabled", // No error when ID token auth is enabled.
 		},
 		"aws test": {
 			platform:      "aws",
@@ -51,7 +52,7 @@ func TestNewClient(t *testing.T) {
 			keyFile:       "testdata/key-from-root-good.pem",
 			certChainFile: "testdata/cert-chain-good.pem",
 			caAddr:        "localhost",
-			expectedErr:   "",
+			expectedErr:   "AWS credential authentication in CSR API is disabled", // No error when ID token auth is enabled.
 		},
 		"unspecified test": {
 			platform:      "unspecified",
@@ -85,11 +86,14 @@ func TestNewClient(t *testing.T) {
 		credentialType := client.GetCredentialType()
 		expectedType := tc.platform
 		if expectedType == "unspecified" {
-			if metadata.OnGCE() {
-				expectedType = "gcp"
-			} else {
-				expectedType = "onprem"
-			}
+			// Temporarily disable ID token authentication on CSR API.
+			// [TODO](myidpt): enable when the Citadel authz can work correctly.
+			// if metadata.OnGCE() {
+			//   expectedType = "gcp"
+			// } else {
+			//   expectedType = "onprem"
+			// }
+			expectedType = "onprem"
 		}
 		if credentialType != expectedType {
 			t.Errorf("%s: Wrong Credential Type. Expected %v, Actual %v", id,

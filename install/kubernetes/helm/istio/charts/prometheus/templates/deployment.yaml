@@ -61,25 +61,32 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
 {{- end }}
+          {{- if .Values.global.aspenMeshCloud.enabled }}
+          env:
+            - name: ASPEN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aspenmesh
+                  key: TOKEN
+            - name: CLUSTER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: aspenmesh
+                  key: CLUSTER_NAME
+          {{- end }}
           volumeMounts:
           - name: config-volume
             mountPath: {{ if .Values.global.aspenMeshCloud.enabled }}/etc/prom-config{{ else }}/etc/prometheus{{ end }}
-          {{- if .Values.global.aspenMeshCloud.enabled }}
-          env:
-          - name: ASPEN_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: aspenmesh
-                key: TOKEN
-          - name: CLUSTER_NAME
-            valueFrom:
-              secretKeyRef:
-                name: aspenmesh
-                key: CLUSTER_NAME
-          {{- end }}
+          - mountPath: /etc/istio-certs
+            name: istio-certs
       volumes:
       - name: config-volume
         configMap:
           name: prometheus
+      - name: istio-certs
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: istio.default
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}

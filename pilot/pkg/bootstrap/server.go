@@ -88,6 +88,10 @@ var (
 		plugin.Mixer,
 		plugin.Envoyfilter,
 	}
+
+	// Default is enabled - can be set to "0" to restore previous behavior, in case of problems.
+	// Will be removed in 1.1 or 1.0.4 if we see no issues.
+	directEDS = os.Getenv("PILOT_DIRECT_EDS") != "0"
 )
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
@@ -108,6 +112,7 @@ type ConfigArgs struct {
 	CFConfig                   string
 	ControllerOptions          kube.ControllerOptions
 	FileDir                    string
+	DisableInstallCRDs         bool
 
 	// Controller if specified, this controller overrides the other config settings.
 	Controller model.ConfigStoreCache
@@ -514,8 +519,10 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) (model.ConfigStoreCac
 		return nil, multierror.Prefix(err, "failed to open a config client.")
 	}
 
-	if err = configClient.RegisterResources(); err != nil {
-		return nil, multierror.Prefix(err, "failed to register custom resources.")
+	if !args.Config.DisableInstallCRDs {
+		if err = configClient.RegisterResources(); err != nil {
+			return nil, multierror.Prefix(err, "failed to register custom resources.")
+		}
 	}
 
 	return crd.NewController(configClient, args.Config.ControllerOptions), nil
@@ -563,6 +570,7 @@ func (s *Server) makeCopilotMonitor(args *PilotArgs, configController model.Conf
 func (s *Server) createK8sServiceControllers(serviceControllers *aggregate.Controller, args *PilotArgs) (err error) {
 	clusterID := string(serviceregistry.KubernetesRegistry)
 	log.Infof("Primary Cluster name: %s", clusterID)
+	args.Config.ControllerOptions.ClusterID = clusterID
 	kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 	s.kubeRegistry = kubectl
 	serviceControllers.AddRegistry(
@@ -585,6 +593,7 @@ func (s *Server) initMultiClusterController(args *PilotArgs) (err error) {
 		err = clusterregistry.StartSecretController(s.kubeClient,
 			s.clusterStore,
 			s.ServiceController,
+			s.discoveryService,
 			s.EnvoyXdsServer,
 			args.Config.ClusterRegistriesNamespace,
 			args.Config.ControllerOptions.ResyncPeriod,
@@ -731,7 +740,7 @@ func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
-	environment := model.Environment{
+	environment := &model.Environment{
 		Mesh:             s.mesh,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
@@ -756,18 +765,25 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// For now we create the gRPC server sourcing data from Pilot's older data model.
 	s.initGrpcServer()
 
-	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(&environment, istio_networking.NewConfigGenerator(args.Plugins))
+	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment, istio_networking.NewConfigGenerator(args.Plugins))
+	s.EnvoyXdsServer.ConfigUpdater = s.discoveryService
 	// TODO: decouple v2 from the cache invalidation, use direct listeners.
-	envoy.V2ClearCache = s.EnvoyXdsServer.ClearCacheFunc()
+	envoy.Push = s.EnvoyXdsServer.Push
+	envoy.BeforePush = s.EnvoyXdsServer.BeforePush
+
 	s.EnvoyXdsServer.Register(s.grpcServer)
 
 	if s.kubeRegistry != nil {
 		// kubeRegistry may use the environment for push status reporting.
 		// TODO: maybe all registries should have his as an optional field ?
-		s.kubeRegistry.Env = &environment
+		s.kubeRegistry.Env = environment
+		s.kubeRegistry.ConfigUpdater = discovery
+		if directEDS {
+			s.kubeRegistry.EDSUpdater = s.EnvoyXdsServer
+		}
 	}
 
-	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
+	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController, discovery)
 
 	s.EnvoyXdsServer.ConfigController = s.configController
 

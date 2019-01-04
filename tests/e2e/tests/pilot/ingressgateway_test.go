@@ -63,7 +63,7 @@ func TestGateway_HTTPIngress(t *testing.T) {
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, cluster, "HTTPIngressGateway", defaultRetryBudget, func() error {
 			reqURL := fmt.Sprintf("http://%s.%s/c", ingressGatewayServiceName, istioNamespace)
-			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com")
+			resp := ClientRequest(cluster, "t", reqURL, 100, "-key Host -val uk.bookinfo.com:80")
 			count := make(map[string]int)
 			for _, elt := range resp.Version {
 				count[elt] = count[elt] + 1
@@ -261,5 +261,54 @@ cleanup:
 		} else {
 			t.Errorf("Could not parse response codes from the client")
 		}
+	}
+}
+
+func TestVirtualServiceMergingAtGateway(t *testing.T) {
+	istioNamespace := tc.Kube.IstioSystemNamespace()
+	ingressGatewayServiceName := tc.Kube.IstioIngressGatewayService()
+
+	cfgs := &deployableConfig{
+		Namespace: tc.Kube.Namespace,
+		YamlFiles: []string{
+			"testdata/networking/v1alpha3/ingressgateway.yaml",
+			maybeAddTLSForDestinationRule(tc, "testdata/networking/v1alpha3/destination-rule-c.yaml"),
+			"testdata/networking/v1alpha3/rule-merging-path1.yaml",
+			"testdata/networking/v1alpha3/rule-merging-path2.yaml"},
+		kubeconfig: tc.Kube.KubeConfig,
+	}
+	if err := cfgs.Setup(); err != nil {
+		t.Fatal(err)
+	}
+	defer cfgs.Teardown()
+
+	for cluster := range tc.Kube.Clusters {
+		runRetriableTest(t, cluster, "VirtualServiceMergingAtGateway-route1", defaultRetryBudget, func() error {
+			reqURL := fmt.Sprintf("http://%s.%s/route1", ingressGatewayServiceName, istioNamespace)
+			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
+			count := make(map[string]int)
+			for _, elt := range resp.Version {
+				count[elt] = count[elt] + 1
+			}
+			log.Infof("request counts %v", count)
+			if count["v1"] == 10 {
+				return nil
+			}
+			return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v1", count)
+		})
+
+		runRetriableTest(t, cluster, "VirtualServiceMergingAtGateway-route2", defaultRetryBudget, func() error {
+			reqURL := fmt.Sprintf("http://%s.%s/route2", ingressGatewayServiceName, istioNamespace)
+			resp := ClientRequest(cluster, "t", reqURL, 10, "-key Host -val uk.bookinfo.com:80")
+			count := make(map[string]int)
+			for _, elt := range resp.Version {
+				count[elt] = count[elt] + 1
+			}
+			log.Infof("request counts %v", count)
+			if count["v2"] == 10 {
+				return nil
+			}
+			return fmt.Errorf("expected %v requests to reach %s => Got %v", 10, "v2", count)
+		})
 	}
 }

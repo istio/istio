@@ -32,8 +32,8 @@ var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionD
 // and/or service annotation. Once these legacy flags/config deprecated,
 // this function can be placed by a call to store.AuthenticationPolicyByDestination
 // directly.
-func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, hostname Hostname, port *Port) *authn.Policy {
-	config := store.AuthenticationPolicyByDestination(hostname, port)
+func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store IstioConfigStore, service *Service, port *Port) *authn.Policy {
+	config := store.AuthenticationPolicyByDestination(service, port)
 	if config != nil {
 		policy := config.Spec.(*authn.Policy)
 		if err := JwtKeyResolver.SetAuthenticationPolicyJwksURIs(policy); err == nil {
@@ -42,7 +42,7 @@ func GetConsolidateAuthenticationPolicy(mesh *meshconfig.MeshConfig, store Istio
 	}
 
 	log.Debugf("No authentication policy found for  %s:%d. Fallback to legacy authentication mode %v\n",
-		hostname, port.Port, mesh.AuthPolicy)
+		service.Hostname, port.Port, mesh.AuthPolicy)
 	return legacyAuthenticationPolicyToPolicy(mesh.AuthPolicy)
 }
 

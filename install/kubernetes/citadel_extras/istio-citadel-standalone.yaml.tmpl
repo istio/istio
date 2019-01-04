@@ -62,7 +62,6 @@ spec:
       - name: citadel
         image: {CITADEL_HUB}/citadel:{CITADEL_TAG}
         imagePullPolicy: IfNotPresent
-        command: ["/usr/local/bin/istio_ca"]
         args:
           - --citadel-storage-namespace={ISTIO_NAMESPACE}
           - --grpc-port=8060
@@ -72,9 +71,6 @@ spec:
           - --self-signed-ca-cert-ttl=24000h
           - --sign-ca-certs=true # Whether Citadel issues certs for other Citadels.
           - --workload-cert-ttl=21h
-          - --logtostderr
-          - --stderrthreshold
-          - INFO
 ---
 apiVersion: v1
 kind: Service

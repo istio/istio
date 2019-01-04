@@ -47,6 +47,9 @@ func TestProxyConfig(t *testing.T) {
 	cannedConfig := map[string][]byte{
 		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../pkg/writer/compare/testdata/envoyconfigdump.json", t),
 	}
+	endpointConfig := map[string][]byte{
+		"details-v1-5b7f94f9bc-wp5tb": util.ReadFile("../../pkg/writer/envoy/clusters/testdata/clusters.json", t),
+	}
 	cases := []execTestCase{
 		{ // case 0
 			args:           strings.Split("proxy-config", " "),
@@ -99,6 +102,25 @@ xds-grpc                                        -         -          -          
 NAME                                                    VIRTUAL HOSTS
 15004                                                   2
 inbound|9080||productpage.default.svc.cluster.local     1
+`,
+		},
+		{ // case 9 endpoint invalid
+			args:           strings.Split("proxy-config endpoint invalid", " "),
+			expectedRegexp: regexp.MustCompile("^Error: unable to retrieve Pod: pods \"invalid\" not found.*"),
+			wantException:  true, // "istioctl get invalid" should fail
+		},
+		{ // case 10 endpoint valid
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --port=9093", " "),
+			expectedOutput: `ENDPOINT             STATUS        CLUSTER
+172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
+`,
+		},
+		{ // case 11 endpoint status filter
+			execClientConfig: endpointConfig,
+			args:             strings.Split("proxy-config endpoint details-v1-5b7f94f9bc-wp5tb --status=unhealthy", " "),
+			expectedOutput: `ENDPOINT             STATUS        CLUSTER
+172.17.0.14:9093     UNHEALTHY     outbound|9093||istio-policy.istio-system.svc.cluster.local
 `,
 		},
 	}

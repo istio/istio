@@ -157,6 +157,7 @@ func setup() error {
 	// Static testdata, should include all configs we want to test.
 	args.Config.FileDir = IstioSrc + "/tests/testdata/config"
 
+	bootstrap.FilepathWalkInterval = 1 * time.Hour
 	bootstrap.PilotCertDir = IstioSrc + "/tests/testdata/certs/pilot"
 
 	// Create and setup the controller.

@@ -789,7 +789,7 @@ func TestIngressCheckCache(t *testing.T) {
 		}
 		return nil
 	}
-	testCheckCache(t, visit)
+	testCheckCache(t, visit, "istio-ingressgateway")
 }
 
 func getIngressOrFail(t *testing.T) string {
@@ -809,12 +809,12 @@ func TestCheckCache(t *testing.T) {
 	visit := func() error {
 		return visitWithApp(url, pod, "sleep", 100)
 	}
-	testCheckCache(t, visit)
+	testCheckCache(t, visit, "productpage")
 }
 
 // testCheckCache verifies check cache is used when calling the given visit function
 // by comparing the check call metric.
-func testCheckCache(t *testing.T, visit func() error) {
+func testCheckCache(t *testing.T, visit func() error, app string) {
 	promAPI, err := promAPI()
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
@@ -822,7 +822,7 @@ func testCheckCache(t *testing.T, visit func() error) {
 
 	// Get check cache hit baseline.
 	t.Log("Query prometheus to get baseline cache hits...")
-	prior, err := getCheckCacheHits(promAPI)
+	prior, err := getCheckCacheHits(promAPI, app)
 	if err != nil {
 		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
@@ -836,7 +836,7 @@ func testCheckCache(t *testing.T, visit func() error) {
 	allowPrometheusSync()
 	t.Log("Query promethus to get new cache hits number...")
 	// Get new check cache hit.
-	got, err := getCheckCacheHits(promAPI)
+	got, err := getCheckCacheHits(promAPI, app)
 	if err != nil {
 		fatalf(t, "Unable to retrieve valid cached hit number: %v", err)
 	}
@@ -1402,7 +1402,7 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 
 // visitWithApp visits the given url by curl in the given container.
 func visitWithApp(url string, pod string, container string, num int) error {
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- bash -c 'for ((i=0; i<%d; i++)); do curl -m 0.1 -i -s %s; done'",
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- sh -c 'i=1; while [[ $i -le %d ]]; do curl -m 0.1 -i -s %s; let i=i+1; done'",
 		pod, tc.Kube.Namespace, container, num, url)
 	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
 	_, err := util.ShellMuteOutput(cmd)
@@ -1413,9 +1413,9 @@ func visitWithApp(url string, pod string, container string, num int) error {
 }
 
 // getCheckCacheHits returned the total number of check cache hits in this cluster.
-func getCheckCacheHits(promAPI v1.API) (float64, error) {
+func getCheckCacheHits(promAPI v1.API, app string) (float64, error) {
 	log.Info("Get number of cached check calls")
-	query := fmt.Sprintf("envoy_http_mixer_filter_total_check_calls")
+	query := fmt.Sprintf("sum(envoy_http_mixer_filter_total_check_calls{app=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -1428,7 +1428,7 @@ func getCheckCacheHits(promAPI v1.API) (float64, error) {
 		totalCheck = 0
 	}
 
-	query = fmt.Sprintf("envoy_http_mixer_filter_total_remote_check_calls")
+	query = fmt.Sprintf("sum(envoy_http_mixer_filter_total_remote_check_calls{app=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {

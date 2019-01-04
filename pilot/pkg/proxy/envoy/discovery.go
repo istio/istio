@@ -27,8 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	restful "github.com/emicklei/go-restful"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/emicklei/go-restful"
+	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -49,26 +49,12 @@ var (
 	// Save the build version information.
 	buildVersion = version.Info.String()
 
-	cacheSizeGauge = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "cache_size",
-			Help:      "Current size (in bytes) of a single cache within Pilot",
-		}, []string{metricLabelCacheName, metricBuildVersion})
 	cacheHitCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "cache_hit",
 			Help:      "Count of cache hits for a particular cache within Pilot",
-		}, []string{metricLabelCacheName, metricBuildVersion})
-	cacheMissCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Subsystem: metricsSubsystem,
-			Name:      "cache_miss",
-			Help:      "Count of cache misses for a particular cache within Pilot",
 		}, []string{metricLabelCacheName, metricBuildVersion})
 	callCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -131,9 +117,14 @@ var (
 	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
 	clearCacheTime = 1
 
-	// V2ClearCache is a function to be called when the v1 cache is cleared. This is used to
-	// avoid adding a circular dependency from v1 to v2.
-	V2ClearCache func()
+	// Push is used to request a push, when config changes. This is used to
+	// avoid adding a circular dependency from v1 to v2 - the method is implemented
+	// in the ADS server.
+	Push func(fullPush bool, edsUpdates map[string]*model.EndpointShardsByService)
+
+	// BeforePush is called before a push. Like Push, it is an artifact of the split
+	// of discovery from v2/discovery and the migration from v1.
+	BeforePush func() map[string]*model.EndpointShardsByService
 
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
@@ -185,7 +176,7 @@ func envDuration(env string, def time.Duration) time.Duration {
 
 // DiscoveryService publishes services, clusters, and routes for all proxies
 type DiscoveryService struct {
-	model.Environment
+	*model.Environment
 
 	webhookClient   *http.Client
 	webhookEndpoint string
@@ -198,6 +189,9 @@ type DiscoveryService struct {
 	sdsCache *discoveryCache
 
 	RestContainer *restful.Container
+
+	// true if a full push is needed after debounce. False if only EDS is required.
+	fullPush bool
 }
 
 type discoveryCacheStatEntry struct {
@@ -249,42 +243,6 @@ func (c *discoveryCache) cachedDiscoveryResponse(key string) ([]byte, uint32, bo
 	atomic.AddUint64(&entry.hit, 1)
 	cacheHitCounter.With(c.cacheSizeLabels()).Inc()
 	return entry.data, entry.resourceCount, true
-}
-
-func (c *discoveryCache) updateCachedDiscoveryResponse(key string, resourceCount uint32, data []byte) {
-	if c.disabled {
-		return
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	entry, ok := c.cache[key]
-	var cacheSizeDelta float64
-	if !ok {
-		entry = &discoveryCacheEntry{}
-		c.cache[key] = entry
-		cacheSizeDelta = float64(len(key) + len(data))
-	} else if entry.data != nil {
-		cacheSizeDelta = float64(len(data) - len(entry.data))
-		log.Warnf("Overriding cached data for entry %v", key)
-	}
-	entry.resourceCount = resourceCount
-	entry.data = data
-	atomic.AddUint64(&entry.miss, 1)
-	cacheMissCounter.With(c.cacheSizeLabels()).Inc()
-	cacheSizeGauge.With(c.cacheSizeLabels()).Add(cacheSizeDelta)
-}
-
-func (c *discoveryCache) clear() {
-	// Reset the cache size metric for this cache.
-	cacheSizeGauge.Delete(c.cacheSizeLabels())
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, v := range c.cache {
-		v.data = nil
-	}
 }
 
 func (c *discoveryCache) resetStats() {
@@ -372,7 +330,7 @@ type DiscoveryServiceOptions struct {
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
 func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache,
-	environment model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
+	environment *model.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
 		sdsCache:    newDiscoveryCache("sds", o.EnableCaching),
@@ -408,7 +366,9 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	if configCache != nil {
 		// TODO: changes should not trigger a full recompute of LDS/RDS/CDS/EDS
 		// (especially mixerclient HTTP and quota)
-		configHandler := func(model.Config, model.Event) { out.clearCache() }
+		configHandler := func(model.Config, model.Event) {
+			out.clearCache()
+		}
 		for _, descriptor := range model.IstioConfigTypes {
 			configCache.RegisterEventHandler(descriptor.Type, configHandler)
 		}
@@ -458,45 +418,71 @@ func (ds *DiscoveryService) ClearCacheStats(_ *restful.Request, _ *restful.Respo
 	ds.sdsCache.resetStats()
 }
 
+// TODO: move debounce to v2/discovery, remove the spaghetti.
+
 // ClearCache is wrapper for clearCache method, used when new controller gets
 // instantiated dynamically
 func (ds *DiscoveryService) ClearCache() {
 	ds.clearCache()
 }
 
-// debouncePush is called on clear cache, to initiate a push.
-func debouncePush(startDebounce time.Time) {
+// debouncePush is called on config or endpoint changes, to initiate a push.
+func (ds *DiscoveryService) debouncePush(startDebounce time.Time) {
 	clearCacheMutex.Lock()
 	since := time.Since(lastClearCacheEvent)
+	events := clearCacheEvents
 	clearCacheMutex.Unlock()
 
 	if since > 2*DebounceAfter ||
 		time.Since(startDebounce) > DebounceMax {
 
-		log.Infof("Push debounce stable %d: %v since last change, %v since last push",
-			clearCacheEvents,
-			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
-		clearCacheMutex.Lock()
-		clearCacheTimerSet = false
-		lastClearCache = time.Now()
-		clearCacheMutex.Unlock()
-		V2ClearCache()
+		log.Infof("Push debounce stable %d: %v since last change, %v since last push, full=%v",
+			events,
+			since, time.Since(lastClearCache), ds.fullPush)
+
+		ds.doPush()
+
 	} else {
-		log.Infof("Push debounce %d: %v since last change, %v since last push",
-			clearCacheEvents,
-			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		time.AfterFunc(DebounceAfter, func() {
-			debouncePush(startDebounce)
+			ds.debouncePush(startDebounce)
 		})
 	}
+}
+
+// Start the actual push
+func (ds *DiscoveryService) doPush() {
+	// more config update events may happen while doPush is processing.
+	// we don't want to lose updates.
+	clearCacheMutex.Lock()
+
+	clearCacheTimerSet = false
+	lastClearCache = time.Now()
+	full := ds.fullPush
+	edsUpdates := BeforePush()
+
+	// Update the config values, next ConfigUpdate and eds updates will use this
+	ds.fullPush = false
+
+	clearCacheMutex.Unlock()
+
+	Push(full, edsUpdates)
 }
 
 // clearCache will clear all envoy caches. Called by service, instance and config handlers.
 // This will impact the performance, since envoy will need to recalculate.
 func (ds *DiscoveryService) clearCache() {
+	ds.ConfigUpdate(true)
+}
+
+// ConfigUpdate implements ConfigUpdater interface, used to request pushes.
+// It replaces the 'clear cache' from v1.
+func (ds *DiscoveryService) ConfigUpdate(full bool) {
 	clearCacheMutex.Lock()
 	defer clearCacheMutex.Unlock()
 
+	if full {
+		ds.fullPush = true
+	}
 	clearCacheEvents++
 
 	if DebounceAfter > 0 {
@@ -506,10 +492,9 @@ func (ds *DiscoveryService) clearCache() {
 			clearCacheTimerSet = true
 			startDebounce := lastClearCacheEvent
 			time.AfterFunc(DebounceAfter, func() {
-				debouncePush(startDebounce)
+				ds.debouncePush(startDebounce)
 			})
-		} // else: debunce in progress - it'll keep delaying the push
-
+		}
 		return
 	}
 
@@ -520,10 +505,8 @@ func (ds *DiscoveryService) clearCache() {
 			clearCacheEvents,
 			time.Since(lastClearCacheEvent), time.Since(lastClearCache))
 		lastClearCacheEvent = time.Now()
-		lastClearCache = time.Now()
 
-		V2ClearCache()
-
+		ds.doPush()
 		return
 	}
 
@@ -535,8 +518,7 @@ func (ds *DiscoveryService) clearCache() {
 	if time.Since(lastClearCache) > time.Duration(clearCacheTime)*time.Second {
 		log.Infof("Timer push %d: %v since last change, %v since last push",
 			clearCacheEvents, time.Since(lastClearCacheEvent), time.Since(lastClearCache))
-		lastClearCache = time.Now()
-		V2ClearCache()
+		ds.doPush()
 		return
 	}
 
@@ -556,6 +538,7 @@ func (ds *DiscoveryService) clearCache() {
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
+// Deprecated - may be used by debug tools, mapped to /v1/registration
 func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restful.Response) {
 	methodName := "ListAllEndpoints"
 	incCalls(methodName)

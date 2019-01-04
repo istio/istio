@@ -15,7 +15,6 @@
 package external
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -124,6 +123,8 @@ func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists
+// THIS IS A LINEAR SEARCH WHICH CAUSES ALL SERVICE ENTRIES TO BE RECONVERTED -
+// DO NOT USE
 func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service, error) {
 	for _, service := range d.getServices() {
 		if service.Hostname == hostname {
@@ -132,22 +133,6 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 	}
 
 	return nil, nil
-}
-
-// GetServiceAttributes retrieves the custom attributes of a service if it exists.
-func (d *ServiceEntryStore) GetServiceAttributes(hostname model.Hostname) (*model.ServiceAttributes, error) {
-	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		svcs := convertServices(serviceEntry, config.CreationTimestamp.Time)
-		for _, s := range svcs {
-			if s.Hostname == hostname {
-				return &model.ServiceAttributes{
-					Name:      hostname.String(),
-					Namespace: config.Namespace}, nil
-			}
-		}
-	}
-	return nil, fmt.Errorf("service not found")
 }
 
 func (d *ServiceEntryStore) getServices() []*model.Service {

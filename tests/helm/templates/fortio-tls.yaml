@@ -42,9 +42,6 @@ spec:
   ports:
   - port: 8080
     name: http-echo
-  - port: 8081
-    targetPort: 8080
-    name: http-echo1
   - port: 8079
     name: grpc-ping
   selector:
