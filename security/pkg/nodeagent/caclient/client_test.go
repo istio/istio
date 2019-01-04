@@ -15,61 +15,83 @@
 package caclient
 
 import (
-	"context"
-	"net"
-	"reflect"
+	"bytes"
+	"encoding/base64"
+	"fmt"
 	"testing"
 	"time"
-
-	"google.golang.org/grpc"
-
-	gcapb "istio.io/istio/security/proto/providers/google"
 )
 
-const mockServerAddress = "localhost:0"
-
-var (
-	fakeCert  = []string{"foo", "bar"}
-	fakeToken = "Bearer fakeToken"
-)
-
-type mockCAServer struct{}
-
-func (ca *mockCAServer) CreateCertificate(ctx context.Context, in *gcapb.IstioCertificateRequest) (*gcapb.IstioCertificateResponse, error) {
-	return &gcapb.IstioCertificateResponse{CertChain: fakeCert}, nil
+type mockConfigMap struct {
+	Cert string
+	Err  error
 }
 
-func TestCAClient(t *testing.T) {
-	// create a local grpc server
-	s := grpc.NewServer()
-	defer s.Stop()
-	lis, err := net.Listen("tcp", mockServerAddress)
-	if err != nil {
-		t.Fatalf("failed to listen: %v", err)
+func (cm *mockConfigMap) GetCATLSRootCert() (string, error) {
+	if cm.Err != nil {
+		return "", cm.Err
 	}
-	serv := mockCAServer{}
+	return cm.Cert, nil
+}
 
-	go func() {
-		gcapb.RegisterIstioCertificateServiceServer(s, &serv)
-		if err := s.Serve(lis); err != nil {
-			t.Fatalf("failed to serve: %v", err)
+func TestNewCAClient(t *testing.T) {
+	testCases := map[string]struct {
+		provider    string
+		expectedErr string
+	}{
+		"Not supported": {
+			provider:    "random",
+			expectedErr: "CA provider \"random\" isn't supported. Currently Istio supports \"GoogleCA,Citadel\"",
+		},
+	}
+
+	for id, tc := range testCases {
+		_, err := NewCAClient("abc:0", tc.provider, false, "", "", "", "")
+		if err.Error() != tc.expectedErr {
+			t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
+				id, err.Error(), tc.expectedErr)
 		}
-	}()
+	}
+}
 
-	// The goroutine starting the server may not be ready, results in flakiness.
-	time.Sleep(1 * time.Second)
-
-	cli, err := NewCAClient(lis.Addr().String(), googleCA, false)
-	if err != nil {
-		t.Fatalf("failed to create ca client: %v", err)
+func TestGetCATLSRootCertFromConfigMap(t *testing.T) {
+	certPem := []byte("ABCDEFG")
+	encoded := base64.StdEncoding.EncodeToString(certPem)
+	testCases := map[string]struct {
+		cm           configMap
+		expectedCert []byte
+		expectedErr  string
+	}{
+		"Valid cert": {
+			cm:           &mockConfigMap{Cert: encoded, Err: nil},
+			expectedCert: certPem,
+			expectedErr:  "",
+		},
+		"Controller error": {
+			cm:           &mockConfigMap{Cert: encoded, Err: fmt.Errorf("test_error")},
+			expectedCert: nil,
+			expectedErr:  "exhausted all the retries (0) to fetch the CA TLS root cert",
+		},
+		"Decode error": {
+			cm:           &mockConfigMap{Cert: "random", Err: nil},
+			expectedCert: nil,
+			expectedErr:  "cannot decode the CA TLS root cert: illegal base64 data at input byte 4",
+		},
 	}
 
-	resp, err := cli.CSRSign(context.Background(), []byte{01}, fakeToken, 1)
-	if err != nil {
-		t.Fatalf("failed to call CSR sign: %v", err)
-	}
-
-	if !reflect.DeepEqual(resp, fakeCert) {
-		t.Errorf("resp: got %+v, expected %q", resp, fakeCert)
+	for id, tc := range testCases {
+		cert, err := getCATLSRootCertFromConfigMap(tc.cm, time.Second, 0)
+		if err != nil {
+			if err.Error() != tc.expectedErr {
+				t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
+					id, err.Error(), tc.expectedErr)
+			}
+		} else {
+			if tc.expectedErr != "" {
+				t.Errorf("Test case [%s]: expect error: %s", id, tc.expectedErr)
+			} else if bytes.Compare(cert, tc.expectedCert) != 0 {
+				t.Errorf("Test case [%s]: cert from ConfigMap %v does not match expected value %v", id, cert, tc.expectedCert)
+			}
+		}
 	}
 }

@@ -353,7 +353,7 @@ var (
 
 							case "source_pod_ip":
 
-								return []uint8(out.SourcePodIp), true
+								return []byte(out.SourcePodIp), true
 
 							case "source_pod_name":
 
@@ -361,7 +361,7 @@ var (
 
 							case "source_labels":
 
-								return out.SourceLabels, true
+								return attribute.WrapStringMap(out.SourceLabels), true
 
 							case "source_namespace":
 
@@ -373,7 +373,7 @@ var (
 
 							case "source_host_ip":
 
-								return []uint8(out.SourceHostIp), true
+								return []byte(out.SourceHostIp), true
 
 							case "source_workload_uid":
 
@@ -397,7 +397,7 @@ var (
 
 							case "destination_pod_ip":
 
-								return []uint8(out.DestinationPodIp), true
+								return []byte(out.DestinationPodIp), true
 
 							case "destination_pod_name":
 
@@ -409,7 +409,7 @@ var (
 
 							case "destination_labels":
 
-								return out.DestinationLabels, true
+								return attribute.WrapStringMap(out.DestinationLabels), true
 
 							case "destination_namespace":
 
@@ -421,7 +421,7 @@ var (
 
 							case "destination_host_ip":
 
-								return []uint8(out.DestinationHostIp), true
+								return []byte(out.DestinationHostIp), true
 
 							case "destination_owner":
 
@@ -1464,13 +1464,10 @@ var (
 
 					var err error = nil
 
-					if param.Value != "" {
-						if t, e := tEvalFn(param.Value); e != nil || t != istio_policy_v1beta1.STRING {
-							if e != nil {
-								return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Value", e)
-							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Value", t, istio_policy_v1beta1.STRING)
-						}
+					if param.Value == "" {
+						infrdType.Value = istio_policy_v1beta1.VALUE_TYPE_UNSPECIFIED
+					} else if infrdType.Value, err = tEvalFn(param.Value); err != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Value", err)
 					}
 
 					return infrdType, err
@@ -2405,7 +2402,7 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 			return nil, template.NewErrorPath("SourceIp", err)
 		}
 
-		r.SourceIp = vIface.(net.IP)
+		r.SourceIp = net.IP(vIface.([]byte))
 
 	}
 
@@ -2425,7 +2422,7 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 			return nil, template.NewErrorPath("DestinationIp", err)
 		}
 
-		r.DestinationIp = vIface.(net.IP)
+		r.DestinationIp = net.IP(vIface.([]byte))
 
 	}
 
@@ -3911,7 +3908,7 @@ func (b *builder_edge_Template) build(
 // builder struct for constructing an instance of Template.
 type builder_listentry_Template struct {
 
-	// builder for field value: string.
+	// builder for field value: interface{}.
 
 	bldValue compiled.Expression
 } // builder_listentry_Template
@@ -3942,11 +3939,6 @@ func newBuilder_listentry_Template(
 	} else {
 		b.bldValue, expType, err = expb.Compile(param.Value)
 		if err != nil {
-			return nil, template.NewErrorPath("Value", err)
-		}
-
-		if expType != istio_policy_v1beta1.STRING {
-			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_policy_v1beta1.STRING, expType, param.Value)
 			return nil, template.NewErrorPath("Value", err)
 		}
 
@@ -3982,11 +3974,11 @@ func (b *builder_listentry_Template) build(
 
 	if b.bldValue != nil {
 
-		vString, err = b.bldValue.EvaluateString(attrs)
-		if err != nil {
+		if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
 			return nil, template.NewErrorPath("Value", err)
 		}
-		r.Value = vString
+
+		r.Value = vIface
 
 	}
 

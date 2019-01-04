@@ -63,4 +63,3 @@ dependencies:
     version: ">=0.0.1"
     repository: "@istio.io"
     condition: istio_cni.enabled
-

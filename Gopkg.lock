@@ -883,13 +883,11 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:c1c74479c219daed94a374e5ba7cdab754a279532e76c00df29cc616ebc0ce59"
+  digest = "1:feed851b93f9debbe8180092067c4e29a51c06dbb5fe2f643ec9feea039670a3"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
     "format",
-    "gbytes",
-    "gexec",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -1003,7 +1001,7 @@
   revision = "525d0eb5f91d30e3b1548de401b7ef9ea6898520"
 
 [[projects]]
-  digest = "1:b57b560027ec66232c769a7f4c65bac5ab6c1975f0bdecc0a44d160274fd4347"
+  digest = "1:e411054f54a332ecadd5fe5a4a68d092f36583e554037587da86da298cffc72d"
   name = "github.com/prometheus/client_golang"
   packages = [
     "api",
@@ -1013,8 +1011,8 @@
     "prometheus/promhttp",
   ]
   pruneopts = "NUT"
-  revision = "1cafe34db7fdec6022e17e00e1c1ea501022f3e4"
-  version = "v0.9.0"
+  revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
+  version = "v0.9.2"
 
 [[projects]]
   branch = "master"
@@ -1609,7 +1607,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:2c03bd1d930cb8e093a81fffa6366a32c922ecac853b9cc555a382cde60f054f"
+  digest = "1:cc8acfbdf3e1f6e85d67ade624d062c320633a43347ef36f31328114d0726ed5"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1625,7 +1623,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "4f643c98546f632307978debedc7d5dbd0452aa2"
+  revision = "ab6f375bdca60c35cde75c2598832b8aff7270f9"
 
 [[projects]]
   branch = "release-1.11"
@@ -2054,8 +2052,6 @@
     "github.com/mitchellh/go-homedir",
     "github.com/natefinch/lumberjack",
     "github.com/onsi/gomega",
-    "github.com/onsi/gomega/gbytes",
-    "github.com/onsi/gomega/gexec",
     "github.com/open-policy-agent/opa/ast",
     "github.com/open-policy-agent/opa/rego",
     "github.com/openshift/api/apps/v1",
@@ -2127,6 +2123,7 @@
     "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/encoding/gzip",
     "google.golang.org/grpc/grpclog",
+    "google.golang.org/grpc/keepalive",
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/peer",
     "google.golang.org/grpc/reflection",
@@ -2149,6 +2146,7 @@
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/apps/v1beta1",
+    "k8s.io/api/authentication/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v2alpha1",
     "k8s.io/api/core/v1",

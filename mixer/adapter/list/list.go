@@ -33,8 +33,9 @@ import (
 	"sync"
 	"time"
 
-	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/googleapis/google/rpc"
 
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/list/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"
@@ -79,7 +80,28 @@ func (h *handler) HandleListEntry(_ context.Context, entry *listentry.Instance) 
 		return adapter.CheckResult{}, err
 	}
 
-	found, err := l.checkList(entry.Value)
+	var value string
+
+	switch entryVal := entry.Value.(type) {
+	case *v1beta1.Value:
+		strVal := entryVal.GetStringValue()
+		ipVal := entryVal.GetIpAddressValue()
+		if strVal != "" {
+			value = strVal
+		} else if ipVal != nil {
+			// IP_ADDRESS comes in as byte array.
+			value = net.IP(ipVal.Value).String()
+		} else {
+			return getCheckResult(h.config, rpc.INVALID_ARGUMENT, fmt.Sprintf("%v is not a valid string or IP address", entryVal)), nil
+		}
+	case string:
+		value = entryVal
+	case []byte:
+		value = net.IP(entryVal).String()
+	default:
+		return getCheckResult(h.config, rpc.INVALID_ARGUMENT, fmt.Sprintf("%v is not a valid string or IP address", entryVal)), nil
+	}
+	found, err := l.checkList(value)
 	code := rpc.OK
 	msg := ""
 
@@ -89,18 +111,14 @@ func (h *handler) HandleListEntry(_ context.Context, entry *listentry.Instance) 
 	} else if h.config.Blacklist {
 		if found {
 			code = rpc.PERMISSION_DENIED
-			msg = fmt.Sprintf("%s is blacklisted", entry.Value)
+			msg = fmt.Sprintf("%s is blacklisted", value)
 		}
 	} else if !found {
-		code = rpc.NOT_FOUND
-		msg = fmt.Sprintf("%s is not whitelisted", entry.Value)
+		code = rpc.PERMISSION_DENIED
+		msg = fmt.Sprintf("%s is not whitelisted", value)
 	}
 
-	return adapter.CheckResult{
-		Status:        status.WithMessage(code, msg),
-		ValidDuration: h.config.CachingInterval,
-		ValidUseCount: h.config.CachingUseCount,
-	}, nil
+	return getCheckResult(h.config, code, msg), nil
 }
 
 func (h *handler) Close() error {
@@ -252,6 +270,14 @@ func (h *handler) hasData() bool {
 	h.lock.Unlock()
 
 	return result
+}
+
+func getCheckResult(config config.Params, code rpc.Code, msg string) adapter.CheckResult {
+	return adapter.CheckResult{
+		Status:        status.WithMessage(code, msg),
+		ValidDuration: config.CachingInterval,
+		ValidUseCount: config.CachingUseCount,
+	}
 }
 
 ///////////////// Bootstrap ///////////////

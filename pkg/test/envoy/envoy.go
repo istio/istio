@@ -87,7 +87,7 @@ func (e *Envoy) Start() (err error) {
 	// If there is an error upon exiting this function, stop the server.
 	defer func() {
 		if err != nil {
-			e.Stop()
+			_ = e.Stop()
 		}
 	}()
 

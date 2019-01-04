@@ -17,29 +17,53 @@ package cache
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 var (
 	mockCertChain1st    = []string{"foo", "rootcert"}
 	mockCertChainRemain = []string{"bar", "rootcert"}
+	testResourceName    = "default"
 
-	testResourceName = "default"
+	k8sKey        = []byte("fake private k8sKey")
+	k8sCertChain  = []byte("fake cert chain")
+	k8sSecretName = "test-scrt"
+	k8sTestSecret = &v1.Secret{
+		Data: map[string][]byte{
+			secretfetcher.ScrtCert: k8sCertChain,
+			secretfetcher.ScrtKey:  k8sKey,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      k8sSecretName,
+			Namespace: "test-namespace",
+		},
+		Type: secretfetcher.IngressSecretType,
+	}
 )
 
-func TestGenerateSecret(t *testing.T) {
+func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	fakeCACli := newMockCAClient()
 	opt := Options{
 		SecretTTL:        time.Minute,
 		RotationInterval: 300 * time.Microsecond,
 		EvictionDuration: 2 * time.Second,
 	}
-	sc := NewSecretCache(fakeCACli, notifyCb, opt)
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
@@ -118,14 +142,18 @@ func TestGenerateSecret(t *testing.T) {
 	}
 }
 
-func TestRefreshSecret(t *testing.T) {
+func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	fakeCACli := newMockCAClient()
 	opt := Options{
 		SecretTTL:        200 * time.Microsecond,
 		RotationInterval: 200 * time.Microsecond,
 		EvictionDuration: 10 * time.Second,
 	}
-	sc := NewSecretCache(fakeCACli, notifyCb, opt)
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
@@ -153,6 +181,100 @@ func TestRefreshSecret(t *testing.T) {
 	if retries == 5 {
 		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
 	}
+}
+
+// TestGatewayAgentGenerateSecret verifies that ingress gateway agent manages secret cache correctly.
+func TestGatewayAgentGenerateSecret(t *testing.T) {
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: false,
+	}
+	fetcher.Init(fake.NewSimpleClientset().CoreV1())
+	ch := make(chan struct{})
+	fetcher.Run(ch)
+	opt := Options{
+		SecretTTL:        time.Minute,
+		RotationInterval: 300 * time.Microsecond,
+		EvictionDuration: 2 * time.Second,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
+	defer func() {
+		sc.Close()
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
+	}()
+
+	fetcher.AddSecret(k8sTestSecret)
+	proxyID := "proxy1-id"
+	ctx := context.Background()
+	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sSecretName, "")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if err := verifySecret(gotSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), true; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+	if got, want := sc.SecretExist(proxyID, "nonexistsecret", "", gotSecret.Version), false; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: k8sSecretName,
+	}
+	cachedSecret, found := sc.secrets.Load(key)
+	if !found {
+		t.Errorf("Failed to find secret for proxy %q from secret store: %v", proxyID, err)
+	}
+	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
+		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
+	}
+
+	// Try to get secret again, verify the same secret is returned.
+	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sSecretName, "")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if err := verifySecret(gotSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	if _, err := sc.GenerateSecret(ctx, proxyID, "nonexistk8ssecret", ""); err == nil {
+		t.Error("Generating secret using a non existing kubernetes secret should fail")
+	}
+
+	// Wait until unused secrets are evicted.
+	wait := 500 * time.Millisecond
+	retries := 0
+	for ; retries < 3; retries++ {
+		time.Sleep(wait)
+		if _, found := sc.secrets.Load(proxyID); found {
+			// Retry after some sleep.
+			wait *= 2
+			continue
+		}
+
+		break
+	}
+	if retries == 3 {
+		t.Errorf("Unused secrets failed to be evicted from cache")
+	}
+}
+
+func verifySecret(gotSecret *model.SecretItem) error {
+	if k8sSecretName != gotSecret.ResourceName {
+		return fmt.Errorf("resource name verification error: expected %s but got %s", k8sSecretName, gotSecret.ResourceName)
+	}
+	if !bytes.Equal(k8sCertChain, gotSecret.CertificateChain) {
+		return fmt.Errorf("cert chain verification error: expected %v but got %v", k8sCertChain, gotSecret.CertificateChain)
+	}
+	if !bytes.Equal(k8sKey, gotSecret.PrivateKey) {
+		return fmt.Errorf("k8sKey verification error: expected %v but got %v", k8sKey, gotSecret.PrivateKey)
+	}
+	return nil
 }
 
 func notifyCb(string, string, *model.SecretItem) error {

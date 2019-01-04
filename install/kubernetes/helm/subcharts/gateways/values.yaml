@@ -9,6 +9,15 @@ enabled: true
 
 istio-ingressgateway:
   enabled: true
+  #
+  # Secret Discovery Service (SDS) configuration for ingress gateway.
+  #
+  sds:
+    # If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
+    enabled: false
+    # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+    # This server runs in the same pod as ingress gateway.
+    image: node-agent-k8s
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -26,6 +35,7 @@ istio-ingressgateway:
     targetAverageUtilization: 80
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
+  externalIPs: []
   serviceAnnotations: {}
   podAnnotations: {}
   type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -47,16 +57,16 @@ istio-ingressgateway:
   ## Disable if not needed
   - port: 15029
     targetPort: 15029
-    name: http-kiali
+    name: https-kiali
   - port: 15030
     targetPort: 15030
-    name: http2-prometheus
+    name: https-prometheus
   - port: 15031
     targetPort: 15031
-    name: http2-grafana
+    name: https-grafana
   - port: 15032
     targetPort: 15032
-    name: http2-tracing
+    name: https-tracing
     # This is the port where sni routing happens
   - port: 15443
     targetPort: 15443

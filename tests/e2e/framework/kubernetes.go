@@ -42,8 +42,8 @@ const (
 	istioInstallDir                = "install/kubernetes"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
-	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
-	authWithMCPInstallFile         = "istio-auth-mcp.yaml"
+	nonAuthWithoutMCPInstallFile   = "istio-mcp.yaml"
+	authWithoutMCPInstallFile      = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
@@ -104,9 +104,28 @@ var (
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
-	valueFile = flag.String("valueFile", "", "Istio value yaml file when helm is used")
-	values    = flag.String("values", "", "Helm set values when helm is used")
+	valueFile     = flag.String("valueFile", "", "Istio value yaml file when helm is used")
+	helmSetValues helmSetValueList
 )
+
+// Support for multiple values for helm installation
+type helmSetValueList []string
+
+func (h *helmSetValueList) String() string {
+	return fmt.Sprintf("%v", *h)
+}
+func (h *helmSetValueList) Set(value string) error {
+	if len(*h) > 0 {
+		return errors.New("helmSetValueList flag already set")
+	}
+	for _, v := range strings.Split(value, ",") {
+		*h = append(*h, v)
+	}
+	return nil
+}
+func init() {
+	flag.Var(&helmSetValues, "helmSetValueList", "Additional helm values parsed, eg: galley.enabled=true,global.useMCP=true")
+}
 
 type appPodsInfo struct {
 	// A map of app label values to the pods for that app
@@ -159,15 +178,15 @@ func getClusterWideInstallFile() string {
 	var istioYaml string
 	if *authEnable {
 		if *useMCP {
-			istioYaml = authWithMCPInstallFile
-		} else {
 			istioYaml = authInstallFile
+		} else {
+			istioYaml = authWithoutMCPInstallFile
 		}
 	} else {
 		if *useMCP {
-			istioYaml = nonAuthWithMCPInstallFile
-		} else {
 			istioYaml = nonAuthInstallFile
+		} else {
+			istioYaml = nonAuthWithoutMCPInstallFile
 		}
 	}
 	return istioYaml
@@ -330,6 +349,12 @@ func (k *KubeInfo) Setup() error {
 			// install istio using helm
 			if err = k.deployIstioWithHelm(); err != nil {
 				log.Error("Failed to deploy Istio with helm.")
+				return err
+			}
+
+			// execute helm test for istio
+			if err = k.executeHelmTest(); err != nil {
+				log.Error("Failed to execute Istio helm tests.")
 				return err
 			}
 		} else {
@@ -814,11 +839,13 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// CRDs installed ahead of time with 2.9.x
 	setValue += " --set global.crds=false"
 
-	// add additional values passed from test
-	if *values != "" {
-		setValue += " --set " + *values
-	}
+	// enable helm test for istio
+	setValue += " --set global.enableHelmTest=true"
 
+	// add additional values passed from test
+	for _, v := range helmSetValues {
+		setValue += " --set " + v
+	}
 	err := util.HelmClientInit()
 	if err != nil {
 		// helm client init
@@ -861,6 +888,18 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		if err := k.waitForValdiationWebhook(); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (k *KubeInfo) executeHelmTest() error {
+	if !util.CheckPodsRunning(k.Namespace, k.KubeConfig) {
+		return fmt.Errorf("can't get all pods running")
+	}
+
+	if err := util.HelmTest("istio"); err != nil {
+		return fmt.Errorf("helm test istio failed")
 	}
 
 	return nil

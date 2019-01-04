@@ -624,3 +624,39 @@ func TestReconnect(t *testing.T) {
 		}
 	}
 }
+
+func TestInMemoryUpdater(t *testing.T) {
+	u := NewInMemoryUpdater()
+
+	o := u.Get("foo")
+	if len(o) != 0 {
+		t.Fatalf("Unexpected items in updater: %v", o)
+	}
+
+	c := Change{
+		TypeURL: "foo",
+		Objects: []*Object{
+			{
+				TypeURL: "foo",
+				Metadata: &mcp.Metadata{
+					Name: "bar",
+				},
+				Resource: &types.Empty{},
+			},
+		},
+	}
+
+	err := u.Apply(&c)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	o = u.Get("foo")
+	if len(o) != 1 {
+		t.Fatalf("expected item not found: %v", o)
+	}
+
+	if o[0].Metadata.Name != "bar" {
+		t.Fatalf("expected name not found on object: %v", o)
+	}
+}

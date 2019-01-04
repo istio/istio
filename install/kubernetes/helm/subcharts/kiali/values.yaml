@@ -1,10 +1,10 @@
 #
-# addon kiali tracing configuration
+# addon kiali
 #
 enabled: false
 replicaCount: 1
 hub: docker.io/kiali
-tag: v0.10
+tag: v0.12
 contextPath: /kiali
 ingress:
   enabled: false
@@ -19,6 +19,8 @@ ingress:
     # - secretName: kiali-tls
     #   hosts:
     #     - kiali.local
+gateway:
+  enabled: false
 dashboard:
   secretName: kiali
   usernameKey: username
@@ -29,5 +31,4 @@ dashboard:
 
   # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
   # jaegerURL:
-# prometheus address
 prometheusAddr: http://prometheus:9090

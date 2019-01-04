@@ -451,7 +451,7 @@ func (p *promProxy) portForward(labelSelector string, localPort uint16, remotePo
 		PodNamespace:  p.namespace,
 		LabelSelector: labelSelector,
 	}
-	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
+	accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 	if err != nil {
 		log.Errorf("Error creating accessor: %v", err)
 		return err
@@ -546,7 +546,7 @@ func waitForMixerProxyReadiness() error {
 				PodName:      pod,
 			}
 
-			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig)
+			accessor, err := kube.NewAccessor(tc.Kube.KubeConfig, "")
 			if err != nil {
 				log.Errorf("Error creating accessor: %v", err)
 				return err
@@ -586,6 +586,8 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 		`round(sum(irate(istio_requests_total[1m])), 0.001)`,
 		`sum(irate(istio_requests_total{response_code=~"4.*"}[1m]))`,
 		`sum(irate(istio_requests_total{response_code=~"5.*"}[1m]))`,
+		`istio_tcp_received_bytes_total{reporter="source"}`,
+		`istio_tcp_sent_bytes_total{reporter="source"}`,
 	}
 
 	for _, duration := range waitDurations {

@@ -284,11 +284,11 @@ var (
 
 							case "stringMap":
 
-								return out.StringMap, true
+								return attribute.WrapStringMap(out.StringMap), true
 
 							case "ip":
 
-								return []uint8(out.Ip), true
+								return []byte(out.Ip), true
 
 							case "duration":
 
@@ -584,7 +584,7 @@ var (
 
 					out.Set(outPrefix+"stringPrimitive", obj.StringPrimitive)
 
-					out.Set(outPrefix+"stringMap", obj.StringMap)
+					out.Set(outPrefix+"stringMap", attribute.WrapStringMap(obj.StringMap))
 
 				}
 				return res, err

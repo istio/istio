@@ -716,6 +716,10 @@ func TestHelmInject(t *testing.T) {
 			inputFile: "resource_annotations.yaml",
 			wantFile:  "resource_annotations.yaml.injected",
 		},
+		{
+			inputFile: "user-volume.yaml",
+			wantFile:  "user-volume.yaml.injected",
+		},
 	}
 
 	for ci, c := range cases {
@@ -801,7 +805,7 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) *Webhook {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate := string(loadConfigMapWithHelm(t))
+	sidecarTemplate := loadConfigMapWithHelm(t)
 	return createTestWebhook(sidecarTemplate)
 }
 

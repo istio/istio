@@ -13,7 +13,15 @@
 # Format:
 # <package or filename>=<threshold in float64>
 #
+# Istio wide default
 istio.io=5
+# Overrides
+istio.io/istio/mixer/adapter/solarwinds/internal/papertrail/papertrail_logger.go=50
+istio.io/istio/pilot/pkg/config/memory/monitor.go=30
 istio.io/istio/pilot/pkg/proxy/envoy/v2=10
-istio.io/istio/pilot/pkg/config/memory/monitor.go=10
-istio.io/istio/mixer/adapter/solarwinds/internal/papertrail/papertrail_logger.go=10
+istio.io/istio/pilot/pkg/serviceregistry/consul/monitor.go=20
+istio.io/istio/pkg/mcp/creds/watcher.go=100
+istio.io/istio/pkg/test=100
+istio.io/istio/security/proto=100
+istio.io/istio/security/pkg/nodeagent=15
+

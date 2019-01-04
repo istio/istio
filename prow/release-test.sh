@@ -45,9 +45,11 @@ cat << EOF > "/workspace/gcb_env.sh"
 export CB_BRANCH="${GIT_SHA}"
 export CB_VERSION="${GIT_SHA}"
 export CB_ISTIOCTL_DOCKER_HUB="docker.io/istio"
+export CB_PIPELINE_TYPE=daily
 EOF
 }
 
 create_gcb_env
+clone_cni
 
 time ./release/gcb/cloud_builder.sh

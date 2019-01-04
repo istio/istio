@@ -319,6 +319,15 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 	return patch
 }
 
+func addSecurityContext(target *corev1.PodSecurityContext, basePath string) (patch []rfc6902PatchOperation) {
+	patch = append(patch, rfc6902PatchOperation{
+		Op:    "add",
+		Path:  basePath,
+		Value: target,
+	})
+	return patch
+}
+
 func addVolume(target, added []corev1.Volume, basePath string) (patch []rfc6902PatchOperation) {
 	first := len(target) == 0
 	var value interface{}
@@ -408,6 +417,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
+	if pod.Spec.SecurityContext != nil {
+		patch = append(patch, addSecurityContext(pod.Spec.SecurityContext, "/spec/securityContext")...)
+	}
+
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
 	return json.Marshal(patch)
@@ -483,6 +496,17 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		}
 	}
 
+	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
+	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
+	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+	if wh.meshConfig.EnableSdsTokenMount && wh.meshConfig.SdsUdsPath != "" {
+		var grp = int64(1337)
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup: &grp,
+		}
+	}
+
+	// TODO(incfly): plumbing wh.sidecarConfig.RewriteHTTPPRobe to the injectionData.
 	spec, status, err := injectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		log.Infof("Injection data: err=%v spec=%v\n", err, status)

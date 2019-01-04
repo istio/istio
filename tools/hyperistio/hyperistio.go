@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	agent "istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -121,7 +122,7 @@ func startEnvoy() error {
 		DrainDuration:    types.DurationProto(30 * time.Second), // crash if 0
 		StatNameLength:   189,
 	}
-	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil, os.Environ())
+	cfgF, err := agent.WriteBootstrap(cfg, "sidecar~127.0.0.2~a~a", 1, []string{}, nil, os.Environ(), []string{})
 	if err != nil {
 		return err
 	}
@@ -173,7 +174,8 @@ func startPilot() error {
 			Registries: []string{
 				string(serviceregistry.MockRegistry)},
 		},
-		MeshConfig: &mcfg,
+		MeshConfig:       &mcfg,
+		KeepaliveOptions: keepalive.DefaultOption(),
 	}
 	bootstrap.PilotCertDir = env.IstioSrc + "/tests/testdata/certs/pilot"
 

@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -53,8 +52,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	recomputeOutboundClusters := true
 	if configgen.CanUsePrecomputedCDS(proxy) {
-		if configgen.PrecomputedOutboundClusters != nil {
-			clusters = append(clusters, configgen.PrecomputedOutboundClusters...)
+		if configgen.PrecomputedOutboundClusters != nil && configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace] != nil {
+			clusters = append(clusters, configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace]...)
 			recomputeOutboundClusters = false
 		}
 	}
@@ -70,7 +69,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			return nil, err
 		}
 
-		managementPorts := env.ManagementPorts(proxy.IPAddress)
+		// Let ServiceDiscovery decide which IP and Port are used for management if
+		// there are multiple IPs
+		managementPorts := make([]*model.Port, 0)
+		for _, ip := range proxy.IPAddresses {
+			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
+		}
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
 	}
 
@@ -684,19 +688,14 @@ func applyUpstreamTLSSettings(env *model.Environment, cluster *v2.Cluster, tls *
 			}
 		} else {
 			cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(cluster.TlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount))
+				model.ConstructSdsSecretConfig(model.SDSDefaultResourceName, env.Mesh.SdsUdsPath, env.Mesh.EnableSdsTokenMount, env.Mesh.SdsUseK8SSaJwt))
 
-			rootResourceName := model.SDSRootResourceName
-			if len(tls.SubjectAltNames) > 0 {
-				// Pass upstream service accounts to envoy, which is eventually passed to node agent to construct CertificateValidationContext.VerifySubjectAltName
-				rootNames := []string{rootResourceName}
-				rootNames = append(rootNames, tls.SubjectAltNames...)
-				rootResourceName = strings.Join(rootNames, ",")
-			}
-
-			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(
-					rootResourceName, env.Mesh.SdsUdsPath, model.K8sSAJwtTokenFileName, env.Mesh.EnableSdsTokenMount),
+			cluster.TlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext: &auth.CertificateValidationContext{VerifySubjectAltName: tls.SubjectAltNames},
+					ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, env.Mesh.SdsUdsPath,
+						env.Mesh.EnableSdsTokenMount, env.Mesh.SdsUseK8SSaJwt),
+				},
 			}
 		}
 

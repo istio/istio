@@ -692,7 +692,7 @@
             ]
           },
           {
-            "name": "DefaultNetworkScope.Mode",
+            "name": "DefaultServiceDependency.Mode",
             "enum_fields": [
               {
                 "name": "ALL_NAMESPACES",
@@ -836,14 +836,19 @@
                 "type": "bool"
               },
               {
+                "id": 30,
+                "name": "sds_use_k8s_sa_jwt",
+                "type": "bool"
+              },
+              {
                 "id": 26,
                 "name": "trust_domain",
                 "type": "string"
               },
               {
                 "id": 29,
-                "name": "default_network_scope",
-                "type": "DefaultNetworkScope"
+                "name": "default_service_dependency",
+                "type": "DefaultServiceDependency"
               }
             ],
             "reserved_ids": [
@@ -862,7 +867,7 @@
                 ]
               },
               {
-                "name": "DefaultNetworkScope",
+                "name": "DefaultServiceDependency",
                 "fields": [
                   {
                     "id": 1,
@@ -2589,6 +2594,12 @@
                 "id": 2,
                 "name": "consistent_hash",
                 "type": "ConsistentHashLB"
+              },
+              {
+                "id": 3,
+                "name": "locality_weight_settings",
+                "type": "LocalityWeightSetting",
+                "is_repeated": true
               }
             ],
             "messages": [
@@ -2636,6 +2647,26 @@
                         "type": "google.protobuf.Duration"
                       }
                     ]
+                  }
+                ]
+              },
+              {
+                "name": "LocalityWeightSetting",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  }
+                ],
+                "maps": [
+                  {
+                    "key_type": "string",
+                    "field": {
+                      "id": 2,
+                      "name": "to",
+                      "type": "uint32"
+                    }
                   }
                 ]
               }
@@ -3150,7 +3181,7 @@
       }
     },
     {
-      "protopath": "networking:/:v1alpha3:/:network_scope.proto",
+      "protopath": "networking:/:v1alpha3:/:service_dependency.proto",
       "def": {
         "enums": [
           {
@@ -3169,7 +3200,7 @@
         ],
         "messages": [
           {
-            "name": "NetworkScope",
+            "name": "ServiceDependency",
             "fields": [
               {
                 "id": 1,
@@ -4033,6 +4064,19 @@
                 "integer": 1
               }
             ]
+          },
+          {
+            "name": "Tls.AuthHeader",
+            "enum_fields": [
+              {
+                "name": "PLAIN",
+                "integer": 0
+              },
+              {
+                "name": "BEARER",
+                "integer": 1
+              }
+            ]
           }
         ],
         "messages": [
@@ -4232,6 +4276,11 @@
                 "id": 3,
                 "name": "timeout",
                 "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 4,
+                "name": "authentication",
+                "type": "Authentication"
               }
             ]
           },
@@ -4302,6 +4351,107 @@
                 "id": 2,
                 "name": "denominator",
                 "type": "DenominatorType"
+              }
+            ]
+          },
+          {
+            "name": "Authentication",
+            "fields": [
+              {
+                "id": 1,
+                "name": "tls",
+                "type": "Tls"
+              },
+              {
+                "id": 2,
+                "name": "mutual",
+                "type": "Mutual"
+              }
+            ]
+          },
+          {
+            "name": "Tls",
+            "fields": [
+              {
+                "id": 1,
+                "name": "ca_certificates",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "token_path",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "oauth",
+                "type": "OAuth"
+              },
+              {
+                "id": 4,
+                "name": "auth_header",
+                "type": "AuthHeader"
+              },
+              {
+                "id": 5,
+                "name": "custom_header",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "OAuth",
+            "fields": [
+              {
+                "id": 1,
+                "name": "client_id",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "client_secret",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "token_url",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "scopes",
+                "type": "string",
+                "is_repeated": true
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 5,
+                  "name": "endpoint_params",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Mutual",
+            "fields": [
+              {
+                "id": 1,
+                "name": "private_key",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "client_certificate",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "ca_certificates",
+                "type": "string"
               }
             ]
           }

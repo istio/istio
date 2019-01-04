@@ -69,8 +69,9 @@ func convertServices(config model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							Name:      host,
-							Namespace: config.Namespace,
+							Name:        host,
+							Namespace:   config.Namespace,
+							ConfigScope: serviceEntry.ConfigScope,
 						},
 					})
 				} else if net.ParseIP(address) != nil {
@@ -82,8 +83,9 @@ func convertServices(config model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							Name:      host,
-							Namespace: config.Namespace,
+							Name:        host,
+							Namespace:   config.Namespace,
+							ConfigScope: serviceEntry.ConfigScope,
 						},
 					})
 				}
@@ -97,8 +99,9 @@ func convertServices(config model.Config) []*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					Name:      host,
-					Namespace: config.Namespace,
+					Name:        host,
+					Namespace:   config.Namespace,
+					ConfigScope: serviceEntry.ConfigScope,
 				},
 			})
 		}

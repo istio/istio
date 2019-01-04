@@ -635,6 +635,13 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			tu64 = math.Float64bits(tf64)
 			STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
 
+		case il.SizeS:
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t1)
+			GET_HEAP_VALUE_STRING(t1, tStr)
+			ti64 = int64(len(tStr))
+			STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
+
 		case il.Jmp:
 			LOAD_OP_CODE(t1)
 			ip = t1
@@ -766,7 +773,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			GET_HEAP_VALUE(t2, tVal)
 			tStr, tFound = il.MapGet(tVal, tStr)
 			if !tFound {
-    			GET_HEAP_VALUE_STRING(t1, tStr)
+				GET_HEAP_VALUE_STRING(t1, tStr)
 				ERRF("member lookup failed: '%v'", tStr)
 			}
 			NEW_HEAP_VALUE(tStr, t3)
@@ -809,6 +816,283 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			}
 			NEW_HEAP_VALUE(tStr, t3)
 			STACK_PUSH(t3)
+
+		case il.LtS:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			GET_HEAP_VALUE_STRING(t1, tStr)
+			GET_HEAP_VALUE_STRING(t2, tStr2)
+
+			if tStr > tStr2 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.LtI:
+			STACK_UNDERFLOW_GUARD(4)
+			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
+			if int64(opstack[sp-3]) + int64(opstack[sp-4])<<32 < ti64 {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.LtD:
+			STACK_UNDERFLOW_GUARD(4)
+			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
+			if math.Float64frombits(uint64(opstack[sp-3]) + uint64(opstack[sp-4])<<32) < tf64 {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.ALtS:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			GET_HEAP_VALUE_STRING(t2, tStr)
+			if strings.GetString(t1) > tStr {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.ALtI:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
+			if int64(t1) + int64(t2)<<32 > ti64 {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
+
+		case il.ALtD:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
+
+			if tf64 < math.Float64frombits(uint64(t1) + uint64(t2)<<32) {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
+
+		case il.LeS:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			GET_HEAP_VALUE_STRING(t1, tStr)
+			GET_HEAP_VALUE_STRING(t2, tStr2)
+
+			if tStr >= tStr2 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.LeI:
+			STACK_UNDERFLOW_GUARD(4)
+			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
+			if (int64(opstack[sp-3]) + int64(opstack[sp-4])<<32) <= ti64 {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.LeD:
+			STACK_UNDERFLOW_GUARD(4)
+			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
+			if math.Float64frombits(uint64(opstack[sp-3]) + uint64(opstack[sp-4])<<32) <= tf64 {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.ALeS:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			GET_HEAP_VALUE_STRING(t2, tStr)
+			if strings.GetString(t1) >= tStr {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.ALeI:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
+			if int64(t1) + int64(t2)<<32 >= ti64 {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
+
+		case il.ALeD:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
+			if tf64 <= math.Float64frombits(uint64(t1) + uint64(t2)<<32) {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
+
+		case il.GtS:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			GET_HEAP_VALUE_STRING(t1, tStr)
+			GET_HEAP_VALUE_STRING(t2, tStr2)
+
+			if tStr < tStr2 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.GtI:
+			STACK_UNDERFLOW_GUARD(4)
+			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
+			if (int64(opstack[sp-3]) + int64(opstack[sp-4])<<32) > ti64 {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.GtD:
+			STACK_UNDERFLOW_GUARD(4)
+			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
+			if math.Float64frombits(uint64(opstack[sp-3]) + uint64(opstack[sp-4])<<32) > tf64 {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.AGtS:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			GET_HEAP_VALUE_STRING(t2, tStr)
+			if strings.GetString(t1) < tStr {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.AGtI:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
+			if int64(t1) + int64(t2)<<32 < ti64 {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
+
+		case il.AGtD:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
+			if tf64 > math.Float64frombits(uint64(t1) + uint64(t2)<<32) {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
+
+		case il.GeS:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			GET_HEAP_VALUE_STRING(t1, tStr)
+			GET_HEAP_VALUE_STRING(t2, tStr2)
+
+			if tStr <= tStr2 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.GeI:
+			STACK_UNDERFLOW_GUARD(4)
+			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
+			if (int64(opstack[sp-3]) + int64(opstack[sp-4])<<32) >= ti64 {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.GeD:
+			STACK_UNDERFLOW_GUARD(4)
+			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
+			if math.Float64frombits(uint64(opstack[sp-3]) + uint64(opstack[sp-4])<<32) >= tf64 {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.AGeS:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			GET_HEAP_VALUE_STRING(t2, tStr)
+			if strings.GetString(t1) <= tStr {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.AGeI:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			ti64 = int64(opstack[sp-1]) + int64(opstack[sp-2])<<32
+			if (int64(t1) + int64(t2)<<32) <= ti64 {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
+
+		case il.AGeD:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			tf64 = math.Float64frombits(uint64(opstack[sp-1]) + uint64(opstack[sp-2])<<32)
+			if tf64 >= math.Float64frombits(uint64(t1) + uint64(t2)<<32) {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
 
 		default:
 			ERRF("invalid opcode: '%v'", il.Opcode(code))

@@ -46,12 +46,7 @@ func TestRunSendConfig(t *testing.T) {
 	agent := &TestAgent{
 		configCh: make(chan interface{}),
 	}
-	config := model.DefaultProxyConfig()
-	node := model.Proxy{
-		Type: model.Ingress,
-		ID:   "random",
-	}
-	watcher := NewWatcher(config, node, []CertSource{{Directory: "random"}}, nil, agent.ConfigCh())
+	watcher := NewWatcher([]CertSource{{Directory: "random"}}, agent.ConfigCh())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watcher starts agent and schedules a config update

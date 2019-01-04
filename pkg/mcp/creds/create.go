@@ -21,12 +21,12 @@ import (
 )
 
 // CreateForClient creates TransportCredentials for MCP clients.
-func CreateForClient(serverName string, watcher *CertificateWatcher) credentials.TransportCredentials {
+func CreateForClient(serverName string, watcher CertificateWatcher) credentials.TransportCredentials {
 	config := tls.Config{
 		ServerName: serverName,
-		RootCAs:    watcher.caCertPool,
+		RootCAs:    watcher.certPool(),
 		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			c := watcher.get()
+			c := watcher.Get()
 			return &c, nil
 		},
 	}
@@ -45,12 +45,12 @@ func CreateForClientSkipVerify() credentials.TransportCredentials {
 }
 
 // CreateForServer creates TransportCredentials for MCP servers.
-func CreateForServer(watcher *CertificateWatcher) credentials.TransportCredentials {
+func CreateForServer(watcher CertificateWatcher) credentials.TransportCredentials {
 	config := tls.Config{
 		ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs:  watcher.caCertPool,
+		ClientCAs:  watcher.certPool(),
 		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			c := watcher.get()
+			c := watcher.Get()
 			return &c, nil
 		},
 	}
