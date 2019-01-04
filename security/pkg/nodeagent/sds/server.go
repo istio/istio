@@ -91,8 +91,8 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, options.EnableWorkloadSDS),
-		gatewaySds:  newSDSService(gatewaySecretCache, options.EnableIngressGatewaySDS),
+		workloadSds: newSDSService(workloadSecretCache, false),
+		gatewaySds:  newSDSService(gatewaySecretCache, true),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {
