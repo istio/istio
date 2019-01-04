@@ -791,3 +791,128 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		}
 	})
 }
+
+func TestSidecarScope(t *testing.T) {
+	samples := 100
+
+	var cfgs []*deployableConfig
+	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
+		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
+		// a delay when we push the new config.
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				if err := cfg.TeardownNoDelay(); err != nil {
+					t.Fatal(err)
+				}
+				cfg = nil
+			}
+		}
+
+		cfgs = make([]*deployableConfig, 0)
+		for ns, rules := range ruleYamls {
+			// Apply the new rules in the namespace
+			cfg := &deployableConfig{
+				Namespace:  ns,
+				YamlFiles:  rules,
+				kubeconfig: tc.Kube.KubeConfig,
+			}
+			if err := cfg.Setup(); err != nil {
+				t.Fatal(err)
+			}
+			cfgs = append(cfgs, cfg)
+		}
+	}
+	// Upon function exit, delete the active rule.
+	defer func() {
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				_ = cfg.Teardown()
+			}
+		}
+	}()
+
+	rules := make(map[string][]string)
+	rules[tc.Kube.Namespace] = []string{"sidecar-scope-ns1-ns2.yaml"}
+	rules["ns1"] = []string{
+		"service-entry-http-scope-public.yaml",
+		"service-entry-http-scope-private.yaml",
+		"virtualservice-http-scope-public.yaml",
+		"virtual-service-http-scope-private.yaml",
+	}
+	rules["ns2"] = []string{"service-entry-tcp-scope-public.yaml"}
+
+	// Create the namespaces and install the rules in each namespace
+	for _, ns := range []string{"ns1", "ns2"} {
+		if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("Unable to create namespace %s: %v", ns, err)
+		}
+		defer func(ns string) {
+			if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
+				t.Errorf("Failed to delete namespace %s", ns)
+			}
+		}(ns)
+	}
+	applyRuleFunc(t, rules)
+
+	cases := []struct {
+		testName    string
+		reqURL      string
+		host        string
+		expectedHdr *Regexp
+		reachable   bool
+		onFailure   func()
+	}{
+		{
+			testName:  "cannot reach services if not imported",
+			reqURL:    "http://c/a",
+			host:      "c",
+			reachable: false,
+		},
+		{
+			testName:    "ns1: http://bookinfo.com:9999 reachable",
+			reqURL:      "http://127.255.0.1:9999/a",
+			host:        "bookinfo.com",
+			expectedHdr: regexp.MustCompile("(?i) scope=public"),
+			reachable:   true,
+		},
+		{
+			testName:  "ns1: http://private.com:9999 not reachable",
+			reqURL:    "http://127.255.0.1:9999/a",
+			host:      "private.com",
+			reachable: false,
+		},
+		{
+			testName:  "ns2: tcp.com:8888 reachable",
+			reqURL:    "http://127.255.255.11:8888/a",
+			host:      "tcp.com",
+			reachable: true,
+		},
+	}
+
+	t.Run("v1alpha3", func(t *testing.T) {
+		for _, c := range cases {
+			for cluster := range tc.Kube.Clusters {
+				testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
+				runRetriableTest(t, testName, 5, func() error {
+					resp := ClientRequest(cluster, "a", c.reqURL, 1, fmt.Sprintf("-key Host -val %s", c.host))
+					if c.reachable && !resp.IsHTTPOk() {
+						return fmt.Errorf("cannot reach %s, %v", reqURL, resp.Code)
+					}
+
+					if !c.reachable && resp.IsHTTPOk() {
+						return fmt.Errorf("expected request %s to fail, but got success", reqURL)
+					}
+
+					if c.reachable && c.expectedHdr != nil {
+						found := len(c.expectedHdr.FindAllStringSubmatch(resp.Body, -1))
+						if found != 1 {
+							fmt.Errorf("public virtualService for bookinfo.com not in effect")
+						}
+					}
+
+					return nil
+				}, c.onFailure)
+			}
+		}
+	})
+}
