@@ -74,7 +74,7 @@ loop:
 			break loop
 		}
 
-		_, err := newServer(args, p, false)
+		_, err := newServer(args, p)
 		if err == nil {
 			t.Fatalf("Expected error not found for i=%d", i)
 		}
@@ -82,19 +82,19 @@ loop:
 }
 
 func TestNewServer(t *testing.T) {
+	var gotSchema *schema.Instance
 	p := defaultPatchTable()
 	mk := mock.NewKube()
 	p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
-	p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
+	p.newSource = func(_ client.Interfaces, _ time.Duration, schema *schema.Instance, _ *converter.Config) (runtime.Source, error) {
+		gotSchema = schema
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
-		return runtime.NewInMemorySource(), nil
-	}
+	p.fsNew = nil
 	p.verifyResourceTypesPresence = func(client.Interfaces) error {
 		return nil
 	}
@@ -107,22 +107,31 @@ func TestNewServer(t *testing.T) {
 	tests := []struct {
 		name              string
 		convertK8SService bool
-		wantListeners     int
+		wantTypes         int
 	}{
+		// All wantTypes fields are set to at most typeCount - 2 due to (temporary) exclusion of Pod
+		// and Node types.
 		{
-			name:          "Simple",
-			wantListeners: typeCount - 1,
+			name:      "Simple",
+			wantTypes: typeCount - 3,
 		},
 		{
 			name:              "ConvertK8SService",
+			wantTypes:         typeCount - 2,
 			convertK8SService: true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s, err := newServer(args, p, test.convertK8SService)
+			gotSchema = nil
+			args := args
+			args.ConvertK8SService = test.convertK8SService
+			s, err := newServer(args, p)
 			if err != nil {
 				t.Fatalf("Unexpected error creating service: %v", err)
+			}
+			if got := len(gotSchema.All()); got != test.wantTypes {
+				t.Errorf("newSource received schema with %d types but want %d", got, test.wantTypes)
 			}
 			_ = s.Close()
 		})
@@ -147,7 +156,7 @@ func TestServer_Basic(t *testing.T) {
 	args := DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
-	s, err := newServer(args, p, false)
+	s, err := newServer(args, p)
 	if err != nil {
 		t.Fatalf("Unexpected error creating service: %v", err)
 	}

@@ -79,6 +79,10 @@ type Args struct {
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
 	DisableResourceReadyCheck bool
+
+	// Whether to convert Kubernetes service and endpoints resources to Istio services entries.
+	// Note: this is work in progress.
+	ConvertK8SService bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.

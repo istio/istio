@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:])
+	rootCmd := cmd.GetRootCmd(os.Args[1:], os.Getenv)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)

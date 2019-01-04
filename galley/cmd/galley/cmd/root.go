@@ -17,6 +17,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -38,8 +39,7 @@ var (
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string) *cobra.Command {
-
+func GetRootCmd(args []string, getenv func(string) string) *cobra.Command {
 	var (
 		serverArgs               = server.DefaultArgs()
 		validationArgs           = validation.DefaultArgs()
@@ -75,6 +75,14 @@ func GetRootCmd(args []string) *cobra.Command {
 			}
 			if readinessProbeOptions.IsValid() {
 				readinessProbeController = probe.NewFileController(&readinessProbeOptions)
+			}
+			const envVar = "ISTIO_CONVERT_K8S_SERVICE"
+			if s := getenv(envVar); s != "" {
+				b, err := strconv.ParseBool(s)
+				if err != nil {
+					log.Fatalf("%s is not formatted correctly: %v", envVar, err)
+				}
+				serverArgs.ConvertK8SService = b
 			}
 			if !serverArgs.EnableServer && !validationArgs.EnableValidation {
 				log.Fatala("Galley must be running under at least one mode: server or validation")

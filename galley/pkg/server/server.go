@@ -18,9 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +28,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
-	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
+	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/source/fs"
 	"istio.io/istio/galley/pkg/source/kube/client"
@@ -87,18 +85,10 @@ func defaultPatchTable() patchTable {
 
 // New returns a new instance of a Server.
 func New(a *Args) (*Server, error) {
-	var convertK8SService bool
-	if s := os.Getenv("ISTIO_CONVERT_K8S_SERVICE"); s != "" {
-		b, err := strconv.ParseBool(s)
-		if err != nil {
-			return nil, err
-		}
-		convertK8SService = b
-	}
-	return newServer(a, defaultPatchTable(), convertK8SService)
+	return newServer(a, defaultPatchTable())
 }
 
-func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
+func newServer(a *Args, p patchTable) (*Server, error) {
 	var err error
 	s := &Server{}
 
@@ -117,30 +107,10 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 		Mesh:         mesh,
 		DomainSuffix: a.DomainSuffix,
 	}
-	specs := kubeMeta.Types.All()
-	if !convertK8SService {
-		var filtered []schema.ResourceSpec
-		for _, t := range specs {
-			// TODO(nmittler): Temporarily filter Node and Pod until custom sources land.
-			// Pod yaml cannot be parsed currently. See: https://github.com/istio/istio/issues/10891
-			if t.Kind != "Service" && t.Kind != "Node" && t.Kind != "Pod" {
-				filtered = append(filtered, t)
-			}
-		}
-		specs = filtered
-	}
-	sort.Slice(specs, func(i, j int) bool {
-		return strings.Compare(specs[i].CanonicalResourceName(), specs[j].CanonicalResourceName()) < 0
-	})
-	sb := schema.NewBuilder()
-	for _, s := range specs {
-		sb.Add(s)
-	}
-	kubeSchema := sb.Build()
 
 	var src runtime.Source
 	if a.ConfigPath != "" {
-		src, err = p.fsNew(a.ConfigPath, kubeSchema, converterCfg)
+		src, err = p.fsNew(a.ConfigPath, generateSchema(a.ConvertK8SService), converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +124,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 				return nil, err
 			}
 		}
-		src, err = p.newSource(k, a.ResyncPeriod, kubeSchema, converterCfg)
+		src, err = p.newSource(k, a.ResyncPeriod, generateSchema(a.ConvertK8SService), converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -290,6 +260,30 @@ func (s *Server) Close() error {
 		s.serveWG.Wait()
 	}
 	return s.closeResources()
+}
+
+func generateSchema(convertK8SService bool) *schema.Instance {
+	// TODO(nmittler): Temporarily filter Node and Pod until custom sources land.
+	// Pod yaml cannot be parsed currently. See: https://github.com/istio/istio/issues/10891
+	exclude := map[string]bool{
+		"Pod":     true,
+		"Node":    true,
+		"Service": !convertK8SService,
+	}
+	var specs []schema.ResourceSpec
+	for _, t := range kube.Types.All() {
+		if !exclude[t.Kind] {
+			specs = append(specs, t)
+		}
+	}
+	sort.Slice(specs, func(i, j int) bool {
+		return strings.Compare(specs[i].CanonicalResourceName(), specs[j].CanonicalResourceName()) < 0
+	})
+	sb := schema.NewBuilder()
+	for _, s := range specs {
+		sb.Add(s)
+	}
+	return sb.Build()
 }
 
 //RunServer start Galley Server mode
