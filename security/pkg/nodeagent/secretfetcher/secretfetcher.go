@@ -44,7 +44,7 @@ const (
 	secretResyncPeriod = 15 * time.Second
 
 	// IngressSecretType the type of kubernetes secrets for ingress gateway.
-	IngressSecretType = "istio.io/ingress-k8sKey-cert"
+	IngressSecretType = "istio.io/ingress-key-cert"
 
 	// KubeConfigFile the config file name for kubernetes client.
 	// Specifies empty file name to use InClusterConfig.
@@ -53,7 +53,7 @@ const (
 	// The ID/name for the certificate chain in kubernetes secret.
 	ScrtCert = "cert"
 	// The ID/name for the k8sKey in kubernetes secret.
-	ScrtKey = "k8sKey"
+	ScrtKey = "key"
 
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
 	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
