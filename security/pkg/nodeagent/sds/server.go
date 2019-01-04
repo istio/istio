@@ -178,6 +178,7 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
 	if err != nil {
 		log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+		return fmt.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 	}
 
 	go func() {

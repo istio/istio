@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"strconv"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -297,7 +298,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 
 // to process HTTP and HTTPS servers along with virtualService.HTTP rules
 func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	_ *model.Proxy, _ *model.Environment, _ *model.PushContext, servers []*networking.Server, _ map[string]bool) []*filterChainOpts {
+	node *model.Proxy, _ *model.Environment, _ *model.PushContext, servers []*networking.Server, _ map[string]bool) []*filterChainOpts {
 
 	httpListeners := make([]*filterChainOpts, 0, len(servers))
 	// Are we processing plaintext servers or HTTPS servers?
@@ -331,13 +332,17 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// Build a filter chain for each HTTPS server
 		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 		// where HTTPS server's TLS mode is not passthrough and not nil
+		enableIngressSdsAgent := false
+		if enableSds, found := node.Metadata["USER_SDS"]; found {
+			enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
+		}
 		for _, server := range servers {
 			o := &filterChainOpts{
 				// This works because we validate that only HTTPS servers can have same port but still different port names
 				// and that no two non-HTTPS servers can be on same port or share port names.
 				// Validation is done per gateway and also during merging
 				sniHosts:   getSNIHostsForServer(server),
-				tlsContext: buildGatewayListenerTLSContext(server),
+				tlsContext: buildGatewayListenerTLSContext(server, enableIngressSdsAgent),
 				httpOpts: &httpListenerOpts{
 					rds:              model.GatewayRDSRouteName(server),
 					useRemoteAddress: true,
@@ -361,13 +366,39 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	return httpListeners
 }
 
-func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
+func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || model.IsPassThroughServer(server) {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
-	var certValidationContext *auth.CertificateValidationContext
+	tls := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
+			AlpnProtocols: ListenersALPNProtocols,
+		},
+	}
+
+	if enableSds {
+		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
+			model.ConstructSdsSecretConfigForGatewayListener(server.Hosts[0], model.IngressGatewaySdsUdsPath),
+		}
+	} else {
+		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+			{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: server.Tls.ServerCertificate,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: server.Tls.PrivateKey,
+					},
+				},
+			},
+		}
+	}
+
 	var trustedCa *core.DataSource
 	if len(server.Tls.CaCertificates) != 0 {
 		trustedCa = &core.DataSource{
@@ -377,54 +408,31 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 		}
 	}
 	if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
-		certValidationContext = &auth.CertificateValidationContext{
-			TrustedCa:            trustedCa,
-			VerifySubjectAltName: server.Tls.SubjectAltNames,
+		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+			ValidationContext: &auth.CertificateValidationContext{
+				TrustedCa:            trustedCa,
+				VerifySubjectAltName: server.Tls.SubjectAltNames,
+			},
 		}
 	}
-
-	requireClientCert := proto.BoolFalse
+	tls.RequireClientCertificate = proto.BoolFalse
 	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
-		requireClientCert = proto.BoolTrue
+		tls.RequireClientCertificate = proto.BoolTrue
 	}
 
 	// Set TLS parameters if they are non-default
-	var tlsParams *auth.TlsParameters
 	if len(server.Tls.CipherSuites) > 0 ||
 		server.Tls.MinProtocolVersion != networking.Server_TLSOptions_TLS_AUTO ||
 		server.Tls.MaxProtocolVersion != networking.Server_TLSOptions_TLS_AUTO {
 
-		tlsParams = &auth.TlsParameters{
+		tls.CommonTlsContext.TlsParams = &auth.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
 			CipherSuites:              server.Tls.CipherSuites,
 		}
 	}
 
-	return &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: server.Tls.ServerCertificate,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: server.Tls.PrivateKey,
-						},
-					},
-				},
-			},
-			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: certValidationContext,
-			},
-			AlpnProtocols: ListenersALPNProtocols,
-			TlsParams:     tlsParams,
-		},
-		RequireClientCertificate: requireClientCert,
-	}
+	return tls
 }
 
 func convertTLSProtocol(in networking.Server_TLSOptions_TLSProtocol) auth.TlsParameters_TlsProtocol {
@@ -464,7 +472,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				push, server, gatewaysForWorkload); len(filters) > 0 {
 				opts = append(opts, &filterChainOpts{
 					sniHosts:       getSNIHostsForServer(server),
-					tlsContext:     buildGatewayListenerTLSContext(server),
+					tlsContext:     buildGatewayListenerTLSContext(server, false),
 					networkFilters: filters,
 				})
 			}

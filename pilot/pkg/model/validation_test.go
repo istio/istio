@@ -1474,9 +1474,9 @@ func TestValidateTlsOptions(t *testing.T) {
 			""},
 		{"simple no server cert",
 			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
-				ServerCertificate: ""},
-			"server certificate"},
+				Mode: networking.Server_TLSOptions_SIMPLE,
+			},
+			""},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
