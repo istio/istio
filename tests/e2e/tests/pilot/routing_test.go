@@ -835,7 +835,7 @@ func TestSidecarScope(t *testing.T) {
 		"testdata/networking/v1alpha3/service-entry-http-scope-public.yaml",
 		"testdata/networking/v1alpha3/service-entry-http-scope-private.yaml",
 		"testdata/networking/v1alpha3/virtualservice-http-scope-public.yaml",
-		"testdata/networking/v1alpha3/virtual-service-http-scope-private.yaml",
+		"testdata/networking/v1alpha3/virtualservice-http-scope-private.yaml",
 	}
 	rules["ns2"] = []string{"testdata/networking/v1alpha3/service-entry-tcp-scope-public.yaml"}
 
