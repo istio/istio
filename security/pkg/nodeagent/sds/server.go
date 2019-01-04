@@ -74,6 +74,9 @@ type Options struct {
 
 	// The Vault sign CSR path.
 	VaultSignCsrPath string
+
+	// The Vault TLS root certificate.
+	VaultTlsRootCert string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

@@ -97,7 +97,7 @@ func createClientset() *kubernetes.Clientset {
 
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
 func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool,
-	vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
+	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
 	if ingressGatewayAgent {
@@ -105,7 +105,8 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 		cs := createClientset()
 		ret.Init(cs.CoreV1())
 	} else {
-		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
+		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
+			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 		if err != nil {
 			log.Errorf("failed to create caClient: %v", err)
 			return ret, fmt.Errorf("failed to create caClient")

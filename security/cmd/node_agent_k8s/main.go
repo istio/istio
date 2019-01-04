@@ -65,6 +65,9 @@ const (
 
 	// The environmental variable name for Vault sign CSR path.
 	vaultSignCsrPath = "VAULT_SIGN_CSR_PATH"
+
+	// The environmental variable name for Vault TLS root certificate.
+	vaultTlsRootCert = "VAULT_TLS_ROOT_CERT"
 )
 
 var (
@@ -125,7 +128,7 @@ var (
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
 		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
-			serverOptions.CAProviderName, true, "", "", "", "")
+			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTlsRootCert), "", "", "", "")
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
@@ -139,7 +142,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 
 	if serverOptions.EnableIngressGatewaySDS {
 		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "",
-			false, "", "", "", "")
+			false, []byte(serverOptions.VaultTlsRootCert), "", "", "", "")
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
@@ -211,6 +214,8 @@ func init() {
 		"Vault auth path")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultSignCsrPath, "vaultSignCsrPath", os.Getenv(vaultSignCsrPath),
 		"Vault sign CSR path")
+	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultTlsRootCert, "vaultTlsRootCert", os.Getenv(vaultTlsRootCert),
+		"Vault TLS root certificate")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
