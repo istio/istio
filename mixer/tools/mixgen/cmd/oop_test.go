@@ -33,9 +33,9 @@ func TestOOPGenerator_Generate(t *testing.T) {
 
 	tmpDir := path.Join(os.TempDir(), "/oopScafolding")
 	_ = os.MkdirAll(tmpDir, os.ModeDir|os.ModePerm)
-	// defer func() {
-	// 	_ = os.RemoveAll(tmpDir)
-	// }()
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 	args := []string{"oop", "--out_dir", tmpDir, "--adapter_name", adapterName,
 		"--adapter_package", adapterPackage, "--config_package", configPackge}
 	for _, t := range templates {
