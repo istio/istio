@@ -29,13 +29,16 @@ const (
 // preprocessed data to determine the list of services, virtualServices,
 // and destinationRules that are accessible to a given sidecar.
 type SidecarScope struct {
-	// The crd itself
+	// The crd itself. Can be nil if we are constructing the default
+	// sidecar scope
 	Config *Config
 
 	// set of egress listeners, and their associated services.
+	// A sidecar scope should have either ingress/egress listeners or both.
 	EgressListeners []*IstioListenerWrapper
 
 	// set of ingress listeners
+	// A sidecar scope should have either ingress/egress listeners or both.
 	IngressListeners []*IstioListenerWrapper
 }
 
@@ -43,15 +46,17 @@ type SidecarScope struct {
 // It has the parsed form of the hosts field, encompassing a list of services
 // per sidecar listener object.
 type IstioListenerWrapper struct {
-	// The actual IstioListener api object
+	// The actual IstioListener api object from the Config. It can be nil if
+	// this is for the default sidecar scope.
 	IstioListener *networking.IstioListener
 
 	// TODO: Unix domain socket
 
-	// The port on which this listener should be configured
+	// optional. The port on which this listener should be configured. If
+	// omitted, we infer from services imported
 	Port *Port
 
-	// Namespaces and services/virtualservices imported
+	// REQUIRED: Namespaces and services/virtualservices imported
 	importMap map[string]Hostname
 }
 
@@ -128,6 +133,7 @@ func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service 
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
 		// Check if there is an explicit import of form ns/* or ns/host
+		// else check if there is an import of form */host or */*
 		if hostMatch, nsFound := ilw.importMap[configNamespace]; nsFound {
 			// Check if the hostnames match per usual hostname matching rules
 			if hostMatch.Matches(s.Hostname) {
