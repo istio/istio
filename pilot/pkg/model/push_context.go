@@ -483,10 +483,6 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
-	if err = ps.initSidecarScopes(env); err != nil {
-		return err
-	}
-
 	if err = ps.initVirtualServices(env); err != nil {
 		return err
 	}
@@ -497,6 +493,11 @@ func (ps *PushContext) InitContext(env *Environment) error {
 
 	if err = ps.initAuthorizationPolicies(env); err != nil {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		return err
+	}
+
+	// Must be initialized in the end
+	if err = ps.initSidecarScopes(env); err != nil {
 		return err
 	}
 
@@ -628,7 +629,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	for _, sidecarConfig := range sidecarConfigs {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
-		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(&sidecarConfig))
+		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(ps, &sidecarConfig))
 	}
 
 	return nil

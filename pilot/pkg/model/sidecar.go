@@ -40,6 +40,15 @@ type SidecarScope struct {
 	// set of ingress listeners
 	// A sidecar scope should have either ingress/egress listeners or both.
 	IngressListeners []*IstioListenerWrapper
+
+	// Union of services imported across all egress listeners for use by CDS code.
+	// Right now, we include all the ports in these services.
+	// TODO: Trim the ports in the services to only those referred to by the
+	// egress listeners.
+	AllImportedServices []*Service
+
+	// Union of Destination rules imported across all egress listeners
+	AllImportedDestinationRules []*Config
 }
 
 // IstioListenerWrapper is a wrapper for networking.IstioListener object.
@@ -56,7 +65,12 @@ type IstioListenerWrapper struct {
 	// omitted, we infer from services imported
 	Port *Port
 
-	// REQUIRED: Namespaces and services/virtualservices imported
+	// List of services imported by this listener
+	ImportedServices []*Service
+
+	// List of VirtualServices imported by this listener
+	ImportedVirtualServices []*Config
+
 	importMap map[string]Hostname
 }
 
@@ -73,14 +87,14 @@ func DefaultSidecarScope() *SidecarScope {
 }
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
-func ConvertToSidecarScope(sidecarConfig *Config) *SidecarScope {
+func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
 	out := &SidecarScope{
 		Config: sidecarConfig,
 	}
 
 	r := sidecarConfig.Spec.(*networking.Sidecar)
-	out.EgressListeners = make([]*IstioListenerWrapper, len(r.Egress))
-	out.IngressListeners = make([]*IstioListenerWrapper, len(r.Ingress))
+	out.EgressListeners = make([]*IstioListenerWrapper, 0)
+	out.IngressListeners = make([]*IstioListenerWrapper, 0)
 	for _, e := range r.Egress {
 		out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(e))
 	}
