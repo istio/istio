@@ -904,10 +904,9 @@ func TestSidecarScope(t *testing.T) {
 					if c.reachable && c.expectedHdr != nil {
 						found := len(c.expectedHdr.FindAllStringSubmatch(resp.Body, -1))
 						if found != 1 {
-							fmt.Errorf("public virtualService for bookinfo.com not in effect")
+							return fmt.Errorf("public virtualService for %s is not in effect", c.reqURL)
 						}
 					}
-
 					return nil
 				}, c.onFailure)
 			}
