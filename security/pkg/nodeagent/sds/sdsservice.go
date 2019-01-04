@@ -88,20 +88,14 @@ type sdsservice struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, workloadSDS bool) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification bool) *sdsservice {
 	if st == nil {
 		return nil
 	}
 
-	if workloadSDS {
-		return &sdsservice{
-			st:        st,
-			skipToken: false,
-		}
-	}
 	return &sdsservice{
 		st:        st,
-		skipToken: true,
+		skipToken: skipTokenVerification,
 	}
 }
 

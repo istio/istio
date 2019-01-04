@@ -53,7 +53,7 @@ const (
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
 
 	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
-	IngressGatewaySdsUdsPath = "/var/run/ingress_gateway/sds"
+	IngressGatewaySdsUdsPath = "unix:/var/run/ingress_gateway/sds"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
