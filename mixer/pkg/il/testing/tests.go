@@ -5134,18 +5134,18 @@ end
 		CompileErr: `ADD(1, $as) arg 2 ($as) typeError got STRING, expected INT64`,
 	},
 	{
-		E: `as + 1.1`,
+		E: `as + 1.0`,
 		I: map[string]interface{}{
 			"as": "a",
 		},
-		CompileErr: `ADD($as, 1.1) arg 2 (1.1) typeError got DOUBLE, expected STRING`,
+		CompileErr: `ADD($as, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
 	},
 	{
-		E: `as + 1.1`,
+		E: `as + 1.0`,
 		I: map[string]interface{}{
 			"as": "a",
 		},
-		CompileErr: `ADD($as, 1.1) arg 2 (1.1) typeError got DOUBLE, expected STRING`,
+		CompileErr: `ADD($as, 1.0) arg 2 (1.0) typeError got DOUBLE, expected STRING`,
 	},
 	{
 		E: `ab + bb`,
