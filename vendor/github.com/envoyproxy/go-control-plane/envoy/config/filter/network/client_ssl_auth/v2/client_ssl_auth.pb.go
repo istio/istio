@@ -42,11 +42,11 @@ type ClientSSLAuth struct {
 	// authentication service. Default is 60000 (60s). The actual fetch time
 	// will be this value plus a random jittered value between
 	// 0-refresh_delay_ms milliseconds.
-	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,stdduration" json:"refresh_delay,omitempty"`
+	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,proto3,stdduration" json:"refresh_delay,omitempty"`
 	// An optional list of IP address and subnet masks that should be white
 	// listed for access by the filter. If no list is provided, there is no
 	// IP white list.
-	IpWhiteList          []*core.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList" json:"ip_white_list,omitempty"`
+	IpWhiteList          []*core.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList,proto3" json:"ip_white_list,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -56,7 +56,7 @@ func (m *ClientSSLAuth) Reset()         { *m = ClientSSLAuth{} }
 func (m *ClientSSLAuth) String() string { return proto.CompactTextString(m) }
 func (*ClientSSLAuth) ProtoMessage()    {}
 func (*ClientSSLAuth) Descriptor() ([]byte, []int) {
-	return fileDescriptor_client_ssl_auth_e469ff78a9c90e3c, []int{0}
+	return fileDescriptor_client_ssl_auth_4986a886d9153439, []int{0}
 }
 func (m *ClientSSLAuth) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -181,6 +181,9 @@ func encodeVarintClientSslAuth(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ClientSSLAuth) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.AuthApiCluster)
@@ -499,10 +502,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/client_ssl_auth/v2/client_ssl_auth.proto", fileDescriptor_client_ssl_auth_e469ff78a9c90e3c)
+	proto.RegisterFile("envoy/config/filter/network/client_ssl_auth/v2/client_ssl_auth.proto", fileDescriptor_client_ssl_auth_4986a886d9153439)
 }
 
-var fileDescriptor_client_ssl_auth_e469ff78a9c90e3c = []byte{
+var fileDescriptor_client_ssl_auth_4986a886d9153439 = []byte{
 	// 366 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0xcf, 0x6a, 0xe3, 0x30,
 	0x10, 0xc6, 0x51, 0x12, 0x16, 0x62, 0x6f, 0x96, 0x60, 0x16, 0xd6, 0x1b, 0x16, 0xc7, 0xec, 0x29,
