@@ -15,7 +15,7 @@
 package cel
 
 import (
-	//"fmt"
+	"fmt"
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/debug"
@@ -42,13 +42,11 @@ type expression struct {
 }
 
 func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
-	/*
-		defer func() {
-			if r := recover(); r != nil {
-				err = fmt.Errorf("panic during evaluation: %v", r)
-			}
-		}()
-	*/
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic during evaluation: %v", r)
+		}
+	}()
 
 	result, _ := ex.eval.Eval(ex.provider.newActivation(bag))
 	out, err = recoverValue(result)
