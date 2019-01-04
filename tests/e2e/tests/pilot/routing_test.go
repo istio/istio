@@ -793,8 +793,6 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 }
 
 func TestSidecarScope(t *testing.T) {
-	samples := 100
-
 	var cfgs []*deployableConfig
 	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
@@ -858,7 +856,7 @@ func TestSidecarScope(t *testing.T) {
 		testName    string
 		reqURL      string
 		host        string
-		expectedHdr *Regexp
+		expectedHdr *regexp.Regexp
 		reachable   bool
 		onFailure   func()
 	}{
@@ -896,11 +894,11 @@ func TestSidecarScope(t *testing.T) {
 				runRetriableTest(t, testName, 5, func() error {
 					resp := ClientRequest(cluster, "a", c.reqURL, 1, fmt.Sprintf("-key Host -val %s", c.host))
 					if c.reachable && !resp.IsHTTPOk() {
-						return fmt.Errorf("cannot reach %s, %v", reqURL, resp.Code)
+						return fmt.Errorf("cannot reach %s, %v", c.reqURL, resp.Code)
 					}
 
 					if !c.reachable && resp.IsHTTPOk() {
-						return fmt.Errorf("expected request %s to fail, but got success", reqURL)
+						return fmt.Errorf("expected request %s to fail, but got success", c.reqURL)
 					}
 
 					if c.reachable && c.expectedHdr != nil {
