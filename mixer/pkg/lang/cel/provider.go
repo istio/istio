@@ -50,6 +50,9 @@ import (
 // }
 //
 type attributeProvider struct {
+	// fallback proto-based type provider
+	protos ref.TypeProvider
+
 	root    *node
 	typeMap map[string]*node
 }
@@ -70,12 +73,6 @@ func (n *node) HasTrait(trait int) bool {
 	return trait == traits.IndexerType || trait == traits.FieldTesterType
 }
 func (n *node) TypeName() string {
-	return n.typeName
-}
-func (n *node) String() string {
-	if n.typ != nil {
-		return n.typeName + ":" + n.typ.String()
-	}
 	return n.typeName
 }
 
@@ -106,7 +103,10 @@ func (ap *attributeProvider) insert(n *node, words []string, valueType v1beta1.V
 }
 
 func newAttributeProvider(attributes map[string]*v1beta1.AttributeManifest_AttributeInfo) *attributeProvider {
-	out := &attributeProvider{typeMap: make(map[string]*node)}
+	out := &attributeProvider{
+		protos:  types.NewProvider(),
+		typeMap: make(map[string]*node),
+	}
 	out.root = out.newNode("")
 	for name, info := range attributes {
 		out.insert(out.root, strings.Split(name, "."), info.ValueType)
@@ -147,17 +147,16 @@ func (ap *attributeProvider) newActivation(bag attribute.Bag) interpreter.Activa
 }
 
 func (ap *attributeProvider) EnumValue(enumName string) ref.Value {
-	return types.NewErr("custom enum values not implemented")
+	return ap.protos.EnumValue(enumName)
 }
 func (ap *attributeProvider) FindIdent(identName string) (ref.Value, bool) {
-	// note: not used with decls in the checker environment
-	return nil, false
+	return ap.protos.FindIdent(identName)
 }
 func (ap *attributeProvider) FindType(typeName string) (*exprpb.Type, bool) {
 	if _, ok := ap.typeMap[typeName]; ok {
 		return decls.NewObjectType(typeName), true
 	}
-	return nil, false
+	return ap.protos.FindType(typeName)
 }
 func (ap *attributeProvider) FindFieldType(t *exprpb.Type, fieldName string) (*ref.FieldType, bool) {
 	switch v := t.TypeKind.(type) {
@@ -182,13 +181,13 @@ func (ap *attributeProvider) FindFieldType(t *exprpb.Type, fieldName string) (*r
 				SupportsPresence: true},
 			true
 	}
-	return nil, false
+	return ap.protos.FindFieldType(t, fieldName)
 }
 func (ap *attributeProvider) NewValue(typeName string, fields map[string]ref.Value) ref.Value {
-	return types.NewErr("value construction not implemented")
+	return ap.protos.NewValue(typeName, fields)
 }
 func (ap *attributeProvider) RegisterType(types ...ref.Type) error {
-	return nil
+	return ap.RegisterType(types...)
 }
 
 // Attribute activation binds attribute values to the expression nodes
@@ -216,9 +215,6 @@ func (v value) Type() ref.Type {
 }
 func (v value) Value() interface{} {
 	return v
-}
-func (v value) String() string {
-	return v.node.String()
 }
 func resolve(n *node, bag attribute.Bag) ref.Value {
 	if n.typ == nil {

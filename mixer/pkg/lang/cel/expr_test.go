@@ -105,6 +105,10 @@ var (
 			checkErr: "undefined field 'report'",
 		},
 		{
+			text:     `request.headers[1]`,
+			checkErr: `found no matching overload for '_[_]' applied to '(map(string, string), int)'`,
+		},
+		{
 			text:     `context.reporter == "client"`,
 			checkErr: `found no matching overload for '_==_' applied to '(.context.reporter, string)'`,
 		},
@@ -346,6 +350,19 @@ var (
 		{
 			text:   `{'a':'b'}`,
 			result: map[ref.Value]ref.Value{types.String("a"): types.String("b")},
+		},
+		{
+			text:   `[1,2,3][0]`,
+			result: int64(1),
+		},
+		{
+			text:   `request.size + google.protobuf.Int64Value{value: 1}.value`,
+			bag:    map[string]interface{}{"request.size": int64(123)},
+			result: int64(124),
+		},
+		{
+			text:   `type(context.reporter.kind) == string`,
+			result: true,
 		},
 	}
 	attrs = map[string]*v1beta1.AttributeManifest_AttributeInfo{

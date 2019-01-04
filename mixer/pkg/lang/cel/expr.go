@@ -46,8 +46,7 @@ func Parse(text string) (ex *exprpb.Expr, err error) {
 		return
 	}
 
-	// TODO: compute max ID in an expression tree
-	u := &unroller{id: 100000}
+	u := &unroller{id: maxID(parsed.Expr)}
 	ex = u.unroll(parsed.Expr)
 	err = u.err
 	return
@@ -80,6 +79,58 @@ func errorString(errors *common.Errors) string {
 	return out
 }
 
+// Max ID computation is borrowed from interpreter/astwalker.go
+
+func maxInt(vals ...int64) int64 {
+	var result int64
+	for _, val := range vals {
+		if val > result {
+			result = val
+		}
+	}
+	return result
+}
+
+func maxID(node *exprpb.Expr) int64 {
+	if node == nil {
+		return 0
+	}
+	currID := node.Id
+	switch node.ExprKind.(type) {
+	case *exprpb.Expr_SelectExpr:
+		return maxInt(currID, maxID(node.GetSelectExpr().Operand))
+	case *exprpb.Expr_CallExpr:
+		call := node.GetCallExpr()
+		currID = maxInt(currID, maxID(call.Target))
+		for _, arg := range call.Args {
+			currID = maxInt(currID, maxID(arg))
+		}
+		return currID
+	case *exprpb.Expr_ListExpr:
+		list := node.GetListExpr()
+		for _, elem := range list.Elements {
+			currID = maxInt(currID, maxID(elem))
+		}
+		return currID
+	case *exprpb.Expr_StructExpr:
+		str := node.GetStructExpr()
+		for _, entry := range str.Entries {
+			currID = maxInt(currID, entry.Id, maxID(entry.GetMapKey()), maxID(entry.Value))
+		}
+		return currID
+	case *exprpb.Expr_ComprehensionExpr:
+		compre := node.GetComprehensionExpr()
+		return maxInt(currID,
+			maxID(compre.IterRange),
+			maxID(compre.AccuInit),
+			maxID(compre.LoopCondition),
+			maxID(compre.LoopStep),
+			maxID(compre.Result))
+	default:
+		return currID
+	}
+}
+
 type unroller struct {
 	err error
 	id  int64
@@ -96,6 +147,20 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 	switch v := in.ExprKind.(type) {
 	case *exprpb.Expr_ConstExpr, *exprpb.Expr_IdentExpr:
 		// do nothing
+	case *exprpb.Expr_ListExpr:
+		// recurse
+		elements := make([]*exprpb.Expr, len(v.ListExpr.Elements))
+		for i, element := range v.ListExpr.Elements {
+			elements[i] = u.unroll(element)
+		}
+		return &exprpb.Expr{
+			Id: in.Id,
+			ExprKind: &exprpb.Expr_ListExpr{
+				ListExpr: &exprpb.Expr_CreateList{
+					Elements: elements,
+				},
+			},
+		}
 	case *exprpb.Expr_StructExpr:
 		// recurse
 		entries := make([]*exprpb.Expr_CreateStruct_Entry, len(v.StructExpr.Entries))
@@ -151,11 +216,13 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 		// rewrite functions, recurse otherwise
 		switch v.CallExpr.Function {
 		case "emptyStringMap":
-			if target == nil && len(args) == 0 {
-				return &exprpb.Expr{
-					Id:       in.Id,
-					ExprKind: &exprpb.Expr_StructExpr{StructExpr: &exprpb.Expr_CreateStruct{}},
-				}
+			if target != nil || len(args) > 0 {
+				u.err = multierror.Append(u.err, errors.New("unexpected arguments in emptyStringMap()"))
+				break
+			}
+			return &exprpb.Expr{
+				Id:       in.Id,
+				ExprKind: &exprpb.Expr_StructExpr{StructExpr: &exprpb.Expr_CreateStruct{}},
 			}
 		case "conditional":
 			return &exprpb.Expr{
