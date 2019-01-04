@@ -165,7 +165,20 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 		}
 		return
 	}
-	fieldValue := operand.(traits.Indexer).Get(types.String(selExpr.Field))
+	field := types.String(selExpr.Field)
+	if selExpr.TestOnly {
+		if operand.Type() == types.MapType {
+			i.setValue(selExpr.GetID(), operand.(traits.Container).Contains(field))
+			return
+		}
+		if operand.Type().HasTrait(traits.FieldTesterType) {
+			i.setValue(selExpr.GetID(), operand.(traits.FieldTester).IsSet(field))
+			return
+		}
+		i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
+		return
+	}
+	fieldValue := operand.(traits.Indexer).Get(field)
 	i.setValue(selExpr.GetID(), fieldValue)
 }
 

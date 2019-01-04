@@ -15,6 +15,7 @@
 package cel
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/cel-go/checker"
@@ -53,12 +54,19 @@ func Parse(text string) (ex *exprpb.Expr, err error) {
 }
 
 // Check verifies a CEL expressions against an attribute manifest
-func Check(ex *exprpb.Expr, env *checker.Env) (*exprpb.CheckedExpr, error) {
-	checked, errors := checker.Check(&exprpb.ParsedExpr{Expr: ex}, nil, env)
+func Check(ex *exprpb.Expr, env *checker.Env) (checked *exprpb.CheckedExpr, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New("panic during CEL checking of expression")
+		}
+	}()
+
+	var errors *common.Errors
+	checked, errors = checker.Check(&exprpb.ParsedExpr{Expr: ex}, nil, env)
 	if errors != nil && len(errors.GetErrors()) > 0 {
-		return nil, fmt.Errorf("type checking error: %s", errorString(errors))
+		err = fmt.Errorf("type checking error: %s", errorString(errors))
 	}
-	return checked, nil
+	return
 }
 
 func errorString(errors *common.Errors) string {
@@ -83,14 +91,43 @@ func (u *unroller) nextID() int64 {
 }
 
 // unroll eliminates Elvis and conditional() macros
+// it also replaces emptyStringMap with stringmap({})
 func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 	switch v := in.ExprKind.(type) {
 	case *exprpb.Expr_ConstExpr, *exprpb.Expr_IdentExpr:
 		// do nothing
+	case *exprpb.Expr_StructExpr:
+		// recurse
+		entries := make([]*exprpb.Expr_CreateStruct_Entry, len(v.StructExpr.Entries))
+		for i, entry := range v.StructExpr.Entries {
+			out := &exprpb.Expr_CreateStruct_Entry{
+				Id:    entry.Id,
+				Value: u.unroll(entry.Value),
+			}
+			switch k := entry.KeyKind.(type) {
+			case *exprpb.Expr_CreateStruct_Entry_FieldKey:
+				out.KeyKind = k
+			case *exprpb.Expr_CreateStruct_Entry_MapKey:
+				out.KeyKind = &exprpb.Expr_CreateStruct_Entry_MapKey{
+					MapKey: u.unroll(k.MapKey),
+				}
+			}
+			entries[i] = out
+		}
+		return &exprpb.Expr{
+			Id: in.Id,
+			ExprKind: &exprpb.Expr_StructExpr{
+				StructExpr: &exprpb.Expr_CreateStruct{
+					MessageName: v.StructExpr.MessageName,
+					Entries:     entries,
+				},
+			},
+		}
+
 	case *exprpb.Expr_SelectExpr:
 		// recurse
 		return &exprpb.Expr{
-			Id: u.nextID(),
+			Id: in.Id,
 			ExprKind: &exprpb.Expr_SelectExpr{
 				SelectExpr: &exprpb.Expr_Select{
 					Operand:  u.unroll(v.SelectExpr.Operand),
@@ -111,11 +148,18 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 			args[i] = u.unroll(arg)
 		}
 
-		// rewrite conditional and elvis, recurse otherwise
+		// rewrite functions, recurse otherwise
 		switch v.CallExpr.Function {
+		case "emptyStringMap":
+			if target == nil && len(args) == 0 {
+				return &exprpb.Expr{
+					Id:       in.Id,
+					ExprKind: &exprpb.Expr_StructExpr{StructExpr: &exprpb.Expr_CreateStruct{}},
+				}
+			}
 		case "conditional":
 			return &exprpb.Expr{
-				Id: u.nextID(),
+				Id: in.Id,
 				ExprKind: &exprpb.Expr_CallExpr{
 					CallExpr: &exprpb.Expr_Call{
 						Function: operators.Conditional,

@@ -15,11 +15,10 @@
 package cel
 
 import (
-	"errors"
+	//"fmt"
 
 	"github.com/google/cel-go/checker"
 	"github.com/google/cel-go/common/debug"
-	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/interpreter"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
@@ -43,22 +42,16 @@ type expression struct {
 }
 
 func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.New("panic during evaluation")
-		}
-	}()
+	/*
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic during evaluation: %v", r)
+			}
+		}()
+	*/
 
 	result, _ := ex.eval.Eval(ex.provider.newActivation(bag))
-	out = result.Value()
-
-	if result.Type() == types.ErrType {
-		var ok bool
-		if err, ok = result.Value().(error); ok {
-			return
-		}
-		err = errors.New("unknown error")
-	}
+	out, err = recoverValue(result)
 	return
 }
 func (ex *expression) EvaluateBoolean(bag attribute.Bag) (b bool, err error) {

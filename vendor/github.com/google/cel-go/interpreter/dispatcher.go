@@ -111,7 +111,7 @@ func (d *defaultDispatcher) Dispatch(ctx *CallContext) ref.Value {
 	}
 	// Special dispatch for member functions.
 	if operand.Type().HasTrait(traits.ReceiverType) {
-		operand.(traits.Receiver).Receive(function, overloadID, ctx.args[1:])
+		return operand.(traits.Receiver).Receive(function, overloadID, ctx.args[1:])
 	}
 	return types.NewErr("no such overload")
 }

@@ -110,8 +110,9 @@ func checkIsStrict(function string) bool {
 // SelectExpr is a select expression where the operand is represented by id.
 type SelectExpr struct {
 	*baseInstruction
-	Operand int64
-	Field   string
+	Operand  int64
+	Field    string
+	TestOnly bool
 }
 
 // String generates pseudo-assembly for the instruction.
@@ -121,8 +122,12 @@ func (e *SelectExpr) String() string {
 }
 
 // NewSelect generates a SelectExpr.
-func NewSelect(exprID int64, operandID int64, field string) *SelectExpr {
-	return &SelectExpr{&baseInstruction{exprID}, operandID, field}
+func NewSelect(exprID int64, operandID int64, field string, testOnly bool) *SelectExpr {
+	return &SelectExpr{
+		baseInstruction: &baseInstruction{ID: exprID},
+		Operand:         operandID,
+		Field:           field,
+		TestOnly:        testOnly}
 }
 
 // CreateListExpr will create a new list from the elements referened by their ids.

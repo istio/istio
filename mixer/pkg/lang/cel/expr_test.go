@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/google/cel-go/common/debug"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
 
 	"istio.io/api/policy/v1beta1"
@@ -96,7 +98,7 @@ var (
 		},
 		{
 			text:   `source.ip`,
-			result: []byte(nil),
+			result: []byte{},
 		},
 		{
 			text:     `context.report`,
@@ -251,28 +253,101 @@ var (
 			text:   `toLower("Ab")`,
 			result: "ab",
 		},
-		/*
-			{
-				text: `conditional(context.reporter.kind == "client", getOrElse("outbound", "test"), "inbound")`,
-			},
-			{
-				text: `getOrElse(request.size, response.size, 100)`,
-			},
-			{
-				text: `getOrElse(source.name, "unknown")`,
-			},
-			{
-				text: `getOrElse(source.name, request.headers["x-user"], "john")`,
-			},
-			{
-				text: `getOrElse(source.labels["app"], source.name, "unknown")`,
-			},
-			{
-				text: `getOrElse(request.size, 200)`,
-			},
-		*/
+		{
+			text:   `conditional(context.reporter.kind == "client", getOrElse("outbound", "test"), "inbound")`,
+			result: "inbound",
+		},
+		{
+			text:   `conditional(context.reporter.kind == "client", getOrElse("outbound", "test"), "inbound")`,
+			bag:    map[string]interface{}{"context.reporter.kind": "client"},
+			result: "outbound",
+		},
+		{
+			text:   `getOrElse(request.size, response.size, 100)`,
+			result: int64(100),
+		},
+		{
+			text:   `getOrElse(request.size, response.size, 100)`,
+			bag:    map[string]interface{}{"request.size": int64(123)},
+			result: int64(123),
+		},
+		{
+			text:   `getOrElse(request.size, response.size, 100)`,
+			bag:    map[string]interface{}{"response.size": int64(345)},
+			result: int64(345),
+		},
+		{
+			text:   `"value=" + getOrElse(source.name, "unknown")`,
+			result: "value=unknown",
+		},
+		{
+			text:   `"value=" + getOrElse(source.name, "unknown")`,
+			bag:    map[string]interface{}{"source.name": "x"},
+			result: "value=x",
+		},
+		{
+			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
+			result: "john",
+		},
+		{
+			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
+			bag:    map[string]interface{}{"source.name": "x"},
+			result: "x",
+		},
+		{
+			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
+			bag:    map[string]interface{}{"request.headers": attribute.WrapStringMap(map[string]string{})},
+			result: "john",
+		},
+		{
+			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
+			bag:    map[string]interface{}{"request.headers": attribute.WrapStringMap(map[string]string{"x": "y"})},
+			result: "john",
+		},
+		{
+			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
+			bag:    map[string]interface{}{"request.headers": attribute.WrapStringMap(map[string]string{"x-user": "y"})},
+			result: "y",
+		},
+		{
+			text:   `getOrElse(source.labels["app"], source.name, "unknown")`,
+			result: "unknown",
+		},
+		{
+			text:   `getOrElse(source.labels["app"], source.name, "unknown")`,
+			bag:    map[string]interface{}{"source.name": "x"},
+			result: "x",
+		},
+		{
+			text:   `getOrElse(source.labels["app"], source.name, "unknown")`,
+			bag:    map[string]interface{}{"source.labels": attribute.WrapStringMap(map[string]string{"app": "istio"})},
+			result: "istio",
+		},
+		{
+			text:   `has(context.reporter)`,
+			result: true,
+		},
+		{
+			text:   `has({}.a)`,
+			result: false,
+		},
+		{
+			text:   `{}.a`,
+			result: errors.New("no such key: 'a'"),
+		},
+		{
+			text:   `{'a':'b'}["a"]`,
+			result: "b",
+		},
+		{
+			text:   `{}`,
+			result: attribute.WrapStringMap(nil),
+		},
+		{
+			text:   `{'a':'b'}`,
+			result: map[ref.Value]ref.Value{types.String("a"): types.String("b")},
+		},
 	}
-	// TODO: map reference tracking, attribute bag tracking, in for maps with references
 	attrs = map[string]*v1beta1.AttributeManifest_AttributeInfo{
 		"as":                        {ValueType: v1beta1.STRING},
 		"connection.duration":       {ValueType: v1beta1.DURATION},
@@ -339,8 +414,12 @@ func TestCELExpressions(t *testing.T) {
 			program := interpreter.NewCheckedProgram(checked)
 			eval := i.NewInterpretable(program)
 			result, _ := eval.Eval(provider.newActivation(attribute.GetMutableBagForTesting(test.bag)))
-			if !reflect.DeepEqual(result.Value(), test.result) {
-				t.Fatalf("expected result %v, got %v", test.result, result.Value())
+			got, err := recoverValue(result)
+			if err != nil {
+				got = err
+			}
+			if !reflect.DeepEqual(got, test.result) {
+				t.Fatalf("expected result %v, got %v (%T and %T)", test.result, got, test.result, got)
 			}
 		})
 	}

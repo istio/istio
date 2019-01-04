@@ -205,11 +205,13 @@ func ExternDNSNameEqual(n1 string, n2 string) (bool, error) {
 		return false, err
 	}
 
-	if n1[len(n1)-1] == '.' && n2[len(n2)-1] != '.' {
-		n1 = n1[:len(n1)-1]
-	}
-	if n2[len(n2)-1] == '.' && n1[len(n1)-1] != '.' {
-		n2 = n2[:len(n2)-1]
+	if len(n1) > 0 && len(n2) > 0 {
+		if n1[len(n1)-1] == '.' && n2[len(n2)-1] != '.' {
+			n1 = n1[:len(n1)-1]
+		}
+		if n2[len(n2)-1] == '.' && n1[len(n1)-1] != '.' {
+			n2 = n2[:len(n2)-1]
+		}
 	}
 
 	return n1 == n2, nil

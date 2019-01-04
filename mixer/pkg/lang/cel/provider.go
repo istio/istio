@@ -67,7 +67,7 @@ type node struct {
 
 func (n *node) HasTrait(trait int) bool {
 	// only support getter trait
-	return trait == traits.IndexerType
+	return trait == traits.IndexerType || trait == traits.FieldTesterType
 }
 func (n *node) TypeName() string {
 	return n.typeName
@@ -243,6 +243,25 @@ func (v value) Get(index ref.Value) ref.Value {
 	}
 
 	return resolve(child, v.bag)
+}
+
+func (v value) IsSet(index ref.Value) ref.Value {
+	if index.Type() != types.StringType {
+		return types.NewErr("select tester not implemented")
+	}
+	field := index.Value().(string)
+	child, ok := v.node.children[field]
+	if !ok {
+		return types.NewErr("cannot evaluate select of %q from %s", field, v.node.typeName)
+	}
+
+	if child.typ != nil {
+		_, found := v.bag.Get(child.typeName[1:])
+		return types.Bool(found)
+	}
+
+	// assume all intermediate nodes are set
+	return types.True
 }
 
 func (a *attributeActivation) ResolveName(name string) (ref.Value, bool) {

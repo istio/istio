@@ -139,7 +139,7 @@ func (s String) Match(pattern ref.Value) ref.Value {
 
 // Size implements traits.Sizer.Size.
 func (s String) Size() ref.Value {
-	return Int(len(string(s)))
+	return Int(len([]rune(string(s))))
 }
 
 // Type implements ref.Value.Type.

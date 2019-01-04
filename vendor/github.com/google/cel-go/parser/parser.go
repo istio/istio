@@ -107,6 +107,12 @@ func (p *parser) Visit(tree antlr.ParseTree) interface{} {
 		return p.VisitIndex(tree.(*gen.IndexContext))
 	case *gen.UnaryContext:
 		return p.VisitUnary(tree.(*gen.UnaryContext))
+	case *gen.CreateListContext:
+		return p.VisitCreateList(tree.(*gen.CreateListContext))
+	case *gen.CreateMessageContext:
+		return p.VisitCreateMessage(tree.(*gen.CreateMessageContext))
+	case *gen.CreateStructContext:
+		return p.VisitCreateStruct(tree.(*gen.CreateStructContext))
 	}
 
 	text := "<<nil>>"

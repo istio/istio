@@ -16,6 +16,7 @@ package cel
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	ilt "istio.io/istio/mixer/pkg/il/testing"
@@ -23,7 +24,6 @@ import (
 )
 
 func TestCEXLCompatibility(t *testing.T) {
-	t.Skip()
 	for _, test := range ilt.TestData {
 		if test.E == "" {
 			continue
@@ -70,11 +70,24 @@ func TestCEXLCompatibility(t *testing.T) {
 					t.Logf("expected evaluation error %q, got %v", test.Err, err)
 					return
 				}
+				if test.CEL != nil {
+					if expectedErr, ok := test.CEL.(error); ok && strings.Contains(err.Error(), expectedErr.Error()) {
+						t.Logf("expected evaluation error (override) %q, got %v", expectedErr, err)
+						return
+					}
+				}
 				t.Fatalf("unexpected evaluation error: %v", err)
 			}
 
-			if !reflect.DeepEqual(out, test.R) {
-				t.Fatalf("got %s, expected %s", out, test.R)
+			expected := test.R
+
+			// override expectation for semantic differences
+			if test.CEL != nil {
+				expected = test.CEL
+			}
+
+			if !reflect.DeepEqual(out, expected) {
+				t.Fatalf("got %s, expected %s (type %T and %T)", out, expected, out, expected)
 			}
 		})
 	}

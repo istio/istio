@@ -16,6 +16,7 @@ package cel
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/google/cel-go/checker/decls"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 
 	"istio.io/api/policy/v1beta1"
@@ -96,9 +98,8 @@ func recoverType(typ *exprpb.Type) v1beta1.ValueType {
 			return v1beta1.DNS_NAME
 		}
 	case *exprpb.Type_MapType_:
-		if reflect.DeepEqual(t.MapType.KeyType, decls.String) && reflect.DeepEqual(t.MapType.ValueType, decls.String) {
-			return v1beta1.STRING_MAP
-		}
+		// default to string map since empty map is dynamically typed
+		return v1beta1.STRING_MAP
 	}
 	return v1beta1.VALUE_TYPE_UNSPECIFIED
 }
@@ -122,12 +123,37 @@ func convertValue(typ v1beta1.ValueType, value interface{}) ref.Value {
 		return stringMapValue{value: sm}
 	case v1beta1.IP_ADDRESS:
 		return wrapperValue{typ: typ, bytes: value.([]byte)}
-	case v1beta1.EMAIL_ADDRESS:
-	case v1beta1.URI:
-	case v1beta1.DNS_NAME:
+	case v1beta1.EMAIL_ADDRESS, v1beta1.URI, v1beta1.DNS_NAME:
 		return wrapperValue{typ: typ, s: value.(string)}
 	}
 	return types.NewErr("cannot convert value %#v of type %q", value, typ)
+}
+
+func recoverValue(value ref.Value) (interface{}, error) {
+	switch value.Type() {
+	case types.ErrType:
+		if err, ok := value.Value().(error); ok {
+			return nil, err
+		}
+		return nil, errors.New("unrecoverable error value")
+	case types.StringType, types.IntType, types.DoubleType, types.BoolType:
+		return value.Value(), nil
+	case types.TimestampType:
+		t := value.Value().(*tpb.Timestamp)
+		return ptypes.Timestamp(t)
+	case types.DurationType:
+		d := value.Value().(*dpb.Duration)
+		return ptypes.Duration(d)
+	case types.MapType:
+		size := value.(traits.Sizer).Size()
+		if size.Type() == types.IntType && size.Value().(int64) == 0 {
+			return emptyStringMap.value, nil
+		}
+		return value.Value(), nil
+	case wrapperType:
+		return value.Value(), nil
+	}
+	return nil, fmt.Errorf("failed to recover of type %s", value.Type())
 }
 
 func defaultValue(typ v1beta1.ValueType) ref.Value {
@@ -146,8 +172,10 @@ func defaultValue(typ v1beta1.ValueType) ref.Value {
 		return types.Duration{Duration: &dpb.Duration{}}
 	case v1beta1.STRING_MAP:
 		return emptyStringMap
-	case v1beta1.IP_ADDRESS, v1beta1.EMAIL_ADDRESS, v1beta1.URI, v1beta1.DNS_NAME:
-		return wrapperValue{typ: typ}
+	case v1beta1.IP_ADDRESS:
+		return wrapperValue{typ: typ, bytes: []byte{}}
+	case v1beta1.EMAIL_ADDRESS, v1beta1.URI, v1beta1.DNS_NAME:
+		return wrapperValue{typ: typ, s: ""}
 	}
 	return types.NewErr("cannot provide defaults for %q", typ)
 }
@@ -157,7 +185,7 @@ var (
 		KeyType:   &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
 		ValueType: &exprpb.Type{TypeKind: &exprpb.Type_Primitive{Primitive: exprpb.Type_STRING}},
 	}}}
-	emptyStringMap = stringMapValue{value: attribute.NewStringMap("")}
+	emptyStringMap = stringMapValue{value: attribute.WrapStringMap(nil)}
 
 	// domain specific types do not implement any of type traits for now
 	wrapperType = types.NewTypeValue("wrapper")

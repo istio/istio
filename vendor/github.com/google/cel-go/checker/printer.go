@@ -62,7 +62,10 @@ func (a *semanticAdorner) GetMetadata(elem interface{}) string {
 	return result
 }
 
-func print(e *exprpb.Expr, checks *exprpb.CheckedExpr) string {
+// Print returns a string representation of the Expr message,
+// annotated with types from the CheckedExpr.  The Expr must
+// be a sub-expression embedded in the CheckedExpr.
+func Print(e *exprpb.Expr, checks *exprpb.CheckedExpr) string {
 	a := &semanticAdorner{checks: checks}
 	return debug.ToAdornedDebugString(e, a)
 }

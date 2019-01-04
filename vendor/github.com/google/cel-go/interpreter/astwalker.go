@@ -121,7 +121,7 @@ func (w *astWalker) walkSelect(node *exprpb.Expr) []Instruction {
 	operandID := w.getID(sel.Operand)
 	return append(
 		w.walk(sel.Operand),
-		NewSelect(node.Id, operandID, sel.Field))
+		NewSelect(node.Id, operandID, sel.Field, sel.GetTestOnly()))
 }
 
 func (w *astWalker) walkCall(node *exprpb.Expr) []Instruction {

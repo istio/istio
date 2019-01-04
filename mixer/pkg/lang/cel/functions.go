@@ -57,9 +57,6 @@ func standardFunctions() []*exprpb.Decl {
 		decls.NewFunction("ip",
 			decls.NewOverload("ip",
 				[]*exprpb.Type{decls.String}, decls.NewObjectType(ipAddressType))),
-		decls.NewFunction("emptyStringMap",
-			decls.NewOverload("emptyStringMap",
-				[]*exprpb.Type{}, stringMapType)),
 	}
 }
 
@@ -148,10 +145,6 @@ func standardOverloads() []*functions.Overload {
 					return types.NewErr(err.Error())
 				}
 				return wrapperValue{typ: v1beta1.IP_ADDRESS, bytes: out}
-			}},
-		{Operator: "emptyStringMap",
-			Function: func(...ref.Value) ref.Value {
-				return emptyStringMap
 			}},
 	}
 }

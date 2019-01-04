@@ -48,6 +48,7 @@ func NewTypeValue(name string, traits ...int) *TypeValue {
 // annotated with the traits relevant to all objects.
 func NewObjectTypeValue(name string) *TypeValue {
 	return NewTypeValue(name,
+		traits.FieldTesterType,
 		traits.IndexerType,
 		traits.IterableType)
 }

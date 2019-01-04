@@ -174,9 +174,14 @@ func exprCELtoCEXL(in *exprpb.Expr, out *cexl.Expression) error {
 // - "|" operator turns into flat (_, _) macro (note that this is applied recursively, e.g.
 //   (a | b) | c is turned into (a, b, c) expansion
 // - "1s" duration string turns into duration("1s") explicit conversion call
+// - emptyStringMap() is replaced with
 func rewriteCEXL(cursor *astutil.Cursor) bool {
 	switch n := cursor.Node().(type) {
 	case *ast.BinaryExpr:
+		if n.Op != token.OR {
+			break
+		}
+
 		args := make([]ast.Expr, 0, 2)
 		if left, ok := n.X.(*ast.CallExpr); ok {
 			if lf, ok := left.Fun.(*ast.Ident); ok && lf.Name == elvis {
@@ -197,13 +202,11 @@ func rewriteCEXL(cursor *astutil.Cursor) bool {
 		} else {
 			args = append(args, n.Y)
 		}
+		cursor.Replace(&ast.CallExpr{
+			Fun:  &ast.Ident{Name: elvis},
+			Args: args,
+		})
 
-		if n.Op == token.OR {
-			cursor.Replace(&ast.CallExpr{
-				Fun:  &ast.Ident{Name: elvis},
-				Args: args,
-			})
-		}
 	case *ast.BasicLit:
 		if n.Kind != token.STRING {
 			break

@@ -130,7 +130,7 @@ func (t Timestamp) Receive(function string, overload string, args []ref.Value) r
 			return f(tstamp, args[0])
 		}
 	}
-	return NewErr("unsupported overload")
+	return NewErr("no such overload")
 }
 
 // Subtract implements traits.Subtractor.Subtract.
