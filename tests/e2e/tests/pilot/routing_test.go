@@ -830,14 +830,14 @@ func TestSidecarScope(t *testing.T) {
 	}()
 
 	rules := make(map[string][]string)
-	rules[tc.Kube.Namespace] = []string{"sidecar-scope-ns1-ns2.yaml"}
+	rules[tc.Kube.Namespace] = []string{"testdata/networking/v1alpha3/sidecar-scope-ns1-ns2.yaml"}
 	rules["ns1"] = []string{
-		"service-entry-http-scope-public.yaml",
-		"service-entry-http-scope-private.yaml",
-		"virtualservice-http-scope-public.yaml",
-		"virtual-service-http-scope-private.yaml",
+		"testdata/networking/v1alpha3/service-entry-http-scope-public.yaml",
+		"testdata/networking/v1alpha3/service-entry-http-scope-private.yaml",
+		"testdata/networking/v1alpha3/virtualservice-http-scope-public.yaml",
+		"testdata/networking/v1alpha3/virtual-service-http-scope-private.yaml",
 	}
-	rules["ns2"] = []string{"service-entry-tcp-scope-public.yaml"}
+	rules["ns2"] = []string{"testdata/networking/v1alpha3/service-entry-tcp-scope-public.yaml"}
 
 	// Create the namespaces and install the rules in each namespace
 	for _, ns := range []string{"ns1", "ns2"} {
