@@ -58,6 +58,7 @@ gateways:
       targetAverageUtilization: 80
     loadBalancerIP: ""
     loadBalancerSourceRanges: {}
+    externalIPs: []
     serviceAnnotations: {}
     podAnnotations: {}
     type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
