@@ -174,7 +174,6 @@ func exprCELtoCEXL(in *exprpb.Expr, out *cexl.Expression) error {
 // - "|" operator turns into flat (_, _) macro (note that this is applied recursively, e.g.
 //   (a | b) | c is turned into (a, b, c) expansion
 // - "1s" duration string turns into duration("1s") explicit conversion call
-// - emptyStringMap() is replaced with
 func rewriteCEXL(cursor *astutil.Cursor) bool {
 	switch n := cursor.Node().(type) {
 	case *ast.BinaryExpr:
