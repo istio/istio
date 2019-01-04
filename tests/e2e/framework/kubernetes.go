@@ -351,6 +351,12 @@ func (k *KubeInfo) Setup() error {
 				log.Error("Failed to deploy Istio with helm.")
 				return err
 			}
+
+			// execute helm test for istio
+			if err = k.executeHelmTest(); err != nil {
+				log.Error("Failed to execute Istio helm tests.")
+				return err
+			}
 		} else {
 			if err = k.deployIstio(); err != nil {
 				log.Error("Failed to deploy Istio.")
@@ -833,6 +839,9 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// CRDs installed ahead of time with 2.9.x
 	setValue += " --set global.crds=false"
 
+	// enable helm test for istio
+	setValue += " --set global.enableHelmTest=true"
+
 	// add additional values passed from test
 	for _, v := range helmSetValues {
 		setValue += " --set " + v
@@ -879,6 +888,18 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		if err := k.waitForValdiationWebhook(); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (k *KubeInfo) executeHelmTest() error {
+	if !util.CheckPodsRunning(k.Namespace, k.KubeConfig) {
+		return fmt.Errorf("can't get all pods running")
+	}
+
+	if err := util.HelmTest("istio"); err != nil {
+		return fmt.Errorf("helm test istio failed")
 	}
 
 	return nil

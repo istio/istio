@@ -379,3 +379,8 @@ global:
   #       port: 443
   #
   meshNetworks:
+  
+  # Specifies whether helm test is enabled or not.
+  # This field is set to false by default, so 'helm template ...' 
+  # will ignore the helm test yaml files when generating the template
+  enableHelmTest: false
