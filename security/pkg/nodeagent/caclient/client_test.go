@@ -41,7 +41,7 @@ func TestNewCAClient(t *testing.T) {
 	}{
 		"Not supported": {
 			provider:    "random",
-			expectedErr: "CA provider \"random\" isn't supported. Currently Istio supports \"GoogleCA,Citadel\"",
+			expectedErr: "CA provider \"random\" isn't supported. Currently Istio supports \"GoogleCA,Citadel,VaultCA\"",
 		},
 	}
 
