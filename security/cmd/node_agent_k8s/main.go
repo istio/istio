@@ -128,7 +128,9 @@ var (
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
 		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
-			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTLSRootCert), "", "", "", "")
+			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTLSRootCert),
+			serverOptions.VaultAddress, serverOptions.VaultRole, serverOptions.VaultAuthPath,
+			serverOptions.VaultSignCsrPath)
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 			os.Exit(1)
@@ -142,7 +144,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 
 	if serverOptions.EnableIngressGatewaySDS {
 		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "",
-			false, []byte(serverOptions.VaultTLSRootCert), "", "", "", "")
+			false, nil, "", "", "", "")
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
