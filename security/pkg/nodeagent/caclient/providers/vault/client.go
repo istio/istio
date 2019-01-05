@@ -63,7 +63,7 @@ func NewVaultClient(tls bool, tlsRootCert []byte,
 		return nil, err
 	}
 	c.client = client
-	log.Infof("created Vault client to Vault address: %s, TLS: %v", vaultAddr, tls)
+	log.Infof("created Vault client for Vault address: %s, TLS: %v", vaultAddr, tls)
 
 	return c, nil
 }
@@ -71,7 +71,6 @@ func NewVaultClient(tls bool, tlsRootCert []byte,
 // CSR Sign calls Vault to sign a CSR.
 func (c *vaultClient) CSRSign(ctx context.Context, csrPEM []byte, saToken string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	log.Infof("Token in CSRSign: %v", saToken)
 	token, err := loginVaultK8sAuthMethod(c.client, c.vaultLoginPath, c.vaultLoginRole, saToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
@@ -114,7 +113,6 @@ func createVaultTLSClient(vaultAddr string, tlsRootCert []byte) (*api.Client, er
 		log.Errorf("could not get SystemCertPool: %v", err)
 		return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
 	}
-	log.Errorf("Cert: %v", string(tlsRootCert[:])) // Oliver
 	if tlsRootCert != nil && len(tlsRootCert) > 0 {
 		ok := pool.AppendCertsFromPEM(tlsRootCert)
 		if !ok {

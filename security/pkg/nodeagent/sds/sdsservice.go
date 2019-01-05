@@ -152,7 +152,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			if discReq.VersionInfo != "" && s.st.SecretExist(discReq.Node.Id, resourceName, token, discReq.VersionInfo) {
 				continue
 			}
-			log.Infof("Token before GenerateSecret: %v", token)
 
 			secret, err := s.st.GenerateSecret(ctx, discReq.Node.Id, resourceName, token)
 			if err != nil {
