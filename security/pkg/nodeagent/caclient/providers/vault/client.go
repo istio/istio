@@ -63,6 +63,7 @@ func NewVaultClient(tls bool, tlsRootCert []byte,
 		return nil, err
 	}
 	c.client = client
+	log.Infof("created Vault client to Vault address: %s, TLS: %v", vaultAddr, tls)
 
 	return c, nil
 }
@@ -70,9 +71,24 @@ func NewVaultClient(tls bool, tlsRootCert []byte,
 // CSR Sign calls Vault to sign a CSR.
 func (c *vaultClient) CSRSign(ctx context.Context, csrPEM []byte, saToken string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
+	saToken = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3" +
+		"NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3" +
+		"BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZX" +
+		"QubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLm" +
+		"lvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YW" +
+		"RlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW" +
+		"50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1Yi" +
+		"I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ" +
+		".RNH1QbapJKPmktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3Ednlkry" +
+		"kGMepEjsdNuT6ndHfh8jRJAZuNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZ" +
+		"xkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdvbgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf" +
+		"7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5ry_KXTdrVAcTUvI6lxwRb" +
+		"ONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4aSzC2o8aD" +
+		"tlQ"
+	log.Infof("Token in CSRSign: %v", saToken)
 	token, err := loginVaultK8sAuthMethod(c.client, c.vaultLoginPath, c.vaultLoginRole, saToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to login Vault: %v", err)
+		return nil, fmt.Errorf("failed to login Vault at %s: %v", c.vaultAddr, err)
 	}
 	c.client.SetToken(token)
 	certChain, err := signCsrByVault(c.client, c.vaultSignCsrPath, certValidTTLInSec, csrPEM)
@@ -112,6 +128,7 @@ func createVaultTLSClient(vaultAddr string, tlsRootCert []byte) (*api.Client, er
 		log.Errorf("could not get SystemCertPool: %v", err)
 		return nil, fmt.Errorf("could not get SystemCertPool: %v", err)
 	}
+	log.Errorf("Cert: %v", string(tlsRootCert[:])) // Oliver
 	if tlsRootCert != nil && len(tlsRootCert) > 0 {
 		ok := pool.AppendCertsFromPEM(tlsRootCert)
 		if !ok {
