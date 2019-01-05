@@ -46,7 +46,7 @@ func TestNewCAClient(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		_, err := NewCAClient("abc:0", tc.provider, false, "", "", "", "")
+		_, err := NewCAClient("abc:0", tc.provider, false, nil, "", "", "", "")
 		if err.Error() != tc.expectedErr {
 			t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
 				id, err.Error(), tc.expectedErr)

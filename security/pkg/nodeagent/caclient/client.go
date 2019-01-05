@@ -46,13 +46,13 @@ type configMap interface {
 }
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint, CAProviderName string, tlsFlag bool, vaultAddr, vaultRole,
+func NewCAClient(endpoint, CAProviderName string, tlsFlag bool, tlsRootCert []byte, vaultAddr, vaultRole,
 	vaultAuthPath, vaultSignCsrPath string) (caClientInterface.Client, error) {
 	switch CAProviderName {
 	case googleCAName:
 		return gca.NewGoogleCAClient(endpoint, tlsFlag)
 	case vaultCAName:
-		return vault.NewVaultClient(tlsFlag, nil, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
+		return vault.NewVaultClient(tlsFlag, tlsRootCert, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 	case citadelName:
 		cs, err := createClientSet()
 		if err != nil {
