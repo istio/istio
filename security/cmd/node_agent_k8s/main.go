@@ -143,8 +143,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 	}
 
 	if serverOptions.EnableIngressGatewaySDS {
-		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "",
-			false, nil, "", "", "", "")
+		gSecretFetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, nil, "", "", "", "")
 		if err != nil {
 			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
 			os.Exit(1)
