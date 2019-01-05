@@ -77,6 +77,9 @@ type Options struct {
 
 	// The Vault TLS root certificate.
 	VaultTLSRootCert string
+
+	// EnableTLS indicates whether Node Agent uses TLS to connect to a CA
+	EnableTLS bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

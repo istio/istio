@@ -68,6 +68,9 @@ const (
 
 	// The environmental variable name for Vault TLS root certificate.
 	vaultTLSRootCert = "VAULT_TLS_ROOT_CERT"
+
+	// The environmental variable name for enabling Node Agent to use TLS.
+	nodeAgentUseTLS = "NODE_AGENT_USE_TLS"
 )
 
 var (
@@ -128,7 +131,7 @@ var (
 func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecretCache *cache.SecretCache) {
 	if serverOptions.EnableWorkloadSDS {
 		wSecretFetcher, err := secretfetcher.NewSecretFetcher(false, serverOptions.CAEndpoint,
-			serverOptions.CAProviderName, true, []byte(serverOptions.VaultTLSRootCert),
+			serverOptions.CAProviderName, serverOptions.EnableTLS, []byte(serverOptions.VaultTLSRootCert),
 			serverOptions.VaultAddress, serverOptions.VaultRole, serverOptions.VaultAuthPath,
 			serverOptions.VaultSignCsrPath)
 		if err != nil {
@@ -170,6 +173,13 @@ func init() {
 	if env, err := strconv.ParseBool(val); err == nil {
 		enableWorkloadSdsEnv = env
 	}
+
+	enableTLS := true
+	val = os.Getenv(nodeAgentUseTLS)
+	if env, err := strconv.ParseBool(val); err == nil {
+		enableTLS = env
+	}
+
 	enableIngressGatewaySdsEnv := false
 	val = os.Getenv(enableIngressGatewaySDS)
 	if env, err := strconv.ParseBool(val); err == nil {
@@ -218,6 +228,10 @@ func init() {
 		"Vault sign CSR path")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultTLSRootCert, "vaultTLSRootCert", os.Getenv(vaultTLSRootCert),
 		"Vault TLS root certificate")
+
+	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableTLS, "enableTLS",
+		enableTLS,
+		"Whether Node Agent uses TLS when communicating with a CA, by default using TLS")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
