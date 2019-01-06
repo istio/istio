@@ -813,7 +813,7 @@ func applyLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAs
 				}
 			}
 
-			// remove groups of endpoints in a locality that miss matched
+			// remove groups of endpoints in a locality that mismatched
 			for i := range misMatched {
 				loadAssignment.Endpoints[i].LbEndpoints = nil
 			}

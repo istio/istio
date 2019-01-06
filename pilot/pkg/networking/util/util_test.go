@@ -18,9 +18,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -267,6 +267,103 @@ func TestConvertLocality(t *testing.T) {
 			got := ConvertLocality(tt.locality)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality %#v, but got %#v", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestLocalityMatch(t *testing.T) {
+	tests := []struct {
+		name     string
+		locality *core.Locality
+		rule     string
+		match    bool
+	}{
+		{
+			name: "wildcard matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "*",
+			match: true,
+		},
+		{
+			name: "wildcard matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1/*",
+			match: true,
+		},
+		{
+			name: "wildcard matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1/zone1/*",
+			match: true,
+		},
+		{
+			name: "wildcard not matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1/zone2/*",
+			match: false,
+		},
+		{
+			name: "region matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1",
+			match: true,
+		},
+		{
+			name: "region and zone matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1/zone1",
+			match: true,
+		},
+		{
+			name: "zubzone wildcard matching",
+			locality: &core.Locality{
+				Region: "region1",
+				Zone:   "zone1",
+			},
+			rule:  "region1/zone1",
+			match: true,
+		},
+		{
+			name: "subzone mismatching",
+			locality: &core.Locality{
+				Region: "region1",
+				Zone:   "zone1",
+			},
+			rule:  "region1/zone1/subzone2",
+			match: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match := LocalityMatch(tt.locality, tt.rule)
+			if match != tt.match {
+				t.Errorf("Expected matching result %v, but got %v", tt.match, match)
 			}
 		})
 	}
