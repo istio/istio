@@ -166,7 +166,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(resourceName, *ns)
-	log.Debugf("secret %s is added", scrt.GetName())
+	log.Infof("secret %s is added", scrt.GetName())
 }
 
 func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
