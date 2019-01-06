@@ -15,6 +15,7 @@
 package secretfetcher
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"sync"
@@ -206,6 +207,11 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	nkey := nscrt.GetName()
 	if okey != nkey {
 		log.Warnf("Failed to update secret: name does not match (%s vs %s).", okey, nkey)
+		return
+	}
+	if bytes.Equal(oscrt.Data[ScrtCert], nscrt.Data[ScrtCert]) && bytes.Equal(oscrt.Data[ScrtKey], nscrt.Data[ScrtKey]) {
+		log.Infof("secret %s does not change, skip update", okey)
+		return
 	}
 	sf.secrets.Delete(okey)
 
