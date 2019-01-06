@@ -17,7 +17,6 @@ package v2
 import (
 	"context"
 	"errors"
-	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -30,8 +29,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	networking_core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 )
@@ -625,7 +624,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	endpoints := 0
 
 	for _, clusterName := range con.Clusters {
-		_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 		if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
 			// Cluster was not updated, skip recomputing.
 			continue
@@ -662,18 +661,13 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		}
 
 		// TODO: cache cluster by locality
+		// For locality weighted loadbalancing
 		if con.modelNode.Locality != nil {
-			if config := push.DestinationRule(con.modelNode, hostname); config != nil {
-				destinationRule := config.Spec.(*networking.DestinationRule)
-				loadBalancer := SelectLoadBalancer(destinationRule.TrafficPolicy, port)
-				applyLBLocalityWeight(con.modelNode, l, loadBalancer)
-				for _, subset := range destinationRule.Subsets {
-					if subset.Name == subsetName {
-						loadBalancer := SelectLoadBalancer(subset.TrafficPolicy, port)
-						applyLBLocalityWeight(con.modelNode, l, loadBalancer)
-					}
-				}
+			dummyCluster := &xdsapi.Cluster{
+				Name:           clusterName,
+				LoadAssignment: l,
 			}
+			networking_core.ApplyLocalityWeightSetting(con.modelNode, dummyCluster, push)
 		}
 
 		endpoints += len(l.Endpoints)
@@ -704,78 +698,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	}
 	return nil
-}
-
-// TODO: combine this function with that in cluster.go
-func applyLBLocalityWeight(proxy *model.Proxy, loadAssignment *xdsapi.ClusterLoadAssignment, lb *networking.LoadBalancerSettings) {
-	if lb == nil {
-		return
-	}
-	if proxy == nil || proxy.Locality == nil {
-		return
-	}
-
-	for _, localityWeightSetting := range lb.LocalityWeightSettings {
-		if localityWeightSetting != nil &&
-			util.LocalityMatch(proxy.Locality, localityWeightSetting.From) {
-			misMatched := map[int]struct{}{}
-			for i := range loadAssignment.Endpoints {
-				misMatched[i] = struct{}{}
-			}
-			for locality, weight := range localityWeightSetting.To {
-				// index -> original weight
-				destLocMap := map[int]uint32{}
-				totalWeight := uint32(0)
-				for i, ep := range loadAssignment.Endpoints {
-					if util.LocalityMatch(ep.Locality, locality) {
-						delete(misMatched, i)
-						destLocMap[i] = ep.LoadBalancingWeight.Value
-						totalWeight += destLocMap[i]
-					}
-				}
-				// in case wildcard dest matching multi groups of endpoints
-				// the load balancing weight for a locality is divided by the sum of the weights of all localities
-				for index, originalWeight := range destLocMap {
-					weight := float64(originalWeight*weight) / float64(totalWeight)
-					loadAssignment.Endpoints[index].LoadBalancingWeight = &types.UInt32Value{
-						Value: uint32(math.Ceil(weight)),
-					}
-				}
-			}
-
-			// remove groups of endpoints in a locality that miss matched
-			for i := range misMatched {
-				loadAssignment.Endpoints[i].LbEndpoints = nil
-			}
-			break
-		}
-
-	}
-}
-
-// SelectLoadBalancer returns the LoadBalancer of TrafficPolicy that should be used for given port.
-func SelectLoadBalancer(policy *networking.TrafficPolicy, port int) *networking.LoadBalancerSettings {
-	if policy == nil {
-		return nil
-	}
-	loadBalancer := policy.LoadBalancer
-
-	foundPort := false
-	for _, p := range policy.PortLevelSettings {
-		if p.Port != nil {
-			switch selector := p.Port.Port.(type) {
-			case *networking.PortSelector_Number:
-				if uint32(port) == selector.Number {
-					foundPort = true
-				}
-			}
-		}
-		if foundPort {
-			loadBalancer = p.LoadBalancer
-			break
-		}
-	}
-	return loadBalancer
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug

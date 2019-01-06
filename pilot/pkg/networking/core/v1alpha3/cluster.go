@@ -89,6 +89,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		if configgen.CanUsePrecomputedCDS(proxy) {
 			if sidecarScope != nil && sidecarScope.XDSOutboundClusters != nil {
 				clusters = append(clusters, sidecarScope.XDSOutboundClusters...)
+				// For locality weighted loadbalancing
+				if proxy.Locality != nil {
+					for _, cluster := range clusters {
+						ApplyLocalityWeightSetting(proxy, cluster, push)
+					}
+				}
 				recomputeOutboundClusters = false
 			}
 		}
@@ -129,6 +135,24 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	clusters = append(clusters, buildDefaultPassthroughCluster())
 
 	return normalizeClusters(push, proxy, clusters), nil
+}
+
+func ApplyLocalityWeightSetting(proxy *model.Proxy, cluster *v2.Cluster, push *model.PushContext) {
+	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
+	if config := push.DestinationRule(proxy, hostname); config != nil {
+		if port := push.ServicePort(hostname, portNumber); port != nil {
+			destinationRule := config.Spec.(*networking.DestinationRule)
+			_, _, loadBalancer, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+			applyLocalityWeight(proxy, cluster.LoadAssignment, loadBalancer)
+			for _, subset := range destinationRule.Subsets {
+				if subset.Name == subsetName {
+					_, _, loadBalancer, _ := SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+					applyLocalityWeight(proxy, cluster.LoadAssignment, loadBalancer)
+				}
+			}
+		}
+
+	}
 }
 
 // resolves cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
@@ -753,10 +777,10 @@ func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networkin
 		},
 	}
 
-	applyLBLocalityWeight(proxy, cluster.LoadAssignment, lb)
+	applyLocalityWeight(proxy, cluster.LoadAssignment, lb)
 }
 
-func applyLBLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAssignment, lb *networking.LoadBalancerSettings) {
+func applyLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAssignment, lb *networking.LoadBalancerSettings) {
 	if proxy == nil || proxy.Locality == nil {
 		return
 	}

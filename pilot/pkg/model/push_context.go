@@ -481,6 +481,17 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
+func (ps *PushContext) ServicePort(hostname Hostname, port int) *Port {
+	portList := ps.ServicePort2Name[string(hostname)]
+	for i := range portList {
+		if portList[i] != nil && portList[i].Port == port {
+			return portList[i]
+		}
+	}
+	return nil
+}
+
+// DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
