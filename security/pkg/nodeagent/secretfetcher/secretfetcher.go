@@ -182,9 +182,9 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	// Add an SecretItem with no key/cert pair.
 	// This is to force Enovy replace old secret with this one. Otherwise Envoy will use the old secret to handle connection.
 	ns := &model.SecretItem{
-		ResourceName:     key,
-		CreatedTime:      t,
-		Version:          t.String(),
+		ResourceName: key,
+		CreatedTime:  t,
+		Version:      t.String(),
 	}
 	sf.secrets.Store(key, *ns)
 	log.Infof("secret %s is deleted", scrt.GetName())

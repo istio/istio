@@ -84,7 +84,7 @@ func TestSecretFetcher(t *testing.T) {
 
 	// Delete test secret and verify that key/cert pair in secret is removed from local store.
 	expectedDeletedSecret := &model.SecretItem{
-		ResourceName:     k8sSecretNameA,
+		ResourceName: k8sSecretNameA,
 	}
 	var secretVersionTwo string
 	testDeleteSecret(t, gSecretFetcher, k8sTestSecretA, expectedDeletedSecret, &secretVersionTwo)
