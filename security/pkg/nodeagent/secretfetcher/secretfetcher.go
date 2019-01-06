@@ -168,6 +168,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	}
 	sf.secrets.Store(resourceName, *ns)
 	log.Infof("secret %s is added", scrt.GetName())
+	log.Infof("debug sds: added secret %v", ns)
 }
 
 func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
@@ -189,6 +190,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	}
 	sf.secrets.Store(key, *ns)
 	log.Infof("secret %s is deleted", scrt.GetName())
+	log.Infof("debug sds: deleted secret %v", ns)
 }
 
 func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
@@ -225,6 +227,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 	sf.secrets.Store(nkey, *ns)
 	log.Infof("secret %s is updated", nscrt.GetName())
+	log.Infof("debug sds: updated secret %v", ns)
 }
 
 // FindIngressGatewaySecret returns the secret for a k8sKeyA, or empty secret if no

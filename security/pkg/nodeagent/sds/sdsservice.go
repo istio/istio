@@ -149,7 +149,9 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
-			if discReq.VersionInfo != "" && s.st.SecretExist(discReq.Node.Id, resourceName, token, discReq.VersionInfo) {
+			existed := s.st.SecretExist(discReq.Node.Id, resourceName, token, discReq.VersionInfo)
+			if discReq.VersionInfo != "" && existed {
+				log.Infof("debug sds: discReq.VersionInfo: %s, existed: %v", discReq.VersionInfo, existed)
 				continue
 			}
 
