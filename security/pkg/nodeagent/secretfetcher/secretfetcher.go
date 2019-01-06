@@ -142,7 +142,7 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
 			AddFunc:    sf.scrtAdded,
 			DeleteFunc: sf.scrtDeleted,
-			// TODO(jimmycyj): add handler for UpdateFunc.
+			UpdateFunc: sf.scrtUpdated,
 		})
 }
 
@@ -176,7 +176,46 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 
 	key := scrt.GetName()
 	sf.secrets.Delete(key)
-	log.Debugf("secret %s is deleted", scrt.GetName())
+	t := time.Now()
+	// Add an SecretItem with no key/cert pair, to let Enovy replace old secret with this one.
+	ns := &model.SecretItem{
+		ResourceName:     key,
+		CreatedTime:      t,
+		Version:          t.String(),
+	}
+	sf.secrets.Store(key, *ns)
+	log.Infof("secret %s is deleted", scrt.GetName())
+}
+
+func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
+	oscrt, ok := oldObj.(*v1.Secret)
+	if !ok {
+		log.Warnf("Failed to convert to secret object: %v", oldObj)
+		return
+	}
+	nscrt, ok := newObj.(*v1.Secret)
+	if !ok {
+		log.Warnf("Failed to convert to secret object: %v", newObj)
+		return
+	}
+
+	okey := oscrt.GetName()
+	nkey := nscrt.GetName()
+	if okey != nkey {
+		log.Warnf("Failed to update secret: name does not match (%s vs %s).", okey, nkey)
+	}
+	sf.secrets.Delete(okey)
+
+	t := time.Now()
+	ns := &model.SecretItem{
+		ResourceName:     nkey,
+		CertificateChain: nscrt.Data[ScrtCert],
+		PrivateKey:       nscrt.Data[ScrtKey],
+		CreatedTime:      t,
+		Version:          t.String(),
+	}
+	sf.secrets.Store(nkey, *ns)
+	log.Infof("secret %s is updated", nscrt.GetName())
 }
 
 // FindIngressGatewaySecret returns the secret for a k8sKey, or empty secret if no
