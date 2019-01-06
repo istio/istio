@@ -289,7 +289,7 @@ func LocalityMatch(proxyLocality, ruleLocality string) bool {
 }
 
 func splitLocality(locality string) (region, zone, subzone string) {
-	items := strings.SplitN(locality, "/", 3)
+	items := strings.Split(locality, "/")
 	switch len(items) {
 	case 1:
 		return items[0], "", ""
