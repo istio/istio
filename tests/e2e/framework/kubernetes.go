@@ -519,7 +519,9 @@ func (k *KubeInfo) Teardown() error {
 	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
-	maxAttempts := 600
+	// NB: Increasing maxAttempts much past 230 seconds causes the CI infrastructure
+	// to terminate the test run not reporting what actually failed in the deletion.
+	maxAttempts := 180
 	namespaceDeleted := false
 	validatingWebhookConfigurationExists := false
 	log.Infof("Deleting namespace %v", k.Namespace)
