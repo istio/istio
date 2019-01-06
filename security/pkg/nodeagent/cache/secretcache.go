@@ -183,12 +183,22 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 		CreatedTime:  t,
 		Version:      t.String(),
 	}
+	log.Infof("sds debug: Generate secretItem\n%v", ns)
 	sc.secrets.Store(key, *ns)
 	return ns, nil
 }
 
 // SecretExist checks if secret already existed.
 func (sc *SecretCache) SecretExist(proxyID, resourceName, token, version string) bool {
+	// If node agent works as ingress gateway agent, searches for kubernetes secret.
+	if sc.fetcher.UseCaClient == false {
+		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
+		if !exist {
+			return false
+		}
+
+		return secretItem.Version == version
+	}
 	key := ConnKey{
 		ProxyID:      proxyID,
 		ResourceName: resourceName,
