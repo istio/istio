@@ -8,7 +8,8 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-11
-        image: sdake/kubectl:sdake
+        image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         volumeMounts:
         - name: crd-11
           mountPath: /etc/istio/crd-11

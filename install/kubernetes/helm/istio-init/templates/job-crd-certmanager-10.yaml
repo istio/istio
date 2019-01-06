@@ -8,7 +8,8 @@ spec:
       serviceAccountName: istio-init-service-account
       containers:
       - name: istio-init-crd-certmanager-10
-        image: sdake/kubectl:sdake
+        image: "{{ .Values.global.hub }}/kubectl:{{ .Values.global.tag }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         volumeMounts:
         - name: crd-certmanager-10
           mountPath: /etc/istio/crd-certmanager-10
