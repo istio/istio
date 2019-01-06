@@ -660,7 +660,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			l = filteredCLA
 		}
 
-		// TODO: cache cluster by locality
+		// TODO: cache EDS cluster LoadAssignment by locality.
 		// For locality weighted loadbalancing
 		if con.modelNode.Locality != nil {
 			dummyCluster := &xdsapi.Cluster{
