@@ -641,6 +641,16 @@ istio-remote.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		${EXTRA_HELM_SETTINGS} \
 		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
 
+# create istio-remote.yaml
+istio-init.yaml: $(HELM) $(HOME)/.helm helm-repo-add
+	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
+	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio-init
+	$(HELM) template --name=istio --namespace=istio-system \
+		--set global.tag=${TAG} \
+		--set global.hub=${HUB} \
+		install/kubernetes/helm/istio-init >> install/kubernetes/$@
+
 # creates istio.yaml istio-auth.yaml istio-one-namespace.yaml istio-one-namespace-auth.yaml
 # Ensure that values-$filename is present in install/kubernetes/helm/istio
 isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
