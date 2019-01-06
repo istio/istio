@@ -696,6 +696,7 @@ func (k *KubeInfo) deployIstio() error {
 	}
 
 	if err := util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig); err != nil {
+		log.Errorf("CheckDeployments() failed a")
 		return err
 	}
 
@@ -713,6 +714,7 @@ func (k *KubeInfo) deployIstio() error {
 		}
 
 		if err := k.waitForValdiationWebhook(); err != nil {
+			log.Errorf("waitForValidationWebhook() failed")
 			return err
 		}
 	}
