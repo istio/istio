@@ -17,6 +17,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -29,6 +30,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -89,7 +91,7 @@ type EdsCluster struct {
 // TODO: add prom metrics !
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(_ []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
+func (s *DiscoveryServer) endpoints(outRes []types.Any) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for EDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: EndpointType,
@@ -198,7 +200,6 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 // explanation below for more details
 func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName string,
 	edsCluster *EdsCluster) error {
-
 	var hostname model.Hostname
 	var port int
 	var subsetName string
@@ -291,6 +292,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		edsCluster.NonEmptyTime = time.Now()
 	}
 	return nil
+
 }
 
 // updateServiceShards will list the endpoints and create the shards.
@@ -621,11 +623,9 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 
 	emptyClusters := 0
 	endpoints := 0
-	empty := []string{}
 
 	for _, clusterName := range con.Clusters {
-
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 		if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
 			// Cluster was not updated, skip recomputing.
 			continue
@@ -661,10 +661,24 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			l = filteredCLA
 		}
 
+		// TODO: cache cluster by locality
+		if con.modelNode.Locality != "" {
+			if config := push.DestinationRule(con.modelNode, hostname); config != nil {
+				destinationRule := config.Spec.(*networking.DestinationRule)
+				loadBalancer := SelectLoadBalancer(destinationRule.TrafficPolicy, port)
+				applyLBLocalityWeight(con.modelNode, l, loadBalancer)
+				for _, subset := range destinationRule.Subsets {
+					if subset.Name == subsetName {
+						loadBalancer := SelectLoadBalancer(subset.TrafficPolicy, port)
+						applyLBLocalityWeight(con.modelNode, l, loadBalancer)
+					}
+				}
+			}
+		}
+
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
-			empty = append(empty, clusterName)
 		}
 
 		// Previously computed load assignments. They are re-computed on cache invalidation or
@@ -673,7 +687,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		resAny = append(resAny, *clAssignmentRes)
 	}
 
-	response := s.endpoints(con.Clusters, resAny)
+	response := s.endpoints(resAny)
 	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
@@ -690,6 +704,78 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			con.ConID, len(con.Clusters), endpoints, emptyClusters)
 	}
 	return nil
+}
+
+// TODO: combine this function with that in cluster.go
+func applyLBLocalityWeight(proxy *model.Proxy, loadAssignment *xdsapi.ClusterLoadAssignment, lb *networking.LoadBalancerSettings) {
+	if lb == nil {
+		return
+	}
+	if proxy == nil || proxy.Locality == "" {
+		return
+	}
+
+	for _, localityWeightSetting := range lb.LocalityWeightSettings {
+		if localityWeightSetting != nil &&
+			util.LocalityMatch(proxy.Locality, localityWeightSetting.From) {
+			misMatched := map[int]struct{}{}
+			for i := range loadAssignment.Endpoints {
+				misMatched[i] = struct{}{}
+			}
+			for locality, weight := range localityWeightSetting.To {
+				// index -> original weight
+				destLocMap := map[int]uint32{}
+				totalWeight := uint32(0)
+				for i, ep := range loadAssignment.Endpoints {
+					if util.LocalityMatch(util.LocalityToString(ep.Locality), locality) {
+						delete(misMatched, i)
+						destLocMap[i] = ep.LoadBalancingWeight.Value
+						totalWeight += destLocMap[i]
+					}
+				}
+				// in case wildcard dest matching multi groups of endpoints
+				// the load balancing weight for a locality is divided by the sum of the weights of all localities
+				for index, originalWeight := range destLocMap {
+					weight := float64(originalWeight*weight) / float64(totalWeight)
+					loadAssignment.Endpoints[index].LoadBalancingWeight = &types.UInt32Value{
+						Value: uint32(math.Ceil(weight)),
+					}
+				}
+			}
+
+			// remove groups of endpoints in a locality that miss matched
+			for i := range misMatched {
+				loadAssignment.Endpoints[i].LbEndpoints = nil
+			}
+			break
+		}
+
+	}
+}
+
+// SelectLoadBalancer returns the LoadBalancer of TrafficPolicy that should be used for given port.
+func SelectLoadBalancer(policy *networking.TrafficPolicy, port int) *networking.LoadBalancerSettings {
+	if policy == nil {
+		return nil
+	}
+	loadBalancer := policy.LoadBalancer
+
+	foundPort := false
+	for _, p := range policy.PortLevelSettings {
+		if p.Port != nil {
+			switch selector := p.Port.Port.(type) {
+			case *networking.PortSelector_Number:
+				if uint32(port) == selector.Number {
+					foundPort = true
+				}
+			}
+		}
+		if foundPort {
+			loadBalancer = p.LoadBalancer
+			break
+		}
+	}
+	return loadBalancer
 }
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
