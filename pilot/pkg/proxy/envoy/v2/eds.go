@@ -662,7 +662,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		}
 
 		// TODO: cache cluster by locality
-		if con.modelNode.Locality != "" {
+		if con.modelNode.Locality != nil {
 			if config := push.DestinationRule(con.modelNode, hostname); config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				loadBalancer := SelectLoadBalancer(destinationRule.TrafficPolicy, port)
@@ -711,7 +711,7 @@ func applyLBLocalityWeight(proxy *model.Proxy, loadAssignment *xdsapi.ClusterLoa
 	if lb == nil {
 		return
 	}
-	if proxy == nil || proxy.Locality == "" {
+	if proxy == nil || proxy.Locality == nil {
 		return
 	}
 
@@ -727,7 +727,7 @@ func applyLBLocalityWeight(proxy *model.Proxy, loadAssignment *xdsapi.ClusterLoa
 				destLocMap := map[int]uint32{}
 				totalWeight := uint32(0)
 				for i, ep := range loadAssignment.Endpoints {
-					if util.LocalityMatch(util.LocalityToString(ep.Locality), locality) {
+					if util.LocalityMatch(ep.Locality, locality) {
 						delete(misMatched, i)
 						destLocMap[i] = ep.LoadBalancingWeight.Value
 						totalWeight += destLocMap[i]

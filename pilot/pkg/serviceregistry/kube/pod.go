@@ -148,12 +148,3 @@ func (pc *PodCache) labelsByIP(addr string) (model.Labels, bool) {
 	}
 	return convertLabels(pod.ObjectMeta), true
 }
-
-// localityByIP returns locality where the pod runs.
-func (pc *PodCache) localityByIP(addr string) (model.Labels, bool) {
-	pod := pc.getPodByIP(addr)
-	if pod == nil {
-		return nil, false
-	}
-	return convertLabels(pod.ObjectMeta), true
-}

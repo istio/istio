@@ -757,7 +757,7 @@ func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networkin
 }
 
 func applyLBLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAssignment, lb *networking.LoadBalancerSettings) {
-	if proxy == nil || proxy.Locality == "" {
+	if proxy == nil || proxy.Locality == nil {
 		return
 	}
 
@@ -773,7 +773,7 @@ func applyLBLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoad
 				destLocMap := map[int]uint32{}
 				totalWeight := uint32(0)
 				for i, ep := range loadAssignment.Endpoints {
-					if util.LocalityMatch(util.LocalityToString(ep.Locality), locality) {
+					if util.LocalityMatch(ep.Locality, locality) {
 						delete(misMatched, i)
 						destLocMap[i] = ep.LoadBalancingWeight.Value
 						totalWeight += destLocMap[i]

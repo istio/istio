@@ -112,7 +112,7 @@ func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) b
 	}
 
 	// If proxy locality set, support locality weighted load balancing
-	if proxy.Locality != "" {
+	if proxy.Locality != nil {
 		return false
 	}
 

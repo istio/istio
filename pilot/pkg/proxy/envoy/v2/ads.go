@@ -26,6 +26,7 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -621,9 +622,17 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
-	nt.Locality = util.LocalityToString(discReq.Node.Locality)
-	if nt.Locality == "" {
-		nt.Locality = s.Env.GetProxyLocality(nt)
+	nt.Locality = model.GetProxyLocality(discReq.Node)
+	if nt.Locality == nil {
+		locality := s.Env.GetProxyLocality(nt)
+		if locality != "" {
+			region, zone, subzone := util.SplitLocality(locality)
+			nt.Locality = &core.Locality{
+				Region:  region,
+				Zone:    zone,
+				SubZone: subzone,
+			}
+		}
 	}
 	con.mu.Lock()
 	con.modelNode = nt

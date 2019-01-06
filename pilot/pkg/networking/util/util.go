@@ -259,7 +259,7 @@ func ConvertLocality(locality string) *core.Locality {
 		return nil
 	}
 
-	region, zone, subzone := splitLocality(locality)
+	region, zone, subzone := SplitLocality(locality)
 	return &core.Locality{
 		Region:  region,
 		Zone:    zone,
@@ -267,20 +267,14 @@ func ConvertLocality(locality string) *core.Locality {
 	}
 }
 
-func LocalityToString(locality *core.Locality) string {
-	if locality == nil {
-		return ""
+func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
+	if proxyLocality == nil {
+		return false
 	}
-
-	return locality.Region + "/" + locality.Zone + "/" + locality.SubZone
-}
-
-func LocalityMatch(proxyLocality, ruleLocality string) bool {
-	region, zone, subzone := splitLocality(proxyLocality)
-	ruleRegion, ruleZone, ruleSubzone := splitLocality(ruleLocality)
-	regionMatch := ruleRegion == "*" || region == ruleRegion
-	zoneMatch := ruleZone == "*" || ruleZone == "" || zone == ruleZone
-	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || subzone == ruleSubzone
+	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
+	regionMatch := ruleRegion == "*" || proxyLocality.Region == ruleRegion
+	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.Zone == ruleZone
+	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.SubZone == ruleSubzone
 
 	if regionMatch && zoneMatch && subzoneMatch {
 		return true
@@ -288,7 +282,7 @@ func LocalityMatch(proxyLocality, ruleLocality string) bool {
 	return false
 }
 
-func splitLocality(locality string) (region, zone, subzone string) {
+func SplitLocality(locality string) (region, zone, subzone string) {
 	items := strings.Split(locality, "/")
 	switch len(items) {
 	case 1:

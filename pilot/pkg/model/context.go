@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -86,12 +87,8 @@ type Proxy struct {
 	// namespace.
 	ID string
 
-	// Locality is the location of where proxy runs.
-	// For example:
-	// 'region1/zone1/subzone1' means complete region zone and subzone info.
-	// 'region1/zone1' means only region and zone info.
-	// 'region1' means only region info.
-	Locality string
+	// Locality is the location of where Envoy proxy runs.
+	Locality *core.Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
@@ -287,6 +284,19 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	return ""
+}
+
+// GetProxyLocality returns the locality where Envoy proxy is running.
+func GetProxyLocality(proxy *core.Node) *core.Locality {
+	if proxy == nil || proxy.Locality == nil {
+		return nil
+	}
+
+	return &core.Locality{
+		Region:  proxy.Locality.Region,
+		Zone:    proxy.Locality.Zone,
+		SubZone: proxy.Locality.SubZone,
+	}
 }
 
 const (
