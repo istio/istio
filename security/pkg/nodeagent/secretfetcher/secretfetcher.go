@@ -52,7 +52,7 @@ const (
 
 	// The ID/name for the certificate chain in kubernetes secret.
 	ScrtCert = "cert"
-	// The ID/name for the k8sKey in kubernetes secret.
+	// The ID/name for the k8sKeyA in kubernetes secret.
 	ScrtKey = "key"
 
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
@@ -69,7 +69,7 @@ type SecretFetcher struct {
 	scrtController cache.Controller
 	scrtStore      cache.Store
 
-	// secrets maps k8sKey to secrets
+	// secrets maps k8sKeyA to secrets
 	secrets sync.Map
 }
 
@@ -155,7 +155,9 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	t := time.Now()
 	resourceName := scrt.GetName()
-
+	// If there is secret with the same resource name, delete that secret now.
+	// That secret could be a real secret which is added before, or a deleted secret with empty key/cert.
+	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
 		CertificateChain: scrt.Data[ScrtCert],
@@ -177,7 +179,8 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	key := scrt.GetName()
 	sf.secrets.Delete(key)
 	t := time.Now()
-	// Add an SecretItem with no key/cert pair, to let Enovy replace old secret with this one.
+	// Add an SecretItem with no key/cert pair.
+	// This is to force Enovy replace old secret with this one. Otherwise Envoy will use the old secret to handle connection.
 	ns := &model.SecretItem{
 		ResourceName:     key,
 		CreatedTime:      t,
@@ -190,12 +193,12 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	oscrt, ok := oldObj.(*v1.Secret)
 	if !ok {
-		log.Warnf("Failed to convert to secret object: %v", oldObj)
+		log.Warnf("Failed to convert to old secret object: %v", oldObj)
 		return
 	}
 	nscrt, ok := newObj.(*v1.Secret)
 	if !ok {
-		log.Warnf("Failed to convert to secret object: %v", newObj)
+		log.Warnf("Failed to convert to new secret object: %v", newObj)
 		return
 	}
 
@@ -218,7 +221,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	log.Infof("secret %s is updated", nscrt.GetName())
 }
 
-// FindIngressGatewaySecret returns the secret for a k8sKey, or empty secret if no
+// FindIngressGatewaySecret returns the secret for a k8sKeyA, or empty secret if no
 // secret is present. The ok result indicates whether secret was found.
 func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
 	val, exist := sf.secrets.Load(key)
