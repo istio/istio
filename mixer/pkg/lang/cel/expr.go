@@ -22,7 +22,7 @@ import (
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/parser"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )
 
