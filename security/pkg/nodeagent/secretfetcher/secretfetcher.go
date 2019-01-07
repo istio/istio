@@ -185,6 +185,8 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	// This is to force Enovy replace old secret with this one. Otherwise Envoy will use the old secret to handle connection.
 	ns := &model.SecretItem{
 		ResourceName: key,
+		CertificateChain: []byte("fake cert chain"),
+		PrivateKey: []byte("fake private key"),
 		CreatedTime:  t,
 		Version:      t.String(),
 	}
