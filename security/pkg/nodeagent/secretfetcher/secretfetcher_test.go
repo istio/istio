@@ -16,10 +16,11 @@ package secretfetcher
 
 import (
 	"bytes"
-	"istio.io/istio/security/pkg/nodeagent/model"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	"istio.io/istio/security/pkg/nodeagent/model"
+
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )

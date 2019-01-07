@@ -126,6 +126,9 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(string, 
 		configOptions:  options,
 	}
 
+	fetcher.DeleteCache = ret.DeleteK8sSecret
+  fetcher.UpdateCache = ret.UpdateK8sSecret
+
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
 	atomic.StoreUint32(&ret.skipTokenExpireCheck, 1)
 	go ret.keyCertRotationJob()
@@ -187,17 +190,62 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	return ns, nil
 }
 
+// DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
+// for ingress gateway is deleted.
+func (sc *SecretCache) DeleteK8sSecret(secretName string) {
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+
+		if key.ResourceName == secretName {
+			sc.secrets.Delete(key)
+		}
+		return true
+	})
+}
+
+// UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
+// for ingress gateway is updated.
+func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
+	secretMap := map[ConnKey]*model.SecretItem{}
+	wg := sync.WaitGroup{}
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+		oldSecret := v.(model.SecretItem)
+		if key.ResourceName == secretName {
+			proxyID := key.ProxyID
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				newSecret := &model.SecretItem{
+					CertificateChain: ns.CertificateChain,
+					PrivateKey:       ns.PrivateKey,
+					ResourceName:     secretName,
+					Token:            oldSecret.Token,
+					CreatedTime:      ns.CreatedTime,
+					Version:          ns.Version,
+				}
+				secretMap[key] = newSecret
+				if sc.notifyCallback != nil {
+					if err := sc.notifyCallback(proxyID, secretName, newSecret); err != nil {
+						log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
+					}
+				} else {
+					log.Warnf("secret cache notify callback isn't set")
+				}
+			}()
+		}
+		return true
+	})
+
+	wg.Wait()
+	for key, secret := range secretMap {
+		sc.secrets.Store(key, secret)
+	}
+}
+
 // SecretExist checks if secret already existed.
 func (sc *SecretCache) SecretExist(proxyID, resourceName, token, version string) bool {
-	// If node agent works as ingress gateway agent, searches for kubernetes secret.
-	if sc.fetcher.UseCaClient == false {
-		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
-		if !exist {
-			return false
-		}
-
-		return secretItem.Version == version
-	}
 	key := ConnKey{
 		ProxyID:      proxyID,
 		ResourceName: resourceName,
@@ -331,6 +379,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 			CertificateChain: secretItem.CertificateChain,
 			PrivateKey:       secretItem.PrivateKey,
 			ResourceName:     resourceName,
+			Token:            token,
 			CreatedTime:      t,
 			Version:          t.String(),
 		}, nil
