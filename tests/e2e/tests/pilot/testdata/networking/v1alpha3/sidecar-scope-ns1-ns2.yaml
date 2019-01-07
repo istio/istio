@@ -5,6 +5,6 @@ metadata:
 spec:
   egress:
   - hosts:
-    - "import-ns1/*"
+    - "ns1/*"
     - "*/tcp.com"
     # Notice missing istio-system. This means a cant reach b
