@@ -342,7 +342,11 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 
 			// Getting from config is too painful..
 			port := l.Address.GetSocketAddress().GetPortValue()
-			routes = append(routes, fmt.Sprintf("%d", port))
+			if port == 15002 {
+				routes = append(routes, "http_proxy")
+			} else {
+				routes = append(routes, fmt.Sprintf("%d", port))
+			}
 			//log.Printf("HTTP: %s -> %d", l.Name, port)
 		} else if f0.Name == "envoy.mongo_proxy" {
 			// ignore for now

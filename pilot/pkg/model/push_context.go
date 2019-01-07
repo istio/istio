@@ -400,7 +400,15 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
 	}
 	// Second public virtual service
-	configs = append(configs, ps.publicVirtualServices...)
+	if proxy.Isolated() {
+		for _, cfg := range ps.publicVirtualServices {
+			if cfg.Namespace == proxy.ConfigNamespace {
+				configs = append(configs, cfg)
+			}
+		}
+	} else {
+		configs = append(configs, ps.publicVirtualServices...)
+	}
 
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)

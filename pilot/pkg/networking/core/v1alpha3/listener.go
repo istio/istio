@@ -273,7 +273,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			proxy:          node,
 			proxyInstances: proxyInstances,
 			ip:             listenAddress,
-			port:           int(mesh.ProxyHttpPort),
+			port:           int(httpProxyPort),
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
 					rds:              RDSHttpProxy,
@@ -322,6 +322,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 	var listeners []*xdsapi.Listener
 	listenerMap := make(map[string]*model.ServiceInstance)
+
+	noneMode := node.Metadata[pilot.InterceptionMode] == pilot.InterceptionModeNone
+
 	// inbound connections/requests are redirected to the endpoint address but appear to be sent
 	// to the service address.
 	for _, instance := range proxyInstances {
@@ -341,6 +344,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			proxyInstances: proxyInstances,
 			ip:             endpoint.Address,
 			port:           endpoint.Port,
+		}
+		if noneMode {
+			listenerOpts.bindToPort = true
+			listenerOpts.ip = WildcardAddress
 		}
 
 		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
@@ -604,6 +611,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 				if noneMode &&
 					service.Resolution == model.ClientSideLB { // TODO: more conditions
+					listenerOpts.bindToPort = true
+					listenAddress = "127.0.0.1" // model.UnspecifiedIP // 0.0.0.0
+				}
+
+				// TLS mode means Envoy will use SNI to determine the destination, we can bind to port.
+				if noneMode &&
+					servicePort.Protocol == model.ProtocolTLS {
 					listenerOpts.bindToPort = true
 					listenAddress = "127.0.0.1" // model.UnspecifiedIP // 0.0.0.0
 				}

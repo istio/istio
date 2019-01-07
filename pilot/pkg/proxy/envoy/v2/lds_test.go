@@ -52,7 +52,7 @@ func TestLDSIsolated(t *testing.T) {
 
 		ldsr.Watch()
 
-		_, err = ldsr.Wait("lds", 50000*time.Second)
+		_, err = ldsr.Wait("rds", 50000*time.Second)
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
