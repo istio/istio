@@ -140,4 +140,13 @@ const (
 
 	// DefaultPortHttpProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
 	DefaultPortHTTPProxy = 15002
+
+	// AZLabel indicates the region/zone of an instance. It is used if the native
+	// registry doesn't provide one.
+	AZLabel = "istio-az"
+
+	// ServiceConfigScopeAnnotation configs the scope the service visible to.
+	//   "PUBLIC" which is the default, indicates it is reachable within the mesh
+	//   "PRIVATE" indicates it is reachable within its namespace
+	ServiceConfigScopeAnnotation = "networking.istio.io/configScope"
 )

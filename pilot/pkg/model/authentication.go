@@ -51,6 +51,9 @@ const (
 	// k8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	k8sSAJwtTokenHeaderKey = "istio_sds_credentail_header-bin"
+
+	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
+	IngressGatewaySdsUdsPath = "unix://var/run/ingress_gateway/sds"
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
@@ -70,7 +73,37 @@ func GetConsolidateAuthenticationPolicy(store IstioConfigStore, service *Service
 	return nil
 }
 
-// ConstructSdsSecretConfig constructs SDS Sececret Configuration.
+// ConstructSdsSecretConfig constructs SDS secret configuration for ingress gateway.
+func ConstructSdsSecretConfigForGatewayListener(name, sdsUdsPath string) *auth.SdsSecretConfig {
+	if name == "" || sdsUdsPath == "" {
+		return nil
+	}
+
+	gRPCConfig := &core.GrpcService_GoogleGrpc{
+		TargetUri:  sdsUdsPath,
+		StatPrefix: SDSStatPrefix,
+	}
+
+	return &auth.SdsSecretConfig{
+		Name: name,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+								GoogleGrpc: gRPCConfig,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// ConstructSdsSecretConfig constructs SDS Sececret Configuration for workload proxy.
 func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, useK8sSANormalJwt bool) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil

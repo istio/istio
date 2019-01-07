@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/meshconfig"
+	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/mock"
 )
@@ -43,6 +44,14 @@ func init() {
 	emptyInfo, _ = schema.Lookup("type.googleapis.com/google.protobuf.Empty")
 }
 
+func schemaWithSpecs(specs []kube.ResourceSpec) *kube.Schema {
+	sb := kube.NewSchemaBuilder()
+	for _, s := range specs {
+		sb.Add(s)
+	}
+	return sb.Build()
+}
+
 func TestNewSource(t *testing.T) {
 	k := &mock.Kube{}
 	for i := 0; i < 100; i++ {
@@ -53,7 +62,7 @@ func TestNewSource(t *testing.T) {
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	p, err := New(k, 0, &cfg)
+	p, err := New(k, 0, kube_meta.Types, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}
@@ -70,7 +79,7 @@ func TestNewSource_Error(t *testing.T) {
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	_, err := New(k, 0, &cfg)
+	_, err := New(k, 0, kube_meta.Types, &cfg)
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Expected error not found: %v", err)
 	}
@@ -103,7 +112,7 @@ func TestSource_BasicEvents(t *testing.T) {
 		return true, w, nil
 	})
 
-	entries := []kube.ResourceSpec{
+	schema := schemaWithSpecs([]kube.ResourceSpec{
 		{
 			Kind:      "List",
 			Singular:  "List",
@@ -111,12 +120,12 @@ func TestSource_BasicEvents(t *testing.T) {
 			Target:    emptyInfo,
 			Converter: converter.Get("identity"),
 		},
-	}
+	})
 
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	s, err := newSource(k, 0, &cfg, entries)
+	s, err := New(k, 0, schema, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -178,7 +187,7 @@ func TestSource_BasicEvents_NoConversion(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	entries := []kube.ResourceSpec{
+	schema := schemaWithSpecs([]kube.ResourceSpec{
 		{
 			Kind:      "List",
 			Singular:  "List",
@@ -186,12 +195,12 @@ func TestSource_BasicEvents_NoConversion(t *testing.T) {
 			Target:    emptyInfo,
 			Converter: converter.Get("nil"),
 		},
-	}
+	})
 
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	s, err := newSource(k, 0, &cfg, entries)
+	s, err := New(k, 0, schema, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -241,7 +250,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	entries := []kube.ResourceSpec{
+	schema := schemaWithSpecs([]kube.ResourceSpec{
 		{
 			Kind:     "foo",
 			Singular: "foo",
@@ -251,12 +260,12 @@ func TestSource_ProtoConversionError(t *testing.T) {
 				return nil, fmt.Errorf("cant convert")
 			},
 		},
-	}
+	})
 
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	s, err := newSource(k, 0, &cfg, entries)
+	s, err := New(k, 0, schema, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -307,7 +316,7 @@ func TestSource_MangledNames(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	entries := []kube.ResourceSpec{
+	schema := schemaWithSpecs([]kube.ResourceSpec{
 		{
 			Kind:     "foo",
 			Singular: "foo",
@@ -322,12 +331,12 @@ func TestSource_MangledNames(t *testing.T) {
 				return []converter.Entry{e}, nil
 			},
 		},
-	}
+	})
 
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	s, err := newSource(k, 0, &cfg, entries)
+	s, err := New(k, 0, schema, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

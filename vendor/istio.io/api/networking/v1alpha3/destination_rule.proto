@@ -227,7 +227,7 @@ message Subset {
 
 // Load balancing policies to apply for a specific destination. See Envoy's
 // load balancing
-// [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html)
+// [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/load_balancing)
 // for more details.
 //
 // For example, the following rule uses a round robin load balancing policy
@@ -262,6 +262,32 @@ message Subset {
 //          httpCookie:
 //            name: user
 //            ttl: 0s
+// ```
+//
+// The following example sets up locality weight for the ratings service
+// Assume ratings service resides in "region1/zone1/*" and "region1/zone2/*",
+// and originating clusters also reside in "region1/zone1/*" and "region1/zone2/*".
+// This example specifies when clusters from "region1/zone1/*" accessing ratings service, 80% of the traffic
+// is shipped to "region1/zone1/*" ratings service endpoints, and the rest 20% to "region1/zone2/*".
+//
+// ```yaml
+//  apiVersion: networking.istio.io/v1alpha3
+//  kind: DestinationRule
+//  metadata:
+//    name: bookinfo-ratings
+//  spec:
+//    host: ratings.prod.svc.cluster.local
+//    trafficPolicy:
+//      loadBalancer:
+//        localityWeightSettings:
+//          - from: region1/zone1/*
+//            to:
+//              "region1/zone1/*": 80
+//              "region1/zone2/*": 20
+//          - from: region1/zone2/*
+//            to:
+//              "region1/zone1/*": 20
+//              "region1/zone2/*": 80
 // ```
 message LoadBalancerSettings {
   // Standard load balancing algorithms that require no tuning.
@@ -326,6 +352,19 @@ message LoadBalancerSettings {
     uint64 minimum_ring_size = 4;
   };
 
+  // Originating -> upstream cluster locality weight set, support wildcard matching '*'
+  // '*' matches all localities
+  // 'region1/*' matches all zones in region1
+  message LocalityWeightSetting{
+    // Originating locality, '/' separated, e.g. 'region/zone/sub_zone'.
+    string from = 1;
+
+    // Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
+    // Should assign loadbalancing weight for all localities, otherwise the traffic are not routed
+    // following the percentage of weight.
+    map<string, uint32> to = 2;
+  };
+
   // (-- TODO: Enable Subset load balancing after moving to v2 API Also
   // look into enabling Priotity based load balancing for spilling over
   // from one priority pool to another. --)
@@ -335,6 +374,12 @@ message LoadBalancerSettings {
     SimpleLB simple = 1;
     ConsistentHashLB consistent_hash = 2;
   }
+
+  // Explicitly assign loadbalancing weight across different zones and geographical locations.
+  // Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing)
+  // If empty, the locality weight is set according to the endpoints number within it.
+  // If duplicated settings are present, then the first one will take effect.
+  repeated LocalityWeightSetting locality_weight_settings = 3;
 }
 
 // Connection pool settings for an upstream host. The settings apply to

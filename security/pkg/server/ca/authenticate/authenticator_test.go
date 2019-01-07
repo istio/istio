@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ca
+package authenticate
 
 import (
 	"crypto/tls"
@@ -51,7 +51,7 @@ func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
 
 	testCases := map[string]struct {
 		certChain          [][]*x509.Certificate
-		caller             *caller
+		caller             *Caller
 		authenticateErrMsg string
 		fakeAuthInfo       *mockAuthInfo
 	}{
@@ -89,11 +89,11 @@ func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
 					},
 				},
 			},
-			caller: &caller{identities: []string{callerID}},
+			caller: &Caller{Identities: []string{callerID}},
 		},
 	}
 
-	auth := &clientCertAuthenticator{}
+	auth := &ClientCertAuthenticator{}
 
 	for id, tc := range testCases {
 		ctx := context.Background()
@@ -108,7 +108,7 @@ func TestAuthenticate_clientCertAuthenticator(t *testing.T) {
 			ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: tc.fakeAuthInfo})
 		}
 
-		result, err := auth.authenticate(ctx)
+		result, err := auth.Authenticate(ctx)
 		if len(tc.authenticateErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)
@@ -137,7 +137,7 @@ func (ks *mockKeySet) VerifySignature(ctx context.Context, jwt string) (payload 
 	return ks.payload, ks.err
 }
 
-func TestAuthenticate_idTokenAuthenticator(t *testing.T) {
+func TestAuthenticate_IDTokenAuthenticator(t *testing.T) {
 	payload := `{"iss":"https://foo", "email":"test@foo"}`
 	signedPayload := "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJodHRwczovL2ZvbyIsICJlbWFpbCI" +
 		"6InRlc3RAZm9vIn0.BzP-QWpGleJ9CmsIOahyuw1A-O5qmv5yKrfehHh2ubcT_Ug3RHXDyt3sunU14_NAmdtIhE7EO5ywS" +
@@ -147,7 +147,7 @@ func TestAuthenticate_idTokenAuthenticator(t *testing.T) {
 		metadata       metadata.MD
 		verifyError    error
 		expectedErrMsg string
-		expectedCaller *caller
+		expectedCaller *Caller
 	}{
 		"No ID token": {
 			expectedErrMsg: "ID token extraction error: no metadata is attached",
@@ -159,9 +159,9 @@ func TestAuthenticate_idTokenAuthenticator(t *testing.T) {
 		},
 		"ID token with correct signature": {
 			metadata: metadata.MD{"authorization": []string{signedPayload}},
-			expectedCaller: &caller{
-				authSource: authSourceIDToken,
-				identities: []string{"test@foo"},
+			expectedCaller: &Caller{
+				AuthSource: AuthSourceIDToken,
+				Identities: []string{"test@foo"},
 			},
 		},
 	}
@@ -172,7 +172,7 @@ func TestAuthenticate_idTokenAuthenticator(t *testing.T) {
 			ctx = metadata.NewIncomingContext(ctx, tc.metadata)
 		}
 
-		auth := &idTokenAuthenticator{
+		auth := &IDTokenAuthenticator{
 			verifier: oidc.NewVerifier(
 				"https://foo",
 				&mockKeySet{
@@ -182,7 +182,7 @@ func TestAuthenticate_idTokenAuthenticator(t *testing.T) {
 					SkipClientIDCheck: true,
 					SkipExpiryCheck:   true,
 				})}
-		actual, err := auth.authenticate(ctx)
+		actual, err := auth.Authenticate(ctx)
 		if len(tc.expectedErrMsg) > 0 {
 			if err == nil {
 				t.Errorf("Case %s: Succeeded. Error expected: %v", id, err)

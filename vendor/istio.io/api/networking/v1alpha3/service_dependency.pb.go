@@ -69,7 +69,7 @@ func (ConfigScope) EnumDescriptor() ([]byte, []int) { return fileDescriptorServi
 // same namespace, set defaultServiceDependency.importMode to SAME_NAMESPACE
 // in the mesh global config map (in values.yaml).
 //
-// NOTE 2: To facilitate incremental pruning of the the sidecar
+// NOTE 2: To facilitate incremental pruning of the` sidecar
 // configuration, the default import mode for the mesh is set to
 // ALL_NAMESPACES. In other words, every workload will be able to reach
 // every other workload. Adding a ServiceDependency resource in a namespace will
@@ -78,7 +78,7 @@ func (ConfigScope) EnumDescriptor() ([]byte, []int) { return fileDescriptorServi
 //
 // The following examples illustrate a few specific use cases of ServiceDependency.
 //
-// The example below delcares a ServiceDependency resource in the prod-us1
+// The example below declares a ServiceDependency resource in the prod-us1
 // namespace that specifies that workloads in the namespace will be able to
 // reach the services in the prod-apis namespace only.
 //

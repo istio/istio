@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 const (
@@ -109,10 +110,15 @@ func testForApps(t *testing.T, appFactory *echo.Factory, serviceNames ...string)
 
 	appFactoryFunc := appFactory.NewApplication
 
+	portMgr, err := reserveport.NewPortManager()
+
+	if err != nil {
+		t.Fatalf("failed to reserve Ports: %v", err)
+	}
 	// Create the agents.
 	agents := make([]Agent, len(serviceNames))
 	for i, serviceName := range serviceNames {
-		agents[i] = newAgent(serviceName, serviceManager, agentFactory, appFactoryFunc, t)
+		agents[i] = newAgent(serviceName, serviceManager, agentFactory, appFactoryFunc, portMgr, t)
 		defer agents[i].Close()
 	}
 
@@ -170,9 +176,10 @@ func logConfigs(agents []Agent) {
 	f.Flush()
 }
 
-func newAgent(serviceName string, serviceManager *service.Manager, factory Factory, appFactory application.Factory, t *testing.T) Agent {
+func newAgent(serviceName string, serviceManager *service.Manager, factory Factory, appFactory application.Factory,
+	portMgr reserveport.PortManager, t *testing.T) Agent {
 	t.Helper()
-	a, err := factory(serviceName, "", serviceManager, appFactory)
+	a, err := factory(serviceName, "", serviceManager, appFactory, portMgr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,6 +254,7 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 			Registries: []string{},
 		},
 		KeepaliveOptions: keepalive.DefaultOption(),
+		ForceStop:        true,
 	}
 
 	// Create the server for the discovery service.

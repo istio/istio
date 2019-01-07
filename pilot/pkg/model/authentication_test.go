@@ -181,6 +181,56 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 }
 
+func TestConstructSdsSecretConfigForGatewayListener(t *testing.T) {
+	cases := []struct {
+		serviceAccount string
+		sdsUdsPath     string
+		expected       *auth.SdsSecretConfig
+	}{
+		{
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:     "/tmp/sdsuds.sock",
+			expected: &auth.SdsSecretConfig{
+				Name: "spiffe://cluster.local/ns/bar/sa/foo",
+				SdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType: core.ApiConfigSource_GRPC,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+										GoogleGrpc: &core.GrpcService_GoogleGrpc{
+											TargetUri:  "/tmp/sdsuds.sock",
+											StatPrefix: SDSStatPrefix,
+										},
+									},
+								},
+							},
+							RefreshDelay: nil,
+						},
+					},
+				},
+			},
+		},
+		{
+			serviceAccount: "",
+			sdsUdsPath:     "/tmp/sdsuds.sock",
+			expected:       nil,
+		},
+		{
+			serviceAccount: "spiffe://cluster.local/ns/bar/sa/foo",
+			sdsUdsPath:     "",
+			expected:       nil,
+		},
+	}
+
+	for _, c := range cases {
+		if got := ConstructSdsSecretConfigForGatewayListener(c.serviceAccount, c.sdsUdsPath); !reflect.DeepEqual(got, c.expected) {
+			t.Errorf("ConstructSdsSecretConfig: got(%#v) != want(%#v)\n", got, c.expected)
+		}
+	}
+}
+
 func constructLocalChannelCredConfig() *core.GrpcService_GoogleGrpc_ChannelCredentials {
 	return &core.GrpcService_GoogleGrpc_ChannelCredentials{
 		CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{

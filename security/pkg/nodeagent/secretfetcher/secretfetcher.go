@@ -28,7 +28,7 @@ import (
 
 	"istio.io/istio/security/pkg/nodeagent/model"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,15 +36,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
 	secretResyncPeriod = 15 * time.Second
 
 	// IngressSecretType the type of kubernetes secrets for ingress gateway.
-	IngressSecretType = "istio.io/ingress-k8sKey-cert"
-	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
-	IngressSecretNameSpace = "istio-ingress"
+	IngressSecretType = "istio.io/ingress-key-cert"
+
 	// KubeConfigFile the config file name for kubernetes client.
 	// Specifies empty file name to use InClusterConfig.
 	KubeConfigFile = ""
@@ -52,7 +53,10 @@ const (
 	// The ID/name for the certificate chain in kubernetes secret.
 	ScrtCert = "cert"
 	// The ID/name for the k8sKey in kubernetes secret.
-	ScrtKey = "k8sKey"
+	ScrtKey = "key"
+
+	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
+	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
 )
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
@@ -79,7 +83,7 @@ func fatalf(template string, args ...interface{}) {
 }
 
 // createClientset creates kubernetes client to watch kubernetes secrets.
-func createClientset() kubernetes.Interface {
+func createClientset() *kubernetes.Clientset {
 	c, err := clientcmd.BuildConfigFromFlags("", KubeConfigFile)
 	if err != nil {
 		fatalf("Failed to create a config for kubernetes client (error: %s)", err)
@@ -92,34 +96,17 @@ func createClientset() kubernetes.Interface {
 }
 
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
-func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool, clientSet kubernetes.Interface) (*SecretFetcher, error) {
+func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool,
+	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
 	ret := &SecretFetcher{}
 
 	if ingressGatewayAgent {
 		ret.UseCaClient = false
-		istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IngressSecretType}).String()
-		cs := clientSet
-		if cs == nil {
-			cs = createClientset()
-		}
-		scrtLW := &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				options.FieldSelector = istioSecretSelector
-				return cs.CoreV1().Secrets(IngressSecretNameSpace).List(options)
-			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				options.FieldSelector = istioSecretSelector
-				return cs.CoreV1().Secrets(IngressSecretNameSpace).Watch(options)
-			},
-		}
-		ret.scrtStore, ret.scrtController =
-			cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
-				AddFunc:    ret.scrtAdded,
-				DeleteFunc: ret.scrtDeleted,
-				// TODO(jimmycyj): add handler for UpdateFunc.
-			})
+		cs := createClientset()
+		ret.Init(cs.CoreV1())
 	} else {
-		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag)
+		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
+			vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 		if err != nil {
 			log.Errorf("failed to create caClient: %v", err)
 			return ret, fmt.Errorf("failed to create caClient")
@@ -132,8 +119,31 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 }
 
 // Run starts the SecretFetcher until a value is sent to ch.
+// Only used when watching kubernetes gateway secrets.
 func (sf *SecretFetcher) Run(ch chan struct{}) {
 	go sf.scrtController.Run(ch)
+}
+
+// Init initializes SecretFetcher to watch kubernetes secrets.
+func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interfacer
+	namespace := os.Getenv(ingressSecretNameSpace)
+	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IngressSecretType}).String()
+	scrtLW := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.FieldSelector = istioSecretSelector
+			return core.Secrets(namespace).List(options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.FieldSelector = istioSecretSelector
+			return core.Secrets(namespace).Watch(options)
+		},
+	}
+	sf.scrtStore, sf.scrtController =
+		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
+			AddFunc:    sf.scrtAdded,
+			DeleteFunc: sf.scrtDeleted,
+			// TODO(jimmycyj): add handler for UpdateFunc.
+		})
 }
 
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {

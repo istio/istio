@@ -102,11 +102,13 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	}
 
 	for _, route := range routes {
-		clusterName := istio_route.GetDestinationCluster(route.Destination, push.ServiceByHostname[model.Hostname(route.Destination.Host)], port.Port)
-		clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{
-			Name:   clusterName,
-			Weight: uint32(route.Weight),
-		})
+		if route.Weight > 0 {
+			clusterName := istio_route.GetDestinationCluster(route.Destination, push.ServiceByHostname[model.Hostname(route.Destination.Host)], port.Port)
+			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{
+				Name:   clusterName,
+				Weight: uint32(route.Weight),
+			})
+		}
 	}
 
 	// TODO: Need to handle multiple cluster names for Redis

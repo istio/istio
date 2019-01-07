@@ -179,12 +179,15 @@ type PilotAgentFactory struct {
 }
 
 // NewAgent is an agent.Factory function that creates new agent.Agent instances which use Pilot for configuration
-func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory) (Agent, error) {
-	portMgr, err := reserveport.NewPortManager()
-	if err != nil {
-		return nil, err
+func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory,
+	portMgr reserveport.PortManager) (Agent, error) {
+	var err error
+	if portMgr == nil {
+		portMgr, err = reserveport.NewPortManager()
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	a := &pilotAgent{
 		boundPortMap: make(map[uint32]int),
 		portMgr:      portMgr,
@@ -197,21 +200,19 @@ func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager
 			_ = a.Close()
 		}
 	}()
-
 	dialer := application.Dialer{
 		GRPC:      a.dialGRPC,
 		Websocket: a.dialWebsocket,
 		HTTP:      a.doHTTP,
 	}
 	a.app, err = appFactory(dialer)
+
 	if err != nil {
 		return nil, err
 	}
-
 	if err = a.start(serviceName, version, serviceManager, f); err != nil {
 		return nil, err
 	}
-
 	return a, nil
 }
 

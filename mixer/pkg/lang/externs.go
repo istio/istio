@@ -38,6 +38,10 @@ var Externs = map[string]interpreter.Extern{
 	"ip_equal":          interpreter.ExternFromFn("ip_equal", externIPEqual),
 	"timestamp":         interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal":   interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
+	"timestamp_lt":      interpreter.ExternFromFn("timestamp_lt", externTimestampLt),
+	"timestamp_le":      interpreter.ExternFromFn("timestamp_le", externTimestampLe),
+	"timestamp_gt":      interpreter.ExternFromFn("timestamp_gt", externTimestampGt),
+	"timestamp_ge":      interpreter.ExternFromFn("timestamp_ge", externTimestampGe),
 	"dnsName":           interpreter.ExternFromFn("dnsName", externDNSName),
 	"dnsName_equal":     interpreter.ExternFromFn("dnsName_equal", externDNSNameEqual),
 	"email":             interpreter.ExternFromFn("email", externEmail),
@@ -148,6 +152,22 @@ func externTimestamp(in string) (time.Time, error) {
 
 func externTimestampEqual(t1 time.Time, t2 time.Time) bool {
 	return t1.Equal(t2)
+}
+
+func externTimestampLt(t1 time.Time, t2 time.Time) bool {
+	return t1.Before(t2)
+}
+
+func externTimestampLe(t1 time.Time, t2 time.Time) bool {
+	return t1 == t2 || t1.Before(t2)
+}
+
+func externTimestampGt(t1 time.Time, t2 time.Time) bool {
+	return t2.Before(t1)
+}
+
+func externTimestampGe(t1 time.Time, t2 time.Time) bool {
+	return t1 == t2 || t2.Before(t1)
 }
 
 // This IDNA profile is for performing validations, but does not otherwise modify the string.

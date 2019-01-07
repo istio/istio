@@ -18,18 +18,28 @@ set -o errexit
 
 if [ "$#" -ne 1 ]; then
     echo Missing version parameter
-    echo Usage: build-services.sh \<version\>
+    echo Usage: build_push_update_images.sh \<version\>
     exit 1
 fi
 
 VERSION=$1
+
+#Build docker images
 src/build-services.sh "${VERSION}"
 
+#get all the new image names and tags
 for v in ${VERSION} "latest"
 do
   IMAGES+=$(docker images -f reference=istio/examples-bookinfo*:"$v" --format "{{.Repository}}:$v")
+  IMAGES+=" "
 done
 
-for IMAGE in ${IMAGES}; do docker push "${IMAGE}"; done
-sed -i "s/\\(istio\\/examples-bookinfo-.*\\):[[:digit:]]\\.[[:digit:]]\\.[[:digit:]]/\\1:$VERSION/g" -- */bookinfo*.yaml
+#push images
+for IMAGE in ${IMAGES}; 
+do 
+  echo "Pushing: ${IMAGE}" 
+  docker push "${IMAGE}"; 
+done
 
+#Update image references in the yaml files
+find . -name "*bookinfo*.yaml" -exec sed -i.bak "s/\\(istio\\/examples-bookinfo-.*\\):[[:digit:]]\\.[[:digit:]]\\.[[:digit:]]/\\1:$VERSION/g" {} +

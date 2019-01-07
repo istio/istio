@@ -46,7 +46,7 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretName,
-			Namespace: secretfetcher.IngressSecretNameSpace,
+			Namespace: "test-namespace",
 		},
 		Type: secretfetcher.IngressSecretType,
 	}
@@ -185,11 +185,10 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 
 // TestGatewayAgentGenerateSecret verifies that ingress gateway agent manages secret cache correctly.
 func TestGatewayAgentGenerateSecret(t *testing.T) {
-	client := fake.NewSimpleClientset()
-	fetcher, err := secretfetcher.NewSecretFetcher(true, "", "", false, client)
-	if err != nil {
-		t.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: false,
 	}
+	fetcher.Init(fake.NewSimpleClientset().CoreV1())
 	ch := make(chan struct{})
 	fetcher.Run(ch)
 	opt := Options{
