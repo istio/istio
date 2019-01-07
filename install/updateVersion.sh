@@ -46,7 +46,7 @@ EOF
   exit 2
 }
 
-while getopts :n:p:x:c:a:h:o:P:d:D: arg; do
+while getopts :n:p:x:c:a:h:o:P:d: arg; do
   case ${arg} in
     n) ISTIO_NAMESPACE="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
