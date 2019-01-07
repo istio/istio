@@ -89,6 +89,15 @@ func TestCEXLCompatibility(t *testing.T) {
 			if !reflect.DeepEqual(out, expected) {
 				t.Fatalf("got %s, expected %s (type %T and %T)", out, expected, out, expected)
 			}
+
+			// override referenced attributes value
+			if test.ReferencedCEL != nil {
+				test.Referenced = test.ReferencedCEL
+			}
+
+			if !test.CheckReferenced(b) {
+				t.Errorf("check referenced attributes: got %v, expected %v", b.ReferencedList(), test.Referenced)
+			}
 		})
 	}
 }

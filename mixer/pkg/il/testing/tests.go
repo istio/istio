@@ -152,7 +152,7 @@ end`,
 		CEL:        true,
 		Err:        "lookup failed: 'a'",
 		AstErr:     "unresolved attribute",
-		Referenced: []string{"a"},
+		Referenced: []string{"-a"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -165,7 +165,7 @@ end`,
 		CEL:        true,
 		Err:        "lookup failed: 'a'",
 		AstErr:     "unresolved attribute",
-		Referenced: []string{"a"},
+		Referenced: []string{"-a"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -226,7 +226,7 @@ end`,
 			"request.user": "user2",
 		},
 		R:          "user2",
-		Referenced: []string{"request.user", "request.user2"},
+		Referenced: []string{"-request.user2", "request.user"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -236,7 +236,7 @@ end`,
 			"request.user": "user2",
 		},
 		R:          "user1",
-		Referenced: []string{"request.user2", "request.user3"},
+		Referenced: []string{"-request.user2", "-request.user3"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -451,7 +451,7 @@ end`,
 				"X-FORWARDED-HOST": "bbb",
 			},
 		},
-		Referenced: []string{"request.header"},
+		Referenced: []string{"-request.header"},
 		Err:        "lookup failed: 'request.header'",
 		AstErr:     "unresolved attribute",
 		conf:       exprEvalAttrs,
@@ -520,8 +520,10 @@ end`,
 		// CEL always resolves attributes
 		CEL:        false,
 		AstErr:     "unresolved attribute",
-		Referenced: []string{"service.name"},
-		conf:       exprEvalAttrs,
+		Referenced: []string{"-service.name"},
+		// CEL evaluates all arguments to a function since it does not error out on the first lookup failure
+		ReferencedCEL: []string{"-service.name", "servicename"},
+		conf:          exprEvalAttrs,
 	},
 	{
 		E:    `match(service.name, servicename)`,
@@ -549,7 +551,7 @@ end`,
 		Type:       descriptor.IP_ADDRESS,
 		I:          map[string]interface{}{},
 		R:          []byte(net.ParseIP("10.1.12.3")),
-		Referenced: []string{"destination.ip"},
+		Referenced: []string{"-destination.ip"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -575,7 +577,7 @@ end`,
 		Type:       descriptor.TIMESTAMP,
 		I:          map[string]interface{}{},
 		R:          t,
-		Referenced: []string{"request.time"},
+		Referenced: []string{"-request.time"},
 		conf:       exprEvalAttrs,
 	},
 	{
@@ -615,7 +617,7 @@ end
 		Type:       descriptor.STRING_MAP,
 		I:          map[string]interface{}{},
 		R:          attribute.WrapStringMap(nil),
-		Referenced: []string{"source.labels"},
+		Referenced: []string{"-source.labels"},
 		conf:       exprEvalAttrs,
 	},
 
@@ -2044,8 +2046,9 @@ end`,
 		},
 		R: "b2",
 		// top-level idents do not support presence
-		CEL:        "",
-		Referenced: []string{"as", "bs"},
+		CEL:           "",
+		Referenced:    []string{"-as", "bs"},
+		ReferencedCEL: []string{"-as"},
 	},
 	{
 		E:    `as | bs | "user1"`,
@@ -2108,8 +2111,9 @@ end`,
 		I: map[string]interface{}{
 			"bb": false,
 		},
-		R:          false,
-		Referenced: []string{"ab", "bb"},
+		R:             false,
+		Referenced:    []string{"-ab", "bb"},
+		ReferencedCEL: []string{"-ab"},
 	},
 	{
 		E:    `ab | bb | true`,
@@ -2117,8 +2121,9 @@ end`,
 		I:    map[string]interface{}{},
 		R:    true,
 		// top-level idents do not support presence
-		CEL:        false,
-		Referenced: []string{"ab", "bb"},
+		CEL:           false,
+		Referenced:    []string{"-ab", "-bb"},
+		ReferencedCEL: []string{"-ab"},
 	},
 
 	{
@@ -2145,7 +2150,7 @@ end`,
 		R:    int64(42),
 		// top-level idents do not support presence
 		CEL:        int64(0),
-		Referenced: []string{"ai"},
+		Referenced: []string{"-ai"},
 	},
 	{
 		E:    `ai | bi | 42`,
@@ -2174,17 +2179,20 @@ end`,
 		},
 		R: int64(20),
 		// top-level idents do not support presence
-		CEL:        int64(0),
-		Referenced: []string{"ai", "bi"},
+		CEL:           int64(0),
+		Referenced:    []string{"-ai", "bi"},
+		ReferencedCEL: []string{"-ai"},
 	},
+
 	{
 		E:    `ai | bi | 42`,
 		Type: descriptor.INT64,
 		I:    map[string]interface{}{},
 		R:    int64(42),
 		// top-level idents do not support presence
-		CEL:        int64(0),
-		Referenced: []string{"ai", "bi"},
+		CEL:           int64(0),
+		Referenced:    []string{"-ai", "-bi"},
+		ReferencedCEL: []string{"-ai"},
 	},
 
 	{
@@ -2284,7 +2292,7 @@ end`,
 		R: "far",
 		// CEL does not support top-level ident presence
 		CEL:        errors.New("no such key"),
-		Referenced: []string{"ar", "br", "br[foo]"},
+		Referenced: []string{"-ar", "br", "br[foo]"},
 	},
 
 	{
@@ -2426,7 +2434,7 @@ end`,
 		Type:       descriptor.STRING,
 		I:          map[string]interface{}{},
 		R:          "foo",
-		Referenced: []string{"ar"},
+		Referenced: []string{"-ar"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -2455,7 +2463,9 @@ end`,
 		Type:       descriptor.STRING,
 		I:          map[string]interface{}{},
 		R:          "foo",
-		Referenced: []string{"ar"},
+		Referenced: []string{"-ar"},
+		// CEL index operator is a function that always resolves the index
+		ReferencedCEL: []string{"-ar", "-as"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -2481,7 +2491,9 @@ end`,
 			"ar": map[string]string{"as": "bar"},
 		},
 		R:          "foo",
-		Referenced: []string{"ar", "as"},
+		Referenced: []string{"-as", "ar"},
+		// CEL resolved missing stringmap attributes to an empty map
+		ReferencedCEL: []string{"-ar[]", "-as", "ar"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -2490,7 +2502,9 @@ end`,
 			"as": "bar",
 		},
 		R:          "foo",
-		Referenced: []string{"ar"},
+		Referenced: []string{"-ar"},
+		// CEL index operator is a function that always resolves the index
+		ReferencedCEL: []string{"-ar", "as"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -2500,7 +2514,7 @@ end`,
 			"as": "!!!!",
 		},
 		R:          "foo",
-		Referenced: []string{"ar", "ar[!!!!]", "as"},
+		Referenced: []string{"-ar[!!!!]", "ar", "as"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -2553,7 +2567,7 @@ end`,
 			"ar": map[string]string{},
 		},
 		R:          "null",
-		Referenced: []string{"ar", "ar[b]", "ar[c]"},
+		Referenced: []string{"-ar[b]", "-ar[c]", "ar"},
 	},
 	{
 		E:    `ar["b"] | ar["c"] | "null"`,
@@ -2575,7 +2589,7 @@ end`,
 			},
 		},
 		R:          "b",
-		Referenced: []string{"ar", "ar[b]", "ar[c]"},
+		Referenced: []string{"-ar[b]", "ar", "ar[c]"},
 	},
 	{
 		E:    `adur`,
@@ -5225,6 +5239,9 @@ type TestInfo struct {
 	// Referenced contains a list of attributes that should be referenced. If nil, attribute
 	// tracking checks will be skipped.
 	Referenced []string
+
+	// ReferencedCEL overrides Referenced field for CEL-specific differences
+	ReferencedCEL []string
 
 	// Err contains the expected error message of a failed evaluation.
 	Err string

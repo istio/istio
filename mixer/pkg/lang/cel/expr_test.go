@@ -29,14 +29,16 @@ import (
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
+	ilt "istio.io/istio/mixer/pkg/il/testing"
 )
 
 var (
 	tests = []struct {
-		text     string
-		checkErr string
-		bag      map[string]interface{}
-		result   interface{}
+		text       string
+		checkErr   string
+		bag        map[string]interface{}
+		result     interface{}
+		referenced []string
 	}{
 		{
 			text:   `2 + 2 == 4`,
@@ -55,50 +57,60 @@ var (
 			bag: map[string]interface{}{
 				"test.bool": true,
 			},
-			result: errors.New("divide by zero"),
+			result:     errors.New("divide by zero"),
+			referenced: []string{"test.bool"},
 		},
 		{
 			text: `1 + 2 * request.size + size("test")`,
 			bag: map[string]interface{}{
 				"request.size": int64(5),
 			},
-			result: int64(15),
+			result:     int64(15),
+			referenced: []string{"request.size"},
 		},
 		{
 			text: `context.reporter.kind == "client"`,
 			bag: map[string]interface{}{
 				"context.reporter.kind": "client",
 			},
-			result: true,
+			result:     true,
+			referenced: []string{"context.reporter.kind"},
 		},
 		{
-			text:   `as`,
-			result: "",
+			text:       `as`,
+			result:     "",
+			referenced: []string{"-as"},
 		},
 		{
-			text:   `as`,
-			bag:    map[string]interface{}{"as": "test"},
-			result: "test",
+			text:       `as`,
+			bag:        map[string]interface{}{"as": "test"},
+			result:     "test",
+			referenced: []string{"as"},
 		},
 		{
-			text:   `context.reporter.kind`,
-			result: "",
+			text:       `context.reporter.kind`,
+			result:     "",
+			referenced: []string{"-context.reporter.kind"},
 		},
 		{
-			text:   `request.size`,
-			result: int64(0),
+			text:       `request.size`,
+			result:     int64(0),
+			referenced: []string{"-request.size"},
 		},
 		{
-			text:   `test.double`,
-			result: float64(0),
+			text:       `test.double`,
+			result:     float64(0),
+			referenced: []string{"-test.double"},
 		},
 		{
-			text:   `test.bool`,
-			result: false,
+			text:       `test.bool`,
+			result:     false,
+			referenced: []string{"-test.bool"},
 		},
 		{
-			text:   `source.ip`,
-			result: []byte{},
+			text:       `source.ip`,
+			result:     []byte{},
+			referenced: []string{"-source.ip"},
 		},
 		{
 			text:     `context.report`,
@@ -120,9 +132,10 @@ var (
 			text: `source.ip == destination.ip`,
 			bag: map[string]interface{}{
 				"source.ip":      []byte{127, 0, 0, 1},
-				"destination.ip": []byte(net.ParseIP("127.0.0.1")),
+				"destination.ip": []byte(net.ParseIP("127.0.0.1")), // this has IPv6 byte slice instead
 			},
-			result: true,
+			result:     true,
+			referenced: []string{"destination.ip", "source.ip"},
 		},
 		{
 			text:     `size(source.ip)`,
@@ -133,21 +146,24 @@ var (
 			bag: map[string]interface{}{
 				"context.reporter.kind": "server",
 			},
-			result: "inbound",
+			result:     "inbound",
+			referenced: []string{"context.reporter.kind"},
 		},
 		{
 			text: `connection.duration + duration("30s") == duration("1m")`,
 			bag: map[string]interface{}{
 				"connection.duration": 30 * time.Second,
 			},
-			result: true,
+			result:     true,
+			referenced: []string{"connection.duration"},
 		},
 		{
 			text: `timestamp("2017-01-15T01:30:15.01Z") + response.duration == timestamp("2017-01-15T01:31:15.01Z")`,
 			bag: map[string]interface{}{
 				"response.duration": 1 * time.Minute,
 			},
-			result: true,
+			result:     true,
+			referenced: []string{"response.duration"},
 		},
 		{
 			text:   `timestamp("2017-01-15T01:30:15.01Z") > timestamp("2017-01-15T01:31:15.01Z")`,
@@ -159,51 +175,61 @@ var (
 				"request.time": time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC),
 				"context.time": time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC),
 			},
-			result: true,
+			result:     true,
+			referenced: []string{"context.time", "request.time"},
 		},
 		{
-			text:   `request.time + connection.duration == context.time`,
-			result: true,
+			text:       `request.time + connection.duration == context.time`,
+			result:     true,
+			referenced: []string{"-connection.duration", "-context.time", "-request.time"},
 		},
 		{
-			text:   `request.headers["x-user"] == '''john'''`,
-			result: errors.New("no such key: 'x-user'"),
-		},
-		{
-			text: `request.headers["x-user"] == '''john'''`,
-			bag: map[string]interface{}{
-				"request.headers": attribute.WrapStringMap(map[string]string{"x-user": "john"}),
-			},
-			result: true,
+			text:       `request.headers["x-user"] == '''john'''`,
+			result:     errors.New("no such key: 'x-user'"),
+			referenced: []string{"-request.headers"},
 		},
 		{
 			text: `request.headers["x-user"] == '''john'''`,
 			bag: map[string]interface{}{
-				"request.headers": attribute.WrapStringMap(map[string]string{"x-other-user": "juan"}),
+				"request.headers": map[string]string{"x-user": "john"},
 			},
-			result: errors.New("no such key: 'x-user'"),
+			result:     true,
+			referenced: []string{"request.headers", "request.headers[x-user]"},
+		},
+		{
+			text: `request.headers["x-user"] == '''john'''`,
+			bag: map[string]interface{}{
+				"request.headers": map[string]string{"x-other-user": "juan"},
+			},
+			result:     errors.New("no such key: 'x-user'"),
+			referenced: []string{"-request.headers[x-user]", "request.headers"},
 		},
 		{
 			text: `'app' in source.labels`,
 			bag: map[string]interface{}{
-				"source.labels": attribute.WrapStringMap(map[string]string{"app": "mixer"}),
+				"source.labels": map[string]string{"app": "mixer"},
 			},
-			result: true,
+			result:     true,
+			referenced: []string{"source.labels", "source.labels[app]"},
 		},
 		{
-			text:   `source.labels == request.headers`,
-			result: errors.New("stringmap does not support equality"),
+			text:       `source.labels == request.headers`,
+			result:     errors.New("stringmap does not support equality"),
+			referenced: []string{"-request.headers", "-source.labels"},
 		},
 		{
-			text:   `type(source.labels)`,
-			result: errors.New("cannot convert stringmap to CEL types"),
+			text:       `type(source.labels)`,
+			result:     errors.New("cannot convert stringmap to CEL types"),
+			referenced: []string{"-source.labels"},
 		},
 		{
 			text: `size(source.labels)`,
 			bag: map[string]interface{}{
-				"source.labels": attribute.WrapStringMap(map[string]string{"app": "mixer", "zone": "us"}),
+				"source.labels": map[string]string{"app": "mixer", "zone": "us"},
 			},
-			result: errors.New("size not implemented on stringmaps"),
+			// TODO(kuat): note that to support size() we would need to store the lookup in the attribute tracker
+			result:     errors.New("size not implemented on stringmaps"),
+			referenced: []string{"source.labels"},
 		},
 		{
 			text:   `email("user@istio.io")`,
@@ -258,78 +284,121 @@ var (
 			result: "ab",
 		},
 		{
-			text:   `conditional(context.reporter.kind == "client", getOrElse("outbound", "test"), "inbound")`,
-			result: "inbound",
+			text:       `conditional(context.reporter.kind == "client", getOrElse(as, "test"), "inbound")`,
+			result:     "inbound",
+			referenced: []string{"-context.reporter.kind"},
 		},
 		{
-			text:   `conditional(context.reporter.kind == "client", getOrElse("outbound", "test"), "inbound")`,
-			bag:    map[string]interface{}{"context.reporter.kind": "client"},
-			result: "outbound",
+			text:       `conditional(context.reporter.kind == "client", getOrElse("outbound", "test"), "inbound")`,
+			bag:        map[string]interface{}{"context.reporter.kind": "client"},
+			result:     "outbound",
+			referenced: []string{"context.reporter.kind"},
 		},
 		{
-			text:   `getOrElse(request.size, response.size, 100)`,
-			result: int64(100),
+			text:       `getOrElse(request.size, response.size, 100)`,
+			result:     int64(100),
+			referenced: []string{"-request.size", "-response.size"},
 		},
 		{
-			text:   `getOrElse(request.size, response.size, 100)`,
-			bag:    map[string]interface{}{"request.size": int64(123)},
-			result: int64(123),
+			text:       `getOrElse(request.size, response.size, 100)`,
+			bag:        map[string]interface{}{"request.size": int64(123)},
+			result:     int64(123),
+			referenced: []string{"request.size"},
 		},
 		{
-			text:   `getOrElse(request.size, response.size, 100)`,
-			bag:    map[string]interface{}{"response.size": int64(345)},
-			result: int64(345),
+			text:       `getOrElse(request.size, response.size, 100)`,
+			bag:        map[string]interface{}{"response.size": int64(345)},
+			result:     int64(345),
+			referenced: []string{"-request.size", "response.size"},
 		},
 		{
-			text:   `"value=" + getOrElse(source.name, "unknown")`,
-			result: "value=unknown",
+			text:       `"value=" + getOrElse(source.name, "unknown")`,
+			result:     "value=unknown",
+			referenced: []string{"-source.name"},
 		},
 		{
-			text:   `"value=" + getOrElse(source.name, "unknown")`,
-			bag:    map[string]interface{}{"source.name": "x"},
-			result: "value=x",
+			text:       `"value=" + getOrElse(source.name, "unknown")`,
+			bag:        map[string]interface{}{"source.name": "x"},
+			result:     "value=x",
+			referenced: []string{"source.name"},
 		},
 		{
-			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
-			result: "john",
+			text:       `getOrElse(source.name, request.headers["x-user"], "john")`,
+			result:     "john",
+			referenced: []string{"-request.headers", "-source.name"},
 		},
 		{
-			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
-			bag:    map[string]interface{}{"source.name": "x"},
-			result: "x",
+			text:       `getOrElse(source.name, request.headers["x-user"], "john")`,
+			bag:        map[string]interface{}{"source.name": "x"},
+			result:     "x",
+			referenced: []string{"source.name"},
 		},
 		{
-			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
-			bag:    map[string]interface{}{"request.headers": attribute.WrapStringMap(map[string]string{})},
-			result: "john",
+			text:       `getOrElse(source.name, request.headers["x-user"], "john")`,
+			bag:        map[string]interface{}{"request.headers": map[string]string{}},
+			result:     "john",
+			referenced: []string{"-request.headers[x-user]", "-source.name", "request.headers"},
 		},
 		{
-			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
-			bag:    map[string]interface{}{"request.headers": attribute.WrapStringMap(map[string]string{"x": "y"})},
-			result: "john",
+			text:       `getOrElse(source.name, request.headers["x-user"], "john")`,
+			bag:        map[string]interface{}{"request.headers": map[string]string{"x": "y"}},
+			result:     "john",
+			referenced: []string{"-request.headers[x-user]", "-source.name", "request.headers"},
 		},
 		{
-			text:   `getOrElse(source.name, request.headers["x-user"], "john")`,
-			bag:    map[string]interface{}{"request.headers": attribute.WrapStringMap(map[string]string{"x-user": "y"})},
-			result: "y",
+			text:       `getOrElse(source.name, request.headers["x-user"], "john")`,
+			bag:        map[string]interface{}{"request.headers": map[string]string{"x-user": "y"}},
+			result:     "y",
+			referenced: []string{"-source.name", "request.headers", "request.headers[x-user]"},
 		},
 		{
-			text:   `getOrElse(source.labels["app"], source.name, "unknown")`,
-			result: "unknown",
+			text:       `getOrElse(source.labels["app"], source.name, "unknown")`,
+			result:     "unknown",
+			referenced: []string{"-source.labels", "-source.name"},
 		},
 		{
-			text:   `getOrElse(source.labels["app"], source.name, "unknown")`,
-			bag:    map[string]interface{}{"source.name": "x"},
-			result: "x",
+			text:       `getOrElse(source.labels["app"], source.name, "unknown")`,
+			bag:        map[string]interface{}{"source.name": "x"},
+			result:     "x",
+			referenced: []string{"-source.labels", "source.name"},
 		},
 		{
-			text:   `getOrElse(source.labels["app"], source.name, "unknown")`,
-			bag:    map[string]interface{}{"source.labels": attribute.WrapStringMap(map[string]string{"app": "istio"})},
-			result: "istio",
+			text:       `getOrElse(source.labels["app"], source.name, "unknown")`,
+			bag:        map[string]interface{}{"source.labels": map[string]string{"app": "istio"}},
+			result:     "istio",
+			referenced: []string{"source.labels", "source.labels[app]"},
 		},
 		{
 			text:   `has(context.reporter)`,
 			result: true,
+		},
+		{
+			text:       `has(context.reporter.kind)`,
+			result:     false,
+			referenced: []string{"-context.reporter.kind"},
+		},
+		{
+			text:     `has(context.report)`,
+			checkErr: "undefined field 'report'",
+		},
+		{
+			text:     `request.size.length`,
+			checkErr: `does not support field selection`,
+		},
+		{
+			text:     `has(request.header.test)`,
+			checkErr: "undefined field 'header'",
+		},
+		{
+			text:       `has(request.headers.test)`,
+			result:     false,
+			referenced: []string{"-request.headers"},
+		},
+		{
+			text:       `has(request.headers.test)`,
+			bag:        map[string]interface{}{"request.headers": map[string]string{"test": "test"}},
+			result:     true,
+			referenced: []string{"request.headers", "request.headers[test]"},
 		},
 		{
 			text:   `has({}.a)`,
@@ -356,13 +425,16 @@ var (
 			result: int64(1),
 		},
 		{
-			text:   `request.size + google.protobuf.Int64Value{value: 1}.value`,
-			bag:    map[string]interface{}{"request.size": int64(123)},
-			result: int64(124),
+			text:       `request.size + google.protobuf.Int64Value{value: 1}.value`,
+			bag:        map[string]interface{}{"request.size": int64(123)},
+			result:     int64(124),
+			referenced: []string{"request.size"},
 		},
 		{
 			text:   `type(context.reporter.kind) == string`,
 			result: true,
+			// note that type lookup is a runtime operation, so the attribute lookup is necessary
+			referenced: []string{"-context.reporter.kind"},
 		},
 	}
 	attrs = map[string]*v1beta1.AttributeManifest_AttributeInfo{
@@ -430,13 +502,23 @@ func TestCELExpressions(t *testing.T) {
 			// expressions must evaluate to the right result
 			program := interpreter.NewCheckedProgram(checked)
 			eval := i.NewInterpretable(program)
-			result, _ := eval.Eval(provider.newActivation(attribute.GetMutableBagForTesting(test.bag)))
+			b := ilt.NewFakeBag(test.bag)
+
+			result, _ := eval.Eval(provider.newActivation(b))
 			got, err := recoverValue(result)
 			if err != nil {
 				got = err
 			}
 			if !reflect.DeepEqual(got, test.result) {
-				t.Fatalf("expected result %v, got %v (%T and %T)", test.result, got, test.result, got)
+				t.Errorf("expected result %v, got %v (%T and %T)", test.result, got, test.result, got)
+			}
+
+			// auto-fill referenced
+			if test.referenced == nil {
+				test.referenced = []string{}
+			}
+			if referenced := b.ReferencedList(); !reflect.DeepEqual(referenced, test.referenced) {
+				t.Errorf("referenced attributes: got %v, want %v", referenced, test.referenced)
 			}
 		})
 	}
