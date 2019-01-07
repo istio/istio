@@ -89,7 +89,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+	proxyInstances []*model.ServiceInstance, _ []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
 	if routeName != RDSHttpProxy {
@@ -101,7 +101,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	services = sidecarScope.Services()
+	services := sidecarScope.Services()
 	virtualServices := sidecarScope.VirtualServices()
 
 	// TODO: handle RDS for UDS listeners

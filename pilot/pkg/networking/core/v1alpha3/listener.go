@@ -500,7 +500,7 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext, proxyInstances []*model.ServiceInstance,
-	services []*model.Service) []*xdsapi.Listener {
+	_ []*model.Service) []*xdsapi.Listener {
 
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {
@@ -508,7 +508,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	services = sidecarScope.Services()
+	services := sidecarScope.Services()
 	configs := sidecarScope.VirtualServices()
 
 	var tcpListeners, httpListeners []*xdsapi.Listener

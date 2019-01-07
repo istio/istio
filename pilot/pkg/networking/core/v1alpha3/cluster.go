@@ -127,7 +127,8 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext, proxy *model.Proxy, proxyInstances []*model.ServiceInstance) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext,
+	proxy *model.Proxy, proxyInstances []*model.ServiceInstance) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 
 	inputParams := &plugin.InputParams{
