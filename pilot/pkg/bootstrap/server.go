@@ -176,6 +176,8 @@ type PilotArgs struct {
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
 	KeepaliveOptions     *istiokeepalive.Options
+	// ForceStop is set as true when used for testing to make the server stop quickly
+	ForceStop bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -981,7 +983,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			if err != nil {
 				log.Warna(err)
 			}
-			s.grpcServer.GracefulStop()
+			if args.ForceStop {
+				s.grpcServer.Stop()
+			} else {
+				s.grpcServer.GracefulStop()
+			}
 		}()
 
 		return nil
@@ -1016,7 +1022,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}()
 			go func() {
 				<-stop
-				s.grpcServer.GracefulStop()
+				if args.ForceStop {
+					s.grpcServer.Stop()
+				} else {
+					s.grpcServer.GracefulStop()
+				}
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				s.secureHTTPServer.Shutdown(ctx)
