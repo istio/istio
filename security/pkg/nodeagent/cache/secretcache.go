@@ -127,7 +127,7 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(string, 
 	}
 
 	fetcher.DeleteCache = ret.DeleteK8sSecret
-  fetcher.UpdateCache = ret.UpdateK8sSecret
+	fetcher.UpdateCache = ret.UpdateK8sSecret
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
 	atomic.StoreUint32(&ret.skipTokenExpireCheck, 1)
