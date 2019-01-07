@@ -137,7 +137,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	return normalizeClusters(push, proxy, clusters), nil
 }
 
-func ApplyLocalityWeightSetting(proxy *model.Proxy, cluster *v2.Cluster, push *model.PushContext) {
+func ApplyLocalityWeightSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
 	if config := push.DestinationRule(proxy, hostname); config != nil {
 		if port := push.ServicePort(hostname, portNumber); port != nil {
@@ -813,7 +813,7 @@ func applyLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAs
 				}
 			}
 
-			// remove groups of endpoints in a locality that mismatched
+			// remove groups of endpoints in a locality that miss matched
 			for i := range misMatched {
 				loadAssignment.Endpoints[i].LbEndpoints = nil
 			}
