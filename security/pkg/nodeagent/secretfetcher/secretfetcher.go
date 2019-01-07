@@ -157,7 +157,6 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	t := time.Now()
 	resourceName := scrt.GetName()
 	// If there is secret with the same resource name, delete that secret now.
-	// That secret could be a real secret which is added before, or a deleted secret with empty key/cert.
 	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
@@ -167,8 +166,7 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(resourceName, *ns)
-	log.Infof("secret %s is added", scrt.GetName())
-	log.Infof("debug sds: added secret %v", ns)
+	log.Debugf("secret %s is added", scrt.GetName())
 }
 
 func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
@@ -180,19 +178,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 
 	key := scrt.GetName()
 	sf.secrets.Delete(key)
-	t := time.Now()
-	// Add an SecretItem with no key/cert pair.
-	// This is to force Enovy replace old secret with this one. Otherwise Envoy will use the old secret to handle connection.
-	ns := &model.SecretItem{
-		ResourceName: key,
-		CertificateChain: []byte("fake cert chain"),
-		PrivateKey: []byte("fake private key"),
-		CreatedTime:  t,
-		Version:      t.String(),
-	}
-	sf.secrets.Store(key, *ns)
-	log.Infof("secret %s is deleted", scrt.GetName())
-	log.Infof("debug sds: deleted secret %v", ns)
+	log.Debugf("secret %s is deleted", scrt.GetName())
 }
 
 func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
@@ -214,7 +200,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 	if bytes.Equal(oscrt.Data[ScrtCert], nscrt.Data[ScrtCert]) && bytes.Equal(oscrt.Data[ScrtKey], nscrt.Data[ScrtKey]) {
-		log.Infof("secret %s does not change, skip update", okey)
+		log.Debugf("secret %s does not change, skip update", okey)
 		return
 	}
 	sf.secrets.Delete(okey)
@@ -228,8 +214,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		Version:          t.String(),
 	}
 	sf.secrets.Store(nkey, *ns)
-	log.Infof("secret %s is updated", nscrt.GetName())
-	log.Infof("debug sds: updated secret %v", ns)
+	log.Debugf("secret %s is updated", nscrt.GetName())
 }
 
 // FindIngressGatewaySecret returns the secret for a k8sKeyA, or empty secret if no

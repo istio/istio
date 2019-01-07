@@ -86,11 +86,7 @@ func TestSecretFetcher(t *testing.T) {
 	expectedDeletedSecret := &model.SecretItem{
 		ResourceName: k8sSecretNameA,
 	}
-	var secretVersionTwo string
-	testDeleteSecret(t, gSecretFetcher, k8sTestSecretA, expectedDeletedSecret, &secretVersionTwo)
-	if secretVersionOne == secretVersionTwo {
-		t.Errorf("added secret and deleted secret should have different version")
-	}
+	testDeleteSecret(t, gSecretFetcher, k8sTestSecretA, expectedDeletedSecret)
 
 	// Add test secret again and verify that key/cert pair is stored and version number is different.
 	expectedSecret := &model.SecretItem{
@@ -98,9 +94,9 @@ func TestSecretFetcher(t *testing.T) {
 		CertificateChain: k8sCertChainA,
 		PrivateKey:       k8sKeyA,
 	}
-	var secretVersionThree string
-	testAddSecret(t, gSecretFetcher, k8sTestSecretA, expectedSecret, &secretVersionThree)
-	if secretVersionThree == secretVersionTwo || secretVersionThree == secretVersionOne {
+	var secretVersionTwo string
+	testAddSecret(t, gSecretFetcher, k8sTestSecretA, expectedSecret, &secretVersionTwo)
+	if secretVersionTwo == secretVersionOne {
 		t.Errorf("added secret should have different version")
 	}
 
@@ -110,9 +106,9 @@ func TestSecretFetcher(t *testing.T) {
 		CertificateChain: k8sCertChainB,
 		PrivateKey:       k8sKeyB,
 	}
-	var secretVersionFour string
-	testUpdateSecret(t, gSecretFetcher, k8sTestSecretA, k8sTestSecretB, expectedUpdateSecret, &secretVersionFour)
-	if secretVersionFour == secretVersionTwo || secretVersionFour == secretVersionOne || secretVersionFour == secretVersionThree {
+	var secretVersionThree string
+	testUpdateSecret(t, gSecretFetcher, k8sTestSecretA, k8sTestSecretB, expectedUpdateSecret, &secretVersionThree)
+	if secretVersionThree == secretVersionTwo || secretVersionThree == secretVersionOne {
 		t.Errorf("updated secret should have different version")
 	}
 }
@@ -140,15 +136,13 @@ func testAddSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expect
 	compareSecret(t, &secret, expectedSecret)
 }
 
-func testDeleteSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expectedSecret *model.SecretItem, version *string) {
+func testDeleteSecret(t *testing.T, sf *SecretFetcher, k8ssecret *v1.Secret, expectedSecret *model.SecretItem) {
 	// Delete a test secret and find the secret.
 	sf.scrtDeleted(k8ssecret)
-	secret, ok := sf.FindIngressGatewaySecret(expectedSecret.ResourceName)
-	if !ok {
-		t.Errorf("secretFetcher failed to find a deleted secret %v", expectedSecret.ResourceName)
+	_, ok := sf.FindIngressGatewaySecret(expectedSecret.ResourceName)
+	if ok {
+		t.Errorf("secretFetcher found a deleted secret %v", expectedSecret.ResourceName)
 	}
-	*version = secret.Version
-	compareSecret(t, &secret, expectedSecret)
 }
 
 func testUpdateSecret(t *testing.T, sf *SecretFetcher, k8sOldsecret, k8sNewsecret *v1.Secret, expectedSecret *model.SecretItem, version *string) {
