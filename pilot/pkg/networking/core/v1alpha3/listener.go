@@ -552,10 +552,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		break
 	}
 
-	if catchAllListener == nil {
-		goto validateListeners
-	}
-
 	// Only import services and virtualServices required by this listener
 	importedServices = catchAllListener.SelectServices(services)
 	importedConfigs = catchAllListener.SelectVirtualServices(configs)
@@ -790,7 +786,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		}
 	}
 
-validateListeners:
 	for name, l := range listenerMap {
 		if err := l.listener.Validate(); err != nil {
 			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)

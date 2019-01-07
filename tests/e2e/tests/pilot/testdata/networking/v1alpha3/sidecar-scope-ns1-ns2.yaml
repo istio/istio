@@ -6,5 +6,5 @@ spec:
   egress:
   - hosts:
     - "ns1/*"
-    - "*/tcp.com"
+    - "*/*.tcp.com"
     # Notice missing istio-system. This means a cant reach b

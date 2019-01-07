@@ -4,7 +4,7 @@ metadata:
   name: service-entry-tcp-scope-public
 spec:
   hosts:
-  - "tcp.com"
+  - "service.tcp.com"
   addresses:
   - "127.255.255.11"
   ports:

@@ -132,6 +132,10 @@ func convertIstioListenerToWrapper(istioListener *networking.IstioListener) *Ist
 // GetEgressListenerForPort returns the egress listener corresponding to
 // the listener port or the catch all listener
 func (sc *SidecarScope) GetEgressListenerForPort(port int) *IstioListenerWrapper {
+	if sc == nil {
+		return nil
+	}
+
 	for _, e := range sc.EgressListeners {
 		if e.Port == nil || e.Port.Port == port {
 			return e
@@ -143,19 +147,25 @@ func (sc *SidecarScope) GetEgressListenerForPort(port int) *IstioListenerWrapper
 // SelectServices returns the list of services selected through the hosts field
 // in the ingress/egress portion of the Sidecar config
 func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service {
+	if ilw == nil {
+		return nil
+	}
+
 	importedServices := make([]*Service, 0)
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
 		// Check if there is an explicit import of form ns/* or ns/host
-		// else check if there is an import of form */host or */*
 		if hostMatch, nsFound := ilw.importMap[configNamespace]; nsFound {
 			// Check if the hostnames match per usual hostname matching rules
 			if hostMatch.Matches(s.Hostname) {
 				importedServices = append(importedServices, s)
+				continue
 			}
-		} else if hostMatch, wnsFound := ilw.importMap[wildcardNamespace]; wnsFound {
-			// Check if there is an import of form */host or */*
+			// hostname didn't match. Check if its imported as */host
+		}
 
+		// Check if there is an import of form */host or */*
+		if hostMatch, wnsFound := ilw.importMap[wildcardNamespace]; wnsFound {
 			// Check if the hostnames match per usual hostname matching rules
 			if hostMatch.Matches(s.Hostname) {
 				importedServices = append(importedServices, s)
@@ -170,6 +180,10 @@ func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service 
 // through the hosts field in the ingress/egress portion of the Sidecar
 // config
 func (ilw *IstioListenerWrapper) SelectVirtualServices(configs []Config) []Config {
+	if ilw == nil {
+		return nil
+	}
+
 	importedConfigs := make([]Config, 0)
 	for _, c := range configs {
 		configNamespace := c.Namespace

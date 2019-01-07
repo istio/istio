@@ -851,6 +851,8 @@ func TestSidecarScope(t *testing.T) {
 		}(ns)
 	}
 	applyRuleFunc(t, rules)
+	// Wait a few seconds so that the older proxy listeners get overwritten
+	time.Sleep(5 * time.Second)
 
 	cases := []struct {
 		testName    string
@@ -880,7 +882,7 @@ func TestSidecarScope(t *testing.T) {
 			reachable: false,
 		},
 		{
-			testName:  "ns2: tcp.com:8888 reachable",
+			testName:  "ns2: service.tcp.com:8888 reachable",
 			reqURL:    "http://127.255.255.11:8888/a",
 			host:      "tcp.com",
 			reachable: true,
