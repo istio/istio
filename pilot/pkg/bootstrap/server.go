@@ -84,9 +84,6 @@ const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 
-	// MeshNetworksConfigMapKey should match the expected MeshNetworks config file name
-	MeshNetworksConfigMapKey = "meshNetworks"
-
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
 
 	// DefaultMCPMaxMsgSize is the default maximum message size
@@ -442,7 +439,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 			return
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
-			log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
 			s.EnvoyXdsServer.ConfigUpdate(true)
