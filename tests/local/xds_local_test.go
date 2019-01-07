@@ -180,6 +180,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 				string(serviceregistry.KubernetesRegistry)},
 		},
 		KeepaliveOptions: keepalive.DefaultOption(),
+		ForceStop:        true,
 	}
 	// Create the server for the discovery service.
 	discoveryServer, err := bootstrap.NewServer(serverAgrs)
