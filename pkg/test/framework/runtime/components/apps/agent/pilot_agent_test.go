@@ -254,6 +254,7 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 			Registries: []string{},
 		},
 		KeepaliveOptions: keepalive.DefaultOption(),
+		ForceStop:        true,
 	}
 
 	// Create the server for the discovery service.

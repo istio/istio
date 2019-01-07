@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -874,9 +875,20 @@ func TestController_ExternalNameService(t *testing.T) {
 		}
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(len(k8sSvcs))
+	deleteHandler := func(_ *model.Service, e model.Event) {
+		if e == model.EventDelete {
+			wg.Done()
+		}
+	}
+	if err := controller.AppendServiceHandler(deleteHandler); err != nil {
+		t.Fatalf("Failed to append service handler: %+v", err)
+	}
 	for _, s := range k8sSvcs {
 		deleteExternalNameService(controller, s.Name, s.Namespace, t, fx.Events)
 	}
+	wg.Wait()
 	svcList, _ = controller.Services()
 	if len(svcList) != 0 {
 		t.Fatalf("Should have 0 services at this point")

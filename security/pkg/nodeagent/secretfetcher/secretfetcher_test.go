@@ -34,7 +34,7 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretName,
-			Namespace: IngressSecretNameSpace,
+			Namespace: "test-namespace",
 		},
 		Type: IngressSecretType,
 	}
@@ -43,12 +43,10 @@ var (
 // TestSecretFetcher verifies that secret fetcher is able to add kubernetes secret into local store,
 // find secret by name, and delete secret by name.
 func TestSecretFetcher(t *testing.T) {
-	client := fake.NewSimpleClientset()
-	gSecretFetcher, err := NewSecretFetcher(true, "", "", false,
-		client, "", "", "", "")
-	if err != nil {
-		t.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+	gSecretFetcher := SecretFetcher{
+		UseCaClient: false,
 	}
+	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
 		t.Error("secretFetcher should not use ca client")
 	}

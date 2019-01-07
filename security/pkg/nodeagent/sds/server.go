@@ -74,6 +74,9 @@ type Options struct {
 
 	// The Vault sign CSR path.
 	VaultSignCsrPath string
+
+	// The Vault TLS root certificate.
+	VaultTLSRootCert string
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -91,8 +94,8 @@ type Server struct {
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.SecretManager) (*Server, error) {
 	s := &Server{
-		workloadSds: newSDSService(workloadSecretCache, options.EnableWorkloadSDS),
-		gatewaySds:  newSDSService(gatewaySecretCache, options.EnableIngressGatewaySDS),
+		workloadSds: newSDSService(workloadSecretCache, false),
+		gatewaySds:  newSDSService(gatewaySecretCache, true),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(&options); err != nil {
@@ -178,6 +181,7 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
 	if err != nil {
 		log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+		return fmt.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 	}
 
 	go func() {

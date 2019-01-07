@@ -62,59 +62,90 @@ var (
 )
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
-	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, "", sdsRequestStream, false, true, false)
+	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   "",
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestStreamSecretsForGatewaySds(t *testing.T) {
-	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, "", gatewaySocket, sdsRequestStream, true, false, false)
+	arg := Options{
+		EnableIngressGatewaySDS: true,
+		EnableWorkloadSDS:       false,
+		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:         "",
+	}
+	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestStreamSecretsForBothSds(t *testing.T) {
-	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID()))
-	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, gatewaySocket, sdsRequestStream, true, true, false)
+	arg := Options{
+		EnableIngressGatewaySDS: true,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
-	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, "", sdsRequestFetch, false, true, false)
+	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   "",
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestFetchSecretsForGatewaySds(t *testing.T) {
-	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, "", gatewaySocket, sdsRequestFetch, true, false, false)
+	arg := Options{
+		EnableIngressGatewaySDS: true,
+		EnableWorkloadSDS:       false,
+		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:         "",
+	}
+	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestFetchSecretsForBothSds(t *testing.T) {
-	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID()))
-	gatewaySocket := fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, gatewaySocket, sdsRequestFetch, true, true, false)
+	arg := Options{
+		EnableIngressGatewaySDS: true,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestStreamSecretsInvalidResourceName(t *testing.T) {
-	workloadSocket := fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, workloadSocket, "", sdsRequestStream, false, true, true)
+	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   "",
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestStream, true)
 }
 
 type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse, error)
 
-func testHelper(t *testing.T, wTestSocket, gTestSocket string, cb secretCallback, enableGatewaySds, enableWorkloadSds, testInvalidResourceNames bool) {
-	arg := Options{
-		EnableIngressGatewaySDS: enableGatewaySds,
-		EnableWorkloadSDS:       enableWorkloadSds,
-		WorkloadUDSPath:         wTestSocket,
-		IngressGatewayUDSPath:   gTestSocket,
-	}
+func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourceNames bool) {
 	var wst, gst cache.SecretManager
-	if enableWorkloadSds {
-		wst = &mockSecretStore{}
+	if arg.EnableWorkloadSDS {
+		wst = &mockSecretStore{
+			checkToken: true,
+		}
 	} else {
 		wst = nil
 	}
-	if enableGatewaySds {
-		gst = &mockSecretStore{}
+	if arg.EnableIngressGatewaySDS {
+		gst = &mockSecretStore{
+			checkToken: false,
+		}
 	} else {
 		gst = nil
 	}
@@ -125,19 +156,19 @@ func testHelper(t *testing.T, wTestSocket, gTestSocket string, cb secretCallback
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
-	if testInvalidResourceNames && enableWorkloadSds {
-		sendRequestAndVerifyResponse(t, cb, wTestSocket, proxyID, testInvalidResourceNames)
+	if testInvalidResourceNames && arg.EnableWorkloadSDS {
+		sendRequestAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID, testInvalidResourceNames)
 		return
 	}
 
-	if enableWorkloadSds {
-		sendRequestAndVerifyResponse(t, cb, wTestSocket, proxyID, testInvalidResourceNames)
+	if arg.EnableWorkloadSDS {
+		sendRequestAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID, testInvalidResourceNames)
 
 		// Request for root certificate.
-		sendRequestForRootCertAndVerifyResponse(t, cb, wTestSocket, proxyID)
+		sendRequestForRootCertAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID)
 	}
-	if enableGatewaySds {
-		sendRequestAndVerifyResponse(t, cb, gTestSocket, proxyID, testInvalidResourceNames)
+	if arg.EnableIngressGatewaySDS {
+		sendRequestAndVerifyResponse(t, cb, arg.IngressGatewayUDSPath, proxyID, testInvalidResourceNames)
 	}
 }
 
@@ -205,7 +236,9 @@ func TestStreamSecretsPush(t *testing.T) {
 		EnableWorkloadSDS:       true,
 		WorkloadUDSPath:         socket,
 	}
-	st := &mockSecretStore{}
+	st := &mockSecretStore{
+		checkToken: true,
+	}
 	server, err := NewServer(arg, st, nil)
 	defer server.Stop()
 
@@ -382,10 +415,11 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 }
 
 type mockSecretStore struct {
+	checkToken bool
 }
 
-func (*mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
-	if token != fakeCredentialToken {
+func (ms *mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
+	if ms.checkToken && token != fakeCredentialToken {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
