@@ -139,18 +139,7 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Do not remove: mixerfilter depends on this logic.
-	if UID != "" {
-		ep.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*types.Struct{
-				"istio": {
-					Fields: map[string]*types.Value{
-						"uid":     {Kind: &types.Value_StringValue{StringValue: UID}},
-						"network": {Kind: &types.Value_StringValue{StringValue: network}},
-					},
-				},
-			},
-		}
-	}
+	ep.Metadata = endpointMetadata(UID, network)
 
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep
@@ -170,26 +159,35 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Do not remove: mixerfilter depends on this logic.
-	if e.UID != "" || e.Network != "" {
-		ep.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*types.Struct{
-				"istio": {
-					Fields: map[string]*types.Value{},
-				},
-			},
-		}
-	}
-
-	if e.UID != "" {
-		ep.Metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: e.UID}}
-	}
-
-	if e.Network != "" {
-		ep.Metadata.FilterMetadata["istio"].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: e.Network}}
-	}
+	ep.Metadata = endpointMetadata(e.UID, e.Network)
 
 	//log.Infoa("EDS: endpoint ", ipAddr, ep.String())
 	return ep, nil
+}
+
+// Create an Istio filter metadata object with the UID and Network fields (if exist).
+func endpointMetadata(UID string, network string) *core.Metadata {
+	if UID == "" && network == "" {
+		return nil
+	}
+
+	metadata := &core.Metadata{
+		FilterMetadata: map[string]*types.Struct{
+			"istio": {
+				Fields: map[string]*types.Value{},
+			},
+		},
+	}
+
+	if UID != "" {
+		metadata.FilterMetadata["istio"].Fields["uid"] = &types.Value{Kind: &types.Value_StringValue{StringValue: UID}}
+	}
+
+	if network != "" {
+		metadata.FilterMetadata["istio"].Fields["network"] = &types.Value{Kind: &types.Value_StringValue{StringValue: network}}
+	}
+
+	return metadata
 }
 
 // updateClusterInc computes an envoy cluster assignment from the service shards.
