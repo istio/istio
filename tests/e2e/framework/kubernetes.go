@@ -806,7 +806,7 @@ func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 
 	// deploy CRDs first
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
-		return fmt.Errorf("failed to apply %s because %v", yamlFileName, err)
+		return err
 	}
 	return nil
 }
@@ -819,7 +819,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	// deploy all CRDs in Istio first
 	for _, yamlFileName := range istioCRDFileNames {
 		if err := k.deployCRDs(yamlFileName); err != nil {
-			return fmt.Errorf("failed to apply all Istio CRDs: %v", err)
+			return fmt.Errorf("failed to apply all Istio CRDs from file: %s with error: %v", yamlFileName, err)
 		}
 	}
 
