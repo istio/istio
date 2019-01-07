@@ -442,7 +442,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 			return
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
-			log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
 			s.EnvoyXdsServer.ConfigUpdate(true)
