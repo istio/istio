@@ -66,10 +66,17 @@ const (
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
+	// CRD files that should be installed during testing
+	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
+	//     and contain all CRDs used by Istio during runtime
+	CRDFileZero                    = "crd-10.yaml"
+	CRDFileOne                     = "crd-11.yaml"
+	CRDFileTwo                     = "crd-certmanager-10.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
+
 
 	validationWebhookReadinessTimeout = time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
@@ -696,7 +703,6 @@ func (k *KubeInfo) deployIstio() error {
 	}
 
 	if err := util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig); err != nil {
-		log.Errorf("CheckDeployments() failed a")
 		return err
 	}
 
@@ -714,7 +720,6 @@ func (k *KubeInfo) deployIstio() error {
 		}
 
 		if err := k.waitForValdiationWebhook(); err != nil {
-			log.Errorf("waitForValidationWebhook() failed")
 			return err
 		}
 	}
@@ -801,21 +806,20 @@ func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
 
 	// deploy CRDs first
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
-		log.Errorf("Failed to apply %s", yamlFileName)
-		return err
+		return fmt.Errorf("Failed to apply %s because %v", yamlFileName, err)
 	}
 	return nil
 }
 
 func (k *KubeInfo) deployIstioWithHelm() error {
-	// Note: When adding a CRD to the install, an entry is needed here as well
-	istioCRDFileNames := []string{"crd-10.yaml", "crd-11.yaml", "crd-certmanager-10.yaml"}
+	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
+	// This slice contains the list of CRD files installed during testing
+	istioCRDFileNames := []string{CRDFileZero, CRDFileOne, CRDFileTwo}
 
 	// deploy all CRDs in Istio first
 	for _, yamlFileName := range istioCRDFileNames {
 		if err := k.deployCRDs(yamlFileName); err != nil {
-			log.Errorf("Failed to apply all Istio-specific CRDs")
-			return err
+			return fmt.Errorf("Failed to apply all Istio CRDS: %v", err)
 		}
 	}
 
