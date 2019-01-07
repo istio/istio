@@ -148,6 +148,15 @@ to connect to Mixer.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-sidecar_to_telemetry_session_affinity">
+<td><code>sidecarToTelemetrySessionAffinity</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enable session affinity for envoy mixer reports so that calls from a proxy will
+always target the same mixer instance.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-proxy_listen_port">
 <td><code>proxyListenPort</code></td>
 <td><code>int32</code></td>
@@ -262,11 +271,11 @@ at runtime and config gets distributed dynamically.</p>
 <p>Set the default behavior of the sidecar for handling outbound traffic
 from the application.  If your application uses one or more external
 services that are not known apriori, setting the policy to ALLOW<em>ANY
-will cause the sidecars to route traffic to the any unknown traffic
-originating from the application to its requested destination.  Users
-are strongly encouraged to use ServiceEntries to explicitly declare
-any external dependencies, instead of using allow</em>any, so that traffic
-to these services can be monitored.</p>
+will cause the sidecars to route any unknown traffic originating from
+the application to its requested destination.  Users are strongly
+encouraged to use ServiceEntries to explicitly declare any external
+dependencies, instead of using allow</em>any, so that traffic to these
+services can be monitored.</p>
 
 </td>
 </tr>
@@ -572,7 +581,7 @@ adding ISTIO<em>META</em>NETWORK environment variable to the sidecar.</p></li>
 </ol>
 
 <p>a. By matching the registry name with one of the &ldquo;from<em>registries&rdquo;
-   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assinged to a
+   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assigned to a
    single network.</p>
 
 <p>b. By matching the IP against one of the CIDR ranges in a mesh

@@ -118,9 +118,8 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 //   name: my-gateway
 //   namespace: some-config-namespace
 // spec:
-//   workloadSelector:
-//     labels:
-//       app: my-gateway-controller
+//   selector:
+//     app: my-gateway-controller
 //   servers:
 //   - port:
 //       number: 80
@@ -237,16 +236,12 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
 	Servers []*Server `protobuf:"bytes,1,rep,name=servers" json:"servers,omitempty"`
-	// One or more labels that indicate a specific set of pods/VMs on which
-	// this gateway configuration should be applied.  The scope of label
-	// search is platform dependent.  On Kubernetes, for example, the scope
-	// includes pods running in all reachable namespaces. Precisely one of
-	// selector or workloadSelector MUST be specified.
+	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
+	// on which this gateway configuration should be applied. The scope of
+	// label search is restricted to the configuration namespace in which the
+	// the resource is present. In other words, the Gateway resource must
+	// reside in the same namespace as the gateway workload.
 	Selector map[string]string `protobuf:"bytes,2,rep,name=selector" json:"selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// Criteria used to select the specific set of pods/VMs on which this
-	// gateway configuration should be applied. Precisely one of selector
-	// or workloadSelector must be specified.
-	WorkloadSelector *WorkloadSelector `protobuf:"bytes,3,opt,name=workload_selector,json=workloadSelector" json:"workload_selector,omitempty"`
 }
 
 func (m *Gateway) Reset()                    { *m = Gateway{} }
@@ -268,13 +263,6 @@ func (m *Gateway) GetSelector() map[string]string {
 	return nil
 }
 
-func (m *Gateway) GetWorkloadSelector() *WorkloadSelector {
-	if m != nil {
-		return m.WorkloadSelector
-	}
-	return nil
-}
-
 // `Server` describes the properties of the proxy on a given load balancer
 // port. For example,
 //
@@ -284,9 +272,8 @@ func (m *Gateway) GetWorkloadSelector() *WorkloadSelector {
 // metadata:
 //   name: my-ingress
 // spec:
-//   workloadSelector:
-//     labels:
-//       app: my-ingress-gateway
+//   selector:
+//     app: my-ingress-gateway
 //   servers:
 //   - port:
 //       number: 80
@@ -304,9 +291,8 @@ func (m *Gateway) GetWorkloadSelector() *WorkloadSelector {
 // metadata:
 //   name: my-tcp-ingress
 // spec:
-//   workloadSelector:
-//     labels:
-//       app: my-tcp-ingress-gateway
+//   selector:
+//     app: my-tcp-ingress-gateway
 //   servers:
 //   - port:
 //       number: 27018
@@ -324,9 +310,8 @@ func (m *Gateway) GetWorkloadSelector() *WorkloadSelector {
 // metadata:
 //   name: my-tls-ingress
 // spec:
-//   workloadSelector:
-//     labels:
-//       app: my-tls-ingress-gateway
+//   selector:
+//     app: my-tls-ingress-gateway
 //   servers:
 //   - port:
 //       number: 443
@@ -340,13 +325,15 @@ func (m *Gateway) GetWorkloadSelector() *WorkloadSelector {
 //       privateKey: /etc/certs/privatekey.pem
 // ```
 type Server struct {
-	// An arbitrary name associated with this server. Used for emitting metrics.
-	Name string `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
 	// REQUIRED: The Port on which the proxy should listen for incoming
-	// connections
+	// connections. If using unix domain socket, use 0 as the port number,
+	// with a valid protocol and port name, along with the bind parameter.
 	Port *Port `protobuf:"bytes,1,opt,name=port" json:"port,omitempty"`
-	// The IP address to which the listener should be bound to.
-	BindAddress string `protobuf:"bytes,5,opt,name=bind_address,json=bindAddress,proto3" json:"bind_address,omitempty"`
+	// $hide_from_docs
+	// The ip or the unix domain socket to which the listener should be bound
+	// to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
+	// abstract namespace).
+	Bind string `protobuf:"bytes,4,opt,name=bind,proto3" json:"bind,omitempty"`
 	// REQUIRED. A list of hosts exposed by this gateway. At least one
 	// host is required. While typically applicable to
 	// HTTP services, it can also be used for TCP services using TLS with
@@ -366,26 +353,16 @@ type Server struct {
 	// these options to control if all http requests should be redirected to
 	// https, and the TLS modes to use.
 	Tls *Server_TLSOptions `protobuf:"bytes,3,opt,name=tls" json:"tls,omitempty"`
-	// The IP endpoint or unix domain socket to which traffic should be
-	// forwarded to by default. In the context of an ingress server, this
-	// configuration can be used to redirect traffic arriving at the bind
-	// point on the sidecar to a port or unix domain socket where the
-	// application workload is listening for connections. Format should be
-	// 127.0.0.1:PORT or unix:///path/to/socket
-	DefaultEndpoint string `protobuf:"bytes,4,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
+	// The loopback IP endpoint or unix domain socket to which traffic should
+	// be forwarded to by default. Format should be 127.0.0.1:PORT or
+	// unix:///path/to/socket or unix://@foobar (Linux abstract namespace).
+	DefaultEndpoint string `protobuf:"bytes,5,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
 }
 
 func (m *Server) Reset()                    { *m = Server{} }
 func (m *Server) String() string            { return proto.CompactTextString(m) }
 func (*Server) ProtoMessage()               {}
 func (*Server) Descriptor() ([]byte, []int) { return fileDescriptorGateway, []int{1} }
-
-func (m *Server) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
 
 func (m *Server) GetPort() *Port {
 	if m != nil {
@@ -394,9 +371,9 @@ func (m *Server) GetPort() *Port {
 	return nil
 }
 
-func (m *Server) GetBindAddress() string {
+func (m *Server) GetBind() string {
 	if m != nil {
-		return m.BindAddress
+		return m.Bind
 	}
 	return ""
 }
@@ -559,39 +536,11 @@ func (m *Port) GetName() string {
 	return ""
 }
 
-// WorkloadSelector specifies the criteria used to determine if the Gateway
-// or Sidecar resource can be applied to a proxy. The matching criteria
-// includes the metadata associated with a proxy, workload info such as
-// labels attached to the pod/VM, or any other info that the proxy provides
-// to Istio during the initial handshake. If multiple conditions are
-// specified, all conditions need to match in order for the workload to be
-// selected. Currently, only label based selection mechanism is supported.
-type WorkloadSelector struct {
-	// One or more labels that indicate a specific set of pods/VMs on which
-	// this gateway/sidecar configuration should be applied. The scope of
-	// label search is restricted to the configuration namespace in which the
-	// workload is present.
-	Labels map[string]string `protobuf:"bytes,1,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-}
-
-func (m *WorkloadSelector) Reset()                    { *m = WorkloadSelector{} }
-func (m *WorkloadSelector) String() string            { return proto.CompactTextString(m) }
-func (*WorkloadSelector) ProtoMessage()               {}
-func (*WorkloadSelector) Descriptor() ([]byte, []int) { return fileDescriptorGateway, []int{3} }
-
-func (m *WorkloadSelector) GetLabels() map[string]string {
-	if m != nil {
-		return m.Labels
-	}
-	return nil
-}
-
 func init() {
 	proto.RegisterType((*Gateway)(nil), "istio.networking.v1alpha3.Gateway")
 	proto.RegisterType((*Server)(nil), "istio.networking.v1alpha3.Server")
 	proto.RegisterType((*Server_TLSOptions)(nil), "istio.networking.v1alpha3.Server.TLSOptions")
 	proto.RegisterType((*Port)(nil), "istio.networking.v1alpha3.Port")
-	proto.RegisterType((*WorkloadSelector)(nil), "istio.networking.v1alpha3.WorkloadSelector")
 	proto.RegisterEnum("istio.networking.v1alpha3.Server_TLSOptions_TLSmode", Server_TLSOptions_TLSmode_name, Server_TLSOptions_TLSmode_value)
 	proto.RegisterEnum("istio.networking.v1alpha3.Server_TLSOptions_TLSProtocol", Server_TLSOptions_TLSProtocol_name, Server_TLSOptions_TLSProtocol_value)
 }
@@ -639,16 +588,6 @@ func (m *Gateway) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], v)
 		}
 	}
-	if m.WorkloadSelector != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintGateway(dAtA, i, uint64(m.WorkloadSelector.Size()))
-		n1, err := m.WorkloadSelector.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
 	return i, nil
 }
 
@@ -671,11 +610,11 @@ func (m *Server) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintGateway(dAtA, i, uint64(m.Port.Size()))
-		n2, err := m.Port.MarshalTo(dAtA[i:])
+		n1, err := m.Port.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n1
 	}
 	if len(m.Hosts) > 0 {
 		for _, s := range m.Hosts {
@@ -696,29 +635,23 @@ func (m *Server) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintGateway(dAtA, i, uint64(m.Tls.Size()))
-		n3, err := m.Tls.MarshalTo(dAtA[i:])
+		n2, err := m.Tls.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n2
+	}
+	if len(m.Bind) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintGateway(dAtA, i, uint64(len(m.Bind)))
+		i += copy(dAtA[i:], m.Bind)
 	}
 	if len(m.DefaultEndpoint) > 0 {
-		dAtA[i] = 0x22
+		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintGateway(dAtA, i, uint64(len(m.DefaultEndpoint)))
 		i += copy(dAtA[i:], m.DefaultEndpoint)
-	}
-	if len(m.BindAddress) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintGateway(dAtA, i, uint64(len(m.BindAddress)))
-		i += copy(dAtA[i:], m.BindAddress)
-	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintGateway(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
 	}
 	return i, nil
 }
@@ -849,41 +782,6 @@ func (m *Port) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *WorkloadSelector) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *WorkloadSelector) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Labels) > 0 {
-		for k, _ := range m.Labels {
-			dAtA[i] = 0xa
-			i++
-			v := m.Labels[k]
-			mapSize := 1 + len(k) + sovGateway(uint64(len(k))) + 1 + len(v) + sovGateway(uint64(len(v)))
-			i = encodeVarintGateway(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintGateway(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintGateway(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
-	}
-	return i, nil
-}
-
 func encodeVarintGateway(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -910,10 +808,6 @@ func (m *Gateway) Size() (n int) {
 			n += mapEntrySize + 1 + sovGateway(uint64(mapEntrySize))
 		}
 	}
-	if m.WorkloadSelector != nil {
-		l = m.WorkloadSelector.Size()
-		n += 1 + l + sovGateway(uint64(l))
-	}
 	return n
 }
 
@@ -934,15 +828,11 @@ func (m *Server) Size() (n int) {
 		l = m.Tls.Size()
 		n += 1 + l + sovGateway(uint64(l))
 	}
+	l = len(m.Bind)
+	if l > 0 {
+		n += 1 + l + sovGateway(uint64(l))
+	}
 	l = len(m.DefaultEndpoint)
-	if l > 0 {
-		n += 1 + l + sovGateway(uint64(l))
-	}
-	l = len(m.BindAddress)
-	if l > 0 {
-		n += 1 + l + sovGateway(uint64(l))
-	}
-	l = len(m.Name)
 	if l > 0 {
 		n += 1 + l + sovGateway(uint64(l))
 	}
@@ -1004,20 +894,6 @@ func (m *Port) Size() (n int) {
 	l = len(m.Name)
 	if l > 0 {
 		n += 1 + l + sovGateway(uint64(l))
-	}
-	return n
-}
-
-func (m *WorkloadSelector) Size() (n int) {
-	var l int
-	_ = l
-	if len(m.Labels) > 0 {
-		for k, v := range m.Labels {
-			_ = k
-			_ = v
-			mapEntrySize := 1 + len(k) + sovGateway(uint64(len(k))) + 1 + len(v) + sovGateway(uint64(len(v)))
-			n += mapEntrySize + 1 + sovGateway(uint64(mapEntrySize))
-		}
 	}
 	return n
 }
@@ -1213,39 +1089,6 @@ func (m *Gateway) Unmarshal(dAtA []byte) error {
 			}
 			m.Selector[mapkey] = mapvalue
 			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field WorkloadSelector", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGateway
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthGateway
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.WorkloadSelector == nil {
-				m.WorkloadSelector = &WorkloadSelector{}
-			}
-			if err := m.WorkloadSelector.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGateway(dAtA[iNdEx:])
@@ -1393,6 +1236,35 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Bind", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGateway
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGateway
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Bind = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field DefaultEndpoint", wireType)
 			}
 			var stringLen uint64
@@ -1419,64 +1291,6 @@ func (m *Server) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.DefaultEndpoint = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field BindAddress", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGateway
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthGateway
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.BindAddress = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGateway
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthGateway
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1898,174 +1712,6 @@ func (m *Port) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowGateway
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: WorkloadSelector: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: WorkloadSelector: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Labels", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGateway
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthGateway
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Labels == nil {
-				m.Labels = make(map[string]string)
-			}
-			var mapkey string
-			var mapvalue string
-			for iNdEx < postIndex {
-				entryPreIndex := iNdEx
-				var wire uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowGateway
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				fieldNum := int32(wire >> 3)
-				if fieldNum == 1 {
-					var stringLenmapkey uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowGateway
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapkey := int(stringLenmapkey)
-					if intStringLenmapkey < 0 {
-						return ErrInvalidLengthGateway
-					}
-					postStringIndexmapkey := iNdEx + intStringLenmapkey
-					if postStringIndexmapkey > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
-					iNdEx = postStringIndexmapkey
-				} else if fieldNum == 2 {
-					var stringLenmapvalue uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowGateway
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapvalue := int(stringLenmapvalue)
-					if intStringLenmapvalue < 0 {
-						return ErrInvalidLengthGateway
-					}
-					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
-					if postStringIndexmapvalue > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
-					iNdEx = postStringIndexmapvalue
-				} else {
-					iNdEx = entryPreIndex
-					skippy, err := skipGateway(dAtA[iNdEx:])
-					if err != nil {
-						return err
-					}
-					if skippy < 0 {
-						return ErrInvalidLengthGateway
-					}
-					if (iNdEx + skippy) > postIndex {
-						return io.ErrUnexpectedEOF
-					}
-					iNdEx += skippy
-				}
-			}
-			m.Labels[mapkey] = mapvalue
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipGateway(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthGateway
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
 func skipGateway(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -2174,52 +1820,47 @@ var (
 func init() { proto.RegisterFile("networking/v1alpha3/gateway.proto", fileDescriptorGateway) }
 
 var fileDescriptorGateway = []byte{
-	// 746 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0xdd, 0x6e, 0xd3, 0x4c,
-	0x10, 0xad, 0x93, 0x34, 0x3f, 0xe3, 0xa6, 0x71, 0x57, 0xd5, 0x27, 0x7f, 0xb9, 0x68, 0xd3, 0x20,
-	0x44, 0xf9, 0x73, 0xda, 0x04, 0x89, 0x42, 0x25, 0xa4, 0x14, 0x55, 0x0d, 0x22, 0x6d, 0x22, 0x3b,
-	0x29, 0x88, 0x1b, 0x6b, 0x63, 0x6f, 0x9b, 0x6d, 0x1d, 0xdb, 0xb2, 0x37, 0x69, 0xf3, 0x32, 0xbc,
-	0x02, 0x12, 0x97, 0x3c, 0x01, 0x97, 0x3c, 0x02, 0xea, 0x93, 0xa0, 0x5d, 0x3b, 0x3f, 0x14, 0x28,
-	0x8a, 0xb8, 0xdb, 0x39, 0x3b, 0xe7, 0xcc, 0xce, 0x59, 0xcf, 0x1a, 0xb6, 0x5c, 0xc2, 0xae, 0xbc,
-	0xe0, 0x92, 0xba, 0xe7, 0x95, 0xd1, 0x2e, 0x76, 0xfc, 0x3e, 0xae, 0x55, 0xce, 0x31, 0x23, 0x57,
-	0x78, 0xac, 0xf9, 0x81, 0xc7, 0x3c, 0xf4, 0x3f, 0x0d, 0x19, 0xf5, 0xb4, 0x59, 0xa2, 0x36, 0x49,
-	0x2c, 0x7f, 0x4a, 0x40, 0xe6, 0x28, 0x4a, 0x46, 0xfb, 0x90, 0x09, 0x49, 0x30, 0x22, 0x41, 0xa8,
-	0x4a, 0xa5, 0xe4, 0xb6, 0x5c, 0xdd, 0xd2, 0xfe, 0x48, 0xd4, 0x0c, 0x91, 0xa9, 0x4f, 0x18, 0xa8,
-	0x0d, 0xd9, 0x90, 0x38, 0xc4, 0x62, 0x5e, 0xa0, 0x26, 0x04, 0x7b, 0xe7, 0x0e, 0x76, 0x5c, 0x52,
-	0x33, 0x62, 0xca, 0xa1, 0xcb, 0x82, 0xf1, 0x41, 0x42, 0x95, 0xf4, 0xa9, 0x0a, 0x7a, 0x0f, 0x6b,
-	0x9c, 0xe7, 0x78, 0xd8, 0x36, 0xa7, 0xd2, 0xc9, 0x92, 0xb4, 0x2d, 0x57, 0x1f, 0xdf, 0x21, 0xfd,
-	0x2e, 0xe6, 0x4c, 0xa4, 0x75, 0xe5, 0xea, 0x16, 0x52, 0xdc, 0x87, 0xfc, 0x4f, 0x85, 0x91, 0x02,
-	0xc9, 0x4b, 0x32, 0x56, 0xa5, 0x92, 0xb4, 0x9d, 0xd3, 0xf9, 0x12, 0xad, 0xc3, 0xf2, 0x08, 0x3b,
-	0x43, 0xa2, 0x26, 0x04, 0x16, 0x05, 0x2f, 0x13, 0x7b, 0x52, 0xf9, 0x73, 0x06, 0xd2, 0x51, 0xf3,
-	0xa8, 0x06, 0x29, 0xdf, 0x0b, 0x98, 0xe0, 0xc9, 0xd5, 0xcd, 0x3b, 0x0e, 0xd5, 0xf6, 0x02, 0xa6,
-	0x8b, 0x64, 0xae, 0xdc, 0xf7, 0x42, 0x16, 0x0a, 0x97, 0x72, 0x7a, 0x14, 0xa0, 0x57, 0x90, 0x64,
-	0x4e, 0x18, 0xb7, 0xf7, 0xe4, 0xaf, 0xbe, 0x6b, 0x9d, 0xa6, 0xd1, 0xf2, 0x19, 0xf5, 0xdc, 0x50,
-	0xe7, 0x44, 0xf4, 0x10, 0x14, 0x9b, 0x9c, 0xe1, 0xa1, 0xc3, 0x4c, 0xe2, 0xda, 0xbe, 0x47, 0x5d,
-	0xa6, 0xa6, 0xc4, 0xd1, 0x0b, 0x31, 0x7e, 0x18, 0xc3, 0x68, 0x0b, 0x56, 0x7a, 0xd4, 0xb5, 0x4d,
-	0x6c, 0xdb, 0x01, 0x09, 0x43, 0x75, 0x59, 0xa4, 0xc9, 0x1c, 0xab, 0x47, 0x10, 0x42, 0x90, 0x72,
-	0xf1, 0x80, 0xa8, 0x69, 0xb1, 0x25, 0xd6, 0xc5, 0x2f, 0xcb, 0x00, 0xb3, 0xaa, 0xe8, 0x3e, 0xac,
-	0xf6, 0x19, 0xf3, 0x43, 0x33, 0x20, 0x36, 0x0d, 0x88, 0x15, 0xb9, 0x90, 0xd5, 0xf3, 0x02, 0xd5,
-	0x63, 0x10, 0x35, 0x20, 0x35, 0xf0, 0xec, 0xc8, 0xc6, 0xd5, 0xea, 0xb3, 0x45, 0x1a, 0xe3, 0x4b,
-	0xce, 0xd5, 0x85, 0x02, 0x7a, 0x0a, 0x28, 0xfa, 0xd6, 0x4c, 0x8b, 0x04, 0x8c, 0x9e, 0x51, 0x0b,
-	0x33, 0x22, 0x0c, 0xcb, 0xe9, 0x6b, 0xd1, 0xce, 0xeb, 0xd9, 0x06, 0xda, 0x04, 0xd9, 0x0f, 0xe8,
-	0x08, 0x33, 0x62, 0xf2, 0xab, 0x8d, 0xbc, 0x80, 0x18, 0x7a, 0x4b, 0xc6, 0xe8, 0x01, 0x14, 0x2c,
-	0x3c, 0xaf, 0x35, 0x71, 0x62, 0xd5, 0xc2, 0x73, 0x42, 0x21, 0x7a, 0x04, 0x6b, 0xe1, 0xb0, 0x77,
-	0x41, 0x2c, 0x66, 0x62, 0x87, 0x99, 0xdc, 0x8c, 0x50, 0x4d, 0x8b, 0xcb, 0x2b, 0xc4, 0x1b, 0x75,
-	0x87, 0x9d, 0x70, 0x18, 0x5d, 0xc0, 0xfa, 0x80, 0xba, 0xa6, 0x18, 0x3b, 0xcb, 0x73, 0x4c, 0x3e,
-	0x1a, 0xd4, 0x73, 0xd5, 0x8c, 0x68, 0x7f, 0x6f, 0xd1, 0xf6, 0xdb, 0xb1, 0x8e, 0x8e, 0x06, 0xd4,
-	0x9d, 0x04, 0xa7, 0x91, 0xa6, 0xa8, 0x85, 0xaf, 0x7f, 0xad, 0x95, 0xfd, 0xe7, 0x5a, 0xf8, 0xfa,
-	0x76, 0xad, 0x7b, 0x90, 0xb7, 0xa8, 0xdf, 0x27, 0x81, 0x19, 0x0e, 0x29, 0xb7, 0x2a, 0x27, 0xfa,
-	0x5f, 0x89, 0x40, 0x43, 0x60, 0xe5, 0x06, 0x64, 0xe2, 0x2b, 0x43, 0x05, 0x90, 0xdb, 0x75, 0xc3,
-	0xe8, 0x34, 0xf4, 0x56, 0xf7, 0xa8, 0xa1, 0x2c, 0x21, 0x80, 0xb4, 0xf1, 0xe6, 0xb8, 0xdd, 0x3c,
-	0x54, 0x24, 0xbe, 0x3e, 0xee, 0x76, 0xba, 0xf5, 0xa6, 0x92, 0x40, 0xeb, 0xa0, 0xd4, 0xbb, 0x9d,
-	0x96, 0x39, 0x9f, 0x9d, 0x2c, 0xb7, 0x40, 0x9e, 0x3b, 0x11, 0x5a, 0x81, 0x6c, 0xa7, 0x69, 0x98,
-	0x3c, 0x51, 0x59, 0x42, 0xb2, 0x28, 0x73, 0xba, 0x6b, 0xee, 0x28, 0xd2, 0x2c, 0xd8, 0x55, 0x12,
-	0xb3, 0xa0, 0xaa, 0x24, 0x67, 0x41, 0x4d, 0x49, 0x95, 0x4f, 0x20, 0xc5, 0x47, 0x10, 0xfd, 0x07,
-	0x69, 0x77, 0x38, 0xe8, 0x91, 0x40, 0x7c, 0xad, 0x79, 0x3d, 0x8e, 0x50, 0x11, 0xb2, 0x13, 0x1f,
-	0xe3, 0x89, 0x9f, 0xc6, 0xd3, 0x61, 0x48, 0xce, 0x86, 0xa1, 0xfc, 0x51, 0x02, 0xe5, 0xf6, 0x43,
-	0x83, 0x5a, 0x90, 0x76, 0x70, 0x8f, 0x38, 0x93, 0xe7, 0xf3, 0xf9, 0x02, 0xaf, 0x94, 0xd6, 0x14,
-	0x4c, 0xf1, 0x1c, 0xe9, 0xb1, 0x4c, 0xf1, 0x05, 0xc8, 0x73, 0xf0, 0x22, 0xaf, 0xd4, 0x81, 0xf6,
-	0xf5, 0x66, 0x43, 0xfa, 0x76, 0xb3, 0x21, 0x7d, 0xbf, 0xd9, 0x90, 0x3e, 0x94, 0xa2, 0x83, 0x50,
-	0xaf, 0x82, 0x7d, 0x5a, 0xf9, 0xcd, 0x0f, 0xa3, 0x97, 0x16, 0xed, 0xd6, 0x7e, 0x04, 0x00, 0x00,
-	0xff, 0xff, 0xb6, 0x53, 0x7e, 0xba, 0x4e, 0x06, 0x00, 0x00,
+	// 657 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0xcb, 0x4e, 0xdb, 0x4c,
+	0x14, 0xc6, 0x49, 0xc8, 0xe5, 0x84, 0x10, 0x33, 0x42, 0xbf, 0xfc, 0xb3, 0xe0, 0x92, 0xaa, 0x2a,
+	0xad, 0x5a, 0x07, 0x92, 0x2e, 0x50, 0x91, 0x2a, 0xa5, 0x15, 0x22, 0x55, 0x03, 0x89, 0xec, 0x84,
+	0x45, 0x37, 0xd6, 0xc4, 0x19, 0xc8, 0x80, 0xe3, 0xb1, 0x66, 0x26, 0x81, 0x3c, 0x45, 0xdf, 0xa7,
+	0x4f, 0xd0, 0x65, 0xfb, 0x06, 0x15, 0x4f, 0x52, 0xcd, 0xd8, 0x21, 0xe9, 0x8d, 0x0a, 0x75, 0x77,
+	0xce, 0x77, 0xce, 0xf7, 0x9d, 0xdb, 0xd8, 0xb0, 0x13, 0x12, 0x79, 0xcd, 0xf8, 0x15, 0x0d, 0x2f,
+	0xaa, 0x93, 0x7d, 0x1c, 0x44, 0x43, 0x5c, 0xaf, 0x5e, 0x60, 0x49, 0xae, 0xf1, 0xd4, 0x8e, 0x38,
+	0x93, 0x0c, 0xfd, 0x4f, 0x85, 0xa4, 0xcc, 0x9e, 0x27, 0xda, 0xb3, 0xc4, 0xca, 0x57, 0x03, 0x72,
+	0xc7, 0x71, 0x32, 0x3a, 0x84, 0x9c, 0x20, 0x7c, 0x42, 0xb8, 0xb0, 0x8c, 0xed, 0xf4, 0x6e, 0xb1,
+	0xb6, 0x63, 0xff, 0x91, 0x68, 0xbb, 0x3a, 0xd3, 0x99, 0x31, 0x50, 0x0b, 0xf2, 0x82, 0x04, 0xc4,
+	0x97, 0x8c, 0x5b, 0x29, 0xcd, 0xde, 0xbb, 0x87, 0x9d, 0x94, 0xb4, 0xdd, 0x84, 0x72, 0x14, 0x4a,
+	0x3e, 0x75, 0xee, 0x14, 0x36, 0x0e, 0xa1, 0xf4, 0x43, 0x08, 0x99, 0x90, 0xbe, 0x22, 0x53, 0xcb,
+	0xd8, 0x36, 0x76, 0x0b, 0x8e, 0x32, 0xd1, 0x3a, 0x2c, 0x4f, 0x70, 0x30, 0x26, 0x56, 0x4a, 0x63,
+	0xb1, 0xf3, 0x2a, 0x75, 0x60, 0x54, 0x3e, 0xe6, 0x20, 0x1b, 0xb7, 0x87, 0xea, 0x90, 0x89, 0x18,
+	0x97, 0x9a, 0x57, 0xac, 0x6d, 0xdd, 0xd3, 0x51, 0x87, 0x71, 0xe9, 0xe8, 0x64, 0xa5, 0x3c, 0x64,
+	0x42, 0x0a, 0x3d, 0x47, 0xc1, 0x89, 0x1d, 0xf4, 0x1a, 0xd2, 0x32, 0x10, 0x56, 0x5a, 0x2b, 0x3d,
+	0xff, 0xeb, 0x66, 0xec, 0x6e, 0xcb, 0x6d, 0x47, 0x92, 0xb2, 0x50, 0x38, 0x8a, 0x88, 0x10, 0x64,
+	0xfa, 0x34, 0x1c, 0x58, 0x19, 0xdd, 0xae, 0xb6, 0xd1, 0x53, 0x30, 0x07, 0xe4, 0x1c, 0x8f, 0x03,
+	0xe9, 0x91, 0x70, 0x10, 0x31, 0x1a, 0x4a, 0x6b, 0x59, 0xc7, 0xcb, 0x09, 0x7e, 0x94, 0xc0, 0x1b,
+	0x9f, 0x96, 0x01, 0xe6, 0x92, 0xe8, 0x31, 0xac, 0x0e, 0xa5, 0x8c, 0x84, 0xc7, 0xc9, 0x80, 0x72,
+	0xe2, 0xc7, 0x23, 0xe6, 0x9d, 0x92, 0x46, 0x9d, 0x04, 0x44, 0x4d, 0xc8, 0x8c, 0xd8, 0x20, 0xde,
+	0xd1, 0x6a, 0xed, 0xe5, 0x43, 0xba, 0x56, 0xa6, 0xe2, 0x3a, 0x5a, 0x01, 0xbd, 0x00, 0x14, 0x9f,
+	0xda, 0xf3, 0x09, 0x97, 0xf4, 0x9c, 0xfa, 0x58, 0x12, 0xbd, 0x8d, 0x82, 0xb3, 0x16, 0x47, 0xde,
+	0xce, 0x03, 0x68, 0x0b, 0x8a, 0x11, 0xa7, 0x13, 0x2c, 0x89, 0xa7, 0xee, 0x16, 0x0f, 0x0d, 0x09,
+	0xf4, 0x9e, 0x4c, 0xd1, 0x13, 0x28, 0xfb, 0x78, 0x51, 0x4b, 0x24, 0x93, 0xaf, 0xfa, 0x78, 0x41,
+	0x48, 0xa0, 0x67, 0xb0, 0x26, 0xc6, 0xfd, 0x4b, 0xe2, 0x4b, 0x0f, 0x07, 0xd2, 0x0b, 0xf1, 0x88,
+	0x08, 0x2b, 0xab, 0x2f, 0x53, 0x4e, 0x02, 0x8d, 0x40, 0x9e, 0x2a, 0x18, 0x5d, 0xc2, 0xfa, 0x88,
+	0x86, 0x9e, 0x7e, 0xf5, 0x3e, 0x0b, 0x3c, 0xf5, 0x32, 0x29, 0x0b, 0xad, 0x9c, 0x1e, 0xff, 0xe0,
+	0xa1, 0xe3, 0x77, 0x12, 0x1d, 0x07, 0x8d, 0x68, 0x38, 0x73, 0xce, 0x62, 0x4d, 0x5d, 0x0b, 0xdf,
+	0xfc, 0x5a, 0x2b, 0xff, 0xcf, 0xb5, 0xf0, 0xcd, 0xcf, 0xb5, 0x1e, 0x41, 0xc9, 0xa7, 0xd1, 0x90,
+	0x70, 0x4f, 0x8c, 0xa9, 0x5a, 0x55, 0x41, 0xcf, 0xbf, 0x12, 0x83, 0xae, 0xc6, 0x2a, 0x4d, 0xc8,
+	0x25, 0x27, 0x43, 0x65, 0x28, 0x76, 0x1a, 0xae, 0xdb, 0x6d, 0x3a, 0xed, 0xde, 0x71, 0xd3, 0x5c,
+	0x42, 0x00, 0x59, 0xf7, 0xdd, 0x49, 0xa7, 0x75, 0x64, 0x1a, 0xca, 0x3e, 0xe9, 0x75, 0x7b, 0x8d,
+	0x96, 0x99, 0x42, 0xeb, 0x60, 0x36, 0x7a, 0xdd, 0xb6, 0xb7, 0x98, 0x9d, 0xae, 0xb4, 0xa1, 0xb8,
+	0xd0, 0x11, 0x5a, 0x81, 0x7c, 0xb7, 0xe5, 0x7a, 0x2a, 0xd1, 0x5c, 0x42, 0x45, 0x5d, 0xe6, 0x6c,
+	0xdf, 0xdb, 0x33, 0x8d, 0xb9, 0xb3, 0x6f, 0xa6, 0xe6, 0x4e, 0xcd, 0x4c, 0xcf, 0x9d, 0xba, 0x99,
+	0xa9, 0x9c, 0x42, 0x46, 0x7d, 0x5f, 0xe8, 0x3f, 0xc8, 0x86, 0xe3, 0x51, 0x9f, 0x70, 0xfd, 0x5a,
+	0x4b, 0x4e, 0xe2, 0xa1, 0x0d, 0xc8, 0xcf, 0xf6, 0x98, 0x7c, 0xce, 0x77, 0xbe, 0xfa, 0x6e, 0xd4,
+	0xcd, 0x93, 0xa7, 0xa6, 0xed, 0x37, 0xf6, 0xe7, 0xdb, 0x4d, 0xe3, 0xcb, 0xed, 0xa6, 0xf1, 0xed,
+	0x76, 0xd3, 0xf8, 0xb0, 0x1d, 0xaf, 0x9a, 0xb2, 0x2a, 0x8e, 0x68, 0xf5, 0x37, 0xbf, 0xc3, 0x7e,
+	0x56, 0xab, 0xd5, 0xbf, 0x07, 0x00, 0x00, 0xff, 0xff, 0x3a, 0x88, 0xe5, 0x6d, 0x2c, 0x05, 0x00,
+	0x00,
 }

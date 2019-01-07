@@ -24,10 +24,11 @@
 		Gateway
 		Server
 		Port
-		WorkloadSelector
 		ServiceEntry
 		Sidecar
-		IstioListener
+		IstioIngressListener
+		IstioEgressListener
+		WorkloadSelector
 		VirtualService
 		Destination
 		HTTPRoute

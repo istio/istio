@@ -61,6 +61,10 @@ message MeshConfig {
   // to connect to Mixer.
   bool policy_check_fail_open = 25;
 
+  // Enable session affinity for envoy mixer reports so that calls from a proxy will
+  // always target the same mixer instance.
+  bool sidecar_to_telemetry_session_affinity = 30;
+
   // Port on which Envoy should listen for incoming connections from
   // other services.
   int32 proxy_listen_port = 4;
@@ -167,11 +171,11 @@ message MeshConfig {
   // Set the default behavior of the sidecar for handling outbound traffic
   // from the application.  If your application uses one or more external
   // services that are not known apriori, setting the policy to ALLOW_ANY
-  // will cause the sidecars to route traffic to the any unknown traffic
-  // originating from the application to its requested destination.  Users
-  // are strongly encouraged to use ServiceEntries to explicitly declare
-  // any external dependencies, instead of using allow_any, so that traffic
-  // to these services can be monitored.
+  // will cause the sidecars to route any unknown traffic originating from
+  // the application to its requested destination.  Users are strongly
+  // encouraged to use ServiceEntries to explicitly declare any external
+  // dependencies, instead of using allow_any, so that traffic to these
+  // services can be monitored.
   OutboundTrafficPolicy outbound_traffic_policy = 17;
 
   reserved 18;
@@ -214,7 +218,7 @@ message MeshConfig {
   string trust_domain = 26;
 
   // $hide_from_docs
-  // Next available field number: 30
+  // Next available field number: 31
 }
 
 // ConfigSource describes information about a configuration store inside a

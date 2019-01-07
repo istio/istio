@@ -1091,9 +1091,8 @@ metadata:
   name: my-gateway
   namespace: some-config-namespace
 spec:
-  workloadSelector:
-    labels:
-      app: my-gateway-controller
+  selector:
+    app: my-gateway-controller
   servers:
   - port:
       number: 80
@@ -1224,25 +1223,15 @@ spec:
 
 </td>
 </tr>
-<tr id="Gateway-selector" class="deprecated ">
+<tr id="Gateway-selector">
 <td><code>selector</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>One or more labels that indicate a specific set of pods/VMs on which
-this gateway configuration should be applied.  The scope of label
-search is platform dependent.  On Kubernetes, for example, the scope
-includes pods running in all reachable namespaces. Precisely one of
-selector or workloadSelector MUST be specified.</p>
-
-</td>
-</tr>
-<tr id="Gateway-workload_selector">
-<td><code>workloadSelector</code></td>
-<td><code><a href="#WorkloadSelector">WorkloadSelector</a></code></td>
-<td>
-<p>Criteria used to select the specific set of pods/VMs on which this
-gateway configuration should be applied. Precisely one of selector
-or workloadSelector must be specified.</p>
+<p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
+on which this gateway configuration should be applied. The scope of
+label search is restricted to the configuration namespace in which the
+the resource is present. In other words, the Gateway resource must
+reside in the same namespace as the gateway workload.</p>
 
 </td>
 </tr>
@@ -2148,10 +2137,10 @@ to the caller</p>
 </tbody>
 </table>
 </section>
-<h2 id="IstioListener">IstioListener</h2>
+<h2 id="IstioEgressListener">IstioEgressListener</h2>
 <section>
-<p>IstioListener specifies the properties of a single listener on the
-sidecar proxy attached to a workload.</p>
+<p>IstioEgressListener specifies the properties of an outbound traffic
+listener on the sidecar proxy attached to a workload.</p>
 
 <table class="message-fields">
 <thead>
@@ -2162,28 +2151,27 @@ sidecar proxy attached to a workload.</p>
 </tr>
 </thead>
 <tbody>
-<tr id="IstioListener-name">
-<td><code>name</code></td>
-<td><code>string</code></td>
+<tr id="IstioEgressListener-capture_mode">
+<td><code>captureMode</code></td>
+<td><code><a href="#CaptureMode">CaptureMode</a></code></td>
 <td>
-<p>An optional arbitrary name associated with the listener used for
-emitting metrics.</p>
+<p>When the bind address is an IP, the captureMode option dictates
+how traffic to the listener is expected to be captured (or not).</p>
 
 </td>
 </tr>
-<tr id="IstioListener-hosts">
+<tr id="IstioEgressListener-hosts">
 <td><code>hosts</code></td>
 <td><code>string[]</code></td>
 <td>
 <p>One or more services/virtualServices exposed by the listener in
-namespace/dnsName format.  <em><em>Hosts will be ignored for ingress
-servers</em></em>. For egress servers, the hosts field results in importing
-one or more publicly scoped services and VirtualServices from remote
-namespaces. The service in a namespace can be a service in the service
-registry (e.g., a kubernetes or cloud foundry service) or a service
-specified via ServiceEntry configuration. In addition, any publicly
-scoped DestinationRule associated with the imported services will also
-be imported.</p>
+namespace/dnsName format.  Publicly scoped services and
+VirtualServices from remote namespaces corresponding to the specified
+hosts will be imported. The service in a namespace can be a service in
+the service registry (e.g., a kubernetes or cloud foundry service) or
+a service specified via ServiceEntry configuration. In addition, any
+publicly scoped DestinationRule associated with the imported services
+will also be imported.</p>
 
 <p>Set the namespace to * to import a particular service from any
 available namespace (e.g., &ldquo;*/foo.example.com&rdquo;). Set the dnsName field
@@ -2194,19 +2182,6 @@ to * to import all services from the specified namespace (e.g.,
 namespace can be imported. Private services/configuration will not be
 imported. Refer to the scope setting associated with VirtualService,
 DestinationRule, ServiceEntry, etc. for details.</p>
-
-</td>
-</tr>
-<tr id="IstioListener-default_endpoint">
-<td><code>defaultEndpoint</code></td>
-<td><code>string</code></td>
-<td>
-<p>The IP endpoint or unix domain socket to which traffic should be
-forwarded to by default. In the context of an ingress server, this
-configuration can be used to redirect traffic arriving at the bind
-point on the sidecar to a port or unix domain socket where the
-application workload is listening for connections. Format should be
-127.0.0.1:PORT or unix:///path/to/socket</p>
 
 </td>
 </tr>
@@ -2793,9 +2768,8 @@ kind: Gateway
 metadata:
   name: my-ingress
 spec:
-  workloadSelector:
-    labels:
-      app: my-ingress-gateway
+  selector:
+    app: my-ingress-gateway
   servers:
   - port:
       number: 80
@@ -2812,9 +2786,8 @@ kind: Gateway
 metadata:
   name: my-tcp-ingress
 spec:
-  workloadSelector:
-    labels:
-      app: my-tcp-ingress-gateway
+  selector:
+    app: my-tcp-ingress-gateway
   servers:
   - port:
       number: 27018
@@ -2831,9 +2804,8 @@ kind: Gateway
 metadata:
   name: my-tls-ingress
 spec:
-  workloadSelector:
-    labels:
-      app: my-tls-ingress-gateway
+  selector:
+    app: my-tls-ingress-gateway
   servers:
   - port:
       number: 443
@@ -2856,28 +2828,13 @@ spec:
 </tr>
 </thead>
 <tbody>
-<tr id="Server-name">
-<td><code>name</code></td>
-<td><code>string</code></td>
-<td>
-<p>An arbitrary name associated with this server. Used for emitting metrics.</p>
-
-</td>
-</tr>
 <tr id="Server-port">
 <td><code>port</code></td>
 <td><code><a href="#Port">Port</a></code></td>
 <td>
 <p>REQUIRED: The Port on which the proxy should listen for incoming
-connections</p>
-
-</td>
-</tr>
-<tr id="Server-bind_address">
-<td><code>bindAddress</code></td>
-<td><code>string</code></td>
-<td>
-<p>The IP address to which the listener should be bound to.</p>
+connections. If using unix domain socket, use 0 as the port number,
+with a valid protocol and port name, along with the bind parameter.</p>
 
 </td>
 </tr>
@@ -2916,12 +2873,9 @@ https, and the TLS modes to use.</p>
 <td><code>defaultEndpoint</code></td>
 <td><code>string</code></td>
 <td>
-<p>The IP endpoint or unix domain socket to which traffic should be
-forwarded to by default. In the context of an ingress server, this
-configuration can be used to redirect traffic arriving at the bind
-point on the sidecar to a port or unix domain socket where the
-application workload is listening for connections. Format should be
-127.0.0.1:PORT or unix:///path/to/socket</p>
+<p>The loopback IP endpoint or unix domain socket to which traffic should
+be forwarded to by default. Format should be 127.0.0.1:PORT or
+unix:///path/to/socket or unix://@foobar (Linux abstract namespace).</p>
 
 </td>
 </tr>
@@ -3670,29 +3624,36 @@ domain socket endpoints.</p>
 </section>
 <h2 id="Sidecar">Sidecar</h2>
 <section>
-<p><code>Sidecar</code> describes the describes the configuration of the sidecar proxy
-that mediates inbound and outbound communication to the workload it is
-attached to. By default, Istio will program all sidecar proxies in the
-mesh with the necessary configuration required to reach every workload
-in the mesh, as well as accept traffic on all the ports associated with
-the workload. The Sidecar resource provides a way to fine tune the set
-of ports, protocols that the proxy will accept when forwarding traffic
-to and from the workload. In addition, it is possible to restrict the
-set of services that the proxy can reach when forwarding outbound
-traffic from the workload.</p>
+<p><code>Sidecar</code> describes the configuration of the sidecar proxy that mediates
+inbound and outbound communication to the workload it is attached to. By
+default, Istio will program all sidecar proxies in the mesh with the
+necessary configuration required to reach every workload in the mesh, as
+well as accept traffic on all the ports associated with the
+workload. The Sidecar resource provides a way to fine tune the set of
+ports, protocols that the proxy will accept when forwarding traffic to
+and from the workload. In addition, it is possible to restrict the set
+of services that the proxy can reach when forwarding outbound traffic
+from the workload.</p>
 
 <p>Services and configuration in a mesh are organized into one or more
 namespaces (e.g., a Kubernetes namespace or a CF org/space). A Sidecar
-resource in a namespace will apply to all workloads in the namespace in
-the absence of a workload selector.  <em><em>Currently, each namespace should
-have only one Sidecar resource without any workload selector</em></em>. The
-behavior of the system is undefined if more than one Sidecar resource
-exists in a given namespace.</p>
+resource in a namespace will apply to one or more workloads in the same
+namespace, selected using the workloadSelector. In the absence of a
+workloadSelector, it will apply to all workloads in the same
+namespace. When determining the Sidecar resource to be applied to a
+workload, preference will be given to the resource with a
+workloadSelector that selects this workload, over a Sidecar resource
+without any workloadSelector.</p>
+
+<p>NOTE: <em><em>Each namespace can have only one Sidecar resource without any
+workload selector</em></em>. The behavior of the system is undefined if more
+than one selector-less Sidecar resources exist in a given namespace. The
+behavior of the system is undefined if two or more Sidecar resources
+with a workload selector select the same workload.</p>
 
 <p>The example below delcares a Sidecar resource in the prod-us1 namespace
-that configures the sidecar to proxy egress traffic for services in the
-prod-us1 and prod-apis namespaces, and the policy and telemetry service
-(if enabled) in the istio-system namespace.</p>
+that configures the sidecar to allow egress traffic to public services
+in the prod-us1, prod-apis, and the istio-system namespaces.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
@@ -3718,12 +3679,12 @@ spec:
 <tbody>
 <tr id="Sidecar-egress">
 <td><code>egress</code></td>
-<td><code><a href="#IstioListener">IstioListener[]</a></code></td>
+<td><code><a href="#IstioEgressListener">IstioEgressListener[]</a></code></td>
 <td>
 <p>Egress specifies the configuration of the sidecar for processing
 outbound traffic from the attached workload to other services in the
 mesh. If omitted, Istio will autoconfigure the sidecar to be able to
-reach every service in the mesh.  etc.).</p>
+reach every service in the mesh that is visible to this namespace.</p>
 
 </td>
 </tr>
@@ -4519,9 +4480,9 @@ selected. Currently, only label based selection mechanism is supported.</p>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>One or more labels that indicate a specific set of pods/VMs on which
-this gateway/sidecar configuration should be applied. The scope of
-label search is restricted to the configuration namespace in which the
-workload is present.</p>
+this sidecar configuration should be applied. The scope of label
+search is restricted to the configuration namespace in which the the
+resource is present.</p>
 
 </td>
 </tr>

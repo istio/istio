@@ -43,29 +43,70 @@ func (x ConfigScope) String() string {
 }
 func (ConfigScope) EnumDescriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{0} }
 
-// `Sidecar` describes the describes the configuration of the sidecar proxy
-// that mediates inbound and outbound communication to the workload it is
-// attached to. By default, Istio will program all sidecar proxies in the
-// mesh with the necessary configuration required to reach every workload
-// in the mesh, as well as accept traffic on all the ports associated with
-// the workload. The Sidecar resource provides a way to fine tune the set
-// of ports, protocols that the proxy will accept when forwarding traffic
-// to and from the workload. In addition, it is possible to restrict the
-// set of services that the proxy can reach when forwarding outbound
-// traffic from the workload.
+// $hide_from_docs
+// CaptureMode describes how traffic to a listener is expected to be
+// captured. Applicable only when the listener is bound to an IP.
+type CaptureMode int32
+
+const (
+	// The default capture mode defined by the environment
+	CaptureMode_DEFAULT CaptureMode = 0
+	// Capture traffic using IPtables redirection
+	CaptureMode_IPTABLES CaptureMode = 1
+	// No traffic capture. When used in egress listener, the application is
+	// expected to explicitly communicate with the listener port/unix
+	// domain socket. When used in ingress listener, care needs to be taken
+	// to ensure that the listener port is not in use by other processes on
+	// the host.
+	CaptureMode_NONE CaptureMode = 2
+)
+
+var CaptureMode_name = map[int32]string{
+	0: "DEFAULT",
+	1: "IPTABLES",
+	2: "NONE",
+}
+var CaptureMode_value = map[string]int32{
+	"DEFAULT":  0,
+	"IPTABLES": 1,
+	"NONE":     2,
+}
+
+func (x CaptureMode) String() string {
+	return proto.EnumName(CaptureMode_name, int32(x))
+}
+func (CaptureMode) EnumDescriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{1} }
+
+// `Sidecar` describes the configuration of the sidecar proxy that mediates
+// inbound and outbound communication to the workload it is attached to. By
+// default, Istio will program all sidecar proxies in the mesh with the
+// necessary configuration required to reach every workload in the mesh, as
+// well as accept traffic on all the ports associated with the
+// workload. The Sidecar resource provides a way to fine tune the set of
+// ports, protocols that the proxy will accept when forwarding traffic to
+// and from the workload. In addition, it is possible to restrict the set
+// of services that the proxy can reach when forwarding outbound traffic
+// from the workload.
 //
 // Services and configuration in a mesh are organized into one or more
 // namespaces (e.g., a Kubernetes namespace or a CF org/space). A Sidecar
-// resource in a namespace will apply to all workloads in the namespace in
-// the absence of a workload selector.  *_Currently, each namespace should
-// have only one Sidecar resource without any workload selector_*. The
-// behavior of the system is undefined if more than one Sidecar resource
-// exists in a given namespace.
+// resource in a namespace will apply to one or more workloads in the same
+// namespace, selected using the workloadSelector. In the absence of a
+// workloadSelector, it will apply to all workloads in the same
+// namespace. When determining the Sidecar resource to be applied to a
+// workload, preference will be given to the resource with a
+// workloadSelector that selects this workload, over a Sidecar resource
+// without any workloadSelector.
+//
+// NOTE: *_Each namespace can have only one Sidecar resource without any
+// workload selector_*. The behavior of the system is undefined if more
+// than one selector-less Sidecar resources exist in a given namespace. The
+// behavior of the system is undefined if two or more Sidecar resources
+// with a workload selector select the same workload.
 //
 // The example below delcares a Sidecar resource in the prod-us1 namespace
-// that configures the sidecar to proxy egress traffic for services in the
-// prod-us1 and prod-apis namespaces, and the policy and telemetry service
-// (if enabled) in the istio-system namespace.
+// that configures the sidecar to allow egress traffic to public services
+// in the prod-us1, prod-apis, and the istio-system namespaces.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -92,14 +133,14 @@ type Sidecar struct {
 	// Ingress specifies the configuration of the sidecar for processing
 	// inbound traffic to the attached workload. If omitted, Istio will
 	// autoconfigure the sidecar based on the information about the workload
-	// obtained from the service registry (e.g., exposed ports, services,
+	// obtained from the orchestration platform (e.g., exposed ports, services,
 	// etc.).
-	Ingress []*IstioListener `protobuf:"bytes,2,rep,name=ingress" json:"ingress,omitempty"`
+	Ingress []*IstioIngressListener `protobuf:"bytes,2,rep,name=ingress" json:"ingress,omitempty"`
 	// Egress specifies the configuration of the sidecar for processing
 	// outbound traffic from the attached workload to other services in the
 	// mesh. If omitted, Istio will autoconfigure the sidecar to be able to
-	// reach every service in the mesh.  etc.).
-	Egress []*IstioListener `protobuf:"bytes,3,rep,name=egress" json:"egress,omitempty"`
+	// reach every service in the mesh that is visible to this namespace.
+	Egress []*IstioEgressListener `protobuf:"bytes,3,rep,name=egress" json:"egress,omitempty"`
 }
 
 func (m *Sidecar) Reset()                    { *m = Sidecar{} }
@@ -114,65 +155,111 @@ func (m *Sidecar) GetWorkloadSelector() *WorkloadSelector {
 	return nil
 }
 
-func (m *Sidecar) GetIngress() []*IstioListener {
+func (m *Sidecar) GetIngress() []*IstioIngressListener {
 	if m != nil {
 		return m.Ingress
 	}
 	return nil
 }
 
-func (m *Sidecar) GetEgress() []*IstioListener {
+func (m *Sidecar) GetEgress() []*IstioEgressListener {
 	if m != nil {
 		return m.Egress
 	}
 	return nil
 }
 
-// IstioListener specifies the properties of a single listener on the
-// sidecar proxy attached to a workload.
-type IstioListener struct {
-	// An optional arbitrary name associated with the listener used for
-	// emitting metrics.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// $hide_from_docs
-	// REQUIRED for ingress. The port associated with the listener. If using
+// $hide_from_docs
+// IstioIngressListener specifies the properties of an inbound
+// traffic listener on the sidecar proxy attached to a workload.
+type IstioIngressListener struct {
+	// REQUIRED. The port associated with the listener. If using
 	// unix domain socket, use 0 as the port number, with a valid
-	// protocol. In the egress path, the port if specified, will be used as
-	// the default destination port associated with the imported hosts. If
-	// the port is omitted, Istio will infer the listener ports based on the
-	// imported hosts. Note that when multiple egress listeners are
-	// specified, where one or more listeners have specific ports while
-	// others have no port, the hosts exposed on a listener port will be
-	// based on the listener with the most specific port.
-	Port *Port `protobuf:"bytes,2,opt,name=port" json:"port,omitempty"`
+	// protocol.
+	Port *Port `protobuf:"bytes,1,opt,name=port" json:"port,omitempty"`
+	// The ip or the unix domain socket to which the listener should be bound
+	// to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
+	// abstract namespace). If omitted, Istio will autoconfigure the defaults
+	// based on imported services and the workload to which this
+	// configuration is applied to.
+	Bind string `protobuf:"bytes,2,opt,name=bind,proto3" json:"bind,omitempty"`
+	// When the bind address is an IP, the captureMode option dictates
+	// how traffic to the listener is expected to be captured (or not).
+	CaptureMode CaptureMode `protobuf:"varint,3,opt,name=capture_mode,json=captureMode,proto3,enum=istio.networking.v1alpha3.CaptureMode" json:"capture_mode,omitempty"`
+	// The loopback IP endpoint or unix domain socket to which traffic should
+	// be forwarded to by default. This configuration can be used to redirect
+	// traffic arriving at the bind point on the sidecar to a port or unix
+	// domain socket where the application workload is listening for
+	// connections. Format should be 127.0.0.1:PORT or unix:///path/to/socket
+	DefaultEndpoint string `protobuf:"bytes,4,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
+}
+
+func (m *IstioIngressListener) Reset()                    { *m = IstioIngressListener{} }
+func (m *IstioIngressListener) String() string            { return proto.CompactTextString(m) }
+func (*IstioIngressListener) ProtoMessage()               {}
+func (*IstioIngressListener) Descriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{1} }
+
+func (m *IstioIngressListener) GetPort() *Port {
+	if m != nil {
+		return m.Port
+	}
+	return nil
+}
+
+func (m *IstioIngressListener) GetBind() string {
+	if m != nil {
+		return m.Bind
+	}
+	return ""
+}
+
+func (m *IstioIngressListener) GetCaptureMode() CaptureMode {
+	if m != nil {
+		return m.CaptureMode
+	}
+	return CaptureMode_DEFAULT
+}
+
+func (m *IstioIngressListener) GetDefaultEndpoint() string {
+	if m != nil {
+		return m.DefaultEndpoint
+	}
+	return ""
+}
+
+// IstioEgressListener specifies the properties of an outbound traffic
+// listener on the sidecar proxy attached to a workload.
+type IstioEgressListener struct {
+	// $hide_from_docs
+	// The port associated with the listener. If using unix domain socket,
+	// use 0 as the port number, with a valid protocol. The port if
+	// specified, will be used as the default destination port associated
+	// with the imported hosts. If the port is omitted, Istio will infer the
+	// listener ports based on the imported hosts. Note that when multiple
+	// egress listeners are specified, where one or more listeners have
+	// specific ports while others have no port, the hosts exposed on a
+	// listener port will be based on the listener with the most specific
+	// port.
+	Port *Port `protobuf:"bytes,1,opt,name=port" json:"port,omitempty"`
 	// $hide_from_docs
 	// The ip or the unix domain socket to which the listener should be bound
-	// to. Port MUST be specified if bindAddress is not empty. Format:
+	// to. Port MUST be specified if bind is not empty. Format:
 	// x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux abstract
 	// namespace). If omitted, Istio will autoconfigure the defaults based on
 	// imported services and the workload to which this configuration is
 	// applied to.
-	BindAddress string `protobuf:"bytes,3,opt,name=bind_address,json=bindAddress,proto3" json:"bind_address,omitempty"`
-	// $hide_from_docs
-	// When the bind address is an IP:port, the bindToPort option dictates
-	// whether or not the sidecar should bind its listener socket to the
-	// specified port. Set bindToPort to false (default) if application
-	// traffic entering/leaving a pod/VM is captured automatically through
-	// iptables redirection and forwarded to the sidecar on a specific port
-	// (see proxyListenPort in the global MeshConfig). When not using
-	// iptables for traffic capture, set bindToPort to true to force the
-	// sidecar to bind to the specified port. Note that the binding might
-	// fail if the application workload is already bound to the same port.
-	BindToPort bool `protobuf:"varint,4,opt,name=bind_to_port,json=bindToPort,proto3" json:"bind_to_port,omitempty"`
+	Bind string `protobuf:"bytes,2,opt,name=bind,proto3" json:"bind,omitempty"`
+	// When the bind address is an IP, the captureMode option dictates
+	// how traffic to the listener is expected to be captured (or not).
+	CaptureMode CaptureMode `protobuf:"varint,3,opt,name=capture_mode,json=captureMode,proto3,enum=istio.networking.v1alpha3.CaptureMode" json:"capture_mode,omitempty"`
 	// One or more services/virtualServices exposed by the listener in
-	// namespace/dnsName format.  _*Hosts will be ignored for ingress
-	// servers*_. For egress servers, the hosts field results in importing
-	// one or more publicly scoped services and VirtualServices from remote
-	// namespaces. The service in a namespace can be a service in the service
-	// registry (e.g., a kubernetes or cloud foundry service) or a service
-	// specified via ServiceEntry configuration. In addition, any publicly
-	// scoped DestinationRule associated with the imported services will also
-	// be imported.
+	// namespace/dnsName format.  Publicly scoped services and
+	// VirtualServices from remote namespaces corresponding to the specified
+	// hosts will be imported. The service in a namespace can be a service in
+	// the service registry (e.g., a kubernetes or cloud foundry service) or
+	// a service specified via ServiceEntry configuration. In addition, any
+	// publicly scoped DestinationRule associated with the imported services
+	// will also be imported.
 	//
 	// Set the namespace to * to import a particular service from any
 	// available namespace (e.g., "*/foo.example.com"). Set the dnsName field
@@ -183,67 +270,76 @@ type IstioListener struct {
 	// namespace can be imported. Private services/configuration will not be
 	// imported. Refer to the scope setting associated with VirtualService,
 	// DestinationRule, ServiceEntry, etc. for details.
-	Hosts []string `protobuf:"bytes,5,rep,name=hosts" json:"hosts,omitempty"`
-	// The IP endpoint or unix domain socket to which traffic should be
-	// forwarded to by default. In the context of an ingress server, this
-	// configuration can be used to redirect traffic arriving at the bind
-	// point on the sidecar to a port or unix domain socket where the
-	// application workload is listening for connections. Format should be
-	// 127.0.0.1:PORT or unix:///path/to/socket
-	DefaultEndpoint string `protobuf:"bytes,6,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
+	Hosts []string `protobuf:"bytes,4,rep,name=hosts" json:"hosts,omitempty"`
 }
 
-func (m *IstioListener) Reset()                    { *m = IstioListener{} }
-func (m *IstioListener) String() string            { return proto.CompactTextString(m) }
-func (*IstioListener) ProtoMessage()               {}
-func (*IstioListener) Descriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{1} }
+func (m *IstioEgressListener) Reset()                    { *m = IstioEgressListener{} }
+func (m *IstioEgressListener) String() string            { return proto.CompactTextString(m) }
+func (*IstioEgressListener) ProtoMessage()               {}
+func (*IstioEgressListener) Descriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{2} }
 
-func (m *IstioListener) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *IstioListener) GetPort() *Port {
+func (m *IstioEgressListener) GetPort() *Port {
 	if m != nil {
 		return m.Port
 	}
 	return nil
 }
 
-func (m *IstioListener) GetBindAddress() string {
+func (m *IstioEgressListener) GetBind() string {
 	if m != nil {
-		return m.BindAddress
+		return m.Bind
 	}
 	return ""
 }
 
-func (m *IstioListener) GetBindToPort() bool {
+func (m *IstioEgressListener) GetCaptureMode() CaptureMode {
 	if m != nil {
-		return m.BindToPort
+		return m.CaptureMode
 	}
-	return false
+	return CaptureMode_DEFAULT
 }
 
-func (m *IstioListener) GetHosts() []string {
+func (m *IstioEgressListener) GetHosts() []string {
 	if m != nil {
 		return m.Hosts
 	}
 	return nil
 }
 
-func (m *IstioListener) GetDefaultEndpoint() string {
+// WorkloadSelector specifies the criteria used to determine if the Gateway
+// or Sidecar resource can be applied to a proxy. The matching criteria
+// includes the metadata associated with a proxy, workload info such as
+// labels attached to the pod/VM, or any other info that the proxy provides
+// to Istio during the initial handshake. If multiple conditions are
+// specified, all conditions need to match in order for the workload to be
+// selected. Currently, only label based selection mechanism is supported.
+type WorkloadSelector struct {
+	// One or more labels that indicate a specific set of pods/VMs on which
+	// this sidecar configuration should be applied. The scope of label
+	// search is restricted to the configuration namespace in which the the
+	// resource is present.
+	Labels map[string]string `protobuf:"bytes,1,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (m *WorkloadSelector) Reset()                    { *m = WorkloadSelector{} }
+func (m *WorkloadSelector) String() string            { return proto.CompactTextString(m) }
+func (*WorkloadSelector) ProtoMessage()               {}
+func (*WorkloadSelector) Descriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{3} }
+
+func (m *WorkloadSelector) GetLabels() map[string]string {
 	if m != nil {
-		return m.DefaultEndpoint
+		return m.Labels
 	}
-	return ""
+	return nil
 }
 
 func init() {
 	proto.RegisterType((*Sidecar)(nil), "istio.networking.v1alpha3.Sidecar")
-	proto.RegisterType((*IstioListener)(nil), "istio.networking.v1alpha3.IstioListener")
+	proto.RegisterType((*IstioIngressListener)(nil), "istio.networking.v1alpha3.IstioIngressListener")
+	proto.RegisterType((*IstioEgressListener)(nil), "istio.networking.v1alpha3.IstioEgressListener")
+	proto.RegisterType((*WorkloadSelector)(nil), "istio.networking.v1alpha3.WorkloadSelector")
 	proto.RegisterEnum("istio.networking.v1alpha3.ConfigScope", ConfigScope_name, ConfigScope_value)
+	proto.RegisterEnum("istio.networking.v1alpha3.CaptureMode", CaptureMode_name, CaptureMode_value)
 }
 func (m *Sidecar) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -297,7 +393,7 @@ func (m *Sidecar) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *IstioListener) Marshal() (dAtA []byte, err error) {
+func (m *IstioIngressListener) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -307,19 +403,13 @@ func (m *IstioListener) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *IstioListener) MarshalTo(dAtA []byte) (int, error) {
+func (m *IstioIngressListener) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.Port != nil {
-		dAtA[i] = 0x12
+		dAtA[i] = 0xa
 		i++
 		i = encodeVarintSidecar(dAtA, i, uint64(m.Port.Size()))
 		n2, err := m.Port.MarshalTo(dAtA[i:])
@@ -328,25 +418,65 @@ func (m *IstioListener) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n2
 	}
-	if len(m.BindAddress) > 0 {
-		dAtA[i] = 0x1a
+	if len(m.Bind) > 0 {
+		dAtA[i] = 0x12
 		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(len(m.BindAddress)))
-		i += copy(dAtA[i:], m.BindAddress)
+		i = encodeVarintSidecar(dAtA, i, uint64(len(m.Bind)))
+		i += copy(dAtA[i:], m.Bind)
 	}
-	if m.BindToPort {
-		dAtA[i] = 0x20
+	if m.CaptureMode != 0 {
+		dAtA[i] = 0x18
 		i++
-		if m.BindToPort {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
+		i = encodeVarintSidecar(dAtA, i, uint64(m.CaptureMode))
+	}
+	if len(m.DefaultEndpoint) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintSidecar(dAtA, i, uint64(len(m.DefaultEndpoint)))
+		i += copy(dAtA[i:], m.DefaultEndpoint)
+	}
+	return i, nil
+}
+
+func (m *IstioEgressListener) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *IstioEgressListener) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Port != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintSidecar(dAtA, i, uint64(m.Port.Size()))
+		n3, err := m.Port.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
 		}
+		i += n3
+	}
+	if len(m.Bind) > 0 {
+		dAtA[i] = 0x12
 		i++
+		i = encodeVarintSidecar(dAtA, i, uint64(len(m.Bind)))
+		i += copy(dAtA[i:], m.Bind)
+	}
+	if m.CaptureMode != 0 {
+		dAtA[i] = 0x18
+		i++
+		i = encodeVarintSidecar(dAtA, i, uint64(m.CaptureMode))
 	}
 	if len(m.Hosts) > 0 {
 		for _, s := range m.Hosts {
-			dAtA[i] = 0x2a
+			dAtA[i] = 0x22
 			i++
 			l = len(s)
 			for l >= 1<<7 {
@@ -359,11 +489,40 @@ func (m *IstioListener) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
-	if len(m.DefaultEndpoint) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintSidecar(dAtA, i, uint64(len(m.DefaultEndpoint)))
-		i += copy(dAtA[i:], m.DefaultEndpoint)
+	return i, nil
+}
+
+func (m *WorkloadSelector) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WorkloadSelector) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Labels) > 0 {
+		for k, _ := range m.Labels {
+			dAtA[i] = 0xa
+			i++
+			v := m.Labels[k]
+			mapSize := 1 + len(k) + sovSidecar(uint64(len(k))) + 1 + len(v) + sovSidecar(uint64(len(v)))
+			i = encodeVarintSidecar(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintSidecar(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintSidecar(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
 	}
 	return i, nil
 }
@@ -399,23 +558,40 @@ func (m *Sidecar) Size() (n int) {
 	return n
 }
 
-func (m *IstioListener) Size() (n int) {
+func (m *IstioIngressListener) Size() (n int) {
 	var l int
 	_ = l
-	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovSidecar(uint64(l))
-	}
 	if m.Port != nil {
 		l = m.Port.Size()
 		n += 1 + l + sovSidecar(uint64(l))
 	}
-	l = len(m.BindAddress)
+	l = len(m.Bind)
 	if l > 0 {
 		n += 1 + l + sovSidecar(uint64(l))
 	}
-	if m.BindToPort {
-		n += 2
+	if m.CaptureMode != 0 {
+		n += 1 + sovSidecar(uint64(m.CaptureMode))
+	}
+	l = len(m.DefaultEndpoint)
+	if l > 0 {
+		n += 1 + l + sovSidecar(uint64(l))
+	}
+	return n
+}
+
+func (m *IstioEgressListener) Size() (n int) {
+	var l int
+	_ = l
+	if m.Port != nil {
+		l = m.Port.Size()
+		n += 1 + l + sovSidecar(uint64(l))
+	}
+	l = len(m.Bind)
+	if l > 0 {
+		n += 1 + l + sovSidecar(uint64(l))
+	}
+	if m.CaptureMode != 0 {
+		n += 1 + sovSidecar(uint64(m.CaptureMode))
 	}
 	if len(m.Hosts) > 0 {
 		for _, s := range m.Hosts {
@@ -423,9 +599,19 @@ func (m *IstioListener) Size() (n int) {
 			n += 1 + l + sovSidecar(uint64(l))
 		}
 	}
-	l = len(m.DefaultEndpoint)
-	if l > 0 {
-		n += 1 + l + sovSidecar(uint64(l))
+	return n
+}
+
+func (m *WorkloadSelector) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Labels) > 0 {
+		for k, v := range m.Labels {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovSidecar(uint64(len(k))) + 1 + len(v) + sovSidecar(uint64(len(v)))
+			n += mapEntrySize + 1 + sovSidecar(uint64(mapEntrySize))
+		}
 	}
 	return n
 }
@@ -531,7 +717,7 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Ingress = append(m.Ingress, &IstioListener{})
+			m.Ingress = append(m.Ingress, &IstioIngressListener{})
 			if err := m.Ingress[len(m.Ingress)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -562,7 +748,7 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Egress = append(m.Egress, &IstioListener{})
+			m.Egress = append(m.Egress, &IstioEgressListener{})
 			if err := m.Egress[len(m.Egress)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -588,7 +774,7 @@ func (m *Sidecar) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *IstioListener) Unmarshal(dAtA []byte) error {
+func (m *IstioIngressListener) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -611,42 +797,13 @@ func (m *IstioListener) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: IstioListener: wiretype end group for non-group")
+			return fmt.Errorf("proto: IstioIngressListener: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: IstioListener: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: IstioIngressListener: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowSidecar
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthSidecar
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Port", wireType)
 			}
@@ -679,9 +836,9 @@ func (m *IstioListener) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 3:
+		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field BindAddress", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Bind", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -706,13 +863,13 @@ func (m *IstioListener) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.BindAddress = string(dAtA[iNdEx:postIndex])
+			m.Bind = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 4:
+		case 3:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field BindToPort", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field CaptureMode", wireType)
 			}
-			var v int
+			m.CaptureMode = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowSidecar
@@ -722,13 +879,172 @@ func (m *IstioListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				m.CaptureMode |= (CaptureMode(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			m.BindToPort = bool(v != 0)
-		case 5:
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DefaultEndpoint", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowSidecar
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthSidecar
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DefaultEndpoint = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipSidecar(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthSidecar
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *IstioEgressListener) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowSidecar
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: IstioEgressListener: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: IstioEgressListener: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Port", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowSidecar
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthSidecar
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Port == nil {
+				m.Port = &Port{}
+			}
+			if err := m.Port.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Bind", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowSidecar
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthSidecar
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Bind = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CaptureMode", wireType)
+			}
+			m.CaptureMode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowSidecar
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CaptureMode |= (CaptureMode(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Hosts", wireType)
 			}
@@ -757,11 +1073,61 @@ func (m *IstioListener) Unmarshal(dAtA []byte) error {
 			}
 			m.Hosts = append(m.Hosts, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
-		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DefaultEndpoint", wireType)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipSidecar(dAtA[iNdEx:])
+			if err != nil {
+				return err
 			}
-			var stringLen uint64
+			if skippy < 0 {
+				return ErrInvalidLengthSidecar
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowSidecar
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WorkloadSelector: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WorkloadSelector: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Labels", wireType)
+			}
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowSidecar
@@ -771,20 +1137,109 @@ func (m *IstioListener) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthSidecar
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.DefaultEndpoint = string(dAtA[iNdEx:postIndex])
+			if m.Labels == nil {
+				m.Labels = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowSidecar
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowSidecar
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthSidecar
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowSidecar
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthSidecar
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipSidecar(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthSidecar
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Labels[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -915,29 +1370,36 @@ var (
 func init() { proto.RegisterFile("networking/v1alpha3/sidecar.proto", fileDescriptorSidecar) }
 
 var fileDescriptorSidecar = []byte{
-	// 379 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0xcd, 0x6e, 0xda, 0x40,
-	0x14, 0x85, 0x3b, 0xfc, 0x98, 0x72, 0xdd, 0xaa, 0xee, 0xa8, 0x0b, 0xb7, 0x0b, 0x6a, 0x58, 0x54,
-	0x6e, 0x2b, 0xd9, 0x0a, 0xbc, 0x40, 0x00, 0xb1, 0x40, 0x62, 0x81, 0x0c, 0xf9, 0x51, 0x36, 0xd6,
-	0x80, 0x07, 0x33, 0x8a, 0x33, 0x63, 0xcd, 0x4c, 0x82, 0xf2, 0x86, 0x59, 0xe6, 0x09, 0xa2, 0x88,
-	0x5d, 0xde, 0x22, 0xf2, 0x0f, 0x8a, 0x12, 0x11, 0xa4, 0xec, 0xec, 0x73, 0xcf, 0xf9, 0xee, 0x1c,
-	0xe9, 0x42, 0x9b, 0x53, 0xbd, 0x11, 0xf2, 0x92, 0xf1, 0xd8, 0xbf, 0x39, 0x22, 0x49, 0xba, 0x26,
-	0x3d, 0x5f, 0xb1, 0x88, 0x2e, 0x89, 0xf4, 0x52, 0x29, 0xb4, 0xc0, 0x3f, 0x99, 0xd2, 0x4c, 0x78,
-	0x2f, 0x46, 0x6f, 0x67, 0xfc, 0xb5, 0x37, 0x1d, 0x13, 0x4d, 0x37, 0xe4, 0xb6, 0x48, 0x77, 0x9e,
-	0x10, 0x34, 0x66, 0x05, 0x0f, 0x9f, 0xc3, 0xf7, 0xcc, 0x9d, 0x08, 0x12, 0x85, 0x8a, 0x26, 0x74,
-	0xa9, 0x85, 0xb4, 0x91, 0x83, 0x5c, 0xb3, 0xfb, 0xdf, 0x7b, 0x77, 0x8b, 0x77, 0x56, 0x66, 0x66,
-	0x65, 0x24, 0xb0, 0x36, 0x6f, 0x14, 0x3c, 0x80, 0x06, 0xe3, 0xb1, 0xa4, 0x4a, 0xd9, 0x15, 0xa7,
-	0xea, 0x9a, 0x5d, 0xf7, 0x00, 0x6f, 0x9c, 0x4d, 0x26, 0x4c, 0x69, 0xca, 0xa9, 0x0c, 0x76, 0x41,
-	0x7c, 0x0c, 0x06, 0x2d, 0x10, 0xd5, 0x0f, 0x22, 0xca, 0x5c, 0xe7, 0x01, 0xc1, 0xd7, 0x57, 0x13,
-	0x8c, 0xa1, 0xc6, 0xc9, 0x15, 0xcd, 0x4b, 0x36, 0x83, 0xfc, 0x1b, 0xf7, 0xa0, 0x96, 0x0a, 0xa9,
-	0xed, 0x4a, 0x5e, 0xfc, 0xf7, 0x81, 0x2d, 0x53, 0x21, 0x75, 0x90, 0x9b, 0x71, 0x1b, 0xbe, 0x2c,
-	0x18, 0x8f, 0x42, 0x12, 0x45, 0xe5, 0x13, 0x33, 0xa0, 0x99, 0x69, 0xfd, 0x42, 0xc2, 0x4e, 0x69,
-	0xd1, 0x22, 0xcc, 0xf9, 0x35, 0x07, 0xb9, 0x9f, 0x03, 0xc8, 0xb4, 0xb9, 0xc8, 0x50, 0xf8, 0x07,
-	0xd4, 0xd7, 0x42, 0x69, 0x65, 0xd7, 0x9d, 0xaa, 0xdb, 0x0c, 0x8a, 0x1f, 0xfc, 0x17, 0xac, 0x88,
-	0xae, 0xc8, 0x75, 0xa2, 0x43, 0xca, 0xa3, 0x54, 0x30, 0xae, 0x6d, 0x23, 0xc7, 0x7f, 0x2b, 0xf5,
-	0x51, 0x29, 0xff, 0xfb, 0x03, 0xe6, 0x50, 0xf0, 0x15, 0x8b, 0x67, 0x4b, 0x91, 0x52, 0x0c, 0x60,
-	0x4c, 0x4f, 0x06, 0x93, 0xf1, 0xd0, 0xfa, 0x84, 0x4d, 0x68, 0x4c, 0x83, 0xf1, 0x69, 0x7f, 0x3e,
-	0xb2, 0xd0, 0xc0, 0xbb, 0xdb, 0xb6, 0xd0, 0xfd, 0xb6, 0x85, 0x1e, 0xb7, 0x2d, 0x74, 0xe1, 0x14,
-	0x0d, 0x99, 0xf0, 0x49, 0xca, 0xfc, 0x3d, 0x27, 0xb3, 0x30, 0xf2, 0x5b, 0xe9, 0x3d, 0x07, 0x00,
-	0x00, 0xff, 0xff, 0x29, 0x6f, 0x5f, 0x4e, 0x8e, 0x02, 0x00, 0x00,
+	// 496 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x93, 0x3f, 0x6f, 0xd3, 0x40,
+	0x18, 0xc6, 0x7b, 0xb1, 0x49, 0x9a, 0xd7, 0x15, 0x98, 0xa3, 0x83, 0xe9, 0x10, 0x4c, 0x86, 0xca,
+	0x14, 0xc9, 0x16, 0xc9, 0xc0, 0x9f, 0x2d, 0x09, 0xae, 0x64, 0xc9, 0xb4, 0x91, 0x93, 0x02, 0x62,
+	0x89, 0x2e, 0xf6, 0x35, 0x3d, 0xd5, 0xf8, 0xac, 0xf3, 0xa5, 0x51, 0xbe, 0x0c, 0x5f, 0x85, 0x95,
+	0x91, 0x85, 0x1d, 0xe5, 0x43, 0x30, 0x23, 0xff, 0xa9, 0x5a, 0xa2, 0x10, 0xc4, 0xd6, 0xed, 0xde,
+	0xf7, 0x9e, 0xe7, 0xf7, 0xfa, 0xf1, 0xdd, 0xc1, 0xd3, 0x84, 0xca, 0x05, 0x17, 0x97, 0x2c, 0x99,
+	0x39, 0x57, 0x2f, 0x48, 0x9c, 0x5e, 0x90, 0xae, 0x93, 0xb1, 0x88, 0x86, 0x44, 0xd8, 0xa9, 0xe0,
+	0x92, 0xe3, 0xc7, 0x2c, 0x93, 0x8c, 0xdb, 0x37, 0x42, 0xfb, 0x5a, 0x78, 0xb0, 0xd1, 0x3d, 0x23,
+	0x92, 0x2e, 0xc8, 0xb2, 0x74, 0xb7, 0x7f, 0x21, 0x68, 0x8c, 0x4a, 0x1e, 0xfe, 0x08, 0x0f, 0x73,
+	0x75, 0xcc, 0x49, 0x34, 0xc9, 0x68, 0x4c, 0x43, 0xc9, 0x85, 0x81, 0x4c, 0x64, 0x69, 0x9d, 0xe7,
+	0xf6, 0x5f, 0xa7, 0xd8, 0x1f, 0x2a, 0xcf, 0xa8, 0xb2, 0x04, 0xfa, 0x62, 0xad, 0x83, 0x3d, 0x68,
+	0xb0, 0x64, 0x26, 0x68, 0x96, 0x19, 0x35, 0x53, 0xb1, 0xb4, 0x8e, 0xb3, 0x85, 0xe7, 0xe5, 0x3b,
+	0x5e, 0x29, 0xf7, 0x59, 0x26, 0x69, 0x42, 0x45, 0x70, 0xed, 0xc7, 0xc7, 0x50, 0xa7, 0x25, 0x49,
+	0x29, 0x48, 0xf6, 0xbf, 0x48, 0xee, 0x9f, 0xa0, 0xca, 0xdd, 0xfe, 0x81, 0x60, 0x7f, 0xd3, 0x24,
+	0xdc, 0x05, 0x35, 0xe5, 0x42, 0x56, 0xc1, 0x9f, 0x6c, 0xc1, 0x0f, 0xb9, 0x90, 0x41, 0x21, 0xc6,
+	0x18, 0xd4, 0x29, 0x4b, 0x22, 0xa3, 0x66, 0x22, 0xab, 0x19, 0x14, 0x6b, 0xec, 0xc1, 0x5e, 0x48,
+	0x52, 0x39, 0x17, 0x74, 0xf2, 0x99, 0x47, 0xd4, 0x50, 0x4c, 0x64, 0xdd, 0xef, 0x1c, 0x6e, 0x01,
+	0x0e, 0x4a, 0xf9, 0x3b, 0x1e, 0xd1, 0x40, 0x0b, 0x6f, 0x0a, 0xfc, 0x0c, 0xf4, 0x88, 0x9e, 0x93,
+	0x79, 0x2c, 0x27, 0x34, 0x89, 0x52, 0xce, 0x12, 0x69, 0xa8, 0xc5, 0xa8, 0x07, 0x55, 0xdf, 0xad,
+	0xda, 0xed, 0xaf, 0x08, 0x1e, 0x6d, 0xc8, 0x7d, 0x27, 0x63, 0xed, 0xc3, 0xbd, 0x0b, 0x9e, 0xc9,
+	0xcc, 0x50, 0x4d, 0xc5, 0x6a, 0x06, 0x65, 0xd1, 0xfe, 0x82, 0x40, 0x5f, 0xbf, 0x53, 0xf8, 0x14,
+	0xea, 0x31, 0x99, 0xd2, 0x38, 0x33, 0x50, 0x71, 0xec, 0x2f, 0xff, 0xe3, 0x42, 0xda, 0x7e, 0xe1,
+	0x74, 0x13, 0x29, 0x96, 0x41, 0x85, 0x39, 0x78, 0x0d, 0xda, 0xad, 0x36, 0xd6, 0x41, 0xb9, 0xa4,
+	0xcb, 0xe2, 0xef, 0x34, 0x83, 0x7c, 0x99, 0x7f, 0xdc, 0x15, 0x89, 0xe7, 0xb4, 0x0a, 0x5f, 0x16,
+	0x6f, 0x6a, 0xaf, 0xd0, 0xd1, 0x21, 0x68, 0x03, 0x9e, 0x9c, 0xb3, 0xd9, 0x28, 0xe4, 0x29, 0xc5,
+	0x00, 0xf5, 0xe1, 0x59, 0xdf, 0xf7, 0x06, 0xfa, 0x0e, 0xd6, 0xa0, 0x31, 0x0c, 0xbc, 0xf7, 0xbd,
+	0xb1, 0xab, 0xa3, 0xa3, 0x0e, 0x68, 0xb7, 0xa2, 0xe7, 0x7b, 0x6f, 0xdd, 0xe3, 0xde, 0x99, 0x3f,
+	0xd6, 0x77, 0xf0, 0x1e, 0xec, 0x7a, 0xc3, 0x71, 0xaf, 0xef, 0xbb, 0x23, 0x1d, 0xe1, 0x5d, 0x50,
+	0x4f, 0x4e, 0x4f, 0x5c, 0xbd, 0xd6, 0xb7, 0xbf, 0xad, 0x5a, 0xe8, 0xfb, 0xaa, 0x85, 0x7e, 0xae,
+	0x5a, 0xe8, 0x93, 0x59, 0x86, 0x64, 0xdc, 0x21, 0x29, 0x73, 0x36, 0xbc, 0xe6, 0x69, 0xbd, 0x78,
+	0xc6, 0xdd, 0xdf, 0x01, 0x00, 0x00, 0xff, 0xff, 0x62, 0xef, 0x1c, 0x27, 0x29, 0x04, 0x00, 0x00,
 }
