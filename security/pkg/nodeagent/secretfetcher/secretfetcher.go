@@ -53,7 +53,7 @@ const (
 
 	// The ID/name for the certificate chain in kubernetes secret.
 	ScrtCert = "cert"
-	// The ID/name for the k8sKeyA in kubernetes secret.
+	// The ID/name for the k8sKey in kubernetes secret.
 	ScrtKey = "key"
 
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
@@ -70,7 +70,7 @@ type SecretFetcher struct {
 	scrtController cache.Controller
 	scrtStore      cache.Store
 
-	// secrets maps k8sKeyA to secrets
+	// secrets maps k8sKey to secrets
 	secrets sync.Map
 }
 
