@@ -69,14 +69,13 @@ const (
 	// CRD files that should be installed during testing
 	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
 	//     and contain all CRDs used by Istio during runtime
-	zeroCRDInstallFile             = "crd-10.yaml"
-	oneCRDInstallFile              = "crd-11.yaml"
-	twoCRDInstallFile              = "crd-certmanager-10.yaml"
+	zeroCRDInstallFile = "crd-10.yaml"
+	oneCRDInstallFile  = "crd-11.yaml"
+	twoCRDInstallFile  = "crd-certmanager-10.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
 	RemoteCluster = "remote"
-
 
 	validationWebhookReadinessTimeout = time.Minute
 	validationWebhookReadinessFreq    = 100 * time.Millisecond
