@@ -101,7 +101,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	services = sidecarScope.Services();
+	services = sidecarScope.Services()
 	virtualServices := sidecarScope.VirtualServices()
 
 	// TODO: handle RDS for UDS listeners

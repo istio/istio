@@ -15,7 +15,7 @@
 package v1alpha3
 
 import (
-//	"sync"
+	//	"sync"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 

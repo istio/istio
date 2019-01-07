@@ -148,7 +148,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	}
 
 	// NOTE: Proxy can be nil here due to precomputed CDS
-	for _, service := range services{
+	for _, service := range services {
 		var config *model.Config
 		if proxy.Type == model.SidecarProxy {
 			config = sidecarScope.DestinationRule(service.Hostname)

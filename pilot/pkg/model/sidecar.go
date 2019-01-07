@@ -87,8 +87,8 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.importedServices = defaultEgressListener.selectServices(ps.Services(&dummyNode))
 
 	out := &SidecarScope{
-		EgressListeners: []*IstioListenerWrapper{defaultEgressListener},
-		allImportedServices: defaultEgressListener.importedServices,
+		EgressListeners:             []*IstioListenerWrapper{defaultEgressListener},
+		allImportedServices:         defaultEgressListener.importedServices,
 		allImportedDestinationRules: make(map[Hostname]*Config),
 	}
 
@@ -107,8 +107,8 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
 func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
 	out := &SidecarScope{
-		Config: sidecarConfig,
-		allImportedServices: make([]*Service, 0),
+		Config:                      sidecarConfig,
+		allImportedServices:         make([]*Service, 0),
 		allImportedDestinationRules: make(map[Hostname]*Config),
 	}
 
@@ -125,7 +125,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 		out.IngressListeners = append(out.IngressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
 	}
 
-	// Now collect all the imported services across all egress listeners. This is needed to generate CDS output	
+	// Now collect all the imported services across all egress listeners. This is needed to generate CDS output
 	servicesAdded := make(map[Hostname]struct{})
 	dummyNode := Proxy{
 		ConfigNamespace: sidecarConfig.Namespace,

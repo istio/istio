@@ -631,7 +631,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(ps, &sidecarConfig))
 	}
 
-	 // prebuild default sidecar scopes for other namespaces
+	// prebuild default sidecar scopes for other namespaces
 	for _, s := range ps.ServiceByHostname {
 		ns := s.Attributes.Namespace
 		if len(ps.sidecarsByNamespace[ns]) == 0 {
