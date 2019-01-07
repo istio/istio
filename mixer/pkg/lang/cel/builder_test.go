@@ -101,3 +101,23 @@ func TestCEXLCompatibility(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkInterpreter(b *testing.B) {
+	for _, test := range ilt.TestData {
+		if !test.Bench {
+			continue
+		}
+
+		converted, _ := sourceCEXLToCEL(test.E)
+		finder := ast.NewFinder(test.Conf())
+		builder := NewBuilder(finder)
+		ex, _, _ := builder.Compile(converted)
+		bg := ilt.NewFakeBag(test.I)
+
+		b.Run(test.TestName(), func(bb *testing.B) {
+			for i := 0; i < bb.N; i++ {
+				_, _ = ex.Evaluate(bg)
+			}
+		})
+	}
+}
