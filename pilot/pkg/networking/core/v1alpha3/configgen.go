@@ -15,7 +15,7 @@
 package v1alpha3
 
 import (
-	"sync"
+//	"sync"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
@@ -39,44 +39,45 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 }
 
 func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environment, push *model.PushContext) error {
-	namespaceMap := map[string]struct{}{}
-	clustersByNamespace := map[string][]*xdsapi.Cluster{}
+	// namespaceMap := map[string]struct{}{}
+	// clustersByNamespace := map[string][]*xdsapi.Cluster{}
 
-	services := push.Services(nil)
-	for _, svc := range services {
-		namespaceMap[svc.Attributes.Namespace] = struct{}{}
-	}
-	namespaceMap[""] = struct{}{}
+	// services := push.Services(nil)
+	// for _, svc := range services {
+	// 	namespaceMap[svc.Attributes.Namespace] = struct{}{}
+	// }
+	// namespaceMap[""] = struct{}{}
 
-	// generate outbound for all namespaces in parallel.
-	wg := &sync.WaitGroup{}
-	mutex := &sync.Mutex{}
-	wg.Add(len(namespaceMap))
-	for ns := range namespaceMap {
-		go func(ns string) {
-			defer wg.Done()
-			dummyNode := model.Proxy{
-				ConfigNamespace: ns,
-			}
-			clusters := configgen.buildOutboundClusters(env, &dummyNode, push)
-			mutex.Lock()
-			clustersByNamespace[ns] = clusters
-			mutex.Unlock()
-		}(ns)
-	}
-	wg.Wait()
+	// // generate outbound for all namespaces in parallel.
+	// wg := &sync.WaitGroup{}
+	// mutex := &sync.Mutex{}
+	// wg.Add(len(namespaceMap))
+	// for ns := range namespaceMap {
+	// 	go func(ns string) {
+	// 		defer wg.Done()
+	// 		dummyNode := model.Proxy{
+	// 			ConfigNamespace: ns,
+	// 		}
+	// 		clusters := configgen.buildOutboundClusters(env, &dummyNode, push)
+	// 		mutex.Lock()
+	// 		clustersByNamespace[ns] = clusters
+	// 		mutex.Unlock()
+	// 	}(ns)
+	// }
+	// wg.Wait()
 
-	configgen.PrecomputedOutboundClusters = clustersByNamespace
+	// configgen.PrecomputedOutboundClusters = clustersByNamespace
 	return nil
 }
 
 func (configgen *ConfigGeneratorImpl) CanUsePrecomputedCDS(proxy *model.Proxy) bool {
-	networkView := model.GetNetworkView(proxy)
-	// If we have only more than one network view for the proxy, then recompute CDS.
-	// Because, by default, we cache the CDS output for proxies in the UnnamedNetwork only.
-	if len(networkView) > 1 {
-		return false
-	}
+	return false
+	// networkView := model.GetNetworkView(proxy)
+	// // If we have only more than one network view for the proxy, then recompute CDS.
+	// // Because, by default, we cache the CDS output for proxies in the UnnamedNetwork only.
+	// if len(networkView) > 1 {
+	// 	return false
+	// }
 
-	return networkView[model.UnnamedNetwork]
+	// return networkView[model.UnnamedNetwork]
 }

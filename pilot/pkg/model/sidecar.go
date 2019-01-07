@@ -45,10 +45,13 @@ type SidecarScope struct {
 	// Right now, we include all the ports in these services.
 	// TODO: Trim the ports in the services to only those referred to by the
 	// egress listeners.
-	AllImportedServices []*Service
+	allImportedServices []*Service
 
-	// Union of Destination rules imported across all egress listeners
-	AllImportedDestinationRules []*Config
+	// Destination rules imported across all egress listeners
+	allImportedDestinationRules map[Hostname]*Config
+
+	// VirtualServices imported across all egress listeners
+	allImportedVirtualServices []Config
 }
 
 // IstioListenerWrapper is a wrapper for networking.IstioListener object.
@@ -63,56 +66,139 @@ type IstioListenerWrapper struct {
 
 	// optional. The port on which this listener should be configured. If
 	// omitted, we infer from services imported
-	Port *Port
+	ListenerPort *Port
 
 	// List of services imported by this listener
-	ImportedServices []*Service
-
-	// List of VirtualServices imported by this listener
-	ImportedVirtualServices []*Config
+	importedServices []*Service
 
 	importMap map[string]Hostname
 }
 
 // DefaultSidecarScope is a sidecar scope object with a default
 // catch all egress listener
-func DefaultSidecarScope() *SidecarScope {
-	return &SidecarScope{
-		EgressListeners: []*IstioListenerWrapper{
-			{
-				importMap: map[string]Hostname{wildcardNamespace: wildcardService},
-			},
-		},
+func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
+	dummyNode := Proxy{
+		ConfigNamespace: configNamespace,
 	}
+
+	defaultEgressListener := &IstioListenerWrapper{
+		importMap: map[string]Hostname{wildcardNamespace: wildcardService},
+	}
+	defaultEgressListener.importedServices = defaultEgressListener.selectServices(ps.Services(&dummyNode))
+
+	out := &SidecarScope{
+		EgressListeners: []*IstioListenerWrapper{defaultEgressListener},
+		allImportedServices: defaultEgressListener.importedServices,
+		allImportedDestinationRules: make(map[Hostname]*Config),
+	}
+
+	// Now that we have all the services that sidecars using this scope (in
+	// this config namespace) will see, identify all the destinationRules and virtualServices
+	// that these services need
+	for _, s := range out.allImportedServices {
+		out.allImportedDestinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s.Hostname)
+	}
+
+	meshGateway := map[string]bool{IstioMeshGateway: true}
+	out.allImportedVirtualServices = out.selectVirtualServices(ps.VirtualServices(&dummyNode, meshGateway))
+	return out
 }
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
 func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
 	out := &SidecarScope{
 		Config: sidecarConfig,
+		allImportedServices: make([]*Service, 0),
+		allImportedDestinationRules: make(map[Hostname]*Config),
 	}
 
 	r := sidecarConfig.Spec.(*networking.Sidecar)
 	out.EgressListeners = make([]*IstioListenerWrapper, 0)
 	out.IngressListeners = make([]*IstioListenerWrapper, 0)
+
 	for _, e := range r.Egress {
-		out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(e))
-	}
-	for _, e := range r.Ingress {
-		out.IngressListeners = append(out.IngressListeners, convertIstioListenerToWrapper(e))
+		out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
 	}
 
+	for _, e := range r.Ingress {
+		// TODO: These need to go into CDS as well
+		out.IngressListeners = append(out.IngressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
+	}
+
+	// Now collect all the imported services across all egress listeners. This is needed to generate CDS output	
+	servicesAdded := make(map[Hostname]struct{})
+	dummyNode := Proxy{
+		ConfigNamespace: sidecarConfig.Namespace,
+	}
+
+	for _, listener := range out.EgressListeners {
+		for _, s := range listener.importedServices {
+			// TODO: port merging when each listener generates a partial service
+			if _, found := servicesAdded[s.Hostname]; !found {
+				servicesAdded[s.Hostname] = struct{}{}
+				out.allImportedServices = append(out.allImportedServices, s)
+			}
+		}
+	}
+
+	// Now that we have all the services that sidecars using this scope (in
+	// this config namespace) will see, identify all the destinationRules and virtualServices
+	// that these services need
+	for _, s := range out.allImportedServices {
+		out.allImportedDestinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s.Hostname)
+	}
+	meshGateway := map[string]bool{IstioMeshGateway: true}
+	out.allImportedVirtualServices = out.selectVirtualServices(ps.VirtualServices(&dummyNode, meshGateway))
 	return out
 }
 
-func convertIstioListenerToWrapper(istioListener *networking.IstioListener) *IstioListenerWrapper {
+// Services returns the list of services imported across all egress listeners by this
+// Sidecar config
+func (sc *SidecarScope) Services() []*Service {
+	if sc == nil {
+		return nil
+	}
+
+	return sc.allImportedServices
+}
+
+// VirtualServices returns the list of virtual services imported by this Sidecar config
+// across all egress listeners
+func (sc *SidecarScope) VirtualServices() []Config {
+	if sc == nil {
+		return nil
+	}
+
+	return sc.allImportedVirtualServices
+}
+
+// DestinationRule returns the destination rule applicable for a given hostname
+// used by CDS code
+func (sc *SidecarScope) DestinationRule(hostname Hostname) *Config {
+	if sc == nil {
+		return nil
+	}
+
+	return sc.allImportedDestinationRules[hostname]
+}
+
+// Services returns the list of services imported by this egress listener
+func (ilw *IstioListenerWrapper) Services() []*Service {
+	if ilw == nil {
+		return nil
+	}
+
+	return ilw.importedServices
+}
+
+func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config, istioListener *networking.IstioListener) *IstioListenerWrapper {
 	out := &IstioListenerWrapper{
 		IstioListener: istioListener,
 		importMap:     make(map[string]Hostname),
 	}
 
 	if istioListener.Port != nil {
-		out.Port = &Port{
+		out.ListenerPort = &Port{
 			Name:     istioListener.Port.Name,
 			Port:     int(istioListener.Port.Number),
 			Protocol: ParseProtocol(istioListener.Port.Protocol),
@@ -126,30 +212,80 @@ func convertIstioListenerToWrapper(istioListener *networking.IstioListener) *Ist
 		}
 	}
 
+	dummyNode := Proxy{
+		ConfigNamespace: sidecarConfig.Namespace,
+	}
+
+	out.importedServices = out.selectServices(ps.Services(&dummyNode))
+
 	return out
 }
 
 // GetEgressListenerForPort returns the egress listener corresponding to
 // the listener port or the catch all listener
-func (sc *SidecarScope) GetEgressListenerForPort(port int) *IstioListenerWrapper {
+func (sc *SidecarScope) getEgressListenerForPort(port int) *IstioListenerWrapper {
 	if sc == nil {
 		return nil
 	}
 
 	for _, e := range sc.EgressListeners {
-		if e.Port == nil || e.Port.Port == port {
+		if e.ListenerPort == nil || e.ListenerPort.Port == port {
 			return e
 		}
 	}
 	return nil
 }
 
-// SelectServices returns the list of services selected through the hosts field
-// in the ingress/egress portion of the Sidecar config
-func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service {
-	if ilw == nil {
-		return nil
+// selectVirtualServices returns the list of virtual services selected
+// across all egress listeners
+func (sc *SidecarScope) selectVirtualServices(configs []Config) []Config {
+
+	importedConfigs := make([]Config, 0)
+	for _, c := range configs {
+		configNamespace := c.Namespace
+		rule := c.Spec.(*networking.VirtualService)
+		for _, ilw := range sc.EgressListeners {
+			// Check if there is an explicit import of form ns/* or ns/host
+			if hostMatch, nsFound := ilw.importMap[configNamespace]; nsFound {
+				// Check if the hostnames match per usual hostname matching rules
+				hostFound := false
+				for _, h := range rule.Hosts {
+					// TODO: This is a bug. VirtualServices can have many hosts
+					// while the user might be importing only a single host
+					// We need to generate a new VirtualService with just the matched host
+					if hostMatch.Matches(Hostname(h)) {
+						importedConfigs = append(importedConfigs, c)
+						hostFound = true
+						break
+					}
+				}
+				if hostFound {
+					break
+				}
+			}
+
+			// Check if there is an import of form */host or */*
+			if hostMatch, wnsFound := ilw.importMap[wildcardNamespace]; wnsFound {
+				// Check if the hostnames match per usual hostname matching rules
+				for _, h := range rule.Hosts {
+					// TODO: This is a bug. VirtualServices can have many hosts
+					// while the user might be importing only a single host
+					// We need to generate a new VirtualService with just the matched host
+					if hostMatch.Matches(Hostname(h)) {
+						importedConfigs = append(importedConfigs, c)
+						break
+					}
+				}
+			}
+		}
 	}
+
+	return importedConfigs
+}
+
+// selectServices returns the list of services selected through the hosts field
+// in the ingress/egress portion of the Sidecar config
+func (ilw *IstioListenerWrapper) selectServices(services []*Service) []*Service {
 
 	importedServices := make([]*Service, 0)
 	for _, s := range services {
@@ -158,6 +294,12 @@ func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service 
 		if hostMatch, nsFound := ilw.importMap[configNamespace]; nsFound {
 			// Check if the hostnames match per usual hostname matching rules
 			if hostMatch.Matches(s.Hostname) {
+				// TODO: See if the service's ports match.
+				// If there is a listener port for this Listener, then
+				//   check if the service has a port of same value.
+				//   If not, check if the service has a single port - and choose that port
+				//   if service has multiple ports none of which match the listener port, check if there is
+				//   a virtualService with match Port
 				importedServices = append(importedServices, s)
 				continue
 			}
@@ -174,47 +316,4 @@ func (ilw *IstioListenerWrapper) SelectServices(services []*Service) []*Service 
 	}
 
 	return importedServices
-}
-
-// SelectVirtualServices returns the list of virtual services selected
-// through the hosts field in the ingress/egress portion of the Sidecar
-// config
-func (ilw *IstioListenerWrapper) SelectVirtualServices(configs []Config) []Config {
-	if ilw == nil {
-		return nil
-	}
-
-	importedConfigs := make([]Config, 0)
-	for _, c := range configs {
-		configNamespace := c.Namespace
-		rule := c.Spec.(*networking.VirtualService)
-		// Check if there is an explicit import of form ns/* or ns/host
-		if hostMatch, nsFound := ilw.importMap[configNamespace]; nsFound {
-			// Check if the hostnames match per usual hostname matching rules
-			for _, h := range rule.Hosts {
-				// TODO: This is a bug. VirtualServices can have many hosts
-				// while the user might be importing only a single host
-				// We need to generate a new VirtualService with just the matched host
-				if hostMatch.Matches(Hostname(h)) {
-					importedConfigs = append(importedConfigs, c)
-					break
-				}
-			}
-		} else if hostMatch, wnsFound := ilw.importMap[wildcardNamespace]; wnsFound {
-			// Check if there is an import of form */host or */*
-
-			// Check if the hostnames match per usual hostname matching rules
-			for _, h := range rule.Hosts {
-				// TODO: This is a bug. VirtualServices can have many hosts
-				// while the user might be importing only a single host
-				// We need to generate a new VirtualService with just the matched host
-				if hostMatch.Matches(Hostname(h)) {
-					importedConfigs = append(importedConfigs, c)
-					break
-				}
-			}
-		}
-	}
-
-	return importedConfigs
 }

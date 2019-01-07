@@ -182,13 +182,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	}
 
 	services := push.Services(node)
-	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
-		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances, sidecarScope)
-		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances, services, sidecarScope)
+		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
+		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances, services)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -310,7 +308,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 // buildSidecarInboundListeners creates listeners for the server-side (inbound)
 // configuration for co-located service proxyInstances.
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, _ *model.SidecarScope) []*xdsapi.Listener {
+	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
 	listenerMap := make(map[string]*model.ServiceInstance)
@@ -485,7 +483,8 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 			len(c.currentServices)))
 }
 
-// buildSidecarOutboundListeners generates http and tcp listeners for outbound connections from the service instance
+// buildSidecarOutboundListeners generates http and tcp listeners for
+// outbound connections from the service instance
 // TODO(github.com/istio/pilot/issues/237)
 //
 // Sharing tcp_proxy and http_connection_manager filters on the same port for
@@ -501,15 +500,16 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
 	push *model.PushContext, proxyInstances []*model.ServiceInstance,
-	services []*model.Service, sidecarScope *model.SidecarScope) []*xdsapi.Listener {
+	services []*model.Service) []*xdsapi.Listener {
 
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {
 		proxyLabels = append(proxyLabels, w.Labels)
 	}
 
-	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	configs := push.VirtualServices(node, meshGateway)
+	sidecarScope := push.GetSidecarScope(node, proxyInstances)
+	services = sidecarScope.Services()
+	configs := sidecarScope.VirtualServices()
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
@@ -525,9 +525,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	// Validation will ensure that we have utmost one wildcard egress listener
 	// occurring in the end
 
-	var catchAllListener *model.IstioListenerWrapper
-	var importedServices []*model.Service
-	var importedConfigs []model.Config
 	// Add listeners based on the config in the sidecar.EgressListeners if
 	// no Sidecar CRD is provided for this config namespace,
 	// push.SidecarScope will generate a default catch all egress listener.
@@ -548,20 +545,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 		// This is a catch all egress listener. This should be the last
 		// egress listener in the sidecar Scope.
-		catchAllListener = egressListener
+		services = egressListener.Services()
 		break
 	}
-
-	// Only import services and virtualServices required by this listener
-	importedServices = catchAllListener.SelectServices(services)
-	importedConfigs = catchAllListener.SelectVirtualServices(configs)
 
 	// Control reaches this stage when we need to build a catch all egress
 	// listener. We need to generate a listener for every unique service
 	// port across all imported services, if and only if this port was not
 	// specified in any of the preceding listeners from the sidecarScope.
 	// TODO: Implement the logic for ignoring service ports processed earlier.
-	for _, service := range importedServices {
+	for _, service := range services {
 		for _, servicePort := range service.Ports {
 			listenAddress := WildcardAddress
 			var destinationIPAddress string
@@ -667,7 +660,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					// The conflict resolution is done later in this code
 				}
 
-				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(env, node, push, importedConfigs,
+				meshGateway := map[string]bool{model.IstioMeshGateway: true}
+				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(env, node, push, configs,
 					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
 			default:
 				// UDP or other protocols: no need to log, it's too noisy

@@ -389,9 +389,6 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 // GetSidecarScope returns a sidecar rule applicable to the config
 // namespace associated with the proxy
 func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
-	if proxy == nil {
-		return DefaultSidecarScope()
-	}
 
 	var workloadLabels LabelsCollection
 	for _, w := range proxyInstances {
@@ -402,21 +399,23 @@ func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
 		for _, wrapper := range sidecars {
-			sidecar := wrapper.Config.Spec.(*networking.Sidecar)
-			// if there is no workload selector, the config applies to all workloads
-			// if there is a workload selector, check for matching workload labels
-			if sidecar.GetWorkloadSelector() != nil {
-				workloadSelector := Labels(sidecar.GetWorkloadSelector().GetLabels())
-				if !workloadLabels.IsSupersetOf(workloadSelector) {
-					continue
+			if wrapper.Config != nil {
+				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
+				// if there is no workload selector, the config applies to all workloads
+				// if there is a workload selector, check for matching workload labels
+				if sidecar.GetWorkloadSelector() != nil {
+					workloadSelector := Labels(sidecar.GetWorkloadSelector().GetLabels())
+					if !workloadLabels.IsSupersetOf(workloadSelector) {
+						continue
+					}
+					return wrapper
 				}
-				return wrapper
 			}
 			return wrapper
 		}
 	}
 
-	return DefaultSidecarScope()
+	return DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
@@ -630,6 +629,14 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	for _, sidecarConfig := range sidecarConfigs {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(ps, &sidecarConfig))
+	}
+
+	 // prebuild default sidecar scopes for other namespaces
+	for _, s := range ps.ServiceByHostname {
+		ns := s.Attributes.Namespace
+		if len(ps.sidecarsByNamespace[ns]) == 0 {
+			ps.sidecarsByNamespace[ns] = []*SidecarScope{DefaultSidecarScopeForNamespace(ps, ns)}
+		}
 	}
 
 	return nil
