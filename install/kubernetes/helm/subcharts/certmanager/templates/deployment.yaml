@@ -19,8 +19,7 @@ spec:
         app: certmanager
         chart: {{ template "certmanager.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
+        release: {{ .Release.Name }}        
         {{- if .Values.podLabels }}
 {{ toYaml .Values.podLabels | indent 8 }}
         {{- end }}

@@ -23,7 +23,6 @@ spec:
         chart: {{ template "security.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"

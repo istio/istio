@@ -21,8 +21,7 @@ spec:
         app: {{ template "galley.name" . }}
         chart: {{ template "galley.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
+        release: {{ .Release.Name }}      
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
