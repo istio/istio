@@ -84,9 +84,6 @@ const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 
-	// MeshNetworksConfigMapKey should match the expected MeshNetworks config file name
-	MeshNetworksConfigMapKey = "meshNetworks"
-
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
 
 	// DefaultMCPMaxMsgSize is the default maximum message size
