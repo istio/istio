@@ -183,7 +183,6 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 		CreatedTime:  t,
 		Version:      t.String(),
 	}
-	log.Infof("sds debug: Generate secretItem\n%v", ns)
 	sc.secrets.Store(key, *ns)
 	return ns, nil
 }
