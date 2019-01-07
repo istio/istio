@@ -123,9 +123,9 @@ input:
       tooltip: Default Admin username for Kiali
       section: MONITORING
 
-    - name: kialiPassword
-      title: Default Password for Kiali
-      tooltip: Default Password username for Kiali
+    - name: kialiPassphrase
+      title: Default Passphrase for Kiali
+      tooltip: Default Passphrase (min 8 characters)
       section: MONITORING
 
   sections:

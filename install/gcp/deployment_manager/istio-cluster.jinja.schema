@@ -9,6 +9,8 @@ required:
 - zone
 - initialNodeCount
 - instanceType
+- kialiUsername
+- kialiPassphrase
 
 properties:
   gkeClusterName:
@@ -92,8 +94,7 @@ properties:
     description: Default username for Kiali
     default: admin
 
-  kialiPassword:
+  kialiPassphrase:
     type: string
-    description: Default username for Kiali
+    description: Default Passphrase (min 8 characters)
     minLength: 8
-    default: mysecret

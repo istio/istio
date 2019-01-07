@@ -152,7 +152,7 @@ resources:
           {% if  properties['enableKiali'] %}
 
             export USERNAME=$(echo -n '{{  properties['kialiUsername'] }}' | base64)
-            export PASSPHRASE=$(echo -n '{{  properties['kialiPassword'] }}' | base64)
+            export PASSPHRASE=$(echo -n '{{  properties['kialiPassphrase'] }}' | base64)
             export NAMESPACE=istio-system
 
             echo '
@@ -174,11 +174,11 @@ resources:
             export KIALI_OPTIONS=" --set kiali.enabled=true "
 
             {% if  properties['enableGrafana'] %}
-              KIALI_OPTIONS=$KIALI_OPTIONS"  --set kiali.dashboard.grafanaURL=http://$(kubectl get svc grafana -n istio-system -o jsonpath='{.spec.clusterIP}'):3000"
+              KIALI_OPTIONS=$KIALI_OPTIONS"  --set kiali.dashboard.grafanaURL=http://localhost:3000"
             {% endif %}
 
             {% if  properties['enableTracing'] %}
-              KIALI_OPTIONS=$KIALI_OPTIONS" --set kiali.dashboard.jaegerURL=http://$(kubectl get svc tracing -n istio-system -o jsonpath='{.spec.clusterIP}'):9411"
+              KIALI_OPTIONS=$KIALI_OPTIONS" --set kiali.dashboard.jaegerURL=http://localhost:16686"
             {% endif %}
 
             helm template install/kubernetes/helm/istio --name istio --namespace istio-system $KIALI_OPTIONS  > istio_kiali.yaml

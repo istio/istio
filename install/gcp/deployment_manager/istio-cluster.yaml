@@ -18,6 +18,6 @@ resources:
     enableServiceGraph: false
     enableKiali: true
     kialiUsername: admin
-    kialiPassword: mysecret
+    kialiPassphrase:
     enableBookInfoSample: true
     installIstioRelease: 1.1.0
