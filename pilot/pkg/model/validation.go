@@ -633,7 +633,7 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 						errs = appendErrors(errs, ValidatePort(port))
 					}
 				}
-			}			
+			}
 		}
 	}
 
@@ -646,7 +646,7 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		// there can be only one catch all egress listener with empty port, and it should be the last listener.
 		if i.Port == nil {
 			if !catchAllEgressListenerFound {
-				if index == len(rule.Egress) - 1 {
+				if index == len(rule.Egress)-1 {
 					catchAllEgressListenerFound = true
 				} else {
 					errs = appendErrors(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
@@ -686,9 +686,9 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 				}
 
 				if len(parts[0]) == 0 || len(parts[1]) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: config namespace and dnsName in host entry cannot be empty"))					
+					errs = appendErrors(errs, fmt.Errorf("sidecar: config namespace and dnsName in host entry cannot be empty"))
 				}
-				
+
 				// short name hosts are not allowed
 				if parts[1] != "*" && !strings.Contains(parts[1], ".") {
 					errs = appendErrors(errs, fmt.Errorf("sidecar: short names (non FQDN) are not allowed"))

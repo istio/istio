@@ -3708,9 +3708,9 @@ func TestValidateMixerService(t *testing.T) {
 
 func TestValidateSidecar(t *testing.T) {
 	tests := []struct {
-		name   string
-		in     *networking.Sidecar
-		valid  bool
+		name  string
+		in    *networking.Sidecar
+		valid bool
 	}{
 		{"empty ingress and egress", &networking.Sidecar{}, false},
 		{"default", &networking.Sidecar{
@@ -3765,8 +3765,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 8080,
-						Name: "h8080",
+						Number:   8080,
+						Name:     "h8080",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
@@ -3779,8 +3779,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http1",
-						Number: 1000000,
-						Name: "",
+						Number:   1000000,
+						Name:     "",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
@@ -3793,8 +3793,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 0,
-						Name: "uds",
+						Number:   0,
+						Name:     "uds",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
@@ -3808,8 +3808,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 0,
-						Name: "uds",
+						Number:   0,
+						Name:     "uds",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
@@ -3823,8 +3823,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 0,
-						Name: "uds",
+						Number:   0,
+						Name:     "uds",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
@@ -3838,13 +3838,13 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 0,
-						Name: "uds",
+						Number:   0,
+						Name:     "uds",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
 					},
-					Bind: "unix:///@foo/bar/com",
+					Bind:        "unix:///@foo/bar/com",
 					CaptureMode: networking.CaptureMode_IPTABLES,
 				},
 			},
@@ -3854,8 +3854,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 0,
-						Name: "uds",
+						Number:   0,
+						Name:     "uds",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
@@ -3865,8 +3865,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 0,
-						Name: "uds",
+						Number:   0,
+						Name:     "uds",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
@@ -3880,8 +3880,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 90,
-						Name: "foo",
+						Number:   90,
+						Name:     "foo",
 					},
 					Hosts: []string{
 						"ns1/bar.com",
@@ -3890,8 +3890,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "tcp",
-						Number: 90,
-						Name: "tcp",
+						Number:   90,
+						Name:     "tcp",
 					},
 					Hosts: []string{
 						"ns2/bar.com",
@@ -3911,16 +3911,16 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 90,
-						Name: "foo",
+						Number:   90,
+						Name:     "foo",
 					},
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 				{
 					Port: &networking.Port{
 						Protocol: "tcp",
-						Number: 90,
-						Name: "bar",
+						Number:   90,
+						Name:     "bar",
 					},
 					DefaultEndpoint: "127.0.0.1:110",
 				},
@@ -3931,8 +3931,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 90,
-						Name: "foo",
+						Number:   90,
+						Name:     "foo",
 					},
 				},
 			},
@@ -3942,8 +3942,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 90,
-						Name: "foo",
+						Number:   90,
+						Name:     "foo",
 					},
 					DefaultEndpoint: "1.1.1.1:90",
 				},
@@ -3954,8 +3954,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 90,
-						Name: "foo",
+						Number:   90,
+						Name:     "foo",
 					},
 					DefaultEndpoint: "unix:///",
 				},
@@ -3966,8 +3966,8 @@ func TestValidateSidecar(t *testing.T) {
 				{
 					Port: &networking.Port{
 						Protocol: "http",
-						Number: 90,
-						Name: "foo",
+						Number:   90,
+						Name:     "foo",
 					},
 					DefaultEndpoint: "127.0.0.1:hi",
 				},
