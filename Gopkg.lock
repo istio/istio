@@ -1624,7 +1624,6 @@
   ]
   pruneopts = "T"
   revision = "448faa9b3c3bfe9e92cd0fba9532d19db89d50c6"
-  source = "github.com/istio/api"
 
 [[projects]]
   branch = "release-1.11"

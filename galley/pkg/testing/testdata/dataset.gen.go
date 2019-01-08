@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 )
-
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -828,21 +827,21 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"dataset/config.istio.io/v1alpha2/circonus.yaml":                     datasetConfigIstioIoV1alpha2CirconusYaml,
-	"dataset/config.istio.io/v1alpha2/circonus_expected.json":            datasetConfigIstioIoV1alpha2Circonus_expectedJson,
-	"dataset/extensions/v1beta1/ingress_basic.yaml":                      datasetExtensionsV1beta1Ingress_basicYaml,
-	"dataset/extensions/v1beta1/ingress_basic_expected.json":             datasetExtensionsV1beta1Ingress_basic_expectedJson,
-	"dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml":           datasetExtensionsV1beta1Ingress_basic_meshconfigYaml,
-	"dataset/extensions/v1beta1/ingress_merge_0.skip":                    datasetExtensionsV1beta1Ingress_merge_0Skip,
-	"dataset/extensions/v1beta1/ingress_merge_0.yaml":                    datasetExtensionsV1beta1Ingress_merge_0Yaml,
-	"dataset/extensions/v1beta1/ingress_merge_0_expected.json":           datasetExtensionsV1beta1Ingress_merge_0_expectedJson,
-	"dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml":         datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml,
-	"dataset/extensions/v1beta1/ingress_merge_1.yaml":                    datasetExtensionsV1beta1Ingress_merge_1Yaml,
-	"dataset/extensions/v1beta1/ingress_merge_1_expected.json":           datasetExtensionsV1beta1Ingress_merge_1_expectedJson,
-	"dataset/networking.istio.io/v1alpha3/destinationRule.yaml":          datasetNetworkingIstioIoV1alpha3DestinationruleYaml,
+	"dataset/config.istio.io/v1alpha2/circonus.yaml": datasetConfigIstioIoV1alpha2CirconusYaml,
+	"dataset/config.istio.io/v1alpha2/circonus_expected.json": datasetConfigIstioIoV1alpha2Circonus_expectedJson,
+	"dataset/extensions/v1beta1/ingress_basic.yaml": datasetExtensionsV1beta1Ingress_basicYaml,
+	"dataset/extensions/v1beta1/ingress_basic_expected.json": datasetExtensionsV1beta1Ingress_basic_expectedJson,
+	"dataset/extensions/v1beta1/ingress_basic_meshconfig.yaml": datasetExtensionsV1beta1Ingress_basic_meshconfigYaml,
+	"dataset/extensions/v1beta1/ingress_merge_0.skip": datasetExtensionsV1beta1Ingress_merge_0Skip,
+	"dataset/extensions/v1beta1/ingress_merge_0.yaml": datasetExtensionsV1beta1Ingress_merge_0Yaml,
+	"dataset/extensions/v1beta1/ingress_merge_0_expected.json": datasetExtensionsV1beta1Ingress_merge_0_expectedJson,
+	"dataset/extensions/v1beta1/ingress_merge_0_meshconfig.yaml": datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml,
+	"dataset/extensions/v1beta1/ingress_merge_1.yaml": datasetExtensionsV1beta1Ingress_merge_1Yaml,
+	"dataset/extensions/v1beta1/ingress_merge_1_expected.json": datasetExtensionsV1beta1Ingress_merge_1_expectedJson,
+	"dataset/networking.istio.io/v1alpha3/destinationRule.yaml": datasetNetworkingIstioIoV1alpha3DestinationruleYaml,
 	"dataset/networking.istio.io/v1alpha3/destinationRule_expected.json": datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson,
-	"dataset/networking.istio.io/v1alpha3/gateway.yaml":                  datasetNetworkingIstioIoV1alpha3GatewayYaml,
-	"dataset/networking.istio.io/v1alpha3/gateway_expected.json":         datasetNetworkingIstioIoV1alpha3Gateway_expectedJson,
+	"dataset/networking.istio.io/v1alpha3/gateway.yaml": datasetNetworkingIstioIoV1alpha3GatewayYaml,
+	"dataset/networking.istio.io/v1alpha3/gateway_expected.json": datasetNetworkingIstioIoV1alpha3Gateway_expectedJson,
 }
 
 // AssetDir returns the file names below a certain
@@ -884,34 +883,33 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
-
 var _bintree = &bintree{nil, map[string]*bintree{
 	"dataset": &bintree{nil, map[string]*bintree{
 		"config.istio.io": &bintree{nil, map[string]*bintree{
 			"v1alpha2": &bintree{nil, map[string]*bintree{
-				"circonus.yaml":          &bintree{datasetConfigIstioIoV1alpha2CirconusYaml, map[string]*bintree{}},
+				"circonus.yaml": &bintree{datasetConfigIstioIoV1alpha2CirconusYaml, map[string]*bintree{}},
 				"circonus_expected.json": &bintree{datasetConfigIstioIoV1alpha2Circonus_expectedJson, map[string]*bintree{}},
 			}},
 		}},
 		"extensions": &bintree{nil, map[string]*bintree{
 			"v1beta1": &bintree{nil, map[string]*bintree{
-				"ingress_basic.yaml":              &bintree{datasetExtensionsV1beta1Ingress_basicYaml, map[string]*bintree{}},
-				"ingress_basic_expected.json":     &bintree{datasetExtensionsV1beta1Ingress_basic_expectedJson, map[string]*bintree{}},
-				"ingress_basic_meshconfig.yaml":   &bintree{datasetExtensionsV1beta1Ingress_basic_meshconfigYaml, map[string]*bintree{}},
-				"ingress_merge_0.skip":            &bintree{datasetExtensionsV1beta1Ingress_merge_0Skip, map[string]*bintree{}},
-				"ingress_merge_0.yaml":            &bintree{datasetExtensionsV1beta1Ingress_merge_0Yaml, map[string]*bintree{}},
-				"ingress_merge_0_expected.json":   &bintree{datasetExtensionsV1beta1Ingress_merge_0_expectedJson, map[string]*bintree{}},
+				"ingress_basic.yaml": &bintree{datasetExtensionsV1beta1Ingress_basicYaml, map[string]*bintree{}},
+				"ingress_basic_expected.json": &bintree{datasetExtensionsV1beta1Ingress_basic_expectedJson, map[string]*bintree{}},
+				"ingress_basic_meshconfig.yaml": &bintree{datasetExtensionsV1beta1Ingress_basic_meshconfigYaml, map[string]*bintree{}},
+				"ingress_merge_0.skip": &bintree{datasetExtensionsV1beta1Ingress_merge_0Skip, map[string]*bintree{}},
+				"ingress_merge_0.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_0Yaml, map[string]*bintree{}},
+				"ingress_merge_0_expected.json": &bintree{datasetExtensionsV1beta1Ingress_merge_0_expectedJson, map[string]*bintree{}},
 				"ingress_merge_0_meshconfig.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_0_meshconfigYaml, map[string]*bintree{}},
-				"ingress_merge_1.yaml":            &bintree{datasetExtensionsV1beta1Ingress_merge_1Yaml, map[string]*bintree{}},
-				"ingress_merge_1_expected.json":   &bintree{datasetExtensionsV1beta1Ingress_merge_1_expectedJson, map[string]*bintree{}},
+				"ingress_merge_1.yaml": &bintree{datasetExtensionsV1beta1Ingress_merge_1Yaml, map[string]*bintree{}},
+				"ingress_merge_1_expected.json": &bintree{datasetExtensionsV1beta1Ingress_merge_1_expectedJson, map[string]*bintree{}},
 			}},
 		}},
 		"networking.istio.io": &bintree{nil, map[string]*bintree{
 			"v1alpha3": &bintree{nil, map[string]*bintree{
-				"destinationRule.yaml":          &bintree{datasetNetworkingIstioIoV1alpha3DestinationruleYaml, map[string]*bintree{}},
+				"destinationRule.yaml": &bintree{datasetNetworkingIstioIoV1alpha3DestinationruleYaml, map[string]*bintree{}},
 				"destinationRule_expected.json": &bintree{datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson, map[string]*bintree{}},
-				"gateway.yaml":                  &bintree{datasetNetworkingIstioIoV1alpha3GatewayYaml, map[string]*bintree{}},
-				"gateway_expected.json":         &bintree{datasetNetworkingIstioIoV1alpha3Gateway_expectedJson, map[string]*bintree{}},
+				"gateway.yaml": &bintree{datasetNetworkingIstioIoV1alpha3GatewayYaml, map[string]*bintree{}},
+				"gateway_expected.json": &bintree{datasetNetworkingIstioIoV1alpha3Gateway_expectedJson, map[string]*bintree{}},
 			}},
 		}},
 	}},
@@ -963,3 +961,4 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
+
