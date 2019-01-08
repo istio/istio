@@ -18,3 +18,4 @@ env:
   GODEBUG: gctrace=2
 cpu:
   targetAverageUtilization: 80
+nodeSelector: {}

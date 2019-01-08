@@ -1,25 +1,25 @@
 {{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
 
-{{- define "nodeaffinity" }}
+{{- define "gatewaynodeaffinity" }}
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityRequiredDuringScheduling" . }}
+    {{- include "gatewayNodeAffinityRequiredDuringScheduling" . }}
     preferredDuringSchedulingIgnoredDuringExecution:
-    {{- include "nodeAffinityPreferredDuringScheduling" . }}
+    {{- include "gatewayNodeAffinityPreferredDuringScheduling" . }}
 {{- end }}
 
-{{- define "nodeAffinityRequiredDuringScheduling" }}
+{{- define "gatewayNodeAffinityRequiredDuringScheduling" }}
       nodeSelectorTerms:
       - matchExpressions:
         - key: beta.kubernetes.io/arch
           operator: In
           values:
-        {{- range $key, $val := .Values.global.arch }}
+        {{- range $key, $val := .root.Values.global.arch }}
           {{- if gt ($val | int) 0 }}
           - {{ $key }}
           {{- end }}
         {{- end }}
-        {{- $nodeSelector := default .Values.global.defaultNodeSelector .Values.nodeSelector -}}
+        {{- $nodeSelector := default .root.Values.global.defaultNodeSelector .nodeSelector -}}
         {{- range $key, $val := $nodeSelector }}
         - key: {{ $key }}
           operator: In
@@ -28,8 +28,8 @@
         {{- end }}
 {{- end }}
 
-{{- define "nodeAffinityPreferredDuringScheduling" }}
-  {{- range $key, $val := .Values.global.arch }}
+{{- define "gatewayNodeAffinityPreferredDuringScheduling" }}
+  {{- range $key, $val := .root.Values.global.arch }}
     {{- if gt ($val | int) 0 }}
     - weight: {{ $val | int }}
       preference:
