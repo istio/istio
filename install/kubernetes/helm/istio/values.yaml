@@ -150,11 +150,11 @@ global:
     # disable access log for sidecar.
     accessLogFile: "/dev/stdout"
 
-    # Configure how and what fields are displayed in sidecar access log. Setting to 
+    # Configure how and what fields are displayed in sidecar access log. Setting to
     # empty string will result in default log format
     accessLogFormat: ""
 
-    # Configure the access log for sidecar to JSON or TEXT. 
+    # Configure the access log for sidecar to JSON or TEXT.
     accessLogEncoding: TEXT
 
     #If set to true, istio-proxy container will have privileged securityContext
@@ -202,10 +202,10 @@ global:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
       host: # example: statsd-svc
-      port: # example: 9125    
+      port: # example: 9125
 
     # Specify which tracer to use. One of: lightstep, zipkin
-    tracer: "zipkin"    
+    tracer: "zipkin"
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
@@ -280,6 +280,12 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
+  # Default node selector to be applied to all deployments so that all pos can be 
+  # constrained to run a particular nodes. Each component can overwrite these default 
+  # values by adding its node selector block in the relevant section below and setting 
+  # the desired values.
+  defaultNodeSelector: {}
+
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
@@ -293,7 +299,7 @@ global:
   # NOTE: If using templates, follow the pattern in the commented example below.
   #podDNSSearchNamespaces:
   #- global
-  #- "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"  
+  #- "[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]].global"
 
   # If set to true, the pilot and citadel mtls will be exposed on the
   # ingress gateway
@@ -321,6 +327,10 @@ global:
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
+
+  defaultPodDisruptionBudget:
+    minAvailable: 1
+    # maxUnavailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
@@ -353,13 +363,13 @@ global:
     useNormalJwt: false
 
   # Configure the mesh networks to be used by the Split Horizon EDS.
-  # 
+  #
   # The following example defines two networks with different endpoints association methods.
-  # For `network1` all endpoints that their IP belongs to the provided CIDR range will be 
+  # For `network1` all endpoints that their IP belongs to the provided CIDR range will be
   # mapped to network1. The gateway for this network example is specified by its public IP
   # address and port.
   # The second network, `network2`, in this example is defined differently with all endpoints
-  # retrieved through the specified Multi-Cluster registry being mapped to network2. The 
+  # retrieved through the specified Multi-Cluster registry being mapped to network2. The
   # gateway is also defined differently with the name of the gateway service on the remote
   # cluster. The public IP for the gateway will be determined from that remote service (not
   # supported yet).
@@ -379,8 +389,8 @@ global:
   #       port: 443
   #
   meshNetworks:
-  
+
   # Specifies whether helm test is enabled or not.
-  # This field is set to false by default, so 'helm template ...' 
+  # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false

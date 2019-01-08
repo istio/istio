@@ -23,7 +23,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpserver "istio.io/istio/pkg/mcp/server"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
+	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type WatchResponse func(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc)

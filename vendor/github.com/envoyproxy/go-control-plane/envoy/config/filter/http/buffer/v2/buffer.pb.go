@@ -31,10 +31,10 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type Buffer struct {
 	// The maximum request size that the filter will buffer before the connection
 	// manager will stop buffering and return a 413 response.
-	MaxRequestBytes *types.UInt32Value `protobuf:"bytes,1,opt,name=max_request_bytes,json=maxRequestBytes" json:"max_request_bytes,omitempty"`
+	MaxRequestBytes *types.UInt32Value `protobuf:"bytes,1,opt,name=max_request_bytes,json=maxRequestBytes,proto3" json:"max_request_bytes,omitempty"`
 	// The maximum number of seconds that the filter will wait for a complete
 	// request before returning a 408 response.
-	MaxRequestTime       *time.Duration `protobuf:"bytes,2,opt,name=max_request_time,json=maxRequestTime,stdduration" json:"max_request_time,omitempty"`
+	MaxRequestTime       *time.Duration `protobuf:"bytes,2,opt,name=max_request_time,json=maxRequestTime,proto3,stdduration" json:"max_request_time,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -44,7 +44,7 @@ func (m *Buffer) Reset()         { *m = Buffer{} }
 func (m *Buffer) String() string { return proto.CompactTextString(m) }
 func (*Buffer) ProtoMessage()    {}
 func (*Buffer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_buffer_231072be3a46c2cf, []int{0}
+	return fileDescriptor_buffer_bab525dd99d47059, []int{0}
 }
 func (m *Buffer) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -101,7 +101,7 @@ func (m *BufferPerRoute) Reset()         { *m = BufferPerRoute{} }
 func (m *BufferPerRoute) String() string { return proto.CompactTextString(m) }
 func (*BufferPerRoute) ProtoMessage()    {}
 func (*BufferPerRoute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_buffer_231072be3a46c2cf, []int{1}
+	return fileDescriptor_buffer_bab525dd99d47059, []int{1}
 }
 func (m *BufferPerRoute) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -140,7 +140,7 @@ type BufferPerRoute_Disabled struct {
 	Disabled bool `protobuf:"varint,1,opt,name=disabled,proto3,oneof"`
 }
 type BufferPerRoute_Buffer struct {
-	Buffer *Buffer `protobuf:"bytes,2,opt,name=buffer,oneof"`
+	Buffer *Buffer `protobuf:"bytes,2,opt,name=buffer,proto3,oneof"`
 }
 
 func (*BufferPerRoute_Disabled) isBufferPerRoute_Override() {}
@@ -349,6 +349,9 @@ func encodeVarintBuffer(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Buffer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MaxRequestBytes != nil {
@@ -366,6 +369,9 @@ func (m *Buffer) Size() (n int) {
 }
 
 func (m *BufferPerRoute) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Override != nil {
@@ -378,12 +384,18 @@ func (m *BufferPerRoute) Size() (n int) {
 }
 
 func (m *BufferPerRoute_Disabled) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 2
 	return n
 }
 func (m *BufferPerRoute_Buffer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Buffer != nil {
@@ -733,10 +745,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/buffer/v2/buffer.proto", fileDescriptor_buffer_231072be3a46c2cf)
+	proto.RegisterFile("envoy/config/filter/http/buffer/v2/buffer.proto", fileDescriptor_buffer_bab525dd99d47059)
 }
 
-var fileDescriptor_buffer_231072be3a46c2cf = []byte{
+var fileDescriptor_buffer_bab525dd99d47059 = []byte{
 	// 378 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x91, 0x3f, 0x8e, 0xd3, 0x40,
 	0x18, 0xc5, 0x33, 0xce, 0x1f, 0xcc, 0x20, 0x05, 0xc7, 0x42, 0x22, 0x20, 0x64, 0xa2, 0x34, 0xa0,

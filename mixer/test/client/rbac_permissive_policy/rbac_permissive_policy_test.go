@@ -31,15 +31,13 @@ const reportAttributes = `
   "destination.namespace" : "",
   "destination.uid": "",
   "envoy.filters.http.rbac": {
-    "shadow_effective_policyID": "details-reviews-viewer",
-    "shadow_response_code": "200"
+    "shadow_effective_policy_id": "details-reviews-viewer",
+    "shadow_engine_result": "allowed"
   },
   "mesh1.ip": "*",
   "mesh2.ip": "*",
   "mesh3.ip": "*",
   "origin.ip": "[127 0 0 1]",
-  "rbac.permissive.effective_policy_id": "details-reviews-viewer",
-  "rbac.permissive.response_code": "200",
   "request.headers": {
       ":method": "GET",
       ":path": "/echo",

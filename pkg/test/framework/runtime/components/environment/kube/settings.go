@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 
 	"istio.io/istio/pkg/test/env"
 

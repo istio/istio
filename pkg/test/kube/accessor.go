@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"

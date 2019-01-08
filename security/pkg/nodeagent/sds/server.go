@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google"
+	iamclient "istio.io/istio/security/pkg/nodeagent/plugin/providers/google"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 )
 

@@ -20,7 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	// import all known client auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
