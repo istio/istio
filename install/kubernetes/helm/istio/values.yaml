@@ -280,6 +280,12 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
+  # Default node selector to be applied to all deployments so that all pos can be 
+  # constrained to run a particular nodes. Each component can overwrite these default 
+  # values by adding its node selector block in the relevant section below and setting 
+  # the desired values.
+  defaultNodeSelector: {}
+
   # Whether to perform server-side validation of configuration.
   configValidation: true
 
