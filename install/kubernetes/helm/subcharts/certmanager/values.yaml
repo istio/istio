@@ -8,3 +8,8 @@ hub: quay.io/jetstack
 tag: v0.5.0
 resources: {}
 nodeSelector: {}
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 0

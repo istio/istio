@@ -33,6 +33,10 @@ istio-ingressgateway:
     #  memory: 256Mi
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+    # maxUnavailable: 0
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
   externalIPs: []
@@ -87,8 +91,8 @@ istio-ingressgateway:
   - port: 853
     targetPort: 853
     name: tcp-dns-tls
-  ####### end MESH EXPANSION PORTS ######  
-  ##############   
+  ####### end MESH EXPANSION PORTS ######
+  ##############
   secretVolumes:
   - name: ingressgateway-certs
     secretName: istio-ingressgateway-certs
@@ -114,6 +118,10 @@ istio-egressgateway:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+    # maxUnavailable: 0
   serviceAnnotations: {}
   podAnnotations: {}
   type: ClusterIP #change to NodePort or LoadBalancer if need be
@@ -162,6 +170,10 @@ istio-ilbgateway:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+    # maxUnavailable: 0
   resources:
     requests:
       cpu: 800m

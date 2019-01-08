@@ -1,0 +1,25 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-pilot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+    istio: pilot
+spec:
+{{- if .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+{{- end }}
+{{- if .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+{{- end }}
+  selector:
+    matchLabels:
+      app: {{ template "pilot.name" . }}
+      release: {{ .Release.Name }}
+      istio: pilot
+{{- end }}

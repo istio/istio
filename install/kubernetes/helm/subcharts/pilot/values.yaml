@@ -13,6 +13,10 @@ resources:
   requests:
     cpu: 500m
     memory: 2048Mi
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  # maxUnavailable: 0
 env:
   PILOT_PUSH_THROTTLE_COUNT: 100
   GODEBUG: gctrace=2
