@@ -297,7 +297,8 @@ func dumpK8Env() {
 	_, _ = util.Shell("kubectl --namespace %s get pods -o wide", tc.Kube.Namespace)
 
 	podLogs("istio="+ingressName, ingressName)
-	podLogs("istio=mixer", "mixer")
+	podLogs("istio=mixer,istio-mixer-type=policy", "mixer")
+	podLogs("istio=mixer,istio-mixer-type=telemetry", "mixer")
 	podLogs("istio=pilot", "discovery")
 	podLogs("app=productpage", "istio-proxy")
 
@@ -395,8 +396,17 @@ type redisDeployment struct {
 }
 
 func (r *redisDeployment) Setup() error {
-	// Deploy Tiller if not already running.
-	if err := util.CheckPodRunning("kube-system", "name=tiller", tc.Kube.KubeConfig); err != nil {
+	// Deploy Tiller if not does not already exist. Otherwise, wait to see if it is running for 3m before
+	// trying to deploy.
+	if _, err := util.GetPodName("kube-system", "name=tiller", tc.Kube.KubeConfig); err == nil {
+		// if the pod exists, check to see if it is running...
+		if err := util.CheckPodRunning("kube-system", "name=tiller", tc.Kube.KubeConfig); err != nil {
+			if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
+				return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
+			}
+		}
+	} else {
+		// no sense in retrying if the pod was not deployed before... deploy it now...
 		if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
 			return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
 		}
@@ -556,11 +566,11 @@ func TestTcpMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_app=\"%s\"}", "mongodb")
+	query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
 	want := float64(1)
 	validateMetric(t, promAPI, query, "istio_tcp_sent_bytes_total", want)
 
-	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app=\"%s\"}", "mongodb")
+	query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
 	validateMetric(t, promAPI, query, "istio_tcp_received_bytes_total", want)
 
 	query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
@@ -574,14 +584,31 @@ func TestTcpMetrics(t *testing.T) {
 func validateMetric(t *testing.T, promAPI v1.API, query, metricName string, want float64) {
 	t.Helper()
 	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		fatalf(t, "Could not get metrics from prometheus: %v", err)
+
+	var got float64
+
+	retry := util.Retrier{
+		BaseDelay: 30 * time.Second,
+		Retries:   4,
 	}
 
-	got, err := vectorValue(value, map[string]string{})
+	retryFn := func(_ context.Context, i int) error {
+		t.Helper()
+		t.Logf("Trying to find metrics via promql (attempt %d)...", i)
+		value, err := promAPI.Query(context.Background(), query, time.Now())
+		if err != nil {
+			fatalf(t, "Could not get metrics from prometheus: %v", err)
+		}
+		got, err = vectorValue(value, map[string]string{})
+		t.Logf("vector value => got: %f, err: %v", got, err)
+		return err
+	}
+
+	_, err := retry.Retry(context.Background(), retryFn)
+
 	if err != nil {
 		t.Logf("prometheus values for %s:\n%s", metricName, promDump(promAPI, metricName))
+		dumpMixerMetrics()
 		fatalf(t, "Could not find metric value: %v", err)
 	}
 	t.Logf("%s: %f", metricName, got)
