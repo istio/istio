@@ -69,7 +69,7 @@ type IstioEgressListenerWrapper struct {
 	ListenerPort *Port
 
 	// parsed form of the hosts field
-	// map of namespace and services 
+	// map of namespace and services
 	importMap map[string]Hostname
 
 	// List of services imported by this egress listener
