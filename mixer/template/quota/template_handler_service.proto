@@ -18,9 +18,9 @@ syntax = "proto3";
 
 
 // The `quota` template represents an item for which to check quota.
-// 
+//
 // Example config:
-// 
+//
 // ```
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: quota
@@ -29,14 +29,14 @@ syntax = "proto3";
 //   namespace: istio-system
 // spec:
 //   dimensions:
-//     source: source.labels["app"] | source.service | "unknown"
+//     source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | source.service | "unknown"
 //     sourceVersion: source.labels["version"] | "unknown"
-//     destination: destination.labels["app"] | destination.service | "unknown"
+//     destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | destination.service | "unknown"
 //     destinationVersion: destination.labels["version"] | "unknown"
 // ```
 //
 // The `quota` template represents a piece of data to check Quota for.
-// 
+//
 // When writing the configuration, the value for the fields associated with this template can either be a
 // literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
@@ -61,7 +61,7 @@ option (gogoproto.gostring_all) = false;
 service HandleQuotaService {
     // HandleQuota is called by Mixer at request-time to deliver 'quota' instances to the backend.
     rpc HandleQuota(HandleQuotaRequest) returns (istio.mixer.adapter.model.v1beta1.QuotaResult);
-    
+
 }
 
 // Request message for HandleQuota method.
@@ -95,27 +95,27 @@ message InstanceMsg {
 
     // Name of the instance as specified in configuration.
     string name = 72295727;
-    
+
     // The unique identity of the particular quota to manipulate.
     map<string, istio.policy.v1beta1.Value> dimensions = 1;
-    
+
 }
 
 // Contains inferred type information about specific instance of 'quota' template. This is passed to
 // infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
 message Type {
-    
+
     // The unique identity of the particular quota to manipulate.
     map<string, istio.policy.v1beta1.ValueType> dimensions = 1;
-    
+
 }
 
 
 // Represents instance configuration schema for 'quota' template.
 message InstanceParam {
-    
+
     // The unique identity of the particular quota to manipulate.
     map<string, string> dimensions = 1;
-    
+
 }
 

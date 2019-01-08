@@ -302,9 +302,9 @@ spec:
   severity: '"warning"'
   #timestamp: request.time
   variables:
-    source: source.labels["app"] | source.service | "unknown"
+    source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | source.service | "unknown"
     user: source.user | "unknown"
-    destination: destination.labels["app"] | destination.service | "unknown"
+    destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | destination.service | "unknown"
     responseCode: response.code | 0
     responseSize: response.size | 0
     latency: response.duration | "0ms"

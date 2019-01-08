@@ -83,14 +83,14 @@ spec:
   variables:
     source_uid: source.uid | ""
     source_ip: source.ip | ip("0.0.0.0")
-    source_app: source.labels["app"] | ""
+    source_app:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | ""
     source_principal: source.principal | ""
     source_name: source.name | ""
     source_workload: source.workload.name | ""
     source_namespace: source.namespace | ""
     source_owner: source.owner | ""
     destination_uid: destination.uid | ""
-    destination_app: destination.labels["app"] | ""
+    destination_app:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | ""
     destination_ip: destination.ip | ip("0.0.0.0")
     destination_service_host: destination.service.host | ""
     destination_workload: destination.workload.name | ""

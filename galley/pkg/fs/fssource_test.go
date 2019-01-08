@@ -52,7 +52,7 @@ kind: rule
 metadata:
   name: some.mixer.rule
 spec:
-  match: destination.labels["app"] == "someapp"
+  match:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] == "someapp"
   actions:
   - handler: some.denier
     instances: [ some.checknothing ]

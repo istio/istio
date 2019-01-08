@@ -1473,9 +1473,9 @@ metadata:
   name: valid-quota
 spec:
   dimensions:
-    source: source.labels["app"] | source.service | "unknown"
+    source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | source.service | "unknown"
     sourceVersion: source.labels["version"] | "unknown"
-    destination: destination.labels["app"] | destination.service | "unknown"
+    destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | destination.service | "unknown"
     destinationVersion: destination.labels["version"] | "unknown"
 `)
 
