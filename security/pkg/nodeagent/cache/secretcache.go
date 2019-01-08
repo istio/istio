@@ -198,6 +198,9 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 
 		if key.ResourceName == secretName {
 			sc.secrets.Delete(key)
+			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Stop the iteration once we have deleted that cache entry.
+			return false
 		}
 		return true
 	})
