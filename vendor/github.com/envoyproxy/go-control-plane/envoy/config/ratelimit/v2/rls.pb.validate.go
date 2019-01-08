@@ -42,35 +42,21 @@ func (m *RateLimitServiceConfig) Validate() error {
 		return nil
 	}
 
-	switch m.ServiceSpecifier.(type) {
-
-	case *RateLimitServiceConfig_ClusterName:
-
-		if len(m.GetClusterName()) < 1 {
-			return RateLimitServiceConfigValidationError{
-				Field:  "ClusterName",
-				Reason: "value length must be at least 1 bytes",
-			}
-		}
-
-	case *RateLimitServiceConfig_GrpcService:
-
-		if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return RateLimitServiceConfigValidationError{
-					Field:  "GrpcService",
-					Reason: "embedded message failed validation",
-					Cause:  err,
-				}
-			}
-		}
-
-	default:
+	if m.GetGrpcService() == nil {
 		return RateLimitServiceConfigValidationError{
-			Field:  "ServiceSpecifier",
+			Field:  "GrpcService",
 			Reason: "value is required",
 		}
+	}
 
+	if v, ok := interface{}(m.GetGrpcService()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RateLimitServiceConfigValidationError{
+				Field:  "GrpcService",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
 	}
 
 	return nil

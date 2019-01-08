@@ -64,7 +64,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // This enables building complex application scenarios with a generic backend.
 type RateLimitDescriptor struct {
 	// Descriptor entries.
-	Entries              []*RateLimitDescriptor_Entry `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty"`
+	Entries              []*RateLimitDescriptor_Entry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
 	XXX_sizecache        int32                        `json:"-"`
@@ -74,7 +74,7 @@ func (m *RateLimitDescriptor) Reset()         { *m = RateLimitDescriptor{} }
 func (m *RateLimitDescriptor) String() string { return proto.CompactTextString(m) }
 func (*RateLimitDescriptor) ProtoMessage()    {}
 func (*RateLimitDescriptor) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ratelimit_8f054926de5fab00, []int{0}
+	return fileDescriptor_ratelimit_5e2e983505abdc02, []int{0}
 }
 func (m *RateLimitDescriptor) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -124,7 +124,7 @@ func (m *RateLimitDescriptor_Entry) Reset()         { *m = RateLimitDescriptor_E
 func (m *RateLimitDescriptor_Entry) String() string { return proto.CompactTextString(m) }
 func (*RateLimitDescriptor_Entry) ProtoMessage()    {}
 func (*RateLimitDescriptor_Entry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ratelimit_8f054926de5fab00, []int{0, 0}
+	return fileDescriptor_ratelimit_5e2e983505abdc02, []int{0, 0}
 }
 func (m *RateLimitDescriptor_Entry) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -247,6 +247,9 @@ func encodeVarintRatelimit(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *RateLimitDescriptor) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Entries) > 0 {
@@ -262,6 +265,9 @@ func (m *RateLimitDescriptor) Size() (n int) {
 }
 
 func (m *RateLimitDescriptor_Entry) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Key)
@@ -588,10 +594,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/ratelimit/ratelimit.proto", fileDescriptor_ratelimit_8f054926de5fab00)
+	proto.RegisterFile("envoy/api/v2/ratelimit/ratelimit.proto", fileDescriptor_ratelimit_5e2e983505abdc02)
 }
 
-var fileDescriptor_ratelimit_8f054926de5fab00 = []byte{
+var fileDescriptor_ratelimit_5e2e983505abdc02 = []byte{
 	// 224 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4b, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0x2c, 0xc8, 0xd4, 0x2f, 0x33, 0xd2, 0x2f, 0x4a, 0x2c, 0x49, 0xcd, 0xc9, 0xcc,
