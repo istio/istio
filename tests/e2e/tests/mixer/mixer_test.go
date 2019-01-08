@@ -701,6 +701,10 @@ func TestKubeenvMetrics(t *testing.T) {
 	}
 	vec := value.(model.Vector)
 
+	if got, want := len(vec), 1; got < want {
+		errorf(t, "Found %d istio_kube_request_count metrics, want at least %d", got, want)
+	}
+
 	for _, sample := range vec {
 		metric := sample.Metric
 		for labelKey, labelVal := range metric {
