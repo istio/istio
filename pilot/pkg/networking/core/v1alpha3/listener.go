@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -222,7 +223,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		}
 
 		var transparent *google_protobuf.BoolValue
-		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
+		if mode := node.Metadata[pilot_meta.InterceptionMode]; mode == "TPROXY" {
 			transparent = proto.BoolTrue
 		}
 

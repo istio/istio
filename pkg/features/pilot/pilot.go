@@ -77,11 +77,6 @@ var (
 
 const (
 
-	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
-	// set at injection time. When set, the Endpoints returned to a note and not on same network
-	// will be replaced with the gateway defined in the settings.
-	NodeMetadataNetwork = "NETWORK"
-
 	// AZLabel indicates the region/zone of an instance. It is used if the native
 	// registry doesn't provide one.
 	AZLabel = "istio-az"

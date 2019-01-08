@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 	"istio.io/istio/pkg/proto"
 )
 
@@ -333,7 +334,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 		// where HTTPS server's TLS mode is not passthrough and not nil
 		enableIngressSdsAgent := false
-		if enableSds, found := node.Metadata["USER_SDS"]; found {
+		if enableSds, found := node.Metadata[pilot_meta.UserSDS]; found {
 			enableIngressSdsAgent, _ = strconv.ParseBool(enableSds)
 		}
 		for _, server := range servers {

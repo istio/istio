@@ -31,6 +31,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 )
 
 // Generate the envoy v2 bootstrap configuration, using template.
@@ -232,7 +233,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	meta := getNodeMetaData(localEnv)
 
 	// Suppot multiple network interfaces
-	meta["ISTIO_META_INSTANCE_IPS"] = strings.Join(nodeIPs, ",")
+	meta[pilot_meta.InstanceIPs] = strings.Join(nodeIPs, ",")
 
 	ba, err := json.Marshal(meta)
 	if err != nil {

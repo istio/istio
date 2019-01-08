@@ -22,7 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/features/pilot"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 )
 
 // EndpointsFilterFunc is a function that filters data from the ClusterLoadAssignment and returns updated one
@@ -34,7 +34,7 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network, found := conn.modelNode.Metadata[pilot.NodeMetadataNetwork]
+	network, found := conn.modelNode.Metadata[pilot_meta.Network]
 	if !found {
 		// Couldn't find the sidecar network, using default/local
 		network = ""

@@ -26,6 +26,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -153,7 +154,7 @@ func (node *Proxy) ServiceNode() string {
 
 // GetProxyVersion returns the proxy version string identifier, and whether it is present.
 func (node *Proxy) GetProxyVersion() (string, bool) {
-	version, found := node.Metadata["ISTIO_PROXY_VERSION"]
+	version, found := node.Metadata[pilot_meta.ProxyVersion]
 	return version, found
 }
 
@@ -171,7 +172,7 @@ const (
 // GetRouterMode returns the operating mode associated with the router.
 // Assumes that the proxy is of type Router
 func (node *Proxy) GetRouterMode() RouterMode {
-	if modestr, found := node.Metadata["ROUTER_MODE"]; found {
+	if modestr, found := node.Metadata[pilot_meta.RouterMode]; found {
 		switch RouterMode(modestr) {
 		case SniDnatRouter:
 			return SniDnatRouter
@@ -195,7 +196,7 @@ func GetNetworkView(node *Proxy) map[string]bool {
 	}
 
 	nmap := make(map[string]bool)
-	if networks, found := node.Metadata["REQUESTED_NETWORK_VIEW"]; found {
+	if networks, found := node.Metadata[pilot_meta.RequestedNetworkView]; found {
 		for _, n := range strings.Split(networks, ",") {
 			nmap[n] = true
 		}
@@ -246,7 +247,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Get all IP Addresses from Metadata
-	if ipstr, found := metadata["ISTIO_META_INSTANCE_IPS"]; found {
+	if ipstr, found := metadata[pilot_meta.InstanceIPs]; found {
 		ipAddresses, err := parseIPAddresses(ipstr)
 		if err == nil {
 			out.IPAddresses = ipAddresses
@@ -277,7 +278,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
-	if configNamespace, found := proxy.Metadata["CONFIG_NAMESPACE"]; found {
+	if configNamespace, found := proxy.Metadata[pilot_meta.ConfigNamespace]; found {
 		return configNamespace
 	}
 
