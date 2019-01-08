@@ -826,7 +826,7 @@ func TestCheckCache(t *testing.T) {
 
 	// visit calls product page health handler with sleep app.
 	visit := func() error {
-		return visitWithApp(url, pod, "sleep", 100)
+		return visitWithApp(url, pod, "sleep", 200)
 	}
 	testCheckCache(t, visit, "productpage")
 }
