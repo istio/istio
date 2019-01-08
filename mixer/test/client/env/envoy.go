@@ -78,8 +78,8 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	if env.IstioSrc != "" {
-		cmd.Dir = env.IstioSrc
+	if s.Dir != "" {
+		cmd.Dir = s.Dir
 	}
 	return &Envoy{
 		cmd:    cmd,

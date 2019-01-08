@@ -99,6 +99,7 @@ func startEnvoy(t *testing.T) {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 	testEnv.EnvoyTemplate = string(tmplB)
+	testEnv.Dir = env.IstioSrc
 	nodeID := sidecarID(app3Ip, "app3")
 	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeID}
 	testEnv.EnvoyConfigOpt = map[string]interface{}{
