@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pkg/test/kube"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 const (
