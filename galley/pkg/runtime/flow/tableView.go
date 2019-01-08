@@ -29,9 +29,11 @@ type TableView struct {
 	typeURL resource.TypeURL
 	xform   ToEnvelopeFn
 	table   *Table
+	listener ViewListener
 }
 
 var _ View = &TableView{}
+var _ tableChangeListener = &TableView{}
 
 // NewTableView returns a TableView backed by the given Table instance.
 func NewTableView(typeURL resource.TypeURL, c *Table, xform ToEnvelopeFn) *TableView {
@@ -44,11 +46,16 @@ func NewTableView(typeURL resource.TypeURL, c *Table, xform ToEnvelopeFn) *Table
 			return e, nil
 		}
 	}
-	return &TableView{
+
+	v :=  &TableView{
 		xform:   xform,
 		typeURL: typeURL,
 		table:   c,
 	}
+
+	c.setTableChangeListener(v)
+
+	return v
 }
 
 // Type implements View
@@ -75,4 +82,14 @@ func (v *TableView) Get() []*mcp.Envelope {
 	})
 
 	return result
+}
+
+func (v *TableView) SetViewListener(l ViewListener) {
+	v.listener = l
+}
+
+func (v *TableView) tableChanged(t *Table) {
+	if v.listener != nil  {
+		v.listener.Changed(v)
+	}
 }

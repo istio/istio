@@ -30,4 +30,10 @@ type View interface {
 
 	// Get returns entries in this view
 	Get() []*mcp.Envelope
+
+	SetViewListener(l ViewListener)
+}
+
+type ViewListener interface {
+	Changed(v View)
 }

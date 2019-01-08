@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package flow
+package processing
 
 import (
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -48,7 +48,7 @@ type DispatcherBuilder struct {
 	handlers map[resource.TypeURL][]Handler
 }
 
-// NewDispatcherBuilder returns a new dispatcher builder
+// NewDispatcherBuilder returns a new dispatcher dispatcher
 func NewDispatcherBuilder() *DispatcherBuilder {
 	return &DispatcherBuilder{
 		handlers: make(map[resource.TypeURL][]Handler),

@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package flow
+package processing
 
 import (
 	"strconv"
@@ -42,10 +42,16 @@ func newSnapshotter(views []View) *snapshotter {
 }
 
 // snapshot creates accumulator new snapshot from tracked views.
-func (s *snapshotter) snapshot() snapshot.Snapshot {
+func (s *snapshotter) snapshot(urls []resource.TypeURL) snapshot.Snapshot {
 
 	b := snapshot.NewInMemoryBuilder()
-	for t, views := range s.views {
+
+	for _, u := range urls {
+		views, found := s.views[u]
+		if !found {
+			scope.Errorf("TypeURL not found for snapshotting: %v", u)
+			continue
+		}
 		version := ""
 
 		var entries []*mcp.Envelope
@@ -60,7 +66,7 @@ func (s *snapshotter) snapshot() snapshot.Snapshot {
 			entries = append(entries, v.Get()...)
 		}
 
-		b.Set(t.String(), version, entries)
+		b.Set(u.String(), version, entries)
 	}
 
 	sn := b.Build()

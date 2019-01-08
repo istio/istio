@@ -22,6 +22,11 @@ import (
 type EntryTable struct {
 	generation int64
 	resources  map[resource.FullName]resource.Entry
+	listener   entryTableListener
+}
+
+type entryTableListener interface {
+	entryTableChanged(e *EntryTable)
 }
 
 // Implement an optional Handler interface for the common use-case..
@@ -89,16 +94,19 @@ func (t *EntryTable) ForEachItem(fn func(e resource.Entry)) {
 }
 
 // Handle implements Handler
-func (t *EntryTable) Handle(ev resource.Event) bool {
+func (t *EntryTable) Handle(ev resource.Event) {
 	switch ev.Kind {
 	case resource.Added, resource.Updated:
-		return t.Set(ev.Entry)
+		t.Set(ev.Entry)
 
 	case resource.Deleted:
-		return t.Remove(ev.Entry.ID.FullName)
+		t.Remove(ev.Entry.ID.FullName)
 
 	default:
 		scope.Errorf("Unknown event kind encountered when processing %q: %v", ev.Entry.ID.String(), ev.Kind)
-		return false
 	}
+}
+
+func (t *EntryTable) setEntryTableListener(e entryTableListener) {
+	t.listener = e
 }

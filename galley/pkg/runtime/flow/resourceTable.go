@@ -2,7 +2,7 @@
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
-//  You may obtain accumulator copy of the License at
+//  You may obtain a copy of the License at
 //
 //      http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -14,17 +14,9 @@
 
 package flow
 
-import (
-	"istio.io/istio/galley/pkg/runtime/resource"
-)
+type ResourceTable struct {
+	t *Table
 
-// Handler handles an incoming resource event.
-type Handler interface {
-	Handle(e resource.Event)
 }
 
-// Listener gets notified when resource of a given type has changed.
-type Listener interface {
-	Changed(t resource.TypeURL)
-}
-
+var _ View = &ResourceTable{}

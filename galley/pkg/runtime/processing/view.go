@@ -12,19 +12,29 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package flow
+package processing
 
 import (
+	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
-// Handler handles an incoming resource event.
-type Handler interface {
-	Handle(e resource.Event)
+// View is an interface for collecting the resources for building a snapshot.
+type View interface {
+	// Type of the resources in this view.
+	Type() resource.TypeURL
+
+	// Generation is the unique id of the current state of view. Everytime the state changes, the
+	// generation is updated.
+	Generation() int64
+
+	// Get returns entries in this view
+	Get() []*mcp.Envelope
+
+	SetViewListener(l ViewListener)
 }
 
-// Listener gets notified when resource of a given type has changed.
-type Listener interface {
-	Changed(t resource.TypeURL)
+// ViewListener gets notified when a view changes.
+type ViewListener interface {
+	ViewChanged(v View)
 }
-

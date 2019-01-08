@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package flow
+package processing
 
 import (
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -23,18 +23,13 @@ import (
 type Pipeline interface {
 	Handler
 
-	Snapshot() snapshot.Snapshot
+	Snapshot(urls []resource.TypeURL) snapshot.Snapshot
 }
 
 type pipeline struct {
 	handler     Handler
 	snapshotter *snapshotter
-	listeners   listeners
 }
-
-type listeners []Listener
-
-var _ ViewListener = listeners{}
 
 var _ Pipeline = &pipeline{}
 
@@ -44,27 +39,27 @@ func (p *pipeline) Handle(e resource.Event) {
 }
 
 // Snapshot implements Pipeline
-func (p *pipeline) Snapshot() snapshot.Snapshot {
-	return p.snapshotter.snapshot()
+func (p *pipeline) Snapshot(urls []resource.TypeURL) snapshot.Snapshot {
+	return p.snapshotter.snapshot(urls)
 }
 
 // PipelineBuilder builds a new pipeline
 type PipelineBuilder struct {
-	views   []View
-	builder *DispatcherBuilder
-	listeners   []Listener
+	views      []View
+	dispatcher *DispatcherBuilder
+	listeners  []Listener
 }
 
 // NewPipelineBuilder returns a new PipelineBuilder
 func NewPipelineBuilder() *PipelineBuilder {
 	return &PipelineBuilder{
-		builder: NewDispatcherBuilder(),
+		dispatcher: NewDispatcherBuilder(),
 	}
 }
 
 // AddHandler adds a new handler for the given resource type URL
 func (b *PipelineBuilder) AddHandler(t resource.TypeURL, h Handler) {
-	b.builder.Add(t, h)
+	b.dispatcher.Add(t, h)
 }
 
 // AddView adds a new view
@@ -72,30 +67,25 @@ func (b *PipelineBuilder) AddView(v View) {
 	b.views = append(b.views, v)
 }
 
+// AddListener adds a new listener
 func (b *PipelineBuilder) AddListener(l Listener) {
 	b.listeners = append(b.listeners, l)
 }
 
 // Build creates and returns a pipeline
 func (b *PipelineBuilder) Build() Pipeline {
-	handler := b.builder.Build()
+	handler := b.dispatcher.Build()
+
+	// TODO: Should we keep a reference to notifier
+	n := newNotifier(b.listeners, b.views)
+	_ = n
+
 	snapshotter := newSnapshotter(b.views)
 
 	p := &pipeline{
 		handler:     handler,
 		snapshotter: snapshotter,
-		listeners:   b.listeners,
-	}
-
-	for _, v := range b.views {
-		v.SetViewListener(p.listeners)
 	}
 
 	return p
-}
-
-func (l listeners) Changed(v View) {
-	for _, listener := range l {
-		listener.Changed(v.Type())
-	}
 }

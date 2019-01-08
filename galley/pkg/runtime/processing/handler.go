@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package flow
+package processing
 
 import (
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -23,8 +23,19 @@ type Handler interface {
 	Handle(e resource.Event)
 }
 
-// Listener gets notified when resource of a given type has changed.
-type Listener interface {
-	Changed(t resource.TypeURL)
+// HandlerFromFn returns a new Handler, based on the Handler function.
+func HandlerFromFn(fn func(e resource.Event)) Handler {
+	return &fnHandler{
+		fn: fn,
+	}
 }
 
+var _ Handler = &fnHandler{}
+
+type fnHandler struct {
+	fn func(e resource.Event)
+}
+
+func (h *fnHandler) Handle(e resource.Event) {
+	h.fn(e)
+}

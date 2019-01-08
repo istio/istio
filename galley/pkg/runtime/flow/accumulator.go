@@ -43,21 +43,20 @@ func NewAccumulator(c *Table, xform TransformEntryFn) *Accumulator {
 }
 
 // Handle implements Handler
-func (a *Accumulator) Handle(ev resource.Event) bool {
+func (a *Accumulator) Handle(ev resource.Event) {
 	switch ev.Kind {
 	case resource.Added, resource.Updated:
 		i, err := a.xform(ev.Entry)
 		if err != nil {
 			scope.Errorf("Error appying transform function: %v", err)
-			return false
+			return
 		}
-		return a.table.Set(ev.Entry.ID, i)
+		a.table.Set(ev.Entry.ID, i)
 
 	case resource.Deleted:
-		return a.table.Remove(ev.Entry.ID.FullName)
+		a.table.Remove(ev.Entry.ID.FullName)
 
 	default:
 		scope.Errorf("Unknown event kind encountered when processing %q: %v", ev.Entry.ID.String(), ev.Kind)
-		return false
 	}
 }

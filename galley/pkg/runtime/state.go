@@ -20,9 +20,9 @@ import (
 	"sync"
 
 	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/runtime/conversions/envelope"
 	"istio.io/istio/galley/pkg/runtime/conversions/ingress"
-	"istio.io/istio/galley/pkg/runtime/flow"
+	"istio.io/istio/galley/pkg/runtime/processing"
+	"istio.io/istio/galley/pkg/runtime/processors/direct"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -34,7 +34,7 @@ type State struct {
 
 	config *Config
 
-	pipeline flow.Pipeline
+	pipeline processing.Pipeline
 
 	lock sync.Mutex
 }
@@ -45,21 +45,21 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 		config: cfg,
 	}
 
-	b := flow.NewPipelineBuilder()
+	b := processing.NewPipelineBuilder()
 	for _, info := range schema.All() {
 
 		if info.TypeURL == metadata.IngressSpec.TypeURL {
 			// Skip IngressSpec. We will create a separate processing pipeline for it.
 			continue
 		}
-		envelope.AddDirectEnvelopePipeline(info.TypeURL, b)
+		direct.AddToPipeline(info.TypeURL, b)
 	}
 
 	// Add projection pipelines
 	icfg := ingress.Config{
 		DomainSuffix: cfg.DomainSuffix,
 	}
-	ingress.AddIngressPipeline(&icfg, b)
+	ingress.AddToPipeline(&icfg, b)
 
 	s.pipeline = b.Build()
 
@@ -69,7 +69,10 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 func (s *State) apply(event resource.Event) bool {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	return s.pipeline.Handle(event)
+	s.pipeline.Handle(event)
+
+	// TODO
+	return true
 }
 
 func (s *State) buildSnapshot() snapshot.Snapshot {

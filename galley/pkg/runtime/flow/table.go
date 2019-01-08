@@ -23,6 +23,11 @@ type Table struct {
 	generation int64
 	resources  map[resource.FullName]interface{}
 	versions   map[resource.FullName]resource.Version
+	listener tableChangeListener
+}
+
+type tableChangeListener interface {
+	tableChanged(t *Table)
 }
 
 // NewTable returns new Table instance.
@@ -104,4 +109,8 @@ func (c *Table) ForEachItem(fn func(i interface{})) {
 	for _, item := range c.resources {
 		fn(item)
 	}
+}
+
+func (c *Table) setTableChangeListener(t tableChangeListener) {
+	c.listener = t
 }
