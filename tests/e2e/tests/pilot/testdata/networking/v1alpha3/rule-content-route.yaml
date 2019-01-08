@@ -8,10 +8,10 @@ spec:
   http:
     - match:
       - headers:
-          version:
+          app.kubernetes.io/version:
             exact: v2
         source_labels:
-          version: v1
+          app.kubernetes.io/version: v1
       route:
       - destination:
           host: c

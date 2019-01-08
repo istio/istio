@@ -41,7 +41,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: fortiottls
+    app.kubernetes.io/name: fortiottls
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -56,8 +56,8 @@ spec:
         sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
         sidecar.istio.io/discoveryAddress: pilot.{{ .Values.domain }}:15011
       labels:
-        app: fortiottls
-        version: ttls
+        app.kubernetes.io/name: fortiottls
+        app.kubernetes.io/version: ttls
     spec:
       containers:
       - name: fortio
@@ -102,8 +102,8 @@ spec:
   template:
     metadata:
       labels:
-        app: cli-fortio-ttls
-        version: v1-ttls
+        app.kubernetes.io/name: cli-fortio-ttls
+        app.kubernetes.io/version: v1-ttls
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -137,8 +137,8 @@ spec:
   template:
     metadata:
       labels:
-        app: cli-fortio-ttls
-        version: v1-ttls
+        app.kubernetes.io/name: cli-fortio-ttls
+        app.kubernetes.io/version: v1-ttls
     spec:
       containers:
       - name: echosrv
@@ -170,8 +170,8 @@ spec:
   template:
     metadata:
       labels:
-        app: cli-fortio-ttls
-        version: v1-ttls
+        app.kubernetes.io/name: cli-fortio-ttls
+        app.kubernetes.io/version: v1-ttls
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

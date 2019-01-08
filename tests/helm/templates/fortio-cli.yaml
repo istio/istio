@@ -10,8 +10,8 @@ spec:
   template:
     metadata:
       labels:
-        app: cli-fortio-tls
-        version: v1-tls
+        app.kubernetes.io/name: cli-fortio-tls
+        app.kubernetes.io/version: v1-tls
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -45,8 +45,8 @@ spec:
   template:
     metadata:
       labels:
-        app: fortio-cli-raw
-        version: v1
+        app.kubernetes.io/name: fortio-cli-raw
+        app.kubernetes.io/version: v1
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -80,8 +80,8 @@ spec:
   template:
     metadata:
       labels:
-        app: fortio-cli1
-        version: v1
+        app.kubernetes.io/name: fortio-cli1
+        app.kubernetes.io/version: v1
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -116,8 +116,8 @@ spec:
   template:
     metadata:
       labels:
-        app: cli-fortio10rc1
-        version: cli-fortio10rc1
+        app.kubernetes.io/name: cli-fortio10rc1
+        app.kubernetes.io/version: cli-fortio10rc1
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -152,8 +152,8 @@ spec:
   template:
     metadata:
       labels:
-        app: cli-fortio080
-        version: cli-fortio080
+        app.kubernetes.io/name: cli-fortio080
+        app.kubernetes.io/version: cli-fortio080
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -187,8 +187,8 @@ spec:
   template:
     metadata:
       labels:
-        app: cli-fortio-tproxy-direct
-        version: cli-fortio-tproxy-direct
+        app.kubernetes.io/name: cli-fortio-tproxy-direct
+        app.kubernetes.io/version: cli-fortio-tproxy-direct
     spec:
       containers:
       - name: echosrv
@@ -221,8 +221,8 @@ spec:
     metadata:
       labels:
         name: ncli-fortio-v1-direct
-        app: cli-fortio-v1-direct
-        version: cli-fortio-v1-direct
+        app.kubernetes.io/name: cli-fortio-v1-direct
+        app.kubernetes.io/version: cli-fortio-v1-direct
     spec:
       containers:
       - name: echosrv
@@ -255,8 +255,8 @@ spec:
     metadata:
       labels:
         name: cli-fortio-noistio1
-        app: acli-fortio-noistio1
-        version: cli-fortio-noistio1
+        app.kubernetes.io/name: acli-fortio-noistio1
+        app.kubernetes.io/version: cli-fortio-noistio1
     spec:
       containers:
       - name: echosrv

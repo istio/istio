@@ -40,9 +40,9 @@ spec:
   template:
     metadata:
       labels:
-        app: fortionoistio
+        app.kubernetes.io/name: fortionoistio
         name: fortionoistio
-        version: fortionoistio
+        app.kubernetes.io/version: fortionoistio
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
@@ -100,9 +100,9 @@ spec:
   template:
     metadata:
       labels:
-        app: fortionoistio1
+        app.kubernetes.io/name: fortionoistio1
         name: fortionoistio1
-        version: fortionoistio1
+        app.kubernetes.io/version: fortionoistio1
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

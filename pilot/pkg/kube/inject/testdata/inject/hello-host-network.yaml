@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       labels:
-        app: hello-host-network
+        app.kubernetes.io/name: hello-host-network
         tier: backend
         track: stable
     spec:

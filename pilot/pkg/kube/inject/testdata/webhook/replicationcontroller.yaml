@@ -5,12 +5,12 @@ metadata:
 spec:
   replicas: 3
   selector:
-    app: nginx
+    app.kubernetes.io/name: nginx
   template:
     metadata:
       name: nginx
       labels:
-        app: nginx
+        app.kubernetes.io/name: nginx
     spec:
       containers:
       - name: nginx

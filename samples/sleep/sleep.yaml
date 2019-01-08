@@ -25,13 +25,13 @@ kind: Service
 metadata:
   name: sleep
   labels:
-    app: sleep
+    app.kubernetes.io/name: sleep
 spec:
   ports:
   - port: 80
     name: http
   selector:
-    app: sleep
+    app.kubernetes.io/name: sleep
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -42,7 +42,7 @@ spec:
   template:
     metadata:
       labels:
-        app: sleep
+        app.kubernetes.io/name: sleep
     spec:
       serviceAccountName: sleep
       containers:

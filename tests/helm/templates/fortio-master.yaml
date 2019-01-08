@@ -10,7 +10,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: fortiomaster
+    app.kubernetes.io/name: fortiomaster
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -21,8 +21,8 @@ spec:
   template:
     metadata:
       labels:
-        app: fortiomaster
-        version: fortiomaster
+        app.kubernetes.io/name: fortiomaster
+        app.kubernetes.io/version: fortiomaster
       annotations:
         sidecar.istio.io/proxyImage: istionightly/proxyv2:nightly-release-1.0
     spec:

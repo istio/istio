@@ -12,7 +12,7 @@ spec:
         traffic.sidecar.istio.io/includeOutboundIPRanges: ""
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "10.96.0.2/24,10.96.0.3/24"
       labels:
-        app: traffic
+        app.kubernetes.io/name: traffic
     spec:
       containers:
         - name: traffic

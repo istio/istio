@@ -4,7 +4,7 @@ metadata:
   name: hello
   namespace: test
   labels:
-    app: hello
+    app.kubernetes.io/name: hello
 spec:
   containers:
     - name: hello
@@ -12,4 +12,4 @@ spec:
       ports:
         - name: http
           containerPort: 80
-      
+

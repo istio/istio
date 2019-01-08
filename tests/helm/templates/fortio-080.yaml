@@ -10,7 +10,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: fortiov080
+    app.kubernetes.io/name: fortiov080
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -21,8 +21,8 @@ spec:
   template:
     metadata:
       labels:
-        app: fortiov080
-        version: fortio080
+        app.kubernetes.io/name: fortiov080
+        app.kubernetes.io/version: fortio080
       annotations:
         sidecar.istio.io/proxyImage: istio/proxyv2:0.8.0
     spec:

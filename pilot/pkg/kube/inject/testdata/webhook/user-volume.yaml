@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       labels:
-        app: user-volume
+        app.kubernetes.io/name: user-volume
         tier: backend
         track: stable
       annotations:

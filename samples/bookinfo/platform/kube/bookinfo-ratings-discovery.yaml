@@ -20,11 +20,11 @@ kind: Service
 metadata:
   name: ratings
   labels:
-    app: ratings
+    app.kubernetes.io/name: ratings
 spec:
   ports:
   - port: 9080
     name: http
   selector:
-    app: ratings
+    app.kubernetes.io/name: ratings
 ---

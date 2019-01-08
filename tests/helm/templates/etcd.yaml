@@ -13,14 +13,14 @@ spec:
     name: peer
   clusterIP: None
   selector:
-    component: "etcd"
+    app.kubernetes.io/component: "etcd"
 ---
 apiVersion: apps/v1beta1
 kind: StatefulSet
 metadata:
   name: "etcd"
   labels:
-    component: "etcd"
+    app.kubernetes.io/component: "etcd"
 spec:
   serviceName: "etcd"
   # changing replicas value will require a manual etcdctl member remove/add
@@ -30,7 +30,7 @@ spec:
     metadata:
       name: "etcd"
       labels:
-        component: "etcd"
+        app.kubernetes.io/component: "etcd"
     spec:
       containers:
       - name: "etcd"

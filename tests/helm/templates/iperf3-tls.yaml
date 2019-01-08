@@ -42,7 +42,7 @@ spec:
     port: 5203
     targetPort: 5203
   selector:
-    app: iperf3-tls
+    app.kubernetes.io/name: iperf3-tls
 ---
 apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
@@ -88,7 +88,7 @@ spec:
   template:
     metadata:
       labels:
-        app: iperf3-tls
+        app.kubernetes.io/name: iperf3-tls
     spec:
       containers:
       - image: docker.io/networkstatic/iperf3

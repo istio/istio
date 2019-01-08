@@ -8,4 +8,4 @@ spec:
   subsets:
     - name: headersubset
       labels:
-        version: v2
+        app.kubernetes.io/version: v2

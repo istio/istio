@@ -17,13 +17,13 @@ kind: Service
 metadata:
   name: mongodb
   labels:
-    app: mongodb
+    app.kubernetes.io/name: mongodb
 spec:
   ports:
   - port: 27017
     name: mongo
   selector:
-    app: mongodb
+    app.kubernetes.io/name: mongodb
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -34,11 +34,11 @@ spec:
   template:
     metadata:
       labels:
-        app: mongodb
-        version: v1
+        app.kubernetes.io/name: mongodb
+        app.kubernetes.io/version: v1
     spec:
       containers:
-      - name: mongodb 
+      - name: mongodb
         image: istio/examples-bookinfo-mongodb:1.10.0
         imagePullPolicy: IfNotPresent
         ports:

@@ -7,7 +7,7 @@ spec:
   - port: 8080
     name: http-echo
   selector:
-    app: echosrv
+    app.kubernetes.io/name: echosrv
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -51,8 +51,8 @@ spec:
   template:
     metadata:
       labels:
-        app: echosrv
-        version: v1
+        app.kubernetes.io/name: echosrv
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: echosrv

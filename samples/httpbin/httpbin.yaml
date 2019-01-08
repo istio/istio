@@ -20,14 +20,14 @@ kind: Service
 metadata:
   name: httpbin
   labels:
-    app: httpbin
+    app.kubernetes.io/name: httpbin
 spec:
   ports:
   - name: http
     port: 8000
     targetPort: 80
   selector:
-    app: httpbin
+    app.kubernetes.io/name: httpbin
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -38,8 +38,8 @@ spec:
   template:
     metadata:
       labels:
-        app: httpbin
-        version: v1
+        app.kubernetes.io/name: httpbin
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - image: docker.io/kennethreitz/httpbin

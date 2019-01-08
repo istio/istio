@@ -3,13 +3,13 @@ kind: Service
 metadata:
   name: helloworld
   labels:
-    app: helloworld
+    app.kubernetes.io/name: helloworld
 spec:
   ports:
   - port: 5000
     name: http
   selector:
-    app: helloworld
+    app.kubernetes.io/name: helloworld
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -20,8 +20,8 @@ spec:
   template:
     metadata:
       labels:
-        app: helloworld
-        version: v1
+        app.kubernetes.io/name: helloworld
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: helloworld
@@ -42,8 +42,8 @@ spec:
   template:
     metadata:
       labels:
-        app: helloworld
-        version: v2
+        app.kubernetes.io/name: helloworld
+        app.kubernetes.io/version: v2
     spec:
       containers:
       - name: helloworld

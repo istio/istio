@@ -7,7 +7,7 @@ spec:
   - port: 8080
     name: http
   selector:
-    app: echosrv
+    app.kubernetes.io/name: echosrv
 ---
 
 apiVersion: networking.istio.io/v1alpha3
@@ -19,10 +19,10 @@ spec:
   subsets:
     - name: v1
       labels:
-        version: v1
+        app.kubernetes.io/version: v1
     - name: v2
       labels:
-        version: v2
+        app.kubernetes.io/version: v2
       trafficPolicy:
         tls:
           mode: ISTIO_MUTUAL
@@ -43,8 +43,8 @@ spec:
   template:
     metadata:
       labels:
-        app: echosrv
-        version: v1
+        app.kubernetes.io/name: echosrv
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: echosrv
@@ -70,8 +70,8 @@ spec:
   template:
     metadata:
       labels:
-        app: echosrv
-        version: v2
+        app.kubernetes.io/name: echosrv
+        app.kubernetes.io/version: v2
     spec:
       containers:
       - name: echosrv

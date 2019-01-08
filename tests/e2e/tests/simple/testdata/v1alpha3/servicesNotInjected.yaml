@@ -10,7 +10,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: fortio-noistio
+    app.kubernetes.io/name: fortio-noistio
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -21,7 +21,7 @@ spec:
   template:
     metadata:
       labels:
-        app: fortio-noistio
+        app.kubernetes.io/name: fortio-noistio
     spec:
       containers:
       - name: fortio-noistio

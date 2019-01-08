@@ -34,7 +34,7 @@ secret:
     name: kiali
     namespace: istio-system
     labels:
-      app: kiali
+      app.kubernetes.io/name: kiali
   type: Opaque
   data:
     username: "{{ kiali.username | b64encode}}"

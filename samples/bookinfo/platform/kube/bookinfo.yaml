@@ -20,13 +20,13 @@ kind: Service
 metadata:
   name: details
   labels:
-    app: details
+    app.kubernetes.io/name: details
 spec:
   ports:
   - port: 9080
     name: http
   selector:
-    app: details
+    app.kubernetes.io/name: details
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -37,8 +37,8 @@ spec:
   template:
     metadata:
       labels:
-        app: details
-        version: v1
+        app.kubernetes.io/name: details
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: details
@@ -55,13 +55,13 @@ kind: Service
 metadata:
   name: ratings
   labels:
-    app: ratings
+    app.kubernetes.io/name: ratings
 spec:
   ports:
   - port: 9080
     name: http
   selector:
-    app: ratings
+    app.kubernetes.io/name: ratings
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -72,8 +72,8 @@ spec:
   template:
     metadata:
       labels:
-        app: ratings
-        version: v1
+        app.kubernetes.io/name: ratings
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: ratings
@@ -90,13 +90,13 @@ kind: Service
 metadata:
   name: reviews
   labels:
-    app: reviews
+    app.kubernetes.io/name: reviews
 spec:
   ports:
   - port: 9080
     name: http
   selector:
-    app: reviews
+    app.kubernetes.io/name: reviews
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -107,8 +107,8 @@ spec:
   template:
     metadata:
       labels:
-        app: reviews
-        version: v1
+        app.kubernetes.io/name: reviews
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: reviews
@@ -126,8 +126,8 @@ spec:
   template:
     metadata:
       labels:
-        app: reviews
-        version: v2
+        app.kubernetes.io/name: reviews
+        app.kubernetes.io/version: v2
     spec:
       containers:
       - name: reviews
@@ -145,8 +145,8 @@ spec:
   template:
     metadata:
       labels:
-        app: reviews
-        version: v3
+        app.kubernetes.io/name: reviews
+        app.kubernetes.io/version: v3
     spec:
       containers:
       - name: reviews
@@ -163,13 +163,13 @@ kind: Service
 metadata:
   name: productpage
   labels:
-    app: productpage
+    app.kubernetes.io/name: productpage
 spec:
   ports:
   - port: 9080
     name: http
   selector:
-    app: productpage
+    app.kubernetes.io/name: productpage
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -180,8 +180,8 @@ spec:
   template:
     metadata:
       labels:
-        app: productpage
-        version: v1
+        app.kubernetes.io/name: productpage
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: productpage

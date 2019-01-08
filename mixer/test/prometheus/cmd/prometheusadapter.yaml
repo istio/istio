@@ -20,7 +20,7 @@ kind: Service
 metadata:
   name: prometheusadapter
   labels:
-    app: prometheusadapter
+    app.kubernetes.io/name: prometheusadapter
 spec:
   ports:
   - name: http
@@ -28,7 +28,7 @@ spec:
   - name: http-prom
     port: 42422
   selector:
-    app: prometheusadapter
+    app.kubernetes.io/name: prometheusadapter
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -39,8 +39,8 @@ spec:
   template:
     metadata:
       labels:
-        app: prometheusadapter
-        version: v1
+        app.kubernetes.io/name: prometheusadapter
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - image: gcr.io/mixologist-142215/prometheusadapter

@@ -10,7 +10,7 @@ spec:
         sidecar.istio.io/userMount: '[{"name": "proto", "mountPath": "/etc/proto/description.proto", "readonly": true}]'
         sidecar.istio.io/userVolume: '[{"name": "proto", "persistentVolumeClaim": [{"claimName": "some-claim-name"}]}]'
       labels:
-        app: user-volume
+        app.kubernetes.io/name: user-volume
     spec:
       containers:
         - name: user-volume

@@ -21,8 +21,8 @@ spec:
   template:
     metadata:
       labels:
-        app: ratings
-        version: v2
+        app.kubernetes.io/name: ratings
+        app.kubernetes.io/version: v2
     spec:
       containers:
       - name: ratings

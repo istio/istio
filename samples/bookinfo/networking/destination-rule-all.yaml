@@ -7,7 +7,7 @@ spec:
   subsets:
   - name: v1
     labels:
-      version: v1
+      app.kubernetes.io/version: v1
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -18,13 +18,13 @@ spec:
   subsets:
   - name: v1
     labels:
-      version: v1
+      app.kubernetes.io/version: v1
   - name: v2
     labels:
-      version: v2
+      app.kubernetes.io/version: v2
   - name: v3
     labels:
-      version: v3
+      app.kubernetes.io/version: v3
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -35,16 +35,16 @@ spec:
   subsets:
   - name: v1
     labels:
-      version: v1
+      app.kubernetes.io/version: v1
   - name: v2
     labels:
-      version: v2
+      app.kubernetes.io/version: v2
   - name: v2-mysql
     labels:
-      version: v2-mysql
+      app.kubernetes.io/version: v2-mysql
   - name: v2-mysql-vm
     labels:
-      version: v2-mysql-vm
+      app.kubernetes.io/version: v2-mysql-vm
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -55,8 +55,8 @@ spec:
   subsets:
   - name: v1
     labels:
-      version: v1
+      app.kubernetes.io/version: v1
   - name: v2
     labels:
-      version: v2
+      app.kubernetes.io/version: v2
 ---

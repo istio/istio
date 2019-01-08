@@ -9,7 +9,7 @@ spec:
       annotations:
         traffic.sidecar.istio.io/excludeOutboundIPRanges: "*"
       labels:
-        app: traffic
+        app.kubernetes.io/name: traffic
     spec:
       containers:
         - name: traffic

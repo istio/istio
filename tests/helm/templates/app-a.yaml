@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: a
   labels:
-    app: a
+    app.kubernetes.io/name: a
 spec:
   ports:
   - port: 80
@@ -26,7 +26,7 @@ spec:
     targetPort: 70
     name: grpc
   selector:
-    app: a
+    app.kubernetes.io/name: a
 
 ---
 apiVersion: extensions/v1beta1
@@ -38,8 +38,8 @@ spec:
   template:
     metadata:
       labels:
-        app: a
-        version: v1
+        app.kubernetes.io/name: a
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: app

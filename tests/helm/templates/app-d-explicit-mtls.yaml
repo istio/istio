@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: d
   labels:
-    app: d
+    app.kubernetes.io/name: d
 spec:
   ports:
   - port: 80
@@ -26,7 +26,7 @@ spec:
     targetPort: 7070
     name: grpc
   selector:
-    app: d
+    app.kubernetes.io/name: d
 ---
 apiVersion: authentication.istio.io/v1alpha1
 kind: Policy
@@ -51,8 +51,8 @@ spec:
   template:
     metadata:
       labels:
-        app: d
-        version: per-svc-auth
+        app.kubernetes.io/name: d
+        app.kubernetes.io/version: per-svc-auth
     spec:
       containers:
       - name: app

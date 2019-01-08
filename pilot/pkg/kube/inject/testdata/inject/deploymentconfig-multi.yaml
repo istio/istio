@@ -7,7 +7,7 @@ items:
       name: frontend
     spec:
       selector:
-        app: hello
+        app.kubernetes.io/name: hello
         tier: frontend
       ports:
         - protocol: "TCP"
@@ -24,7 +24,7 @@ items:
       template:
         metadata:
           labels:
-            app: hello
+            app.kubernetes.io/name: hello
             tier: backend
             track: stable
         spec:

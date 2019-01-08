@@ -45,7 +45,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: fortiotls
+    app.kubernetes.io/name: fortiotls
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -60,8 +60,8 @@ spec:
         sidecar.istio.io/controlPlaneAuthPolicy: MUTUAL_TLS
         sidecar.istio.io/discoveryAddress: pilot.{{ .Values.domain }}:15011
       labels:
-        app: fortiotls
-        version: tls
+        app.kubernetes.io/name: fortiotls
+        app.kubernetes.io/version: tls
     spec:
       containers:
       - name: fortio

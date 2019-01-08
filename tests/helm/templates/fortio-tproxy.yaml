@@ -10,7 +10,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: fortio-tproxy
+    app.kubernetes.io/name: fortio-tproxy
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -21,9 +21,9 @@ spec:
   template:
     metadata:
       labels:
-        app: fortio-tproxy
+        app.kubernetes.io/name: fortio-tproxy
         name: fortio-tproxy
-        version: tproxy
+        app.kubernetes.io/version: tproxy
       annotations:
         sidecar.istio.io/interceptionMode: TPROXY
         sidecar.istio.io/proxyImage: "costinm/proxytproxy:tproxy"

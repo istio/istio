@@ -29,13 +29,13 @@ kind: Service
 metadata:
   name: mysqldb
   labels:
-    app: mysqldb
+    app.kubernetes.io/name: mysqldb
 spec:
   ports:
   - port: 3306
     name: mysql
   selector:
-    app: mysqldb
+    app.kubernetes.io/name: mysqldb
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -46,8 +46,8 @@ spec:
   template:
     metadata:
       labels:
-        app: mysqldb
-        version: v1
+        app.kubernetes.io/name: mysqldb
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: mysqldb

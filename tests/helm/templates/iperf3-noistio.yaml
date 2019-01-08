@@ -26,7 +26,7 @@ spec:
     port: 5202
     targetPort: 5202
   selector:
-    app: iperf3-raw
+    app.kubernetes.io/name: iperf3-raw
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -37,7 +37,7 @@ spec:
   template:
     metadata:
       labels:
-        app: iperf3-raw
+        app.kubernetes.io/name: iperf3-raw
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

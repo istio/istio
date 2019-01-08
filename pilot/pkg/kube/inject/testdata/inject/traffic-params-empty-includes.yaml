@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       labels:
-        app: traffic
+        app.kubernetes.io/name: traffic
     spec:
       containers:
         - name: traffic

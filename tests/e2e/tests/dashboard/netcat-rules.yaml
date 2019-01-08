@@ -7,7 +7,7 @@ spec:
   - port: 44444
     name: netcat
   selector:
-    app: netcat-srv
+    app.kubernetes.io/name: netcat-srv
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -17,8 +17,8 @@ spec:
   template:
     metadata:
       labels:
-        app: netcat-srv
-        version: v1
+        app.kubernetes.io/name: netcat-srv
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - image: subfuzion/netcat
@@ -38,7 +38,7 @@ spec:
   - port: 9999
     name: dummy
   selector:
-    app: netcat-client
+    app.kubernetes.io/name: netcat-client
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -48,8 +48,8 @@ spec:
   template:
     metadata:
       labels:
-        app: netcat-client
-        version: v1
+        app.kubernetes.io/name: netcat-client
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - image: subfuzion/netcat

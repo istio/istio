@@ -28,7 +28,7 @@ spec:
     port: 5201
     targetPort: 5201
   selector:
-    app: iperf3
+    app.kubernetes.io/name: iperf3
 
 ---
 apiVersion: extensions/v1beta1
@@ -40,7 +40,7 @@ spec:
   template:
     metadata:
       labels:
-        app: iperf3
+        app.kubernetes.io/name: iperf3
     spec:
       containers:
       - image: docker.io/networkstatic/iperf3

@@ -6,7 +6,7 @@ kind: Service
 metadata:
   name: fake-control
   labels:
-    app: fake-control
+    app.kubernetes.io/name: fake-control
 spec:
   ports:
   - port: 80
@@ -28,7 +28,7 @@ spec:
     targetPort: 7070
     name: grpc
   selector:
-    app: fake-control
+    app.kubernetes.io/name: fake-control
 ---
 
 apiVersion: extensions/v1beta1
@@ -40,8 +40,8 @@ spec:
   template:
     metadata:
       labels:
-        app: fake-control
-        version: fake-control
+        app.kubernetes.io/name: fake-control
+        app.kubernetes.io/version: fake-control
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

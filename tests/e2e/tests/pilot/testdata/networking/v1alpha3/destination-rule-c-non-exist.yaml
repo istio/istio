@@ -12,5 +12,5 @@ spec:
   subsets:
     - name: non-exist
       labels:
-        version: non-exist
+        app.kubernetes.io/version: non-exist
   configScope: PUBLIC

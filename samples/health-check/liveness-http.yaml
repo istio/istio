@@ -3,13 +3,13 @@ kind: Service
 metadata:
   name: liveness-http
   labels:
-    app: liveness-http
+    app.kubernetes.io/name: liveness-http
 spec:
   ports:
   - name: http
     port: 8001
   selector:
-    app: liveness-http
+    app.kubernetes.io/name: liveness-http
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -19,8 +19,8 @@ spec:
   template:
     metadata:
       labels:
-        app: liveness-http
-        version: v1
+        app.kubernetes.io/name: liveness-http
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: liveness-http

@@ -24,8 +24,8 @@ spec:
   template:
     metadata:
       labels:
-        app: details
-        version: v2
+        app.kubernetes.io/name: details
+        app.kubernetes.io/version: v2
     spec:
       containers:
       - name: details

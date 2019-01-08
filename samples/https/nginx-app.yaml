@@ -3,14 +3,14 @@ kind: Service
 metadata:
   name: my-nginx
   labels:
-    app: nginx
+    app.kubernetes.io/name: nginx
 spec:
   type: NodePort
   ports:
   - port: 443
     name: https
   selector:
-    app: nginx
+    app.kubernetes.io/name: nginx
 ---
 apiVersion: v1
 kind: ReplicationController
@@ -21,7 +21,7 @@ spec:
   template:
     metadata:
       labels:
-        app: nginx
+        app.kubernetes.io/name: nginx
     spec:
       volumes:
       - name: secret-volume

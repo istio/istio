@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       labels:
-        app: hello
+        app.kubernetes.io/name: hello
     spec:
       containers:
         - name: hello

@@ -3,13 +3,13 @@ kind: Service
 metadata:
   name: tornado
   labels:
-    app: tornado
+    app.kubernetes.io/name: tornado
 spec:
   ports:
   - port: 8888
     name: http
   selector:
-    app: tornado
+    app.kubernetes.io/name: tornado
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -20,8 +20,8 @@ spec:
   template:
     metadata:
       labels:
-        app: tornado
-        version: v1
+        app.kubernetes.io/name: tornado
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - name: tornado

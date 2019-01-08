@@ -43,7 +43,7 @@ gateways:
     labels:
       istio: ingressgateway
       ver: ingress10
-      app: istio-ingressgateway
+      app.kubernetes.io/name: istio-ingressgateway
       name: gateway
     replicas: 3
     autoscaleMin: 3

@@ -11,7 +11,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: echosrv1
+    app.kubernetes.io/name: echosrv1
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -23,7 +23,7 @@ spec:
     metadata:
       # a unique name is generated from the deployment name
       labels:
-        app: echosrv1
+        app.kubernetes.io/name: echosrv1
     spec:
       containers:
       - name: echosrv
@@ -43,7 +43,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: echosrv2
+    app.kubernetes.io/name: echosrv2
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
@@ -55,7 +55,7 @@ spec:
     metadata:
       # a unique name is generated from the deployment name
       labels:
-        app: echosrv2
+        app.kubernetes.io/name: echosrv2
     spec:
       containers:
       - name: echosrv

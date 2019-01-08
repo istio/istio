@@ -20,13 +20,13 @@ kind: Service
 metadata:
   name: listadapter
   labels:
-    app: listadapter
+    app.kubernetes.io/name: listadapter
 spec:
   ports:
   - name: http
     port: 8080
   selector:
-    app: listadapter
+    app.kubernetes.io/name: listadapter
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -37,8 +37,8 @@ spec:
   template:
     metadata:
       labels:
-        app: listadapter
-        version: v1
+        app.kubernetes.io/name: listadapter
+        app.kubernetes.io/version: v1
     spec:
       containers:
       - image: gcr.io/mixologist-142215/listadapter
