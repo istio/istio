@@ -56,11 +56,7 @@ func TestGetSetTrustDomain(t *testing.T) {
 }
 
 func TestMustGenSpiffeURI(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("expect that MustGenSpiffeURI panics in case of empty namespace")
-		}
-	}()
-
-	MustGenSpiffeURI("", "")
+	if nonsense := MustGenSpiffeURI("", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
+		t.Errorf("Unexpected spiffe URI for empty namespace and service account: %s", nonsense)
+	}
 }

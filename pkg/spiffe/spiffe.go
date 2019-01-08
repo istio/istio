@@ -2,7 +2,7 @@ package spiffe
 
 import (
 	"fmt"
-	"os"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -27,10 +27,6 @@ func DetermineTrustDomain(commandLineTrustDomain string, domain string, isKubern
 	if len(commandLineTrustDomain) != 0 {
 		return commandLineTrustDomain
 	}
-	envTrustDomain := os.Getenv("ISTIO_SA_DOMAIN_CANONICAL")
-	if len(envTrustDomain) > 0 {
-		return envTrustDomain
-	}
 	if len(domain) != 0 {
 		return domain
 	}
@@ -42,18 +38,19 @@ func DetermineTrustDomain(commandLineTrustDomain string, domain string, isKubern
 
 // GenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate.
 func GenSpiffeURI(ns, serviceAccount string) (string, error) {
+	var err error
 	if ns == "" || serviceAccount == "" {
-		return "", fmt.Errorf(
+		err = fmt.Errorf(
 			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", trustDomain, ns, serviceAccount), nil
+	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", trustDomain, ns, serviceAccount), err
 }
 
-// MustGenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate and panics if there was an error.
+// MustGenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate and logs if there was an error.
 func MustGenSpiffeURI(ns, serviceAccount string) string {
 	uri, err := GenSpiffeURI(ns, serviceAccount)
 	if err != nil {
-		panic(err)
+		log.Error(err.Error())
 	}
 	return uri
 }

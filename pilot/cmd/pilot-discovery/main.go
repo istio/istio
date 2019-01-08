@@ -85,6 +85,7 @@ var (
 	}
 )
 
+// when we run on k8s, the default trust domain is 'cluster.local', otherwise it is the empty string
 func hasKubeRegistry() bool {
 	for _, r := range serverArgs.Service.Registries {
 		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {

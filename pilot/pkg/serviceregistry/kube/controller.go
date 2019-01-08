@@ -82,7 +82,7 @@ type ControllerOptions struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
-	// TrustDomain used as SNA
+	// TrustDomain used in SPIFFE identity
 	TrustDomain string
 
 	stop chan struct{}
