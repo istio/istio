@@ -527,7 +527,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 
 	var sic SidecarInjectionSpec
 	if err := yaml.Unmarshal(tmpl.Bytes(), &sic); err != nil {
-		log.Warnf("Failed to unmarshall template %v %s", err, string(tmpl.Bytes()))
+		log.Warnf("Failed to unmarshall template %v %s", err, tmpl.String())
 		return nil, "", err
 	}
 
