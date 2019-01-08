@@ -66,6 +66,12 @@ const (
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
+	// CRD files that should be installed during testing
+	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
+	//     and contain all CRDs used by Istio during runtime
+	zeroCRDInstallFile = "crd-10.yaml"
+	oneCRDInstallFile  = "crd-11.yaml"
+	twoCRDInstallFile  = "crd-certmanager-10.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -793,14 +799,26 @@ EOF`, k.KubeConfig, dummyValidationRule)
 	return nil
 }
 
-func (k *KubeInfo) deployIstioWithHelm() error {
-	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
+func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
+	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio-init", "files", kubernetesCRD)
 	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
 
 	// deploy CRDs first
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
-		log.Errorf("Failed to apply %s", yamlFileName)
 		return err
+	}
+	return nil
+}
+
+func (k *KubeInfo) deployIstioWithHelm() error {
+	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
+	// This slice contains the list of CRD files installed during testing
+	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile}
+	// deploy all CRDs in Istio first
+	for _, yamlFileName := range istioCRDFileNames {
+		if err := k.deployCRDs(yamlFileName); err != nil {
+			return fmt.Errorf("failed to apply all Istio CRDs from file: %s with error: %v", yamlFileName, err)
+		}
 	}
 
 	// install istio helm chart, which includes addon
