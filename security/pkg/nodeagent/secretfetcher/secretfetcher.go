@@ -15,6 +15,7 @@
 package secretfetcher
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"sync"
@@ -71,6 +72,11 @@ type SecretFetcher struct {
 
 	// secrets maps k8sKey to secrets
 	secrets sync.Map
+
+	// Delete all entries containing secretName in SecretCache. Called when K8S secret is deleted.
+	DeleteCache func(secretName string)
+	// Update all entries containing secretName in SecretCache. Called when K8S secret is updated.
+	UpdateCache func(secretName string, ns model.SecretItem)
 }
 
 func fatalf(template string, args ...interface{}) {
@@ -142,7 +148,7 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 		cache.NewInformer(scrtLW, &v1.Secret{}, secretResyncPeriod, cache.ResourceEventHandlerFuncs{
 			AddFunc:    sf.scrtAdded,
 			DeleteFunc: sf.scrtDeleted,
-			// TODO(jimmycyj): add handler for UpdateFunc.
+			UpdateFunc: sf.scrtUpdated,
 		})
 }
 
@@ -155,7 +161,8 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	t := time.Now()
 	resourceName := scrt.GetName()
-
+	// If there is secret with the same resource name, delete that secret now.
+	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
 		CertificateChain: scrt.Data[ScrtCert],
@@ -177,9 +184,52 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	key := scrt.GetName()
 	sf.secrets.Delete(key)
 	log.Debugf("secret %s is deleted", scrt.GetName())
+	// Delete all cache entries that match the deleted key.
+	if sf.DeleteCache != nil {
+		sf.DeleteCache(key)
+	}
 }
 
-// FindIngressGatewaySecret returns the secret for a k8sKey, or empty secret if no
+func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
+	oscrt, ok := oldObj.(*v1.Secret)
+	if !ok {
+		log.Warnf("Failed to convert to old secret object: %v", oldObj)
+		return
+	}
+	nscrt, ok := newObj.(*v1.Secret)
+	if !ok {
+		log.Warnf("Failed to convert to new secret object: %v", newObj)
+		return
+	}
+
+	okey := oscrt.GetName()
+	nkey := nscrt.GetName()
+	if okey != nkey {
+		log.Warnf("Failed to update secret: name does not match (%s vs %s).", okey, nkey)
+		return
+	}
+	if bytes.Equal(oscrt.Data[ScrtCert], nscrt.Data[ScrtCert]) && bytes.Equal(oscrt.Data[ScrtKey], nscrt.Data[ScrtKey]) {
+		log.Debugf("secret %s does not change, skip update", okey)
+		return
+	}
+	sf.secrets.Delete(okey)
+
+	t := time.Now()
+	ns := &model.SecretItem{
+		ResourceName:     nkey,
+		CertificateChain: nscrt.Data[ScrtCert],
+		PrivateKey:       nscrt.Data[ScrtKey],
+		CreatedTime:      t,
+		Version:          t.String(),
+	}
+	sf.secrets.Store(nkey, *ns)
+	log.Debugf("secret %s is updated", nscrt.GetName())
+	if sf.UpdateCache != nil {
+		sf.UpdateCache(nkey, *ns)
+	}
+}
+
+// FindIngressGatewaySecret returns the secret for a k8sKeyA, or empty secret if no
 // secret is present. The ok result indicates whether secret was found.
 func (sf *SecretFetcher) FindIngressGatewaySecret(key string) (secret model.SecretItem, ok bool) {
 	val, exist := sf.secrets.Load(key)
