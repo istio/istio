@@ -133,7 +133,7 @@ func TestRouteDirective(t *testing.T) {
 		},
 		response: http.Header{
 			"X-Istio-Response": []string{"value", "value2"},
-			"Content-Length":   nil,
+			"Content-Length":   []string{"0"},
 		},
 	}, {
 		desc:   "combine operations",

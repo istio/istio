@@ -213,6 +213,8 @@ func (m *HostStatus) Validate() error {
 		}
 	}
 
+	// no validation rules for Weight
+
 	return nil
 }
 
