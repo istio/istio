@@ -50,11 +50,7 @@ func NewMonitor(port int, enableProfiling bool) (*Monitor, error) {
 
 	mux := http.NewServeMux()
 
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-	registry.MustRegister(prometheus.NewGoCollector())
-
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry})
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
 	if err != nil {
 		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}

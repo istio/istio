@@ -38,12 +38,7 @@ const (
 )
 
 func addMonitor(mux *http.ServeMux) error {
-
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-	registry.MustRegister(prometheus.NewGoCollector())
-
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry})
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
 	if err != nil {
 		return fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}
