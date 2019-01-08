@@ -166,7 +166,7 @@ func edsUpdates(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 			Locality: "az",
 		},
 		ServiceAccount: "hello-sa",
-		Labels:         map[string]string{"version": "v1"},
+		Labels:         map[string]string{"app.kubernetes.io/version": "v1"},
 	})
 
 	v2.AdsPushAll(server.EnvoyXdsServer)
@@ -236,7 +236,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	testTCPEndpoints("127.0.0.4", adsc, t)
 
 	// Update the endpoint with different label - expect full
-	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v2"}, nil)
+	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"app.kubernetes.io/version": "v2"}, nil)
 
 	upd, err = adsc.Wait("", 5*time.Second)
 	if upd != "cds" || err != nil {

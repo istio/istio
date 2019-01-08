@@ -281,7 +281,7 @@ metadata:
   name: samplecheckInst
   namespace: istio-system
 spec:
-  stringPrimitive: source.labels["version"] | "unknown"
+  stringPrimitive: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule

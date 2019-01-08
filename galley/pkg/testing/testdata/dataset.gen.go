@@ -669,13 +669,13 @@ var _datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson = []byte(`{
         "subsets": [
           {
             "labels": {
-              "version": "v1"
+              "app.kubernetes.io/version": "v1"
             },
             "name": "v1"
           },
           {
             "labels": {
-              "version": "v2"
+              "app.kubernetes.io/version": "v2"
             },
             "name": "v2"
           }

@@ -2310,24 +2310,24 @@ func TestValidateDestinationRule(t *testing.T) {
 		{name: "simple destination rule", in: &networking.DestinationRule{
 			Host: "reviews",
 			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+				{Name: "v1", Labels: map[string]string{"app.kubernetes.io/version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"app.kubernetes.io/version": "v2"}},
 			},
 		}, valid: true},
 
 		{name: "missing destination name", in: &networking.DestinationRule{
 			Host: "",
 			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+				{Name: "v1", Labels: map[string]string{"app.kubernetes.io/version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"app.kubernetes.io/version": "v2"}},
 			},
 		}, valid: false},
 
 		{name: "missing subset name", in: &networking.DestinationRule{
 			Host: "reviews",
 			Subsets: []*networking.Subset{
-				{Name: "", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+				{Name: "", Labels: map[string]string{"app.kubernetes.io/version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"app.kubernetes.io/version": "v2"}},
 			},
 		}, valid: false},
 
@@ -2349,8 +2349,8 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 			},
 			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+				{Name: "v1", Labels: map[string]string{"app.kubernetes.io/version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"app.kubernetes.io/version": "v2"}},
 			},
 		}, valid: true},
 
@@ -2369,15 +2369,15 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 			},
 			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+				{Name: "v1", Labels: map[string]string{"app.kubernetes.io/version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"app.kubernetes.io/version": "v2"}},
 			},
 		}, valid: false},
 
 		{name: "valid traffic policy, subset level", in: &networking.DestinationRule{
 			Host: "reviews",
 			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"},
+				{Name: "v1", Labels: map[string]string{"app.kubernetes.io/version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
 						LoadBalancer: &networking.LoadBalancerSettings{
 							LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2394,14 +2394,14 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 					},
 				},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+				{Name: "v2", Labels: map[string]string{"app.kubernetes.io/version": "v2"}},
 			},
 		}, valid: true},
 
 		{name: "invalid traffic policy, subset level", in: &networking.DestinationRule{
 			Host: "reviews",
 			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"},
+				{Name: "v1", Labels: map[string]string{"app.kubernetes.io/version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
 						LoadBalancer: &networking.LoadBalancerSettings{
 							LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2415,7 +2415,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 					},
 				},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+				{Name: "v2", Labels: map[string]string{"app.kubernetes.io/version": "v2"}},
 			},
 		}, valid: false},
 
@@ -2437,7 +2437,7 @@ func TestValidateDestinationRule(t *testing.T) {
 				},
 			},
 			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"},
+				{Name: "v1", Labels: map[string]string{"app.kubernetes.io/version": "v1"},
 					TrafficPolicy: &networking.TrafficPolicy{
 						LoadBalancer: &networking.LoadBalancerSettings{
 							LbPolicy: &networking.LoadBalancerSettings_Simple{
@@ -2454,7 +2454,7 @@ func TestValidateDestinationRule(t *testing.T) {
 						},
 					},
 				},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+				{Name: "v2", Labels: map[string]string{"app.kubernetes.io/version": "v2"}},
 			},
 		}, valid: true},
 	}

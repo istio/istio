@@ -120,7 +120,7 @@ func NewPodInfo(nameOrAppLabel string, kubeconfig string, proxyType string) *Pod
 				ProxyType: proxyType,
 			}
 		}
-		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == nameOrAppLabel {
+		if app, ok := pod.ObjectMeta.Labels["app.kubernetes.io/name"]; ok && app == nameOrAppLabel {
 			log.Infof("Found pod %s.%s~%s matching app label %q", pod.Name, pod.Namespace, pod.Status.PodIP, nameOrAppLabel)
 			return &PodInfo{
 				Name:      pod.Name,

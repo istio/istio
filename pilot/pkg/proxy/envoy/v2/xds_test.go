@@ -207,7 +207,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 			Locality: "az",
 		},
-		Labels: map[string]string{"version": "v1"},
+		Labels: map[string]string{"app.kubernetes.io/version": "v1"},
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("service3.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -220,7 +220,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 			Locality: "az",
 		},
-		Labels: map[string]string{"version": "v2", "app": "my-gateway-controller"},
+		Labels: map[string]string{"app.kubernetes.io/version": "v2", "app.kubernetes.io/name": "my-gateway-controller"},
 	})
 
 	// Mock ingress service
@@ -275,7 +275,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
 		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
 	// Set the initial workload labels
-	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"version": "v1"}, nil)
+	server.EnvoyXdsServer.WorkloadUpdate("127.0.0.4", map[string]string{"app.kubernetes.io/version": "v1"}, nil)
 
 	// Update cache
 	server.EnvoyXdsServer.ConfigUpdate(true)
@@ -435,7 +435,7 @@ func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint 
 			Address:         ip,
 			ServicePortName: "http-main",
 			EndpointPort:    80,
-			Labels:          map[string]string{"version": version},
+			Labels:          map[string]string{"app.kubernetes.io/version": version},
 			UID:             "uid1",
 			ServiceAccount:  account,
 		},

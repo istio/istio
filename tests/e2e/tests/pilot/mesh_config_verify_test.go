@@ -106,12 +106,12 @@ func undeployApp(cluster string, deploymentName string, app *framework.App) erro
 
 func createAndVerifyMCMeshConfig() error {
 	// Collect the pod names and app's endpoints
-	primaryPodNames, primaryAppEPs, err := util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[primaryCluster], "app")
+	primaryPodNames, primaryAppEPs, err := util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[primaryCluster], "app.kubernetes.io/name")
 	if err != nil {
 		return err
 	}
 
-	remotePodNames, remoteAppEPs, err := util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app")
+	remotePodNames, remoteAppEPs, err := util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app.kubernetes.io/name")
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func createAndVerifyMCMeshConfig() error {
 
 	log.Infof("After deploying c-v3, verify that c-v3 is added in the mesh")
 	// Get updates on the remote cluster
-	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app")
+	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app.kubernetes.io/name")
 	if err == nil {
 		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs)
 		// Verify that the mesh contains endpoints from both the primary and the remote clusters
@@ -179,7 +179,7 @@ func createAndVerifyMCMeshConfig() error {
 	}
 
 	// Verify that proxy config changes back to before adding c-v3
-	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app")
+	remotePodNames, remoteAppEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.Clusters[remoteCluster], "app.kubernetes.io/name")
 	if err == nil {
 		aggregatedAppEPs = aggregateAppEPs(primaryAppEPs, remoteAppEPs)
 		if err = verifyMCMeshConfig(primaryPodNames, remotePodNames, aggregatedAppEPs); err != nil {
@@ -192,7 +192,7 @@ func createAndVerifyMCMeshConfig() error {
 
 func verifyMeshConfig() error {
 	// Collect the pod names and app's endpoints
-	podNames, appEPs, err := util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.KubeConfig, "app")
+	podNames, appEPs, err := util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.KubeConfig, "app.kubernetes.io/name")
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func verifyMeshConfig() error {
 		return err
 	}
 
-	if podNames, appEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.KubeConfig, "app"); err == nil {
+	if podNames, appEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.KubeConfig, "app.kubernetes.io/name"); err == nil {
 		err = verifyPods(tc.Kube.Istioctl, podNames, appEPs)
 	}
 
@@ -223,7 +223,7 @@ func verifyMeshConfig() error {
 		return err
 	}
 
-	if podNames, appEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.KubeConfig, "app"); err != nil {
+	if podNames, appEPs, err = util.GetAppPodsInfo(tc.Kube.Namespace, tc.Kube.KubeConfig, "app.kubernetes.io/name"); err != nil {
 		return err
 	}
 

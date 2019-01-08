@@ -18,7 +18,7 @@ kind: rule
 metadata:
   name: denyreviewsv3
 spec:
-  match:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] == "ratings" && source.labels["app"]=="reviews" && source.labels["version"] == "v3"
+  match: (destination.labels["app.kubernetes.io/name"] | destination.labels["app"]) == "ratings" && (source.labels["app.kubernetes.io/name"] | source.labels["app"]) =="reviews" && (source.labels["app.kubernetes.io/version"] | source.labels["version"]) == "v3"
   actions:
   - handler: denyreviewsv3handler.denier
     instances: [ denyreviewsv3request.checknothing ]

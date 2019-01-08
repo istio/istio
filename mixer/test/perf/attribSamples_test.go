@@ -29,7 +29,7 @@ var (
 		"context.protocol":    "http",
 		"check.cache_hit":     false,
 		"connection.mtls":     false,
-		"destination.labels":  map[string]string{"version": "v1", "app": "details", "pod-template-hash": "2854595222"},
+		"destination.labels":  map[string]string{"app.kubernetes.io/version": "v1", "app.kubernetes.io/name": "details", "pod-template-hash": "2854595222"},
 		"destination.service": "details.default.svc.cluster.local",
 		"destination.uid":     "kubernetes://details-v1-6d989f9666-289gr.default",
 		"quota.cache_hit":     false,
@@ -50,7 +50,7 @@ var (
 			"server": "envoy", "status": "200",
 			"x-envoy-upstream-service-time": "2", "content-length": "178"},
 		"response.size": int64(178),
-		"source.labels": map[string]string{"app": "productpage", "pod-template-hash": "3666554850", "version": "v1"},
+		"source.labels": map[string]string{"app.kubernetes.io/name": "productpage", "pod-template-hash": "3666554850", "app.kubernetes.io/version": "v1"},
 		"source.uid":    "kubernetes://productpage-v1-7bbb998d94-g85pc.default",
 	}
 
@@ -58,45 +58,45 @@ var (
 	// values
 	attr1 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService1",
-		"source.labels":       map[string]string{"version": "111"},
+		"source.labels":       map[string]string{"app.kubernetes.io/version": "111"},
 		"destination.service": "DevNullService1",
-		"destination.labels":  map[string]string{"app": "details", "version": "111"},
+		"destination.labels":  map[string]string{"app.kubernetes.io/name": "details", "app.kubernetes.io/version": "111"},
 		"response.code":       int64(111),
 		"request.size":        int64(111),
 	})
 
 	attr2 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService2",
-		"source.labels":       map[string]string{"version": "222"},
+		"source.labels":       map[string]string{"app.kubernetes.io/version": "222"},
 		"destination.service": "DevNullService2",
-		"destination.labels":  map[string]string{"app": "details", "version": "222"},
+		"destination.labels":  map[string]string{"app.kubernetes.io/name": "details", "app.kubernetes.io/version": "222"},
 		"response.code":       int64(222),
 		"request.size":        int64(222),
 	})
 
 	attr3 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService3",
-		"source.labels":       map[string]string{"version": "333"},
+		"source.labels":       map[string]string{"app.kubernetes.io/version": "333"},
 		"destination.service": "DevNullService3",
-		"destination.labels":  map[string]string{"app": "details", "version": "333"},
+		"destination.labels":  map[string]string{"app.kubernetes.io/name": "details", "app.kubernetes.io/version": "333"},
 		"response.code":       int64(333),
 		"request.size":        int64(333),
 	})
 
 	attr4 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService4",
-		"source.labels":       map[string]string{"version": "444"},
+		"source.labels":       map[string]string{"app.kubernetes.io/version": "444"},
 		"destination.service": "DevNullService4",
-		"destination.labels":  map[string]string{"app": "details", "version": "444"},
+		"destination.labels":  map[string]string{"app.kubernetes.io/name": "details", "app.kubernetes.io/version": "444"},
 		"response.code":       int64(444),
 		"request.size":        int64(444),
 	})
 
 	attr5 = replaceAttrs(baseAttr, map[string]interface{}{
 		"source.service":      "AcmeService5",
-		"source.labels":       map[string]string{"version": "555"},
+		"source.labels":       map[string]string{"app.kubernetes.io/version": "555"},
 		"destination.service": "DevNullService5",
-		"destination.labels":  map[string]string{"app": "details", "version": "555"},
+		"destination.labels":  map[string]string{"app.kubernetes.io/name": "details", "app.kubernetes.io/version": "555"},
 		"response.code":       int64(555),
 		"request.size":        int64(555),
 	})

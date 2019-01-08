@@ -10,7 +10,7 @@ spec:
    target: destination.service | "unknown"
    service:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | "unknown"
    method: request.path | "unknown"
-   version: destination.labels["version"] | "unknown"
+   version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
    response_code: response.code | 200
  monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -23,9 +23,9 @@ spec:
   value: response.duration | "0ms"
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -38,9 +38,9 @@ spec:
   value: request.size | 0
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -53,9 +53,9 @@ spec:
   value: response.size | 0
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---

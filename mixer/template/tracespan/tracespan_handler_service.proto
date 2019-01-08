@@ -18,9 +18,9 @@ syntax = "proto3";
 
 
 // The `tracespan` template represents an individual span within a distributed trace.
-// 
+//
 // Example config:
-// 
+//
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: tracespan
@@ -45,14 +45,14 @@ syntax = "proto3";
 //     source.ip: source.ip | ip("0.0.0.0")
 //     source.service: source.service | ""
 //     source.user: source.user | ""
-//     source.version: source.labels["version"] | ""
+//     source.version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | ""
 // ```
-// 
+//
 // See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)
 // for information on tracing within Istio.
 //
 // TraceSpan represents an individual span within a distributed trace.
-// 
+//
 // When writing the configuration, the value for the fields associated with this template can either be a
 // literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
@@ -77,7 +77,7 @@ option (gogoproto.gostring_all) = false;
 service HandleTraceSpanService {
     // HandleTraceSpan is called by Mixer at request-time to deliver 'tracespan' instances to the backend.
     rpc HandleTraceSpan(HandleTraceSpanRequest) returns (istio.mixer.adapter.model.v1beta1.ReportResult);
-    
+
 }
 
 // Request message for HandleTraceSpan method.
@@ -108,154 +108,154 @@ message InstanceMsg {
 
     // Name of the instance as specified in configuration.
     string name = 72295727;
-    
+
     // Trace ID is the unique identifier for a trace. All spans from the same
 // trace share the same Trace ID.
-// 
+//
 // Required.
     string trace_id = 1;
-    
+
     // Span ID is the unique identifier for a span within a trace. It is assigned
 // when the span is created.
-// 
+//
 // Optional.
     string span_id = 2;
-    
+
     // Parent Span ID is the unique identifier for a parent span of this span
 // instance. If this is a root span, then this field MUST be empty.
-// 
+//
 // Optional.
     string parent_span_id = 3;
-    
+
     // Span name is a description of the span's operation.
-// 
+//
 // For example, the name can be a qualified method name or a file name
 // and a line number where the operation is called. A best practice is to use
 // the same display name within an application and at the same call point.
 // This makes it easier to correlate spans in different traces.
-// 
+//
 // Required.
     string span_name = 4;
-    
+
     // The start time of the span.
-// 
+//
 // Required.
     istio.policy.v1beta1.TimeStamp start_time = 5;
-    
+
     // The end time of the span.
-// 
+//
 // Required.
     istio.policy.v1beta1.TimeStamp end_time = 6;
-    
+
     // Span tags are a set of < key, value > pairs that provide metadata for the
 // entire span. The values can be specified in the form of expressions.
-// 
+//
 // Optional.
     map<string, istio.policy.v1beta1.Value> span_tags = 7;
-    
+
     // HTTP status code used to set the span status. If unset or set to 0, the
 // span status will be assumed to be successful.
     int64 httpStatusCode = 8;
-    
+
     // client_span indicates the span kind. True for client spans and False or
 // not provided for server spans. Using bool instead of enum is a temporary
 // work around since mixer expression language does not yet support enum
 // type.
-// 
+//
 // Optional
     bool client_span = 9;
-    
+
     // rewrite_client_span_id is used to indicate whether to create a new client
 // span id to accommodate Zipkin shared span model. Some tracing systems like
 // Stackdriver separates a RPC into client span and server span. To solve this
 // incompatibility, deterministically rewriting both span id of client span and
 // parent span id of server span to the same newly generated id.
-// 
+//
 // Optional
     bool rewrite_client_span_id = 10;
-    
+
 }
 
 // Contains inferred type information about specific instance of 'tracespan' template. This is passed to
 // infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
 message Type {
-    
+
     // Span tags are a set of < key, value > pairs that provide metadata for the
 // entire span. The values can be specified in the form of expressions.
-// 
+//
 // Optional.
     map<string, istio.policy.v1beta1.ValueType> span_tags = 7;
-    
+
 }
 
 
 // Represents instance configuration schema for 'tracespan' template.
 message InstanceParam {
-    
+
     // Trace ID is the unique identifier for a trace. All spans from the same
 // trace share the same Trace ID.
-// 
+//
 // Required.
     string trace_id = 1;
-    
+
     // Span ID is the unique identifier for a span within a trace. It is assigned
 // when the span is created.
-// 
+//
 // Optional.
     string span_id = 2;
-    
+
     // Parent Span ID is the unique identifier for a parent span of this span
 // instance. If this is a root span, then this field MUST be empty.
-// 
+//
 // Optional.
     string parent_span_id = 3;
-    
+
     // Span name is a description of the span's operation.
-// 
+//
 // For example, the name can be a qualified method name or a file name
 // and a line number where the operation is called. A best practice is to use
 // the same display name within an application and at the same call point.
 // This makes it easier to correlate spans in different traces.
-// 
+//
 // Required.
     string span_name = 4;
-    
+
     // The start time of the span.
-// 
+//
 // Required.
     string start_time = 5;
-    
+
     // The end time of the span.
-// 
+//
 // Required.
     string end_time = 6;
-    
+
     // Span tags are a set of < key, value > pairs that provide metadata for the
 // entire span. The values can be specified in the form of expressions.
-// 
+//
 // Optional.
     map<string, string> span_tags = 7;
-    
+
     // HTTP status code used to set the span status. If unset or set to 0, the
 // span status will be assumed to be successful.
     string httpStatusCode = 8;
-    
+
     // client_span indicates the span kind. True for client spans and False or
 // not provided for server spans. Using bool instead of enum is a temporary
 // work around since mixer expression language does not yet support enum
 // type.
-// 
+//
 // Optional
     string client_span = 9;
-    
+
     // rewrite_client_span_id is used to indicate whether to create a new client
 // span id to accommodate Zipkin shared span model. Some tracing systems like
 // Stackdriver separates a RPC into client span and server span. To solve this
 // incompatibility, deterministically rewriting both span id of client span and
 // parent span id of server span to the same newly generated id.
-// 
+//
 // Optional
     string rewrite_client_span_id = 10;
-    
+
 }
 

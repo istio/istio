@@ -113,9 +113,9 @@ func compareLabels(a, b []Labels) bool {
 }
 
 func TestLabels(t *testing.T) {
-	a := Labels{"app": "a"}
-	b := Labels{"app": "b"}
-	a1 := Labels{"app": "a", "prod": "env"}
+	a := Labels{"app.kubernetes.io/name": "a"}
+	b := Labels{"app.kubernetes.io/name": "b"}
+	a1 := Labels{"app.kubernetes.io/name": "a", "prod": "env"}
 	ab := LabelsCollection{a, b}
 	a1b := LabelsCollection{a1, b}
 	none := LabelsCollection{}

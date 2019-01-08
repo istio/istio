@@ -19,9 +19,9 @@ syntax = "proto3";
 
 // The `metric` template is designed to let you describe runtime metric to dispatch to
 // monitoring backends.
-// 
+//
 // Example config:
-// 
+//
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: metric
@@ -32,15 +32,15 @@ syntax = "proto3";
 //   value: request.size | 0
 //   dimensions:
 //     source_service: source.service | "unknown"
-//     source_version: source.labels["version"] | "unknown"
+//     source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
 //     destination_service: destination.service | "unknown"
-//     destination_version: destination.labels["version"] | "unknown"
+//     destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
 //     response_code: response.code | 200
 //   monitored_resource_type: '"UNSPECIFIED"'
 // ```
 //
 // The `metric` template represents a single piece of data to report.
-// 
+//
 // When writing the configuration, the value for the fields associated with this template can either be a
 // literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
@@ -65,7 +65,7 @@ option (gogoproto.gostring_all) = false;
 service HandleMetricService {
     // HandleMetric is called by Mixer at request-time to deliver 'metric' instances to the backend.
     rpc HandleMetric(HandleMetricRequest) returns (istio.mixer.adapter.model.v1beta1.ReportResult);
-    
+
 }
 
 // Request message for HandleMetric method.
@@ -96,61 +96,61 @@ message InstanceMsg {
 
     // Name of the instance as specified in configuration.
     string name = 72295727;
-    
+
     // The value being reported.
     istio.policy.v1beta1.Value value = 1;
-    
+
     // The unique identity of the particular metric to report.
     map<string, istio.policy.v1beta1.Value> dimensions = 2;
-    
+
     // Optional. An expression to compute the type of the monitored resource this metric is being reported on.
 // If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
 // these fields will be ignored by the adapter.
     string monitored_resource_type = 3;
-    
+
     // Optional. A set of expressions that will form the dimensions of the monitored resource this metric is being reported on.
 // If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
 // these fields will be ignored by the adapter.
     map<string, istio.policy.v1beta1.Value> monitored_resource_dimensions = 4;
-    
+
 }
 
 // Contains inferred type information about specific instance of 'metric' template. This is passed to
 // infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
 message Type {
-    
+
     // The value being reported.
     istio.policy.v1beta1.ValueType value = 1;
-    
+
     // The unique identity of the particular metric to report.
     map<string, istio.policy.v1beta1.ValueType> dimensions = 2;
-    
+
     // Optional. A set of expressions that will form the dimensions of the monitored resource this metric is being reported on.
 // If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
 // these fields will be ignored by the adapter.
     map<string, istio.policy.v1beta1.ValueType> monitored_resource_dimensions = 4;
-    
+
 }
 
 
 // Represents instance configuration schema for 'metric' template.
 message InstanceParam {
-    
+
     // The value being reported.
     string value = 1;
-    
+
     // The unique identity of the particular metric to report.
     map<string, string> dimensions = 2;
-    
+
     // Optional. An expression to compute the type of the monitored resource this metric is being reported on.
 // If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
 // these fields will be ignored by the adapter.
     string monitored_resource_type = 3;
-    
+
     // Optional. A set of expressions that will form the dimensions of the monitored resource this metric is being reported on.
 // If the metric backend supports monitored resources, these fields are used to populate that resource. Otherwise
 // these fields will be ignored by the adapter.
     map<string, string> monitored_resource_dimensions = 4;
-    
+
 }
 

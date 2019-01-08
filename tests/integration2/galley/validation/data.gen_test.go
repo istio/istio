@@ -1047,7 +1047,7 @@ kind: listentry
 metadata:
   name: valid-listentry
 spec:
-  value: source.labels["version"]
+  value: source.labels["app.kubernetes.io/version"] | source.labels["version"]
 `)
 
 func testdataConfigV1alpha2ListentryValidYamlBytes() ([]byte, error) {
@@ -1202,9 +1202,9 @@ spec:
   value: "1"
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 `)
@@ -1474,9 +1474,9 @@ metadata:
 spec:
   dimensions:
     source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | source.service | "unknown"
-    sourceVersion: source.labels["version"] | "unknown"
+    sourceVersion: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
     destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | destination.service | "unknown"
-    destinationVersion: destination.labels["version"] | "unknown"
+    destinationVersion: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
 `)
 
 func testdataConfigV1alpha2QuotaValidYamlBytes() ([]byte, error) {
@@ -2053,7 +2053,7 @@ spec:
     source.ip: source.ip | ip("0.0.0.0")
     source.service: source.service | ""
     source.user: source.user | ""
-    source.version: source.labels["version"] | ""
+    source.version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | ""
 `)
 
 func testdataConfigV1alpha2TracespanValidYamlBytes() ([]byte, error) {

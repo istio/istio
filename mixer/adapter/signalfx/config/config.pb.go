@@ -61,7 +61,7 @@
 	    # This gets flattened out to individual tags of the form
 	    # 'source.labels.<key>: <value>'.
 	    source.labels: source.labels
-	    source.version: source.labels["version"] | "unknown"
+	    source.version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
 	 ```
 
 	It is generated from these files:

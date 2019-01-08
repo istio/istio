@@ -825,7 +825,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			name: "prefix matched service",
 			service: &serviceMetadata{
 				name:       "prefix.service",
-				labels:     map[string]string{"version": "v10"},
+				labels:     map[string]string{"app.kubernetes.io/version": "v10"},
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac:   expectRbac1,
@@ -835,7 +835,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			name: "suffix matched service",
 			service: &serviceMetadata{
 				name:       "service.suffix",
-				labels:     map[string]string{"version": "v10"},
+				labels:     map[string]string{"app.kubernetes.io/version": "v10"},
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac:   expectRbac1,
@@ -845,7 +845,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			name: "exact matched service",
 			service: &serviceMetadata{
 				name:       "service",
-				labels:     map[string]string{"version": "v10"},
+				labels:     map[string]string{"app.kubernetes.io/version": "v10"},
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac:   expectRbac1,
@@ -855,7 +855,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			name: "* matched service",
 			service: &serviceMetadata{
 				name:       "unknown",
-				labels:     map[string]string{"version": "v10"},
+				labels:     map[string]string{"app.kubernetes.io/version": "v10"},
 				attributes: map[string]string{"destination.name": "attr-name"},
 			},
 			rbac:   expectRbac2,
@@ -1178,7 +1178,7 @@ func TestConvertRbacRulesToFilterConfigPermissive(t *testing.T) {
 func TestCreateServiceMetadata(t *testing.T) {
 	expect := &serviceMetadata{
 		name:   "svc-name.test-ns",
-		labels: map[string]string{"version": "v1"},
+		labels: map[string]string{"app.kubernetes.io/version": "v1"},
 		attributes: map[string]string{
 			attrDestName:      "svc-name",
 			attrDestNamespace: "test-ns",
@@ -1189,7 +1189,7 @@ func TestCreateServiceMetadata(t *testing.T) {
 		Service: &model.Service{
 			Hostname: model.Hostname("svc-name.test-ns"),
 		},
-		Labels:         model.Labels{"version": "v1"},
+		Labels:         model.Labels{"app.kubernetes.io/name" "v1"},
 		ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
 	}
 	actual := createServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: "test-ns"}, serviceInstance)

@@ -179,7 +179,7 @@ func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (ma
 
 			if ready {
 				for _, pod := range items {
-					if app, exists := pod.Labels["app"]; exists {
+					if app, exists := pod.Labels["app.kubernetes.io/name"]; exists {
 						pods[app] = append(pods[app], pod.Name)
 					}
 					if app, exists := pod.Labels["istio"]; exists {

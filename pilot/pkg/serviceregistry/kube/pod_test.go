@@ -120,9 +120,9 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 
 	// Namespace must be lowercase (nsA doesn't work)
 	pods := []*v1.Pod{
-		generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app": "test-app"}, map[string]string{}),
-		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
-		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
+		generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app.kubernetes.io/name": "test-app"}, map[string]string{}),
+		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app.kubernetes.io/name": "prod-app-1"}, map[string]string{}),
+		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app.kubernetes.io/name": "prod-app-2"}, map[string]string{}),
 	}
 	cache.WaitForCacheSync(c.stop, c.nodes.informer.HasSynced, c.pods.informer.HasSynced,
 		c.services.informer.HasSynced, c.endpoints.informer.HasSynced)
@@ -145,9 +145,9 @@ func testPodCache(t *testing.T, c *Controller, fx *FakeXdsUpdater) {
 
 	// Verify podCache
 	wantLabels := map[string]model.Labels{
-		"128.0.0.1": {"app": "test-app"},
-		"128.0.0.2": {"app": "prod-app-1"},
-		"128.0.0.3": {"app": "prod-app-2"},
+		"128.0.0.1": {"app.kubernetes.io/name": "test-app"},
+		"128.0.0.2": {"app.kubernetes.io/name": "prod-app-1"},
+		"128.0.0.3": {"app.kubernetes.io/name": "prod-app-2"},
 	}
 	for addr, wantTag := range wantLabels {
 		tag, found := c.pods.labelsByIP(addr)

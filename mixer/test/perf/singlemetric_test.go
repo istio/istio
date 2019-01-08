@@ -38,9 +38,9 @@ var baseSingleMetricSetup = perf.Setup{
 		Requests: []perf.Request{
 			perf.BuildBasicReport(map[string]interface{}{
 				"source.service":      "AcmeService",
-				"source.labels":       map[string]string{"version": "23"},
+				"source.labels":       map[string]string{"app.kubernetes.io/version": "23"},
 				"destination.service": "DevNullService",
-				"destination.labels":  map[string]string{"version": "42"},
+				"destination.labels":  map[string]string{"app.kubernetes.io/version": "42"},
 				"response.code":       int64(200),
 				"request.size":        int64(666),
 			}),

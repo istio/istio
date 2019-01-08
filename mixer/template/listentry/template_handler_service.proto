@@ -19,9 +19,9 @@ syntax = "proto3";
 
 // The `listentry` template is designed to let you perform list check operations
 // with the [list](https://istio.io/docs/reference/config/policy-and-telemetry/adapters/list/) adapter.
-// 
+//
 // Example config:
-// 
+//
 // ```
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: listentry
@@ -29,12 +29,12 @@ syntax = "proto3";
 //   name: appversion
 //   namespace: istio-system
 // spec:
-//   value: source.labels["version"]
+//   value: source.labels["app.kubernetes.io/version"] | source.labels["version"]
 // ```
 //
 // The `listentry` template is used to verify the presence/absence of a string
 // within a list.
-// 
+//
 // When writing the configuration, the value for the fields associated with this template can either be a
 // literal or an [expression](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/). Please note that if the datatype of a field is not istio.policy.v1beta1.Value,
 // then the expression's [inferred type](https://istio.io/docs/reference//config/policy-and-telemetry/expression-language/#type-checking) must match the datatype of the field.
@@ -59,7 +59,7 @@ option (gogoproto.gostring_all) = false;
 service HandleListEntryService {
     // HandleListEntry is called by Mixer at request-time to deliver 'listentry' instances to the backend.
     rpc HandleListEntry(HandleListEntryRequest) returns (istio.mixer.adapter.model.v1beta1.CheckResult);
-    
+
 }
 
 // Request message for HandleListEntry method.
@@ -90,27 +90,27 @@ message InstanceMsg {
 
     // Name of the instance as specified in configuration.
     string name = 72295727;
-    
+
     // Specifies the entry to verify in the list. This value can either be a string or an IP address.
     istio.policy.v1beta1.Value value = 1;
-    
+
 }
 
 // Contains inferred type information about specific instance of 'listentry' template. This is passed to
 // infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
 message Type {
-    
+
     // Specifies the entry to verify in the list. This value can either be a string or an IP address.
     istio.policy.v1beta1.ValueType value = 1;
-    
+
 }
 
 
 // Represents instance configuration schema for 'listentry' template.
 message InstanceParam {
-    
+
     // Specifies the entry to verify in the list. This value can either be a string or an IP address.
     string value = 1;
-    
+
 }
 

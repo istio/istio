@@ -56,7 +56,7 @@ spec:
     response.size: response.size | 0
     source.ip: source.ip | ip("0.0.0.0")
     source.service: source.service | "unknown"
-    source.version: source.labels["version"] | "unknown"
+    source.version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: stackdriver
@@ -127,7 +127,7 @@ func TestReport(t *testing.T) {
 						"response.size":       int64(512),
 						"source.service":      "srcsvc",
 						"destination.service": "destsvc",
-						"source.labels":       map[string]string{"version": "v1"},
+						"source.labels":       map[string]string{"app.kubernetes.io/version": "v1"},
 						"source.ip":           "10.0.0.1",
 						"api.protocol":        "http",
 						"request.method":      "POST",

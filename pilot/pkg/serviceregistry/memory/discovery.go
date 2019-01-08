@@ -117,7 +117,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 			Locality:    az,
 		},
 		Service: service,
-		Labels:  map[string]string{"version": fmt.Sprintf("v%d", version)},
+		Labels:  map[string]string{"app.kubernetes.io/version": fmt.Sprintf("v%d", version)},
 	}
 }
 
@@ -206,7 +206,7 @@ func (sd *ServiceDiscovery) InstancesByPort(hostname model.Hostname, num int,
 	}
 	if port, ok := service.Ports.GetByPort(num); ok {
 		for v := 0; v < sd.versions; v++ {
-			if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
+			if labels.HasSubsetOf(map[string]string{"app.kubernetes.io/version": fmt.Sprintf("v%d", v)}) {
 				out = append(out, MakeInstance(service, port, v, "zone/region"))
 			}
 		}

@@ -122,11 +122,11 @@ str: "'mystring'"
 i64: response.size| 0
 mapStrStr:
   source_service: source.service | "unknown"
-  source_version: source.labels["version"] | "unknown"
+  source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
 oth:
   inenum: "'INNERTHREE'"
 enm: request.reason
-si32: -20 
+si32: -20
 si64: 200000002
 r_enm:
   - 0
@@ -566,7 +566,7 @@ const valueStr = `
 istio_value:
     int64_value: -123
 map_str_istio_value:
-    test.i64: 
+    test.i64:
         int64_value: -123
     float:
          double_value: 5.5
@@ -818,7 +818,7 @@ func testMsg(t *testing.T, input string, output string, res protoyaml.Resolver,
 		"request.reason":        "TWO",
 		"response.size":         int64(200),
 		"response.code":         int64(662),
-		"source.labels":         attribute.WrapStringMap(map[string]string{"version": "v1"}),
+		"source.labels":         attribute.WrapStringMap(map[string]string{"app.kubernetes.io/version": "v1"}),
 		"source.service":        "a.svc.cluster.local",
 		"request.path":          "INNERTHREE",
 		"connection.sent.bytes": int64(2),

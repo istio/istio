@@ -235,7 +235,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	}
 
 	svcLabels := map[string]string{
-		"version": "v1.1",
+		"app.kubernetes.io/version": "v1.1",
 	}
 
 	// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,

@@ -34,7 +34,7 @@ import (
 //   name: appversion
 //   namespace: istio-system
 // spec:
-//   value: source.labels["version"]
+//   value: source.labels["app.kubernetes.io/version"] | source.labels["version"]
 // ```
 
 // Fully qualified name of the template
