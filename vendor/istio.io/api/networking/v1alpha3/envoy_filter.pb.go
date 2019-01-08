@@ -166,7 +166,7 @@ func (EnvoyFilter_Filter_FilterType) EnumDescriptor() ([]byte, []int) {
 //   name: reviews-lua
 // spec:
 //   workloadLabels:
-//     app: reviews
+//     app.kubernetes.io/name: reviews
 //   filters:
 //   - listenerMatch:
 //       portNumber: 8080

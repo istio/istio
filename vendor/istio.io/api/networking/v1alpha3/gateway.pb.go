@@ -119,7 +119,7 @@ func (Server_TLSOptions_TLSProtocol) EnumDescriptor() ([]byte, []int) {
 //   namespace: some-config-namespace
 // spec:
 //   selector:
-//     app: my-gateway-controller
+//     app.kubernetes.io/name: my-gateway-controller
 //   servers:
 //   - port:
 //       number: 80
@@ -273,7 +273,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //   name: my-ingress
 // spec:
 //   selector:
-//     app: my-ingress-gateway
+//     app.kubernetes.io/name: my-ingress-gateway
 //   servers:
 //   - port:
 //       number: 80
@@ -292,7 +292,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //   name: my-tcp-ingress
 // spec:
 //   selector:
-//     app: my-tcp-ingress-gateway
+//     app.kubernetes.io/name: my-tcp-ingress-gateway
 //   servers:
 //   - port:
 //       number: 27018
@@ -311,7 +311,7 @@ func (m *Gateway) GetSelector() map[string]string {
 //   name: my-tls-ingress
 // spec:
 //   selector:
-//     app: my-tls-ingress-gateway
+//     app.kubernetes.io/name: my-tls-ingress-gateway
 //   servers:
 //   - port:
 //       number: 443

@@ -60,7 +60,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   subsets:
 //   - name: testversion
 //     labels:
-//       version: v3
+//       app.kubernetes.io/version: v3
 //     trafficPolicy:
 //       loadBalancer:
 //         simple: ROUND_ROBIN
@@ -195,7 +195,7 @@ message TrafficPolicy {
 //   subsets:
 //   - name: testversion
 //     labels:
-//       version: v3
+//       app.kubernetes.io/version: v3
 //     trafficPolicy:
 //       loadBalancer:
 //         simple: ROUND_ROBIN

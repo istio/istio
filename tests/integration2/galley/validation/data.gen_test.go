@@ -2079,10 +2079,10 @@ spec:
   subsets:
     - name: v1
       labels:
-        version: v1
+        app.kubernetes.io/version: v1
     - name: v2
       labels:
-        version: v2
+        app.kubernetes.io/version: v2
 `)
 
 func testdataNetworkingV1alpha3DestinationruleInvalidYamlBytes() ([]byte, error) {
@@ -2109,10 +2109,10 @@ spec:
   subsets:
     - name: v1
       labels:
-        version: v1
+        app.kubernetes.io/version: v1
     - name: v2
       labels:
-        version: v2
+        app.kubernetes.io/version: v2
 `)
 
 func testdataNetworkingV1alpha3DestinationruleValidYamlBytes() ([]byte, error) {

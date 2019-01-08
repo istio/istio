@@ -798,7 +798,7 @@ type TargetSelector struct {
 	//     port: 8000
 	//     targetPort: 9000
 	//   selector:
-	//     app: backend
+	//     app.kubernetes.io/name: backend
 	// ```
 	// Leave empty to match all ports that are exposed.
 	Ports []*PortSelector `protobuf:"bytes,2,rep,name=ports" json:"ports,omitempty"`

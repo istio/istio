@@ -10,7 +10,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app: echosrv
+    app.kubernetes.io/name: echosrv
 ---
 apiVersion: apps/v1beta1
 # 2 pods for service inside the cluster, will get istio injected
@@ -23,7 +23,7 @@ spec:
     metadata:
       # a unique name is generated from the deployment name
       labels:
-        app: echosrv
+        app.kubernetes.io/name: echosrv
     spec:
       containers:
       - name: echosrv
@@ -40,7 +40,7 @@ spec:
   - port: 3306
     name: mysql
   selector:
-    app: mysqlclient-istio
+    app.kubernetes.io/name: mysqlclient-istio
 ---
 apiVersion: apps/v1beta1
 # 1 pod, will get istio injected
@@ -52,7 +52,7 @@ spec:
   template:
     metadata:
       labels:
-        app: mysqlclient-istio
+        app.kubernetes.io/name: mysqlclient-istio
     spec:
       containers:
       - name: mysqlclient

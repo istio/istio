@@ -10,7 +10,7 @@ items:
       protocol: TCP
       targetPort: 80
     selector:
-      app: hello
+      app.kubernetes.io/name: hello
       tier: frontend
     type: LoadBalancer
 - apiVersion: apps.openshift.io/v1
@@ -30,7 +30,7 @@ items:
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
-          app: hello
+          app.kubernetes.io/name: hello
           tier: backend
           track: stable
       spec:

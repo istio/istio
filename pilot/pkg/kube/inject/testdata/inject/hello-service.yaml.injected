@@ -4,7 +4,7 @@ metadata:
   name: hello
 spec:
   selector:
-    app: hello
+    app.kubernetes.io/name: hello
     tier: backend
   ports:
     - protocol: TCP

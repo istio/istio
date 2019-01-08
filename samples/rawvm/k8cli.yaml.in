@@ -8,7 +8,7 @@ spec:
   template:
     metadata:
       labels:
-        app: fortio
+        app.kubernetes.io/name: fortio
     spec:
       containers:
       - name: fortio

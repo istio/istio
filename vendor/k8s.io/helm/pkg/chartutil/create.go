@@ -126,10 +126,10 @@ kind: Ingress
 metadata:
   name: {{ $fullName }}
   labels:
-    app: {{ template "<CHARTNAME>.name" . }}
-    chart: {{ template "<CHARTNAME>.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: {{ template "<CHARTNAME>.name" . }}
+    helm.sh/chart: {{ template "<CHARTNAME>.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- with .Values.ingress.annotations }}
   annotations:
 {{ toYaml . | indent 4 }}
@@ -163,21 +163,21 @@ kind: Deployment
 metadata:
   name: {{ template "<CHARTNAME>.fullname" . }}
   labels:
-    app: {{ template "<CHARTNAME>.name" . }}
-    chart: {{ template "<CHARTNAME>.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: {{ template "<CHARTNAME>.name" . }}
+    helm.sh/chart: {{ template "<CHARTNAME>.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ template "<CHARTNAME>.name" . }}
-      release: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ template "<CHARTNAME>.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app: {{ template "<CHARTNAME>.name" . }}
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ template "<CHARTNAME>.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       containers:
         - name: {{ .Chart.Name }}
@@ -216,10 +216,10 @@ kind: Service
 metadata:
   name: {{ template "<CHARTNAME>.fullname" . }}
   labels:
-    app: {{ template "<CHARTNAME>.name" . }}
-    chart: {{ template "<CHARTNAME>.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: {{ template "<CHARTNAME>.name" . }}
+    helm.sh/chart: {{ template "<CHARTNAME>.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -228,8 +228,8 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app: {{ template "<CHARTNAME>.name" . }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "<CHARTNAME>.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 `
 
 const defaultNotes = `1. Get the application URL by running these commands:

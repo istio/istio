@@ -46,7 +46,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   name: reviews-lua
 // spec:
 //   workloadLabels:
-//     app: reviews
+//     app.kubernetes.io/name: reviews
 //   filters:
 //   - listenerMatch:
 //       portNumber: 8080

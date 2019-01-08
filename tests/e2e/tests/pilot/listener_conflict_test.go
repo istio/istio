@@ -53,7 +53,7 @@ spec:
     protocol: TCP
     targetPort: somepodport
   selector:
-    app: conflictapp
+    app.kubernetes.io/name: conflictapp
   sessionAffinity: None
   type: ClusterIP
 `

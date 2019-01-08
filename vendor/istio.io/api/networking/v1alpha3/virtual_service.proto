@@ -110,10 +110,10 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   subsets:
 //   - name: v1
 //     labels:
-//       version: v1
+//       app.kubernetes.io/version: v1
 //   - name: v2
 //     labels:
-//       version: v2
+//       app.kubernetes.io/version: v2
 // ```
 //
 message VirtualService {
@@ -245,10 +245,10 @@ message VirtualService {
 //   subsets:
 //   - name: v1
 //     labels:
-//       version: v1
+//       app.kubernetes.io/version: v1
 //   - name: v2
 //     labels:
-//       version: v2
+//       app.kubernetes.io/version: v2
 // ```
 //
 // The following VirtualService sets a timeout of 5s for all calls to
@@ -653,10 +653,10 @@ message HTTPMatchRequest {
 //   subsets:
 //   - name: v1
 //     labels:
-//       version: v1
+//       app.kubernetes.io/version: v1
 //   - name: v2
 //     labels:
-//       version: v2
+//       app.kubernetes.io/version: v2
 // ```
 //
 // Traffic can also be split across two entirely different services without

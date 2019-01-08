@@ -43,14 +43,14 @@ kind: Service
 metadata:
   name: {{.app}}
   labels:
-    app: {{.app}}
+    app.kubernetes.io/name: {{.app}}
 spec:
   ports:
   - port: {{.port}}
     targetPort: {{.port}}
     name: grpc
   selector:
-    app: {{.app}}
+    app.kubernetes.io/name: {{.app}}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -61,8 +61,8 @@ spec:
   template:
     metadata:
       labels:
-        app: {{.app}}
-        version: {{.version}}
+        app.kubernetes.io/name: {{.app}}
+        app.kubernetes.io/version: {{.version}}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:

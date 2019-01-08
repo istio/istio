@@ -16,7 +16,7 @@ spec:
         traffic.sidecar.istio.io/includeOutboundIPRanges: ""
       creationTimestamp: null
       labels:
-        app: traffic
+        app.kubernetes.io/name: traffic
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0

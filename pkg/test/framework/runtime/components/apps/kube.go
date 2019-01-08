@@ -57,7 +57,7 @@ kind: Service
 metadata:
   name: {{ .service }}
   labels:
-    app: {{ .service }}
+    app.kubernetes.io/name: {{ .service }}
 spec:
 {{- if eq .headless "true" }}
   clusterIP: None
@@ -88,7 +88,7 @@ spec:
     targetPort: {{ .port6 }}
     name: grpc
   selector:
-    app: {{ .service }}
+    app.kubernetes.io/name: {{ .service }}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -99,8 +99,8 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ .service }}
-        version: {{ .version }}
+        app.kubernetes.io/name: {{ .service }}
+        app.kubernetes.io/version: {{ .version }}
 {{- if eq .injectProxy "false" }}
       annotations:
         sidecar.istio.io/inject: "false"

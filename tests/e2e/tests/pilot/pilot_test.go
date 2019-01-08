@@ -563,12 +563,12 @@ func (a *accessLogs) getAppPods(t *testing.T, app string) map[string][]string {
 		return pods
 	}
 
-	log.Infof("Checking log for app: %q", app)
+	log.Infof("Checking log for app.kubernetes.io/name: %q", app)
 	// Pods for the app needs to be obtained from all the clusters.
 	for cluster := range a.logs {
 		tmpPods := tc.Kube.GetAppPods(cluster)[app]
 		if len(tmpPods) == 0 {
-			t.Fatalf("Missing pods for app: %q from %s cluster", app, cluster)
+			t.Fatalf("Missing pods for app.kubernetes.io/name: %q from %s cluster", app, cluster)
 		}
 		pods[cluster] = tmpPods
 	}

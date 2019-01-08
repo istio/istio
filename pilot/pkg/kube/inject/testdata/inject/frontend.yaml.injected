@@ -4,7 +4,7 @@ metadata:
   name: frontend
 spec:
   selector:
-    app: hello
+    app.kubernetes.io/name: hello
     tier: frontend
   ports:
     - protocol: "TCP"
@@ -26,7 +26,7 @@ spec:
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
-        app: hello
+        app.kubernetes.io/name: hello
         tier: frontend
         track: stable
     spec:
