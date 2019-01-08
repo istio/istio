@@ -48,14 +48,11 @@ istio-ingressgateway:
   - port: 80
     targetPort: 80
     name: http2
-    nodePort: 31380
   - port: 443
     name: https
-    nodePort: 31390
   # Example of a port to add. Remove if not needed
   - port: 31400
     name: tcp
-    nodePort: 31400
   ### PORTS FOR UI/metrics #####
   ## Disable if not needed
   - port: 15029
