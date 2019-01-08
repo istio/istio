@@ -597,20 +597,20 @@ func validateMetric(t *testing.T, promAPI v1.API, query, metricName string, want
 		t.Logf("Trying to find metrics via promql (attempt %d)...", i)
 		value, err := promAPI.Query(context.Background(), query, time.Now())
 		if err != nil {
-			fatalf(t, "Could not get metrics from prometheus: %v", err)
+			errorf(t, "Could not get metrics from prometheus: %v", err)
+			return err
 		}
 		got, err = vectorValue(value, map[string]string{})
 		t.Logf("vector value => got: %f, err: %v", got, err)
 		return err
 	}
 
-	_, err := retry.Retry(context.Background(), retryFn)
-
-	if err != nil {
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
 		t.Logf("prometheus values for %s:\n%s", metricName, promDump(promAPI, metricName))
 		dumpMixerMetrics()
 		fatalf(t, "Could not find metric value: %v", err)
 	}
+
 	t.Logf("%s: %f", metricName, got)
 	if got < want {
 		t.Logf("prometheus values for %s:\n%s", metricName, promDump(promAPI, metricName))
