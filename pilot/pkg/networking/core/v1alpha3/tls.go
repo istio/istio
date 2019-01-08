@@ -148,7 +148,10 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 	if !hasTLSMatch {
 		port := listenPort.Port
 
-		// If the service has only one port, use that instead of the listenPort
+		// If the service has only one port, use that instead of the listenPort. This is useful when
+		// a Sidecar's egress listener on port X imports a bunch of single port services on different ports.
+		// We can auto infer these ports as long as its a single port service. Multiport services would require
+		// a virtualService with match block for appropriate mapping [handled in the for loop above]
 		if len(service.Ports) == 1 {
 			port = service.Ports[0].Port
 		}
@@ -230,7 +233,10 @@ TcpLoop:
 	if !defaultRouteAdded {
 		port := listenPort.Port
 
-		// If the service has only one port, use that instead of the listenPort
+		// If the service has only one port, use that instead of the listenPort. This is useful when
+		// a Sidecar's egress listener on port X imports a bunch of single port services on different ports.
+		// We can auto infer these ports as long as its a single port service. Multiport services would require
+		// a virtualService with match block for appropriate mapping [handled in the for loop above]
 		if len(service.Ports) == 1 {
 			port = service.Ports[0].Port
 		}

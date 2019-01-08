@@ -35,11 +35,11 @@ type SidecarScope struct {
 
 	// set of egress listeners, and their associated services.
 	// A sidecar scope should have either ingress/egress listeners or both.
-	EgressListeners []*IstioListenerWrapper
+	EgressListeners []*IstioEgressListenerWrapper
 
-	// set of ingress listeners
-	// A sidecar scope should have either ingress/egress listeners or both.
-	IngressListeners []*IstioListenerWrapper
+	// // set of ingress listeners
+	// // A sidecar scope should have either ingress/egress listeners or both.
+	// IngressListeners []*IstioIngressListenerWrapper
 
 	// Union of services imported across all egress listeners for use by CDS code.
 	// Right now, we include all the ports in these services.
@@ -54,13 +54,13 @@ type SidecarScope struct {
 	allImportedVirtualServices []Config
 }
 
-// IstioListenerWrapper is a wrapper for networking.IstioListener object.
+// IstioEgressListenerWrapper is a wrapper for networking.IstioEgressListener object.
 // It has the parsed form of the hosts field, encompassing a list of services
 // per sidecar listener object.
-type IstioListenerWrapper struct {
-	// The actual IstioListener api object from the Config. It can be nil if
+type IstioEgressListenerWrapper struct {
+	// The actual IstioEgressListener api object from the Config. It can be nil if
 	// this is for the default sidecar scope.
-	IstioListener *networking.IstioListener
+	IstioListener *networking.IstioEgressListener
 
 	// TODO: Unix domain socket
 
@@ -68,26 +68,30 @@ type IstioListenerWrapper struct {
 	// omitted, we infer from services imported
 	ListenerPort *Port
 
-	// List of services imported by this listener
-	importedServices []*Service
-
+	// parsed form of the hosts field
+	// map of namespace and services 
 	importMap map[string]Hostname
+
+	// List of services imported by this egress listener
+	// extracted from the importMap above.
+	importedServices []*Service
 }
 
-// DefaultSidecarScope is a sidecar scope object with a default
-// catch all egress listener
+// DefaultSidecarScope is a sidecar scope object with a default catch all egress listener
+// that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
+// We use this scope when the user has not set any sidecar Config for a given config namespace.
 func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
 	dummyNode := Proxy{
 		ConfigNamespace: configNamespace,
 	}
 
-	defaultEgressListener := &IstioListenerWrapper{
+	defaultEgressListener := &IstioEgressListenerWrapper{
 		importMap: map[string]Hostname{wildcardNamespace: wildcardService},
 	}
 	defaultEgressListener.importedServices = defaultEgressListener.selectServices(ps.Services(&dummyNode))
 
 	out := &SidecarScope{
-		EgressListeners:             []*IstioListenerWrapper{defaultEgressListener},
+		EgressListeners:             []*IstioEgressListenerWrapper{defaultEgressListener},
 		allImportedServices:         defaultEgressListener.importedServices,
 		allImportedDestinationRules: make(map[Hostname]*Config),
 	}
@@ -113,17 +117,16 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 	}
 
 	r := sidecarConfig.Spec.(*networking.Sidecar)
-	out.EgressListeners = make([]*IstioListenerWrapper, 0)
-	out.IngressListeners = make([]*IstioListenerWrapper, 0)
+	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 
 	for _, e := range r.Egress {
 		out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
 	}
 
-	for _, e := range r.Ingress {
-		// TODO: These need to go into CDS as well
-		out.IngressListeners = append(out.IngressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
-	}
+	// for _, e := range r.Ingress {
+	// 	// TODO: These need to go into CDS as well
+	// 	out.IngressListeners = append(out.IngressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
+	// }
 
 	// Now collect all the imported services across all egress listeners. This is needed to generate CDS output
 	servicesAdded := make(map[Hostname]struct{})
@@ -183,7 +186,7 @@ func (sc *SidecarScope) DestinationRule(hostname Hostname) *Config {
 }
 
 // Services returns the list of services imported by this egress listener
-func (ilw *IstioListenerWrapper) Services() []*Service {
+func (ilw *IstioEgressListenerWrapper) Services() []*Service {
 	if ilw == nil {
 		return nil
 	}
@@ -191,8 +194,10 @@ func (ilw *IstioListenerWrapper) Services() []*Service {
 	return ilw.importedServices
 }
 
-func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config, istioListener *networking.IstioListener) *IstioListenerWrapper {
-	out := &IstioListenerWrapper{
+func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
+	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
+
+	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
 		importMap:     make(map[string]Hostname),
 	}
@@ -223,7 +228,7 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config, istio
 
 // GetEgressListenerForPort returns the egress listener corresponding to
 // the listener port or the catch all listener
-func (sc *SidecarScope) getEgressListenerForPort(port int) *IstioListenerWrapper {
+func (sc *SidecarScope) getEgressListenerForPort(port int) *IstioEgressListenerWrapper {
 	if sc == nil {
 		return nil
 	}
@@ -284,8 +289,8 @@ func (sc *SidecarScope) selectVirtualServices(configs []Config) []Config {
 }
 
 // selectServices returns the list of services selected through the hosts field
-// in the ingress/egress portion of the Sidecar config
-func (ilw *IstioListenerWrapper) selectServices(services []*Service) []*Service {
+// in the egress portion of the Sidecar config
+func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service) []*Service {
 
 	importedServices := make([]*Service, 0)
 	for _, s := range services {
