@@ -185,18 +185,8 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 
 // TestGatewayAgentGenerateSecret verifies that ingress gateway agent manages secret cache correctly.
 func TestGatewayAgentGenerateSecret(t *testing.T) {
-	fetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: false,
-	}
-	fetcher.Init(fake.NewSimpleClientset().CoreV1())
-	ch := make(chan struct{})
-	fetcher.Run(ch)
-	opt := Options{
-		SecretTTL:        time.Minute,
-		RotationInterval: 300 * time.Microsecond,
-		EvictionDuration: 2 * time.Second,
-	}
-	sc := NewSecretCache(fetcher, notifyCb, opt)
+	sc := createSecretCache()
+	fetcher := sc.fetcher
 	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
 	defer func() {
 		sc.Close()
@@ -261,6 +251,83 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 	}
 	if retries == 3 {
 		t.Errorf("Unused secrets failed to be evicted from cache")
+	}
+}
+
+func createSecretCache() *SecretCache {
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: false,
+	}
+	fetcher.Init(fake.NewSimpleClientset().CoreV1())
+	ch := make(chan struct{})
+	fetcher.Run(ch)
+	opt := Options{
+		SecretTTL:        time.Minute,
+		RotationInterval: 300 * time.Microsecond,
+		EvictionDuration: 2 * time.Second,
+	}
+	return NewSecretCache(fetcher, notifyCb, opt)
+}
+
+// TestGatewayAgentDeleteSecret verifies that ingress gateway agent deletes secret cache correctly.
+func TestGatewayAgentDeleteSecret(t *testing.T) {
+	sc := createSecretCache()
+	fetcher := sc.fetcher
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
+	defer func() {
+		sc.Close()
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
+	}()
+
+	fetcher.AddSecret(k8sTestSecret)
+	proxyID := "proxy1-id"
+	ctx := context.Background()
+	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sSecretName, "")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), true; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+
+	sc.DeleteK8sSecret(k8sSecretName)
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), false; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+}
+
+// TestGatewayAgentUpdateSecret verifies that ingress gateway agent updates secret cache correctly.
+func TestGatewayAgentUpdateSecret(t *testing.T) {
+	sc := createSecretCache()
+	fetcher := sc.fetcher
+	atomic.StoreUint32(&sc.skipTokenExpireCheck, 0)
+	defer func() {
+		sc.Close()
+		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
+	}()
+
+	fetcher.AddSecret(k8sTestSecret)
+	proxyID := "proxy1-id"
+	ctx := context.Background()
+	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sSecretName, "")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), true; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+	newTime := gotSecret.CreatedTime.Add(time.Duration(10) * time.Second)
+	newK8sTestSecret := model.SecretItem{
+		CertificateChain: []byte("new cert chain"),
+		PrivateKey:       []byte("new private key"),
+		ResourceName:     k8sSecretName,
+		Token:            gotSecret.Token,
+		CreatedTime:      newTime,
+		Version:          newTime.String(),
+	}
+	sc.UpdateK8sSecret(k8sSecretName, newK8sTestSecret)
+	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), false; got != want {
+		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 }
 
