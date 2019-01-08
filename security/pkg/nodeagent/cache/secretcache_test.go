@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -328,6 +329,55 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	sc.UpdateK8sSecret(k8sSecretName, newK8sTestSecret)
 	if got, want := sc.SecretExist(proxyID, k8sSecretName, "", gotSecret.Version), false; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
+	}
+}
+
+func TestConstructCSRHostName(t *testing.T) {
+	data, err := ioutil.ReadFile("./testdata/testjwt")
+	if err != nil {
+		t.Errorf("failed to read test jwt file %v", err)
+	}
+	testJwt := string(data)
+
+	cases := []struct {
+		trustDomain string
+		token       string
+		expected    string
+		errFlag     bool
+	}{
+		{
+			token:    testJwt,
+			expected: "spiffe://cluster.local/ns/default/sa/sleep",
+			errFlag:  false,
+		},
+		{
+			trustDomain: "fooDomain",
+			token:       testJwt,
+			expected:    "spiffe://fooDomain/ns/default/sa/sleep",
+			errFlag:     false,
+		},
+		{
+			token:    "faketoken",
+			expected: "",
+			errFlag:  true,
+		},
+	}
+	for _, c := range cases {
+		got, err := constructCSRHostName(c.trustDomain, c.token)
+		if err != nil {
+			if c.errFlag == false {
+				t.Errorf("constructCSRHostName no error, but got %v", err)
+			}
+			continue
+		}
+
+		if err == nil && c.errFlag == true {
+			t.Error("constructCSRHostName error")
+		}
+
+		if got != c.expected {
+			t.Errorf("constructCSRHostName got %q, want %q", got, c.expected)
+		}
 	}
 }
 
