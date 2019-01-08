@@ -110,6 +110,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
 func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
+
 	out := &SidecarScope{
 		Config:                      sidecarConfig,
 		allImportedServices:         make([]*Service, 0),
