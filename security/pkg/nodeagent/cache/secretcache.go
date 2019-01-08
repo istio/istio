@@ -246,7 +246,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 
 	wg.Wait()
 	for key, secret := range secretMap {
-		sc.secrets.Store(key, secret)
+		sc.secrets.Store(key, *secret)
 	}
 }
 
