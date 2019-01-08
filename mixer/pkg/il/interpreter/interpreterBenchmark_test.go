@@ -17,7 +17,7 @@ package interpreter
 import (
 	"testing"
 
-	"istio.io/istio/mixer/pkg/il/testing"
+	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 )
 
