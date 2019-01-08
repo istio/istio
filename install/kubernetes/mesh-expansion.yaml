@@ -12,9 +12,6 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - name: https-pilot
-    port: 15005
-    protocol: TCP
   - port: 8080
     name: http-pilot
     protocol: TCP
@@ -24,6 +21,8 @@ spec:
   - port: 15011
     name: tls-grpc-pilot
     protocol: TCP
+  - port: 9093
+    name: http-monitoring
   selector:
     istio: pilot
 ---
@@ -43,9 +42,7 @@ spec:
     protocol: UDP
   selector:
     k8s-app: kube-dns
-
 ---
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -58,15 +55,19 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 15004
-    protocol: TCP
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: grpc-mixer
+    port: 9091
+  - name: http-monitoring
+    port: 9093
+  - name: prometheus
+    port: 42422
   selector:
     istio: mixer
     istio-mixer-type: telemetry
-
 # This points to istio-telemetry until we are able to support both
 # istio-policy and istio-telemetry as separate services for mesh expansion.
-
 ---
 apiVersion: v1
 kind: Service
@@ -80,7 +81,29 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 8060
+  - name: grpc-citadel
+    port: 8060
     protocol: TCP
+  - name: http-monitoring
+    port: 9093
   selector:
     istio: citadel
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin-ilb
+  namespace: istio-system
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    app: jaeger
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 9411
+    protocol: TCP
+    targetPort: 9411
+  selector:
+    app: jaeger

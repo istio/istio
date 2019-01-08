@@ -48,6 +48,8 @@ ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 # enable auth. This requires node-agent to be running.
 ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15011}
 
+ZIPKIN_PORT=${ZIPKIN_PORT:-9411}
+
 # If set, override the default
 CONTROL_PLANE_AUTH_POLICY=("--controlPlaneAuthPolicy" "MUTUAL_TLS")
 if [ ! -z "${ISTIO_CP_AUTH:-}" ]; then
@@ -86,6 +88,10 @@ if [ -z "${PILOT_ADDRESS:-}" ]; then
   PILOT_ADDRESS=istio-pilot.${ISTIO_SYSTEM_NAMESPACE}:${ISTIO_PILOT_PORT}
 fi
 
+if [ -z "${ZIPKIN_ADDRESS:-}" ]; then
+  ZIPKIN_ADDRESS=zipkin.${ISTIO_SYSTEM_NAMESPACE}:${ZIPKIN_PORT}
+fi
+
 # If predefined ISTIO_AGENT_FLAGS is null, make it an empty string.
 ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
 # Split ISTIO_AGENT_FLAGS by spaces.
@@ -104,6 +110,7 @@ else
 exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy ${ISTIO_AGENT_FLAGS_ARRAY[*]} \
     --serviceCluster $SVC \
     --discoveryAddress ${PILOT_ADDRESS} \
+    --zipkinAddress ${ZIPKIN_ADDRESS} \
     ${CONTROL_PLANE_AUTH_POLICY[*]} \
     2> ${ISTIO_LOG_DIR}/istio.err.log > ${ISTIO_LOG_DIR}/istio.log" ${EXEC_USER}
 fi
