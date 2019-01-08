@@ -3,10 +3,10 @@ kind: ClusterRole
 metadata:
   name: certmanager
   labels:
-    app: certmanager
-    chart: {{ template "certmanager.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: {{ template "certmanager.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 rules:
   - apiGroups: ["certmanager.k8s.io"]
     resources: ["certificates", "issuers", "clusterissuers"]
@@ -28,10 +28,10 @@ kind: ClusterRoleBinding
 metadata:
   name: certmanager
   labels:
-    app: certmanager
-    chart: {{ template "certmanager.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: {{ template "certmanager.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

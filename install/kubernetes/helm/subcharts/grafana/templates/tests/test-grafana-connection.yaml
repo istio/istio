@@ -5,10 +5,10 @@ metadata:
   name: {{ template "grafana.fullname" . }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: grafana-test
-    chart: {{ template "grafana.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: grafana-test
+    helm.sh/chart: {{ template "grafana.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
     istio: grafana
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""

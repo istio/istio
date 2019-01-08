@@ -4,10 +4,10 @@ metadata:
   name: tracing-services
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Values.provider }}
-    chart: {{ template "tracing.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ .Values.provider }}
+    helm.sh/chart: {{ template "tracing.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 items:
 - apiVersion: v1
   kind: Service
@@ -15,10 +15,10 @@ items:
     name: zipkin
     namespace: {{ .Release.Namespace }}
     labels:
-      app: {{ .Values.provider }}
-      chart: {{ template "tracing.chart" . }}
-      heritage: {{ .Release.Service }}
-      release: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ .Values.provider }}
+      helm.sh/chart: {{ template "tracing.chart" . }}
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   spec:
     type: {{ .Values.service.type }}
     ports:
@@ -27,7 +27,7 @@ items:
         protocol: TCP
         name: {{ .Values.service.name }}
     selector:
-      app: {{ .Values.provider }}
+      app.kubernetes.io/name: {{ .Values.provider }}
 - apiVersion: v1
   kind: Service
   metadata:
@@ -38,10 +38,10 @@ items:
       {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
-      app: {{ .Values.provider }}
-      chart: {{ template "tracing.chart" . }}
-      heritage: {{ .Release.Service }}
-      release: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ .Values.provider }}
+      helm.sh/chart: {{ template "tracing.chart" . }}
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   spec:
     ports:
       - name: http-query
@@ -53,4 +53,4 @@ items:
         targetPort: 9411
 {{ end}}
     selector:
-      app: {{ .Values.provider }}
+      app.kubernetes.io/name: {{ .Values.provider }}

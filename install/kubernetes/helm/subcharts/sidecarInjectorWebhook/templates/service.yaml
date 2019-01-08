@@ -4,10 +4,10 @@ metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "sidecar-injector.name" . }}
-    chart: {{ template "sidecar-injector.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "sidecar-injector.name" . }}
+    helm.sh/chart: {{ template "sidecar-injector.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
     istio: sidecar-injector
 spec:
   ports:

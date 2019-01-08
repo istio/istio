@@ -8,10 +8,10 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    app: servicegraph
-    chart: {{ template "servicegraph.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: servicegraph
+    helm.sh/chart: {{ template "servicegraph.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -20,7 +20,7 @@ spec:
       protocol: TCP
       name: {{ .Values.service.name }}
   selector:
-    app: servicegraph
+    app.kubernetes.io/name: servicegraph
 {{- if .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
 {{- end }}

@@ -8,10 +8,10 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "grafana.name" . }}
+    helm.sh/chart: {{ template "grafana.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -20,7 +20,7 @@ spec:
       protocol: TCP
       name: {{ .Values.service.name }}
   selector:
-    app: grafana
+    app.kubernetes.io/name: grafana
 {{- if .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ .Values.service.loadBalancerIP }}"
 {{- end }}

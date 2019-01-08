@@ -4,13 +4,13 @@ metadata:
   name: istiocoredns
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "istiocoredns.name" . }}
-    chart: {{ template "istiocoredns.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "istiocoredns.name" . }}
+    helm.sh/chart: {{ template "istiocoredns.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   selector:
-    app: istiocoredns
+    app.kubernetes.io/name: istiocoredns
   ports:
   - name: dns
     port: 53

@@ -4,19 +4,19 @@ metadata:
   name: istio-nodeagent
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "nodeagent.name" . }}
-    chart: {{ template "nodeagent.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: {{ template "nodeagent.name" . }}
+    helm.sh/chart: {{ template "nodeagent.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
     istio: nodeagent
 spec:
   template:
     metadata:
       labels:
-        app: {{ template "nodeagent.name" . }}
-        chart: {{ template "nodeagent.chart" . }}
-        release: {{ .Release.Name }}
-        heritage: {{ .Release.Service }}
+        app.kubernetes.io/name: {{ template "nodeagent.name" . }}
+        helm.sh/chart: {{ template "nodeagent.chart" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
         istio: nodeagent
     spec:
       serviceAccountName: istio-nodeagent-service-account

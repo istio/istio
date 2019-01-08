@@ -4,20 +4,20 @@ metadata:
   name: istiocoredns
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "istiocoredns.name" . }}
-    chart: {{ template "istiocoredns.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "istiocoredns.name" . }}
+    helm.sh/chart: {{ template "istiocoredns.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       name: istiocoredns
       labels:
-        app: istiocoredns
-        chart: {{ template "istiocoredns.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: istiocoredns
+        helm.sh/chart: {{ template "istiocoredns.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

@@ -5,10 +5,10 @@ metadata:
   annotations:
     "helm.sh/hook": crd-install
   labels:
-    app: certmanager
-    chart: certmanager
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: certmanager
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: certmanager.k8s.io
   version: v1alpha1
@@ -24,10 +24,10 @@ metadata:
   annotations:
     "helm.sh/hook": crd-install
   labels:
-    app: certmanager
-    chart: certmanager
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: certmanager
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: certmanager.k8s.io
   version: v1alpha1
@@ -43,10 +43,10 @@ metadata:
   annotations:
     "helm.sh/hook": crd-install
   labels:
-    app: certmanager
-    chart: certmanager
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: certmanager
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: certmanager.k8s.io
   version: v1alpha1

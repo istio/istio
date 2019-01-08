@@ -5,10 +5,10 @@ metadata:
   name: istio-kiali-gateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "kiali.name" . }}
-    chart: {{ template "kiali.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "kiali.name" . }}
+    helm.sh/chart: {{ template "kiali.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   selector:
     istio: ingressgateway
@@ -30,10 +30,10 @@ metadata:
   name: kiali
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "kiali.name" . }}
-    chart: {{ template "kiali.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "kiali.name" . }}
+    helm.sh/chart: {{ template "kiali.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   host: kiali.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -46,10 +46,10 @@ metadata:
   name: kiali-virtual-service
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "kiali.name" . }}
-    chart: {{ template "kiali.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "kiali.name" . }}
+    helm.sh/chart: {{ template "kiali.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   hosts:
   - "*"

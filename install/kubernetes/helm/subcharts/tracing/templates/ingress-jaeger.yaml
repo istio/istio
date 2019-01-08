@@ -5,10 +5,10 @@ metadata:
   name: jaeger-query
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
-    chart: {{ template "tracing.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: jaeger
+    helm.sh/chart: {{ template "tracing.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
   annotations:
     {{- range $key, $value := .Values.jaeger.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

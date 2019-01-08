@@ -9,13 +9,13 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: prometheus
+    helm.sh/chart: {{ template "prometheus.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   selector:
-    app: prometheus
+    app.kubernetes.io/name: prometheus
   ports:
   - name: http-prometheus
     protocol: TCP
@@ -30,10 +30,10 @@ metadata:
   name: prometheus-nodeport
   namespace: {{ .Release.Namespace }}
   labels:
-    app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: prometheus
+    helm.sh/chart: {{ template "prometheus.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   type: NodePort
   ports:
@@ -41,5 +41,5 @@ spec:
     nodePort: {{ .Values.service.nodePort.port }}
     name: http-prometheus
   selector:
-    app: prometheus
+    app.kubernetes.io/name: prometheus
 {{- end }}

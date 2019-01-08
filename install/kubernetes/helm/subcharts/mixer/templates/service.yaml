@@ -7,10 +7,10 @@ metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" $ }}
-    chart: {{ template "mixer.chart" $ }}
-    heritage: {{ $.Release.Service }}
-    release: {{ $.Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" $ }}
+    helm.sh/chart: {{ template "mixer.chart" $ }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
     istio: mixer
 spec:
   ports:

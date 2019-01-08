@@ -7,10 +7,10 @@ metadata:
   name: {{ template "tracing.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Values.provider }}
-    chart: {{ template "tracing.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ .Values.provider }}
+    helm.sh/chart: {{ template "tracing.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

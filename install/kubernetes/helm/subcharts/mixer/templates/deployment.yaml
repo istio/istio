@@ -285,11 +285,11 @@ metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: istio-mixer
-    chart: {{ template "mixer.chart" $ }}
-    heritage: {{ $.Release.Service }}
-    release: {{ $.Release.Name }}
-    version: {{ $.Chart.Version }}
+    app.kubernetes.io/name: istio-mixer
+    helm.sh/chart: {{ template "mixer.chart" $ }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/version: {{ $.Chart.Version }}
     istio: mixer
 spec:
   replicas: {{ $spec.replicaCount }}
@@ -299,21 +299,21 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: {{ $key }}
-      chart: {{ template "mixer.chart" $ }}
-      heritage: {{ $.Release.Service }}
-      release: {{ $.Release.Name }}
-      version: {{ $.Chart.Version }}
+      app.kubernetes.io/name: {{ $key }}
+      helm.sh/chart: {{ template "mixer.chart" $ }}
+      app.kubernetes.io/managed-by: {{ $.Release.Service }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/version: {{ $.Chart.Version }}
       istio: mixer
       istio-mixer-type: {{ $key }}
   template:
     metadata:
       labels:
-        app: {{ $key }}
-        chart: {{ template "mixer.chart" $ }}
-        heritage: {{ $.Release.Service }}
-        release: {{ $.Release.Name }}
-        version: {{ $.Chart.Version }}
+        app.kubernetes.io/name: {{ $key }}
+        helm.sh/chart: {{ template "mixer.chart" $ }}
+        app.kubernetes.io/managed-by: {{ $.Release.Service }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        app.kubernetes.io/version: {{ $.Chart.Version }}
         istio: mixer
         istio-mixer-type: {{ $key }}
       annotations:

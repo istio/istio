@@ -3,7 +3,7 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-multi
   labels:
-    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

@@ -5,10 +5,10 @@ metadata:
   name: istioproxy
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   attributes:
     origin.ip:
@@ -102,7 +102,7 @@ spec:
       valueType: STRING
     api.service:
       valueType: STRING
-    api.version:
+    api.app.kubernetes.io/version:
       valueType: STRING
     api.operation:
       valueType: STRING
@@ -132,10 +132,10 @@ metadata:
   name: kubernetes
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   attributes:
     source.ip:
@@ -202,10 +202,10 @@ metadata:
   name: stdio
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   compiledAdapter: stdio
   params:
@@ -217,10 +217,10 @@ metadata:
   name: accesslog
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   severity: '"Info"'
   timestamp: request.time
@@ -273,10 +273,10 @@ metadata:
   name: tcpaccesslog
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   severity: '"Info"'
   timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
@@ -314,10 +314,10 @@ metadata:
   name: stdio
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
@@ -331,10 +331,10 @@ metadata:
   name: stdiotcp
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -350,10 +350,10 @@ metadata:
   name: requestcount
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   value: "1"
   dimensions:
@@ -361,18 +361,18 @@ spec:
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_app.kubernetes.io/name: source.labels["app"] | "unknown"
+    source_app.kubernetes.io/version: source.labels["version"] | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_app.kubernetes.io/name: destination.labels["app"] | "unknown"
+    destination_app.kubernetes.io/version: destination.labels["version"] | "unknown"
     destination_service: destination.service.host | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
-    response_code: response.code | 200   
+    response_code: response.code | 200
     permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
@@ -384,10 +384,10 @@ metadata:
   name: requestduration
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -395,19 +395,19 @@ spec:
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_app.kubernetes.io/name: source.labels["app"] | "unknown"
+    source_app.kubernetes.io/version: source.labels["version"] | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_app.kubernetes.io/name: destination.labels["app"] | "unknown"
+    destination_app.kubernetes.io/version: destination.labels["version"] | "unknown"
     destination_service: destination.service.host | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
-    permissive_response_code: rbac.permissive.response_code | "none" 
+    permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
@@ -418,10 +418,10 @@ metadata:
   name: requestsize
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   value: request.size | 0
   dimensions:
@@ -429,19 +429,19 @@ spec:
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_app.kubernetes.io/name: source.labels["app"] | "unknown"
+    source_app.kubernetes.io/version: source.labels["version"] | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_app.kubernetes.io/name: destination.labels["app"] | "unknown"
+    destination_app.kubernetes.io/version: destination.labels["version"] | "unknown"
     destination_service: destination.service.host | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
-    permissive_response_code: rbac.permissive.response_code | "none" 
+    permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
@@ -452,10 +452,10 @@ metadata:
   name: responsesize
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   value: response.size | 0
   dimensions:
@@ -463,19 +463,19 @@ spec:
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_app.kubernetes.io/name: source.labels["app"] | "unknown"
+    source_app.kubernetes.io/version: source.labels["version"] | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_app.kubernetes.io/name: destination.labels["app"] | "unknown"
+    destination_app.kubernetes.io/version: destination.labels["version"] | "unknown"
     destination_service: destination.service.host | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
     request_protocol: api.protocol | context.protocol | "unknown"
     response_code: response.code | 200
-    permissive_response_code: rbac.permissive.response_code | "none" 
+    permissive_response_code: rbac.permissive.response_code | "none"
     permissive_response_policyid: rbac.permissive.effective_policy_id | "none"
     connection_security_policy: conditional((context.reporter.kind | "inbound") == "outbound", "unknown", conditional(connection.mtls | false, "mutual_tls", "none"))
   monitored_resource_type: '"UNSPECIFIED"'
@@ -486,10 +486,10 @@ metadata:
   name: tcpbytesent
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -497,13 +497,13 @@ spec:
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_app.kubernetes.io/name: source.labels["app"] | "unknown"
+    source_app.kubernetes.io/version: source.labels["version"] | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_app.kubernetes.io/name: destination.labels["app"] | "unknown"
+    destination_app.kubernetes.io/version: destination.labels["version"] | "unknown"
     destination_service: destination.service.host | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
@@ -516,10 +516,10 @@ metadata:
   name: tcpbytereceived
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -527,13 +527,13 @@ spec:
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_app.kubernetes.io/name: source.labels["app"] | "unknown"
+    source_app.kubernetes.io/version: source.labels["version"] | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_app.kubernetes.io/name: destination.labels["app"] | "unknown"
+    destination_app.kubernetes.io/version: destination.labels["version"] | "unknown"
     destination_service: destination.service.host | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
@@ -552,13 +552,13 @@ spec:
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_app.kubernetes.io/name: source.labels["app"] | "unknown"
+    source_app.kubernetes.io/version: source.labels["version"] | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_app.kubernetes.io/name: destination.labels["app"] | "unknown"
+    destination_app.kubernetes.io/version: destination.labels["version"] | "unknown"
     destination_service: destination.service.name | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
@@ -577,13 +577,13 @@ spec:
     source_workload: source.workload.name | "unknown"
     source_workload_namespace: source.workload.namespace | "unknown"
     source_principal: source.principal | "unknown"
-    source_app: source.labels["app"] | "unknown"
-    source_version: source.labels["version"] | "unknown"
+    source_app.kubernetes.io/name: source.labels["app"] | "unknown"
+    source_app.kubernetes.io/version: source.labels["version"] | "unknown"
     destination_workload: destination.workload.name | "unknown"
     destination_workload_namespace: destination.workload.namespace | "unknown"
     destination_principal: destination.principal | "unknown"
-    destination_app: destination.labels["app"] | "unknown"
-    destination_version: destination.labels["version"] | "unknown"
+    destination_app.kubernetes.io/name: destination.labels["app"] | "unknown"
+    destination_app.kubernetes.io/version: destination.labels["version"] | "unknown"
     destination_service: destination.service.name | "unknown"
     destination_service_name: destination.service.name | "unknown"
     destination_service_namespace: destination.service.namespace | "unknown"
@@ -596,10 +596,10 @@ metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   compiledAdapter: prometheus
   params:
@@ -794,10 +794,10 @@ metadata:
   name: promhttp
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false)
   actions:
@@ -814,10 +814,10 @@ metadata:
   name: promtcp
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -858,10 +858,10 @@ metadata:
   name: kubernetesenv
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   compiledAdapter: kubernetesenv
   params:
@@ -879,10 +879,10 @@ metadata:
   name: kubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   actions:
   - handler: kubernetesenv
@@ -895,10 +895,10 @@ metadata:
   name: tcpkubeattrgenrulerule
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -912,10 +912,10 @@ metadata:
   name: attributes
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   # Pass the required attribute data to the adapter
   source_uid: source.uid | ""
@@ -958,10 +958,10 @@ metadata:
   name: istio-policy
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -985,10 +985,10 @@ metadata:
   name: istio-telemetry
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" . }}
-    chart: {{ template "mixer.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "mixer.name" . }}
+    helm.sh/chart: {{ template "mixer.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:

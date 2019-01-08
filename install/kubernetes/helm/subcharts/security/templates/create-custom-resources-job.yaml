@@ -5,20 +5,20 @@ metadata:
   name: istio-security-post-install-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "security.name" . }}
-    chart: {{ template "security.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "security.name" . }}
+    helm.sh/chart: {{ template "security.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-security-post-install-{{ .Release.Namespace }}
   labels:
-    app: {{ template "security.name" . }}
-    chart: {{ template "security.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "security.name" . }}
+    helm.sh/chart: {{ template "security.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 rules:
 - apiGroups: ["authentication.istio.io"] # needed to create default authn policy
   resources: ["*"]
@@ -38,10 +38,10 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-security-post-install-role-binding-{{ .Release.Namespace }}
   labels:
-    app: {{ template "security.name" . }}
-    chart: {{ template "security.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "security.name" . }}
+    helm.sh/chart: {{ template "security.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -61,19 +61,19 @@ metadata:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
-    app: {{ template "security.name" . }}
-    chart: {{ template "security.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "security.name" . }}
+    helm.sh/chart: {{ template "security.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   template:
     metadata:
       name: istio-security-post-install
       labels:
-        app: {{ template "security.name" . }}
-        chart: {{ template "security.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ template "security.name" . }}
+        helm.sh/chart: {{ template "security.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       serviceAccountName: istio-security-post-install-account
       containers:

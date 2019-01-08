@@ -6,18 +6,18 @@ metadata:
   name: istio-tracing
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
-    chart: {{ template "tracing.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: jaeger
+    helm.sh/chart: {{ template "tracing.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   template:
     metadata:
       labels:
-        app: jaeger
-        chart: {{ template "tracing.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: jaeger
+        helm.sh/chart: {{ template "tracing.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

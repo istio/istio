@@ -19,7 +19,7 @@ istio-ingressgateway:
     # This server runs in the same pod as ingress gateway.
     image: node-agent-k8s
   labels:
-    app: istio-ingressgateway
+    app.kubernetes.io/name: istio-ingressgateway
     istio: ingressgateway
   replicaCount: 1
   autoscaleMin: 1
@@ -110,7 +110,7 @@ istio-ingressgateway:
 istio-egressgateway:
   enabled: true
   labels:
-    app: istio-egressgateway
+    app.kubernetes.io/name: istio-egressgateway
     istio: egressgateway
   replicaCount: 1
   autoscaleMin: 1
@@ -161,7 +161,7 @@ istio-egressgateway:
 istio-ilbgateway:
   enabled: false
   labels:
-    app: istio-ilbgateway
+    app.kubernetes.io/name: istio-ilbgateway
     istio: ilbgateway
   replicaCount: 1
   autoscaleMin: 1

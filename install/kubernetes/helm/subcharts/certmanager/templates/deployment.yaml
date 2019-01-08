@@ -4,22 +4,22 @@ metadata:
   name: certmanager
   namespace: {{ .Release.Namespace }}
   labels:
-    app: certmanager
-    chart: {{ template "certmanager.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: {{ template "certmanager.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: certmanager
+      app.kubernetes.io/name: certmanager
   template:
     metadata:
       labels:
-        app: certmanager
-        chart: {{ template "certmanager.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}        
+        app.kubernetes.io/name: certmanager
+        helm.sh/chart: {{ template "certmanager.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
         {{- if .Values.podLabels }}
 {{ toYaml .Values.podLabels | indent 8 }}
         {{- end }}
@@ -51,7 +51,7 @@ spec:
               fieldPath: metadata.namespace
         resources:
 {{ toYaml .Values.resources | indent 10 }}
-      
+
       {{- if .Values.podDnsPolicy }}
       dnsPolicy: {{ .Values.podDnsPolicy }}
       {{- end }}

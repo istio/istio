@@ -3,10 +3,10 @@ kind: ClusterRole
 metadata:
   name: istio-nodeagent-{{ .Release.Namespace }}
   labels:
-    app: {{ template "nodeagent.name" . }}
-    chart: {{ template "nodeagent.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "nodeagent.name" . }}
+    helm.sh/chart: {{ template "nodeagent.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]

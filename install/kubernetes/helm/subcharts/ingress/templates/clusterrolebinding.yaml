@@ -3,10 +3,10 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-ingress-{{ .Release.Namespace }}
   labels:
-    app: {{ template "ingress.name" . }}
-    chart: {{ template "ingress.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "ingress.name" . }}
+    helm.sh/chart: {{ template "ingress.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

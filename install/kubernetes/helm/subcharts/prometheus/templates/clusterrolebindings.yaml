@@ -3,10 +3,10 @@ kind: ClusterRoleBinding
 metadata:
   name: prometheus-{{ .Release.Namespace }}
   labels:
-    app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: prometheus
+    helm.sh/chart: {{ template "prometheus.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

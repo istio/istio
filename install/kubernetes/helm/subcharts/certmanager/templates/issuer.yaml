@@ -5,10 +5,10 @@ metadata:
   name: letsencrypt-staging
   namespace: {{ .Release.Namespace }}
   labels:
-    app: certmanager
-    chart: {{ template "certmanager.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: {{ template "certmanager.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
@@ -24,10 +24,10 @@ metadata:
   name: letsencrypt
   namespace: {{ .Release.Namespace }}
   labels:
-    app: certmanager
-    chart: {{ template "certmanager.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: {{ template "certmanager.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory

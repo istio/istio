@@ -5,10 +5,10 @@ metadata:
   name: istio-prometheus-gateway
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "prometheus.name" . }}
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "prometheus.name" . }}
+    helm.sh/chart: {{ template "prometheus.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   selector:
     istio: ingressgateway
@@ -30,10 +30,10 @@ metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "prometheus.name" . }}
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "prometheus.name" . }}
+    helm.sh/chart: {{ template "prometheus.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:
@@ -46,10 +46,10 @@ metadata:
   name: prometheus-virtual-service
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "prometheus.name" . }}
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "prometheus.name" . }}
+    helm.sh/chart: {{ template "prometheus.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   hosts:
   - "*"

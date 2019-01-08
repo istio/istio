@@ -3,10 +3,10 @@ kind: CustomResourceDefinition
 metadata:
   name: virtualservices.networking.istio.io
   labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-pilot
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: networking.istio.io
   names:
@@ -25,10 +25,10 @@ kind: CustomResourceDefinition
 metadata:
   name: destinationrules.networking.istio.io
   labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-pilot
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: networking.istio.io
   names:
@@ -47,10 +47,10 @@ kind: CustomResourceDefinition
 metadata:
   name: serviceentries.networking.istio.io
   labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-pilot
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: networking.istio.io
   names:
@@ -69,10 +69,10 @@ kind: CustomResourceDefinition
 metadata:
   name: gateways.networking.istio.io
   labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-pilot
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: networking.istio.io
   names:
@@ -104,17 +104,17 @@ spec:
     - istio-io
     - networking-istio-io
   scope: Namespaced
-  version: v1alpha3 
+  version: v1alpha3
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: envoyfilters.networking.istio.io
   labels:
-    app: istio-pilot
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-pilot
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: networking.istio.io
   names:
@@ -132,10 +132,10 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: clusterrbacconfigs.rbac.istio.io
   labels:
-    app: istio-pilot
+    app.kubernetes.io/name: istio-pilot
     istio: rbac
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: rbac.istio.io
   names:
@@ -153,10 +153,10 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: policies.authentication.istio.io
   labels:
-    app: istio-citadel
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-citadel
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: authentication.istio.io
   names:
@@ -174,10 +174,10 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: meshpolicies.authentication.istio.io
   labels:
-    app: istio-citadel
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-citadel
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: authentication.istio.io
   names:
@@ -196,10 +196,10 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: httpapispecbindings.config.istio.io
   labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-mixer
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -217,10 +217,10 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: httpapispecs.config.istio.io
   labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-mixer
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -238,10 +238,10 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: quotaspecbindings.config.istio.io
   labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-mixer
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -259,10 +259,10 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: quotaspecs.config.istio.io
   labels:
-    app: istio-mixer
-    chart: istio
-    heritage: Tiller
-    release: istio
+    app.kubernetes.io/name: istio-mixer
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -280,12 +280,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rules.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: istio.io.mixer
     istio: core
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -303,12 +303,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: attributemanifests.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: istio.io.mixer
     istio: core
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -326,12 +326,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: bypasses.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: bypass
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -349,12 +349,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: circonuses.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: circonus
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -372,12 +372,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: deniers.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: denier
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -395,12 +395,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: fluentds.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: fluentd
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -418,12 +418,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: kubernetesenvs.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: kubernetesenv
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -441,12 +441,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: listcheckers.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: listchecker
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -464,12 +464,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: memquotas.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: memquota
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -487,12 +487,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: noops.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: noop
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -510,12 +510,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: opas.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: opa
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -533,12 +533,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: prometheuses.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: prometheus
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -556,12 +556,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rbacs.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: rbac
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -579,12 +579,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: redisquotas.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: redisquota
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -599,12 +599,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: servicecontrols.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: servicecontrol
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -622,12 +622,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: signalfxs.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: signalfx
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -645,12 +645,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: solarwindses.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: solarwinds
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -668,12 +668,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: stackdrivers.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: stackdriver
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -691,12 +691,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: statsds.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: statsd
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -714,12 +714,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: stdios.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: stdio
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -737,12 +737,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: apikeys.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: apikey
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -760,12 +760,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: authorizations.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: authorization
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -783,12 +783,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: checknothings.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: checknothing
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -806,12 +806,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: kuberneteses.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: adapter.template.kubernetes
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -829,12 +829,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: listentries.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: listentry
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -852,12 +852,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: logentries.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: logentry
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -875,12 +875,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: edges.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: edge
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -898,12 +898,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: metrics.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: metric
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -921,12 +921,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: quotas.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: quota
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -944,12 +944,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: reportnothings.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: reportnothing
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -967,12 +967,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: servicecontrolreports.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: servicecontrolreport
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -990,12 +990,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: tracespans.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: tracespan
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -1013,12 +1013,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: rbacconfigs.rbac.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: istio.io.mixer
     istio: rbac
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: rbac.istio.io
   names:
@@ -1036,12 +1036,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: serviceroles.rbac.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: istio.io.mixer
     istio: rbac
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: rbac.istio.io
   names:
@@ -1059,12 +1059,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: servicerolebindings.rbac.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: istio.io.mixer
     istio: rbac
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: rbac.istio.io
   names:
@@ -1082,12 +1082,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: adapters.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: adapter
     istio: mixer-adapter
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -1105,12 +1105,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: instances.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: instance
     istio: mixer-instance
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -1128,12 +1128,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: templates.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: template
     istio: mixer-template
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:
@@ -1151,12 +1151,12 @@ apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
   name: handlers.config.istio.io
   labels:
-    app: mixer
+    app.kubernetes.io/name: mixer
     package: handler
     istio: mixer-handler
-    chart: istio
-    heritage: Tiller
-    release: istio
+    helm.sh/chart: istio
+    app.kubernetes.io/managed-by: Tiller
+    app.kubernetes.io/instance: istio
 spec:
   group: config.istio.io
   names:

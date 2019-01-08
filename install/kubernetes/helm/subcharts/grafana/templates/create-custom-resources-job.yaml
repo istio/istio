@@ -4,20 +4,20 @@ metadata:
   name: istio-grafana-post-install-account
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "grafana.name" . }}
+    helm.sh/chart: {{ template "grafana.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
   name: istio-grafana-post-install-{{ .Release.Namespace }}
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "grafana.name" . }}
+    helm.sh/chart: {{ template "grafana.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 rules:
 - apiGroups: ["authentication.istio.io"] # needed to create default authn policy
   resources: ["*"]
@@ -28,10 +28,10 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-grafana-post-install-role-binding-{{ .Release.Namespace }}
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "grafana.name" . }}
+    helm.sh/chart: {{ template "grafana.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -50,19 +50,19 @@ metadata:
     "helm.sh/hook": post-install
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "grafana.name" . }}
+    helm.sh/chart: {{ template "grafana.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   template:
     metadata:
       name: istio-grafana-post-install
       labels:
-        app: istio-grafana
-        chart: {{ template "grafana.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: istio-grafana
+        helm.sh/chart: {{ template "grafana.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       serviceAccountName: istio-grafana-post-install-account
       containers:

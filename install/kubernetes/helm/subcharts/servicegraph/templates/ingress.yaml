@@ -6,10 +6,10 @@ metadata:
   name: {{ template "servicegraph.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: servicegraph
-    chart: {{ template "servicegraph.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: servicegraph
+    helm.sh/chart: {{ template "servicegraph.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

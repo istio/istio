@@ -5,10 +5,10 @@ metadata:
   name: {{ .Release.Name }}-{{ .Values.provider }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ .Values.provider }}-test
-    chart: {{ template "tracing.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: {{ .Values.provider }}-test
+    helm.sh/chart: {{ template "tracing.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""
     sidecar.istio.io/inject: "false"

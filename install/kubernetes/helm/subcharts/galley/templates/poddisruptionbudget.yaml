@@ -5,10 +5,10 @@ metadata:
   name: istio-galley
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "galley.name" . }}
-    chart: {{ template "galley.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "galley.name" . }}
+    helm.sh/chart: {{ template "galley.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
     istio: galley
 spec:
 {{- if .Values.podDisruptionBudget }}
@@ -18,7 +18,7 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-      app: {{ template "galley.name" . }}
-      release: {{ .Release.Name }}
+      app.kubernetes.io/name: {{ template "galley.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
       istio: galley
 {{- end }}

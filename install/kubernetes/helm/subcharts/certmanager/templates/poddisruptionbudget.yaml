@@ -5,11 +5,11 @@ metadata:
   name: certmanager
   namespace: {{ .Release.Namespace }}
   labels:
-    app: certmanager
-    chart: {{ template "certmanager.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
-    version: {{ .Chart.Version }}
+    app.kubernetes.io/name: certmanager
+    helm.sh/chart: {{ template "certmanager.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.Version }}
     {{- if .Values.podLabels }}
 {{ toYaml .Values.podLabels | indent 4 }}
     {{- end }}
@@ -21,6 +21,6 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-      app: certmanager
-      release: {{ .Release.Name }}
+      app.kubernetes.io/name: certmanager
+      app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

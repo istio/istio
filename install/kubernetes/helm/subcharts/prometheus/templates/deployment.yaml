@@ -5,22 +5,22 @@ metadata:
   name: prometheus
   namespace: {{ .Release.Namespace }}
   labels:
-    app: prometheus
-    chart: {{ template "prometheus.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: prometheus
+    helm.sh/chart: {{ template "prometheus.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: prometheus
+      app.kubernetes.io/name: prometheus
   template:
     metadata:
       labels:
-        app: prometheus
-        chart: {{ template "prometheus.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: prometheus
+        helm.sh/chart: {{ template "prometheus.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

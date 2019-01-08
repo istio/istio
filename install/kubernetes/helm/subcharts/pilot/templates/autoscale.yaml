@@ -5,10 +5,10 @@ metadata:
   name: istio-pilot
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "pilot.name" . }}
-    chart: {{ template "pilot.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "pilot.name" . }}
+    helm.sh/chart: {{ template "pilot.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   maxReplicas: {{ .Values.autoscaleMax }}
   minReplicas: {{ .Values.autoscaleMin }}

@@ -6,16 +6,16 @@ metadata:
   name: {{ .Release.Name }}-zipkin
   namespace: {{ .Release.Namespace }}
   labels:
-    app: zipkin
-    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: zipkin
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   template:
     metadata:
       labels:
-        app: zipkin
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: zipkin
+        app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       containers:
         - name: {{ .Chart.Name }}

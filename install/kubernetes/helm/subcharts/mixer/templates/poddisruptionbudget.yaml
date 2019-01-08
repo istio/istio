@@ -8,11 +8,11 @@ metadata:
   name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: {{ $key }}
-    chart: {{ template "mixer.chart" $ }}
-    heritage: {{ $.Release.Service }}
-    release: {{ $.Release.Name }}
-    version: {{ $.Chart.Version }}
+    app.kubernetes.io/name: {{ $key }}
+    helm.sh/chart: {{ template "mixer.chart" $ }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/version: {{ $.Chart.Version }}
     istio: mixer
     istio-mixer-type: {{ $key }}
 spec:
@@ -23,8 +23,8 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-      app: {{ $key }}
-      release: {{ $.Release.Name }}
+      app.kubernetes.io/name: {{ $key }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
       istio: mixer
       istio-mixer-type: {{ $key }}
 ---

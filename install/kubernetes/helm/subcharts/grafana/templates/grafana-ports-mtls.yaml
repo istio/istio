@@ -5,10 +5,10 @@ metadata:
   name: grafana-ports-mtls-disabled
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "grafana.name" . }}
-    chart: {{ template "grafana.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "grafana.name" . }}
+    helm.sh/chart: {{ template "grafana.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   targets:
   - name: grafana

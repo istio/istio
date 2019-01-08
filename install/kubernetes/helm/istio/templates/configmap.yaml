@@ -5,10 +5,10 @@ metadata:
   name: istio
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "istio.name" . }}
-    chart: {{ template "istio.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "istio.name" . }}
+    helm.sh/chart: {{ template "istio.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 data:
   mesh: |-
     # Set the following variable to true to disable policy checks by the Mixer.
@@ -56,19 +56,19 @@ data:
     {{- end }}
 
     # Unix Domain Socket through which envoy communicates with NodeAgent SDS to get
-    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty. 
+    # key/cert for mTLS. Use secret-mount files instead of SDS if set to empty.
     sdsUdsPath: {{ .Values.global.sds.udsPath }}
 
-    # This flag is used by secret discovery service(SDS). 
-    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount 
-    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which 
+    # This flag is used by secret discovery service(SDS).
+    # If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+    # for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which
     # will be used to generate key/cert eventually. This isn't supported for non-k8s case.
     enableSdsTokenMount: {{ .Values.global.sds.useTrustworthyJwt }}
 
-    # This flag is used by secret discovery service(SDS). 
-    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token' 
-    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod) 
-    # and pass to sds server, which will be used to request key/cert eventually. 
+    # This flag is used by secret discovery service(SDS).
+    # If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+    # (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
+    # and pass to sds server, which will be used to request key/cert eventually.
     # this flag is ignored if enableSdsTokenMount is set.
     # This isn't supported for non-k8s case.
     sdsUseK8sSaJwt: {{ .Values.global.sds.useNormalJwt }}
@@ -162,7 +162,7 @@ data:
       # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
     {{- end }}
-  
+
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.
   meshNetworks: |-
   {{- if .Values.global.meshNetworks }}

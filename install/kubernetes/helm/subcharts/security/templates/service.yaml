@@ -6,10 +6,10 @@ metadata:
   name: istio-citadel
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "security.name" . }}
-    chart: {{ template "security.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "security.name" . }}
+    helm.sh/chart: {{ template "security.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
     istio: citadel
 spec:
   ports:

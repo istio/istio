@@ -43,7 +43,7 @@ gateways:
   custom-gateway:
     enabled: true
     labels:
-      app: custom-gateway
+      app.kubernetes.io/name: custom-gateway
     replicaCount: 1
     autoscaleMin: 1
     autoscaleMax: 5

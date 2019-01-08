@@ -5,7 +5,7 @@ metadata:
   name: istio-galley
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "galley.name" . }}
+    app.kubernetes.io/name: {{ template "galley.name" . }}
     chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

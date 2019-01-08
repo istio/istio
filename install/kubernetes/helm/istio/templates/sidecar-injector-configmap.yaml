@@ -5,10 +5,10 @@ metadata:
   name: istio-sidecar-injector
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "istio.name" . }}
-    chart: {{ template "istio.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "istio.name" . }}
+    helm.sh/chart: {{ template "istio.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
     istio: sidecar-injector
 data:
   config: |-

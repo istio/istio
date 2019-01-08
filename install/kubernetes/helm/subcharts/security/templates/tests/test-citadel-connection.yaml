@@ -5,10 +5,10 @@ metadata:
   name: {{ template "security.fullname" . }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: istio-citadel-test
-    chart: {{ template "security.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: istio-citadel-test
+    helm.sh/chart: {{ template "security.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
     istio: citadel
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""

@@ -6,10 +6,10 @@ metadata:
   name: meshexpansion-ilb-vs-pilot
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "pilot.name" . }}
-    chart: {{ template "pilot.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "pilot.name" . }}
+    helm.sh/chart: {{ template "pilot.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
@@ -46,10 +46,10 @@ metadata:
   name: meshexpansion-vs-pilot
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "pilot.name" . }}
-    chart: {{ template "pilot.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "pilot.name" . }}
+    helm.sh/chart: {{ template "pilot.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
@@ -73,10 +73,10 @@ metadata:
   name: meshexpansion-dr-pilot
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "pilot.name" . }}
-    chart: {{ template "pilot.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "pilot.name" . }}
+    helm.sh/chart: {{ template "pilot.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   host: istio-pilot.{{ .Release.Namespace }}.svc.cluster.local
   trafficPolicy:

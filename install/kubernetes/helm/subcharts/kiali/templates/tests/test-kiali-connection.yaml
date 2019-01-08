@@ -5,10 +5,10 @@ metadata:
   name: {{ template "kiali.fullname" . }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: kiali-test
-    chart: {{ template "kiali.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: kiali-test
+    helm.sh/chart: {{ template "kiali.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
     istio: kiali
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""

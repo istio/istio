@@ -4,19 +4,19 @@ metadata:
   name: servicegraph
   namespace: {{ .Release.Namespace }}
   labels:
-    app: servicegraph
-    chart: {{ template "servicegraph.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: servicegraph
+    helm.sh/chart: {{ template "servicegraph.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
-        app: servicegraph
-        chart: {{ template "servicegraph.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: servicegraph
+        helm.sh/chart: {{ template "servicegraph.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

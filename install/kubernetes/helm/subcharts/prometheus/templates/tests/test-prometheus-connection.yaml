@@ -5,10 +5,10 @@ metadata:
   name: {{ template "prometheus.fullname" . }}-test
   namespace: {{ .Release.Namespace }}
   labels:
-    app: prometheus-test
-    chart: {{ template "prometheus.chart" . }}
-    release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
+    app.kubernetes.io/name: prometheus-test
+    helm.sh/chart: {{ template "prometheus.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
     istio: prometheus
   annotations:
     scheduler.alpha.kubernetes.io/critical-pod: ""

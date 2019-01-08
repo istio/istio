@@ -3,10 +3,10 @@ kind: ClusterRole
 metadata:
   name: kiali
   labels:
-    app: {{ template "kiali.name" . }}
-    chart: {{ template "kiali.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "kiali.name" . }}
+    helm.sh/chart: {{ template "kiali.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 rules:
 - apiGroups: ["", "apps", "autoscaling", "batch"]
   resources:

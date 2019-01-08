@@ -7,9 +7,9 @@ metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
-    chart: {{ template "gateway.chart" $ }}
-    heritage: {{ $.Release.Service }}
-    release: {{ $.Release.Name }}
+    helm.sh/chart: {{ template "gateway.chart" $ }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
@@ -18,10 +18,10 @@ spec:
   template:
     metadata:
       labels:
-        chart: {{ template "gateway.chart" $ }}
-        heritage: {{ $.Release.Service }}
-        release: {{ $.Release.Name }}
-        version: {{ $.Chart.Version }}
+        helm.sh/chart: {{ template "gateway.chart" $ }}
+        app.kubernetes.io/managed-by: {{ $.Release.Service }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        app.kubernetes.io/version: {{ $.Chart.Version }}
         {{- range $key, $val := $spec.labels }}
         {{ $key }}: {{ $val }}
         {{- end }}

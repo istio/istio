@@ -77,7 +77,7 @@ The chart deploys pods that consume minimum resources as specified in the resour
       name: kiali
       namespace: $NAMESPACE
       labels:
-        app: kiali
+        app.kubernetes.io/name: kiali
     type: Opaque
     data:
       username: YWRtaW4=
@@ -108,7 +108,7 @@ The chart deploys pods that consume minimum resources as specified in the resour
       name: grafana
       namespace: $NAMESPACE
       labels:
-        app: grafana
+        app.kubernetes.io/name: grafana
     type: Opaque
     data:
       username: YWRtaW4=

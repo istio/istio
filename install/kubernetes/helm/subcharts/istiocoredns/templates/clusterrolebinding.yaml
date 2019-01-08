@@ -3,10 +3,10 @@ kind: ClusterRoleBinding
 metadata:
   name: istio-istiocoredns-role-binding-{{ .Release.Namespace }}
   labels:
-    app: {{ template "istiocoredns.name" . }}
-    chart: {{ template "istiocoredns.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "istiocoredns.name" . }}
+    helm.sh/chart: {{ template "istiocoredns.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

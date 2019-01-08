@@ -4,20 +4,20 @@ metadata:
   name: istio-ingress
   namespace: {{ .Release.Namespace }}
   labels:
-    app: {{ template "ingress.name" . }}
-    chart: {{ template "ingress.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ template "ingress.name" . }}
+    helm.sh/chart: {{ template "ingress.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
     istio: ingress
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
-        app: {{ template "ingress.name" . }}
-        chart: {{ template "ingress.chart" . }}
-        heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
+        app.kubernetes.io/name: {{ template "ingress.name" . }}
+        helm.sh/chart: {{ template "ingress.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
         istio: ingress
       annotations:
         sidecar.istio.io/inject: "false"

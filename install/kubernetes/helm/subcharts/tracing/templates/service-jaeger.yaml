@@ -6,10 +6,10 @@ metadata:
   name: jaeger-services
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
-    chart: {{ template "tracing.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
+    app.kubernetes.io/name: jaeger
+    helm.sh/chart: {{ template "tracing.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
 items:
 - apiVersion: v1
   kind: Service
@@ -21,11 +21,11 @@ items:
       {{ $key }}: {{ $val | quote }}
       {{- end }}
     labels:
-      app: jaeger
+      app.kubernetes.io/name: jaeger
       jaeger-infra: jaeger-service
-      chart: {{ template "tracing.chart" . }}
-      heritage: {{ .Release.Service }}
-      release: {{ .Release.Name }}
+      helm.sh/chart: {{ template "tracing.chart" . }}
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   spec:
     ports:
       - name: query-http
@@ -33,18 +33,18 @@ items:
         protocol: TCP
         targetPort: 16686
     selector:
-      app: jaeger
+      app.kubernetes.io/name: jaeger
 - apiVersion: v1
   kind: Service
   metadata:
     name: jaeger-collector
     namespace: {{ .Release.Namespace }}
     labels:
-      app: jaeger
+      app.kubernetes.io/name: jaeger
       jaeger-infra: collector-service
-      chart: {{ template "tracing.chart" . }}
-      heritage: {{ .Release.Service }}
-      release: {{ .Release.Name }}
+      helm.sh/chart: {{ template "tracing.chart" . }}
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   spec:
     ports:
     - name: jaeger-collector-tchannel
@@ -56,7 +56,7 @@ items:
       targetPort: 14268
       protocol: TCP
     selector:
-      app: jaeger
+      app.kubernetes.io/name: jaeger
     type: ClusterIP
 - apiVersion: v1
   kind: Service
@@ -64,11 +64,11 @@ items:
     name: jaeger-agent
     namespace: {{ .Release.Namespace }}
     labels:
-      app: jaeger
+      app.kubernetes.io/name: jaeger
       jaeger-infra: agent-service
-      chart: {{ template "tracing.chart" . }}
-      heritage: {{ .Release.Service }}
-      release: {{ .Release.Name }}
+      helm.sh/chart: {{ template "tracing.chart" . }}
+      app.kubernetes.io/managed-by: {{ .Release.Service }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
   spec:
     ports:
     - name: agent-zipkin-thrift
@@ -85,6 +85,6 @@ items:
       targetPort: 6832
     clusterIP: None
     selector:
-      app: jaeger
+      app.kubernetes.io/name: jaeger
 {{ end }}
 
