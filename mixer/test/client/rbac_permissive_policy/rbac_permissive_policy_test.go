@@ -34,6 +34,8 @@ const reportAttributes = `
     "shadow_effective_policy_id": "details-reviews-viewer",
     "shadow_engine_result": "allowed"
   },
+  "rbac.permissive.effective_policy_id": "details-reviews-viewer",
+  "rbac.permissive.response_code" : "allowed",
   "mesh1.ip": "*",
   "mesh2.ip": "*",
   "mesh3.ip": "*",
