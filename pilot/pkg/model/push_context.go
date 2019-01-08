@@ -496,7 +496,7 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 
 	// Must be initialized in the end
-	if err = ps.initSidecarScopes(env); err != nil {
+	if err = ps.InitSidecarScopes(env); err != nil {
 		return err
 	}
 
@@ -617,8 +617,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	return nil
 }
 
-// Caches list of Sidecar resources
-func (ps *PushContext) initSidecarScopes(env *Environment) error {
+// InitSidecarScopes caches list of Sidecar resources
+// Exported function for test purposes.
+func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
 	if err != nil {
 		return err
@@ -626,6 +627,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sortConfigByCreationTime(sidecarConfigs)
 
+	ps.sidecarsByNamespace = make(map[string][]*SidecarScope)
 	for _, sidecarConfig := range sidecarConfigs {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(ps, &sidecarConfig))
