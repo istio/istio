@@ -331,6 +331,49 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	}
 }
 
+func TestConstructCSRHostName(t *testing.T) {
+	cases := []struct {
+		trustDomain string
+		token       string
+		expected    string
+		errFlag     bool
+	}{
+		{
+			token:    "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJhdWQiOlsidGVzdGdhaWExQGlzdGlvbm9kZWFnZW50dGVzdHByb2oyLmlhbS5nc2VydmljZWFjY291bnQuY29tIl0sImV4cCI6MTU0Mzk1MTg1NSwiaWF0IjoxNTQzOTQ4MjU1LCJpc3MiOiJodHRwczovL3Rlc3QtY29udGFpbmVyLnNhbmRib3guZ29vZ2xlYXBpcy5jb20vdjFhbHBoYTEvcHJvamVjdHMvaXN0aW9ub2RlYWdlbnR0ZXN0cHJvajIvbG9jYXRpb25zL3VzLWNlbnRyYWwxLWEvY2x1c3RlcnMvdGtjbHVzdGVyNSIsImt1YmVybmV0ZXMuaW8iOnsibmFtZXNwYWNlIjoiZGVmYXVsdCIsInBvZCI6eyJuYW1lIjoic2xlZXAtN2Y2OTQ3NGJmOS02cG1mNSIsInVpZCI6ImJjYTViMmU5LWY3ZjItMTFlOC04Mjg2LTQyMDEwYTgwMDAwMyJ9LCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoic2xlZXAiLCJ1aWQiOiJiYzgzMzJjZS1mN2YyLTExZTgtODI4Ni00MjAxMGE4MDAwMDMifX0sIm5iZiI6MTU0Mzk0ODI1NSwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRlZmF1bHQ6c2xlZXAifQ.W2VTk99PPjdQ05tHEQivRqiceHxqbXtuWCKM3Tmz2wC17aw9o8WUIvSNTnARnoCInE89fesyY-QxcwMCIO41owHjjw1GooIncDuRLIthSWbAxbCGjKwbvd_8jClyu5OiFa4X5fk9_gNbME7apbnCr15tcYZfXoI6n61ndpkCgNyPee3RU4SQOKJ0BSrQcnGvG1LSQ0BvlGrIki_0UUWy7lg2CrMKWnxjpZjaaUBhQ_xMBu7EXwzEHR91F-FJDhlapYLnH-g7OHb8lYojMnJ3303a2aTsn1Q7qKfCPLEai9WCRn4vqTIQ33l3-ZgJYvzxw7K93yWK7vaAgmiQ9NKLRA",
+			expected: "spiffe://cluster.local/ns/default/sa/sleep",
+			errFlag:  false,
+		},
+		{
+			trustDomain: "fooDomain",
+			token:       "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJhdWQiOlsidGVzdGdhaWExQGlzdGlvbm9kZWFnZW50dGVzdHByb2oyLmlhbS5nc2VydmljZWFjY291bnQuY29tIl0sImV4cCI6MTU0Mzk1MTg1NSwiaWF0IjoxNTQzOTQ4MjU1LCJpc3MiOiJodHRwczovL3Rlc3QtY29udGFpbmVyLnNhbmRib3guZ29vZ2xlYXBpcy5jb20vdjFhbHBoYTEvcHJvamVjdHMvaXN0aW9ub2RlYWdlbnR0ZXN0cHJvajIvbG9jYXRpb25zL3VzLWNlbnRyYWwxLWEvY2x1c3RlcnMvdGtjbHVzdGVyNSIsImt1YmVybmV0ZXMuaW8iOnsibmFtZXNwYWNlIjoiZGVmYXVsdCIsInBvZCI6eyJuYW1lIjoic2xlZXAtN2Y2OTQ3NGJmOS02cG1mNSIsInVpZCI6ImJjYTViMmU5LWY3ZjItMTFlOC04Mjg2LTQyMDEwYTgwMDAwMyJ9LCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoic2xlZXAiLCJ1aWQiOiJiYzgzMzJjZS1mN2YyLTExZTgtODI4Ni00MjAxMGE4MDAwMDMifX0sIm5iZiI6MTU0Mzk0ODI1NSwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRlZmF1bHQ6c2xlZXAifQ.W2VTk99PPjdQ05tHEQivRqiceHxqbXtuWCKM3Tmz2wC17aw9o8WUIvSNTnARnoCInE89fesyY-QxcwMCIO41owHjjw1GooIncDuRLIthSWbAxbCGjKwbvd_8jClyu5OiFa4X5fk9_gNbME7apbnCr15tcYZfXoI6n61ndpkCgNyPee3RU4SQOKJ0BSrQcnGvG1LSQ0BvlGrIki_0UUWy7lg2CrMKWnxjpZjaaUBhQ_xMBu7EXwzEHR91F-FJDhlapYLnH-g7OHb8lYojMnJ3303a2aTsn1Q7qKfCPLEai9WCRn4vqTIQ33l3-ZgJYvzxw7K93yWK7vaAgmiQ9NKLRA",
+			expected:    "spiffe://fooDomain/ns/default/sa/sleep",
+			errFlag:     false,
+		},
+		{
+			token:    "faketoken",
+			expected: "",
+			errFlag:  true,
+		},
+	}
+	for _, c := range cases {
+		got, err := constructCSRHostName(c.trustDomain, c.token)
+		if err != nil {
+			if c.errFlag == false {
+				t.Errorf("constructCSRHostName no error, but got %v", err)
+			}
+			continue
+		}
+
+		if err == nil && c.errFlag == true {
+			t.Error("constructCSRHostName error")
+		}
+
+		if got != c.expected {
+			t.Errorf("constructCSRHostName got %q, want %q", got, c.expected)
+		}
+	}
+}
+
 func verifySecret(gotSecret *model.SecretItem) error {
 	if k8sSecretName != gotSecret.ResourceName {
 		return fmt.Errorf("resource name verification error: expected %s but got %s", k8sSecretName, gotSecret.ResourceName)

@@ -18,8 +18,11 @@ package cache
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,7 +46,14 @@ const (
 
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
+
+	// identityTemplate is the format template of identity in the CSR request.
+	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 )
+
+type k8sJwtPayload struct {
+	Sub string `json:"sub"`
+}
 
 // Options provides all of the configuration parameters for secret cache.
 type Options struct {
@@ -391,11 +401,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		}, nil
 	}
 
-	options := util.CertOptions{
-		Host:       resourceName,
-		RSAKeySize: keySize,
-	}
-
 	// call authentication provider specific plugins to exchange token if necessary.
 	exchangedToken := token
 	var err error
@@ -407,6 +412,17 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 				return nil, err
 			}
 		}
+	}
+
+	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
+	// otherwise just use sdsrequest.resourceName as csr host name.
+	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
+	if err != nil {
+		csrHostName = resourceName
+	}
+	options := util.CertOptions{
+		Host:       csrHostName,
+		RSAKeySize: keySize,
 	}
 
 	// Generate the cert/key, send CSR to CA.
@@ -459,4 +475,41 @@ func (sc *SecretCache) isTokenExpired() bool {
 	}
 	// TODO(quanlin), check if token has expired.
 	return false
+}
+
+func constructCSRHostName(trustDomain, token string) (string, error) {
+	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
+	strs := strings.Split(token, ".")
+	if len(strs) != 3 {
+		return "", fmt.Errorf("invalid k8s jwt token")
+	}
+
+	payload := strs[1]
+	if l := len(payload) % 4; l > 0 {
+		payload += strings.Repeat("=", 4-l)
+	}
+	dp, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token")
+	}
+
+	var jp k8sJwtPayload
+	if err = json.Unmarshal(dp, &jp); err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token")
+	}
+
+	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
+	ss := strings.Split(jp.Sub, ":")
+	if len(ss) != 4 {
+		return "", fmt.Errorf("invalid k8s jwt token")
+	}
+	ns := ss[2] //namespace
+	sa := ss[3] //service account
+
+	domain := "cluster.local"
+	if trustDomain != "" {
+		domain = trustDomain
+	}
+
+	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
 }
