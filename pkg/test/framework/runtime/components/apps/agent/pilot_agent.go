@@ -43,7 +43,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	googleProtobuf6 "github.com/gogo/protobuf/types"
 	"github.com/gorilla/websocket"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"google.golang.org/grpc"
 
