@@ -418,6 +418,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 	// otherwise just use sdsrequest.resourceName as csr host name.
 	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
 	if err != nil {
+		log.Warnf("failed to extract host name from jwt: %v, fallback to hostname", err)
 		csrHostName = resourceName
 	}
 	options := util.CertOptions{
@@ -490,18 +491,18 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 	}
 	dp, err := base64.URLEncoding.DecodeString(payload)
 	if err != nil {
-		return "", fmt.Errorf("invalid k8s jwt token")
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
 	}
 
 	var jp k8sJwtPayload
 	if err = json.Unmarshal(dp, &jp); err != nil {
-		return "", fmt.Errorf("invalid k8s jwt token")
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
 	}
 
 	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
 	ss := strings.Split(jp.Sub, ":")
 	if len(ss) != 4 {
-		return "", fmt.Errorf("invalid k8s jwt token")
+		return "", fmt.Errorf("invalid sub field in k8s jwt token")
 	}
 	ns := ss[2] //namespace
 	sa := ss[3] //service account

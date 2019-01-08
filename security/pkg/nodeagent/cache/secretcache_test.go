@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -332,6 +333,12 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 }
 
 func TestConstructCSRHostName(t *testing.T) {
+	data, err := ioutil.ReadFile("./testdata/testjwt")
+	if err != nil {
+		t.Errorf("failed to read test jwt file %v", err)
+	}
+	testJwt := string(data)
+
 	cases := []struct {
 		trustDomain string
 		token       string
@@ -339,13 +346,13 @@ func TestConstructCSRHostName(t *testing.T) {
 		errFlag     bool
 	}{
 		{
-			token:    "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJhdWQiOlsidGVzdGdhaWExQGlzdGlvbm9kZWFnZW50dGVzdHByb2oyLmlhbS5nc2VydmljZWFjY291bnQuY29tIl0sImV4cCI6MTU0Mzk1MTg1NSwiaWF0IjoxNTQzOTQ4MjU1LCJpc3MiOiJodHRwczovL3Rlc3QtY29udGFpbmVyLnNhbmRib3guZ29vZ2xlYXBpcy5jb20vdjFhbHBoYTEvcHJvamVjdHMvaXN0aW9ub2RlYWdlbnR0ZXN0cHJvajIvbG9jYXRpb25zL3VzLWNlbnRyYWwxLWEvY2x1c3RlcnMvdGtjbHVzdGVyNSIsImt1YmVybmV0ZXMuaW8iOnsibmFtZXNwYWNlIjoiZGVmYXVsdCIsInBvZCI6eyJuYW1lIjoic2xlZXAtN2Y2OTQ3NGJmOS02cG1mNSIsInVpZCI6ImJjYTViMmU5LWY3ZjItMTFlOC04Mjg2LTQyMDEwYTgwMDAwMyJ9LCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoic2xlZXAiLCJ1aWQiOiJiYzgzMzJjZS1mN2YyLTExZTgtODI4Ni00MjAxMGE4MDAwMDMifX0sIm5iZiI6MTU0Mzk0ODI1NSwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRlZmF1bHQ6c2xlZXAifQ.W2VTk99PPjdQ05tHEQivRqiceHxqbXtuWCKM3Tmz2wC17aw9o8WUIvSNTnARnoCInE89fesyY-QxcwMCIO41owHjjw1GooIncDuRLIthSWbAxbCGjKwbvd_8jClyu5OiFa4X5fk9_gNbME7apbnCr15tcYZfXoI6n61ndpkCgNyPee3RU4SQOKJ0BSrQcnGvG1LSQ0BvlGrIki_0UUWy7lg2CrMKWnxjpZjaaUBhQ_xMBu7EXwzEHR91F-FJDhlapYLnH-g7OHb8lYojMnJ3303a2aTsn1Q7qKfCPLEai9WCRn4vqTIQ33l3-ZgJYvzxw7K93yWK7vaAgmiQ9NKLRA",
+			token:    testJwt,
 			expected: "spiffe://cluster.local/ns/default/sa/sleep",
 			errFlag:  false,
 		},
 		{
 			trustDomain: "fooDomain",
-			token:       "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJhdWQiOlsidGVzdGdhaWExQGlzdGlvbm9kZWFnZW50dGVzdHByb2oyLmlhbS5nc2VydmljZWFjY291bnQuY29tIl0sImV4cCI6MTU0Mzk1MTg1NSwiaWF0IjoxNTQzOTQ4MjU1LCJpc3MiOiJodHRwczovL3Rlc3QtY29udGFpbmVyLnNhbmRib3guZ29vZ2xlYXBpcy5jb20vdjFhbHBoYTEvcHJvamVjdHMvaXN0aW9ub2RlYWdlbnR0ZXN0cHJvajIvbG9jYXRpb25zL3VzLWNlbnRyYWwxLWEvY2x1c3RlcnMvdGtjbHVzdGVyNSIsImt1YmVybmV0ZXMuaW8iOnsibmFtZXNwYWNlIjoiZGVmYXVsdCIsInBvZCI6eyJuYW1lIjoic2xlZXAtN2Y2OTQ3NGJmOS02cG1mNSIsInVpZCI6ImJjYTViMmU5LWY3ZjItMTFlOC04Mjg2LTQyMDEwYTgwMDAwMyJ9LCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoic2xlZXAiLCJ1aWQiOiJiYzgzMzJjZS1mN2YyLTExZTgtODI4Ni00MjAxMGE4MDAwMDMifX0sIm5iZiI6MTU0Mzk0ODI1NSwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRlZmF1bHQ6c2xlZXAifQ.W2VTk99PPjdQ05tHEQivRqiceHxqbXtuWCKM3Tmz2wC17aw9o8WUIvSNTnARnoCInE89fesyY-QxcwMCIO41owHjjw1GooIncDuRLIthSWbAxbCGjKwbvd_8jClyu5OiFa4X5fk9_gNbME7apbnCr15tcYZfXoI6n61ndpkCgNyPee3RU4SQOKJ0BSrQcnGvG1LSQ0BvlGrIki_0UUWy7lg2CrMKWnxjpZjaaUBhQ_xMBu7EXwzEHR91F-FJDhlapYLnH-g7OHb8lYojMnJ3303a2aTsn1Q7qKfCPLEai9WCRn4vqTIQ33l3-ZgJYvzxw7K93yWK7vaAgmiQ9NKLRA",
+			token:       testJwt,
 			expected:    "spiffe://fooDomain/ns/default/sa/sleep",
 			errFlag:     false,
 		},
