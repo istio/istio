@@ -686,27 +686,9 @@ func TestKubeenvMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	productPagePod, err := podID("app=productpage")
-	if err != nil {
-		fatalf(t, "Could not get productpage pod ID: %v", err)
-	}
-	productPageWorkloadName, productPageOwner, productPageUID, err := deployment("app=productpage")
-	if err != nil {
-		fatalf(t, "Could not get productpage deployment metadata: %v", err)
-	}
-	ingressPod, err := podID(fmt.Sprintf("istio=%s", ingressName))
-	if err != nil {
-		fatalf(t, "Could not get ingress pod ID: %v", err)
-	}
-	ingressWorkloadName, ingressOwner, ingressUID, err := deployment(fmt.Sprintf("istio=%s", ingressName))
-	if err != nil {
-		fatalf(t, "Could not get ingress deployment metadata: %v", err)
-	}
 
-	query := fmt.Sprintf("istio_kube_request_count{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"200\"}",
-		srcPodLabel, ingressPod, srcWorkloadLabel, ingressWorkloadName, srcOwnerLabel, ingressOwner, srcUIDLabel, ingressUID,
-		destPodLabel, productPagePod, destWorkloadLabel, productPageWorkloadName, destOwnerLabel, productPageOwner, destUIDLabel, productPageUID,
-		destContainerLabel, "productpage", responseCodeLabel)
+	// instead of trying to find an exact match, we'll loop through all successful requests to ensure no values are "unknown"
+	query := fmt.Sprintf("istio_kube_request_count{%s=\"200\"}", responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -714,14 +696,18 @@ func TestKubeenvMetrics(t *testing.T) {
 	}
 	log.Infof("promvalue := %s", value.String())
 
-	got, err := vectorValue(value, map[string]string{})
-	if err != nil {
-		t.Logf("prometheus values for istio_kube_request_count:\n%s", promDump(promAPI, "istio_kube_request_count"))
-		fatalf(t, "Error get metric value: %v", err)
+	if value.Type() != model.ValVector {
+		errorf(t, "Value not a model.Vector; was %s", value.Type().String())
 	}
-	want := float64(1)
-	if got < want {
-		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
+	vec := value.(model.Vector)
+
+	for _, sample := range vec {
+		metric := sample.Metric
+		for labelKey, labelVal := range metric {
+			if labelVal == "unknown" {
+				errorf(t, "Unexpected 'unknown' value for label '%s' in sample '%s'", labelKey, sample)
+			}
+		}
 	}
 }
 
