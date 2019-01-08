@@ -137,7 +137,7 @@ function gen_file() {
 }
 
 function gen_istio_files() {
-    if [[ ! -z ${ISTIO_RELEASE:-} ]]; then
+    if [[ -n ${ISTIO_RELEASE:-} ]]; then
         for target in istio-demo.yaml istio-demo-auth.yaml; do
             gen_file $target "${DEST_DIR}"
         done
@@ -216,7 +216,7 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
 fi
 
 # Set the HUB and TAG to be picked by the Helm template
-if [[ ! -z ${ALL_HUB_TAG} ]]; then
+if [[ -n ${ALL_HUB_TAG} ]]; then
     HUB="$(echo "${ALL_HUB_TAG}"|cut -f1 -d,)"
     export HUB
     TAG="$(echo "${ALL_HUB_TAG}"|cut -f2 -d,)"

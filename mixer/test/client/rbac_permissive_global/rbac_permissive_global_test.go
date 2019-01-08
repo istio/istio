@@ -34,7 +34,7 @@ const reportAttributes = `
   "destination.port": "*",
   "destination.uid": "",
   "envoy.filters.http.rbac": {
-    "shadow_response_code": "403"
+    "shadow_engine_result": "denied"
   },
   "mesh1.ip": "*",
   "mesh2.ip": "*",
@@ -74,8 +74,7 @@ const reportAttributes = `
   "target.name": "target-name",
   "target.namespace": "XYZ222",
   "target.uid": "POD222",
-  "target.user": "target-user",
-  "rbac.permissive.response_code": "403"
+  "target.user": "target-user"
 }
 `
 

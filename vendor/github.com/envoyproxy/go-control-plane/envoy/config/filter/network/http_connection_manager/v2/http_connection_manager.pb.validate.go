@@ -673,6 +673,16 @@ func (m *HttpConnectionManager_UpgradeConfig) Validate() error {
 
 	}
 
+	if v, ok := interface{}(m.GetEnabled()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManager_UpgradeConfigValidationError{
+				Field:  "Enabled",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 

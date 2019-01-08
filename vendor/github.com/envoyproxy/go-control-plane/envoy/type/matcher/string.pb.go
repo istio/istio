@@ -38,7 +38,7 @@ func (m *StringMatcher) Reset()         { *m = StringMatcher{} }
 func (m *StringMatcher) String() string { return proto.CompactTextString(m) }
 func (*StringMatcher) ProtoMessage()    {}
 func (*StringMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_string_d8e2bf46d82c6505, []int{0}
+	return fileDescriptor_string_1562c148619ef90d, []int{0}
 }
 func (m *StringMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -224,7 +224,7 @@ func _StringMatcher_OneofSizer(msg proto.Message) (n int) {
 
 // Specifies a list of ways to match a string.
 type ListStringMatcher struct {
-	Patterns             []*StringMatcher `protobuf:"bytes,1,rep,name=patterns" json:"patterns,omitempty"`
+	Patterns             []*StringMatcher `protobuf:"bytes,1,rep,name=patterns,proto3" json:"patterns,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -234,7 +234,7 @@ func (m *ListStringMatcher) Reset()         { *m = ListStringMatcher{} }
 func (m *ListStringMatcher) String() string { return proto.CompactTextString(m) }
 func (*ListStringMatcher) ProtoMessage()    {}
 func (*ListStringMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_string_d8e2bf46d82c6505, []int{1}
+	return fileDescriptor_string_1562c148619ef90d, []int{1}
 }
 func (m *ListStringMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -377,6 +377,9 @@ func encodeVarintString(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *StringMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MatchPattern != nil {
@@ -389,6 +392,9 @@ func (m *StringMatcher) Size() (n int) {
 }
 
 func (m *StringMatcher_Exact) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Exact)
@@ -396,6 +402,9 @@ func (m *StringMatcher_Exact) Size() (n int) {
 	return n
 }
 func (m *StringMatcher_Prefix) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Prefix)
@@ -403,6 +412,9 @@ func (m *StringMatcher_Prefix) Size() (n int) {
 	return n
 }
 func (m *StringMatcher_Suffix) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Suffix)
@@ -410,6 +422,9 @@ func (m *StringMatcher_Suffix) Size() (n int) {
 	return n
 }
 func (m *StringMatcher_Regex) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Regex)
@@ -417,6 +432,9 @@ func (m *StringMatcher_Regex) Size() (n int) {
 	return n
 }
 func (m *ListStringMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Patterns) > 0 {
@@ -799,10 +817,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/type/matcher/string.proto", fileDescriptor_string_d8e2bf46d82c6505)
+	proto.RegisterFile("envoy/type/matcher/string.proto", fileDescriptor_string_1562c148619ef90d)
 }
 
-var fileDescriptor_string_d8e2bf46d82c6505 = []byte{
+var fileDescriptor_string_1562c148619ef90d = []byte{
 	// 268 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0x2f,

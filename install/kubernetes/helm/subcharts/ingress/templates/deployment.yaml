@@ -18,7 +18,6 @@ spec:
         chart: {{ template "ingress.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
         istio: ingress
       annotations:
         sidecar.istio.io/inject: "false"

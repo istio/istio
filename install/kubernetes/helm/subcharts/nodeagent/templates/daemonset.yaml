@@ -17,7 +17,6 @@ spec:
         chart: {{ template "nodeagent.chart" . }}
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
-        version: {{ .Chart.Version }}
         istio: nodeagent
     spec:
       serviceAccountName: istio-nodeagent-service-account
@@ -45,3 +44,5 @@ spec:
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
