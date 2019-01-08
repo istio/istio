@@ -34,12 +34,13 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
 
 var nodeMetadata = &proto.Struct{Fields: map[string]*proto.Value{
-	"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}}, // actual value doesn't matter
+	pilot_meta.ProxyVersion: {Kind: &proto.Value_StringValue{StringValue: "1.1"}}, // actual value doesn't matter
 }}
 
 // Extract cluster load assignment from a discovery response.

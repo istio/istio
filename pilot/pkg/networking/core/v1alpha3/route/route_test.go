@@ -25,6 +25,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
@@ -48,7 +49,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "someID",
 		DNSDomain:   "foo.com",
-		Metadata:    map[string]string{"ISTIO_PROXY_VERSION": "1.1"},
+		Metadata:    map[string]string{pilot_meta.ProxyVersion: "1.1"},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 

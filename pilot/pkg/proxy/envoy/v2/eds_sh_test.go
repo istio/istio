@@ -31,6 +31,7 @@ import (
 	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -128,8 +129,8 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	defer cancel()
 
 	metadata := &proto.Struct{Fields: map[string]*proto.Value{
-		"ISTIO_PROXY_VERSION": {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
-		"NETWORK":             {Kind: &proto.Value_StringValue{StringValue: network}},
+		pilot_meta.ProxyVersion: {Kind: &proto.Value_StringValue{StringValue: "1.1"}},
+		pilot_meta.Network:      {Kind: &proto.Value_StringValue{StringValue: network}},
 	}}
 
 	err = sendCDSReqWithMetadata(sidecarID, metadata, edsstr)

@@ -15,7 +15,6 @@
 package pilot
 
 const (
-
 	// ConfigNamespace metadata defines the namespace where this proxy resides for the purposes of
 	// network scoping.
 	ConfigNamespace = "CONFIG_NAMESPACE"
@@ -34,6 +33,12 @@ const (
 
 	// ProxyVersion metadata indicates the proxy's version, for version-specific configs.
 	ProxyVersion = "ISTIO_PROXY_VERSION"
+
+	// ProxySHA metadata indicates the exact proxy sha, for debugging or version-specific configs.
+	ProxySHA = "ISTIO_PROXY_SHA"
+
+	// IstioVersion metadata indicates the exact build, for debugging.
+	IstioVersion = "ISTIO_VERSION"
 
 	// RouterMode metadata decides the behavior of Istio Gateway (normal or sni-dnat).
 	//   "standard" is the default, indicates the normal gateway mode.

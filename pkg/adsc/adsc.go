@@ -35,6 +35,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 )
 
 // Config for the ADS connection.
@@ -387,7 +389,7 @@ func (a *ADSC) node() *core.Node {
 	if a.Metadata == nil {
 		n.Metadata = &types.Struct{
 			Fields: map[string]*types.Value{
-				"ISTIO_PROXY_VERSION": &types.Value{Kind: &types.Value_StringValue{StringValue: "1.0"}},
+				pilot_meta.ProxyVersion: &types.Value{Kind: &types.Value_StringValue{StringValue: "1.0"}},
 			}}
 	} else {
 		f := map[string]*types.Value{}

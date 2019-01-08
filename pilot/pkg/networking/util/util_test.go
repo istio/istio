@@ -23,6 +23,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 )
 
 func TestConvertAddressToCidr(t *testing.T) {
@@ -108,7 +109,7 @@ func Test_isProxyVersion(t *testing.T) {
 			"the given Proxy version is 1.x",
 			&model.Proxy{
 				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "1.0",
+					pilot_meta.ProxyVersion: "1.0",
 				},
 			},
 			"1.",
@@ -118,7 +119,7 @@ func Test_isProxyVersion(t *testing.T) {
 			"the given Proxy version is not 1.x",
 			&model.Proxy{
 				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "0.8",
+					pilot_meta.ProxyVersion: "0.8",
 				},
 			},
 			"1.",
@@ -128,7 +129,7 @@ func Test_isProxyVersion(t *testing.T) {
 			"the given Proxy version is 1.1",
 			&model.Proxy{
 				Metadata: map[string]string{
-					"ISTIO_PROXY_VERSION": "1.1",
+					pilot_meta.ProxyVersion: "1.1",
 				},
 			},
 			"1.1",

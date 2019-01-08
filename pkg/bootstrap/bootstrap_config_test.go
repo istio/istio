@@ -29,6 +29,7 @@ import (
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -55,11 +56,11 @@ func TestGolden(t *testing.T) {
 		{
 			base: "running",
 			labels: map[string]string{
-				"ISTIO_PROXY_SHA":     "istio-proxy:sha",
-				"INTERCEPTION_MODE":   "REDIRECT",
-				"ISTIO_PROXY_VERSION": "istio-proxy:version",
-				"ISTIO_VERSION":       "release-3.1",
-				"POD_NAME":            "svc-0-0-0-6944fb884d-4pgx8",
+				pilot_meta.ProxySHA:         "istio-proxy:sha",
+				pilot_meta.InterceptionMode: "REDIRECT",
+				pilot_meta.ProxyVersion:     "istio-proxy:version",
+				pilot_meta.IstioVersion:     "release-3.1",
+				"POD_NAME":                  "svc-0-0-0-6944fb884d-4pgx8",
 			},
 			annotations: map[string]string{
 				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",

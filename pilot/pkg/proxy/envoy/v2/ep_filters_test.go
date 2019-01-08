@@ -24,6 +24,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	pilot_meta "istio.io/istio/pkg/metadata/pilot"
 )
 
 type LbEpInfo struct {
@@ -179,7 +180,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 func xdsConnection(network string) *XdsConnection {
 	var metadata map[string]string
 	if network != "" {
-		metadata = map[string]string{"NETWORK": network}
+		metadata = map[string]string{pilot_meta.Network: network}
 	}
 	return &XdsConnection{
 		modelNode: &model.Proxy{
