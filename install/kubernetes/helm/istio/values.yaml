@@ -329,8 +329,8 @@ global:
     #   memory: 128Mi
 
   defaultPodDisruptionBudget:
-    # minAvailable: 1
-    maxUnavailable: 1
+    minAvailable: 1
+    # maxUnavailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
