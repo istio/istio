@@ -85,7 +85,7 @@ func (c *vaultClient) CSRSign(ctx context.Context, csrPEM []byte, saToken string
 		log.Errorf("certificate chain length is %d, expected more than 1", len(certChain))
 		return nil, fmt.Errorf("invalid certificate chain in the response")
 	}
-
+  log.Infof("Retrieved cert chain from Vault: %v", certChain)
 	return certChain, nil
 }
 
