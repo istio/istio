@@ -234,6 +234,9 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 					log.Warnf("secret cache notify callback isn't set")
 				}
 			}()
+			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Stop the iteration once we have updated that cache entry.
+			return false
 		}
 		return true
 	})
