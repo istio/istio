@@ -57,19 +57,11 @@ const (
 	mixerMetricsPort = uint16(42422)
 	productPagePort  = uint16(10000)
 
-	srcLabel           = "source_service"
-	srcPodLabel        = "source_pod"
-	srcWorkloadLabel   = "source_workload"
-	srcOwnerLabel      = "source_owner"
-	srcUIDLabel        = "source_workload_uid"
-	destLabel          = "destination_service"
-	destPodLabel       = "destination_pod"
-	destWorkloadLabel  = "destination_workload"
-	destOwnerLabel     = "destination_owner"
-	destUIDLabel       = "destination_workload_uid"
-	destContainerLabel = "destination_container"
-	responseCodeLabel  = "response_code"
-	reporterLabel      = "reporter"
+	srcLabel          = "source_service"
+	srcWorkloadLabel  = "source_workload"
+	destLabel         = "destination_service"
+	responseCodeLabel = "response_code"
+	reporterLabel     = "reporter"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
@@ -319,24 +311,6 @@ func podID(labelSelector string) (pod string, err error) {
 	}
 	pod = strings.Trim(pod, "'")
 	log.Infof("%s pod name: %s", labelSelector, pod)
-	return
-}
-
-func deployment(labelSelector string) (name, owner, uid string, err error) {
-	name, err = util.Shell("kubectl -n %s get deployment -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
-	if err != nil {
-		log.Warnf("could not get %s deployment: %v", labelSelector, err)
-		return
-	}
-	log.Infof("%s deployment name: %s", labelSelector, name)
-	uid = fmt.Sprintf("istio://%s/workloads/%s", tc.Kube.Namespace, name)
-	selfLink, err := util.Shell("kubectl -n %s get deployment -l %s -o jsonpath='{.items[0].metadata.selfLink}'", tc.Kube.Namespace, labelSelector)
-	if err != nil {
-		log.Warnf("could not get deployment %s self link: %v", name, err)
-		return
-	}
-	log.Infof("deployment %s self link: %s", labelSelector, selfLink)
-	owner = fmt.Sprintf("kubernetes:/%s", selfLink)
 	return
 }
 
