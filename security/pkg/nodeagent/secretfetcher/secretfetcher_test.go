@@ -61,6 +61,8 @@ var (
 func TestSecretFetcher(t *testing.T) {
 	gSecretFetcher := &SecretFetcher{
 		UseCaClient: false,
+		DeleteCache: func(secretName string) {},
+		UpdateCache: func(secretName string, ns model.SecretItem) {},
 	}
 	gSecretFetcher.Init(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {

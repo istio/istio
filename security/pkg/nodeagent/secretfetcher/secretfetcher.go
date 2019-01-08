@@ -185,7 +185,9 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	sf.secrets.Delete(key)
 	log.Debugf("secret %s is deleted", scrt.GetName())
 	// Delete all cache entries that match the deleted key.
-	sf.DeleteCache(key)
+	if sf.DeleteCache != nil {
+		sf.DeleteCache(key)
+	}
 }
 
 func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
@@ -222,8 +224,9 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 	}
 	sf.secrets.Store(nkey, *ns)
 	log.Debugf("secret %s is updated", nscrt.GetName())
-
-	sf.UpdateCache(nkey, *ns)
+	if sf.UpdateCache != nil {
+		sf.UpdateCache(nkey, *ns)
+	}
 }
 
 // FindIngressGatewaySecret returns the secret for a k8sKeyA, or empty secret if no
