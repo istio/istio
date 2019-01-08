@@ -1,4 +1,4 @@
-{{- if .Values.podDisruptionBudget.enabled }}
+{{- if or .Values.podDisruptionBudget .Values.global.defaultPodDisruptionBudget }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -11,11 +11,10 @@ metadata:
     release: {{ .Release.Name }}
     istio: pilot
 spec:
-{{- if .Values.podDisruptionBudget.minAvailable }}
-  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
-{{- end }}
-{{- if .Values.podDisruptionBudget.maxUnavailable }}
-  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+{{- if .Values.podDisruptionBudget }}
+{{ include "podDisruptionBudget.spec" .Values.podDisruptionBudget }}
+{{- else if .Values.global.defaultPodDisruptionBudget }}
+{{ include "podDisruptionBudget.spec" .Values.global.defaultPodDisruptionBudget }}
 {{- end }}
   selector:
     matchLabels:

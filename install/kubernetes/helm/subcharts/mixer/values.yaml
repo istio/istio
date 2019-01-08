@@ -14,10 +14,9 @@ policy:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 1
-    # maxUnavailable: 0
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
 
 telemetry:
   enabled: true
@@ -27,10 +26,9 @@ telemetry:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 1
-    # maxUnavailable: 0
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
 
 podAnnotations: {}
 nodeSelector: {}

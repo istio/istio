@@ -9,7 +9,6 @@ tag: v0.5.0
 resources: {}
 nodeSelector: {}
 
-podDisruptionBudget:
-  enabled: false
-  minAvailable: 1
-  # maxUnavailable: 0
+podDisruptionBudget: {}
+  # minAvailable: 1
+  # maxUnavailable: 1
