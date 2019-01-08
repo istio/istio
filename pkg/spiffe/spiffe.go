@@ -2,6 +2,7 @@ package spiffe
 
 import (
 	"fmt"
+
 	"istio.io/istio/pkg/log"
 )
 
