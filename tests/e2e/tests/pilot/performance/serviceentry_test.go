@@ -6,8 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
@@ -33,7 +31,7 @@ import (
 
 var (
 	serviceEntryCount = flag.Int("serviceEntryCount", 1000, "Number of Service Entries to register")
-	terminateAfter    = flag.Int("terminateAfter", 60, "Number of seconds to run the test")
+	terminateAfter    = flag.Duration("terminateAfter", 60*time.Second, "Number of seconds to run the test")
 	envoyCount        = flag.Int("adsc", 1, "Number of concurrent envoys to connect to pilot")
 )
 
@@ -44,19 +42,20 @@ const (
 )
 
 func TestServiceEntry(t *testing.T) {
-	t.Logf("running performance test with the following parameters { Number of ServiceEntry: %d, Number of Envoys: %d, Total test time: %ds }",
+	t.Logf("running performance test with the following parameters { Number of ServiceEntry: %d, Number of Envoys: %d, Total test time: %vs }",
 		*serviceEntryCount,
 		*envoyCount,
-		*terminateAfter)
-
-	g := gomega.NewGomegaWithT(t)
+		terminateAfter.Seconds())
 
 	t.Log("building & starting mock mcp server...")
 	mcpServer, err := runMcpServer()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer mcpServer.Close()
 
-	go runSnapshot(mcpServer)
+	quit := make(chan struct{})
+	go runSnapshot(mcpServer, quit, t)
 
 	debugAddr := fmt.Sprintf("127.0.0.1:%d", pilotDebugPort)
 	pilotAddr := fmt.Sprintf("127.0.0.1:%d", pilotGrpcPort)
@@ -65,12 +64,13 @@ func TestServiceEntry(t *testing.T) {
 	defer tearDown()
 
 	t.Log("run sidecar envoy(s)...")
-	adscs := adsConnectAndWait(*envoyCount, pilotAddr)
+	adscs := adsConnectAndWait(*envoyCount, pilotAddr, t)
 	for _, adsc := range adscs {
 		defer adsc.Close()
 	}
 
 	t.Log("check for service entries in pilot's debug endpoint...")
+	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() (int, error) {
 		return registeredServiceEntries(fmt.Sprintf("http://127.0.0.1:%d/debug/configz", pilotDebugPort))
 	}, "30s", "1s").Should(gomega.Equal(*serviceEntryCount))
@@ -90,32 +90,37 @@ func TestServiceEntry(t *testing.T) {
 		return nil
 	}, "30s", "1s").ShouldNot(gomega.HaveOccurred())
 
-	terminate()
+	terminate(quit)
 }
 
-func runSnapshot(mcpServer *mcptest.Server) {
+func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
+	for {
+		// wait for pilot to make a MCP request
+		if status := mcpServer.Cache.Status(snapshot.DefaultGroup); status != nil {
+			if status.Watches() > 0 {
+				break
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
 	configInterval := time.NewTicker(time.Second * 3)
 	v := 0
 	b := snapshot.NewInMemoryBuilder()
 	for {
 		select {
 		case <-configInterval.C:
-			for {
-				// wait for pilot to make a MCP request
-				if status := mcpServer.Cache.Status(snapshot.DefaultGroup); status != nil {
-					if status.Watches() > 0 {
-						break
-					}
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
 			v++
 			version := strconv.Itoa(v)
 			for _, m := range model.IstioConfigTypes {
 				if m.MessageName == model.ServiceEntry.MessageName {
-					b.Set("type.googleapis.com/istio.networking.v1alpha3.ServiceEntry", version, generateServiceEntries())
+					b.Set("type.googleapis.com/istio.networking.v1alpha3.ServiceEntry", version, generateServiceEntries(t))
 				} else if m.MessageName == model.Gateway.MessageName {
-					b.Set("type.googleapis.com/istio.networking.v1alpha3.Gateway", version, generateGateway())
+					gw, err := generateGateway()
+					if err != nil {
+						t.Fatal(err)
+					}
+					b.Set("type.googleapis.com/istio.networking.v1alpha3.Gateway", version, gw)
 				} else {
 					b.Set(fmt.Sprintf("type.googleapis.com/%s", m.MessageName), version, []*mcp.Envelope{})
 				}
@@ -135,30 +140,35 @@ func runSnapshot(mcpServer *mcptest.Server) {
 				}
 				time.Sleep(10 * time.Millisecond)
 			}
+
+		case <-quit:
+			configInterval.Stop()
+			return
 		}
 	}
 }
 
-func terminate() {
-	<-time.After(time.Second * time.Duration(*terminateAfter))
+func terminate(quit chan struct{}) {
+	<-time.After(*terminateAfter)
+	quit <- struct{}{}
 }
 
-func adsConnectAndWait(n int, pilotAddr string) (adscs []*adsc.ADSC) {
+func adsConnectAndWait(n int, pilotAddr string, t *testing.T) (adscs []*adsc.ADSC) {
 	for i := 0; i < n; i++ {
 		c, err := adsc.Dial(pilotAddr, "", &adsc.Config{
 			IP: net.IPv4(10, 10, byte(i/256), byte(i%256)).String(),
 		})
 		if err != nil {
-			log.Fatalf("Error connecting %s\n", err)
+			t.Fatal(err)
 		}
 		c.Watch()
-		_, err = c.Wait("rds", 10*time.Second)
+		_, err = c.Wait("eds", 10*time.Second)
 		if err != nil {
-			log.Fatalf("Error getting initial config %s\n", err)
+			t.Fatal(err)
 		}
 
 		if len(c.EDS) == 0 {
-			log.Fatal("No endpoints")
+			t.Fatalf("No endpoints")
 		}
 		adscs = append(adscs, c)
 	}
@@ -170,12 +180,7 @@ func runMcpServer() (*mcptest.Server, error) {
 	for i, m := range model.IstioConfigTypes {
 		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
 	}
-	server, err := mcptest.NewServer(0, supportedTypes)
-	if err != nil {
-		return nil, err
-	}
-
-	return server, nil
+	return mcptest.NewServer(0, supportedTypes)
 }
 
 func initLocalPilotTestEnv(t *testing.T, mcpPort int, grpcAddr, debugAddr string) util.TearDownFunc {
@@ -207,6 +212,8 @@ func registeredServiceEntries(apiEndpoint string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer resp.Body.Close()
+
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return 0, err
@@ -215,13 +222,23 @@ func registeredServiceEntries(apiEndpoint string) (int, error) {
 	return strings.Count(debug, serviceDomain), nil
 }
 
-func generateServiceEntries() (envelopes []*mcp.Envelope) {
-	servicePorts := generatePorts(*serviceEntryCount)
-	backendPorts := generatePorts(*serviceEntryCount)
-	createTime := createTime()
+func generateServiceEntries(t *testing.T) (envelopes []*mcp.Envelope) {
+	port := 1
+
+	createTime, err := createTime()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for i := 0; i < *serviceEntryCount; i++ {
+		servicePort := port + 1
+		backendPort := servicePort + 1
 		host := fmt.Sprintf("%s.%s", randName(), serviceDomain)
+		se, err := marshaledServiceEntry(servicePort, backendPort, host)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		envelopes = append(envelopes, &mcp.Envelope{
 			Metadata: &mcp.Metadata{
 				Name:       fmt.Sprintf("serviceEntry-%s", randName()),
@@ -229,15 +246,15 @@ func generateServiceEntries() (envelopes []*mcp.Envelope) {
 			},
 			Resource: &types.Any{
 				TypeUrl: fmt.Sprintf("type.googleapis.com/%s", model.ServiceEntry.MessageName),
-				Value:   marshaledServiceEntry(servicePorts[i], backendPorts[i], host),
+				Value:   se,
 			},
 		})
-
+		port = backendPort
 	}
 	return envelopes
 }
 
-func marshaledServiceEntry(servicePort, backendPort int, host string) []byte {
+func marshaledServiceEntry(servicePort, backendPort int, host string) ([]byte, error) {
 	serviceEntry := &networking.ServiceEntry{
 		Hosts: []string{host},
 		Ports: []*networking.Port{
@@ -260,29 +277,10 @@ func marshaledServiceEntry(servicePort, backendPort int, host string) []byte {
 		},
 	}
 
-	se, err := proto.Marshal(serviceEntry)
-	if err != nil {
-		log.Fatalf("marshaling service entry %s\n", err)
-	}
-	return se
+	return proto.Marshal(serviceEntry)
 }
 
-func generateGateway() []*mcp.Envelope {
-	return []*mcp.Envelope{
-		{
-			Metadata: &mcp.Metadata{
-				Name:       fmt.Sprintf("gateway-%s", randName()),
-				CreateTime: createTime(),
-			},
-			Resource: &types.Any{
-				TypeUrl: "type.googleapis.com/istio.networking.v1alpha3.Gateway",
-				Value:   marshaledGateway(),
-			},
-		},
-	}
-}
-
-func marshaledGateway() []byte {
+func generateGateway() ([]*mcp.Envelope, error) {
 	gateway := &networking.Gateway{
 		Servers: []*networking.Server{
 			&networking.Server{
@@ -298,31 +296,33 @@ func marshaledGateway() []byte {
 
 	gw, err := proto.Marshal(gateway)
 	if err != nil {
-		log.Fatalf("marshaling gateway %s\n", err)
+		return nil, err
 	}
-	return gw
 
+	createTime, err := createTime()
+	if err != nil {
+		return nil, err
+	}
+
+	return []*mcp.Envelope{
+		{
+			Metadata: &mcp.Metadata{
+				Name:       fmt.Sprintf("gateway-%s", randName()),
+				CreateTime: createTime,
+			},
+			Resource: &types.Any{
+				TypeUrl: "type.googleapis.com/istio.networking.v1alpha3.Gateway",
+				Value:   gw,
+			},
+		},
+	}, nil
 }
 
-func createTime() *types.Timestamp {
-	timeStamp, err := types.TimestampProto(time.Now())
-	if err != nil {
-		log.Fatalf("creating proto timestamp %s\n", err)
-	}
-	return timeStamp
+func createTime() (*types.Timestamp, error) {
+	return types.TimestampProto(time.Now())
 }
 
 func randName() string {
 	name := uuid.New()
 	return name.String()
-}
-
-func generatePorts(n int) (ports []int) {
-	rand.Seed(time.Now().Unix())
-	lowRange := 1023
-	highRange := 65535
-	for i := 0; i < n; i++ {
-		ports = append(ports, rand.Intn(highRange-lowRange)+lowRange)
-	}
-	return ports
 }
