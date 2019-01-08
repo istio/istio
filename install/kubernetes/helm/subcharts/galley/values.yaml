@@ -5,3 +5,7 @@ enabled: true
 replicaCount: 1
 image: galley
 nodeSelector: {}
+
+podDisruptionBudget: {}
+  # minAvailable: 1
+  # maxUnavailable: 1
