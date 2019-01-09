@@ -100,6 +100,9 @@ type Proxy struct {
 
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
+
+	// the sidecarScope associated with the proxy
+	sidecarScope *SidecarScope
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh

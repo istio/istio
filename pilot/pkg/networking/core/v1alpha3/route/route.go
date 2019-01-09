@@ -71,13 +71,12 @@ func BuildVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
 	serviceRegistry map[model.Hostname]*model.Service,
-	virtualServices []model.Config,
 	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-
+	virtualServices := push.VirtualServices(node, meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
 		wrappers := buildVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, meshGateway)

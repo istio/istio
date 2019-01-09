@@ -70,38 +70,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		}
 	}
 
-	// recomputeOutboundClusters := true
-	// if configgen.CanUsePrecomputedCDS(proxy) {
-	// 	if configgen.PrecomputedOutboundClusters != nil && configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace] != nil {
-	// 		clusters = append(clusters, configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace]...)
-	// 		recomputeOutboundClusters = false
-	// 	}
-	// }
-
-	// if recomputeOutboundClusters {
-	// 	clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-	// }
-
-	// if proxy.Type == model.SidecarProxy {
-	// 	instances, err := env.GetProxyServiceInstances(proxy)
-	// 	if err != nil {
-	// 		log.Errorf("failed to get service proxy service instances: %v", err)
-	// 		return nil, err
-	// 	}
-
-	// 	// Let ServiceDiscovery decide which IP and Port are used for management if
-	// 	// there are multiple IPs
-	// 	managementPorts := make([]*model.Port, 0)
-	// 	for _, ip := range proxy.IPAddresses {
-	// 		managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
-	// 	}
-	// 	clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
-	// }
-
-	// if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
-	// 	clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
-	// }
-
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 	// DO NOT CALL PLUGINS for these two clusters.
 	clusters = append(clusters, buildBlackHoleCluster())
@@ -138,24 +106,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	}
 	networkView := model.GetNetworkView(proxy)
 
-	var services []*model.Service
-	var sidecarScope *model.SidecarScope
-
-	if proxy.Type == model.SidecarProxy {
-		sidecarScope = push.GetSidecarScope(proxy, proxyInstances)
-		services = sidecarScope.Services()
-	} else {
-		services = push.Services(proxy)
-	}
+	services := push.Services(proxy)
 
 	// NOTE: Proxy can be nil here due to precomputed CDS
 	for _, service := range services {
-		var config *model.Config
-		if proxy.Type == model.SidecarProxy {
-			config = sidecarScope.DestinationRule(service.Hostname)
-		} else {
-			config = push.DestinationRule(proxy, service.Hostname)
-		}
+		config := push.DestinationRule(proxy, service.Hostname)
 
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {

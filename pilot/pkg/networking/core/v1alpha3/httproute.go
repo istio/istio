@@ -89,9 +89,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, _ []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
+
+	// TODO: handle RDS for UDS listeners where listener port is likely to be 0
 	if routeName != RDSHttpProxy {
 		var err error
 		listenerPort, err = strconv.Atoi(routeName)
@@ -99,15 +101,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			return nil
 		}
 	}
-
-	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	services := sidecarScope.Services()
-	virtualServices := sidecarScope.VirtualServices()
-
-	// TODO: handle RDS for UDS listeners
-	// TODO: handle destination rule selection
-	// TODO: handle RDS for http proxy created via Sidecar - need to resolve the vhost conflict
-	// for multiport services
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service)
 	for _, svc := range services {
@@ -141,7 +134,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, virtualServices, proxyLabels)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {

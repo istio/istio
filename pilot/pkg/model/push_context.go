@@ -324,8 +324,33 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
+// SetSidecarScope identifies the sidecar scope object associated with this
+// proxy and updates the proxy Node. This is a convenience hack so that
+// callers can simply call push.Services(node) while the implementation of
+// push.Services can return the set of services from the proxyNode's
+// sidecar scope or from the push context's set of global services. Similar
+// logic applies to push.VirtualServices and push.DestinationRule. The
+// short cut here is useful only for CDS and parts of RDS generation code.
+//
+// Listener generation code will still use the SidecarScope object directly
+// as it needs the set of services for each listener port.
+func (ps *PushContext) SetSidecarScope(proxy *Proxy) {
+	instances, err := ps.Env.GetProxyServiceInstances(proxy)
+	if err != nil {
+		log.Errorf("failed to get service proxy service instances: %v", err)
+		// TODO: fallback to node metadata labels
+		return
+	}
+
+	proxy.sidecarScope = ps.GetSidecarScope(proxy, instances)
+}
+
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
+	if proxy != nil && proxy.sidecarScope != nil {
+		return proxy.sidecarScope.Services()
+	}
+
 	out := []*Service{}
 
 	// First add private services
@@ -346,6 +371,13 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
 func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
+	if proxy != nil && proxy.sidecarScope != nil {
+		// If sidecarScope is set, then this is for a proxy of type SidecarProxy
+		// Sidecars can only bind to the default "mesh" gateway. The sidecarScope object
+		// already has a list of virtualServices bound to the mesh gateway
+		return proxy.sidecarScope.VirtualServices()
+	}
+
 	configs := make([]Config, 0)
 	out := make([]Config, 0)
 
@@ -430,6 +462,12 @@ func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
+	if proxy != nil && proxy.sidecarScope != nil {
+		// If there is a sidecar scope for this proxy, return the destination rule
+		// from the sidecar scope.
+		return proxy.sidecarScope.DestinationRule(hostname)
+	}
+
 	if proxy == nil {
 		for ns, privateDestHosts := range ps.privateDestRuleHostsByNamespace {
 			if host, ok := MostSpecificHostMatch(hostname, privateDestHosts); ok {
@@ -461,6 +499,8 @@ func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) Labe
 		return nil
 	}
 
+	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
+	// destination rule than the default one. EDS should be computed per sidecar scope
 	config := ps.DestinationRule(nil, hostname)
 	if config == nil {
 		return nil
