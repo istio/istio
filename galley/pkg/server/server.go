@@ -18,7 +18,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -30,6 +34,7 @@ import (
 	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
+	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
@@ -40,12 +45,11 @@ import (
 	"istio.io/istio/pkg/version"
 )
 
-var scope = log.RegisterScope("runtime", "Galley runtime", 0)
+var scope = log.RegisterScope("server", "Galley server debugging", 0)
 
 // Server is the main entry point into the Galley code.
 type Server struct {
-	shutdown chan error
-
+	serveWG    sync.WaitGroup
 	grpcServer *grpc.Server
 	processor  *runtime.Processor
 	mcp        *server.Server
@@ -58,11 +62,11 @@ type Server struct {
 type patchTable struct {
 	newKubeFromConfigFile       func(string) (kube.Interfaces, error)
 	verifyResourceTypesPresence func(kube.Interfaces) error
-	newSource                   func(kube.Interfaces, time.Duration, *converter.Config) (runtime.Source, error)
+	newSource                   func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
 	mcpMetricReporter           func(string) server.Reporter
-	fsNew                       func(string, *converter.Config) (runtime.Source, error)
+	fsNew                       func(string, *kube.Schema, *converter.Config) (runtime.Source, error)
 }
 
 func defaultPatchTable() patchTable {
@@ -79,22 +83,58 @@ func defaultPatchTable() patchTable {
 
 // New returns a new instance of a Server.
 func New(a *Args) (*Server, error) {
-	return newServer(a, defaultPatchTable())
+	var convertK8SService bool
+	if s := os.Getenv("ISTIO_CONVERT_K8S_SERVICE"); s != "" {
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			return nil, err
+		}
+		convertK8SService = b
+	}
+	return newServer(a, defaultPatchTable(), convertK8SService)
 }
 
-func newServer(a *Args, p patchTable) (*Server, error) {
-	s := &Server{}
+func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	var err error
+	s := &Server{}
+
+	defer func() {
+		// If returns with error, need to close the server.
+		if err != nil {
+			_ = s.Close()
+		}
+	}()
 
 	mesh, err := p.newMeshConfigCache(a.MeshConfigFile)
 	if err != nil {
 		return nil, err
 	}
-	converterCfg := &converter.Config{Mesh: mesh}
+	converterCfg := &converter.Config{
+		Mesh:         mesh,
+		DomainSuffix: a.DomainSuffix,
+	}
+	specs := kube_meta.Types.All()
+	if !convertK8SService {
+		var filtered []kube.ResourceSpec
+		for _, t := range specs {
+			if t.Kind != "Service" {
+				filtered = append(filtered, t)
+			}
+		}
+		specs = filtered
+	}
+	sort.Slice(specs, func(i, j int) bool {
+		return strings.Compare(specs[i].CanonicalResourceName(), specs[j].CanonicalResourceName()) < 0
+	})
+	sb := kube.NewSchemaBuilder()
+	for _, s := range specs {
+		sb.Add(s)
+	}
+	schema := sb.Build()
 
 	var src runtime.Source
 	if a.ConfigPath != "" {
-		src, err = p.fsNew(a.ConfigPath, converterCfg)
+		src, err = p.fsNew(a.ConfigPath, schema, converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +148,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 				return nil, err
 			}
 		}
-		src, err = p.newSource(k, a.ResyncPeriod, converterCfg)
+		src, err = p.newSource(k, a.ResyncPeriod, schema, converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -159,7 +199,6 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	}
 
 	if s.listener, err = p.netListen(network, address); err != nil {
-		_ = s.Close()
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
@@ -172,30 +211,21 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 // Run enables Galley to start receiving gRPC requests on its main API port.
 func (s *Server) Run() {
-	s.shutdown = make(chan error, 1)
+	s.serveWG.Add(1)
 	go func() {
+		defer s.serveWG.Done()
 		err := s.processor.Start()
 		if err != nil {
-			s.shutdown <- err
+			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
 			return
 		}
 
 		// start serving
 		err = s.grpcServer.Serve(s.listener)
-		// notify closer we're done
-		s.shutdown <- err
+		if err != nil {
+			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
+		}
 	}()
-}
-
-// Wait waits for the server to exit.
-func (s *Server) Wait() error {
-	if s.shutdown == nil {
-		return fmt.Errorf("server not running")
-	}
-
-	err := <-s.shutdown
-	s.shutdown = nil
-	return err
 }
 
 // Close cleans up resources used by the server.
@@ -205,9 +235,9 @@ func (s *Server) Close() error {
 		s.stopCh = nil
 	}
 
-	if s.shutdown != nil {
+	if s.grpcServer != nil {
 		s.grpcServer.GracefulStop()
-		_ = s.Wait()
+		s.serveWG.Wait()
 	}
 
 	if s.controlZ != nil {
@@ -254,9 +284,7 @@ func RunServer(sa *Args, livenessProbeController,
 		serverReadinessProbe.RegisterProbe(readinessProbeController, "serverReadiness")
 		defer serverReadinessProbe.SetAvailable(errors.New("stopped"))
 	}
-	err = s.Wait()
-	if err != nil {
-		log.Fatalf("Galley Server unexpectedly terminated: %v", err)
-	}
+
+	s.serveWG.Wait()
 	_ = s.Close()
 }

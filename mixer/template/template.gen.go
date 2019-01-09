@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
-	"istio.io/istio/mixer/adapter/kubernetesenv/template"
+	adapter_template_kubernetes "istio.io/istio/mixer/adapter/kubernetesenv/template"
 
 	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 

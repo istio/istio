@@ -35,12 +35,12 @@ import (
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -84,9 +84,6 @@ const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 
-	// MeshNetworksConfigMapKey should match the expected MeshNetworks config file name
-	MeshNetworksConfigMapKey = "meshNetworks"
-
 	requiredMCPCertCheckFreq = 500 * time.Millisecond
 
 	// DefaultMCPMaxMsgSize is the default maximum message size
@@ -112,7 +109,6 @@ var (
 		plugin.Authz,
 		plugin.Health,
 		plugin.Mixer,
-		plugin.Envoyfilter,
 	}
 )
 
@@ -180,6 +176,8 @@ type PilotArgs struct {
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
 	KeepaliveOptions     *istiokeepalive.Options
+	// ForceStop is set as true when used for testing to make the server stop quickly
+	ForceStop bool
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -443,7 +441,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 			return
 		}
 		if !reflect.DeepEqual(meshNetworks, s.meshNetworks) {
-			log.Infof("mesh networks configurtion file updated to: %s", spew.Sdump(meshNetworks))
+			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
 			s.EnvoyXdsServer.ConfigUpdate(true)
@@ -842,8 +840,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
-		case serviceregistry.ConfigRegistry:
-			s.initConfigRegistry(serviceControllers)
 		case serviceregistry.MockRegistry:
 			s.initMemoryRegistry(serviceControllers)
 		case serviceregistry.KubernetesRegistry:
@@ -854,8 +850,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
-		case serviceregistry.MCPRegistry:
-			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
@@ -910,16 +904,6 @@ func (s *Server) initMemoryRegistry(serviceControllers *aggregate.Controller) {
 	}
 	serviceControllers.AddRegistry(registry1)
 	serviceControllers.AddRegistry(registry2)
-}
-
-func (s *Server) initConfigRegistry(serviceControllers *aggregate.Controller) {
-	serviceEntryStore := external.NewServiceDiscovery(s.configController, s.istioConfigStore)
-	serviceControllers.AddRegistry(aggregate.Registry{
-		Name:             serviceregistry.ConfigRegistry,
-		ServiceDiscovery: serviceEntryStore,
-		ServiceAccounts:  serviceEntryStore,
-		Controller:       serviceEntryStore,
-	})
 }
 
 func (s *Server) initDiscoveryService(args *PilotArgs) error {
@@ -999,7 +983,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			if err != nil {
 				log.Warna(err)
 			}
-			s.grpcServer.GracefulStop()
+			if args.ForceStop {
+				s.grpcServer.Stop()
+			} else {
+				s.grpcServer.GracefulStop()
+			}
 		}()
 
 		return nil
@@ -1034,7 +1022,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}()
 			go func() {
 				<-stop
-				s.grpcServer.GracefulStop()
+				if args.ForceStop {
+					s.grpcServer.Stop()
+				} else {
+					s.grpcServer.GracefulStop()
+				}
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				s.secureHTTPServer.Shutdown(ctx)

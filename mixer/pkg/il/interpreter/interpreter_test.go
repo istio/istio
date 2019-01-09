@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
-	"istio.io/istio/mixer/pkg/il/testing"
+	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 )
 
@@ -2215,6 +2215,78 @@ L0:
 		},
 		"anlookup": {
 			code: `anlookup "a"`,
+		},
+		"alt_s": {
+			code: `alt_s "a"`,
+		},
+		"alt_i": {
+			code: `alt_i 232`,
+		},
+		"alt_d": {
+			code: `alt_d 12.34`,
+		},
+		"lt_s": {
+			code: `lt_s`,
+		},
+		"lt_i": {
+			code: `lt_i`,
+		},
+		"lt_d": {
+			code: `lt_d`,
+		},
+		"ale_s": {
+			code: `ale_s "a"`,
+		},
+		"ale_i": {
+			code: `ale_i 232`,
+		},
+		"ale_d": {
+			code: `ale_d 12.34`,
+		},
+		"le_s": {
+			code: `le_s`,
+		},
+		"le_i": {
+			code: `le_i`,
+		},
+		"le_d": {
+			code: `le_d`,
+		},
+		"age_s": {
+			code: `age_s "a"`,
+		},
+		"age_i": {
+			code: `age_i 232`,
+		},
+		"age_d": {
+			code: `age_d 12.34`,
+		},
+		"ge_s": {
+			code: `ge_s`,
+		},
+		"ge_i": {
+			code: `ge_i`,
+		},
+		"ge_d": {
+			code: `ge_d`,
+		},
+		"agt_s": {
+			code: `agt_s "a"`,
+		},
+		"agt_i": {
+			code: `agt_i 232`,
+		},
+		"agt_d": {
+			code: `agt_d 12.34`,
+		},
+		"gt_s": {
+			code: `gt_s`,
+		},
+		"gt_i": {
+			code: `gt_i`,
+		},
+		"gt_d": {
+			code: `gt_d`,
 		},
 	}
 

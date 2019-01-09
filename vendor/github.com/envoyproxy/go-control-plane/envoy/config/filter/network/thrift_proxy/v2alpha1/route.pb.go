@@ -31,7 +31,7 @@ type RouteConfiguration struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The list of routes that will be matched, in order, against incoming requests. The first route
 	// that matches will be used.
-	Routes               []Route  `protobuf:"bytes,2,rep,name=routes" json:"routes"`
+	Routes               []Route  `protobuf:"bytes,2,rep,name=routes,proto3" json:"routes"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -41,7 +41,7 @@ func (m *RouteConfiguration) Reset()         { *m = RouteConfiguration{} }
 func (m *RouteConfiguration) String() string { return proto.CompactTextString(m) }
 func (*RouteConfiguration) ProtoMessage()    {}
 func (*RouteConfiguration) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_9ac4720c96869364, []int{0}
+	return fileDescriptor_route_122fb0d5e1726767, []int{0}
 }
 func (m *RouteConfiguration) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -87,9 +87,9 @@ func (m *RouteConfiguration) GetRoutes() []Route {
 // [#comment:next free field: 3]
 type Route struct {
 	// Route matching prarameters.
-	Match RouteMatch `protobuf:"bytes,1,opt,name=match" json:"match"`
+	Match RouteMatch `protobuf:"bytes,1,opt,name=match,proto3" json:"match"`
 	// Route request to some upstream cluster.
-	Route                RouteAction `protobuf:"bytes,2,opt,name=route" json:"route"`
+	Route                RouteAction `protobuf:"bytes,2,opt,name=route,proto3" json:"route"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -99,7 +99,7 @@ func (m *Route) Reset()         { *m = Route{} }
 func (m *Route) String() string { return proto.CompactTextString(m) }
 func (*Route) ProtoMessage()    {}
 func (*Route) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_9ac4720c96869364, []int{1}
+	return fileDescriptor_route_122fb0d5e1726767, []int{1}
 }
 func (m *Route) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -166,7 +166,7 @@ type RouteMatch struct {
 	// headers in the route are present in the request with the same values (or based on presence if
 	// the value field is not in the config). Note that this only applies for Thrift transports and/or
 	// protocols that support headers.
-	Headers              []*route.HeaderMatcher `protobuf:"bytes,4,rep,name=headers" json:"headers,omitempty"`
+	Headers              []*route.HeaderMatcher `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -176,7 +176,7 @@ func (m *RouteMatch) Reset()         { *m = RouteMatch{} }
 func (m *RouteMatch) String() string { return proto.CompactTextString(m) }
 func (*RouteMatch) ProtoMessage()    {}
 func (*RouteMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_9ac4720c96869364, []int{2}
+	return fileDescriptor_route_122fb0d5e1726767, []int{2}
 }
 func (m *RouteMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -334,11 +334,11 @@ type RouteAction struct {
 	// <envoy_api_field_config.filter.network.thrift_proxy.v2alpha1.WeightedCluster.ClusterWeight.metadata_match>`,
 	// with values there taking precedence. Keys and values should be provided under the "envoy.lb"
 	// metadata key.
-	MetadataMatch *core.Metadata `protobuf:"bytes,3,opt,name=metadata_match,json=metadataMatch" json:"metadata_match,omitempty"`
+	MetadataMatch *core.Metadata `protobuf:"bytes,3,opt,name=metadata_match,json=metadataMatch,proto3" json:"metadata_match,omitempty"`
 	// Specifies a set of rate limit configurations that could be applied to the route.
 	// N.B. Thrift service or method name matching can be achieved by specifying a RequestHeaders
 	// action with the header name ":method-name".
-	RateLimits           []*route.RateLimit `protobuf:"bytes,4,rep,name=rate_limits,json=rateLimits" json:"rate_limits,omitempty"`
+	RateLimits           []*route.RateLimit `protobuf:"bytes,4,rep,name=rate_limits,json=rateLimits,proto3" json:"rate_limits,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -348,7 +348,7 @@ func (m *RouteAction) Reset()         { *m = RouteAction{} }
 func (m *RouteAction) String() string { return proto.CompactTextString(m) }
 func (*RouteAction) ProtoMessage()    {}
 func (*RouteAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_9ac4720c96869364, []int{3}
+	return fileDescriptor_route_122fb0d5e1726767, []int{3}
 }
 func (m *RouteAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -387,7 +387,7 @@ type RouteAction_Cluster struct {
 	Cluster string `protobuf:"bytes,1,opt,name=cluster,proto3,oneof"`
 }
 type RouteAction_WeightedClusters struct {
-	WeightedClusters *WeightedCluster `protobuf:"bytes,2,opt,name=weighted_clusters,json=weightedClusters,oneof"`
+	WeightedClusters *WeightedCluster `protobuf:"bytes,2,opt,name=weighted_clusters,json=weightedClusters,proto3,oneof"`
 }
 
 func (*RouteAction_Cluster) isRouteAction_ClusterSpecifier()          {}
@@ -503,7 +503,7 @@ func _RouteAction_OneofSizer(msg proto.Message) (n int) {
 // based on these weights.
 type WeightedCluster struct {
 	// Specifies one or more upstream clusters associated with the route.
-	Clusters             []*WeightedCluster_ClusterWeight `protobuf:"bytes,1,rep,name=clusters" json:"clusters,omitempty"`
+	Clusters             []*WeightedCluster_ClusterWeight `protobuf:"bytes,1,rep,name=clusters,proto3" json:"clusters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
 	XXX_unrecognized     []byte                           `json:"-"`
 	XXX_sizecache        int32                            `json:"-"`
@@ -513,7 +513,7 @@ func (m *WeightedCluster) Reset()         { *m = WeightedCluster{} }
 func (m *WeightedCluster) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster) ProtoMessage()    {}
 func (*WeightedCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_9ac4720c96869364, []int{4}
+	return fileDescriptor_route_122fb0d5e1726767, []int{4}
 }
 func (m *WeightedCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -555,14 +555,14 @@ type WeightedCluster_ClusterWeight struct {
 	// When a request matches the route, the choice of an upstream cluster is determined by its
 	// weight. The sum of weights across all entries in the clusters array determines the total
 	// weight.
-	Weight *types.UInt32Value `protobuf:"bytes,2,opt,name=weight" json:"weight,omitempty"`
+	Weight *types.UInt32Value `protobuf:"bytes,2,opt,name=weight,proto3" json:"weight,omitempty"`
 	// Optional endpoint metadata match criteria used by the subset load balancer. Only endpoints in
 	// the upstream cluster with metadata matching what is set in this field, combined with what's
 	// provided in :ref: `RouteAction's metadata_match
 	// <envoy_api_field_config.filter.network.thrift_proxy.v2alpha1.RouteAction.metadata_match>`,
 	// will be considered. Values here will take precedence. Keys and values should be provided
 	// under the "envoy.lb" metadata key.
-	MetadataMatch        *core.Metadata `protobuf:"bytes,3,opt,name=metadata_match,json=metadataMatch" json:"metadata_match,omitempty"`
+	MetadataMatch        *core.Metadata `protobuf:"bytes,3,opt,name=metadata_match,json=metadataMatch,proto3" json:"metadata_match,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -572,7 +572,7 @@ func (m *WeightedCluster_ClusterWeight) Reset()         { *m = WeightedCluster_C
 func (m *WeightedCluster_ClusterWeight) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster_ClusterWeight) ProtoMessage()    {}
 func (*WeightedCluster_ClusterWeight) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_9ac4720c96869364, []int{4, 0}
+	return fileDescriptor_route_122fb0d5e1726767, []int{4, 0}
 }
 func (m *WeightedCluster_ClusterWeight) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -934,6 +934,9 @@ func encodeVarintRoute(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *RouteConfiguration) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -953,6 +956,9 @@ func (m *RouteConfiguration) Size() (n int) {
 }
 
 func (m *Route) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = m.Match.Size()
@@ -966,6 +972,9 @@ func (m *Route) Size() (n int) {
 }
 
 func (m *RouteMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MatchSpecifier != nil {
@@ -987,6 +996,9 @@ func (m *RouteMatch) Size() (n int) {
 }
 
 func (m *RouteMatch_MethodName) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.MethodName)
@@ -994,6 +1006,9 @@ func (m *RouteMatch_MethodName) Size() (n int) {
 	return n
 }
 func (m *RouteMatch_ServiceName) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ServiceName)
@@ -1001,6 +1016,9 @@ func (m *RouteMatch_ServiceName) Size() (n int) {
 	return n
 }
 func (m *RouteAction) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ClusterSpecifier != nil {
@@ -1023,6 +1041,9 @@ func (m *RouteAction) Size() (n int) {
 }
 
 func (m *RouteAction_Cluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Cluster)
@@ -1030,6 +1051,9 @@ func (m *RouteAction_Cluster) Size() (n int) {
 	return n
 }
 func (m *RouteAction_WeightedClusters) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.WeightedClusters != nil {
@@ -1039,6 +1063,9 @@ func (m *RouteAction_WeightedClusters) Size() (n int) {
 	return n
 }
 func (m *WeightedCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Clusters) > 0 {
@@ -1054,6 +1081,9 @@ func (m *WeightedCluster) Size() (n int) {
 }
 
 func (m *WeightedCluster_ClusterWeight) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -1979,10 +2009,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/route.proto", fileDescriptor_route_9ac4720c96869364)
+	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/route.proto", fileDescriptor_route_122fb0d5e1726767)
 }
 
-var fileDescriptor_route_9ac4720c96869364 = []byte{
+var fileDescriptor_route_122fb0d5e1726767 = []byte{
 	// 661 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcd, 0x6e, 0x13, 0x3d,
 	0x14, 0x8d, 0x27, 0x3f, 0x6d, 0x9d, 0xaf, 0x7f, 0xd6, 0x27, 0x88, 0x42, 0x1b, 0xd2, 0x20, 0xa4,

@@ -53,7 +53,7 @@ func (x RoutingPriority) String() string {
 	return proto.EnumName(RoutingPriority_name, int32(x))
 }
 func (RoutingPriority) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{0}
+	return fileDescriptor_base_30add123ac7b426a, []int{0}
 }
 
 // HTTP request method.
@@ -98,7 +98,7 @@ func (x RequestMethod) String() string {
 	return proto.EnumName(RequestMethod_name, int32(x))
 }
 func (RequestMethod) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{1}
+	return fileDescriptor_base_30add123ac7b426a, []int{1}
 }
 
 type SocketOption_SocketState int32
@@ -127,7 +127,7 @@ func (x SocketOption_SocketState) String() string {
 	return proto.EnumName(SocketOption_SocketState_name, int32(x))
 }
 func (SocketOption_SocketState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{8, 0}
+	return fileDescriptor_base_30add123ac7b426a, []int{8, 0}
 }
 
 // Identifies location of where either Envoy runs or where upstream hosts run.
@@ -156,7 +156,7 @@ func (m *Locality) Reset()         { *m = Locality{} }
 func (m *Locality) String() string { return proto.CompactTextString(m) }
 func (*Locality) ProtoMessage()    {}
 func (*Locality) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{0}
+	return fileDescriptor_base_30add123ac7b426a, []int{0}
 }
 func (m *Locality) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -231,9 +231,9 @@ type Node struct {
 	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// Opaque metadata extending the node identifier. Envoy will pass this
 	// directly to the management server.
-	Metadata *types.Struct `protobuf:"bytes,3,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *types.Struct `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// Locality specifying where the Envoy instance is running.
-	Locality *Locality `protobuf:"bytes,4,opt,name=locality" json:"locality,omitempty"`
+	Locality *Locality `protobuf:"bytes,4,opt,name=locality,proto3" json:"locality,omitempty"`
 	// This is motivated by informing a management server during canary which
 	// version of Envoy is being tested in a heterogeneous fleet. This will be set
 	// by Envoy in management server RPCs.
@@ -247,7 +247,7 @@ func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{1}
+	return fileDescriptor_base_30add123ac7b426a, []int{1}
 }
 func (m *Node) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -335,7 +335,7 @@ func (m *Node) GetBuildVersion() string {
 type Metadata struct {
 	// Key is the reverse DNS filter name, e.g. com.acme.widget. The envoy.*
 	// namespace is reserved for Envoy's built-in filters.
-	FilterMetadata       map[string]*types.Struct `protobuf:"bytes,1,rep,name=filter_metadata,json=filterMetadata" json:"filter_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	FilterMetadata       map[string]*types.Struct `protobuf:"bytes,1,rep,name=filter_metadata,json=filterMetadata,proto3" json:"filter_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -345,7 +345,7 @@ func (m *Metadata) Reset()         { *m = Metadata{} }
 func (m *Metadata) String() string { return proto.CompactTextString(m) }
 func (*Metadata) ProtoMessage()    {}
 func (*Metadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{2}
+	return fileDescriptor_base_30add123ac7b426a, []int{2}
 }
 func (m *Metadata) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -396,7 +396,7 @@ func (m *RuntimeUInt32) Reset()         { *m = RuntimeUInt32{} }
 func (m *RuntimeUInt32) String() string { return proto.CompactTextString(m) }
 func (*RuntimeUInt32) ProtoMessage()    {}
 func (*RuntimeUInt32) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{3}
+	return fileDescriptor_base_30add123ac7b426a, []int{3}
 }
 func (m *RuntimeUInt32) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -458,7 +458,7 @@ func (m *HeaderValue) Reset()         { *m = HeaderValue{} }
 func (m *HeaderValue) String() string { return proto.CompactTextString(m) }
 func (*HeaderValue) ProtoMessage()    {}
 func (*HeaderValue) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{4}
+	return fileDescriptor_base_30add123ac7b426a, []int{4}
 }
 func (m *HeaderValue) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -504,10 +504,10 @@ func (m *HeaderValue) GetValue() string {
 // Header name/value pair plus option to control append behavior.
 type HeaderValueOption struct {
 	// Header name/value pair that this option applies to.
-	Header *HeaderValue `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
+	Header *HeaderValue `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
 	// Should the value be appended? If true (default), the value is appended to
 	// existing values.
-	Append               *types.BoolValue `protobuf:"bytes,2,opt,name=append" json:"append,omitempty"`
+	Append               *types.BoolValue `protobuf:"bytes,2,opt,name=append,proto3" json:"append,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -517,7 +517,7 @@ func (m *HeaderValueOption) Reset()         { *m = HeaderValueOption{} }
 func (m *HeaderValueOption) String() string { return proto.CompactTextString(m) }
 func (*HeaderValueOption) ProtoMessage()    {}
 func (*HeaderValueOption) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{5}
+	return fileDescriptor_base_30add123ac7b426a, []int{5}
 }
 func (m *HeaderValueOption) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -576,7 +576,7 @@ func (m *DataSource) Reset()         { *m = DataSource{} }
 func (m *DataSource) String() string { return proto.CompactTextString(m) }
 func (*DataSource) ProtoMessage()    {}
 func (*DataSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{6}
+	return fileDescriptor_base_30add123ac7b426a, []int{6}
 }
 func (m *DataSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -759,7 +759,7 @@ func (m *TransportSocket) Reset()         { *m = TransportSocket{} }
 func (m *TransportSocket) String() string { return proto.CompactTextString(m) }
 func (*TransportSocket) ProtoMessage()    {}
 func (*TransportSocket) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{7}
+	return fileDescriptor_base_30add123ac7b426a, []int{7}
 }
 func (m *TransportSocket) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -796,10 +796,10 @@ type isTransportSocket_ConfigType interface {
 }
 
 type TransportSocket_Config struct {
-	Config *types.Struct `protobuf:"bytes,2,opt,name=config,oneof"`
+	Config *types.Struct `protobuf:"bytes,2,opt,name=config,proto3,oneof"`
 }
 type TransportSocket_TypedConfig struct {
-	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,oneof"`
+	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,proto3,oneof"`
 }
 
 func (*TransportSocket_Config) isTransportSocket_ConfigType()      {}
@@ -933,7 +933,7 @@ func (m *SocketOption) Reset()         { *m = SocketOption{} }
 func (m *SocketOption) String() string { return proto.CompactTextString(m) }
 func (*SocketOption) ProtoMessage()    {}
 func (*SocketOption) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{8}
+	return fileDescriptor_base_30add123ac7b426a, []int{8}
 }
 func (m *SocketOption) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1097,7 +1097,7 @@ func _SocketOption_OneofSizer(msg proto.Message) (n int) {
 // specified via a runtime key.
 type RuntimeFractionalPercent struct {
 	// Default value if the runtime value's for the numerator/denominator keys are not available.
-	DefaultValue *_type.FractionalPercent `protobuf:"bytes,1,opt,name=default_value,json=defaultValue" json:"default_value,omitempty"`
+	DefaultValue *_type.FractionalPercent `protobuf:"bytes,1,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
 	// Runtime key for a YAML representation of a FractionalPercent.
 	RuntimeKey           string   `protobuf:"bytes,2,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -1109,7 +1109,7 @@ func (m *RuntimeFractionalPercent) Reset()         { *m = RuntimeFractionalPerce
 func (m *RuntimeFractionalPercent) String() string { return proto.CompactTextString(m) }
 func (*RuntimeFractionalPercent) ProtoMessage()    {}
 func (*RuntimeFractionalPercent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_base_4201f4e42d4ebd53, []int{9}
+	return fileDescriptor_base_30add123ac7b426a, []int{9}
 }
 func (m *RuntimeFractionalPercent) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2156,6 +2156,9 @@ func encodeVarintBase(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Locality) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Region)
@@ -2177,6 +2180,9 @@ func (m *Locality) Size() (n int) {
 }
 
 func (m *Node) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Id)
@@ -2206,6 +2212,9 @@ func (m *Node) Size() (n int) {
 }
 
 func (m *Metadata) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.FilterMetadata) > 0 {
@@ -2228,6 +2237,9 @@ func (m *Metadata) Size() (n int) {
 }
 
 func (m *RuntimeUInt32) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DefaultValue != 0 {
@@ -2244,6 +2256,9 @@ func (m *RuntimeUInt32) Size() (n int) {
 }
 
 func (m *HeaderValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Key)
@@ -2261,6 +2276,9 @@ func (m *HeaderValue) Size() (n int) {
 }
 
 func (m *HeaderValueOption) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Header != nil {
@@ -2278,6 +2296,9 @@ func (m *HeaderValueOption) Size() (n int) {
 }
 
 func (m *DataSource) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Specifier != nil {
@@ -2290,6 +2311,9 @@ func (m *DataSource) Size() (n int) {
 }
 
 func (m *DataSource_Filename) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Filename)
@@ -2297,6 +2321,9 @@ func (m *DataSource_Filename) Size() (n int) {
 	return n
 }
 func (m *DataSource_InlineBytes) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.InlineBytes != nil {
@@ -2306,6 +2333,9 @@ func (m *DataSource_InlineBytes) Size() (n int) {
 	return n
 }
 func (m *DataSource_InlineString) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.InlineString)
@@ -2313,6 +2343,9 @@ func (m *DataSource_InlineString) Size() (n int) {
 	return n
 }
 func (m *TransportSocket) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -2329,6 +2362,9 @@ func (m *TransportSocket) Size() (n int) {
 }
 
 func (m *TransportSocket_Config) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Config != nil {
@@ -2338,6 +2374,9 @@ func (m *TransportSocket_Config) Size() (n int) {
 	return n
 }
 func (m *TransportSocket_TypedConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TypedConfig != nil {
@@ -2347,6 +2386,9 @@ func (m *TransportSocket_TypedConfig) Size() (n int) {
 	return n
 }
 func (m *SocketOption) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Description)
@@ -2372,12 +2414,18 @@ func (m *SocketOption) Size() (n int) {
 }
 
 func (m *SocketOption_IntValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 1 + sovBase(uint64(m.IntValue))
 	return n
 }
 func (m *SocketOption_BufValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.BufValue != nil {
@@ -2387,6 +2435,9 @@ func (m *SocketOption_BufValue) Size() (n int) {
 	return n
 }
 func (m *RuntimeFractionalPercent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DefaultValue != nil {
@@ -3945,9 +3996,9 @@ var (
 	ErrIntOverflowBase   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/core/base.proto", fileDescriptor_base_4201f4e42d4ebd53) }
+func init() { proto.RegisterFile("envoy/api/v2/core/base.proto", fileDescriptor_base_30add123ac7b426a) }
 
-var fileDescriptor_base_4201f4e42d4ebd53 = []byte{
+var fileDescriptor_base_30add123ac7b426a = []byte{
 	// 1092 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0x4b, 0x6f, 0x23, 0x45,
 	0x10, 0x76, 0xfb, 0x15, 0xbb, 0xc6, 0x4e, 0x66, 0x7b, 0xa3, 0xac, 0x37, 0x6c, 0xbc, 0xc1, 0x1c,

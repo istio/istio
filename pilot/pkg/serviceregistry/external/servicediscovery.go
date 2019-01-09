@@ -34,12 +34,6 @@ type ServiceEntryStore struct {
 	instanceHandlers []instanceHandler
 	store            model.IstioConfigStore
 
-	// storeCache has callbacks. Some tests use mock store.
-	// Pilot 0.8 implementation only invalidates the v1 cache.
-	// Post 0.8 we want to remove the v1 cache and directly interface with ads, to
-	// simplify and optimize the code, this abstraction is not helping.
-	callbacks model.ConfigStoreCache
-
 	storeMutex sync.RWMutex
 
 	ip2instance map[string][]*model.ServiceInstance
@@ -57,7 +51,6 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		serviceHandlers:  make([]serviceHandler, 0),
 		instanceHandlers: make([]instanceHandler, 0),
 		store:            store,
-		callbacks:        callbacks,
 		ip2instance:      map[string][]*model.ServiceInstance{},
 		instances:        map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,

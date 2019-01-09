@@ -1,0 +1,30 @@
+{{- if .Values.global.enableHelmTest }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ template "kiali.fullname" . }}-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: kiali-test
+    chart: {{ template "kiali.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    istio: kiali
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ""
+    sidecar.istio.io/inject: "false"
+    helm.sh/hook: test-success
+spec:
+{{- if .Values.global.priorityClassName }}
+  priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+  containers:
+    - name: "{{ template "kiali.fullname" . }}-test"
+      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+      command: ['curl']
+      args: ['http://kiali:20001']
+  restartPolicy: Never
+  affinity:
+    {{- include "nodeaffinity" . | indent 4 }}
+{{- end }}

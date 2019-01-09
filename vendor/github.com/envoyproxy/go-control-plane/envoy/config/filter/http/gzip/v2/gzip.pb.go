@@ -49,7 +49,7 @@ func (x Gzip_CompressionStrategy) String() string {
 	return proto.EnumName(Gzip_CompressionStrategy_name, int32(x))
 }
 func (Gzip_CompressionStrategy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gzip_89e347af437b969a, []int{0, 0}
+	return fileDescriptor_gzip_678bbbeace6246bb, []int{0, 0}
 }
 
 type Gzip_CompressionLevel_Enum int32
@@ -75,15 +75,15 @@ func (x Gzip_CompressionLevel_Enum) String() string {
 	return proto.EnumName(Gzip_CompressionLevel_Enum_name, int32(x))
 }
 func (Gzip_CompressionLevel_Enum) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_gzip_89e347af437b969a, []int{0, 0, 0}
+	return fileDescriptor_gzip_678bbbeace6246bb, []int{0, 0, 0}
 }
 
 type Gzip struct {
 	// Value from 1 to 9 that controls the amount of internal memory used by zlib. Higher values
 	// use more memory, but are faster and produce better compression results. The default value is 5.
-	MemoryLevel *types.UInt32Value `protobuf:"bytes,1,opt,name=memory_level,json=memoryLevel" json:"memory_level,omitempty"`
+	MemoryLevel *types.UInt32Value `protobuf:"bytes,1,opt,name=memory_level,json=memoryLevel,proto3" json:"memory_level,omitempty"`
 	// Minimum response length, in bytes, which will trigger compression. The default value is 30.
-	ContentLength *types.UInt32Value `protobuf:"bytes,2,opt,name=content_length,json=contentLength" json:"content_length,omitempty"`
+	ContentLength *types.UInt32Value `protobuf:"bytes,2,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
 	// A value used for selecting the zlib compression level. This setting will affect speed and
 	// amount of compression applied to the content. "BEST" provides higher compression at the cost of
 	// higher latency, "SPEED" provides lower compression with minimum impact on response time.
@@ -101,7 +101,7 @@ type Gzip struct {
 	// application/json, text/html, etc. When this field is not defined, compression will be applied
 	// to the following mime-types: "application/javascript", "application/json",
 	// "application/xhtml+xml", "image/svg+xml", "text/css", "text/html", "text/plain", "text/xml".
-	ContentType []string `protobuf:"bytes,6,rep,name=content_type,json=contentType" json:"content_type,omitempty"`
+	ContentType []string `protobuf:"bytes,6,rep,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	// If true, disables compression when the response contains an etag header. When it is false, the
 	// filter will preserve weak etags and remove the ones that require strong validation.
 	DisableOnEtagHeader bool `protobuf:"varint,7,opt,name=disable_on_etag_header,json=disableOnEtagHeader,proto3" json:"disable_on_etag_header,omitempty"`
@@ -112,7 +112,7 @@ type Gzip struct {
 	// Larger window results in better compression at the expense of memory usage. The default is 12
 	// which will produce a 4096 bytes window. For more details about this parameter, please refer to
 	// zlib manual > deflateInit2.
-	WindowBits           *types.UInt32Value `protobuf:"bytes,9,opt,name=window_bits,json=windowBits" json:"window_bits,omitempty"`
+	WindowBits           *types.UInt32Value `protobuf:"bytes,9,opt,name=window_bits,json=windowBits,proto3" json:"window_bits,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -122,7 +122,7 @@ func (m *Gzip) Reset()         { *m = Gzip{} }
 func (m *Gzip) String() string { return proto.CompactTextString(m) }
 func (*Gzip) ProtoMessage()    {}
 func (*Gzip) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gzip_89e347af437b969a, []int{0}
+	return fileDescriptor_gzip_678bbbeace6246bb, []int{0}
 }
 func (m *Gzip) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -217,7 +217,7 @@ func (m *Gzip_CompressionLevel) Reset()         { *m = Gzip_CompressionLevel{} }
 func (m *Gzip_CompressionLevel) String() string { return proto.CompactTextString(m) }
 func (*Gzip_CompressionLevel) ProtoMessage()    {}
 func (*Gzip_CompressionLevel) Descriptor() ([]byte, []int) {
-	return fileDescriptor_gzip_89e347af437b969a, []int{0, 0}
+	return fileDescriptor_gzip_678bbbeace6246bb, []int{0, 0}
 }
 func (m *Gzip_CompressionLevel) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -379,6 +379,9 @@ func encodeVarintGzip(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Gzip) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MemoryLevel != nil {
@@ -418,6 +421,9 @@ func (m *Gzip) Size() (n int) {
 }
 
 func (m *Gzip_CompressionLevel) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -853,10 +859,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/gzip/v2/gzip.proto", fileDescriptor_gzip_89e347af437b969a)
+	proto.RegisterFile("envoy/config/filter/http/gzip/v2/gzip.proto", fileDescriptor_gzip_678bbbeace6246bb)
 }
 
-var fileDescriptor_gzip_89e347af437b969a = []byte{
+var fileDescriptor_gzip_678bbbeace6246bb = []byte{
 	// 553 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0xc1, 0x6e, 0xd3, 0x30,
 	0x18, 0xc7, 0x71, 0x9a, 0x75, 0x8d, 0x33, 0x46, 0xf0, 0x26, 0x88, 0x2a, 0xa8, 0xaa, 0x9d, 0xa2,

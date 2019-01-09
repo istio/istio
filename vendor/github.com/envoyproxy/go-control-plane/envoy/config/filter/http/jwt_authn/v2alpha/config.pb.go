@@ -73,7 +73,7 @@ type JwtProvider struct {
 	//     - bookstore_android.apps.googleusercontent.com
 	//     - bookstore_web.apps.googleusercontent.com
 	//
-	Audiences []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
+	Audiences []string `protobuf:"bytes,2,rep,name=audiences,proto3" json:"audiences,omitempty"`
 	// `JSON Web Key Set (JWKS) <https://tools.ietf.org/html/rfc7517#appendix-A>`_ is needed to
 	// validate signature of a JWT. This field specifies where to fetch JWKS.
 	//
@@ -109,7 +109,7 @@ type JwtProvider struct {
 	//
 	//   x-goog-iap-jwt-assertion: <JWT>.
 	//
-	FromHeaders []*JwtHeader `protobuf:"bytes,6,rep,name=from_headers,json=fromHeaders" json:"from_headers,omitempty"`
+	FromHeaders []*JwtHeader `protobuf:"bytes,6,rep,name=from_headers,json=fromHeaders,proto3" json:"from_headers,omitempty"`
 	// JWT is sent in a query parameter. `jwt_params` represents the query parameter names.
 	//
 	// For example, if config is:
@@ -123,7 +123,7 @@ type JwtProvider struct {
 	//
 	//    /path?jwt_token=<JWT>
 	//
-	FromParams []string `protobuf:"bytes,7,rep,name=from_params,json=fromParams" json:"from_params,omitempty"`
+	FromParams []string `protobuf:"bytes,7,rep,name=from_params,json=fromParams,proto3" json:"from_params,omitempty"`
 	// This field specifies the header name to forward a successfully verified JWT payload to the
 	// backend. The forwarded data is::
 	//
@@ -157,7 +157,7 @@ func (m *JwtProvider) Reset()         { *m = JwtProvider{} }
 func (m *JwtProvider) String() string { return proto.CompactTextString(m) }
 func (*JwtProvider) ProtoMessage()    {}
 func (*JwtProvider) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{0}
+	return fileDescriptor_config_a6f0e3171821b327, []int{0}
 }
 func (m *JwtProvider) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -193,10 +193,10 @@ type isJwtProvider_JwksSourceSpecifier interface {
 }
 
 type JwtProvider_RemoteJwks struct {
-	RemoteJwks *RemoteJwks `protobuf:"bytes,3,opt,name=remote_jwks,json=remoteJwks,oneof"`
+	RemoteJwks *RemoteJwks `protobuf:"bytes,3,opt,name=remote_jwks,json=remoteJwks,proto3,oneof"`
 }
 type JwtProvider_LocalJwks struct {
-	LocalJwks *core.DataSource `protobuf:"bytes,4,opt,name=local_jwks,json=localJwks,oneof"`
+	LocalJwks *core.DataSource `protobuf:"bytes,4,opt,name=local_jwks,json=localJwks,proto3,oneof"`
 }
 
 func (*JwtProvider_RemoteJwks) isJwtProvider_JwksSourceSpecifier() {}
@@ -356,10 +356,10 @@ type RemoteJwks struct {
 	//      uri: https://www.googleapis.com/oauth2/v1/certs
 	//      cluster: jwt.www.googleapis.com|443
 	//
-	HttpUri *core.HttpUri `protobuf:"bytes,1,opt,name=http_uri,json=httpUri" json:"http_uri,omitempty"`
+	HttpUri *core.HttpUri `protobuf:"bytes,1,opt,name=http_uri,json=httpUri,proto3" json:"http_uri,omitempty"`
 	// Duration after which the cached JWKS should be expired. If not specified, default cache
 	// duration is 5 minutes.
-	CacheDuration        *types.Duration `protobuf:"bytes,2,opt,name=cache_duration,json=cacheDuration" json:"cache_duration,omitempty"`
+	CacheDuration        *types.Duration `protobuf:"bytes,2,opt,name=cache_duration,json=cacheDuration,proto3" json:"cache_duration,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -369,7 +369,7 @@ func (m *RemoteJwks) Reset()         { *m = RemoteJwks{} }
 func (m *RemoteJwks) String() string { return proto.CompactTextString(m) }
 func (*RemoteJwks) ProtoMessage()    {}
 func (*RemoteJwks) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{1}
+	return fileDescriptor_config_a6f0e3171821b327, []int{1}
 }
 func (m *RemoteJwks) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -429,7 +429,7 @@ func (m *JwtHeader) Reset()         { *m = JwtHeader{} }
 func (m *JwtHeader) String() string { return proto.CompactTextString(m) }
 func (*JwtHeader) ProtoMessage()    {}
 func (*JwtHeader) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{2}
+	return fileDescriptor_config_a6f0e3171821b327, []int{2}
 }
 func (m *JwtHeader) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -477,7 +477,7 @@ type ProviderWithAudiences struct {
 	// Specify a required provider name.
 	ProviderName string `protobuf:"bytes,1,opt,name=provider_name,json=providerName,proto3" json:"provider_name,omitempty"`
 	// This field overrides the one specified in the JwtProvider.
-	Audiences            []string `protobuf:"bytes,2,rep,name=audiences" json:"audiences,omitempty"`
+	Audiences            []string `protobuf:"bytes,2,rep,name=audiences,proto3" json:"audiences,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -487,7 +487,7 @@ func (m *ProviderWithAudiences) Reset()         { *m = ProviderWithAudiences{} }
 func (m *ProviderWithAudiences) String() string { return proto.CompactTextString(m) }
 func (*ProviderWithAudiences) ProtoMessage()    {}
 func (*ProviderWithAudiences) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{3}
+	return fileDescriptor_config_a6f0e3171821b327, []int{3}
 }
 func (m *ProviderWithAudiences) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -587,7 +587,7 @@ func (m *JwtRequirement) Reset()         { *m = JwtRequirement{} }
 func (m *JwtRequirement) String() string { return proto.CompactTextString(m) }
 func (*JwtRequirement) ProtoMessage()    {}
 func (*JwtRequirement) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{4}
+	return fileDescriptor_config_a6f0e3171821b327, []int{4}
 }
 func (m *JwtRequirement) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -626,16 +626,16 @@ type JwtRequirement_ProviderName struct {
 	ProviderName string `protobuf:"bytes,1,opt,name=provider_name,json=providerName,proto3,oneof"`
 }
 type JwtRequirement_ProviderAndAudiences struct {
-	ProviderAndAudiences *ProviderWithAudiences `protobuf:"bytes,2,opt,name=provider_and_audiences,json=providerAndAudiences,oneof"`
+	ProviderAndAudiences *ProviderWithAudiences `protobuf:"bytes,2,opt,name=provider_and_audiences,json=providerAndAudiences,proto3,oneof"`
 }
 type JwtRequirement_RequiresAny struct {
-	RequiresAny *JwtRequirementOrList `protobuf:"bytes,3,opt,name=requires_any,json=requiresAny,oneof"`
+	RequiresAny *JwtRequirementOrList `protobuf:"bytes,3,opt,name=requires_any,json=requiresAny,proto3,oneof"`
 }
 type JwtRequirement_RequiresAll struct {
-	RequiresAll *JwtRequirementAndList `protobuf:"bytes,4,opt,name=requires_all,json=requiresAll,oneof"`
+	RequiresAll *JwtRequirementAndList `protobuf:"bytes,4,opt,name=requires_all,json=requiresAll,proto3,oneof"`
 }
 type JwtRequirement_AllowMissingOrFailed struct {
-	AllowMissingOrFailed *types.Empty `protobuf:"bytes,5,opt,name=allow_missing_or_failed,json=allowMissingOrFailed,oneof"`
+	AllowMissingOrFailed *types.Empty `protobuf:"bytes,5,opt,name=allow_missing_or_failed,json=allowMissingOrFailed,proto3,oneof"`
 }
 
 func (*JwtRequirement_ProviderName) isJwtRequirement_RequiresType()         {}
@@ -817,7 +817,7 @@ func _JwtRequirement_OneofSizer(msg proto.Message) (n int) {
 // Their results are OR-ed; if any one of them passes, the result is passed
 type JwtRequirementOrList struct {
 	// Specify a list of JwtRequirement.
-	Requirements         []*JwtRequirement `protobuf:"bytes,1,rep,name=requirements" json:"requirements,omitempty"`
+	Requirements         []*JwtRequirement `protobuf:"bytes,1,rep,name=requirements,proto3" json:"requirements,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -827,7 +827,7 @@ func (m *JwtRequirementOrList) Reset()         { *m = JwtRequirementOrList{} }
 func (m *JwtRequirementOrList) String() string { return proto.CompactTextString(m) }
 func (*JwtRequirementOrList) ProtoMessage()    {}
 func (*JwtRequirementOrList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{5}
+	return fileDescriptor_config_a6f0e3171821b327, []int{5}
 }
 func (m *JwtRequirementOrList) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -867,7 +867,7 @@ func (m *JwtRequirementOrList) GetRequirements() []*JwtRequirement {
 // Their results are AND-ed; all of them must pass, if one of them fails or missing, it fails.
 type JwtRequirementAndList struct {
 	// Specify a list of JwtRequirement.
-	Requirements         []*JwtRequirement `protobuf:"bytes,1,rep,name=requirements" json:"requirements,omitempty"`
+	Requirements         []*JwtRequirement `protobuf:"bytes,1,rep,name=requirements,proto3" json:"requirements,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -877,7 +877,7 @@ func (m *JwtRequirementAndList) Reset()         { *m = JwtRequirementAndList{} }
 func (m *JwtRequirementAndList) String() string { return proto.CompactTextString(m) }
 func (*JwtRequirementAndList) ProtoMessage()    {}
 func (*JwtRequirementAndList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{6}
+	return fileDescriptor_config_a6f0e3171821b327, []int{6}
 }
 func (m *JwtRequirementAndList) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -945,9 +945,9 @@ type RequirementRule struct {
 	//    match:
 	//      prefix: /
 	//
-	Match *route.RouteMatch `protobuf:"bytes,1,opt,name=match" json:"match,omitempty"`
+	Match *route.RouteMatch `protobuf:"bytes,1,opt,name=match,proto3" json:"match,omitempty"`
 	// Specify a Jwt Requirement. Please detail comment in message JwtRequirement.
-	Requires             *JwtRequirement `protobuf:"bytes,2,opt,name=requires" json:"requires,omitempty"`
+	Requires             *JwtRequirement `protobuf:"bytes,2,opt,name=requires,proto3" json:"requires,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -957,7 +957,7 @@ func (m *RequirementRule) Reset()         { *m = RequirementRule{} }
 func (m *RequirementRule) String() string { return proto.CompactTextString(m) }
 func (*RequirementRule) ProtoMessage()    {}
 func (*RequirementRule) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{7}
+	return fileDescriptor_config_a6f0e3171821b327, []int{7}
 }
 func (m *RequirementRule) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1061,7 +1061,7 @@ type JwtAuthentication struct {
 	//        local_jwks:
 	//          inline_string: jwks_string
 	//
-	Providers map[string]*JwtProvider `protobuf:"bytes,1,rep,name=providers" json:"providers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	Providers map[string]*JwtProvider `protobuf:"bytes,1,rep,name=providers,proto3" json:"providers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Specifies requirements based on the route matches. The first matched requirement will be
 	// applied. If there are overlapped match conditions, please put the most specific match first.
 	//
@@ -1091,7 +1091,7 @@ type JwtAuthentication struct {
 	//           - provider_name: provider1
 	//           - provider_name: provider2
 	//
-	Rules                []*RequirementRule `protobuf:"bytes,2,rep,name=rules" json:"rules,omitempty"`
+	Rules                []*RequirementRule `protobuf:"bytes,2,rep,name=rules,proto3" json:"rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -1101,7 +1101,7 @@ func (m *JwtAuthentication) Reset()         { *m = JwtAuthentication{} }
 func (m *JwtAuthentication) String() string { return proto.CompactTextString(m) }
 func (*JwtAuthentication) ProtoMessage()    {}
 func (*JwtAuthentication) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_923b22a527fe83e9, []int{8}
+	return fileDescriptor_config_a6f0e3171821b327, []int{8}
 }
 func (m *JwtAuthentication) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1668,6 +1668,9 @@ func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *JwtProvider) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Issuer)
@@ -1713,6 +1716,9 @@ func (m *JwtProvider) Size() (n int) {
 }
 
 func (m *JwtProvider_RemoteJwks) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RemoteJwks != nil {
@@ -1722,6 +1728,9 @@ func (m *JwtProvider_RemoteJwks) Size() (n int) {
 	return n
 }
 func (m *JwtProvider_LocalJwks) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.LocalJwks != nil {
@@ -1731,6 +1740,9 @@ func (m *JwtProvider_LocalJwks) Size() (n int) {
 	return n
 }
 func (m *RemoteJwks) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.HttpUri != nil {
@@ -1748,6 +1760,9 @@ func (m *RemoteJwks) Size() (n int) {
 }
 
 func (m *JwtHeader) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -1765,6 +1780,9 @@ func (m *JwtHeader) Size() (n int) {
 }
 
 func (m *ProviderWithAudiences) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ProviderName)
@@ -1784,6 +1802,9 @@ func (m *ProviderWithAudiences) Size() (n int) {
 }
 
 func (m *JwtRequirement) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RequiresType != nil {
@@ -1796,6 +1817,9 @@ func (m *JwtRequirement) Size() (n int) {
 }
 
 func (m *JwtRequirement_ProviderName) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ProviderName)
@@ -1803,6 +1827,9 @@ func (m *JwtRequirement_ProviderName) Size() (n int) {
 	return n
 }
 func (m *JwtRequirement_ProviderAndAudiences) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ProviderAndAudiences != nil {
@@ -1812,6 +1839,9 @@ func (m *JwtRequirement_ProviderAndAudiences) Size() (n int) {
 	return n
 }
 func (m *JwtRequirement_RequiresAny) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RequiresAny != nil {
@@ -1821,6 +1851,9 @@ func (m *JwtRequirement_RequiresAny) Size() (n int) {
 	return n
 }
 func (m *JwtRequirement_RequiresAll) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RequiresAll != nil {
@@ -1830,6 +1863,9 @@ func (m *JwtRequirement_RequiresAll) Size() (n int) {
 	return n
 }
 func (m *JwtRequirement_AllowMissingOrFailed) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.AllowMissingOrFailed != nil {
@@ -1839,6 +1875,9 @@ func (m *JwtRequirement_AllowMissingOrFailed) Size() (n int) {
 	return n
 }
 func (m *JwtRequirementOrList) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Requirements) > 0 {
@@ -1854,6 +1893,9 @@ func (m *JwtRequirementOrList) Size() (n int) {
 }
 
 func (m *JwtRequirementAndList) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Requirements) > 0 {
@@ -1869,6 +1911,9 @@ func (m *JwtRequirementAndList) Size() (n int) {
 }
 
 func (m *RequirementRule) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Match != nil {
@@ -1886,6 +1931,9 @@ func (m *RequirementRule) Size() (n int) {
 }
 
 func (m *JwtAuthentication) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Providers) > 0 {
@@ -3372,10 +3420,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/jwt_authn/v2alpha/config.proto", fileDescriptor_config_923b22a527fe83e9)
+	proto.RegisterFile("envoy/config/filter/http/jwt_authn/v2alpha/config.proto", fileDescriptor_config_a6f0e3171821b327)
 }
 
-var fileDescriptor_config_923b22a527fe83e9 = []byte{
+var fileDescriptor_config_a6f0e3171821b327 = []byte{
 	// 972 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x55, 0x4f, 0x6f, 0xe3, 0x44,
 	0x14, 0xaf, 0x93, 0xa6, 0x4d, 0x9e, 0xd3, 0xee, 0xee, 0xd0, 0x76, 0x4d, 0xd9, 0x0d, 0xd9, 0x20,

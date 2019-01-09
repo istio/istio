@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/config"
@@ -94,6 +94,7 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 //RunValidation start running Galley validation mode
 func RunValidation(vc *WebhookParameters, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
+	printf("Galley validation started with\n%s", vc)
 	mixerValidator := createMixerValidator()
 	clientset, err := kube.CreateClientset(kubeConfig, "")
 	if err != nil {
@@ -158,21 +159,6 @@ func RunValidation(vc *WebhookParameters, kubeConfig string,
 
 	go wh.Run(stop)
 	cmd.WaitSignal(stop)
-}
-
-// DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
-func DefaultArgs() *WebhookParameters {
-	return &WebhookParameters{
-		Port:                          443,
-		CertFile:                      "/etc/certs/cert-chain.pem",
-		KeyFile:                       "/etc/certs/key.pem",
-		CACertFile:                    "/etc/certs/root-cert.pem",
-		DeploymentAndServiceNamespace: "istio-system",
-		DeploymentName:                "istio-galley",
-		ServiceName:                   "istio-galley",
-		WebhookName:                   "istio-galley",
-		EnableValidation:              true,
-	}
 }
 
 // isDNS1123Label tests for a string that conforms to the definition of a label in
