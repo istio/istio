@@ -1189,7 +1189,7 @@ func TestCreateServiceMetadata(t *testing.T) {
 		Service: &model.Service{
 			Hostname: model.Hostname("svc-name.test-ns"),
 		},
-		Labels:         model.Labels{"app.kubernetes.io/name" "v1"},
+		Labels:         model.Labels{"app.kubernetes.io/version": "v1"},
 		ServiceAccount: "spiffe://xyz.com/sa/service-account/ns/test-ns",
 	}
 	actual := createServiceMetadata(&model.ServiceAttributes{Name: "svc-name", Namespace: "test-ns"}, serviceInstance)
