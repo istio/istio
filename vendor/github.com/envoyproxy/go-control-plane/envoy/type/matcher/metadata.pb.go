@@ -83,9 +83,9 @@ type MetadataMatcher struct {
 	// The filter name to retrieve the Struct from the Metadata.
 	Filter string `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
 	// The path to retrieve the Value from the Struct.
-	Path []*MetadataMatcher_PathSegment `protobuf:"bytes,2,rep,name=path" json:"path,omitempty"`
+	Path []*MetadataMatcher_PathSegment `protobuf:"bytes,2,rep,name=path,proto3" json:"path,omitempty"`
 	// The MetadataMatcher is matched if the value retrieved by path is matched to this value.
-	Value                *ValueMatcher `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
+	Value                *ValueMatcher `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -95,7 +95,7 @@ func (m *MetadataMatcher) Reset()         { *m = MetadataMatcher{} }
 func (m *MetadataMatcher) String() string { return proto.CompactTextString(m) }
 func (*MetadataMatcher) ProtoMessage()    {}
 func (*MetadataMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metadata_68a424c5e967ef23, []int{0}
+	return fileDescriptor_metadata_626784a9898ad14e, []int{0}
 }
 func (m *MetadataMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -161,7 +161,7 @@ func (m *MetadataMatcher_PathSegment) Reset()         { *m = MetadataMatcher_Pat
 func (m *MetadataMatcher_PathSegment) String() string { return proto.CompactTextString(m) }
 func (*MetadataMatcher_PathSegment) ProtoMessage()    {}
 func (*MetadataMatcher_PathSegment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metadata_68a424c5e967ef23, []int{0, 0}
+	return fileDescriptor_metadata_626784a9898ad14e, []int{0, 0}
 }
 func (m *MetadataMatcher_PathSegment) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -366,6 +366,9 @@ func encodeVarintMetadata(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *MetadataMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Filter)
@@ -389,6 +392,9 @@ func (m *MetadataMatcher) Size() (n int) {
 }
 
 func (m *MetadataMatcher_PathSegment) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Segment != nil {
@@ -401,6 +407,9 @@ func (m *MetadataMatcher_PathSegment) Size() (n int) {
 }
 
 func (m *MetadataMatcher_PathSegment_Key) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Key)
@@ -751,10 +760,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/type/matcher/metadata.proto", fileDescriptor_metadata_68a424c5e967ef23)
+	proto.RegisterFile("envoy/type/matcher/metadata.proto", fileDescriptor_metadata_626784a9898ad14e)
 }
 
-var fileDescriptor_metadata_68a424c5e967ef23 = []byte{
+var fileDescriptor_metadata_626784a9898ad14e = []byte{
 	// 274 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4c, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0xcf,

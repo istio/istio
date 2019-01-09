@@ -18,8 +18,11 @@ package cache
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,7 +46,14 @@ const (
 
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
+
+	// identityTemplate is the format template of identity in the CSR request.
+	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 )
+
+type k8sJwtPayload struct {
+	Sub string `json:"sub"`
+}
 
 // Options provides all of the configuration parameters for secret cache.
 type Options struct {
@@ -126,6 +136,9 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(string, 
 		configOptions:  options,
 	}
 
+	fetcher.DeleteCache = ret.DeleteK8sSecret
+	fetcher.UpdateCache = ret.UpdateK8sSecret
+
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
 	atomic.StoreUint32(&ret.skipTokenExpireCheck, 1)
 	go ret.keyCertRotationJob()
@@ -185,6 +198,66 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	}
 	sc.secrets.Store(key, *ns)
 	return ns, nil
+}
+
+// DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
+// for ingress gateway is deleted.
+func (sc *SecretCache) DeleteK8sSecret(secretName string) {
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+
+		if key.ResourceName == secretName {
+			sc.secrets.Delete(key)
+			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Stop the iteration once we have deleted that cache entry.
+			return false
+		}
+		return true
+	})
+}
+
+// UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
+// for ingress gateway is updated.
+func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
+	secretMap := map[ConnKey]*model.SecretItem{}
+	wg := sync.WaitGroup{}
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+		oldSecret := v.(model.SecretItem)
+		if key.ResourceName == secretName {
+			proxyID := key.ProxyID
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				newSecret := &model.SecretItem{
+					CertificateChain: ns.CertificateChain,
+					PrivateKey:       ns.PrivateKey,
+					ResourceName:     secretName,
+					Token:            oldSecret.Token,
+					CreatedTime:      ns.CreatedTime,
+					Version:          ns.Version,
+				}
+				secretMap[key] = newSecret
+				if sc.notifyCallback != nil {
+					if err := sc.notifyCallback(proxyID, secretName, newSecret); err != nil {
+						log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
+					}
+				} else {
+					log.Warnf("secret cache notify callback isn't set")
+				}
+			}()
+			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Stop the iteration once we have updated that cache entry.
+			return false
+		}
+		return true
+	})
+
+	wg.Wait()
+	for key, secret := range secretMap {
+		sc.secrets.Store(key, *secret)
+	}
 }
 
 // SecretExist checks if secret already existed.
@@ -322,14 +395,10 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 			CertificateChain: secretItem.CertificateChain,
 			PrivateKey:       secretItem.PrivateKey,
 			ResourceName:     resourceName,
+			Token:            token,
 			CreatedTime:      t,
 			Version:          t.String(),
 		}, nil
-	}
-
-	options := util.CertOptions{
-		Host:       resourceName,
-		RSAKeySize: keySize,
 	}
 
 	// call authentication provider specific plugins to exchange token if necessary.
@@ -343,6 +412,18 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 				return nil, err
 			}
 		}
+	}
+
+	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
+	// otherwise just use sdsrequest.resourceName as csr host name.
+	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
+	if err != nil {
+		log.Warnf("failed to extract host name from jwt: %v, fallback to SDS request resource name", err)
+		csrHostName = resourceName
+	}
+	options := util.CertOptions{
+		Host:       csrHostName,
+		RSAKeySize: keySize,
 	}
 
 	// Generate the cert/key, send CSR to CA.
@@ -395,4 +476,41 @@ func (sc *SecretCache) isTokenExpired() bool {
 	}
 	// TODO(quanlin), check if token has expired.
 	return false
+}
+
+func constructCSRHostName(trustDomain, token string) (string, error) {
+	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
+	strs := strings.Split(token, ".")
+	if len(strs) != 3 {
+		return "", fmt.Errorf("invalid k8s jwt token")
+	}
+
+	payload := strs[1]
+	if l := len(payload) % 4; l > 0 {
+		payload += strings.Repeat("=", 4-l)
+	}
+	dp, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	}
+
+	var jp k8sJwtPayload
+	if err = json.Unmarshal(dp, &jp); err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	}
+
+	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
+	ss := strings.Split(jp.Sub, ":")
+	if len(ss) != 4 {
+		return "", fmt.Errorf("invalid sub field in k8s jwt token")
+	}
+	ns := ss[2] //namespace
+	sa := ss[3] //service account
+
+	domain := "cluster.local"
+	if trustDomain != "" {
+		domain = trustDomain
+	}
+
+	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
 }

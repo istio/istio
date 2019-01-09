@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/mcp/testing"
+	mcptest "istio.io/istio/pkg/mcp/testing"
 )
 
 var (

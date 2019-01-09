@@ -8,8 +8,10 @@ import fmt "fmt"
 import math "math"
 import v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -36,7 +38,7 @@ func (m *AdsDummy) Reset()         { *m = AdsDummy{} }
 func (m *AdsDummy) String() string { return proto.CompactTextString(m) }
 func (*AdsDummy) ProtoMessage()    {}
 func (*AdsDummy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ads_e55e118c12e4a4c7, []int{0}
+	return fileDescriptor_ads_ef11d70d8d973287, []int{0}
 }
 func (m *AdsDummy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -77,8 +79,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for AggregatedDiscoveryService service
-
+// AggregatedDiscoveryServiceClient is the client API for AggregatedDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AggregatedDiscoveryServiceClient interface {
 	// This is a gRPC-only API.
 	StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedDiscoveryService_StreamAggregatedResourcesClient, error)
@@ -155,8 +158,7 @@ func (x *aggregatedDiscoveryServiceIncrementalAggregatedResourcesClient) Recv() 
 	return m, nil
 }
 
-// Server API for AggregatedDiscoveryService service
-
+// AggregatedDiscoveryServiceServer is the server API for AggregatedDiscoveryService service.
 type AggregatedDiscoveryServiceServer interface {
 	// This is a gRPC-only API.
 	StreamAggregatedResources(AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
@@ -271,6 +273,9 @@ func encodeVarintAds(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *AdsDummy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -449,10 +454,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/discovery/v2/ads.proto", fileDescriptor_ads_e55e118c12e4a4c7)
+	proto.RegisterFile("envoy/service/discovery/v2/ads.proto", fileDescriptor_ads_ef11d70d8d973287)
 }
 
-var fileDescriptor_ads_e55e118c12e4a4c7 = []byte{
+var fileDescriptor_ads_ef11d70d8d973287 = []byte{
 	// 237 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0xd0, 0xbd, 0x4a, 0x04, 0x31,
 	0x14, 0x05, 0x60, 0xaf, 0x85, 0x48, 0xca, 0xb1, 0x72, 0x90, 0x08, 0x8b, 0x85, 0x5a, 0x64, 0x24,

@@ -28,8 +28,13 @@ spec:
 {{- if $spec.externalTrafficPolicy }}
   externalTrafficPolicy: {{$spec.externalTrafficPolicy }}
 {{- end }}
+{{- if $spec.externalIPs }}
+  externalIPs:
+{{ toYaml $spec.externalIPs | indent 4 }}
+{{- end }}
   type: {{ .type }}
   selector:
+    release: {{ $.Release.Name }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}

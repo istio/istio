@@ -11,8 +11,10 @@ import _ "github.com/gogo/googleapis/google/api"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import trace "istio.io/gogo-genproto/opencensus/proto/trace"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -37,7 +39,7 @@ func (m *StreamTracesResponse) Reset()         { *m = StreamTracesResponse{} }
 func (m *StreamTracesResponse) String() string { return proto.CompactTextString(m) }
 func (*StreamTracesResponse) ProtoMessage()    {}
 func (*StreamTracesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_service_5901afff3db92913, []int{0}
+	return fileDescriptor_trace_service_c80c2655d7a074f9, []int{0}
 }
 func (m *StreamTracesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -70,9 +72,9 @@ type StreamTracesMessage struct {
 	// Identifier data effectively is a structured metadata.
 	// As a performance optimization this will only be sent in the first message
 	// on the stream.
-	Identifier *StreamTracesMessage_Identifier `protobuf:"bytes,1,opt,name=identifier" json:"identifier,omitempty"`
+	Identifier *StreamTracesMessage_Identifier `protobuf:"bytes,1,opt,name=identifier,proto3" json:"identifier,omitempty"`
 	// A list of Span entries
-	Spans                []*trace.Span `protobuf:"bytes,2,rep,name=spans" json:"spans,omitempty"`
+	Spans                []*trace.Span `protobuf:"bytes,2,rep,name=spans,proto3" json:"spans,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -82,7 +84,7 @@ func (m *StreamTracesMessage) Reset()         { *m = StreamTracesMessage{} }
 func (m *StreamTracesMessage) String() string { return proto.CompactTextString(m) }
 func (*StreamTracesMessage) ProtoMessage()    {}
 func (*StreamTracesMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_service_5901afff3db92913, []int{1}
+	return fileDescriptor_trace_service_c80c2655d7a074f9, []int{1}
 }
 func (m *StreamTracesMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -127,7 +129,7 @@ func (m *StreamTracesMessage) GetSpans() []*trace.Span {
 
 type StreamTracesMessage_Identifier struct {
 	// The node sending the access log messages over the stream.
-	Node                 *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node                 *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -137,7 +139,7 @@ func (m *StreamTracesMessage_Identifier) Reset()         { *m = StreamTracesMess
 func (m *StreamTracesMessage_Identifier) String() string { return proto.CompactTextString(m) }
 func (*StreamTracesMessage_Identifier) ProtoMessage()    {}
 func (*StreamTracesMessage_Identifier) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_service_5901afff3db92913, []int{1, 0}
+	return fileDescriptor_trace_service_c80c2655d7a074f9, []int{1, 0}
 }
 func (m *StreamTracesMessage_Identifier) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -187,8 +189,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for TraceService service
-
+// TraceServiceClient is the client API for TraceService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type TraceServiceClient interface {
 	// Envoy will connect and send StreamTracesMessage messages forever. It does
 	// not expect any response to be sent as nothing would be done in the case
@@ -238,8 +241,7 @@ func (x *traceServiceStreamTracesClient) CloseAndRecv() (*StreamTracesResponse, 
 	return m, nil
 }
 
-// Server API for TraceService service
-
+// TraceServiceServer is the server API for TraceService service.
 type TraceServiceServer interface {
 	// Envoy will connect and send StreamTracesMessage messages forever. It does
 	// not expect any response to be sent as nothing would be done in the case
@@ -396,6 +398,9 @@ func encodeVarintTraceService(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *StreamTracesResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -405,6 +410,9 @@ func (m *StreamTracesResponse) Size() (n int) {
 }
 
 func (m *StreamTracesMessage) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Identifier != nil {
@@ -424,6 +432,9 @@ func (m *StreamTracesMessage) Size() (n int) {
 }
 
 func (m *StreamTracesMessage_Identifier) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Node != nil {
@@ -805,10 +816,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/trace/v2/trace_service.proto", fileDescriptor_trace_service_5901afff3db92913)
+	proto.RegisterFile("envoy/service/trace/v2/trace_service.proto", fileDescriptor_trace_service_c80c2655d7a074f9)
 }
 
-var fileDescriptor_trace_service_5901afff3db92913 = []byte{
+var fileDescriptor_trace_service_c80c2655d7a074f9 = []byte{
 	// 335 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x90, 0xb1, 0x4b, 0x03, 0x31,
 	0x14, 0xc6, 0x4d, 0x6b, 0x1d, 0xd2, 0x0e, 0x72, 0x95, 0xb6, 0x1c, 0xa5, 0x94, 0x4e, 0x45, 0x25,

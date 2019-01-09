@@ -30,7 +30,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // in the future, but right now the HTTP tracer is the only one supported.
 type Tracing struct {
 	// Provides configuration for the HTTP tracer.
-	Http                 *Tracing_Http `protobuf:"bytes,1,opt,name=http" json:"http,omitempty"`
+	Http                 *Tracing_Http `protobuf:"bytes,1,opt,name=http,proto3" json:"http,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -40,7 +40,7 @@ func (m *Tracing) Reset()         { *m = Tracing{} }
 func (m *Tracing) String() string { return proto.CompactTextString(m) }
 func (*Tracing) ProtoMessage()    {}
 func (*Tracing) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_95c0dfdb288314a4, []int{0}
+	return fileDescriptor_trace_187d8e19c658fee8, []int{0}
 }
 func (m *Tracing) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -106,7 +106,7 @@ func (m *Tracing_Http) Reset()         { *m = Tracing_Http{} }
 func (m *Tracing_Http) String() string { return proto.CompactTextString(m) }
 func (*Tracing_Http) ProtoMessage()    {}
 func (*Tracing_Http) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_95c0dfdb288314a4, []int{0, 0}
+	return fileDescriptor_trace_187d8e19c658fee8, []int{0, 0}
 }
 func (m *Tracing_Http) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -142,10 +142,10 @@ type isTracing_Http_ConfigType interface {
 }
 
 type Tracing_Http_Config struct {
-	Config *types.Struct `protobuf:"bytes,2,opt,name=config,oneof"`
+	Config *types.Struct `protobuf:"bytes,2,opt,name=config,proto3,oneof"`
 }
 type Tracing_Http_TypedConfig struct {
-	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,oneof"`
+	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,proto3,oneof"`
 }
 
 func (*Tracing_Http_Config) isTracing_Http_ConfigType()      {}
@@ -269,7 +269,7 @@ func (m *LightstepConfig) Reset()         { *m = LightstepConfig{} }
 func (m *LightstepConfig) String() string { return proto.CompactTextString(m) }
 func (*LightstepConfig) ProtoMessage()    {}
 func (*LightstepConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_95c0dfdb288314a4, []int{1}
+	return fileDescriptor_trace_187d8e19c658fee8, []int{1}
 }
 func (m *LightstepConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -326,7 +326,7 @@ type ZipkinConfig struct {
 	TraceId_128Bit bool `protobuf:"varint,3,opt,name=trace_id_128bit,json=traceId128bit,proto3" json:"trace_id_128bit,omitempty"`
 	// Determines whether client and server spans will shared the same span id.
 	// The default value is true.
-	SharedSpanContext    *types.BoolValue `protobuf:"bytes,4,opt,name=shared_span_context,json=sharedSpanContext" json:"shared_span_context,omitempty"`
+	SharedSpanContext    *types.BoolValue `protobuf:"bytes,4,opt,name=shared_span_context,json=sharedSpanContext,proto3" json:"shared_span_context,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -336,7 +336,7 @@ func (m *ZipkinConfig) Reset()         { *m = ZipkinConfig{} }
 func (m *ZipkinConfig) String() string { return proto.CompactTextString(m) }
 func (*ZipkinConfig) ProtoMessage()    {}
 func (*ZipkinConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_95c0dfdb288314a4, []int{2}
+	return fileDescriptor_trace_187d8e19c658fee8, []int{2}
 }
 func (m *ZipkinConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -402,7 +402,7 @@ type DynamicOtConfig struct {
 	Library string `protobuf:"bytes,1,opt,name=library,proto3" json:"library,omitempty"`
 	// The configuration to use when creating a tracer from the given dynamic
 	// library.
-	Config               *types.Struct `protobuf:"bytes,2,opt,name=config" json:"config,omitempty"`
+	Config               *types.Struct `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -412,7 +412,7 @@ func (m *DynamicOtConfig) Reset()         { *m = DynamicOtConfig{} }
 func (m *DynamicOtConfig) String() string { return proto.CompactTextString(m) }
 func (*DynamicOtConfig) ProtoMessage()    {}
 func (*DynamicOtConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_95c0dfdb288314a4, []int{3}
+	return fileDescriptor_trace_187d8e19c658fee8, []int{3}
 }
 func (m *DynamicOtConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -470,7 +470,7 @@ func (m *DatadogConfig) Reset()         { *m = DatadogConfig{} }
 func (m *DatadogConfig) String() string { return proto.CompactTextString(m) }
 func (*DatadogConfig) ProtoMessage()    {}
 func (*DatadogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_95c0dfdb288314a4, []int{4}
+	return fileDescriptor_trace_187d8e19c658fee8, []int{4}
 }
 func (m *DatadogConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -516,7 +516,7 @@ func (m *DatadogConfig) GetServiceName() string {
 // Configuration structure.
 type TraceServiceConfig struct {
 	// The upstream gRPC cluster that hosts the metrics service.
-	GrpcService          *core.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService" json:"grpc_service,omitempty"`
+	GrpcService          *core.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService,proto3" json:"grpc_service,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -526,7 +526,7 @@ func (m *TraceServiceConfig) Reset()         { *m = TraceServiceConfig{} }
 func (m *TraceServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*TraceServiceConfig) ProtoMessage()    {}
 func (*TraceServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_trace_95c0dfdb288314a4, []int{5}
+	return fileDescriptor_trace_187d8e19c658fee8, []int{5}
 }
 func (m *TraceServiceConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -861,6 +861,9 @@ func encodeVarintTrace(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Tracing) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Http != nil {
@@ -874,6 +877,9 @@ func (m *Tracing) Size() (n int) {
 }
 
 func (m *Tracing_Http) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -890,6 +896,9 @@ func (m *Tracing_Http) Size() (n int) {
 }
 
 func (m *Tracing_Http_Config) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Config != nil {
@@ -899,6 +908,9 @@ func (m *Tracing_Http_Config) Size() (n int) {
 	return n
 }
 func (m *Tracing_Http_TypedConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TypedConfig != nil {
@@ -908,6 +920,9 @@ func (m *Tracing_Http_TypedConfig) Size() (n int) {
 	return n
 }
 func (m *LightstepConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.CollectorCluster)
@@ -925,6 +940,9 @@ func (m *LightstepConfig) Size() (n int) {
 }
 
 func (m *ZipkinConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.CollectorCluster)
@@ -949,6 +967,9 @@ func (m *ZipkinConfig) Size() (n int) {
 }
 
 func (m *DynamicOtConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Library)
@@ -966,6 +987,9 @@ func (m *DynamicOtConfig) Size() (n int) {
 }
 
 func (m *DatadogConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.CollectorCluster)
@@ -983,6 +1007,9 @@ func (m *DatadogConfig) Size() (n int) {
 }
 
 func (m *TraceServiceConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.GrpcService != nil {
@@ -1919,10 +1946,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/trace/v2/trace.proto", fileDescriptor_trace_95c0dfdb288314a4)
+	proto.RegisterFile("envoy/config/trace/v2/trace.proto", fileDescriptor_trace_187d8e19c658fee8)
 }
 
-var fileDescriptor_trace_95c0dfdb288314a4 = []byte{
+var fileDescriptor_trace_187d8e19c658fee8 = []byte{
 	// 585 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0xcd, 0x6e, 0x13, 0x3d,
 	0x14, 0xad, 0xd3, 0x7c, 0xed, 0x57, 0x27, 0x55, 0x1a, 0x03, 0x6a, 0x88, 0x20, 0x2a, 0x53, 0x84,

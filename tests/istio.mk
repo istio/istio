@@ -222,6 +222,14 @@ helm/init: ${HELM}
 # Install istio for the first time
 helm/install:
 	${HELM} install \
+	  install/kubernetes/helm/istio-init \
+	  --name istio-system-init --namespace istio-system \
+	  --set global.hub=${HUB} \
+	  --set global.tag=${TAG} \
+	  --set global.imagePullPolicy=Always \
+	  ${HELM_ARGS}
+	sleep 10
+	${HELM} install \
 	  install/kubernetes/helm/istio \
 	  --name istio-system --namespace istio-system \
 	  --set global.hub=${HUB} \
@@ -243,4 +251,5 @@ helm/upgrade:
 # Note that for Helm 2.10, the CRDs are not cleared
 helm/delete:
 	${HELM} delete --purge istio-system
+	for i in install/kubernetes/helm/istio-init/files/crd-*; do kubectl delete -f $i; done
 	kubectl delete -f install/kubernetes/helm/istio/templates/crds.yaml

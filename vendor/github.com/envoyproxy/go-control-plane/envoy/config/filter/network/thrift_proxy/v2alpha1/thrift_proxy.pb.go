@@ -56,7 +56,7 @@ func (x TransportType) String() string {
 	return proto.EnumName(TransportType_name, int32(x))
 }
 func (TransportType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_9d3d0a1f5a2d3219, []int{0}
+	return fileDescriptor_thrift_proxy_3375db5f87c43dda, []int{0}
 }
 
 // Thrift Protocol types supported by Envoy.
@@ -97,7 +97,7 @@ func (x ProtocolType) String() string {
 	return proto.EnumName(ProtocolType_name, int32(x))
 }
 func (ProtocolType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_9d3d0a1f5a2d3219, []int{1}
+	return fileDescriptor_thrift_proxy_3375db5f87c43dda, []int{1}
 }
 
 // [#comment:next free field: 6]
@@ -111,12 +111,12 @@ type ThriftProxy struct {
 	// The human readable prefix to use when emitting statistics.
 	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The route table for the connection manager is static and is specified in this property.
-	RouteConfig *RouteConfiguration `protobuf:"bytes,4,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig *RouteConfiguration `protobuf:"bytes,4,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
 	// A list of individual Thrift filters that make up the filter chain for requests made to the
 	// Thrift proxy. Order matters as the filters are processed sequentially. For backwards
 	// compatibility, if no thrift_filters are specified, a default Thrift router filter
 	// (`envoy.filters.thrift.router`) is used.
-	ThriftFilters        []*ThriftFilter `protobuf:"bytes,5,rep,name=thrift_filters,json=thriftFilters" json:"thrift_filters,omitempty"`
+	ThriftFilters        []*ThriftFilter `protobuf:"bytes,5,rep,name=thrift_filters,json=thriftFilters,proto3" json:"thrift_filters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -126,7 +126,7 @@ func (m *ThriftProxy) Reset()         { *m = ThriftProxy{} }
 func (m *ThriftProxy) String() string { return proto.CompactTextString(m) }
 func (*ThriftProxy) ProtoMessage()    {}
 func (*ThriftProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_9d3d0a1f5a2d3219, []int{0}
+	return fileDescriptor_thrift_proxy_3375db5f87c43dda, []int{0}
 }
 func (m *ThriftProxy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -216,7 +216,7 @@ func (m *ThriftFilter) Reset()         { *m = ThriftFilter{} }
 func (m *ThriftFilter) String() string { return proto.CompactTextString(m) }
 func (*ThriftFilter) ProtoMessage()    {}
 func (*ThriftFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_9d3d0a1f5a2d3219, []int{1}
+	return fileDescriptor_thrift_proxy_3375db5f87c43dda, []int{1}
 }
 func (m *ThriftFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -252,10 +252,10 @@ type isThriftFilter_ConfigType interface {
 }
 
 type ThriftFilter_Config struct {
-	Config *types.Struct `protobuf:"bytes,2,opt,name=config,oneof"`
+	Config *types.Struct `protobuf:"bytes,2,opt,name=config,proto3,oneof"`
 }
 type ThriftFilter_TypedConfig struct {
-	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,oneof"`
+	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,proto3,oneof"`
 }
 
 func (*ThriftFilter_Config) isThriftFilter_ConfigType()      {}
@@ -387,7 +387,7 @@ func (m *ThriftProtocolOptions) Reset()         { *m = ThriftProtocolOptions{} }
 func (m *ThriftProtocolOptions) String() string { return proto.CompactTextString(m) }
 func (*ThriftProtocolOptions) ProtoMessage()    {}
 func (*ThriftProtocolOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_thrift_proxy_9d3d0a1f5a2d3219, []int{2}
+	return fileDescriptor_thrift_proxy_3375db5f87c43dda, []int{2}
 }
 func (m *ThriftProtocolOptions) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -599,6 +599,9 @@ func encodeVarintThriftProxy(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ThriftProxy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.StatPrefix)
@@ -628,6 +631,9 @@ func (m *ThriftProxy) Size() (n int) {
 }
 
 func (m *ThriftFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -644,6 +650,9 @@ func (m *ThriftFilter) Size() (n int) {
 }
 
 func (m *ThriftFilter_Config) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Config != nil {
@@ -653,6 +662,9 @@ func (m *ThriftFilter_Config) Size() (n int) {
 	return n
 }
 func (m *ThriftFilter_TypedConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TypedConfig != nil {
@@ -662,6 +674,9 @@ func (m *ThriftFilter_TypedConfig) Size() (n int) {
 	return n
 }
 func (m *ThriftProtocolOptions) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Transport != 0 {
@@ -1210,10 +1225,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/thrift_proxy.proto", fileDescriptor_thrift_proxy_9d3d0a1f5a2d3219)
+	proto.RegisterFile("envoy/config/filter/network/thrift_proxy/v2alpha1/thrift_proxy.proto", fileDescriptor_thrift_proxy_3375db5f87c43dda)
 }
 
-var fileDescriptor_thrift_proxy_9d3d0a1f5a2d3219 = []byte{
+var fileDescriptor_thrift_proxy_3375db5f87c43dda = []byte{
 	// 590 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x92, 0xcd, 0x6e, 0xd3, 0x40,
 	0x10, 0xc7, 0xb3, 0x76, 0x5a, 0xda, 0x71, 0x12, 0x99, 0x55, 0x51, 0x43, 0x04, 0x51, 0xd4, 0x53,

@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/mixer/adapter"

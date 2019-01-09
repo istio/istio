@@ -84,7 +84,7 @@ for fl in ${GO_FILES}; do
     continue
   fi
   file_needs_formatting=$($tool $check_args "$fl")
-  if [[ ! -z "$file_needs_formatting" ]]; then
+  if [[ -n "$file_needs_formatting" ]]; then
     echo "please run bin/fmt.sh against: $file_needs_formatting"
     ERR=1
   fi

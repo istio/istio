@@ -41,12 +41,12 @@ func TestNewCAClient(t *testing.T) {
 	}{
 		"Not supported": {
 			provider:    "random",
-			expectedErr: "CA provider \"random\" isn't supported. Currently Istio supports \"GoogleCA,Citadel\"",
+			expectedErr: "CA provider \"random\" isn't supported. Currently Istio supports \"GoogleCA,Citadel,VaultCA\"",
 		},
 	}
 
 	for id, tc := range testCases {
-		_, err := NewCAClient("abc:0", tc.provider, false, "", "", "", "")
+		_, err := NewCAClient("abc:0", tc.provider, false, nil, "", "", "", "")
 		if err.Error() != tc.expectedErr {
 			t.Errorf("Test case [%s]: Get error (%s) different from expected error (%s).",
 				id, err.Error(), tc.expectedErr)
