@@ -203,17 +203,31 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 // DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
 // for ingress gateway is deleted.
 func (sc *SecretCache) DeleteK8sSecret(secretName string) {
+	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
 
 		if key.ResourceName == secretName {
+			proxyID := key.ProxyID
 			sc.secrets.Delete(key)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if sc.notifyCallback != nil {
+					if err := sc.notifyCallback(proxyID, secretName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
+						log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
+					}
+				} else {
+					log.Warnf("secret cache notify callback isn't set")
+				}
+			}()
 			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
 			// Stop the iteration once we have deleted that cache entry.
 			return false
 		}
 		return true
 	})
+	wg.Wait()
 }
 
 // UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
