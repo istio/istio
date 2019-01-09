@@ -69,12 +69,6 @@ type IstioEgressListenerWrapper struct {
 	// this is for the default sidecar scope.
 	IstioListener *networking.IstioEgressListener
 
-	// TODO: Unix domain socket
-
-	// optional. The port on which this listener should be configured. If
-	// omitted, we infer from services imported
-	ListenerPort *Port
-
 	// A preprocessed form of networking.IstioEgressListener.hosts field.
 	// The hosts field has entries of the form namespace/dnsName. For
 	// example ns1/*, */*, */foo.tcp.com, etc. This map preprocesses all
@@ -212,14 +206,6 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 		listenerHosts: make(map[string]Hostname),
 	}
 
-	if istioListener.Port != nil {
-		out.ListenerPort = &Port{
-			Name:     istioListener.Port.Name,
-			Port:     int(istioListener.Port.Number),
-			Protocol: ParseProtocol(istioListener.Port.Protocol),
-		}
-	}
-
 	if istioListener.Hosts != nil {
 		for _, h := range istioListener.Hosts {
 			parts := strings.SplitN(h, "/", 2)
@@ -244,7 +230,7 @@ func (sc *SidecarScope) getEgressListenerForPort(port int) *IstioEgressListenerW
 	}
 
 	for _, e := range sc.EgressListeners {
-		if e.ListenerPort == nil || e.ListenerPort.Port == port {
+		if e.IstioListener == nil || e.IstioListener.Port == nil || int(e.IstioListener.Port.Number) == port {
 			return e
 		}
 	}
