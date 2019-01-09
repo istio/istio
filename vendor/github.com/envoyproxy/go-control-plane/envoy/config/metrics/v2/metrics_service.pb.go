@@ -27,7 +27,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // Metrics Service.
 type MetricsServiceConfig struct {
 	// The upstream gRPC cluster that hosts the metrics service.
-	GrpcService          *core.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService" json:"grpc_service,omitempty"`
+	GrpcService          *core.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService,proto3" json:"grpc_service,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -37,7 +37,7 @@ func (m *MetricsServiceConfig) Reset()         { *m = MetricsServiceConfig{} }
 func (m *MetricsServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*MetricsServiceConfig) ProtoMessage()    {}
 func (*MetricsServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_metrics_service_7d43d1b15323329b, []int{0}
+	return fileDescriptor_metrics_service_a1c7105ce3f555d5, []int{0}
 }
 func (m *MetricsServiceConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -117,6 +117,9 @@ func encodeVarintMetricsService(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *MetricsServiceConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.GrpcService != nil {
@@ -332,10 +335,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/metrics/v2/metrics_service.proto", fileDescriptor_metrics_service_7d43d1b15323329b)
+	proto.RegisterFile("envoy/config/metrics/v2/metrics_service.proto", fileDescriptor_metrics_service_a1c7105ce3f555d5)
 }
 
-var fileDescriptor_metrics_service_7d43d1b15323329b = []byte{
+var fileDescriptor_metrics_service_a1c7105ce3f555d5 = []byte{
 	// 196 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0x4d, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0xcf, 0x4d, 0x2d, 0x29, 0xca, 0x4c, 0x2e,

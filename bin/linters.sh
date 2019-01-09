@@ -87,15 +87,12 @@ function install_gometalinter() {
 }
 
 function install_golangcilint() {
-  GOLANGCI_VERSION="v1.12.2"
+  GOLANGCI_VERSION="v1.12.4"
   curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
   golangci-lint --version
 }
 
 function run_gometalinter() {
-    echo 'Running gometalinter ....'
-    $gometalinter --config=./lintconfig_base.json ./...
-    echo 'gometalinter OK'
     echo 'Running gometalinter on adapters ....'
     pushd mixer/tools/adapterlinter
     go install .
@@ -113,14 +110,8 @@ function run_gometalinter() {
 }
 
 function run_golangcilint() {
-  COMPONENTS="addons galley istioctl mixer \
-    pilot/cmd pilot/pkg/networking pilot/test \
-    security tests tools"
-  echo 'Running golangci-lint ...'
-  for component in $COMPONENTS; do
-    echo "Running golangci-lint on ${component} ..."
-    golangci-lint run ./"${component}"/...
-  done
+    echo 'Running golangci-lint ...'
+    golangci-lint run ./...
 }
 
 function run_helm_lint() {

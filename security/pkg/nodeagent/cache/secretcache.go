@@ -18,15 +18,19 @@ package cache
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"istio.io/istio/pkg/log"
-	ca "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -42,7 +46,14 @@ const (
 
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
+
+	// identityTemplate is the format template of identity in the CSR request.
+	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 )
+
+type k8sJwtPayload struct {
+	Sub string `json:"sub"`
+}
 
 // Options provides all of the configuration parameters for secret cache.
 type Options struct {
@@ -91,7 +102,7 @@ type SecretCache struct {
 	// map key is Envoy instance ID, map value is secretItem.
 	secrets        sync.Map
 	rotationTicker *time.Ticker
-	caClient       ca.Client
+	fetcher        *secretfetcher.SecretFetcher
 
 	// configOptions includes all configurable params for the cache.
 	configOptions Options
@@ -116,14 +127,17 @@ type SecretCache struct {
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(cl ca.Client, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
+func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
 	ret := &SecretCache{
-		caClient:       cl,
+		fetcher:        fetcher,
 		closing:        make(chan bool),
 		notifyCallback: notifyCb,
 		rootCertMutex:  &sync.Mutex{},
 		configOptions:  options,
 	}
+
+	fetcher.DeleteCache = ret.DeleteK8sSecret
+	fetcher.UpdateCache = ret.UpdateK8sSecret
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
 	atomic.StoreUint32(&ret.skipTokenExpireCheck, 1)
@@ -186,6 +200,66 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	return ns, nil
 }
 
+// DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
+// for ingress gateway is deleted.
+func (sc *SecretCache) DeleteK8sSecret(secretName string) {
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+
+		if key.ResourceName == secretName {
+			sc.secrets.Delete(key)
+			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Stop the iteration once we have deleted that cache entry.
+			return false
+		}
+		return true
+	})
+}
+
+// UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
+// for ingress gateway is updated.
+func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
+	secretMap := map[ConnKey]*model.SecretItem{}
+	wg := sync.WaitGroup{}
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+		oldSecret := v.(model.SecretItem)
+		if key.ResourceName == secretName {
+			proxyID := key.ProxyID
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				newSecret := &model.SecretItem{
+					CertificateChain: ns.CertificateChain,
+					PrivateKey:       ns.PrivateKey,
+					ResourceName:     secretName,
+					Token:            oldSecret.Token,
+					CreatedTime:      ns.CreatedTime,
+					Version:          ns.Version,
+				}
+				secretMap[key] = newSecret
+				if sc.notifyCallback != nil {
+					if err := sc.notifyCallback(proxyID, secretName, newSecret); err != nil {
+						log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
+					}
+				} else {
+					log.Warnf("secret cache notify callback isn't set")
+				}
+			}()
+			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Stop the iteration once we have updated that cache entry.
+			return false
+		}
+		return true
+	})
+
+	wg.Wait()
+	for key, secret := range secretMap {
+		sc.secrets.Store(key, *secret)
+	}
+}
+
 // SecretExist checks if secret already existed.
 func (sc *SecretCache) SecretExist(proxyID, resourceName, token, version string) bool {
 	key := ConnKey{
@@ -226,6 +300,11 @@ func (sc *SecretCache) keyCertRotationJob() {
 }
 
 func (sc *SecretCache) rotate() {
+	// Skip secret rotation for kubernetes secrets.
+	if !sc.fetcher.UseCaClient {
+		return
+	}
+
 	log.Debug("Refresh job running")
 
 	secretMap := map[ConnKey]*model.SecretItem{}
@@ -304,9 +383,22 @@ func (sc *SecretCache) rotate() {
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {
-	options := util.CertOptions{
-		Host:       resourceName,
-		RSAKeySize: keySize,
+	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
+	// CSR to CA.
+	if sc.fetcher.UseCaClient == false {
+		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
+		if !exist {
+			return nil, fmt.Errorf("cannot find secret %s for ingress gateway", resourceName)
+		}
+
+		return &model.SecretItem{
+			CertificateChain: secretItem.CertificateChain,
+			PrivateKey:       secretItem.PrivateKey,
+			ResourceName:     resourceName,
+			Token:            token,
+			CreatedTime:      t,
+			Version:          t.String(),
+		}, nil
 	}
 
 	// call authentication provider specific plugins to exchange token if necessary.
@@ -322,6 +414,18 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		}
 	}
 
+	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
+	// otherwise just use sdsrequest.resourceName as csr host name.
+	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
+	if err != nil {
+		log.Warnf("failed to extract host name from jwt: %v, fallback to SDS request resource name", err)
+		csrHostName = resourceName
+	}
+	options := util.CertOptions{
+		Host:       csrHostName,
+		RSAKeySize: keySize,
+	}
+
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
@@ -329,7 +433,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
-	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+	certChainPEM, err := sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 	if err != nil {
 		log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
 		return nil, err
@@ -372,4 +476,41 @@ func (sc *SecretCache) isTokenExpired() bool {
 	}
 	// TODO(quanlin), check if token has expired.
 	return false
+}
+
+func constructCSRHostName(trustDomain, token string) (string, error) {
+	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
+	strs := strings.Split(token, ".")
+	if len(strs) != 3 {
+		return "", fmt.Errorf("invalid k8s jwt token")
+	}
+
+	payload := strs[1]
+	if l := len(payload) % 4; l > 0 {
+		payload += strings.Repeat("=", 4-l)
+	}
+	dp, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	}
+
+	var jp k8sJwtPayload
+	if err = json.Unmarshal(dp, &jp); err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	}
+
+	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
+	ss := strings.Split(jp.Sub, ":")
+	if len(ss) != 4 {
+		return "", fmt.Errorf("invalid sub field in k8s jwt token")
+	}
+	ns := ss[2] //namespace
+	sa := ss[3] //service account
+
+	domain := "cluster.local"
+	if trustDomain != "" {
+		domain = trustDomain
+	}
+
+	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
 }

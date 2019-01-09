@@ -809,6 +809,21 @@ func (m *RouteAction) Validate() error {
 		}
 	}
 
+	for idx, item := range m.GetUpgradeConfigs() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteActionValidationError{
+					Field:  fmt.Sprintf("UpgradeConfigs[%v]", idx),
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	}
+
 	switch m.ClusterSpecifier.(type) {
 
 	case *RouteAction_Cluster:
@@ -1648,6 +1663,16 @@ func (m *RouteAction_RequestMirrorPolicy) Validate() error {
 
 	// no validation rules for RuntimeKey
 
+	if v, ok := interface{}(m.GetRuntimeFraction()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteAction_RequestMirrorPolicyValidationError{
+				Field:  "RuntimeFraction",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -1772,6 +1797,60 @@ func (e RouteAction_HashPolicyValidationError) Error() string {
 }
 
 var _ error = RouteAction_HashPolicyValidationError{}
+
+// Validate checks the field values on RouteAction_UpgradeConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *RouteAction_UpgradeConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for UpgradeType
+
+	if v, ok := interface{}(m.GetEnabled()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteAction_UpgradeConfigValidationError{
+				Field:  "Enabled",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	return nil
+}
+
+// RouteAction_UpgradeConfigValidationError is the validation error returned by
+// RouteAction_UpgradeConfig.Validate if the designated constraints aren't met.
+type RouteAction_UpgradeConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e RouteAction_UpgradeConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRouteAction_UpgradeConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = RouteAction_UpgradeConfigValidationError{}
 
 // Validate checks the field values on RouteAction_RetryPolicy_RetryPriority
 // with the rules defined in the proto definition for this message. If any

@@ -27,7 +27,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -500,11 +500,7 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		// no tls config at all is valid
 		return
 	}
-	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
-		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
-		}
-	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
+	if tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -1525,6 +1521,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
 	}
 
+	// deprecated
 	for name := range http.AppendHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
@@ -1540,6 +1537,27 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	for _, name := range http.RemoveResponseHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
+
+	// header manipulation
+	for name := range http.Headers.GetRequest().GetAdd() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for name := range http.Headers.GetRequest().GetSet() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for _, name := range http.Headers.GetRequest().GetRemove() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for name := range http.Headers.GetResponse().GetAdd() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for name := range http.Headers.GetResponse().GetSet() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for _, name := range http.Headers.GetResponse().GetRemove() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+
 	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
@@ -1581,6 +1599,8 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
+
+		// deprecated
 		for name := range weight.AppendRequestHeaders {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
@@ -1593,6 +1613,27 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		for _, name := range weight.RemoveResponseHeaders {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
+
+		// header manipulations
+		for name := range weight.Headers.GetRequest().GetAdd() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.Headers.GetRequest().GetSet() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.Headers.GetRequest().GetRemove() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.Headers.GetResponse().GetAdd() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.Headers.GetResponse().GetSet() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.Headers.GetResponse().GetRemove() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
 		totalWeight += weight.Weight
@@ -1611,10 +1652,10 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
-		if len(weights) > 1 && weight.Weight < 1 {
-			errs = multierror.Append(errs, errors.New("positive weight is required"))
-		}
 		totalWeight += weight.Weight
+	}
+	if len(weights) > 1 && totalWeight != 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
 	}
 	return
 }

@@ -32,18 +32,18 @@ type AttributeContext struct {
 	// The source of a network activity, such as starting a TCP connection.
 	// In a multi hop network activity, the source represents the sender of the
 	// last hop.
-	Source *AttributeContext_Peer `protobuf:"bytes,1,opt,name=source" json:"source,omitempty"`
+	Source *AttributeContext_Peer `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
 	// The destination of a network activity, such as accepting a TCP connection.
 	// In a multi hop network activity, the destination represents the receiver of
 	// the last hop.
-	Destination *AttributeContext_Peer `protobuf:"bytes,2,opt,name=destination" json:"destination,omitempty"`
+	Destination *AttributeContext_Peer `protobuf:"bytes,2,opt,name=destination,proto3" json:"destination,omitempty"`
 	// Represents a network request, such as an HTTP request.
-	Request *AttributeContext_Request `protobuf:"bytes,4,opt,name=request" json:"request,omitempty"`
+	Request *AttributeContext_Request `protobuf:"bytes,4,opt,name=request,proto3" json:"request,omitempty"`
 	// This is analogous to http_request.headers, however these contents will not be sent to the
 	// upstream server. Context_extensions provide an extension mechanism for sending additional
 	// information to the auth server without modifying the proto definition. It maps to the
 	// internal opaque context in the filter chain.
-	ContextExtensions    map[string]string `protobuf:"bytes,10,rep,name=context_extensions,json=contextExtensions" json:"context_extensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	ContextExtensions    map[string]string `protobuf:"bytes,10,rep,name=context_extensions,json=contextExtensions,proto3" json:"context_extensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -117,7 +117,7 @@ func (m *AttributeContext) GetContextExtensions() map[string]string {
 type AttributeContext_Peer struct {
 	// The address of the peer, this is typically the IP address.
 	// It can also be UDS path, or others.
-	Address *core.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Address *core.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// The canonical service name of the peer.
 	// It should be set to :ref:`the HTTP x-envoy-downstream-service-cluster
 	// <config_http_conn_man_headers_downstream-service-cluster>`
@@ -127,7 +127,7 @@ type AttributeContext_Peer struct {
 	// The labels associated with the peer.
 	// These could be pod labels for Kubernetes or tags for VMs.
 	// The source of the labels could be an X.509 certificate or other configuration.
-	Labels map[string]string `protobuf:"bytes,3,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Labels map[string]string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// The authenticated identity of this peer.
 	// For example, the identity associated with the workload such as a service account.
 	// If an X.509 certificate is used to assert the identity this field should be sourced from
@@ -207,9 +207,9 @@ func (m *AttributeContext_Peer) GetPrincipal() string {
 // Represents a network request, such as an HTTP request.
 type AttributeContext_Request struct {
 	// The timestamp when the proxy receives the first byte of the request.
-	Time *types.Timestamp `protobuf:"bytes,1,opt,name=time" json:"time,omitempty"`
+	Time *types.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
 	// Represents an HTTP request or an HTTP-like request.
-	Http                 *AttributeContext_HttpRequest `protobuf:"bytes,2,opt,name=http" json:"http,omitempty"`
+	Http                 *AttributeContext_HttpRequest `protobuf:"bytes,2,opt,name=http,proto3" json:"http,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
 	XXX_unrecognized     []byte                        `json:"-"`
 	XXX_sizecache        int32                         `json:"-"`
@@ -275,7 +275,7 @@ type AttributeContext_HttpRequest struct {
 	// The HTTP request headers. If multiple headers share the same key, they
 	// must be merged according to the HTTP spec. All header keys must be
 	// lowercased, because HTTP header keys are case-insensitive.
-	Headers map[string]string `protobuf:"bytes,3,rep,name=headers" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Headers map[string]string `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// The HTTP URL path.
 	Path string `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
 	// The HTTP request `Host` or 'Authority` header value.
@@ -679,6 +679,9 @@ func encodeVarintAttributeContext(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *AttributeContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Source != nil {
@@ -708,6 +711,9 @@ func (m *AttributeContext) Size() (n int) {
 }
 
 func (m *AttributeContext_Peer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Address != nil {
@@ -737,6 +743,9 @@ func (m *AttributeContext_Peer) Size() (n int) {
 }
 
 func (m *AttributeContext_Request) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Time != nil {
@@ -754,6 +763,9 @@ func (m *AttributeContext_Request) Size() (n int) {
 }
 
 func (m *AttributeContext_HttpRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Id)

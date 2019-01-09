@@ -63,7 +63,6 @@ spec:
         chart: {{ template "grafana.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
     spec:
       serviceAccountName: istio-grafana-post-install-account
       containers:

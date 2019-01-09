@@ -15,15 +15,12 @@
 package source
 
 import (
-	"sort"
-	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
@@ -43,22 +40,15 @@ type sourceImpl struct {
 var _ runtime.Source = &sourceImpl{}
 
 // New returns a Kubernetes implementation of runtime.Source.
-func New(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config) (runtime.Source, error) {
-	return newSource(k, resyncPeriod, cfg, kube_meta.Types.All())
-}
-
-func newSource(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Config, specs []kube.ResourceSpec) (runtime.Source, error) {
+func New(k kube.Interfaces, resyncPeriod time.Duration, schema *kube.Schema, cfg *converter.Config) (runtime.Source, error) {
 	s := &sourceImpl{
 		cfg:    cfg,
 		ifaces: k,
+		ch:     make(chan resource.Event, 1024),
 	}
 
-	sort.Slice(specs, func(i, j int) bool {
-		return strings.Compare(specs[i].CanonicalResourceName(), specs[j].CanonicalResourceName()) < 0
-	})
-
 	scope.Infof("Registering the following resources:")
-	for i, spec := range specs {
+	for i, spec := range schema.All() {
 		scope.Infof("[%d]", i)
 		scope.Infof("  Source:    %s", spec.CanonicalResourceName())
 		scope.Infof("  Type URL:  %s", spec.Target.TypeURL)
@@ -77,8 +67,6 @@ func newSource(k kube.Interfaces, resyncPeriod time.Duration, cfg *converter.Con
 
 // Start implements runtime.Source
 func (s *sourceImpl) Start() (chan resource.Event, error) {
-	s.ch = make(chan resource.Event, 1024)
-
 	for _, l := range s.listeners {
 		l.start()
 	}

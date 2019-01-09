@@ -42,19 +42,103 @@
       }
     ]
   },
-  "editable": true,
+  "editable": false,
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
   "links": [],
   "panels": [
     {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 46,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(istio_build{component=\"galley\"}) by (tag)",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ tag }}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Galley Versions",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 5
       },
       "id": 40,
       "panels": [],
@@ -72,7 +156,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 1
+        "y": 6
       },
       "id": 36,
       "legend": {
@@ -205,7 +289,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 1
+        "y": 6
       },
       "id": 38,
       "legend": {
@@ -303,7 +387,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 1
+        "y": 6
       },
       "id": 42,
       "legend": {
@@ -394,7 +478,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 1
+        "y": 6
       },
       "id": 44,
       "legend": {
@@ -472,7 +556,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 14
       },
       "id": 10,
       "panels": [],
@@ -490,7 +574,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 10
+        "y": 15
       },
       "id": 2,
       "legend": {
@@ -588,7 +672,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 10
+        "y": 15
       },
       "id": 4,
       "legend": {
@@ -686,7 +770,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 10
+        "y": 15
       },
       "id": 8,
       "legend": {
@@ -791,7 +875,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 16
+        "y": 21
       },
       "id": 6,
       "legend": {
@@ -870,7 +954,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 27
       },
       "id": 34,
       "panels": [],
@@ -888,7 +972,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 23
+        "y": 28
       },
       "id": 28,
       "legend": {
@@ -979,7 +1063,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 23
+        "y": 28
       },
       "id": 30,
       "legend": {
@@ -1070,7 +1154,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 23
+        "y": 28
       },
       "id": 32,
       "legend": {
@@ -1149,7 +1233,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 34
       },
       "id": 12,
       "panels": [],
@@ -1167,7 +1251,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 30
+        "y": 35
       },
       "id": 14,
       "legend": {
@@ -1258,7 +1342,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 30
+        "y": 35
       },
       "id": 16,
       "legend": {
@@ -1342,7 +1426,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 30
+        "y": 35
       },
       "id": 24,
       "legend": {
@@ -1421,7 +1505,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 41
       },
       "id": 18,
       "panels": [],
@@ -1439,7 +1523,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 37
+        "y": 42
       },
       "id": 20,
       "legend": {
@@ -1523,7 +1607,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 37
+        "y": 42
       },
       "id": 22,
       "legend": {
@@ -1607,7 +1691,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 37
+        "y": 42
       },
       "id": 26,
       "legend": {
@@ -1718,6 +1802,6 @@
   },
   "timezone": "",
   "title": "Istio Galley Dashboard",
-  "uid": "DMXUJ6dmz",
-  "version": 2
+  "uid": "TSEY6jLmk",
+  "version": 3
 }

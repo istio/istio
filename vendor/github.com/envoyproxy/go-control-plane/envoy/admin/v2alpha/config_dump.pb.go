@@ -37,7 +37,7 @@ type ConfigDump struct {
 	// * *clusters*: :ref:`ClustersConfigDump <envoy_api_msg_admin.v2alpha.ClustersConfigDump>`
 	// * *listeners*: :ref:`ListenersConfigDump <envoy_api_msg_admin.v2alpha.ListenersConfigDump>`
 	// * *routes*:  :ref:`RoutesConfigDump <envoy_api_msg_admin.v2alpha.RoutesConfigDump>`
-	Configs              []types.Any `protobuf:"bytes,1,rep,name=configs" json:"configs"`
+	Configs              []types.Any `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -47,7 +47,7 @@ func (m *ConfigDump) Reset()         { *m = ConfigDump{} }
 func (m *ConfigDump) String() string { return proto.CompactTextString(m) }
 func (*ConfigDump) ProtoMessage()    {}
 func (*ConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{0}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{0}
 }
 func (m *ConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -88,9 +88,9 @@ func (m *ConfigDump) GetConfigs() []types.Any {
 // the static portions of an Envoy configuration by reusing the output as the bootstrap
 // configuration for another Envoy.
 type BootstrapConfigDump struct {
-	Bootstrap v2.Bootstrap `protobuf:"bytes,1,opt,name=bootstrap" json:"bootstrap"`
+	Bootstrap v2.Bootstrap `protobuf:"bytes,1,opt,name=bootstrap,proto3" json:"bootstrap"`
 	// The timestamp when the BootstrapConfig was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -100,7 +100,7 @@ func (m *BootstrapConfigDump) Reset()         { *m = BootstrapConfigDump{} }
 func (m *BootstrapConfigDump) String() string { return proto.CompactTextString(m) }
 func (*BootstrapConfigDump) ProtoMessage()    {}
 func (*BootstrapConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{1}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{1}
 }
 func (m *BootstrapConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -152,20 +152,20 @@ type ListenersConfigDump struct {
 	// will be "".
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The statically loaded listener configs.
-	StaticListeners []ListenersConfigDump_StaticListener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners" json:"static_listeners"`
+	StaticListeners []ListenersConfigDump_StaticListener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners,proto3" json:"static_listeners"`
 	// The dynamically loaded active listeners. These are listeners that are available to service
 	// data plane traffic.
-	DynamicActiveListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners" json:"dynamic_active_listeners"`
+	DynamicActiveListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners,proto3" json:"dynamic_active_listeners"`
 	// The dynamically loaded warming listeners. These are listeners that are currently undergoing
 	// warming in preparation to service data plane traffic. Note that if attempting to recreate an
 	// Envoy configuration from a configuration dump, the warming listeners should generally be
 	// discarded.
-	DynamicWarmingListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,4,rep,name=dynamic_warming_listeners,json=dynamicWarmingListeners" json:"dynamic_warming_listeners"`
+	DynamicWarmingListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,4,rep,name=dynamic_warming_listeners,json=dynamicWarmingListeners,proto3" json:"dynamic_warming_listeners"`
 	// The dynamically loaded draining listeners. These are listeners that are currently undergoing
 	// draining in preparation to stop servicing data plane traffic. Note that if attempting to
 	// recreate an Envoy configuration from a configuration dump, the draining listeners should
 	// generally be discarded.
-	DynamicDrainingListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,5,rep,name=dynamic_draining_listeners,json=dynamicDrainingListeners" json:"dynamic_draining_listeners"`
+	DynamicDrainingListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,5,rep,name=dynamic_draining_listeners,json=dynamicDrainingListeners,proto3" json:"dynamic_draining_listeners"`
 	XXX_NoUnkeyedLiteral     struct{}                              `json:"-"`
 	XXX_unrecognized         []byte                                `json:"-"`
 	XXX_sizecache            int32                                 `json:"-"`
@@ -175,7 +175,7 @@ func (m *ListenersConfigDump) Reset()         { *m = ListenersConfigDump{} }
 func (m *ListenersConfigDump) String() string { return proto.CompactTextString(m) }
 func (*ListenersConfigDump) ProtoMessage()    {}
 func (*ListenersConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{2}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{2}
 }
 func (m *ListenersConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -242,9 +242,9 @@ func (m *ListenersConfigDump) GetDynamicDrainingListeners() []ListenersConfigDum
 // Describes a statically loaded cluster.
 type ListenersConfigDump_StaticListener struct {
 	// The listener config.
-	Listener *v21.Listener `protobuf:"bytes,1,opt,name=listener" json:"listener,omitempty"`
+	Listener *v21.Listener `protobuf:"bytes,1,opt,name=listener,proto3" json:"listener,omitempty"`
 	// The timestamp when the Listener was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -254,7 +254,7 @@ func (m *ListenersConfigDump_StaticListener) Reset()         { *m = ListenersCon
 func (m *ListenersConfigDump_StaticListener) String() string { return proto.CompactTextString(m) }
 func (*ListenersConfigDump_StaticListener) ProtoMessage()    {}
 func (*ListenersConfigDump_StaticListener) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{2, 0}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{2, 0}
 }
 func (m *ListenersConfigDump_StaticListener) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -305,9 +305,9 @@ type ListenersConfigDump_DynamicListener struct {
 	// by the API.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The listener config.
-	Listener *v21.Listener `protobuf:"bytes,2,opt,name=listener" json:"listener,omitempty"`
+	Listener *v21.Listener `protobuf:"bytes,2,opt,name=listener,proto3" json:"listener,omitempty"`
 	// The timestamp when the Listener was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -317,7 +317,7 @@ func (m *ListenersConfigDump_DynamicListener) Reset()         { *m = ListenersCo
 func (m *ListenersConfigDump_DynamicListener) String() string { return proto.CompactTextString(m) }
 func (*ListenersConfigDump_DynamicListener) ProtoMessage()    {}
 func (*ListenersConfigDump_DynamicListener) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{2, 1}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{2, 1}
 }
 func (m *ListenersConfigDump_DynamicListener) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -376,15 +376,15 @@ type ClustersConfigDump struct {
 	// will be "".
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The statically loaded cluster configs.
-	StaticClusters []ClustersConfigDump_StaticCluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters" json:"static_clusters"`
+	StaticClusters []ClustersConfigDump_StaticCluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters,proto3" json:"static_clusters"`
 	// The dynamically loaded active clusters. These are clusters that are available to service
 	// data plane traffic.
-	DynamicActiveClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters" json:"dynamic_active_clusters"`
+	DynamicActiveClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters,proto3" json:"dynamic_active_clusters"`
 	// The dynamically loaded warming clusters. These are clusters that are currently undergoing
 	// warming in preparation to service data plane traffic. Note that if attempting to recreate an
 	// Envoy configuration from a configuration dump, the warming clusters should generally be
 	// discarded.
-	DynamicWarmingClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,4,rep,name=dynamic_warming_clusters,json=dynamicWarmingClusters" json:"dynamic_warming_clusters"`
+	DynamicWarmingClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,4,rep,name=dynamic_warming_clusters,json=dynamicWarmingClusters,proto3" json:"dynamic_warming_clusters"`
 	XXX_NoUnkeyedLiteral   struct{}                            `json:"-"`
 	XXX_unrecognized       []byte                              `json:"-"`
 	XXX_sizecache          int32                               `json:"-"`
@@ -394,7 +394,7 @@ func (m *ClustersConfigDump) Reset()         { *m = ClustersConfigDump{} }
 func (m *ClustersConfigDump) String() string { return proto.CompactTextString(m) }
 func (*ClustersConfigDump) ProtoMessage()    {}
 func (*ClustersConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{3}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{3}
 }
 func (m *ClustersConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -454,9 +454,9 @@ func (m *ClustersConfigDump) GetDynamicWarmingClusters() []ClustersConfigDump_Dy
 // Describes a statically loaded cluster.
 type ClustersConfigDump_StaticCluster struct {
 	// The cluster config.
-	Cluster *v21.Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster *v21.Cluster `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// The timestamp when the Cluster was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -466,7 +466,7 @@ func (m *ClustersConfigDump_StaticCluster) Reset()         { *m = ClustersConfig
 func (m *ClustersConfigDump_StaticCluster) String() string { return proto.CompactTextString(m) }
 func (*ClustersConfigDump_StaticCluster) ProtoMessage()    {}
 func (*ClustersConfigDump_StaticCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{3, 0}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{3, 0}
 }
 func (m *ClustersConfigDump_StaticCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -517,9 +517,9 @@ type ClustersConfigDump_DynamicCluster struct {
 	// the API.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The cluster config.
-	Cluster *v21.Cluster `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster *v21.Cluster `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// The timestamp when the Cluster was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -529,7 +529,7 @@ func (m *ClustersConfigDump_DynamicCluster) Reset()         { *m = ClustersConfi
 func (m *ClustersConfigDump_DynamicCluster) String() string { return proto.CompactTextString(m) }
 func (*ClustersConfigDump_DynamicCluster) ProtoMessage()    {}
 func (*ClustersConfigDump_DynamicCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{3, 1}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{3, 1}
 }
 func (m *ClustersConfigDump_DynamicCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -586,9 +586,9 @@ func (m *ClustersConfigDump_DynamicCluster) GetLastUpdated() *types.Timestamp {
 // in RDS responses.
 type RoutesConfigDump struct {
 	// The statically loaded route configs.
-	StaticRouteConfigs []RoutesConfigDump_StaticRouteConfig `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs" json:"static_route_configs"`
+	StaticRouteConfigs []RoutesConfigDump_StaticRouteConfig `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs,proto3" json:"static_route_configs"`
 	// The dynamically loaded route configs.
-	DynamicRouteConfigs  []RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs" json:"dynamic_route_configs"`
+	DynamicRouteConfigs  []RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs,proto3" json:"dynamic_route_configs"`
 	XXX_NoUnkeyedLiteral struct{}                              `json:"-"`
 	XXX_unrecognized     []byte                                `json:"-"`
 	XXX_sizecache        int32                                 `json:"-"`
@@ -598,7 +598,7 @@ func (m *RoutesConfigDump) Reset()         { *m = RoutesConfigDump{} }
 func (m *RoutesConfigDump) String() string { return proto.CompactTextString(m) }
 func (*RoutesConfigDump) ProtoMessage()    {}
 func (*RoutesConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{4}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{4}
 }
 func (m *RoutesConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -643,9 +643,9 @@ func (m *RoutesConfigDump) GetDynamicRouteConfigs() []RoutesConfigDump_DynamicRo
 
 type RoutesConfigDump_StaticRouteConfig struct {
 	// The route config.
-	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,1,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,1,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
 	// The timestamp when the Route was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -655,7 +655,7 @@ func (m *RoutesConfigDump_StaticRouteConfig) Reset()         { *m = RoutesConfig
 func (m *RoutesConfigDump_StaticRouteConfig) String() string { return proto.CompactTextString(m) }
 func (*RoutesConfigDump_StaticRouteConfig) ProtoMessage()    {}
 func (*RoutesConfigDump_StaticRouteConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{4, 0}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{4, 0}
 }
 func (m *RoutesConfigDump_StaticRouteConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -704,9 +704,9 @@ type RoutesConfigDump_DynamicRouteConfig struct {
 	// the route configuration was loaded.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The route config.
-	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
 	// The timestamp when the Route was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -716,7 +716,7 @@ func (m *RoutesConfigDump_DynamicRouteConfig) Reset()         { *m = RoutesConfi
 func (m *RoutesConfigDump_DynamicRouteConfig) String() string { return proto.CompactTextString(m) }
 func (*RoutesConfigDump_DynamicRouteConfig) ProtoMessage()    {}
 func (*RoutesConfigDump_DynamicRouteConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{4, 1}
+	return fileDescriptor_config_dump_221ad0a279aee274, []int{4, 1}
 }
 func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1308,6 +1308,9 @@ func encodeVarintConfigDump(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Configs) > 0 {
@@ -1323,6 +1326,9 @@ func (m *ConfigDump) Size() (n int) {
 }
 
 func (m *BootstrapConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = m.Bootstrap.Size()
@@ -1338,6 +1344,9 @@ func (m *BootstrapConfigDump) Size() (n int) {
 }
 
 func (m *ListenersConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1375,6 +1384,9 @@ func (m *ListenersConfigDump) Size() (n int) {
 }
 
 func (m *ListenersConfigDump_StaticListener) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Listener != nil {
@@ -1392,6 +1404,9 @@ func (m *ListenersConfigDump_StaticListener) Size() (n int) {
 }
 
 func (m *ListenersConfigDump_DynamicListener) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1413,6 +1428,9 @@ func (m *ListenersConfigDump_DynamicListener) Size() (n int) {
 }
 
 func (m *ClustersConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1444,6 +1462,9 @@ func (m *ClustersConfigDump) Size() (n int) {
 }
 
 func (m *ClustersConfigDump_StaticCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Cluster != nil {
@@ -1461,6 +1482,9 @@ func (m *ClustersConfigDump_StaticCluster) Size() (n int) {
 }
 
 func (m *ClustersConfigDump_DynamicCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1482,6 +1506,9 @@ func (m *ClustersConfigDump_DynamicCluster) Size() (n int) {
 }
 
 func (m *RoutesConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.StaticRouteConfigs) > 0 {
@@ -1503,6 +1530,9 @@ func (m *RoutesConfigDump) Size() (n int) {
 }
 
 func (m *RoutesConfigDump_StaticRouteConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RouteConfig != nil {
@@ -1520,6 +1550,9 @@ func (m *RoutesConfigDump_StaticRouteConfig) Size() (n int) {
 }
 
 func (m *RoutesConfigDump_DynamicRouteConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -3134,10 +3167,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/admin/v2alpha/config_dump.proto", fileDescriptor_config_dump_e747bab984ff2f76)
+	proto.RegisterFile("envoy/admin/v2alpha/config_dump.proto", fileDescriptor_config_dump_221ad0a279aee274)
 }
 
-var fileDescriptor_config_dump_e747bab984ff2f76 = []byte{
+var fileDescriptor_config_dump_221ad0a279aee274 = []byte{
 	// 728 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x95, 0x3f, 0x6f, 0xd3, 0x4e,
 	0x18, 0xc7, 0x7f, 0x4e, 0xd3, 0xf6, 0xd7, 0x27, 0xa1, 0x2d, 0x4e, 0x9b, 0xa6, 0x1e, 0xda, 0x52,

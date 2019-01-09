@@ -20,12 +20,8 @@ type ServiceRegistry string
 const (
 	// MockRegistry is a service registry that contains 2 hard-coded test services
 	MockRegistry ServiceRegistry = "Mock"
-	// ConfigRegistry is a service registry that listens for service entries in a backing ConfigStore
-	ConfigRegistry ServiceRegistry = "Config"
 	// KubernetesRegistry is a service registry backed by k8s API server
 	KubernetesRegistry ServiceRegistry = "Kubernetes"
 	// ConsulRegistry is a service registry backed by Consul
 	ConsulRegistry ServiceRegistry = "Consul"
-	// MCPRegistry is a service registry backed by MCP ServiceEntries
-	MCPRegistry ServiceRegistry = "MCP"
 )

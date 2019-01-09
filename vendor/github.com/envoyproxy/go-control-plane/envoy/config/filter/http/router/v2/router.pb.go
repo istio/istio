@@ -25,7 +25,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type Router struct {
 	// Whether the router generates dynamic cluster statistics. Defaults to
 	// true. Can be disabled in high performance scenarios.
-	DynamicStats *types.BoolValue `protobuf:"bytes,1,opt,name=dynamic_stats,json=dynamicStats" json:"dynamic_stats,omitempty"`
+	DynamicStats *types.BoolValue `protobuf:"bytes,1,opt,name=dynamic_stats,json=dynamicStats,proto3" json:"dynamic_stats,omitempty"`
 	// Whether to start a child span for egress routed calls. This can be
 	// useful in scenarios where other filters (auth, ratelimit, etc.) make
 	// outbound calls and have child spans rooted at the same ingress
@@ -35,7 +35,7 @@ type Router struct {
 	// are configured in the same way as access logs, but each log entry represents
 	// an upstream request. Presuming retries are configured, multiple upstream
 	// requests may be made for each downstream (inbound) request.
-	UpstreamLog []*v2.AccessLog `protobuf:"bytes,3,rep,name=upstream_log,json=upstreamLog" json:"upstream_log,omitempty"`
+	UpstreamLog []*v2.AccessLog `protobuf:"bytes,3,rep,name=upstream_log,json=upstreamLog,proto3" json:"upstream_log,omitempty"`
 	// Do not add any additional *x-envoy-* headers to requests or responses. This
 	// only affects the :ref:`router filter generated *x-envoy-* headers
 	// <config_http_filters_router_headers_set>`, other Envoy filters and the HTTP
@@ -50,7 +50,7 @@ func (m *Router) Reset()         { *m = Router{} }
 func (m *Router) String() string { return proto.CompactTextString(m) }
 func (*Router) ProtoMessage()    {}
 func (*Router) Descriptor() ([]byte, []int) {
-	return fileDescriptor_router_c1ed4be712b4f19c, []int{0}
+	return fileDescriptor_router_d2a1bd378dea8e6b, []int{0}
 }
 func (m *Router) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -183,6 +183,9 @@ func encodeVarintRouter(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Router) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DynamicStats != nil {
@@ -481,10 +484,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/router/v2/router.proto", fileDescriptor_router_c1ed4be712b4f19c)
+	proto.RegisterFile("envoy/config/filter/http/router/v2/router.proto", fileDescriptor_router_d2a1bd378dea8e6b)
 }
 
-var fileDescriptor_router_c1ed4be712b4f19c = []byte{
+var fileDescriptor_router_d2a1bd378dea8e6b = []byte{
 	// 311 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x90, 0x41, 0x4b, 0xc3, 0x30,
 	0x14, 0xc7, 0xc9, 0x26, 0x43, 0xba, 0x29, 0xa3, 0x88, 0x94, 0x1d, 0xca, 0xd8, 0xa9, 0x20, 0x24,

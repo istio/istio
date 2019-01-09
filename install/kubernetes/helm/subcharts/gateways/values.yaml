@@ -9,6 +9,15 @@ enabled: true
 
 istio-ingressgateway:
   enabled: true
+  #
+  # Secret Discovery Service (SDS) configuration for ingress gateway.
+  #
+  sds:
+    # If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
+    enabled: false
+    # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+    # This server runs in the same pod as ingress gateway.
+    image: node-agent-k8s
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -24,8 +33,12 @@ istio-ingressgateway:
     #  memory: 256Mi
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
+  externalIPs: []
   serviceAnnotations: {}
   podAnnotations: {}
   type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -47,16 +60,16 @@ istio-ingressgateway:
   ## Disable if not needed
   - port: 15029
     targetPort: 15029
-    name: http-kiali
+    name: https-kiali
   - port: 15030
     targetPort: 15030
-    name: http2-prometheus
+    name: https-prometheus
   - port: 15031
     targetPort: 15031
-    name: http2-grafana
+    name: https-grafana
   - port: 15032
     targetPort: 15032
-    name: http2-tracing
+    name: https-tracing
     # This is the port where sni routing happens
   - port: 15443
     targetPort: 15443
@@ -77,8 +90,8 @@ istio-ingressgateway:
   - port: 853
     targetPort: 853
     name: tcp-dns-tls
-  ####### end MESH EXPANSION PORTS ######  
-  ##############   
+  ####### end MESH EXPANSION PORTS ######
+  ##############
   secretVolumes:
   - name: ingressgateway-certs
     secretName: istio-ingressgateway-certs
@@ -92,6 +105,7 @@ istio-ingressgateway:
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
+  nodeSelector: {}
 
 istio-egressgateway:
   enabled: true
@@ -103,6 +117,9 @@ istio-egressgateway:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   serviceAnnotations: {}
   podAnnotations: {}
   type: ClusterIP #change to NodePort or LoadBalancer if need be
@@ -136,6 +153,7 @@ istio-egressgateway:
     # set of clusters for internal services but without Istio mTLS, to
     # enable cross cluster routing.
     ISTIO_META_ROUTER_MODE: "sni-dnat"
+  nodeSelector: {}
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
@@ -150,6 +168,9 @@ istio-ilbgateway:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   resources:
     requests:
       cpu: 800m
@@ -182,4 +203,4 @@ istio-ilbgateway:
   - name: ilbgateway-ca-certs
     secretName: istio-ilbgateway-ca-certs
     mountPath: /etc/istio/ilbgateway-ca-certs
-
+  nodeSelector: {}

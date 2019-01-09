@@ -53,15 +53,17 @@ func TestEventConsistency(t *testing.T) {
 
 	// Test Add Event
 	testEvent = model.EventAdd
-	if rev, err := controller.Create(testConfig); err != nil {
+	var rev string
+	var err error
+	if rev, err = controller.Create(testConfig); err != nil {
 		t.Error(err)
 		return
-	} else {
-
-		lock.Lock()
-		testConfig.ResourceVersion = rev
-		lock.Unlock()
 	}
+
+	lock.Lock()
+	testConfig.ResourceVersion = rev
+	lock.Unlock()
+
 	<-done
 
 	// Test Update Event

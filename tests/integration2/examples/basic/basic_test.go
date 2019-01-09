@@ -19,7 +19,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/ids"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
@@ -28,15 +30,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestBasic(t *testing.T) {
-	// Call test.Requires to explicitly initialize dependencies that the test needs.
-	framework.Requires(t, dependency.Mixer)
-
-	// To access dependencies, and environment specific-functionality, call test.AcquireEnvironment.
-	// This cleans up any environment specific settings and reinitializes the dependencies internally.
-	env := framework.AcquireEnvironment(t)
+	// Call Requires to explicitly initialize dependencies that the test needs.
+	ctx := framework.GetContext(t)
+	ctx.RequireOrSkip(t, lifecycle.Test, &ids.Mixer)
 
 	// Call environment.Configure to set Istio-wide configuration for the test.
-	env.Configure(t, `
+	mixer := components.GetMixer(ctx, t)
+	mixer.Configure(t, lifecycle.Test, `
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
@@ -48,10 +48,6 @@ spec:
    target_ip: destination.name | "mytarget"
 `)
 
-	// Call environment.GetXXXOrFail methods to get handles to Istio components. From here, you can perform
-	// high level operations against these components.
-	m := env.GetMixerOrFail(t)
-
 	// As an example, the following method calls the Report operation against Mixer's own API directly.
-	m.Report(t, map[string]interface{}{})
+	mixer.Report(t, map[string]interface{}{})
 }

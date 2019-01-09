@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
 
@@ -40,38 +40,42 @@ func TestSyncz(t *testing.T) {
 		defer cancel()
 
 		// Need to send two of each so that the second sends an Ack that is picked up
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendCDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendCDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendLDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendLDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendLDSReq(sidecarId(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendLDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendRDSReq(sidecarId(app3Ip, "syncApp"), []string{"80", "8080"}, adsstr); err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 3; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv failed", err)
 			}
 		}
-		node, _ := model.ParseServiceNode(sidecarId(app3Ip, "syncApp"))
+		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, "", adsstr); err != nil {
+			t.Fatal(err)
+		}
+		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
+		if err != nil {
+			t.Fatal("Recv failed", err)
+		}
+		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, rdsResponse.Nonce, adsstr); err != nil {
+			t.Fatal(err)
+		}
+
+		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp"), nil)
 		verifySyncStatus(t, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
@@ -84,37 +88,41 @@ func TestSyncz(t *testing.T) {
 		}
 		defer cancel()
 
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendEDSNack([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendEDSNack([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendCDSReq(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendCDSReq(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendCDSNack(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendCDSNack(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendLDSReq(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendLDSReq(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendLDSNack(sidecarId(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendLDSNack(sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendRDSReq(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
-			t.Fatal(err)
-		}
-		if err := sendRDSNack(sidecarId(app3Ip, "syncApp2"), []string{"80", "8080"}, adsstr); err != nil {
-			t.Fatal(err)
-		}
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 3; i++ {
 			_, err := adsReceive(adsstr, 5*time.Second)
 			if err != nil {
 				t.Fatal("Recv failed", err)
 			}
 		}
-		node, _ := model.ParseServiceNode(sidecarId(app3Ip, "syncApp2"))
+		if err := sendRDSReq(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, "", adsstr); err != nil {
+			t.Fatal(err)
+		}
+		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
+		if err != nil {
+			t.Fatal("Recv failed", err)
+		}
+		if err := sendRDSNack(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, rdsResponse.Nonce, adsstr); err != nil {
+			t.Fatal(err)
+		}
+		node, _ := model.ParseServiceNodeWithMetadata(sidecarID(app3Ip, "syncApp2"), nil)
 		verifySyncStatus(t, node.ID, true, false)
 	})
 }
@@ -218,15 +226,15 @@ func TestConfigDump(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer cancel()
-				if err := sendCDSReq(sidecarId(app3Ip, "dumpApp"), envoy); err != nil {
+				if err := sendCDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
 					t.Fatal(err)
 				}
-				if err := sendLDSReq(sidecarId(app3Ip, "dumpApp"), envoy); err != nil {
+				if err := sendLDSReq(sidecarID(app3Ip, "dumpApp"), envoy); err != nil {
 					t.Fatal(err)
 				}
 				// Only most recent proxy will have routes
 				if i == 1 {
-					if err := sendRDSReq(sidecarId(app3Ip, "dumpApp"), []string{"80", "8080"}, envoy); err != nil {
+					if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
 						t.Fatal(err)
 					}
 					_, err := adsReceive(envoy, 5*time.Second)

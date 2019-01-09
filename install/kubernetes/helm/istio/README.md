@@ -116,6 +116,11 @@ The chart deploys pods that consume minimum resources as specified in the resour
     EOF
     ```
 
+1. Add `istio.io` chart repository and point to the release:
+    ```
+    $ helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
+    ```
+
 1. Build the Helm dependencies:
     ```
     $ helm dep update install/kubernetes/helm/istio
@@ -158,7 +163,7 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `gateways.enabled` | Specifies whether gateway(both Ingres and Egress) should be installed | true/false | `true` |
 | `gateways.istio-ingressgateway.enabled` | Specifies whether Ingress gateway should be installed | true/false | `true` |
 | `gateways.istio-egressgateway.enabled` | Specifies whether Egress gateway should be installed | true/false | `true` |
-| `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | `true` |
+| `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | true/false | `true` |
 | `galley.enabled` | Specifies whether Galley should be installed for server-side config validation | true/false | `true` |
 | `security.enabled` | Specifies whether Citadel should be installed | true/false | `true` |
 | `mixer.policy.enabled` | Specifies whether Mixer Policy should be installed | true/false | `true` |
