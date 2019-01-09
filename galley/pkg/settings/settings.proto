@@ -1,0 +1,226 @@
+//  Copyright 2019 Istio Authors
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
+syntax = "proto3";
+
+package istio.galley.settings;
+
+import "google/protobuf/duration.proto";
+
+option go_package="istio.io/istio/galley/pkg/settings";
+
+// Settings for running Galley. Galley expects a yaml file of this proto for its config-file command line
+// option.
+message Galley {
+    // General settings
+    General general = 1;
+
+    // Validation related settings
+    Validation validation = 2;
+
+    // Config processing related settings
+    Processing processing = 3;
+}
+
+message General {
+    // Port for exposing self-monitoring information.
+    // Defaults to 9093
+    int32 monitoring_port = 1;
+
+    // Port to use for exposing profiling
+    // Defaults to 9094
+    int32 pprof_port = 2;
+
+    // Enable profiling for Galley
+    // Defaults to false
+    bool enable_profiling = 3;
+
+    // The path to the Mesh config file. If the file is not found, default Mesh config values are used.
+    // Defaults to "/etc/mesh-config/mesh".
+    string mesh_config_file = 4;
+
+    // Path to the kube config file to use. If not specified, then in-cluster configuration will be used.
+    // Defaults to in-cluster configuration.
+    string kube_config = 5;
+
+    // Liveness probe related settings
+    Probe liveness = 6;
+
+    // Readiness probe related settings
+    Probe readiness = 7;
+
+    // Introspection options
+    Introspection introspection = 8;
+}
+
+message Introspection {
+    // The IP port to use for ctrlz.
+    // Defaults to 9876
+    int32 port = 1;
+
+    // The IP address to listen on for ctrlz.
+    // Defaults to 127.0.0.1
+    string address = 2;
+}
+
+// Validation related settings
+message Validation {
+
+    // Disable the validation service.
+    bool disable = 1;
+
+    // WebhookConfigFile is the path to the validatingwebhookconfiguration
+    // file that should be used for self-registration.
+    // Defaults to /etc/config/validatingwebhookconfiguration.yaml
+    string webhook_config_file = 2;
+
+    // Port where the webhook is served. Per k8s admission registration requirements this should be 443 unless
+    // there is only a single port for the service.
+    // Defaults to 443.
+    int32 webhook_port = 3;
+
+    // Name of the k8s validatingwebhookconfiguration resource to create.
+    // Defaults to "istio-galley".
+    string webhook_name = 4;
+
+    // The namespace in which the validation deployment and service resides.
+    // Defaults to  "istio-system".
+    string deployment_namespace = 5;
+
+    // The name of the validation deployment. This, along with deployment_namespace, is used to set the
+    // ownerReference in the validatingwebhookconfiguration. This enables k8s to clean-up the cluster-scoped
+    // validatingwebhookconfiguration when the deployment is deleted.
+    // Defaults to "istio-galley"
+    string deployment_name = 6;
+
+    // The name of the k8s service of the validation webhook. This is used to verify endpoint readiness before
+    // registering the validatingwebhookconfiguration.
+    // Defaults to "istio-galley"
+    string service_name  = 7;
+
+    // TLS settings for validation webhook service.
+    TLS tls = 8;
+}
+
+// Config processing related settings
+message Processing {
+    // Settings for the upstream configuration source
+    Source source = 2;
+
+    // Settings for the MCP Service
+    Server server = 3;
+
+    // Configuration sinks that Galley should connect to and deliver configuration
+    repeated MCPService sinks = 4;
+
+    // DNS Domain suffix to use while constructing Ingress based resources.
+    // Defaults to "cluster.local"
+    string domain_suffix = 5;
+
+}
+
+message Source {
+    oneof source {
+        KubernetesSource kubernetes = 1;
+        FilesystemSource filesystem = 2;
+        MCPService mcp = 3;
+    }
+}
+
+message Server {
+    // Disable the server
+    // Defaults to false
+    bool disable = 1;
+
+    // Address to use for Galley's gRPC API, e.g. tcp://127.0.0.1:9092 or unix:///path/to/file
+    // Defaults to tcp://0.0.0.0:9901.
+    string address = 2;
+
+    // Maximum size of individual gRPC messages
+    // Defaults to 1024 * 1024.
+    int32 max_received_message_size = 3;
+
+    // Maximum number of outstanding RPCs per connection
+    // Defaults to 1024.
+    int32 max_concurrent_streams = 4;
+
+    // Use insecure gRPC communication
+    // Defaults to false.
+    bool insecure = 5;
+
+    // Optional whitelisting file for SPIFFE IDs. If the file is not found, then all incoming connections are
+    // allowed.
+    // Defaults to fail open.
+    string access_list_file = 6;
+
+    // Disable resource readiness checks. This allows Galley to start if not all resource types are supported
+    // Defaults to false
+    bool disable_resource_ready_check = 7;
+}
+
+message KubernetesSource {
+    // Resync period for rescanning Kubernetes resources
+    google.protobuf.Duration resync_period = 1;
+}
+
+message FilesystemSource {
+    // Path to a folder that contains file-based configuration for Istio.
+    // Required
+    string path = 1;
+}
+
+message MCPService {
+    // The address of the MCP Service to dial out to.
+    // Required
+    string address = 1;
+
+    // Use insecure gRPC communication
+    // Defaults to false.
+    bool insecure = 2;
+
+    // The client metadata to supply when connecting to this MCP Service.
+    map<string, string> client_metadata = 3;
+
+    // The name of the Auth plugin to use for gRPC security.
+    // TODO: Default
+    string auth_plugin = 4;
+
+    //  The settings for the auth plugin.
+    map<string, string> auth_plugin_settings = 5;
+}
+
+// TLS specific common settings
+message TLS {
+    // The path to the x509 certificate for https.
+    // Defaults to "/etc/certs/cert-chain.pem"
+    string client_certificate = 1;
+
+    // The path to the x509 private key matching `tls_cert_file`.
+    // Defaults to "/etc/certs/key.pem"
+    string private_key = 2;
+
+    // CACertFile is the path to the x509 CA bundle file.
+    // Defaults to "/etc/certs/root-cert.pem"
+    string ca_certificates = 3;
+}
+
+// Liveness/Readiness Probe specific settings.
+message Probe {
+    // Tthe path to the file used for the existence.
+    string path = 1;
+
+    // The interval for updating the file's last modified
+    // time.
+    google.protobuf.Duration interval = 2;
+}
