@@ -78,9 +78,15 @@ func TestLDSIsolated(t *testing.T) {
 			t.Fatal("No response")
 		}
 
-		for _, s := range []string {"lds_tcp", "lds_http", "rds", "cds", "ecds"} {
+		for _, s := range []string{"lds_tcp", "lds_http", "rds", "cds", "ecds"} {
 			want, err := ioutil.ReadFile(env.IstioOut + "/none_" + s + ".json")
+			if err != nil {
+				t.Fatal(err)
+			}
 			got, err := ioutil.ReadFile("testdata/none_" + s + ".json")
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			if err = util.Compare(got, want); err != nil {
 				t.Error(err)

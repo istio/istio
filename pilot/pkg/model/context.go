@@ -221,12 +221,11 @@ func (node *Proxy) NoneIngressApplicationPort(orig int) int {
 	// check UDS socket or communicate with the application (via scripts or other means) to determine the port.
 	// Sidecar can provide a default value, but in some environments (raw VMs, etc) the port may be in use.
 
-	// Hack/fallback for initial implementation to unblock testing: add or substract 30000 to container ports.
+	// Hack/fallback for initial implementation to unblock testing: add or subtract 30000 to container ports.
 	if orig > 30000 {
 		return orig - 30000
-	} else {
-		return 30000 + orig
 	}
+	return 30000 + orig
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh
