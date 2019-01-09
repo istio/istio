@@ -210,6 +210,25 @@ func (node *Proxy) GetRouterMode() RouterMode {
 	return StandardRouter
 }
 
+// NoneIngressApplicationPort returns the port used by application for an inbound listener.
+// Without iptables we use 3 ports for each inbound service: the original service port, used for connecting
+// to other instances of the service, the 'endpoint port' where Envoy is listening, and a local application port.
+// For iptable modes the last 2 are the same.
+func (node *Proxy) NoneIngressApplicationPort(orig int) int {
+	// TODO: extract the port from Sidecar
+
+	// TODO: allow envoy, via metadata, to provide a workload specific value. For example pilot-agent can
+	// check UDS socket or communicate with the application (via scripts or other means) to determine the port.
+	// Sidecar can provide a default value, but in some environments (raw VMs, etc) the port may be in use.
+
+	// Hack/fallback for initial implementation to unblock testing: add or substract 30000 to container ports.
+	if orig > 30000 {
+		return orig - 30000
+	} else {
+		return 30000 + orig
+	}
+}
+
 // UnnamedNetwork is the default network that proxies in the mesh
 // get when they don't request a specific network view.
 const UnnamedNetwork = ""

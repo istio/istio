@@ -84,7 +84,10 @@ type ADSC struct {
 	// TCPListeners contains all listeners of type TCP (not-HTTP)
 	TCPListeners map[string]*xdsapi.Listener
 
-	// All received clusters, keyed by name
+	// All received clusters of type EDS, keyed by name
+	EDSClusters map[string]*xdsapi.Cluster
+
+	// All received clusters of no-EDS type, keyed by name
 	Clusters map[string]*xdsapi.Cluster
 
 	// All received routes, keyed by route name
@@ -431,6 +434,14 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
+	strResponse, err = json.MarshalIndent(a.EDSClusters, "  ", "  ")
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(base+"_ecds.json", strResponse, 0644)
+	if err != nil {
+		return err
+	}
 	strResponse, err = json.MarshalIndent(a.Clusters, "  ", "  ")
 	if err != nil {
 		return err
@@ -455,15 +466,16 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 
 	cn := []string{}
 	cdsSize := 0
+	edscds := map[string]*xdsapi.Cluster{}
 	cds := map[string]*xdsapi.Cluster{}
 	for _, c := range ll {
 		cdsSize += c.Size()
 		if c.Type != xdsapi.Cluster_EDS {
-			// TODO: save them
+			cds[c.Name] = c
 			continue
 		}
 		cn = append(cn, c.Name)
-		cds[c.Name] = c
+		edscds[c.Name] = c
 	}
 
 	log.Println("CDS: ", len(cn), "size=", cdsSize)
@@ -478,6 +490,7 @@ func (a *ADSC) handleCDS(ll []*xdsapi.Cluster) {
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+	a.EDSClusters = edscds
 	a.Clusters = cds
 
 	select {

@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/features/pilot"
 	"path"
 	"time"
 
@@ -313,11 +314,18 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		Push: push,
 		Node: proxy,
 	}
+	noneMode := proxy.Metadata[pilot.InterceptionMode] == pilot.InterceptionModeNone
 
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-		localityLbEndpoints := buildInboundLocalityLbEndpoints(instance.Endpoint.Port)
+
+		port := instance.Endpoint.Port
+		if noneMode {
+			port = proxy.NoneIngressApplicationPort(port)
+		}
+		localityLbEndpoints := buildInboundLocalityLbEndpoints(port)
+
 		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
 		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
 		// call plugins

@@ -79,10 +79,10 @@ func TestEds(t *testing.T) {
 	})
 	t.Run("CDSSave", func(t *testing.T) {
 		// Moved from cds_test, using new client
-		if len(adsc.Clusters) == 0 {
+		if len(adsc.EDSClusters) == 0 {
 			t.Error("No clusters in ADS response")
 		}
-		strResponse, _ := json.MarshalIndent(adsc.Clusters, " ", " ")
+		strResponse, _ := json.MarshalIndent(adsc.EDSClusters, " ", " ")
 		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
 
 	})
