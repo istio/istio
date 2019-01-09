@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	// identityTemplate is the format template of identity in the CSR request.
+	// identityTemplate is the SPIFFE format template of the identity.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 )
 
@@ -67,7 +67,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
 	}
 	if len(id) != 2 {
-		return nil, fmt.Errorf("Failed to parse the JWT. Validation result length is not 2, but %d", len(id))
+		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))
 	}
 	return &Caller{
 		AuthSource: AuthSourceIDToken,
