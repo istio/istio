@@ -343,7 +343,7 @@ func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	}
 }
 
-func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error) {
+func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest, errP *error, controlChannel chan int) {
 	defer close(reqChannel) // indicates close of the remote side.
 	for {
 		req, err := con.stream.Recv()
@@ -359,7 +359,13 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			totalXDSInternalErrors.Add(1)
 			return
 		}
-		reqChannel <- req
+		select {
+		case <-controlChannel:
+			adsLog.Errorf("ADS: %q %s stream has closed", con.PeerAddr, con.ConID)
+			return
+		default:
+			reqChannel <- req
+		}
 	}
 }
 
@@ -412,7 +418,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	// This also detects close.
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
-	go receiveThread(con, reqChannel, &receiveError)
+	controlChannel := make(chan int, 1)
+	go receiveThread(con, reqChannel, &receiveError, controlChannel)
 
 	for {
 		// Block until either a request is received or a push is triggered.
@@ -606,6 +613,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			err := s.pushAll(con, pushEv)
 			if err != nil {
+				// tell receive thread to quit
+				// and remove req from channel make sure receive thread can stop
+				controlChannel <- 1
+				if len(reqChannel) > 0 {
+					<-reqChannel
+				}
 				return nil
 			}
 
