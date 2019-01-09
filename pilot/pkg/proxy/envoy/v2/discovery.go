@@ -56,7 +56,7 @@ var (
 	// showing up with no break for this time, we'll trigger a push.
 	DebounceMax time.Duration
 
-	// MaxConnLifefime is the maximum duration of an incoming envoy
+	// MaxConnLifetime is the maximum duration of an incoming envoy
 	// connection. Connections that outlive their maximum lifetime
 	// are disconnected. This periodic disconnection enables
 	// gradual rebalancing of load between pilot instances.

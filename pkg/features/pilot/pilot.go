@@ -74,7 +74,7 @@ var (
 	// config. In most cases 'istio-system' should be included. Comma separated (ns1,ns2,istio-system)
 	NetworkScopes = os.Getenv("DEFAULT_NAMESPACE_DEPENDENCIES")
 
-	// MaxConnLifefime is the maximum duration of an incoming envoy
+	// MaxConnLifetime is the maximum duration of an incoming envoy
 	// connection. Connections that outlive their maximum lifetime
 	// are disconnected. This periodic disconnection enables
 	// gradual rebalancing of load between pilot instances.
