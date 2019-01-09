@@ -1371,7 +1371,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 			if err != nil {
 				errs = appendErrors(errs, fmt.Errorf("port (%s) is not a number: %v", hostAndPort[1], err))
 			}
-			if err = ValidatePort(int(port)); err != nil {
+			if err = ValidatePort(port); err != nil {
 				errs = appendErrors(errs, err)
 			}
 		}
