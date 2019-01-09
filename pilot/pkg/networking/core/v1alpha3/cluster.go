@@ -48,15 +48,15 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	instances, err := env.GetProxyServiceInstances(proxy)
-	if err != nil {
-		log.Errorf("failed to get service proxy service instances: %v", err)
-		return nil, err
-	}
-	clusters = append(clusters, configgen.buildOutboundClusters(env, push, proxy, instances)...)
+	clusters = append(clusters, configgen.buildOutboundClusters(env, push, proxy)...)
 
 	switch proxy.Type {
 	case model.SidecarProxy:
+		instances, err := env.GetProxyServiceInstances(proxy)
+		if err != nil {
+			log.Errorf("failed to get service proxy service instances: %v", err)
+			return nil, err
+		}
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
 		managementPorts := make([]*model.Port, 0)
@@ -95,8 +95,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext,
-	proxy *model.Proxy, proxyInstances []*model.ServiceInstance) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext, proxy *model.Proxy) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 
 	inputParams := &plugin.InputParams{
@@ -106,12 +105,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	}
 	networkView := model.GetNetworkView(proxy)
 
-	services := push.Services(proxy)
-
 	// NOTE: Proxy can be nil here due to precomputed CDS
-	for _, service := range services {
+	for _, service := range push.Services(proxy) {
 		config := push.DestinationRule(proxy, service.Hostname)
-
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
 				continue
