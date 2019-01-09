@@ -302,6 +302,8 @@ func (b *backend) Apply(change *client.Change) error {
 		var kind string
 		var name string
 		var contents proto.Message
+		var labels map[string]string
+		var annotations map[string]string
 
 		if scope.DebugEnabled() {
 			scope.Debugf("Processing incoming resource: %q @%s [%s]",
@@ -315,11 +317,15 @@ func (b *backend) Apply(change *client.Change) error {
 			name = legacyResource.Name
 			kind = legacyResource.Kind
 			contents = legacyResource.Contents
+			labels = nil
+			annotations = nil
 		} else {
 			// Otherwise, simply do a direct mapping from typeURL to kind
 			name = o.Metadata.Name
 			kind = b.mapping.kind(typeURL)
 			contents = o.Body
+			labels = o.Metadata.Labels
+			annotations = o.Metadata.Annotations
 		}
 
 		collection, found := newTypeStates[kind]
@@ -331,7 +337,7 @@ func (b *backend) Apply(change *client.Change) error {
 		// Map it to Mixer's store model, and put it in the new collection.
 
 		key := toKey(kind, name)
-		resource, err := toBackendResource(key, contents, o.Metadata.Version)
+		resource, err := toBackendResource(key, labels, annotations, contents, o.Metadata.Version)
 		if err != nil {
 			return err
 		}

@@ -23,6 +23,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 )
@@ -136,7 +137,9 @@ func toKey(kind string, resourceName string) store.Key {
 	}
 }
 
-func toBackendResource(key store.Key, resource proto.Message, version string) (*store.BackEndResource, error) {
+func toBackendResource(key store.Key, labels resource.Labels, annotations resource.Annotations, resource proto.Message,
+	version string) (*store.BackEndResource, error) {
+
 	marshaller := jsonpb.Marshaler{}
 	jsonData, err := marshaller.MarshalToString(resource)
 	if err != nil {
@@ -151,9 +154,11 @@ func toBackendResource(key store.Key, resource proto.Message, version string) (*
 	return &store.BackEndResource{
 		Kind: key.Kind,
 		Metadata: store.ResourceMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-			Revision:  version,
+			Name:        key.Name,
+			Namespace:   key.Namespace,
+			Revision:    version,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: spec,
 	}, nil
