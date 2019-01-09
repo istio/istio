@@ -92,6 +92,15 @@ func (e *Environment) Scope() lifecycle.Scope {
 	return e.scope
 }
 
+// Is mtls enabled
+func (e *Environment) IsMtlsEnabled() bool {
+	if e.s.Values["global.mtls.enabled"] == "true" {
+		return true
+	}
+
+	return false
+}
+
 // Descriptor for this component
 func (e *Environment) Descriptor() component.Descriptor {
 	return descriptors.KubernetesEnvironment
@@ -179,7 +188,7 @@ func (e *Environment) Start(ctx context.Instance, scope lifecycle.Scope) error {
 		name:             e.s.TestNamespace,
 		annotation:       "istio-test",
 		accessor:         e.Accessor,
-		injectionEnabled: false,
+		injectionEnabled: true,
 	}
 
 	if err := e.systemNamespace.allocate(); err != nil {
