@@ -233,9 +233,10 @@ data:
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
         action: keep
         regex: true
-      - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status]
-        action: drop
-        regex: (.+)
+      # Keep target if there's no sidecar or if prometheus.io/scheme is explicitly set to "http"
+      - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status, __meta_kubernetes_pod_annotation_prometheus_io_scheme]
+        action: keep
+        regex: ((;.*)|(.*;http))
       - source_labels: [__meta_kubernetes_pod_annotation_istio_mtls]
         action: drop
         regex: (true)
@@ -275,6 +276,9 @@ data:
       - source_labels: [__meta_kubernetes_pod_annotation_sidecar_istio_io_status, __meta_kubernetes_pod_annotation_istio_mtls]
         action: keep
         regex: (([^;]+);([^;]*))|(([^;]*);(true))
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+        action: drop
+        regex: (http)
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
         action: replace
         target_label: __metrics_path__
