@@ -55,6 +55,15 @@ var (
 	// while debouncing. Defaults to 10 seconds. If events keep
 	// showing up with no break for this time, we'll trigger a push.
 	DebounceMax time.Duration
+
+	// MaxConnLifefime is the maximum duration of an incoming envoy
+	// connection. Connections that outlive their maximum lifetime
+	// are disconnected. This periodic disconnection enables
+	// gradual rebalancing of load between pilot instances.
+	// Note that values specified here will be jittered for each
+	// connection in order to prevent a 'thundering herd' of
+	// simultaneous reconnections.
+	MaxConnLifetime time.Duration
 )
 
 const (
@@ -75,6 +84,7 @@ const (
 func init() {
 	DebounceAfter = envDuration(pilot.DebounceAfter, 100*time.Millisecond)
 	DebounceMax = envDuration(pilot.DebounceMax, 10*time.Second)
+	MaxConnLifetime = envDuration(pilot.MaxConnLifetime, 300*time.Second)
 }
 
 func envDuration(envVal string, def time.Duration) time.Duration {

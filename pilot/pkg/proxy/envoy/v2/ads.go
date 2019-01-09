@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math/rand"
 	"reflect"
 	"sort"
 	"sync"
@@ -392,6 +393,13 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	con := newXdsConnection(peerAddr, stream)
 	defer close(con.doneChannel)
 
+	// generate a connection lifetime that is +- 10% of MaxConnLifetime to avoid
+	// synchronized reconnections.
+	r := rand.New(rand.NewSource(t0.UnixNano()))
+	dMax := time.Second * time.Duration(int64(MaxConnLifetime.Seconds()*.9)+r.Int63n(int64(MaxConnLifetime.Seconds()*.2)+1))
+	lifeTimer := time.NewTimer(dMax)
+	defer lifeTimer.Stop()
+
 	// Do not call: defer close(con.pushChannel) !
 	// the push channel will be garbage collected when the connection is no longer used.
 	// Closing the channel can cause subtle race conditions with push. According to the spec:
@@ -598,6 +606,12 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 			if err != nil {
 				return nil
 			}
+		case <-lifeTimer.C:
+			// The connection lifetime has elapsed.
+			// Return to force a reconnection, which has the effect of natually distributing
+			// load between pilots over time.
+			adsLog.Debugf("ADS: Expired  %s %s", peerAddr, con.ConID)
+			return nil
 
 		}
 	}

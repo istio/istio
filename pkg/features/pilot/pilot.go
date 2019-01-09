@@ -73,6 +73,16 @@ var (
 	// 'admin' namespaces. Using services from any other namespaces will require the new NetworkScope
 	// config. In most cases 'istio-system' should be included. Comma separated (ns1,ns2,istio-system)
 	NetworkScopes = os.Getenv("DEFAULT_NAMESPACE_DEPENDENCIES")
+
+	// MaxConnLifefime is the maximum duration of an incoming envoy
+	// connection. Connections that outlive their maximum lifetime
+	// are disconnected. This periodic disconnection enables
+	// gradual rebalancing of load between pilot instances.
+	// Note that values specified here will be jittered for each
+	// connection in order to prevent a 'thundering herd' of
+	// simultaneous reconnections.
+	// Default is 300s.
+	MaxConnLifetime = os.Getenv("PILOT_MAX_CONN_LIFETIME")
 )
 
 const (

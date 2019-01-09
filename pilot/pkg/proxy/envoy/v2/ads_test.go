@@ -68,6 +68,32 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	t.Log("Received ", res)
 }
 
+func TestForceReconnect(t *testing.T) {
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+	restore := v2.MaxConnLifetime
+	v2.MaxConnLifetime = time.Second * 2
+	defer func() {
+		v2.MaxConnLifetime = restore
+	}()
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	defer cancel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// wait for lifetime to expire, after which the server will close the
+	// connection.
+	time.Sleep(3 * time.Second)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
+	if err == nil {
+		t.Fatal("got nil err, want non-nil")
+	}
+}
+
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
 	s, tearDown := initLocalPilotTestEnv(t)
