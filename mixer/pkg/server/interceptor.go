@@ -60,10 +60,8 @@ func TracingServerInterceptor(tracer opentracing.Tracer) grpc.UnaryServerInterce
 			md = metadata.New(nil)
 		}
 
-		sampled := isSampled(md)
-
 		var t opentracing.Tracer = defaultNoopTracer
-		if sampled {
+		if isSampled(md) {
 			t = tracer
 		}
 
