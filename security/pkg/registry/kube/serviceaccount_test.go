@@ -18,8 +18,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -45,7 +43,6 @@ type testStruct struct {
 	name          string
 	namespace     string
 	expected      string
-	errorExpected bool
 }
 
 func TestSpiffeID(t *testing.T) {
@@ -54,51 +51,33 @@ func TestSpiffeID(t *testing.T) {
 			name:          "foo",
 			namespace:     "bar",
 			expected:      "spiffe://cluster.local/ns/bar/sa/foo",
-			errorExpected: false,
 		},
 		{
 			name:          "foo",
 			namespace:     "",
 			expected:      "spiffe://cluster.local/ns//sa/foo",
-			errorExpected: true,
 		},
 		{
 			name:          "",
 			namespace:     "bar",
 			expected:      "spiffe://cluster.local/ns/bar/sa/",
-			errorExpected: true,
 		},
 		{
 			name:          "",
 			namespace:     "",
 			expected:      "spiffe://cluster.local/ns//sa/",
-			errorExpected: true,
 		},
 		{
 			name:          "svc@test.serviceaccount.com",
 			namespace:     "default",
 			expected:      "spiffe://cluster.local/ns/default/sa/svc@test.serviceaccount.com",
-			errorExpected: false,
 		},
 	}
 	for _, c := range testCases {
-		if id, err := getSpiffeIDOrError(c); (err == nil && c.errorExpected) || (!c.errorExpected && c.expected != id) {
-			t.Errorf("getSpiffeID(%s, %s): expected %s, got %s, expected error %v<>%v", c.name, c.namespace, c.expected, id, c.errorExpected, (err != nil))
+		if id := getSpiffeID(createServiceAccount(c.name, c.namespace)); c.expected != id {
+			t.Errorf("getSpiffeID(%s, %s): expected %s, got %s", c.name, c.namespace, c.expected, id)
 		}
 	}
-}
-
-func getSpiffeIDOrError(s testStruct) (spiffeID string, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			spiffeID = ""
-			err = errors.New("panic received")
-			return
-		}
-	}()
-	err = nil
-	spiffeID = getSpiffeID(createServiceAccount(s.name, s.namespace))
-	return
 }
 
 func TestServiceAccountController(t *testing.T) {
