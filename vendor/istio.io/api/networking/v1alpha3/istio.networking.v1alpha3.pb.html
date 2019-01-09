@@ -426,10 +426,10 @@ spec:
   subsets:
   - name: v1
     labels:
-      app.kubernetes.io/version: v1
+      version: v1
   - name: v2
     labels:
-      app.kubernetes.io/version: v2
+      version: v2
 </code></pre>
 
 <p>The following VirtualService sets a timeout of 5s for all calls to
@@ -582,7 +582,7 @@ spec:
   subsets:
   - name: testversion
     labels:
-      app.kubernetes.io/version: v3
+      version: v3
     trafficPolicy:
       loadBalancer:
         simple: ROUND_ROBIN
@@ -705,7 +705,7 @@ metadata:
   name: reviews-lua
 spec:
   workloadLabels:
-    app.kubernetes.io/name: reviews
+    app: reviews
   filters:
   - listenerMatch:
       portNumber: 8080
@@ -1092,7 +1092,7 @@ metadata:
   namespace: some-config-namespace
 spec:
   selector:
-    app.kubernetes.io/name: my-gateway-controller
+    app: my-gateway-controller
   servers:
   - port:
       number: 80
@@ -1959,10 +1959,10 @@ spec:
   subsets:
   - name: v1
     labels:
-      app.kubernetes.io/version: v1
+      version: v1
   - name: v2
     labels:
-      app.kubernetes.io/version: v2
+      version: v2
 </code></pre>
 
 <p>Traffic can also be split across two entirely different services without
@@ -2769,7 +2769,7 @@ metadata:
   name: my-ingress
 spec:
   selector:
-    app.kubernetes.io/name: my-ingress-gateway
+    app: my-ingress-gateway
   servers:
   - port:
       number: 80
@@ -2787,7 +2787,7 @@ metadata:
   name: my-tcp-ingress
 spec:
   selector:
-    app.kubernetes.io/name: my-tcp-ingress-gateway
+    app: my-tcp-ingress-gateway
   servers:
   - port:
       number: 27018
@@ -2805,7 +2805,7 @@ metadata:
   name: my-tls-ingress
 spec:
   selector:
-    app.kubernetes.io/name: my-tls-ingress-gateway
+    app: my-tls-ingress-gateway
   servers:
   - port:
       number: 443
@@ -3755,7 +3755,7 @@ spec:
   subsets:
   - name: testversion
     labels:
-      app.kubernetes.io/version: v3
+      version: v3
     trafficPolicy:
       loadBalancer:
         simple: ROUND_ROBIN
@@ -4342,10 +4342,10 @@ spec:
   subsets:
   - name: v1
     labels:
-      app.kubernetes.io/version: v1
+      version: v1
   - name: v2
     labels:
-      app.kubernetes.io/version: v2
+      version: v2
 </code></pre>
 
 <table class="message-fields">

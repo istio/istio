@@ -72,10 +72,10 @@ var _ = math.Inf
 //   subsets:
 //   - name: v1
 //     labels:
-//       app.kubernetes.io/version: v1
+//       version: v1
 //   - name: v2
 //     labels:
-//       app.kubernetes.io/version: v2
+//       version: v2
 // ```
 //
 type VirtualService struct {
@@ -249,10 +249,10 @@ func (m *VirtualService) GetConfigScope() ConfigScope {
 //   subsets:
 //   - name: v1
 //     labels:
-//       app.kubernetes.io/version: v1
+//       version: v1
 //   - name: v2
 //     labels:
-//       app.kubernetes.io/version: v2
+//       version: v2
 // ```
 //
 // The following VirtualService sets a timeout of 5s for all calls to
@@ -920,10 +920,10 @@ func (m *HTTPMatchRequest) GetGateways() []string {
 //   subsets:
 //   - name: v1
 //     labels:
-//       app.kubernetes.io/version: v1
+//       version: v1
 //   - name: v2
 //     labels:
-//       app.kubernetes.io/version: v2
+//       version: v2
 // ```
 //
 // Traffic can also be split across two entirely different services without

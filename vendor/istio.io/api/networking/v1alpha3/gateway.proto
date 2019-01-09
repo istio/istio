@@ -39,7 +39,7 @@ option go_package = "istio.io/api/networking/v1alpha3";
 //   namespace: some-config-namespace
 // spec:
 //   selector:
-//     app.kubernetes.io/name: my-gateway-controller
+//     app: my-gateway-controller
 //   servers:
 //   - port:
 //       number: 80
@@ -175,7 +175,7 @@ message Gateway {
 //   name: my-ingress
 // spec:
 //   selector:
-//     app.kubernetes.io/name: my-ingress-gateway
+//     app: my-ingress-gateway
 //   servers:
 //   - port:
 //       number: 80
@@ -194,7 +194,7 @@ message Gateway {
 //   name: my-tcp-ingress
 // spec:
 //   selector:
-//     app.kubernetes.io/name: my-tcp-ingress-gateway
+//     app: my-tcp-ingress-gateway
 //   servers:
 //   - port:
 //       number: 27018
@@ -213,7 +213,7 @@ message Gateway {
 //   name: my-tls-ingress
 // spec:
 //   selector:
-//     app.kubernetes.io/name: my-tls-ingress-gateway
+//     app: my-tls-ingress-gateway
 //   servers:
 //   - port:
 //       number: 443
