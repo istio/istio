@@ -15,9 +15,12 @@
 package server
 
 import (
+	"context"
 	"testing"
 
+	"github.com/opentracing/opentracing-go/mocktracer"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -55,4 +58,34 @@ func TestB3WithTraceParentAndSpanIdFalse(t *testing.T) {
 
 func TestB3CaseFalse(t *testing.T) {
 	assert.False(t, isSampled(metadata.New(map[string]string{"B3": "0"})))
+}
+
+func TestSampledSpan(t *testing.T) {
+	tracer := mocktracer.New()
+	interceptor := TracingServerInterceptor(tracer)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+		"b3": []string{"1"},
+	})
+	info := &grpc.UnaryServerInfo{
+		FullMethod: "mymethod",
+	}
+	interceptor(ctx, nil, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, nil
+	})
+	assert.Len(t, tracer.FinishedSpans(), 1)
+}
+
+func TestUnampledSpan(t *testing.T) {
+	tracer := mocktracer.New()
+	interceptor := TracingServerInterceptor(tracer)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+		"b3": []string{"0"},
+	})
+	info := &grpc.UnaryServerInfo{
+		FullMethod: "mymethod",
+	}
+	interceptor(ctx, nil, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, nil
+	})
+	assert.Len(t, tracer.FinishedSpans(), 0)
 }
