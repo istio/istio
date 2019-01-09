@@ -128,6 +128,17 @@ func TestAuthenticate(t *testing.T) {
 			client:         &mockTokenReviewClient{id: nil, err: fmt.Errorf("test error")},
 			expectedErrMsg: "failed to validate the JWT: test error",
 		},
+		"Wrong identity length": {
+			metadata: metadata.MD{
+				"random": []string{},
+				"authorization": []string{
+					"Basic callername",
+					"Bearer bearer-token",
+				},
+			},
+			client:         &mockTokenReviewClient{id: []string{"foo"}, err: nil},
+			expectedErrMsg: "failed to parse the JWT. Validation result length is not 2, but 1",
+		},
 		"Successful": {
 			metadata: metadata.MD{
 				"random": []string{},
