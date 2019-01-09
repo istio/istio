@@ -40,37 +40,37 @@ type serviceAccountPair struct {
 }
 
 type testStruct struct {
-	name          string
-	namespace     string
-	expected      string
+	name      string
+	namespace string
+	expected  string
 }
 
 func TestSpiffeID(t *testing.T) {
 	testCases := []testStruct{
 		{
-			name:          "foo",
-			namespace:     "bar",
-			expected:      "spiffe://cluster.local/ns/bar/sa/foo",
+			name:      "foo",
+			namespace: "bar",
+			expected:  "spiffe://cluster.local/ns/bar/sa/foo",
 		},
 		{
-			name:          "foo",
-			namespace:     "",
-			expected:      "spiffe://cluster.local/ns//sa/foo",
+			name:      "foo",
+			namespace: "",
+			expected:  "spiffe://cluster.local/ns//sa/foo",
 		},
 		{
-			name:          "",
-			namespace:     "bar",
-			expected:      "spiffe://cluster.local/ns/bar/sa/",
+			name:      "",
+			namespace: "bar",
+			expected:  "spiffe://cluster.local/ns/bar/sa/",
 		},
 		{
-			name:          "",
-			namespace:     "",
-			expected:      "spiffe://cluster.local/ns//sa/",
+			name:      "",
+			namespace: "",
+			expected:  "spiffe://cluster.local/ns//sa/",
 		},
 		{
-			name:          "svc@test.serviceaccount.com",
-			namespace:     "default",
-			expected:      "spiffe://cluster.local/ns/default/sa/svc@test.serviceaccount.com",
+			name:      "svc@test.serviceaccount.com",
+			namespace: "default",
+			expected:  "spiffe://cluster.local/ns/default/sa/svc@test.serviceaccount.com",
 		},
 	}
 	for _, c := range testCases {
