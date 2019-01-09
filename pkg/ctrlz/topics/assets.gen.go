@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -1157,16 +1158,16 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"assets/templates/args.html": assetsTemplatesArgsHtml,
+	"assets/templates/args.html":            assetsTemplatesArgsHtml,
 	"assets/templates/collection/item.html": assetsTemplatesCollectionItemHtml,
 	"assets/templates/collection/list.html": assetsTemplatesCollectionListHtml,
 	"assets/templates/collection/main.html": assetsTemplatesCollectionMainHtml,
-	"assets/templates/env.html": assetsTemplatesEnvHtml,
-	"assets/templates/mem.html": assetsTemplatesMemHtml,
-	"assets/templates/metrics.html": assetsTemplatesMetricsHtml,
-	"assets/templates/proc.html": assetsTemplatesProcHtml,
-	"assets/templates/scopes.html": assetsTemplatesScopesHtml,
-	"assets/templates/version.html": assetsTemplatesVersionHtml,
+	"assets/templates/env.html":             assetsTemplatesEnvHtml,
+	"assets/templates/mem.html":             assetsTemplatesMemHtml,
+	"assets/templates/metrics.html":         assetsTemplatesMetricsHtml,
+	"assets/templates/proc.html":            assetsTemplatesProcHtml,
+	"assets/templates/scopes.html":          assetsTemplatesScopesHtml,
+	"assets/templates/version.html":         assetsTemplatesVersionHtml,
 }
 
 // AssetDir returns the file names below a certain
@@ -1208,6 +1209,7 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
 	"assets": &bintree{nil, map[string]*bintree{
 		"templates": &bintree{nil, map[string]*bintree{
@@ -1217,11 +1219,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 				"list.html": &bintree{assetsTemplatesCollectionListHtml, map[string]*bintree{}},
 				"main.html": &bintree{assetsTemplatesCollectionMainHtml, map[string]*bintree{}},
 			}},
-			"env.html": &bintree{assetsTemplatesEnvHtml, map[string]*bintree{}},
-			"mem.html": &bintree{assetsTemplatesMemHtml, map[string]*bintree{}},
+			"env.html":     &bintree{assetsTemplatesEnvHtml, map[string]*bintree{}},
+			"mem.html":     &bintree{assetsTemplatesMemHtml, map[string]*bintree{}},
 			"metrics.html": &bintree{assetsTemplatesMetricsHtml, map[string]*bintree{}},
-			"proc.html": &bintree{assetsTemplatesProcHtml, map[string]*bintree{}},
-			"scopes.html": &bintree{assetsTemplatesScopesHtml, map[string]*bintree{}},
+			"proc.html":    &bintree{assetsTemplatesProcHtml, map[string]*bintree{}},
+			"scopes.html":  &bintree{assetsTemplatesScopesHtml, map[string]*bintree{}},
 			"version.html": &bintree{assetsTemplatesVersionHtml, map[string]*bintree{}},
 		}},
 	}},
@@ -1273,4 +1275,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-

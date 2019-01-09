@@ -83,12 +83,19 @@ type sdsConnection struct {
 
 type sdsservice struct {
 	st cache.SecretManager
+	// skipToken indicates whether token is required.
+	skipToken bool
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification bool) *sdsservice {
+	if st == nil {
+		return nil
+	}
+
 	return &sdsservice{
-		st: st,
+		st:        st,
+		skipToken: skipTokenVerification,
 	}
 }
 
@@ -98,11 +105,16 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 }
 
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	ctx := stream.Context()
-	token, err := getCredentialToken(ctx)
-	if err != nil {
-		log.Errorf("Failed to get credential token from incoming request: %v", err)
-		return err
+	token := ""
+	var ctx context.Context
+	if !s.skipToken {
+		ctx = stream.Context()
+		t, err := getCredentialToken(ctx)
+		if err != nil {
+			log.Errorf("Failed to get credential token from incoming request: %v", err)
+			return err
+		}
+		token = t
 	}
 
 	var receiveError error
@@ -131,7 +143,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			resourceName, err := parseDiscoveryRequest(discReq)
 			if err != nil {
 				log.Errorf("Failed to parse discovery request: %v", err)
-				continue
+				return err
 			}
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
@@ -180,10 +192,14 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 }
 
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	token, err := getCredentialToken(ctx)
-	if err != nil {
-		log.Errorf("Failed to get credential token: %v", err)
-		return nil, err
+	token := ""
+	if !s.skipToken {
+		t, err := getCredentialToken(ctx)
+		if err != nil {
+			log.Errorf("Failed to get credential token: %v", err)
+			return nil, err
+		}
+		token = t
 	}
 
 	resourceName, err := parseDiscoveryRequest(discReq)
@@ -201,7 +217,7 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 }
 
 // NotifyProxy send notification to proxy about secret update,
-// SDS will close streaming connection is secret is nil.
+// SDS will close streaming connection if secret is nil.
 func NotifyProxy(proxyID, resourceName string, secret *model.SecretItem) error {
 	key := cache.ConnKey{
 		ProxyID:      proxyID,

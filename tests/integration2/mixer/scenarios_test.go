@@ -19,8 +19,8 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
@@ -49,8 +49,7 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	testMetric(t, ctx, label, labelValue)
 }
 
-// nolint: interfacer
-func testMetric(t *testing.T, ctx context.Instance, label string, labelValue string) {
+func testMetric(t *testing.T, ctx component.Repository, label string, labelValue string) {
 	t.Helper()
 
 	mxr := components.GetMixer(ctx, t)

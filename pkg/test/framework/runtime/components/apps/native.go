@@ -18,9 +18,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
+	"strconv"
+	"testing"
+	"time"
+
+	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -32,15 +41,6 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
 	"istio.io/istio/pkg/test/framework/runtime/components/pilot"
-	"net"
-	"net/url"
-	"strconv"
-	"testing"
-	"time"
-
-	"github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pkg/test/envoy"
 )
 
 const (
@@ -269,7 +269,7 @@ func newNativeApp(cfg appConfig) (a components.App, err error) {
 	}).NewAgent
 
 	// Create and start the agent.
-	newapp.agent, err = agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory)
+	newapp.agent, err = agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory, nil)
 	if err != nil {
 		return
 	}

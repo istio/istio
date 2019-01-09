@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"fortio.org/fortio/fhttp"
@@ -586,6 +586,8 @@ func waitForMetricsInPrometheus(t *testing.T) error {
 		`round(sum(irate(istio_requests_total[1m])), 0.001)`,
 		`sum(irate(istio_requests_total{response_code=~"4.*"}[1m]))`,
 		`sum(irate(istio_requests_total{response_code=~"5.*"}[1m]))`,
+		`istio_tcp_received_bytes_total{reporter="source"}`,
+		`istio_tcp_sent_bytes_total{reporter="source"}`,
 	}
 
 	for _, duration := range waitDurations {

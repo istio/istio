@@ -17,14 +17,17 @@ package policybackend
 import (
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/runtime/api"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/runtime/api"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pkg/test/fakes/policy"
+	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/util/retry"
 )
 

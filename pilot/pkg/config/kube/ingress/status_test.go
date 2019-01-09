@@ -19,9 +19,10 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -117,7 +118,7 @@ func makeFakeClient() *fake.Clientset {
 	)
 }
 
-func makeStatusSyncer(t *testing.T, client *fake.Clientset) (*StatusSyncer, error) {
+func makeStatusSyncer(t *testing.T, client kubernetes.Interface) (*StatusSyncer, error) {
 	mesh := model.DefaultMeshConfig()
 	mesh.IngressService = "istio-ingress"
 

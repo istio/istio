@@ -16,9 +16,16 @@
 package version
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"strings"
+
+	"go.opencensus.io/stats"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/tag"
+
+	"istio.io/istio/pkg/log"
 )
 
 // The following fields are populated at build time using -ldflags -X.
@@ -30,6 +37,16 @@ var (
 	buildHost        = "unknown"
 	buildDockerHub   = "unknown"
 	buildStatus      = "unknown"
+	buildTag         = "unknown"
+)
+
+var (
+	gitTagKey       tag.Key
+	componentTagKey tag.Key
+	istioBuildTag   = stats.Int64(
+		"istio/build",
+		"Istio component build info",
+		stats.UnitDimensionless)
 )
 
 // BuildInfo describes version information about the binary build.
@@ -41,6 +58,7 @@ type BuildInfo struct {
 	GolangVersion string `json:"golang_version"`
 	DockerHub     string `json:"hub"`
 	BuildStatus   string `json:"status"`
+	GitTag        string `json:"tag"`
 }
 
 // ServerInfo contains the version for a single control plane component
@@ -81,6 +99,8 @@ func NewBuildInfoFromOldString(oldOutput string) (BuildInfo, error) {
 				res.GolangVersion = value
 			case "BuildStatus":
 				res.BuildStatus = value
+			case "GitTag":
+				res.GitTag = value
 			default:
 				return BuildInfo{}, fmt.Errorf("invalid BuildInfo input, field '%s' is not valid", fields[0])
 			}
@@ -119,6 +139,21 @@ func (b BuildInfo) LongForm() string {
 	return fmt.Sprintf("%#v", b)
 }
 
+// RecordComponentBuildTag sets the value for a metric that will be used to track component build tags for
+// tracking rollouts, etc.
+func (b BuildInfo) RecordComponentBuildTag(component string) {
+	b.recordBuildTag(component, tag.New)
+}
+
+func (b BuildInfo) recordBuildTag(component string, newTagCtxFn func(context.Context, ...tag.Mutator) (context.Context, error)) {
+	ctx := context.Background()
+	var err error
+	if ctx, err = newTagCtxFn(ctx, tag.Insert(gitTagKey, b.GitTag), tag.Insert(componentTagKey, component)); err != nil {
+		log.Errorf("could not establish build and component tag keys in context: %v", err)
+	}
+	stats.Record(ctx, istioBuildTag.M(1))
+}
+
 func init() {
 	Info = BuildInfo{
 		Version:       buildVersion,
@@ -128,5 +163,27 @@ func init() {
 		GolangVersion: runtime.Version(),
 		DockerHub:     buildDockerHub,
 		BuildStatus:   buildStatus,
+		GitTag:        buildTag,
+	}
+
+	registerStats(tag.NewKey)
+}
+
+func registerStats(newTagKeyFn func(string) (tag.Key, error)) {
+	var err error
+	if gitTagKey, err = newTagKeyFn("tag"); err != nil {
+		panic(err)
+	}
+	if componentTagKey, err = newTagKeyFn("component"); err != nil {
+		panic(err)
+	}
+	gitTagView := &view.View{
+		Measure:     istioBuildTag,
+		TagKeys:     []tag.Key{componentTagKey, gitTagKey},
+		Aggregation: view.LastValue(),
+	}
+
+	if err = view.Register(gitTagView); err != nil {
+		panic(err)
 	}
 }

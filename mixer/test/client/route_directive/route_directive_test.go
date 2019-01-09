@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/mixer/v1"
+	v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/test/client/env"
 )
 
@@ -133,7 +133,7 @@ func TestRouteDirective(t *testing.T) {
 		},
 		response: http.Header{
 			"X-Istio-Response": []string{"value", "value2"},
-			"Content-Length":   nil,
+			"Content-Length":   []string{"0"},
 		},
 	}, {
 		desc:   "combine operations",

@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -29,12 +30,13 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -97,6 +99,48 @@ var (
 	}
 )
 
+func buildAccessLog(fl *fileaccesslog.FileAccessLog, env *model.Environment) {
+	switch env.Mesh.AccessLogEncoding {
+	case meshconfig.MeshConfig_TEXT:
+		formatString := EnvoyTextLogFormat
+		if env.Mesh.AccessLogFormat != "" {
+			formatString = env.Mesh.AccessLogFormat
+		}
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
+			Format: formatString,
+		}
+	case meshconfig.MeshConfig_JSON:
+		var jsonLog *google_protobuf.Struct
+		// TODO potential optimization to avoid recomputing the user provided format for every listener
+		// mesh AccessLogFormat field could change so need a way to have a cached value that can be cleared
+		// on changes
+		if env.Mesh.AccessLogFormat != "" {
+			jsonFields := map[string]string{}
+			err := json.Unmarshal([]byte(env.Mesh.AccessLogFormat), &jsonFields)
+			if err == nil {
+				jsonLog = &google_protobuf.Struct{
+					Fields: make(map[string]*google_protobuf.Value, len(jsonFields)),
+				}
+				fmt.Println(jsonFields)
+				for key, value := range jsonFields {
+					jsonLog.Fields[key] = &google_protobuf.Value{Kind: &google_protobuf.Value_StringValue{StringValue: value}}
+				}
+			} else {
+				fmt.Println(env.Mesh.AccessLogFormat)
+				log.Errorf("error parsing provided json log format, default log format will be used: %v", err)
+			}
+		}
+		if jsonLog == nil {
+			jsonLog = EnvoyJSONLogFormat
+		}
+		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
+			JsonFormat: jsonLog,
+		}
+	default:
+		log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
+	}
+}
+
 var (
 	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
 	// than nothing.
@@ -131,7 +175,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 	push *model.PushContext) ([]*xdsapi.Listener, error) {
 
 	mesh := env.Mesh
-	managementPorts := env.ManagementPorts(node.IPAddress)
 
 	proxyInstances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
@@ -149,7 +192,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		mgmtListeners := buildSidecarInboundMgmtListeners(node, env, managementPorts, node.IPAddress)
+		// Let ServiceDiscovery decide which IP and Port are used for management if
+		// there are multiple IPs
+		mgmtListeners := make([]*xdsapi.Listener, 0)
+		for _, ip := range node.IPAddresses {
+			managementPorts := env.ManagementPorts(ip)
+			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
+			mgmtListeners = append(mgmtListeners, management...)
+		}
+
 		// If management listener port and service port are same, bad things happen
 		// when running in kubernetes, as the probes stop responding. So, append
 		// non overlapping listeners only.
@@ -226,10 +277,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					},
 				},
 			}},
-			bindToPort: true,
+			bindToPort:      true,
+			skipUserFilters: true,
 		}
 		l := buildListener(opts)
-		if err := marshalFilters(node, l, opts, []plugin.FilterChain{{}}); err != nil {
+		// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
+		// there is no mixer for http_proxy
+		mutable := &plugin.MutableObjects{
+			Listener:     l,
+			FilterChains: []plugin.FilterChain{{}},
+		}
+		pluginParams := &plugin.InputParams{
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
+			Env:              env,
+			Node:             node,
+			ProxyInstances:   proxyInstances,
+			Push:             push,
+		}
+		if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
 			log.Warna("buildSidecarListeners ", err.Error())
 		} else {
 			listeners = append(listeners, l)
@@ -278,8 +344,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		allChains := []plugin.FilterChain{}
 		var httpOpts *httpListenerOpts
 		var tcpNetworkFilters []listener.Filter
-		listenerType := plugin.ModelProtocolToListenerProtocol(protocol)
-		switch listenerType {
+		listenerProtocol := plugin.ModelProtocolToListenerProtocol(protocol)
+		pluginParams := &plugin.InputParams{
+			ListenerProtocol: listenerProtocol,
+			ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
+			Env:              env,
+			Node:             node,
+			ProxyInstances:   proxyInstances,
+			ServiceInstance:  instance,
+			Port:             endpoint.ServicePort,
+			Push:             push,
+		}
+		switch listenerProtocol {
 		case plugin.ListenerProtocolHTTP:
 			httpOpts = &httpListenerOpts{
 				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, push, instance),
@@ -289,7 +365,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				connectionManager: &http_conn.HttpConnectionManager{
 					// Append and forward client cert to backend.
 					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-					ServerName:               EnvoyServerName,
+					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: &google_protobuf.BoolValue{Value: true},
+						Uri:     true,
+						Dns:     true,
+					},
+					ServerName: EnvoyServerName,
 				},
 			}
 			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
@@ -307,16 +388,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, endpoint.ServicePort)
 			continue
 		}
+
 		for _, p := range configgen.Plugins {
-			params := &plugin.InputParams{
-				ListenerProtocol: listenerType,
-				Env:              env,
-				Node:             node,
-				ProxyInstances:   proxyInstances,
-				ServiceInstance:  instance,
-				Port:             endpoint.ServicePort,
-			}
-			chains := p.OnInboundFilterChains(params)
+			chains := p.OnInboundFilterChains(pluginParams)
 			if len(chains) == 0 {
 				continue
 			}
@@ -337,7 +411,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				networkFilters:  tcpNetworkFilters,
 				tlsContext:      chain.TLSContext,
 				match:           chain.FilterChainMatch,
-				listenerFilters: chain.RequiredListenerFilters,
+				listenerFilters: chain.ListenerFilters,
 			})
 		}
 
@@ -348,21 +422,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
 		}
 		for _, p := range configgen.Plugins {
-			params := &plugin.InputParams{
-				ListenerProtocol: listenerType,
-				Env:              env,
-				Node:             node,
-				ProxyInstances:   proxyInstances,
-				ServiceInstance:  instance,
-				Port:             endpoint.ServicePort,
-				Push:             push,
-			}
-			if err := p.OnInboundListener(params, mutable); err != nil {
+			if err := p.OnInboundListener(pluginParams, mutable); err != nil {
 				log.Warn(err.Error())
 			}
 		}
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := marshalFilters(node, mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
+		if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
 			log.Warna("buildSidecarInboundListeners ", err.Error())
 		} else {
 			listeners = append(listeners, mutable.Listener)
@@ -461,7 +526,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				port:           servicePort.Port,
 			}
 
-			switch plugin.ModelProtocolToListenerProtocol(servicePort.Protocol) {
+			pluginParams := &plugin.InputParams{
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
+				ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
+				Env:              env,
+				Node:             node,
+				ProxyInstances:   proxyInstances,
+				Service:          service,
+				Port:             servicePort,
+				Push:             push,
+			}
+			switch pluginParams.ListenerProtocol {
 			case plugin.ListenerProtocolHTTP:
 				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
 				var exists bool
@@ -562,23 +637,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			}
 
 			for _, p := range configgen.Plugins {
-				params := &plugin.InputParams{
-					ListenerProtocol: plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
-					Env:              env,
-					Node:             node,
-					ProxyInstances:   proxyInstances,
-					Service:          service,
-					Port:             servicePort,
-					Push:             push,
-				}
-
-				if err := p.OnOutboundListener(params, mutable); err != nil {
+				if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
 					log.Warn(err.Error())
 				}
 			}
 
 			// Filters are serialized one time into an opaque struct once we have the complete list.
-			if err := marshalFilters(node, mutable.Listener, listenerOpts, mutable.FilterChains); err != nil {
+			if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
 				log.Warna("buildSidecarOutboundListeners: ", err.Error())
 				continue
 			}
@@ -730,10 +795,23 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				filterChainOpts: []*filterChainOpts{{
 					networkFilters: buildInboundNetworkFilters(env, node, instance),
 				}},
+				// No user filters for the management unless we introduce new listener matches
+				skipUserFilters: true,
 			}
 			l := buildListener(listenerOpts)
+			mutable := &plugin.MutableObjects{
+				Listener:     l,
+				FilterChains: []plugin.FilterChain{{}},
+			}
+			pluginParams := &plugin.InputParams{
+				ListenerProtocol: plugin.ListenerProtocolTCP,
+				ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
+				Env:              env,
+				Node:             node,
+				Port:             mPort,
+			}
 			// TODO: should we call plugins for the admin port listeners too? We do everywhere else we construct listeners.
-			if err := marshalFilters(node, l, listenerOpts, []plugin.FilterChain{{}}); err != nil {
+			if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
 				log.Warna("buildSidecarInboundMgmtListeners ", err.Error())
 			} else {
 				listeners = append(listeners, l)
@@ -757,7 +835,7 @@ type httpListenerOpts struct {
 	// If set, use this as a basis
 	connectionManager *http_conn.HttpConnectionManager
 	// stat prefix for the http connection manager
-	// DO not set this field. Will be overridden by marshalFilters
+	// DO not set this field. Will be overridden by buildCompleteFilterChain
 	statPrefix string
 	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
 	// should be added.
@@ -785,6 +863,7 @@ type buildListenerOpts struct {
 	port            int
 	bindToPort      bool
 	filterChainOpts []*filterChainOpts
+	skipUserFilters bool
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
@@ -849,18 +928,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		}
 
 		if util.Is11Proxy(node) {
-			switch env.Mesh.AccessLogEncoding {
-			case meshconfig.MeshConfig_TEXT:
-				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
-					Format: EnvoyTextLogFormat,
-				}
-			case meshconfig.MeshConfig_JSON:
-				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormat,
-				}
-			default:
-				log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
-			}
+			buildAccessLog(fl, env)
 		}
 
 		connectionManager.AccessLog = []*accesslog.AccessLog{
@@ -977,39 +1045,50 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 }
 
-// marshalFilters adds the provided TCP and HTTP filters to the provided Listener and serializes them.
+// buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
 //
 // TODO: should we change this from []plugins.FilterChains to [][]listener.Filter, [][]*http_conn.HttpFilter?
 // TODO: given how tightly tied listener.FilterChains, opts.filterChainOpts, and mutable.FilterChains are to eachother
 // we should encapsulate them some way to ensure they remain consistent (mainly that in each an index refers to the same
 // chain)
-func marshalFilters(node *model.Proxy, l *xdsapi.Listener, opts buildListenerOpts, chains []plugin.FilterChain) error {
+func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *plugin.MutableObjects, opts buildListenerOpts) error {
 	if len(opts.filterChainOpts) == 0 {
-		return fmt.Errorf("must have more than 0 chains in listener: %#v", l)
+		return fmt.Errorf("must have more than 0 chains in listener: %#v", mutable.Listener)
 	}
 
-	for i, chain := range chains {
+	httpConnectionManagers := make([]*http_conn.HttpConnectionManager, len(mutable.FilterChains))
+	for i, chain := range mutable.FilterChains {
 		opt := opts.filterChainOpts[i]
 
 		if len(chain.TCP) > 0 {
-			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, chain.TCP...)
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 		}
 
 		if len(opt.networkFilters) > 0 {
-			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, opt.networkFilters...)
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, opt.networkFilters...)
 		}
 
-		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), l.Name, i)
+		log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), mutable.Listener.Name, i)
 
 		if opt.httpOpts != nil {
-			opt.httpOpts.statPrefix = l.Name
-			connectionManager := buildHTTPConnectionManager(node, opts.env, opt.httpOpts, chain.HTTP)
-			l.FilterChains[i].Filters = append(l.FilterChains[i].Filters, listener.Filter{
+			opt.httpOpts.statPrefix = mutable.Listener.Name
+			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams.Node, opts.env, opt.httpOpts, chain.HTTP)
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, listener.Filter{
 				Name:       xdsutil.HTTPConnectionManager,
-				ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(connectionManager)},
+				ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(httpConnectionManagers[i])},
 			})
-			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d", len(connectionManager.HttpFilters), l.Name, i)
+			log.Debugf("attached HTTP filter with %d http_filter options to listener %q filter chain %d",
+				len(httpConnectionManagers[i].HttpFilters), mutable.Listener.Name, i)
 		}
 	}
+
+	if !opts.skipUserFilters {
+		// NOTE: we have constructed the HTTP connection manager filter above and we are passing the whole filter chain
+		// EnvoyFilter crd could choose to replace the HTTP ConnectionManager that we built or can choose to add
+		// more filters to the HTTP filter chain. In the latter case, the insertUserFilters function will
+		// overwrite the HTTP connection manager in the filter chain after inserting the new filters
+		insertUserFilters(pluginParams, mutable.Listener, httpConnectionManagers)
+	}
+
 	return nil
 }

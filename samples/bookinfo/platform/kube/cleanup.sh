@@ -51,7 +51,7 @@ if [[ ${ret} -eq 0 ]];then
 else
   # ignore NotFound errors
   OUT2=$(grep -v NotFound "${OUTPUT}")
-  if [[ ! -z ${OUT2} ]];then
+  if [[ -n ${OUT2} ]];then
     cat "${OUTPUT}"
     exit ${ret}
   fi

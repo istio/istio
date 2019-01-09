@@ -502,7 +502,7 @@ var (
 
 							case "ip_addr":
 
-								return []uint8(out.IpAddr), true
+								return []byte(out.IpAddr), true
 
 							case "dns_name":
 
@@ -518,7 +518,7 @@ var (
 
 							case "out_str_map":
 
-								return out.OutStrMap, true
+								return attribute.WrapStringMap(out.OutStrMap), true
 
 							default:
 								return nil, false
@@ -2048,7 +2048,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = vIface.(net.IP)
+		r.IpAddr = net.IP(vIface.([]byte))
 
 	}
 
@@ -3475,7 +3475,7 @@ func (b *builder_istio_mixer_template_list_Res2) build(
 			return nil, template.NewErrorPath("IpAddr", err)
 		}
 
-		r.IpAddr = vIface.(net.IP)
+		r.IpAddr = net.IP(vIface.([]byte))
 
 	}
 

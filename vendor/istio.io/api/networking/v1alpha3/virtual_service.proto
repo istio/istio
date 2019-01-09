@@ -16,7 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
-import "networking/v1alpha3/service_dependency.proto";
+import "networking/v1alpha3/sidecar.proto";
 
 // $title: Traffic Routing
 // $description: Configuration affecting traffic routing.
@@ -388,7 +388,7 @@ message HTTPRoute {
   Destination mirror = 9;
 
   // Cross-Origin Resource Sharing policy (CORS). Refer to
-  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+  // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
   // for further details about cross origin resource sharing.
   CorsPolicy cors_policy = 10;
 
@@ -418,7 +418,7 @@ message HTTPRoute {
 
 // Header manipulation rules
 message Headers {
-  // Header manipulation rules to apply before forwarding a request 
+  // Header manipulation rules to apply before forwarding a request
   // to the destination service
   HeaderOperations request = 1;
   // Header manipulation rules to apply before returning a response
@@ -429,8 +429,8 @@ message Headers {
   message HeaderOperations {
     // Overwrite the headers specified by key with the given values
     map<string, string> set = 1;
-    // Apppend the given values to the the headers specified by keys 
-    // (will create a comma seperated list of values)
+    // Append the given values to the headers specified by keys
+    // (will create a comma-separated list of values)
     map<string, string> add = 2;
     // Remove a the specified headers
     repeated string remove = 3;
@@ -908,19 +908,19 @@ message HTTPRetry {
   // Specifies the conditions under which retry takes place.
   // One or more policies can be specified using a ‘,’ delimited list.
   // The supported policies can be found in
-  // "https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on"
-  // and "https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on"
+  // <https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on>
+  // and <https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on>
   string retry_on = 3;
 }
 
 // Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 // service. Refer to
-// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS>
 // for further details about cross origin resource sharing. For example,
 // the following rule restricts cross origin requests to those originating
 // from example.com domain using HTTP POST/GET, and sets the
-// Access-Control-Allow-Credentials header to false. In addition, it only
-// exposes X-Foo-bar header and sets an expiry period of 1 day.
+// `Access-Control-Allow-Credentials` header to false. In addition, it only
+// exposes `X-Foo-bar` header and sets an expiry period of 1 day.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -965,13 +965,13 @@ message CorsPolicy {
   // access. Serialized into Access-Control-Expose-Headers header.
   repeated string expose_headers = 4;
 
-  // Specifies how long the the results of a preflight request can be
-  // cached. Translates to the Access-Control-Max-Age header.
+  // Specifies how long the results of a preflight request can be
+  // cached. Translates to the `Access-Control-Max-Age` header.
   google.protobuf.Duration max_age = 5;
 
   // Indicates whether the caller is allowed to send the actual request
   // (not the preflight) using credentials. Translates to
-  // Access-Control-Allow-Credentials header.
+  // `Access-Control-Allow-Credentials` header.
   google.protobuf.BoolValue allow_credentials = 6;
 }
 

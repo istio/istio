@@ -26,12 +26,10 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/log"
 )
 
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
@@ -56,18 +54,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 		}
 
 		if util.Is11Proxy(node) {
-			switch env.Mesh.AccessLogEncoding {
-			case meshconfig.MeshConfig_TEXT:
-				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_Format{
-					Format: EnvoyTextLogFormat,
-				}
-			case meshconfig.MeshConfig_JSON:
-				fl.AccessLogFormat = &fileaccesslog.FileAccessLog_JsonFormat{
-					JsonFormat: EnvoyJSONLogFormat,
-				}
-			default:
-				log.Warnf("unsupported access log format %v", env.Mesh.AccessLogEncoding)
-			}
+			buildAccessLog(fl, env)
 		}
 
 		config.AccessLog = []*accesslog.AccessLog{
@@ -115,11 +102,13 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	}
 
 	for _, route := range routes {
-		clusterName := istio_route.GetDestinationCluster(route.Destination, push.ServiceByHostname[model.Hostname(route.Destination.Host)], port.Port)
-		clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{
-			Name:   clusterName,
-			Weight: uint32(route.Weight),
-		})
+		if route.Weight > 0 {
+			clusterName := istio_route.GetDestinationCluster(route.Destination, push.ServiceByHostname[model.Hostname(route.Destination.Host)], port.Port)
+			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{
+				Name:   clusterName,
+				Weight: uint32(route.Weight),
+			})
+		}
 	}
 
 	// TODO: Need to handle multiple cluster names for Redis

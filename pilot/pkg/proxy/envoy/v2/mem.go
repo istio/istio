@@ -234,6 +234,7 @@ func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 	out := make([]*model.Service, 0, len(sd.services))
 	for _, service := range sd.services {
 		// Make a new service out of the existing one
+		// nolint: govet
 		newSvc := *service
 		out = append(out, &newSvc)
 	}
@@ -253,6 +254,7 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 		return nil, errors.New("missing service")
 	}
 	// Make a new service out of the existing one
+	// nolint: govet
 	newSvc := *val
 	return &newSvc, sd.GetServiceError
 }
@@ -307,9 +309,11 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 		return sd.WantGetProxyServiceInstances, nil
 	}
 	out := make([]*model.ServiceInstance, 0)
-	si, found := sd.ip2instance[node.IPAddress]
-	if found {
-		out = append(out, si...)
+	for _, ip := range node.IPAddresses {
+		si, found := sd.ip2instance[ip]
+		if found {
+			out = append(out, si...)
+		}
 	}
 	return out, sd.GetProxyServiceInstancesError
 }

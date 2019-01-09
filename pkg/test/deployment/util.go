@@ -16,12 +16,15 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/gogo/protobuf/jsonpb"
 	"io/ioutil"
 	"os"
 	"path"
 
-	"gopkg.in/yaml.v2"
+	"github.com/gogo/protobuf/jsonpb"
+
+	"github.com/gogo/protobuf/jsonpb"
+
+	yaml "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -87,7 +90,7 @@ func DumpPodData(workDir, namespace string, accessor *kube.Accessor) {
 
 		outPath := path.Join(workDir, fmt.Sprintf("%s_%s.yaml", namespace, pod.Name))
 
-		if err := ioutil.WriteFile(outPath, []byte(by), os.ModePerm); err != nil {
+		if err := ioutil.WriteFile(outPath, by, os.ModePerm); err != nil {
 			scopes.CI.Infof("Error writing out pod yaml to file: %v", err)
 		}
 	}

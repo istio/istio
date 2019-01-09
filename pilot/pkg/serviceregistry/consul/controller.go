@@ -87,6 +87,7 @@ func (c *Controller) getServices() (map[string][]string, error) {
 	return data, nil
 }
 
+// nolint: unparam
 func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
 	endpoints, _, err := c.client.Catalog().Service(name, "", q)
 	if err != nil {
@@ -162,8 +163,13 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 			if addr == "" {
 				addr = endpoint.Address
 			}
-			if node.IPAddress == addr {
-				out = append(out, convertInstance(endpoint))
+			if len(node.IPAddresses) > 0 {
+				for _, ipAddress := range node.IPAddresses {
+					if ipAddress == addr {
+						out = append(out, convertInstance(endpoint))
+						break
+					}
+				}
 			}
 		}
 	}

@@ -258,7 +258,8 @@ global:
   sds:
     enabled: false
     udsPath: ""
-    enableTokenMount: false
+    useTrustworthyJwt: false
+    useNormalJwt: false
 
   # Sets an identifier for the remote network to be used for Split Horizon EDS. The network will be sent
   # to the Pilot when connected by the sidecar and will affect the results returned in EDS requests.
@@ -267,6 +268,11 @@ global:
   #
   # Must match the names in the meshNetworks section in the Istio local.
   network: ""
+  
+  # Specifies whether helm test is enabled or not.
+  # This field is set to false by default, so 'helm template ...' 
+  # will ignore the helm test yaml files when generating the template
+  enableHelmTest: false
 
 #
 # Istio CNI plugin enabled

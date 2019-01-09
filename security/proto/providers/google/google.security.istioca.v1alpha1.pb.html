@@ -13,6 +13,11 @@ number_of_entries: 3
 </code></pre>
 <p>Using provided CSR, returns a signed certificate.</p>
 
+<pre id="IstioCertificateService-CreatePodCertificate"><code class="language-proto">rpc CreatePodCertificate(IstioCertificateRequest) returns (IstioCertificateResponse)
+</code></pre>
+<p>Using provided CSR, returns a signed certificate that represents a
+Kubernetes pod identity.</p>
+
 </section>
 <h2 id="Types">Types</h2>
 <h3 id="IstioCertificateRequest">IstioCertificateRequest</h3>

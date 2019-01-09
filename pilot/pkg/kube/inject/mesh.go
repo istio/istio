@@ -36,6 +36,7 @@ const (
 [[- $readinessPeriodValue           := (annotation .ObjectMeta $readinessPeriodKey "{{ .ReadinessPeriodSeconds }}") ]]
 [[- $readinessFailureThresholdValue := (annotation .ObjectMeta $readinessFailureThresholdKey {{ .ReadinessFailureThreshold }}) -]]
 [[- $readinessApplicationPortsValue := (annotation .ObjectMeta $readinessApplicationPortsKey (applicationPorts .Spec.Containers)) -]]
+rewriteAppHTTPProbe: {{ .RewriteAppHTTPProbe }}
 initContainers:
 - name: istio-init
   image: {{ .InitImage }}
@@ -187,6 +188,9 @@ containers:
     [[ end -]]
     [[ if eq (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     runAsUser: 1337
+    {{- if and .SDSEnabled .EnableSdsTokenMount }}
+    runAsGroup: 1337
+    {{ end -}}
     [[- end ]]
   volumeMounts:
   - mountPath: /etc/istio/proxy

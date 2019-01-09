@@ -24,20 +24,20 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Rate limit :ref:`configuration overview <config_rate_limit_service>`.
 type RateLimitServiceConfig struct {
-	// Types that are valid to be assigned to ServiceSpecifier:
-	//	*RateLimitServiceConfig_ClusterName
-	//	*RateLimitServiceConfig_GrpcService
-	ServiceSpecifier     isRateLimitServiceConfig_ServiceSpecifier `protobuf_oneof:"service_specifier"`
-	XXX_NoUnkeyedLiteral struct{}                                  `json:"-"`
-	XXX_unrecognized     []byte                                    `json:"-"`
-	XXX_sizecache        int32                                     `json:"-"`
+	// Specifies the gRPC service that hosts the rate limit service. The client
+	// will connect to this cluster when it needs to make rate limit service
+	// requests.
+	GrpcService          *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService,proto3" json:"grpc_service,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
 func (m *RateLimitServiceConfig) Reset()         { *m = RateLimitServiceConfig{} }
 func (m *RateLimitServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*RateLimitServiceConfig) ProtoMessage()    {}
 func (*RateLimitServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rls_e29e880be7de63a7, []int{0}
+	return fileDescriptor_rls_49ef7d0c0ed5079b, []int{0}
 }
 func (m *RateLimitServiceConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -66,112 +66,11 @@ func (m *RateLimitServiceConfig) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_RateLimitServiceConfig proto.InternalMessageInfo
 
-type isRateLimitServiceConfig_ServiceSpecifier interface {
-	isRateLimitServiceConfig_ServiceSpecifier()
-	MarshalTo([]byte) (int, error)
-	Size() int
-}
-
-type RateLimitServiceConfig_ClusterName struct {
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3,oneof"`
-}
-type RateLimitServiceConfig_GrpcService struct {
-	GrpcService *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService,oneof"`
-}
-
-func (*RateLimitServiceConfig_ClusterName) isRateLimitServiceConfig_ServiceSpecifier() {}
-func (*RateLimitServiceConfig_GrpcService) isRateLimitServiceConfig_ServiceSpecifier() {}
-
-func (m *RateLimitServiceConfig) GetServiceSpecifier() isRateLimitServiceConfig_ServiceSpecifier {
-	if m != nil {
-		return m.ServiceSpecifier
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *RateLimitServiceConfig) GetClusterName() string {
-	if x, ok := m.GetServiceSpecifier().(*RateLimitServiceConfig_ClusterName); ok {
-		return x.ClusterName
-	}
-	return ""
-}
-
 func (m *RateLimitServiceConfig) GetGrpcService() *core.GrpcService {
-	if x, ok := m.GetServiceSpecifier().(*RateLimitServiceConfig_GrpcService); ok {
-		return x.GrpcService
+	if m != nil {
+		return m.GrpcService
 	}
 	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*RateLimitServiceConfig) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RateLimitServiceConfig_OneofMarshaler, _RateLimitServiceConfig_OneofUnmarshaler, _RateLimitServiceConfig_OneofSizer, []interface{}{
-		(*RateLimitServiceConfig_ClusterName)(nil),
-		(*RateLimitServiceConfig_GrpcService)(nil),
-	}
-}
-
-func _RateLimitServiceConfig_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RateLimitServiceConfig)
-	// service_specifier
-	switch x := m.ServiceSpecifier.(type) {
-	case *RateLimitServiceConfig_ClusterName:
-		_ = b.EncodeVarint(1<<3 | proto.WireBytes)
-		_ = b.EncodeStringBytes(x.ClusterName)
-	case *RateLimitServiceConfig_GrpcService:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.GrpcService); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("RateLimitServiceConfig.ServiceSpecifier has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _RateLimitServiceConfig_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RateLimitServiceConfig)
-	switch tag {
-	case 1: // service_specifier.cluster_name
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.ServiceSpecifier = &RateLimitServiceConfig_ClusterName{x}
-		return true, err
-	case 2: // service_specifier.grpc_service
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(core.GrpcService)
-		err := b.DecodeMessage(msg)
-		m.ServiceSpecifier = &RateLimitServiceConfig_GrpcService{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _RateLimitServiceConfig_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RateLimitServiceConfig)
-	// service_specifier
-	switch x := m.ServiceSpecifier.(type) {
-	case *RateLimitServiceConfig_ClusterName:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(len(x.ClusterName)))
-		n += len(x.ClusterName)
-	case *RateLimitServiceConfig_GrpcService:
-		s := proto.Size(x.GrpcService)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -192,12 +91,15 @@ func (m *RateLimitServiceConfig) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.ServiceSpecifier != nil {
-		nn1, err := m.ServiceSpecifier.MarshalTo(dAtA[i:])
+	if m.GrpcService != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRls(dAtA, i, uint64(m.GrpcService.Size()))
+		n1, err := m.GrpcService.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn1
+		i += n1
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -205,28 +107,6 @@ func (m *RateLimitServiceConfig) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *RateLimitServiceConfig_ClusterName) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	dAtA[i] = 0xa
-	i++
-	i = encodeVarintRls(dAtA, i, uint64(len(m.ClusterName)))
-	i += copy(dAtA[i:], m.ClusterName)
-	return i, nil
-}
-func (m *RateLimitServiceConfig_GrpcService) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.GrpcService != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintRls(dAtA, i, uint64(m.GrpcService.Size()))
-		n2, err := m.GrpcService.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
-	}
-	return i, nil
-}
 func encodeVarintRls(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -237,30 +117,17 @@ func encodeVarintRls(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *RateLimitServiceConfig) Size() (n int) {
-	var l int
-	_ = l
-	if m.ServiceSpecifier != nil {
-		n += m.ServiceSpecifier.Size()
+	if m == nil {
+		return 0
 	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *RateLimitServiceConfig_ClusterName) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.ClusterName)
-	n += 1 + l + sovRls(uint64(l))
-	return n
-}
-func (m *RateLimitServiceConfig_GrpcService) Size() (n int) {
 	var l int
 	_ = l
 	if m.GrpcService != nil {
 		l = m.GrpcService.Size()
 		n += 1 + l + sovRls(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -307,35 +174,6 @@ func (m *RateLimitServiceConfig) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: RateLimitServiceConfig: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ClusterName", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRls
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthRls
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ServiceSpecifier = &RateLimitServiceConfig_ClusterName{string(dAtA[iNdEx:postIndex])}
-			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field GrpcService", wireType)
@@ -362,11 +200,12 @@ func (m *RateLimitServiceConfig) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &core.GrpcService{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if m.GrpcService == nil {
+				m.GrpcService = &core.GrpcService{}
+			}
+			if err := m.GrpcService.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.ServiceSpecifier = &RateLimitServiceConfig_GrpcService{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -496,26 +335,23 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/ratelimit/v2/rls.proto", fileDescriptor_rls_e29e880be7de63a7)
+	proto.RegisterFile("envoy/config/ratelimit/v2/rls.proto", fileDescriptor_rls_49ef7d0c0ed5079b)
 }
 
-var fileDescriptor_rls_e29e880be7de63a7 = []byte{
-	// 271 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x8f, 0xbb, 0x4e, 0xc3, 0x30,
-	0x18, 0x85, 0x71, 0x12, 0x10, 0x24, 0x1d, 0x4a, 0x06, 0x08, 0x19, 0xa2, 0x08, 0x18, 0x3a, 0xd9,
-	0x28, 0xbc, 0x41, 0x3a, 0x80, 0x10, 0x62, 0x28, 0x1b, 0x4b, 0x64, 0xcc, 0xdf, 0xc8, 0x52, 0x2e,
-	0xd6, 0x1f, 0x63, 0x89, 0xc7, 0x62, 0x43, 0x4c, 0x1d, 0x19, 0x79, 0x04, 0x94, 0xad, 0x6f, 0x81,
-	0x12, 0x87, 0xcb, 0x66, 0xcb, 0xdf, 0x77, 0xce, 0xb1, 0x7f, 0x06, 0x8d, 0x69, 0x5f, 0x98, 0x68,
-	0x9b, 0xb5, 0x2c, 0x19, 0x72, 0x0d, 0x95, 0xac, 0xa5, 0x66, 0x26, 0x63, 0x58, 0x75, 0x54, 0x61,
-	0xab, 0xdb, 0xf0, 0x64, 0x84, 0xa8, 0x85, 0xe8, 0x2f, 0x44, 0x4d, 0x16, 0x9f, 0x5b, 0x9f, 0x2b,
-	0x39, 0x28, 0xa2, 0x45, 0x60, 0x25, 0x2a, 0x51, 0x74, 0x80, 0x46, 0x0a, 0xb0, 0x01, 0xf1, 0xb1,
-	0xe1, 0x95, 0x7c, 0xe2, 0x1a, 0xd8, 0xcf, 0xc1, 0x3e, 0x9c, 0xbe, 0x12, 0xff, 0x68, 0xc5, 0x35,
-	0xdc, 0x0e, 0x79, 0xf7, 0xd6, 0x59, 0x8e, 0x35, 0xe1, 0x85, 0x3f, 0x13, 0xd5, 0x73, 0xa7, 0x01,
-	0x8b, 0x86, 0xd7, 0x10, 0x91, 0x94, 0x2c, 0x0e, 0xf2, 0xe0, 0x7d, 0xbb, 0x71, 0x3d, 0x74, 0x52,
-	0x12, 0x91, 0xeb, 0x9d, 0x55, 0x30, 0x21, 0x77, 0xbc, 0x86, 0x70, 0xe9, 0xcf, 0xfe, 0x77, 0x47,
-	0x4e, 0x4a, 0x16, 0x41, 0x96, 0x50, 0xbb, 0x9e, 0x2b, 0x49, 0x4d, 0x46, 0x87, 0x89, 0xf4, 0x0a,
-	0x95, 0x98, 0xda, 0x86, 0x90, 0xf2, 0xef, 0x9a, 0xc7, 0xfe, 0xe1, 0xe4, 0x17, 0x9d, 0x02, 0x21,
-	0xd7, 0x12, 0x30, 0xdc, 0x7d, 0xdb, 0x6e, 0x5c, 0x72, 0xe3, 0xed, 0xbb, 0x73, 0x2f, 0x9f, 0x7f,
-	0xf4, 0x09, 0xf9, 0xec, 0x13, 0xf2, 0xd5, 0x27, 0xe4, 0xc1, 0x31, 0xd9, 0xe3, 0xde, 0xf8, 0x99,
-	0xcb, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x48, 0x8c, 0xbc, 0xee, 0x4d, 0x01, 0x00, 0x00,
+var fileDescriptor_rls_49ef7d0c0ed5079b = []byte{
+	// 221 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x4e, 0xcd, 0x2b, 0xcb,
+	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x2f, 0x4a, 0x2c, 0x49, 0xcd, 0xc9, 0xcc,
+	0xcd, 0x2c, 0xd1, 0x2f, 0x33, 0xd2, 0x2f, 0xca, 0x29, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17,
+	0x92, 0x04, 0x2b, 0xd2, 0x83, 0x28, 0xd2, 0x83, 0x2b, 0xd2, 0x2b, 0x33, 0x92, 0x52, 0x81, 0xe8,
+	0x4f, 0x2c, 0xc8, 0x04, 0x69, 0x49, 0xce, 0x2f, 0x4a, 0xd5, 0x4f, 0x2f, 0x2a, 0x48, 0x8e, 0x2f,
+	0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0x85, 0x18, 0x20, 0x25, 0x5e, 0x96, 0x98, 0x93, 0x99, 0x92,
+	0x58, 0x92, 0xaa, 0x0f, 0x63, 0x40, 0x24, 0x94, 0x8a, 0xb9, 0xc4, 0x82, 0x12, 0x4b, 0x52, 0x7d,
+	0x40, 0xc6, 0x05, 0x43, 0xb4, 0x38, 0x83, 0x6d, 0x11, 0xf2, 0xe5, 0xe2, 0x41, 0x36, 0x48, 0x82,
+	0x49, 0x81, 0x51, 0x83, 0xdb, 0x48, 0x4e, 0x0f, 0xe2, 0x94, 0xc4, 0x82, 0x4c, 0xbd, 0x32, 0x23,
+	0x3d, 0x90, 0x7d, 0x7a, 0xee, 0x45, 0x05, 0xc9, 0x50, 0xbd, 0x4e, 0x5c, 0xbb, 0x5e, 0x1e, 0x60,
+	0x66, 0xed, 0x62, 0x64, 0x12, 0x60, 0x0c, 0xe2, 0x4e, 0x47, 0x48, 0x78, 0xb1, 0x70, 0x30, 0x0a,
+	0x30, 0x79, 0xb1, 0x70, 0x30, 0x0b, 0xb0, 0x38, 0x09, 0x9c, 0x78, 0x24, 0xc7, 0x78, 0xe1, 0x91,
+	0x1c, 0xe3, 0x83, 0x47, 0x72, 0x8c, 0x51, 0x4c, 0x65, 0x46, 0x49, 0x6c, 0x60, 0xd7, 0x18, 0x03,
+	0x02, 0x00, 0x00, 0xff, 0xff, 0xe0, 0x8e, 0xac, 0xee, 0x0e, 0x01, 0x00, 0x00,
 }

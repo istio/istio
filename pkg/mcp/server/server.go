@@ -38,7 +38,7 @@ var (
 )
 
 func envInt(name string, def int) int {
-	if v := os.Getenv("NEW_CONNECTION_BURST_SIZE"); v != "" {
+	if v := os.Getenv(name); v != "" {
 		if a, err := strconv.Atoi(v); err == nil {
 			return a
 		}
@@ -47,7 +47,7 @@ func envInt(name string, def int) int {
 }
 
 func envDur(name string, def time.Duration) time.Duration {
-	if v := os.Getenv("NEW_CONNECTION_FREQ"); v != "" {
+	if v := os.Getenv(name); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			return d
 		}
@@ -269,6 +269,8 @@ type connection struct {
 
 // Reporter is used to report metrics for an MCP server.
 type Reporter interface {
+	io.Closer
+
 	SetClientsTotal(clients int64)
 	RecordSendError(err error, code codes.Code)
 	RecordRecvError(err error, code codes.Code)
@@ -342,7 +344,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 
 	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, 1))
 
-	scope.Infof("MCP: connection %v: NEW, supported types: %#v", con, types)
+	scope.Debugf("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
 }
 
@@ -442,7 +444,7 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 
 		return "", err
 	}
-	scope.Infof("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
+	scope.Debugf("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
 	return msg.Nonce, nil
 }
 
@@ -505,7 +507,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 					w.mu.Unlock()
 				}
 			} else {
-				scope.Infof("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
+				scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
 					con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
 				con.reporter.RecordRequestAck(req.TypeUrl, con.id)
 			}

@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
 	"net"
 	"net/http"
 	netUrl "net/url"
@@ -34,7 +33,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/gogo/protobuf/proto"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapiCore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -43,9 +42,11 @@ import (
 	envoyFilterTcp "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	envoyUtil "github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	googleProtobuf6 "github.com/gogo/protobuf/types"
 	"github.com/gorilla/websocket"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
+
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -53,6 +54,7 @@ import (
 	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/envoy/discovery"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
 	"istio.io/istio/pkg/test/util/reserveport"
 )
 
@@ -179,12 +181,15 @@ type PilotAgentFactory struct {
 }
 
 // NewAgent is an agent.Factory function that creates new agent.Agent instances which use Pilot for configuration
-func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory) (Agent, error) {
-	portMgr, err := reserveport.NewPortManager()
-	if err != nil {
-		return nil, err
+func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory,
+	portMgr reserveport.PortManager) (Agent, error) {
+	var err error
+	if portMgr == nil {
+		portMgr, err = reserveport.NewPortManager()
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	a := &pilotAgent{
 		boundPortMap: make(map[uint32]int),
 		portMgr:      portMgr,
@@ -197,21 +202,19 @@ func (f *PilotAgentFactory) NewAgent(serviceName, version string, serviceManager
 			_ = a.Close()
 		}
 	}()
-
 	dialer := application.Dialer{
 		GRPC:      a.dialGRPC,
 		Websocket: a.dialWebsocket,
 		HTTP:      a.doHTTP,
 	}
 	a.app, err = appFactory(dialer)
+
 	if err != nil {
 		return nil, err
 	}
-
 	if err = a.start(serviceName, version, serviceManager, f); err != nil {
 		return nil, err
 	}
-
 	return a, nil
 }
 
