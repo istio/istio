@@ -386,8 +386,14 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	return out
 }
 
-// GetSidecarScope returns a sidecar rule applicable to the config
-// namespace associated with the proxy
+// GetSidecarScope returns a SidecarScope object associated with the
+// proxy. The SidecarScope object is a semi-processed view of the service
+// registry, and config state associated with the sidecar crd. The scope contains
+// a set of inbound and outbound listeners, services/configs per listener,
+// etc. The sidecar scopes are precomputed in the initSidecarContext
+// function based on the Sidecar API objects in each namespace. If there is
+// no sidecar api object, a default sidecarscope is assigned to the
+// namespace which enables connectivity to all services in the mesh.
 func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
 
 	var workloadLabels LabelsCollection
@@ -395,6 +401,10 @@ func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 		workloadLabels = append(workloadLabels, w.Labels)
 	}
 
+	// Find the most specific matching sidecar config from the proxy's
+	// config namespace If none found, construct a sidecarConfig on the fly
+	// that allows the sidecar to talk to any namespace (the default
+	// behavior in the absense of sidecars).
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
@@ -617,8 +627,18 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	return nil
 }
 
-// InitSidecarScopes caches list of Sidecar resources
-// Exported function for test purposes.
+// InitSidecarScopes synthesizes Sidecar CRDs into objects called
+// SidecarScope.  The SidecarScope object is a semi-processed view of the
+// service registry, and config state associated with the sidecar CRD. The
+// scope contains a set of inbound and outbound listeners, services/configs
+// per listener, etc. The sidecar scopes are precomputed based on the
+// Sidecar API objects in each namespace. If there is no sidecar api object
+// for a namespace, a default sidecarscope is assigned to the namespace
+// which enables connectivity to all services in the mesh.
+//
+// When proxies connect to Pilot, we identify the sidecar scope associated
+// with the proxy and derive listeners/routes/clusters based on the sidecar
+// scope.
 func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
 	if err != nil {
@@ -630,10 +650,13 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 	ps.sidecarsByNamespace = make(map[string][]*SidecarScope)
 	for _, sidecarConfig := range sidecarConfigs {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
-		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace], ConvertToSidecarScope(ps, &sidecarConfig))
+		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
+			ConvertToSidecarScope(ps, &sidecarConfig))
 	}
 
-	// prebuild default sidecar scopes for other namespaces
+	// prebuild default sidecar scopes for other namespaces that dont have a sidecar CRD object.
+	// Workloads in these namespaces can reach any service in the mesh - the default istio behavior
+	// The DefaultSidecarScopeForNamespace function represents this behavior.	
 	for _, s := range ps.ServiceByHostname {
 		ns := s.Attributes.Namespace
 		if len(ps.sidecarsByNamespace[ns]) == 0 {
