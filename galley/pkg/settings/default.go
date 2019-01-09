@@ -31,20 +31,20 @@ func Default() *Galley {
 
 func defaultGeneral() *General {
 	return &General{
-		MonitoringPort: 9093,
-		PprofPort: 9094,
+		MonitoringPort:  9093,
+		PprofPort:       9094,
 		EnableProfiling: false,
-		KubeConfig: "",
-		MeshConfigFile: "/etc/mesh-config/mesh",
-		Liveness: defaultLiveness(),
-		Readiness: defaultReadiness(),
-		Introspection: defaultIntrospection(),
+		KubeConfig:      "",
+		MeshConfigFile:  "/etc/mesh-config/mesh",
+		Liveness:        defaultLiveness(),
+		Readiness:       defaultReadiness(),
+		Introspection:   defaultIntrospection(),
 	}
 }
 
 func defaultProcessing() *Processing {
 	return &Processing{
-		Source: &Source {
+		Source: &Source{
 			Source: &Source_Kubernetes{
 				Kubernetes: &KubernetesSource{
 					ResyncPeriod: ptypes.DurationProto(0),
@@ -52,10 +52,10 @@ func defaultProcessing() *Processing {
 			},
 		},
 		Server: &Server{
-			Address: "tcp://0.0.0.0:9901",
+			Address:                "tcp://0.0.0.0:9901",
 			MaxReceivedMessageSize: 1024 * 1024,
-			MaxConcurrentStreams: 1024,
-			Insecure: false,
+			MaxConcurrentStreams:   1024,
+			Insecure:               false,
 		},
 		DomainSuffix: "cluster.local",
 	}
@@ -63,16 +63,16 @@ func defaultProcessing() *Processing {
 
 func defaultValidation() *Validation {
 	return &Validation{
-		WebhookConfigFile: "etc/config/validatingwebhookconfiguration.yaml",
-		WebhookPort: 443,
-		WebhookName: "istio-galley",
+		WebhookConfigFile:   "etc/config/validatingwebhookconfiguration.yaml",
+		WebhookPort:         443,
+		WebhookName:         "istio-galley",
 		DeploymentNamespace: "istio-system",
-		DeploymentName: "istio-galley",
-		ServiceName: "istio-galley",
+		DeploymentName:      "istio-galley",
+		ServiceName:         "istio-galley",
 		Tls: &TLS{
-			PrivateKey: "/etc/certs/key.pem",
+			PrivateKey:        "/etc/certs/key.pem",
 			ClientCertificate: "/etc/certs/cert-chain.pem",
-			CaCertificates: "/etc/certs/cert-chain.pem",
+			CaCertificates:    "/etc/certs/cert-chain.pem",
 		},
 	}
 }
@@ -80,21 +80,21 @@ func defaultValidation() *Validation {
 func defaultIntrospection() *Introspection {
 	a := ctrlz.DefaultOptions()
 	return &Introspection{
-		Port: int32(a.Port),
+		Port:    int32(a.Port),
 		Address: a.Address,
 	}
 }
 
 func defaultLiveness() *Probe {
 	return &Probe{
-		Path: "/healthLiveness",
+		Path:     "/healthLiveness",
 		Interval: ptypes.DurationProto(2 * time.Second),
 	}
 }
 
 func defaultReadiness() *Probe {
 	return &Probe{
-		Path: "/healthReadiness",
+		Path:     "/healthReadiness",
 		Interval: ptypes.DurationProto(2 * time.Second),
 	}
 }

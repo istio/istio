@@ -15,7 +15,5 @@
 // Package settings contains code that is related to Galley's own settings file.
 package settings
 
-
 // nolint
 //go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh settings.proto --gogo_out=plugins=grpc:$GOPATH/src
-

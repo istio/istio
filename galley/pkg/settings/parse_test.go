@@ -22,9 +22,9 @@ import (
 
 func TestRoundtrip(t *testing.T) {
 	tests := []struct {
-		input string
+		input    string
 		expected string
-	} {
+	}{
 		{
 			input: ``,
 			expected: `
