@@ -27,17 +27,15 @@
 package ctrlz
 
 import (
+	"fmt"
 	"html/template"
 	"net"
 	"net/http"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
-
-	"sync"
-
-	"fmt"
-	"time"
 
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/ctrlz/topics"
@@ -127,7 +125,7 @@ func RegisterTopic(t fw.Topic) {
 // supplied custom topics, as well as any topics registered
 // via the RegisterTopic function.
 func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
-	if o.Port == 0 {
+	if !o.Enabled {
 		// disabled
 		s := &Server{}
 		return s, nil
@@ -172,30 +170,37 @@ func Run(o *Options, customTopics []fw.Topic) (*Server, error) {
 		addr = ""
 	}
 
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", addr, o.Port))
+	if err != nil {
+		log.Errorf("Unable to start ControlZ: %v", err)
+		return nil, err
+	}
 	s := &Server{
 		httpServer: http.Server{
 			ReadTimeout:    10 * time.Second,
 			WriteTimeout:   10 * time.Second,
 			MaxHeaderBytes: 1 << 20,
-			Addr:           fmt.Sprintf("%s:%d", addr, o.Port),
+			Addr:           listener.Addr().String(),
 			Handler:        router,
 		},
+		listener: listener,
 	}
-
-	var err error
-	if s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", addr, o.Port)); err != nil {
-		log.Errorf("Unable to start ControlZ: %v", err)
-		return nil, err
-	}
-
 	s.shutdown.Add(1)
-	go s.listen(o.Port)
+	go s.listen()
 
 	return s, nil
 }
 
-func (s *Server) listen(port uint16) {
-	log.Infof("ControlZ available at %s:%d", getLocalIP(), port)
+// Addr returns the address the server is listening on.
+func (s *Server) Addr() *net.TCPAddr {
+	return s.listener.Addr().(*net.TCPAddr)
+}
+
+func (s *Server) listen() {
+	// TODO: This is incorrect, either it's an outright lie (if listening on loopback or if
+	// getLocalIP() happens to pick a different interface than the one specified) or specifies only
+	// one of many interfaces it accepts connection on (when doing 0.0.0.0).
+	log.Infof("ControlZ available at %s:%d", getLocalIP(), s.Addr().Port)
 
 	if listeningTestProbe != nil {
 		listeningTestProbe()

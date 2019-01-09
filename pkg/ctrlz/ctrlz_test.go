@@ -24,7 +24,7 @@ func TestStartStopEnabled(t *testing.T) {
 	listeningTestProbe = func() { close(done) }
 	defer func() { listeningTestProbe = nil }()
 	o := DefaultOptions()
-	// TODO: Pick an unused port in o.Port.
+	o.Port = 0
 	s, err := Run(o, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
