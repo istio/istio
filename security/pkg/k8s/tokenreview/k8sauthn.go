@@ -96,33 +96,33 @@ func (authn *K8sSvcAcctAuthn) reviewServiceAccountAtK8sAPIServer(k8sAPIServerURL
 }
 
 // ValidateK8sJwt validates a k8s JWT at API server.
-// Return <namespace>:<serviceaccountname> in the JWT when the validation passes.
+// Return {<namespace>, <serviceaccountname>} in the JWT when the validation passes.
 // Otherwise, return the error.
 // jwt: the JWT to validate
-func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt string) (string, error) {
+func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt string) ([]string, error) {
 	resp, err := authn.reviewServiceAccountAtK8sAPIServer(authn.apiServerAddr, authn.apiServerCert,
 		authn.reviewerSvcAcct, jwt)
 	if err != nil {
-		return "", fmt.Errorf("failed to get a token review response: %v", err)
+		return nil, fmt.Errorf("failed to get a token review response: %v", err)
 	}
 	// Check that the JWT is valid
 	if !(resp.StatusCode == http.StatusOK ||
 		resp.StatusCode == http.StatusCreated ||
 		resp.StatusCode == http.StatusAccepted) {
-		return "", fmt.Errorf("invalid review response status code %v", resp.StatusCode)
+		return nil, fmt.Errorf("invalid review response status code %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read from the response body: %v", err)
+		return nil, fmt.Errorf("failed to read from the response body: %v", err)
 	}
 	tokenReview := &k8sauth.TokenReview{}
 	err = json.Unmarshal(bodyBytes, tokenReview)
 	if err != nil {
-		return "", fmt.Errorf("unmarshal response body returns an error: %v", err)
+		return nil, fmt.Errorf("unmarshal response body returns an error: %v", err)
 	}
 	if tokenReview.Status.Error != "" {
-		return "", fmt.Errorf("the service account authentication returns an error: %v" + tokenReview.Status.Error)
+		return nil, fmt.Errorf("the service account authentication returns an error: %v" + tokenReview.Status.Error)
 	}
 	// An example SA token:
 	// {"alg":"RS256","typ":"JWT"}
@@ -145,7 +145,7 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt string) (string, error) {
 	// }
 
 	if !tokenReview.Status.Authenticated {
-		return "", fmt.Errorf("the token is not authenticated")
+		return nil, fmt.Errorf("the token is not authenticated")
 	}
 	inServiceAccountGroup := false
 	for _, group := range tokenReview.Status.User.Groups {
@@ -155,16 +155,16 @@ func (authn *K8sSvcAcctAuthn) ValidateK8sJwt(jwt string) (string, error) {
 		}
 	}
 	if !inServiceAccountGroup {
-		return "", fmt.Errorf("the token is not a service account")
+		return nil, fmt.Errorf("the token is not a service account")
 	}
 	// "username" is in the form of system:serviceaccount:{namespace}:{service account name}",
 	// e.g., "username":"system:serviceaccount:default:example-pod-sa"
 	subStrings := strings.Split(tokenReview.Status.User.Username, ":")
 	if len(subStrings) != 4 {
-		return "", fmt.Errorf("invalid username field in the token review result")
+		return nil, fmt.Errorf("invalid username field in the token review result")
 	}
 	namespace := subStrings[2]
 	saName := subStrings[3]
 
-	return namespace + ":" + saName, nil
+	return []string{namespace, saName}, nil
 }
