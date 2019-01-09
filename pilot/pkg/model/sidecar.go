@@ -238,11 +238,11 @@ func (sc *SidecarScope) getEgressListenerForPort(port int) *IstioEgressListenerW
 }
 
 // selectVirtualServices returns the list of virtual services selected
-// across all egress listeners
-func (sc *SidecarScope) selectVirtualServices(configs []Config) []Config {
+// across all egress listeners in a single sidecar config
+func (sc *SidecarScope) selectVirtualServices(virtualServices []Config) []Config {
 
-	importedConfigs := make([]Config, 0)
-	for _, c := range configs {
+	importedVirtualServices := make([]Config, 0)
+	for _, c := range virtualServices {
 		configNamespace := c.Namespace
 		rule := c.Spec.(*networking.VirtualService)
 		for _, ilw := range sc.EgressListeners {
@@ -255,7 +255,7 @@ func (sc *SidecarScope) selectVirtualServices(configs []Config) []Config {
 					// while the user might be importing only a single host
 					// We need to generate a new VirtualService with just the matched host
 					if hostMatch.Matches(Hostname(h)) {
-						importedConfigs = append(importedConfigs, c)
+						importedVirtualServices = append(importedVirtualServices, c)
 						hostFound = true
 						break
 					}
@@ -273,7 +273,7 @@ func (sc *SidecarScope) selectVirtualServices(configs []Config) []Config {
 					// while the user might be importing only a single host
 					// We need to generate a new VirtualService with just the matched host
 					if hostMatch.Matches(Hostname(h)) {
-						importedConfigs = append(importedConfigs, c)
+						importedVirtualServices = append(importedVirtualServices, c)
 						break
 					}
 				}
@@ -281,7 +281,7 @@ func (sc *SidecarScope) selectVirtualServices(configs []Config) []Config {
 		}
 	}
 
-	return importedConfigs
+	return importedVirtualServices
 }
 
 // selectServices returns the list of services selected through the hosts field
