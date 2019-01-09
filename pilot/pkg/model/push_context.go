@@ -436,7 +436,7 @@ func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 	// Find the most specific matching sidecar config from the proxy's
 	// config namespace If none found, construct a sidecarConfig on the fly
 	// that allows the sidecar to talk to any namespace (the default
-	// behavior in the absense of sidecars).
+	// behavior in the absence of sidecars).
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
