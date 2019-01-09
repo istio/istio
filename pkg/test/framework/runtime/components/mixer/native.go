@@ -16,23 +16,15 @@ package mixer
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/context"
-	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"istio.io/istio/pkg/test/framework/runtime/api"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
-	"istio.io/istio/pkg/test/scopes"
 	"net"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	multierror "github.com/hashicorp/go-multierror"
 
 	"google.golang.org/grpc"
 
@@ -42,6 +34,15 @@ import (
 	generatedTmplRepo "istio.io/istio/mixer/template"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/deployment"
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/context"
+	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
+	"istio.io/istio/pkg/test/framework/runtime/api"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 

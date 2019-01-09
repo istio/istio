@@ -15,16 +15,18 @@
 package ca
 
 import (
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
+	"istio.io/istio/security/pkg/k8s/configmap"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -96,10 +98,10 @@ type IstioCA struct {
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
-	namespace string, core corev1.SecretsGetter) (caOpts *IstioCAOptions, err error) {
+	namespace string, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// CASecret. For subsequent restart, CA will reads key/cert from CASecret.
-	caSecret, scrtErr := core.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
+	caSecret, scrtErr := client.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
@@ -127,7 +129,7 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 
 		// Rewrite the key/cert back to secret so they will be persistent when CA restarts.
 		secret := BuildSecret("", CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
-		if _, err = core.Secrets(namespace).Create(secret); err != nil {
+		if _, err = client.Secrets(namespace).Create(secret); err != nil {
 			log.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
 		}
 	} else {
@@ -137,12 +139,15 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 		}
 	}
 
+	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
+	}
 	return caOpts, nil
 }
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
-	certTTL, maxCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
+	certTTL, maxCertTTL time.Duration, namespace string, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:     pluggedCertCA,
 		CertTTL:    certTTL,
@@ -151,6 +156,9 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+	}
+	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle); err != nil {
+		log.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
 	}
 	return caOpts, nil
 }
@@ -234,4 +242,11 @@ func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, root
 		},
 		Type: secretType,
 	}
+}
+
+func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, keyCertBundle util.KeyCertBundle) error {
+	_, _, _, cert := keyCertBundle.GetAllPem()
+	certEncoded := base64.StdEncoding.EncodeToString(cert)
+	cmc := configmap.NewController(namespace, client)
+	return cmc.InsertCATLSRootCert(certEncoded)
 }

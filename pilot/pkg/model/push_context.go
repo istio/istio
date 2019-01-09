@@ -16,14 +16,15 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -45,31 +46,34 @@ type PushContext struct {
 	// Mutex is used to protect the below store.
 	// All data is set when the PushContext object is populated in `InitContext`,
 	// data should not be changed by plugins.
-	Mutex sync.Mutex `json:"-,omitempty"`
+	Mutex sync.Mutex `json:"-"`
 
-	// The following data can be either obtained as a whole or
-	// only those in the proxy's config namespace. Keep them private
-	// and use accessor functions to return the appropriate data
+	// privateServices are reachable within the same namespace.
+	privateServicesByNamespace map[string][]*Service
+	// publicServices are services reachable within the mesh.
+	publicServices []*Service
 
-	// all services in the system at the time push started.
-	allServices            []*Service `json:"-,omitempty"`
-	virtualServiceConfigs  []Config   `json:"-,omitempty"`
-	destinationRuleHosts   []Hostname
-	destinationRuleByHosts map[Hostname]*combinedDestinationRule
+	privateVirtualServicesByNamespace map[string][]Config
+	publicVirtualServices             []Config
+
+	privateDestRuleHostsByNamespace  map[string][]Hostname
+	privateDestRuleByHostByNamespace map[string]map[Hostname]*combinedDestinationRule
+	publicDestRuleHosts              []Hostname
+	publicDestRuleByHost             map[Hostname]*combinedDestinationRule
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
 
 	// ServiceByHostname has all services, indexed by hostname.
-	ServiceByHostname map[Hostname]*Service `json:"-,omitempty"`
+	ServiceByHostname map[Hostname]*Service `json:"-"`
 
 	// AuthzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
-	AuthzPolicies *AuthorizationPolicies
+	AuthzPolicies *AuthorizationPolicies `json:"-"`
 
 	// Env has a pointer to the shared environment used to create the snapshot.
-	Env *Environment `json:"-,omitempty"`
+	Env *Environment `json:"-"`
 
 	// ServicePort2Name is used to keep track of service name and port mapping.
 	// This is needed because ADS names use port numbers, while endpoints use
@@ -134,7 +138,7 @@ type PushMetric struct {
 }
 
 type combinedDestinationRule struct {
-	subsets map[string]bool // list of subsets seen so far
+	subsets map[string]struct{} // list of subsets seen so far
 	// We are not doing ports
 	config *Config
 }
@@ -268,6 +272,15 @@ var (
 func NewPushContext() *PushContext {
 	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
+		publicServices:                    []*Service{},
+		privateServicesByNamespace:        map[string][]*Service{},
+		publicVirtualServices:             []Config{},
+		privateVirtualServicesByNamespace: map[string][]Config{},
+		publicDestRuleByHost:              map[Hostname]*combinedDestinationRule{},
+		publicDestRuleHosts:               []Hostname{},
+		privateDestRuleByHostByNamespace:  map[string]map[Hostname]*combinedDestinationRule{},
+		privateDestRuleHostsByNamespace:   map[string][]Hostname{},
+
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
 		ServicePort2Name:  map[string]PortList{},
@@ -311,20 +324,76 @@ func (ps *PushContext) UpdateMetrics() {
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	// TODO: use network scopes here, and return services in the proxy namespace if
-	// configured to use current_namespace as the scope and proxy is not nil
-	//if proxy == nil {
-	//	return ps.allServices
-	//}
-	return ps.allServices
+	out := []*Service{}
+
+	// First add private services
+	if proxy == nil {
+		for _, privateServices := range ps.privateServicesByNamespace {
+			out = append(out, privateServices...)
+		}
+	} else {
+		out = append(out, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
+	}
+
+	// Second add public services
+	out = append(out, ps.publicServices...)
+
+	return out
+}
+
+// UpdateNodeIsolation will update per-node data holding visible services and configs for the node.
+// It is called:
+// - on connect
+// - on config change events (full push)
+// - TODO: on-demand events from Envoy
+func (ps *PushContext) UpdateNodeIsolation(proxy *Proxy) {
+	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
+	// bindings.
+	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {
+		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
+		// reviewed ), or from an env variable.
+		adminNs := strings.Split(pilot.NetworkScopes, ",")
+		globalDeps := map[string]bool{}
+		for _, ns := range adminNs {
+			globalDeps[ns] = true
+		}
+
+		proxy.mutex.RLock()
+		defer proxy.mutex.RUnlock()
+		res := []*Service{}
+		for _, s := range ps.publicServices {
+			serviceNamespace := s.Attributes.Namespace
+			if serviceNamespace == "" {
+				res = append(res, s)
+			} else if globalDeps[serviceNamespace] || serviceNamespace == proxy.ConfigNamespace {
+				res = append(res, s)
+			}
+		}
+		res = append(res, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
+		proxy.serviceDependencies = res
+
+		// TODO: read Gateways,NetworkScopes/etc to populate additional entries
+	}
 }
 
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices
 func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
-	// TODO: use the proxy namespace with NetworkScopes to return the correct set of VirtualServices
-	configs := ps.virtualServiceConfigs
+	configs := make([]Config, 0)
 	out := make([]Config, 0)
+
+	// filter out virtual services not reachable
+	// First private virtual service
+	if proxy == nil {
+		for _, virtualSvcs := range ps.privateVirtualServicesByNamespace {
+			configs = append(configs, virtualSvcs...)
+		}
+	} else {
+		configs = append(configs, ps.privateVirtualServicesByNamespace[proxy.ConfigNamespace]...)
+	}
+	// Second public virtual service
+	configs = append(configs, ps.publicVirtualServices...)
+
 	for _, config := range configs {
 		rule := config.Spec.(*networking.VirtualService)
 		if len(rule.Gateways) == 0 {
@@ -352,10 +421,27 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
-	// TODO: use the proxy namespace to return only public destination rules if in different namespace
-	if c, ok := MostSpecificHostMatch(hostname, ps.destinationRuleHosts); ok {
-		return ps.destinationRuleByHosts[c].config
+	if proxy == nil {
+		for ns, privateDestHosts := range ps.privateDestRuleHostsByNamespace {
+			if host, ok := MostSpecificHostMatch(hostname, privateDestHosts); ok {
+				return ps.privateDestRuleByHostByNamespace[ns][host].config
+			}
+		}
+		if host, ok := MostSpecificHostMatch(hostname, ps.publicDestRuleHosts); ok {
+			return ps.publicDestRuleByHost[host].config
+		}
+		return nil
 	}
+	// take private DestinationRule in same namespace first
+	if host, ok := MostSpecificHostMatch(hostname, ps.privateDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
+		return ps.privateDestRuleByHostByNamespace[proxy.ConfigNamespace][host].config
+	}
+
+	// if no private rule matched, then match public rule
+	if host, ok := MostSpecificHostMatch(hostname, ps.publicDestRuleHosts); ok {
+		return ps.publicDestRuleByHost[host].config
+	}
+
 	return nil
 }
 
@@ -392,6 +478,7 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	}
 	ps.Env = env
 	var err error
+
 	if err = ps.initServiceRegistry(env); err != nil {
 		return err
 	}
@@ -423,8 +510,15 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		return err
 	}
 	// Sort the services in order of creation.
-	ps.allServices = sortServicesByCreationTime(services)
-	for _, s := range services {
+	allServices := sortServicesByCreationTime(services)
+	for _, s := range allServices {
+		ns := s.Attributes.Namespace
+		switch s.Attributes.ConfigScope {
+		case networking.ConfigScope_PRIVATE:
+			ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
+		default:
+			ps.publicServices = append(ps.publicServices, s)
+		}
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
 	}
@@ -447,9 +541,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	}
 
 	sortConfigByCreationTime(vservices)
-	ps.virtualServiceConfigs = vservices
+
 	// convert all shortnames in virtual services into FQDNs
-	for _, r := range ps.virtualServiceConfigs {
+	for _, r := range vservices {
 		rule := r.Spec.(*networking.VirtualService)
 		// resolve top level hosts
 		for i, h := range rule.Hosts {
@@ -504,6 +598,18 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			}
 		}
 	}
+
+	for _, virtualService := range vservices {
+		ns := virtualService.Namespace
+		rule := virtualService.Spec.(*networking.VirtualService)
+		switch rule.ConfigScope {
+		case networking.ConfigScope_PRIVATE:
+			ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+		default:
+			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+		}
+	}
+
 	return nil
 }
 
@@ -524,49 +630,39 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
 	sortConfigByCreationTime(configs)
-	hosts := make([]Hostname, 0)
-	combinedDestinationRuleMap := make(map[Hostname]*combinedDestinationRule, len(configs))
+	privateHostsByNamespace := make(map[string][]Hostname, 0)
+	privateCombinedDestRuleMap := make(map[string]map[Hostname]*combinedDestinationRule, 0)
+	publicHosts := make([]Hostname, 0)
+	publicCombinedDestRuleMap := make(map[Hostname]*combinedDestinationRule, 0)
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-		resolvedHost := ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta)
-		if mdr, exists := combinedDestinationRuleMap[resolvedHost]; exists {
-			combinedRule := mdr.config.Spec.(*networking.DestinationRule)
-			// we have an another destination rule for same host.
-			// concatenate both of them -- essentially add subsets from one to other.
-			for _, subset := range rule.Subsets {
-				if _, subsetExists := mdr.subsets[subset.Name]; !subsetExists {
-					mdr.subsets[subset.Name] = true
-					combinedRule.Subsets = append(combinedRule.Subsets, subset)
-				} else {
-					ps.Add(DuplicatedSubsets, string(resolvedHost), nil,
-						fmt.Sprintf("Duplicate subset %s found while merging destination rules for %s",
-							subset.Name, string(resolvedHost)))
-				}
-
-				// If there is no top level policy and the incoming rule has top level
-				// traffic policy, use the one from the incoming rule.
-				if combinedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
-					combinedRule.TrafficPolicy = rule.TrafficPolicy
-				}
+		if rule.ConfigScope == networking.ConfigScope_PRIVATE {
+			if _, exist := privateCombinedDestRuleMap[configs[i].Namespace]; !exist {
+				privateCombinedDestRuleMap[configs[i].Namespace] = map[Hostname]*combinedDestinationRule{}
 			}
-			continue
-		}
+			privateHostsByNamespace[configs[i].Namespace], _ = ps.combineSingleDestinationRule(
+				privateHostsByNamespace[configs[i].Namespace],
+				privateCombinedDestRuleMap[configs[i].Namespace],
+				configs[i])
 
-		combinedDestinationRuleMap[resolvedHost] = &combinedDestinationRule{
-			subsets: make(map[string]bool),
-			config:  &configs[i],
+		} else {
+			publicHosts, _ = ps.combineSingleDestinationRule(
+				publicHosts,
+				publicCombinedDestRuleMap,
+				configs[i])
 		}
-		for _, subset := range rule.Subsets {
-			combinedDestinationRuleMap[resolvedHost].subsets[subset.Name] = true
-		}
-		hosts = append(hosts, resolvedHost)
 	}
 
 	// presort it so that we don't sort it for each DestinationRule call.
-	sort.Sort(Hostnames(hosts))
-	ps.destinationRuleHosts = hosts
-	ps.destinationRuleByHosts = combinedDestinationRuleMap
+	for ns := range privateHostsByNamespace {
+		sort.Sort(Hostnames(privateHostsByNamespace[ns]))
+	}
+	ps.privateDestRuleHostsByNamespace = privateHostsByNamespace
+	ps.privateDestRuleByHostByNamespace = privateCombinedDestRuleMap
+	sort.Sort(Hostnames(publicHosts))
+	ps.publicDestRuleHosts = publicHosts
+	ps.publicDestRuleByHost = publicCombinedDestRuleMap
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {

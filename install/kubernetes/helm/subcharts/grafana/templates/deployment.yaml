@@ -17,7 +17,6 @@ spec:
         chart: {{ template "grafana.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -83,8 +82,13 @@ spec:
           volumeMounts:
           - name: data
             mountPath: /data/grafana
-          - name: dashboards-istio
-            mountPath: "/var/lib/grafana/dashboards/istio"
+          {{- range $path, $bytes := .Files.Glob "dashboards/*.json" }}
+          {{- $filename := trimSuffix (ext $path) (base $path) }}
+          - name: dashboards-istio-{{ $filename }}
+            mountPath: "/var/lib/grafana/dashboards/istio/{{ base $path }}"
+            subPath: {{ base $path }}
+            readOnly: true
+          {{- end }}
           - name: config
             mountPath: "/etc/grafana/provisioning/datasources/datasources.yaml"
             subPath: datasources.yaml
@@ -104,6 +108,9 @@ spec:
 {{- else }}
         emptyDir: {}
 {{- end }}
-      - name: dashboards-istio
+{{- range $path, $bytes := .Files.Glob "dashboards/*.json" }}
+{{- $filename := trimSuffix (ext $path) (base $path) }}
+      - name: dashboards-istio-{{ $filename }}
         configMap:
-          name:  istio-grafana-configuration-dashboards
+          name:  istio-grafana-configuration-dashboards-{{ $filename }}
+{{- end }}

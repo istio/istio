@@ -325,7 +325,11 @@ var (
 
             if out != nil {
               {{range .OutputTemplateMessage.Fields}}
-              out.Set(outPrefix + "{{.ProtoName}}", obj.{{.GoName}})
+								{{if isAliasType .GoType.Name}}
+									out.Set(outPrefix + "{{.ProtoName}}", {{getAliasType .GoType.Name}}(obj.{{.GoName}}))
+								{{else}}
+									out.Set(outPrefix + "{{.ProtoName}}", obj.{{.GoName}})
+								{{end}}
               {{end}}
             }
             return res, err
@@ -667,7 +671,7 @@ var (
                                 {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
                                     r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
                                 {{else}}
-                                    {{if isAliasTypeSkipIp $f.GoType.MapValue.Name}}
+                                    {{if isAliasType $f.GoType.MapValue.Name}}
                                         r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}({{getLocalVar $f.GoType.MapValue}}.({{getAliasType $f.GoType.MapValue.Name}}))
                                     {{else}}
                                         r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
@@ -696,7 +700,7 @@ var (
                             {{if containsValueTypeOrResMsg $f.GoType}}
                                 r.{{$f.GoName}} = vIface
                             {{else}}
-                                {{if isAliasTypeSkipIp $f.GoType.Name}}
+                                {{if isAliasType $f.GoType.Name}}
                                     r.{{$f.GoName}} = {{$f.GoType.Name}}(vIface.({{getAliasType .GoType.Name}}))
                                 {{else}}
                                     r.{{$f.GoName}} = vIface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}

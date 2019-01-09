@@ -48,7 +48,7 @@ type HttpUri struct {
 	//	*HttpUri_Cluster
 	HttpUpstreamType isHttpUri_HttpUpstreamType `protobuf_oneof:"http_upstream_type"`
 	// Sets the maximum duration in milliseconds that a response can take to arrive upon request.
-	Timeout              *time.Duration `protobuf:"bytes,3,opt,name=timeout,stdduration" json:"timeout,omitempty"`
+	Timeout              *time.Duration `protobuf:"bytes,3,opt,name=timeout,proto3,stdduration" json:"timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -58,7 +58,7 @@ func (m *HttpUri) Reset()         { *m = HttpUri{} }
 func (m *HttpUri) String() string { return proto.CompactTextString(m) }
 func (*HttpUri) ProtoMessage()    {}
 func (*HttpUri) Descriptor() ([]byte, []int) {
-	return fileDescriptor_http_uri_a8729bd15bcc4a68, []int{0}
+	return fileDescriptor_http_uri_94e07cd1454c33f4, []int{0}
 }
 func (m *HttpUri) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -243,6 +243,9 @@ func encodeVarintHttpUri(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *HttpUri) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Uri)
@@ -263,6 +266,9 @@ func (m *HttpUri) Size() (n int) {
 }
 
 func (m *HttpUri_Cluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Cluster)
@@ -531,10 +537,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor_http_uri_a8729bd15bcc4a68)
+	proto.RegisterFile("envoy/api/v2/core/http_uri.proto", fileDescriptor_http_uri_94e07cd1454c33f4)
 }
 
-var fileDescriptor_http_uri_a8729bd15bcc4a68 = []byte{
+var fileDescriptor_http_uri_94e07cd1454c33f4 = []byte{
 	// 279 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x90, 0x31, 0x4e, 0xf3, 0x30,
 	0x14, 0xc7, 0xfb, 0x92, 0xaf, 0x5f, 0xa8, 0x61, 0xc1, 0x42, 0x22, 0xb4, 0x52, 0x88, 0x90, 0x90,

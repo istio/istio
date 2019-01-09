@@ -1,0 +1,40 @@
+#!/bin/bash
+#
+# Copyright 2018 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+
+set -eu
+
+# Check whether any git repositories are defined.
+# Git repository definition contains `commit` and `remote` fields.
+if git --no-pager grep -E "commit =|remote =" -- 'WORKSPACE' '*.bzl'; then
+  echo "Using git repositories is not allowed."
+  echo "To ensure that all dependencies can be stored offline in distdir, only HTTP repositories are allowed."
+  exit 1
+fi
+
+# Check whether number of defined `url =` and `sha256 =` kwargs in repository
+# definitions is equal.
+urls_count=$(git --no-pager grep -E "url =" -- 'WORKSPACE' '*.bzl' | wc -l)
+sha256sums_count=$(git --no-pager grep -E "sha256 =" -- 'WORKSPACE' '*.bzl' | wc -l)
+
+if [[ $urls_count != $sha256sums_count ]]; then
+  echo "Found more defined repository URLs than SHA256 sums, which means that there are some repositories without sums."
+  echo "Dependencies without SHA256 sums cannot be stored in distdir."
+  echo "Please ensure that every repository has a SHA256 sum."
+  echo "Repositories are defined in the WORKSPACE file."
+  exit 1
+fi

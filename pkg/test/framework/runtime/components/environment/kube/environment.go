@@ -17,9 +17,14 @@ package kube
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hashicorp/go-multierror"
 	"io"
+	"strings"
+	"testing"
+	"text/template"
+
+	"github.com/google/uuid"
+	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -29,9 +34,6 @@ import (
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"strings"
-	"testing"
-	"text/template"
 )
 
 const (

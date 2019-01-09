@@ -17,11 +17,11 @@ package agent
 import (
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
-
-	"istio.io/istio/pkg/test/application"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/application"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 // Agent is a wrapper around an Envoy proxy that has been configured for a particular backend Application.
@@ -46,7 +46,7 @@ type MappedPort struct {
 }
 
 // Factory is a function that manufactures Agent instances.
-type Factory func(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory) (Agent, error)
+type Factory func(serviceName, version string, serviceManager *service.Manager, appFactory application.Factory, portMgr reserveport.PortManager) (Agent, error)
 
 // FindFirstPortForProtocol is a utility method to simplify lookup of a port for a given protocol.
 func FindFirstPortForProtocol(a Agent, protocol model.Protocol) (*MappedPort, error) {

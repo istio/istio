@@ -15,8 +15,9 @@
 package component
 
 import (
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
 )
 
 // RequirementError is an error that occurred while requiring components.

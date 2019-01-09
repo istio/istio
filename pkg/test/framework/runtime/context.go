@@ -17,12 +17,14 @@ package runtime
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -63,8 +65,8 @@ func newContext(testID string) (*contextImpl, error) {
 	runID := generateRunID(testID)
 	workDir := path.Join(s.WorkDir, runID)
 
-	if _, err := os.Stat(s.WorkDir); os.IsNotExist(err) {
-		if err := os.Mkdir(s.WorkDir, os.ModePerm); err != nil {
+	if _, err := os.Stat(workDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
@@ -112,20 +114,16 @@ func (c *contextImpl) LogOptions() *log.Options {
 	return c.logOptions
 }
 
-func (c *contextImpl) CreateTmpDirectory(name string) (string, error) {
-	dir := c.workDir
-	if dir == "" {
-		dir = os.TempDir()
+func (c *contextImpl) CreateTmpDirectory(prefix string) (string, error) {
+	dir, err := ioutil.TempDir(c.workDir, prefix)
+	if err != nil {
+		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
+			c.runID, prefix, c.workDir, err)
+	} else {
+		scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s'", c.runID, dir)
 	}
 
-	dir = path.Join(dir, c.runID, name)
-	if err := os.MkdirAll(dir, 0777); err != nil {
-		return "", err
-	}
-
-	scopes.Framework.Debugf("Created a temp dir: runID='%s', name='%s', location='%s'", c.runID, name, dir)
-
-	return dir, nil
+	return dir, err
 }
 
 func (c *contextImpl) Require(scope lifecycle.Scope, reqs ...component.Requirement) component.RequirementError {

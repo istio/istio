@@ -17,11 +17,11 @@ package runtime
 import (
 	"flag"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/api/context"
 	"sync"
 	"testing"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/scopes"
 )
 

@@ -26,7 +26,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yl2chen/cidranger"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -125,7 +125,6 @@ type Controller struct {
 
 type cacheHandler struct {
 	informer cache.SharedIndexInformer
-	lister   cache.GenericLister
 	handler  *ChainHandler
 }
 
@@ -486,7 +485,9 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
-	proxyIP := proxy.IPAddress
+
+	// There is only one IP for kube registry
+	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""
 
 	pod := c.pods.getPodByIP(proxyIP)
@@ -558,12 +559,15 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 					continue
 				}
 
-				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
-					out = append(out, getEndpoints(proxy.IPAddress, c, port, svcPort, svc))
+				// There is only one IP for kube registry
+				proxyIP := proxy.IPAddresses[0]
+
+				if hasProxyIP(ss.Addresses, proxyIP) {
+					out = append(out, getEndpoints(proxyIP, c, port, svcPort, svc))
 				}
 
-				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
-					nrEP := getEndpoints(proxy.IPAddress, c, port, svcPort, svc)
+				if hasProxyIP(ss.NotReadyAddresses, proxyIP) {
+					nrEP := getEndpoints(proxyIP, c, port, svcPort, svc)
 					out = append(out, nrEP)
 					if c.Env != nil {
 						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -680,8 +684,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			ports[port.Name] = uint32(port.Port)
 			portsByNum[uint32(port.Port)] = port.Name
 		}
-		// EDS needs the port mapping.
-		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		svcConv := convertService(*svc, c.domainSuffix)
 		instances := externalNameServiceInstances(*svc, svcConv)
@@ -701,6 +703,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 			c.Unlock()
 		}
+		// EDS needs the port mapping.
+		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		f(svcConv, event)
 
@@ -734,6 +738,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 			return nil
 		}
 		c.updateEDS(ep)
+
 		return nil
 	})
 

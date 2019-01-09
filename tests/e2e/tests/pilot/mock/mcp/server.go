@@ -23,7 +23,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpserver "istio.io/istio/pkg/mcp/server"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
+	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type WatchResponse func(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc)
@@ -55,13 +55,13 @@ type Server struct {
 	l  net.Listener
 }
 
-func NewServer(addr string, typeUrls []string, watchResponseFunc WatchResponse) (*Server, error) {
+func NewServer(typeUrls []string, watchResponseFunc WatchResponse) (*Server, error) {
 	watcher := mockWatcher{
 		response: watchResponseFunc,
 	}
 	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
-	l, err := net.Listen("tcp", addr)
+	l, err := net.Listen("tcp", "localhost:")
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func NewServer(addr string, typeUrls []string, watchResponseFunc WatchResponse) 
 
 	mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
 	go func() { _ = gs.Serve(l) }()
-	log.Printf("MCP mock server listening on %s", addr)
+	log.Printf("MCP mock server listening on localhost:%d", p)
 
 	return &Server{
 		Watcher:  &watcher,

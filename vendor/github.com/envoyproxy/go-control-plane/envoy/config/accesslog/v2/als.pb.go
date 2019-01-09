@@ -27,16 +27,16 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // populate :ref:`StreamAccessLogsMessage.http_logs
 // <envoy_api_field_service.accesslog.v2.StreamAccessLogsMessage.http_logs>`.
 type HttpGrpcAccessLogConfig struct {
-	CommonConfig *CommonGrpcAccessLogConfig `protobuf:"bytes,1,opt,name=common_config,json=commonConfig" json:"common_config,omitempty"`
+	CommonConfig *CommonGrpcAccessLogConfig `protobuf:"bytes,1,opt,name=common_config,json=commonConfig,proto3" json:"common_config,omitempty"`
 	// Additional request headers to log in :ref:`HTTPRequestProperties.request_headers
 	// <envoy_api_field_data.accesslog.v2.HTTPRequestProperties.request_headers>`.
-	AdditionalRequestHeadersToLog []string `protobuf:"bytes,2,rep,name=additional_request_headers_to_log,json=additionalRequestHeadersToLog" json:"additional_request_headers_to_log,omitempty"`
+	AdditionalRequestHeadersToLog []string `protobuf:"bytes,2,rep,name=additional_request_headers_to_log,json=additionalRequestHeadersToLog,proto3" json:"additional_request_headers_to_log,omitempty"`
 	// Additional response headers to log in :ref:`HTTPResponseProperties.response_headers
 	// <envoy_api_field_data.accesslog.v2.HTTPResponseProperties.response_headers>`.
-	AdditionalResponseHeadersToLog []string `protobuf:"bytes,3,rep,name=additional_response_headers_to_log,json=additionalResponseHeadersToLog" json:"additional_response_headers_to_log,omitempty"`
+	AdditionalResponseHeadersToLog []string `protobuf:"bytes,3,rep,name=additional_response_headers_to_log,json=additionalResponseHeadersToLog,proto3" json:"additional_response_headers_to_log,omitempty"`
 	// Additional response trailers to log in :ref:`HTTPResponseProperties.response_trailers
 	// <envoy_api_field_data.accesslog.v2.HTTPResponseProperties.response_trailers>`.
-	AdditionalResponseTrailersToLog []string `protobuf:"bytes,4,rep,name=additional_response_trailers_to_log,json=additionalResponseTrailersToLog" json:"additional_response_trailers_to_log,omitempty"`
+	AdditionalResponseTrailersToLog []string `protobuf:"bytes,4,rep,name=additional_response_trailers_to_log,json=additionalResponseTrailersToLog,proto3" json:"additional_response_trailers_to_log,omitempty"`
 	XXX_NoUnkeyedLiteral            struct{} `json:"-"`
 	XXX_unrecognized                []byte   `json:"-"`
 	XXX_sizecache                   int32    `json:"-"`
@@ -46,7 +46,7 @@ func (m *HttpGrpcAccessLogConfig) Reset()         { *m = HttpGrpcAccessLogConfig
 func (m *HttpGrpcAccessLogConfig) String() string { return proto.CompactTextString(m) }
 func (*HttpGrpcAccessLogConfig) ProtoMessage()    {}
 func (*HttpGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_e10a599edeeb29ed, []int{0}
+	return fileDescriptor_als_e1ce8e0c0099b8bf, []int{0}
 }
 func (m *HttpGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -107,7 +107,7 @@ func (m *HttpGrpcAccessLogConfig) GetAdditionalResponseTrailersToLog() []string 
 // populate *StreamAccessLogsMessage.tcp_logs*.
 // [#not-implemented-hide:]
 type TcpGrpcAccessLogConfig struct {
-	CommonConfig         *CommonGrpcAccessLogConfig `protobuf:"bytes,1,opt,name=common_config,json=commonConfig" json:"common_config,omitempty"`
+	CommonConfig         *CommonGrpcAccessLogConfig `protobuf:"bytes,1,opt,name=common_config,json=commonConfig,proto3" json:"common_config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -117,7 +117,7 @@ func (m *TcpGrpcAccessLogConfig) Reset()         { *m = TcpGrpcAccessLogConfig{}
 func (m *TcpGrpcAccessLogConfig) String() string { return proto.CompactTextString(m) }
 func (*TcpGrpcAccessLogConfig) ProtoMessage()    {}
 func (*TcpGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_e10a599edeeb29ed, []int{1}
+	return fileDescriptor_als_e1ce8e0c0099b8bf, []int{1}
 }
 func (m *TcpGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -160,7 +160,7 @@ type CommonGrpcAccessLogConfig struct {
 	// access log server to differentiate between different access logs coming from the same Envoy.
 	LogName string `protobuf:"bytes,1,opt,name=log_name,json=logName,proto3" json:"log_name,omitempty"`
 	// The gRPC service for the access log service.
-	GrpcService          *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService" json:"grpc_service,omitempty"`
+	GrpcService          *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService,proto3" json:"grpc_service,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -170,7 +170,7 @@ func (m *CommonGrpcAccessLogConfig) Reset()         { *m = CommonGrpcAccessLogCo
 func (m *CommonGrpcAccessLogConfig) String() string { return proto.CompactTextString(m) }
 func (*CommonGrpcAccessLogConfig) ProtoMessage()    {}
 func (*CommonGrpcAccessLogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_als_e10a599edeeb29ed, []int{2}
+	return fileDescriptor_als_e1ce8e0c0099b8bf, []int{2}
 }
 func (m *CommonGrpcAccessLogConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -372,6 +372,9 @@ func encodeVarintAls(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *HttpGrpcAccessLogConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.CommonConfig != nil {
@@ -403,6 +406,9 @@ func (m *HttpGrpcAccessLogConfig) Size() (n int) {
 }
 
 func (m *TcpGrpcAccessLogConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.CommonConfig != nil {
@@ -416,6 +422,9 @@ func (m *TcpGrpcAccessLogConfig) Size() (n int) {
 }
 
 func (m *CommonGrpcAccessLogConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.LogName)
@@ -919,10 +928,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/accesslog/v2/als.proto", fileDescriptor_als_e10a599edeeb29ed)
+	proto.RegisterFile("envoy/config/accesslog/v2/als.proto", fileDescriptor_als_e1ce8e0c0099b8bf)
 }
 
-var fileDescriptor_als_e10a599edeeb29ed = []byte{
+var fileDescriptor_als_e1ce8e0c0099b8bf = []byte{
 	// 388 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x92, 0xbd, 0xae, 0xd3, 0x30,
 	0x14, 0xc7, 0xe5, 0xb4, 0x7c, 0xd4, 0x2d, 0x52, 0x95, 0x81, 0x7e, 0x48, 0x84, 0x92, 0x76, 0xe8,

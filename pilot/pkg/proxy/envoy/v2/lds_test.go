@@ -33,7 +33,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer cancel()
-		err = sendLDSReq(sidecarId(app3Ip, "app3"), ldsr)
+		err = sendLDSReq(sidecarID(app3Ip, "app3"), ldsr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,7 +59,7 @@ func TestLDS(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer cancel()
-		err = sendLDSReq(gatewayId(gatewayIP), ldsr)
+		err = sendLDSReq(gatewayID(gatewayIP), ldsr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,7 +85,7 @@ func TestLDS(t *testing.T) {
 		}
 		defer cancel()
 
-		err = sendLDSReq(ingressId(ingressIP), ldsr)
+		err = sendLDSReq(ingressID(ingressIP), ldsr)
 		if err != nil {
 			t.Fatal(err)
 		}

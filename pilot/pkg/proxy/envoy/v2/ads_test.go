@@ -20,9 +20,16 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
+
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+)
+
+const (
+	routeA = "http.80"
+	routeB = "https.443.https"
 )
 
 // Regression for envoy restart and overlapping connections
@@ -33,7 +40,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +59,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarId(app3Ip, "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +77,7 @@ func TestAdsReconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +90,7 @@ func TestAdsReconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel2()
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr2)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +121,7 @@ func TestTLS(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cancel()
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), edsstr)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +142,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 	defer cancel()
 
 	var sendEDSReqAndVerify = func(clusterName string) {
-		err = sendEDSReq([]string{clusterName}, sidecarId("1.1.1.1", "app3"), edsstr)
+		err = sendEDSReq([]string{clusterName}, sidecarID("1.1.1.1", "app3"), edsstr)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -187,7 +194,7 @@ func TestAdsUpdate(t *testing.T) {
 	_ = server.EnvoyXdsServer.MemRegistry.AddEndpoint("adsupdate.default.svc.cluster.local",
 		"http-main", 2080, "10.2.0.1", 1080)
 
-	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarId("1.1.1.1", "app3"), edsstr)
+	err = sendEDSReq([]string{"outbound|2080||adsupdate.default.svc.cluster.local"}, sidecarID("1.1.1.1", "app3"), edsstr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,4 +243,185 @@ func TestAdsUpdate(t *testing.T) {
 	}
 	strResponse, _ = model.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_update.json", []byte(strResponse), 0644)
+}
+
+func TestEnvoyRDSProtocolError(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+
+	// wait for debounce
+	time.Sleep(3 * v2.DebounceAfter)
+
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+
+	v2.AdsPushAll(server.EnvoyXdsServer)
+
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) != 2 {
+		t.Fatal("No routes returned")
+	}
+
+	// send a protocol error
+	err = sendRDSReq(gatewayID(gatewayIP), nil, res.Nonce, edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Refresh routes
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes after protocol error")
+	}
+}
+
+func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
+	server, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+
+	// wait for debounce
+	time.Sleep(3 * v2.DebounceAfter)
+
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+	route1, err := unmarshallRoute(res.Resources[0].Value)
+	if err != nil || len(res.Resources) != 1 || route1.Name != routeA {
+		t.Fatal("Expected only the http.80 route to be returned")
+	}
+
+	v2.AdsPushAll(server.EnvoyXdsServer)
+
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+	if len(res.Resources) != 1 {
+		t.Fatal("Expected only 1 route to be returned")
+	}
+	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil || len(res.Resources) != 1 || route1.Name != routeA {
+		t.Fatal("Expected only the http.80 route to be returned")
+	}
+
+	// Test update from A -> B
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeB}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil || len(res.Resources) != 1 || route1.Name != routeB {
+		t.Fatal("Expected only the http.80 route to be returned")
+	}
+
+	// Test update from B -> A, B
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA, routeB}, res.Nonce, edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes after protocol error")
+	}
+	if len(res.Resources) != 2 {
+		t.Fatal("Expected 2 routes to be returned")
+	}
+
+	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	route2, err := unmarshallRoute(res.Resources[1].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if (route1.Name == routeA && route2.Name != routeB) || (route2.Name == routeA && route1.Name != routeB) {
+		t.Fatal("Expected http.80 and https.443.http routes to be returned")
+	}
+
+	// Test update from B, B -> A
+
+	err = sendRDSReq(gatewayID(gatewayIP), []string{routeA}, "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = adsReceive(edsstr, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || len(res.Resources) == 0 {
+		t.Fatal("No routes returned")
+	}
+	route1, err = unmarshallRoute(res.Resources[0].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Resources) != 1 || route1.Name != routeA {
+		t.Fatal("Expected only the http.80 route to be returned")
+	}
+}
+
+func unmarshallRoute(value []byte) (*xdsapi.RouteConfiguration, error) {
+	route := &xdsapi.RouteConfiguration{}
+	err := route.Unmarshal(value)
+	if err != nil {
+		return nil, err
+	}
+	return route, nil
 }

@@ -45,7 +45,7 @@ func (m *FileAccessLog) Reset()         { *m = FileAccessLog{} }
 func (m *FileAccessLog) String() string { return proto.CompactTextString(m) }
 func (*FileAccessLog) ProtoMessage()    {}
 func (*FileAccessLog) Descriptor() ([]byte, []int) {
-	return fileDescriptor_file_82a3aeb0b18e7cba, []int{0}
+	return fileDescriptor_file_f3ece1fa5088fe2b, []int{0}
 }
 func (m *FileAccessLog) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -84,7 +84,7 @@ type FileAccessLog_Format struct {
 	Format string `protobuf:"bytes,2,opt,name=format,proto3,oneof"`
 }
 type FileAccessLog_JsonFormat struct {
-	JsonFormat *types.Struct `protobuf:"bytes,3,opt,name=json_format,json=jsonFormat,oneof"`
+	JsonFormat *types.Struct `protobuf:"bytes,3,opt,name=json_format,json=jsonFormat,proto3,oneof"`
 }
 
 func (*FileAccessLog_Format) isFileAccessLog_AccessLogFormat()     {}
@@ -257,6 +257,9 @@ func encodeVarintFile(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *FileAccessLog) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Path)
@@ -273,6 +276,9 @@ func (m *FileAccessLog) Size() (n int) {
 }
 
 func (m *FileAccessLog_Format) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Format)
@@ -280,6 +286,9 @@ func (m *FileAccessLog_Format) Size() (n int) {
 	return n
 }
 func (m *FileAccessLog_JsonFormat) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.JsonFormat != nil {
@@ -549,10 +558,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/accesslog/v2/file.proto", fileDescriptor_file_82a3aeb0b18e7cba)
+	proto.RegisterFile("envoy/config/accesslog/v2/file.proto", fileDescriptor_file_f3ece1fa5088fe2b)
 }
 
-var fileDescriptor_file_82a3aeb0b18e7cba = []byte{
+var fileDescriptor_file_f3ece1fa5088fe2b = []byte{
 	// 248 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0x4c, 0x4e, 0x4e, 0x2d, 0x2e, 0xce,
