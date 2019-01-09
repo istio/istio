@@ -22,7 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"

@@ -34,6 +34,7 @@ spec:
 {{- end }}
   type: {{ .type }}
   selector:
+    release: {{ $.Release.Name }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}

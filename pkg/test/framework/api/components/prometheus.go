@@ -17,7 +17,7 @@ package components
 import (
 	"testing"
 
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prom "github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/test/framework/api/component"

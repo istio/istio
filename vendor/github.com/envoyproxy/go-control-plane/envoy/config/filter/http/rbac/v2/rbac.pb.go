@@ -27,11 +27,11 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type RBAC struct {
 	// Specify the RBAC rules to be applied globally.
 	// If absent, no enforcing RBAC policy will be applied.
-	Rules *v2alpha.RBAC `protobuf:"bytes,1,opt,name=rules" json:"rules,omitempty"`
+	Rules *v2alpha.RBAC `protobuf:"bytes,1,opt,name=rules,proto3" json:"rules,omitempty"`
 	// Shadow rules are not enforced by the filter (i.e., returning a 403)
 	// but will emit stats and logs and can be used for rule testing.
 	// If absent, no shadow RBAC policy will be applied.
-	ShadowRules          *v2alpha.RBAC `protobuf:"bytes,2,opt,name=shadow_rules,json=shadowRules" json:"shadow_rules,omitempty"`
+	ShadowRules          *v2alpha.RBAC `protobuf:"bytes,2,opt,name=shadow_rules,json=shadowRules,proto3" json:"shadow_rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -41,7 +41,7 @@ func (m *RBAC) Reset()         { *m = RBAC{} }
 func (m *RBAC) String() string { return proto.CompactTextString(m) }
 func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_cb34eda8f516f2bd, []int{0}
+	return fileDescriptor_rbac_1ed01f9721ca3f08, []int{0}
 }
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -87,7 +87,7 @@ func (m *RBAC) GetShadowRules() *v2alpha.RBAC {
 type RBACPerRoute struct {
 	// Override the global configuration of the filter with this new config.
 	// If absent, the global RBAC policy will be disabled for this route.
-	Rbac                 *RBAC    `protobuf:"bytes,2,opt,name=rbac" json:"rbac,omitempty"`
+	Rbac                 *RBAC    `protobuf:"bytes,2,opt,name=rbac,proto3" json:"rbac,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -97,7 +97,7 @@ func (m *RBACPerRoute) Reset()         { *m = RBACPerRoute{} }
 func (m *RBACPerRoute) String() string { return proto.CompactTextString(m) }
 func (*RBACPerRoute) ProtoMessage()    {}
 func (*RBACPerRoute) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_cb34eda8f516f2bd, []int{1}
+	return fileDescriptor_rbac_1ed01f9721ca3f08, []int{1}
 }
 func (m *RBACPerRoute) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -219,6 +219,9 @@ func encodeVarintRbac(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *RBAC) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Rules != nil {
@@ -236,6 +239,9 @@ func (m *RBAC) Size() (n int) {
 }
 
 func (m *RBACPerRoute) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Rbac != nil {
@@ -568,10 +574,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/rbac/v2/rbac.proto", fileDescriptor_rbac_cb34eda8f516f2bd)
+	proto.RegisterFile("envoy/config/filter/http/rbac/v2/rbac.proto", fileDescriptor_rbac_1ed01f9721ca3f08)
 }
 
-var fileDescriptor_rbac_cb34eda8f516f2bd = []byte{
+var fileDescriptor_rbac_1ed01f9721ca3f08 = []byte{
 	// 256 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0x4e, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0xcb, 0xcc, 0x29, 0x49, 0x2d, 0xd2,

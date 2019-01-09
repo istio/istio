@@ -60,6 +60,8 @@ func (m *MongoProxy) Validate() error {
 		}
 	}
 
+	// no validation rules for EmitDynamicMetadata
+
 	return nil
 }
 

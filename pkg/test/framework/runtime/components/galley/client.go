@@ -26,7 +26,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpclient "istio.io/istio/pkg/mcp/client"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
+	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 	tcontext "istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"

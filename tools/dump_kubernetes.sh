@@ -246,7 +246,7 @@ dump_istio_custom_resource_definitions() {
       | tr '\n' ',' \
       | sed 's/,$//')
 
-  if [ ! -z "${istio_resources}" ]; then
+  if [ -n "${istio_resources}" ]; then
     kubectl get "${istio_resources}" --all-namespaces -o yaml \
         > "${ISTIO_RESOURCES_FILE}"
   fi
@@ -280,7 +280,7 @@ dump_pilot() {
   pilot_pod=$(kubectl -n istio-system get pods -l istio=pilot \
       -o jsonpath='{.items[*].metadata.name}')
 
-  if [ ! -z "${pilot_pod}" ]; then
+  if [ -n "${pilot_pod}" ]; then
     local pilot_dir="${OUT_DIR}/pilot"
     mkdir -p "${pilot_dir}"
 

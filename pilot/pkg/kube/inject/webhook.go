@@ -299,9 +299,27 @@ func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, remo
 }
 
 func addContainer(target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
+	saJwtSecretMountName := ""
+	var saJwtSecretMount corev1.VolumeMount
+	// find service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
+	// https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#service-account-automation) from app container
+	for _, add := range target {
+		for _, vmount := range add.VolumeMounts {
+			if vmount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
+				saJwtSecretMountName = vmount.Name
+				saJwtSecretMount = vmount
+			}
+		}
+	}
 	first := len(target) == 0
 	var value interface{}
 	for _, add := range added {
+		if add.Name == "istio-proxy" && saJwtSecretMountName != "" {
+			// add service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
+			// https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#service-account-automation) to istio-proxy container,
+			// so that envoy could fetch/pass k8s sa jwt and pass to sds server, which will be used to request workload identity for the pod.
+			add.VolumeMounts = append(add.VolumeMounts, saJwtSecretMount)
+		}
 		value = add
 		path := basePath
 		if first {

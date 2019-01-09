@@ -35,7 +35,7 @@ func (m *Redis) Reset()         { *m = Redis{} }
 func (m *Redis) String() string { return proto.CompactTextString(m) }
 func (*Redis) ProtoMessage()    {}
 func (*Redis) Descriptor() ([]byte, []int) {
-	return fileDescriptor_redis_08442160ca39b319, []int{0}
+	return fileDescriptor_redis_c80c6fe2b0b6079c, []int{0}
 }
 func (m *Redis) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -111,6 +111,9 @@ func encodeVarintRedis(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Redis) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Key)
@@ -322,10 +325,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/health_checker/redis/v2/redis.proto", fileDescriptor_redis_08442160ca39b319)
+	proto.RegisterFile("envoy/config/health_checker/redis/v2/redis.proto", fileDescriptor_redis_c80c6fe2b0b6079c)
 }
 
-var fileDescriptor_redis_08442160ca39b319 = []byte{
+var fileDescriptor_redis_c80c6fe2b0b6079c = []byte{
 	// 131 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x32, 0x48, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0xcf, 0x48, 0x4d, 0xcc, 0x29, 0xc9, 0x88,

@@ -654,7 +654,7 @@ jobs:
 
   shellcheck:
     docker:
-      - image: koalaman/shellcheck-alpine:v0.5.0
+      - image: koalaman/shellcheck-alpine:v0.6.0
     steps:
       - checkout
       - run:

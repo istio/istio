@@ -853,7 +853,6 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 
 	wg.Wait()
 	adsLog.Infof("PushAll done %s %v", version, time.Since(tstart))
-	return
 }
 
 func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
