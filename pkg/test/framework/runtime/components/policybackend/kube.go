@@ -154,7 +154,7 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		return
 	}
 
-	podFetchFunc := env.NewSinglePodFetch(c.namespace, "app=policy-backend", "version=test")
+	podFetchFunc := env.NewSinglePodFetch(c.namespace, "app.kubernetes.io/name=policy-backend", "app.kubernetes.io/version=test")
 	if err = env.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		scopes.CI.Infof("Error waiting for PolicyBackend pod to become running: %v", err)
 		return
@@ -226,7 +226,7 @@ func (c *kubeComponent) Close() (err error) {
 	// Don't delete the deployment if using Test scope, since the test namespace will be deleted later.
 	if c.deployment != nil && c.scope != lifecycle.Test {
 		err = multierror.Append(err, c.deployment.Delete(c.kubeEnv.Accessor, false)).ErrorOrNil()
-		podFetchFunc := c.kubeEnv.NewPodFetch(c.namespace, "app=policy-backend", "version=test")
+		podFetchFunc := c.kubeEnv.NewPodFetch(c.namespace, "app.kubernetes.io/name=policy-backend", "app.kubernetes.io/version=test")
 		err = multierror.Append(err, c.kubeEnv.WaitUntilPodsAreDeleted(podFetchFunc)).ErrorOrNil()
 	}
 	return

@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	appLabel = "app"
+	appLabel = "app.kubernetes.io/name"
 
 	template = `
 {{- if eq .serviceAccount "true" }}
@@ -631,7 +631,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.S
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, scope lifecycle.Scope) (kubeApiCore.Pod, error) {
 	ns := e.NamespaceForScope(scope)
 
-	podFetchFunc := e.NewSinglePodFetch(ns, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+	podFetchFunc := e.NewSinglePodFetch(ns, appSelector(d.service), fmt.Sprintf("app.kubernetes.io/version=%s", d.version))
 	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		return kubeApiCore.Pod{}, err
 	}
@@ -646,6 +646,6 @@ func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, scope lifec
 func (d *deploymentFactory) waitUntilPodIsDeleted(e *kube.Environment, scope lifecycle.Scope) error {
 	ns := e.NamespaceForScope(scope)
 
-	podFetchFunc := e.NewPodFetch(ns, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
+	podFetchFunc := e.NewPodFetch(ns, appSelector(d.service), fmt.Sprintf("app.kubernetes.io/version=%s", d.version))
 	return e.WaitUntilPodsAreDeleted(podFetchFunc)
 }

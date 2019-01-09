@@ -131,7 +131,7 @@ func TestSimpleIngress(t *testing.T) {
 func TestSvc2Svc(t *testing.T) {
 	ns := tc.Kube.Namespace
 	// Get the 2 pods
-	podList, err := getPodList(ns, "app=echosrv")
+	podList, err := getPodList(ns, "app.kubernetes.io/name=echosrv")
 	if err != nil {
 		t.Fatalf("kubectl failure to get pods %v", err)
 	}
@@ -178,7 +178,7 @@ func TestSvc2Svc(t *testing.T) {
 func TestAuth(t *testing.T) {
 	ns := tc.Kube.Namespace
 	// Get the 2 pods
-	podList, err := getPodList(ns, "app=fortio-noistio")
+	podList, err := getPodList(ns, "app.kubernetes.io/name=fortio-noistio")
 	if err != nil {
 		t.Fatalf("kubectl failure to get pods %v", err)
 	}
@@ -206,7 +206,7 @@ func TestAuth(t *testing.T) {
 func TestAuthWithHeaders(t *testing.T) {
 	ns := tc.Kube.Namespace
 	// Get the non istio pod
-	podList, err := getPodList(ns, "app=fortio-noistio")
+	podList, err := getPodList(ns, "app.kubernetes.io/name=fortio-noistio")
 	if err != nil {
 		t.Fatalf("kubectl failure to get non istio pod %v", err)
 	}
@@ -217,7 +217,7 @@ func TestAuthWithHeaders(t *testing.T) {
 	// Get the istio pod without extra unique port. We can't use the service name or cluster ip as
 	// that vip only exists for declared host:port and the exploit relies on not having a listener
 	// for that port.
-	podList, err = getPodIPList(ns, "app=echosrv,extrap=non")
+	podList, err = getPodIPList(ns, "app.kubernetes.io/name=echosrv,extrap=non")
 	if err != nil {
 		t.Fatalf("kubectl failure to get deployment1 pod %v", err)
 	}

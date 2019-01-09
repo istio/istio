@@ -205,7 +205,7 @@ func sendTrafficToCluster(gateway string) (*fhttp.HTTPRunnerResults, error) {
 
 func generateTCPInCluster() error {
 	ns := tc.Kube.Namespace
-	ncPods, err := podList(ns, "app=netcat-client")
+	ncPods, err := podList(ns, "app.kubernetes.io/name=netcat-client")
 	if err != nil {
 		return fmt.Errorf("could not get nc client pods: %v", err)
 	}
@@ -480,7 +480,7 @@ func (p *promProxy) Setup() error {
 		return errors.New("could not establish port-forward to prometheus: pods not running")
 	}
 
-	return p.portForward("app=prometheus", prometheusPort, prometheusPort)
+	return p.portForward("app.kubernetes.io/name=prometheus", prometheusPort, prometheusPort)
 }
 
 func (p *promProxy) Teardown() (err error) {
@@ -648,7 +648,7 @@ func logMixerInfo(t *testing.T, service string, port int) {
 
 func logMixerMetrics(t *testing.T, service string, port int) {
 	ns := tc.Kube.Namespace
-	pods, err := podList(ns, "app=echosrv")
+	pods, err := podList(ns, "app.kubernetes.io/name=echosrv")
 	if err != nil || len(pods) < 1 {
 		t.Logf("Failure getting metrics for '%s:%d': %v", service, port, err)
 		return

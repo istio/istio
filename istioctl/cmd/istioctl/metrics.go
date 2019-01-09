@@ -48,10 +48,10 @@ var (
 		Long: `
 Prints the metrics for the specified service(s) when running in Kubernetes.
 
-This command finds a Prometheus pod running in the specified istio system 
+This command finds a Prometheus pod running in the specified istio system
 namespace. It then executes a series of queries per requested workload to
 find the following top-level workload metrics: total requests per second,
-error rate, and request latency at p50, p90, and p99 percentiles. The 
+error rate, and request latency at p50, p90, and p99 percentiles. The
 query results are printed to the console, organized by workload name.
 
 All metrics returned are from server-side reports. This means that latencies
@@ -154,7 +154,7 @@ func run(c *cobra.Command, args []string) error {
 }
 
 func prometheusPods(client cache.Getter) (*v1.PodList, error) {
-	podGet := client.Get().Resource("pods").Namespace(istioNamespace).Param("labelSelector", "app=prometheus")
+	podGet := client.Get().Resource("pods").Namespace(istioNamespace).Param("labelSelector", "app.kubernetes.io/name=prometheus")
 	obj, err := podGet.Do().Get()
 	if err != nil {
 		return nil, fmt.Errorf("failed retrieving pod: %v", err)

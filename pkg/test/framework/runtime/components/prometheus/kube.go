@@ -88,7 +88,7 @@ func (c *kubeComponent) Start(ctx testContext.Instance, scope lifecycle.Scope) (
 	// Find the Prometheus pod and service, and start forwarding a local port.
 	n := env.NamespaceForScope(c.scope)
 
-	fetchFn := env.Accessor.NewSinglePodFetch(n, fmt.Sprintf("app=%s", appName))
+	fetchFn := env.Accessor.NewSinglePodFetch(n, fmt.Sprintf("app.kubernetes.io/name=%s", appName))
 	if err := env.Accessor.WaitUntilPodsAreReady(fetchFn); err != nil {
 		return err
 	}

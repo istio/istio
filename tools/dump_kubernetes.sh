@@ -29,7 +29,7 @@ usage() {
   error '                               directory'
   error '  -q, --quiet              if present, do not log'
   error '  -m, --max-bytes          max total bytes, 0=no limit, default='${DEFAULT_MAX_LOG_BYTES}
-  error '  -l, --label              if set, dump logs only for pods with given labels e.g. "-l app=pilot -l istio=galley"'
+  error '  -l, --label              if set, dump logs only for pods with given labels e.g. "-l app.kubernetes.io/name=pilot -l istio=galley"'
   error '  -n, --namespace          if set, dump logs only for pods in the given namespaces e.g. "-n default -n istio-system"'
   error '  --error-if-nasty-logs    if present, exit with 255 if any logs'
   error '                               contain errors'

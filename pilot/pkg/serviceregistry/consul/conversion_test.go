@@ -164,7 +164,7 @@ func TestConvertService(t *testing.T) {
 			ID:          "1111-22-3333-444",
 			ServiceName: name,
 			ServiceTags: []string{
-				"version=v1",
+				"app.kubernetes.io/version=v1",
 				"zone=prod",
 			},
 			ServiceAddress: "172.19.0.11",
@@ -177,7 +177,7 @@ func TestConvertService(t *testing.T) {
 			ID:          "1111-22-3333-444",
 			ServiceName: name,
 			ServiceTags: []string{
-				"version=v2",
+				"app.kubernetes.io/version=v2",
 			},
 			ServiceAddress: "172.19.0.12",
 			ServicePort:    9080,

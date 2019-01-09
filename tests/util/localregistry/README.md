@@ -21,7 +21,7 @@ $ kubectl port-forward --namespace docker-registry $POD 5000:5000
 If you're testing locally with minikube, `$POD` can be set with:
 
 ```shell
-$ POD=$(kubectl get pods --namespace docker-registry -l k8s-app=kube-registry \
+$ POD=$(kubectl get pods --namespace docker-registry -l k8s-app.kubernetes.io/name=kube-registry \
   -o template --template '{{range .items}}{{.metadata.name}} {{.status.phase}}{{"\n"}}{{end}}' \
   | grep Running | head -1 | cut -f1 -d' ')
 ```

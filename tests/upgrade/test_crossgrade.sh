@@ -353,7 +353,7 @@ if (( SECONDS > TRAFFIC_RUNTIME_SEC )); then
     writeMsg "WARNING: test duration was ${SECONDS} but traffic only ran for ${TRAFFIC_RUNTIME_SEC}"
 fi
 
-cli_pod_name=$(kubectl -n "${TEST_NAMESPACE}" get pods -lapp=cli-fortio -o jsonpath='{.items[0].metadata.name}')
+cli_pod_name=$(kubectl -n "${TEST_NAMESPACE}" get pods -lapp.kubernetes.io/name=cli-fortio -o jsonpath='{.items[0].metadata.name}')
 echo "Traffic client pod is ${cli_pod_name}, waiting for traffic to complete..."
 kubectl logs -f -n "${TEST_NAMESPACE}" -c echosrv "${cli_pod_name}" &> "${POD_FORTIO_LOG}" || echo "Could not find ${cli_pod_name}"
 

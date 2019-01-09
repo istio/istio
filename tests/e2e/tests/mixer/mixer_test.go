@@ -299,7 +299,7 @@ func dumpK8Env() {
 	podLogs("istio="+ingressName, ingressName)
 	podLogs("istio=mixer", "mixer")
 	podLogs("istio=pilot", "discovery")
-	podLogs("app=productpage", "istio-proxy")
+	podLogs("app.kubernetes.io/name=productpage", "istio-proxy")
 
 }
 
@@ -365,7 +365,7 @@ func (p *promProxy) Setup() error {
 		return fmt.Errorf("could not establish prometheus proxy: pods not ready: %v", err)
 	}
 
-	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
+	if err = p.portForward("app.kubernetes.io/name=prometheus", prometheusPort, prometheusPort); err != nil {
 		return err
 	}
 
@@ -373,7 +373,7 @@ func (p *promProxy) Setup() error {
 		return err
 	}
 
-	return p.portForward("app=productpage", productPagePort, uint16(9080))
+	return p.portForward("app.kubernetes.io/name=productpage", productPagePort, uint16(9080))
 }
 
 func (p *promProxy) Teardown() (err error) {
@@ -556,17 +556,17 @@ func TestTcpMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_app=\"%s\"}", "mongodb")
+	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_app.kubernetes.io/name=\"%s\"}", "mongodb")
 	want := float64(1)
 	validateMetric(t, promAPI, query, "istio_tcp_sent_bytes_total", want)
 
-	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app=\"%s\"}", "mongodb")
+	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app.kubernetes.io/name=\"%s\"}", "mongodb")
 	validateMetric(t, promAPI, query, "istio_tcp_received_bytes_total", want)
 
-	query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
+	query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app.kubernetes.io/name=\"%s\"})", "mongodb")
 	validateMetric(t, promAPI, query, "istio_tcp_connections_opened_total", want)
 
-	query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
+	query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app.kubernetes.io/name=\"%s\"})", "mongodb")
 	validateMetric(t, promAPI, query, "istio_tcp_connections_closed_total", want)
 }
 
@@ -782,7 +782,7 @@ func getIngressOrFail(t *testing.T) string {
 // TestCheckCache tests that check cache works within the mesh.
 func TestCheckCache(t *testing.T) {
 	// Get pod id of sleep app.
-	pod, err := podID("app=sleep")
+	pod, err := podID("app.kubernetes.io/name=sleep")
 	if err != nil {
 		fatalf(t, "fail getting pod id of sleep %v", err)
 	}
@@ -1196,7 +1196,7 @@ func adapterDispatches(promAPI v1.API, adapter string) (float64, error) {
 }
 
 func mixerRequests(promAPI v1.API, svcName, app string) (float64, error) {
-	query := fmt.Sprintf("sum(istio_requests_total{source_app=\"%s\", destination_service_name=\"%s\"})", app, svcName)
+	query := fmt.Sprintf("sum(istio_requests_total{source_app.kubernetes.io/name=\"%s\", destination_service_name=\"%s\"})", app, svcName)
 	return queryValue(promAPI, query)
 }
 
@@ -1467,7 +1467,7 @@ func visitWithApp(url string, pod string, container string, num int) error {
 // getCheckCacheHits returned the total number of check cache hits in this cluster.
 func getCheckCacheHits(promAPI v1.API, app string) (float64, error) {
 	log.Info("Get number of cached check calls")
-	query := fmt.Sprintf("sum(envoy_http_mixer_filter_total_check_calls{app=\"%s\"})", app)
+	query := fmt.Sprintf("sum(envoy_http_mixer_filter_total_check_calls{app.kubernetes.io/name=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -1480,7 +1480,7 @@ func getCheckCacheHits(promAPI v1.API, app string) (float64, error) {
 		totalCheck = 0
 	}
 
-	query = fmt.Sprintf("sum(envoy_http_mixer_filter_total_remote_check_calls{app=\"%s\"})", app)
+	query = fmt.Sprintf("sum(envoy_http_mixer_filter_total_remote_check_calls{app.kubernetes.io/name=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {

@@ -14,11 +14,11 @@ NAMESPACE=fortio
 kubectl config set-context "$(kubectl config current-context)" --namespace=$NAMESPACE
 make NAMESPACE=$NAMESPACE TAG="$TAG" # default target is istio injected svc and normal client
 kubectl get all
-cli=$(kubectl get pod -l app=fortio -o jsonpath='{.items[0].metadata.name}')
-cliIp=$(kubectl get pod -l app=fortio -o jsonpath='{.items[0].status.podIP}')
-srv1Name=$(kubectl get pod -l app=echosrv -o jsonpath='{.items[0].metadata.name}')
-srv1=$(kubectl get pod -l app=echosrv -o jsonpath='{.items[0].status.podIP}')
-srv2=$(kubectl get pod -l app=echosrv -o jsonpath='{.items[1].status.podIP}')
+cli=$(kubectl get pod -l app.kubernetes.io/name=fortio -o jsonpath='{.items[0].metadata.name}')
+cliIp=$(kubectl get pod -l app.kubernetes.io/name=fortio -o jsonpath='{.items[0].status.podIP}')
+srv1Name=$(kubectl get pod -l app.kubernetes.io/name=echosrv -o jsonpath='{.items[0].metadata.name}')
+srv1=$(kubectl get pod -l app.kubernetes.io/name=echosrv -o jsonpath='{.items[0].status.podIP}')
+srv2=$(kubectl get pod -l app.kubernetes.io/name=echosrv -o jsonpath='{.items[1].status.podIP}')
 debugurlsuffix=":8080/debug?env=dump"
 
 # Direct pod ip to pod ip access:

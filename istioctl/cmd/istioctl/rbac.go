@@ -43,7 +43,7 @@ is being taken on. PATH is the HTTP path within the service.`,
 		Example: `# Query if user "cluster.local/ns/default/sa/productpage" is allowed to GET /v1/health of service rating.
 istioctl experimental rbac can -u cluster.local/ns/default/sa/productpage GET rating /v1/health
 
-# Query if namespace foo is allowed to POST to /data of service rating with label version=dev.
+# Query if namespace foo is allowed to POST to /data of service rating with label app.kubernetes.io/version=dev.
 istioctl experimental rbac can -s source.namespace=foo POST rating /data -a destination.labels[version]=dev`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
