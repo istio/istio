@@ -1,0 +1,957 @@
+{
+    "outbound|100||hello.default.svc.cluster.local": {
+      "cluster_name": "outbound|100||hello.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|100||service3.default.svc.cluster.local": {
+      "cluster_name": "outbound|100||service3.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|110||hello.default.svc.cluster.local": {
+      "cluster_name": "outbound|110||hello.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|110||service3.default.svc.cluster.local": {
+      "cluster_name": "outbound|110||service3.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|1200||test.seexamples": {
+      "cluster_name": "outbound|1200||test.seexamples",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.12.0.1",
+                      "PortSpecifier": {
+                        "PortValue": 21200
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|1300||test.exampleegressgw": {
+      "cluster_name": "outbound|1300||test.exampleegressgw",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.13.0.1",
+                      "PortSpecifier": {
+                        "PortValue": 31200
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|2000||s1tcp.none": {
+      "cluster_name": "outbound|2000||s1tcp.none",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.11.0.1",
+                      "PortSpecifier": {
+                        "PortValue": 7070
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|2001||s1http.none": {
+      "cluster_name": "outbound|2001||s1http.none",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.11.0.1",
+                      "PortSpecifier": {
+                        "PortValue": 7071
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|2005||s2.external.test.istio.io": {
+      "cluster_name": "outbound|2005||s2.external.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.11.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7071
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.11.0.3",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 2
+          }
+        }
+      ]
+    },
+    "outbound|2008||tcpmeshstatic.seexamples.svc": {
+      "cluster_name": "outbound|2008||tcpmeshstatic.seexamples.svc",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.11.0.8",
+                      "PortSpecifier": {
+                        "PortValue": 7070
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|2009||tcpmeshstaticint.seexamples.svc": {
+      "cluster_name": "outbound|2009||tcpmeshstaticint.seexamples.svc",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.11.0.9",
+                      "PortSpecifier": {
+                        "PortValue": 7070
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|27018||mymongodb.somedomain": {
+      "cluster_name": "outbound|27018||mymongodb.somedomain",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "2.2.2.2",
+                      "PortSpecifier": {
+                        "PortValue": 27018
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "3.3.3.3",
+                      "PortSpecifier": {
+                        "PortValue": 27018
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 2
+          }
+        }
+      ]
+    },
+    "outbound|443||istio-ingress.istio-system.svc.cluster.local": {
+      "cluster_name": "outbound|443||istio-ingress.istio-system.svc.cluster.local",
+      "endpoints": [
+        {
+          "locality": {
+            "region": "az"
+          },
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.3.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 443
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|66||hello.default.svc.cluster.local": {
+      "cluster_name": "outbound|66||hello.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|66||service3.default.svc.cluster.local": {
+      "cluster_name": "outbound|66||service3.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|7072||byon-docker.test.istio.io": {
+      "cluster_name": "outbound|7072||byon-docker.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "172.18.0.3",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|8001||example.unix.local": {
+      "cluster_name": "outbound|8001||example.unix.local",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "Pipe": {
+                      "path": "/var/run/example/socket"
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|8002||ep.extsvc.com": {
+      "cluster_name": "outbound|8002||ep.extsvc.com",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 8080
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.3",
+                      "PortSpecifier": {
+                        "PortValue": 8002
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 2
+          }
+        }
+      ]
+    },
+    "outbound|8080||eds.test.svc.cluster.local": {
+      "cluster_name": "outbound|8080||eds.test.svc.cluster.local",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.1",
+                      "PortSpecifier": {
+                        "PortValue": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|8080||fault.test.istio.io": {
+      "cluster_name": "outbound|8080||fault.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 8080
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.3",
+                      "PortSpecifier": {
+                        "PortValue": 8081
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 2
+          }
+        }
+      ]
+    },
+    "outbound|8080||redirect.test.istio.io": {
+      "cluster_name": "outbound|8080||redirect.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 8080
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80|v1|c-weighted.extsvc.com": {
+      "cluster_name": "outbound|80|v1|c-weighted.extsvc.com",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80|v2|c-weighted.extsvc.com": {
+      "cluster_name": "outbound|80|v2|c-weighted.extsvc.com",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.3",
+                      "PortSpecifier": {
+                        "PortValue": 7074
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80||appendh.test.istio.io": {
+      "cluster_name": "outbound|80||appendh.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80||byon.test.istio.io": {
+      "cluster_name": "outbound|80||byon.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80||c-weighted.extsvc.com": {
+      "cluster_name": "outbound|80||c-weighted.extsvc.com",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.3",
+                      "PortSpecifier": {
+                        "PortValue": 7074
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 2
+          }
+        }
+      ]
+    },
+    "outbound|80||c.foo": {
+      "cluster_name": "outbound|80||c.foo",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.1",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80||cors.test.istio.io": {
+      "cluster_name": "outbound|80||cors.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80||hello.default.svc.cluster.local": {
+      "cluster_name": "outbound|80||hello.default.svc.cluster.local",
+      "endpoints": [
+        {
+          "locality": {
+            "region": "az"
+          },
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.1",
+                      "PortSpecifier": {
+                        "PortValue": 20131
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80||istio-ingress.istio-system.svc.cluster.local": {
+      "cluster_name": "outbound|80||istio-ingress.istio-system.svc.cluster.local",
+      "endpoints": [
+        {
+          "locality": {
+            "region": "az"
+          },
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "10.3.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 80
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80||local.default.svc.cluster.local": {
+      "cluster_name": "outbound|80||local.default.svc.cluster.local",
+      "endpoints": [
+        {
+          "locality": {
+            "region": "az"
+          },
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "192.168.122.1",
+                      "PortSpecifier": {
+                        "PortValue": 20131
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|80||service3.default.svc.cluster.local": {
+      "cluster_name": "outbound|80||service3.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|80||service4.default.svc.cluster.local": {
+      "cluster_name": "outbound|80||service4.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|81|v1|destall.default.svc.cluster.local": {
+      "cluster_name": "outbound|81|v1|destall.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|81|v2|destall.default.svc.cluster.local": {
+      "cluster_name": "outbound|81|v2|destall.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|81||destall.default.svc.cluster.local": {
+      "cluster_name": "outbound|81||destall.default.svc.cluster.local",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|81||hello.default.svc.cluster.local": {
+      "cluster_name": "outbound|81||hello.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|81||service3.default.svc.cluster.local": {
+      "cluster_name": "outbound|81||service3.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|9002|v1|websocket.test.istio.io": {
+      "cluster_name": "outbound|9002|v1|websocket.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|9002||websocket.test.istio.io": {
+      "cluster_name": "outbound|9002||websocket.test.istio.io",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 7072
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|9003|v1|regex.extsvc.com": {
+      "cluster_name": "outbound|9003|v1|regex.extsvc.com",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 8080
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|9003|v2|regex.extsvc.com": {
+      "cluster_name": "outbound|9003|v2|regex.extsvc.com",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.3",
+                      "PortSpecifier": {
+                        "PortValue": 8081
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 1
+          }
+        }
+      ]
+    },
+    "outbound|9003||regex.extsvc.com": {
+      "cluster_name": "outbound|9003||regex.extsvc.com",
+      "endpoints": [
+        {
+          "lb_endpoints": [
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.2",
+                      "PortSpecifier": {
+                        "PortValue": 8080
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "endpoint": {
+                "address": {
+                  "Address": {
+                    "SocketAddress": {
+                      "address": "127.0.0.3",
+                      "PortSpecifier": {
+                        "PortValue": 8081
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "load_balancing_weight": {
+            "value": 2
+          }
+        }
+      ]
+    },
+    "outbound|90||hello.default.svc.cluster.local": {
+      "cluster_name": "outbound|90||hello.default.svc.cluster.local",
+      "endpoints": null
+    },
+    "outbound|90||service3.default.svc.cluster.local": {
+      "cluster_name": "outbound|90||service3.default.svc.cluster.local",
+      "endpoints": null
+    }
+  }

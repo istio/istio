@@ -77,6 +77,16 @@ func TestLDSIsolated(t *testing.T) {
 		if len(ldsr.TCPListeners) == 0 {
 			t.Fatal("No response")
 		}
+
+		for _, s := range []string {"lds_tcp", "lds_http", "rds", "cds", "ecds"} {
+			want, err := ioutil.ReadFile(env.IstioOut + "/none_" + s + ".json")
+			got, err := ioutil.ReadFile("testdata/none_" + s + ".json")
+
+			if err = util.Compare(got, want); err != nil {
+				t.Error(err)
+			}
+		}
+
 		// TODO: check bind==true
 		// TODO: verify listeners for outbound are on 127.0.0.1 (not yet), port 2000, 2005, 2007
 		// TODO: verify virtual listeners for unsupported cases

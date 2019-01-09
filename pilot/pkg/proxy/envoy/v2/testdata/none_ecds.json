@@ -1,0 +1,1187 @@
+{
+    "outbound|100||hello.default.svc.cluster.local": {
+      "name": "outbound|100||hello.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|100||hello.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|100||hello.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|100||service3.default.svc.cluster.local": {
+      "name": "outbound|100||service3.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|100||service3.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|100||service3.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|110||hello.default.svc.cluster.local": {
+      "name": "outbound|110||hello.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|110||hello.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|110||hello.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|110||service3.default.svc.cluster.local": {
+      "name": "outbound|110||service3.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|110||service3.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|110||service3.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|1200||test.seexamples": {
+      "name": "outbound|1200||test.seexamples",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|1200||test.seexamples"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|1200||test.seexamples",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|1300||test.exampleegressgw": {
+      "name": "outbound|1300||test.exampleegressgw",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|1300||test.exampleegressgw"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|1300||test.exampleegressgw",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2000||s1tcp.none": {
+      "name": "outbound|2000||s1tcp.none",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2000||s1tcp.none"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|2000||s1tcp.none",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2001||s1http.none": {
+      "name": "outbound|2001||s1http.none",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2001||s1http.none"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|2001||s1http.none",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2005||s2.external.test.istio.io": {
+      "name": "outbound|2005||s2.external.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2005||s2.external.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|2005||s2.external.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2008||tcpmeshstatic.seexamples.svc": {
+      "name": "outbound|2008||tcpmeshstatic.seexamples.svc",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2008||tcpmeshstatic.seexamples.svc"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|2008||tcpmeshstatic.seexamples.svc",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|2009||tcpmeshstaticint.seexamples.svc": {
+      "name": "outbound|2009||tcpmeshstaticint.seexamples.svc",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|2009||tcpmeshstaticint.seexamples.svc"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|2009||tcpmeshstaticint.seexamples.svc",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|27018||mymongodb.somedomain": {
+      "name": "outbound|27018||mymongodb.somedomain",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|27018||mymongodb.somedomain"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|27018||mymongodb.somedomain",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "tls_context": {
+        "common_tls_context": {
+          "tls_certificates": [
+            {
+              "certificate_chain": {
+                "Specifier": {
+                  "Filename": "tests/testdata/certs/default/cert-chain.pem"
+                }
+              },
+              "private_key": {
+                "Specifier": {
+                  "Filename": "tests/testdata/certs/default/key.pem"
+                }
+              }
+            }
+          ],
+          "ValidationContextType": {
+            "ValidationContext": {
+              "trusted_ca": {
+                "Specifier": {
+                  "Filename": "tests/testdata/certs/default/root-cert.pem"
+                }
+              },
+              "verify_subject_alt_name": [
+                "service.mongodb.somedomain"
+              ]
+            }
+          }
+        },
+        "sni": "v1.mymongodb.somedomain"
+      },
+      "LbConfig": null
+    },
+    "outbound|443||istio-ingress.istio-system.svc.cluster.local": {
+      "name": "outbound|443||istio-ingress.istio-system.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|443||istio-ingress.istio-system.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|443||istio-ingress.istio-system.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|66||hello.default.svc.cluster.local": {
+      "name": "outbound|66||hello.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|66||hello.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|66||hello.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "http2_protocol_options": {
+        "max_concurrent_streams": {
+          "value": 1073741824
+        }
+      },
+      "LbConfig": null
+    },
+    "outbound|66||service3.default.svc.cluster.local": {
+      "name": "outbound|66||service3.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|66||service3.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|66||service3.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "http2_protocol_options": {
+        "max_concurrent_streams": {
+          "value": 1073741824
+        }
+      },
+      "LbConfig": null
+    },
+    "outbound|7072||byon-docker.test.istio.io": {
+      "name": "outbound|7072||byon-docker.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|7072||byon-docker.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|7072||byon-docker.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|8001||example.unix.local": {
+      "name": "outbound|8001||example.unix.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|8001||example.unix.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|8001||example.unix.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|8002||ep.extsvc.com": {
+      "name": "outbound|8002||ep.extsvc.com",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|8002||ep.extsvc.com"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|8002||ep.extsvc.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|8080||eds.test.svc.cluster.local": {
+      "name": "outbound|8080||eds.test.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|8080||eds.test.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|8080||eds.test.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|8080||fault.test.istio.io": {
+      "name": "outbound|8080||fault.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|8080||fault.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|8080||fault.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|8080||redirect.test.istio.io": {
+      "name": "outbound|8080||redirect.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|8080||redirect.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|8080||redirect.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80|v1|c-weighted.extsvc.com": {
+      "name": "outbound|80|v1|c-weighted.extsvc.com",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80|v1|c-weighted.extsvc.com"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80|v1|c-weighted.extsvc.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80|v2|c-weighted.extsvc.com": {
+      "name": "outbound|80|v2|c-weighted.extsvc.com",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80|v2|c-weighted.extsvc.com"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80|v2|c-weighted.extsvc.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||appendh.test.istio.io": {
+      "name": "outbound|80||appendh.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||appendh.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||appendh.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||byon.test.istio.io": {
+      "name": "outbound|80||byon.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||byon.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||byon.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||c-weighted.extsvc.com": {
+      "name": "outbound|80||c-weighted.extsvc.com",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||c-weighted.extsvc.com"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||c-weighted.extsvc.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||c.foo": {
+      "name": "outbound|80||c.foo",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||c.foo"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||c.foo",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||cors.test.istio.io": {
+      "name": "outbound|80||cors.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||cors.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||cors.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||hello.default.svc.cluster.local": {
+      "name": "outbound|80||hello.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||hello.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||hello.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||istio-ingress.istio-system.svc.cluster.local": {
+      "name": "outbound|80||istio-ingress.istio-system.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||istio-ingress.istio-system.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||istio-ingress.istio-system.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||local.default.svc.cluster.local": {
+      "name": "outbound|80||local.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||local.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||local.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||service3.default.svc.cluster.local": {
+      "name": "outbound|80||service3.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||service3.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||service3.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||service4.default.svc.cluster.local": {
+      "name": "outbound|80||service4.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|80||service4.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||service4.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|81|v1|destall.default.svc.cluster.local": {
+      "name": "outbound|81|v1|destall.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|81|v1|destall.default.svc.cluster.local"
+      },
+      "connect_timeout": 6000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|81|v1|destall.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "max_requests_per_connection": {
+        "value": 65
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {
+            "max_connections": {
+              "value": 99
+            },
+            "max_pending_requests": {
+              "value": 14
+            },
+            "max_requests": {
+              "value": 33
+            },
+            "max_retries": {
+              "value": 4
+            }
+          }
+        ]
+      },
+      "outlier_detection": {
+        "interval": {
+          "nanos": 8000000
+        },
+        "base_ejection_time": {
+          "seconds": 60
+        },
+        "max_ejection_percent": {
+          "value": 11
+        },
+        "enforcing_consecutive_5xx": {},
+        "consecutive_gateway_failure": {
+          "value": 7
+        },
+        "enforcing_consecutive_gateway_failure": {
+          "value": 100
+        }
+      },
+      "LbConfig": null
+    },
+    "outbound|81|v2|destall.default.svc.cluster.local": {
+      "name": "outbound|81|v2|destall.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|81|v2|destall.default.svc.cluster.local"
+      },
+      "connect_timeout": 6000000000,
+      "lb_policy": 2,
+      "load_assignment": {
+        "cluster_name": "outbound|81|v2|destall.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "max_requests_per_connection": {
+        "value": 65
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {
+            "max_connections": {
+              "value": 99
+            },
+            "max_pending_requests": {
+              "value": 14
+            },
+            "max_requests": {
+              "value": 33
+            },
+            "max_retries": {
+              "value": 4
+            }
+          }
+        ]
+      },
+      "outlier_detection": {
+        "interval": {
+          "nanos": 8000000
+        },
+        "base_ejection_time": {
+          "seconds": 60
+        },
+        "max_ejection_percent": {
+          "value": 11
+        },
+        "enforcing_consecutive_5xx": {},
+        "consecutive_gateway_failure": {
+          "value": 7
+        },
+        "enforcing_consecutive_gateway_failure": {
+          "value": 100
+        }
+      },
+      "LbConfig": {
+        "RingHashLbConfig": {
+          "minimum_ring_size": {
+            "value": 42
+          }
+        }
+      }
+    },
+    "outbound|81||destall.default.svc.cluster.local": {
+      "name": "outbound|81||destall.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|81||destall.default.svc.cluster.local"
+      },
+      "connect_timeout": 6000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|81||destall.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "max_requests_per_connection": {
+        "value": 65
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {
+            "max_connections": {
+              "value": 99
+            },
+            "max_pending_requests": {
+              "value": 14
+            },
+            "max_requests": {
+              "value": 33
+            },
+            "max_retries": {
+              "value": 4
+            }
+          }
+        ]
+      },
+      "outlier_detection": {
+        "interval": {
+          "nanos": 8000000
+        },
+        "base_ejection_time": {
+          "seconds": 60
+        },
+        "max_ejection_percent": {
+          "value": 11
+        },
+        "enforcing_consecutive_5xx": {},
+        "consecutive_gateway_failure": {
+          "value": 7
+        },
+        "enforcing_consecutive_gateway_failure": {
+          "value": 100
+        }
+      },
+      "LbConfig": null
+    },
+    "outbound|81||hello.default.svc.cluster.local": {
+      "name": "outbound|81||hello.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|81||hello.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|81||hello.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|81||service3.default.svc.cluster.local": {
+      "name": "outbound|81||service3.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|81||service3.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|81||service3.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|9002|v1|websocket.test.istio.io": {
+      "name": "outbound|9002|v1|websocket.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|9002|v1|websocket.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|9002|v1|websocket.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|9002||websocket.test.istio.io": {
+      "name": "outbound|9002||websocket.test.istio.io",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|9002||websocket.test.istio.io"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|9002||websocket.test.istio.io",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|9003|v1|regex.extsvc.com": {
+      "name": "outbound|9003|v1|regex.extsvc.com",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|9003|v1|regex.extsvc.com"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|9003|v1|regex.extsvc.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|9003|v2|regex.extsvc.com": {
+      "name": "outbound|9003|v2|regex.extsvc.com",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|9003|v2|regex.extsvc.com"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|9003|v2|regex.extsvc.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|9003||regex.extsvc.com": {
+      "name": "outbound|9003||regex.extsvc.com",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|9003||regex.extsvc.com"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|9003||regex.extsvc.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|90||hello.default.svc.cluster.local": {
+      "name": "outbound|90||hello.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|90||hello.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|90||hello.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|90||service3.default.svc.cluster.local": {
+      "name": "outbound|90||service3.default.svc.cluster.local",
+      "type": 3,
+      "eds_cluster_config": {
+        "eds_config": {
+          "ConfigSourceSpecifier": {
+            "Ads": {}
+          }
+        },
+        "service_name": "outbound|90||service3.default.svc.cluster.local"
+      },
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|90||service3.default.svc.cluster.local",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    }
+  }

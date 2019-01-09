@@ -1,0 +1,802 @@
+{
+    "BlackHoleCluster": {
+      "name": "BlackHoleCluster",
+      "connect_timeout": 1000000000,
+      "LbConfig": null
+    },
+    "PassthroughCluster": {
+      "name": "PassthroughCluster",
+      "type": 4,
+      "connect_timeout": 1000000000,
+      "lb_policy": 4,
+      "LbConfig": null
+    },
+    "inbound|2000||s1tcp.none": {
+      "name": "inbound|2000||s1tcp.none",
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "inbound|2000||s1tcp.none",
+        "endpoints": [
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "127.0.0.1",
+                        "PortSpecifier": {
+                          "PortValue": 37070
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "inbound|2001||s1http.none": {
+      "name": "inbound|2001||s1http.none",
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "inbound|2001||s1http.none",
+        "endpoints": [
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "127.0.0.1",
+                        "PortSpecifier": {
+                          "PortValue": 37071
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "inbound|3333||mgmtCluster": {
+      "name": "inbound|3333||mgmtCluster",
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "inbound|3333||mgmtCluster",
+        "endpoints": [
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "127.0.0.1",
+                        "PortSpecifier": {
+                          "PortValue": 3333
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "inbound|9999||mgmtCluster": {
+      "name": "inbound|9999||mgmtCluster",
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "inbound|9999||mgmtCluster",
+        "endpoints": [
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "127.0.0.1",
+                        "PortSpecifier": {
+                          "PortValue": 9999
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|1443||external.extsvc.com": {
+      "name": "outbound|1443||external.extsvc.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|1443||external.extsvc.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "external.extsvc.com",
+                        "PortSpecifier": {
+                          "PortValue": 1443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|2006||s2dns.external.test.istio.io": {
+      "name": "outbound|2006||s2dns.external.test.istio.io",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|2006||s2dns.external.test.istio.io",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "s2dns.external.test.istio.io",
+                        "PortSpecifier": {
+                          "PortValue": 2006
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|2007||tcpmeshdns.seexamples.svc": {
+      "name": "outbound|2007||tcpmeshdns.seexamples.svc",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|2007||tcpmeshdns.seexamples.svc",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "tcpmeshdns.seexamples.svc",
+                        "PortSpecifier": {
+                          "PortValue": 2007
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|443||api.dropboxapi.com": {
+      "name": "outbound|443||api.dropboxapi.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|443||api.dropboxapi.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "api.dropboxapi.com",
+                        "PortSpecifier": {
+                          "PortValue": 443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|443||api.facebook.com": {
+      "name": "outbound|443||api.facebook.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|443||api.facebook.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "api.facebook.com",
+                        "PortSpecifier": {
+                          "PortValue": 443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|443||api1.facebook.com": {
+      "name": "outbound|443||api1.facebook.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|443||api1.facebook.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "api1.facebook.com",
+                        "PortSpecifier": {
+                          "PortValue": 443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|443||ports.extsvc.com": {
+      "name": "outbound|443||ports.extsvc.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|443||ports.extsvc.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "ports.extsvc.com",
+                        "PortSpecifier": {
+                          "PortValue": 443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|443||ports1.extsvc.com": {
+      "name": "outbound|443||ports1.extsvc.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|443||ports1.extsvc.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "ports1.extsvc.com",
+                        "PortSpecifier": {
+                          "PortValue": 443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|443||www.googleapis.com": {
+      "name": "outbound|443||www.googleapis.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|443||www.googleapis.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "www.googleapis.com",
+                        "PortSpecifier": {
+                          "PortValue": 443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|443||www.wikipedia.org": {
+      "name": "outbound|443||www.wikipedia.org",
+      "type": 4,
+      "connect_timeout": 1000000000,
+      "lb_policy": 4,
+      "load_assignment": {
+        "cluster_name": "outbound|443||www.wikipedia.org",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|443||www1.googleapis.com": {
+      "name": "outbound|443||www1.googleapis.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|443||www1.googleapis.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "www1.googleapis.com",
+                        "PortSpecifier": {
+                          "PortValue": 443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|8000||foo.bar.com": {
+      "name": "outbound|8000||foo.bar.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|8000||foo.bar.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "us.foo.bar.com",
+                        "PortSpecifier": {
+                          "PortValue": 8080
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              },
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "uk.foo.bar.com",
+                        "PortSpecifier": {
+                          "PortValue": 9080
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              },
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "in.foo.bar.com",
+                        "PortSpecifier": {
+                          "PortValue": 7080
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|8001||dst.extsvc.com": {
+      "name": "outbound|8001||dst.extsvc.com",
+      "type": 4,
+      "connect_timeout": 1000000000,
+      "lb_policy": 4,
+      "load_assignment": {
+        "cluster_name": "outbound|8001||dst.extsvc.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||*.bar.com": {
+      "name": "outbound|80||*.bar.com",
+      "type": 4,
+      "connect_timeout": 1000000000,
+      "lb_policy": 4,
+      "load_assignment": {
+        "cluster_name": "outbound|80||*.bar.com",
+        "endpoints": null
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "LbConfig": null
+    },
+    "outbound|80||httpbin.com": {
+      "name": "outbound|80||httpbin.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|80||httpbin.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "httpbin.com",
+                        "PortSpecifier": {
+                          "PortValue": 80
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|8443||ports.extsvc.com": {
+      "name": "outbound|8443||ports.extsvc.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|8443||ports.extsvc.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "ports.extsvc.com",
+                        "PortSpecifier": {
+                          "PortValue": 8443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    },
+    "outbound|8443||ports1.extsvc.com": {
+      "name": "outbound|8443||ports1.extsvc.com",
+      "type": 1,
+      "connect_timeout": 1000000000,
+      "load_assignment": {
+        "cluster_name": "outbound|8443||ports1.extsvc.com",
+        "endpoints": [
+          {
+            "lb_endpoints": null
+          },
+          {
+            "lb_endpoints": [
+              {
+                "endpoint": {
+                  "address": {
+                    "Address": {
+                      "SocketAddress": {
+                        "address": "ports1.extsvc.com",
+                        "PortSpecifier": {
+                          "PortValue": 8443
+                        }
+                      }
+                    }
+                  }
+                },
+                "load_balancing_weight": {
+                  "value": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "circuit_breakers": {
+        "thresholds": [
+          {}
+        ]
+      },
+      "dns_lookup_family": 1,
+      "LbConfig": null
+    }
+  }

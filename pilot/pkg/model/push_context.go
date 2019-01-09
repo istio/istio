@@ -372,7 +372,7 @@ func (ps *PushContext) UpdateNodeIsolation(proxy *Proxy) {
 		for _, s := range ps.publicServices {
 			serviceNamespace := s.Attributes.Namespace
 			if serviceNamespace == "" {
-				res = append(res, s)
+				// should not happen except in tests - ignore
 			} else if globalDeps[serviceNamespace] || serviceNamespace == proxy.ConfigNamespace {
 				res = append(res, s)
 			}

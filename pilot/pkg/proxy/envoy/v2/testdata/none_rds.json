@@ -1,0 +1,41 @@
+{
+    "7071": {
+      "name": "7071",
+      "virtual_hosts": null,
+      "validate_clusters": {}
+    },
+    "http_proxy": {
+      "name": "http_proxy",
+      "virtual_hosts": [
+        {
+          "name": "s1http.none:2001",
+          "domains": [
+            "s1http.none:2001"
+          ],
+          "routes": [
+            {
+              "match": {
+                "PathSpecifier": {
+                  "Prefix": "/"
+                }
+              },
+              "Action": {
+                "Route": {
+                  "ClusterSpecifier": {
+                    "Cluster": "outbound|2001||s1http.none"
+                  },
+                  "HostRewriteSpecifier": null,
+                  "timeout": 0,
+                  "max_grpc_timeout": 0
+                }
+              },
+              "decorator": {
+                "operation": "s1http.none:2001/*"
+              }
+            }
+          ]
+        }
+      ],
+      "validate_clusters": {}
+    }
+  }
