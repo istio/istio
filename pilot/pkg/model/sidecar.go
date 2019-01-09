@@ -100,7 +100,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.services = ps.Services(&dummyNode)
 
 	out := &SidecarScope{
-		EgressListeners:             []*IstioEgressListenerWrapper{defaultEgressListener},
+		EgressListeners:  []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:         defaultEgressListener.services,
 		destinationRules: make(map[Hostname]*Config),
 	}
@@ -121,7 +121,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
 
 	out := &SidecarScope{
-		Config:                      sidecarConfig,
+		Config:           sidecarConfig,
 		services:         make([]*Service, 0),
 		destinationRules: make(map[Hostname]*Config),
 	}
@@ -209,7 +209,7 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
-		listenerHosts:     make(map[string]Hostname),
+		listenerHosts: make(map[string]Hostname),
 	}
 
 	if istioListener.Port != nil {

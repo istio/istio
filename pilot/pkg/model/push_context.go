@@ -656,7 +656,7 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 
 	// prebuild default sidecar scopes for other namespaces that dont have a sidecar CRD object.
 	// Workloads in these namespaces can reach any service in the mesh - the default istio behavior
-	// The DefaultSidecarScopeForNamespace function represents this behavior.	
+	// The DefaultSidecarScopeForNamespace function represents this behavior.
 	for _, s := range ps.ServiceByHostname {
 		ns := s.Attributes.Namespace
 		if len(ps.sidecarsByNamespace[ns]) == 0 {
