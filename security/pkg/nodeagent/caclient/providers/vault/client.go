@@ -177,6 +177,7 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 		"format": "pem",
 		"csr":    string(csr[:]),
 		"ttl":    strconv.FormatInt(certTTLInSec, 10) + "s",
+		"exclude_cn_from_sans": true,
 	}
 	res, err := client.Logical().Write(csrSigningPath, m)
 	if err != nil {
