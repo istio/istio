@@ -28,8 +28,6 @@ const collection = "collection"
 // CollectionTag holds the type URL for the context.
 var CollectionTag tag.Key
 
-var views []*view.View
-
 var (
 	strategyOnChangeTotal = stats.Int64(
 		"galley/runtime/strategy/on_change_total",
@@ -113,21 +111,13 @@ func recordStateTypeCount(collection string, count int) {
 }
 
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-	v := &view.View{
+	return &view.View{
 		Name:        measure.Name(),
 		Description: measure.Description(),
 		Measure:     measure,
 		TagKeys:     keys,
 		Aggregation: aggregation,
 	}
-	views = append(views, v)
-
-	return v
-}
-
-// UnregisterRuntimeMonitorViews unregisters all runtime views
-func UnregisterRuntimeMonitorViews() {
-	view.Unregister(views...)
 }
 
 func init() {

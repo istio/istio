@@ -94,19 +94,14 @@ var (
 		stats.UnitDimensionless)
 )
 
-var views []*view.View
-
 func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregation) *view.View {
-	v := &view.View{
+	return &view.View{
 		Name:        measure.Name(),
 		Description: measure.Description(),
 		Measure:     measure,
 		TagKeys:     keys,
 		Aggregation: aggregation,
 	}
-	views = append(views, v)
-
-	return v
 }
 
 func init() {
@@ -151,11 +146,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-// UnregisterValidationMonitorViews unregisters all validation views
-func UnregisterValidationMonitorViews() {
-	view.Unregister(views...)
 }
 
 func reportValidationFailed(request *admissionv1beta1.AdmissionRequest, reason string) {
