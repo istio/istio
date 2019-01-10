@@ -324,7 +324,7 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //   - address: unix:///var/run/example/socket
 // ```
 //
-// For HTTP based services, it is possible to create a VirtualService
+// For HTTP-based services, it is possible to create a VirtualService
 // backed by multiple DNS addressable endpoints. In such a scenario, the
 // application can use the HTTP_PROXY environment variable to transparently
 // reroute API calls for the VirtualService to a chosen backend. For
@@ -358,10 +358,10 @@ func (ServiceEntry_Resolution) EnumDescriptor() ([]byte, []int) {
 //       https: 7080
 // ```
 //
-// With HTTP_PROXY=http://localhost/, calls from the application to
-// http://foo.bar.com will be load balanced across the three domains
-// specified above. In other words, a call to http://foo.bar.com/baz would
-// be translated to http://uk.foo.bar.com/baz.
+// With `HTTP_PROXY=http://localhost/`, calls from the application to
+// `http://foo.bar.com` will be load balanced across the three domains
+// specified above. In other words, a call to `http://foo.bar.com/baz` would
+// be translated to `http://uk.foo.bar.com/baz`.
 //
 type ServiceEntry struct {
 	// REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS

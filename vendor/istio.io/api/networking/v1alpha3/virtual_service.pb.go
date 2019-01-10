@@ -1485,8 +1485,8 @@ type HTTPRetry struct {
 	// Specifies the conditions under which retry takes place.
 	// One or more policies can be specified using a ‘,’ delimited list.
 	// The supported policies can be found in
-	// "https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on"
-	// and "https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on"
+	// <https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on>
+	// and <https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on>
 	RetryOn string `protobuf:"bytes,3,opt,name=retry_on,json=retryOn,proto3" json:"retry_on,omitempty"`
 }
 
@@ -1518,12 +1518,12 @@ func (m *HTTPRetry) GetRetryOn() string {
 
 // Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 // service. Refer to
-// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS>
 // for further details about cross origin resource sharing. For example,
 // the following rule restricts cross origin requests to those originating
 // from example.com domain using HTTP POST/GET, and sets the
-// Access-Control-Allow-Credentials header to false. In addition, it only
-// exposes X-Foo-bar header and sets an expiry period of 1 day.
+// `Access-Control-Allow-Credentials` header to false. In addition, it only
+// exposes `X-Foo-bar` header and sets an expiry period of 1 day.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -1565,11 +1565,11 @@ type CorsPolicy struct {
 	// access. Serialized into Access-Control-Expose-Headers header.
 	ExposeHeaders []string `protobuf:"bytes,4,rep,name=expose_headers,json=exposeHeaders" json:"expose_headers,omitempty"`
 	// Specifies how long the results of a preflight request can be
-	// cached. Translates to the Access-Control-Max-Age header.
+	// cached. Translates to the `Access-Control-Max-Age` header.
 	MaxAge *google_protobuf.Duration `protobuf:"bytes,5,opt,name=max_age,json=maxAge" json:"max_age,omitempty"`
 	// Indicates whether the caller is allowed to send the actual request
 	// (not the preflight) using credentials. Translates to
-	// Access-Control-Allow-Credentials header.
+	// `Access-Control-Allow-Credentials` header.
 	AllowCredentials *google_protobuf1.BoolValue `protobuf:"bytes,6,opt,name=allow_credentials,json=allowCredentials" json:"allow_credentials,omitempty"`
 }
 

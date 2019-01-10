@@ -41,7 +41,7 @@ var (
 type Object struct {
 	TypeURL  string
 	Metadata *mcp.Metadata
-	Resource proto.Message
+	Body     proto.Message
 }
 
 // Change is a collection of configuration objects of the same protobuf type.
@@ -120,11 +120,11 @@ func (s *perTypeState) version() string {
 //
 // - Decoding the received configuration updates and providing them to the user via a batched set of changes.
 type Client struct {
-	client     mcp.AggregatedMeshConfigServiceClient
-	stream     mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient
-	state      map[string]*perTypeState
-	clientInfo *mcp.Client
-	updater    Updater
+	client   mcp.AggregatedMeshConfigServiceClient
+	stream   mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient
+	state    map[string]*perTypeState
+	nodeInfo *mcp.SinkNode
+	updater  Updater
 
 	journal  recentRequestsJournal
 	metadata map[string]string
@@ -184,16 +184,12 @@ func (r *recentRequestsJournal) snapshot() []RecentRequestInfo {
 
 // New creates a new instance of the MCP client for the specified message types.
 func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []string, updater Updater, id string, metadata map[string]string, reporter MetricReporter) *Client { // nolint: lll
-	clientInfo := &mcp.Client{
-		Id: id,
-		Metadata: &types.Struct{
-			Fields: map[string]*types.Value{},
-		},
+	nodeInfo := &mcp.SinkNode{
+		Id:          id,
+		Annotations: map[string]string{},
 	}
 	for k, v := range metadata {
-		clientInfo.Metadata.Fields[k] = &types.Value{
-			Kind: &types.Value_StringValue{StringValue: v},
-		}
+		nodeInfo.Annotations[k] = v
 	}
 
 	state := make(map[string]*perTypeState)
@@ -202,12 +198,12 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []st
 	}
 
 	return &Client{
-		client:     mcpClient,
-		state:      state,
-		clientInfo: clientInfo,
-		updater:    updater,
-		metadata:   metadata,
-		reporter:   reporter,
+		client:   mcpClient,
+		state:    state,
+		nodeInfo: nodeInfo,
+		updater:  updater,
+		metadata: metadata,
+		reporter: reporter,
 	}
 }
 
@@ -220,7 +216,7 @@ func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version strin
 	c.reporter.RecordRequestNack(response.TypeUrl, err)
 	errorDetails, _ := status.FromError(err)
 	req := &mcp.MeshConfigRequest{
-		Client:        c.clientInfo,
+		SinkNode:      c.nodeInfo,
 		TypeUrl:       response.TypeUrl,
 		VersionInfo:   version,
 		ResponseNonce: response.Nonce,
@@ -242,25 +238,25 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 
 	change := &Change{
 		TypeURL: response.TypeUrl,
-		Objects: make([]*Object, 0, len(response.Envelopes)),
+		Objects: make([]*Object, 0, len(response.Resources)),
 	}
-	for _, envelope := range response.Envelopes {
+	for _, resource := range response.Resources {
 		var dynamicAny types.DynamicAny
-		if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
+		if err := types.UnmarshalAny(resource.Body, &dynamicAny); err != nil {
 			return c.sendNACKRequest(response, state.version(), err)
 		}
 
-		if response.TypeUrl != envelope.Resource.TypeUrl {
+		if response.TypeUrl != resource.Body.TypeUrl {
 			errDetails := status.Errorf(codes.InvalidArgument,
 				"response type_url(%v) does not match resource type_url(%v)",
-				response.TypeUrl, envelope.Resource.TypeUrl)
+				response.TypeUrl, resource.Body.TypeUrl)
 			return c.sendNACKRequest(response, state.version(), errDetails)
 		}
 
 		object := &Object{
 			TypeURL:  response.TypeUrl,
-			Metadata: envelope.Metadata,
-			Resource: dynamicAny.Message,
+			Metadata: resource.Metadata,
+			Body:     dynamicAny.Message,
 		}
 		change.Objects = append(change.Objects, object)
 	}
@@ -273,7 +269,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 	// ACK
 	c.reporter.RecordRequestAck(response.TypeUrl)
 	req := &mcp.MeshConfigRequest{
-		Client:        c.clientInfo,
+		SinkNode:      c.nodeInfo,
 		TypeUrl:       response.TypeUrl,
 		VersionInfo:   response.VersionInfo,
 		ResponseNonce: response.Nonce,
@@ -293,8 +289,8 @@ func (c *Client) Run(ctx context.Context) {
 	initRequests := make([]*mcp.MeshConfigRequest, 0, len(c.state))
 	for typeURL := range c.state {
 		initRequests = append(initRequests, &mcp.MeshConfigRequest{
-			Client:  c.clientInfo,
-			TypeUrl: typeURL,
+			SinkNode: c.nodeInfo,
+			TypeUrl:  typeURL,
 		})
 	}
 
@@ -392,7 +388,7 @@ func (c *Client) Metadata() map[string]string {
 
 // ID is the node id for this client.
 func (c *Client) ID() string {
-	return c.clientInfo.Id
+	return c.nodeInfo.Id
 }
 
 // SupportedTypeURLs returns the TypeURLs that this client requests.
