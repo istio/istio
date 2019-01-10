@@ -57,8 +57,10 @@ spec:
         app: {{.service}}
         version: {{.version}}
         name: {{.deployment}}
-{{if eq .injectProxy "false"}}
       annotations:
+        sidecar.istio.io/userVolume: '{"uds":{"emptyDir":{"medium":"Memory"}}}'
+        sidecar.istio.io/userVolumeMount: '{"uds":{"mountPath":"/var/run/uds"}}'
+{{if eq .injectProxy "false"}}
         sidecar.istio.io/inject: "false"
 {{end}}
     spec:
@@ -82,6 +84,8 @@ spec:
           - "{{.port5}}"
           - --grpc
           - "{{.port6}}"
+          - --uds
+          - "/var/run/uds/serverSock"
 {{if eq .healthPort "true"}}
           - --port
           - "3333"
