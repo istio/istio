@@ -45,8 +45,6 @@ import (
 )
 
 const (
-	envoyListenerTLSInspector = "envoy.listener.tls_inspector"
-
 	// RDSHttpProxy is the special name for HTTP PROXY route
 	RDSHttpProxy = "http_proxy"
 
@@ -244,6 +242,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 					},
 				},
 			},
+			//ListenerFilters: []listener.ListenerFilter{{Name: xdsutil.OriginalDestination}},
 		})
 	}
 
@@ -975,8 +974,8 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 		}
 	}
 	if needTLSInspector {
-		listenerFiltersMap[envoyListenerTLSInspector] = true
-		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: envoyListenerTLSInspector})
+		listenerFiltersMap[xdsutil.TlsInspector] = true
+		listenerFilters = append(listenerFilters, listener.ListenerFilter{Name: xdsutil.TlsInspector})
 	}
 
 	for _, chain := range opts.filterChainOpts {
