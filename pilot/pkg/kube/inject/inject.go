@@ -42,6 +42,7 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	"istio.io/istio/pkg/log"
 )
 
@@ -65,6 +66,7 @@ var (
 		{"traffic.sidecar.istio.io/excludeOutboundIPRanges", ValidateExcludeIPRanges},
 		{"traffic.sidecar.istio.io/includeInboundPorts", ValidateIncludeInboundPorts},
 		{"traffic.sidecar.istio.io/excludeInboundPorts", ValidateExcludeInboundPorts},
+		{"policy.sidecar.istio.io/check", ValidatePolicyCheck},
 	}
 
 	annotationPolicy = annotationRegistry[0]
@@ -343,6 +345,16 @@ func ValidateIncludeInboundPorts(ports string) error {
 // ValidateExcludeInboundPorts validates the excludeInboundPorts parameter
 func ValidateExcludeInboundPorts(ports string) error {
 	return validatePortList("excludeInboundPorts", ports)
+}
+
+// ValidatePolicyCheck validates policy check override
+func ValidatePolicyCheck(value string) error {
+	switch value {
+	case mixer.PolicyCheckEnable, mixer.PolicyCheckDisable, mixer.PolicyCheckFailOpen:
+	default:
+		return fmt.Errorf("policyCheck invalid: %v", value)
+	}
+	return nil
 }
 
 // validateStatusPort validates the statusPort parameter
