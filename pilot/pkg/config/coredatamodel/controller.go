@@ -39,7 +39,8 @@ type CoreDataModel interface {
 
 // Options stores the configurable attributes of a Control
 type Options struct {
-	DomainSuffix string
+	DomainSuffix              string
+	ClearDiscoveryServerCache func()
 }
 
 // Controller is a temporary storage for the changes received
@@ -205,7 +206,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	if descriptor.Type == model.ServiceEntry.Type {
 		c.serviceEntryEvents(innerStore, prevStore)
 	} else {
-		c.discoveryServerClearCacheEvent(descriptor.Type, innerStore, prevStore)
+		c.options.ClearDiscoveryServerCache()
 	}
 
 	return nil
@@ -300,30 +301,6 @@ func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 				}
 			} else {
 				dispatch(prevConfig, model.EventDelete)
-			}
-		}
-	}
-}
-
-func (c *Controller) discoveryServerClearCacheEvent(descriptorType string, currentStore, prevStore map[string]map[string]model.Config) {
-	// dummy event since it is ignored by the caller
-	dispatch := func(model model.Config, event model.Event) {}
-	if handlers, ok := c.eventHandlers[descriptorType]; ok {
-		dispatch = func(model model.Config, event model.Event) {
-			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
-			for _, handler := range handlers {
-				handler(model, event)
-			}
-		}
-	}
-	for namespace, prevByName := range prevStore {
-		for name, prevConfig := range prevByName {
-			if byNamespace, ok := currentStore[namespace]; ok {
-				if _, ok := byNamespace[name]; !ok {
-					dispatch(prevConfig, model.EventUpdate)
-				}
-			} else {
-				dispatch(prevConfig, model.EventUpdate)
 			}
 		}
 	}
