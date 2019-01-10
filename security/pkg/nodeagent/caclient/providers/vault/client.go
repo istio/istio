@@ -174,9 +174,10 @@ func loginVaultK8sAuthMethod(client *api.Client, loginPath, role, sa string) (st
 // csr: the CSR to be signed, in pem format
 func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int64, csr []byte) ([]string, error) {
 	m := map[string]interface{}{
-		"format": "pem",
-		"csr":    string(csr[:]),
-		"ttl":    strconv.FormatInt(certTTLInSec, 10) + "s",
+		"format":               "pem",
+		"csr":                  string(csr[:]),
+		"ttl":                  strconv.FormatInt(certTTLInSec, 10) + "s",
+		"exclude_cn_from_sans": true,
 	}
 	res, err := client.Logical().Write(csrSigningPath, m)
 	if err != nil {
@@ -213,14 +214,14 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 		return nil, fmt.Errorf("the certificate chain in the CSR response is of unexpected format")
 	}
 	var certChain []string
-	certChain = append(certChain, cert)
+	certChain = append(certChain, cert+"\n")
 	for idx, c := range chain {
 		_, ok := c.(string)
 		if !ok {
 			log.Errorf("the certificate in the certificate chain %v is not a string", idx)
 			return nil, fmt.Errorf("the certificate in the certificate chain %v is not a string", idx)
 		}
-		certChain = append(certChain, c.(string))
+		certChain = append(certChain, c.(string)+"\n")
 	}
 
 	return certChain, nil

@@ -71,6 +71,170 @@
                               "Kind": {
                                 "StructValue": {
                                   "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "default_destination_service": {
+                                              "Kind": {
+                                                "StringValue": "default"
+                                              }
+                                            },
+                                            "mixer_attributes": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "attributes": {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "context.reporter.kind": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "inbound"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "context.reporter.uid": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "kubernetes://test-1.none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "destination.ip": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "bytes_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "AAAAAAAAAAAAAP//AAAAAA=="
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "destination.namespace": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "destination.port": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "int64_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "7071"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "destination.uid": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "string_value": {
+                                                                      "Kind": {
+                                                                        "StringValue": "kubernetes://test-1.none"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "service_configs": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "default": {
+                                                      "Kind": {
+                                                        "StructValue": {}
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "transport": {
+                                              "Kind": {
+                                                "StructValue": {
+                                                  "fields": {
+                                                    "check_cluster": {
+                                                      "Kind": {
+                                                        "StringValue": "outbound|9091||istio-mixer.istio-system"
+                                                      }
+                                                    },
+                                                    "network_fail_policy": {
+                                                      "Kind": {
+                                                        "StructValue": {
+                                                          "fields": {
+                                                            "policy": {
+                                                              "Kind": {
+                                                                "StringValue": "FAIL_CLOSE"
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    },
+                                                    "report_cluster": {
+                                                      "Kind": {
+                                                        "StringValue": "outbound|9091||istio-mixer.istio-system"
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "mixer"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
                                     "name": {
                                       "Kind": {
                                         "StringValue": "envoy.cors"
@@ -178,6 +342,77 @@
                                                                     "prefix": {
                                                                       "Kind": {
                                                                         "StringValue": "/"
+                                                                      }
+                                                                    }
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            "per_filter_config": {
+                                                              "Kind": {
+                                                                "StructValue": {
+                                                                  "fields": {
+                                                                    "mixer": {
+                                                                      "Kind": {
+                                                                        "StructValue": {
+                                                                          "fields": {
+                                                                            "mixer_attributes": {
+                                                                              "Kind": {
+                                                                                "StructValue": {
+                                                                                  "fields": {
+                                                                                    "attributes": {
+                                                                                      "Kind": {
+                                                                                        "StructValue": {
+                                                                                          "fields": {
+                                                                                            "destination.service.host": {
+                                                                                              "Kind": {
+                                                                                                "StructValue": {
+                                                                                                  "fields": {
+                                                                                                    "string_value": {
+                                                                                                      "Kind": {
+                                                                                                        "StringValue": "s1http.none"
+                                                                                                      }
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            },
+                                                                                            "destination.service.name": {
+                                                                                              "Kind": {
+                                                                                                "StructValue": {
+                                                                                                  "fields": {
+                                                                                                    "string_value": {
+                                                                                                      "Kind": {
+                                                                                                        "StringValue": "s1http.none"
+                                                                                                      }
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            },
+                                                                                            "destination.service.namespace": {
+                                                                                              "Kind": {
+                                                                                                "StructValue": {
+                                                                                                  "fields": {
+                                                                                                    "string_value": {
+                                                                                                      "Kind": {
+                                                                                                        "StringValue": "none"
+                                                                                                      }
+                                                                                                    }
+                                                                                                  }
+                                                                                                }
+                                                                                              }
+                                                                                            }
+                                                                                          }
+                                                                                        }
+                                                                                      }
+                                                                                    }
+                                                                                  }
+                                                                                }
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                        }
                                                                       }
                                                                     }
                                                                   }

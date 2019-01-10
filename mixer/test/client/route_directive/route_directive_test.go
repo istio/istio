@@ -20,6 +20,7 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,6 +30,9 @@ import (
 
 // signifies a certain map has to be empty
 const mustBeEmpty = "MUST_BE_EMPTY"
+
+// request body
+const requestBody = "HELLO WORLD"
 
 var expectedStats = map[string]int{
 	"http_mixer_filter.total_check_calls":        12,
@@ -85,8 +89,9 @@ func TestRouteDirective(t *testing.T) {
 		},
 		response: http.Header{
 			"Server":         []string{"envoy"},
-			"Content-Length": []string{"0"},
+			"Content-Length": []string{fmt.Sprintf("%d", len(requestBody))},
 		},
+		body: requestBody,
 	}, {
 		desc:   "request header operations",
 		path:   "/request",
@@ -111,6 +116,7 @@ func TestRouteDirective(t *testing.T) {
 		response: http.Header{
 			"X-Istio-Request": nil,
 		},
+		body: requestBody,
 	}, {
 		desc:   "response header operations",
 		path:   "/response",
@@ -133,8 +139,9 @@ func TestRouteDirective(t *testing.T) {
 		},
 		response: http.Header{
 			"X-Istio-Response": []string{"value", "value2"},
-			"Content-Length":   []string{"0"},
+			"Content-Length":   nil,
 		},
+		body: requestBody,
 	}, {
 		desc:   "combine operations",
 		path:   "/combine",
@@ -145,6 +152,7 @@ func TestRouteDirective(t *testing.T) {
 		},
 		request:  http.Header{"Istio-Request": []string{"test"}},
 		response: http.Header{"Istio-Response": []string{"case"}},
+		body:     requestBody,
 	}, {
 		desc:   "direct response",
 		path:   "/direct",
@@ -177,7 +185,7 @@ func TestRouteDirective(t *testing.T) {
 	for _, cs := range testCases {
 		t.Run(cs.desc, func(t *testing.T) {
 			s.SetMixerRouteDirective(cs.directive)
-			req, err := http.NewRequest(cs.method, fmt.Sprintf("http://localhost:%d%s", s.Ports().ServerProxyPort, cs.path), nil)
+			req, err := http.NewRequest(cs.method, fmt.Sprintf("http://localhost:%d%s", s.Ports().ServerProxyPort, cs.path), strings.NewReader(requestBody))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -200,7 +208,7 @@ func TestRouteDirective(t *testing.T) {
 	// run the queries again to exercise caching
 	for _, cs := range testCases {
 		s.SetMixerRouteDirective(cs.directive)
-		req, _ := http.NewRequest(cs.method, fmt.Sprintf("http://localhost:%d%s", s.Ports().ServerProxyPort, cs.path), nil)
+		req, _ := http.NewRequest(cs.method, fmt.Sprintf("http://localhost:%d%s", s.Ports().ServerProxyPort, cs.path), strings.NewReader(requestBody))
 		_, _ = client.Do(req)
 	}
 

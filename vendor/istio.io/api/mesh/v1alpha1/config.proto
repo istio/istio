@@ -61,6 +61,10 @@ message MeshConfig {
   // to connect to Mixer.
   bool policy_check_fail_open = 25;
 
+  // Enable session affinity for envoy mixer reports so that calls from a proxy will
+  // always target the same mixer instance.
+  bool sidecar_to_telemetry_session_affinity = 30;
+
   // Port on which Envoy should listen for incoming connections from
   // other services.
   int32 proxy_listen_port = 4;
@@ -151,23 +155,27 @@ message MeshConfig {
 
   message OutboundTrafficPolicy {
     enum Mode {
-      // outbound traffic will be restricted to services defined in the service registry as well as those defined
-      // through ServiceEntries
+      // outbound traffic will be restricted to services defined in the
+      // service registry as well as those defined through ServiceEntries
       REGISTRY_ONLY = 0;
-      // outbound traffic to unknown destinations will be allowed, in case there are no services or ServiceEntries for the destination port
+      // outbound traffic to unknown destinations will be allowed, in case
+      // there are no services or ServiceEntries for the destination port
       ALLOW_ANY = 1;
-      // not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only
-      VIRTUAL_SERVICE_ONLY = 2 [deprecated=true];
+
+      reserved 2;
+      reserved "VIRTUAL_SERVICE_ONLY";
     }
     Mode mode = 1;
   }
 
-  // Set the default behavior of the sidecar for handling outbound traffic from the application.
-  // While the default mode should work out of the box, if your application uses one or more external services that
-  // are not known apriori, setting the policy to ALLOW_ANY will cause the sidecars to route traffic to the any
-  // requested destination.
-  // Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
-  // instead of using allow_any.
+  // Set the default behavior of the sidecar for handling outbound traffic
+  // from the application.  If your application uses one or more external
+  // services that are not known apriori, setting the policy to ALLOW_ANY
+  // will cause the sidecars to route any unknown traffic originating from
+  // the application to its requested destination.  Users are strongly
+  // encouraged to use ServiceEntries to explicitly declare any external
+  // dependencies, instead of using allow_any, so that traffic to these
+  // services can be monitored.
   OutboundTrafficPolicy outbound_traffic_policy = 17;
 
   reserved 18;
@@ -202,45 +210,12 @@ message MeshConfig {
   // and pass to sds server, which will be used to request key/cert eventually.
   // If both enable_sds_token_mount and sds_use_k8s_sa_jwt are set to true, enable_sds_token_mount(trustworthy jwt) takes precedence.
   // This isn't supported for non-k8s case.
-  bool sds_use_k8s_sa_jwt = 30;
+  bool sds_use_k8s_sa_jwt = 29;
 
   // The trust domain corresponds to the trust root of a system.
   // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
   // Fallback to old identity format(without trust domain) if not set.
   string trust_domain = 26;
-
-  // Default service dependency settings for each workload in the
-  // mesh. ServiceDependencycontrols the reachability of workloads to other
-  // services in the mesh.
-  message DefaultServiceDependency {
-    enum Mode {
-      // Configure routes to services in all namespaces, i.e. import
-      // services from all namespaces.
-      ALL_NAMESPACES = 0;
-
-      // Only configure routes to services that are in the same namespace
-      // as the workload as well as services in namespaces specified in
-      // importNamespaces.
-      SAME_NAMESPACE = 1;
-    }
-
-    // REQUIRED: The default import setting for every workload in the mesh.
-    Mode import_mode = 1;
-
-    // Specifies one or more namespaces that should be imported by default
-    // in all user defined ServiceDependency resources in addition to the
-    // namespaces explicitly specified by the end user. Use this setting to
-    // automatically import services/resources from namespaces such as
-    // istio-system that all workloads in the mesh depend upon.
-    repeated string import_namespaces = 2;
-  }
-
-  // The default service dependency setting associated with every workload
-  // in the mesh.  Pilot will program the routes in the sidecars and
-  // gateways accordingly. If omitted, sidecars will be configured to reach
-  // every service in the mesh. The default scope can be overriden by
-  // supplying a ServiceDependency resource per namespace.
-  DefaultServiceDependency default_service_dependency = 29;
 
   // $hide_from_docs
   // Next available field number: 31

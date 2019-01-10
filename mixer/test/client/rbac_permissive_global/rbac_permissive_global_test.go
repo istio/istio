@@ -36,6 +36,7 @@ const reportAttributes = `
   "envoy.filters.http.rbac": {
     "shadow_engine_result": "denied"
   },
+  "rbac.permissive.response_code": "denied",
   "mesh1.ip": "*",
   "mesh2.ip": "*",
   "mesh3.ip": "*",

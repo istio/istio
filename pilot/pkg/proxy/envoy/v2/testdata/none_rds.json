@@ -31,6 +31,72 @@
               },
               "decorator": {
                 "operation": "s1http.none:2001/*"
+              },
+              "per_filter_config": {
+                "mixer": {
+                  "fields": {
+                    "disable_check_calls": {
+                      "Kind": {
+                        "BoolValue": true
+                      }
+                    },
+                    "mixer_attributes": {
+                      "Kind": {
+                        "StructValue": {
+                          "fields": {
+                            "attributes": {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "destination.service.host": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "string_value": {
+                                              "Kind": {
+                                                "StringValue": "s1http.none"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "destination.service.name": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "string_value": {
+                                              "Kind": {
+                                                "StringValue": "s1http.none"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "destination.service.namespace": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "string_value": {
+                                              "Kind": {
+                                                "StringValue": "none"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           ]

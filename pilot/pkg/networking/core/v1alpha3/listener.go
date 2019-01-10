@@ -163,7 +163,7 @@ var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
 	switch node.Type {
-	case model.Sidecar:
+	case model.SidecarProxy:
 		return configgen.buildSidecarListeners(env, node, push)
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayListeners(env, node, push)
