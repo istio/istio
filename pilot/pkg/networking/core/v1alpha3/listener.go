@@ -181,7 +181,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
-	services := push.Services(node)
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
@@ -508,8 +507,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	var services []*model.Service
-	var virtualServices []model.Config
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
@@ -601,7 +598,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Service: service,
 				}
 
-				buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
+				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 			}
 		} else {
 			// This is a catch all egress listener with no port. This
@@ -650,7 +647,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Service: service,
 					}
 
-					buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
+					configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 				}
 			}
 		}
@@ -678,7 +675,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 // if one doesn't already exist. HTTP listeners on same port are ignored
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts *buildListenerOpts,
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[string]*listenerEntry, virtualServices []model.Config) {
 
 	var destinationIPAddress string
@@ -692,7 +689,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
 			listenerOpts.bind = WildcardAddress
 		}
-		listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, port.Port)
+		listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
 
 		var exists bool
 
@@ -721,7 +718,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			if !currentListenerEntry.servicePort.Protocol.IsHTTP() {
 				outboundListenerConflict{
 					metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
-					node:            pluginParams.N1ode,
+					node:            pluginParams.Node,
 					listenerName:    listenerMapKey,
 					currentServices: currentListenerEntry.services,
 					currentProtocol: currentListenerEntry.servicePort.Protocol,
@@ -730,16 +727,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 				}.addMetric(pluginParams.Push)
 			}
 			// Skip building listener for the same http port
-			currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.service)
+			currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.Service)
 			return
 		}
 
 		// No conflicts. Add a http filter chain option to the listenerOpts
 		var rdsName string
-		if port.Port == 0 {
+		if pluginParams.Port.Port == 0 {
 			rdsName = listenerOpts.bind // use the UDS as a rds name
 		} else {
-			rdsName = fmt.Sprintf("%d", port.Port)
+			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
 		listenerOpts.filterChainOpts = []*filterChainOpts{{
 			httpOpts: &httpListenerOpts{
@@ -981,7 +978,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				},
 			}
 			listenerOpts := buildListenerOpts{
-				ip:   managementIP,
+				bind:   managementIP,
 				port: mPort.Port,
 				filterChainOpts: []*filterChainOpts{{
 					networkFilters: buildInboundNetworkFilters(env, node, instance),

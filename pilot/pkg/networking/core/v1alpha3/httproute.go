@@ -91,9 +91,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
-	listenPort := 0
+	listenerPort := 0
 	var err error
-	listenPort, err = strconv.Atoi(routeName)
+	listenerPort, err = strconv.Atoi(routeName)
 	if err != nil {
 		// we have a port whose name is http_proxy or unix:///foo/bar
 		// check for both.
@@ -104,7 +104,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	// Get the list of services that correspond to this egressListener from the sidecarScope	
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	egressListener := sidecarScope.GetEgressListenerForRDS(listenPort, routeName)
+	egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
 	// We should never be getting a nil egress listener because the code that setup this RDS
 	// call obviously saw an egress listener
 	if egressListener == nil {
@@ -114,7 +114,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	services := egressListener.Services()
 	// To maintain correctness, we should only use the virtualservices for
 	// this listener and not all virtual services accessible to this proxy.
-	virtualServices := egressListener.Services()
+	virtualServices := egressListener.VirtualServices()
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service)
 	for _, svc := range services {
@@ -155,7 +155,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenPort)
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
@@ -185,10 +185,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	var virtualHosts []route.VirtualHost
-	if listenPort == 0 {
+	if listenerPort == 0 {
 		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
 	} else {
-		virtualHosts = vHostPortMap[listenPort]
+		virtualHosts = vHostPortMap[listenerPort]
 	}
 
 	util.SortVirtualHosts(virtualHosts)
