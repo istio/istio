@@ -396,7 +396,7 @@ type redisDeployment struct {
 }
 
 func (r *redisDeployment) Setup() error {
-	// Deploy Tiller if not does not already exist. Otherwise, wait to see if it is running for 3m before
+	// Deploy Tiller if it not does not already exist. Otherwise, wait to see if it is running for 3m before
 	// trying to deploy.
 	if _, err := util.GetPodName("kube-system", "name=tiller", tc.Kube.KubeConfig); err == nil {
 		// if the pod exists, check to see if it is running...
