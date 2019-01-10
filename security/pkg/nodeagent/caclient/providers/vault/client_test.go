@@ -113,7 +113,7 @@ SQYzPWVk89gu6nKV+fS2pA9C8dAnYOzVu9XXc+PGlcIhjnuS+/P74hN5D3aIGljW
 		"ONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4aSzC2o8aD" +
 		"tlQ"
 
-	fakeCert        = []string{"fake-certificate", "fake-ca1", "fake-ca2"}
+	fakeCert        = []string{"fake-certificate\n", "fake-ca1\n", "fake-ca2\n"}
 	vaultNonTLSAddr = "http://35.247.15.29:8200"
 	vaultTLSAddr    = "https://35.233.249.249:8200"
 )
