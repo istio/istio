@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/galley/pkg/fs"
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
@@ -61,7 +60,6 @@ type Server struct {
 }
 
 type patchTable struct {
-	logConfigure                func(*log.Options) error
 	newKubeFromConfigFile       func(string) (kube.Interfaces, error)
 	verifyResourceTypesPresence func(kube.Interfaces) error
 	newSource                   func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error)
@@ -73,7 +71,6 @@ type patchTable struct {
 
 func defaultPatchTable() patchTable {
 	return patchTable{
-		logConfigure:                log.Configure,
 		newKubeFromConfigFile:       kube.NewKubeFromConfigFile,
 		verifyResourceTypesPresence: source.VerifyResourceTypesPresence,
 		newSource:                   source.New,
@@ -107,10 +104,6 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 			_ = s.Close()
 		}
 	}()
-
-	if err = p.logConfigure(a.LoggingOptions); err != nil {
-		return nil, err
-	}
 
 	mesh, err := p.newMeshConfigCache(a.MeshConfigFile)
 	if err != nil {
@@ -270,15 +263,14 @@ func (s *Server) Close() error {
 }
 
 //RunServer start Galley Server mode
-func RunServer(sa *Args, printf, fatalf shared.FormatFn, livenessProbeController,
+func RunServer(sa *Args, livenessProbeController,
 	readinessProbeController probe.Controller) {
-	printf("Galley started with\n%s", sa)
+	log.Infof("Galley started with %s", sa)
 	s, err := New(sa)
 	if err != nil {
-		fatalf("Unable to initialize Galley Server: %v", err)
+		log.Fatalf("Unable to initialize Galley Server: %v", err)
 	}
-	printf("Istio Galley: %s", version.Info)
-	printf("Starting gRPC server on %v", sa.APIAddress)
+	log.Infof("Istio Galley: %s\nStarting gRPC server on %v", version.Info, sa.APIAddress)
 	s.Run()
 	if livenessProbeController != nil {
 		serverLivenessProbe := probe.NewProbe()
