@@ -266,12 +266,12 @@ Default is to use the OS level configuration
 <section>
 <p>Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 service. Refer to
-https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS">https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS</a>
 for further details about cross origin resource sharing. For example,
 the following rule restricts cross origin requests to those originating
 from example.com domain using HTTP POST/GET, and sets the
-Access-Control-Allow-Credentials header to false. In addition, it only
-exposes X-Foo-bar header and sets an expiry period of 1 day.</p>
+<code>Access-Control-Allow-Credentials</code> header to false. In addition, it only
+exposes <code>X-Foo-bar</code> header and sets an expiry period of 1 day.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -348,7 +348,7 @@ access. Serialized into Access-Control-Expose-Headers header.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Specifies how long the results of a preflight request can be
-cached. Translates to the Access-Control-Max-Age header.</p>
+cached. Translates to the <code>Access-Control-Max-Age</code> header.</p>
 
 </td>
 </tr>
@@ -358,7 +358,7 @@ cached. Translates to the Access-Control-Max-Age header.</p>
 <td>
 <p>Indicates whether the caller is allowed to send the actual request
 (not the preflight) using credentials. Translates to
-Access-Control-Allow-Credentials header.</p>
+<code>Access-Control-Allow-Credentials</code> header.</p>
 
 </td>
 </tr>
@@ -1694,8 +1694,8 @@ number of retries attempted depends on the httpReqTimeout.</p>
 <p>Specifies the conditions under which retry takes place.
 One or more policies can be specified using a ‘,’ delimited list.
 The supported policies can be found in
-&ldquo;https://www.envoyproxy.io/docs/envoy/latest/configuration/http<em>filters/router</em>filter#x-envoy-retry-on&rdquo;
-and &ldquo;https://www.envoyproxy.io/docs/envoy/latest/configuration/http<em>filters/router</em>filter#x-envoy-retry-grpc-on&rdquo;</p>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on">https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on</a>
+and <a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on">https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on</a></p>
 
 </td>
 </tr>
@@ -3300,7 +3300,7 @@ spec:
   - address: unix:///var/run/example/socket
 </code></pre>
 
-<p>For HTTP based services, it is possible to create a VirtualService
+<p>For HTTP-based services, it is possible to create a VirtualService
 backed by multiple DNS addressable endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
 reroute API calls for the VirtualService to a chosen backend. For
@@ -3333,10 +3333,10 @@ spec:
       https: 7080
 </code></pre>
 
-<p>With HTTP_PROXY=http://localhost/, calls from the application to
-http://foo.bar.com will be load balanced across the three domains
-specified above. In other words, a call to http://foo.bar.com/baz would
-be translated to http://uk.foo.bar.com/baz.</p>
+<p>With <code>HTTP_PROXY=http://localhost/</code>, calls from the application to
+<code>http://foo.bar.com</code> will be load balanced across the three domains
+specified above. In other words, a call to <code>http://foo.bar.com/baz</code> would
+be translated to <code>http://uk.foo.bar.com/baz</code>.</p>
 
 <table class="message-fields">
 <thead>

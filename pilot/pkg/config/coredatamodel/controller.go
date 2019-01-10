@@ -162,7 +162,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 				CreationTimestamp: createTime,
 				Domain:            c.options.DomainSuffix,
 			},
-			Spec: obj.Resource,
+			Spec: obj.Body,
 		}
 
 		if err := schema.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {

@@ -48,7 +48,7 @@ type resourceTypeState struct {
 	// The version number for the current State of the object. Every time entries or versions change,
 	// the version number also change
 	version  int64
-	entries  map[resource.FullName]*mcp.Envelope
+	entries  map[resource.FullName]*mcp.Resource
 	versions map[resource.FullName]resource.Version
 }
 
@@ -63,7 +63,7 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 	// includes valid default version for empty resource collections.
 	for _, info := range schema.All() {
 		s.entries[info.TypeURL] = &resourceTypeState{
-			entries:  make(map[resource.FullName]*mcp.Envelope),
+			entries:  make(map[resource.FullName]*mcp.Resource),
 			versions: make(map[resource.FullName]resource.Version),
 		}
 	}
@@ -88,7 +88,7 @@ func (s *State) apply(event resource.Event) bool {
 
 		// TODO: Check for content-wise equality
 
-		entry, ok := s.envelopeResource(event.Entry)
+		entry, ok := s.toResource(event.Entry)
 		if !ok {
 			return false
 		}
@@ -130,7 +130,7 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	b := snapshot.NewInMemoryBuilder()
 
 	for typeURL, state := range s.entries {
-		entries := make([]*mcp.Envelope, 0, len(state.entries))
+		entries := make([]*mcp.Resource, 0, len(state.entries))
 		for _, entry := range state.entries {
 			entries = append(entries, entry)
 		}
@@ -193,7 +193,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	}
 }
 
-func extractKey(name resource.FullName, entry *mcp.Envelope, version resource.Version) resource.VersionedKey {
+func extractKey(name resource.FullName, entry *mcp.Resource, version resource.Version) resource.VersionedKey {
 	ts, err := types.TimestampFromProto(entry.Metadata.CreateTime)
 	if err != nil {
 		// It is an invalid timestamp. This shouldn't happen.
@@ -210,7 +210,7 @@ func extractKey(name resource.FullName, entry *mcp.Envelope, version resource.Ve
 	}
 }
 
-func (s *State) envelopeResource(e resource.Entry) (*mcp.Envelope, bool) {
+func (s *State) toResource(e resource.Entry) (*mcp.Resource, bool) {
 	serialized, err := proto.Marshal(e.Item)
 	if err != nil {
 		scope.Errorf("Error serializing proto from source e: %v:", e)
@@ -223,13 +223,13 @@ func (s *State) envelopeResource(e resource.Entry) (*mcp.Envelope, bool) {
 		return nil, false
 	}
 
-	entry := &mcp.Envelope{
+	entry := &mcp.Resource{
 		Metadata: &mcp.Metadata{
 			Name:       e.ID.FullName.String(),
 			CreateTime: createTime,
 			Version:    string(e.ID.Version),
 		},
-		Resource: &types.Any{
+		Body: &types.Any{
 			TypeUrl: e.ID.TypeURL.String(),
 			Value:   serialized,
 		},

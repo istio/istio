@@ -418,43 +418,26 @@
       }
     },
     {
-      "protopath": "mcp:/:v1alpha1:/:envelope.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "Envelope",
-            "fields": [
-              {
-                "id": 1,
-                "name": "metadata",
-                "type": "istio.mcp.v1alpha1.Metadata"
-              },
-              {
-                "id": 2,
-                "name": "resource",
-                "type": "google.protobuf.Any"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "protopath": "mcp:/:v1alpha1:/:mcp.proto",
       "def": {
         "messages": [
           {
-            "name": "Client",
+            "name": "SinkNode",
             "fields": [
               {
                 "id": 1,
                 "name": "id",
                 "type": "string"
-              },
+              }
+            ],
+            "maps": [
               {
-                "id": 2,
-                "name": "metadata",
-                "type": "google.protobuf.Struct"
+                "key_type": "string",
+                "field": {
+                  "id": 2,
+                  "name": "annotations",
+                  "type": "string"
+                }
               }
             ]
           },
@@ -468,8 +451,8 @@
               },
               {
                 "id": 2,
-                "name": "client",
-                "type": "Client"
+                "name": "sink_node",
+                "type": "SinkNode"
               },
               {
                 "id": 3,
@@ -498,8 +481,8 @@
               },
               {
                 "id": 2,
-                "name": "envelopes",
-                "type": "Envelope",
+                "name": "resources",
+                "type": "Resource",
                 "is_repeated": true
               },
               {
@@ -519,8 +502,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "client",
-                "type": "Client"
+                "name": "sink_node",
+                "type": "SinkNode"
               },
               {
                 "id": 2,
@@ -559,8 +542,8 @@
               },
               {
                 "id": 2,
-                "name": "envelopes",
-                "type": "Envelope",
+                "name": "resources",
+                "type": "Resource",
                 "is_repeated": true
               },
               {
@@ -571,6 +554,73 @@
               },
               {
                 "id": 4,
+                "name": "nonce",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "RequestResources",
+            "fields": [
+              {
+                "id": 1,
+                "name": "sink_node",
+                "type": "SinkNode"
+              },
+              {
+                "id": 2,
+                "name": "collection",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "response_nonce",
+                "type": "string"
+              },
+              {
+                "id": 5,
+                "name": "error_detail",
+                "type": "google.rpc.Status"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "initial_resource_versions",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Resources",
+            "fields": [
+              {
+                "id": 1,
+                "name": "system_version_info",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "collection",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "resources",
+                "type": "Resource",
+                "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "removed_resources",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
                 "name": "nonce",
                 "type": "string"
               }
@@ -592,6 +642,30 @@
                 "name": "IncrementalAggregatedResources",
                 "in_type": "IncrementalMeshConfigRequest",
                 "out_type": "IncrementalMeshConfigResponse",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          },
+          {
+            "name": "ResourceSource",
+            "rpcs": [
+              {
+                "name": "EstablishResourceStream",
+                "in_type": "RequestResources",
+                "out_type": "Resources",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          },
+          {
+            "name": "ResourceSink",
+            "rpcs": [
+              {
+                "name": "EstablishResourceStream",
+                "in_type": "Resources",
+                "out_type": "RequestResources",
                 "in_streamed": true,
                 "out_streamed": true
               }
@@ -621,6 +695,46 @@
                 "id": 3,
                 "name": "version",
                 "type": "string"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 4,
+                  "name": "labels",
+                  "type": "string"
+                }
+              },
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 5,
+                  "name": "annotations",
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "mcp:/:v1alpha1:/:resource.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Resource",
+            "fields": [
+              {
+                "id": 1,
+                "name": "metadata",
+                "type": "istio.mcp.v1alpha1.Metadata"
+              },
+              {
+                "id": 2,
+                "name": "body",
+                "type": "google.protobuf.Any"
               }
             ]
           }
