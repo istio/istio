@@ -32,6 +32,7 @@ import (
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	multierror "github.com/hashicorp/go-multierror"
+	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"k8s.io/api/core/v1"
@@ -93,6 +94,16 @@ var (
 	// Will be removed in 1.1 or 1.0.4 if we see no issues.
 	directEDS = os.Getenv("PILOT_DIRECT_EDS") != "0"
 )
+
+func init() {
+	// Export pilot version as metric for fleet analytics.
+	pilotVersion := prom.NewGaugeVec(prom.GaugeOpts{
+		Name: "pilot_info",
+		Help: "Pilot version and build information.",
+	}, []string{"version"})
+	prom.MustRegister(pilotVersion)
+	pilotVersion.With(prom.Labels{"version": version.Info.String()}).Set(1)
+}
 
 // MeshArgs provide configuration options for the mesh. If ConfigFile is provided, an attempt will be made to
 // load the mesh from the file. Otherwise, a default mesh will be used with optional overrides.

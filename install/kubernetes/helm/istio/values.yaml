@@ -325,7 +325,7 @@ gateways:
       #  cpu: 1800m
       #  memory: 256Mi
     cpu:
-      targetAverageUtilization: 80      
+      targetAverageUtilization: 80
     loadBalancerIP: ""
     serviceAnnotations:
       cloud.google.com/load-balancer-type: "internal"
@@ -445,10 +445,12 @@ grafana:
     tag: 5.2.3
   persist: false
   storageClassName: ""
+  accessMode: ReadWriteMany
   security:
     enabled: false
-    adminUser: admin
-    adminPassword: admin
+    secretName: grafana
+    usernameKey: username
+    passphraseKey: passphrase
   service:
     annotations: {}
     name: http
@@ -542,7 +544,7 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.9
+  tag: v0.10
   ingress:
     enabled: false
     ## Used to create an Ingress record.
@@ -557,10 +559,9 @@ kiali:
       #   hosts:
       #     - kiali.local
   dashboard:
-    username: admin
-    # Default admin passphrase for kiali. Must be set during setup, and
-    # changed by overriding the secret
-    passphrase: admin
+    secretName: kiali
+    usernameKey: username
+    passphraseKey: passphrase
 
     # Override the automatically detected Grafana URL, usefull when Grafana service has no ExternalIPs
     # grafanaURL:

@@ -105,6 +105,10 @@ type DiscoveryServer struct {
 	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
 	// pushes between the 2 packages.
 	edsUpdates map[string]*model.EndpointShardsByService
+
+	// pushContextMutex protecting global push context - which is modified on config change and
+	// read in multiple places.
+	pushContextMutex sync.RWMutex
 }
 
 // Workload has the minimal info we need to detect if we need to push workloads, and to
@@ -277,8 +281,11 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*model.EndpointS
 		return
 	}
 
-	s.mutex.Lock()
+	s.pushContextMutex.Lock()
 	s.Env.PushContext = push
+	s.pushContextMutex.Unlock()
+
+	s.mutex.Lock()
 	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.Itoa(versionNum)
 	versionNum++
 	initContextTime := time.Since(t0)
@@ -336,7 +343,7 @@ func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
 
 // Returns the global push context.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.pushContextMutex.RLock()
+	defer s.pushContextMutex.RUnlock()
 	return s.Env.PushContext
 }

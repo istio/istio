@@ -87,7 +87,7 @@ data:
         - --parentShutdownDuration
         - {{ "[[ formatDuration .ProxyConfig.ParentShutdownDuration ]]" }}
         - --discoveryAddress
-        - {{ "[[ .ProxyConfig.DiscoveryAddress ]]" }}
+        - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/discoveryAddress` .ProxyConfig.DiscoveryAddress ]]" }}
         - --discoveryRefreshDelay
         - {{ "[[ formatDuration .ProxyConfig.DiscoveryRefreshDelay ]]" }}
         - --zipkinAddress

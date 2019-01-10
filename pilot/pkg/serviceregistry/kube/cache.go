@@ -28,6 +28,7 @@ import (
 // PodCache is an eventually consistent pod cache
 // TODO: rename the file to 'pod.go' (cache is too generic)
 type PodCache struct {
+	// rwMu protects the keys map.
 	rwMu sync.RWMutex
 	cacheHandler
 
@@ -72,9 +73,6 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 	// via UpdateStatus.
 
 	if len(ip) > 0 {
-		pc.rwMu.Lock()
-		defer pc.rwMu.Unlock()
-
 		log.Infof("Handling event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
 		key := KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
@@ -82,7 +80,9 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			switch pod.Status.Phase {
 			case v1.PodPending, v1.PodRunning:
 				// add to cache if the pod is running or pending
+				pc.rwMu.Lock()
 				pc.keys[ip] = key
+				pc.rwMu.Unlock()
 				if pc.c.EDSUpdater != nil {
 					pc.c.EDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
 				}
@@ -92,14 +92,18 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			case v1.PodPending, v1.PodRunning:
 				log.Debugf("Handling update event %s for pod %s in namespace %s -> %v", ev, pod.Name, pod.Namespace, ip)
 				// add to cache if the pod is running or pending
+				pc.rwMu.Lock()
 				pc.keys[ip] = key
+				pc.rwMu.Unlock()
 				if pc.c.EDSUpdater != nil {
 					pc.c.EDSUpdater.WorkloadUpdate(ip, pod.ObjectMeta.Labels, pod.ObjectMeta.Annotations)
 				}
 			default:
 				// delete if the pod switched to other states and is in the cache
-				if pc.keys[ip] == key {
+				if k, _ := pc.getPodKey(ip); k == key {
+					pc.rwMu.Lock()
 					delete(pc.keys, ip)
+					pc.rwMu.Unlock()
 					if pc.c.EDSUpdater != nil {
 						pc.c.EDSUpdater.WorkloadUpdate(ip, nil, nil)
 					}
@@ -108,8 +112,10 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 			}
 		case model.EventDelete:
 			// delete only if this pod was in the cache
-			if pc.keys[ip] == key {
+			if k, _ := pc.getPodKey(ip); k == key {
+				pc.rwMu.Lock()
 				delete(pc.keys, ip)
+				pc.rwMu.Unlock()
 				if pc.c.EDSUpdater != nil {
 					pc.c.EDSUpdater.WorkloadUpdate(ip, nil, nil)
 				}
@@ -124,20 +130,20 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 // Deprecated - no need for the double indirection.
 func (pc *PodCache) getPodKey(addr string) (string, bool) {
 	pc.rwMu.RLock()
-	defer pc.rwMu.RUnlock()
 	key, exists := pc.keys[addr]
+	pc.rwMu.RUnlock()
 	return key, exists
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
 func (pc *PodCache) getPodByIP(addr string) (*v1.Pod, bool) {
 	pc.rwMu.RLock()
-	defer pc.rwMu.RUnlock()
-
 	key, exists := pc.keys[addr]
+	pc.rwMu.RUnlock()
 	if !exists {
 		return nil, false
 	}
+
 	item, exists, err := pc.informer.GetStore().GetByKey(key)
 	if !exists || err != nil {
 		return nil, false

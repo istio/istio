@@ -14,40 +14,45 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
-# This script runs githubctl which sends a PR to github daily-releases
-# to test the build
-
-# Exit immediately for non zero status
-set -e
-# Check unset variables
-set -u
-# Print commands
 set -x
 
-# shellcheck disable=SC1091
-source "/workspace/gcb_env.sh"
+if [[ -z "$CB_BRANCH" ]]; then
+  CB_BRANCH=$GIT_BRANCH
+  if [[ -z "$CB_BRANCH" ]]; then
+    echo "CB_BRANCH not set please set it"
+    exit 1
+  fi
+fi
+if [[ -z "$CB_VERSION" ]]; then
+  CB_VERSION=$CB_BRANCH-$(date '+%Y%m%d-%H-%M')
+fi
+if [[ -z "$CB_PIPELINE_TYPE" ]]; then
+  CB_PIPELINE_TYPE=daily
+fi
+if [[ -z "$CB_COMMIT" ]]; then
+  git clone "https://github.com/istio/istio" -b "${CB_BRANCH}" --depth 1
+  pushd istio || exit 1
+    CB_COMMIT=$(git rev-parse HEAD)
+  popd || exit 2
+fi
 
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# shellcheck source=release/gcb/gcb_lib.sh
-source "${SCRIPTPATH}/gcb_lib.sh"
 
-githubctl_setup
-github_keys
+GOPATH=$PWD/go
+mkdir -p go/bin
+GOBIN=$GOPATH/bin
+
+time go get -u istio.io/test-infra/toolbox/githubctl
 
 # this setting is required by githubctl, which runs git commands
 git config --global user.name "TestRunnerBot"	
 git config --global user.email "testrunner@istio.io"
 
-MANIFEST_FILE="/workspace/manifest.txt"
-ISTIO_SHA=$(grep "istio" "$MANIFEST_FILE" | cut -f 2 -d " ")
-
-"$githubctl" \
-    --token_file="$GITHUB_KEYFILE" \
-    --op=dailyRelQual \
-    --base_branch="$CB_BRANCH" \
-    --hub="$CB_DOCKER_HUB" \
-    --gcs_path="$CB_GCS_BUILD_PATH" \
+"$GOBIN/githubctl" \
+    --token_file="$GITHUB_TOKEN_FILE" \
+    --op=relPipelineBuild \
     --tag="$CB_VERSION" \
-    --ref_sha="$ISTIO_SHA"
+    --base_branch="$CB_BRANCH" \
+    --ref_sha="$CB_COMMIT" \
+    --pipeline="$CB_PIPELINE_TYPE"
 
+echo build triggered
