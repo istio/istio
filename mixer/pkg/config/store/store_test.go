@@ -95,31 +95,13 @@ func TestStore(t *testing.T) {
 	}
 	defer s.Stop()
 
-	b.getError = ErrNotFound
 	k := Key{Kind: "Handler", Name: "name", Namespace: "ns"}
-	if _, err := s.Get(k); err != ErrNotFound {
-		t.Errorf("Got %v, Want ErrNotFound", err)
-	}
-	if b.calledKey != k {
-		t.Errorf("calledKey %s should be %s", b.calledKey, k)
-	}
-
-	b.getError = nil
 	bres := &BackEndResource{
 		Kind:     k.Kind,
 		Metadata: ResourceMeta{Name: k.Name, Namespace: k.Namespace},
 		Spec:     map[string]interface{}{"name": "default", "adapter": "noop"},
 	}
-	b.getResponse = bres
-	var r1 *Resource
-	var err error
-	if r1, err = s.Get(k); err != nil {
-		t.Errorf("Got %v, Want nil", err)
-	}
 	want := &cfg.Handler{Name: "default", Adapter: "noop"}
-	if !reflect.DeepEqual(r1.Spec, want) {
-		t.Errorf("Got %v, Want %v", r1, want)
-	}
 
 	b.listResponse[k] = bres
 	if b.listCount != 0 {
