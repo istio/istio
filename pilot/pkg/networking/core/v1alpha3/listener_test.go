@@ -20,6 +20,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
@@ -28,6 +29,7 @@ import (
 
 const (
 	wildcardIP = "0.0.0.0"
+	fake       = "fake"
 )
 
 var (
@@ -278,6 +280,19 @@ func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeCo
 }
 
 func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+
+func (p *fakePlugin) GetName() plugin.Name {
+	return fake
+}
+
+func (p *fakePlugin) OnPreComputePerRouteFilterConfig(env *model.Environment, push *model.PushContext) map[string]*types.Struct {
+	return nil
+}
+
+// OnPreComputeMixerPerRouteFilterConfig is called whenever a new push is initialized to set up Mixer Per Route Filter config
+func (p *fakePlugin) OnPreComputeMixerPerRouteFilterConfig(env *model.Environment, push *model.PushContext) map[string]*types.Struct {
 	return nil
 }
 
