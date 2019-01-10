@@ -86,12 +86,24 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
-// BuildAddress returns a SocketAddress with the given ip and port.
-func BuildAddress(ip string, port uint32) core.Address {
+// BuildAddress returns a SocketAddress with the given ip and port or uds.
+func BuildAddress(bind string, port uint32) core.Address {
+	
+	if len(bind) > 0 && strings.HasPrefix(bind, model.UnixAddressPrefix) {
+		return core.Address{
+			Address: &core.Address_Pipe{
+				Pipe: &core.Pipe{
+					Path: bind,
+				},
+			},
+		}
+	}
+
+	
 	return core.Address{
 		Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
-				Address: ip,
+				Address: bind,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: port,
 				},

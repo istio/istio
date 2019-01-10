@@ -78,7 +78,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		opts := buildListenerOpts{
 			env:        env,
 			proxy:      node,
-			ip:         WildcardAddress,
+			bind:       WildcardAddress,
 			port:       int(portNumber),
 			bindToPort: true,
 		}

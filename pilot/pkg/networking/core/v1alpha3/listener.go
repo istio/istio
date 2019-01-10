@@ -186,7 +186,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 	if mesh.ProxyListenPort > 0 {
 		inbound := configgen.buildSidecarInboundListeners(env, node, push, proxyInstances)
-		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances, services)
+		outbound := configgen.buildSidecarOutboundListeners(env, node, push, proxyInstances)
 
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
@@ -262,7 +262,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			env:            env,
 			proxy:          node,
 			proxyInstances: proxyInstances,
-			ip:             listenAddress,
+			bind:           listenAddress,
 			port:           int(mesh.ProxyHttpPort),
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
@@ -329,7 +329,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			env:            env,
 			proxy:          node,
 			proxyInstances: proxyInstances,
-			ip:             endpoint.Address,
+			bind:           endpoint.Address,
 			port:           endpoint.Port,
 		}
 
@@ -437,10 +437,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 }
 
 type listenerEntry struct {
-	// TODO: Clean this up
 	services    []*model.Service
 	servicePort *model.Port
+	bind        string
 	listener    *xdsapi.Listener
+	locked      bool
 }
 
 func protocolName(p model.Protocol) string {
@@ -484,7 +485,7 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 }
 
 // buildSidecarOutboundListeners generates http and tcp listeners for
-// outbound connections from the service instance
+// outbound connections from the proxy based on the sidecar scope associated with the proxy.
 // TODO(github.com/istio/pilot/issues/237)
 //
 // Sharing tcp_proxy and http_connection_manager filters on the same port for
@@ -499,8 +500,7 @@ func (c outboundListenerConflict) addMetric(push *model.PushContext) {
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.Environment, node *model.Proxy,
-	push *model.PushContext, proxyInstances []*model.ServiceInstance,
-	_ []*model.Service) []*xdsapi.Listener {
+	push *model.PushContext, proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
 	var proxyLabels model.LabelsCollection
 	for _, w := range proxyInstances {
@@ -508,8 +508,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	services := sidecarScope.Services()
-	configs := sidecarScope.VirtualServices()
+	var services []*model.Service
+	var virtualServices []model.Config
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
@@ -529,6 +529,29 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	// no Sidecar CRD is provided for this config namespace,
 	// push.SidecarScope will generate a default catch all egress listener.
 	for _, egressListener := range sidecarScope.EgressListeners {
+
+		services := egressListener.Services()
+		virtualServices := egressListener.VirtualServices()
+
+		// determine the bindToPort setting for listeners
+		bindToPort := false
+		mode := node.Metadata["INTERCEPTION_MODE"];
+		if mode == "NONE" {
+			// dont care what the listener's capture mode setting is. The proxy does not use iptables
+			bindToPort = true
+		} else {
+			// proxy uses iptables redirect or tproxy. IF mode is not set
+			// for older proxies, it defaults to iptables redirect.  If the
+			// listener's capture mode specifies NONE, then the proxy wants
+			// this listener alone to be on a physical port. If the
+			// listener's capture mode is default, then its same as
+			// iptables i.e. bindToPort is false.
+			if egressListener.IstioListener != nil &&
+				egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
+				bindToPort = true
+			}
+		}
+
 		if egressListener.IstioListener != nil &&
 			egressListener.IstioListener.Port != nil {
 			// We have a non catch all listener on some user specified port
@@ -539,247 +562,101 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			// forloop logic below as it iterates over all services and
 			// their service ports.
 
-			// TODO: complete implementation
-			continue
-		}
-
-		// This is a catch all egress listener. This should be the last
-		// egress listener in the sidecar Scope.
-		services = egressListener.Services()
-		break
-	}
-
-	// Control reaches this stage when we need to build a catch all egress
-	// listener. We need to generate a listener for every unique service
-	// port across all imported services, if and only if this port was not
-	// specified in any of the preceding listeners from the sidecarScope.
-	// TODO: Implement the logic for ignoring service ports processed earlier.
-	for _, service := range services {
-		for _, servicePort := range service.Ports {
-			listenAddress := WildcardAddress
-			var destinationIPAddress string
-			var listenerMapKey string
-			var currentListenerEntry *listenerEntry
-			listenerOpts := buildListenerOpts{
-				env:            env,
-				proxy:          node,
-				proxyInstances: proxyInstances,
-				ip:             WildcardAddress,
-				port:           servicePort.Port,
+			listenPort := &model.Port{
+				Port: int(egressListener.IstioListener.Port.Number),
+				Protocol: model.ParseProtocol(egressListener.IstioListener.Port.Protocol),
+				Name: egressListener.IstioListener.Port.Name,
 			}
 
-			pluginParams := &plugin.InputParams{
-				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
-				ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
-				Env:              env,
-				Node:             node,
-				ProxyInstances:   proxyInstances,
-				Service:          service,
-				Port:             servicePort,
-				Push:             push,
-			}
-			switch pluginParams.ListenerProtocol {
-			case plugin.ListenerProtocolHTTP:
-				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				var exists bool
-				// Check if this HTTP listener conflicts with an existing wildcard TCP listener
-				// i.e. one of NONE resolution type, since we collapse all HTTP listeners into
-				// a single 0.0.0.0:port listener and use vhosts to distinguish individual http
-				// services in that port
-				if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
-					if !currentListenerEntry.servicePort.Protocol.IsHTTP() {
-						outboundListenerConflict{
-							metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
-							node:            node,
-							listenerName:    listenerMapKey,
-							currentServices: currentListenerEntry.services,
-							currentProtocol: currentListenerEntry.servicePort.Protocol,
-							newHostname:     service.Hostname,
-							newProtocol:     servicePort.Protocol,
-						}.addMetric(push)
-					}
-					// Skip building listener for the same http port
-					currentListenerEntry.services = append(currentListenerEntry.services, service)
-					continue
+			// user can specify a Port but no bind - we would generate multiple listeners
+			// for this port (ones with 0.0.0.0:Port as well as ones with specific IPs)
+			// or user could have a bind on 0.0.0.0:Port with multiple filter chains on same listener
+			// or user could have bind on 1.1.1.1:Port or unix domain socket with multiple filter chains
+			// based on SNI matches, on same listener
+			//
+			// For all cases, we call
+			// buildSidecarOutboundListenerForPortOrUDS. This function
+			// takes care of adding a new listener to the listenerMap or
+			// adding a new filter chain for an existing listener.
+			for _, service := range services {				
+				listenerOpts := buildListenerOpts{
+					env:            env,
+					proxy:          node,
+					proxyInstances: proxyInstances,
+					proxyLabels:    proxyLabels,
+					bind:           egressListener.IstioListener.Bind,
+					port: listenPort.Port,
+					bindToPort: bindToPort,
 				}
 
-				listenerOpts.filterChainOpts = []*filterChainOpts{{
-					httpOpts: &httpListenerOpts{
-						rds:              fmt.Sprintf("%d", servicePort.Port),
-						useRemoteAddress: false,
-						direction:        http_conn.EGRESS,
-					},
-				}}
-			case plugin.ListenerProtocolTCP:
-				// Determine the listener address
-				// we listen on the service VIP if and only
-				// if the address is an IP address. If its a CIDR, we listen on
-				// 0.0.0.0, and setup a filter chain match for the CIDR range.
-				// As a small optimization, CIDRs with /32 prefix will be converted
-				// into listener address so that there is a dedicated listener for this
-				// ip:port. This will reduce the impact of a listener reload
-
-				svcListenAddress := service.GetServiceAddressForProxy(node)
-				// We should never get an empty address.
-				// This is a safety guard, in case some platform adapter isn't doing things
-				// properly
-				if len(svcListenAddress) > 0 {
-					if !strings.Contains(svcListenAddress, "/") {
-						listenAddress = svcListenAddress
-					} else {
-						// Address is a CIDR. Fall back to 0.0.0.0 and
-						// filter chain match
-						destinationIPAddress = svcListenAddress
-					}
+				pluginParams := &plugin.InputParams{
+					ListenerProtocol: plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
+					ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
+					Env:              env,
+					Node:             node,
+					ProxyInstances:   proxyInstances,
+					Push:             push,
+					Bind:             egressListener.IstioListener.Bind,
+					Port: listenPort,
+					Service: service,
 				}
 
-				listenerMapKey = fmt.Sprintf("%s:%d", listenAddress, servicePort.Port)
-				var exists bool
-				// Check if this TCP listener conflicts with an existing HTTP listener on 0.0.0.0:Port
-				if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
-					// Check for port collisions between TCP/TLS and HTTP.
-					// If configured correctly, TCP/TLS ports may not collide.
-					// We'll need to do additional work to find out if there is a collision within TCP/TLS.
-					if !currentListenerEntry.servicePort.Protocol.IsTCP() {
-						outboundListenerConflict{
-							metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
-							node:            node,
-							listenerName:    listenerMapKey,
-							currentServices: currentListenerEntry.services,
-							currentProtocol: currentListenerEntry.servicePort.Protocol,
-							newHostname:     service.Hostname,
-							newProtocol:     servicePort.Protocol,
-						}.addMetric(push)
-						continue
-					}
-					// WE have a collision with another TCP port.
-					// This can happen only if the service is listening on 0.0.0.0:<port>
-					// which is the case for headless services, or non-k8s services that do not have a VIP.
-					// Unfortunately we won't know if this is a real conflict or not
-					// until we process the VirtualServices, etc.
-					// The conflict resolution is done later in this code
-				}
-
-				meshGateway := map[string]bool{model.IstioMeshGateway: true}
-				listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(env, node, push, configs,
-					destinationIPAddress, service, servicePort, proxyLabels, meshGateway)
-			default:
-				// UDP or other protocols: no need to log, it's too noisy
-				continue
+				buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
+			}
+		} else {
+			// This is a catch all egress listener with no port. This
+			// should be the last egress listener in the sidecar
+			// Scope. Construct a listener for each service and service
+			// port, if and only if this port was not specified in any of
+			// the preceding listeners from the sidecarScope. This allows
+			// users to specify a trimmed set of services for one or more
+			// listeners and then add a catch all egress listener for all
+			// other ports. Doing so allows people to restrict the set of
+			// services exposed on one or more listeners, and avoid hard
+			// port conflicts like tcp taking over http or http taking over
+			// tcp, or simply specify that of all the listeners that Istio
+			// generates, the user would like to have only specific sets of
+			// services exposed on a particular listener.
+			//
+			// To ensure that we do not add anything to listeners we have
+			// already generated, run through the listenerEntry map and set
+			// the locked bit to true.
+			// buildSidecarOutboundListenerForPortOrUDS will not add/merge
+			// any HTTP/TCP listener if there is already a listenerEntry
+			// with locked bit set to true
+			for _, e := range listenerMap {
+				e.locked = true
 			}
 
-			// Even if we have a non empty current listener, lets build the new listener with the filter chains
-			// In the end, we will merge the filter chains
-
-			// call plugins
-			listenerOpts.ip = listenAddress
-			l := buildListener(listenerOpts)
-			mutable := &plugin.MutableObjects{
-				Listener:     l,
-				FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
-			}
-
-			for _, p := range configgen.Plugins {
-				if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
-					log.Warn(err.Error())
-				}
-			}
-
-			// Filters are serialized one time into an opaque struct once we have the complete list.
-			if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
-				log.Warna("buildSidecarOutboundListeners: ", err.Error())
-				continue
-			}
-
-			// TODO(rshriram) merge multiple identical filter chains with just a single destination CIDR based
-			// filter chain matche, into a single filter chain and array of destinationcidr matches
-
-			// We checked TCP over HTTP, and HTTP over TCP conflicts above.
-			// The code below checks for TCP over TCP conflicts and merges listeners
-			if currentListenerEntry != nil {
-				// merge the newly built listener with the existing listener
-				// if and only if the filter chains have distinct conditions
-				// Extract the current filter chain matches
-				// For every new filter chain match being added, check if any previous match is same
-				// if so, skip adding this filter chain with a warning
-				// This is very unoptimized.
-				newFilterChains := make([]listener.FilterChain, 0,
-					len(currentListenerEntry.listener.FilterChains)+len(mutable.Listener.FilterChains))
-				newFilterChains = append(newFilterChains, currentListenerEntry.listener.FilterChains...)
-				for _, incomingFilterChain := range mutable.Listener.FilterChains {
-					conflictFound := false
-
-				compareWithExisting:
-					for _, existingFilterChain := range currentListenerEntry.listener.FilterChains {
-						if existingFilterChain.FilterChainMatch == nil {
-							// This is a catch all filter chain.
-							// We can only merge with a non-catch all filter chain
-							// Else mark it as conflict
-							if incomingFilterChain.FilterChainMatch == nil {
-								conflictFound = true
-								outboundListenerConflict{
-									metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
-									node:            node,
-									listenerName:    listenerMapKey,
-									currentServices: currentListenerEntry.services,
-									currentProtocol: currentListenerEntry.servicePort.Protocol,
-									newHostname:     service.Hostname,
-									newProtocol:     servicePort.Protocol,
-								}.addMetric(push)
-								break compareWithExisting
-							} else {
-								continue
-							}
-						}
-						if incomingFilterChain.FilterChainMatch == nil {
-							continue
-						}
-
-						// We have two non-catch all filter chains. Check for duplicates
-						if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
-							conflictFound = true
-							outboundListenerConflict{
-								metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
-								node:            node,
-								listenerName:    listenerMapKey,
-								currentServices: currentListenerEntry.services,
-								currentProtocol: currentListenerEntry.servicePort.Protocol,
-								newHostname:     service.Hostname,
-								newProtocol:     servicePort.Protocol,
-							}.addMetric(push)
-							break compareWithExisting
-						}
+			for _, service := range services {
+				for _, servicePort := range service.Ports {
+					listenerOpts := buildListenerOpts{
+						env:            env,
+						proxy:          node,
+						proxyInstances: proxyInstances,
+						proxyLabels:    proxyLabels,
+						port: servicePort.Port,
+						bindToPort: bindToPort,
 					}
 
-					if !conflictFound {
-						// There is no conflict with any filter chain in the existing listener.
-						// So append the new filter chains to the existing listener's filter chains
-						newFilterChains = append(newFilterChains, incomingFilterChain)
-						lEntry := listenerMap[listenerMapKey]
-						lEntry.services = append(lEntry.services, service)
+					pluginParams := &plugin.InputParams{
+						ListenerProtocol: plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
+						ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
+						Env:              env,
+						Node:             node,
+						ProxyInstances:   proxyInstances,
+						Push:             push,
+						Port: servicePort,
+						Service: service,
 					}
-				}
-				currentListenerEntry.listener.FilterChains = newFilterChains
-			} else {
-				listenerMap[listenerMapKey] = &listenerEntry{
-					services:    []*model.Service{service},
-					servicePort: servicePort,
-					listener:    mutable.Listener,
-				}
-			}
 
-			if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListenerEntry != nil {
-				var numChains int
-				if currentListenerEntry != nil {
-					numChains = len(currentListenerEntry.listener.FilterChains)
-				} else {
-					numChains = len(mutable.Listener.FilterChains)
+					buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 				}
-				log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
 			}
 		}
 	}
 
+	// Now validate all the listeners. Collate the tcp listeners first and then the HTTP listeners
 	for name, l := range listenerMap {
 		if err := l.listener.Validate(); err != nil {
 			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
@@ -794,6 +671,277 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	return append(tcpListeners, httpListeners...)
+}
+
+// buildSidecarOutboundListenerForPortOrUDS builds a single listener and
+// adds it to the listenerMap provided by the caller.  Listeners are added
+// if one doesn't already exist. HTTP listeners on same port are ignored
+// (as vhosts are shipped through RDS).  TCP listeners on same port are
+// allowed only if they have different CIDR matches.
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts *buildListenerOpts,
+	pluginParams *plugin.InputParams, listenerMap map[string]*listenerEntry, virtualServices []model.Config) {
+
+	var destinationIPAddress string
+	var listenerMapKey string
+	var currentListenerEntry *listenerEntry
+
+	switch pluginParams.ListenerProtocol {
+	case plugin.ListenerProtocolHTTP:
+		// first identify the bind if its not set. Then construct the key
+		// used to lookup the listener in the conflict map.
+		if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
+			listenerOpts.bind = WildcardAddress
+		}
+		listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, port.Port)
+
+		var exists bool
+
+		// Have we already generated a listener for this Port based on user
+		// specified listener ports? if so, we should not add any more HTTP
+		// services to the port. The user could have specified a sidecar
+		// resource with one or more explicit ports and then added a catch
+		// all listener, implying add all other ports as usual. When we are
+		// iterating through the services for a catchAll egress listener,
+		// the caller would have set the locked bit for each listener Entry
+		// in the map.
+		//
+		// Check if this HTTP listener conflicts with an existing TCP
+		// listener. We could have listener conflicts occur on unix domain
+		// sockets, or on IP binds. Specifically, its common to see
+		// conflicts on binds for wildcard address when a service has NONE
+		// resolution type, since we collapse all HTTP listeners into a
+		// single 0.0.0.0:port listener and use vhosts to distinguish
+		// individual http services in that port
+		if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
+			// NOTE: This is not a conflict. This is simply filtering the
+			// services for a given listener explicitly.
+			if currentListenerEntry.locked {
+				return
+			}
+			if !currentListenerEntry.servicePort.Protocol.IsHTTP() {
+				outboundListenerConflict{
+					metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
+					node:            pluginParams.N1ode,
+					listenerName:    listenerMapKey,
+					currentServices: currentListenerEntry.services,
+					currentProtocol: currentListenerEntry.servicePort.Protocol,
+					newHostname:     pluginParams.Service.Hostname,
+					newProtocol:     pluginParams.Port.Protocol,
+				}.addMetric(pluginParams.Push)
+			}
+			// Skip building listener for the same http port
+			currentListenerEntry.services = append(currentListenerEntry.services, pluginParams.service)
+			return
+		}
+
+		// No conflicts. Add a http filter chain option to the listenerOpts
+		var rdsName string
+		if port.Port == 0 {
+			rdsName = listenerOpts.bind // use the UDS as a rds name
+		} else {
+			rdsName = fmt.Sprintf("%d", port.Port)
+		}
+		listenerOpts.filterChainOpts = []*filterChainOpts{{
+			httpOpts: &httpListenerOpts{
+				useRemoteAddress: false,
+				direction:        http_conn.EGRESS,
+				rds: rdsName,
+			},
+		}}
+
+	case plugin.ListenerProtocolTCP:
+		// first identify the bind if its not set. Then construct the key
+		// used to lookup the listener in the conflict map.
+		
+		// Determine the listener address if bind is empty
+		// we listen on the service VIP if and only
+		// if the address is an IP address. If its a CIDR, we listen on
+		// 0.0.0.0, and setup a filter chain match for the CIDR range.
+		// As a small optimization, CIDRs with /32 prefix will be converted
+		// into listener address so that there is a dedicated listener for this
+		// ip:port. This will reduce the impact of a listener reload
+
+		if len(listenerOpts.bind) == 0 {
+			svcListenAddress := pluginParams.Service.GetServiceAddressForProxy(pluginParams.Node)
+			// We should never get an empty address.
+			// This is a safety guard, in case some platform adapter isn't doing things
+			// properly
+			if len(svcListenAddress) > 0 {
+				if !strings.Contains(svcListenAddress, "/") {
+					listenerOpts.bind = svcListenAddress
+				} else {
+					// Address is a CIDR. Fall back to 0.0.0.0 and
+					// filter chain match
+					destinationIPAddress = svcListenAddress
+					listenerOpts.bind = WildcardAddress
+				}
+			}
+		}
+
+		// could be a unix domain socket or an IP bind
+		listenerMapKey = fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+
+		var exists bool
+
+		// Have we already generated a listener for this Port based on user
+		// specified listener ports? if so, we should not add any more 
+		// services to the port. The user could have specified a sidecar
+		// resource with one or more explicit ports and then added a catch
+		// all listener, implying add all other ports as usual. When we are
+		// iterating through the services for a catchAll egress listener,
+		// the caller would have set the locked bit for each listener Entry
+		// in the map.
+		//
+		// Check if this TCP listener conflicts with an existing HTTP listener
+		if currentListenerEntry, exists = listenerMap[listenerMapKey]; exists {
+			// NOTE: This is not a conflict. This is simply filtering the
+			// services for a given listener explicitly.
+			if currentListenerEntry.locked {
+				return
+			}
+			// Check for port collisions between TCP/TLS and HTTP. If
+			// configured correctly, TCP/TLS ports may not collide. We'll
+			// need to do additional work to find out if there is a
+			// collision within TCP/TLS.
+			if !currentListenerEntry.servicePort.Protocol.IsTCP() {
+				outboundListenerConflict{
+					metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
+					node:            pluginParams.Node,
+					listenerName:    listenerMapKey,
+					currentServices: currentListenerEntry.services,
+					currentProtocol: currentListenerEntry.servicePort.Protocol,
+					newHostname:     pluginParams.Service.Hostname,
+					newProtocol:     pluginParams.Port.Protocol,
+				}.addMetric(pluginParams.Push)
+				return
+			}
+
+			// We have a collision with another TCP port. This can happen
+			// for headless services, or non-k8s services that do not have
+			// a VIP, or when we have two binds on a unix domain socket or
+			// on same IP.  Unfortunately we won't know if this is a real
+			// conflict or not until we process the VirtualServices, etc.
+			// The conflict resolution is done later in this code
+		}
+
+		meshGateway := map[string]bool{model.IstioMeshGateway: true}
+		listenerOpts.filterChainOpts = buildSidecarOutboundTCPTLSFilterChainOpts(pluginParams.Env, pluginParams.Node,
+			pluginParams.Push, virtualServices,
+			destinationIPAddress, pluginParams.Service,
+			pluginParams.Port, listenerOpts.proxyLabels, meshGateway)
+	default:
+		// UDP or other protocols: no need to log, it's too noisy
+		return
+	}
+
+	// Lets build the new listener with the filter chains. In the end, we will
+	// merge the filter chains with any existing listener on the same port/bind point
+	l := buildListener(listenerOpts)
+	mutable := &plugin.MutableObjects{
+		Listener:     l,
+		FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
+	}
+
+	for _, p := range configgen.Plugins {
+		if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
+			log.Warn(err.Error())
+		}
+	}
+
+	// Filters are serialized one time into an opaque struct once we have the complete list.
+	if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
+		log.Warna("buildSidecarOutboundListeners: ", err.Error())
+		return
+	}
+
+	// TODO(rshriram) merge multiple identical filter chains with just a single destination CIDR based
+	// filter chain match, into a single filter chain and array of destinationcidr matches
+
+	// We checked TCP over HTTP, and HTTP over TCP conflicts above.
+	// The code below checks for TCP over TCP conflicts and merges listeners
+	if currentListenerEntry != nil {
+		// merge the newly built listener with the existing listener
+		// if and only if the filter chains have distinct conditions
+		// Extract the current filter chain matches
+		// For every new filter chain match being added, check if any previous match is same
+		// if so, skip adding this filter chain with a warning
+		// This is very unoptimized.
+		newFilterChains := make([]listener.FilterChain, 0,
+			len(currentListenerEntry.listener.FilterChains)+len(mutable.Listener.FilterChains))
+		newFilterChains = append(newFilterChains, currentListenerEntry.listener.FilterChains...)
+
+		for _, incomingFilterChain := range mutable.Listener.FilterChains {
+			conflictFound := false
+
+		compareWithExisting:
+			for _, existingFilterChain := range currentListenerEntry.listener.FilterChains {
+				if existingFilterChain.FilterChainMatch == nil {
+					// This is a catch all filter chain.
+					// We can only merge with a non-catch all filter chain
+					// Else mark it as conflict
+					if incomingFilterChain.FilterChainMatch == nil {
+						conflictFound = true
+						outboundListenerConflict{
+							metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
+							node:            pluginParams.Node,
+							listenerName:    listenerMapKey,
+							currentServices: currentListenerEntry.services,
+							currentProtocol: currentListenerEntry.servicePort.Protocol,
+							newHostname:     pluginParams.Service.Hostname,
+							newProtocol:     pluginParams.Port.Protocol,
+						}.addMetric(pluginParams.Push)
+						break compareWithExisting
+					} else {
+						continue
+					}
+				}
+				if incomingFilterChain.FilterChainMatch == nil {
+					continue
+				}
+
+				// We have two non-catch all filter chains. Check for duplicates
+				if reflect.DeepEqual(*existingFilterChain.FilterChainMatch, *incomingFilterChain.FilterChainMatch) {
+					conflictFound = true
+					outboundListenerConflict{
+						metric:          model.ProxyStatusConflictOutboundListenerTCPOverTCP,
+						node:            pluginParams.Node,
+						listenerName:    listenerMapKey,
+						currentServices: currentListenerEntry.services,
+						currentProtocol: currentListenerEntry.servicePort.Protocol,
+						newHostname:     pluginParams.Service.Hostname,
+						newProtocol:     pluginParams.Port.Protocol,
+					}.addMetric(pluginParams.Push)
+					break compareWithExisting
+				}
+			}
+
+			if !conflictFound {
+				// There is no conflict with any filter chain in the existing listener.
+				// So append the new filter chains to the existing listener's filter chains
+				newFilterChains = append(newFilterChains, incomingFilterChain)
+				lEntry := listenerMap[listenerMapKey]
+				lEntry.services = append(lEntry.services, pluginParams.Service)
+			}
+		}
+		currentListenerEntry.listener.FilterChains = newFilterChains
+	} else {
+		listenerMap[listenerMapKey] = &listenerEntry{
+			services:    []*model.Service{pluginParams.Service},
+			servicePort: pluginParams.Port,
+			bind: listenerOpts.bind,
+			listener:    mutable.Listener,
+		}
+	}
+
+	if log.DebugEnabled() && len(mutable.Listener.FilterChains) > 1 || currentListenerEntry != nil {
+		var numChains int
+		if currentListenerEntry != nil {
+			numChains = len(currentListenerEntry.listener.FilterChains)
+		} else {
+			numChains = len(mutable.Listener.FilterChains)
+		}
+		log.Debugf("buildSidecarOutboundListeners: multiple filter chain listener %s with %d chains", mutable.Listener.Name, numChains)
+	}
 }
 
 // buildSidecarInboundMgmtListeners creates inbound TCP only listeners for the management ports on
@@ -902,7 +1050,8 @@ type buildListenerOpts struct {
 	env             *model.Environment
 	proxy           *model.Proxy
 	proxyInstances  []*model.ServiceInstance
-	ip              string
+	proxyLabels     model.LabelsCollection
+	bind            string
 	port            int
 	bindToPort      bool
 	filterChainOpts []*filterChainOpts
@@ -1080,8 +1229,10 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	}
 
 	return &xdsapi.Listener{
-		Name:            fmt.Sprintf("%s_%d", opts.ip, opts.port),
-		Address:         util.BuildAddress(opts.ip, uint32(opts.port)),
+		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
+		// doesn't like
+		Name:            fmt.Sprintf("%s_%d", opts.bind, opts.port),
+		Address:         util.BuildAddress(opts.bind, uint32(opts.port)),
 		ListenerFilters: listenerFilters,
 		FilterChains:    filterChains,
 		DeprecatedV1:    deprecatedV1,

@@ -125,8 +125,12 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 					// Use the service's virtual address first.
 					// But if a virtual service overrides it with its own destination subnet match
 					// give preference to the user provided one
+					// destinationIPAddress will be empty for unix domain sockets
 					destinationCIDRs := []string{destinationIPAddress}
-					if len(match.DestinationSubnets) > 0 {
+					// Only set CIDR match if the listener is bound to an IP.
+					// If its bound to a unix domain socket, then ignore the CIDR matches
+					// Unix domain socket bound ports have Port value set to 0
+					if len(match.DestinationSubnets) > 0 && listenPort.Port >0 {
 						destinationCIDRs = match.DestinationSubnets
 					}
 					matchHash := hashRuntimeTLSMatchPredicates(match)
@@ -148,10 +152,13 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 	if !hasTLSMatch {
 		port := listenPort.Port
 
-		// If the service has only one port, use that instead of the listenPort. This is useful when
-		// a Sidecar's egress listener on port X imports a bunch of single port services on different ports.
-		// We can auto infer these ports as long as its a single port service. Multiport services would require
-		// a virtualService with match block for appropriate mapping [handled in the for loop above]
+		// If the service has only one port, use that instead of the
+		// listenPort. This is useful when a Sidecar's egress listener has
+		// a unix domain socket listener but wants to forward to a regular
+		// IP service.  We can auto infer these ports as long as its a
+		// single port service. Multiport services would require a
+		// virtualService with match/route block for appropriate mapping
+		// [handled in the for loop above]
 		if len(service.Ports) == 1 {
 			port = service.Ports[0].Port
 		}
@@ -205,10 +212,11 @@ TcpLoop:
 					// Scan all the match blocks
 					// if we find any match block without a runtime destination subnet match
 					// i.e. match any destination address, then we treat it as the terminal match/catch all match
-					// and break out of the loop.
+					// and break out of the loop. We also treat it as a terminal match if the listener is bound
+					// to a unix domain socket.
 					// But if we find only runtime destination subnet matches in all match blocks, collect them
 					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
-					if len(match.DestinationSubnets) == 0 {
+					if len(match.DestinationSubnets) == 0 || listenPort.Port == 0 {
 						out = append(out, &filterChainOpts{
 							destinationCIDRs: destinationCIDRs,
 							networkFilters:   buildOutboundNetworkFilters(env, node, tcp.Route, push, listenPort, config.ConfigMeta),

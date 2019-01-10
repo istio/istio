@@ -369,15 +369,9 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 }
 
 // VirtualServices lists all virtual services bound to the specified gateways
-// This replaces store.VirtualServices
+// This replaces store.VirtualServices. Used only by the gateways
+// Sidecars use the egressListener.VirtualServices().
 func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
-	if proxy != nil && proxy.sidecarScope != nil {
-		// If sidecarScope is set, then this is for a proxy of type SidecarProxy
-		// Sidecars can only bind to the default "mesh" gateway. The sidecarScope object
-		// already has a list of virtualServices bound to the mesh gateway
-		return proxy.sidecarScope.VirtualServices()
-	}
-
 	configs := make([]Config, 0)
 	out := make([]Config, 0)
 
@@ -594,6 +588,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		return err
 	}
 
+	// TODO(rshriram): parse each virtual service and maintain a map of the
+	// virtualservice name, the list of registry hosts in the VS and non
+	// registry DNS names in the VS.  This should cut down processing in
+	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(vservices)
 
 	// convert all shortnames in virtual services into FQDNs
