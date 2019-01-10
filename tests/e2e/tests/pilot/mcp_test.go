@@ -97,13 +97,13 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 		return &mcpserver.WatchResponse{
 			Version: req.GetVersionInfo(),
 			TypeURL: req.GetTypeUrl(),
-			Envelopes: []*mcp.Envelope{
+			Resources: []*mcp.Resource{
 				{
 					Metadata: &mcp.Metadata{
 						Name:       "some-name",
 						CreateTime: fakeCreateTime,
 					},
-					Resource: &types.Any{
+					Body: &types.Any{
 						TypeUrl: req.GetTypeUrl(),
 						Value:   marshaledFirstGateway,
 					},
@@ -113,7 +113,7 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 						Name:       "some-other-name",
 						CreateTime: fakeCreateTime,
 					},
-					Resource: &types.Any{
+					Body: &types.Any{
 						TypeUrl: req.GetTypeUrl(),
 						Value:   marshaledSecondGateway,
 					},
@@ -124,7 +124,7 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 	return &mcpserver.WatchResponse{
 		Version:   req.GetVersionInfo(),
 		TypeURL:   req.GetTypeUrl(),
-		Envelopes: []*mcp.Envelope{},
+		Resources: []*mcp.Resource{},
 	}, cancelFunc
 }
 
