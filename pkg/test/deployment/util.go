@@ -22,8 +22,6 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 
-	"github.com/gogo/protobuf/jsonpb"
-
 	yaml "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/test/kube"

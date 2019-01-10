@@ -1022,4 +1022,3 @@ spec:
         maxRequestsPerConnection: 10000
 {{- end }}
 ---
-{{- end }}

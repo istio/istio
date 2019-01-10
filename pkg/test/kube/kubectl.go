@@ -23,11 +23,6 @@ import (
 	"sync"
 
 	"github.com/ghodss/yaml"
-
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/scopes"
-
-	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test"

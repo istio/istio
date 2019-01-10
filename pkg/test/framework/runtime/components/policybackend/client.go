@@ -20,8 +20,6 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/runtime/api"
-
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
