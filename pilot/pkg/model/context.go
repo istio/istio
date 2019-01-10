@@ -274,18 +274,9 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// if not found, for backward compatibility, extract the namespace from
 	// the proxy domain. this is a k8s specific hack and should be enabled
-	// only for 1.0.x proxies
-	if version, found := proxy.Metadata["ISTIO_PROXY_VERSION"]; found {
-		if strings.HasPrefix(version, "1.0.") { // 1.0.x proxy
-			// Not in use in any platform other than Kubernetes
-			// and Consul. This code most likely breaks Consul deployments
-			// However we need the namespace in order to support SidecarConfigs
-			// for older proxies
-			parts := strings.Split(proxy.DNSDomain, ".")
-			if len(parts) > 1 { // k8s will have namespace.<domain>
-				return parts[0]
-			}
-		}
+	parts := strings.Split(proxy.DNSDomain, ".")
+	if len(parts) > 1 { // k8s will have namespace.<domain>
+		return parts[0]
 	}
 
 	return ""
