@@ -214,7 +214,7 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Without iptables we use 3 ports for each inbound service: the original service port, used for connecting
 // to other instances of the service, the 'endpoint port' where Envoy is listening, and a local application port.
 // For iptable modes the last 2 are the same.
-func (node *Proxy) NoneIngressApplicationPort(orig int) int {
+func (node *Proxy) NoneIngressApplicationPort(push *PushContext, orig int) int {
 	// TODO: extract the port from Sidecar
 
 	// TODO: allow envoy, via metadata, to provide a workload specific value. For example pilot-agent can

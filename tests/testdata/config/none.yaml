@@ -40,7 +40,8 @@ spec:
     - address: 10.11.0.1
       ports:
         tcplocal: 7070
-
+      labels:
+        app: s1tcp
 ---
 # Another inbound service, http type. Should generate a http listener on :7071
 apiVersion: networking.istio.io/v1alpha3
@@ -64,6 +65,40 @@ spec:
   - address: 10.11.0.1
     ports:
       httplocal: 7071
+
+---
+
+# Sidecar selecting the s1tcp service, which is used in the test.
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: s1http
+  namespace: none
+spec:
+  workload_selector:
+    labels:
+      app: s1tcp
+
+  ingress:
+  - port:
+      number: 7070
+      protocol: TCP
+      name: tcplocal
+    default_endpoint: 127.0.0.1:7071
+
+---
+
+# Default sidecar
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: none
+spec:
+  egress:
+  - hosts:
+    - default/test.default # TODO: without namespace it  fails validation !
+    # TODO: if we include the namespace, why do we need full name ? Importing regular services should work.
 
 ---
 

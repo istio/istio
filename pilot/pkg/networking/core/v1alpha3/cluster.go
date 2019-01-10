@@ -322,7 +322,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 
 		port := instance.Endpoint.Port
 		if noneMode {
-			port = proxy.NoneIngressApplicationPort(port)
+			port = proxy.NoneIngressApplicationPort(push, port)
 		}
 		localityLbEndpoints := buildInboundLocalityLbEndpoints(port)
 
