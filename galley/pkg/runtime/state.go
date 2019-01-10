@@ -43,7 +43,7 @@ type State struct {
 	entries     map[resource.TypeURL]*resourceTypeState
 }
 
-// per-resource-type State.
+// per-toResource-type State.
 type resourceTypeState struct {
 	// The version number for the current State of the object. Every time entries or versions change,
 	// the version number also change
@@ -60,7 +60,7 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 	}
 
 	// pre-populate state for all known types so that built snapshots
-	// includes valid default version for empty resource collections.
+	// includes valid default version for empty toResource collections.
 	for _, info := range schema.All() {
 		s.entries[info.TypeURL] = &resourceTypeState{
 			entries:  make(map[resource.FullName]*mcp.Resource),
@@ -88,7 +88,7 @@ func (s *State) apply(event resource.Event) bool {
 
 		// TODO: Check for content-wise equality
 
-		entry, ok := s.resource(event.Entry)
+		entry, ok := s.toResource(event.Entry)
 		if !ok {
 			return false
 		}
@@ -210,7 +210,7 @@ func extractKey(name resource.FullName, entry *mcp.Resource, version resource.Ve
 	}
 }
 
-func (s *State) resource(e resource.Entry) (*mcp.Resource, bool) {
+func (s *State) toResource(e resource.Entry) (*mcp.Resource, bool) {
 	serialized, err := proto.Marshal(e.Item)
 	if err != nil {
 		scope.Errorf("Error serializing proto from source e: %v:", e)
@@ -219,7 +219,7 @@ func (s *State) resource(e resource.Entry) (*mcp.Resource, bool) {
 
 	createTime, err := types.TimestampProto(e.ID.CreateTime)
 	if err != nil {
-		scope.Errorf("Error parsing resource create_time for event (%v): %v", e, err)
+		scope.Errorf("Error parsing toResource create_time for event (%v): %v", e, err)
 		return nil, false
 	}
 

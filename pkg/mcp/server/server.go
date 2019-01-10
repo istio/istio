@@ -91,7 +91,7 @@ type WatchResponse struct {
 	// requests as an acknowledgment.
 	Version string
 
-	// Resourced resources to be included in the response.
+	// Resources to be included in the response.
 	Resources []*mcp.Resource
 }
 
