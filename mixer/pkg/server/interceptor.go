@@ -60,7 +60,7 @@ func TracingServerInterceptor(tracer opentracing.Tracer) grpc.UnaryServerInterce
 			md = metadata.New(nil)
 		}
 
-		var t opentracing.Tracer = tracer
+		t := tracer
 		var spanContext opentracing.SpanContext
 
 		if !isSampled(md) {
