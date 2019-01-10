@@ -3705,3 +3705,284 @@ func TestValidateMixerService(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateSidecar(t *testing.T) {
+	tests := []struct {
+		name  string
+		in    *networking.Sidecar
+		valid bool
+	}{
+		{"empty ingress and egress", &networking.Sidecar{}, false},
+		{"default", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"bad egress host 1", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*"},
+				},
+			},
+		}, false},
+		{"bad egress host 2", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"/"},
+				},
+			},
+		}, false},
+		{"empty egress host", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{},
+				},
+			},
+		}, false},
+		{"multiple wildcard egress", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/foo.com",
+					},
+				},
+				{
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"wildcard egress not in end", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/foo.com",
+					},
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   8080,
+						Name:     "h8080",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"invalid Port", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http1",
+						Number:   1000000,
+						Name:     "",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"UDS bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+			},
+		}, true},
+		{"UDS bind 2", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///foo/bar/com",
+				},
+			},
+		}, true},
+		{"invalid bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "foobar:///@foo/bar/com",
+				},
+			},
+		}, false},
+		{"invalid capture mode with uds bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind:        "unix:///@foo/bar/com",
+					CaptureMode: networking.CaptureMode_IPTABLES,
+				},
+			},
+		}, false},
+		{"duplicate UDS bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+			},
+		}, false},
+		{"duplicate ports", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "tcp",
+					},
+					Hosts: []string{
+						"ns2/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"ingress without port", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+			},
+		}, false},
+		{"ingress with duplicate ports", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "bar",
+					},
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+			},
+		}, false},
+		{"ingress without default endpoint", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint IP", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "1.1.1.1:90",
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint uds", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "unix:///",
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint port", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:hi",
+				},
+			},
+		}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSidecar("foo", "bar", tt.in)
+			if err == nil && !tt.valid {
+				t.Fatalf("ValidateSidecar(%v) = true, wanted false", tt.in)
+			} else if err != nil && tt.valid {
+				t.Fatalf("ValidateSidecar(%v) = %v, wanted true", tt.in, err)
+			}
+		})
+	}
+}

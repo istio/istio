@@ -89,7 +89,7 @@ var (
 				return err
 			}
 			log.Infof("Version %s", version.Info.String())
-			role.Type = model.Sidecar
+			role.Type = model.SidecarProxy
 			if len(args) > 0 {
 				role.Type = model.NodeType(args[0])
 				if !model.IsApplicationNodeType(role.Type) {
