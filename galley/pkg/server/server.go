@@ -39,8 +39,10 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
+	mcpsource "istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 )
@@ -52,8 +54,8 @@ type Server struct {
 	serveWG    sync.WaitGroup
 	grpcServer *grpc.Server
 	processor  *runtime.Processor
-	mcp        *server.Server
-	reporter   server.Reporter
+	mcp        *mcpsource.Server
+	reporter   monitoring.Reporter
 	listener   net.Listener
 	controlZ   *ctrlz.Server
 	stopCh     chan struct{}
@@ -65,7 +67,7 @@ type patchTable struct {
 	newSource                   func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
-	mcpMetricReporter           func(string) server.Reporter
+	mcpMetricReporter           func(string) monitoring.Reporter
 	fsNew                       func(string, *kube.Schema, *converter.Config) (runtime.Source, error)
 }
 
@@ -75,7 +77,7 @@ func defaultPatchTable() patchTable {
 		verifyResourceTypesPresence: source.VerifyResourceTypesPresence,
 		newSource:                   source.New,
 		netListen:                   net.Listen,
-		mcpMetricReporter:           func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
+		mcpMetricReporter:           func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) },
 		newMeshConfigCache:          func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
 		fsNew:                       fs.New,
 	}
@@ -166,7 +168,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
-	checker := server.NewAllowAllChecker()
+	var checker server.AuthChecker = server.NewAllowAllChecker()
 	if !a.Insecure {
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
@@ -184,8 +186,14 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
-	s.reporter = p.mcpMetricReporter("galley/")
-	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker, s.reporter)
+	s.reporter = p.mcpMetricReporter("galley/mcp/source")
+
+	options := &mcpsource.Options{
+		Watcher:     distributor,
+		Collections: metadata.Types.Collections(),
+		Reporter:    s.reporter,
+	}
+	s.mcp = mcpsource.NewServer(options, checker)
 
 	// get the network stuff setup
 	network := "tcp"
@@ -202,7 +210,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen: %v", err)
 	}
 
-	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
+	mcp.RegisterResourceSourceServer(s.grpcServer, s.mcp)
 
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 

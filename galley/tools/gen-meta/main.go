@@ -45,21 +45,24 @@ type metadata struct {
 
 // entry in a metadata file
 type entry struct {
-	Kind           string `json:"kind"`
-	ListKind       string `json:"listKind"`
-	Singular       string `json:"singular"`
-	Plural         string `json:"plural"`
-	Group          string `json:"group"`
-	Version        string `json:"version"`
-	Proto          string `json:"proto"`
-	Converter      string `json:"converter"`
-	ProtoGoPackage string `json:"protoPackage"`
+	Kind         string `json:"kind"`
+	ListKind     string `json:"listKind"`
+	Singular     string `json:"singular"`
+	Plural       string `json:"plural"`
+	Group        string `json:"group"`
+	Version      string `json:"version"`
+	Proto        string `json:"proto"`
+	Converter    string `json:"converter"`
+	ProtoPackage string `json:"protoPackage"`
+	Collection   string `json:"collection"`
 }
 
 // proto related metadata
 type protoDef struct {
 	FullName    string `json:"-"`
 	MessageName string `json:"-"`
+	Collection  string `json:-`
+	Kind        string `json:-`
 }
 
 func main() {
@@ -140,8 +143,8 @@ func readMetadata(path string) (*metadata, error) {
 			continue
 		}
 
-		if e.ProtoGoPackage != "" {
-			names[e.ProtoGoPackage] = struct{}{}
+		if e.ProtoPackage != "" {
+			names[e.ProtoPackage] = struct{}{}
 			continue
 		}
 
@@ -168,12 +171,17 @@ func readMetadata(path string) (*metadata, error) {
 		}
 		parts := strings.Split(e.Proto, ".")
 		msgName := parts[len(parts)-1]
-		defn := protoDef{MessageName: msgName, FullName: e.Proto}
+		defn := protoDef{
+			MessageName: msgName,
+			FullName:    e.Proto,
+			Collection:  e.Collection,
+			Kind:        strings.Title(e.Kind),
+		}
 
-		if prevDefn, ok := protoDefs[e.Proto]; ok && defn != prevDefn {
+		if prevDefn, ok := protoDefs[e.Collection]; ok && defn != prevDefn {
 			return nil, fmt.Errorf("proto definitions do not match: %+v != %+v", defn, prevDefn)
 		}
-		protoDefs[e.Proto] = defn
+		protoDefs[e.Collection] = defn
 	}
 
 	for _, v := range protoDefs {
@@ -182,7 +190,7 @@ func readMetadata(path string) (*metadata, error) {
 
 	// Then, stable sort based on message name.
 	sort.Slice(m.ProtoDefs, func(i, j int) bool {
-		return strings.Compare(m.ProtoDefs[i].MessageName, m.ProtoDefs[j].MessageName) < 0
+		return strings.Compare(m.ProtoDefs[i].Collection, m.ProtoDefs[j].Collection) < 0
 	})
 
 	return &m, nil
@@ -200,7 +208,7 @@ import (
 	// Pull in all the known proto types to ensure we get their types registered.
 
 {{range .ProtoGoPackages}}	
-	// Register protos in {{.}}""
+	// Register protos in "{{.}}"
 	_ "{{.}}"
 {{end}}
 
@@ -212,14 +220,17 @@ var Types *resource.Schema
 
 var (
 	{{range .ProtoDefs}}
-		// {{.MessageName}} metadata
-		{{.MessageName}} resource.Info
+		// {{.Kind}} metadata
+		{{.Kind}} resource.Info
 	{{end}}
 )
 
 func init() {
 	b := resource.NewSchemaBuilder()
-{{range .ProtoDefs}}	{{.MessageName}} = b.Register("type.googleapis.com/{{.FullName}}")
+
+{{range .ProtoDefs}}	{{.Kind}} = b.Register(
+		"{{.Collection}}",
+		"type.googleapis.com/{{.FullName}}")
 {{end}}
     Types = b.Build()
 }
@@ -252,7 +263,7 @@ func init() {
 		Plural:     "{{.Plural}}",
 		Version:    "{{.Version}}",
 		Group:      "{{.Group}}",
-		Target:     metadata.Types.Get("type.googleapis.com/{{.Proto}}"),
+		Target:     metadata.Types.Get("{{.Collection}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
     })
 {{end}}

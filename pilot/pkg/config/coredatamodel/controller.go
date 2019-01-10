@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	mcpclient "istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 var errUnsupported = errors.New("this operation is not supported by mcp controller")
@@ -34,7 +34,7 @@ var errUnsupported = errors.New("this operation is not supported by mcp controll
 // MCP Updater and ServiceDiscovery
 type CoreDataModel interface {
 	model.ConfigStoreCache
-	mcpclient.Updater
+	sink.Updater
 }
 
 // Options stores the configurable attributes of a Control
@@ -47,7 +47,7 @@ type Options struct {
 type Controller struct {
 	configStoreMu sync.RWMutex
 	// keys [type][namespace][name]
-	configStore              map[string]map[string]map[string]model.Config
+	configStore              map[string]map[string]map[string]*model.Config
 	descriptorsByMessageName map[string]model.ProtoSchema
 	options                  Options
 	eventHandlers            map[string][]func(model.Config, model.Event)
@@ -69,7 +69,7 @@ func NewController(options Options) CoreDataModel {
 	}
 
 	return &Controller{
-		configStore:              make(map[string]map[string]map[string]model.Config),
+		configStore:              make(map[string]map[string]map[string]*model.Config),
 		options:                  options,
 		descriptorsByMessageName: descriptorsByMessageName,
 		eventHandlers:            make(map[string][]func(model.Config, model.Event)),
@@ -102,22 +102,27 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 		// we replace the entire sub-map
 		for _, byNamespace := range byType {
 			for _, config := range byNamespace {
-				out = append(out, config)
+				out = append(out, *config)
 			}
 		}
 		return out, nil
 	}
 
 	for _, config := range byType[namespace] {
-		out = append(out, config)
+		out = append(out, *config)
 	}
 	return out, nil
 }
 
+type addedTracking struct {
+	obj     *model.Config
+	updated bool
+}
+
 // Apply receives changes from MCP server and creates the
 // corresponding config
-func (c *Controller) Apply(change *mcpclient.Change) error {
-	messagename := extractMessagename(change.TypeURL)
+func (c *Controller) Apply(change *sink.Change) error {
+	messagename := extractMessagename(change.Collection)
 	descriptor, ok := c.descriptorsByMessageName[messagename]
 	if !ok {
 		return fmt.Errorf("apply type not supported %s", messagename)
@@ -132,8 +137,25 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	c.synced[messagename] = true
 	c.syncedMu.Unlock()
 
-	// innerStore is [namespace][name]
-	innerStore := make(map[string]map[string]model.Config)
+	// TODO Pilot's internal configuration and endpoint store is still in
+	// flux. The current code assumes the following:
+	//
+	// * add/update/delete events are generated for external service entries
+	// * a single update event is sufficient for all user authored config.
+	//
+	// To that end, we only generate the full set of add/update/delete events
+	// for service entries. For everything else, we generate a single fake event.
+	var generateAllEvents bool
+	if descriptor.Type == model.ServiceEntry.Type {
+		generateAllEvents = true
+	}
+
+	// validate the entire change update before committing to the internal
+	// store. Accumulate the validated changes in a temporary slice without
+	// holding the store's lock. Once everything is validated, grab the lock
+	// and update the store.
+
+	addedAndUpdate := make([]*model.Config, 0, len(change.Objects))
 	for _, obj := range change.Objects {
 		namespace, name := extractNameNamespace(obj.Metadata.Name)
 
@@ -151,7 +173,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 			typ = model.AuthenticationMeshPolicy.Type
 		}
 
-		conf := model.Config{
+		conf := &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:              typ,
 				Group:             descriptor.Group,
@@ -169,36 +191,28 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 			return err
 		}
 
-		namedConfig, ok := innerStore[conf.Namespace]
-		if ok {
-			namedConfig[conf.Name] = conf
-		} else {
-			innerStore[conf.Namespace] = map[string]model.Config{
-				conf.Name: conf,
+		addedAndUpdate = append(addedAndUpdate, conf)
+	}
+
+	// commit the validated set of changes to memory
+	c.configStoreMu.Lock()
+
+	// reset internal state for type
+	if !change.Incremental {
+		types := []string{descriptor.Type}
+		if descriptor.Type == model.AuthenticationPolicy.Type {
+			types = append(types, model.AuthenticationMeshPolicy.Type)
+		}
+
+		for _, typ := range types {
+			for namespace, byNamespace := range c.configStore[typ] {
+				for name := range byNamespace {
+					delete(byNamespace, name)
+				}
+				delete(c.configStore[typ], namespace)
 			}
 		}
 	}
-
-	// de-mux namespace and cluster-scoped authentication policy from the same
-	// type_url stream.
-	const clusterScopedNamespace = ""
-	meshTypeInnerStore := make(map[string]map[string]model.Config)
-	var meshType string
-	if descriptor.Type == model.AuthenticationPolicy.Type {
-		meshType = model.AuthenticationMeshPolicy.Type
-		meshTypeInnerStore[clusterScopedNamespace] = innerStore[clusterScopedNamespace]
-		delete(innerStore, clusterScopedNamespace)
-	}
-
-	var prevStore map[string]map[string]model.Config
-
-	c.configStoreMu.Lock()
-	prevStore = c.configStore[descriptor.Type]
-	c.configStore[descriptor.Type] = innerStore
-	if meshType != "" {
-		c.configStore[meshType] = meshTypeInnerStore
-	}
-	c.configStoreMu.Unlock()
 
 	dispatch := func(model model.Config, event model.Event) {}
 	if handlers, ok := c.eventHandlers[descriptor.Type]; ok {
@@ -210,34 +224,56 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		}
 	}
 
-	// add/update
-	for namespace, byName := range innerStore {
-		for name, config := range byName {
-			if prevByNamespace, ok := prevStore[namespace]; ok {
-				if prevConfig, ok := prevByNamespace[name]; ok {
-					if config.ResourceVersion != prevConfig.ResourceVersion {
-						dispatch(config, model.EventUpdate)
-					}
-				} else {
-					dispatch(config, model.EventAdd)
-				}
+	// update the internal store and optionally generate add/update/delete events
+	for _, obj := range addedAndUpdate {
+		byType, ok := c.configStore[obj.Type]
+		if !ok {
+			byType = make(map[string]map[string]*model.Config)
+			c.configStore[obj.Type] = byType
+		}
+
+		byNamespace, ok := byType[obj.Namespace]
+		if !ok {
+			byNamespace = make(map[string]*model.Config)
+			byType[obj.Namespace] = byNamespace
+		}
+
+		if generateAllEvents {
+			if _, ok := c.configStore[obj.Type][obj.Namespace][obj.Name]; ok {
+				dispatch(*obj, model.EventUpdate)
 			} else {
-				dispatch(config, model.EventAdd)
+				dispatch(*obj, model.EventAdd)
 			}
+		}
+		c.configStore[obj.Type][obj.Namespace][obj.Name] = obj
+	}
+	for _, remove := range change.Removed {
+		namespace, name := extractNameNamespace(remove)
+
+		typ := descriptor.Type
+		if namespace == "" && descriptor.Type == model.AuthenticationPolicy.Type {
+			typ = model.AuthenticationMeshPolicy.Type
+		}
+
+		if obj, ok := c.configStore[typ][namespace][name]; ok {
+			if generateAllEvents {
+				dispatch(*obj, model.EventDelete)
+			}
+		} else {
+			log.Warnf("Removing unknown resource type=%s name=%s", typ, remove)
+		}
+
+		delete(c.configStore[typ][namespace], name)
+		if len(c.configStore[typ][namespace]) == 0 {
+			delete(c.configStore[typ], namespace)
 		}
 	}
+	c.configStoreMu.Unlock()
 
-	// remove
-	for namespace, prevByName := range prevStore {
-		for name, prevConfig := range prevByName {
-			if byNamespace, ok := innerStore[namespace]; ok {
-				if _, ok := byNamespace[name]; !ok {
-					dispatch(prevConfig, model.EventDelete)
-				}
-			} else {
-				dispatch(prevConfig, model.EventDelete)
-			}
-		}
+	// TODO replace with indirect call to DiscoveryServer::ConfigUpdate()
+	if !generateAllEvents {
+		// dummy event to force cache invalidation
+		dispatch(model.Config{}, model.EventUpdate)
 	}
 
 	return nil

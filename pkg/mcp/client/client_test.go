@@ -32,12 +32,13 @@ import (
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type testStream struct {
 	sync.Mutex
-	change map[string]*Change
+	change map[string]*sink.Change
 
 	requestC        chan *mcp.MeshConfigRequest  // received from client
 	responseC       chan *mcp.MeshConfigResponse // to-be-sent to client
@@ -55,7 +56,7 @@ func newTestStream() *testStream {
 		requestC:        make(chan *mcp.MeshConfigRequest, 10),
 		responseC:       make(chan *mcp.MeshConfigResponse, 10),
 		responseClosedC: make(chan struct{}, 10),
-		change:          make(map[string]*Change),
+		change:          make(map[string]*sink.Change),
 	}
 }
 
@@ -116,13 +117,13 @@ func (ts *testStream) Recv() (*mcp.MeshConfigResponse, error) {
 	}
 }
 
-func (ts *testStream) Apply(change *Change) error {
+func (ts *testStream) Apply(change *sink.Change) error {
 	if ts.updateError {
 		return errors.New("update error")
 	}
 	ts.Lock()
 	defer ts.Unlock()
-	ts.change[change.TypeURL] = change
+	ts.change[change.Collection] = change
 	return nil
 }
 
@@ -139,7 +140,7 @@ func checkRequest(got *mcp.MeshConfigRequest, want *mcp.MeshConfigRequest) error
 	return nil
 }
 
-var _ Updater = &testStream{}
+var _ sink.Updater = &testStream{}
 
 // fake protobuf types
 
@@ -278,7 +279,7 @@ func makeResponse(typeURL, version, nonce string, resources ...*mcp.Resource) *m
 func TestSingleTypeCases(t *testing.T) {
 	ts := newTestStream()
 
-	c := New(ts, supportedTypeUrls, ts, key, metadata, mcptestmon.NewInMemoryClientStatsContext())
+	c := New(ts, supportedTypeUrls, ts, key, metadata, monitoring.NewInMemoryStatsContext())
 	ctx, cancelClient := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
@@ -302,8 +303,8 @@ func TestSingleTypeCases(t *testing.T) {
 		t.Fatalf("id mismatch: got\n%v\nwanted:\n%v\n", c.ID(), key)
 	}
 
-	if !reflect.DeepEqual(c.SupportedTypeURLs(), supportedTypeUrls) {
-		t.Fatalf("type url mismatch: got:\n%v\nwanted:\n%v\n", c.SupportedTypeURLs(), supportedTypeUrls)
+	if !reflect.DeepEqual(c.Collections(), supportedTypeUrls) {
+		t.Fatalf("type url mismatch: got:\n%v\nwanted:\n%v\n", c.Collections(), supportedTypeUrls)
 	}
 
 	wantInitial := make(map[string]*mcp.MeshConfigRequest)
@@ -327,7 +328,7 @@ func TestSingleTypeCases(t *testing.T) {
 		name         string
 		sendResponse *mcp.MeshConfigResponse
 		wantRequest  *mcp.MeshConfigRequest
-		wantChange   *Change
+		wantChange   *sink.Change
 		wantJournal  []RecentRequestInfo
 		updateError  bool
 	}{
@@ -335,9 +336,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "ACK request (type0)",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v0", "type0/n0", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n0", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Body:     fake0_0,
@@ -348,9 +349,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "ACK request (type1)",
 			sendResponse: makeResponse(fakeType1TypeURL, "type1/v0", "type1/n0", fakeResource1),
 			wantRequest:  makeRequest(fakeType1TypeURL, "type1/v0", "type1/n0", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType1TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType1TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType1TypeURL,
 					Metadata: fakeResource1.Metadata,
 					Body:     fake1,
@@ -361,9 +362,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "ACK request (type2)",
 			sendResponse: makeResponse(fakeType2TypeURL, "type2/v0", "type2/n0", fakeResource2),
 			wantRequest:  makeRequest(fakeType2TypeURL, "type2/v0", "type2/n0", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType2TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType2TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType2TypeURL,
 					Metadata: fakeResource2.Metadata,
 					Body:     fake2,
@@ -374,9 +375,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "NACK request (unsupported type_url)",
 			sendResponse: makeResponse(fakeType0TypeURL+"Garbage", "type0/v1", "type0/n1", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL+"Garbage", "", "type0/n1", codes.Unimplemented),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Body:     fake0_0,
@@ -387,22 +388,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "NACK request (unmarshal error)",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n2", badUnmarshalResource),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n2", codes.Unknown),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
-					TypeURL:  fakeType0TypeURL,
-					Metadata: fakeResource0_0.Metadata,
-					Body:     fake0_0,
-				}},
-			},
-		},
-		{
-			name:         "NACK request (response type_url does not match resource type_url)",
-			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource1),
-			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n3", codes.InvalidArgument),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Body:     fake0_0,
@@ -414,9 +402,9 @@ func TestSingleTypeCases(t *testing.T) {
 			updateError:  true,
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n3", codes.InvalidArgument),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Body:     fake0_0,
@@ -427,9 +415,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "ACK request after previous NACKs",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n3", fakeResource0_1, fakeResource0_2),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v1", "type0/n3", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
 					Body:     fake0_1,
@@ -453,9 +441,9 @@ func TestSingleTypeCases(t *testing.T) {
 
 		ts.sendResponseToClient(step.sendResponse)
 		<-responseDone
-		if !reflect.DeepEqual(ts.change[step.wantChange.TypeURL], step.wantChange) {
+		if !reflect.DeepEqual(ts.change[step.wantChange.Collection], step.wantChange) {
 			t.Fatalf("%v: bad client change: \n got %#v \nwant %#v",
-				step.name, ts.change[step.wantChange.TypeURL], step.wantChange)
+				step.name, ts.change[step.wantChange.Collection], step.wantChange)
 		}
 
 		if err := ts.wantRequest(step.wantRequest); err != nil {
@@ -476,7 +464,7 @@ func TestSingleTypeCases(t *testing.T) {
 func TestReconnect(t *testing.T) {
 	ts := newTestStream()
 
-	c := New(ts, []string{fakeType0TypeURL}, ts, key, metadata, mcptestmon.NewInMemoryClientStatsContext())
+	c := New(ts, []string{fakeType0TypeURL}, ts, key, metadata, monitoring.NewInMemoryStatsContext())
 	ctx, cancelClient := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
@@ -495,7 +483,7 @@ func TestReconnect(t *testing.T) {
 		name         string
 		sendResponse *mcp.MeshConfigResponse
 		wantRequest  *mcp.MeshConfigRequest
-		wantChange   *Change
+		wantChange   *sink.Change
 		sendError    bool
 		recvError    bool
 	}{
@@ -503,9 +491,9 @@ func TestReconnect(t *testing.T) {
 			name:         "Initial request (type0)",
 			sendResponse: nil, // client initiates the exchange
 			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Body:     fake0_0,
@@ -516,9 +504,9 @@ func TestReconnect(t *testing.T) {
 			name:         "ACK request (type0)",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v0", "type0/n0", fakeResource0_0),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v0", "type0/n0", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Body:     fake0_0,
@@ -529,9 +517,9 @@ func TestReconnect(t *testing.T) {
 			name:         "send error",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n1", fakeResource0_1),
 			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_0.Metadata,
 					Body:     fake0_0,
@@ -543,9 +531,9 @@ func TestReconnect(t *testing.T) {
 			name:         "ACK request after reconnect on send error",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v1", "type0/n1", fakeResource0_1),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v1", "type0/n1", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
 					Body:     fake0_1,
@@ -556,9 +544,9 @@ func TestReconnect(t *testing.T) {
 			name:         "recv error",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v2", "type0/n2", fakeResource0_2),
 			wantRequest:  makeRequest(fakeType0TypeURL, "", "", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_1.Metadata,
 					Body:     fake0_1,
@@ -570,9 +558,9 @@ func TestReconnect(t *testing.T) {
 			name:         "ACK request after reconnect on recv error",
 			sendResponse: makeResponse(fakeType0TypeURL, "type0/v2", "type0/n2", fakeResource0_2),
 			wantRequest:  makeRequest(fakeType0TypeURL, "type0/v2", "type0/n2", codes.OK),
-			wantChange: &Change{
-				TypeURL: fakeType0TypeURL,
-				Objects: []*Object{{
+			wantChange: &sink.Change{
+				Collection: fakeType0TypeURL,
+				Objects: []*sink.Object{{
 					TypeURL:  fakeType0TypeURL,
 					Metadata: fakeResource0_2.Metadata,
 					Body:     fake0_2,
@@ -612,9 +600,9 @@ func TestReconnect(t *testing.T) {
 			}
 
 			if !step.sendError {
-				if !reflect.DeepEqual(ts.change[step.wantChange.TypeURL], step.wantChange) {
+				if !reflect.DeepEqual(ts.change[step.wantChange.Collection], step.wantChange) {
 					t.Fatalf("%v: bad client change: \n got %#v \nwant %#v",
-						step.name, ts.change[step.wantChange.TypeURL].Objects[0], step.wantChange.Objects[0])
+						step.name, ts.change[step.wantChange.Collection].Objects[0], step.wantChange.Objects[0])
 				}
 			}
 		}
@@ -633,9 +621,9 @@ func TestInMemoryUpdater(t *testing.T) {
 		t.Fatalf("Unexpected items in updater: %v", o)
 	}
 
-	c := Change{
-		TypeURL: "foo",
-		Objects: []*Object{
+	c := sink.Change{
+		Collection: "foo",
+		Objects: []*sink.Object{
 			{
 				TypeURL: "foo",
 				Metadata: &mcp.Metadata{

@@ -19,20 +19,23 @@ import (
 	"net"
 	"net/url"
 
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/source"
+
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	mcpserver "istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
-type WatchResponse func(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc)
+type WatchResponse func(req *source.Request) (*source.WatchResponse, source.CancelWatchFunc)
 
 type mockWatcher struct {
 	response WatchResponse
 }
 
-func (m mockWatcher) Watch(req *mcp.MeshConfigRequest, pushResponse mcpserver.PushResponseFunc) mcpserver.CancelWatchFunc {
+func (m mockWatcher) Watch(req *source.Request, pushResponse source.PushResponseFunc) source.CancelWatchFunc {
 	response, cancel := m.response(req)
 	pushResponse(response)
 	return cancel
@@ -42,7 +45,7 @@ type Server struct {
 	// The internal snapshot.Cache that the server is using.
 	Watcher *mockWatcher
 
-	// TypeURLs that were originally passed in.
+	// Collections that were originally passed in.
 	TypeURLs []string
 
 	// Port that the service is listening on.
@@ -59,7 +62,12 @@ func NewServer(typeUrls []string, watchResponseFunc WatchResponse) (*Server, err
 	watcher := mockWatcher{
 		response: watchResponseFunc,
 	}
-	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	options := &source.Options{
+		Watcher:     watcher,
+		Collections: typeUrls,
+		Reporter:    monitoring.NewInMemoryStatsContext(),
+	}
+	s := source.NewServer(options, server.NewAllowAllChecker())
 
 	l, err := net.Listen("tcp", "localhost:")
 	if err != nil {
@@ -76,7 +84,8 @@ func NewServer(typeUrls []string, watchResponseFunc WatchResponse) (*Server, err
 
 	gs := grpc.NewServer()
 
-	mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
+	// mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
+	mcp.RegisterResourceSourceServer(gs, s)
 	go func() { _ = gs.Serve(l) }()
 	log.Printf("MCP mock server listening on localhost:%d", p)
 

@@ -63,12 +63,12 @@ func TestState_DefaultSnapshot(t *testing.T) {
 	s := newState(testSchema, cfg)
 	sn := s.buildSnapshot()
 
-	for _, typeURL := range []string{emptyInfo.TypeURL.String(), structInfo.TypeURL.String()} {
-		if r := sn.Resources(typeURL); len(r) != 0 {
-			t.Fatalf("%s entry should have been registered in snapshot", typeURL)
+	for _, collection := range []string{emptyInfo.Collection.String(), structInfo.Collection.String()} {
+		if r := sn.Resources(collection); len(r) != 0 {
+			t.Fatalf("%s entry should have been registered in snapshot", collection)
 		}
-		if v := sn.Version(typeURL); v == "" {
-			t.Fatalf("%s version should have been available", typeURL)
+		if v := sn.Version(collection); v == "" {
+			t.Fatalf("%s version should have been available", collection)
 		}
 	}
 
@@ -77,7 +77,7 @@ func TestState_DefaultSnapshot(t *testing.T) {
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
 				Version:    "v1",
-				Key:        resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn},
+				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
 				CreateTime: fakeCreateTime0,
 			},
 			Item: &types.Any{},
@@ -90,14 +90,14 @@ func TestState_DefaultSnapshot(t *testing.T) {
 	}
 
 	sn = s.buildSnapshot()
-	r := sn.Resources(emptyInfo.TypeURL.String())
+	r := sn.Resources(emptyInfo.Collection.String())
 	if len(r) != 1 {
 		t.Fatal("Entry should have been registered in snapshot")
 	}
 	if err := checkCreateTime(r[0], fakeCreateTime0); err != nil {
 		t.Fatalf("Bad create time: %v", err)
 	}
-	v := sn.Version(emptyInfo.TypeURL.String())
+	v := sn.Version(emptyInfo.Collection.String())
 	if v == "" {
 		t.Fatal("Version should have been available")
 	}
@@ -111,7 +111,7 @@ func TestState_Apply_Update(t *testing.T) {
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
 				Version:    "v1",
-				Key:        resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn},
+				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
 				CreateTime: fakeCreateTime0,
 			},
 			Item: &types.Any{},
@@ -128,7 +128,7 @@ func TestState_Apply_Update(t *testing.T) {
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
 				Version:    "v2",
-				Key:        resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn},
+				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
 				CreateTime: fakeCreateTime1,
 			},
 			Item: &types.Any{},
@@ -140,14 +140,14 @@ func TestState_Apply_Update(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources(emptyInfo.TypeURL.String())
+	r := sn.Resources(emptyInfo.Collection.String())
 	if len(r) != 1 {
 		t.Fatal("Entry should have been registered in snapshot")
 	}
 	if err := checkCreateTime(r[0], fakeCreateTime1); err != nil {
 		t.Fatalf("Bad create time: %v", err)
 	}
-	v := sn.Version(emptyInfo.TypeURL.String())
+	v := sn.Version(emptyInfo.Collection.String())
 	if v == "" {
 		t.Fatal("Version should have been available")
 	}
@@ -161,7 +161,7 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
 				Version:    "v1",
-				Key:        resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn},
+				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
 				CreateTime: fakeCreateTime0,
 			},
 			Item: &types.Any{},
@@ -178,7 +178,7 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
 				Version:    "v1",
-				Key:        resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn},
+				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
 				CreateTime: fakeCreateTime1,
 			},
 			Item: &types.Any{},
@@ -198,7 +198,7 @@ func TestState_Apply_Delete(t *testing.T) {
 	e := resource.Event{
 		Kind: resource.Added,
 		Entry: resource.Entry{
-			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}},
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Collection: emptyInfo.Collection, FullName: fn}},
 			Item: &types.Any{},
 		},
 	}
@@ -211,7 +211,7 @@ func TestState_Apply_Delete(t *testing.T) {
 	e = resource.Event{
 		Kind: resource.Deleted,
 		Entry: resource.Entry{
-			ID: resource.VersionedKey{Version: "v2", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}},
+			ID: resource.VersionedKey{Version: "v2", Key: resource.Key{Collection: emptyInfo.Collection, FullName: fn}},
 		},
 	}
 	s.apply(e)
@@ -234,7 +234,7 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 	e := resource.Event{
 		Kind: resource.EventKind(42),
 		Entry: resource.Entry{
-			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}},
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Collection: emptyInfo.Collection, FullName: fn}},
 			Item: &types.Any{},
 		},
 	}
@@ -256,7 +256,7 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 	e := resource.Event{
 		Kind: resource.Added,
 		Entry: resource.Entry{
-			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}},
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Collection: emptyInfo.Collection, FullName: fn}},
 			Item: nil,
 		},
 	}
@@ -266,7 +266,7 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 	}
 
 	sn := s.buildSnapshot()
-	r := sn.Resources(emptyInfo.TypeURL.String())
+	r := sn.Resources(emptyInfo.Collection.String())
 	if len(r) != 0 {
 		t.Fatal("Entry should have not been in snapshot")
 	}
@@ -278,7 +278,7 @@ func TestState_String(t *testing.T) {
 	e := resource.Event{
 		Kind: resource.Added,
 		Entry: resource.Entry{
-			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}},
+			ID:   resource.VersionedKey{Version: "v1", Key: resource.Key{Collection: emptyInfo.Collection, FullName: fn}},
 			Item: nil,
 		},
 	}

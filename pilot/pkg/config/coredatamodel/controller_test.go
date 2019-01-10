@@ -29,7 +29,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
-	mcpclient "istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 var (
@@ -303,12 +303,12 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g.Expect(len(c)).To(gomega.Equal(0))
 }
 
-func convert(resources []proto.Message, names []string, responseMessageName string) *mcpclient.Change {
-	out := new(mcpclient.Change)
-	out.TypeURL = responseMessageName
+func convert(resources []proto.Message, names []string, responseMessageName string) *sink.Change {
+	out := new(sink.Change)
+	out.Collection = responseMessageName
 	for i, res := range resources {
 		out.Objects = append(out.Objects,
-			&mcpclient.Object{
+			&sink.Object{
 				TypeURL: responseMessageName,
 				Metadata: &mcpapi.Metadata{
 					Name: names[i],
@@ -433,8 +433,8 @@ func TestEventHandler(t *testing.T) {
 		t.Fatalf("Failed to parse create fake create time %v: %v", fakeCreateTime, err)
 	}
 
-	makeServiceEntry := func(name, host, version string) *mcpclient.Object {
-		return &mcpclient.Object{
+	makeServiceEntry := func(name, host, version string) *sink.Object {
+		return &sink.Object{
 			TypeURL: typeURL,
 			Metadata: &mcpapi.Metadata{
 				Name:       fmt.Sprintf("default/%s", name),
@@ -466,16 +466,17 @@ func TestEventHandler(t *testing.T) {
 	// Note: these tests steps are cumulative
 	steps := []struct {
 		name   string
-		change *mcpclient.Change
+		change *sink.Change
 		want   map[model.Event]map[string]model.Config
 	}{
 		{
 			name: "initial add",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: typeURL,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v0"),
 				},
+				Incremental: true,
 			},
 			want: map[model.Event]map[string]model.Config{
 				model.EventAdd: map[string]model.Config{
@@ -485,11 +486,12 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "update initial item",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: typeURL,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v1"),
 				},
+				Incremental: true,
 			},
 			want: map[model.Event]map[string]model.Config{
 				model.EventUpdate: map[string]model.Config{
@@ -499,12 +501,12 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "subsequent add",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
-					makeServiceEntry("foo", "foo.com", "v1"),
+			change: &sink.Change{
+				Collection: typeURL,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
+				Incremental: true,
 			},
 			want: map[model.Event]map[string]model.Config{
 				model.EventAdd: map[string]model.Config{
@@ -514,11 +516,11 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "single delete",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
-					makeServiceEntry("foo1", "foo1.com", "v0"),
-				},
+			change: &sink.Change{
+				Collection:  typeURL,
+				Objects:     []*sink.Object{},
+				Removed:     []string{"default/foo"},
+				Incremental: true,
 			},
 			want: map[model.Event]map[string]model.Config{
 				model.EventDelete: map[string]model.Config{
@@ -528,13 +530,14 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "multiple update and add",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: typeURL,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo1", "foo1.com", "v1"),
 					makeServiceEntry("foo2", "foo2.com", "v0"),
 					makeServiceEntry("foo3", "foo3.com", "v0"),
 				},
+				Incremental: true,
 			},
 			want: map[model.Event]map[string]model.Config{
 				model.EventAdd: map[string]model.Config{
@@ -548,14 +551,15 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "multiple deletes, updates, and adds ",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: typeURL,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo2", "foo2.com", "v1"),
-					makeServiceEntry("foo3", "foo3.com", "v0"),
 					makeServiceEntry("foo4", "foo4.com", "v0"),
 					makeServiceEntry("foo5", "foo5.com", "v0"),
 				},
+				Removed:     []string{"default/foo1"},
+				Incremental: true,
 			},
 			want: map[model.Event]map[string]model.Config{
 				model.EventAdd: map[string]model.Config{

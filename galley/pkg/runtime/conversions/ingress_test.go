@@ -80,8 +80,8 @@ func TestIngressConversion(t *testing.T) {
 	}
 	key := resource.VersionedKey{
 		Key: resource.Key{
-			TypeURL:  metadata.IngressSpec.TypeURL,
-			FullName: resource.FullNameFromNamespaceAndName("mock", "i1"),
+			Collection: metadata.Ingress.Collection,
+			FullName:   resource.FullNameFromNamespaceAndName("mock", "i1"),
 		},
 	}
 
@@ -107,8 +107,8 @@ func TestIngressConversion(t *testing.T) {
 	}
 	key2 := resource.VersionedKey{
 		Key: resource.Key{
-			TypeURL:  metadata.IngressSpec.TypeURL,
-			FullName: resource.FullNameFromNamespaceAndName("mock", "i1"),
+			Collection: metadata.Ingress.Collection,
+			FullName:   resource.FullNameFromNamespaceAndName("mock", "i1"),
 		},
 	}
 

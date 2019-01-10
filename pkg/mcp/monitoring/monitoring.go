@@ -12,18 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package monitoring
 
 import (
 	"context"
+	"io"
 	"strconv"
-
 	"strings"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"google.golang.org/grpc/codes"
+
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 const (
@@ -31,25 +34,50 @@ const (
 	errorCode    = "code"
 	errorStr     = "error"
 	connectionID = "connectionID"
+	code         = "code"
+)
+
+var (
+	scope = log.RegisterScope("mcp", "mcp debugging", 0)
 )
 
 // StatsContext enables metric collection backed by OpenCensus.
 type StatsContext struct {
-	clientsTotal      *stats.Int64Measure
-	requestSizesBytes *stats.Int64Measure
-	requestAcksTotal  *stats.Int64Measure
-	requestNacksTotal *stats.Int64Measure
-	sendFailuresTotal *stats.Int64Measure
-	recvFailuresTotal *stats.Int64Measure
+	currentStreamCount       *stats.Int64Measure
+	requestSizesBytes        *stats.Int64Measure
+	requestAcksTotal         *stats.Int64Measure
+	requestNacksTotal        *stats.Int64Measure
+	sendFailuresTotal        *stats.Int64Measure
+	recvFailuresTotal        *stats.Int64Measure
+	streamCreateSuccessTotal *stats.Int64Measure
 
 	views []*view.View
 }
 
-var _ Reporter = &StatsContext{}
+// Reporter is used to report metrics for an MCP server.
+type Reporter interface {
+	io.Closer
 
-// SetClientsTotal updates the current client count to the given argument.
-func (s *StatsContext) SetClientsTotal(clients int64) {
-	stats.Record(context.Background(), s.clientsTotal.M(clients))
+	RecordSendError(err error, code codes.Code)
+	RecordRecvError(err error, code codes.Code)
+	RecordRequestSize(typeURL string, connectionID int64, size int)
+	RecordRequestAck(typeURL string, connectionID int64)
+	RecordRequestNack(typeURL string, connectionID int64, code codes.Code)
+
+	SetStreamCount(clients int64)
+	RecordStreamCreateSuccess()
+}
+
+var (
+	_ Reporter = &StatsContext{}
+
+	// verify here to avoid import cycles in the pkg/mcp/testing/monitoring package
+	_ Reporter = &monitoring.InMemoryStatsContext{}
+)
+
+// SetStreamCount updates the current client count to the given argument.
+func (s *StatsContext) SetStreamCount(clients int64) {
+	stats.Record(context.Background(), s.currentStreamCount.M(clients))
 }
 
 func (s *StatsContext) recordError(err error, code codes.Code, stat *stats.Int64Measure) {
@@ -100,15 +128,21 @@ func (s *StatsContext) RecordRequestAck(typeURL string, connectionID int64) {
 }
 
 // RecordRequestNack records a NACK message for a type URL on a connection.
-func (s *StatsContext) RecordRequestNack(typeURL string, connectionID int64) {
+func (s *StatsContext) RecordRequestNack(typeURL string, connectionID int64, code codes.Code) {
 	ctx, ctxErr := tag.New(context.Background(),
 		tag.Insert(TypeURLTag, typeURL),
-		tag.Insert(ConnectionIDTag, strconv.FormatInt(connectionID, 10)))
+		tag.Insert(ConnectionIDTag, strconv.FormatInt(connectionID, 10)),
+		tag.Insert(CodeTag, code.String()))
 	if ctxErr != nil {
 		scope.Errorf("MCP: error creating monitoring context. %v", ctxErr)
 		return
 	}
 	stats.Record(ctx, s.requestNacksTotal.M(1))
+}
+
+// RecordStreamCreateSuccess records a successful stream connection.
+func (s *StatsContext) RecordStreamCreateSuccess() {
+	stats.Record(context.Background(), s.streamCreateSuccessTotal.M(1))
 }
 
 func (s *StatsContext) Close() error {
@@ -121,54 +155,60 @@ func (s *StatsContext) Close() error {
 // be a non-empty string.
 func NewStatsContext(prefix string) *StatsContext {
 	if len(prefix) == 0 {
-		panic("must specify prefix for MCP server monitoring.")
+		panic("must specify prefix for MCP monitoring.")
 	} else if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
 	ctx := &StatsContext{
-		// ClientsTotal is a measure of the number of connected clients.
-		clientsTotal: stats.Int64(
-			prefix+"mcp/server/clients_total",
-			"The number of clients currently connected.",
+		// StreamTotal is a measure of the number of connected clients.
+		currentStreamCount: stats.Int64(
+			prefix+"clients_total",
+			"The number of streams currently connected.",
 			stats.UnitDimensionless),
 
 		// RequestSizesBytes is a distribution of incoming message sizes.
 		requestSizesBytes: stats.Int64(
-			prefix+"mcp/server/message_sizes_bytes",
+			prefix+"message_sizes_bytes",
 			"Size of messages received from clients.",
 			stats.UnitBytes),
 
 		// RequestAcksTotal is a measure of the number of received ACK requests.
 		requestAcksTotal: stats.Int64(
-			prefix+"mcp/server/request_acks_total",
-			"The number of request acks received by the server.",
+			prefix+"request_acks_total",
+			"The number of request acks received by the source.",
 			stats.UnitDimensionless),
 
 		// RequestNacksTotal is a measure of the number of received NACK requests.
 		requestNacksTotal: stats.Int64(
-			prefix+"mcp/server/request_nacks_total",
-			"The number of request nacks received by the server.",
+			prefix+"request_nacks_total",
+			"The number of request nacks received by the source.",
 			stats.UnitDimensionless),
 
 		// SendFailuresTotal is a measure of the number of network send failures.
 		sendFailuresTotal: stats.Int64(
-			prefix+"mcp/server/send_failures_total",
-			"The number of send failures in the server.",
+			prefix+"send_failures_total",
+			"The number of send failures in the source.",
 			stats.UnitDimensionless),
 
 		// RecvFailuresTotal is a measure of the number of network recv failures.
 		recvFailuresTotal: stats.Int64(
-			prefix+"mcp/server/recv_failures_total",
-			"The number of recv failures in the server.",
+			prefix+"recv_failures_total",
+			"The number of recv failures in the source.",
+			stats.UnitDimensionless),
+
+		streamCreateSuccessTotal: stats.Int64(
+			prefix+"reconnections",
+			"The number of times the sink has reconnected.",
 			stats.UnitDimensionless),
 	}
 
-	ctx.addView(ctx.clientsTotal, []tag.Key{}, view.LastValue())
+	ctx.addView(ctx.currentStreamCount, []tag.Key{}, view.LastValue())
 	ctx.addView(ctx.requestSizesBytes, []tag.Key{ConnectionIDTag}, view.Distribution(byteBuckets...))
-	ctx.addView(ctx.requestAcksTotal, []tag.Key{TypeURLTag}, view.Count())
-	ctx.addView(ctx.requestNacksTotal, []tag.Key{ErrorCodeTag, TypeURLTag}, view.Count())
+	ctx.addView(ctx.requestAcksTotal, []tag.Key{TypeURLTag, ConnectionIDTag}, view.Count())
+	ctx.addView(ctx.requestNacksTotal, []tag.Key{TypeURLTag, ConnectionIDTag, CodeTag}, view.Count())
 	ctx.addView(ctx.sendFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count())
 	ctx.addView(ctx.recvFailuresTotal, []tag.Key{ErrorCodeTag, ErrorTag}, view.Count())
+	ctx.addView(ctx.streamCreateSuccessTotal, []tag.Key{}, view.Count())
 
 	return ctx
 }
@@ -198,6 +238,8 @@ var (
 	ErrorTag tag.Key
 	// ConnectionIDTag holds the connection ID for the context.
 	ConnectionIDTag tag.Key
+	// CodeTag holds the status code for the context.
+	CodeTag tag.Key
 
 	// buckets are powers of 4
 	byteBuckets = []float64{1, 4, 16, 64, 256, 1024, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824}
@@ -215,6 +257,9 @@ func init() {
 		panic(err)
 	}
 	if ConnectionIDTag, err = tag.NewKey(connectionID); err != nil {
+		panic(err)
+	}
+	if CodeTag, err = tag.NewKey(code); err != nil {
 		panic(err)
 	}
 }

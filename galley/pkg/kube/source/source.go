@@ -51,7 +51,7 @@ func New(k kube.Interfaces, resyncPeriod time.Duration, schema *kube.Schema, cfg
 	for i, spec := range schema.All() {
 		scope.Infof("[%d]", i)
 		scope.Infof("  Source:    %s", spec.CanonicalResourceName())
-		scope.Infof("  Type URL:  %s", spec.Target.TypeURL)
+		scope.Infof("  Type URL:  %s", spec.Target.Collection)
 
 		l, err := newListener(k, resyncPeriod, spec, s.process)
 		if err != nil {
@@ -120,8 +120,8 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 
 		rid := resource.VersionedKey{
 			Key: resource.Key{
-				TypeURL:  spec.Target.TypeURL,
-				FullName: entries[0].Key,
+				Collection: spec.Target.Collection,
+				FullName:   entries[0].Key,
 			},
 			Version:    resource.Version(resourceVersion),
 			CreateTime: entries[0].CreationTime,
@@ -135,8 +135,8 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 	case resource.Deleted:
 		rid := resource.VersionedKey{
 			Key: resource.Key{
-				TypeURL:  spec.Target.TypeURL,
-				FullName: entries[0].Key,
+				Collection: spec.Target.Collection,
+				FullName:   entries[0].Key,
 			},
 			Version: resource.Version(resourceVersion),
 		}

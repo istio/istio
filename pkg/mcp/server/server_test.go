@@ -34,27 +34,28 @@ import (
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/source"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type mockConfigWatcher struct {
 	mu        sync.Mutex
 	counts    map[string]int
-	responses map[string]*WatchResponse
+	responses map[string]*source.WatchResponse
 
 	watchesCreated map[string]chan struct{}
-	watches        map[string][]PushResponseFunc
+	watches        map[string][]source.PushResponseFunc
 	closeWatch     bool
 }
 
-func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, pushResponse PushResponseFunc) CancelWatchFunc {
+func (config *mockConfigWatcher) Watch(req *source.Request, pushResponse source.PushResponseFunc) source.CancelWatchFunc {
 	config.mu.Lock()
 	defer config.mu.Unlock()
 
-	config.counts[req.TypeUrl]++
+	config.counts[req.Collection]++
 
-	if rsp, ok := config.responses[req.TypeUrl]; ok {
-		rsp.TypeURL = req.TypeUrl
+	if rsp, ok := config.responses[req.Collection]; ok {
+		rsp.Collection = req.Collection
 		pushResponse(rsp)
 		return nil
 	} else if config.closeWatch {
@@ -62,21 +63,21 @@ func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, pushResponse 
 		return nil
 	} else {
 		// save open watch channel for later
-		config.watches[req.TypeUrl] = append(config.watches[req.TypeUrl], pushResponse)
+		config.watches[req.Collection] = append(config.watches[req.Collection], pushResponse)
 	}
 
-	if ch, ok := config.watchesCreated[req.TypeUrl]; ok {
+	if ch, ok := config.watchesCreated[req.Collection]; ok {
 		ch <- struct{}{}
 	}
 
 	return func() {}
 }
 
-func (config *mockConfigWatcher) setResponse(response *WatchResponse) {
+func (config *mockConfigWatcher) setResponse(response *source.WatchResponse) {
 	config.mu.Lock()
 	defer config.mu.Unlock()
 
-	typeURL := response.TypeURL
+	typeURL := response.Collection
 
 	if watches, ok := config.watches[typeURL]; ok {
 		for _, watch := range watches {
@@ -91,8 +92,8 @@ func makeMockConfigWatcher() *mockConfigWatcher {
 	return &mockConfigWatcher{
 		counts:         make(map[string]int),
 		watchesCreated: make(map[string]chan struct{}),
-		watches:        make(map[string][]PushResponseFunc),
-		responses:      make(map[string]*WatchResponse),
+		watches:        make(map[string][]source.PushResponseFunc),
+		responses:      make(map[string]*source.WatchResponse),
 	}
 }
 
@@ -230,10 +231,10 @@ var (
 
 func TestMultipleRequests(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType0TypeURL,
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
 
 	// make a request
@@ -243,7 +244,7 @@ func TestMultipleRequests(t *testing.T) {
 		TypeUrl:  fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -280,12 +281,20 @@ func TestMultipleRequests(t *testing.T) {
 	}
 }
 
+type fakeAuthChecker struct {
+	err error
+}
+
+func (f *fakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
+	return f.err
+}
+
 func TestAuthCheck_Failure(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType0TypeURL,
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
 
 	// make a request
@@ -295,8 +304,8 @@ func TestAuthCheck_Failure(t *testing.T) {
 		TypeUrl:  fakeType0TypeURL,
 	}
 
-	checker := NewListAuthChecker()
-	s := New(config, WatchResponseTypes, checker, mcptestmon.NewInMemoryServerStatsContext())
+	checker := &fakeAuthChecker{err: errors.New("disallow")}
+	s := New(config, WatchResponseTypes, checker, mcptestmon.NewInMemoryStatsContext())
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -309,18 +318,12 @@ func TestAuthCheck_Failure(t *testing.T) {
 	wg.Wait()
 }
 
-type fakeAuthChecker struct{}
-
-func (f *fakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
-	return nil
-}
-
 func TestAuthCheck_Success(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType0TypeURL,
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
 
 	// make a request
@@ -330,7 +333,7 @@ func TestAuthCheck_Success(t *testing.T) {
 		TypeUrl:  fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, &fakeAuthChecker{}, mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, &fakeAuthChecker{}, mcptestmon.NewInMemoryStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -378,7 +381,7 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 		TypeUrl:  fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -386,10 +389,10 @@ func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	}()
 
 	<-config.watchesCreated[fakeType0TypeURL]
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType0TypeURL,
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
 
 	// check a response
@@ -416,7 +419,7 @@ func TestWatchClosed(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
 	}
@@ -425,10 +428,10 @@ func TestWatchClosed(t *testing.T) {
 
 func TestSendError(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType0TypeURL,
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
 
 	// make a request
@@ -439,7 +442,7 @@ func TestSendError(t *testing.T) {
 		TypeUrl:  fakeType0TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	// check that response fails since watch gets closed
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
@@ -450,10 +453,10 @@ func TestSendError(t *testing.T) {
 
 func TestReceiveError(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType0TypeURL,
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
 
 	// make a request
@@ -465,7 +468,7 @@ func TestReceiveError(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -475,10 +478,10 @@ func TestReceiveError(t *testing.T) {
 
 func TestUnsupportedTypeError(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   "unsupportedType",
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: "unsupportedType",
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
 
 	// make a request
@@ -489,7 +492,7 @@ func TestUnsupportedTypeError(t *testing.T) {
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -499,10 +502,10 @@ func TestUnsupportedTypeError(t *testing.T) {
 
 func TestStaleNonce(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType0TypeURL,
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
 
 	stream := makeMockStream(t)
@@ -511,7 +514,7 @@ func TestStaleNonce(t *testing.T) {
 		TypeUrl:  fakeType0TypeURL,
 	}
 	stop := make(chan struct{})
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
@@ -546,20 +549,20 @@ func TestStaleNonce(t *testing.T) {
 
 func TestAggregatedHandlers(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType0TypeURL,
+		Version:    "1",
+		Resources:  []*mcp.Resource{fakeResource0},
 	})
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType1TypeURL,
-		Version:   "2",
-		Resources: []*mcp.Resource{fakeResource1},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType1TypeURL,
+		Version:    "2",
+		Resources:  []*mcp.Resource{fakeResource1},
 	})
-	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType2TypeURL,
-		Version:   "3",
-		Resources: []*mcp.Resource{fakeResource2},
+	config.setResponse(&source.WatchResponse{
+		Collection: fakeType2TypeURL,
+		Version:    "3",
+		Resources:  []*mcp.Resource{fakeResource2},
 	})
 
 	stream := makeMockStream(t)
@@ -576,7 +579,7 @@ func TestAggregatedHandlers(t *testing.T) {
 		TypeUrl:  fakeType2TypeURL,
 	}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
@@ -614,7 +617,7 @@ func TestAggregateRequestType(t *testing.T) {
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{SinkNode: node}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("StreamAggregatedResources() => got nil, want an error")
 	}
@@ -629,7 +632,7 @@ func TestRateLimitNACK(t *testing.T) {
 	}()
 
 	config := makeMockConfigWatcher()
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
 
 	stream := makeMockStream(t)
 	go func() {
@@ -717,10 +720,10 @@ func TestRateLimitNACK(t *testing.T) {
 		for {
 			if first {
 				first = false
-				config.setResponse(&WatchResponse{
-					TypeURL:   fakeType0TypeURL,
-					Version:   s.pushedVersion,
-					Resources: []*mcp.Resource{fakeResource0},
+				config.setResponse(&source.WatchResponse{
+					Collection: fakeType0TypeURL,
+					Version:    s.pushedVersion,
+					Resources:  []*mcp.Resource{fakeResource0},
 				})
 			}
 

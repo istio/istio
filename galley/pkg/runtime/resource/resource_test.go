@@ -21,18 +21,18 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
-func TestTypeURL_Equality_True(t *testing.T) {
-	k1 := TypeURL{"a"}
-	k2 := TypeURL{"a"}
+func TestCollection_Equality_True(t *testing.T) {
+	k1 := Collection{"a", "a"}
+	k2 := Collection{"a", "a"}
 
 	if k1 != k2 {
 		t.Fatalf("Expected to be equal: %v == %v", k1, k2)
 	}
 }
 
-func TestTypeURL_Equality_False(t *testing.T) {
-	k1 := TypeURL{"a"}
-	k2 := TypeURL{"v"}
+func TestCollection_Equality_False(t *testing.T) {
+	k1 := Collection{"a", "a"}
+	k2 := Collection{"v", "v"}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -57,17 +57,17 @@ func TestVersion_Equality_False(t *testing.T) {
 	}
 }
 func TestKey_Equality_True(t *testing.T) {
-	k1 := Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}
-	k2 := Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}
+	k1 := Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}
+	k2 := Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}
 
 	if k1 != k2 {
 		t.Fatalf("Expected to be equal: %v == %v", k1, k2)
 	}
 }
 
-func TestKey_Equality_False_DifferentTypeURL(t *testing.T) {
-	k1 := Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}
-	k2 := Key{TypeURL: TypeURL{"b"}, FullName: FullName{"ks"}}
+func TestKey_Equality_False_DifferentCollection(t *testing.T) {
+	k1 := Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}
+	k2 := Key{Collection: Collection{"b", "b"}, FullName: FullName{"ks"}}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -75,8 +75,8 @@ func TestKey_Equality_False_DifferentTypeURL(t *testing.T) {
 }
 
 func TestKey_Equality_False_DifferentName(t *testing.T) {
-	k1 := Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}
-	k2 := Key{TypeURL: TypeURL{"a"}, FullName: FullName{"otherks"}}
+	k1 := Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}
+	k2 := Key{Collection: Collection{"a", "a"}, FullName: FullName{"otherks"}}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -84,27 +84,27 @@ func TestKey_Equality_False_DifferentName(t *testing.T) {
 }
 
 func TestKey_String(t *testing.T) {
-	k1 := Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}
+	k1 := Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}
 	// Ensure that it doesn't crash
 	_ = k1.String()
 }
 
 func TestVersionedKey_Equality_True(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
+		Key: Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
 	k2 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
+		Key: Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
 
 	if k1 != k2 {
 		t.Fatalf("Expected to be equal: %v == %v", k1, k2)
 	}
 }
 
-func TestVersionedKey_Equality_False_DifferentTypeURL(t *testing.T) {
+func TestVersionedKey_Equality_False_DifferentCollection(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
+		Key: Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
 	k2 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"b"}, FullName: FullName{"ks"}}, Version: Version("v1")}
+		Key: Key{Collection: Collection{"b", "b"}, FullName: FullName{"ks"}}, Version: Version("v1")}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -113,9 +113,9 @@ func TestVersionedKey_Equality_False_DifferentTypeURL(t *testing.T) {
 
 func TestVersionedKey_Equality_False_DifferentName(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
+		Key: Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
 	k2 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"a"}, FullName: FullName{"otherks"}}, Version: Version("v1")}
+		Key: Key{Collection: Collection{"a", "a"}, FullName: FullName{"otherks"}}, Version: Version("v1")}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -124,9 +124,9 @@ func TestVersionedKey_Equality_False_DifferentName(t *testing.T) {
 
 func TestVersionedKey_Equality_False_DifferentVersion(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
+		Key: Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
 	k2 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}, Version: Version("v2")}
+		Key: Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}, Version: Version("v2")}
 
 	if k1 == k2 {
 		t.Fatalf("Expected to be not equal: %v == %v", k1, k2)
@@ -135,47 +135,9 @@ func TestVersionedKey_Equality_False_DifferentVersion(t *testing.T) {
 
 func TestVersionedKey_String(t *testing.T) {
 	k1 := VersionedKey{
-		Key: Key{TypeURL: TypeURL{"a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
+		Key: Key{Collection: Collection{"a", "a"}, FullName: FullName{"ks"}}, Version: Version("v1")}
 	// Ensure that it doesn't crash
 	_ = k1.String()
-}
-
-func TestNewTypeURL(t *testing.T) {
-	goodurls := []string{
-		"type.googleapis.com/a.b.c",
-		"type.googleapis.com/a",
-		"type.googleapis.com/foo/a.b.c",
-		"zoo.com/a.b.c",
-		"zoo.com/bar/a.b.c",
-		"http://type.googleapis.com/foo/a.b.c",
-		"https://type.googleapis.com/foo/a.b.c",
-	}
-
-	for _, g := range goodurls {
-		t.Run(g, func(t *testing.T) {
-			_, err := newTypeURL(g)
-			if err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-		})
-	}
-
-	badurls := []string{
-		"ftp://type.googleapis.com/a.b.c",
-		"type.googleapis.com/a.b.c/",
-		"type.googleapis.com/",
-		"type.googleapis.com",
-		":zoo:bar/doo",
-	}
-
-	for _, g := range badurls {
-		t.Run(g, func(t *testing.T) {
-			_, err := newTypeURL(g)
-			if err == nil {
-				t.Fatal("expected error not found")
-			}
-		})
-	}
 }
 
 func TestResource_IsEmpty(t *testing.T) {
@@ -229,7 +191,7 @@ func TestInfo_newProtoInstance_PanicAtNonProto(t *testing.T) {
 
 func TestInfo_String(t *testing.T) {
 	i := Info{
-		TypeURL: TypeURL{"http://foo.bar.com/foo"},
+		Collection: Collection{"a", "http://foo.bar.com/foo"},
 	}
 	// Ensure that it doesn't crash
 	_ = i.String()

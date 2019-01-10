@@ -21,13 +21,14 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/mcp/monitoring"
+
 	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/meshconfig"
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/istio/pkg/mcp/server"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
@@ -45,7 +46,7 @@ loop:
 		p.fsNew = func(string, *kube.Schema, *converter.Config) (runtime.Source, error) {
 			return runtime.NewInMemorySource(), nil
 		}
-		p.mcpMetricReporter = func(string) server.Reporter {
+		p.mcpMetricReporter = func(string) monitoring.Reporter {
 			return nil
 		}
 
@@ -87,8 +88,8 @@ func TestNewServer(t *testing.T) {
 	p.newSource = func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
-	p.mcpMetricReporter = func(s string) server.Reporter {
-		return mcptestmon.NewInMemoryServerStatsContext()
+	p.mcpMetricReporter = func(s string) monitoring.Reporter {
+		return mcptestmon.NewInMemoryStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
 	p.fsNew = func(string, *kube.Schema, *converter.Config) (runtime.Source, error) {
@@ -135,8 +136,8 @@ func TestServer_Basic(t *testing.T) {
 	p.newSource = func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
-	p.mcpMetricReporter = func(s string) server.Reporter {
-		return mcptestmon.NewInMemoryServerStatsContext()
+	p.mcpMetricReporter = func(s string) monitoring.Reporter {
+		return mcptestmon.NewInMemoryStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
 	p.verifyResourceTypesPresence = func(kube.Interfaces) error {

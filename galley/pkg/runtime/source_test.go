@@ -43,7 +43,7 @@ func TestInMemory_Start_Empty(t *testing.T) {
 func TestInMemory_Start_WithItem(t *testing.T) {
 	i := NewInMemorySource()
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}, &types.Empty{})
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
 
 	ch, err := i.Start()
 	if err != nil {
@@ -52,7 +52,7 @@ func TestInMemory_Start_WithItem(t *testing.T) {
 
 	actual := captureChannelOutput(t, ch, 2)
 	expected := strings.TrimSpace(`
-[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:n1/f1 @v1))
+[Event](Added: [VKey](empty:n1/f1 @v1))
 [Event](FullSync)
 `)
 	if actual != expected {
@@ -86,14 +86,14 @@ func TestInMemory_Set(t *testing.T) {
 
 	// One Register one update
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}, &types.Empty{})
-	i.Set(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}, &types.Empty{})
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
 
 	actual := captureChannelOutput(t, ch, 3)
 	expected := strings.TrimSpace(`
 [Event](FullSync)
-[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:n1/f1 @v1))
-[Event](Updated: [VKey](type.googleapis.com/google.protobuf.Empty:n1/f1 @v2))
+[Event](Added: [VKey](empty:n1/f1 @v1))
+[Event](Updated: [VKey](empty:n1/f1 @v2))
 `)
 	if actual != expected {
 		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
@@ -108,16 +108,16 @@ func TestInMemory_Delete(t *testing.T) {
 	}
 
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}, &types.Empty{})
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
 	// Two deletes
-	i.Delete(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn})
-	i.Delete(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn})
+	i.Delete(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
+	i.Delete(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
 
 	actual := captureChannelOutput(t, ch, 3)
 	expected := strings.TrimSpace(`
 [Event](FullSync)
-[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:n1/f1 @v1))
-[Event](Deleted: [VKey](type.googleapis.com/google.protobuf.Empty:n1/f1 @v2))
+[Event](Added: [VKey](empty:n1/f1 @v1))
+[Event](Deleted: [VKey](empty:n1/f1 @v2))
 `)
 	if actual != expected {
 		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
@@ -128,14 +128,14 @@ func TestInMemory_Get(t *testing.T) {
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
 
 	i := NewInMemorySource()
-	i.Set(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn}, &types.Empty{})
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
 
-	r, _ := i.Get(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn})
+	r, _ := i.Get(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
 	if r.IsEmpty() {
 		t.Fatal("Get should have been non empty")
 	}
 
-	r, _ = i.Get(resource.Key{TypeURL: emptyInfo.TypeURL, FullName: fn2})
+	r, _ = i.Get(resource.Key{Collection: emptyInfo.Collection, FullName: fn2})
 	if !r.IsEmpty() {
 		t.Fatalf("Get should have been empty: %v", r)
 	}

@@ -25,7 +25,8 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/mcp/source"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 // Server is a simple MCP server, used for testing purposes.
@@ -33,8 +34,8 @@ type Server struct {
 	// The internal snapshot.Cache that the server is using.
 	Cache *snapshot.Cache
 
-	// TypeURLs that were originally passed in.
-	TypeURLs []string
+	// Collections that were originally passed in.
+	Collections []string
 
 	// Port that the service is listening on.
 	Port int
@@ -51,9 +52,16 @@ var _ io.Closer = &Server{}
 // NewServer creates and starts a new MCP Server. Returns a new Server instance upon success.
 // Specifying port as 0 will cause the server to bind to an arbitrary port. This port can be queried
 // from the Port field of the returned server struct.
-func NewServer(port int, typeUrls []string) (*Server, error) {
+func NewServer(port int, collections []string) (*Server, error) {
 	cache := snapshot.New(snapshot.DefaultGroupIndex)
-	s := server.New(cache, typeUrls, server.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	// s := server.New(cache, collections, server.NewAllowAllChecker(), mcptestmon.NewInMemoryStatsContext())
+
+	options := &source.Options{
+		Watcher:     cache,
+		Collections: collections,
+		Reporter:    monitoring.NewInMemoryStatsContext(),
+	}
+	s := source.NewServer(options, server.NewAllowAllChecker())
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	l, err := net.Listen("tcp", addr)
@@ -71,16 +79,17 @@ func NewServer(port int, typeUrls []string) (*Server, error) {
 
 	gs := grpc.NewServer()
 
-	mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
+	// mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
+	mcp.RegisterResourceSourceServer(gs, s)
 	go func() { _ = gs.Serve(l) }()
 
 	return &Server{
-		Cache:    cache,
-		TypeURLs: typeUrls,
-		Port:     p,
-		URL:      u,
-		gs:       gs,
-		l:        l,
+		Cache:       cache,
+		Collections: collections,
+		Port:        p,
+		URL:         u,
+		gs:          gs,
+		l:           l,
 	}, nil
 }
 
@@ -93,7 +102,7 @@ func (t *Server) Close() (err error) {
 
 	t.l = nil // gRPC stack will close this
 	t.Cache = nil
-	t.TypeURLs = nil
+	t.Collections = nil
 	t.Port = 0
 
 	return

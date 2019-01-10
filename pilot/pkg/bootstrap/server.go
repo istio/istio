@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/mcp/sink"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -74,9 +76,9 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	mcpclient "istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/version"
 )
 
@@ -494,9 +496,9 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]string, len(model.IstioConfigTypes))
 	for i, model := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", model.MessageName)
+		collections[i] = model.Collection
 	}
 
 	options := coredatamodel.Options{
@@ -504,7 +506,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	var clients []*mcpclient.Client
+	var clients []*sink.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
@@ -598,14 +600,23 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			cancel()
 			return err
 		}
-		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+
 		mcpController := coredatamodel.NewController(options)
-		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+		cl := mcpapi.NewResourceSourceClient(conn)
+		options := &sink.Options{
+			Collections: collections,
+			Updater:     mcpController,
+			ID:          clientNodeID,
+			Metadata:    map[string]string{},
+			Reporter:    monitoring.NewStatsContext("pilot/mcp/sink"),
+		}
+		mcpClient := sink.NewClient(cl, options)
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)
 		conns = append(conns, conn)
 		configStores = append(configStores, mcpController)
+
 	}
 
 	// TODO: remove the below branch when `--mcpServerAddrs` removed
@@ -657,9 +668,17 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				cancel()
 				return err
 			}
-			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+
 			mcpController := coredatamodel.NewController(options)
-			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+			cl := mcpapi.NewResourceSourceClient(conn)
+			options := &sink.Options{
+				Collections: collections,
+				Updater:     mcpController,
+				ID:          clientNodeID,
+				Metadata:    map[string]string{},
+				Reporter:    monitoring.NewStatsContext("pilot/mcp/sink"),
+			}
+			mcpClient := sink.NewClient(cl, options)
 			configz.Register(mcpClient)
 
 			clients = append(clients, mcpClient)

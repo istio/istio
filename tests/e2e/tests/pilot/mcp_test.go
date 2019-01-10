@@ -32,12 +32,12 @@ import (
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	mcpserver "istio.io/istio/pkg/mcp/server"
 	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
 	"istio.io/istio/tests/util"
 
 	// Import the resource package to pull in all proto types.
 	_ "istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -79,12 +79,12 @@ func TestPilotMCPClient(t *testing.T) {
 	}, "180s", "1s").Should(gomega.Succeed())
 }
 
-func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc) {
-	var cancelFunc mcpserver.CancelWatchFunc
+func mcpServerResponse(req *source.Request) (*source.WatchResponse, source.CancelWatchFunc) {
+	var cancelFunc source.CancelWatchFunc
 	cancelFunc = func() {
-		log.Printf("watch canceled for %s\n", req.GetTypeUrl())
+		log.Printf("watch canceled for %s\n", req.Collection)
 	}
-	if req.GetTypeUrl() == fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName) {
+	if req.Collection == fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName) {
 		marshaledFirstGateway, err := proto.Marshal(firstGateway)
 		if err != nil {
 			log.Fatalf("marshaling gateway %s\n", err)
@@ -94,9 +94,9 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 			log.Fatalf("marshaling gateway %s\n", err)
 		}
 
-		return &mcpserver.WatchResponse{
-			Version: req.GetVersionInfo(),
-			TypeURL: req.GetTypeUrl(),
+		return &source.WatchResponse{
+			Version:    req.VersionInfo,
+			Collection: req.Collection,
 			Resources: []*mcp.Resource{
 				{
 					Metadata: &mcp.Metadata{
@@ -104,7 +104,7 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 						CreateTime: fakeCreateTime,
 					},
 					Body: &types.Any{
-						TypeUrl: req.GetTypeUrl(),
+						TypeUrl: req.Collection,
 						Value:   marshaledFirstGateway,
 					},
 				},
@@ -114,17 +114,17 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 						CreateTime: fakeCreateTime,
 					},
 					Body: &types.Any{
-						TypeUrl: req.GetTypeUrl(),
+						TypeUrl: req.Collection,
 						Value:   marshaledSecondGateway,
 					},
 				},
 			},
 		}, cancelFunc
 	}
-	return &mcpserver.WatchResponse{
-		Version:   req.GetVersionInfo(),
-		TypeURL:   req.GetTypeUrl(),
-		Resources: []*mcp.Resource{},
+	return &source.WatchResponse{
+		Version:    req.VersionInfo,
+		Collection: req.Collection,
+		Resources:  []*mcp.Resource{},
 	}, cancelFunc
 }
 

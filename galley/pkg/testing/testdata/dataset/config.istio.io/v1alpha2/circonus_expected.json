@@ -1,5 +1,5 @@
 {
-  "type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource": [
+  "istio/config/v1alpha2/legacy/circonuses": [
     {
       "Metadata": {
         "name": "circonus/valid-circonus"

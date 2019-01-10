@@ -539,6 +539,20 @@
   revision = "4030bb1f1f0c35b30ca7009e9ebd06849dd45306"
 
 [[projects]]
+  digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
+  name = "github.com/google/go-cmp"
+  packages = [
+    "cmp",
+    "cmp/cmpopts",
+    "cmp/internal/diff",
+    "cmp/internal/function",
+    "cmp/internal/value",
+  ]
+  pruneopts = "NUT"
+  revision = "3af367b6b30c263d47e8895973edcca9a49cf029"
+  version = "v0.2.0"
+
+[[projects]]
   digest = "1:51bee9f1987dcdb9f9a1b4c20745d78f6bf6f5f14ad4e64ca883eb64df4c0045"
   name = "github.com/google/go-github"
   packages = ["github"]
@@ -1607,7 +1621,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:4734fa874273984ca6e9ace462e73e7c775ca16e1ecf988e5aa7ae73c023fbb0"
+  digest = "1:0ddecb07ed7ba0e05971194b6c410a5945494fcc11305e66c00dde0926bec8e5"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1623,7 +1637,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "aa7083e8826b9dd1dbb4a5f718ac470dbc5bda0a"
+  revision = "f818794c44b7f7aae6794382eaf2fcb6b9499f70"
 
 [[projects]]
   branch = "release-1.11"
@@ -2036,6 +2050,8 @@
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/golang/sync/errgroup",
+    "github.com/google/go-cmp/cmp",
+    "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/go-github/github",
     "github.com/google/uuid",
     "github.com/googleapis/gax-go",

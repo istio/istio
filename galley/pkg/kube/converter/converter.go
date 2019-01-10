@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,7 +27,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
@@ -53,7 +51,6 @@ var converters = func() map[string]Fn {
 	// is acceptable to the lint check-in gate, and nolint annotations do not work.
 	m["identity"] = identity
 	m["nil"] = nilConverter
-	m["legacy-mixer-resource"] = legacyMixerResource
 	m["auth-policy-resource"] = authPolicyResource
 	m["kube-ingress-resource"] = kubeIngressResource
 	m["kube-service-resource"] = kubeServiceResource
@@ -105,36 +102,6 @@ func nilConverter(_ *Config, _ resource.Info, _ resource.FullName, _ string, _ *
 	return nil, nil
 }
 
-func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]Entry, error) {
-	s := &types.Struct{}
-	creationTime := time.Time{}
-	var res *legacy.LegacyMixerResource
-
-	if u != nil {
-		spec := u.Object["spec"]
-		if err := toproto(s, spec); err != nil {
-			return nil, err
-		}
-		creationTime = u.GetCreationTimestamp().Time
-		res = &legacy.LegacyMixerResource{
-			Name:     name.String(),
-			Kind:     kind,
-			Contents: s,
-		}
-
-	}
-
-	newName := resource.FullNameFromNamespaceAndName(kind, name.String())
-
-	e := Entry{
-		Key:          newName,
-		CreationTime: creationTime,
-		Resource:     res,
-	}
-
-	return []Entry{e}, nil
-}
-
 func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	var p proto.Message
 	creationTime := time.Time{}
@@ -147,7 +114,7 @@ func authPolicyResource(_ *Config, destination resource.Info, name resource.Full
 
 		policy, ok := p.(*authn.Policy)
 		if !ok {
-			return nil, fmt.Errorf("object is not of type %v", destination.TypeURL)
+			return nil, fmt.Errorf("object is not of type %v", destination.Collection)
 		}
 
 		// The pilot authentication plugin's config handling allows the mtls

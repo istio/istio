@@ -49,6 +49,16 @@ var (
 
 	fakeCreateTime      = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 	fakeCreateTimeProto *types.Timestamp
+
+	// Well-known non-legacy Mixer types.
+	mixerKinds = []string{
+		constant.AdapterKind,
+		constant.AttributeManifestKind,
+		constant.InstanceKind,
+		constant.HandlerKind,
+		constant.RulesKind,
+		constant.TemplateKind,
+	}
 )
 
 func init() {
@@ -62,7 +72,7 @@ func init() {
 func typeURLOf(nonLegacyKind string) string {
 	for _, u := range kube.Types.All() {
 		if u.Kind == nonLegacyKind {
-			return u.Target.TypeURL.String()
+			return u.Target.Collection.String()
 		}
 	}
 
@@ -85,12 +95,12 @@ func createState(t *testing.T) *testState {
 
 	var typeUrls []string
 	var kinds []string
-	m, err := constructMapping([]string{}, kube.Types)
+	m, err := constructMapping(mixerKinds, kube.Types)
 	if err != nil {
 		t.Fatal(err)
 	}
 	st.mapping = m
-	for t, k := range st.mapping.typeURLsToKinds {
+	for t, k := range st.mapping.collectionsToKinds {
 		typeUrls = append(typeUrls, t)
 		kinds = append(kinds, k)
 	}
@@ -134,13 +144,13 @@ func TestBackend_HasSynced(t *testing.T) {
 	}
 
 	b := snapshot.NewInMemoryBuilder()
-	for typeURL := range st.mapping.typeURLsToKinds {
+	for typeURL := range st.mapping.collectionsToKinds {
 		b.SetVersion(typeURL, "0")
 
 	}
 	sn := b.Build()
 
-	st.updateWg.Add(len(st.mapping.typeURLsToKinds))
+	st.updateWg.Add(len(st.mapping.collectionsToKinds))
 	st.server.Cache.SetSnapshot(mixerNodeID, sn)
 	st.updateWg.Wait()
 

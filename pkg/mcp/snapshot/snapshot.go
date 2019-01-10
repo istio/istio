@@ -15,20 +15,21 @@
 package snapshot
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/source"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 // Snapshot provides an immutable view of versioned resources.
 type Snapshot interface {
-	Resources(typ string) []*mcp.Resource
-	Version(typ string) string
+	Resources(collection string) []*mcp.Resource
+	Version(collection string) string
 }
 
 // Cache is a snapshot-based cache that maintains a single versioned
@@ -44,7 +45,7 @@ type Cache struct {
 }
 
 // GroupIndexFn returns a stable group index for the given MCP node.
-type GroupIndexFn func(client *mcp.SinkNode) string
+type GroupIndexFn func(node *mcp.SinkNode) string
 
 // DefaultGroup is the default group when using the DefaultGroupIndex() function.
 const DefaultGroup = "default"
@@ -64,11 +65,11 @@ func New(groupIndex GroupIndexFn) *Cache {
 	}
 }
 
-var _ server.Watcher = &Cache{}
+var _ source.Watcher = &Cache{}
 
 type responseWatch struct {
-	request      *mcp.MeshConfigRequest // original request
-	pushResponse server.PushResponseFunc
+	request      *source.Request
+	pushResponse source.PushResponseFunc
 }
 
 // StatusInfo records watch status information of a remote node.
@@ -95,7 +96,7 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 }
 
 // Watch returns a watch for an MCP request.
-func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushResponseFunc) server.CancelWatchFunc { // nolint: lll
+func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseFunc) source.CancelWatchFunc { // nolint: lll
 	group := c.groupIndex(request.SinkNode)
 
 	c.mu.Lock()
@@ -118,16 +119,16 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushRe
 	// return an immediate response if a snapshot is available and the
 	// requested version doesn't match.
 	if snapshot, ok := c.snapshots[group]; ok {
-		version := snapshot.Version(request.TypeUrl)
+		version := snapshot.Version(request.Collection)
 		scope.Debugf("Found snapshot for group: %q for %v @ version: %q",
-			group, request.TypeUrl, version)
+			group, request.Collection, version)
 
 		if version != request.VersionInfo {
 			scope.Debugf("Responding to group %q snapshot:\n%v\n", group, snapshot)
-			response := &server.WatchResponse{
-				TypeURL:   request.TypeUrl,
-				Version:   version,
-				Resources: snapshot.Resources(request.TypeUrl),
+			response := &source.WatchResponse{
+				Collection: request.Collection,
+				Version:    version,
+				Resources:  snapshot.Resources(request.Collection),
 			}
 			pushResponse(response)
 			return nil
@@ -139,7 +140,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushRe
 	watchID := c.watchCount
 
 	scope.Infof("Watch(): created watch %d for %s from group %q, version %q",
-		watchID, request.TypeUrl, group, request.VersionInfo)
+		watchID, request.Collection, group, request.VersionInfo)
 
 	info.mu.Lock()
 	info.watches[watchID] = &responseWatch{request: request, pushResponse: pushResponse}
@@ -165,21 +166,24 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 	// update the existing entry
 	c.snapshots[group] = snapshot
 
+	info, ok := c.status[group]
+	fmt.Println("SetSnapshot()", info, ok)
+
 	// trigger existing watches for which version changed
 	if info, ok := c.status[group]; ok {
 		info.mu.Lock()
 		defer info.mu.Unlock()
 
 		for id, watch := range info.watches {
-			version := snapshot.Version(watch.request.TypeUrl)
+			version := snapshot.Version(watch.request.Collection)
 			if version != watch.request.VersionInfo {
 				scope.Infof("SetSnapshot(): respond to watch %d for %v @ version %q",
-					id, watch.request.TypeUrl, version)
+					id, watch.request.Collection, version)
 
-				response := &server.WatchResponse{
-					TypeURL:   watch.request.TypeUrl,
-					Version:   version,
-					Resources: snapshot.Resources(watch.request.TypeUrl),
+				response := &source.WatchResponse{
+					Collection: watch.request.Collection,
+					Version:    version,
+					Resources:  snapshot.Resources(watch.request.Collection),
 				}
 				watch.pushResponse(response)
 
@@ -187,7 +191,7 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 				delete(info.watches, id)
 
 				scope.Debugf("SetSnapshot(): watch %d for %v @ version %q complete",
-					id, watch.request.TypeUrl, version)
+					id, watch.request.Collection, version)
 			}
 		}
 	}
