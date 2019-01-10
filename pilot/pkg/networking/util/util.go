@@ -188,6 +188,12 @@ func MessageToStruct(msg proto.Message) *types.Struct {
 	return s
 }
 
+func StructToMessage(in *types.Struct, out proto.Message) {
+	if err := util.StructToMessage(in, out); err != nil {
+		log.Error(err.Error())
+	}
+}
+
 // GogoDurationToDuration converts from gogo proto duration to time.duration
 func GogoDurationToDuration(d *types.Duration) time.Duration {
 	if d == nil {

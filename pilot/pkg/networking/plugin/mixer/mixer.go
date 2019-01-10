@@ -86,6 +86,14 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mu
 	return fmt.Errorf("unknown listener type %v in mixer.OnOutboundListener", in.ListenerProtocol)
 }
 
+func AddUpgradeAttribute(filter *http_conn.HttpFilter_Config) *http_conn.HttpFilter_Config {
+	out := &mccpb.HttpClientConfig{}
+	util.StructToMessage(filter.Config, out)
+	out.MixerAttributes.Attributes["context.upgrade"] = attrStringValue("websocket")
+	filter.Config = util.MessageToStruct(out)
+	return filter
+}
+
 // OnInboundListener implements the Callbacks interface method.
 func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {

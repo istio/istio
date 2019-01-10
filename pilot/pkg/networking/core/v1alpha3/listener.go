@@ -32,6 +32,7 @@ import (
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	golang_proto "github.com/gogo/protobuf/proto"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -39,6 +40,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/networking/plugin/mixer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
@@ -897,8 +899,26 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 		connectionManager.UseRemoteAddress = proto.BoolFalse
 	}
 
+	upgradeFilters := make([]*http_conn.HttpFilter, len(httpFilters)+3)
+	copy(upgradeFilters, httpFilters)
+
+	upgradeFilters = append(upgradeFilters,
+		&http_conn.HttpFilter{Name: xdsutil.CORS},
+		&http_conn.HttpFilter{Name: xdsutil.Fault},
+		&http_conn.HttpFilter{Name: xdsutil.Router},
+	)
+
+	for i, filter := range upgradeFilters {
+		if filter.Name == "mixer" {
+			newFilter := golang_proto.Clone(filter).(*http_conn.HttpFilter)
+			newFilter.ConfigType = mixer.AddUpgradeAttribute(newFilter.ConfigType.(*http_conn.HttpFilter_Config))
+			upgradeFilters[i] = newFilter
+			break
+		}
+	}
+
 	// Allow websocket upgrades
-	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
+	websocketUpgrade := &http_conn.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket", Filters: upgradeFilters}
 	connectionManager.UpgradeConfigs = []*http_conn.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 	notimeout := 0 * time.Second
 	// Setting IdleTimeout to 0 seems to break most tests, causing

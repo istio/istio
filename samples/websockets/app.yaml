@@ -19,6 +19,8 @@ spec:
   replicas: 1
   template:
     metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
       labels:
         app: tornado
         version: v1

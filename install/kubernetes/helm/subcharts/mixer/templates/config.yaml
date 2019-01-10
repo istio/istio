@@ -100,6 +100,8 @@ spec:
       valueType: STRING
     context.reporter.uid:
       valueType: STRING
+    context.upgrade:
+      valueType: STRING
     api.service:
       valueType: STRING
     api.version:
