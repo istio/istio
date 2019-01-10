@@ -532,7 +532,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 		// determine the bindToPort setting for listeners
 		bindToPort := false
-		mode := node.Metadata["INTERCEPTION_MODE"];
+		mode := node.Metadata["INTERCEPTION_MODE"]
 		if mode == "NONE" {
 			// dont care what the listener's capture mode setting is. The proxy does not use iptables
 			bindToPort = true
@@ -560,13 +560,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			// their service ports.
 
 			listenPort := &model.Port{
-				Port: int(egressListener.IstioListener.Port.Number),
+				Port:     int(egressListener.IstioListener.Port.Number),
 				Protocol: model.ParseProtocol(egressListener.IstioListener.Port.Protocol),
-				Name: egressListener.IstioListener.Port.Name,
+				Name:     egressListener.IstioListener.Port.Name,
 			}
 
 			// user can specify a Port but no bind - we would generate multiple listeners
-			// for this port (ones with 0.0.0.0:Port as well as ones with specific IPs)
+			// for this port (ones with 0.0.0.0:Port as well as ones with specific IPs) if captureMode is IPTABLES
+			//   else we only generate 127.0.0.1:PORT if captureMode is NONE
 			// or user could have a bind on 0.0.0.0:Port with multiple filter chains on same listener
 			// or user could have bind on 1.1.1.1:Port or unix domain socket with multiple filter chains
 			// based on SNI matches, on same listener
@@ -575,15 +576,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			// buildSidecarOutboundListenerForPortOrUDS. This function
 			// takes care of adding a new listener to the listenerMap or
 			// adding a new filter chain for an existing listener.
-			for _, service := range services {				
+			bind := egressListener.IstioListener.Bind
+			// if bindToPort is false, we set the bind address if empty to 127.0.0.1
+			if len(bind) == 0 && !bindToPort {
+				bind = LocalhostAddress
+			}
+
+			for _, service := range services {
 				listenerOpts := buildListenerOpts{
 					env:            env,
 					proxy:          node,
 					proxyInstances: proxyInstances,
 					proxyLabels:    proxyLabels,
 					bind:           egressListener.IstioListener.Bind,
-					port: listenPort.Port,
-					bindToPort: bindToPort,
+					port:           listenPort.Port,
+					bindToPort:     bindToPort,
 				}
 
 				pluginParams := &plugin.InputParams{
@@ -593,9 +600,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Node:             node,
 					ProxyInstances:   proxyInstances,
 					Push:             push,
-					Bind:             egressListener.IstioListener.Bind,
-					Port: listenPort,
-					Service: service,
+					Bind:             bind,
+					Port:             listenPort,
+					Service:          service,
 				}
 
 				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
@@ -625,6 +632,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				e.locked = true
 			}
 
+			bind := ""
+			if !bindToPort {
+				bind = LocalhostAddress
+			}
 			for _, service := range services {
 				for _, servicePort := range service.Ports {
 					listenerOpts := buildListenerOpts{
@@ -632,8 +643,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						proxy:          node,
 						proxyInstances: proxyInstances,
 						proxyLabels:    proxyLabels,
-						port: servicePort.Port,
-						bindToPort: bindToPort,
+						port:           servicePort.Port,
+						bind:bind,
+						bindToPort:     bindToPort,
 					}
 
 					pluginParams := &plugin.InputParams{
@@ -643,8 +655,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Node:             node,
 						ProxyInstances:   proxyInstances,
 						Push:             push,
-						Port: servicePort,
-						Service: service,
+						Bind: bind,
+						Port:             servicePort,
+						Service:          service,
 					}
 
 					configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
@@ -742,14 +755,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 			httpOpts: &httpListenerOpts{
 				useRemoteAddress: false,
 				direction:        http_conn.EGRESS,
-				rds: rdsName,
+				rds:              rdsName,
 			},
 		}}
 
 	case plugin.ListenerProtocolTCP:
 		// first identify the bind if its not set. Then construct the key
 		// used to lookup the listener in the conflict map.
-		
+
 		// Determine the listener address if bind is empty
 		// we listen on the service VIP if and only
 		// if the address is an IP address. If its a CIDR, we listen on
@@ -781,7 +794,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		var exists bool
 
 		// Have we already generated a listener for this Port based on user
-		// specified listener ports? if so, we should not add any more 
+		// specified listener ports? if so, we should not add any more
 		// services to the port. The user could have specified a sidecar
 		// resource with one or more explicit ports and then added a catch
 		// all listener, implying add all other ports as usual. When we are
@@ -925,7 +938,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		listenerMap[listenerMapKey] = &listenerEntry{
 			services:    []*model.Service{pluginParams.Service},
 			servicePort: pluginParams.Port,
-			bind: listenerOpts.bind,
+			bind:        listenerOpts.bind,
 			listener:    mutable.Listener,
 		}
 	}
@@ -978,7 +991,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 				},
 			}
 			listenerOpts := buildListenerOpts{
-				bind:   managementIP,
+				bind: managementIP,
 				port: mPort.Port,
 				filterChainOpts: []*filterChainOpts{{
 					networkFilters: buildInboundNetworkFilters(env, node, instance),

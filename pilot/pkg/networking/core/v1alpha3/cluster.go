@@ -41,6 +41,8 @@ const (
 	ManagementClusterHostname = "mgmtCluster"
 )
 
+// TODO: Need to do inheritance of DestRules based on domain suffix match
+
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
@@ -48,15 +50,25 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	clusters = append(clusters, configgen.buildOutboundClusters(env, push, proxy)...)
+	recomputeOutboundClusters := true
+	if configgen.CanUsePrecomputedCDS(proxy) {
+		if configgen.PrecomputedOutboundClusters != nil && configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace] != nil {
+			clusters = append(clusters, configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace]...)
+			recomputeOutboundClusters = false
+		}
+	}
 
-	switch proxy.Type {
-	case model.SidecarProxy:
+	if recomputeOutboundClusters {
+		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+	}
+
+	if proxy.Type == model.SidecarProxy {
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
 			log.Errorf("failed to get service proxy service instances: %v", err)
 			return nil, err
 		}
+
 		// Let ServiceDiscovery decide which IP and Port are used for management if
 		// there are multiple IPs
 		managementPorts := make([]*model.Port, 0)
@@ -64,10 +76,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
 		}
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
-	case model.Router:
-		if proxy.GetRouterMode() == model.SniDnatRouter {
-			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
-		}
+	}
+
+	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+		clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
 	}
 
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
@@ -95,7 +107,7 @@ func normalizeClusters(push *model.PushContext, proxy *model.Proxy, clusters []*
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, push *model.PushContext, proxy *model.Proxy) []*v2.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) []*v2.Cluster {
 	clusters := make([]*v2.Cluster, 0)
 
 	inputParams := &plugin.InputParams{
@@ -106,6 +118,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	networkView := model.GetNetworkView(proxy)
 
 	// NOTE: Proxy can be nil here due to precomputed CDS
+	// TODO: get rid of precomputed CDS when adding NetworkScopes as precomputed CDS is not useful in that context
 	for _, service := range push.Services(proxy) {
 		config := push.DestinationRule(proxy, service.Hostname)
 		for _, port := range service.Ports {
