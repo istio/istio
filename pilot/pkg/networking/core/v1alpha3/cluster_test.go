@@ -141,7 +141,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
 		ClusterID:   "some-cluster-id",
-		Type:        model.Sidecar,
+		Type:        model.SidecarProxy,
 		IPAddresses: []string{"6.6.6.6"},
 		DNSDomain:   "com",
 		Metadata:    make(map[string]string),
@@ -247,7 +247,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
 		ClusterID:   "some-cluster-id",
-		Type:        model.Sidecar,
+		Type:        model.SidecarProxy,
 		IPAddresses: []string{"6.6.6.6"},
 		DNSDomain:   "com",
 		Metadata:    make(map[string]string),

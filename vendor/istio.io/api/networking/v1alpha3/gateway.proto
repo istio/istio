@@ -158,10 +158,10 @@ message Gateway {
   repeated Server servers = 1;
 
   // REQUIRED: One or more labels that indicate a specific set of pods/VMs
-  // on which this gateway configuration should be applied.
-  // The scope of label search is platform dependent.
-  // On Kubernetes, for example, the scope includes pods running in
-  // all reachable namespaces.
+  // on which this gateway configuration should be applied. The scope of
+  // label search is restricted to the configuration namespace in which the
+  // the resource is present. In other words, the Gateway resource must
+  // reside in the same namespace as the gateway workload.
   map<string, string> selector = 2;
 }
 
@@ -228,8 +228,15 @@ message Gateway {
 // ```
 message Server {
   // REQUIRED: The Port on which the proxy should listen for incoming
-  // connections
+  // connections. If using unix domain socket, use 0 as the port number,
+  // with a valid protocol and port name, along with the bind parameter.
   Port port = 1;
+
+  // $hide_from_docs
+  // The ip or the unix domain socket to which the listener should be bound
+  // to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
+  // abstract namespace).
+  string bind = 4;
 
   // REQUIRED. A list of hosts exposed by this gateway. At least one
   // host is required. While typically applicable to
@@ -334,6 +341,11 @@ message Server {
   // these options to control if all http requests should be redirected to
   // https, and the TLS modes to use.
   TLSOptions tls = 3;
+
+  // The loopback IP endpoint or unix domain socket to which traffic should
+  // be forwarded to by default. Format should be 127.0.0.1:PORT or
+  // unix:///path/to/socket or unix://@foobar (Linux abstract namespace).
+  string default_endpoint = 5;
 }
 
 // Port describes the properties of a specific port of a service.
