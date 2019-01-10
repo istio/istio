@@ -1,5 +1,0 @@
-{{- if .Values.global.mtls.enabled }}
-  {{- include "security-default.yaml.tpl" .}}
-{{- else }}
-  {{- include "security-permissive.yaml.tpl" .}}
-{{- end }}
