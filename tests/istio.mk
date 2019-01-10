@@ -139,6 +139,8 @@ e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
 
+e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_pilotv2_sds
+
 # This is used to keep a record of the test results.
 CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
 
@@ -189,6 +191,14 @@ test/local/auth/e2e_pilotv2: out_dir generate_yaml_coredump
 
 # test with MTLS using key/cert distributed through SDS
 test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_test_yaml
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
+		--auth_enable=true --auth_sds_enable=true  --ingress=false --rbac_enable=true --cluster_wide \
+		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	# Run the pilot controller tests
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
+
+# test with MTLS through SDS
+test/local/auth/e2e_pilotv2_sds: out_dir generate_e2e_test_yaml
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=true --auth_sds_enable=true  --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
