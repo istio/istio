@@ -342,13 +342,13 @@ func (ps *PushContext) SetSidecarScope(proxy *Proxy) {
 		return
 	}
 
-	proxy.sidecarScope = ps.GetSidecarScope(proxy, instances)
+	proxy.SidecarScope = ps.GetSidecarScope(proxy, instances)
 }
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	if proxy != nil && proxy.sidecarScope != nil {
-		return proxy.sidecarScope.Services()
+	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
+		return proxy.SidecarScope.Services()
 	}
 
 	out := []*Service{}
@@ -454,12 +454,21 @@ func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 	return DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
 }
 
+// GetAllSidecarScopes returns a map of namespace and the set of SidecarScope
+// object associated with the namespace. This will be used by the CDS code to
+// precompute CDS output for each sidecar scope. Since we have a default sidecarscope
+// for namespaces that dont explicitly have one, we are guaranteed to
+// have the CDS output cached for every namespace/sidecar scope combo.
+func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
+	return ps.sidecarsByNamespace
+}
+
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
-	if proxy != nil && proxy.sidecarScope != nil {
+	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
-		return proxy.sidecarScope.DestinationRule(hostname)
+		return proxy.SidecarScope.DestinationRule(hostname)
 	}
 
 	if proxy == nil {

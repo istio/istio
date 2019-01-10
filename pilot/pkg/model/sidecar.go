@@ -17,6 +17,7 @@ package model
 import (
 	"strings"
 
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	networking "istio.io/api/networking/v1alpha3"
 )
 
@@ -53,10 +54,6 @@ type SidecarScope struct {
 	// services/virtual services in that listener.
 	EgressListeners []*IstioEgressListenerWrapper
 
-	// // set of ingress listeners
-	// // A sidecar scope should have either ingress/egress listeners or both.
-	// IngressListeners []*IstioIngressListenerWrapper
-
 	// Union of services imported across all egress listeners for use by CDS code.
 	// Right now, we include all the ports in these services.
 	// TODO: Trim the ports in the services to only those referred to by the
@@ -71,6 +68,10 @@ type SidecarScope struct {
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
 	destinationRules map[Hostname]*Config
+
+	// XDSOutboundClusters is the CDS output for sidecars that map to this
+	// sidecarScope object. Contains the outbound clusters only
+	XDSOutboundClusters []*xdsapi.Cluster
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -134,7 +135,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
-	// this config namespace) will see, identify all the destinationRules 
+	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s.Hostname)

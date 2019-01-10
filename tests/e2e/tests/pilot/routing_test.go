@@ -887,6 +887,18 @@ func TestSidecarScope(t *testing.T) {
 			host:      "tcp.com",
 			reachable: true,
 		},
+		{
+			testName:  "ns1: bookinfo.com:9999 reachable via egress listener 7.7.7.7:23145",
+			reqURL:    "http://7.7.7.7:23145/a",
+			host:      "bookinfo.com",
+			reachable: true,
+		},
+		{
+			testName:  "ns1: private.com:9999 not reachable via egress listener 7.7.7.7:23145",
+			reqURL:    "http://7.7.7.7:23145/a",
+			host:      "private.com",
+			reachable: false,
+		},
 	}
 
 	t.Run("v1alpha3", func(t *testing.T) {

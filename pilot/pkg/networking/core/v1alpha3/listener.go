@@ -34,7 +34,6 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -190,27 +189,42 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		listeners = append(listeners, inbound...)
 		listeners = append(listeners, outbound...)
 
-		// Let ServiceDiscovery decide which IP and Port are used for management if
-		// there are multiple IPs
-		mgmtListeners := make([]*xdsapi.Listener, 0)
-		for _, ip := range node.IPAddresses {
-			managementPorts := env.ManagementPorts(ip)
-			management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
-			mgmtListeners = append(mgmtListeners, management...)
+		// Do not generate any management port listeners if the user has specified a SidecarScope object
+		// with ingress listeners. Specifying the ingress listener implies that the user wants
+		// to only have those specific listeners and nothing else, in the inbound path.
+		generateManagementListeners := true
+
+		sidecarScope := push.GetSidecarScope(node, proxyInstances)
+		if sidecarScope.Config != nil {
+			rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+			if len(rule.Ingress) > 0 {
+				generateManagementListeners = false
+			}
 		}
 
-		// If management listener port and service port are same, bad things happen
-		// when running in kubernetes, as the probes stop responding. So, append
-		// non overlapping listeners only.
-		for i := range mgmtListeners {
-			m := mgmtListeners[i]
-			l := util.GetByAddress(listeners, m.Address.String())
-			if l != nil {
-				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
-					m.Name, m.Address.String(), l.Name, l.Address.String())
-				continue
+		if generateManagementListeners {
+			// Let ServiceDiscovery decide which IP and Port are used for management if
+			// there are multiple IPs
+			mgmtListeners := make([]*xdsapi.Listener, 0)
+			for _, ip := range node.IPAddresses {
+				managementPorts := env.ManagementPorts(ip)
+				management := buildSidecarInboundMgmtListeners(node, env, managementPorts, ip)
+				mgmtListeners = append(mgmtListeners, management...)
 			}
-			listeners = append(listeners, m)
+
+			// If management listener port and service port are same, bad things happen
+			// when running in kubernetes, as the probes stop responding. So, append
+			// non overlapping listeners only.
+			for i := range mgmtListeners {
+				m := mgmtListeners[i]
+				l := util.GetByAddress(listeners, m.Address.String())
+				if l != nil {
+					log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+						m.Name, m.Address.String(), l.Name, l.Address.String())
+					continue
+				}
+				listeners = append(listeners, m)
+			}
 		}
 
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
@@ -310,132 +324,276 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	proxyInstances []*model.ServiceInstance) []*xdsapi.Listener {
 
 	var listeners []*xdsapi.Listener
-	listenerMap := make(map[string]*model.ServiceInstance)
-	// inbound connections/requests are redirected to the endpoint address but appear to be sent
-	// to the service address.
-	for _, instance := range proxyInstances {
-		endpoint := instance.Endpoint
-		protocol := endpoint.ServicePort.Protocol
+	listenerMap := make(map[string]*inboundListenerEntry)
 
-		// Local service instances can be accessed through one of three
-		// addresses: localhost, endpoint IP, and service
-		// VIP. Localhost bypasses the proxy and doesn't need any TCP
-		// route config. Endpoint IP is handled below and Service IP is handled
-		// by outbound routes.
-		// Traffic sent to our service VIP is redirected by remote
-		// services' kubeproxy to our specific endpoint IP.
-		listenerOpts := buildListenerOpts{
-			env:            env,
-			proxy:          node,
-			proxyInstances: proxyInstances,
-			bind:           endpoint.Address,
-			port:           endpoint.Port,
-		}
+	// If the user specifies a Sidecar CRD with an inbound listener, only construct that listener
+	// and not the ones from the proxyInstances
+	var proxyLabels model.LabelsCollection
+	for _, w := range proxyInstances {
+		proxyLabels = append(proxyLabels, w.Labels)
+	}
 
-		listenerMapKey := fmt.Sprintf("%s:%d", endpoint.Address, endpoint.Port)
-		if old, exists := listenerMap[listenerMapKey]; exists {
-			push.Add(model.ProxyStatusConflictInboundListener, node.ID, node,
-				fmt.Sprintf("Rejected %s, used %s for %s", instance.Service.Hostname, old.Service.Hostname, listenerMapKey))
-			// Skip building listener for the same ip port
-			continue
-		}
-		allChains := []plugin.FilterChain{}
-		var httpOpts *httpListenerOpts
-		var tcpNetworkFilters []listener.Filter
-		listenerProtocol := plugin.ModelProtocolToListenerProtocol(protocol)
-		pluginParams := &plugin.InputParams{
-			ListenerProtocol: listenerProtocol,
-			ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
-			Env:              env,
-			Node:             node,
-			ProxyInstances:   proxyInstances,
-			ServiceInstance:  instance,
-			Port:             endpoint.ServicePort,
-			Push:             push,
-		}
-		switch listenerProtocol {
-		case plugin.ListenerProtocolHTTP:
-			httpOpts = &httpListenerOpts{
-				routeConfig:      configgen.buildSidecarInboundHTTPRouteConfig(env, node, push, instance),
-				rds:              "", // no RDS for inbound traffic
-				useRemoteAddress: false,
-				direction:        http_conn.INGRESS,
-				connectionManager: &http_conn.HttpConnectionManager{
-					// Append and forward client cert to backend.
-					ForwardClientCertDetails: http_conn.APPEND_FORWARD,
-					SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: &google_protobuf.BoolValue{Value: true},
-						Uri:     true,
-						Dns:     true,
-					},
-					ServerName: EnvoyServerName,
-				},
-			}
-			// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
-			if endpoint.ServicePort.Protocol.IsHTTP2() {
-				httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
-				if endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
-					httpOpts.addGRPCWebFilter = true
+	sidecarScope := push.GetSidecarScope(node, proxyInstances)
+	if sidecarScope.Config != nil { //auto generated sidecars will have Config set to nil
+		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+
+		for _, ingressListener := range rule.Ingress {
+			// determine the bindToPort setting for listeners
+			bindToPort := false
+			mode := node.Metadata["INTERCEPTION_MODE"]
+			if mode == "NONE" {
+				// dont care what the listener's capture mode setting is. The proxy does not use iptables
+				bindToPort = true
+			} else {
+				// proxy uses iptables redirect or tproxy. IF mode is not set
+				// for older proxies, it defaults to iptables redirect.  If the
+				// listener's capture mode specifies NONE, then the proxy wants
+				// this listener alone to be on a physical port. If the
+				// listener's capture mode is default, then its same as
+				// iptables i.e. bindToPort is false.
+				if ingressListener.CaptureMode == networking.CaptureMode_NONE {
+					bindToPort = true
 				}
 			}
 
-		case plugin.ListenerProtocolTCP:
-			tcpNetworkFilters = buildInboundNetworkFilters(env, node, instance)
-
-		default:
-			log.Warnf("Unsupported inbound protocol %v for port %#v", protocol, endpoint.ServicePort)
-			continue
-		}
-
-		for _, p := range configgen.Plugins {
-			chains := p.OnInboundFilterChains(pluginParams)
-			if len(chains) == 0 {
-				continue
+			listenPort := &model.Port{
+				Port:     int(ingressListener.Port.Number),
+				Protocol: model.ParseProtocol(ingressListener.Port.Protocol),
+				Name:     ingressListener.Port.Name,
 			}
-			if len(allChains) != 0 {
-				log.Warnf("Found two plugin setups inbound filter chains for listeners, FilterChainMatch may not work as intended!")
+
+			bind := ingressListener.Bind
+			// if bindToPort is true, we set the bind address if empty to 127.0.0.1
+			if len(bind) == 0 && bindToPort {
+				bind = LocalhostAddress
+			} else if len(bind) == 0 {
+				// auto infer the IP from the proxyInstances
+				// We assume all endpoints in the proxy instances have the same IP
+				// as they should all be pointing to the same network endpoint
+				bind = proxyInstances[0].Endpoint.Address
 			}
-			allChains = append(allChains, chains...)
+
+			listenerOpts := buildListenerOpts{
+				env:            env,
+				proxy:          node,
+				proxyInstances: proxyInstances,
+				bind:           bind,
+				port:           listenPort.Port,
+				bindToPort:     bindToPort,
+			}
+
+			// Construct a dummy service instance for this port so that the rest of the code doesn't freak out
+			// due to a missing instance. Technically this instance is not a service instance as it corresponds to
+			// some workload listener. But given that we force all workloads to be part of atleast one service,
+			// lets create a service instance for this workload based on the first service associated with the workload.
+			// TODO: We are arbitrarily using the first proxyInstance. When a workload has multiple services bound to it,
+			// what happens? We could run the loop for every instance but we would have the same listeners.
+
+			// First create a copy of a service instance
+			instance := &model.ServiceInstance{
+				Endpoint:       proxyInstances[0].Endpoint,
+				Service:        proxyInstances[0].Service,
+				Labels:         proxyInstances[0].Labels,
+				ServiceAccount: proxyInstances[0].ServiceAccount,
+			}
+
+			// Update the values here so that the plugins use the right ports
+			// uds values
+			// TODO: all plugins need to be updated to account for the fact that
+			// the port may be 0 but bind may have a UDS value
+			// Inboundroute will be different for
+			instance.Endpoint.Address = bind
+			instance.Endpoint.ServicePort = listenPort
+			// TODO: this should be parsed from the defaultEndpoint field in the ingressListener
+			instance.Endpoint.Port = listenPort.Port
+
+			pluginParams := &plugin.InputParams{
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
+				ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
+				Env:              env,
+				Node:             node,
+				ProxyInstances:   proxyInstances,
+				ServiceInstance:  instance,
+				Port:             listenPort,
+				Push:             push,
+				Bind:             bind,
+			}
+
+			if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
+				listeners = append(listeners, l)
+			}
 		}
-		// Construct the default filter chain.
-		if len(allChains) == 0 {
-			log.Infof("Use default filter chain for %v", endpoint)
-			// add one empty entry to the list so we generate a default listener below
-			allChains = []plugin.FilterChain{{}}
-		}
-		for _, chain := range allChains {
-			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
-				httpOpts:        httpOpts,
-				networkFilters:  tcpNetworkFilters,
-				tlsContext:      chain.TLSContext,
-				match:           chain.FilterChainMatch,
-				listenerFilters: chain.ListenerFilters,
-			})
+	} else {
+		// We should not create inbound listeners in NONE mode based on the service instances
+		// Doing so will prevent the workloads from starting as they would be listening on the same port
+		// Users are required to provide the sidecar config to define the inbound listeners
+		if node.Metadata["INTERCEPTION_MODE"] == "NONE" {
+			return nil
 		}
 
-		// call plugins
-		l := buildListener(listenerOpts)
-		mutable := &plugin.MutableObjects{
-			Listener:     l,
-			FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
-		}
-		for _, p := range configgen.Plugins {
-			if err := p.OnInboundListener(pluginParams, mutable); err != nil {
-				log.Warn(err.Error())
+		// inbound connections/requests are redirected to the endpoint address but appear to be sent
+		// to the service address.
+		for _, instance := range proxyInstances {
+			endpoint := instance.Endpoint
+			bindToPort := false
+			bind := endpoint.Address
+
+			// Local service instances can be accessed through one of three
+			// addresses: localhost, endpoint IP, and service
+			// VIP. Localhost bypasses the proxy and doesn't need any TCP
+			// route config. Endpoint IP is handled below and Service IP is handled
+			// by outbound routes.
+			// Traffic sent to our service VIP is redirected by remote
+			// services' kubeproxy to our specific endpoint IP.
+			listenerOpts := buildListenerOpts{
+				env:            env,
+				proxy:          node,
+				proxyInstances: proxyInstances,
+				bind:           bind,
+				port:           endpoint.Port,
+				bindToPort:     bindToPort,
 			}
-		}
-		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
-			log.Warna("buildSidecarInboundListeners ", err.Error())
-		} else {
-			listeners = append(listeners, mutable.Listener)
-			listenerMap[listenerMapKey] = instance
+
+			pluginParams := &plugin.InputParams{
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(endpoint.ServicePort.Protocol),
+				ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
+				Env:              env,
+				Node:             node,
+				ProxyInstances:   proxyInstances,
+				ServiceInstance:  instance,
+				Port:             endpoint.ServicePort,
+				Push:             push,
+				Bind:             bind,
+			}
+
+			if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
+				listeners = append(listeners, l)
+			}
 		}
 	}
 	return listeners
 }
 
-type listenerEntry struct {
+// buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
+// for a given port or unix domain socket
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
+	pluginParams *plugin.InputParams, listenerMap map[string]*inboundListenerEntry) *xdsapi.Listener {
+
+	// Local service instances can be accessed through one of four addresses:
+	// unix domain socket, localhost, endpoint IP, and service
+	// VIP. Localhost bypasses the proxy and doesn't need any TCP
+	// route config. Endpoint IP is handled below and Service IP is handled
+	// by outbound routes. Traffic sent to our service VIP is redirected by
+	// remote services' kubeproxy to our specific endpoint IP.
+	listenerMapKey := fmt.Sprintf("%s:%d", listenerOpts.bind, pluginParams.Port.Port)
+
+	if old, exists := listenerMap[listenerMapKey]; exists {
+		// For sidecar specified listeners, the caller is expected to supply a dummy service instance
+		// with the right port and a hostname constructed from the sidecar config's name+namespace
+		pluginParams.Push.Add(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
+			fmt.Sprintf("Conflicting inbound listener:%s. existing: %s, incoming: %s", listenerMapKey,
+				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname, listenerMapKey))
+
+		// Skip building listener for the same ip port
+		return nil
+	}
+
+	allChains := []plugin.FilterChain{}
+	var httpOpts *httpListenerOpts
+	var tcpNetworkFilters []listener.Filter
+
+	switch pluginParams.ListenerProtocol {
+	case plugin.ListenerProtocolHTTP:
+		httpOpts = &httpListenerOpts{
+			routeConfig: configgen.buildSidecarInboundHTTPRouteConfig(pluginParams.Env, pluginParams.Node,
+				pluginParams.Push, pluginParams.ServiceInstance),
+			rds:              "", // no RDS for inbound traffic
+			useRemoteAddress: false,
+			direction:        http_conn.INGRESS,
+			connectionManager: &http_conn.HttpConnectionManager{
+				// Append and forward client cert to backend.
+				ForwardClientCertDetails: http_conn.APPEND_FORWARD,
+				SetCurrentClientCertDetails: &http_conn.HttpConnectionManager_SetCurrentClientCertDetails{
+					Subject: &google_protobuf.BoolValue{Value: true},
+					Uri:     true,
+					Dns:     true,
+				},
+				ServerName: EnvoyServerName,
+			},
+		}
+		// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
+		if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
+			httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+			if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol == model.ProtocolGRPCWeb {
+				httpOpts.addGRPCWebFilter = true
+			}
+		}
+
+	case plugin.ListenerProtocolTCP:
+		tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Env, pluginParams.Node, pluginParams.ServiceInstance)
+
+	default:
+		log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
+			pluginParams.ServiceInstance.Endpoint.ServicePort)
+		return nil
+	}
+
+	for _, p := range configgen.Plugins {
+		chains := p.OnInboundFilterChains(pluginParams)
+		if len(chains) == 0 {
+			continue
+		}
+		if len(allChains) != 0 {
+			log.Warnf("Found two plugin setups inbound filter chains for listeners, FilterChainMatch may not work as intended!")
+		}
+		allChains = append(allChains, chains...)
+	}
+	// Construct the default filter chain.
+	if len(allChains) == 0 {
+		log.Infof("Use default filter chain for %v", pluginParams.ServiceInstance.Endpoint)
+		// add one empty entry to the list so we generate a default listener below
+		allChains = []plugin.FilterChain{{}}
+	}
+	for _, chain := range allChains {
+		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
+			httpOpts:        httpOpts,
+			networkFilters:  tcpNetworkFilters,
+			tlsContext:      chain.TLSContext,
+			match:           chain.FilterChainMatch,
+			listenerFilters: chain.ListenerFilters,
+		})
+	}
+
+	// call plugins
+	l := buildListener(listenerOpts)
+	mutable := &plugin.MutableObjects{
+		Listener:     l,
+		FilterChains: make([]plugin.FilterChain, len(l.FilterChains)),
+	}
+	for _, p := range configgen.Plugins {
+		if err := p.OnInboundListener(pluginParams, mutable); err != nil {
+			log.Warn(err.Error())
+		}
+	}
+	// Filters are serialized one time into an opaque struct once we have the complete list.
+	if err := buildCompleteFilterChain(pluginParams, mutable, listenerOpts); err != nil {
+		log.Warna("buildSidecarInboundListeners ", err.Error())
+		return nil
+	}
+
+	listenerMap[listenerMapKey] = &inboundListenerEntry{
+		bind:             listenerOpts.bind,
+		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
+	}
+	return mutable.Listener
+}
+
+type inboundListenerEntry struct {
+	bind             string
+	instanceHostname model.Hostname // could be empty if generated via Sidecar CRD
+}
+
+type outboundListenerEntry struct {
 	services    []*model.Service
 	servicePort *model.Port
 	bind        string
@@ -510,7 +668,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
-	listenerMap := make(map[string]*listenerEntry)
+	listenerMap := make(map[string]*outboundListenerEntry)
 
 	// The sidecarConfig if provided could filter the list of
 	// services/virtual services that we need to process. It could also
@@ -577,8 +735,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			// takes care of adding a new listener to the listenerMap or
 			// adding a new filter chain for an existing listener.
 			bind := egressListener.IstioListener.Bind
-			// if bindToPort is false, we set the bind address if empty to 127.0.0.1
-			if len(bind) == 0 && !bindToPort {
+			// if bindToPort is true, we set the bind address if empty to 127.0.0.1
+			if len(bind) == 0 && bindToPort {
 				bind = LocalhostAddress
 			}
 
@@ -588,7 +746,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					proxy:          node,
 					proxyInstances: proxyInstances,
 					proxyLabels:    proxyLabels,
-					bind:           egressListener.IstioListener.Bind,
+					bind:           bind,
 					port:           listenPort.Port,
 					bindToPort:     bindToPort,
 				}
@@ -623,17 +781,17 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			// services exposed on a particular listener.
 			//
 			// To ensure that we do not add anything to listeners we have
-			// already generated, run through the listenerEntry map and set
+			// already generated, run through the outboundListenerEntry map and set
 			// the locked bit to true.
 			// buildSidecarOutboundListenerForPortOrUDS will not add/merge
-			// any HTTP/TCP listener if there is already a listenerEntry
+			// any HTTP/TCP listener if there is already a outboundListenerEntry
 			// with locked bit set to true
 			for _, e := range listenerMap {
 				e.locked = true
 			}
 
 			bind := ""
-			if !bindToPort {
+			if bindToPort {
 				bind = LocalhostAddress
 			}
 			for _, service := range services {
@@ -644,7 +802,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						proxyInstances: proxyInstances,
 						proxyLabels:    proxyLabels,
 						port:           servicePort.Port,
-						bind:bind,
+						bind:           bind,
 						bindToPort:     bindToPort,
 					}
 
@@ -655,7 +813,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						Node:             node,
 						ProxyInstances:   proxyInstances,
 						Push:             push,
-						Bind: bind,
+						Bind:             bind,
 						Port:             servicePort,
 						Service:          service,
 					}
@@ -667,6 +825,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	// Now validate all the listeners. Collate the tcp listeners first and then the HTTP listeners
+	// TODO: This is going to be bad for caching as the order of listeners in tcpListeners or httpListeners is not
+	// guaranteed.
 	for name, l := range listenerMap {
 		if err := l.listener.Validate(); err != nil {
 			log.Warnf("buildSidecarOutboundListeners: error validating listener %s (type %v): %v", name, l.servicePort.Protocol, err)
@@ -689,11 +849,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
-	pluginParams *plugin.InputParams, listenerMap map[string]*listenerEntry, virtualServices []model.Config) {
+	pluginParams *plugin.InputParams, listenerMap map[string]*outboundListenerEntry, virtualServices []model.Config) {
 
 	var destinationIPAddress string
 	var listenerMapKey string
-	var currentListenerEntry *listenerEntry
+	var currentListenerEntry *outboundListenerEntry
 
 	switch pluginParams.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
@@ -935,7 +1095,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		}
 		currentListenerEntry.listener.FilterChains = newFilterChains
 	} else {
-		listenerMap[listenerMapKey] = &listenerEntry{
+		listenerMap[listenerMapKey] = &outboundListenerEntry{
 			services:    []*model.Service{pluginParams.Service},
 			servicePort: pluginParams.Port,
 			bind:        listenerOpts.bind,
@@ -972,6 +1132,12 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 
 	if managementIP == "" {
 		managementIP = "127.0.0.1"
+	}
+
+	// NOTE: We should not generate inbound listeners when the proxy does not have any IPtables traffic capture
+	// as it would interfere with the workloads listening on the same port
+	if node.Metadata["INTERCEPTION_MODE"] == "NONE" {
+		return nil
 	}
 
 	// assumes that inbound connections/requests are sent to the endpoint address

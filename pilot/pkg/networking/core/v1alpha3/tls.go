@@ -130,7 +130,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 					// Only set CIDR match if the listener is bound to an IP.
 					// If its bound to a unix domain socket, then ignore the CIDR matches
 					// Unix domain socket bound ports have Port value set to 0
-					if len(match.DestinationSubnets) > 0 && listenPort.Port >0 {
+					if len(match.DestinationSubnets) > 0 && listenPort.Port > 0 {
 						destinationCIDRs = match.DestinationSubnets
 					}
 					matchHash := hashRuntimeTLSMatchPredicates(match)
