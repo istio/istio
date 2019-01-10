@@ -773,6 +773,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth-non-mcp.yaml
 
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-auth-sds.yaml
+	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio-auth-sds.yaml
 	$(HELM) template --set global.tag=${TAG} \
 		--name=istio \
 		--namespace=istio-system \
