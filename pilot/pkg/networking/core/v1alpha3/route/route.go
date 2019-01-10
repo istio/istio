@@ -65,21 +65,21 @@ type VirtualHostWrapper struct {
 	Routes []route.Route
 }
 
-// BuildSidecarVirtualHostsFromConfigAndRegistry creates virtual hosts from
-// the given set of virtual services and a list of services from the
-// service registry. Services are indexed by FQDN hostnames.
-func BuildSidecarVirtualHostsFromConfigAndRegistry(
+// BuildVirtualHostsFromConfigAndRegistry creates virtual hosts from the given set of virtual services and a list of
+// services from the service registry. Services are indexed by FQDN hostnames.
+func BuildVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
 	serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection,
-	virtualServices []model.Config, listenPort int) []VirtualHostWrapper {
+	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
+	meshGateway := map[string]bool{model.IstioMeshGateway: true}
+	virtualServices := push.VirtualServices(node, meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, listenPort)
+		wrappers := buildVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, meshGateway)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -144,18 +144,17 @@ func separateVSHostsAndServices(virtualService model.Config,
 	return hosts, servicesInVirtualService
 }
 
-// buildSidecarVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
+// buildVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
-func buildSidecarVirtualHostsForVirtualService(
+func buildVirtualHostsForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
-	listenPort int) []VirtualHostWrapper {
+	gatewayName map[string]bool) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
-
 	// Now group these services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in
 	// order to build the cluster name (outbound|<port>|<subset>|<serviceFQDN>)
@@ -177,12 +176,11 @@ func buildSidecarVirtualHostsForVirtualService(
 	if len(serviceByPort) == 0 {
 		// This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
 		// the current code is written.
-		serviceByPort[listenPort] = nil
+		serviceByPort[80] = nil
 	}
-	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, proxyLabels, meshGateway)
+		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, port, proxyLabels, gatewayName)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
@@ -231,13 +229,12 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 // This is called for each port to compute virtual hosts.
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
-// This function is used by both the gateway and the sidecar
 func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
-	listenPort int,
+	port int,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) ([]route.Route, error) {
 
@@ -252,13 +249,13 @@ func BuildHTTPRoutesForVirtualService(
 allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(push, node, http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(push, node, http, match, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(push, node, http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {

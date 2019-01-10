@@ -34,7 +34,7 @@ var (
 	tnow  = time.Now()
 	tzero = time.Time{}
 	proxy = model.Proxy{
-		Type:        model.SidecarProxy,
+		Type:        model.Sidecar,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
@@ -233,7 +233,7 @@ func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsa
 			Service: s,
 		}
 	}
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances)
+	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances, services)
 }
 
 func buildInboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsapi.Listener {

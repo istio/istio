@@ -193,9 +193,6 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 }
 
 // updateClusterInc computes an envoy cluster assignment from the service shards.
-// TODO: this code is incorrect. With config scoping, two sidecars can get
-// a cluster of same name but with different set of endpoints. See the
-// explanation below for more details
 func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName string,
 	edsCluster *EdsCluster) error {
 
@@ -204,14 +201,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	var port int
 	var subsetName string
 	_, subsetName, hostname, port = model.ParseSubsetKey(clusterName)
-
-	// TODO: BUG. this code is incorrect. With destination rule scoping
-	// (public/private) as well as sidecar scopes allowing import of
-	// specific destination rules, the destination rule for a given
-	// namespace should be determined based on the sidecar scope or the
-	// proxy's config namespace. As such, this code searches through all
-	// destination rules, public and private and returns a completely
-	// arbitrary destination rule's subset labels!
 	labels := push.SubsetToLabels(subsetName, hostname)
 
 	portMap, f := push.ServicePort2Name[string(hostname)]

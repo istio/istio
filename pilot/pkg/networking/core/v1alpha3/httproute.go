@@ -41,8 +41,8 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 	services := push.Services(node)
 
 	switch node.Type {
-	case model.SidecarProxy:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
+	case model.Sidecar:
+		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, services, routeName), nil
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
 	}
@@ -89,58 +89,35 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
-	listenPort := 0
-	var err error
-	listenPort, err = strconv.Atoi(routeName)
-	if err != nil {
-		// we have a port whose name is http_proxy or unix:///foo/bar
-		// check for both.
-		if routeName != RDSHttpProxy || !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+	listenerPort := 0
+	if routeName != RDSHttpProxy {
+		var err error
+		listenerPort, err = strconv.Atoi(routeName)
+		if err != nil {
 			return nil
 		}
 	}
 
-	// Get the list of services that correspond to this egressListener from the sidecarScope	
-	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	egressListener := sidecarScope.GetEgressListenerForRDS(listenPort, routeName)
-	// We should never be getting a nil egress listener because the code that setup this RDS
-	// call obviously saw an egress listener
-	if egressListener == nil {
-		return nil
-	}
-
-	services := egressListener.Services()
-	// To maintain correctness, we should only use the virtualservices for
-	// this listener and not all virtual services accessible to this proxy.
-	virtualServices := egressListener.Services()
-
 	nameToServiceMap := make(map[model.Hostname]*model.Service)
 	for _, svc := range services {
 		if listenerPort == 0 {
-			// Take all ports when listen port is 0 (http_proxy or uds)
-			// Expect virtualServices to resolve to right port
 			nameToServiceMap[svc.Hostname] = svc
 		} else {
-			// TODO: BUG. With the new sidecar API, users could specify any
-			// arbitrary egress listener Port that has no relation to the
-			// service Port. If such is the case, the map below may be
-			// empty. If this map is empty, no virtual hosts would get formed.
-			//
-			// The problem is compounded when user specifies a port that
-			// exists in one service but not in other services in the
-			// listener. Given that this is specified in the context of a
-			// listener with a port, our options for auto inference are
-			// limited. We could completely skip those services who dont
-			// have matching port but how do we distinguish the case where
-			// user specifies port: 60000, host: ns1/*, with a
-			// virtualService matching this listener port?
 			if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
+
+				svc.Mutex.RLock()
+				clusterVIPs := make(map[string]string, len(svc.ClusterVIPs))
+				for k, v := range svc.ClusterVIPs {
+					clusterVIPs[k] = v
+				}
+				svc.Mutex.RUnlock()
 
 				nameToServiceMap[svc.Hostname] = &model.Service{
 					Hostname:     svc.Hostname,
 					Address:      svc.Address,
+					ClusterVIPs:  clusterVIPs,
 					MeshExternal: svc.MeshExternal,
 					Ports:        []*model.Port{svcPort},
 				}
@@ -155,7 +132,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels, virtualServices, listenPort)
+	virtualHostWrappers := istio_route.BuildVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, proxyLabels)
 	vHostPortMap := make(map[int][]route.VirtualHost)
 
 	for _, virtualHostWrapper := range virtualHostWrappers {
@@ -185,10 +162,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	var virtualHosts []route.VirtualHost
-	if listenPort == 0 {
+	if routeName == RDSHttpProxy {
 		virtualHosts = mergeAllVirtualHosts(vHostPortMap)
 	} else {
-		virtualHosts = vHostPortMap[listenPort]
+		virtualHosts = vHostPortMap[listenerPort]
 	}
 
 	util.SortVirtualHosts(virtualHosts)

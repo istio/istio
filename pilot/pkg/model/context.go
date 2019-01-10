@@ -19,6 +19,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -101,16 +102,25 @@ type Proxy struct {
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 
-	// the sidecarScope associated with the proxy
-	sidecarScope *SidecarScope
+	// mutex control access to mutable fields in the Proxy. On-demand will modify the
+	// list of services based on calls from envoy.
+	mutex sync.RWMutex
+
+	// serviceDependencies, if set, controls the list of outbound listeners and routes
+	// for which the proxy will receive configurations. If nil, the proxy will get config
+	// for all visible services.
+	// The list will be populated either from explicit declarations or using 'on-demand'
+	// feature, before generation takes place. Each node may have a different list, based on
+	// the requests handled by envoy.
+	serviceDependencies []*Service
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 
 const (
-	// SidecarProxy type is used for sidecar proxies in the application containers
-	SidecarProxy NodeType = "sidecar"
+	// Sidecar type is used for sidecar proxies in the application containers
+	Sidecar NodeType = "sidecar"
 
 	// Ingress type is used for cluster ingress proxies
 	Ingress NodeType = "ingress"
@@ -122,7 +132,7 @@ const (
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
-	case SidecarProxy, Ingress, Router:
+	case Sidecar, Ingress, Router:
 		return true
 	default:
 		return false
@@ -230,7 +240,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	out.Type = NodeType(parts[0])
 
 	switch out.Type {
-	case SidecarProxy, Ingress, Router:
+	case Sidecar, Ingress, Router:
 	default:
 		return out, fmt.Errorf("invalid node type (valid types: ingress, sidecar, router in the service node %q", s)
 	}
@@ -250,7 +260,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Does query from ingress or router have to carry valid IP address?
-	if len(out.IPAddresses) == 0 && out.Type == SidecarProxy {
+	if len(out.IPAddresses) == 0 && out.Type == Sidecar {
 		return out, fmt.Errorf("no valid IP address in the service node id or metadata")
 	}
 
@@ -267,25 +277,8 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
-	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
 	if configNamespace, found := proxy.Metadata["CONFIG_NAMESPACE"]; found {
 		return configNamespace
-	}
-
-	// if not found, for backward compatibility, extract the namespace from
-	// the proxy domain. this is a k8s specific hack and should be enabled
-	// only for 1.0.x proxies
-	if version, found := proxy.Metadata["ISTIO_PROXY_VERSION"]; found {
-		if strings.HasPrefix(version, "1.0.") { // 1.0.x proxy
-			// Not in use in any platform other than Kubernetes
-			// and Consul. This code most likely breaks Consul deployments
-			// However we need the namespace in order to support SidecarConfigs
-			// for older proxies
-			parts := strings.Split(proxy.DNSDomain, ".")
-			if len(parts) > 1 { // k8s will have namespace.<domain>
-				return parts[0]
-			}
-		}
 	}
 
 	return ""

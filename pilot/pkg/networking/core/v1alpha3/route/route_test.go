@@ -44,7 +44,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 
 	node := &model.Proxy{
-		Type:        model.SidecarProxy,
+		Type:        model.Sidecar,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "someID",
 		DNSDomain:   "foo.com",

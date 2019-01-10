@@ -141,7 +141,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
 		ClusterID:   "some-cluster-id",
-		Type:        model.SidecarProxy,
+		Type:        model.Sidecar,
 		IPAddresses: []string{"6.6.6.6"},
 		DNSDomain:   "com",
 		Metadata:    make(map[string]string),
@@ -237,8 +237,6 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 				},
 			},
 		}})
-	// Initialize the sidecarScope again as it was previously initialized with empty destination rules
-	env.PushContext.InitSidecarScopes(env)
 
 	return env
 }
@@ -249,7 +247,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
 		ClusterID:   "some-cluster-id",
-		Type:        model.SidecarProxy,
+		Type:        model.Sidecar,
 		IPAddresses: []string{"6.6.6.6"},
 		DNSDomain:   "com",
 		Metadata:    make(map[string]string),
@@ -397,8 +395,6 @@ func buildEnvForClustersWithTCPKeepalive(configType ConfigType) *model.Environme
 			},
 		},
 	})
-	// Reinitialize sidecar scopes as it got initialized with empty destination rules in the InitContext call
-	env.PushContext.InitSidecarScopes(env)
 
 	return env
 }
