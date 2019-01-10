@@ -88,7 +88,6 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildAddress(bind string, port uint32) core.Address {
-	
 	if len(bind) > 0 && strings.HasPrefix(bind, model.UnixAddressPrefix) {
 		return core.Address{
 			Address: &core.Address_Pipe{
@@ -99,7 +98,6 @@ func BuildAddress(bind string, port uint32) core.Address {
 		}
 	}
 
-	
 	return core.Address{
 		Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
