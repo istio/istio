@@ -316,13 +316,22 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	}
 	noneMode := proxy.Metadata[pilot.InterceptionMode] == pilot.InterceptionModeNone
 
+	var err error
+
 	for _, instance := range instances {
 		// This cluster name is mainly for stats.
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 
 		port := instance.Endpoint.Port
 		if noneMode {
-			port = proxy.NoneIngressApplicationPort(push, port)
+			port, err = proxy.NoneIngressApplicationPort(push, instances, port)
+			if err != nil {
+				// TODO: varz, alert
+				log.Errorf("NONE MODE ERROR: processing inbound port for %s: %v", proxy.DNSDomain, err)
+				// Not clear how to best handle this - if we don't generate the cluster bad things happen.
+				// Generating with same port is also really bad - can result in loops
+				// Most of the errors should be detected by Galley.
+			}
 		}
 		localityLbEndpoints := buildInboundLocalityLbEndpoints(port)
 

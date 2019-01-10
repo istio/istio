@@ -81,10 +81,15 @@ spec:
 
   ingress:
   - port:
+      number: 7071
+      protocol: TCP
+      name: tcplocal
+    default_endpoint: 127.0.0.1:17071
+  - port:
       number: 7070
       protocol: TCP
       name: tcplocal
-    default_endpoint: 127.0.0.1:7071
+    default_endpoint: 127.0.0.1:17070
 
 ---
 

@@ -15,7 +15,9 @@
 package model
 
 import (
+	"errors"
 	"fmt"
+	"istio.io/api/networking/v1alpha3"
 	"net"
 	"strconv"
 	"strings"
@@ -214,18 +216,66 @@ func (node *Proxy) GetRouterMode() RouterMode {
 // Without iptables we use 3 ports for each inbound service: the original service port, used for connecting
 // to other instances of the service, the 'endpoint port' where Envoy is listening, and a local application port.
 // For iptable modes the last 2 are the same.
-func (node *Proxy) NoneIngressApplicationPort(push *PushContext, orig int) int {
+func (node *Proxy) NoneIngressApplicationPort(push *PushContext, instances []*ServiceInstance, orig int) (int, error) {
 	// TODO: extract the port from Sidecar
+	// TODO: sidecar should be cached in SidecarScope, no DB access here. This is temp until Shriram's PR is merged
+	cfgs, err := push.Env.List(Sidecar.Type, node.ConfigNamespace)
+	if err != nil {
+		log.Error("XXX tmp code - no sidecars")
+	}
+	var matchingSc *v1alpha3.Sidecar
+	for _, sc := range cfgs {
+		sidecar := sc.Spec.(*v1alpha3.Sidecar)
+		if sidecar.WorkloadSelector == nil || len(sidecar.WorkloadSelector.Labels) == 0 {
+			continue // the default sidecar or sidecar without labels can't be used to customize ingress for the pod.
+		}
+		var workloadLabels LabelsCollection
+		for _, w := range instances {
+			workloadLabels = append(workloadLabels, w.Labels)
+		}
+		workloadSelector := Labels(sidecar.GetWorkloadSelector().GetLabels())
+		if !workloadLabels.IsSupersetOf(workloadSelector) {
+			continue
+		}
+		log.Infof("%v", sidecar)
+		matchingSc = sidecar
+		break
+	}
+	// END TEMP CODE
+
+
+	if matchingSc != nil {
+		for _, ing := range matchingSc.GetIngress() {
+			if ing.Port == nil {
+				continue
+			}
+			if ing.Port.Number == uint32(orig) {
+				// Found matching port
+				if ing.GetDefaultEndpoint() == "" {
+					return 0, errors.New("Missing defaultEndpoint")
+				}
+				host, port, err := net.SplitHostPort(ing.GetDefaultEndpoint())
+				if err != nil {
+					return 0, err
+				}
+				if host != "127.0.0.1" {
+					return 0, errors.New("Unexpected host in defaultEndpoint, must be 127.0.0.1")
+				}
+				portN, err := strconv.Atoi(port)
+				if err != nil {
+					return 0, err
+				}
+				return portN, nil
+			}
+		}
+	}
 
 	// TODO: allow envoy, via metadata, to provide a workload specific value. For example pilot-agent can
 	// check UDS socket or communicate with the application (via scripts or other means) to determine the port.
 	// Sidecar can provide a default value, but in some environments (raw VMs, etc) the port may be in use.
 
 	// Hack/fallback for initial implementation to unblock testing: add or subtract 30000 to container ports.
-	if orig > 30000 {
-		return orig - 30000
-	}
-	return 30000 + orig
+	return 0, errors.New(fmt.Sprintf("No Sidecar or matching ingress port found %d", orig))
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh

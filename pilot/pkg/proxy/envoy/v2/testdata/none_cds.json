@@ -26,7 +26,7 @@
                       "SocketAddress": {
                         "address": "127.0.0.1",
                         "PortSpecifier": {
-                          "PortValue": 37070
+                          "PortValue": 17070
                         }
                       }
                     }
@@ -59,7 +59,7 @@
                       "SocketAddress": {
                         "address": "127.0.0.1",
                         "PortSpecifier": {
-                          "PortValue": 37071
+                          "PortValue": 17071
                         }
                       }
                     }
