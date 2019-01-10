@@ -25,12 +25,16 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestNoB3SampledTrue(t *testing.T) {
-	assert.True(t, isSampled(metadata.New(nil)))
+func TestNoB3SampledFalse(t *testing.T) {
+	assert.False(t, isSampled(metadata.New(nil)))
 }
 
 func TestB3SampledTrue(t *testing.T) {
 	assert.True(t, isSampled(metadata.New(map[string]string{"x-b3-sampled": "1"})))
+}
+
+func TestB3SampledTrueAgain(t *testing.T) {
+	assert.True(t, isSampled(metadata.New(map[string]string{"x-b3-sampled": "true"})))
 }
 
 func TestB3SampledFalse(t *testing.T) {
