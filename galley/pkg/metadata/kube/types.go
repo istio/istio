@@ -458,6 +458,17 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
+		Kind:      "Sidecar",
+		ListKind:  "SidecarList",
+		Singular:  "sidecar",
+		Plural:    "sidecars",
+		Version:   "v1alpha3",
+		Group:     "networking.istio.io",
+		Target:    metadata.Types.Get("type.googleapis.com/istio.networking.v1alpha3.Sidecar"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(kube.ResourceSpec{
 		Kind:      "VirtualService",
 		ListKind:  "VirtualServiceList",
 		Singular:  "virtualservice",

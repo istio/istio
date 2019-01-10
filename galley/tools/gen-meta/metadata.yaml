@@ -54,6 +54,13 @@ resources:
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.EnvoyFilter"
 
+  - kind:        "Sidecar"
+    singular:    "sidecar"
+    plural:      "sidecars"
+    group:       "networking.istio.io"
+    version:     "v1alpha3"
+    proto:       "istio.networking.v1alpha3.Sidecar"
+
   - kind:        "HTTPAPISpec"
     singular:    "httpapispec"
     plural:      "httpapispecs"

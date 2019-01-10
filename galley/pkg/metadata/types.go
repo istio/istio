@@ -97,6 +97,9 @@ var (
 	// ServiceSpec metadata
 	ServiceSpec resource.Info
 
+	// Sidecar metadata
+	Sidecar resource.Info
+
 	// VirtualService metadata
 	VirtualService resource.Info
 )
@@ -122,6 +125,7 @@ func init() {
 	ServiceRole = b.Register("type.googleapis.com/istio.rbac.v1alpha1.ServiceRole")
 	ServiceRoleBinding = b.Register("type.googleapis.com/istio.rbac.v1alpha1.ServiceRoleBinding")
 	ServiceSpec = b.Register("type.googleapis.com/k8s.io.api.core.v1.ServiceSpec")
+	Sidecar = b.Register("type.googleapis.com/istio.networking.v1alpha3.Sidecar")
 	VirtualService = b.Register("type.googleapis.com/istio.networking.v1alpha3.VirtualService")
 
 	Types = b.Build()

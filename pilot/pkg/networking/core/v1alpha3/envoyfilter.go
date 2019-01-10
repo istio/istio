@@ -152,7 +152,7 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 			}
 		case networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
 			networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND:
-			if in.Node.Type != model.Sidecar {
+			if in.Node.Type != model.SidecarProxy {
 				return false
 			}
 		}

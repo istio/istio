@@ -16,7 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
-import "networking/v1alpha3/service_dependency.proto";
+import "networking/v1alpha3/sidecar.proto";
 
 // $title: Traffic Routing
 // $description: Configuration affecting traffic routing.

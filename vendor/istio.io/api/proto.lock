@@ -684,24 +684,13 @@
               {
                 "name": "ALLOW_ANY",
                 "integer": 1
-              },
-              {
-                "name": "VIRTUAL_SERVICE_ONLY",
-                "integer": 2
               }
-            ]
-          },
-          {
-            "name": "DefaultServiceDependency.Mode",
-            "enum_fields": [
-              {
-                "name": "ALL_NAMESPACES",
-                "integer": 0
-              },
-              {
-                "name": "SAME_NAMESPACE",
-                "integer": 1
-              }
+            ],
+            "reserved_ids": [
+              2
+            ],
+            "reserved_names": [
+              "VIRTUAL_SERVICE_ONLY"
             ]
           }
         ],
@@ -727,6 +716,11 @@
               {
                 "id": 25,
                 "name": "policy_check_fail_open",
+                "type": "bool"
+              },
+              {
+                "id": 30,
+                "name": "sidecar_to_telemetry_session_affinity",
                 "type": "bool"
               },
               {
@@ -836,7 +830,7 @@
                 "type": "bool"
               },
               {
-                "id": 30,
+                "id": 29,
                 "name": "sds_use_k8s_sa_jwt",
                 "type": "bool"
               },
@@ -844,11 +838,6 @@
                 "id": 26,
                 "name": "trust_domain",
                 "type": "string"
-              },
-              {
-                "id": 29,
-                "name": "default_service_dependency",
-                "type": "DefaultServiceDependency"
               }
             ],
             "reserved_ids": [
@@ -863,22 +852,6 @@
                     "id": 1,
                     "name": "mode",
                     "type": "Mode"
-                  }
-                ]
-              },
-              {
-                "name": "DefaultServiceDependency",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "import_mode",
-                    "type": "Mode"
-                  },
-                  {
-                    "id": 2,
-                    "name": "import_namespaces",
-                    "type": "string",
-                    "is_repeated": true
                   }
                 ]
               }
@@ -3091,6 +3064,11 @@
                 "type": "Port"
               },
               {
+                "id": 4,
+                "name": "bind",
+                "type": "string"
+              },
+              {
                 "id": 2,
                 "name": "hosts",
                 "type": "string",
@@ -3100,6 +3078,11 @@
                 "id": 3,
                 "name": "tls",
                 "type": "TLSOptions"
+              },
+              {
+                "id": 5,
+                "name": "default_endpoint",
+                "type": "string"
               }
             ],
             "messages": [
@@ -3174,77 +3157,6 @@
                 "id": 3,
                 "name": "name",
                 "type": "string"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "networking:/:v1alpha3:/:service_dependency.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "ConfigScope",
-            "enum_fields": [
-              {
-                "name": "PUBLIC",
-                "integer": 0
-              },
-              {
-                "name": "PRIVATE",
-                "integer": 1
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "ServiceDependency",
-            "fields": [
-              {
-                "id": 1,
-                "name": "dependencies",
-                "type": "Dependency",
-                "is_repeated": true
-              }
-            ],
-            "messages": [
-              {
-                "name": "Import",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "namespace",
-                    "type": "string"
-                  },
-                  {
-                    "id": 2,
-                    "name": "host",
-                    "type": "string"
-                  }
-                ]
-              },
-              {
-                "name": "Dependency",
-                "fields": [
-                  {
-                    "id": 2,
-                    "name": "imports",
-                    "type": "Import",
-                    "is_repeated": true
-                  }
-                ],
-                "maps": [
-                  {
-                    "key_type": "string",
-                    "field": {
-                      "id": 1,
-                      "name": "source_workload_labels",
-                      "type": "string"
-                    }
-                  }
-                ]
               }
             ]
           }
@@ -3373,6 +3285,131 @@
                     }
                   }
                 ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "networking:/:v1alpha3:/:sidecar.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "ConfigScope",
+            "enum_fields": [
+              {
+                "name": "PUBLIC",
+                "integer": 0
+              },
+              {
+                "name": "PRIVATE",
+                "integer": 1
+              }
+            ]
+          },
+          {
+            "name": "CaptureMode",
+            "enum_fields": [
+              {
+                "name": "DEFAULT",
+                "integer": 0
+              },
+              {
+                "name": "IPTABLES",
+                "integer": 1
+              },
+              {
+                "name": "NONE",
+                "integer": 2
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "Sidecar",
+            "fields": [
+              {
+                "id": 1,
+                "name": "workload_selector",
+                "type": "WorkloadSelector"
+              },
+              {
+                "id": 2,
+                "name": "ingress",
+                "type": "IstioIngressListener",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "egress",
+                "type": "IstioEgressListener",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "IstioIngressListener",
+            "fields": [
+              {
+                "id": 1,
+                "name": "port",
+                "type": "Port"
+              },
+              {
+                "id": 2,
+                "name": "bind",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "capture_mode",
+                "type": "CaptureMode"
+              },
+              {
+                "id": 4,
+                "name": "default_endpoint",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "IstioEgressListener",
+            "fields": [
+              {
+                "id": 1,
+                "name": "port",
+                "type": "Port"
+              },
+              {
+                "id": 2,
+                "name": "bind",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "capture_mode",
+                "type": "CaptureMode"
+              },
+              {
+                "id": 4,
+                "name": "hosts",
+                "type": "string",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "WorkloadSelector",
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 1,
+                  "name": "labels",
+                  "type": "string"
+                }
               }
             ]
           }
