@@ -50,6 +50,9 @@ type Key struct {
 	Kind      string
 	Namespace string
 	Name      string
+
+	// PolicyGroup determines if the resource is in policy.istio.io API group (e.g. it is non-legacy).
+	PolicyGroup bool
 }
 
 // BackendEvent is an event used between Backend and Store.
@@ -145,9 +148,6 @@ type Store interface {
 	// watch channel at the same time. Multiple calls lead to an error.
 	Watch() (<-chan Event, error)
 
-	// Get returns the resource to the key.
-	Get(key Key) (*Resource, error)
-
 	// List returns the whole mapping from key to resource specs in the store.
 	List() map[Key]*Resource
 
@@ -214,23 +214,6 @@ func (s *store) Watch() (<-chan Event, error) {
 	q := newQueue(ch, s.kinds)
 	s.queue = q
 	return q.chout, nil
-}
-
-// Get returns a resource's spec to the key.
-func (s *store) Get(key Key) (*Resource, error) {
-	obj, err := s.backend.Get(key)
-	if err != nil {
-		return nil, err
-	}
-
-	pbSpec, err := cloneMessage(key.Kind, s.kinds)
-	if err != nil {
-		return nil, err
-	}
-	if err = convert(key, obj.Spec, pbSpec); err != nil {
-		return nil, err
-	}
-	return &Resource{Metadata: obj.Metadata, Spec: pbSpec}, nil
 }
 
 // List returns the whole mapping from key to resource specs in the store.
