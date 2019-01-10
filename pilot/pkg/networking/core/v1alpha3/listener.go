@@ -215,36 +215,37 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			listeners = append(listeners, m)
 		}
 
-		// We need a passthrough filter to fill in the filter stack for orig_dst listener
-		passthroughTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix:       util.PassthroughCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
-		}
+		if mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+			// We need a passthrough filter to fill in the filter stack for orig_dst listener
+			passthroughTCPProxy := &tcp_proxy.TcpProxy{
+				StatPrefix:       util.PassthroughCluster,
+				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+			}
+			var transparent *google_protobuf.BoolValue
+			if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
+				transparent = proto.BoolTrue
+			}
 
-		var transparent *google_protobuf.BoolValue
-		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
-			transparent = proto.BoolTrue
-		}
-
-		// add an extra listener that binds to the port that is the recipient of the iptables redirect
-		listeners = append(listeners, &xdsapi.Listener{
-			Name:           VirtualListenerName,
-			Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
-			Transparent:    transparent,
-			UseOriginalDst: proto.BoolTrue,
-			FilterChains: []listener.FilterChain{
-				{
-					Filters: []listener.Filter{
-						{
-							Name: xdsutil.TCPProxy,
-							ConfigType: &listener.Filter_Config{
-								Config: util.MessageToStruct(passthroughTCPProxy),
+			// add an extra listener that binds to the port that is the recipient of the iptables redirect
+			listeners = append(listeners, &xdsapi.Listener{
+				Name:           VirtualListenerName,
+				Address:        util.BuildAddress(WildcardAddress, uint32(mesh.ProxyListenPort)),
+				Transparent:    transparent,
+				UseOriginalDst: proto.BoolTrue,
+				FilterChains: []listener.FilterChain{
+					{
+						Filters: []listener.Filter{
+							{
+								Name: xdsutil.TCPProxy,
+								ConfigType: &listener.Filter_Config{
+									Config: util.MessageToStruct(passthroughTCPProxy),
+								},
 							},
 						},
 					},
 				},
-			},
-		})
+			})
+		}
 	}
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
