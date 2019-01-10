@@ -177,6 +177,10 @@ def getForwardHeaders(request):
 
     incoming_headers = ['x-request-id']
 
+    # Add user-agent to headers manually
+    if 'user-agent' in request.headers:
+        headers['user-agent'] = request.headers.get('user-agent')
+
     for ihdr in incoming_headers:
         val = request.headers.get(ihdr)
         if val is not None:

@@ -38,7 +38,7 @@ const TemplateName = "edge"
 // note that if the datatype of a field is not
 // istio.mixer.adapter.model.v1beta1.Value, then the expression's
 // [inferred
-// type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking)
+// type](https://istio.io/docs/reference/config/policy-and-telemetry/expression-language/#type-checking)
 // must match the datatype of the field.
 //
 // Example config:

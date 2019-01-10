@@ -99,8 +99,8 @@ func newClientSet(descriptor model.ConfigDescriptor) (map[string]*restClient, er
 			// create a new client if one doesn't already exist
 			rc = &restClient{
 				apiVersion: schema.GroupVersion{
-					ResourceGroup(&typ),
-					typ.Version,
+					Group:   ResourceGroup(&typ),
+					Version: typ.Version,
 				},
 			}
 			cs[apiVersion(&typ)] = rc

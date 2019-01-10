@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/istio.routing.v1alpha1/
-number_of_entries: 59
+number_of_entries: 60
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -43,7 +43,7 @@ services.</p>
 a namespace when the namespace is imported.  By default all
 configuration artifacts are public. Configurations with private scope
 will not be imported when the namespace containing the configuration is
-imported in a ServiceDependency.</p>
+imported in a Sidecar.</p>
 
 <table class="enum-values">
 <thead>
@@ -266,12 +266,12 @@ Default is to use the OS level configuration
 <section>
 <p>Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 service. Refer to
-https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS">https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS</a>
 for further details about cross origin resource sharing. For example,
 the following rule restricts cross origin requests to those originating
 from example.com domain using HTTP POST/GET, and sets the
-Access-Control-Allow-Credentials header to false. In addition, it only
-exposes X-Foo-bar header and sets an expiry period of 1 day.</p>
+<code>Access-Control-Allow-Credentials</code> header to false. In addition, it only
+exposes <code>X-Foo-bar</code> header and sets an expiry period of 1 day.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -347,8 +347,8 @@ access. Serialized into Access-Control-Expose-Headers header.</p>
 <td><code>maxAge</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>Specifies how long the the results of a preflight request can be
-cached. Translates to the Access-Control-Max-Age header.</p>
+<p>Specifies how long the results of a preflight request can be
+cached. Translates to the <code>Access-Control-Max-Age</code> header.</p>
 
 </td>
 </tr>
@@ -358,7 +358,7 @@ cached. Translates to the Access-Control-Max-Age header.</p>
 <td>
 <p>Indicates whether the caller is allowed to send the actual request
 (not the preflight) using credentials. Translates to
-Access-Control-Allow-Credentials header.</p>
+<code>Access-Control-Allow-Credentials</code> header.</p>
 
 </td>
 </tr>
@@ -1228,10 +1228,10 @@ spec:
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
-on which this gateway configuration should be applied.
-The scope of label search is platform dependent.
-On Kubernetes, for example, the scope includes pods running in
-all reachable namespaces.</p>
+on which this gateway configuration should be applied. The scope of
+label search is restricted to the configuration namespace in which the
+the resource is present. In other words, the Gateway resource must
+reside in the same namespace as the gateway workload.</p>
 
 </td>
 </tr>
@@ -1694,8 +1694,8 @@ number of retries attempted depends on the httpReqTimeout.</p>
 <p>Specifies the conditions under which retry takes place.
 One or more policies can be specified using a ‘,’ delimited list.
 The supported policies can be found in
-&ldquo;https://www.envoyproxy.io/docs/envoy/latest/configuration/http<em>filters/router</em>filter#x-envoy-retry-on&rdquo;
-and &ldquo;https://www.envoyproxy.io/docs/envoy/latest/configuration/http<em>filters/router</em>filter#x-envoy-retry-grpc-on&rdquo;</p>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on">https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on</a>
+and <a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on">https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on</a></p>
 
 </td>
 </tr>
@@ -1859,7 +1859,7 @@ destination.</p>
 <td><code><a href="#CorsPolicy">CorsPolicy</a></code></td>
 <td>
 <p>Cross-Origin Resource Sharing policy (CORS). Refer to
-https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS
+https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
 for further details about cross origin resource sharing.</p>
 
 </td>
@@ -2121,8 +2121,8 @@ to the caller</p>
 <td><code>add</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Apppend the given values to the the headers specified by keys
-(will create a comma seperated list of values)</p>
+<p>Append the given values to the headers specified by keys
+(will create a comma-separated list of values)</p>
 
 </td>
 </tr>
@@ -2131,6 +2131,57 @@ to the caller</p>
 <td><code>string[]</code></td>
 <td>
 <p>Remove a the specified headers</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstioEgressListener">IstioEgressListener</h2>
+<section>
+<p>IstioEgressListener specifies the properties of an outbound traffic
+listener on the sidecar proxy attached to a workload.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioEgressListener-capture_mode">
+<td><code>captureMode</code></td>
+<td><code><a href="#CaptureMode">CaptureMode</a></code></td>
+<td>
+<p>When the bind address is an IP, the captureMode option dictates
+how traffic to the listener is expected to be captured (or not).</p>
+
+</td>
+</tr>
+<tr id="IstioEgressListener-hosts">
+<td><code>hosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>One or more services/virtualServices exposed by the listener in
+namespace/dnsName format.  Publicly scoped services and
+VirtualServices from remote namespaces corresponding to the specified
+hosts will be imported. The service in a namespace can be a service in
+the service registry (e.g., a kubernetes or cloud foundry service) or
+a service specified via ServiceEntry configuration. In addition, any
+publicly scoped DestinationRule associated with the imported services
+will also be imported.</p>
+
+<p>Set the namespace to * to import a particular service from any
+available namespace (e.g., &ldquo;*/foo.example.com&rdquo;). Set the dnsName field
+to * to import all services from the specified namespace (e.g.,
+&ldquo;prod/*&rdquo;). The services should be specified using FQDN format.</p>
+
+<p>NOTE: Only exported services and configuration artifacts from a
+namespace can be imported. Private services/configuration will not be
+imported. Refer to the scope setting associated with VirtualService,
+DestinationRule, ServiceEntry, etc. for details.</p>
 
 </td>
 </tr>
@@ -2198,7 +2249,7 @@ match is independent of sourceLabels.</p>
 <section>
 <p>Load balancing policies to apply for a specific destination. See Envoy&rsquo;s
 load balancing
-<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html">documentation</a>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/load_balancing">documentation</a>
 for more details.</p>
 
 <p>For example, the following rule uses a round robin load balancing policy
@@ -2233,6 +2284,31 @@ the User cookie as the hash key.</p>
            ttl: 0s
 </code></pre>
 
+<p>The following example sets up locality weight for the ratings service
+Assume ratings service resides in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;,
+and originating clusters also reside in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;.
+This example specifies when clusters from &ldquo;region1/zone1/<em>&rdquo; accessing ratings service, 80% of the traffic
+is shipped to &ldquo;region1/zone1/</em>&rdquo; ratings service endpoints, and the rest 20% to &ldquo;region1/zone2/*&rdquo;.</p>
+
+<pre><code class="language-yaml"> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: bookinfo-ratings
+ spec:
+   host: ratings.prod.svc.cluster.local
+   trafficPolicy:
+     loadBalancer:
+       localityWeightSettings:
+         - from: region1/zone1/*
+           to:
+             &quot;region1/zone1/*&quot;: 80
+             &quot;region1/zone2/*&quot;: 20
+         - from: region1/zone2/*
+           to:
+             &quot;region1/zone1/*&quot;: 20
+             &quot;region1/zone2/*&quot;: 80
+</code></pre>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -2252,6 +2328,17 @@ the User cookie as the hash key.</p>
 <td><code>consistentHash</code></td>
 <td><code><a href="#LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
 <td>
+</td>
+</tr>
+<tr id="LoadBalancerSettings-locality_weight_settings">
+<td><code>localityWeightSettings</code></td>
+<td><code><a href="#LoadBalancerSettings-LocalityWeightSetting">LoadBalancerSettings.LocalityWeightSetting[]</a></code></td>
+<td>
+<p>Explicitly assign loadbalancing weight across different zones and geographical locations.
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing">Locality weighted load balancing</a>
+If empty, the locality weight is set according to the endpoints number within it.
+If duplicated settings are present, then the first one will take effect.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2350,6 +2437,42 @@ be generated.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>REQUIRED. Lifetime of the cookie.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadBalancerSettings-LocalityWeightSetting">LoadBalancerSettings.LocalityWeightSetting</h2>
+<section>
+<p>Originating -&gt; upstream cluster locality weight set, support wildcard matching &lsquo;<em>&rsquo;
+&lsquo;</em>&rsquo; matches all localities
+&lsquo;region1/*&rsquo; matches all zones in region1</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancerSettings-LocalityWeightSetting-from">
+<td><code>from</code></td>
+<td><code>string</code></td>
+<td>
+<p>Originating locality, &lsquo;/&rsquo; separated, e.g. &lsquo;region/zone/sub_zone&rsquo;.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-LocalityWeightSetting-to">
+<td><code>to</code></td>
+<td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
+<td>
+<p>Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
+Should assign loadbalancing weight for all localities, otherwise the traffic are not routed
+following the percentage of weight.</p>
 
 </td>
 </tr>
@@ -2710,7 +2833,8 @@ spec:
 <td><code><a href="#Port">Port</a></code></td>
 <td>
 <p>REQUIRED: The Port on which the proxy should listen for incoming
-connections</p>
+connections. If using unix domain socket, use 0 as the port number,
+with a valid protocol and port name, along with the bind parameter.</p>
 
 </td>
 </tr>
@@ -2742,6 +2866,16 @@ newexample.com will not match.</p>
 <p>Set of TLS related options that govern the server&rsquo;s behavior. Use
 these options to control if all http requests should be redirected to
 https, and the TLS modes to use.</p>
+
+</td>
+</tr>
+<tr id="Server-default_endpoint">
+<td><code>defaultEndpoint</code></td>
+<td><code>string</code></td>
+<td>
+<p>The loopback IP endpoint or unix domain socket to which traffic should
+be forwarded to by default. Format should be 127.0.0.1:PORT or
+unix:///path/to/socket or unix://@foobar (Linux abstract namespace).</p>
 
 </td>
 </tr>
@@ -2942,186 +3076,6 @@ used to provide connectivity between services in disparate L3
 networks that otherwise do not have direct connectivity between
 their respective endpoints. Use of this mode assumes that both the
 source and the destination are using Istio mTLS to secure traffic.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ServiceDependency">ServiceDependency</h2>
-<section>
-<p><code>ServiceDependency</code> describes the set of services that a workload depends on
-for its operation. In other words, it describes the properties of
-outgoing traffic from a given workload. By default, the service mesh
-established by Istio will have a full mesh connectivity - i.e. every
-workload will have proxy configuration required to reach every other
-workload in the mesh. However most connectivity graphs are sparse in
-practice. The ServiceDependency provides a way to declare the service
-dependencies associated with each workload such that the amount of
-configuration sent to the sidecars can be scoped to the requisite
-dependencies.</p>
-
-<p>Services and configuration in a mesh are organized into one or more
-namespaces (e.g., a Kubernetes namespace or a CF org/space).  Workloads
-in a namespace have an implicit dependency on other workloads in the
-same namespace. In addition, to declare dependencies on workloads in
-other namespaces, a ServiceDependency resource has to be specified in the
-current namespace. <em><em>Each namespace MUST have only one ServiceDependency
-resource named &ldquo;default&rdquo;</em></em>. The behavior of the system is undefined if
-more than one ServiceDependency resource exists in a given namespace. The set
-of dependencies specified in a ServiceDependency resource will be used to
-compute the sidecar configuration for every workload in the namespace.</p>
-
-<p>NOTE 1: If workloads in the mesh depend only on other workloads in the
-same namespace, set defaultServiceDependency.importMode to SAME_NAMESPACE
-in the mesh global config map (in values.yaml).</p>
-
-<p>NOTE 2: To facilitate incremental pruning of the the sidecar
-configuration, the default import mode for the mesh is set to
-ALL_NAMESPACES. In other words, every workload will be able to reach
-every other workload. Adding a ServiceDependency resource in a namespace will
-automatically prune the configuration for the workloads in that
-namespace.</p>
-
-<p>The following examples illustrate a few specific use cases of ServiceDependency.</p>
-
-<p>The example below delcares a ServiceDependency resource in the prod-us1
-namespace that specifies that workloads in the namespace will be able to
-reach the services in the prod-apis namespace only.</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: ServiceDependency
-metadata:
-  name: default
-  namespace: prod-us1
-spec:
-  dependencies:
-  - imports:
-    - namespace: prod-apis
-</code></pre>
-
-<p>In a mesh where the default service dependency is set to SAME_NAMESPACE
-only, if one or more workloads need to be able to reach every other
-service in the mesh (e.g., metrics collection server), the following
-ServiceDependency resource can be used to specify such a dependency:</p>
-
-<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
-kind: ServiceDependency
-metadata:
-  name: default
-  namespace: metrics-collection
-spec:
-  dependencies:
-  - imports:
-    - namespace: '*'
-</code></pre>
-
-<p>The configuration above will allow workloads in the metrics-collection
-namespace to access service in any namespace while workloads in other
-namespaces will be configured for namespace local access as per the
-global default service dependency (SAME_NAMESPACE).</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ServiceDependency-dependencies">
-<td><code>dependencies</code></td>
-<td><code><a href="#ServiceDependency-Dependency">ServiceDependency.Dependency[]</a></code></td>
-<td>
-<p>REQUIRED. The set of services that workloads in this namespace are
-expected to talk to, in addition to other workloads in the same
-namespace. Dependencies describe the properties of outbound traffic from
-a given workload.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ServiceDependency-Dependency">ServiceDependency.Dependency</h2>
-<section>
-<p>Dependency describes a workload and the set of service dependencies
-for the workload.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ServiceDependency-Dependency-imports">
-<td><code>imports</code></td>
-<td><code><a href="#ServiceDependency-Import">ServiceDependency.Import[]</a></code></td>
-<td>
-<p>REQUIRED: Import describes the set of namespaces whose exported
-services will be accessed by the workloads selected by the
-sourceWorkloadLabels. The sidecars attached to the workloads will be
-configured with information required to reach other services in the
-same namespace and the imported services. In addition to the
-explicitly specified namespaces, namespaces specified in the global
-mesh config (through defaultServiceDependency.importNamespaces) will also be
-imported.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="ServiceDependency-Import">ServiceDependency.Import</h2>
-<section>
-<p>Import describes the set of namespaces whose exported services
-(real/virtual) will be accessed by workloads in a given namespace. The
-sidecars attached to the workloads will be configured with information
-required to reach the imported services only. The gateways in the
-current namespace will only honor imported VirtualServices instead of
-every VirtualService that binds itself to the gateway.</p>
-
-<p>Importing a service from a namespace will automatically import the
-exported configuration artifacts associated with the service, such as
-VirtualService, DestinationRule, etc. The service in a namespace can be
-a service in the service registry (e.g., a kubernetes or cloud foundry
-service) or a service specified via ServiceEntry configuration.</p>
-
-<p>NOTE: Only exported services and configuration artifacts from a
-namespace can be imported. Private services/configuration will not be
-imported. See the scope setting associated with VirtualService,
-DestinationRule, ServiceEntry, etc.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="ServiceDependency-Import-namespace">
-<td><code>namespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>The configuration namespace whose services need to be imported.
-Specify * to import all namespaces. The import can be scoped further
-by specifying individual hosts.</p>
-
-</td>
-</tr>
-<tr id="ServiceDependency-Import-host">
-<td><code>host</code></td>
-<td><code>string</code></td>
-<td>
-<p>A FQDN or wildcard prefixed DNS name of the host to import from the
-specified namespace. The hostnames include names of services from the
-service registry as well as those specified in a VirtualService.</p>
 
 </td>
 </tr>
@@ -3346,7 +3300,7 @@ spec:
   - address: unix:///var/run/example/socket
 </code></pre>
 
-<p>For HTTP based services, it is possible to create a VirtualService
+<p>For HTTP-based services, it is possible to create a VirtualService
 backed by multiple DNS addressable endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
 reroute API calls for the VirtualService to a chosen backend. For
@@ -3379,10 +3333,10 @@ spec:
       https: 7080
 </code></pre>
 
-<p>With HTTP_PROXY=http://localhost/, calls from the application to
-http://foo.bar.com will be load balanced across the three domains
-specified above. In other words, a call to http://foo.bar.com/baz would
-be translated to http://uk.foo.bar.com/baz.</p>
+<p>With <code>HTTP_PROXY=http://localhost/</code>, calls from the application to
+<code>http://foo.bar.com</code> will be load balanced across the three domains
+specified above. In other words, a call to <code>http://foo.bar.com/baz</code> would
+be translated to <code>http://uk.foo.bar.com/baz</code>.</p>
 
 <table class="message-fields">
 <thead>
@@ -3662,6 +3616,75 @@ wildcards are not used. If endpoints are specified, the DNS
 addresses specified in the endpoints will be resolved to determine
 the destination IP address.  DNS resolution cannot be used with unix
 domain socket endpoints.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Sidecar">Sidecar</h2>
+<section>
+<p><code>Sidecar</code> describes the configuration of the sidecar proxy that mediates
+inbound and outbound communication to the workload it is attached to. By
+default, Istio will program all sidecar proxies in the mesh with the
+necessary configuration required to reach every workload in the mesh, as
+well as accept traffic on all the ports associated with the
+workload. The Sidecar resource provides a way to fine tune the set of
+ports, protocols that the proxy will accept when forwarding traffic to
+and from the workload. In addition, it is possible to restrict the set
+of services that the proxy can reach when forwarding outbound traffic
+from the workload.</p>
+
+<p>Services and configuration in a mesh are organized into one or more
+namespaces (e.g., a Kubernetes namespace or a CF org/space). A Sidecar
+resource in a namespace will apply to one or more workloads in the same
+namespace, selected using the workloadSelector. In the absence of a
+workloadSelector, it will apply to all workloads in the same
+namespace. When determining the Sidecar resource to be applied to a
+workload, preference will be given to the resource with a
+workloadSelector that selects this workload, over a Sidecar resource
+without any workloadSelector.</p>
+
+<p>NOTE: <em><em>Each namespace can have only one Sidecar resource without any
+workload selector</em></em>. The behavior of the system is undefined if more
+than one selector-less Sidecar resources exist in a given namespace. The
+behavior of the system is undefined if two or more Sidecar resources
+with a workload selector select the same workload.</p>
+
+<p>The example below delcares a Sidecar resource in the prod-us1 namespace
+that configures the sidecar to allow egress traffic to public services
+in the prod-us1, prod-apis, and the istio-system namespaces.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: prod-us1
+spec:
+  egress:
+  - hosts:
+    - &quot;prod-us1/*&quot;
+    - &quot;prod-apis/*&quot;
+    - &quot;istio-system/*&quot;
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Sidecar-egress">
+<td><code>egress</code></td>
+<td><code><a href="#IstioEgressListener">IstioEgressListener[]</a></code></td>
+<td>
+<p>Egress specifies the configuration of the sidecar for processing
+outbound traffic from the attached workload to other services in the
+mesh. If omitted, Istio will autoconfigure the sidecar to be able to
+reach every service in the mesh that is visible to this namespace.</p>
 
 </td>
 </tr>
@@ -4427,6 +4450,39 @@ matching an incoming request is used.</p>
 PRIVATE if this virtual service should not be exported, i.e. restrict
 the applicability of this virtual service to only workloads in the same
 namespace as the virtual service.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="WorkloadSelector">WorkloadSelector</h2>
+<section>
+<p>WorkloadSelector specifies the criteria used to determine if the Gateway
+or Sidecar resource can be applied to a proxy. The matching criteria
+includes the metadata associated with a proxy, workload info such as
+labels attached to the pod/VM, or any other info that the proxy provides
+to Istio during the initial handshake. If multiple conditions are
+specified, all conditions need to match in order for the workload to be
+selected. Currently, only label based selection mechanism is supported.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="WorkloadSelector-labels">
+<td><code>labels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>One or more labels that indicate a specific set of pods/VMs on which
+this sidecar configuration should be applied. The scope of label
+search is restricted to the configuration namespace in which the the
+resource is present.</p>
 
 </td>
 </tr>

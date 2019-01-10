@@ -150,14 +150,14 @@ if [ "$opttemplate" = true ]; then
   else
     err=$($protoc "${DESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$template")
   fi
-  if [ ! -z "$err" ]; then
+  if [ -n "$err" ]; then
     die "template generation failure: $err";
   fi
 
   go run "$GOPATH/src/istio.io/istio/mixer/tools/mixgen/main.go" api -t "$templateDS" --go_out "$templateHG" --proto_out "$templateHSP" "${TMPL_GEN_MAP[@]}"
 
   err=$($protoc "${IMPORTS[@]}" "$TMPL_PLUGIN" "$templateHSP")
-  if [ ! -z "$err" ]; then
+  if [ -n "$err" ]; then
     die "template generation failure: $err";
   fi
 
@@ -168,7 +168,7 @@ if [ "$opttemplate" = true ]; then
     "--descriptor_set_out=$templateSDS"
   )
   err=$($protoc "${SDESCRIPTOR[@]}" "${IMPORTS[@]}" "$PLUGIN" "$templateHSP")
-  if [ ! -z "$err" ]; then
+  if [ -n "$err" ]; then
     die "template generation failure: $err";
   fi
 
@@ -187,13 +187,13 @@ if [ "$optadapter" = true ]; then
   else
     err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$file")
   fi
-  if [ ! -z "$err" ]; then
+  if [ -n "$err" ]; then
     die "generation failure: $err";
   fi
 
   adapteCfdDS=${file}_descriptor
   err=$($protoc "${IMPORTS[@]}" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${adapteCfdDS}" "$file")
-  if [ ! -z "$err" ]; then
+  if [ -n "$err" ]; then
   die "config generation failure: $err";
   fi
 
@@ -209,11 +209,11 @@ if [ "$gendoc" = true ]; then
 else
   err=$($protoc "${IMPORTS[@]}" "$PLUGIN" "$file")
 fi
-if [ ! -z "$err" ]; then
+if [ -n "$err" ]; then
   die "generation failure: $err";
 fi
 
 err=$($protoc "${IMPORTS[@]}" "$PLUGIN" --include_imports --include_source_info --descriptor_set_out="${file}_descriptor" "$file")
-if [ ! -z "$err" ]; then
+if [ -n "$err" ]; then
 die "config generation failure: $err";
 fi

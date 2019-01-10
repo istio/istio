@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
+	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/version"
@@ -37,6 +38,7 @@ var (
 	serverArgs = bootstrap.PilotArgs{
 		CtrlZOptions:         ctrlz.DefaultOptions(),
 		MCPCredentialOptions: creds.DefaultOptions(),
+		KeepaliveOptions:     keepalive.DefaultOption(),
 	}
 
 	loggingOptions = log.DefaultOptions()
@@ -81,9 +83,8 @@ var (
 func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(serviceregistry.KubernetesRegistry)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry,
-			serviceregistry.MCPRegistry, serviceregistry.MockRegistry, serviceregistry.ConfigRegistry))
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MockRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
 		"Namespace for ConfigMap which stores clusters configs")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
@@ -143,6 +144,9 @@ func init() {
 
 	// Attach the Istio Ctrlz options to the command.
 	serverArgs.CtrlZOptions.AttachCobraFlags(rootCmd)
+
+	// Attach the Istio Keepalive options to the command.
+	serverArgs.KeepaliveOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
 

@@ -25,7 +25,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
+	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 // Server is a simple MCP server, used for testing purposes.

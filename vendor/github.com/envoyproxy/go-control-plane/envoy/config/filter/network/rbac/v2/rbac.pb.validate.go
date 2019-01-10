@@ -68,6 +68,8 @@ func (m *RBAC) Validate() error {
 		}
 	}
 
+	// no validation rules for EnforcementType
+
 	return nil
 }
 

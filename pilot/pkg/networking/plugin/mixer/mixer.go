@@ -114,13 +114,13 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
-		filter := buildInboundHTTPFilter(in.Env.Mesh, in.Node, attrs)
+		filter := buildInboundHTTPFilter(in.Env.Mesh, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].HTTP = append(mutable.FilterChains[cnum].HTTP, filter)
 		}
 		return nil
 	case plugin.ListenerProtocolTCP:
-		filter := buildInboundTCPFilter(in.Env.Mesh, in.Node, attrs)
+		filter := buildInboundTCPFilter(in.Env.Mesh, attrs)
 		for cnum := range mutable.FilterChains {
 			mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, filter)
 		}
@@ -142,6 +142,9 @@ func (mixerplugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Clus
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return
+	}
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		host := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(host.Routes); j++ {
@@ -153,6 +156,9 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
 func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConfiguration *xdsapi.RouteConfiguration) {
+	if in.Env.Mesh.MixerCheckServer == "" && in.Env.Mesh.MixerReportServer == "" {
+		return
+	}
 	switch in.ListenerProtocol {
 	case plugin.ListenerProtocolHTTP:
 		// copy structs in place
@@ -183,7 +189,7 @@ func buildUpstreamName(address string) string {
 	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", model.Hostname(host), v)
 }
 
-func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.TransportConfig {
+func buildTransport(mesh *meshconfig.MeshConfig) *mccpb.TransportConfig {
 	networkFailPolicy := mccpb.FAIL_CLOSE
 	if mesh.PolicyCheckFailOpen {
 		networkFailPolicy = mccpb.FAIL_OPEN
@@ -192,14 +198,6 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		CheckCluster:      buildUpstreamName(mesh.MixerCheckServer),
 		ReportCluster:     buildUpstreamName(mesh.MixerReportServer),
 		NetworkFailPolicy: &mccpb.NetworkFailPolicy{Policy: networkFailPolicy},
-		// internal telemetry forwarding
-		AttributesForMixerProxy: &mpb.Attributes{Attributes: attributes{"source.uid": attrUID(node)}},
-	}
-
-	// These settings are not backward compatible with 0.8.
-	// Proxy version is only available from 1.0 onwards.
-	if _, found := node.GetProxyVersion(); !found {
-		res.AttributesForMixerProxy = nil
 	}
 
 	return res
@@ -220,13 +218,13 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 				ForwardAttributes: &mpb.Attributes{Attributes: attributes{
 					"source.uid": attrUID(node),
 				}},
-				Transport: buildTransport(mesh, node),
+				Transport: buildTransport(mesh),
 			}),
 		},
 	}
 }
 
-func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) *http_conn.HttpFilter {
+func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: mixer,
 		ConfigType: &http_conn.HttpFilter_Config{
@@ -238,7 +236,7 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attr
 					},
 				},
 				MixerAttributes: &mpb.Attributes{Attributes: attrs},
-				Transport:       buildTransport(mesh, node),
+				Transport:       buildTransport(mesh),
 			}),
 		},
 	}
@@ -319,20 +317,20 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 			Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 				DisableCheckCalls: disableClientPolicyChecks(mesh, node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-				Transport:         buildTransport(mesh, node),
+				Transport:         buildTransport(mesh),
 			}),
 		},
 	}
 }
 
-func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, node *model.Proxy, attrs attributes) listener.Filter {
+func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes) listener.Filter {
 	return listener.Filter{
 		Name: mixer,
 		ConfigType: &listener.Filter_Config{
 			Config: util.MessageToStruct(&mccpb.TcpClientConfig{
 				DisableCheckCalls: mesh.DisablePolicyChecks,
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-				Transport:         buildTransport(mesh, node),
+				Transport:         buildTransport(mesh),
 			}),
 		},
 	}

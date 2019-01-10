@@ -16,9 +16,14 @@ package caclient
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
+	"fmt"
+	"os"
+	"strconv"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/log"
@@ -26,17 +31,51 @@ import (
 	gcapb "istio.io/istio/security/proto/providers/google"
 )
 
+var usePodDefaultFlag = false
+
+const podIdentityFlag = "POD_IDENTITY"
+
 type googleCAClient struct {
-	client gcapb.IstioCertificateServiceClient
+	caEndpoint     string
+	enableTLS      bool
+	client         gcapb.IstioCertificateServiceClient
+	usePodIdentity bool
 }
 
-// NewGoogleCAClient create an CA client for Google CA.
-func NewGoogleCAClient(conn *grpc.ClientConn) caClientInterface.Client {
-	return &googleCAClient{
-		client: gcapb.NewIstioCertificateServiceClient(conn),
+// NewGoogleCAClient create a CA client for Google CA.
+func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, error) {
+	c := &googleCAClient{
+		caEndpoint: endpoint,
+		enableTLS:  tls,
 	}
+
+	c.usePodIdentity = usePodDefaultFlag
+	b, err := strconv.ParseBool(os.Getenv(podIdentityFlag))
+	if err == nil && b == true {
+		c.usePodIdentity = true
+	}
+
+	var opts grpc.DialOption
+	if tls {
+		opts, err = c.getTLSDialOption()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		opts = grpc.WithInsecure()
+	}
+
+	conn, err := grpc.Dial(endpoint, opts)
+	if err != nil {
+		log.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
+		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
+	}
+
+	c.client = gcapb.NewIstioCertificateServiceClient(conn)
+	return c, nil
 }
 
+// CSR Sign calls Google CA to sign a CSR.
 func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &gcapb.IstioCertificateRequest{
@@ -45,7 +84,14 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	}
 
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
-	resp, err := cl.client.CreateCertificate(ctx, req)
+
+	var resp *gcapb.IstioCertificateResponse
+	var err error
+	if cl.usePodIdentity {
+		resp, err = cl.client.CreatePodCertificate(ctx, req)
+	} else {
+		resp, err = cl.client.CreateCertificate(ctx, req)
+	}
 	if err != nil {
 		log.Errorf("Failed to create certificate: %v", err)
 		return nil, err
@@ -57,4 +103,15 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	}
 
 	return resp.CertChain, nil
+}
+
+func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
+	// Load the system default root certificates.
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		log.Errorf("could not get SystemCertPool: %v", err)
+		return nil, errors.New("could not get SystemCertPool")
+	}
+	creds := credentials.NewClientTLSFromCert(pool, "")
+	return grpc.WithTransportCredentials(creds), nil
 }

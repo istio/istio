@@ -269,7 +269,7 @@ func init() {
 				var ok bool
 				var ip net.IP
 
-				if ip, ok = ev.(net.IP); !ok {
+				if ip, ok = ev.([]byte); !ok {
 					return nil, incorrectTypeError(vt, ev, "[]byte")
 				}
 				v := &v1beta1.IPAddress{Value: ip}

@@ -15,9 +15,10 @@
 package components
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
-	"testing"
 )
 
 // Ingress represents a deployed Ingress Gateway instance.

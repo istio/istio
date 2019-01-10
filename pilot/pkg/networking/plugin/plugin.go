@@ -20,6 +20,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -38,8 +39,6 @@ const (
 	Authn = "authn"
 	// Authz is the name of the rbac plugin passed through the command line
 	Authz = "authz"
-	// Envoyfilter is the name of the envoyfilter plugin passed through the command line
-	Envoyfilter = "envoyfilter"
 	// Health is the name of the health plugin passed through the command line
 	Health = "health"
 	// Mixer is the name of the mixer plugin passed through the command line
@@ -65,6 +64,9 @@ func ModelProtocolToListenerProtocol(protocol model.Protocol) ListenerProtocol {
 type InputParams struct {
 	// ListenerProtocol is the protocol/class of listener (TCP, HTTP etc.). Must be set.
 	ListenerProtocol ListenerProtocol
+	// ListenerCategory is the type of listener (sidecar_inbound, sidecar_outbound, gateway). Must be set
+	ListenerCategory networking.EnvoyFilter_ListenerMatch_ListenerType
+
 	// Env is the model environment. Must be set.
 	Env *model.Environment
 	// Node is the node the response is for.
@@ -92,9 +94,9 @@ type FilterChain struct {
 	FilterChainMatch *listener.FilterChainMatch
 	// TLSContext is the TLS settings for this filter chains.
 	TLSContext *auth.DownstreamTlsContext
-	// RequiredListenerFilters are the filters needed for the whole listener, not particular to this
+	// ListenerFilters are the filters needed for the whole listener, not particular to this
 	// filter chain.
-	RequiredListenerFilters []listener.ListenerFilter
+	ListenerFilters []listener.ListenerFilter
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.

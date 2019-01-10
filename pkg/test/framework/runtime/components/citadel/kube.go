@@ -16,6 +16,8 @@ package citadel
 
 import (
 	"fmt"
+	"time"
+
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -24,9 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 
-	"time"
-
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	mv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )

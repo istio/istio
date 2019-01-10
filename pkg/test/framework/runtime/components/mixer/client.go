@@ -18,7 +18,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
+
 	"google.golang.org/grpc"
 
 	istioMixerV1 "istio.io/api/mixer/v1"

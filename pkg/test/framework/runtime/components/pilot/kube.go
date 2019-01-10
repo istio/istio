@@ -16,10 +16,10 @@ package pilot
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	"net"
+
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 
 	testKube "istio.io/istio/pkg/test/kube"
 )

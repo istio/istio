@@ -52,6 +52,8 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		livenessProbeController  probe.Controller
 		readinessProbeController probe.Controller
 		monitoringPort           uint
+		enableProfiling          bool
+		pprofPort                uint
 	)
 
 	rootCmd := &cobra.Command{
@@ -95,6 +97,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 			}
 			galleyStop := make(chan struct{})
 			go server.StartSelfMonitoring(galleyStop, monitoringPort)
+
+			if enableProfiling {
+				go server.StartProfiling(galleyStop, pprofPort)
+			}
+
 			go server.StartProbeCheck(livenessProbeController, readinessProbeController, galleyStop)
 			istiocmd.WaitSignal(galleyStop)
 
@@ -107,11 +114,11 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resyncPeriod", 0,
 		"Resync period for rescanning Kubernetes resources")
-	rootCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "tlsCertFile", "/etc/istio/certs/cert-chain.pem",
+	rootCmd.PersistentFlags().StringVar(&validationArgs.CertFile, "tlsCertFile", "/etc/certs/cert-chain.pem",
 		"File containing the x509 Certificate for HTTPS.")
-	rootCmd.PersistentFlags().StringVar(&validationArgs.KeyFile, "tlsKeyFile", "/etc/istio/certs/key.pem",
+	rootCmd.PersistentFlags().StringVar(&validationArgs.KeyFile, "tlsKeyFile", "/etc/certs/key.pem",
 		"File containing the x509 private key matching --tlsCertFile.")
-	rootCmd.PersistentFlags().StringVar(&validationArgs.CACertFile, "caCertFile", "/etc/istio/certs/root-cert.pem",
+	rootCmd.PersistentFlags().StringVar(&validationArgs.CACertFile, "caCertFile", "/etc/certs/root-cert.pem",
 		"File containing the caBundle that signed the cert/key specified by --tlsCertFile and --tlsKeyFile.")
 	rootCmd.PersistentFlags().StringVar(&livenessProbeOptions.Path, "livenessProbePath", server.DefaultLivenessProbeFilePath,
 		"Path to the file for the Galley liveness probe.")
@@ -123,6 +130,9 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"Interval of updating file for the Galley readiness probe.")
 	rootCmd.PersistentFlags().UintVar(&monitoringPort, "monitoringPort", 9093,
 		"Port to use for exposing self-monitoring information")
+	rootCmd.PersistentFlags().UintVar(&pprofPort, "pprofPort", 9094, "Port to use for exposing profiling")
+	rootCmd.PersistentFlags().BoolVar(&enableProfiling, "enableProfiling", false,
+		"Enable profiling for Galley")
 
 	//server config
 	rootCmd.PersistentFlags().StringVarP(&serverArgs.APIAddress, "server-address", "", serverArgs.APIAddress,

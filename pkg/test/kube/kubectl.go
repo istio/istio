@@ -16,19 +16,20 @@ package kube
 
 import (
 	"fmt"
-	"github.com/ghodss/yaml"
-	"github.com/hashicorp/go-multierror"
 	"io/ioutil"
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/scopes"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/ghodss/yaml"
+	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type kubectl struct {
@@ -202,7 +203,7 @@ func (c *kubectl) writeContentsToTempFile(contents string) (filename string, err
 }
 
 func (c *kubectl) splitContentsToFiles(content, filenamePrefix string) ([]string, error) {
-	cfgs := test.SplitConfigs(string(content))
+	cfgs := test.SplitConfigs(content)
 
 	namespacesAndCrds := &yamlDoc{
 		docType: namespacesAndCRDs,

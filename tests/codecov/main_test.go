@@ -151,7 +151,7 @@ func TestCheckDeltaError(t *testing.T) {
 		map[string]float64{
 			// Default threshold
 			"P": 5,
-		})
+		}, false)
 	if len(result) == 0 {
 		t.Error("Expecting error")
 	}
@@ -183,7 +183,7 @@ func TestCheckDeltaGood(t *testing.T) {
 		map[string]float64{
 			// Default threshold
 			"P": 5,
-		})
+		}, false)
 	if len(result) > 0 {
 		t.Errorf("Expecting success")
 	}
@@ -194,10 +194,16 @@ func TestCheckCoverage(t *testing.T) {
 	if len(*reportFile) == 0 || len(*baselineFile) == 0 || len(*thresholdFile) == 0 {
 		t.Skip("Test files are not provided.")
 	}
-	err := checkCoverage(*reportFile, *baselineFile, *thresholdFile)
+	err := checkCoverage(*reportFile, *baselineFile, *thresholdFile, *skipDeleted)
 
 	if err != nil {
 		t.Errorf("%v", err)
+	}
+}
+
+func TestGoPath(t *testing.T) {
+	if len(os.Getenv("GOPATH")) == 0 {
+		t.Error("${GOPATH} is not set")
 	}
 }
 

@@ -348,7 +348,9 @@ message Connection {
   // Timeout for remote calls to the backend.
   google.protobuf.Duration timeout = 3 [(gogoproto.stdduration) = true];
 
-  // TODO: Add auth related fields.
+  // Auth config for the connection to the backend. If omitted, plain text will
+  // be used.
+  Authentication authentication = 4;
 }
 
 // $hide_from_docs
@@ -430,4 +432,93 @@ message FractionalPercent {
   // Specifies the denominator. If the denominator specified is less than the numerator, the final
   // fractional percentage is capped at 1 (100%).
   DenominatorType denominator = 2;
+}
+
+// Authentication allows the operator to specify the authentication of
+// connections to out-of-process infrastructure backend.
+message Authentication {
+  oneof auth_type {
+    // Originate a TLS connection to the adapter and present an auth token
+    // in each call for client authentication.
+    Tls tls = 1;
+
+    // Secure connections to the adapter using mutual TLS by presenting
+    // client certificates for authentication.
+    Mutual mutual = 2;
+  };
+}
+
+// Tls let operator specify client authentication setting when TLS is used for
+// connection to the backend.
+message Tls {
+  // The path to the file holding additional CA certificates to well known
+  // public certs.
+  string ca_certificates = 1;
+
+  // Specifies how to get access token for client authn and authz.
+  oneof token_source {
+    // The path to the file holding the auth token (password, jwt token, api
+    // key, etc).
+    string token_path = 2;
+
+    // Oauth config to fetch access token from auth provider.
+    OAuth oauth = 3;
+  }
+
+  // AuthHeader specifies how to pass access token with authorization header.
+  enum AuthHeader {
+    // Access token is passed in authorization header as what it is
+    // (authorization: some-token).
+    PLAIN = 0;
+
+    // Access token is passed to adapter as bearer token (i.e. authorization:
+    // bearer some-token).
+    BEARER = 1;
+  }
+
+  // Specifies how to pass access token to the adapter backend.
+  oneof token_type {
+    // Access token is passed as authorization header.
+    AuthHeader auth_header = 4;
+
+    // Customized header key to hold access token, e.g. x-api-key. Token will be
+    // passed as what it is.
+    string custom_header = 5;
+  }
+}
+
+// OAuth let operator specify config to fetch access token via oauth when using
+// TLS for connection to the backend.
+message OAuth {
+  // REQUIRED. OAuth client id for mixer.
+  string client_id = 1;
+
+  // REQUIRED. The path to the file holding the client secret for oauth.
+  string client_secret = 2;
+
+  // REQUIRED. The Resource server's token endpoint URL.
+  string token_url = 3;
+
+  // List of requested permissions.
+  repeated string scopes = 4;
+
+  // Additional parameters for requests to the token endpoint.
+  map<string, string> endpoint_params = 5;
+}
+
+// Mutual let operator specify tls config for mixer as client if mtls is used to
+// secure connection to adapter backend.
+message Mutual {
+  // The path to the file holding the private key for mtls. If omitted, the
+  // default mixer private key will be used.
+  string private_key = 1;
+
+  // The path to the file holding client certificate for mtls. If omitted, the
+  // default mixer certificates will be used.
+  string client_certificate = 2;
+
+  // The path to the file holding additional CA certificates that are needed to
+  // verify the presented adapter certificates. By default mixer should already
+  // include Istio CA certificates and system certificates in cert pool.
+  string ca_certificates = 3;
 }

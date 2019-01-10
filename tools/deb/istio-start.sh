@@ -50,7 +50,7 @@ ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15011}
 
 # If set, override the default
 CONTROL_PLANE_AUTH_POLICY=("--controlPlaneAuthPolicy" "MUTUAL_TLS")
-if [ ! -z "${ISTIO_CP_AUTH:-}" ]; then
+if [ -n "${ISTIO_CP_AUTH:-}" ]; then
   CONTROL_PLANE_AUTH_POLICY=("--controlPlaneAuthPolicy" "${ISTIO_CP_AUTH}")
 fi
 

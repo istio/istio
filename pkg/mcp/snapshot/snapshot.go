@@ -77,7 +77,6 @@ type StatusInfo struct {
 	client               *mcp.Client
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
-	totalWatches         int
 }
 
 // Watches returns the number of open watches.
@@ -169,6 +168,8 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 	// trigger existing watches for which version changed
 	if info, ok := c.status[group]; ok {
 		info.mu.Lock()
+		defer info.mu.Unlock()
+
 		for id, watch := range info.watches {
 			version := snapshot.Version(watch.request.TypeUrl)
 			if version != watch.request.VersionInfo {
@@ -189,7 +190,6 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 					id, watch.request.TypeUrl, version)
 			}
 		}
-		info.mu.Unlock()
 	}
 }
 

@@ -15,9 +15,10 @@
 package context
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/api/component"
-	"testing"
 )
 
 // Instance of a testing context.

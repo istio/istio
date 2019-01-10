@@ -77,6 +77,8 @@ func startMonitor(port uint16, enableProfiling bool, lf listenFunc) (*monitor, e
 		}
 	})
 
+	version.Info.RecordComponentBuildTag("mixer")
+
 	if enableProfiling {
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
