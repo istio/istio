@@ -18,6 +18,7 @@ istio.io=5
 # Overrides
 istio.io/istio/mixer/adapter/solarwinds/internal/papertrail/papertrail_logger.go=50
 istio.io/istio/pilot/pkg/config/memory/monitor.go=30
+istio.io/istio/pilot/pkg/model/push_context.go=10
 istio.io/istio/pilot/pkg/proxy/envoy/v2=10
 istio.io/istio/pilot/pkg/serviceregistry/consul/monitor.go=20
 istio.io/istio/pkg/mcp/creds/watcher.go=100
