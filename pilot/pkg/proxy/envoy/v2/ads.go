@@ -411,7 +411,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	var receiveError error
 	reqChannel := make(chan *xdsapi.DiscoveryRequest, 1)
 	controlChannel := make(chan int, 1)
-	defer func(){
+	defer func() {
 		// tell receive thread to quit
 		// and remove req from channel make sure receive thread can stop
 		controlChannel <- 1
