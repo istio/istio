@@ -260,12 +260,34 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
+		Kind:      "template",
+		ListKind:  "templateList",
+		Singular:  "template",
+		Plural:    "templates",
+		Version:   "v1beta1",
+		Group:     "policy.istio.io",
+		Target:    metadata.Types.Get("type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource"),
+		Converter: converter.Get("legacy-mixer-resource"),
+	})
+
+	b.Add(kube.ResourceSpec{
 		Kind:      "adapter",
 		ListKind:  "adapterList",
 		Singular:  "adapter",
 		Plural:    "adapters",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource"),
+		Converter: converter.Get("legacy-mixer-resource"),
+	})
+
+	b.Add(kube.ResourceSpec{
+		Kind:      "adapter",
+		ListKind:  "adapterList",
+		Singular:  "adapter",
+		Plural:    "adapters",
+		Version:   "v1beta1",
+		Group:     "policy.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource"),
 		Converter: converter.Get("legacy-mixer-resource"),
 	})
@@ -491,6 +513,17 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
+		Kind:      "handler",
+		ListKind:  "handlerList",
+		Singular:  "handler",
+		Plural:    "handlers",
+		Version:   "v1beta1",
+		Group:     "policy.istio.io",
+		Target:    metadata.Types.Get("type.googleapis.com/istio.policy.v1beta1.Handler"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(kube.ResourceSpec{
 		Kind:      "instance",
 		ListKind:  "instanceList",
 		Singular:  "instance",
@@ -502,12 +535,34 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
+		Kind:      "instance",
+		ListKind:  "instanceList",
+		Singular:  "instance",
+		Plural:    "instances",
+		Version:   "v1beta1",
+		Group:     "policy.istio.io",
+		Target:    metadata.Types.Get("type.googleapis.com/istio.policy.v1beta1.Instance"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(kube.ResourceSpec{
 		Kind:      "rule",
 		ListKind:  "ruleList",
 		Singular:  "rule",
 		Plural:    "rules",
 		Version:   "v1alpha2",
 		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("type.googleapis.com/istio.policy.v1beta1.Rule"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(kube.ResourceSpec{
+		Kind:      "rule",
+		ListKind:  "ruleList",
+		Singular:  "rule",
+		Plural:    "rules",
+		Version:   "v1beta1",
+		Group:     "policy.istio.io",
 		Target:    metadata.Types.Get("type.googleapis.com/istio.policy.v1beta1.Rule"),
 		Converter: converter.Get("identity"),
 	})

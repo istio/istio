@@ -38,3 +38,119 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
+# Core Mixer CRDs
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: templates.policy.istio.io
+  labels:
+    app: mixer
+    package: template
+    istio: mixer-template
+    chart: istio
+    heritage: Tiller
+    release: istio
+spec:
+  group: policy.istio.io
+  names:
+    kind: template
+    plural: templates
+    singular: template
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  version: v1beta1
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: handlers.policy.istio.io
+  labels:
+    app: mixer
+    package: handler
+    istio: mixer-handler
+    chart: istio
+    heritage: Tiller
+    release: istio
+spec:
+  group: policy.istio.io
+  names:
+    kind: handler
+    plural: handlers
+    singular: handler
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  version: v1beta1
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: instances.policy.istio.io
+  labels:
+    app: mixer
+    package: instance
+    istio: mixer-instance
+    chart: istio
+    heritage: Tiller
+    release: istio
+spec:
+  group: policy.istio.io
+  names:
+    kind: instance
+    plural: instances
+    singular: instance
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  version: v1beta1
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: adapters.policy.istio.io
+  labels:
+    app: mixer
+    package: adapter
+    istio: mixer-adapter
+    chart: istio
+    heritage: Tiller
+    release: istio
+spec:
+  group: policy.istio.io
+  names:
+    kind: adapter
+    plural: adapters
+    singular: adapter
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  version: v1beta1
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: rules.policy.istio.io
+  labels:
+    app: mixer
+    package: istio.io.mixer
+    istio: core
+    chart: istio
+    heritage: Tiller
+    release: istio
+spec:
+  group: policy.istio.io
+  names:
+    kind: rule
+    plural: rules
+    singular: rule
+    categories:
+    - istio-io
+    - policy-istio-io
+  scope: Namespaced
+  version: v1beta1
+---
