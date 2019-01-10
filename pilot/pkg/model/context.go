@@ -160,7 +160,7 @@ func (node *Proxy) Isolated() bool {
 	}
 
 	// Gateways use explicit imports (or explicit bind to gateway)
-	if node.Type != Sidecar {
+	if node.Type != SidecarProxy {
 		return false
 	}
 
