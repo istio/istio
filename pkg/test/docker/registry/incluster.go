@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/pkg/test/kube"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -36,7 +36,7 @@ const (
 // NewInClusterRegistry creates a new in-cluster registry object.
 func NewInClusterRegistry(accessor *kube.Accessor, localPort uint16, ns string) (*InClusterRegistry, error) {
 	return &InClusterRegistry{
-		accessor:          *accessor,
+		accessor:          accessor,
 		localRegistryPort: localPort,
 		namespace:         ns,
 	}, nil
@@ -44,7 +44,7 @@ func NewInClusterRegistry(accessor *kube.Accessor, localPort uint16, ns string) 
 
 // InClusterRegistry helps deploying an in-cluster registry on a k8s cluster.
 type InClusterRegistry struct {
-	accessor             kube.Accessor
+	accessor             *kube.Accessor
 	forwarder            kube.PortForwarder
 	localRegistryAddress string
 	localRegistryPort    uint16

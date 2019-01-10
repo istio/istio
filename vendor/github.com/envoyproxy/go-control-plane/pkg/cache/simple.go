@@ -300,7 +300,7 @@ func (cache *snapshotCache) GetStatusKeys() []string {
 	cache.mu.RLock()
 	defer cache.mu.RUnlock()
 
-	out := make([]string, len(cache.status))
+	out := make([]string, 0, len(cache.status))
 	for id := range cache.status {
 		out = append(out, id)
 	}

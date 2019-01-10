@@ -16,6 +16,13 @@ package pilot
 
 import (
 	"io"
+	"net"
+
+	multierror "github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -23,13 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
-	"net"
-
-	"github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 )
 
 var _ Native = &nativeComponent{}
@@ -86,7 +86,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
-		SecureGrpcAddr: ":0",
+		SecureGrpcAddr: "",
 	}
 
 	bootstrapArgs := bootstrap.PilotArgs{
@@ -102,7 +102,8 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 			Registries: []string{},
 		},
 		// Include all of the default plugins for integration with Mixer, etc.
-		Plugins: bootstrap.DefaultPlugins,
+		Plugins:   bootstrap.DefaultPlugins,
+		ForceStop: true,
 	}
 
 	// Save the config store.

@@ -17,6 +17,7 @@ package server
 import (
 	"crypto/x509/pkix"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -35,8 +36,20 @@ func NewAllowAllChecker() AuthChecker { return &AllowAllChecker{} }
 // Check is an implementation of AuthChecker.Check that allows all check requests.
 func (*AllowAllChecker) Check(credentials.AuthInfo) error { return nil }
 
+// AuthListMode indicates the list checking mode
+type AuthListMode bool
+
+const (
+	// AuthBlackList indicates that the list should work as a black list
+	AuthBlackList AuthListMode = false
+
+	// AuthWhiteList indicates that the list should work as a white list
+	AuthWhiteList AuthListMode = true
+)
+
 // ListAuthChecker implements AuthChecker function and is backed by a set of ids.
 type ListAuthChecker struct {
+	mode     AuthListMode
 	idsMutex sync.RWMutex
 	ids      map[string]struct{}
 
@@ -49,12 +62,13 @@ var _ AuthChecker = &ListAuthChecker{}
 // NewListAuthChecker returns a new instance of ListAuthChecker
 func NewListAuthChecker() *ListAuthChecker {
 	return &ListAuthChecker{
+		mode:         AuthWhiteList,
 		ids:          make(map[string]struct{}),
 		extractIDsFn: util.ExtractIDs,
 	}
 }
 
-// Add the provided id to the list of allowed ids.
+// Add the provided id to the list of ids.
 func (l *ListAuthChecker) Add(id string) {
 	l.idsMutex.Lock()
 	defer l.idsMutex.Unlock()
@@ -62,7 +76,7 @@ func (l *ListAuthChecker) Add(id string) {
 	l.ids[id] = struct{}{}
 }
 
-// Remove the provided id from the list of allowed ids.
+// Remove the provided id from the list of ids.
 func (l *ListAuthChecker) Remove(id string) {
 	l.idsMutex.Lock()
 	defer l.idsMutex.Unlock()
@@ -83,11 +97,30 @@ func (l *ListAuthChecker) Set(ids ...string) {
 	l.ids = newIds
 }
 
+// SetMode sets the list-checking mode for this list.
+func (l *ListAuthChecker) SetMode(mode AuthListMode) {
+	l.idsMutex.Lock()
+	defer l.idsMutex.Unlock()
+	l.mode = mode
+}
+
 // Allowed checks whether the given id is allowed.
 func (l *ListAuthChecker) Allowed(id string) bool {
 	l.idsMutex.RLock()
 	defer l.idsMutex.RUnlock()
 
+	switch l.mode {
+	case AuthWhiteList:
+		return l.contains(id)
+	case AuthBlackList:
+		return !l.contains(id)
+	default:
+		scope.Errorf("Unrecognized list auth check mode encountered: %v", l.mode)
+		return false
+	}
+}
+
+func (l *ListAuthChecker) contains(id string) bool {
 	_, found := l.ids[id]
 	return found
 }
@@ -103,8 +136,17 @@ func (l *ListAuthChecker) String() string {
 
 	sort.Strings(ids)
 
-	result := `Allowed ids:
-`
+	result := ""
+	switch l.mode {
+	case AuthWhiteList:
+		result += "Mode: whitelist\n"
+	case AuthBlackList:
+		result += "Mode: blacklist\n"
+	default:
+		result += "Mode: unknown\n"
+	}
+
+	result += "Known ids:\n"
 	result += strings.Join(ids, "\n")
 
 	return result
@@ -138,13 +180,30 @@ func (l *ListAuthChecker) Check(authInfo credentials.AuthInfo) error {
 			}
 
 			for _, id := range ids {
-				if _, ok := l.ids[id]; ok {
-					scope.Infof("Allowing access from peer with id: %s", id)
-					return nil
+				if l.contains(id) {
+					switch l.mode {
+					case AuthWhiteList:
+						scope.Infof("Allowing access from peer with id: %s", id)
+						return nil
+					case AuthBlackList:
+						scope.Infof("Blocking access from peer with id: %s", id)
+						return fmt.Errorf("id is blacklisted: %s", id)
+					default:
+						scope.Errorf("unrecognized mode in listchecker: %v", l.mode)
+						return fmt.Errorf("unrecognized mode in listchecker: %v", l.mode)
+					}
 				}
 			}
 		}
 	}
 
-	return errors.New("no allowed identity found in peer's authentication info")
+	switch l.mode {
+	case AuthWhiteList:
+		return errors.New("no allowed identity found in peer's authentication info")
+	case AuthBlackList:
+		return nil
+	default:
+		scope.Errorf("unrecognized mode in listchecker: %v", l.mode)
+		return fmt.Errorf("unrecognized mode in listchecker: %v", l.mode)
+	}
 }

@@ -200,6 +200,7 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
+		ConfigController:        configCache,
 		EndpointShardsByService: map[string]*EndpointShardsByService{},
 		WorkloadsByID:           map[string]*Workload{},
 		edsUpdates:              map[string]*EndpointShardsByService{},

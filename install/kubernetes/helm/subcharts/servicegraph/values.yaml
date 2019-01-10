@@ -4,6 +4,7 @@
 enabled: false
 replicaCount: 1
 image: servicegraph
+nodeSelector: {}
 service:
   annotations: {}
   name: http

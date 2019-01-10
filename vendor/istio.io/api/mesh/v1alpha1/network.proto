@@ -36,7 +36,7 @@ message Network {
   // 2. Explicitly:
   //
   //    a. By matching the registry name with one of the "from_registries"
-  //    in the mesh config. A "from_registry" can only be assinged to a
+  //    in the mesh config. A "from_registry" can only be assigned to a
   //    single network.
   //
   //    b. By matching the IP against one of the CIDR ranges in a mesh

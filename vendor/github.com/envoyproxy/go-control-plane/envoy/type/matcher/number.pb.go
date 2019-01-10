@@ -39,7 +39,7 @@ func (m *DoubleMatcher) Reset()         { *m = DoubleMatcher{} }
 func (m *DoubleMatcher) String() string { return proto.CompactTextString(m) }
 func (*DoubleMatcher) ProtoMessage()    {}
 func (*DoubleMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_number_41b42669048154ad, []int{0}
+	return fileDescriptor_number_104d0b0ec68c008b, []int{0}
 }
 func (m *DoubleMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -75,7 +75,7 @@ type isDoubleMatcher_MatchPattern interface {
 }
 
 type DoubleMatcher_Range struct {
-	Range *_type.DoubleRange `protobuf:"bytes,1,opt,name=range,oneof"`
+	Range *_type.DoubleRange `protobuf:"bytes,1,opt,name=range,proto3,oneof"`
 }
 type DoubleMatcher_Exact struct {
 	Exact float64 `protobuf:"fixed64,2,opt,name=exact,proto3,oneof"`
@@ -237,6 +237,9 @@ func encodeVarintNumber(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *DoubleMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MatchPattern != nil {
@@ -249,6 +252,9 @@ func (m *DoubleMatcher) Size() (n int) {
 }
 
 func (m *DoubleMatcher_Range) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Range != nil {
@@ -258,6 +264,9 @@ func (m *DoubleMatcher_Range) Size() (n int) {
 	return n
 }
 func (m *DoubleMatcher_Exact) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 9
@@ -477,10 +486,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/type/matcher/number.proto", fileDescriptor_number_41b42669048154ad)
+	proto.RegisterFile("envoy/type/matcher/number.proto", fileDescriptor_number_104d0b0ec68c008b)
 }
 
-var fileDescriptor_number_41b42669048154ad = []byte{
+var fileDescriptor_number_104d0b0ec68c008b = []byte{
 	// 198 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4f, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0xcf, 0x4d, 0x2c, 0x49, 0xce, 0x48, 0x2d, 0xd2, 0xcf,

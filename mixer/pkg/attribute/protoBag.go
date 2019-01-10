@@ -82,29 +82,6 @@ func GetProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int3
 	return pb
 }
 
-// StringMap wraps a map[string]string and reference counts it
-type StringMap struct {
-	// name of the stringmap  -- request.headers
-	name string
-	// entries in the stringmap
-	entries map[string]string
-	// protoBag that owns this stringmap
-	pb *ProtoBag
-}
-
-// Get returns a stringmap value and records access
-func (s StringMap) Get(key string) (string, bool) {
-	cond := mixerpb.ABSENCE
-	str, found := s.entries[key]
-
-	if found {
-		cond = mixerpb.EXACT
-	}
-	// TODO add REGEX condition
-	s.pb.trackMapReference(s.name, key, cond)
-	return str, found
-}
-
 // Get returns an attribute value.
 func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 	// find the dictionary index for the given string

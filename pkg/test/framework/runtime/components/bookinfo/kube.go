@@ -16,6 +16,8 @@ package bookinfo
 
 import (
 	"fmt"
+	"path"
+
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -24,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"path"
 )
 
 type bookInfoConfig string

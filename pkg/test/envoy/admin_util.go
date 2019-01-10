@@ -80,13 +80,18 @@ func GetServerInfo(adminPort int) (ServerInfo, error) {
 		return nilServerInfo, err
 	}
 
+	currentEpoch := 0
+	if msg.CommandLineOptions != nil {
+		currentEpoch = int(msg.CommandLineOptions.RestartEpoch)
+	}
+
 	return ServerInfo{
 		ProcessName:                  "envoy",
 		CompiledSHABuildType:         msg.Version,
 		HealthCheckState:             HealthCheckState(msg.State.String()),
 		CurrentHotRestartEpochUptime: currentHotRestartEpochUptime,
 		TotalUptime:                  totalUptime,
-		CurrentHotRestartEpoch:       int(msg.Epoch),
+		CurrentHotRestartEpoch:       currentEpoch,
 	}, nil
 }
 

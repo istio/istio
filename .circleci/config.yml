@@ -236,7 +236,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make docker.all generate_e2e_test_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -272,7 +272,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make docker.all generate_e2e_test_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -694,7 +694,7 @@ jobs:
 
   shellcheck:
     docker:
-      - image: koalaman/shellcheck-alpine:v0.5.0
+      - image: koalaman/shellcheck-alpine:v0.6.0
     steps:
       - checkout
       - run:
@@ -875,6 +875,9 @@ workflows:
       - e2e-simple:
           requires:
             - build
+      - e2e-dashboard:
+          requires:
+            - build
       - racetest:
           requires:
             - test
@@ -890,3 +893,7 @@ workflows:
       - test-integration-local:
           requires:
             - build
+      - test-integration-kubernetes:
+          requires:
+            - build
+

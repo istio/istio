@@ -87,6 +87,11 @@ func (s *InMemoryServerStatsContext) RecordRequestNack(typeURL string, connectio
 	s.mutex.Unlock()
 }
 
+// Close implements io.Closer.
+func (s *InMemoryServerStatsContext) Close() error {
+	return nil
+}
+
 // NewInMemoryServerStatsContext creates a new context for tracking metrics
 // in memory.
 func NewInMemoryServerStatsContext() *InMemoryServerStatsContext {

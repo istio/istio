@@ -15,9 +15,10 @@
 package framework
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/runtime"
-	"testing"
 )
 
 var r = runtime.New()

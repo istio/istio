@@ -23,6 +23,7 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -72,6 +73,7 @@ func (s *NoSessionServer) HandleMetric(c context.Context, r *metric.HandleMetric
 	s.Requests.metricLock.Lock()
 	s.Requests.HandleMetricRequest = append(s.Requests.HandleMetricRequest, r)
 	s.Requests.metricLock.Unlock()
+	time.Sleep(s.Behavior.HandleMetricSleep)
 	return s.Behavior.HandleMetricResult, s.Behavior.HandleMetricError
 }
 
@@ -80,6 +82,7 @@ func (s *NoSessionServer) HandleListEntry(c context.Context, r *listentry.Handle
 	s.Requests.listentryLock.Lock()
 	s.Requests.HandleListEntryRequest = append(s.Requests.HandleListEntryRequest, r)
 	s.Requests.listentryLock.Unlock()
+	time.Sleep(s.Behavior.HandleListEntrySleep)
 	return s.Behavior.HandleListEntryResult, s.Behavior.HandleListEntryError
 }
 
@@ -88,6 +91,7 @@ func (s *NoSessionServer) HandleQuota(c context.Context, r *quota.HandleQuotaReq
 	s.Requests.quotaLock.Lock()
 	s.Requests.HandleQuotaRequest = append(s.Requests.HandleQuotaRequest, r)
 	s.Requests.quotaLock.Unlock()
+	time.Sleep(s.Behavior.HandleQuotaSleep)
 	return s.Behavior.HandleQuotaResult, s.Behavior.HandleQuotaError
 }
 
@@ -101,7 +105,7 @@ func (s *NoSessionServer) HandleSampleCheck(c context.Context, r *samplecheck.Ha
 		s.CapturedCalls = []spyadapter.CapturedCall{}
 	}
 	s.CapturedCalls = append(s.CapturedCalls, cc)
-
+	time.Sleep(s.Behavior.HandleSampleCheckSleep)
 	return s.Behavior.HandleSampleCheckResult, s.Behavior.HandleSampleCheckError
 }
 
@@ -119,7 +123,7 @@ func (s *NoSessionServer) HandleSampleReport(c context.Context, r *samplereport.
 		s.CapturedCalls = []spyadapter.CapturedCall{}
 	}
 	s.CapturedCalls = append(s.CapturedCalls, cc)
-
+	time.Sleep(s.Behavior.HandleSampleReportSleep)
 	return s.Behavior.HandleSampleReportResult, s.Behavior.HandleSampleReportError
 }
 
@@ -133,7 +137,7 @@ func (s *NoSessionServer) HandleSampleQuota(c context.Context, r *samplequota.Ha
 		s.CapturedCalls = []spyadapter.CapturedCall{}
 	}
 	s.CapturedCalls = append(s.CapturedCalls, cc)
-
+	time.Sleep(s.Behavior.HandleSampleQuotaSleep)
 	return s.Behavior.HandleSampleQuotaResult, s.Behavior.HandleSampleQuotaError
 }
 
@@ -143,6 +147,7 @@ func (s *NoSessionServer) HandleSampleApa(c context.Context, r *sampleapa.Handle
 		Name:      "HandleSampleApa",
 		Instances: []interface{}{r.Instance},
 	})
+	time.Sleep(s.Behavior.HandleSampleApaSleep)
 	return s.Behavior.HandleSampleApaResult, s.Behavior.HandleSampleApaError
 }
 

@@ -16,7 +16,6 @@ package bypass
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -94,11 +93,11 @@ func convertValue(value interface{}) (*v1beta1.Value, error) {
 			},
 		}, nil
 
-	case net.IP:
+	case []byte:
 		return &v1beta1.Value{
 			Value: &v1beta1.Value_IpAddressValue{
 				IpAddressValue: &v1beta1.IPAddress{
-					Value: []byte(v),
+					Value: v,
 				},
 			},
 		}, nil

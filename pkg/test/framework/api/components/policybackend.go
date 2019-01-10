@@ -15,11 +15,12 @@
 package components
 
 import (
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/ids"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/ids"
 )
 
 // PolicyBackend represents a deployed fake policy backend for Mixer.

@@ -17,7 +17,6 @@ package kube
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 )
 
@@ -25,9 +24,8 @@ func TestCreateConfig(t *testing.T) {
 	k := kube{
 		cfg: &rest.Config{},
 	}
-	gv := schema.GroupVersion{Group: "group", Version: "version"}
 
-	if _, err := k.DynamicInterface(gv, "kind", "listkind"); err != nil {
+	if _, err := k.DynamicInterface(); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 	if _, err := k.APIExtensionsClientset(); err != nil {

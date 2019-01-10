@@ -25,7 +25,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 // FileWatcher is an interface that watches a set of files,
@@ -110,11 +110,23 @@ func (w *fsNotifyWatcher) Add(path string) error {
 		return err
 	}
 
-	md5Sum, err := getMd5Sum(cleanedPath)
-	if err != nil {
-		watcher.Close()
-		return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
+	var md5Sum string
+
+	if _, err = os.Stat(cleanedPath); err == nil {
+		md5Sum, err = getMd5Sum(cleanedPath)
+		if err != nil {
+			watcher.Close()
+			return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
+		}
+	} else {
+		if !os.IsNotExist(err) {
+			watcher.Close()
+			return fmt.Errorf("failed to stat file: %s: %v", path, err)
+		}
+
+		// if the file doesn't exist, ignore the md5 sum.
 	}
+
 	wk := &worker{
 		watcher: watcher,
 		watchedFiles: map[string]*fileTracker{

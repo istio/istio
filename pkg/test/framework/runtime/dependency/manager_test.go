@@ -16,6 +16,9 @@ package dependency_test
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -23,8 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/dependency"
 	"istio.io/istio/pkg/test/framework/runtime/registry"
-	"reflect"
-	"testing"
 )
 
 var (
@@ -34,8 +35,6 @@ var (
 )
 
 var _ context.Instance = &mockContext{}
-
-//var _ component.Defaults = &defaults{}
 
 func TestNoDependencies(t *testing.T) {
 	m := newManager(t)
@@ -442,40 +441,10 @@ func (c *mockContext) GetDefaultDescriptorOrFail(id component.ID, t testing.TB) 
 	return component.Descriptor{}
 }
 
-/*
-type defaults struct {
-	cmap map[component.ID]component.Descriptor
-}
-
-func newDefaults() *defaults {
-	return &defaults {
-		cmap: make(map[component.ID]component.Descriptor),
-	}
-}
-
-func (d *defaults) registerDefault(cid component.ID, reqs ...component.Requirement) component.Descriptor {
-	desc := descriptor(cid, "", reqs...)
-	d.cmap[component.ID(cid)] = desc
-	return desc
-}
-
-func (d *defaults) GetDefaultDescriptor(id component.ID) (component.Descriptor, error) {
-	desc, ok := d.cmap[id]
-	if !ok {
-		return component.Descriptor{}, fmt.Errorf("missing default for %v", id)
-	}
-	return desc, nil
-}
-
-func (d *defaults) GetDefaultDescriptorOrFail(id component.ID, t testing.TB) component.Descriptor {
-	t.Fatal("unsupported")
-	return component.Descriptor{}
-}*/
-
 func descriptor(cid component.ID, variant component.Variant, reqs ...component.Requirement) component.Descriptor {
 	return component.Descriptor{
-		ID:       component.ID(cid),
-		Variant:  component.Variant(variant),
+		ID:       cid,
+		Variant:  variant,
 		Requires: reqs,
 	}
 }
@@ -494,7 +463,7 @@ func newFactory(desc component.Descriptor) *factory {
 }
 
 // Factory function for components.
-func (f *factory) newComponent() (api.Component, error) {
+func (f *factory) newComponent() (api.Component, error) { // nolint: unparam
 	return &comp{
 		desc: f.desc,
 	}, nil

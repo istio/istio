@@ -1,3 +1,4 @@
+{{- if and (.Values.enabled) (.Values.gateway.enabled) }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -14,8 +15,12 @@ spec:
   servers:
   - port:
       number: 15029
-      name: http-kiali
-      protocol: HTTP
+      name: https-kiali
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/certs/cert-chain.pem
+      privateKey: /etc/certs/key.pem
     hosts:
     - "*"
 ---
@@ -58,3 +63,4 @@ spec:
         host: kiali.{{ .Release.Namespace }}.svc.cluster.local
         port:
           number: 20001
+{{- end }}

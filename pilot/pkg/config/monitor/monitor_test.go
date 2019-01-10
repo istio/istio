@@ -124,7 +124,7 @@ func TestMonitorForChange(t *testing.T) {
 
 		gateway := c[0].Spec.(*networking.Gateway)
 		if gateway.Servers[0].Port.Protocol != "HTTP2" {
-			return errors.New("Protocol has not been updated")
+			return errors.New("protocol has not been updated")
 		}
 
 		return nil
@@ -158,7 +158,7 @@ func TestMonitorForError(t *testing.T) {
 			err = nil
 		case 3:
 			configs = nil
-			err = errors.New("SnapshotFunc can't connect!!")
+			err = errors.New("snapshotFunc can't connect")
 			delay <- struct{}{}
 		}
 
@@ -178,7 +178,7 @@ func TestMonitorForError(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		if len(c) != 1 {
-			return errors.New("Config files erased on Copilot error")
+			return errors.New("config files erased on Copilot error")
 		}
 
 		return nil

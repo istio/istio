@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
@@ -121,11 +120,6 @@ func makeSnapshot(version string) *fakeSnapshot {
 var _ Snapshot = &fakeSnapshot{}
 
 var (
-	node = &core.Node{
-		Id:      "test-id",
-		Cluster: "test-cluster",
-	}
-
 	fakeEnvelope0 *mcp.Envelope
 	fakeEnvelope1 *mcp.Envelope
 	fakeEnvelope2 *mcp.Envelope
@@ -148,7 +142,7 @@ func nextStrVersion(version *int64) string {
 
 }
 
-func createTestWatch(c *Cache, typeURL, version string, responseC chan *server.WatchResponse, wantResponse, wantCancel bool) (*server.WatchResponse, server.CancelWatchFunc, error) { // nolint: lll
+func createTestWatch(c server.Watcher, typeURL, version string, responseC chan *server.WatchResponse, wantResponse, wantCancel bool) (*server.WatchResponse, server.CancelWatchFunc, error) { // nolint: lll
 	req := &mcp.MeshConfigRequest{
 		TypeUrl:     typeURL,
 		VersionInfo: version,

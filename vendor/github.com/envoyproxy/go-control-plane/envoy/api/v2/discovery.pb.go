@@ -38,14 +38,14 @@ type DiscoveryRequest struct {
 	// (see below) has an independent version associated with it.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The node making the request.
-	Node *core.Node `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,2,opt,name=node,proto3" json:"node,omitempty"`
 	// List of resources to subscribe to, e.g. list of cluster names or a route
 	// configuration name. If this is empty, all resources for the API are
 	// returned. LDS/CDS expect empty resource_names, since this is global
 	// discovery for the Envoy instance. The LDS and CDS responses will then imply
 	// a number of resources that need to be fetched via EDS/RDS, which will be
 	// explicitly enumerated in resource_names.
-	ResourceNames []string `protobuf:"bytes,3,rep,name=resource_names,json=resourceNames" json:"resource_names,omitempty"`
+	ResourceNames []string `protobuf:"bytes,3,rep,name=resource_names,json=resourceNames,proto3" json:"resource_names,omitempty"`
 	// Type of the resource that is being requested, e.g.
 	// "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment". This is implicit
 	// in requests made via singleton xDS APIs such as CDS, LDS, etc. but is
@@ -60,7 +60,7 @@ type DiscoveryRequest struct {
 	// failed to update configuration. The *message* field in *error_details* provides the Envoy
 	// internal exception related to the failure. It is only intended for consumption during manual
 	// debugging, the string provided is not guaranteed to be stable across Envoy versions.
-	ErrorDetail          *rpc.Status `protobuf:"bytes,6,opt,name=error_detail,json=errorDetail" json:"error_detail,omitempty"`
+	ErrorDetail          *rpc.Status `protobuf:"bytes,6,opt,name=error_detail,json=errorDetail,proto3" json:"error_detail,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -70,7 +70,7 @@ func (m *DiscoveryRequest) Reset()         { *m = DiscoveryRequest{} }
 func (m *DiscoveryRequest) String() string { return proto.CompactTextString(m) }
 func (*DiscoveryRequest) ProtoMessage()    {}
 func (*DiscoveryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{0}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{0}
 }
 func (m *DiscoveryRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -145,7 +145,7 @@ type DiscoveryResponse struct {
 	// The version of the response data.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The response resources. These resources are typed and depend on the API being called.
-	Resources []types.Any `protobuf:"bytes,2,rep,name=resources" json:"resources"`
+	Resources []types.Any `protobuf:"bytes,2,rep,name=resources,proto3" json:"resources"`
 	// [#not-implemented-hide:]
 	// Canary is used to support two Envoy command line flags:
 	//
@@ -183,7 +183,7 @@ func (m *DiscoveryResponse) Reset()         { *m = DiscoveryResponse{} }
 func (m *DiscoveryResponse) String() string { return proto.CompactTextString(m) }
 func (*DiscoveryResponse) ProtoMessage()    {}
 func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{1}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{1}
 }
 func (m *DiscoveryResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -275,7 +275,7 @@ func (m *DiscoveryResponse) GetNonce() string {
 //      resource_names set. In this case response_nonce must be omitted.
 type IncrementalDiscoveryRequest struct {
 	// The node making the request.
-	Node *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	// Type of the resource that is being requested, e.g.
 	// "type.googleapis.com/envoy.api.v2.ClusterLoadAssignment". This is implicit
 	// in requests made via singleton xDS APIs such as CDS, LDS, etc. but is
@@ -296,14 +296,14 @@ type IncrementalDiscoveryRequest struct {
 	// (initial, ACK/NACK or spontaneous).
 	//
 	// A list of Resource names to add to the list of tracked resources.
-	ResourceNamesSubscribe []string `protobuf:"bytes,3,rep,name=resource_names_subscribe,json=resourceNamesSubscribe" json:"resource_names_subscribe,omitempty"`
+	ResourceNamesSubscribe []string `protobuf:"bytes,3,rep,name=resource_names_subscribe,json=resourceNamesSubscribe,proto3" json:"resource_names_subscribe,omitempty"`
 	// A list of Resource names to remove from the list of tracked resources.
-	ResourceNamesUnsubscribe []string `protobuf:"bytes,4,rep,name=resource_names_unsubscribe,json=resourceNamesUnsubscribe" json:"resource_names_unsubscribe,omitempty"`
+	ResourceNamesUnsubscribe []string `protobuf:"bytes,4,rep,name=resource_names_unsubscribe,json=resourceNamesUnsubscribe,proto3" json:"resource_names_unsubscribe,omitempty"`
 	// This map must be populated when the IncrementalDiscoveryRequest is the
 	// first in a stream. The keys are the resources names of the xDS resources
 	// known to the xDS client. The values in the map are the associated resource
 	// level version info.
-	InitialResourceVersions map[string]string `protobuf:"bytes,5,rep,name=initial_resource_versions,json=initialResourceVersions" json:"initial_resource_versions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	InitialResourceVersions map[string]string `protobuf:"bytes,5,rep,name=initial_resource_versions,json=initialResourceVersions,proto3" json:"initial_resource_versions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// When the IncrementalDiscoveryRequest is a ACK or NACK message in response
 	// to a previous IncrementalDiscoveryResponse, the response_nonce must be the
 	// nonce in the IncrementalDiscoveryResponse.
@@ -312,7 +312,7 @@ type IncrementalDiscoveryRequest struct {
 	// This is populated when the previous :ref:`DiscoveryResponse <envoy_api_msg_DiscoveryResponse>`
 	// failed to update configuration. The *message* field in *error_details*
 	// provides the Envoy internal exception related to the failure.
-	ErrorDetail          *rpc.Status `protobuf:"bytes,7,opt,name=error_detail,json=errorDetail" json:"error_detail,omitempty"`
+	ErrorDetail          *rpc.Status `protobuf:"bytes,7,opt,name=error_detail,json=errorDetail,proto3" json:"error_detail,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -322,7 +322,7 @@ func (m *IncrementalDiscoveryRequest) Reset()         { *m = IncrementalDiscover
 func (m *IncrementalDiscoveryRequest) String() string { return proto.CompactTextString(m) }
 func (*IncrementalDiscoveryRequest) ProtoMessage()    {}
 func (*IncrementalDiscoveryRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{2}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{2}
 }
 func (m *IncrementalDiscoveryRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -405,10 +405,10 @@ type IncrementalDiscoveryResponse struct {
 	SystemVersionInfo string `protobuf:"bytes,1,opt,name=system_version_info,json=systemVersionInfo,proto3" json:"system_version_info,omitempty"`
 	// The response resources. These are typed resources that match the type url
 	// in the IncrementalDiscoveryRequest.
-	Resources []Resource `protobuf:"bytes,2,rep,name=resources" json:"resources"`
+	Resources []Resource `protobuf:"bytes,2,rep,name=resources,proto3" json:"resources"`
 	// Resources names of resources that have be deleted and to be removed from the xDS Client.
 	// Removed resources for missing resources can be ignored.
-	RemovedResources []string `protobuf:"bytes,6,rep,name=removed_resources,json=removedResources" json:"removed_resources,omitempty"`
+	RemovedResources []string `protobuf:"bytes,6,rep,name=removed_resources,json=removedResources,proto3" json:"removed_resources,omitempty"`
 	// The nonce provides a way for IncrementalDiscoveryRequests to uniquely
 	// reference a IncrementalDiscoveryResponse. The nonce is required.
 	Nonce                string   `protobuf:"bytes,5,opt,name=nonce,proto3" json:"nonce,omitempty"`
@@ -421,7 +421,7 @@ func (m *IncrementalDiscoveryResponse) Reset()         { *m = IncrementalDiscove
 func (m *IncrementalDiscoveryResponse) String() string { return proto.CompactTextString(m) }
 func (*IncrementalDiscoveryResponse) ProtoMessage()    {}
 func (*IncrementalDiscoveryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{3}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{3}
 }
 func (m *IncrementalDiscoveryResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -483,7 +483,7 @@ type Resource struct {
 	// resources.
 	Version string `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
 	// The resource being tracked.
-	Resource             *types.Any `protobuf:"bytes,2,opt,name=resource" json:"resource,omitempty"`
+	Resource             *types.Any `protobuf:"bytes,2,opt,name=resource,proto3" json:"resource,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -493,7 +493,7 @@ func (m *Resource) Reset()         { *m = Resource{} }
 func (m *Resource) String() string { return proto.CompactTextString(m) }
 func (*Resource) ProtoMessage()    {}
 func (*Resource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_51dc66d5d71581c9, []int{4}
+	return fileDescriptor_discovery_0b15f11441efc7a2, []int{4}
 }
 func (m *Resource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1113,6 +1113,9 @@ func encodeVarintDiscovery(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *DiscoveryRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1148,6 +1151,9 @@ func (m *DiscoveryRequest) Size() (n int) {
 }
 
 func (m *DiscoveryResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1178,6 +1184,9 @@ func (m *DiscoveryResponse) Size() (n int) {
 }
 
 func (m *IncrementalDiscoveryRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Node != nil {
@@ -1223,6 +1232,9 @@ func (m *IncrementalDiscoveryRequest) Size() (n int) {
 }
 
 func (m *IncrementalDiscoveryResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.SystemVersionInfo)
@@ -1252,6 +1264,9 @@ func (m *IncrementalDiscoveryResponse) Size() (n int) {
 }
 
 func (m *Resource) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Version)
@@ -2442,10 +2457,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/discovery.proto", fileDescriptor_discovery_51dc66d5d71581c9)
+	proto.RegisterFile("envoy/api/v2/discovery.proto", fileDescriptor_discovery_0b15f11441efc7a2)
 }
 
-var fileDescriptor_discovery_51dc66d5d71581c9 = []byte{
+var fileDescriptor_discovery_0b15f11441efc7a2 = []byte{
 	// 633 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xc1, 0x6a, 0xdb, 0x4c,
 	0x10, 0xfe, 0xd7, 0x76, 0x1c, 0x67, 0x9d, 0xfc, 0x24, 0x5b, 0x93, 0x28, 0x6e, 0x70, 0x5d, 0x43,

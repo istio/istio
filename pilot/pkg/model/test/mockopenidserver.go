@@ -30,9 +30,8 @@ import (
 )
 
 var (
-	portBase    uint16 = 20000
-	cfgContent         = "{\"jwks_uri\": \"%s\"}"
-	serverMutex        = &sync.Mutex{}
+	cfgContent  = "{\"jwks_uri\": \"%s\"}"
+	serverMutex = &sync.Mutex{}
 )
 
 const (

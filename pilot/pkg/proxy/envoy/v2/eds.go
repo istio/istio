@@ -89,7 +89,7 @@ type EdsCluster struct {
 // TODO: add prom metrics !
 
 // Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(clusterNames []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
+func (s *DiscoveryServer) endpoints(_ []string, outRes []types.Any) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		// All resources for EDS ought to be of the type ClusterLoadAssignment
 		TypeUrl: EndpointType,
@@ -351,7 +351,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	s.mutex.Lock()
 	for k, v := range svc2account {
-		ep, _ := s.EndpointShardsByService[k]
+		ep := s.EndpointShardsByService[k]
 		ep.ServiceAccounts = v
 	}
 	s.mutex.Unlock()
@@ -368,7 +368,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	if direction == model.TrafficDirectionInbound ||
 		direction == model.TrafficDirectionOutbound {
 		labels := push.SubsetToLabels(subsetName, hostname)
-		instances, err := edsCluster.discovery.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
+		instances, err := s.Env.ServiceDiscovery.InstancesByPort(hostname, port, labels)
 		if err != nil {
 			adsLog.Errorf("endpoints for service cluster %q returned error %v", clusterName, err)
 			totalXDSInternalErrors.Add(1)
@@ -614,7 +614,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	emptyClusters := 0
 	endpoints := 0
 	empty := []string{}
-	updated := []string{}
 
 	for _, clusterName := range con.Clusters {
 
@@ -622,10 +621,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
 			// Cluster was not updated, skip recomputing.
 			continue
-		}
-		// for debug
-		if edsUpdatedServices != nil {
-			updated = append(updated, clusterName)
 		}
 
 		c := s.getEdsCluster(clusterName)

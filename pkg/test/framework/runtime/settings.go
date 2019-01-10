@@ -15,11 +15,10 @@
 package runtime
 
 import (
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/scopes"
-
-	"istio.io/istio/pkg/log"
 )
 
 const (

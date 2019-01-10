@@ -15,11 +15,11 @@
 package deployment
 
 import (
-	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/test/util/retry"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Instance represents an Istio deployment instance that has been performed by this test code.

@@ -815,7 +815,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  match: context.protocol == "http" || context.protocol == "grpc"
+  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false)
   actions:
   - handler: prometheus
     instances:
@@ -866,8 +866,9 @@ spec:
   - handler: prometheus
     instances:
     - tcpconnectionsclosed.metric
+{{- end }}
 ---
-
+{{- if and .Values.adapters.kubernetesenv.enabled (or .Values.policy.enabled .Values.telemetry.enabled) }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:

@@ -34,7 +34,7 @@ import (
 	"fortio.org/fortio/fhttp"
 	"fortio.org/fortio/periodic"
 	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/log"
@@ -826,7 +826,7 @@ func TestCheckCache(t *testing.T) {
 
 	// visit calls product page health handler with sleep app.
 	visit := func() error {
-		return visitWithApp(url, pod, "sleep", 100)
+		return visitWithApp(url, pod, "sleep", 200)
 	}
 	testCheckCache(t, visit, "productpage")
 }
@@ -1198,10 +1198,13 @@ func logPolicyMetrics(t *testing.T, adapter, app string) {
 		fatalf(t, "Could not retrieve valid cache hit number for app '%s': %v", app, err)
 	}
 
+	/* Disabled per https://github.com/istio/istio/issues/9596
 	mixerCacheHits, err := mixerCheckCacheHits(promAPI)
 	if err != nil {
 		fatalf(t, "Could not retrieve cache hits for mixer: %v", err)
 	}
+	*/
+	mixerCacheHits := 0.0
 
 	dispatches, err := adapterDispatches(promAPI, adapter)
 	if err != nil {
@@ -1217,6 +1220,7 @@ func logPolicyMetrics(t *testing.T, adapter, app string) {
 	t.Logf("istio-policy stats (all requests): mixer checkcache hits: %f, adapter '%s' dispatches: %f", mixerCacheHits, adapter, dispatches)
 }
 
+// nolint: deadcode
 func mixerCheckCacheHits(promAPI v1.API) (float64, error) {
 	query := "sum(mixer_checkcache_cache_hits_total{job=\"istio-policy\"})"
 	return queryValue(promAPI, query)
@@ -1323,7 +1327,7 @@ func allowRuleSync() {
 
 func allowPrometheusSync() {
 	log.Info("Sleeping to allow prometheus to record metrics...")
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 }
 
 func promAPI() (v1.API, error) {
@@ -1486,7 +1490,7 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 
 // visitWithApp visits the given url by curl in the given container.
 func visitWithApp(url string, pod string, container string, num int) error {
-	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- sh -c 'i=1; while [[ $i -le %d ]]; do curl -m 0.1 -i -s %s; let i=i+1; done'",
+	cmd := fmt.Sprintf("kubectl exec %s -n %s -c %s -- sh -c 'i=1; while [[ $i -le %d ]]; do curl -m 5 -i -s %s; let i=i+1; done'",
 		pod, tc.Kube.Namespace, container, num, url)
 	log.Infof("Visit %s for %d times with the following command: %v", url, num, cmd)
 	_, err := util.ShellMuteOutput(cmd)

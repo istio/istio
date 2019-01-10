@@ -14,6 +14,9 @@ policy:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
 
 telemetry:
   enabled: true
@@ -23,8 +26,12 @@ telemetry:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
 
 podAnnotations: {}
+nodeSelector: {}
 
 adapters:
   kubernetesenv:
@@ -35,3 +42,5 @@ adapters:
   prometheus:
     enabled: true
     metricsExpiryDuration: 10m
+  # Setting this to false sets the useAdapterCRDs mixer startup argument to false
+  useAdapterCRDs: true

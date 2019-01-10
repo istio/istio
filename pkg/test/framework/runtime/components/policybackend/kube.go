@@ -16,8 +16,10 @@ package policybackend
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"io"
+
+	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/fakes/policy"
 	"istio.io/istio/pkg/test/framework/api/component"
@@ -29,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+
 	kubeApiCore "k8s.io/api/core/v1"
 )
 
