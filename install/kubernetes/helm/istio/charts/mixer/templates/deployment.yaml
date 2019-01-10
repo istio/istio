@@ -67,6 +67,10 @@
 {{ end }}
         args:
         - proxy
+{{- if .Values.global.proxy.proxyDomain }}
+        - --domain
+        - {{ .Values.global.proxy.proxyDomain }}
+{{- end }}
         - --serviceCluster
         - istio-policy
         - --templateFile
@@ -175,6 +179,10 @@
 {{ end }}
         args:
         - proxy
+{{- if .Values.global.proxy.proxyDomain }}
+        - --domain
+        - {{ .Values.global.proxy.proxyDomain }}
+{{- end }}
         - --serviceCluster
         - istio-telemetry
         - --templateFile
