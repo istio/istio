@@ -60,12 +60,14 @@ func TracingServerInterceptor(tracer opentracing.Tracer) grpc.UnaryServerInterce
 			md = metadata.New(nil)
 		}
 
-		var t opentracing.Tracer = defaultNoopTracer
-		if isSampled(md) {
-			t = tracer
-		}
+		var t opentracing.Tracer = tracer
+		var spanContext opentracing.SpanContext
 
-		spanContext, err := t.Extract(opentracing.HTTPHeaders, metadataReaderWriter{md})
+		if !isSampled(md) {
+			t = defaultNoopTracer
+		} else if spanContext, err = t.Extract(opentracing.HTTPHeaders, metadataReaderWriter{md}); err == opentracing.ErrSpanContextNotFound {
+			t = defaultNoopTracer
+		}
 
 		serverSpan := t.StartSpan(
 			info.FullMethod,
@@ -85,22 +87,18 @@ func TracingServerInterceptor(tracer opentracing.Tracer) grpc.UnaryServerInterce
 }
 
 func isSampled(md metadata.MD) bool {
-	sampled := true
-
 	for _, val := range md.Get("x-b3-sampled") {
-		if val == "0" {
-			sampled = false
-			break
+		if val == "1" || strings.EqualFold(val, "true") {
+			return true
 		}
 	}
 
 	// allow for compressed header too
 	for _, val := range md.Get("b3") {
-		if val == "0" || strings.HasSuffix(val, "-0") || strings.Contains(val, "-0-") {
-			sampled = false
-			break
+		if val == "1" || strings.HasSuffix(val, "-1") || strings.Contains(val, "-1-") {
+			return true
 		}
 	}
 
-	return sampled
+	return false
 }

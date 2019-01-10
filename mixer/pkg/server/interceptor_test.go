@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/mocktracer"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -62,10 +63,24 @@ func TestB3CaseFalse(t *testing.T) {
 
 func TestSampledSpan(t *testing.T) {
 	tracer := mocktracer.New()
+	// Need to define a valid span context as otherwise the tracer would
+	// return error opentracing.ErrSpanContextNotFound
+	spanContext := mocktracer.MockSpanContext{
+		TraceID: 1,
+		SpanID:  2,
+		Sampled: true,
+	}
 	interceptor := TracingServerInterceptor(tracer)
-	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+
+	// Need to define a B3 header to indicate also that sampling is enabled
+	md := metadata.MD{
 		"b3": []string{"1"},
-	})
+	}
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	mdWriter := metadataReaderWriter{md}
+	tracer.Inject(spanContext, opentracing.HTTPHeaders, mdWriter)
+
 	info := &grpc.UnaryServerInfo{
 		FullMethod: "mymethod",
 	}
@@ -75,16 +90,62 @@ func TestSampledSpan(t *testing.T) {
 	assert.Len(t, tracer.FinishedSpans(), 1)
 }
 
-func TestUnampledSpan(t *testing.T) {
+func TestErrSpanContextNotFound(t *testing.T) {
 	tracer := mocktracer.New()
 	interceptor := TracingServerInterceptor(tracer)
-	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
-		"b3": []string{"0"},
-	})
+
+	// Need to define a B3 header to indicate also that sampling is enabled
+	md := metadata.MD{
+		"b3": []string{"1"},
+	}
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
 	info := &grpc.UnaryServerInfo{
 		FullMethod: "mymethod",
 	}
 	interceptor(ctx, nil, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, nil
+	})
+	assert.Len(t, tracer.FinishedSpans(), 0)
+}
+
+func TestNotSampledSpan(t *testing.T) {
+	tracer := mocktracer.New()
+	// Need to define a valid span context as otherwise the tracer would
+	// return error opentracing.ErrSpanContextNotFound
+	spanContext := mocktracer.MockSpanContext{
+		TraceID: 1,
+		SpanID:  2,
+		Sampled: true,
+	}
+	interceptor := TracingServerInterceptor(tracer)
+
+	// Need to define a B3 header to indicate also that sampling is disabled
+	md := metadata.MD{
+		"b3": []string{"0"},
+	}
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+
+	mdWriter := metadataReaderWriter{md}
+	tracer.Inject(spanContext, opentracing.HTTPHeaders, mdWriter)
+
+	info := &grpc.UnaryServerInfo{
+		FullMethod: "mymethod",
+	}
+	interceptor(ctx, nil, info, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, nil
+	})
+	assert.Len(t, tracer.FinishedSpans(), 0)
+}
+
+func TestNoSpanContext(t *testing.T) {
+	tracer := mocktracer.New()
+	interceptor := TracingServerInterceptor(tracer)
+
+	info := &grpc.UnaryServerInfo{
+		FullMethod: "mymethod",
+	}
+	interceptor(context.Background(), nil, info, func(ctx context.Context, req interface{}) (interface{}, error) {
 		return nil, nil
 	})
 	assert.Len(t, tracer.FinishedSpans(), 0)
