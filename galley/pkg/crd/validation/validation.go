@@ -25,7 +25,6 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 )
 
@@ -92,20 +92,20 @@ func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(vc *WebhookParameters, printf, faltaf shared.FormatFn, kubeConfig string,
+func RunValidation(vc *WebhookParameters, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
-	printf("Galley validation started with\n%s", vc)
+	log.Infof("Galley validation started with\n%s", vc)
 	mixerValidator := createMixerValidator()
 	clientset, err := kube.CreateClientset(kubeConfig, "")
 	if err != nil {
-		faltaf("could not create k8s clientset: %v", err)
+		log.Fatalf("could not create k8s clientset: %v", err)
 	}
 	vc.MixerValidator = mixerValidator
 	vc.PilotDescriptor = model.IstioConfigTypes
 	vc.Clientset = clientset
 	wh, err := NewWebhook(*vc)
 	if err != nil {
-		faltaf("cannot create validation webhook service: %v", err)
+		log.Fatalf("cannot create validation webhook service: %v", err)
 	}
 	if livenessProbeController != nil {
 		validationLivenessProbe := probe.NewProbe()
