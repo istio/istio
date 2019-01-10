@@ -33,8 +33,6 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
-
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsapiCore "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	xdsapiListener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"

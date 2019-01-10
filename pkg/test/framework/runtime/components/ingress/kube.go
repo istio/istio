@@ -29,14 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/context"
-	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"istio.io/istio/pkg/test/framework/runtime/api"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )

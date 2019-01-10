@@ -20,8 +20,6 @@ import (
 	"os"
 
 	"istio.io/istio/pkg/test/framework/runtime/registries"
-
-	"istio.io/istio/pkg/test/framework/runtime/registries"
 )
 
 // init registers the command-line flags that we can exposed for "go test".
