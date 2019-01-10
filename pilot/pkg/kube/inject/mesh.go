@@ -21,6 +21,7 @@ const (
 	// nolint: lll
 	parameterizedTemplate = `
 [[- $proxyImageKey                  := "sidecar.istio.io/proxyImage" -]]
+[[- $proxyCPUKey                    := "sidecar.istio.io/proxyCPU" -]]
 [[- $interceptionModeKey            := "sidecar.istio.io/interceptionMode" -]]
 [[- $statusPortKey                  := "status.sidecar.istio.io/port" -]]
 [[- $readinessInitialDelayKey       := "readiness.status.sidecar.istio.io/initialDelaySeconds" -]]
@@ -122,9 +123,12 @@ containers:
   - [[ .ProxyConfig.StatsdUdpAddress ]]
   - --proxyAdminPort
   - [[ .ProxyConfig.ProxyAdminPort ]]
-  [[ if gt .ProxyConfig.Concurrency 0 -]]
   - --concurrency
-  - [[ .ProxyConfig.Concurrency ]]
+  [[ $concurrency := (quantity (annotation .ObjectMeta $proxyCPUKey .ProxyConfig.Concurrency)) -]]
+  [[ if gt $concurrency 0 -]]
+  - [[ $concurrency ]]
+  [[ else -]]
+  - 1
   [[ end -]]
   - --controlPlaneAuthPolicy
   - [[ .ProxyConfig.ControlPlaneAuthPolicy ]]

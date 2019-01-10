@@ -30,6 +30,8 @@ import (
 	"strings"
 	"text/template"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
@@ -56,6 +58,7 @@ var (
 		{"sidecar.istio.io/status", alwaysValidFunc},
 		{"sidecar.istio.io/proxyImage", alwaysValidFunc},
 		{"sidecar.istio.io/interceptionMode", validateInterceptionMode},
+		{"sidecar.istio.io/proxyCPU", validateProxyCPU},
 		{"status.sidecar.istio.io/port", validateStatusPort},
 		{"readiness.status.sidecar.istio.io/initialDelaySeconds", validateUInt32},
 		{"readiness.status.sidecar.istio.io/periodSeconds", validateUInt32},
@@ -515,6 +518,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"toYaml":              toYaml,
 		"indent":              indent,
 		"directory":           directory,
+		"quantity":            quantity,
 	}
 
 	var tmpl bytes.Buffer
@@ -873,4 +877,22 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 		return metadata.GenerateName + "***** (actual name not yet known)"
 	}
 	return ""
+}
+
+// validateProxyCPU validates that the given annotation value is a valid quantity
+func validateProxyCPU(value string) error {
+	_, err := resource.ParseQuantity(value)
+	return err
+}
+
+func quantity(value string) int64 {
+	quantity, err := resource.ParseQuantity(value)
+
+	if err != nil {
+		log.Warnf("Unable to parse quantity %v", value)
+		return 0
+	}
+
+	val := quantity.ScaledValue(0)
+	return val
 }

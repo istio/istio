@@ -83,6 +83,7 @@ func TestIntoResourceFile(t *testing.T) {
 		readinessFailureThreshold    uint32
 		tproxy                       bool
 		rewriteAppHTTPProbe          bool
+		concurrency                  int32
 	}{
 		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
@@ -506,6 +507,64 @@ func TestIntoResourceFile(t *testing.T) {
 			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
 			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
 		},
+		{
+			// Verifies proxyCPU with milliCPU
+			in:                           "hello-resources-micro.yaml",
+			want:                         "hello-resources-micro.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			// Verifies proxyCPU with CPU
+			in:                           "hello-resources.yaml",
+			want:                         "hello-resources.yaml.injected",
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			// Verifies proxyCPU with milliCPU overrides concurrency parameter
+			in:                           "hello-resources-micro.yaml",
+			want:                         "hello-resources-micro.yaml.injected",
+			concurrency:                  10,
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			// Verifies proxyCPU with CPU overrides concurrency parameter
+			in:                           "hello-resources.yaml",
+			want:                         "hello-resources.yaml.injected",
+			concurrency:                  10,
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
+		{
+			// Verifies concurrency parameter
+			in:                           "hello-concurrency.yaml",
+			want:                         "hello-concurrency.yaml.injected",
+			concurrency:                  2,
+			includeIPRanges:              DefaultIncludeIPRanges,
+			includeInboundPorts:          DefaultIncludeInboundPorts,
+			statusPort:                   DefaultStatusPort,
+			readinessInitialDelaySeconds: DefaultReadinessInitialDelaySeconds,
+			readinessPeriodSeconds:       DefaultReadinessPeriodSeconds,
+			readinessFailureThreshold:    DefaultReadinessFailureThreshold,
+		},
 	}
 
 	for i, c := range cases {
@@ -521,6 +580,9 @@ func TestIntoResourceFile(t *testing.T) {
 				mesh.DefaultConfig.InterceptionMode = meshconfig.ProxyConfig_TPROXY
 			} else {
 				mesh.DefaultConfig.InterceptionMode = meshconfig.ProxyConfig_REDIRECT
+			}
+			if c.concurrency > 0 {
+				mesh.DefaultConfig.Concurrency = c.concurrency
 			}
 
 			params := &Params{

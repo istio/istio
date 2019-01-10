@@ -3,13 +3,14 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   name: hello
-  namespace: test
 spec:
   replicas: 7
   strategy: {}
   template:
     metadata:
       annotations:
+        sidecar.istio.io/proxyCPU: 1500m
+        sidecar.istio.io/proxyMemory: 1G
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
@@ -32,7 +33,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - hello.test
+        - hello.default
         - --drainDuration
         - 2s
         - --parentShutdownDuration
@@ -46,7 +47,7 @@ spec:
         - --proxyAdminPort
         - "15000"
         - --concurrency
-        - "1"
+        - "2"
         - --controlPlaneAuthPolicy
         - NONE
         - --statusPort
@@ -72,7 +73,7 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        image: docker.io/istio/proxy_debug:unittest
+        image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:
@@ -90,8 +91,7 @@ spec:
           requests:
             cpu: 10m
         securityContext:
-          privileged: true
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -122,7 +122,6 @@ spec:
           capabilities:
             add:
             - NET_ADMIN
-          privileged: true
       volumes:
       - emptyDir:
           medium: Memory

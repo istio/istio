@@ -128,10 +128,13 @@ data:
       {{- end }}
         - --proxyAdminPort
         - {{ "[[ .ProxyConfig.ProxyAdminPort ]]" }}
-        {{ "[[ if gt .ProxyConfig.Concurrency 0 -]]" }}
         - --concurrency
-        - {{ "[[ .ProxyConfig.Concurrency ]]" }}
-        {{ "[[ end -]]" }}
+        [[ $concurrency := (quantity (annotation .ObjectMeta `sidecar.istio.io/proxyCPU` .ProxyConfig.Concurrency)) -]]
+        [[ if gt $concurrency 0 -]]
+        - [[ $concurrency ]]
+        [[ else -]]
+        - 1
+        [[ end -]]
         - --controlPlaneAuthPolicy
         - {{ "[[ annotation .ObjectMeta `sidecar.istio.io/controlPlaneAuthPolicy` .ProxyConfig.ControlPlaneAuthPolicy ]]" }}
       {{ "[[- if (ne (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") \"0\") ]]" }}

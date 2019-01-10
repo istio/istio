@@ -47,6 +47,8 @@ items:
           - ""
           - --proxyAdminPort
           - "15000"
+          - --concurrency
+          - "1"
           - --controlPlaneAuthPolicy
           - NONE
           - --statusPort
@@ -177,6 +179,8 @@ items:
           - ""
           - --proxyAdminPort
           - "15000"
+          - --concurrency
+          - "1"
           - --controlPlaneAuthPolicy
           - NONE
           - --statusPort
