@@ -358,7 +358,13 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			totalXDSInternalErrors.Add(1)
 			return
 		}
-		reqChannel <- req
+		select {
+		case <-con.stream.Context().Done():
+			adsLog.Errorf("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			return
+		default:
+			reqChannel <- req
+		}
 	}
 }
 
@@ -369,7 +375,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
-	var discReq *xdsapi.DiscoveryRequest
 
 	t0 := time.Now()
 	// rate limit the herd, after restart all endpoints will reconnect to the
@@ -409,7 +414,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	for {
 		// Block until either a request is received or a push is triggered.
 		select {
-		case discReq, ok = <-reqChannel:
+		case discReq, ok := <-reqChannel:
 			if !ok {
 				// Remote side closed connection.
 				return receiveError
