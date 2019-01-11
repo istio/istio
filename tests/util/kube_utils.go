@@ -412,14 +412,20 @@ func GetAppPodsInfo(n string, kubeconfig string, label string) ([]string, map[st
 
 // GetAppPods gets a map of app names to the pods for the app, for the given namespace
 func GetAppPods(n string, kubeconfig string) (map[string][]string, error) {
-	podLabels, err := GetPodLabelValues(n, "app.kubernetes.io/name", kubeconfig)
+	podLabels, err := GetPodLabelValues(n, "app", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find "app.kubernetes.io/name" labeled pods first and "app" labeled pods if "app.kubernetes.io/name" labeled pods don't exist
 	if podLabels == nil {
-		podLabels, err = GetPodLabelValues(n, "app", kubeconfig)
+		podLabels, err = GetPodLabelValues(n, "app.kubernetes.io/instance", kubeconfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if podLabels == nil {
+		podLabels, err = GetPodLabelValues(n, "app.kubernetes.io/name", kubeconfig)
 		if err != nil {
 			return nil, err
 		}
