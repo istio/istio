@@ -330,7 +330,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
 
-	if sidecarScope.Config == nil || !sidecarScope.HasCustomIngressListeners {
+	if !sidecarScope.HasCustomIngressListeners {
 		// There is no user supplied sidecarScope for this namespace
 		// Construct inbound listeners in the usual way by looking at the ports of the service instances
 		// attached to the proxy
@@ -675,6 +675,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		// TODO: this is a temporary gate. Once the sidecar implementation is stable,
 		// this will be removed as the config less sidecar has a default egress listener
 		// that has same behavior as the code below
+		// DO NOT ADD ANY CODE TO THIS BLOCK
 		services := push.Services(node)
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
 		virtualServices := push.VirtualServices(node, meshGateway)

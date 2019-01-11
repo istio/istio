@@ -38,6 +38,7 @@ var (
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
+		Metadata: map[string]string{model.NodeConfigNamespace : "default"},
 	}
 )
 
@@ -233,6 +234,7 @@ func buildOutboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsa
 			Service: s,
 		}
 	}
+	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "default")
 	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances)
 }
 
@@ -249,6 +251,7 @@ func buildInboundListeners(p plugin.Plugin, services ...*model.Service) []*xdsap
 			Endpoint: buildEndpoint(s),
 		}
 	}
+	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "default")
 	return configgen.buildSidecarInboundListeners(&env, &proxy, env.PushContext, instances)
 }
 
@@ -302,6 +305,9 @@ func buildService(hostname string, ip string, protocol model.Protocol, creationT
 			},
 		},
 		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
 	}
 }
 

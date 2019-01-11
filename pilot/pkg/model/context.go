@@ -268,7 +268,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
 	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
-	if configNamespace, found := proxy.Metadata["CONFIG_NAMESPACE"]; found {
+	if configNamespace, found := proxy.Metadata[NodeConfigNamespace]; found {
 		return configNamespace
 	}
 
@@ -462,7 +462,13 @@ const (
 	// will be replaced with the gateway defined in the settings.
 	NodeMetadataNetwork = "NETWORK"
 
+	// NodeMetadataInterceptionMode is the name of the metadata variable that carries info about
+	// traffic interception mode at the proxy
 	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
+
+	// NodeConfigNamespace is the name of the metadata variable that carries info about
+	// the config namespace associated with the proxy
+	NodeConfigNamespace = "CONFIG_NAMESPACE"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
