@@ -485,12 +485,12 @@ const (
 
 // GetInterceptionMode extracts the interception mode associated with the proxy
 // from the proxy metadata
-func (proxy *Proxy) GetInterceptionMode() TrafficInterceptionMode {
-	if proxy == nil {
+func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
+	if node == nil {
 		return InterceptionRedirect
 	}
 
-	switch proxy.Metadata[NodeMetadataInterceptionMode] {
+	switch node.Metadata[NodeMetadataInterceptionMode] {
 	case "TPROXY":
 		return InterceptionTproxy
 	case "REDIRECT":

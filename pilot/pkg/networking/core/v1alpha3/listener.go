@@ -265,12 +265,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
 
-		if node.Type == model.Router {
-			useRemoteAddress = true
-			traceOperation = http_conn.INGRESS
-			listenAddress = WildcardAddress
-		}
-
 		opts := buildListenerOpts{
 			env:            env,
 			proxy:          node,
@@ -497,7 +491,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 		// with the right port and a hostname constructed from the sidecar config's name+namespace
 		pluginParams.Push.Add(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node,
 			fmt.Sprintf("Conflicting inbound listener:%s. existing: %s, incoming: %s", listenerMapKey,
-				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname, listenerMapKey))
+				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
 
 		// Skip building listener for the same ip port
 		return nil
@@ -698,7 +692,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 			for _, servicePort := range service.Ports {
 				// if the workload has NONE mode interception, then we generate TCP ports only
 				// Skip generating HTTP listeners, as we will generate a single HTTP proxy
-				if servicePort.Protocol.IsHTTP() {
+				if bindToPort && servicePort.Protocol.IsHTTP() {
 					continue
 				}
 

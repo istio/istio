@@ -83,7 +83,7 @@ func (configgen *ConfigGeneratorImpl) buildSharedPushStateForSidecars(env *model
 	wg := &sync.WaitGroup{}
 	wg.Add(len(sidecarsByNamespace))
 	for ns, sidecarScopes := range sidecarsByNamespace {
-		go func(ns string) {
+		go func(ns string, sidecarScopes []*model.SidecarScope) {
 			defer wg.Done()
 			for _, sc := range sidecarScopes {
 				dummyNode := model.Proxy{
@@ -96,7 +96,7 @@ func (configgen *ConfigGeneratorImpl) buildSharedPushStateForSidecars(env *model
 				// services and destination rules
 				sc.XDSOutboundClusters = configgen.buildOutboundClusters(env, &dummyNode, push)
 			}
-		}(ns)
+		}(ns, sidecarScopes)
 	}
 	wg.Wait()
 
