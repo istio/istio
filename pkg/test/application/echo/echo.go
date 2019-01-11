@@ -92,35 +92,35 @@ func (a *echo) start() (err error) {
 	}
 
 	a.servers = make([]serverInterface, 0)
-	//for i, p := range a.ports {
-	//	handler := &handler{
-	//		version: a.version,
-	//		caFile:  a.tlsCert,
-	//		dialer:  a.dialer,
-	//	}
-	//	switch p.Protocol {
-	//	case model.ProtocolTCP:
-	//		fallthrough
-	//	case model.ProtocolHTTP:
-	//		fallthrough
-	//	case model.ProtocolHTTPS:
-	//		a.servers[i] = &httpServer{
-	//			port: p,
-	//			h:    handler,
-	//		}
-	//	case model.ProtocolHTTP2:
-	//		fallthrough
-	//	case model.ProtocolGRPC:
-	//		a.servers[i] = &grpcServer{
-	//			port:    p,
-	//			h:       handler,
-	//			tlsCert: a.tlsCert,
-	//			tlsCKey: a.tlsCKey,
-	//		}
-	//	default:
-	//		return fmt.Errorf("unsupported protocol: %s", p.Protocol)
-	//	}
-	//}
+	for i, p := range a.ports {
+		handler := &handler{
+			version: a.version,
+			caFile:  a.tlsCert,
+			dialer:  a.dialer,
+		}
+		switch p.Protocol {
+		case model.ProtocolTCP:
+			fallthrough
+		case model.ProtocolHTTP:
+			fallthrough
+		case model.ProtocolHTTPS:
+			a.servers[i] = &httpServer{
+				port: p,
+				h:    handler,
+			}
+		case model.ProtocolHTTP2:
+			fallthrough
+		case model.ProtocolGRPC:
+			a.servers[i] = &grpcServer{
+				port:    p,
+				h:       handler,
+				tlsCert: a.tlsCert,
+				tlsCKey: a.tlsCKey,
+			}
+		default:
+			return fmt.Errorf("unsupported protocol: %s", p.Protocol)
+		}
+	}
 
 	if len(a.uds) > 0 {
 		a.servers = append(a.servers, &httpServer{
