@@ -53,11 +53,11 @@ const (
 	policyCheck = "POLICY_CHECK"
 )
 
-// Policy check options are disable, enable (fail-closed), and fail-open (check but not apply).
+// Policy check options control how Mixer checks are applied on per-pod basis
 const (
-	PolicyCheckEnable   string = "enable"
-	PolicyCheckDisable         = "disable"
-	PolicyCheckFailOpen        = "fail-open"
+	PolicyCheckEnable      string = "enable"
+	PolicyCheckDisable            = "disable"
+	PolicyCheckEnableAllow        = "allow-on-error"
 )
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
@@ -211,7 +211,7 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 		switch policy {
 		case PolicyCheckEnable:
 			networkFailPolicy = mccpb.FAIL_CLOSE
-		case PolicyCheckFailOpen:
+		case PolicyCheckEnableAllow:
 			networkFailPolicy = mccpb.FAIL_OPEN
 		}
 	}
@@ -417,7 +417,7 @@ func disablePolicyChecks(inbound bool, mesh *meshconfig.MeshConfig, node *model.
 		switch policy {
 		case PolicyCheckDisable:
 			disable = true
-		case PolicyCheckEnable, PolicyCheckFailOpen:
+		case PolicyCheckEnable, PolicyCheckEnableAllow:
 			disable = false
 		}
 	}

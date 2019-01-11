@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       annotations:
-        policy.sidecar.istio.io/check: fail-open
+        policy.sidecar.istio.io/check: allow-on-error
       labels:
         app: hello
         tier: backend

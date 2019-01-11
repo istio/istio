@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        policy.sidecar.istio.io/check: fail-open
+        policy.sidecar.istio.io/check: allow-on-error
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
@@ -71,7 +71,7 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_POLICY_CHECK
-          value: fail-open
+          value: allow-on-error
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy

@@ -350,7 +350,8 @@ func ValidateExcludeInboundPorts(ports string) error {
 // ValidatePolicyCheck validates policy check override
 func ValidatePolicyCheck(value string) error {
 	switch value {
-	case mixer.PolicyCheckEnable, mixer.PolicyCheckDisable, mixer.PolicyCheckFailOpen:
+	case mixer.PolicyCheckEnable, mixer.PolicyCheckDisable, mixer.PolicyCheckEnableAllow:
+		// valid value
 	default:
 		return fmt.Errorf("policyCheck invalid: %v", value)
 	}
