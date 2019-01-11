@@ -223,28 +223,28 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	se.mutex.RLock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
-	for _, es := range se.Shards {
-		for _, el := range es.Entries {
-			if svcPort.Name != el.ServicePortName {
+	for _, endpoints := range se.Shards {
+		for _, ep := range endpoints {
+			if svcPort.Name != ep.ServicePortName {
 				continue
 			}
 			// Port labels
-			if !labels.HasSubsetOf(model.Labels(el.Labels)) {
+			if !labels.HasSubsetOf(model.Labels(ep.Labels)) {
 				continue
 			}
 			cnt++
 
-			locLbEps, found := localityEpMap[el.Locality]
+			locLbEps, found := localityEpMap[ep.Locality]
 			if !found {
 				locLbEps = &endpoint.LocalityLbEndpoints{
-					Locality: util.ConvertLocality(el.Locality),
+					Locality: util.ConvertLocality(ep.Locality),
 				}
-				localityEpMap[el.Locality] = locLbEps
+				localityEpMap[ep.Locality] = locLbEps
 			}
-			if el.EnvoyEndpoint == nil {
-				el.EnvoyEndpoint = buildEnvoyLbEndpoint(el.UID, el.Family, el.Address, el.EndpointPort, el.Network)
+			if ep.EnvoyEndpoint == nil {
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep.UID, ep.Family, ep.Address, ep.EndpointPort, ep.Network)
 			}
-			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
+			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *ep.EnvoyEndpoint)
 		}
 	}
 	se.mutex.RUnlock()
@@ -429,7 +429,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 
 // Update clusters for an incremental EDS push, and initiate the push.
 // Only clusters that changed are updated/pushed.
-func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*EndpointShardsByService) {
+func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext, edsUpdates map[string]*EndpointShards) {
 	adsLog.Infof("XDS:EDSInc Pushing %s Services: %v, "+
 		"ConnectedEndpoints: %d", version, edsUpdates, adsClientCount())
 	t0 := time.Now()
@@ -502,15 +502,15 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(shard, serviceName string,
-	entries []*model.IstioEndpoint) error {
-	s.edsUpdate(shard, serviceName, entries, false)
+	istioEndpoints []*model.IstioEndpoint) error {
+	s.edsUpdate(shard, serviceName, istioEndpoints, false)
 	return nil
 }
 
 // edsUpdate updates edsUpdates by shard, serviceName, IstioEndpoints,
 // and requests a full/eds push.
 func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
-	entries []*model.IstioEndpoint, internal bool) {
+	istioEndpoints []*model.IstioEndpoint, internal bool) {
 	// edsShardUpdate replaces a subset (shard) of endpoints, as result of an incremental
 	// update. The endpoint updates may be grouped by K8S clusters, other service registries
 	// or by deployment. Multiple updates are debounced, to avoid too frequent pushes.
@@ -526,8 +526,8 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		// This endpoint is for a service that was not previously loaded.
 		// Return an error to force a full sync, which will also cause the
 		// EndpointsShardsByService to be initialized with all services.
-		ep = &EndpointShardsByService{
-			Shards:          map[string]*EndpointShard{},
+		ep = &EndpointShards{
+			Shards:          map[string][]*model.IstioEndpoint{},
 			ServiceAccounts: map[string]bool{},
 		}
 		s.EndpointShardsByService[serviceName] = ep
@@ -539,13 +539,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 
 	// 2. Update data for the specific cluster. Each cluster gets independent
 	// updates containing the full list of endpoints for the service in that cluster.
-	ce := &EndpointShard{
-		Shard:   shard,
-		Entries: []*model.IstioEndpoint{},
-	}
-
-	for _, e := range entries {
-		ce.Entries = append(ce.Entries, e)
+	for _, e := range istioEndpoints {
 		if e.ServiceAccount != "" {
 			_, f = ep.ServiceAccounts[e.ServiceAccount]
 			if !f && !internal {
@@ -557,7 +551,7 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 		}
 	}
 	ep.mutex.Lock()
-	ep.Shards[shard] = ce
+	ep.Shards[shard] = istioEndpoints
 	ep.mutex.Unlock()
 	s.edsUpdates[serviceName] = ep
 
@@ -611,7 +605,7 @@ func connectionID(node string) string {
 // pushEds is pushing EDS updates for a single connection. Called the first time
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
-	full bool, edsUpdatedServices map[string]*EndpointShardsByService) error {
+	full bool, edsUpdatedServices map[string]*EndpointShards) error {
 	resAny := []types.Any{}
 
 	emptyClusters := 0
