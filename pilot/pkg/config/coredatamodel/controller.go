@@ -194,10 +194,6 @@ func (c *Controller) Apply(change *sink.Change) error {
 	// reset internal state for type
 	if !change.Incremental {
 		types := []string{descriptor.Type}
-		if descriptor.Type == model.AuthenticationPolicy.Type {
-			types = append(types, model.AuthenticationMeshPolicy.Type)
-		}
-
 		for _, typ := range types {
 			for namespace, byNamespace := range c.configStore[typ] {
 				for name := range byNamespace {
@@ -232,6 +228,8 @@ func (c *Controller) Apply(change *sink.Change) error {
 			byType[obj.Namespace] = byNamespace
 		}
 
+		fmt.Printf("XXX add/update typ=%v %v\n", change.Collection, obj)
+
 		if generateAllEvents {
 			if _, ok := byNamespace[obj.Name]; ok {
 				dispatch(*obj, model.EventUpdate)
@@ -245,22 +243,17 @@ func (c *Controller) Apply(change *sink.Change) error {
 	for _, remove := range change.Removed {
 		namespace, name := extractNameNamespace(remove)
 
-		typ := descriptor.Type
-		if namespace == "" && descriptor.Type == model.AuthenticationPolicy.Type {
-			typ = model.AuthenticationMeshPolicy.Type
-		}
-
-		if obj, ok := c.configStore[typ][namespace][name]; ok {
+		if obj, ok := c.configStore[descriptor.Type][namespace][name]; ok {
 			if generateAllEvents {
 				dispatch(*obj, model.EventDelete)
 			}
 		} else {
-			log.Warnf("Removing unknown resource type=%s name=%s", typ, remove)
+			log.Warnf("Removing unknown resource type=%s name=%s", descriptor.Type, remove)
 		}
 
-		delete(c.configStore[typ][namespace], name)
-		if len(c.configStore[typ][namespace]) == 0 {
-			delete(c.configStore[typ], namespace)
+		delete(c.configStore[descriptor.Type][namespace], name)
+		if len(c.configStore[descriptor.Type][namespace]) == 0 {
+			delete(c.configStore[descriptor.Type], namespace)
 		}
 	}
 	c.configStoreMu.Unlock()
