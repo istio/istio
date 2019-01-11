@@ -1061,6 +1061,8 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
 
+	// This is the number of requests we allow to be missing to be reported, so as to make test stable.
+	errorInRequestReportingAllowed := 5.0
 	// establish baseline
 	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
@@ -1068,7 +1070,7 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 
 	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
-	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings", initPrior429s+initPrior200s+150)
+	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings", initPrior429s+initPrior200s+150-errorInRequestReportingAllowed)
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
 		fatalf(t, "no 429 in allotted time: prior429s:%v", prior429s)
@@ -1111,7 +1113,7 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	_, _, value := fetchRequestCount(t, promAPI, "ratings", prior429s+prior200s+300)
+	_, _, value := fetchRequestCount(t, promAPI, "ratings", prior429s+prior200s+300-errorInRequestReportingAllowed)
 	log.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "destination"})
