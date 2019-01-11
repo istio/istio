@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"fortio.org/fortio/fhttp"
@@ -338,6 +338,10 @@ func galleyQueryFilterFn(queries []string) []string {
 			continue
 		}
 		if strings.Contains(query, "request_acks_total") {
+			continue
+		}
+		// This is a frequent source of flakes in e2e-dashboard test. Remove from checked queries for now.
+		if strings.Contains(query, "runtime_strategy_timer_quiesce_reached_total") {
 			continue
 		}
 		filtered = append(filtered, query)

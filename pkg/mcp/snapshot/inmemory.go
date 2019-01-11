@@ -29,7 +29,7 @@ import (
 
 // InMemory Snapshot implementation
 type InMemory struct {
-	envelopes map[string][]*mcp.Envelope
+	resources map[string][]*mcp.Resource
 	versions  map[string]string
 }
 
@@ -43,7 +43,7 @@ type InMemoryBuilder struct {
 // NewInMemoryBuilder creates and returns a new InMemoryBuilder.
 func NewInMemoryBuilder() *InMemoryBuilder {
 	snapshot := &InMemory{
-		envelopes: make(map[string][]*mcp.Envelope),
+		resources: make(map[string][]*mcp.Resource),
 		versions:  make(map[string]string),
 	}
 
@@ -53,8 +53,8 @@ func NewInMemoryBuilder() *InMemoryBuilder {
 }
 
 // Set the values for a given type. If Set is called after a call to Freeze, then this method panics.
-func (b *InMemoryBuilder) Set(typeURL string, version string, resources []*mcp.Envelope) {
-	b.snapshot.envelopes[typeURL] = resources
+func (b *InMemoryBuilder) Set(typeURL string, version string, resources []*mcp.Resource) {
+	b.snapshot.resources[typeURL] = resources
 	b.snapshot.versions[typeURL] = version
 }
 
@@ -71,19 +71,19 @@ func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime tim
 		return err
 	}
 
-	e := &mcp.Envelope{
+	e := &mcp.Resource{
 		Metadata: &mcp.Metadata{
 			Name:       name,
 			CreateTime: createTimeProto,
 			Version:    version,
 		},
-		Resource: &types.Any{
+		Body: &types.Any{
 			Value:   contents,
 			TypeUrl: typeURL,
 		},
 	}
 
-	entries := b.snapshot.envelopes[typeURL]
+	entries := b.snapshot.resources[typeURL]
 
 	for i, prev := range entries {
 		if prev.Metadata.Name == e.Metadata.Name {
@@ -93,14 +93,14 @@ func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime tim
 	}
 
 	entries = append(entries, e)
-	b.snapshot.envelopes[typeURL] = entries
+	b.snapshot.resources[typeURL] = entries
 	return nil
 }
 
 // DeleteEntry deletes the entry with the given typeuRL, name
 func (b *InMemoryBuilder) DeleteEntry(typeURL string, name string) {
 
-	entries, found := b.snapshot.envelopes[typeURL]
+	entries, found := b.snapshot.resources[typeURL]
 	if !found {
 		return
 	}
@@ -108,13 +108,13 @@ func (b *InMemoryBuilder) DeleteEntry(typeURL string, name string) {
 	for i, e := range entries {
 		if e.Metadata.Name == name {
 			if len(entries) == 1 {
-				delete(b.snapshot.envelopes, typeURL)
+				delete(b.snapshot.resources, typeURL)
 				delete(b.snapshot.versions, typeURL)
 				return
 			}
 
 			entries = append(entries[:i], entries[i+1:]...)
-			b.snapshot.envelopes[typeURL] = entries
+			b.snapshot.resources[typeURL] = entries
 
 			return
 		}
@@ -137,8 +137,8 @@ func (b *InMemoryBuilder) Build() *InMemory {
 }
 
 // Resources is an implementation of Snapshot.Resources
-func (s *InMemory) Resources(typeURL string) []*mcp.Envelope {
-	return s.envelopes[typeURL]
+func (s *InMemory) Resources(typeURL string) []*mcp.Resource {
+	return s.resources[typeURL]
 }
 
 // Version is an implementation of Snapshot.Version
@@ -149,7 +149,7 @@ func (s *InMemory) Version(typeURL string) string {
 // Clone this snapshot.
 func (s *InMemory) Clone() *InMemory {
 	c := &InMemory{
-		envelopes: make(map[string][]*mcp.Envelope),
+		resources: make(map[string][]*mcp.Resource),
 		versions:  make(map[string]string),
 	}
 
@@ -157,12 +157,12 @@ func (s *InMemory) Clone() *InMemory {
 		c.versions[k] = v
 	}
 
-	for k, v := range s.envelopes {
-		envs := make([]*mcp.Envelope, len(v))
+	for k, v := range s.resources {
+		envs := make([]*mcp.Resource, len(v))
 		for i, e := range v {
-			envs[i] = proto.Clone(e).(*mcp.Envelope)
+			envs[i] = proto.Clone(e).(*mcp.Resource)
 		}
-		c.envelopes[k] = envs
+		c.resources[k] = envs
 	}
 
 	return c
@@ -181,7 +181,7 @@ func (s *InMemory) String() string {
 	var b bytes.Buffer
 
 	var messages []string
-	for message := range s.envelopes {
+	for message := range s.resources {
 		messages = append(messages, message)
 	}
 	sort.Strings(messages)
@@ -189,10 +189,10 @@ func (s *InMemory) String() string {
 	for i, n := range messages {
 		fmt.Fprintf(&b, "[%d] (%s @%s)\n", i, n, s.versions[n])
 
-		envs := s.envelopes[n]
+		envs := s.resources[n]
 
 		// Avoid mutating the original data
-		entries := make([]*mcp.Envelope, len(envs))
+		entries := make([]*mcp.Resource, len(envs))
 		copy(entries, envs)
 		sort.Slice(entries, func(i, j int) bool {
 			return strings.Compare(entries[i].Metadata.Name, entries[j].Metadata.Name) == -1

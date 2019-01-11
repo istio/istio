@@ -65,7 +65,15 @@ func (m *ServerInfo) Validate() error {
 		}
 	}
 
-	// no validation rules for Epoch
+	if v, ok := interface{}(m.GetCommandLineOptions()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ServerInfoValidationError{
+				Field:  "CommandLineOptions",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
 
 	return nil
 }
@@ -100,3 +108,117 @@ func (e ServerInfoValidationError) Error() string {
 }
 
 var _ error = ServerInfoValidationError{}
+
+// Validate checks the field values on CommandLineOptions with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *CommandLineOptions) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for BaseId
+
+	// no validation rules for Concurrency
+
+	// no validation rules for ConfigPath
+
+	// no validation rules for ConfigYaml
+
+	// no validation rules for AllowUnknownFields
+
+	// no validation rules for AdminAddressPath
+
+	// no validation rules for LocalAddressIpVersion
+
+	// no validation rules for LogLevel
+
+	// no validation rules for ComponentLogLevel
+
+	// no validation rules for LogFormat
+
+	// no validation rules for LogPath
+
+	// no validation rules for HotRestartVersion
+
+	// no validation rules for ServiceCluster
+
+	// no validation rules for ServiceNode
+
+	// no validation rules for ServiceZone
+
+	if v, ok := interface{}(m.GetFileFlushInterval()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CommandLineOptionsValidationError{
+				Field:  "FileFlushInterval",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetDrainTime()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CommandLineOptionsValidationError{
+				Field:  "DrainTime",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetParentShutdownTime()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CommandLineOptionsValidationError{
+				Field:  "ParentShutdownTime",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for Mode
+
+	// no validation rules for MaxStats
+
+	// no validation rules for MaxObjNameLen
+
+	// no validation rules for DisableHotRestart
+
+	// no validation rules for EnableMutexTracing
+
+	// no validation rules for RestartEpoch
+
+	return nil
+}
+
+// CommandLineOptionsValidationError is the validation error returned by
+// CommandLineOptions.Validate if the designated constraints aren't met.
+type CommandLineOptionsValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e CommandLineOptionsValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCommandLineOptions.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = CommandLineOptionsValidationError{}

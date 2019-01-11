@@ -59,7 +59,7 @@ func (x ApiConfigSource_ApiType) String() string {
 	return proto.EnumName(ApiConfigSource_ApiType_name, int32(x))
 }
 func (ApiConfigSource_ApiType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_17996ce5b35770ec, []int{0, 0}
+	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{0, 0}
 }
 
 // API configuration source. This identifies the API type and cluster that Envoy
@@ -74,17 +74,17 @@ type ApiConfigSource struct {
 	//
 	//  The cluster with name ``cluster_name`` must be statically defined and its
 	//  type must not be ``EDS``.
-	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames" json:"cluster_names,omitempty"`
+	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames,proto3" json:"cluster_names,omitempty"`
 	// Multiple gRPC services be provided for GRPC. If > 1 cluster is defined,
 	// services will be cycled through if any kind of failure occurs.
-	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices" json:"grpc_services,omitempty"`
+	GrpcServices []*GrpcService `protobuf:"bytes,4,rep,name=grpc_services,json=grpcServices,proto3" json:"grpc_services,omitempty"`
 	// For REST APIs, the delay between successive polls.
-	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,stdduration" json:"refresh_delay,omitempty"`
+	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,proto3,stdduration" json:"refresh_delay,omitempty"`
 	// For REST APIs, the request timeout. If not set, a default value of 1s will be used.
-	RequestTimeout *time.Duration `protobuf:"bytes,5,opt,name=request_timeout,json=requestTimeout,stdduration" json:"request_timeout,omitempty"`
+	RequestTimeout *time.Duration `protobuf:"bytes,5,opt,name=request_timeout,json=requestTimeout,proto3,stdduration" json:"request_timeout,omitempty"`
 	// For GRPC APIs, the rate limit settings. If present, discovery requests made by Envoy will be
 	// rate limited.
-	RateLimitSettings    *RateLimitSettings `protobuf:"bytes,6,opt,name=rate_limit_settings,json=rateLimitSettings" json:"rate_limit_settings,omitempty"`
+	RateLimitSettings    *RateLimitSettings `protobuf:"bytes,6,opt,name=rate_limit_settings,json=rateLimitSettings,proto3" json:"rate_limit_settings,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -94,7 +94,7 @@ func (m *ApiConfigSource) Reset()         { *m = ApiConfigSource{} }
 func (m *ApiConfigSource) String() string { return proto.CompactTextString(m) }
 func (*ApiConfigSource) ProtoMessage()    {}
 func (*ApiConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_17996ce5b35770ec, []int{0}
+	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{0}
 }
 func (m *ApiConfigSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -178,7 +178,7 @@ func (m *AggregatedConfigSource) Reset()         { *m = AggregatedConfigSource{}
 func (m *AggregatedConfigSource) String() string { return proto.CompactTextString(m) }
 func (*AggregatedConfigSource) ProtoMessage()    {}
 func (*AggregatedConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_17996ce5b35770ec, []int{1}
+	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{1}
 }
 func (m *AggregatedConfigSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -211,10 +211,10 @@ var xxx_messageInfo_AggregatedConfigSource proto.InternalMessageInfo
 type RateLimitSettings struct {
 	// Maximum number of tokens to be used for rate limting discovery request calls. If not set, a
 	// default value of 100 will be used.
-	MaxTokens *types.UInt32Value `protobuf:"bytes,1,opt,name=max_tokens,json=maxTokens" json:"max_tokens,omitempty"`
+	MaxTokens *types.UInt32Value `protobuf:"bytes,1,opt,name=max_tokens,json=maxTokens,proto3" json:"max_tokens,omitempty"`
 	// Rate at which tokens will be filled per second. If not set, a default fill rate of 10 tokens
 	// per second will be used.
-	FillRate             *types.DoubleValue `protobuf:"bytes,2,opt,name=fill_rate,json=fillRate" json:"fill_rate,omitempty"`
+	FillRate             *types.DoubleValue `protobuf:"bytes,2,opt,name=fill_rate,json=fillRate,proto3" json:"fill_rate,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -224,7 +224,7 @@ func (m *RateLimitSettings) Reset()         { *m = RateLimitSettings{} }
 func (m *RateLimitSettings) String() string { return proto.CompactTextString(m) }
 func (*RateLimitSettings) ProtoMessage()    {}
 func (*RateLimitSettings) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_17996ce5b35770ec, []int{2}
+	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{2}
 }
 func (m *RateLimitSettings) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -288,7 +288,7 @@ func (m *ConfigSource) Reset()         { *m = ConfigSource{} }
 func (m *ConfigSource) String() string { return proto.CompactTextString(m) }
 func (*ConfigSource) ProtoMessage()    {}
 func (*ConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_source_17996ce5b35770ec, []int{3}
+	return fileDescriptor_config_source_a5c3a8d06d8a28fe, []int{3}
 }
 func (m *ConfigSource) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -328,10 +328,10 @@ type ConfigSource_Path struct {
 	Path string `protobuf:"bytes,1,opt,name=path,proto3,oneof"`
 }
 type ConfigSource_ApiConfigSource struct {
-	ApiConfigSource *ApiConfigSource `protobuf:"bytes,2,opt,name=api_config_source,json=apiConfigSource,oneof"`
+	ApiConfigSource *ApiConfigSource `protobuf:"bytes,2,opt,name=api_config_source,json=apiConfigSource,proto3,oneof"`
 }
 type ConfigSource_Ads struct {
-	Ads *AggregatedConfigSource `protobuf:"bytes,3,opt,name=ads,oneof"`
+	Ads *AggregatedConfigSource `protobuf:"bytes,3,opt,name=ads,proto3,oneof"`
 }
 
 func (*ConfigSource_Path) isConfigSource_ConfigSourceSpecifier()            {}
@@ -904,6 +904,9 @@ func encodeVarintConfigSource(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ApiConfigSource) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ApiType != 0 {
@@ -940,6 +943,9 @@ func (m *ApiConfigSource) Size() (n int) {
 }
 
 func (m *AggregatedConfigSource) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -949,6 +955,9 @@ func (m *AggregatedConfigSource) Size() (n int) {
 }
 
 func (m *RateLimitSettings) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MaxTokens != nil {
@@ -966,6 +975,9 @@ func (m *RateLimitSettings) Size() (n int) {
 }
 
 func (m *ConfigSource) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ConfigSourceSpecifier != nil {
@@ -978,6 +990,9 @@ func (m *ConfigSource) Size() (n int) {
 }
 
 func (m *ConfigSource_Path) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Path)
@@ -985,6 +1000,9 @@ func (m *ConfigSource_Path) Size() (n int) {
 	return n
 }
 func (m *ConfigSource_ApiConfigSource) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ApiConfigSource != nil {
@@ -994,6 +1012,9 @@ func (m *ConfigSource_ApiConfigSource) Size() (n int) {
 	return n
 }
 func (m *ConfigSource_Ads) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Ads != nil {
@@ -1663,10 +1684,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor_config_source_17996ce5b35770ec)
+	proto.RegisterFile("envoy/api/v2/core/config_source.proto", fileDescriptor_config_source_a5c3a8d06d8a28fe)
 }
 
-var fileDescriptor_config_source_17996ce5b35770ec = []byte{
+var fileDescriptor_config_source_a5c3a8d06d8a28fe = []byte{
 	// 634 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x53, 0xb1, 0x6f, 0xd3, 0x4e,
 	0x14, 0xce, 0xc5, 0x69, 0x9b, 0x5c, 0xd2, 0xd6, 0xb9, 0x56, 0xbf, 0xfa, 0x57, 0xa1, 0x10, 0x42,

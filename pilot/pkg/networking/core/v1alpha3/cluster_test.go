@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
@@ -141,7 +141,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
 		ClusterID:   "some-cluster-id",
-		Type:        model.Sidecar,
+		Type:        model.SidecarProxy,
 		IPAddresses: []string{"6.6.6.6"},
 		DNSDomain:   "com",
 		Metadata:    make(map[string]string),
@@ -247,7 +247,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	configgen := core.NewConfigGenerator([]plugin.Plugin{})
 	proxy := &model.Proxy{
 		ClusterID:   "some-cluster-id",
-		Type:        model.Sidecar,
+		Type:        model.SidecarProxy,
 		IPAddresses: []string{"6.6.6.6"},
 		DNSDomain:   "com",
 		Metadata:    make(map[string]string),

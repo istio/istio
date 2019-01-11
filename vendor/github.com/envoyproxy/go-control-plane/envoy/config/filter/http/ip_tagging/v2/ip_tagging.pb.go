@@ -55,7 +55,7 @@ func (x IPTagging_RequestType) String() string {
 	return proto.EnumName(IPTagging_RequestType_name, int32(x))
 }
 func (IPTagging_RequestType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_ip_tagging_5075d56f4a896b3b, []int{0, 0}
+	return fileDescriptor_ip_tagging_93e0d5aed759f06a, []int{0, 0}
 }
 
 type IPTagging struct {
@@ -64,7 +64,7 @@ type IPTagging struct {
 	// [#comment:TODO(ccaraman): Extend functionality to load IP tags from file system.
 	// Tracked by issue https://github.com/envoyproxy/envoy/issues/2695]
 	// The set of IP tags for the filter.
-	IpTags               []*IPTagging_IPTag `protobuf:"bytes,4,rep,name=ip_tags,json=ipTags" json:"ip_tags,omitempty"`
+	IpTags               []*IPTagging_IPTag `protobuf:"bytes,4,rep,name=ip_tags,json=ipTags,proto3" json:"ip_tags,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -74,7 +74,7 @@ func (m *IPTagging) Reset()         { *m = IPTagging{} }
 func (m *IPTagging) String() string { return proto.CompactTextString(m) }
 func (*IPTagging) ProtoMessage()    {}
 func (*IPTagging) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ip_tagging_5075d56f4a896b3b, []int{0}
+	return fileDescriptor_ip_tagging_93e0d5aed759f06a, []int{0}
 }
 func (m *IPTagging) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -123,7 +123,7 @@ type IPTagging_IPTag struct {
 	IpTagName string `protobuf:"bytes,1,opt,name=ip_tag_name,json=ipTagName,proto3" json:"ip_tag_name,omitempty"`
 	// A list of IP address subnets that will be tagged with
 	// ip_tag_name. Both IPv4 and IPv6 are supported.
-	IpList               []*core.CidrRange `protobuf:"bytes,2,rep,name=ip_list,json=ipList" json:"ip_list,omitempty"`
+	IpList               []*core.CidrRange `protobuf:"bytes,2,rep,name=ip_list,json=ipList,proto3" json:"ip_list,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -133,7 +133,7 @@ func (m *IPTagging_IPTag) Reset()         { *m = IPTagging_IPTag{} }
 func (m *IPTagging_IPTag) String() string { return proto.CompactTextString(m) }
 func (*IPTagging_IPTag) ProtoMessage()    {}
 func (*IPTagging_IPTag) Descriptor() ([]byte, []int) {
-	return fileDescriptor_ip_tagging_5075d56f4a896b3b, []int{0, 0}
+	return fileDescriptor_ip_tagging_93e0d5aed759f06a, []int{0, 0}
 }
 func (m *IPTagging_IPTag) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -268,6 +268,9 @@ func encodeVarintIpTagging(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *IPTagging) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RequestType != 0 {
@@ -286,6 +289,9 @@ func (m *IPTagging) Size() (n int) {
 }
 
 func (m *IPTagging_IPTag) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.IpTagName)
@@ -635,10 +641,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/http/ip_tagging/v2/ip_tagging.proto", fileDescriptor_ip_tagging_5075d56f4a896b3b)
+	proto.RegisterFile("envoy/config/filter/http/ip_tagging/v2/ip_tagging.proto", fileDescriptor_ip_tagging_93e0d5aed759f06a)
 }
 
-var fileDescriptor_ip_tagging_5075d56f4a896b3b = []byte{
+var fileDescriptor_ip_tagging_93e0d5aed759f06a = []byte{
 	// 371 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x51, 0xcd, 0x4a, 0xeb, 0x40,
 	0x14, 0xbe, 0x93, 0xfe, 0xdc, 0x76, 0x52, 0x2e, 0x21, 0x9b, 0x5b, 0xca, 0x25, 0xb7, 0x74, 0x21,

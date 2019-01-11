@@ -19,7 +19,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -213,7 +213,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod1.ns1",
-			Type: model.Sidecar,
+			Type: model.SidecarProxy,
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -223,7 +223,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod2.ns2",
-			Type: model.Sidecar,
+			Type: model.SidecarProxy,
 		},
 		Service: &svc,
 		Push:    &pushContext,

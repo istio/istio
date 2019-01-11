@@ -18,7 +18,6 @@ import (
 	"errors"
 
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -34,7 +33,7 @@ func NewKube() *Kube {
 }
 
 // DynamicInterface implementation.
-func (k *Kube) DynamicInterface(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error) {
+func (k *Kube) DynamicInterface() (dynamic.Interface, error) {
 	if len(k.response1) == 0 {
 		panic("No more responses left")
 	}

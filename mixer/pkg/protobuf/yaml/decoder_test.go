@@ -23,7 +23,7 @@ import (
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
+	foo "istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
 )
 
 func TestDecoder(t *testing.T) {

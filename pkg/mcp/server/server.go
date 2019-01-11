@@ -87,12 +87,12 @@ type WatchResponse struct {
 	TypeURL string
 
 	// Version of the resources in the response for the given
-	// type. The client responses with this version in subsequent
+	// type. The node responds with this version in subsequent
 	// requests as an acknowledgment.
 	Version string
 
-	// Enveloped resources to be included in the response.
-	Envelopes []*mcp.Envelope
+	// Resources to be included in the response.
+	Resources []*mcp.Resource
 }
 
 type (
@@ -179,10 +179,10 @@ func (w *watch) delayedPush() {
 	}
 }
 
-// Try to schedule pushing a response to the client. The push may
+// Try to schedule pushing a response to the node. The push may
 // be re-scheduled as needed. Additional care is taken to rate limit
 // re-pushing responses that were previously NACK'd. This avoid flooding
-// the client with responses while also allowing transient NACK'd responses
+// the node with responses while also allowing transient NACK'd responses
 // to be retried.
 func (w *watch) schedulePush() {
 	w.mu.Lock()
@@ -248,7 +248,7 @@ func (w *watch) saveResponseAndSchedulePush(response *WatchResponse) {
 }
 
 // connection maintains per-stream connection state for a
-// client. Access to the stream and watch state is serialized
+// node. Access to the stream and watch state is serialized
 // through request and response channels.
 type connection struct {
 	peerAddr string
@@ -426,13 +426,13 @@ func (con *connection) String() string {
 }
 
 func (con *connection) send(resp *WatchResponse) (string, error) {
-	envelopes := make([]mcp.Envelope, 0, len(resp.Envelopes))
-	for _, envelope := range resp.Envelopes {
-		envelopes = append(envelopes, *envelope)
+	resources := make([]mcp.Resource, 0, len(resp.Resources))
+	for _, resource := range resp.Resources {
+		resources = append(resources, *resource)
 	}
 	msg := &mcp.MeshConfigResponse{
 		VersionInfo: resp.Version,
-		Envelopes:   envelopes,
+		Resources:   resources,
 		TypeUrl:     resp.TypeURL,
 	}
 
@@ -520,7 +520,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce value. These could be dup requests or out-of-order
-		// requests from a buggy client.
+		// requests from a buggy node.
 		if req.ErrorDetail != nil {
 			scope.Errorf("MCP: connection %v: STALE NACK type_url=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
 				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)

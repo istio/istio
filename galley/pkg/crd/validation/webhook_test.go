@@ -30,7 +30,7 @@ import (
 	"github.com/ghodss/yaml"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -121,6 +121,12 @@ var (
 		return source
 	}
 )
+
+func TestArgs_String(t *testing.T) {
+	p := DefaultArgs()
+	// Should not crash
+	_ = p.String()
+}
 
 func createTestWebhook(
 	t testing.TB,

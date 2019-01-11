@@ -32,7 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -511,6 +511,9 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
+		"fromJSON":            fromJSON,
+		"toYaml":              toYaml,
+		"indent":              indent,
 		"directory":           directory,
 	}
 
@@ -524,7 +527,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 
 	var sic SidecarInjectionSpec
 	if err := yaml.Unmarshal(tmpl.Bytes(), &sic); err != nil {
-		log.Warnf("Failed to unmarshall template %v %s", err, string(tmpl.Bytes()))
+		log.Warnf("Failed to unmarshall template %v %s", err, tmpl.String())
 		return nil, "", err
 	}
 
@@ -769,6 +772,38 @@ func toJSON(m map[string]string) string {
 	}
 
 	return string(ba)
+}
+
+func fromJSON(j string) interface{} {
+	var m interface{}
+	err := json.Unmarshal([]byte(j), &m)
+	if err != nil {
+		log.Warnf("Unable to unmarshal %s", j)
+		return "{}"
+	}
+
+	log.Warnf("%v", m)
+	return m
+}
+
+func indent(spaces int, source string) string {
+	res := strings.Split(source, "\n")
+	for i, line := range res {
+		if i > 0 {
+			res[i] = fmt.Sprintf(fmt.Sprintf("%% %ds%%s", spaces), "", line)
+		}
+	}
+	return strings.Join(res, "\n")
+}
+
+func toYaml(value interface{}) string {
+	y, err := yaml.Marshal(value)
+	if err != nil {
+		log.Warnf("Unable to marshal %v", value)
+		return ""
+	}
+
+	return string(y)
 }
 
 func annotation(meta metav1.ObjectMeta, name string, defaultValue interface{}) string {

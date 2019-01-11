@@ -87,7 +87,7 @@ function install_gometalinter() {
 }
 
 function install_golangcilint() {
-  GOLANGCI_VERSION="v1.12.2"
+  GOLANGCI_VERSION="v1.12.4"
   curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
   golangci-lint --version
 }
@@ -142,4 +142,3 @@ install_gometalinter
 run_gometalinter
 run_helm_lint
 check_grafana_dashboards
-check_licenses

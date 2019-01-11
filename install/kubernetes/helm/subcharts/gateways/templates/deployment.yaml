@@ -54,6 +54,30 @@ spec:
             privileged: true
 {{- end }}
       containers:
+{{- if $spec.sds }}
+{{- if $spec.sds.enabled }}
+        - name: ingress-sds
+{{- if contains "/" $spec.sds.image }}
+          image: "{{ $spec.sds.image }}"
+{{- else }}
+          image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          env:
+          - name: "ENABLE_WORKLOAD_SDS"
+            value: "false"
+          - name: "ENABLE_INGRESS_GATEWAY_SDS"
+            value: "true"
+          - name: "INGRESS_GATEWAY_NAMESPACE"
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+{{- end }}
+{{- end }}
         - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
           image: "{{ $.Values.global.proxy.image }}"
@@ -152,6 +176,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
+          - name: ISTIO_META_USER_SDS
+            value: "true"
+          {{- end }}
+          {{- end }}
           {{- if $spec.env }}
           {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
@@ -167,6 +197,12 @@ spec:
             mountPath: /var/run/secrets/tokens
           {{- end }}
           {{- end }}
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+          {{- end }}
+          {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
             readOnly: true
@@ -179,6 +215,12 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
+      {{- if $spec.sds }}
+      {{- if $spec.sds.enabled }}
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
+      {{- end }}
+      {{- end }}
       {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
@@ -210,7 +252,7 @@ spec:
           optional: true
       {{- end }}
       affinity:
-      {{- include "nodeaffinity" $ | indent 6 }}
+      {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
 ---
 {{- end }}
 {{- end }}

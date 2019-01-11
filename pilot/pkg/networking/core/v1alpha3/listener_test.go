@@ -34,7 +34,7 @@ var (
 	tnow  = time.Now()
 	tzero = time.Time{}
 	proxy = model.Proxy{
-		Type:        model.Sidecar,
+		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
@@ -145,6 +145,9 @@ func testInboundListenerConfig(t *testing.T, services ...*model.Service) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	verifyInboundHTTPListenerServerName(t, listeners[0])
+	if isHTTPListener(listeners[0]) {
+		verifyInboundHTTPListenerCertDetails(t, listeners[0])
+	}
 }
 
 func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostname model.Hostname) {
@@ -178,6 +181,30 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	serverName := f.GetConfig().Fields["server_name"].GetStringValue()
 	if serverName != expectedServerName {
 		t.Fatalf("expected listener to contain server_name %s, found %s", expectedServerName, serverName)
+	}
+}
+
+func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 1 {
+		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	forwardDetails, expected := f.GetConfig().Fields["forward_client_cert_details"].GetStringValue(), "APPEND_FORWARD"
+	if forwardDetails != expected {
+		t.Fatalf("expected listener to contain forward_client_cert_details %s, found %s", expected, forwardDetails)
+	}
+	setDetails := f.GetConfig().Fields["set_current_client_cert_details"].GetStructValue()
+	subject := setDetails.Fields["subject"].GetBoolValue()
+	dns := setDetails.Fields["dns"].GetBoolValue()
+	uri := setDetails.Fields["uri"].GetBoolValue()
+	if !subject || !dns || !uri {
+		t.Fatalf("expected listener to contain set_current_client_cert_details (subject: true, dns: true, uri: true), "+
+			"found (subject: %t, dns: %t, uri %t)", subject, dns, uri)
 	}
 }
 

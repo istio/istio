@@ -30,7 +30,10 @@ import (
 	pb "istio.io/istio/security/proto"
 )
 
-const caServerName = "istio-citadel"
+const (
+	caServerName      = "istio-citadel"
+	bearerTokenPrefix = "Bearer "
+)
 
 type citadelClient struct {
 	caEndpoint    string
@@ -76,6 +79,8 @@ func (c *citadelClient) CSRSign(ctx context.Context, csrPEM []byte, token string
 		ValidityDuration: certValidTTLInSec,
 	}
 
+	// add Bearer prefix, which is required by Citadel.
+	token = bearerTokenPrefix + token
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {

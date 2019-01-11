@@ -27,7 +27,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -396,10 +396,16 @@ func ValidateUnixAddress(addr string) error {
 	if len(addr) == 0 {
 		return errors.New("unix address must not be empty")
 	}
+
+	// Allow unix abstract domain sockets whose names start with @
+	if strings.HasPrefix(addr, "@") {
+		return nil
+	}
+
 	// Note that we use path, not path/filepath even though a domain socket path is a file path.  We don't want the
 	// Pilot output to depend on which OS Pilot is run on, so we always use Unix-style forward slashes.
-	if !path.IsAbs(addr) {
-		return fmt.Errorf("%s is not an absolute path", addr)
+	if !path.IsAbs(addr) || strings.HasSuffix(addr, "/") {
+		return fmt.Errorf("%s is not an absolute path to a file", addr)
 	}
 	return nil
 }
@@ -500,11 +506,7 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		// no tls config at all is valid
 		return
 	}
-	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
-		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
-		}
-	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
+	if tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -562,6 +564,171 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 
 		if f.FilterConfig == nil {
 			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter config"))
+		}
+	}
+
+	return
+}
+
+// ValidateSidecar checks sidecar config supplied by user
+func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
+	rule, ok := msg.(*networking.Sidecar)
+	if !ok {
+		return fmt.Errorf("cannot cast to Sidecar")
+	}
+
+	if rule.WorkloadSelector != nil {
+		if rule.WorkloadSelector.GetLabels() == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: workloadSelector cannot have empty labels"))
+		}
+	}
+
+	if len(rule.Ingress) == 0 && len(rule.Egress) == 0 {
+		return fmt.Errorf("sidecar: missing ingress/egress listeners")
+	}
+
+	portMap := make(map[uint32]struct{})
+	udsMap := make(map[string]struct{})
+	for _, i := range rule.Ingress {
+		if i.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
+			continue
+		}
+
+		bind := i.GetBind()
+		captureMode := i.GetCaptureMode()
+		errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+
+		if i.Port.Number == 0 {
+			if _, found := udsMap[bind]; found {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
+			}
+			udsMap[bind] = struct{}{}
+		} else {
+			if _, found := portMap[i.Port.Number]; found {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+			}
+			portMap[i.Port.Number] = struct{}{}
+		}
+
+		if len(i.DefaultEndpoint) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
+		} else {
+			if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
+				errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+			} else {
+				// format should be 127.0.0.1:port or :port
+				parts := strings.Split(i.DefaultEndpoint, ":")
+				if len(parts) < 2 {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>"))
+				} else {
+					if len(parts[0]) > 0 && parts[0] != "127.0.0.1" {
+						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>"))
+					}
+
+					port, err := strconv.Atoi(parts[1])
+					if err != nil {
+						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
+					} else {
+						errs = appendErrors(errs, ValidatePort(port))
+					}
+				}
+			}
+		}
+	}
+
+	// TODO: complete bind address+port or UDS uniqueness across ingress and egress
+	// after the whole listener implementation is complete
+	portMap = make(map[uint32]struct{})
+	udsMap = make(map[string]struct{})
+	catchAllEgressListenerFound := false
+	for index, i := range rule.Egress {
+		// there can be only one catch all egress listener with empty port, and it should be the last listener.
+		if i.Port == nil {
+			if !catchAllEgressListenerFound {
+				if index == len(rule.Egress)-1 {
+					catchAllEgressListenerFound = true
+				} else {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
+				continue
+			}
+		} else {
+			bind := i.GetBind()
+			captureMode := i.GetCaptureMode()
+			errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+
+			if i.Port.Number == 0 {
+				if _, found := udsMap[bind]; found {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
+				}
+				udsMap[bind] = struct{}{}
+			} else {
+				if _, found := portMap[i.Port.Number]; found {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+				}
+				portMap[i.Port.Number] = struct{}{}
+			}
+		}
+
+		// validate that the hosts field is a slash separated value
+		// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
+		if len(i.Hosts) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
+		} else {
+			for _, host := range i.Hosts {
+				parts := strings.SplitN(host, "/", 2)
+				if len(parts) != 2 {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: host must be of form namespace/dnsName"))
+					continue
+				}
+
+				if len(parts[0]) == 0 || len(parts[1]) == 0 {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: config namespace and dnsName in host entry cannot be empty"))
+				}
+
+				// short name hosts are not allowed
+				if parts[1] != "*" && !strings.Contains(parts[1], ".") {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: short names (non FQDN) are not allowed"))
+				}
+
+				errs = appendErrors(errs, ValidateWildcardDomain(parts[1]))
+			}
+		}
+	}
+
+	return
+}
+
+func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
+	captureMode networking.CaptureMode) (errs error) {
+
+	// Handle Unix domain sockets
+	if port.Number == 0 {
+		// require bind to be a unix domain socket
+		errs = appendErrors(errs,
+			validatePortName(port.Name),
+			validateProtocol(port.Protocol))
+
+		if !strings.HasPrefix(bind, UnixAddressPrefix) {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: ports with 0 value must have a unix domain socket bind address"))
+		} else {
+			errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
+		}
+
+		if captureMode != networking.CaptureMode_DEFAULT && captureMode != networking.CaptureMode_NONE {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: captureMode must be DEFAULT/NONE for unix domain socket listeners"))
+		}
+	} else {
+		errs = appendErrors(errs,
+			validatePortName(port.Name),
+			validateProtocol(port.Protocol),
+			ValidatePort(int(port.Number)))
+
+		if len(bind) != 0 {
+			errs = appendErrors(errs, ValidateIPv4Address(bind))
 		}
 	}
 
@@ -1644,10 +1811,10 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
-		if len(weights) > 1 && weight.Weight < 1 {
-			errs = multierror.Append(errs, errors.New("positive weight is required"))
-		}
 		totalWeight += weight.Weight
+	}
+	if len(weights) > 1 && totalWeight != 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
 	}
 	return
 }

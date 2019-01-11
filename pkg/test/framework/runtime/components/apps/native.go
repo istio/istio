@@ -282,7 +282,7 @@ func newNativeApp(cfg appConfig) (a components.App, err error) {
 	}).NewAgent
 
 	// Create and start the agent.
-	newapp.agent, err = agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory)
+	newapp.agent, err = agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory, nil)
 	if err != nil {
 		return
 	}

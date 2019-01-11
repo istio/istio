@@ -33,7 +33,7 @@ type CircuitBreakers struct {
 	// the first one in the list is used. If no Thresholds is defined for a given
 	// :ref:`RoutingPriority<envoy_api_enum_core.RoutingPriority>`, the default values
 	// are used.
-	Thresholds           []*CircuitBreakers_Thresholds `protobuf:"bytes,1,rep,name=thresholds" json:"thresholds,omitempty"`
+	Thresholds           []*CircuitBreakers_Thresholds `protobuf:"bytes,1,rep,name=thresholds,proto3" json:"thresholds,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
 	XXX_unrecognized     []byte                        `json:"-"`
 	XXX_sizecache        int32                         `json:"-"`
@@ -43,7 +43,7 @@ func (m *CircuitBreakers) Reset()         { *m = CircuitBreakers{} }
 func (m *CircuitBreakers) String() string { return proto.CompactTextString(m) }
 func (*CircuitBreakers) ProtoMessage()    {}
 func (*CircuitBreakers) Descriptor() ([]byte, []int) {
-	return fileDescriptor_circuit_breaker_f0d66cc80ef03e29, []int{0}
+	return fileDescriptor_circuit_breaker_bd4ee601853a6f15, []int{0}
 }
 func (m *CircuitBreakers) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -89,16 +89,16 @@ type CircuitBreakers_Thresholds struct {
 	Priority core.RoutingPriority `protobuf:"varint,1,opt,name=priority,proto3,enum=envoy.api.v2.core.RoutingPriority" json:"priority,omitempty"`
 	// The maximum number of connections that Envoy will make to the upstream
 	// cluster. If not specified, the default is 1024.
-	MaxConnections *types.UInt32Value `protobuf:"bytes,2,opt,name=max_connections,json=maxConnections" json:"max_connections,omitempty"`
+	MaxConnections *types.UInt32Value `protobuf:"bytes,2,opt,name=max_connections,json=maxConnections,proto3" json:"max_connections,omitempty"`
 	// The maximum number of pending requests that Envoy will allow to the
 	// upstream cluster. If not specified, the default is 1024.
-	MaxPendingRequests *types.UInt32Value `protobuf:"bytes,3,opt,name=max_pending_requests,json=maxPendingRequests" json:"max_pending_requests,omitempty"`
+	MaxPendingRequests *types.UInt32Value `protobuf:"bytes,3,opt,name=max_pending_requests,json=maxPendingRequests,proto3" json:"max_pending_requests,omitempty"`
 	// The maximum number of parallel requests that Envoy will make to the
 	// upstream cluster. If not specified, the default is 1024.
-	MaxRequests *types.UInt32Value `protobuf:"bytes,4,opt,name=max_requests,json=maxRequests" json:"max_requests,omitempty"`
+	MaxRequests *types.UInt32Value `protobuf:"bytes,4,opt,name=max_requests,json=maxRequests,proto3" json:"max_requests,omitempty"`
 	// The maximum number of parallel retries that Envoy will allow to the
 	// upstream cluster. If not specified, the default is 3.
-	MaxRetries           *types.UInt32Value `protobuf:"bytes,5,opt,name=max_retries,json=maxRetries" json:"max_retries,omitempty"`
+	MaxRetries           *types.UInt32Value `protobuf:"bytes,5,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -108,7 +108,7 @@ func (m *CircuitBreakers_Thresholds) Reset()         { *m = CircuitBreakers_Thre
 func (m *CircuitBreakers_Thresholds) String() string { return proto.CompactTextString(m) }
 func (*CircuitBreakers_Thresholds) ProtoMessage()    {}
 func (*CircuitBreakers_Thresholds) Descriptor() ([]byte, []int) {
-	return fileDescriptor_circuit_breaker_f0d66cc80ef03e29, []int{0, 0}
+	return fileDescriptor_circuit_breaker_bd4ee601853a6f15, []int{0, 0}
 }
 func (m *CircuitBreakers_Thresholds) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -356,6 +356,9 @@ func encodeVarintCircuitBreaker(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *CircuitBreakers) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Thresholds) > 0 {
@@ -371,6 +374,9 @@ func (m *CircuitBreakers) Size() (n int) {
 }
 
 func (m *CircuitBreakers_Thresholds) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Priority != 0 {
@@ -801,10 +807,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/cluster/circuit_breaker.proto", fileDescriptor_circuit_breaker_f0d66cc80ef03e29)
+	proto.RegisterFile("envoy/api/v2/cluster/circuit_breaker.proto", fileDescriptor_circuit_breaker_bd4ee601853a6f15)
 }
 
-var fileDescriptor_circuit_breaker_f0d66cc80ef03e29 = []byte{
+var fileDescriptor_circuit_breaker_bd4ee601853a6f15 = []byte{
 	// 381 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x91, 0xcf, 0xaa, 0xd3, 0x40,
 	0x14, 0x87, 0x99, 0xd6, 0x7f, 0x4c, 0xe4, 0x5e, 0x08, 0x45, 0x42, 0xb9, 0x84, 0x72, 0x57, 0xc5,

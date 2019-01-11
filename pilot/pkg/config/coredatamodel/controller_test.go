@@ -131,7 +131,7 @@ func TestListAllNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	messages := convertToEnvelope(g, model.Gateway.MessageName, []proto.Message{gateway, gateway2, gateway3})
+	messages := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway, gateway2, gateway3})
 	message, message2, message3 := messages[0], messages[1], messages[2]
 	change := convert(
 		[]proto.Message{message, message2, message3},
@@ -165,7 +165,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	messages := convertToEnvelope(g, model.Gateway.MessageName, []proto.Message{gateway, gateway2, gateway3})
+	messages := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway, gateway2, gateway3})
 	message, message2, message3 := messages[0], messages[1], messages[2]
 
 	change := convert(
@@ -196,7 +196,7 @@ func TestApplyInvalidType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToEnvelope(g, model.Gateway.MessageName, []proto.Message{gateway})
+	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, "bad-type")
 
 	err := controller.Apply(change)
@@ -246,7 +246,7 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToEnvelope(g, model.Gateway.MessageName, []proto.Message{gateway})
+	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 
 	change := convert([]proto.Message{message[0]}, []string{"istio-namespace/some-gateway"}, model.Gateway.MessageName)
 	err := controller.Apply(change)
@@ -264,7 +264,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToEnvelope(g, model.Gateway.MessageName, []proto.Message{gateway})
+	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 
 	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.MessageName)
 	err := controller.Apply(change)
@@ -282,7 +282,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToEnvelope(g, model.Gateway.MessageName, []proto.Message{gateway})
+	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.MessageName)
 
 	err := controller.Apply(change)
@@ -313,14 +313,14 @@ func convert(resources []proto.Message, names []string, responseMessageName stri
 				Metadata: &mcpapi.Metadata{
 					Name: names[i],
 				},
-				Resource: res,
+				Body: res,
 			},
 		)
 	}
 	return out
 }
 
-func convertToEnvelope(g *gomega.GomegaWithT, messageName string, resources []proto.Message) (messages []proto.Message) {
+func convertToResource(g *gomega.GomegaWithT, messageName string, resources []proto.Message) (messages []proto.Message) {
 	for _, resource := range resources {
 		marshaled, err := proto.Marshal(resource)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -350,8 +350,8 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message0 := convertToEnvelope(g, model.AuthenticationPolicy.MessageName, []proto.Message{authnPolicy0})
-	message1 := convertToEnvelope(g, model.AuthenticationMeshPolicy.MessageName, []proto.Message{authnPolicy1})
+	message0 := convertToResource(g, model.AuthenticationPolicy.MessageName, []proto.Message{authnPolicy0})
+	message1 := convertToResource(g, model.AuthenticationMeshPolicy.MessageName, []proto.Message{authnPolicy1})
 
 	change := convert(
 		[]proto.Message{message0[0], message1[0]},
@@ -441,7 +441,7 @@ func TestEventHandler(t *testing.T) {
 				CreateTime: fakeCreateTimeProto,
 				Version:    version,
 			},
-			Resource: &networking.ServiceEntry{
+			Body: &networking.ServiceEntry{
 				Hosts: []string{host},
 			},
 		}

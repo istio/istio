@@ -39,8 +39,6 @@ const (
 	Authn = "authn"
 	// Authz is the name of the rbac plugin passed through the command line
 	Authz = "authz"
-	// Envoyfilter is the name of the envoyfilter plugin passed through the command line
-	Envoyfilter = "envoyfilter"
 	// Health is the name of the health plugin passed through the command line
 	Health = "health"
 	// Mixer is the name of the mixer plugin passed through the command line
@@ -84,6 +82,10 @@ type InputParams struct {
 	// For outbound/inbound sidecars this is the service port (not endpoint port)
 	// For inbound listener on gateway, this is the gateway server port
 	Port *model.Port
+	// Bind holds the listener IP or unix domain socket to which this listener is bound
+	// if bind is using UDS, the port will be 0 with valid protocol and name
+	Bind string
+
 	// The subset associated with the service for which the cluster is being programmed
 	Subset string
 	// Push holds stats and other information about the current push.

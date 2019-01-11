@@ -32,10 +32,21 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/registry"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 )
 
-const certExpirationBuffer = time.Minute
+// Config for Vault prototyping purpose
+const (
+	jwtPath              = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	caCertPath           = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	k8sAPIServerURL      = "https://kubernetes.default.svc/apis/authentication.k8s.io/v1/tokenreviews"
+	certExpirationBuffer = time.Minute
+)
+
+type authenticator interface {
+	Authenticate(ctx context.Context) (*authenticate.Caller, error)
+}
 
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
@@ -70,7 +81,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	cert, signErr := s.ca.Sign(
-		[]byte(request.Csr), caller.identities, time.Duration(request.ValidityDuration)*time.Second, false)
+		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
 	if signErr != nil {
 		log.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*ca.Error).ErrorType()).Inc()
@@ -170,23 +181,34 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int) (*Server, error) {
+func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int, trustDomain string) (*Server, error) {
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
 	}
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
-	authenticators := []authenticator{&clientCertAuthenticator{}}
+	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
+	log.Info("added client certificate authenticator")
+
+	authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain)
+	if err == nil {
+		authenticators = append(authenticators, authenticator)
+		log.Info("added K8s JWT authenticator")
+	} else {
+		log.Warnf("failed to add create JWT authenticator: %v", err)
+	}
+
 	// Temporarily disable ID token authenticator by resetting the hostlist.
 	// [TODO](myidpt): enable ID token authenticator when the CSR API authz can work correctly.
 	hostlistForJwtAuth := make([]string, 0)
 	for _, host := range hostlistForJwtAuth {
 		aud := fmt.Sprintf("grpc://%s:%d", host, port)
-		if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
+		if jwtAuthenticator, err := authenticate.NewIDTokenAuthenticator(aud); err != nil {
 			log.Errorf("failed to create JWT authenticator (error %v)", err)
 		} else {
 			authenticators = append(authenticators, jwtAuthenticator)
+			log.Infof("added generatl JWT authenticator")
 		}
 	}
 	return &Server{
@@ -246,10 +268,11 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	return &cert, nil
 }
 
-func (s *Server) authenticate(ctx context.Context) *caller {
+func (s *Server) authenticate(ctx context.Context) *authenticate.Caller {
 	// TODO: apply different authenticators in specific order / according to configuration.
 	for _, authn := range s.authenticators {
-		if u, _ := authn.authenticate(ctx); u != nil {
+		if u, err := authn.Authenticate(ctx); u != nil {
+			log.Infof("Authentication failed: %v", err)
 			return u
 		}
 	}
