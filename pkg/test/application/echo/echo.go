@@ -104,19 +104,19 @@ func (a *echo) start() (err error) {
 		case model.ProtocolHTTP:
 			fallthrough
 		case model.ProtocolHTTPS:
-			a.servers[i] = &httpServer{
+			a.servers = append(a.servers, &httpServer{
 				port: p,
 				h:    handler,
-			}
+			})
 		case model.ProtocolHTTP2:
 			fallthrough
 		case model.ProtocolGRPC:
-			a.servers[i] = &grpcServer{
+			a.servers = append(a.servers, &grpcServer{
 				port:    p,
 				h:       handler,
 				tlsCert: a.tlsCert,
 				tlsCKey: a.tlsCKey,
-			}
+			})
 		default:
 			return fmt.Errorf("unsupported protocol: %s", p.Protocol)
 		}
