@@ -350,7 +350,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			pluginParams := &plugin.InputParams{
 				Env:             env,
 				Node:            proxy,
-				ServiceInstance: instances[0],
+				ServiceInstance: instance,
 				Port:            instance.Endpoint.ServicePort,
 				Push:            push,
 				Bind:            LocalhostAddress,
