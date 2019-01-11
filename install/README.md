@@ -18,7 +18,6 @@ The [updateVersion.sh](updateVersion.sh) script is used to update image versions
 * `-n <namespace>` namespace in which to install Istio control plane components (defaults to istio-system)
 * `-P` URL to download pilot debian packages
 * `-d <dir>` directory to store updated/generated files (optional, defaults to source code tree)
-* `-D` enable debug for proxy (optional, default is false)
 
 Default values for the `-p`, `-x`, `-c`, `-o`, and `-a` options are as specified in `istio.VERSION`
 (i.e., they are left unchanged).

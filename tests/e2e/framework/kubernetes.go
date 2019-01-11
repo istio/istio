@@ -42,6 +42,7 @@ const (
 	istioInstallDir                = "install/kubernetes"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
+	authSdsInstallFile             = "istio-auth-sds.yaml"
 	nonAuthWithoutMCPInstallFile   = "istio-mcp.yaml"
 	authWithoutMCPInstallFile      = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
@@ -66,6 +67,12 @@ const (
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
+	// CRD files that should be installed during testing
+	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
+	//     and contain all CRDs used by Istio during runtime
+	zeroCRDInstallFile = "crd-10.yaml"
+	oneCRDInstallFile  = "crd-11.yaml"
+	twoCRDInstallFile  = "crd-certmanager-10.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -90,6 +97,7 @@ var (
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
+	authSdsEnable      = flag.Bool("auth_sds_enable", false, "Enable auth using key/cert distributed through SDS")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster       = flag.Bool("use_local_cluster", false,
 		"If true any LoadBalancer type services will be converted to a NodePort service during testing. If running on minikube, this should be set to true")
@@ -151,6 +159,7 @@ type KubeInfo struct {
 	localCluster     bool
 	namespaceCreated bool
 	AuthEnabled      bool
+	AuthSdsEnabled   bool
 	RBACEnabled      bool
 
 	// Istioctl installation
@@ -178,7 +187,11 @@ func getClusterWideInstallFile() string {
 	var istioYaml string
 	if *authEnable {
 		if *useMCP {
-			istioYaml = authInstallFile
+			if *authSdsEnable {
+				istioYaml = authSdsInstallFile
+			} else {
+				istioYaml = authInstallFile
+			}
 		} else {
 			istioYaml = authWithoutMCPInstallFile
 		}
@@ -288,6 +301,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		AppManager:       a,
 		RemoteAppManager: aRemote,
 		AuthEnabled:      *authEnable,
+		AuthSdsEnabled:   *authSdsEnable,
 		RBACEnabled:      *rbacEnable,
 		ReleaseDir:       releaseDir,
 		BaseVersion:      baseVersion,
@@ -349,6 +363,12 @@ func (k *KubeInfo) Setup() error {
 			// install istio using helm
 			if err = k.deployIstioWithHelm(); err != nil {
 				log.Error("Failed to deploy Istio with helm.")
+				return err
+			}
+
+			// execute helm test for istio
+			if err = k.executeHelmTest(); err != nil {
+				log.Error("Failed to execute Istio helm tests.")
 				return err
 			}
 		} else {
@@ -787,14 +807,26 @@ EOF`, k.KubeConfig, dummyValidationRule)
 	return nil
 }
 
-func (k *KubeInfo) deployIstioWithHelm() error {
-	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
+func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
+	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio-init", "files", kubernetesCRD)
 	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
 
 	// deploy CRDs first
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
-		log.Errorf("Failed to apply %s", yamlFileName)
 		return err
+	}
+	return nil
+}
+
+func (k *KubeInfo) deployIstioWithHelm() error {
+	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
+	// This slice contains the list of CRD files installed during testing
+	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile}
+	// deploy all CRDs in Istio first
+	for _, yamlFileName := range istioCRDFileNames {
+		if err := k.deployCRDs(yamlFileName); err != nil {
+			return fmt.Errorf("failed to apply all Istio CRDs from file: %s with error: %v", yamlFileName, err)
+		}
 	}
 
 	// install istio helm chart, which includes addon
@@ -832,6 +864,9 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 
 	// CRDs installed ahead of time with 2.9.x
 	setValue += " --set global.crds=false"
+
+	// enable helm test for istio
+	setValue += " --set global.enableHelmTest=true"
 
 	// add additional values passed from test
 	for _, v := range helmSetValues {
@@ -879,6 +914,18 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		if err := k.waitForValdiationWebhook(); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (k *KubeInfo) executeHelmTest() error {
+	if !util.CheckPodsRunning(k.Namespace, k.KubeConfig) {
+		return fmt.Errorf("can't get all pods running")
+	}
+
+	if err := util.HelmTest("istio"); err != nil {
+		return fmt.Errorf("helm test istio failed")
 	}
 
 	return nil

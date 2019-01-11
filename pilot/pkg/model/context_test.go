@@ -44,7 +44,7 @@ func TestServiceNode(t *testing.T) {
 		},
 		{
 			in: &model.Proxy{
-				Type:        model.Sidecar,
+				Type:        model.SidecarProxy,
 				ID:          "random",
 				IPAddresses: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"},
 				DNSDomain:   "local",

@@ -349,7 +349,7 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 func (ps *PushContext) UpdateNodeIsolation(proxy *Proxy) {
 	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
 	// bindings.
-	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {
+	if pilot.NetworkScopes != "" && proxy.Type == SidecarProxy {
 		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
 		// reviewed ), or from an env variable.
 		adminNs := strings.Split(pilot.NetworkScopes, ",")

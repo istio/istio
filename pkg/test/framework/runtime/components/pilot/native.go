@@ -18,7 +18,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
@@ -86,7 +86,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		HTTPAddr:       ":0",
 		MonitoringAddr: ":0",
 		GrpcAddr:       ":0",
-		SecureGrpcAddr: ":0",
+		SecureGrpcAddr: "",
 	}
 
 	bootstrapArgs := bootstrap.PilotArgs{
@@ -102,7 +102,8 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 			Registries: []string{},
 		},
 		// Include all of the default plugins for integration with Mixer, etc.
-		Plugins: bootstrap.DefaultPlugins,
+		Plugins:   bootstrap.DefaultPlugins,
+		ForceStop: true,
 	}
 
 	// Save the config store.

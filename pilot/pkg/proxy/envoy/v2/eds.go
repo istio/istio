@@ -351,7 +351,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 	s.mutex.Lock()
 	for k, v := range svc2account {
-		ep, _ := s.EndpointShardsByService[k]
+		ep := s.EndpointShardsByService[k]
 		ep.ServiceAccounts = v
 	}
 	s.mutex.Unlock()
@@ -614,7 +614,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	emptyClusters := 0
 	endpoints := 0
 	empty := []string{}
-	updated := []string{}
 
 	for _, clusterName := range con.Clusters {
 
@@ -622,10 +621,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
 			// Cluster was not updated, skip recomputing.
 			continue
-		}
-		// for debug
-		if edsUpdatedServices != nil {
-			updated = append(updated, clusterName)
 		}
 
 		c := s.getEdsCluster(clusterName)
@@ -673,7 +668,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	response := s.endpoints(con.Clusters, resAny)
 	err := con.send(response)
 	if err != nil {
-		adsLog.Warnf("EDS: Send failure, closing grpc %v", err)
+		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
 		pushes.With(prometheus.Labels{"type": "eds_senderr"}).Add(1)
 		return err
 	}

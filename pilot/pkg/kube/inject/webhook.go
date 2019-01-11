@@ -299,9 +299,27 @@ func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, remo
 }
 
 func addContainer(target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
+	saJwtSecretMountName := ""
+	var saJwtSecretMount corev1.VolumeMount
+	// find service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
+	// https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#service-account-automation) from app container
+	for _, add := range target {
+		for _, vmount := range add.VolumeMounts {
+			if vmount.MountPath == "/var/run/secrets/kubernetes.io/serviceaccount" {
+				saJwtSecretMountName = vmount.Name
+				saJwtSecretMount = vmount
+			}
+		}
+	}
 	first := len(target) == 0
 	var value interface{}
 	for _, add := range added {
+		if add.Name == "istio-proxy" && saJwtSecretMountName != "" {
+			// add service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
+			// https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#service-account-automation) to istio-proxy container,
+			// so that envoy could fetch/pass k8s sa jwt and pass to sds server, which will be used to request workload identity for the pod.
+			add.VolumeMounts = append(add.VolumeMounts, saJwtSecretMount)
+		}
 		value = add
 		path := basePath
 		if first {
@@ -316,6 +334,15 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 			Value: value,
 		})
 	}
+	return patch
+}
+
+func addSecurityContext(target *corev1.PodSecurityContext, basePath string) (patch []rfc6902PatchOperation) {
+	patch = append(patch, rfc6902PatchOperation{
+		Op:    "add",
+		Path:  basePath,
+		Value: target,
+	})
 	return patch
 }
 
@@ -408,6 +435,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
+	if pod.Spec.SecurityContext != nil {
+		patch = append(patch, addSecurityContext(pod.Spec.SecurityContext, "/spec/securityContext")...)
+	}
+
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
 	return json.Marshal(patch)
@@ -480,6 +511,16 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		return &v1beta1.AdmissionResponse{
 			Allowed: true,
+		}
+	}
+
+	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
+	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
+	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+	if wh.meshConfig.EnableSdsTokenMount && wh.meshConfig.SdsUdsPath != "" {
+		var grp = int64(1337)
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup: &grp,
 		}
 	}
 

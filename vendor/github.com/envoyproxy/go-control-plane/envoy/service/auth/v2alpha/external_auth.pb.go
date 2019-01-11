@@ -11,8 +11,10 @@ import _type "github.com/envoyproxy/go-control-plane/envoy/type"
 import rpc "github.com/gogo/googleapis/google/rpc"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -29,7 +31,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type CheckRequest struct {
 	// The request attributes.
-	Attributes           *AttributeContext `protobuf:"bytes,1,opt,name=attributes" json:"attributes,omitempty"`
+	Attributes           *AttributeContext `protobuf:"bytes,1,opt,name=attributes,proto3" json:"attributes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -39,7 +41,7 @@ func (m *CheckRequest) Reset()         { *m = CheckRequest{} }
 func (m *CheckRequest) String() string { return proto.CompactTextString(m) }
 func (*CheckRequest) ProtoMessage()    {}
 func (*CheckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_ef836df974545be5, []int{0}
+	return fileDescriptor_external_auth_7e3585ac8c9f8573, []int{0}
 }
 func (m *CheckRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -79,10 +81,10 @@ func (m *CheckRequest) GetAttributes() *AttributeContext {
 type DeniedHttpResponse struct {
 	// This field allows the authorization service to send a HTTP response status
 	// code to the downstream client other than 403 (Forbidden).
-	Status *_type.HttpStatus `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
+	Status *_type.HttpStatus `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
 	// This field allows the authorization service to send HTTP response headers
 	// to the the downstream client.
-	Headers []*core.HeaderValueOption `protobuf:"bytes,2,rep,name=headers" json:"headers,omitempty"`
+	Headers []*core.HeaderValueOption `protobuf:"bytes,2,rep,name=headers,proto3" json:"headers,omitempty"`
 	// This field allows the authorization service to send a response body data
 	// to the the downstream client.
 	Body                 string   `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
@@ -95,7 +97,7 @@ func (m *DeniedHttpResponse) Reset()         { *m = DeniedHttpResponse{} }
 func (m *DeniedHttpResponse) String() string { return proto.CompactTextString(m) }
 func (*DeniedHttpResponse) ProtoMessage()    {}
 func (*DeniedHttpResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_ef836df974545be5, []int{1}
+	return fileDescriptor_external_auth_7e3585ac8c9f8573, []int{1}
 }
 func (m *DeniedHttpResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -153,7 +155,7 @@ type OkHttpResponse struct {
 	// the filter will append the correspondent header value to the matched request header. Note that
 	// by Leaving `append` as false, the filter will either add a new header, or override an existing
 	// one if there is a match.
-	Headers              []*core.HeaderValueOption `protobuf:"bytes,2,rep,name=headers" json:"headers,omitempty"`
+	Headers              []*core.HeaderValueOption `protobuf:"bytes,2,rep,name=headers,proto3" json:"headers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -163,7 +165,7 @@ func (m *OkHttpResponse) Reset()         { *m = OkHttpResponse{} }
 func (m *OkHttpResponse) String() string { return proto.CompactTextString(m) }
 func (*OkHttpResponse) ProtoMessage()    {}
 func (*OkHttpResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_ef836df974545be5, []int{2}
+	return fileDescriptor_external_auth_7e3585ac8c9f8573, []int{2}
 }
 func (m *OkHttpResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -202,7 +204,7 @@ func (m *OkHttpResponse) GetHeaders() []*core.HeaderValueOption {
 // Intended for gRPC and Network Authorization servers `only`.
 type CheckResponse struct {
 	// Status `OK` allows the request. Any other status indicates the request should be denied.
-	Status *rpc.Status `protobuf:"bytes,1,opt,name=status" json:"status,omitempty"`
+	Status *rpc.Status `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
 	// An message that contains HTTP response attributes. This message is
 	// used when the authorization service needs to send custom responses to the
 	// downstream client or, to modify/add request headers being dispatched to the upstream.
@@ -220,7 +222,7 @@ func (m *CheckResponse) Reset()         { *m = CheckResponse{} }
 func (m *CheckResponse) String() string { return proto.CompactTextString(m) }
 func (*CheckResponse) ProtoMessage()    {}
 func (*CheckResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_external_auth_ef836df974545be5, []int{3}
+	return fileDescriptor_external_auth_7e3585ac8c9f8573, []int{3}
 }
 func (m *CheckResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -256,10 +258,10 @@ type isCheckResponse_HttpResponse interface {
 }
 
 type CheckResponse_DeniedResponse struct {
-	DeniedResponse *DeniedHttpResponse `protobuf:"bytes,2,opt,name=denied_response,json=deniedResponse,oneof"`
+	DeniedResponse *DeniedHttpResponse `protobuf:"bytes,2,opt,name=denied_response,json=deniedResponse,proto3,oneof"`
 }
 type CheckResponse_OkResponse struct {
-	OkResponse *OkHttpResponse `protobuf:"bytes,3,opt,name=ok_response,json=okResponse,oneof"`
+	OkResponse *OkHttpResponse `protobuf:"bytes,3,opt,name=ok_response,json=okResponse,proto3,oneof"`
 }
 
 func (*CheckResponse_DeniedResponse) isCheckResponse_HttpResponse() {}
@@ -382,8 +384,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for Authorization service
-
+// AuthorizationClient is the client API for Authorization service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AuthorizationClient interface {
 	// Performs authorization check based on the attributes associated with the
 	// incoming request, and returns status `OK` or not `OK`.
@@ -407,8 +410,7 @@ func (c *authorizationClient) Check(ctx context.Context, in *CheckRequest, opts 
 	return out, nil
 }
 
-// Server API for Authorization service
-
+// AuthorizationServer is the server API for Authorization service.
 type AuthorizationServer interface {
 	// Performs authorization check based on the attributes associated with the
 	// incoming request, and returns status `OK` or not `OK`.
@@ -639,6 +641,9 @@ func encodeVarintExternalAuth(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *CheckRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Attributes != nil {
@@ -652,6 +657,9 @@ func (m *CheckRequest) Size() (n int) {
 }
 
 func (m *DeniedHttpResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Status != nil {
@@ -675,6 +683,9 @@ func (m *DeniedHttpResponse) Size() (n int) {
 }
 
 func (m *OkHttpResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Headers) > 0 {
@@ -690,6 +701,9 @@ func (m *OkHttpResponse) Size() (n int) {
 }
 
 func (m *CheckResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Status != nil {
@@ -706,6 +720,9 @@ func (m *CheckResponse) Size() (n int) {
 }
 
 func (m *CheckResponse_DeniedResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DeniedResponse != nil {
@@ -715,6 +732,9 @@ func (m *CheckResponse_DeniedResponse) Size() (n int) {
 	return n
 }
 func (m *CheckResponse_OkResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.OkResponse != nil {
@@ -1301,10 +1321,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor_external_auth_ef836df974545be5)
+	proto.RegisterFile("envoy/service/auth/v2alpha/external_auth.proto", fileDescriptor_external_auth_7e3585ac8c9f8573)
 }
 
-var fileDescriptor_external_auth_ef836df974545be5 = []byte{
+var fileDescriptor_external_auth_7e3585ac8c9f8573 = []byte{
 	// 477 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x52, 0x41, 0x6b, 0x13, 0x41,
 	0x18, 0xed, 0x24, 0xb6, 0xc5, 0x89, 0x69, 0x65, 0x0e, 0x76, 0x09, 0x12, 0x42, 0xf0, 0x10, 0x8b,

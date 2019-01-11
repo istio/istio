@@ -318,8 +318,8 @@ set +xe
     status=$(kubectl get pod --server="$1" 2>&1 | grep -c resources)
     if [ "$status" -ne 1 ]; then
       if [ $count -gt 30 ]; then
-        echo "API Server failed to come up"
-        exit -1
+        echo "API Server failed to come up" >&2
+        exit 1
       fi
       count=$((count+1))
       sleep 1

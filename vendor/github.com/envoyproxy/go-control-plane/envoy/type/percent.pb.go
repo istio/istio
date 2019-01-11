@@ -59,7 +59,7 @@ func (x FractionalPercent_DenominatorType) String() string {
 	return proto.EnumName(FractionalPercent_DenominatorType_name, int32(x))
 }
 func (FractionalPercent_DenominatorType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_percent_9c3a09dc29f751a8, []int{1, 0}
+	return fileDescriptor_percent_53adcc8e73562d81, []int{1, 0}
 }
 
 // Identifies a percentage, in the range [0.0, 100.0].
@@ -74,7 +74,7 @@ func (m *Percent) Reset()         { *m = Percent{} }
 func (m *Percent) String() string { return proto.CompactTextString(m) }
 func (*Percent) ProtoMessage()    {}
 func (*Percent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_percent_9c3a09dc29f751a8, []int{0}
+	return fileDescriptor_percent_53adcc8e73562d81, []int{0}
 }
 func (m *Percent) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -131,7 +131,7 @@ func (m *FractionalPercent) Reset()         { *m = FractionalPercent{} }
 func (m *FractionalPercent) String() string { return proto.CompactTextString(m) }
 func (*FractionalPercent) ProtoMessage()    {}
 func (*FractionalPercent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_percent_9c3a09dc29f751a8, []int{1}
+	return fileDescriptor_percent_53adcc8e73562d81, []int{1}
 }
 func (m *FractionalPercent) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -304,6 +304,9 @@ func encodeVarintPercent(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Percent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Value != 0 {
@@ -316,6 +319,9 @@ func (m *Percent) Size() (n int) {
 }
 
 func (m *FractionalPercent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Numerator != 0 {
@@ -599,9 +605,9 @@ var (
 	ErrIntOverflowPercent   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/type/percent.proto", fileDescriptor_percent_9c3a09dc29f751a8) }
+func init() { proto.RegisterFile("envoy/type/percent.proto", fileDescriptor_percent_53adcc8e73562d81) }
 
-var fileDescriptor_percent_9c3a09dc29f751a8 = []byte{
+var fileDescriptor_percent_53adcc8e73562d81 = []byte{
 	// 283 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x48, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0xa9, 0x2c, 0x48, 0xd5, 0x2f, 0x48, 0x2d, 0x4a, 0x4e, 0xcd, 0x2b, 0xd1, 0x2b,

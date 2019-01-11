@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
-	"istio.io/api/mixer/v1"
+	v1 "istio.io/api/mixer/v1"
 	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
 	checkProducerTmpl "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"

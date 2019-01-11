@@ -46,7 +46,9 @@ function istio_code_init_manifest() {
 
   API_SHA=$(  grep "api"   "$MANIFEST_FILE" | cut -f 2 -d " ")
   PROXY_SHA=$(grep "proxy" "$MANIFEST_FILE" | cut -f 2 -d " ")
+  CNI_SHA=$(  grep "cni"   "$MANIFEST_FILE" | cut -f 2 -d " ")
 
+  checkout_code "cni" "${CNI_SHA}" "/workspace/go/src/istio.io"
   checkout_code "proxy" "${PROXY_SHA}" "/workspace/src"
   checkout_code "api"     "${API_SHA}" "/workspace/go/src/istio.io"
 

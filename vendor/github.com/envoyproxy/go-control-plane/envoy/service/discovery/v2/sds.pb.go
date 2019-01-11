@@ -9,8 +9,10 @@ import math "math"
 import v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import _ "github.com/gogo/googleapis/google/api"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -37,7 +39,7 @@ func (m *SdsDummy) Reset()         { *m = SdsDummy{} }
 func (m *SdsDummy) String() string { return proto.CompactTextString(m) }
 func (*SdsDummy) ProtoMessage()    {}
 func (*SdsDummy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_sds_5335c571b383ba10, []int{0}
+	return fileDescriptor_sds_e7a05ba2006c8ca8, []int{0}
 }
 func (m *SdsDummy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -78,8 +80,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for SecretDiscoveryService service
-
+// SecretDiscoveryServiceClient is the client API for SecretDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type SecretDiscoveryServiceClient interface {
 	StreamSecrets(ctx context.Context, opts ...grpc.CallOption) (SecretDiscoveryService_StreamSecretsClient, error)
 	FetchSecrets(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error)
@@ -133,8 +136,7 @@ func (c *secretDiscoveryServiceClient) FetchSecrets(ctx context.Context, in *v2.
 	return out, nil
 }
 
-// Server API for SecretDiscoveryService service
-
+// SecretDiscoveryServiceServer is the server API for SecretDiscoveryService service.
 type SecretDiscoveryServiceServer interface {
 	StreamSecrets(SecretDiscoveryService_StreamSecretsServer) error
 	FetchSecrets(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)
@@ -239,6 +241,9 @@ func encodeVarintSds(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *SdsDummy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -417,10 +422,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/service/discovery/v2/sds.proto", fileDescriptor_sds_5335c571b383ba10)
+	proto.RegisterFile("envoy/service/discovery/v2/sds.proto", fileDescriptor_sds_e7a05ba2006c8ca8)
 }
 
-var fileDescriptor_sds_5335c571b383ba10 = []byte{
+var fileDescriptor_sds_e7a05ba2006c8ca8 = []byte{
 	// 240 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0xd5, 0x4f, 0xc9, 0x2c, 0x4e, 0xce, 0x2f,

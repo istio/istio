@@ -160,6 +160,7 @@ func (b *backend) Init(kinds []string) error {
 				select {
 				case <-ctx.Done():
 					// nolint: govet
+					cancel()
 					return ctx.Err()
 				case <-time.After(requiredCertCheckFreq):
 					// retry
@@ -173,6 +174,7 @@ func (b *backend) Init(kinds []string) error {
 
 		watcher, err := creds.WatchFiles(ctx.Done(), b.credOptions)
 		if err != nil {
+			cancel()
 			return err
 		}
 		credentials := creds.CreateForClient(address, watcher)
@@ -200,7 +202,6 @@ func (b *backend) Init(kinds []string) error {
 
 	go c.Run(ctx)
 	b.cancel = cancel
-
 	return nil
 }
 
@@ -311,7 +312,7 @@ func (b *backend) Apply(change *client.Change) error {
 		// Demultiplex the resource, if it is a legacy type, and figure out its kind.
 		if isLegacyTypeURL(typeURL) {
 			// Extract the kind from payload.
-			legacyResource := o.Resource.(*legacy.LegacyMixerResource)
+			legacyResource := o.Body.(*legacy.LegacyMixerResource)
 			name = legacyResource.Name
 			kind = legacyResource.Kind
 			contents = legacyResource.Contents
@@ -319,7 +320,7 @@ func (b *backend) Apply(change *client.Change) error {
 			// Otherwise, simply do a direct mapping from typeURL to kind
 			name = o.Metadata.Name
 			kind = b.mapping.kind(typeURL)
-			contents = o.Resource
+			contents = o.Body
 		}
 
 		collection, found := newTypeStates[kind]

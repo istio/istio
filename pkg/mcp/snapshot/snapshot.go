@@ -25,9 +25,9 @@ import (
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
-// Snapshot provides an immutable view of versioned envelopes.
+// Snapshot provides an immutable view of versioned resources.
 type Snapshot interface {
-	Resources(typ string) []*mcp.Envelope
+	Resources(typ string) []*mcp.Resource
 	Version(typ string) string
 }
 
@@ -43,15 +43,15 @@ type Cache struct {
 	groupIndex GroupIndexFn
 }
 
-// GroupIndexFn returns a stable group index for the given MCP client.
-type GroupIndexFn func(client *mcp.Client) string
+// GroupIndexFn returns a stable group index for the given MCP node.
+type GroupIndexFn func(client *mcp.SinkNode) string
 
 // DefaultGroup is the default group when using the DefaultGroupIndex() function.
 const DefaultGroup = "default"
 
 // DefaultGroupIndex provides a default GroupIndexFn function that
 // is usable for testing and simple deployments.
-func DefaultGroupIndex(_ *mcp.Client) string {
+func DefaultGroupIndex(_ *mcp.SinkNode) string {
 	return DefaultGroup
 }
 
@@ -71,10 +71,10 @@ type responseWatch struct {
 	pushResponse server.PushResponseFunc
 }
 
-// StatusInfo records watch status information of a remote client.
+// StatusInfo records watch status information of a remote node.
 type StatusInfo struct {
 	mu                   sync.RWMutex
-	client               *mcp.Client
+	node                 *mcp.SinkNode
 	lastWatchRequestTime time.Time // informational
 	watches              map[int64]*responseWatch
 }
@@ -96,7 +96,7 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 
 // Watch returns a watch for an MCP request.
 func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushResponseFunc) server.CancelWatchFunc { // nolint: lll
-	group := c.groupIndex(request.Client)
+	group := c.groupIndex(request.SinkNode)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -104,7 +104,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushRe
 	info, ok := c.status[group]
 	if !ok {
 		info = &StatusInfo{
-			client:  request.Client,
+			node:    request.SinkNode,
 			watches: make(map[int64]*responseWatch),
 		}
 		c.status[group] = info
@@ -127,7 +127,7 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushRe
 			response := &server.WatchResponse{
 				TypeURL:   request.TypeUrl,
 				Version:   version,
-				Envelopes: snapshot.Resources(request.TypeUrl),
+				Resources: snapshot.Resources(request.TypeUrl),
 			}
 			pushResponse(response)
 			return nil
@@ -168,6 +168,8 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 	// trigger existing watches for which version changed
 	if info, ok := c.status[group]; ok {
 		info.mu.Lock()
+		defer info.mu.Unlock()
+
 		for id, watch := range info.watches {
 			version := snapshot.Version(watch.request.TypeUrl)
 			if version != watch.request.VersionInfo {
@@ -177,7 +179,7 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 				response := &server.WatchResponse{
 					TypeURL:   watch.request.TypeUrl,
 					Version:   version,
-					Envelopes: snapshot.Resources(watch.request.TypeUrl),
+					Resources: snapshot.Resources(watch.request.TypeUrl),
 				}
 				watch.pushResponse(response)
 
@@ -188,7 +190,6 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 					id, watch.request.TypeUrl, version)
 			}
 		}
-		info.mu.Unlock()
 	}
 }
 

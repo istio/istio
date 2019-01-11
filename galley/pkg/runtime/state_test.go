@@ -48,7 +48,7 @@ func init() {
 	}
 }
 
-func checkCreateTime(e *mcp.Envelope, want time.Time) error {
+func checkCreateTime(e *mcp.Resource, want time.Time) error {
 	got, err := types.TimestampFromProto(e.Metadata.CreateTime)
 	if err != nil {
 		return fmt.Errorf("failed to decode: %v", err)

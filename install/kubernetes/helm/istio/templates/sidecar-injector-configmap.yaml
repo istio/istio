@@ -221,9 +221,11 @@ data:
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+        {{- if ne .Values.global.sds.enabled true }}
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{- end }}
         {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
@@ -237,7 +239,16 @@ data:
           name: lightstep-certs
           readOnly: true
         {{- end }}
+          {{ "[[- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount` ]]" }}
+          {{ "[[ range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolumeMount`) ]]" }}
+        - name: {{ "\"[[ $index ]]\"" }}
+          {{ "[[ toYaml $value | indent 4 ]]" }}
+          {{ "[[ end ]]" }}
+          {{ "[[- end ]]" }}
       volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
       {{- if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
@@ -251,16 +262,7 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
       {{- end }}
-      {{- end }}
-      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
-      - name: lightstep-certs
-        secret:
-          optional: true
-          secretName: lightstep.cacert
-      {{- end }}
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
+      {{- else }}
       - name: istio-certs
         secret:
           optional: true
@@ -269,6 +271,19 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+        {{ "[[- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` ]]" }}
+        {{ "[[ range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) ]]" }}
+      - name: {{ "\"[[ $index ]]\"" }}
+        {{ "[[ toYaml $value | indent 2 ]]" }}
+        {{ "[[ end ]]" }}
+        {{ "[[ end -]]" }}
+      {{- end }}
+      {{- if and (eq .Values.global.proxy.tracer "lightstep") .Values.global.tracer.lightstep.cacertPath }}
+      - name: lightstep-certs
+        secret:
+          optional: true
+          secretName: lightstep.cacert
+      {{- end }}
 {{- end }}
 {{- if .Values.global.podDNSSearchNamespaces }}
       dnsConfig:

@@ -42,12 +42,11 @@ usage: ${BASH_SOURCE[0]} [options ...]
     -n ... <namespace> namespace in which to install Istio control plane components
     -P ... URL to download pilot debian packages
     -d ... directory to store file (optional, defaults to source code tree)
-    -D ... enable debug for proxy (optional, false or true, default is false)
 EOF
   exit 2
 }
 
-while getopts :n:p:x:c:a:h:o:P:d:D: arg; do
+while getopts :n:p:x:c:a:h:o:P:d: arg; do
   case ${arg} in
     n) ISTIO_NAMESPACE="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
@@ -57,7 +56,6 @@ while getopts :n:p:x:c:a:h:o:P:d:D: arg; do
     o) PROXY_HUB_TAG="${OPTARG}";;     # Format: "<hub>,<tag>"
     P) PILOT_DEBIAN_URL="${OPTARG}";;
     d) DEST_DIR="${OPTARG}";;
-    D) PROXY_DEBUG="${OPTARG}";;
     *) usage;;
   esac
 done
@@ -120,7 +118,6 @@ export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
 export PROXY_HUB="${PROXY_HUB}"
 export PROXY_TAG="${PROXY_TAG}"
-export PROXY_DEBUG="${PROXY_DEBUG}"
 export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
 export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
 export FORTIO_HUB="${FORTIO_HUB}"
@@ -140,7 +137,7 @@ function gen_file() {
 }
 
 function gen_istio_files() {
-    if [[ ! -z ${ISTIO_RELEASE:-} ]]; then
+    if [[ -n ${ISTIO_RELEASE:-} ]]; then
         for target in istio-demo.yaml istio-demo-auth.yaml; do
             gen_file $target "${DEST_DIR}"
         done
@@ -219,7 +216,7 @@ if [[ "$DEST_DIR" != "$ROOT" ]]; then
 fi
 
 # Set the HUB and TAG to be picked by the Helm template
-if [[ ! -z ${ALL_HUB_TAG} ]]; then
+if [[ -n ${ALL_HUB_TAG} ]]; then
     HUB="$(echo "${ALL_HUB_TAG}"|cut -f1 -d,)"
     export HUB
     TAG="$(echo "${ALL_HUB_TAG}"|cut -f2 -d,)"

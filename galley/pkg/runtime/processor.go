@@ -88,12 +88,16 @@ func newProcessor(
 	postProcessHook postProcessHookFn) *Processor {
 
 	return &Processor{
-		source:          src,
-		distributor:     distributor,
-		config:          cfg,
-		strategy:        strategy,
-		schema:          schema,
-		postProcessHook: postProcessHook,
+		source:           src,
+		distributor:      distributor,
+		config:           cfg,
+		strategy:         strategy,
+		schema:           schema,
+		postProcessHook:  postProcessHook,
+		done:             make(chan struct{}),
+		stopped:          make(chan struct{}),
+		lastEventTime:    time.Now(),
+		lastSnapshotTime: time.Now(),
 	}
 }
 
@@ -118,10 +122,6 @@ func (p *Processor) Start() error {
 	p.events = events
 	p.state = newState(p.schema, p.config)
 
-	p.done = make(chan struct{})
-	p.stopped = make(chan struct{})
-	p.lastEventTime = time.Now()
-	p.lastSnapshotTime = time.Now()
 	go p.process()
 
 	return nil

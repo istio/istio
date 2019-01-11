@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -180,6 +180,7 @@ func initLocalPilot(IstioSrc string) (*bootstrap.Server, error) {
 				string(serviceregistry.KubernetesRegistry)},
 		},
 		KeepaliveOptions: keepalive.DefaultOption(),
+		ForceStop:        true,
 	}
 	// Create the server for the discovery service.
 	discoveryServer, err := bootstrap.NewServer(serverAgrs)
