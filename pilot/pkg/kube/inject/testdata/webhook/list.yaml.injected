@@ -13,9 +13,9 @@ spec:
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: hello
+        app.kubernetes.io/version: v1
         tier: backend
         track: stable
-        app.kubernetes.io/version: v1
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -156,9 +156,9 @@ spec:
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: hello
+        app.kubernetes.io/version: v2
         tier: backend
         track: stable
-        app.kubernetes.io/version: v2
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
