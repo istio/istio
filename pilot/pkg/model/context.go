@@ -453,3 +453,51 @@ func parseIPAddresses(s string) ([]string, error) {
 func isValidIPAddress(ip string) bool {
 	return net.ParseIP(ip) != nil
 }
+
+// Pile all node metadata constants here
+const (
+
+	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
+	// set at injection time. When set, the Endpoints returned to a note and not on same network
+	// will be replaced with the gateway defined in the settings.
+	NodeMetadataNetwork = "NETWORK"
+
+	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
+)
+
+// TrafficInterceptionMode indicates how traffic to/from the workload is captured and
+// sent to Envoy. This should not be confused with the CaptureMode in the API that indicates
+// how the user wants traffic to be intercepted for the listener. TrafficInterceptionMode is
+// always derived from the Proxy metadata
+type TrafficInterceptionMode string
+
+const (
+	// InterceptionNone indicates that the workload is not using IPtables for traffic interception
+	InterceptionNone TrafficInterceptionMode = "NONE"
+
+	// InterceptionTproxy implies traffic intercepted by IPtables with TPROXY mode
+	InterceptionTproxy TrafficInterceptionMode = "TPROXY"
+
+	// InterceptionRedirect implies traffic intercepted by IPtables with REDIRECT mode
+	// This is our default mode
+	InterceptionRedirect TrafficInterceptionMode = "REDIRECT"
+)
+
+// GetInterceptionMode extracts the interception mode associated with the proxy
+// from the proxy metadata
+func (proxy *Proxy) GetInterceptionMode() TrafficInterceptionMode {
+	if proxy == nil {
+		return InterceptionRedirect
+	}
+
+	switch proxy.Metadata[NodeMetadataInterceptionMode] {
+	case "TPROXY":
+		return InterceptionTproxy
+	case "REDIRECT":
+		return InterceptionRedirect
+	case "NONE":
+		return InterceptionNone
+	}
+
+	return InterceptionRedirect
+}

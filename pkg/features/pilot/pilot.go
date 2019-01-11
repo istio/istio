@@ -74,20 +74,3 @@ var (
 	// config. In most cases 'istio-system' should be included. Comma separated (ns1,ns2,istio-system)
 	NetworkScopes = os.Getenv("DEFAULT_NAMESPACE_DEPENDENCIES")
 )
-
-const (
-
-	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
-	// set at injection time. When set, the Endpoints returned to a note and not on same network
-	// will be replaced with the gateway defined in the settings.
-	NodeMetadataNetwork = "NETWORK"
-
-	// AZLabel indicates the region/zone of an instance. It is used if the native
-	// registry doesn't provide one.
-	AZLabel = "istio-az"
-
-	// ServiceConfigScopeAnnotation configs the scope the service visible to.
-	//   "PUBLIC" which is the default, indicates it is reachable within the mesh
-	//   "PRIVATE" indicates it is reachable within its namespace
-	ServiceConfigScopeAnnotation = "networking.istio.io/configScope"
-)

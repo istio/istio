@@ -342,7 +342,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		// We should not create inbound listeners in NONE mode based on the service instances
 		// Doing so will prevent the workloads from starting as they would be listening on the same port
 		// Users are required to provide the sidecar config to define the inbound listeners
-		if proxy.Metadata["INTERCEPTION_MODE"] == "NONE" {
+		if proxy.GetInterceptionMode() == model.InterceptionNone {
 			return nil
 		}
 

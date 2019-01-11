@@ -234,7 +234,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		}
 
 		var transparent *google_protobuf.BoolValue
-		if mode := node.Metadata["INTERCEPTION_MODE"]; mode == "TPROXY" {
+		if node.GetInterceptionMode() == model.InterceptionTproxy {
 			transparent = proto.BoolTrue
 		}
 
@@ -341,7 +341,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		// We should not create inbound listeners in NONE mode based on the service instances
 		// Doing so will prevent the workloads from starting as they would be listening on the same port
 		// Users are required to provide the sidecar config to define the inbound listeners
-		if node.Metadata["INTERCEPTION_MODE"] == "NONE" {
+		if node.GetInterceptionMode() == model.InterceptionNone {
 			return nil
 		}
 
@@ -392,8 +392,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		for _, ingressListener := range rule.Ingress {
 			// determine the bindToPort setting for listeners
 			bindToPort := false
-			mode := node.Metadata["INTERCEPTION_MODE"]
-			if mode == "NONE" {
+			if node.GetInterceptionMode() == model.InterceptionNone {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
 			} else {
@@ -687,8 +686,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 		// determine the bindToPort setting for listeners
 		bindToPort := false
-		mode := node.Metadata["INTERCEPTION_MODE"]
-		if mode == "NONE" {
+		if node.GetInterceptionMode() == model.InterceptionNone {
 			bindToPort = true
 		}
 
@@ -698,6 +696,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		}
 		for _, service := range services {
 			for _, servicePort := range service.Ports {
+				// if the workload has NONE mode interception, then we generate TCP ports only
+				// Skip generating HTTP listeners, as we will generate a single HTTP proxy
+				if servicePort.Protocol.IsHTTP() {
+					continue
+				}
+
 				listenerOpts := buildListenerOpts{
 					env:            env,
 					proxy:          node,
@@ -744,8 +748,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 			// determine the bindToPort setting for listeners
 			bindToPort := false
-			mode := node.Metadata["INTERCEPTION_MODE"]
-			if mode == "NONE" {
+			if node.GetInterceptionMode() == model.InterceptionNone {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
 			} else {
@@ -1190,7 +1193,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 
 	// NOTE: We should not generate inbound listeners when the proxy does not have any IPtables traffic capture
 	// as it would interfere with the workloads listening on the same port
-	if node.Metadata["INTERCEPTION_MODE"] == "NONE" {
+	if node.GetInterceptionMode() == model.InterceptionNone {
 		return nil
 	}
 

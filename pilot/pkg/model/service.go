@@ -32,10 +32,8 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-
 	authn "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/features/pilot"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -110,6 +108,10 @@ const (
 
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
+
+	// AZLabel indicates the region/zone of an instance. It is used if the native
+	// registry doesn't provide one.
+	AZLabel = "istio-az"
 )
 
 // Port represents a network port where a service is listening for
@@ -370,7 +372,7 @@ func (si *ServiceInstance) GetLocality() string {
 	if si.Endpoint.Locality != "" {
 		return si.Endpoint.Locality
 	}
-	return si.Labels[pilot.AZLabel]
+	return si.Labels[AZLabel]
 }
 
 // IstioEndpoint has the information about a single address+port for a specific

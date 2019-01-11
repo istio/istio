@@ -21,13 +21,11 @@ import (
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/features/pilot"
 )
 
 const (
@@ -42,6 +40,11 @@ const (
 	// CanonicalServiceAccountsAnnotation is to specify the non-Kubernetes service accounts that
 	// are allowed to run this service.
 	CanonicalServiceAccountsAnnotation = "alpha.istio.io/canonical-serviceaccounts"
+
+	// ServiceConfigScopeAnnotation configs the scope the service visible to.
+	//   "PUBLIC" which is the default, indicates it is reachable within the mesh
+	//   "PRIVATE" indicates it is reachable within its namespace
+	ServiceConfigScopeAnnotation = "networking.istio.io/configScope"
 
 	// istioURIPrefix is the URI prefix in the Istio service account scheme
 	istioURIPrefix = "spiffe"
@@ -102,7 +105,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, domainSuffix))
 			}
 		}
-		if svc.Labels[pilot.ServiceConfigScopeAnnotation] == networking.ConfigScope_name[int32(networking.ConfigScope_PRIVATE)] {
+		if svc.Labels[ServiceConfigScopeAnnotation] == networking.ConfigScope_name[int32(networking.ConfigScope_PRIVATE)] {
 			configScope = networking.ConfigScope_PRIVATE
 		}
 	}
