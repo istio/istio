@@ -152,6 +152,8 @@ type updateReq struct {
 // individual shards incrementally. The shards are aggregated and split into
 // clusters when a push for the specific cluster is needed.
 type EndpointShardsByService struct {
+	// mutex protecting below map.
+	mutex sync.RWMutex
 
 	// Shards is used to track the shards. EDS updates are grouped by shard.
 	// Current implementation uses the registry name as key - in multicluster this is the
@@ -373,7 +375,6 @@ func (s *DiscoveryServer) ClearCache() {
 func (s *DiscoveryServer) doPush(full bool) {
 	// more config update events may happen while doPush is processing.
 	// we don't want to lose updates.
-	s.updateMutex.Lock()
 	s.mutex.Lock()
 	// Swap the edsUpdates map - tracking requests for incremental updates.
 	// The changes to the map are protected by ds.mutex.
@@ -381,8 +382,6 @@ func (s *DiscoveryServer) doPush(full bool) {
 	// Reset - any new updates will be tracked by the new map
 	s.edsUpdates = map[string]*EndpointShardsByService{}
 	s.mutex.Unlock()
-
-	s.updateMutex.Unlock()
 
 	s.Push(full, edsUpdates)
 }

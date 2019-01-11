@@ -197,7 +197,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	edsCluster *EdsCluster) error {
 
 	var hostname model.Hostname
-
 	var port int
 	var subsetName string
 	_, subsetName, hostname, port = model.ParseSubsetKey(clusterName)
@@ -221,6 +220,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	cnt := 0
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
+	se.mutex.RLock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
 	for _, es := range se.Shards {
@@ -247,6 +247,8 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
 		}
 	}
+	se.mutex.RUnlock()
+
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		locLbEps.LoadBalancingWeight = &types.UInt32Value{
@@ -254,6 +256,8 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		}
 		locEps = append(locEps, *locLbEps)
 	}
+	// Normalize LoadBalancingWeight in range [1, 128]
+	locEps = LoadBalancingWeightNormalize(locEps)
 
 	if cnt == 0 {
 		push.Add(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
@@ -267,9 +271,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	// We still lock the access to the LoadAssignments.
 	edsCluster.mutex.Lock()
 	defer edsCluster.mutex.Unlock()
-
-	// Normalize LoadBalancingWeight in range [1, 128]
-	locEps = LoadBalancingWeightNormalize(locEps)
 
 	edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 		ClusterName: clusterName,
@@ -411,8 +412,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
 	pc := s.globalPushContext()
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	if cluster == "" {
 		pl := model.PortList{}
 		for k, v := range ports {
@@ -421,7 +420,9 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 				Name: k,
 			})
 		}
+		pc.Mutex.Lock()
 		pc.ServicePort2Name[hostname] = pl
+		pc.Mutex.Unlock()
 	}
 	// TODO: for updates from other clusters, warn if they don't match primary.
 }
@@ -555,7 +556,9 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 			}
 		}
 	}
+	ep.mutex.Lock()
 	ep.Shards[shard] = ce
+	ep.mutex.Unlock()
 	s.edsUpdates[serviceName] = ep
 
 	// for internal update: this called by DiscoveryServer.Push --> updateServiceShards,
