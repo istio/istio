@@ -154,9 +154,9 @@ spec:
   params:
     dimensions:
       source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | source.service | "unknown"
-      sourceVersion: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+      sourceVersion: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
       destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | destination.service | "unknown"
-      destinationVersion: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+      destinationVersion: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
 ---
 `
 

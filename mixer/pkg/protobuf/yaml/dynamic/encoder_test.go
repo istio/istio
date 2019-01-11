@@ -122,7 +122,7 @@ str: "'mystring'"
 i64: response.size| 0
 mapStrStr:
   source_service: source.service | "unknown"
-  source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+  source_version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
 oth:
   inenum: "'INNERTHREE'"
 enm: request.reason

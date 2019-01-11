@@ -1202,9 +1202,9 @@ spec:
   value: "1"
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    source_version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destination_version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 `)
@@ -1474,9 +1474,9 @@ metadata:
 spec:
   dimensions:
     source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | source.service | "unknown"
-    sourceVersion: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    sourceVersion: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | destination.service | "unknown"
-    destinationVersion: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destinationVersion: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
 `)
 
 func testdataConfigV1alpha2QuotaValidYamlBytes() ([]byte, error) {

@@ -34,9 +34,9 @@ metadata:
 spec:
   dimensions:
     source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | "unknown"
-    sourceVersion: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    sourceVersion: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | "unknown"
-    destinationVersion: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destinationVersion: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
 
 ---
 apiVersion: "config.istio.io/v1alpha2"

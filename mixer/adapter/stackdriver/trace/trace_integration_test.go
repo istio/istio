@@ -56,7 +56,7 @@ spec:
     response.size: response.size | 0
     source.ip: source.ip | ip("0.0.0.0")
     source.service: source.service | "unknown"
-    source.version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    source.version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: stackdriver

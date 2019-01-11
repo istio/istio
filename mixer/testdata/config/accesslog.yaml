@@ -18,13 +18,13 @@ spec:
   timestamp: request.time | timestamp("2017-01-01T00:00:00Z")
   variables:
     sourceIp: source.ip | ip("0.0.0.0")
-    sourceApp:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | ""
+    sourceApp:  source.labels["app"] | source.labels["app.kubernetes.io/instance"] | source.labels["app.kubernetes.io/name"] | ""
     sourcePrincipal: source.principal | ""
     sourceName: source.name | ""
     sourceWorkload: source.workload.name | ""
     sourceNamespace: source.namespace | ""
     sourceOwner: source.owner | ""
-    destinationApp:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | ""
+    destinationApp:  destination.labels["app"] | destination.labels["app.kubernetes.io/instance"] | destination.labels["app.kubernetes.io/name"] | ""
     destinationIp: destination.ip | ip("0.0.0.0")
     destinationServiceHost: destination.service.host | ""
     destinationWorkload: destination.workload.name | ""

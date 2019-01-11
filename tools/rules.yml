@@ -21,7 +21,7 @@ rules:
           target: destination.service | "unknown"
           service:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | "unknown"
           method: request.path | "unknown"
-          version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+          version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_duration
         value: response.duration | "0ms"
@@ -30,7 +30,7 @@ rules:
           target: destination.service | "unknown"
           service:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | "unknown"
           method: request.path | "unknown"
-          version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+          version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
           response_code: response.code | 200
   - kind: access-logs
     params:

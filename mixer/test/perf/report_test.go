@@ -343,9 +343,9 @@ spec:
   value: "1"
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    source_version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destination_version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
     response_code: response.code | 200
     connection_mtls: connection.mtls | false
 ---
@@ -358,9 +358,9 @@ spec:
   value: response.duration | "0ms"
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    source_version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destination_version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
     response_code: response.code | 200
     connection_mtls: connection.mtls | false
 ---
@@ -373,9 +373,9 @@ spec:
   value: request.size | 0
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    source_version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destination_version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
     response_code: response.code | 200
     connection_mtls: connection.mtls | false
 ---
@@ -388,9 +388,9 @@ spec:
   value: response.size | 0
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    source_version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destination_version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
     response_code: response.code | 200
     connection_mtls: connection.mtls | false
 ---
@@ -403,9 +403,9 @@ spec:
   value: connection.sent.bytes | 0
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    source_version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destination_version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
     connection_mtls: connection.mtls | false
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -417,9 +417,9 @@ spec:
   value: connection.received.bytes | 0
   dimensions:
     source_service: source.service | "unknown"
-    source_version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | "unknown"
+    source_version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
     destination_service: destination.service | "unknown"
-    destination_version: destination.labels["app.kubernetes.io/version"] | destination.labels["version"] | "unknown"
+    destination_version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
     connection_mtls: connection.mtls | false
 ---
 apiVersion: "config.istio.io/v1alpha2"
