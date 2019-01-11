@@ -1497,7 +1497,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(irate(mixer_runtime_dispatch_count{adapter=\"$adapter\"}[1m]),\"handler\", \"$1 ($3)\", \"handler\", \"(.*)\\\\.(.*)\\\\.(.*)\")",
+          "expr": "label_replace(irate(mixer_runtime_dispatch_count{adapter=~\"$adapter\"}[1m]),\"handler\", \"$1 ($3)\", \"handler\", \"(.*)\\\\.(.*)\\\\.(.*)\")",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ handler }} (error: {{  error }})",
@@ -1581,21 +1581,21 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "label_replace(histogram_quantile(0.5, sum(rate(mixer_runtime_dispatch_duration_bucket{adapter=\"$adapter\"}[1m])) by (handler, error, le)),  \"handler_short\", \"$1 ($3)\", \"handler\", \"(.*)\\\\.(.*)\\\\.(.*)\")",
+          "expr": "label_replace(histogram_quantile(0.5, sum(rate(mixer_runtime_dispatch_duration_bucket{adapter=~\"$adapter\"}[1m])) by (handler, error, le)),  \"handler_short\", \"$1 ($3)\", \"handler\", \"(.*)\\\\.(.*)\\\\.(.*)\")",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "p50 - {{ handler_short }} (error: {{ error }})",
           "refId": "A"
         },
         {
-          "expr": "label_replace(histogram_quantile(0.9, sum(irate(mixer_runtime_dispatch_duration_bucket{adapter=\"$adapter\"}[1m])) by (handler, error, le)),  \"handler_short\", \"$1 ($3)\", \"handler\", \"(.*)\\\\.(.*)\\\\.(.*)\")",
+          "expr": "label_replace(histogram_quantile(0.9, sum(irate(mixer_runtime_dispatch_duration_bucket{adapter=~\"$adapter\"}[1m])) by (handler, error, le)),  \"handler_short\", \"$1 ($3)\", \"handler\", \"(.*)\\\\.(.*)\\\\.(.*)\")",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "p90 - {{ handler_short }} (error: {{ error }})",
           "refId": "D"
         },
         {
-          "expr": "label_replace(histogram_quantile(0.99, sum(irate(mixer_runtime_dispatch_duration_bucket{adapter=\"$adapter\"}[1m])) by (handler, error, le)),  \"handler_short\", \"$1 ($3)\", \"handler\", \"(.*)\\\\.(.*)\\\\.(.*)\")",
+          "expr": "label_replace(histogram_quantile(0.99, sum(irate(mixer_runtime_dispatch_duration_bucket{adapter=~\"$adapter\"}[1m])) by (handler, error, le)),  \"handler_short\", \"$1 ($3)\", \"handler\", \"(.*)\\\\.(.*)\\\\.(.*)\")",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "p99 - {{ handler_short }} (error: {{ error }})",
