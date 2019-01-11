@@ -19,11 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	v1 "k8s.io/api/core/v1"
-	"istio.io/istio/pkg/spiffe"
-
 	rbac "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -33,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/util"
 )

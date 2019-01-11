@@ -23,10 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	v1 "k8s.io/api/core/v1"
-	"istio.io/istio/pkg/spiffe"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -36,6 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 )
