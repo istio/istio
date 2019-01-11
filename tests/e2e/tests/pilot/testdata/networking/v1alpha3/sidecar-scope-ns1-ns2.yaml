@@ -3,12 +3,12 @@ kind: Sidecar
 metadata:
   name: sidecar-scope-ns1-ns2
 spec:
-  ingress:
-  - port:
-      number: 12345
-      protocol: HTTP
-      name: inbound-http
-    defaultEndpoint: ":80"
+#  ingress:
+#  - port:
+#      number: 12345
+#      protocol: HTTP
+#      name: inbound-http
+#    defaultEndpoint: ":80"
   egress:
   - port:
       number: 23145

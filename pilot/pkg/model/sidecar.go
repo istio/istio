@@ -55,6 +55,12 @@ type SidecarScope struct {
 	// services/virtual services in that listener.
 	EgressListeners []*IstioEgressListenerWrapper
 
+	// HasCustomIngressListeners is a convenience variable that if set to
+	// true indicates that the config object has one or more listeners.
+	// If set to false, networking code should derive the inbound
+	// listeners from the proxy service instances
+	HasCustomIngressListeners bool
+
 	// Union of services imported across all egress listeners for use by CDS code.
 	// Right now, we include all the ports in these services.
 	// TODO: Trim the ports in the services to only those referred to by the
@@ -147,24 +153,26 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
 func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
+	r := sidecarConfig.Spec.(*networking.Sidecar)
+
+	// If there are no egress listeners but only ingress listeners, then infer from
+	// environment. This is same as the default egress listener setup above
+	if r.Egress == nil || len(r.Egress) == 0 {
+		out := DefaultSidecarScopeForNamespace(ps, sidecarConfig.Namespace)
+		out.Config = sidecarConfig
+		return out
+	}
 
 	out := &SidecarScope{
 		Config:           sidecarConfig,
 		services:         make([]*Service, 0),
 		destinationRules: make(map[Hostname]*Config),
 	}
-
-	r := sidecarConfig.Spec.(*networking.Sidecar)
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 
 	for _, e := range r.Egress {
 		out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
 	}
-
-	// for _, e := range r.Ingress {
-	// 	// TODO: These need to go into CDS as well
-	// 	out.IngressListeners = append(out.IngressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
-	// }
 
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
@@ -188,6 +196,10 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 	// that these services need
 	for _, s := range out.services {
 		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s.Hostname)
+	}
+
+	if len(r.Ingress) > 0 {
+		out.HasCustomIngressListeners = true
 	}
 
 	return out

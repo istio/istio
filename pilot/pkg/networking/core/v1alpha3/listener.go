@@ -329,7 +329,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	}
 
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	if sidecarScope.Config == nil {
+
+	if sidecarScope.Config == nil || !sidecarScope.HasCustomIngressListeners {
 		// There is no user supplied sidecarScope for this namespace
 		// Construct inbound listeners in the usual way by looking at the ports of the service instances
 		// attached to the proxy
@@ -381,7 +382,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		}
 
 	} else {
-		//auto generated sidecars will have Config set to nil
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
 
 		for _, ingressListener := range rule.Ingress {
