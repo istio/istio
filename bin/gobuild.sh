@@ -36,7 +36,7 @@ GOBINARY=${GOBINARY:-go}
 GOPKG="$GOPATH/pkg"
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
-LDFLAGS="-extldflags -static"
+LDFLAGS="-w -s -extldflags -static"
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 # Split GOBUILDFLAGS by spaces into an array called GOBUILDFLAGS_ARRAY.
 IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"
