@@ -852,7 +852,7 @@ func TestSidecarScope(t *testing.T) {
 	}
 	applyRuleFunc(t, rules)
 	// Wait a few seconds so that the older proxy listeners get overwritten
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	cases := []struct {
 		testName    string
@@ -871,14 +871,14 @@ func TestSidecarScope(t *testing.T) {
 		{
 			testName:    "ns1: http://bookinfo.com:9999 reachable",
 			reqURL:      "http://127.255.0.1:9999/a",
-			host:        "bookinfo.com",
+			host:        "bookinfo.com:9999",
 			expectedHdr: regexp.MustCompile("(?i) scope=public"),
 			reachable:   true,
 		},
 		{
 			testName:  "ns1: http://private.com:9999 not reachable",
 			reqURL:    "http://127.255.0.1:9999/a",
-			host:      "private.com",
+			host:      "private.com:9999",
 			reachable: false,
 		},
 		{
@@ -890,13 +890,13 @@ func TestSidecarScope(t *testing.T) {
 		{
 			testName:  "ns1: bookinfo.com:9999 reachable via egress listener 7.7.7.7:23145",
 			reqURL:    "http://7.7.7.7:23145/a",
-			host:      "bookinfo.com",
+			host:      "bookinfo.com:9999",
 			reachable: true,
 		},
 		{
 			testName:  "ns1: private.com:9999 not reachable via egress listener 7.7.7.7:23145",
 			reqURL:    "http://7.7.7.7:23145/a",
-			host:      "private.com",
+			host:      "private.com:9999",
 			reachable: false,
 		},
 	}
