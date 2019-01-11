@@ -57,7 +57,7 @@ func TestClientSink(t *testing.T) {
 	}
 	c := NewClient(h, options)
 
-	ctx, cancelClient := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -70,7 +70,7 @@ func TestClientSink(t *testing.T) {
 		h.setOpenError(errors.New("done"))
 		h.recvErrorChan <- io.EOF
 		h.sendErrorChan <- io.EOF
-		cancelClient()
+		cancel()
 		wg.Wait()
 	}()
 

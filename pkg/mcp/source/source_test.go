@@ -258,10 +258,18 @@ func TestSourceACKWithIncrementalAddUpdateDelete(t *testing.T) {
 	}))
 
 	s := makeSourceUnderTest(h)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		if err := s.processStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
+		wg.Done()
+	}()
+
+	defer func() {
+		h.setRecvError(io.EOF)
+		wg.Wait()
 	}()
 
 	steps := []struct {
@@ -314,16 +322,20 @@ func TestSourceACKWithIncrementalAddUpdateDelete(t *testing.T) {
 			t.Fatal("subtest failed")
 		}
 	}
+
 }
 
 func TestSourceWatchBeforeResponsesAvailable(t *testing.T) {
 	h := newSourceTestHarness(t)
 
 	s := makeSourceUnderTest(h)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		if err := s.processStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
+		wg.Done()
 	}()
 
 	// initial watch
@@ -339,6 +351,9 @@ func TestSourceWatchBeforeResponsesAvailable(t *testing.T) {
 	})
 
 	verifySentResources(t, h, test.MakeResources(test.FakeType0Collection, "1", "1", nil, test.Type0A[0]))
+
+	h.setRecvError(io.EOF)
+	wg.Wait()
 }
 
 func TestSourceWatchClosed(t *testing.T) {
@@ -463,10 +478,13 @@ func TestSourceConcurrentRequestsForMultipleTypes(t *testing.T) {
 	h := newSourceTestHarness(t)
 
 	s := makeSourceUnderTest(h)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		if err := s.processStream(h); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
+		wg.Done()
 	}()
 
 	h.injectWatchResponse(&WatchResponse{
@@ -497,4 +515,7 @@ func TestSourceConcurrentRequestsForMultipleTypes(t *testing.T) {
 			test.FakeType2Collection: test.MakeResources(test.FakeType2Collection, "3", "3", nil, test.Type2A[0]),
 		},
 	)
+
+	h.setRecvError(io.EOF)
+	wg.Wait()
 }

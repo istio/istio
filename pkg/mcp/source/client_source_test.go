@@ -45,15 +45,6 @@ func (h *sourceHarness) Context() context.Context {
 	return h.sourceTestHarness.Context()
 }
 
-type fakeContext struct {
-	context.Context
-	done chan struct{}
-}
-
-func (f *fakeContext) Done() <-chan struct{} {
-	return f.done
-}
-
 func verifySentResourcesMultipleTypes(t *testing.T, h *sourceTestHarness, wantResources map[string]*mcp.Resources) map[string]*mcp.Resources {
 	t.Helper()
 
@@ -96,14 +87,16 @@ func TestClientSource(t *testing.T) {
 	}
 	c := NewClient(h, options)
 
-	fakeCtx := fakeContext{
-		done: make(chan struct{}),
-	}
+	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		c.Run(&fakeCtx)
+		c.Run(ctx)
 		wg.Done()
+	}()
+	defer func() {
+		cancel()
+		wg.Wait()
 	}()
 
 	h.injectWatchResponse(&WatchResponse{
