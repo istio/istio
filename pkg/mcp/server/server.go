@@ -465,7 +465,13 @@ func (con *connection) receive() {
 			con.reqError = err
 			return
 		}
-		con.requestC <- req
+		select {
+		case <-con.stream.Context().Done():
+			scope.Debugf("MCP: connection %v: stream done, err=%v", con, con.stream.Context().Err())
+			return
+		default:
+			con.requestC <- req
+		}
 	}
 }
 
