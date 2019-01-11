@@ -16,7 +16,7 @@
 	  name: appversion
 	  namespace: istio-system
 	spec:
-	  value: source.labels["app.kubernetes.io/version"] | source.labels["version"]
+	  value: source.labels["version"] | source.labels["app.kubernetes.io/version"]
 	```
 
 	The `listentry` template is used to verify the presence/absence of a string

@@ -32,7 +32,7 @@
 	    source.ip: source.ip | ip("0.0.0.0")
 	    source.service: source.service | ""
 	    source.user: source.user | ""
-	    source.version: source.labels["app.kubernetes.io/version"] | source.labels["version"] | ""
+	    source.version: source.labels["version"] | source.labels["app.kubernetes.io/version"] | ""
 	```
 
 	See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing/)

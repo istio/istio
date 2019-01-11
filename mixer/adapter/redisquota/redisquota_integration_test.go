@@ -63,9 +63,9 @@ metadata:
   namespace: istio-system
 spec:
   dimensions:
-    source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | source.service | "unknown"
+    source:  source.labels["app"] | source.labels["app.kubernetes.io/instance"] | source.labels["app.kubernetes.io/name"] | source.service | "unknown"
     sourceVersion: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
-    destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | destination.service | "unknown"
+    destination:  destination.labels["app"] | destination.labels["app.kubernetes.io/instance"] | destination.labels["app.kubernetes.io/name"] | destination.service | "unknown"
     destinationVersion: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
 
 ---

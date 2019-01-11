@@ -17,18 +17,18 @@ rules:
         # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
         value: "1"
         labels:
-          source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | "unknown"
+          source:  source.labels["app"] | source.labels["app.kubernetes.io/instance"] | source.labels["app.kubernetes.io/name"] | "unknown"
           target: destination.service | "unknown"
-          service:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | "unknown"
+          service:  destination.labels["app"] | destination.labels["app.kubernetes.io/instance"] | destination.labels["app.kubernetes.io/name"] | "unknown"
           method: request.path | "unknown"
           version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_duration
         value: response.duration | "0ms"
         labels:
-          source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | "unknown"
+          source:  source.labels["app"] | source.labels["app.kubernetes.io/instance"] | source.labels["app.kubernetes.io/name"] | "unknown"
           target: destination.service | "unknown"
-          service:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | "unknown"
+          service:  destination.labels["app"] | destination.labels["app.kubernetes.io/instance"] | destination.labels["app.kubernetes.io/name"] | "unknown"
           method: request.path | "unknown"
           version: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
           response_code: response.code | 200
