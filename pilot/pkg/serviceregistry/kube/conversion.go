@@ -49,9 +49,6 @@ const (
 	//   "PRIVATE" indicates it is reachable within its namespace
 	ServiceConfigScopeAnnotation = "networking.istio.io/configScope"
 
-	// istioURIPrefix is the URI prefix in the Istio service account scheme
-	istioURIPrefix = "spiffe"
-
 	managementPortPrefix = "mgmt-"
 )
 
