@@ -88,8 +88,10 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	var resp *gcapb.IstioCertificateResponse
 	var err error
 	if cl.usePodIdentity {
+		log.Info("***call CreatePodCertificate\n")
 		resp, err = cl.client.CreatePodCertificate(ctx, req)
 	} else {
+		log.Info("***call CreateCertificate\n")
 		resp, err = cl.client.CreateCertificate(ctx, req)
 	}
 	if err != nil {
@@ -102,6 +104,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 		return nil, errors.New("invalid response cert chain")
 	}
 
+	log.Infof("*****cert from googleCA %+v \n", resp.CertChain)
 	return resp.CertChain, nil
 }
 

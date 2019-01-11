@@ -696,6 +696,19 @@ generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--values install/kubernetes/helm/istio/values.yaml \
 		install/kubernetes/helm/istio >> install/kubernetes/istio-auth.yaml
 
+	cat install/kubernetes/namespace.yaml > install/kubernetes/istio-googleca.yaml
+	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/istio-googleca.yaml
+	$(HELM) template --set global.tag=${TAG} \
+		--name=istio \
+		--namespace=istio-system \
+		--set global.hub=${HUB} \
+		--set global.mtls.enabled=true \
+		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
+		${EXTRA_HELM_SETTINGS} \
+		--values install/kubernetes/helm/istio/values-istio-googleca.yaml \
+		install/kubernetes/helm/istio >> install/kubernetes/istio-googleca.yaml
+
 generate_yaml_coredump: export ENABLE_COREDUMP=true
 generate_yaml_coredump:
 	$(MAKE) generate_yaml

@@ -1,0 +1,31 @@
+global:
+  #controlPlaneSecurityEnabled: true
+  controlPlaneSecurityEnabled: false
+
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: true
+
+  sds:
+    enabled: true
+    udsPath: "unix:/var/run/sds/uds_path"
+    useTrustworthyJwt: true 
+    #useNormalJwt: true
+
+  #trustDomain: ""
+  #trustDomain: "kube-federating-id@istionodeagenttestproj2.iam.gserviceaccount.com"
+  trustDomain: "testgaia1@istionodeagenttestproj2.iam.gserviceaccount.com"
+
+security:
+  enabled: true
+
+nodeagent:
+  enabled: true
+  image: node-agent-k8s
+  env:
+    CA_PROVIDER: "GoogleCA"
+    POD_IDENTITY: "true"
+    #CA_ADDR: "istioca.googleapis.com:443"
+    CA_ADDR: "staging-qual-istioca.sandbox.googleapis.com:443"
+    Plugins: "GoogleTokenExchange"
