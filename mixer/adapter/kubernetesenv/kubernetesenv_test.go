@@ -594,8 +594,8 @@ var k8sobjs = []runtime.Object{
 			Name:      "test-pod",
 			Namespace: "testns",
 			Labels: map[string]string{
-				"app":       "test",
-				"something": "",
+				"app.kubernetes.io/name": "test",
+				"something":              "",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
