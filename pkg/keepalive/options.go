@@ -69,6 +69,6 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().DurationVar(&o.MaxServerConnectionAge, "keepaliveMaxServerConnectionAge",
 		o.MaxServerConnectionAge, "Maximum duration a connection will be kept open on the server before a graceful close.")
 	cmd.PersistentFlags().DurationVar(&o.MaxServerConnectionAgeGrace, "keepaliveMaxServerConnectionAgeGrace",
-		o.MaxServerConnectionAgeGrace, "Grace duration allowed before a server connection is forcibly closed"+
+		o.MaxServerConnectionAgeGrace, "Grace duration allowed before a server connection is forcibly closed "+
 			"after MaxServerConnectionAge expires.")
 }
