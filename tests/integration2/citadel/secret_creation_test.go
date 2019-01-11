@@ -35,7 +35,7 @@ func TestSecretCreationKubernetes(t *testing.T) {
 	// Test the existence of istio.default secret.
 	s, err := c.WaitForSecretToExist()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	t.Log(`checking secret "istio.default" is correctly created`)
