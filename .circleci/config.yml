@@ -494,46 +494,6 @@ jobs:
         - store_artifacts:
             path: /tmp
 
-  test-integration-kubernetes:
-    <<: *integrationDefaults
-    environment:
-      - KUBECONFIG: /go/out/minikube.conf
-      - TEST_ENV: minikube-none
-      - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
-          name: make test.integration.kube
-          command: |
-            make test.integration.kube T="-v -timeout=15m" | tee -a /go/out/tests/build-log.txt
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_test_results:
-          path: /go/out/tests
-
   e2e-pilot-auth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
     steps:
@@ -772,129 +732,37 @@ workflows:
              branches:
                only:
                  - master
-                 - release-0.8
-                 - release-1.0
-                 - dev-networking
                  - release-1.1
-    jobs: #daisy chained steps ending with docker push
-      - depupdate
+    jobs:
       - build
       - test
+      - test-integration-local:
+          requires:
+            - build
       - e2e-simple:
           requires:
-            - test
+            - build
+      - e2e-mixer-noauth-v1alpha3-v2:
+          requires:
+            - build
+      - e2e-galley:
+          requires:
+            - build
+      - e2e-pilot-noauth-v1alpha3-v2: # no auth+v1alpha3+v2
+          requires:
             - build
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
           requires:
-            - build
-      # Compile for mac and arm
-      - goxbuild:
-          requires:
-            - test
             - build
       # Nightly release
       - nightly:
           context: org-global
           requires:
             - build
-
-  periodic:
-    triggers:
-       - schedule:
-           cron: "20 7,14,21 * * *"
-           filters:
-             branches:
-               only:
-                 - master
-                 - release-0.8
-                 - release-1.0
-                 - dev-networking
-    jobs:
-      - depupdate
-      - build
-      - test
-      - e2e-simple:
-          requires:
-            - build
-      - e2e-simple-non-mcp:
-          requires:
-            - build
-      - e2e-dashboard:
-          requires:
-            - build
-      - e2e-dashboard-non-mcp:
-          requires:
-            - build
-      - benchcheck:
-          requires:
             - test
-            - build
-      - e2e-mixer-noauth-v1alpha3-v2:
-          requires:
-            - build
-      - e2e-mixer-noauth-v1alpha3-v2-non-mcp:
-          requires:
-            - build
-      - e2e-galley:
-          requires:
-            - build
-      - racetest:
-          requires:
-            - test
-      - e2e-pilot-noauth-v1alpha3-v2: # no auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-noauth-v1alpha3-v2-non-mcp: # no auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
-          requires:
-            - build
-      - test-integration-local:
-          requires:
-            - build
-      - test-integration-kubernetes:
-          requires:
-            - build
-
-  all:
-    jobs:
-      - shellcheck
-      - lint
-      - build
-      - test
-      - codecov
-      - e2e-mixer-noauth-v1alpha3-v2:
-          requires:
-            - build
-      - e2e-galley:
-          requires:
-            - build
-      - e2e-simple:
-          requires:
-            - build
-      - e2e-dashboard:
-          requires:
-            - build
-      - racetest:
-          requires:
-            - test
-      - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-cloudfoundry-v1alpha3-v2:
-          requires:
-            - build
-      - test-integration-local:
-          requires:
-            - build
-      - test-integration-kubernetes:
-          requires:
-            - build
-
+            - test-integration-local
+            - e2e-simple
+            - e2e-mixer-noauth-v1alpha3-v2
+            - e2e-galley
+            - e2e-pilot-noauth-v1alpha3-v2
+            - e2e-pilot-auth-v1alpha3-v2
