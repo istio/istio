@@ -361,7 +361,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 
 		// Add a passthrough cluster for traffic to management ports (health check ports)
 		for _, port := range managementPorts {
-			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, port.Name,
+				ManagementClusterHostname, port.Port)
 			localityLbEndpoints := buildInboundLocalityLbEndpoints(LocalhostAddress, port.Port)
 			mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
 			setUpstreamProtocol(mgmtCluster, port)
