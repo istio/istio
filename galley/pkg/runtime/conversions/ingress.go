@@ -33,8 +33,8 @@ import (
 
 var scope = log.RegisterScope("conversions", "proto converters for runtime state", 0)
 
-// ToIngressSpec unwraps an enveloped proto
-func ToIngressSpec(e *mcp.Envelope) (*ingress.IngressSpec, error) {
+// ToIngressSpec unwraps an MCP resource proto
+func ToIngressSpec(e *mcp.Resource) (*ingress.IngressSpec, error) {
 
 	p := metadata.IngressSpec.NewProtoInstance()
 	i, ok := p.(*ingress.IngressSpec)
@@ -43,7 +43,7 @@ func ToIngressSpec(e *mcp.Envelope) (*ingress.IngressSpec, error) {
 		return nil, fmt.Errorf("unable to convert proto to Ingress: %v", p)
 	}
 
-	if err := proto.Unmarshal(e.Resource.Value, p); err != nil {
+	if err := proto.Unmarshal(e.Body.Value, p); err != nil {
 		// Shouldn't happen
 		return nil, fmt.Errorf("unable to unmarshal Ingress during projection: %v", err)
 	}
