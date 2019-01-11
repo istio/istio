@@ -10,7 +10,7 @@ kind: Service
 metadata:
   name: {{.service}}
   labels:
-    app.kubernetes.io/name: {{.service}}
+    app: {{.service}}
 spec:
 {{if eq .headless "true"}}
   clusterIP: None
@@ -41,7 +41,7 @@ spec:
     targetPort: {{.port6}}
     name: grpc
   selector:
-    app.kubernetes.io/name: {{.service}}
+    app: {{.service}}
 {{end}}
 ---
 apiVersion: extensions/v1beta1
@@ -54,8 +54,8 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{.service}}
-        app.kubernetes.io/version: {{.version}}
+        app: {{.service}}
+        version: {{.version}}
         name: {{.deployment}}
 {{if eq .injectProxy "false"}}
       annotations:

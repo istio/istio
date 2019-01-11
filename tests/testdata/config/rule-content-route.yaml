@@ -10,10 +10,10 @@ spec:
   http:
     - match:
       - headers:
-          app.kubernetes.io/version:
+          version:
             exact: v2
         source_labels:
-          app.kubernetes.io/version: v1
+          version: v1
       route:
       - destination:
           host: c-weighted.extsvc.com

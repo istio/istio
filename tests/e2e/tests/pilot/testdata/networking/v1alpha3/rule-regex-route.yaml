@@ -11,7 +11,7 @@ spec:
           foo:
             regex: "b.*"
         source_labels:
-          app.kubernetes.io/version: v1
+          version: v1
       route:
       - destination:
           host: c

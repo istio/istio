@@ -13,7 +13,7 @@ spec:
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/applicationPorts: "1,2,3"
       labels:
-        app.kubernetes.io/name: status
+        app: status
     spec:
       containers:
       - name: status

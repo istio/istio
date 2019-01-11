@@ -9,7 +9,7 @@ spec:
       annotations:
         traffic.sidecar.istio.io/includeInboundPorts: "bad"
       labels:
-        app.kubernetes.io/name: traffic
+        app: traffic
     spec:
       containers:
         - name: traffic

@@ -15,7 +15,7 @@ spec:
       ports:
         http: 7072
       labels:
-        app.kubernetes.io/version: v1
+        version: v1
 
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -27,7 +27,7 @@ spec:
   subsets:
     - name: v1
       labels:
-        app.kubernetes.io/version: v1
+        version: v1
 
 
 ---

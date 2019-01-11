@@ -17,7 +17,7 @@ spec:
         status.sidecar.istio.io/port: "123"
       creationTimestamp: null
       labels:
-        app.kubernetes.io/name: status
+        app: status
     spec:
       containers:
       - image: fake.docker.io/google-samples/traffic-go-gke:1.0

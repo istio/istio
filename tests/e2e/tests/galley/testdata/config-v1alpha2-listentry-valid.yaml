@@ -3,4 +3,4 @@ kind: listentry
 metadata:
   name: valid-listentry
 spec:
-  value: source.labels["version"] | source.labels["app.kubernetes.io/version"]
+  value: source.labels["version"]

@@ -8,10 +8,10 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: hello
+        app: hello
         tier: backend
         track: stable
-        app.kubernetes.io/version: v1
+        version: v1
     spec:
       containers:
         - name: hello
@@ -29,10 +29,10 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: hello
+        app: hello
         tier: backend
         track: stable
-        app.kubernetes.io/version: v2
+        version: v2
     spec:
       containers:
         - name: hello

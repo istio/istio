@@ -9,7 +9,7 @@ spec:
       annotations:
         sidecar.istio.io/proxyImage: "docker.io/istio/proxy2_debug:unittest"
       labels:
-        app.kubernetes.io/name: hello
+        app: hello
         tier: backend
         track: stable
     spec:

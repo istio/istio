@@ -10,7 +10,7 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        app.kubernetes.io/name: hello-host-network
+        app: hello-host-network
         tier: backend
         track: stable
     spec:

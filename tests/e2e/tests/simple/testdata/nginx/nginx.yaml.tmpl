@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: nginx-configuration
   labels:
-    app.kubernetes.io/name: ingress-nginx
+    app: ingress-nginx
 data:
   ssl-redirect: "false"
 ---
@@ -13,7 +13,7 @@ kind: ConfigMap
 metadata:
   name: nginx-tcp-services
   labels:
-    app.kubernetes.io/name: ingress-nginx
+    app: ingress-nginx
 ---
 
 apiVersion: v1
@@ -21,7 +21,7 @@ kind: ConfigMap
 metadata:
   name: nginx-udp-services
   labels:
-    app.kubernetes.io/name: ingress-nginx
+    app: ingress-nginx
 ---
 
 apiVersion: v1
@@ -162,16 +162,16 @@ kind: Deployment
 metadata:
   name: nginx-default-http-backend
   labels:
-    app.kubernetes.io/name: nginx-default-http-backend
+    app: nginx-default-http-backend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: nginx-default-http-backend
+      app: nginx-default-http-backend
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: nginx-default-http-backend
+        app: nginx-default-http-backend
     spec:
       terminationGracePeriodSeconds: 60
       containers:
@@ -205,14 +205,14 @@ kind: Service
 metadata:
   name: nginx-default-http-backend
   labels:
-    app.kubernetes.io/name: nginx-default-http-backend
+    app: nginx-default-http-backend
 spec:
   ports:
   - name: http
     port: 80
     targetPort: http
   selector:
-    app.kubernetes.io/name: nginx-default-http-backend
+    app: nginx-default-http-backend
 ---
 
 # Deployment: nginx-ingress-controller
@@ -224,11 +224,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: ingress-nginx
+      app: ingress-nginx
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: ingress-nginx
+        app: ingress-nginx
       annotations:
         prometheus.io/port: '10254'
         prometheus.io/scrape: 'true'
@@ -291,12 +291,12 @@ kind: Service
 metadata:
   name: ingress-nginx
   labels:
-    app.kubernetes.io/name: ingress-nginx
+    app: ingress-nginx
 spec:
   externalTrafficPolicy: Local
   type: LoadBalancer
   selector:
-    app.kubernetes.io/name: ingress-nginx
+    app: ingress-nginx
   ports:
   - name: http
     port: 80

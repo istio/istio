@@ -33,9 +33,9 @@ metadata:
   namespace: istio-system
 spec:
   dimensions:
-    source:  source.labels["app.kubernetes.io/name"] | source.labels["app"] | "unknown"
+    source: source.labels["app"] | "unknown"
     sourceVersion: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
-    destination:  destination.labels["app.kubernetes.io/name"] | destination.labels["app"] | "unknown"
+    destination: destination.labels["app"] | "unknown"
     destinationVersion: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
 
 ---
@@ -45,7 +45,7 @@ metadata:
   name: quota
   namespace: istio-system
 spec:
-  match: (destination.labels["app.kubernetes.io/name"]|destination.labels["app"]|"unknown") == "ratings"
+  match: (destination.labels["app"]|"unknown") == "ratings"
   actions:
   - handler: handler.redisquota
     instances:

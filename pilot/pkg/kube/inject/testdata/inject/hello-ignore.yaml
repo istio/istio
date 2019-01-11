@@ -8,7 +8,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: hello
+        app: hello
         tier: backend
         track: stable
       annotations:

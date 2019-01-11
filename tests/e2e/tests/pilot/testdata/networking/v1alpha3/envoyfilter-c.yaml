@@ -4,7 +4,7 @@ metadata:
   name: simple-envoy-filter
 spec:
   workloadLabels:
-    app.kubernetes.io/name: c
+    app: c
   filters:
   - listenerMatch:
       listenerType: SIDECAR_INBOUND

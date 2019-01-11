@@ -9,7 +9,7 @@ spec:
   - port: 8079
     name: grpc-ping
   selector:
-    app.kubernetes.io/name: echosrv
+    app: echosrv
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -59,8 +59,8 @@ spec:
     metadata:
       # a unique name is generated from the deployment name
       labels:
-        app.kubernetes.io/name: echosrv
-        app.kubernetes.io/version: v1
+        app: echosrv
+        version: v1
         test: a
         extrap: non # can't use "no" as that's a boolean...
     spec:
@@ -87,8 +87,8 @@ spec:
     metadata:
       # a unique name is generated from the deployment name
       labels:
-        app.kubernetes.io/name: echosrv
-        app.kubernetes.io/version: v2
+        app: echosrv
+        version: v2
         test: b
         extrap: oui # can't seem to be able to use "yes" here and in selector...
     spec:
@@ -119,7 +119,7 @@ spec:
   - port: 8088
     name: http-echo2
   selector:
-    app.kubernetes.io/name: echosrv
+    app: echosrv
     extrap: oui
 ---
 # We can't use a third service for the security open proxy issue as the issue

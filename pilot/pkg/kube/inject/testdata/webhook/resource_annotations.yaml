@@ -10,7 +10,7 @@ spec:
         sidecar.istio.io/proxyCPU: "100m"
         sidecar.istio.io/proxyMemory: "1Gi"
       labels:
-        app.kubernetes.io/name: resource
+        app: resource
     spec:
       containers:
       - name: resource

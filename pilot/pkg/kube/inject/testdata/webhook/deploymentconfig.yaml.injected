@@ -14,7 +14,7 @@ spec:
         sidecar.istio.io/status: '{"version":"unit-test-fake-version","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
-        app.kubernetes.io/name: hello
+        app: hello
         tier: backend
         track: stable
     spec:

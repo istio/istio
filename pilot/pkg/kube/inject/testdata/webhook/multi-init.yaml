@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: hello
+        app: hello
         tier: backend
         track: stable
     spec:
@@ -23,4 +23,4 @@ spec:
           command: ["sh", "-c", "true"]
         - name: init-two
           image: "busybox"
-          command: ["sh", "-c", "true"]
+          command: ["sh", "-c", "true"] 

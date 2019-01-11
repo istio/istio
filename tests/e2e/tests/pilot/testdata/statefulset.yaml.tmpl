@@ -4,14 +4,14 @@ kind: Service
 metadata:
   name: {{.service}}
   labels:
-    app.kubernetes.io/name: {{.service}}
+    app: {{.service}}
 spec:
   clusterIP: None
   ports:
   - port: 19090
     name: https
   selector:
-    app.kubernetes.io/name: {{.service}}
+    app: {{.service}}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -20,13 +20,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{.service}} # has to match .spec.template.metadata.labels
+      app: {{.service}} # has to match .spec.template.metadata.labels
   serviceName: "{{.service}}"
   replicas: 2
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{.service}} # has to match .spec.selector.matchLabels
+        app: {{.service}} # has to match .spec.selector.matchLabels
     spec:
       containers:
       - name: app

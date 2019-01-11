@@ -14,10 +14,10 @@ items:
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
-          app.kubernetes.io/name: hello
-          app.kubernetes.io/version: v1
+          app: hello
           tier: backend
           track: stable
+          version: v1
       spec:
         containers:
         - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -144,10 +144,10 @@ items:
           sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
         creationTimestamp: null
         labels:
-          app.kubernetes.io/name: hello
-          app.kubernetes.io/version: v2
+          app: hello
           tier: backend
           track: stable
+          version: v2
       spec:
         containers:
         - image: fake.docker.io/google-samples/hello-go-gke:1.0

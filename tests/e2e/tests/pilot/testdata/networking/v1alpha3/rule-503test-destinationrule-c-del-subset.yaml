@@ -13,7 +13,7 @@ spec:
     # Always Add new subsets before deleting the old ones (make before break)
     - name: v3
       labels:
-        app.kubernetes.io/version: v1
+        version: v1
     - name: v4
       labels:
-        app.kubernetes.io/version: v2
+        version: v2

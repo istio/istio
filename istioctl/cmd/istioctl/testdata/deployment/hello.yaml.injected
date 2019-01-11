@@ -12,7 +12,7 @@ spec:
         sidecar.istio.io/status: '{"version":"8e3c3eaa594b3ca11f720242d214f15fc4b9af1a1c8425a1310adfd675e32743","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":null,"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
-        app.kubernetes.io/name: hello
+        app: hello
         tier: backend
         track: stable
     spec:

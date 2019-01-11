@@ -14,7 +14,7 @@ spec:
         sidecar.istio.io/userVolume: '{"user-volume-1":{"persistentVolumeClaim":{"claimName":"pvc-claim"}},"user-volume-2":{"configMap":{"name":"configmap-volume","items":[{"key":"some-key","path":"/some-path"}]}}}'
       creationTimestamp: null
       labels:
-        app.kubernetes.io/name: user-volume
+        app: user-volume
         tier: backend
         track: stable
     spec:

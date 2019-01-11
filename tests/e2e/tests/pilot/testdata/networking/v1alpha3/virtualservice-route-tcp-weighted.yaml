@@ -10,7 +10,7 @@ spec:
   - match:
     - port: 90
       source_labels:
-        app.kubernetes.io/name: a
+        app: a
     route:
     - destination:
         host: c

@@ -15,12 +15,12 @@ spec:
       ports:
         http: 8080
       labels:
-        app.kubernetes.io/version: v1
+        version: v1
     - address: 127.0.0.3
       ports:
         http: 8081
       labels:
-        app.kubernetes.io/version: v2
+        version: v2
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -31,10 +31,10 @@ spec:
   subsets:
     - name: v1
       labels:
-        app.kubernetes.io/version: v1
+        version: v1
     - name: v2
       labels:
-        app.kubernetes.io/version: v2
+        version: v2
 
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -47,10 +47,10 @@ spec:
   http:
     - match:
       - headers:
-          app.kubernetes.io/version:
+          version:
             exact: v2
         source_labels:
-          app.kubernetes.io/version: v1
+          version: v1
       route:
       - destination:
           host: c
