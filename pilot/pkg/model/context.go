@@ -17,7 +17,6 @@ package model
 import (
 	"errors"
 	"fmt"
-	"istio.io/api/networking/v1alpha3"
 	"net"
 	"strconv"
 	"strings"
@@ -25,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/features/pilot"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -243,7 +243,6 @@ func (node *Proxy) NoneIngressApplicationPort(push *PushContext, instances []*Se
 	}
 	// END TEMP CODE
 
-
 	if matchingSc != nil {
 		for _, ing := range matchingSc.GetIngress() {
 			if ing.Port == nil {
@@ -252,14 +251,14 @@ func (node *Proxy) NoneIngressApplicationPort(push *PushContext, instances []*Se
 			if ing.Port.Number == uint32(orig) {
 				// Found matching port
 				if ing.GetDefaultEndpoint() == "" {
-					return 0, errors.New("Missing defaultEndpoint")
+					return 0, errors.New("missing defaultEndpoint")
 				}
 				host, port, err := net.SplitHostPort(ing.GetDefaultEndpoint())
 				if err != nil {
 					return 0, err
 				}
 				if host != "127.0.0.1" {
-					return 0, errors.New("Unexpected host in defaultEndpoint, must be 127.0.0.1")
+					return 0, errors.New("unexpected host in defaultEndpoint, must be 127.0.0.1")
 				}
 				portN, err := strconv.Atoi(port)
 				if err != nil {
@@ -275,7 +274,7 @@ func (node *Proxy) NoneIngressApplicationPort(push *PushContext, instances []*Se
 	// Sidecar can provide a default value, but in some environments (raw VMs, etc) the port may be in use.
 
 	// Hack/fallback for initial implementation to unblock testing: add or subtract 30000 to container ports.
-	return 0, errors.New(fmt.Sprintf("No Sidecar or matching ingress port found %d", orig))
+	return 0, fmt.Errorf("no Sidecar or matching ingress port found %d", orig)
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh
