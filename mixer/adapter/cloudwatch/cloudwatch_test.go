@@ -15,14 +15,60 @@
 package cloudwatch
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/cloudwatch/config"
+	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/logentry"
 	"istio.io/istio/mixer/template/metric"
 )
+
+func TestBasic(t *testing.T) {
+	info := GetInfo()
+
+	if !containsTemplate(info.SupportedTemplates, logentry.TemplateName, metric.TemplateName) {
+		t.Error("Didn't find all expected supported templates")
+	}
+
+	cfg := info.DefaultConfig
+	b := info.NewBuilder()
+
+	params := cfg.(*config.Params)
+	params.Namespace = "default"
+	params.LogGroupName = "group"
+	params.LogStreamName = "stream"
+	params.Logs = make(map[string]*config.Params_LogInfo)
+
+	b.SetAdapterConfig(cfg)
+
+	if err := b.Validate(); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
+	}
+
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Errorf("Got error %v, expecting success", err)
+	}
+
+	if err = handler.Close(); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
+	}
+}
+
+func containsTemplate(s []string, template ...string) bool {
+	found := 0
+	for _, a := range s {
+		for _, t := range template {
+			if t == a {
+				found++
+			}
+		}
+	}
+	return found == len(template)
+}
 
 func TestValidate(t *testing.T) {
 	b := &builder{}
