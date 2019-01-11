@@ -188,9 +188,12 @@ func readMetadata(path string) (*metadata, error) {
 		m.ProtoDefs = append(m.ProtoDefs, v)
 	}
 
-	// Then, stable sort based on message name.
+	// Then, stable sort based on collection name.
 	sort.Slice(m.ProtoDefs, func(i, j int) bool {
 		return strings.Compare(m.ProtoDefs[i].Collection, m.ProtoDefs[j].Collection) < 0
+	})
+	sort.Slice(m.Resources, func(i, j int) bool {
+		return strings.Compare(m.Resources[i].Collection, m.Resources[j].Collection) < 0
 	})
 
 	return &m, nil

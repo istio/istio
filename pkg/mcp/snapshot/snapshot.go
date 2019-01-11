@@ -15,7 +15,6 @@
 package snapshot
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -165,9 +164,6 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 
 	// update the existing entry
 	c.snapshots[group] = snapshot
-
-	info, ok := c.status[group]
-	fmt.Println("SetSnapshot()", info, ok)
 
 	// trigger existing watches for which version changed
 	if info, ok := c.status[group]; ok {

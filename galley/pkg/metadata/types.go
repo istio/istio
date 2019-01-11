@@ -70,8 +70,17 @@ var (
 	// Circonus metadata
 	Circonus resource.Info
 
+	// Cloudwatch metadata
+	Cloudwatch resource.Info
+
 	// Denier metadata
 	Denier resource.Info
+
+	// Dogstatsd metadata
+	Dogstatsd resource.Info
+
+	// Edge metadata
+	Edge resource.Info
 
 	// Fluentd metadata
 	Fluentd resource.Info
@@ -108,6 +117,9 @@ var (
 
 	// Quota metadata
 	Quota resource.Info
+
+	// Rbac metadata
+	Rbac resource.Info
 
 	// Redisquota metadata
 	Redisquota resource.Info
@@ -230,8 +242,17 @@ func init() {
 	Circonus = b.Register(
 		"istio/config/v1alpha2/legacy/circonuses",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
+	Cloudwatch = b.Register(
+		"istio/config/v1alpha2/legacy/cloudwatches",
+		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Denier = b.Register(
 		"istio/config/v1alpha2/legacy/deniers",
+		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
+	Dogstatsd = b.Register(
+		"istio/config/v1alpha2/legacy/dogstatsds",
+		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
+	Edge = b.Register(
+		"istio/config/v1alpha2/legacy/edges",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Fluentd = b.Register(
 		"istio/config/v1alpha2/legacy/fluentds",
@@ -268,6 +289,9 @@ func init() {
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Quota = b.Register(
 		"istio/config/v1alpha2/legacy/quotas",
+		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
+	Rbac = b.Register(
+		"istio/config/v1alpha2/legacy/rbacs",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Redisquota = b.Register(
 		"istio/config/v1alpha2/legacy/redisquotas",

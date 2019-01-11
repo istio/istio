@@ -137,9 +137,9 @@ func (b *backend) Init(kinds []string) error {
 	}
 	b.mapping = m
 
-	typeURLs := b.mapping.collections()
-	scope.Infof("Requesting following types:")
-	for i, url := range typeURLs {
+	collections := b.mapping.collections()
+	scope.Infof("Requesting following collections:")
+	for i, url := range collections {
 		scope.Infof("  [%d] %s", i, url)
 	}
 
@@ -190,7 +190,7 @@ func (b *backend) Init(kinds []string) error {
 	cl := mcp.NewResourceSourceClient(conn)
 	b.mcpReporter = monitoring.NewStatsContext("mixer/mcp/sink")
 	options := &sink.Options{
-		Collections: typeURLs,
+		Collections: collections,
 		Updater:     b,
 		ID:          mixerNodeID,
 		Metadata:    map[string]string{},
@@ -203,7 +203,7 @@ func (b *backend) Init(kinds []string) error {
 		items:  make(map[string]map[store.Key]*store.BackEndResource),
 		synced: make(map[string]bool),
 	}
-	for _, typeURL := range typeURLs {
+	for _, typeURL := range collections {
 		b.state.synced[typeURL] = false
 	}
 
