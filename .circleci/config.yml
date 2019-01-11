@@ -775,6 +775,7 @@ workflows:
                  - release-0.8
                  - release-1.0
                  - dev-networking
+                 - release-1.1
     jobs: #daisy chained steps ending with docker push
       - depupdate
       - build
