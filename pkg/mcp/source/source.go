@@ -409,23 +409,22 @@ func (rs *remoteSink) processClientRequest(req *mcp.RequestResources) error {
 		return status.Errorf(codes.InvalidArgument, "unsupported collection %q", req.Collection)
 	}
 
-	nonce := ""
+	pendingNonce := ""
 	if w.pending != nil {
-		nonce = w.pending.Nonce
+		pendingNonce = w.pending.Nonce
 	}
 
-	// nonces can be reused across streams; we verify nonce only if nonce is not initialized
-	if nonce == "" || nonce == req.ResponseNonce {
+	// nonces can be reused across streams; we verify pendingNonce only if pendingNonce is not initialized
+	if req.ResponseNonce == "" || req.ResponseNonce == pendingNonce {
 		versionInfo := ""
 
 		if w.pending == nil {
 			scope.Infof("MCP: connection %v: WATCH for %v", rs, req.Collection)
 		} else {
 			versionInfo = w.pending.SystemVersionInfo
-
 			if req.ErrorDetail != nil {
-				scope.Warnf("MCP: connection %v: NACK collection=%v with version=%q nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
-					rs, req.Collection, req.ResponseNonce, versionInfo, nonce, req.ErrorDetail)
+				scope.Warnf("MCP: connection %v: NACK collection=%v with version=%q nonce=%q error=%#v", // nolint: lll
+					rs, req.Collection, req.ResponseNonce, versionInfo, req.ErrorDetail)
 				rs.reporter.RecordRequestNack(req.Collection, rs.id, codes.Code(req.ErrorDetail.Code))
 			} else {
 				scope.Infof("MCP: connection %v ACK collection=%q with version=%q nonce=%q",
@@ -448,6 +447,8 @@ func (rs *remoteSink) processClientRequest(req *mcp.RequestResources) error {
 			}
 		}
 
+		w.pending = nil
+
 		if w.cancel != nil {
 			w.cancel()
 		}
@@ -460,20 +461,18 @@ func (rs *remoteSink) processClientRequest(req *mcp.RequestResources) error {
 		w.cancel = rs.watcher.Watch(sr, w.saveResponseAndSchedulePush)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
-		// latest watch's nonce value. These could be dup requests or out-of-order
+		// latest watch's pendingNonce value. These could be dup requests or out-of-order
 		// requests from a buggy client.
 		if req.ErrorDetail != nil {
-			scope.Errorf("MCP: connection %v: STALE NACK collection=%v with nonce=%q (expected nonce=%q) error=%#v", // nolint: lll
-				rs, req.Collection, req.ResponseNonce, nonce, req.ErrorDetail)
+			scope.Errorf("MCP: connection %v: STALE NACK collection=%v with nonce=%q (expected nonce=%q) error=%+v", // nolint: lll
+				rs, req.Collection, req.ResponseNonce, pendingNonce, req.ErrorDetail)
 			rs.reporter.RecordRequestNack(req.Collection, rs.id, codes.Code(req.ErrorDetail.Code))
 		} else {
 			scope.Errorf("MCP: connection %v: STALE ACK collection=%v with nonce=%q (expected nonce=%q)", // nolint: lll
-				rs, req.Collection, req.ResponseNonce, nonce)
+				rs, req.Collection, req.ResponseNonce, pendingNonce)
 			rs.reporter.RecordRequestAck(req.Collection, rs.id)
 		}
 	}
-
-	w.pending = nil
 
 	return nil
 }

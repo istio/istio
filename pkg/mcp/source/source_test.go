@@ -74,7 +74,7 @@ func newSourceTestHarness(t *testing.T) *sourceTestHarness {
 		watchResponses:     make(map[string]*WatchResponse),
 	}
 	for _, typeURL := range test.SupportedCollections {
-		s.watchesCreatedChan[typeURL] = make(chan struct{})
+		s.watchesCreatedChan[typeURL] = make(chan struct{}, 10)
 	}
 	s.resetStream()
 	return s
