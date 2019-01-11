@@ -334,7 +334,59 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	}
 
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	if sidecarScope.Config != nil { //auto generated sidecars will have Config set to nil
+	if sidecarScope.Config == nil {
+		// There is no user supplied sidecarScope for this namespace
+		// Construct inbound listeners in the usual way by looking at the ports of the service instances
+		// attached to the proxy
+		// We should not create inbound listeners in NONE mode based on the service instances
+		// Doing so will prevent the workloads from starting as they would be listening on the same port
+		// Users are required to provide the sidecar config to define the inbound listeners
+		if node.Metadata["INTERCEPTION_MODE"] == "NONE" {
+			return nil
+		}
+
+		// inbound connections/requests are redirected to the endpoint address but appear to be sent
+		// to the service address.
+		for _, instance := range proxyInstances {
+			endpoint := instance.Endpoint
+			bindToPort := false
+			bind := endpoint.Address
+
+			// Local service instances can be accessed through one of three
+			// addresses: localhost, endpoint IP, and service
+			// VIP. Localhost bypasses the proxy and doesn't need any TCP
+			// route config. Endpoint IP is handled below and Service IP is handled
+			// by outbound routes.
+			// Traffic sent to our service VIP is redirected by remote
+			// services' kubeproxy to our specific endpoint IP.
+			listenerOpts := buildListenerOpts{
+				env:            env,
+				proxy:          node,
+				proxyInstances: proxyInstances,
+				bind:           bind,
+				port:           endpoint.Port,
+				bindToPort:     bindToPort,
+			}
+
+			pluginParams := &plugin.InputParams{
+				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(endpoint.ServicePort.Protocol),
+				ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
+				Env:              env,
+				Node:             node,
+				ProxyInstances:   proxyInstances,
+				ServiceInstance:  instance,
+				Port:             endpoint.ServicePort,
+				Push:             push,
+				Bind:             bind,
+			}
+
+			if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
+				listeners = append(listeners, l)
+			}
+		}
+
+	} else {
+		//auto generated sidecars will have Config set to nil
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
 
 		for _, ingressListener := range rule.Ingress {
@@ -423,54 +475,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				listeners = append(listeners, l)
 			}
 		}
-	} else {
-		// We should not create inbound listeners in NONE mode based on the service instances
-		// Doing so will prevent the workloads from starting as they would be listening on the same port
-		// Users are required to provide the sidecar config to define the inbound listeners
-		if node.Metadata["INTERCEPTION_MODE"] == "NONE" {
-			return nil
-		}
-
-		// inbound connections/requests are redirected to the endpoint address but appear to be sent
-		// to the service address.
-		for _, instance := range proxyInstances {
-			endpoint := instance.Endpoint
-			bindToPort := false
-			bind := endpoint.Address
-
-			// Local service instances can be accessed through one of three
-			// addresses: localhost, endpoint IP, and service
-			// VIP. Localhost bypasses the proxy and doesn't need any TCP
-			// route config. Endpoint IP is handled below and Service IP is handled
-			// by outbound routes.
-			// Traffic sent to our service VIP is redirected by remote
-			// services' kubeproxy to our specific endpoint IP.
-			listenerOpts := buildListenerOpts{
-				env:            env,
-				proxy:          node,
-				proxyInstances: proxyInstances,
-				bind:           bind,
-				port:           endpoint.Port,
-				bindToPort:     bindToPort,
-			}
-
-			pluginParams := &plugin.InputParams{
-				ListenerProtocol: plugin.ModelProtocolToListenerProtocol(endpoint.ServicePort.Protocol),
-				ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_INBOUND,
-				Env:              env,
-				Node:             node,
-				ProxyInstances:   proxyInstances,
-				ServiceInstance:  instance,
-				Port:             endpoint.ServicePort,
-				Push:             push,
-				Bind:             bind,
-			}
-
-			if l := configgen.buildSidecarInboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap); l != nil {
-				listeners = append(listeners, l)
-			}
-		}
 	}
+
 	return listeners
 }
 
@@ -670,160 +676,208 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	// For conflict resolution
 	listenerMap := make(map[string]*outboundListenerEntry)
 
-	// The sidecarConfig if provided could filter the list of
-	// services/virtual services that we need to process. It could also
-	// define one or more listeners with specific ports. Once we generate
-	// listeners for these user specified ports, we will auto generate
-	// configs for other ports if and only if the sidecarConfig has an
-	// egressListener on wildcard port.
-	//
-	// Validation will ensure that we have utmost one wildcard egress listener
-	// occurring in the end
-
-	// Add listeners based on the config in the sidecar.EgressListeners if
-	// no Sidecar CRD is provided for this config namespace,
-	// push.SidecarScope will generate a default catch all egress listener.
-	for _, egressListener := range sidecarScope.EgressListeners {
-
-		services := egressListener.Services()
-		virtualServices := egressListener.VirtualServices()
+	if sidecarScope.Config == nil {
+		// this namespace has no sidecar scope. Construct listeners in the old way
+		// TODO: this is a temporary gate. Once the sidecar implementation is stable,
+		// this will be removed as the config less sidecar has a default egress listener
+		// that has same behavior as the code below
+		services := push.Services(node)
+		meshGateway := map[string]bool{model.IstioMeshGateway: true}
+		virtualServices := push.VirtualServices(node, meshGateway)
 
 		// determine the bindToPort setting for listeners
 		bindToPort := false
 		mode := node.Metadata["INTERCEPTION_MODE"]
 		if mode == "NONE" {
-			// dont care what the listener's capture mode setting is. The proxy does not use iptables
 			bindToPort = true
-		} else {
-			// proxy uses iptables redirect or tproxy. IF mode is not set
-			// for older proxies, it defaults to iptables redirect.  If the
-			// listener's capture mode specifies NONE, then the proxy wants
-			// this listener alone to be on a physical port. If the
-			// listener's capture mode is default, then its same as
-			// iptables i.e. bindToPort is false.
-			if egressListener.IstioListener != nil &&
-				egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
-				bindToPort = true
-			}
 		}
 
-		if egressListener.IstioListener != nil &&
-			egressListener.IstioListener.Port != nil {
-			// We have a non catch all listener on some user specified port
-			// The user specified port may or may not match a service port.
-			// If it does not match any service port, then we expect the
-			// user to provide a virtualService that will route to a proper
-			// Service. This is the reason why we can't reuse the big
-			// forloop logic below as it iterates over all services and
-			// their service ports.
-
-			listenPort := &model.Port{
-				Port:     int(egressListener.IstioListener.Port.Number),
-				Protocol: model.ParseProtocol(egressListener.IstioListener.Port.Protocol),
-				Name:     egressListener.IstioListener.Port.Name,
-			}
-
-			// user can specify a Port but no bind - we would generate multiple listeners
-			// for this port (ones with 0.0.0.0:Port as well as ones with specific IPs) if captureMode is IPTABLES
-			//   else we only generate 127.0.0.1:PORT if captureMode is NONE
-			// or user could have a bind on 0.0.0.0:Port with multiple filter chains on same listener
-			// or user could have bind on 1.1.1.1:Port or unix domain socket with multiple filter chains
-			// based on SNI matches, on same listener
-			//
-			// For all cases, we call
-			// buildSidecarOutboundListenerForPortOrUDS. This function
-			// takes care of adding a new listener to the listenerMap or
-			// adding a new filter chain for an existing listener.
-			bind := egressListener.IstioListener.Bind
-			// if bindToPort is true, we set the bind address if empty to 127.0.0.1
-			if len(bind) == 0 && bindToPort {
-				bind = LocalhostAddress
-			}
-
-			for _, service := range services {
+		bind := ""
+		if bindToPort {
+			bind = LocalhostAddress
+		}
+		for _, service := range services {
+			for _, servicePort := range service.Ports {
 				listenerOpts := buildListenerOpts{
 					env:            env,
 					proxy:          node,
 					proxyInstances: proxyInstances,
 					proxyLabels:    proxyLabels,
+					port:           servicePort.Port,
 					bind:           bind,
-					port:           listenPort.Port,
 					bindToPort:     bindToPort,
 				}
 
 				pluginParams := &plugin.InputParams{
-					ListenerProtocol: plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
+					ListenerProtocol: plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
 					ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 					Env:              env,
 					Node:             node,
 					ProxyInstances:   proxyInstances,
 					Push:             push,
 					Bind:             bind,
-					Port:             listenPort,
+					Port:             servicePort,
 					Service:          service,
 				}
 
 				configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 			}
-		} else {
-			// This is a catch all egress listener with no port. This
-			// should be the last egress listener in the sidecar
-			// Scope. Construct a listener for each service and service
-			// port, if and only if this port was not specified in any of
-			// the preceding listeners from the sidecarScope. This allows
-			// users to specify a trimmed set of services for one or more
-			// listeners and then add a catch all egress listener for all
-			// other ports. Doing so allows people to restrict the set of
-			// services exposed on one or more listeners, and avoid hard
-			// port conflicts like tcp taking over http or http taking over
-			// tcp, or simply specify that of all the listeners that Istio
-			// generates, the user would like to have only specific sets of
-			// services exposed on a particular listener.
-			//
-			// To ensure that we do not add anything to listeners we have
-			// already generated, run through the outboundListenerEntry map and set
-			// the locked bit to true.
-			// buildSidecarOutboundListenerForPortOrUDS will not add/merge
-			// any HTTP/TCP listener if there is already a outboundListenerEntry
-			// with locked bit set to true
-			for _, e := range listenerMap {
-				e.locked = true
+		}
+	} else {
+		// The sidecarConfig if provided could filter the list of
+		// services/virtual services that we need to process. It could also
+		// define one or more listeners with specific ports. Once we generate
+		// listeners for these user specified ports, we will auto generate
+		// configs for other ports if and only if the sidecarConfig has an
+		// egressListener on wildcard port.
+		//
+		// Validation will ensure that we have utmost one wildcard egress listener
+		// occurring in the end
+
+		// Add listeners based on the config in the sidecar.EgressListeners if
+		// no Sidecar CRD is provided for this config namespace,
+		// push.SidecarScope will generate a default catch all egress listener.
+		for _, egressListener := range sidecarScope.EgressListeners {
+
+			services := egressListener.Services()
+			virtualServices := egressListener.VirtualServices()
+
+			// determine the bindToPort setting for listeners
+			bindToPort := false
+			mode := node.Metadata["INTERCEPTION_MODE"]
+			if mode == "NONE" {
+				// dont care what the listener's capture mode setting is. The proxy does not use iptables
+				bindToPort = true
+			} else {
+				// proxy uses iptables redirect or tproxy. IF mode is not set
+				// for older proxies, it defaults to iptables redirect.  If the
+				// listener's capture mode specifies NONE, then the proxy wants
+				// this listener alone to be on a physical port. If the
+				// listener's capture mode is default, then its same as
+				// iptables i.e. bindToPort is false.
+				if egressListener.IstioListener != nil &&
+					egressListener.IstioListener.CaptureMode == networking.CaptureMode_NONE {
+					bindToPort = true
+				}
 			}
 
-			bind := ""
-			if bindToPort {
-				bind = LocalhostAddress
-			}
-			for _, service := range services {
-				for _, servicePort := range service.Ports {
+			if egressListener.IstioListener != nil &&
+				egressListener.IstioListener.Port != nil {
+				// We have a non catch all listener on some user specified port
+				// The user specified port may or may not match a service port.
+				// If it does not match any service port, then we expect the
+				// user to provide a virtualService that will route to a proper
+				// Service. This is the reason why we can't reuse the big
+				// forloop logic below as it iterates over all services and
+				// their service ports.
+
+				listenPort := &model.Port{
+					Port:     int(egressListener.IstioListener.Port.Number),
+					Protocol: model.ParseProtocol(egressListener.IstioListener.Port.Protocol),
+					Name:     egressListener.IstioListener.Port.Name,
+				}
+
+				// user can specify a Port but no bind - we would generate multiple listeners
+				// for this port (ones with 0.0.0.0:Port as well as ones with specific IPs) if captureMode is IPTABLES
+				//   else we only generate 127.0.0.1:PORT if captureMode is NONE
+				// or user could have a bind on 0.0.0.0:Port with multiple filter chains on same listener
+				// or user could have bind on 1.1.1.1:Port or unix domain socket with multiple filter chains
+				// based on SNI matches, on same listener
+				//
+				// For all cases, we call
+				// buildSidecarOutboundListenerForPortOrUDS. This function
+				// takes care of adding a new listener to the listenerMap or
+				// adding a new filter chain for an existing listener.
+				bind := egressListener.IstioListener.Bind
+				// if bindToPort is true, we set the bind address if empty to 127.0.0.1
+				if len(bind) == 0 && bindToPort {
+					bind = LocalhostAddress
+				}
+
+				for _, service := range services {
 					listenerOpts := buildListenerOpts{
 						env:            env,
 						proxy:          node,
 						proxyInstances: proxyInstances,
 						proxyLabels:    proxyLabels,
-						port:           servicePort.Port,
 						bind:           bind,
+						port:           listenPort.Port,
 						bindToPort:     bindToPort,
 					}
 
 					pluginParams := &plugin.InputParams{
-						ListenerProtocol: plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
+						ListenerProtocol: plugin.ModelProtocolToListenerProtocol(listenPort.Protocol),
 						ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
 						Env:              env,
 						Node:             node,
 						ProxyInstances:   proxyInstances,
 						Push:             push,
 						Bind:             bind,
-						Port:             servicePort,
+						Port:             listenPort,
 						Service:          service,
 					}
 
 					configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
 				}
+			} else {
+				// This is a catch all egress listener with no port. This
+				// should be the last egress listener in the sidecar
+				// Scope. Construct a listener for each service and service
+				// port, if and only if this port was not specified in any of
+				// the preceding listeners from the sidecarScope. This allows
+				// users to specify a trimmed set of services for one or more
+				// listeners and then add a catch all egress listener for all
+				// other ports. Doing so allows people to restrict the set of
+				// services exposed on one or more listeners, and avoid hard
+				// port conflicts like tcp taking over http or http taking over
+				// tcp, or simply specify that of all the listeners that Istio
+				// generates, the user would like to have only specific sets of
+				// services exposed on a particular listener.
+				//
+				// To ensure that we do not add anything to listeners we have
+				// already generated, run through the outboundListenerEntry map and set
+				// the locked bit to true.
+				// buildSidecarOutboundListenerForPortOrUDS will not add/merge
+				// any HTTP/TCP listener if there is already a outboundListenerEntry
+				// with locked bit set to true
+				for _, e := range listenerMap {
+					e.locked = true
+				}
+
+				bind := ""
+				if bindToPort {
+					bind = LocalhostAddress
+				}
+				for _, service := range services {
+					for _, servicePort := range service.Ports {
+						listenerOpts := buildListenerOpts{
+							env:            env,
+							proxy:          node,
+							proxyInstances: proxyInstances,
+							proxyLabels:    proxyLabels,
+							port:           servicePort.Port,
+							bind:           bind,
+							bindToPort:     bindToPort,
+						}
+
+						pluginParams := &plugin.InputParams{
+							ListenerProtocol: plugin.ModelProtocolToListenerProtocol(servicePort.Protocol),
+							ListenerCategory: networking.EnvoyFilter_ListenerMatch_SIDECAR_OUTBOUND,
+							Env:              env,
+							Node:             node,
+							ProxyInstances:   proxyInstances,
+							Push:             push,
+							Bind:             bind,
+							Port:             servicePort,
+							Service:          service,
+						}
+
+						configgen.buildSidecarOutboundListenerForPortOrUDS(listenerOpts, pluginParams, listenerMap, virtualServices)
+					}
+				}
 			}
 		}
 	}
-
 	// Now validate all the listeners. Collate the tcp listeners first and then the HTTP listeners
 	// TODO: This is going to be bad for caching as the order of listeners in tcpListeners or httpListeners is not
 	// guaranteed.

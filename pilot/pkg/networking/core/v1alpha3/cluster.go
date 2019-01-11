@@ -331,96 +331,99 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	// If the node has no sidecarScope and has interception mode set to NONE, then we should skip the inbound
 	// clusters, because there would be no corresponding inbound listeners
 	sidecarScope := push.GetSidecarScope(proxy, instances)
-	if sidecarScope.Config != nil { //auto generated sidecars will have Config set to nil
-		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-		if len(rule.Ingress) > 0 {
-			for _, ingressListener := range rule.Ingress {
-				// LDS would have setup the inbound clusters
-				// as inbound|portNumber|portName|Hostname
-				listenPort := &model.Port{
-					Port:     int(ingressListener.Port.Number),
-					Protocol: model.ParseProtocol(ingressListener.Port.Protocol),
-					Name:     ingressListener.Port.Name,
-				}
+	var rule *networking.Sidecar
+	if sidecarScope.Config != nil {
+		rule = sidecarScope.Config.Spec.(*networking.Sidecar)
+	}
 
-				// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
-				// by the user and parse it into host:port or a unix domain socket
-				// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
-				bind := LocalhostAddress
-				port := 0
-				var err error
-				if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
-					// this is a UDS endpoint. assign it as is
-					bind = ingressListener.DefaultEndpoint
-				} else {
-					// parse the ip, port. Validation guarantees presence of :
-					parts := strings.Split(bind, ":")
-					if port, err = strconv.Atoi(parts[1]); err != nil {
-						continue
-					}
-				}
+	if sidecarScope.Config == nil || rule.Ingress == nil || len(rule.Ingress) == 0 {
+		// No user supplied sidecar scope or the user supplied one has no ingress listeners
 
-				// First create a copy of a service instance
-				instance := &model.ServiceInstance{
-					Endpoint:       instances[0].Endpoint,
-					Service:        instances[0].Service,
-					Labels:         instances[0].Labels,
-					ServiceAccount: instances[0].ServiceAccount,
-				}
+		// We should not create inbound listeners in NONE mode based on the service instances
+		// Doing so will prevent the workloads from starting as they would be listening on the same port
+		// Users are required to provide the sidecar config to define the inbound listeners
+		if proxy.Metadata["INTERCEPTION_MODE"] == "NONE" {
+			return nil
+		}
 
-				// Update the values here so that the plugins use the right ports
-				// uds values
-				// TODO: all plugins need to be updated to account for the fact that
-				// the port may be 0 but bind may have a UDS value
-				// Inboundroute will be different for
-				instance.Endpoint.Address = bind
-				instance.Endpoint.ServicePort = listenPort
-				instance.Endpoint.Port = port
-
-				pluginParams := &plugin.InputParams{
-					Env:             env,
-					Node:            proxy,
-					ServiceInstance: instances[0],
-					Port:            listenPort,
-					Push:            push,
-					Bind:            bind,
-				}
-				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
-				clusters = append(clusters, localCluster)
+		for _, instance := range instances {
+			pluginParams := &plugin.InputParams{
+				Env:             env,
+				Node:            proxy,
+				ServiceInstance: instances[0],
+				Port:            instance.Endpoint.ServicePort,
+				Push:            push,
+				Bind:            LocalhostAddress,
 			}
-			// clusters built from ingress listeners
-			return clusters
+			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+			clusters = append(clusters, localCluster)
+		}
+
+		// Add a passthrough cluster for traffic to management ports (health check ports)
+		for _, port := range managementPorts {
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
+			localityLbEndpoints := buildInboundLocalityLbEndpoints(LocalhostAddress, port.Port)
+			mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
+			setUpstreamProtocol(mgmtCluster, port)
+			clusters = append(clusters, mgmtCluster)
+		}
+	} else {
+		for _, ingressListener := range rule.Ingress {
+			// LDS would have setup the inbound clusters
+			// as inbound|portNumber|portName|Hostname
+			listenPort := &model.Port{
+				Port:     int(ingressListener.Port.Number),
+				Protocol: model.ParseProtocol(ingressListener.Port.Protocol),
+				Name:     ingressListener.Port.Name,
+			}
+
+			// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
+			// by the user and parse it into host:port or a unix domain socket
+			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
+			bind := LocalhostAddress
+			port := 0
+			var err error
+			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
+				// this is a UDS endpoint. assign it as is
+				bind = ingressListener.DefaultEndpoint
+			} else {
+				// parse the ip, port. Validation guarantees presence of :
+				parts := strings.Split(bind, ":")
+				if port, err = strconv.Atoi(parts[1]); err != nil {
+					continue
+				}
+			}
+
+			// First create a copy of a service instance
+			instance := &model.ServiceInstance{
+				Endpoint:       instances[0].Endpoint,
+				Service:        instances[0].Service,
+				Labels:         instances[0].Labels,
+				ServiceAccount: instances[0].ServiceAccount,
+			}
+
+			// Update the values here so that the plugins use the right ports
+			// uds values
+			// TODO: all plugins need to be updated to account for the fact that
+			// the port may be 0 but bind may have a UDS value
+			// Inboundroute will be different for
+			instance.Endpoint.Address = bind
+			instance.Endpoint.ServicePort = listenPort
+			instance.Endpoint.Port = port
+
+			pluginParams := &plugin.InputParams{
+				Env:             env,
+				Node:            proxy,
+				ServiceInstance: instances[0],
+				Port:            listenPort,
+				Push:            push,
+				Bind:            bind,
+			}
+			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+			clusters = append(clusters, localCluster)
 		}
 	}
 
-	// We should not create inbound listeners in NONE mode based on the service instances
-	// Doing so will prevent the workloads from starting as they would be listening on the same port
-	// Users are required to provide the sidecar config to define the inbound listeners
-	if proxy.Metadata["INTERCEPTION_MODE"] == "NONE" {
-		return nil
-	}
-
-	for _, instance := range instances {
-		pluginParams := &plugin.InputParams{
-			Env:             env,
-			Node:            proxy,
-			ServiceInstance: instances[0],
-			Port:            instance.Endpoint.ServicePort,
-			Push:            push,
-			Bind:            LocalhostAddress,
-		}
-		localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
-		clusters = append(clusters, localCluster)
-	}
-
-	// Add a passthrough cluster for traffic to management ports (health check ports)
-	for _, port := range managementPorts {
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
-		localityLbEndpoints := buildInboundLocalityLbEndpoints(LocalhostAddress, port.Port)
-		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
-		setUpstreamProtocol(mgmtCluster, port)
-		clusters = append(clusters, mgmtCluster)
-	}
 	return clusters
 }
 

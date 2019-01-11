@@ -42,7 +42,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 
 	switch node.Type {
 	case model.SidecarProxy:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
+		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, services, routeName), nil
 	case model.Router, model.Ingress:
 		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
 	}
@@ -94,7 +94,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
+	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
 	var err error
@@ -107,19 +107,27 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		}
 	}
 
+	var virtualServices []model.Config
+
 	// Get the list of services that correspond to this egressListener from the sidecarScope
 	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
-	// We should never be getting a nil egress listener because the code that setup this RDS
-	// call obviously saw an egress listener
-	if egressListener == nil {
-		return nil
-	}
+	if sidecarScope.Config != nil {
+		// this is a use supplied sidecar scope. Get the services from the egress listener
+		egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
+		// We should never be getting a nil egress listener because the code that setup this RDS
+		// call obviously saw an egress listener
+		if egressListener == nil {
+			return nil
+		}
 
-	services := egressListener.Services()
-	// To maintain correctness, we should only use the virtualservices for
-	// this listener and not all virtual services accessible to this proxy.
-	virtualServices := egressListener.VirtualServices()
+		services = egressListener.Services()
+		// To maintain correctness, we should only use the virtualservices for
+		// this listener and not all virtual services accessible to this proxy.
+		virtualServices = egressListener.VirtualServices()
+	} else {
+		meshGateway := map[string]bool{model.IstioMeshGateway: true}
+		virtualServices = push.VirtualServices(node, meshGateway)
+	}
 
 	nameToServiceMap := make(map[model.Hostname]*model.Service)
 	for _, svc := range services {

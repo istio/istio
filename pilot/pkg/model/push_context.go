@@ -347,7 +347,11 @@ func (ps *PushContext) SetSidecarScope(proxy *Proxy) {
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
+	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
+	// sidecarScope.config is nil if there is no sidecar scope for the namespace
+	// TODO: This is a temporary gate until the sidecar implementation is stable. Once its stable, remove the
+	// config != nil check
+	if proxy != nil && proxy.SidecarScope != nil && proxy.SidecarScope.Config != nil && proxy.Type == SidecarProxy {
 		return proxy.SidecarScope.Services()
 	}
 
@@ -420,6 +424,9 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 // function based on the Sidecar API objects in each namespace. If there is
 // no sidecar api object, a default sidecarscope is assigned to the
 // namespace which enables connectivity to all services in the mesh.
+//
+// Callers can check if the sidecarScope is from user generated object or not
+// by checking the sidecarScope.Config field, that contains the user provided config
 func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
 
 	var workloadLabels LabelsCollection
@@ -465,7 +472,11 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
-	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
+	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
+	// sidecarScope.config is nil if there is no sidecar scope for the namespace
+	// TODO: This is a temporary gate until the sidecar implementation is stable. Once its stable, remove the
+	// config != nil check
+	if proxy != nil && proxy.SidecarScope != nil && proxy.SidecarScope.Config != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
 		return proxy.SidecarScope.DestinationRule(hostname)
