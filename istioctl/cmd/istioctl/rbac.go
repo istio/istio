@@ -44,7 +44,7 @@ is being taken on. PATH is the HTTP path within the service.`,
 istioctl experimental rbac can -u cluster.local/ns/default/sa/productpage GET rating /v1/health
 
 # Query if namespace foo is allowed to POST to /data of service rating with label app.kubernetes.io/version=dev.
-istioctl experimental rbac can -s source.namespace=foo POST rating /data -a destination.labels[version]=dev`,
+istioctl experimental rbac can -s source.namespace=foo POST rating /data -a destination.labels[app.kubernetes.io/version]=dev`,
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			action.Method = args[0]

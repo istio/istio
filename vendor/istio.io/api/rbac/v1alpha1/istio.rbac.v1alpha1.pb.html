@@ -36,7 +36,7 @@ spec:
   - services: [&quot;products.svc.cluster.local&quot;]
     methods: [&quot;GET&quot;, &quot;HEAD&quot;]
     constraints:
-    - key: &quot;destination.labels[version]&quot;
+    - key: &quot;destination.labels[app.kubernetes.io/version]&quot;
       value: [&quot;v1&quot;, &quot;v2&quot;]
 </code></pre>
 

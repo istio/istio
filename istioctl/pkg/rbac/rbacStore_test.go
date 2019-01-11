@@ -55,7 +55,7 @@ func setupRBACStore() *ConfigStore {
 				Methods:  []string{"*"},
 				Constraints: []*rbacproto.AccessRule_Constraint{
 					{
-						Key:    "destination.labels[version]",
+						Key:    "destination.labels[app.kubernetes.io/version]",
 						Values: []string{"v1", "v2"},
 					},
 				},
@@ -196,7 +196,7 @@ func TestRBACStore_CheckPermission(t *testing.T) {
 			Service:    c.service,
 			Path:       c.path,
 			Method:     c.method,
-			Properties: []string{"destination.labels[version]=" + c.version},
+			Properties: []string{"destination.labels[app.kubernetes.io/version]=" + c.version},
 		}
 
 		if result, err := s.CheckPermission(subject, action); result != c.expected {

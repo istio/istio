@@ -27,7 +27,7 @@
 	   path: request.path | "/"
 	   method: request.method | "post"
 	   properties:
-	     version: destination.labels[version] | ""
+	     version: destination.labels[version] | destination[app.kubernetes.io/version] | ""
 	 ```
 
 	The `authorization` template defines parameters for performing policy

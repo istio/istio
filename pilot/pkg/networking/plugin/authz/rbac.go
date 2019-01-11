@@ -72,7 +72,7 @@ const (
 	// attributes that could be used in a ServiceRole constraint.
 	attrDestIP        = "destination.ip"        // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrDestPort      = "destination.port"      // must be in the range [0, 65535].
-	attrDestLabel     = "destination.labels"    // label name is surrounded by brackets, e.g. "destination.labels[version]".
+	attrDestLabel     = "destination.labels"    // label name is surrounded by brackets, e.g. "destination.labels[app.kubernetes.io/version]".
 	attrDestName      = "destination.name"      // short service name, e.g. "productpage".
 	attrDestNamespace = "destination.namespace" // e.g. "default".
 	attrDestUser      = "destination.user"      // service account, e.g. "bookinfo-productpage".

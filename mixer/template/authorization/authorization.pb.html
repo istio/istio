@@ -30,7 +30,7 @@ spec:
    path: request.path | &quot;/&quot;
    method: request.method | &quot;post&quot;
    properties:
-     version: destination.labels[version] | &quot;&quot;
+     version: destination.labels[version] | destination[app.kubernetes.io/version] | &quot;&quot;
 </code></pre>
 
 <h2 id="Action">Action</h2>

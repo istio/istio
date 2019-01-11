@@ -19,9 +19,9 @@ syntax = "proto3";
 
 // The `authorization` template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer
-// 
+//
 // Example config:
-// 
+//
 // ```yaml
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: authorization
@@ -40,7 +40,7 @@ syntax = "proto3";
 //    path: request.path | "/"
 //    method: request.method | "post"
 //    properties:
-//      version: destination.labels[version] | ""
+//      version: destination.labels[version] | destination[app.kubernetes.io/version] | ""
 //  ```
 //
 // The `authorization` template defines parameters for performing policy
@@ -71,7 +71,7 @@ option (gogoproto.gostring_all) = false;
 service HandleAuthorizationService {
     // HandleAuthorization is called by Mixer at request-time to deliver 'authorization' instances to the backend.
     rpc HandleAuthorization(HandleAuthorizationRequest) returns (istio.mixer.adapter.model.v1beta1.CheckResult);
-    
+
 }
 
 // Request message for HandleAuthorization method.
@@ -102,132 +102,132 @@ message InstanceMsg {
 
     // Name of the instance as specified in configuration.
     string name = 72295727;
-    
+
     // A subject contains a list of attributes that identify
 // the caller identity.
     SubjectMsg subject = 1;
-    
+
     // An action defines "how a resource is accessed".
     ActionMsg action = 2;
-    
+
 }
 
 // A subject contains a list of attributes that identify
 // the caller identity.
 message SubjectMsg {
-    
+
     // The user name/ID that the subject represents.
     string user = 1;
-    
+
     // Groups the subject belongs to depending on the authentication mechanism,
 // "groups" are normally populated from JWT claim or client certificate.
 // The operator can define how it is populated when creating an instance of
 // the template.
     string groups = 2;
-    
+
     // Additional attributes about the subject.
     map<string, istio.policy.v1beta1.Value> properties = 3;
-    
+
 }
 
 // An action defines "how a resource is accessed".
 message ActionMsg {
-    
+
     // Namespace the target action is taking place in.
     string namespace = 1;
-    
+
     // The Service the action is being taken on.
     string service = 2;
-    
+
     // What action is being taken.
     string method = 3;
-    
+
     // HTTP REST path within the service
     string path = 4;
-    
+
     // Additional data about the action for use in policy.
     map<string, istio.policy.v1beta1.Value> properties = 5;
-    
+
 }
 
 // Contains inferred type information about specific instance of 'authorization' template. This is passed to
 // infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
 message Type {
-    
+
     // A subject contains a list of attributes that identify
 // the caller identity.
     SubjectType subject = 1;
-    
+
     // An action defines "how a resource is accessed".
     ActionType action = 2;
-    
+
 }
 
 // A subject contains a list of attributes that identify
 // the caller identity.
 message SubjectType {
-    
+
     // Additional attributes about the subject.
     map<string, istio.policy.v1beta1.ValueType> properties = 3;
-    
+
 }
 
 // An action defines "how a resource is accessed".
 message ActionType {
-    
+
     // Additional data about the action for use in policy.
     map<string, istio.policy.v1beta1.ValueType> properties = 5;
-    
+
 }
 
 
 // Represents instance configuration schema for 'authorization' template.
 message InstanceParam {
-    
+
     // A subject contains a list of attributes that identify
 // the caller identity.
     SubjectInstanceParam subject = 1;
-    
+
     // An action defines "how a resource is accessed".
     ActionInstanceParam action = 2;
-    
+
 }
 
 // A subject contains a list of attributes that identify
 // the caller identity.
 message SubjectInstanceParam {
-    
+
     // The user name/ID that the subject represents.
     string user = 1;
-    
+
     // Groups the subject belongs to depending on the authentication mechanism,
 // "groups" are normally populated from JWT claim or client certificate.
 // The operator can define how it is populated when creating an instance of
 // the template.
     string groups = 2;
-    
+
     // Additional attributes about the subject.
     map<string, string> properties = 3;
-    
+
 }
 
 // An action defines "how a resource is accessed".
 message ActionInstanceParam {
-    
+
     // Namespace the target action is taking place in.
     string namespace = 1;
-    
+
     // The Service the action is being taken on.
     string service = 2;
-    
+
     // What action is being taken.
     string method = 3;
-    
+
     // HTTP REST path within the service
     string path = 4;
-    
+
     // Additional data about the action for use in policy.
     map<string, string> properties = 5;
-    
+
 }
 
