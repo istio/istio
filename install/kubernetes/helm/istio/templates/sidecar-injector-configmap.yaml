@@ -99,6 +99,10 @@ data:
         - --serviceCluster
         {{ "[[ if ne \"\" (index .ObjectMeta.Labels \"app\") -]]" }}
         - {{ "[[ index .ObjectMeta.Labels \"app\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
+        {{ "[[ else if ne \"\" (index .ObjectMeta.Labels \"app.kubernetes.io/instance\") -]]" }}
+        - {{ "[[ index .ObjectMeta.Labels \"app.kubernetes.io/instance\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
+        {{ "[[ else if ne \"\" (index .ObjectMeta.Labels \"app.kubernetes.io/name\") -]]" }}
+        - {{ "[[ index .ObjectMeta.Labels \"app.kubernetes.io/name\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ else -]]" }}
         - {{ "[[ valueOrDefault .DeploymentMeta.Name \"istio-proxy\" ]].[[ valueOrDefault .DeploymentMeta.Namespace \"default\" ]]" }}
         {{ "[[ end -]]" }}
