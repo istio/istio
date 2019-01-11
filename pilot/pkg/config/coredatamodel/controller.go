@@ -114,11 +114,6 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 	return out, nil
 }
 
-type addedTracking struct {
-	obj     *model.Config
-	updated bool
-}
-
 // Apply receives changes from MCP server and creates the
 // corresponding config
 func (c *Controller) Apply(change *sink.Change) error {
@@ -239,13 +234,14 @@ func (c *Controller) Apply(change *sink.Change) error {
 		}
 
 		if generateAllEvents {
-			if _, ok := c.configStore[obj.Type][obj.Namespace][obj.Name]; ok {
+			if _, ok := byNamespace[obj.Name]; ok {
 				dispatch(*obj, model.EventUpdate)
 			} else {
 				dispatch(*obj, model.EventAdd)
 			}
 		}
-		c.configStore[obj.Type][obj.Namespace][obj.Name] = obj
+
+		byNamespace[obj.Name] = obj
 	}
 	for _, remove := range change.Removed {
 		namespace, name := extractNameNamespace(remove)

@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -29,14 +28,6 @@ import (
 
 var fakeCreateTime = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 var fakeCreateTimeProto *types.Timestamp
-
-func mustMarshalAny(pb proto.Message) *types.Any {
-	a, err := types.MarshalAny(pb)
-	if err != nil {
-		panic(err.Error())
-	}
-	return a
-}
 
 func init() {
 	var err error

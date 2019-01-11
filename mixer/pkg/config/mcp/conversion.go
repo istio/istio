@@ -26,12 +26,6 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 )
 
-const (
-	// MessageName, TypeURL for the LegacyMixerResource wrapper type.
-	legacyMixerResourceMessageName = "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-	legacyMixerResourceTypeURL     = "type.googleapis.com/" + legacyMixerResourceMessageName
-)
-
 // mapping between MCP collections and and CRD Kinds.
 type mapping struct {
 	// Bidirectional mapping of collections & kinds for non-legacy resources.

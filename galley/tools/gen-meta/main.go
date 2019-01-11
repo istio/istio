@@ -61,8 +61,8 @@ type entry struct {
 type protoDef struct {
 	FullName    string `json:"-"`
 	MessageName string `json:"-"`
-	Collection  string `json:-`
-	Kind        string `json:-`
+	Collection  string `json:"-"`
+	Kind        string `json:"-"`
 }
 
 func main() {

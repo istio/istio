@@ -19,14 +19,12 @@ import (
 	"net"
 	"net/url"
 
-	"istio.io/istio/pkg/mcp/server"
-	"istio.io/istio/pkg/mcp/source"
-
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type WatchResponse func(req *source.Request) (*source.WatchResponse, source.CancelWatchFunc)

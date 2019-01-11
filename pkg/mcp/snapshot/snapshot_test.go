@@ -67,10 +67,6 @@ func makeSnapshot(version string) *fakeSnapshot {
 var _ Snapshot = &fakeSnapshot{}
 
 var (
-	fakeResource0 *mcp.Resource
-	fakeResource1 *mcp.Resource
-	fakeResource2 *mcp.Resource
-
 	WatchResponseCollections = []string{
 		test.FakeType0Collection,
 		test.FakeType1Collection,
