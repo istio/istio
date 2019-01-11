@@ -144,9 +144,9 @@ func TestAuthnPermissive(t *testing.T) {
 // explained: app-to-app-protocol(sidecar-to-sidecar-protocol). "legacy" means
 // no client sidecar, unable to send "istio" alpn indicator.
 // TODO(incfly): implement this
-func TestAuthentictionPermissiveE2E(t *testing.T) {
-	// Steps:
-	// Configure authn policy.
-	// Wait for config propagation.
-	// Send HTTP requests between apps.
-}
+// func TestAuthentictionPermissiveE2E(t *testing.T) {
+// Steps:
+// Configure authn policy.
+// Wait for config propagation.
+// Send HTTP requests between apps.
+// }
