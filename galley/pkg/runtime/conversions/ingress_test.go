@@ -113,8 +113,8 @@ func TestIngressConversion(t *testing.T) {
 	}
 
 	cfgs := map[string]resource.Entry{}
-	IngressToVirtualService(key, &ingress, "mydomain", cfgs)
-	IngressToVirtualService(key2, &ingress2, "mydomain", cfgs)
+	IngressToVirtualService(key, resource.Metadata{}, &ingress, "mydomain", cfgs)
+	IngressToVirtualService(key2, resource.Metadata{}, &ingress2, "mydomain", cfgs)
 
 	if len(cfgs) != 3 {
 		t.Error("VirtualServices, expected 3 got ", len(cfgs))
