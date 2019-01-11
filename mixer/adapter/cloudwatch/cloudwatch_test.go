@@ -41,6 +41,8 @@ func TestBasic(t *testing.T) {
 	params.LogGroupName = "group"
 	params.LogStreamName = "stream"
 	params.Logs = make(map[string]*config.Params_LogInfo)
+	params.Logs["empty"] = &config.Params_LogInfo{PayloadTemplate: "   "}
+	params.Logs["other"] = &config.Params_LogInfo{PayloadTemplate: `{{or (.source_ip) "-"}}`}
 
 	b.SetAdapterConfig(cfg)
 
