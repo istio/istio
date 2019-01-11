@@ -9,30 +9,15 @@ import (
 	// Pull in all the known proto types to ensure we get their types registered.
 
 	// Register protos in istio.io/api/authentication/v1alpha1""
-	_ "istio.io/api/authentication/v1alpha1"
-
-	// Register protos in istio.io/api/mixer/v1/config/client""
-	_ "istio.io/api/mixer/v1/config/client"
-
-	// Register protos in istio.io/api/networking/v1alpha3""
-	_ "istio.io/api/networking/v1alpha3"
-
-	// Register protos in istio.io/api/policy/v1beta1""
-	_ "istio.io/api/policy/v1beta1"
-
-	// Register protos in istio.io/api/rbac/v1alpha1""
-	_ "istio.io/api/rbac/v1alpha1"
-
-	// Register protos in istio.io/istio/galley/pkg/kube/converter/legacy""
-	_ "istio.io/istio/galley/pkg/kube/converter/legacy"
-
-	// Register protos in k8s.io/api/core/v1""
-	_ "k8s.io/api/core/v1"
-
-	// Register protos in k8s.io/api/extensions/v1beta1""
-	_ "k8s.io/api/extensions/v1beta1"
-
+	_ "istio.io/api/authentication/v1alpha1"            // Register protos in istio.io/api/mixer/v1/config/client""
+	_ "istio.io/api/mixer/v1/config/client"             // Register protos in istio.io/api/networking/v1alpha3""
+	_ "istio.io/api/networking/v1alpha3"                // Register protos in istio.io/api/policy/v1beta1""
+	_ "istio.io/api/policy/v1beta1"                     // Register protos in istio.io/api/rbac/v1alpha1""
+	_ "istio.io/api/rbac/v1alpha1"                      // Register protos in istio.io/istio/galley/pkg/kube/converter/legacy""
+	_ "istio.io/istio/galley/pkg/kube/converter/legacy" // Register protos in k8s.io/api/core/v1""
 	"istio.io/istio/galley/pkg/runtime/resource"
+	_ "k8s.io/api/core/v1" // Register protos in k8s.io/api/extensions/v1beta1""
+	_ "k8s.io/api/extensions/v1beta1"
 )
 
 // Types of known resources.
@@ -69,6 +54,12 @@ var (
 
 	// LegacyMixerResource metadata
 	LegacyMixerResource resource.Info
+
+	// NodeSpec metadata
+	NodeSpec resource.Info
+
+	// PodSpec metadata
+	PodSpec resource.Info
 
 	// Policy metadata
 	Policy resource.Info
@@ -116,6 +107,8 @@ func init() {
 	IngressSpec = b.Register("type.googleapis.com/k8s.io.api.extensions.v1beta1.IngressSpec")
 	Instance = b.Register("type.googleapis.com/istio.policy.v1beta1.Instance")
 	LegacyMixerResource = b.Register("type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource")
+	NodeSpec = b.Register("type.googleapis.com/k8s.io.api.core.v1.NodeSpec")
+	PodSpec = b.Register("type.googleapis.com/k8s.io.api.core.v1.PodSpec")
 	Policy = b.Register("type.googleapis.com/istio.authentication.v1alpha1.Policy")
 	QuotaSpec = b.Register("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpec")
 	QuotaSpecBinding = b.Register("type.googleapis.com/istio.mixer.v1.config.client.QuotaSpecBinding")

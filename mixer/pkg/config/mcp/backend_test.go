@@ -47,13 +47,14 @@ var (
 		Match: "baz",
 	}
 
-	fakeCreateTime      = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
-	fakeCreateTimeProto *types.Timestamp
+	fakeCreateTime  = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
+	fakeLabels      = map[string]string{"lk1": "lv1"}
+	fakeAnnotations = map[string]string{"ak1": "av1"}
 )
 
 func init() {
 	var err error
-	fakeCreateTimeProto, err = types.TimestampProto(fakeCreateTime)
+	_, err = types.TimestampProto(fakeCreateTime)
 	if err != nil {
 		panic(err)
 	}
@@ -154,9 +155,12 @@ func TestBackend_List(t *testing.T) {
 	defer st.close(t)
 
 	b := snapshot.NewInMemoryBuilder()
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r1)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r2)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r3)
 	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
 	sn := b.Build()
 
@@ -174,9 +178,11 @@ func TestBackend_List(t *testing.T) {
 		}: {
 			Kind: constant.RulesKind,
 			Metadata: store.ResourceMeta{
-				Name:      "e1",
-				Namespace: "ns1",
-				Revision:  "v1",
+				Name:        "e1",
+				Namespace:   "ns1",
+				Revision:    "v1",
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Spec: map[string]interface{}{"match": "foo"},
 		},
@@ -187,9 +193,11 @@ func TestBackend_List(t *testing.T) {
 		}: {
 			Kind: constant.RulesKind,
 			Metadata: store.ResourceMeta{
-				Name:      "e2",
-				Namespace: "ns2",
-				Revision:  "v2",
+				Name:        "e2",
+				Namespace:   "ns2",
+				Revision:    "v2",
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Spec: map[string]interface{}{"match": "bar"},
 		},
@@ -200,9 +208,11 @@ func TestBackend_List(t *testing.T) {
 		}: {
 			Kind: constant.RulesKind,
 			Metadata: store.ResourceMeta{
-				Name:      "e3",
-				Namespace: "",
-				Revision:  "v3",
+				Name:        "e3",
+				Namespace:   "",
+				Revision:    "v3",
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Spec: map[string]interface{}{"match": "baz"},
 		},
@@ -217,7 +227,8 @@ func TestBackend_Get(t *testing.T) {
 
 	b := snapshot.NewInMemoryBuilder()
 
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r1)
 	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
 	sn := b.Build()
 
@@ -233,9 +244,11 @@ func TestBackend_Get(t *testing.T) {
 	expected := &store.BackEndResource{
 		Kind: constant.RulesKind,
 		Metadata: store.ResourceMeta{
-			Name:      "e1",
-			Namespace: "ns1",
-			Revision:  "v1",
+			Name:        "e1",
+			Namespace:   "ns1",
+			Revision:    "v1",
+			Labels:      fakeLabels,
+			Annotations: fakeAnnotations,
 		},
 		Spec: map[string]interface{}{"match": "foo"},
 	}
@@ -267,9 +280,12 @@ func TestBackend_Watch(t *testing.T) {
 	}
 
 	b := snapshot.NewInMemoryBuilder()
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r1)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r2)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r3)
 	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
 
 	sn := b.Build()
@@ -300,9 +316,11 @@ loop:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:      "e1",
-					Namespace: "ns1",
-					Revision:  "v1",
+					Name:        "e1",
+					Namespace:   "ns1",
+					Revision:    "v1",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "foo"},
 			},
@@ -313,9 +331,11 @@ loop:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:      "e2",
-					Namespace: "ns2",
-					Revision:  "v2",
+					Name:        "e2",
+					Namespace:   "ns2",
+					Revision:    "v2",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "bar"},
 			},
@@ -326,8 +346,10 @@ loop:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:     "e3",
-					Revision: "v3",
+					Name:        "e3",
+					Revision:    "v3",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "baz"},
 			},
@@ -341,9 +363,11 @@ loop:
 
 	// delete ns1/e1
 	// update ns2/e2 (r2 -> r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v4", fakeCreateTime, r1)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v4",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r1)
 	// e3 doesn't change
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v5", fakeCreateTime, r3)
+	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v5",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r3)
 	b.SetVersion(typeURLOf(constant.RulesKind), "type-v2")
 
 	sn = b.Build()
@@ -377,9 +401,11 @@ loop2:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:      "e2",
-					Namespace: "ns2",
-					Revision:  "v4",
+					Name:        "e2",
+					Namespace:   "ns2",
+					Revision:    "v4",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "foo"}, // r1's contents
 			},
@@ -391,8 +417,10 @@ loop2:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:     "e3",
-					Revision: "v5",
+					Name:        "e3",
+					Revision:    "v5",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "baz"},
 			},
@@ -400,7 +428,6 @@ loop2:
 	}
 
 	checkEqual(t, actual, expected)
-
 }
 
 func checkEqual(t *testing.T, actual, expected interface{}) {

@@ -48,7 +48,7 @@ func TestConfigZ(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	cc, err := grpc.Dial(fmt.Sprintf("localhost:%d", s.Port), grpc.WithInsecure())
 	if err != nil {
@@ -66,7 +66,8 @@ func TestConfigZ(t *testing.T) {
 	defer cancel()
 
 	o := ctrlz.DefaultOptions()
-	ctrlz, _ := ctrlz.Run(o, []fw.Topic{CreateTopic(cl)})
+	cz, _ := ctrlz.Run(o, []fw.Topic{CreateTopic(cl)})
+	defer cz.Close()
 
 	baseURL := fmt.Sprintf("http://%s:%d", o.Address, o.Port)
 
@@ -84,7 +85,8 @@ func TestConfigZ(t *testing.T) {
 
 	b := snapshot.NewInMemoryBuilder()
 	b.SetVersion("type.googleapis.com/google.protobuf.Empty", "23")
-	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", "v0", time.Time{}, &types.Empty{})
+	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", "v0",
+		time.Time{}, nil, nil, &types.Empty{})
 	if err != nil {
 		t.Fatalf("Setting an entry should not have failed: %v", err)
 	}
@@ -104,8 +106,6 @@ func TestConfigZ(t *testing.T) {
 	t.Run("configz with 2 request", func(tt *testing.T) { testConfigZWithOneRequest(tt, baseURL) })
 
 	t.Run("configj with 2 request", func(tt *testing.T) { testConfigJWithOneRequest(tt, baseURL) })
-
-	ctrlz.Close()
 }
 
 func testConfigZWithNoRequest(t *testing.T, baseURL string) {
@@ -173,7 +173,7 @@ func request(t *testing.T, url string) string {
 			time.Sleep(time.Millisecond * 100)
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			e = err
