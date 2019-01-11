@@ -129,12 +129,12 @@ func mcpServerResponse(req *source.Request) (*source.WatchResponse, source.Cance
 }
 
 func runMcpServer() (*mockmcp.Server, error) {
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]string, len(model.IstioConfigTypes))
 	for i, m := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
+		collections[i] = m.Collection
 	}
 
-	server, err := mockmcp.NewServer(supportedTypes, mcpServerResponse)
+	server, err := mockmcp.NewServer(collections, mcpServerResponse)
 	if err != nil {
 		return nil, err
 	}

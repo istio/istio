@@ -510,6 +510,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
 
+	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
+
 	for _, configSource := range s.mesh.ConfigSources {
 		url, err := url.Parse(configSource.Address)
 		if err != nil {
@@ -608,7 +610,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			Updater:     mcpController,
 			ID:          clientNodeID,
 			Metadata:    map[string]string{},
-			Reporter:    monitoring.NewStatsContext("pilot/mcp/sink"),
+			Reporter:    reporter,
 		}
 		mcpClient := sink.NewClient(cl, options)
 		configz.Register(mcpClient)
@@ -621,6 +623,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	// TODO: remove the below branch when `--mcpServerAddrs` removed
 	if len(configStores) == 0 {
+
 		for _, addr := range args.MCPServerAddrs {
 			u, err := url.Parse(addr)
 			if err != nil {
@@ -676,7 +679,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				Updater:     mcpController,
 				ID:          clientNodeID,
 				Metadata:    map[string]string{},
-				Reporter:    monitoring.NewStatsContext("pilot/mcp/sink"),
+				Reporter:    reporter,
 			}
 			mcpClient := sink.NewClient(cl, options)
 			configz.Register(mcpClient)
@@ -711,6 +714,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			for _, conn := range conns {
 				_ = conn.Close() // nolint: errcheck
 			}
+
+			reporter.Close()
 		}()
 
 		return nil

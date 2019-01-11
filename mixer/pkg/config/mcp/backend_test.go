@@ -69,7 +69,7 @@ func init() {
 	}
 }
 
-func typeURLOf(nonLegacyKind string) string {
+func collectionOf(nonLegacyKind string) string {
 	for _, u := range kube.Types.All() {
 		if u.Kind == nonLegacyKind {
 			return u.Target.Collection.String()
@@ -93,7 +93,7 @@ type testState struct {
 func createState(t *testing.T) *testState {
 	st := &testState{}
 
-	var typeUrls []string
+	var collections []string
 	var kinds []string
 	m, err := constructMapping(mixerKinds, kube.Types)
 	if err != nil {
@@ -101,11 +101,11 @@ func createState(t *testing.T) *testState {
 	}
 	st.mapping = m
 	for t, k := range st.mapping.collectionsToKinds {
-		typeUrls = append(typeUrls, t)
+		collections = append(collections, t)
 		kinds = append(kinds, k)
 	}
 
-	if st.server, err = mcptest.NewServer(0, typeUrls); err != nil {
+	if st.server, err = mcptest.NewServer(0, collections); err != nil {
 		t.Fatal(err)
 	}
 
@@ -164,10 +164,10 @@ func TestBackend_List(t *testing.T) {
 	defer st.close(t)
 
 	b := snapshot.NewInMemoryBuilder()
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
+	b.SetVersion(collectionOf(constant.RulesKind), "type-v1")
 	sn := b.Build()
 
 	st.updateWg.Add(1)
@@ -227,8 +227,8 @@ func TestBackend_Get(t *testing.T) {
 
 	b := snapshot.NewInMemoryBuilder()
 
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
-	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
+	b.SetVersion(collectionOf(constant.RulesKind), "type-v1")
 	sn := b.Build()
 
 	st.updateWg.Add(1)
@@ -277,10 +277,10 @@ func TestBackend_Watch(t *testing.T) {
 	}
 
 	b := snapshot.NewInMemoryBuilder()
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
+	b.SetVersion(collectionOf(constant.RulesKind), "type-v1")
 
 	sn := b.Build()
 
@@ -351,10 +351,10 @@ loop:
 
 	// delete ns1/e1
 	// update ns2/e2 (r2 -> r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v4", fakeCreateTime, r1)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns2/e2", "v4", fakeCreateTime, r1)
 	// e3 doesn't change
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v5", fakeCreateTime, r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "type-v2")
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "e3", "v5", fakeCreateTime, r3)
+	b.SetVersion(collectionOf(constant.RulesKind), "type-v2")
 
 	sn = b.Build()
 

@@ -136,7 +136,7 @@ func TestListAllNameSpace(t *testing.T) {
 	change := convert(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "some-other-gateway3"},
-		model.Gateway.MessageName)
+		model.Gateway.Collection, model.Gateway.MessageName)
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -171,7 +171,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 	change := convert(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "namespace1/some-other-gateway3"},
-		model.Gateway.MessageName)
+		model.Gateway.Collection, model.Gateway.MessageName)
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -197,7 +197,8 @@ func TestApplyInvalidType(t *testing.T) {
 	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, "bad-type")
+	change := convert([]proto.Message{message[0]}, []string{"some-gateway"},
+		"bad-collection", "bad-type")
 
 	err := controller.Apply(change)
 	g.Expect(err).To(gomega.HaveOccurred())
@@ -226,7 +227,8 @@ func TestApplyValidTypeWithNoBaseURL(t *testing.T) {
 		message, err := makeMessage(marshaledGateway, model.Gateway.MessageName)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
-		change := convert([]proto.Message{message}, []string{"some-gateway"}, model.Gateway.MessageName)
+		change := convert([]proto.Message{message}, []string{"some-gateway"},
+			model.Gateway.Collection, model.Gateway.MessageName)
 		err = controller.Apply(change)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -248,7 +250,8 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 
-	change := convert([]proto.Message{message[0]}, []string{"istio-namespace/some-gateway"}, model.Gateway.MessageName)
+	change := convert([]proto.Message{message[0]}, []string{"istio-namespace/some-gateway"},
+		model.Gateway.Collection, model.Gateway.MessageName)
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -266,7 +269,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.MessageName)
+	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.Collection, model.Gateway.MessageName)
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -283,7 +286,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.MessageName)
+	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.Collection, model.Gateway.MessageName)
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -294,7 +297,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g.Expect(c[0].Type).To(gomega.Equal(model.Gateway.Type))
 	g.Expect(c[0].Spec).To(gomega.Equal(message[0]))
 
-	change = convert([]proto.Message{}, []string{"some-gateway"}, model.Gateway.MessageName)
+	change = convert([]proto.Message{}, []string{"some-gateway"}, model.Gateway.Collection, model.Gateway.MessageName)
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -303,9 +306,9 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g.Expect(len(c)).To(gomega.Equal(0))
 }
 
-func convert(resources []proto.Message, names []string, responseMessageName string) *sink.Change {
+func convert(resources []proto.Message, names []string, collection, responseMessageName string) *sink.Change {
 	out := new(sink.Change)
-	out.Collection = responseMessageName
+	out.Collection = collection
 	for i, res := range resources {
 		out.Objects = append(out.Objects,
 			&sink.Object{
@@ -356,7 +359,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change := convert(
 		[]proto.Message{message0[0], message1[0]},
 		[]string{"bar-namespace/foo", "default"},
-		model.AuthenticationPolicy.MessageName)
+		model.AuthenticationPolicy.Collection, model.AuthenticationPolicy.MessageName)
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -380,7 +383,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convert(
 		[]proto.Message{message1[0]},
 		[]string{"default"},
-		model.AuthenticationPolicy.MessageName)
+		model.AuthenticationPolicy.Collection, model.AuthenticationPolicy.MessageName)
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -396,7 +399,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convert(
 		[]proto.Message{message0[0]},
 		[]string{"bar-namespace/foo"},
-		model.AuthenticationPolicy.MessageName)
+		model.AuthenticationPolicy.Collection, model.AuthenticationPolicy.MessageName)
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -426,6 +429,7 @@ func TestEventHandler(t *testing.T) {
 	})
 
 	typeURL := "type.googleapis.com/istio.networking.v1alpha3.ServiceEntry"
+	collection := model.ServiceEntry.Collection
 
 	fakeCreateTime, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	fakeCreateTimeProto, err := types.TimestampProto(fakeCreateTime)
@@ -472,7 +476,7 @@ func TestEventHandler(t *testing.T) {
 		{
 			name: "initial add",
 			change: &sink.Change{
-				Collection: typeURL,
+				Collection: collection,
 				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v0"),
 				},
@@ -487,7 +491,7 @@ func TestEventHandler(t *testing.T) {
 		{
 			name: "update initial item",
 			change: &sink.Change{
-				Collection: typeURL,
+				Collection: collection,
 				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v1"),
 				},
@@ -502,7 +506,7 @@ func TestEventHandler(t *testing.T) {
 		{
 			name: "subsequent add",
 			change: &sink.Change{
-				Collection: typeURL,
+				Collection: collection,
 				Objects: []*sink.Object{
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
@@ -517,7 +521,7 @@ func TestEventHandler(t *testing.T) {
 		{
 			name: "single delete",
 			change: &sink.Change{
-				Collection:  typeURL,
+				Collection:  collection,
 				Objects:     []*sink.Object{},
 				Removed:     []string{"default/foo"},
 				Incremental: true,
@@ -531,7 +535,7 @@ func TestEventHandler(t *testing.T) {
 		{
 			name: "multiple update and add",
 			change: &sink.Change{
-				Collection: typeURL,
+				Collection: collection,
 				Objects: []*sink.Object{
 					makeServiceEntry("foo1", "foo1.com", "v1"),
 					makeServiceEntry("foo2", "foo2.com", "v0"),
@@ -552,7 +556,7 @@ func TestEventHandler(t *testing.T) {
 		{
 			name: "multiple deletes, updates, and adds ",
 			change: &sink.Change{
-				Collection: typeURL,
+				Collection: collection,
 				Objects: []*sink.Object{
 					makeServiceEntry("foo2", "foo2.com", "v1"),
 					makeServiceEntry("foo4", "foo4.com", "v0"),

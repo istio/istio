@@ -495,7 +495,8 @@ func (rs *remoteSink) pushServerResponse(w *watch, resp *WatchResponse) error {
 		rs.reporter.RecordSendError(err, status.Code(err))
 		return err
 	}
-	scope.Infof("MCP: connection %v: SEND version=%v nonce=%v", rs, resp.Version, msg.Nonce)
+	scope.Infof("MCP: connection %v: SEND collection=%v version=%v nonce=%v",
+		rs, resp.Collection, resp.Version, msg.Nonce)
 	w.pending = msg
 	return nil
 }

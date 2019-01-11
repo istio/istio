@@ -44,7 +44,7 @@ type Server struct {
 	Watcher *mockWatcher
 
 	// Collections that were originally passed in.
-	TypeURLs []string
+	Collections []string
 
 	// Port that the service is listening on.
 	Port int
@@ -56,13 +56,13 @@ type Server struct {
 	l  net.Listener
 }
 
-func NewServer(typeUrls []string, watchResponseFunc WatchResponse) (*Server, error) {
+func NewServer(collections []string, watchResponseFunc WatchResponse) (*Server, error) {
 	watcher := mockWatcher{
 		response: watchResponseFunc,
 	}
 	options := &source.Options{
 		Watcher:     watcher,
-		Collections: typeUrls,
+		Collections: collections,
 		Reporter:    monitoring.NewInMemoryStatsContext(),
 	}
 	s := source.NewServer(options, server.NewAllowAllChecker())
@@ -88,12 +88,12 @@ func NewServer(typeUrls []string, watchResponseFunc WatchResponse) (*Server, err
 	log.Printf("MCP mock server listening on localhost:%d", p)
 
 	return &Server{
-		Watcher:  &watcher,
-		TypeURLs: typeUrls,
-		Port:     p,
-		URL:      u,
-		gs:       gs,
-		l:        l,
+		Watcher:     &watcher,
+		Collections: collections,
+		Port:        p,
+		URL:         u,
+		gs:          gs,
+		l:           l,
 	}, nil
 }
 
@@ -105,7 +105,7 @@ func (t *Server) Close() (err error) {
 
 	t.l = nil // gRPC stack will close this
 	t.Watcher = nil
-	t.TypeURLs = nil
+	t.Collections = nil
 	t.Port = 0
 
 	return
