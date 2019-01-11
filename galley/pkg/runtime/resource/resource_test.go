@@ -15,6 +15,7 @@
 package resource
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -195,4 +196,38 @@ func TestInfo_String(t *testing.T) {
 	}
 	// Ensure that it doesn't crash
 	_ = i.String()
+}
+
+func TestFullNameFromNamespaceAndName(t *testing.T) {
+	cases := []struct {
+		namespace string
+		name      string
+		want      FullName
+	}{
+		{
+			namespace: "default",
+			name:      "foo",
+			want:      FullName{string: "default/foo"},
+		},
+		{
+			namespace: "",
+			name:      "foo",
+			want:      FullName{string: "foo"},
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v]%s", i, c.want), func(tt *testing.T) {
+			if got := FullNameFromNamespaceAndName(c.namespace, c.name); got != c.want {
+				tt.Errorf("wrong FullName: got: %v want %v", got, c.want)
+			}
+			gotNamespace, gotName := c.want.InterpretAsNamespaceAndName()
+			if gotNamespace != c.namespace {
+				tt.Errorf("wrong namespace: got %v want %v", gotNamespace, c.namespace)
+			}
+			if gotName != c.name {
+				tt.Errorf("wrong name: got %v want %v", gotName, c.name)
+			}
+		})
+	}
 }
