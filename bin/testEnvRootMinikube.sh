@@ -76,11 +76,13 @@ function startMinikubeNone() {
 	  echo "Config files setting ip_forward"
 	  find /etc/sysctl.d/ -type f -exec grep ip_forward \{\} \; -print
 	  if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq 0 ]; then
-	    # See if we have permission to restart Docker
 	    whoami
-	    sudo systemctl restart docker  || true
-	    echo "Cannot build images without IPv4 forwarding"
-	    exit 1
+	    echo "Cannot build images without IPv4 forwarding, attempting to turn on forwarding"
+	    sudo sysctl -w net.ipv4.ip_forward=1
+	    if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq 0 ]; then
+	      echo "Cannot build images without IPv4 forwarding"
+	      exit 1
+	    fi
 	  fi
 	fi
 
