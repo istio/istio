@@ -772,30 +772,40 @@ workflows:
              branches:
                only:
                  - master
-                 - release-0.8
-                 - release-1.0
-                 - dev-networking
-    jobs: #daisy chained steps ending with docker push
-      - depupdate
+                 - release-1.1
+    jobs:
       - build
       - test
+      - test-integration-local:
+          requires:
+            - build
       - e2e-simple:
           requires:
-            - test
+            - build
+      - e2e-mixer-noauth-v1alpha3-v2:
+          requires:
+            - build
+      - e2e-galley:
+          requires:
+            - build
+      - e2e-pilot-noauth-v1alpha3-v2: # no auth+v1alpha3+v2
+          requires:
             - build
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
           requires:
-            - build
-      # Compile for mac and arm
-      - goxbuild:
-          requires:
-            - test
             - build
       # Nightly release
       - nightly:
           context: org-global
           requires:
             - build
+            - test
+            - test-integration-local
+            - e2e-simple
+            - e2e-mixer-noauth-v1alpha3-v2
+            - e2e-galley
+            - e2e-pilot-noauth-v1alpha3-v2
+            - e2e-pilot-auth-v1alpha3-v2  
 
   periodic:
     triggers:
@@ -805,9 +815,7 @@ workflows:
              branches:
                only:
                  - master
-                 - release-0.8
-                 - release-1.0
-                 - dev-networking
+                 - release-1.1
     jobs:
       - depupdate
       - build
