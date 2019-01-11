@@ -424,7 +424,8 @@ spec:
   dimensions:
     source:  source.labels["app"] | source.labels["app.kubernetes.io/instance"] | source.labels["app.kubernetes.io/name"] | source.service | "unknown"
     sourceVersion: source.labels["version"] | source.labels["app.kubernetes.io/version"] | "unknown"
-    destination:  destination.labels["app"] | destination.labels["app.kubernetes.io/instance"] | destination.labels["app.kubernetes.io/name"] | destination.service | "unknown"
+    destination:  destination.labels["app"] | destination.labels["app.kubernetes.io/instance"] |
+      destination.labels["app.kubernetes.io/name"] | destination.service | "unknown"
     destinationVersion: destination.labels["version"] | destination.labels["app.kubernetes.io/version"] | "unknown"
 ---
 apiVersion: "config.istio.io/v1alpha2"

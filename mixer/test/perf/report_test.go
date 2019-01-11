@@ -304,7 +304,8 @@ spec:
   variables:
     source:  source.labels["app"] | source.labels["app.kubernetes.io/instance"] | source.labels["app.kubernetes.io/name"] | source.service | "unknown"
     user: source.user | "unknown"
-    destination:  destination.labels["app"] | destination.labels["app.kubernetes.io/instance"] | destination.labels["app.kubernetes.io/name"] | destination.service | "unknown"
+    destination:  destination.labels["app"] | destination.labels["app.kubernetes.io/instance"] |
+      destination.labels["app.kubernetes.io/name"] | destination.service | "unknown"
     responseCode: response.code | 0
     responseSize: response.size | 0
     latency: response.duration | "0ms"
