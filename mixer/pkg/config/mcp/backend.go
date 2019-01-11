@@ -161,6 +161,7 @@ func (b *backend) Init(kinds []string) error {
 				select {
 				case <-ctx.Done():
 					// nolint: govet
+					cancel()
 					return ctx.Err()
 				case <-time.After(requiredCertCheckFreq):
 					// retry
@@ -174,6 +175,7 @@ func (b *backend) Init(kinds []string) error {
 
 		watcher, err := creds.WatchFiles(ctx.Done(), b.credOptions)
 		if err != nil {
+			cancel()
 			return err
 		}
 		credentials := creds.CreateForClient(address, watcher)
@@ -209,7 +211,6 @@ func (b *backend) Init(kinds []string) error {
 
 	go c.Run(ctx)
 	b.cancel = cancel
-
 	return nil
 }
 
