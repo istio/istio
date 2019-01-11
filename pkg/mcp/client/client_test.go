@@ -64,7 +64,7 @@ func (ts *testStream) wantRequest(want *mcp.MeshConfigRequest) error {
 	case got := <-ts.requestC:
 		got = proto.Clone(got).(*mcp.MeshConfigRequest)
 		return checkRequest(got, want)
-	case <-time.After(time.Second):
+	case <-time.After(2 * time.Second):
 		return fmt.Errorf("no request received")
 	}
 }
@@ -212,7 +212,6 @@ func mustMarshalAny(pb proto.Message) *types.Any {
 func init() {
 	proto.RegisterType((*fakeType0)(nil), fakeType0MessageName)
 	proto.RegisterType((*fakeType1)(nil), fakeType1MessageName)
-	proto.RegisterType((*fakeType2)(nil), fakeType2MessageName)
 	proto.RegisterType((*fakeType2)(nil), fakeType2MessageName)
 	proto.RegisterType((*unmarshalErrorType)(nil), unmarshalErrorMessageName)
 

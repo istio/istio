@@ -34,6 +34,9 @@ var (
 	// try to re-establish the bi-directional grpc stream after this delay.
 	reestablishStreamDelay = time.Second
 
+	// retry to send mcp request after this delay if receive response error or send request error
+	resendMCPRequestDelay = time.Second
+
 	scope = log.RegisterScope("mcp", "mcp debugging", 0)
 )
 
@@ -294,8 +297,9 @@ func (c *Client) Run(ctx context.Context) {
 		})
 	}
 
+	retry := time.After(time.Nanosecond)
+
 	for {
-		retry := time.After(time.Nanosecond)
 		for {
 			select {
 			case <-ctx.Done():
@@ -338,6 +342,7 @@ func (c *Client) Run(ctx context.Context) {
 						c.reporter.RecordRecvError(err, status.Code(err))
 						scope.Errorf("Error receiving MCP response: %v", err)
 					}
+					retry = time.After(resendMCPRequestDelay)
 					break
 				}
 
@@ -358,6 +363,7 @@ func (c *Client) Run(ctx context.Context) {
 				// returned directly; otherwise, io.EOF is returned and the status of
 				// the stream may be discovered using RecvMsg.
 				if err != io.EOF {
+					retry = time.After(resendMCPRequestDelay)
 					break
 				}
 			} else {
