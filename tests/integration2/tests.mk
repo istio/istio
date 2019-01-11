@@ -60,7 +60,7 @@ TEST_PACKAGES = $(shell go list ./tests/integration2/... | grep -v /qualificatio
 test.integration.local: | $(JUNIT_REPORT)
 	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
 	set -o pipefail; \
-	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env local \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env native \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
 # All integration tests targeting Kubernetes environment.
