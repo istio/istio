@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	defaultConfigMapFolder  = "/etc/config/"
 	defaultMeshConfigFolder = "/etc/mesh-config/"
 	defaultMeshConfigFile   = defaultMeshConfigFolder + "mesh"
 	defaultDomainSuffix     = "cluster.local"

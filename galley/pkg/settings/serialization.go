@@ -41,6 +41,7 @@ func Parse(txt string) (*Galley, error) {
 }
 
 // ToYaml serializes Galley settings into Yaml.
+// nolint: interfacer
 func ToYaml(g *Galley) (result string, err error) {
 	m := jsonpb.Marshaler{Indent: "  "}
 	js, err := m.MarshalToString(g)
