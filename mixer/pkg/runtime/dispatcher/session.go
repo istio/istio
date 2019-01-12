@@ -233,6 +233,9 @@ func (s *session) dispatch() error {
 						log.Warnf("Failed to evaluate header value: %v", verr)
 						continue
 					}
+					if hop.Value == "" {
+						continue
+					}
 				}
 
 				if s.checkResult.RouteDirective == nil {
