@@ -354,7 +354,7 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 							{Key: "destination.ip", Values: []string{"192.1.2.0/24", "2001:db8::/28"}},
 							{Key: "request.headers[key1]", Values: []string{"prefix*", "*suffix"}},
 							{Key: "request.headers[key2]", Values: []string{"simple", "*"}},
-							{Key: "destination.labels[version]", Values: []string{"v10"}},
+							{Key: "destination.labels[app.kubernetes.io/version]", Values: []string{"v10"}},
 							{Key: "destination.name", Values: []string{"attr-name"}},
 							{Key: "connection.sni", Values: []string{"*.example.com"}},
 						},

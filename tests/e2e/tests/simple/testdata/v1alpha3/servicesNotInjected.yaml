@@ -21,7 +21,7 @@ spec:
   template:
     metadata:
       labels:
-        app: fortio-noistio
+        app.kubernetes.io/name: fortio-noistio
     spec:
       containers:
       - name: fortio-noistio
