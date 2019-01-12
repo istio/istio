@@ -309,7 +309,7 @@ func (b *backend) Apply(change *sink.Change) error {
 	scope.Debugf("Received update for: collection:%s, count:%d", change.Collection, len(change.Objects))
 
 	added := make(map[store.Key]*store.BackEndResource, len(change.Objects))
-	removed := make([]store.Key, len(change.Removed))
+	removed := make([]store.Key, 0, len(change.Removed))
 
 	for _, o := range change.Objects {
 		if scope.DebugEnabled() {
@@ -350,32 +350,34 @@ func (b *backend) Apply(change *sink.Change) error {
 	b.chLock.Lock()
 	defer b.chLock.Unlock()
 
-	// Now, diff against the in-memory state and generate store events.
-	for kind, newTypeState := range newTypeStates {
-		oldTypeState, found := b.state.items[kind]
-
-		// Replace the old collection with the new one.
-		// We can do this, because there is no error that can be raised from now on.
-		b.state.items[kind] = newTypeState
+	for key, val := range added {
+		collection, found := b.state.items[key.Kind]
+		if !found {
+			collection = make(map[store.Key]*store.BackEndResource)
+			b.state.items[key.Kind] = collection
+		}
+		b.state.items[key.Kind][key] = val
 
 		// If the downstream users haven't started listening yet, we don't need to
 		// send any events.
-		if b.ch == nil {
-			continue
+		if b.ch != nil {
+			b.ch <- store.BackendEvent{Key: key, Type: store.Update, Value: val}
 		}
+	}
 
-		// Otherwise, start pumping events by diffing old and new states.
+	for _, key := range removed {
+		collection, found := b.state.items[key.Kind]
 		if found {
-			for k := range oldTypeState {
-				if _, exists := newTypeState[k]; !exists {
-					b.ch <- store.BackendEvent{Key: k, Type: store.Delete}
-					continue
-				}
+			delete(collection, key)
+			if len(collection) == 0 {
+				delete(b.state.items, key.Kind)
 			}
 		}
 
-		for k, v := range newTypeState {
-			b.ch <- store.BackendEvent{Key: k, Type: store.Update, Value: v}
+		// If the downstream users haven't started listening yet, we don't need to
+		// send any events.
+		if b.ch != nil {
+			b.ch <- store.BackendEvent{Key: key, Type: store.Delete}
 		}
 	}
 
