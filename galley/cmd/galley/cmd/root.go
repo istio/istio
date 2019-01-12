@@ -20,8 +20,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"istio.io/istio/galley/pkg/settings"
 
+	"istio.io/istio/galley/pkg/settings"
 	"istio.io/istio/galley/pkg/crd/validation"
 	"istio.io/istio/galley/pkg/server"
 	istiocmd "istio.io/istio/pkg/cmd"
