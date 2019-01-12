@@ -179,7 +179,7 @@ spec:
     plural: meshpolicies
     singular: meshpolicy
     shortNames:
-    - mp
+    - mpol
     categories:
     - istio-io
     - authentication-istio-io
@@ -202,7 +202,7 @@ spec:
     plural: httpapispecbindings
     singular: httpapispecbinding
     shortNames:
-    - hsb
+    - hasb
     categories:
     - istio-io
     - apim-istio-io
@@ -225,7 +225,7 @@ spec:
     plural: httpapispecs
     singular: httpapispec
     shortNames:
-    - hs
+    - has
     categories:
     - istio-io
     - apim-istio-io
