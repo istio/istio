@@ -139,7 +139,7 @@ e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
 
-e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_pilotv2_sd
+e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_pilotv2
 
 # This is used to keep a record of the test results.
 CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
