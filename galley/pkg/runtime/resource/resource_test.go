@@ -231,3 +231,55 @@ func TestFullNameFromNamespaceAndName(t *testing.T) {
 		})
 	}
 }
+
+func TestNewCollection(t *testing.T) {
+	cases := []struct {
+		collection     string
+		typeURL        string
+		wantCollection Collection
+		wantErr        bool
+	}{
+		{
+			collection: "/test/collection",
+			typeURL:    "http://[::1]:namedport",
+			wantErr:    true,
+		},
+		{
+			collection: "/test/collection",
+			typeURL:    "invalid://test.collection/foo",
+			wantErr:    true,
+		},
+		{
+			collection: "/test/collection",
+			typeURL:    "http://test.collection",
+			wantErr:    true,
+		},
+		{
+			collection: "/test/collection",
+			typeURL:    "http://test.collection/foo",
+			wantCollection: Collection{
+				collection: "/test/collection",
+				typeURL:    "http://test.collection/foo",
+			},
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v]%s", i, c.wantCollection), func(tt *testing.T) {
+			gotCollection, gotErr := newCollection(c.collection, c.typeURL)
+			if c.wantErr {
+				if gotErr == nil {
+					tt.Fatal("got unexpected success")
+				}
+			} else {
+				if gotErr != nil {
+					tt.Fatalf("got unexpected error: %v", gotErr)
+				}
+			}
+
+			if gotCollection != c.wantCollection {
+				tt.Fatalf("wrong collection: got %v wantCollection %v", gotCollection, c.wantCollection)
+			}
+		})
+	}
+}
