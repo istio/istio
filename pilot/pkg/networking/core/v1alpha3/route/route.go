@@ -177,7 +177,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	if len(serviceByPort) == 0 {
 		// This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
 		// the current code is written.
-		serviceByPort[listenPort] = nil
+		serviceByPort[80] = nil
 	}
 	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))

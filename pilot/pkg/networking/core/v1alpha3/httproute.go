@@ -113,7 +113,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	sidecarScope := node.SidecarScope
 	// sidecarScope should never be nil
 	if sidecarScope != nil {
-		// this is a use supplied sidecar scope. Get the services from the egress listener
+		// this is a user supplied sidecar scope. Get the services from the egress listener
 		egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
 		// We should never be getting a nil egress listener because the code that setup this RDS
 		// call obviously saw an egress listener
