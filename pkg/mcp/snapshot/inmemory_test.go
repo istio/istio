@@ -26,8 +26,12 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 )
 
-var fakeCreateTime = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
-var fakeCreateTimeProto *types.Timestamp
+var (
+	fakeCreateTime      = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
+	fakeLabels          = map[string]string{"lk1": "lv1"}
+	fakeAnnotations     = map[string]string{"ak1": "av1"}
+	fakeCreateTimeProto *types.Timestamp
+)
 
 func init() {
 	var err error
@@ -70,16 +74,18 @@ func TestInMemoryBuilder_Set(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 
 	sn := b.Build()
 
 	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 
 			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any", Value: []byte{}},
@@ -94,17 +100,19 @@ func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 
 	sn := b.Build()
 
 	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any", Value: []byte{}},
 		},
@@ -118,7 +126,7 @@ func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Marshal_Error(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	err := b.SetEntry("collection", "foo", "v0", fakeCreateTime, nil)
+	err := b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, nil)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
@@ -127,16 +135,18 @@ func TestInMemoryBuilder_SetEntry_Marshal_Error(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_EntryNotFound(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.DeleteEntry("collection", "bar")
 	sn := b.Build()
 
 	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any", Value: []byte{}},
 		},
@@ -164,8 +174,7 @@ func TestInMemoryBuilder_DeleteEntry_TypeNotFound(t *testing.T) {
 
 func TestInMemoryBuilder_DeleteEntry_Single(t *testing.T) {
 	b := NewInMemoryBuilder()
-
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.DeleteEntry("collection", "foo")
 	sn := b.Build()
 
@@ -181,17 +190,19 @@ func TestInMemoryBuilder_DeleteEntry_Single(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.DeleteEntry("collection", "foo")
 	sn := b.Build()
 
 	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "bar",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "bar",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any", Value: []byte{}},
 		},
@@ -205,7 +216,7 @@ func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 func TestInMemoryBuilder_SetVersion(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.SetVersion("collection", "v1")
 	sn := b.Build()
 
@@ -217,8 +228,8 @@ func TestInMemoryBuilder_SetVersion(t *testing.T) {
 func TestInMemory_Clone(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.SetVersion("collection", "v1")
 	sn := b.Build()
 
@@ -227,17 +238,21 @@ func TestInMemory_Clone(t *testing.T) {
 	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "bar",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "bar",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any"},
 		},
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any"},
 		},
@@ -263,8 +278,8 @@ func TestInMemory_Clone(t *testing.T) {
 func TestInMemory_Builder(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.SetVersion("collection", "v1")
 	sn := b.Build()
 
@@ -275,17 +290,21 @@ func TestInMemory_Builder(t *testing.T) {
 	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "bar",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "bar",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any"},
 		},
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Body: &types.Any{TypeUrl: "type.googleapis.com/google.protobuf.Any"},
 		},
@@ -311,9 +330,10 @@ func TestInMemory_Builder(t *testing.T) {
 func TestInMemory_String(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("collection", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("collection", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.SetVersion("collection", "v1")
+
 	sn := b.Build()
 
 	// Shouldn't crash

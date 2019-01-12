@@ -43,7 +43,8 @@ func TestInMemory_Start_Empty(t *testing.T) {
 func TestInMemory_Start_WithItem(t *testing.T) {
 	i := NewInMemorySource()
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
+
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
 
 	ch, err := i.Start()
 	if err != nil {
@@ -86,8 +87,9 @@ func TestInMemory_Set(t *testing.T) {
 
 	// One Register one update
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
+
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
 
 	actual := captureChannelOutput(t, ch, 3)
 	expected := strings.TrimSpace(`
@@ -108,7 +110,9 @@ func TestInMemory_Delete(t *testing.T) {
 	}
 
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
+
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
+
 	// Two deletes
 	i.Delete(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
 	i.Delete(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
@@ -128,7 +132,8 @@ func TestInMemory_Get(t *testing.T) {
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
 
 	i := NewInMemorySource()
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, &types.Empty{})
+
+	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
 
 	r, _ := i.Get(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
 	if r.IsEmpty() {

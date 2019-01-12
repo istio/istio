@@ -202,6 +202,12 @@ var (
 	// ServiceRole metadata
 	ServiceRole resource.Info
 
+	// Node metadata
+	Node resource.Info
+
+	// Pod metadata
+	Pod resource.Info
+
 	// Service metadata
 	Service resource.Info
 
@@ -374,6 +380,12 @@ func init() {
 	ServiceRole = b.Register(
 		"istio/rbac/v1alpha1/serviceroles",
 		"type.googleapis.com/istio.rbac.v1alpha1.ServiceRole")
+	Node = b.Register(
+		"k8s/core/v1/nodes",
+		"type.googleapis.com/k8s.io.api.core.v1.NodeSpec")
+	Pod = b.Register(
+		"k8s/core/v1/pods",
+		"type.googleapis.com/k8s.io.api.core.v1.PodSpec")
 	Service = b.Register(
 		"k8s/core/v1/services",
 		"type.googleapis.com/k8s.io.api.core.v1.ServiceSpec")

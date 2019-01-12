@@ -319,6 +319,8 @@ func (b *backend) Apply(change *sink.Change) error {
 
 		name := o.Metadata.Name
 		kind := b.mapping.kind(change.Collection)
+		labels := o.Metadata.Labels
+		annotations := o.Metadata.Annotations
 		contents := o.Body
 
 		collection, found := newTypeStates[kind]
@@ -330,7 +332,7 @@ func (b *backend) Apply(change *sink.Change) error {
 		// Map it to Mixer's store model, and put it in the new collection.
 
 		key := toKey(kind, name)
-		resource, err := toBackendResource(key, contents, o.Metadata.Version)
+		resource, err := toBackendResource(key, labels, annotations, contents, o.Metadata.Version)
 		if err != nil {
 			return err
 		}

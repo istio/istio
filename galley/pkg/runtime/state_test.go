@@ -76,8 +76,10 @@ func TestState_DefaultSnapshot(t *testing.T) {
 		Kind: resource.Added,
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
-				Version:    "v1",
-				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+				Version: "v1",
+				Key:     resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+			},
+			Metadata: resource.Metadata{
 				CreateTime: fakeCreateTime0,
 			},
 			Item: &types.Any{},
@@ -110,8 +112,11 @@ func TestState_Apply_Update(t *testing.T) {
 		Kind: resource.Added,
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
-				Version:    "v1",
-				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+
+				Version: "v1",
+				Key:     resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+			},
+			Metadata: resource.Metadata{
 				CreateTime: fakeCreateTime0,
 			},
 			Item: &types.Any{},
@@ -127,8 +132,10 @@ func TestState_Apply_Update(t *testing.T) {
 		Kind: resource.Updated,
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
-				Version:    "v2",
-				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+				Version: "v2",
+				Key:     resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+			},
+			Metadata: resource.Metadata{
 				CreateTime: fakeCreateTime1,
 			},
 			Item: &types.Any{},
@@ -160,8 +167,10 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 		Kind: resource.Added,
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
-				Version:    "v1",
-				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+				Version: "v1",
+				Key:     resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+			},
+			Metadata: resource.Metadata{
 				CreateTime: fakeCreateTime0,
 			},
 			Item: &types.Any{},
@@ -177,8 +186,11 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 		Kind: resource.Updated,
 		Entry: resource.Entry{
 			ID: resource.VersionedKey{
-				Version:    "v1",
-				Key:        resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+
+				Version: "v1",
+				Key:     resource.Key{Collection: emptyInfo.Collection, FullName: fn},
+			},
+			Metadata: resource.Metadata{
 				CreateTime: fakeCreateTime1,
 			},
 			Item: &types.Any{},

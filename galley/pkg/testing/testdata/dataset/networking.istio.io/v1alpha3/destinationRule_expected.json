@@ -5,7 +5,7 @@
       "Metadata": {
         "name": "tcp-echo-destination"
       },
-      "Resource": {
+      "Body": {
         "host": "tcp-echo",
         "subsets": [
           {

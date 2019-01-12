@@ -441,9 +441,11 @@ func TestEventHandler(t *testing.T) {
 		return &sink.Object{
 			TypeURL: typeURL,
 			Metadata: &mcpapi.Metadata{
-				Name:       fmt.Sprintf("default/%s", name),
-				CreateTime: fakeCreateTimeProto,
-				Version:    version,
+				Name:        fmt.Sprintf("default/%s", name),
+				CreateTime:  fakeCreateTimeProto,
+				Version:     version,
+				Labels:      map[string]string{"lk1": "lv1"},
+				Annotations: map[string]string{"ak1": "av1"},
 			},
 			Body: &networking.ServiceEntry{
 				Hosts: []string{host},
@@ -462,6 +464,8 @@ func TestEventHandler(t *testing.T) {
 				Domain:            "cluster.local",
 				ResourceVersion:   version,
 				CreationTimestamp: fakeCreateTime,
+				Labels:            map[string]string{"lk1": "lv1"},
+				Annotations:       map[string]string{"ak1": "av1"},
 			},
 			Spec: &networking.ServiceEntry{Hosts: []string{host}},
 		}

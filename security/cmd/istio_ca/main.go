@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"k8s.io/client-go/kubernetes"
@@ -161,9 +163,8 @@ func init() {
 			"When set to true, the '--signing-cert' and '--signing-key' options are ignored.")
 	flags.DurationVar(&opts.selfSignedCACertTTL, "self-signed-ca-cert-ttl", cmd.DefaultSelfSignedCACertTTL,
 		"The TTL of self-signed CA root certificate")
-	flags.StringVar(&opts.trustDomain, "trust-domain", controller.DefaultTrustDomain,
-		fmt.Sprintf("The domain serves to identify the system with spiffe (default: %s)", controller.DefaultTrustDomain))
-
+	flags.StringVar(&opts.trustDomain, "trust-domain", "",
+		"The domain serves to identify the system with spiffe ")
 	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
 		"CA. When set, the CA will rely on the upstream Citadel to provision its own certificate.")
@@ -294,7 +295,7 @@ func runCA() {
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
 	sc, err := controller.NewSecretController(ca,
-		opts.workloadCertTTL, opts.trustDomain,
+		opts.workloadCertTTL,
 		opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
 		cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
 	if err != nil {
@@ -327,7 +328,7 @@ func runCA() {
 
 		// The CA API uses cert with the max workload cert TTL.
 		hostnames := append(strings.Split(opts.grpcHosts, ","), fqdn())
-		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort, opts.trustDomain)
+		caServer, startErr := caserver.New(ca, opts.maxWorkloadCertTTL, opts.signCACerts, hostnames, opts.grpcPort, spiffe.GetTrustDomain())
 		if startErr != nil {
 			fatalf("Failed to create istio ca server: %v", startErr)
 		}
@@ -402,8 +403,9 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
+		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, "", len(opts.kubeConfigFile) != 0))
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
-			opts.maxWorkloadCertTTL, opts.trustDomain, opts.dualUse,
+			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
 			opts.istioCaStorageNamespace, client)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)

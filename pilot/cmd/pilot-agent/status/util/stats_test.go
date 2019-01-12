@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package envoy
+package util
 
 import (
-	"istio.io/istio/pkg/spiffe"
+	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
-const (
-	// Service accounts for Mixer and Pilot, these are hardcoded values at setup time
-	mixerSvcAccName string = "istio-mixer-service-account"
-	pilotSvcAccName string = "istio-pilot-service-account"
-)
+func TestStatsToString(t *testing.T) {
+	g := NewGomegaWithT(t)
+	stats := Stats{CDSUpdatesSuccess: 1, CDSUpdatesRejection: 2, LDSUpdatesSuccess: 3, LDSUpdatesRejection: 4}
 
-// GetMixerSAN returns the SAN used for mixer mTLS
-func GetMixerSAN(ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, mixerSvcAccName)
-}
-
-// GetPilotSAN returns the SAN used for pilot mTLS
-func GetPilotSAN(ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, pilotSvcAccName)
+	g.Expect(stats.String()).To(Equal("cds updates: 1 successful, 2 rejected; lds updates: 3 successful, 4 rejected"))
 }

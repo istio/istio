@@ -30,11 +30,11 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/fs"
 	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/converter"
-	"istio.io/istio/galley/pkg/kube/source"
+	kubeConverter "istio.io/istio/galley/pkg/kube/converter"
+	kubeSource "istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
@@ -64,18 +64,18 @@ type Server struct {
 type patchTable struct {
 	newKubeFromConfigFile       func(string) (kube.Interfaces, error)
 	verifyResourceTypesPresence func(kube.Interfaces) error
-	newSource                   func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error)
+	newSource                   func(kube.Interfaces, time.Duration, *kube.Schema, *kubeConverter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
 	mcpMetricReporter           func(string) monitoring.Reporter
-	fsNew                       func(string, *kube.Schema, *converter.Config) (runtime.Source, error)
+	fsNew                       func(string, *kube.Schema, *kubeConverter.Config) (runtime.Source, error)
 }
 
 func defaultPatchTable() patchTable {
 	return patchTable{
 		newKubeFromConfigFile:       kube.NewKubeFromConfigFile,
-		verifyResourceTypesPresence: source.VerifyResourceTypesPresence,
-		newSource:                   source.New,
+		verifyResourceTypesPresence: kubeSource.VerifyResourceTypesPresence,
+		newSource:                   kubeSource.New,
 		netListen:                   net.Listen,
 		mcpMetricReporter:           func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) },
 		newMeshConfigCache:          func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
@@ -111,11 +111,11 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	converterCfg := &converter.Config{
+	converterCfg := &kubeConverter.Config{
 		Mesh:         mesh,
 		DomainSuffix: a.DomainSuffix,
 	}
-	specs := kube_meta.Types.All()
+	specs := kubeMeta.Types.All()
 	if !convertK8SService {
 		var filtered []kube.ResourceSpec
 		for _, t := range specs {

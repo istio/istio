@@ -109,7 +109,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	}
 
 	k1 := resource.Key{Collection: emptyInfo.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
-	src.Set(k1, &types.Empty{})
+	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
 	// Wait "long enough"
 	time.Sleep(time.Millisecond * 10)
@@ -135,7 +135,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	}
 
 	k1 := resource.Key{Collection: info.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
-	src.Set(k1, &types.Empty{})
+	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
 	// Wait "long enough"
 	time.Sleep(time.Millisecond * 10)
@@ -166,7 +166,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	}
 
 	k1 := resource.Key{Collection: info.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
-	src.Set(k1, &types.Empty{})
+	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
 	processCallCount.Wait()
 

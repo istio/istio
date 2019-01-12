@@ -4,7 +4,7 @@
       "Metadata": {
         "name": "circonus/valid-circonus"
       },
-      "Resource": {
+      "Body": {
         "contents": {
           "fields": {
             "submission_interval": {

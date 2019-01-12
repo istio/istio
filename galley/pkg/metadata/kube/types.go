@@ -612,6 +612,28 @@ func init() {
 	})
 
 	b.Add(kube.ResourceSpec{
+		Kind:      "Node",
+		ListKind:  "NodeList",
+		Singular:  "node",
+		Plural:    "nodes",
+		Version:   "v1",
+		Group:     "",
+		Target:    metadata.Types.Get("k8s/core/v1/nodes"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(kube.ResourceSpec{
+		Kind:      "Pod",
+		ListKind:  "PodList",
+		Singular:  "pod",
+		Plural:    "pods",
+		Version:   "v1",
+		Group:     "",
+		Target:    metadata.Types.Get("k8s/core/v1/pods"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(kube.ResourceSpec{
 		Kind:      "Service",
 		ListKind:  "ServiceList",
 		Singular:  "service",

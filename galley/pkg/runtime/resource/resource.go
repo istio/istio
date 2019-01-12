@@ -48,18 +48,31 @@ type Key struct {
 	FullName FullName
 }
 
-// VersionedKey uniquely identifies a snapshot of a config resource in the config space, at a given
-// time.
+// VersionedKey uniquely identifies a snapshot of a config resource in the config space.
 type VersionedKey struct {
 	Key
-	Version    Version
-	CreateTime time.Time
+	Version Version
+}
+
+// Labels are a map of string keys and values that can be used to organize and categorize
+// resources within a collection.
+type Labels map[string]string
+
+// Annotations are a map of string keys and values that can be used by source and sink to communicate
+// arbitrary metadata about this resource.
+type Annotations map[string]string
+
+type Metadata struct {
+	CreateTime  time.Time
+	Labels      Labels
+	Annotations Annotations
 }
 
 // Entry is the abstract representation of a versioned config resource in Istio.
 type Entry struct {
-	ID   VersionedKey
-	Item proto.Message
+	Metadata Metadata
+	ID       VersionedKey
+	Item     proto.Message
 }
 
 // Info is the type metadata for an Entry.
