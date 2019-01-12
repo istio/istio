@@ -556,17 +556,17 @@ func TestTcpMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_app.kubernetes.io/name=\"%s\"}", "mongodb")
+	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_app=\"%s\"}", "mongodb")
 	want := float64(1)
 	validateMetric(t, promAPI, query, "istio_tcp_sent_bytes_total", want)
 
-	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app.kubernetes.io/name=\"%s\"}", "mongodb")
+	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app=\"%s\"}", "mongodb")
 	validateMetric(t, promAPI, query, "istio_tcp_received_bytes_total", want)
 
-	query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app.kubernetes.io/name=\"%s\"})", "mongodb")
+	query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
 	validateMetric(t, promAPI, query, "istio_tcp_connections_opened_total", want)
 
-	query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app.kubernetes.io/name=\"%s\"})", "mongodb")
+	query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
 	validateMetric(t, promAPI, query, "istio_tcp_connections_closed_total", want)
 }
 
@@ -1196,7 +1196,7 @@ func adapterDispatches(promAPI v1.API, adapter string) (float64, error) {
 }
 
 func mixerRequests(promAPI v1.API, svcName, app string) (float64, error) {
-	query := fmt.Sprintf("sum(istio_requests_total{source_app.kubernetes.io/name=\"%s\", destination_service_name=\"%s\"})", app, svcName)
+	query := fmt.Sprintf("sum(istio_requests_total{source_app=\"%s\", destination_service_name=\"%s\"})", app, svcName)
 	return queryValue(promAPI, query)
 }
 
@@ -1467,7 +1467,7 @@ func visitWithApp(url string, pod string, container string, num int) error {
 // getCheckCacheHits returned the total number of check cache hits in this cluster.
 func getCheckCacheHits(promAPI v1.API, app string) (float64, error) {
 	log.Info("Get number of cached check calls")
-	query := fmt.Sprintf("sum(envoy_http_mixer_filter_total_check_calls{app.kubernetes.io/name=\"%s\"})", app)
+	query := fmt.Sprintf("sum(envoy_http_mixer_filter_total_check_calls{app=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -1480,7 +1480,7 @@ func getCheckCacheHits(promAPI v1.API, app string) (float64, error) {
 		totalCheck = 0
 	}
 
-	query = fmt.Sprintf("sum(envoy_http_mixer_filter_total_remote_check_calls{app.kubernetes.io/name=\"%s\"})", app)
+	query = fmt.Sprintf("sum(envoy_http_mixer_filter_total_remote_check_calls{app=\"%s\"})", app)
 	log.Infof("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
