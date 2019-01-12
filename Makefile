@@ -779,7 +779,7 @@ generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--namespace=istio-system \
 		--set global.hub=${HUB} \
 		--set global.mtls.enabled=true \
-		--set global.proxy.enableCoreDump=${ENABLE_COREDUMP} \
+		--set global.proxy.enableCoreDump=true \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
 		--values install/kubernetes/helm/istio/values-istio-sds-auth.yaml \
