@@ -88,21 +88,21 @@ func TestWildcardHostEdgeRouterWithMockCopilot(t *testing.T) {
 		b.SetVersion(m.Collection, "v0")
 	}
 
-	b.SetEntry(model.Gateway.Collection, "cloudfoundry-ingress", "v1", fakeCreateTime2, gateway)
+	b.SetEntry(model.Gateway.Collection, "cloudfoundry-ingress", "v1", fakeCreateTime2, nil, nil, gateway)
 
-	b.SetEntry(model.VirtualService.Collection, "vs-1", "v1", fakeCreateTime2,
+	b.SetEntry(model.VirtualService.Collection, "vs-1", "v1", fakeCreateTime2, nil, nil,
 		virtualService(8060, "cloudfoundry-ingress", "/some/path", cfRouteOne, subsetOne))
-	b.SetEntry(model.VirtualService.Collection, "vs-2", "v1", fakeCreateTime2,
+	b.SetEntry(model.VirtualService.Collection, "vs-2", "v1", fakeCreateTime2, nil, nil,
 		virtualService(8070, "cloudfoundry-ingress", "", cfRouteTwo, subsetTwo))
 
-	b.SetEntry(model.DestinationRule.Collection, "dr-1", "v1", fakeCreateTime2,
+	b.SetEntry(model.DestinationRule.Collection, "dr-1", "v1", fakeCreateTime2, nil, nil,
 		destinationRule(cfRouteOne, subsetOne))
-	b.SetEntry(model.DestinationRule.Collection, "dr-2", "v1", fakeCreateTime2,
+	b.SetEntry(model.DestinationRule.Collection, "dr-2", "v1", fakeCreateTime2, nil, nil,
 		destinationRule(cfRouteTwo, subsetTwo))
 
-	b.SetEntry(model.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2,
+	b.SetEntry(model.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2, nil, nil,
 		serviceEntry(8060, app1ListenPort, nil, cfRouteOne, subsetOne))
-	b.SetEntry(model.ServiceEntry.Collection, "se-2", "v1", fakeCreateTime2,
+	b.SetEntry(model.ServiceEntry.Collection, "se-2", "v1", fakeCreateTime2, nil, nil,
 		serviceEntry(8070, app2ListenPort, nil, cfRouteTwo, subsetTwo))
 
 	sn := b.Build()
@@ -195,7 +195,7 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 	for _, m := range model.IstioConfigTypes {
 		b.SetVersion(m.Collection, "v0")
 	}
-	b.SetEntry(model.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2,
+	b.SetEntry(model.ServiceEntry.Collection, "se-1", "v1", fakeCreateTime2, nil, nil,
 		serviceEntry(sidecarServicePort, app3ListenPort, []string{"127.1.1.1"}, cfInternalRoute, subsetOne))
 	sn := b.Build()
 	copilotsource.Cache.SetSnapshot(snapshot.DefaultGroup, sn)
