@@ -4,7 +4,7 @@ metadata:
   name: my-gateway
 spec:
   selector:
-    app: my-gateway-controller
+    app.kubernetes.io/name: my-gateway-controller
   servers:
   - port:
       number: 80
