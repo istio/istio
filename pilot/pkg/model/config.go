@@ -607,6 +607,24 @@ func sortConfigByCreationTime(configs []Config) []Config {
 	return configs
 }
 
+// isSupersetWithAppLabels check if workloadLabels is superset of gatewaySelector in k8s recommended app label order
+func isSupersetWithAppLabels(workloadLabels LabelsCollection, gatewaySelector Labels, appLabel string) bool {
+	if v, exists := gatewaySelector[appLabel]; exists {
+		delete(gatewaySelector, appLabel)
+		for _, label := range []string{"app", "app.kubernetes.io/instance", "app.kubernetes.io/name"} {
+			if appLabel != label {
+				gatewaySelector[label] = v
+				if workloadLabels.IsSupersetOf(gatewaySelector) {
+					return true
+				}
+				delete(gatewaySelector, label)
+			}
+		}
+	}
+
+	return false
+}
+
 func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Config {
 	configs, err := store.List(Gateway.Type, NamespaceAll)
 	if err != nil {
@@ -624,6 +642,13 @@ func (store *istioConfigStore) Gateways(workloadLabels LabelsCollection) []Confi
 			gatewaySelector := Labels(gateway.GetSelector())
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
 				out = append(out, config)
+			} else {
+				for _, appLabel := range []string{"app", "app.kubernetes.io/instance", "app.kubernetes.io/name"} {
+					if isSupersetWithAppLabels(workloadLabels, gatewaySelector, appLabel) {
+						out = append(out, config)
+						break
+					}
+				}
 			}
 		}
 	}
