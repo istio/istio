@@ -63,13 +63,13 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels model.LabelsCollect
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(host model.Hostname, configs []model.Config) []*model.Config {
-	svcConfigs := make([]*model.Config, 0)
+func getConfigsForHost(host model.Hostname, configs []model.Config) []model.Config {
+	svcConfigs := make([]model.Config, 0)
 	for index := range configs {
 		virtualService := configs[index].Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
 			if model.Hostname(vsHost).Matches(host) {
-				svcConfigs = append(svcConfigs, &configs[index])
+				svcConfigs = append(svcConfigs, configs[index])
 				break
 			}
 		}
@@ -84,7 +84,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 
 func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
-	gateways map[string]bool, configs []*model.Config) []*filterChainOpts {
+	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if !listenPort.Protocol.IsTLS() {
 		return nil
@@ -151,19 +151,13 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 
 	// HTTPS or TLS ports without associated virtual service will be treated as opaque TCP traffic.
 	if !hasTLSMatch {
-		port := listenPort.Port
 		var clusterName string
 		// The service could be nil if we are being called in the context of a sidecar config with
 		// user specified port in the egress listener. Since we dont know the destination service
 		// and this piece of code is establishing the final fallback path, we set the
 		// tcp proxy cluster to a blackhole cluster
 		if service != nil {
-			// If the service has only one port, use that instead of the
-			// listenPort. Same logic as GetDestinationCluster in route.
-			if len(service.Ports) == 1 {
-				port = service.Ports[0].Port
-			}
-			clusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+			clusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, listenPort.Port)
 		} else {
 			clusterName = util.BlackHoleCluster
 		}
@@ -179,7 +173,7 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 
 func buildSidecarOutboundTCPFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext, destinationIPAddress string,
 	service *model.Service, listenPort *model.Port, proxyLabels model.LabelsCollection,
-	gateways map[string]bool, configs []*model.Config) []*filterChainOpts {
+	gateways map[string]bool, configs []model.Config) []*filterChainOpts {
 
 	if listenPort.Protocol.IsTLS() {
 		return nil
@@ -243,7 +237,6 @@ TcpLoop:
 	}
 
 	if !defaultRouteAdded {
-		port := listenPort.Port
 
 		var clusterName string
 		// The service could be nil if we are being called in the context of a sidecar config with
@@ -251,12 +244,7 @@ TcpLoop:
 		// and this piece of code is establishing the final fallback path, we set the
 		// tcp proxy cluster to a blackhole cluster
 		if service != nil {
-			// If the service has only one port, use that instead of the
-			// listenPort. Same logic as GetDestinationCluster in route.
-			if len(service.Ports) == 1 {
-				port = service.Ports[0].Port
-			}
-			clusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+			clusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, listenPort.Port)
 		} else {
 			clusterName = util.BlackHoleCluster
 		}
@@ -279,9 +267,11 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *mod
 	proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
-	var svcConfigs []*model.Config
+	var svcConfigs []model.Config
 	if service != nil {
 		svcConfigs = getConfigsForHost(service.Hostname, configs)
+	} else {
+		svcConfigs = configs
 	}
 
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationIPAddress, service, listenPort,

@@ -14,3 +14,7 @@ spec:
       request:
         add: 
           scope: public
+  tcp:
+  - route:
+    - destination:
+        host: "bookinfo.com"
