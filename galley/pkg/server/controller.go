@@ -15,18 +15,7 @@
 package server
 
 import (
-	"time"
-
 	"istio.io/istio/pkg/probe"
-)
-
-const (
-	//DefaultProbeCheckInterval defines default probeCheck interval
-	DefaultProbeCheckInterval = 2 * time.Second
-	//DefaultLivenessProbeFilePath defines default livenessProbe filePath
-	DefaultLivenessProbeFilePath = "/healthLiveness"
-	//DefaultReadinessProbeFilePath defines default readinessProbe filePath
-	DefaultReadinessProbeFilePath = "/healthReadiness"
 )
 
 //StartProbeCheck start probe check for Galley

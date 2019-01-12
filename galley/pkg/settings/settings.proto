@@ -17,6 +17,7 @@ syntax = "proto3";
 package istio.galley.settings;
 
 import "google/protobuf/duration.proto";
+import "gogoproto/gogo.proto";
 
 option go_package="istio.io/istio/galley/pkg/settings";
 
@@ -24,21 +25,23 @@ option go_package="istio.io/istio/galley/pkg/settings";
 // option.
 message Galley {
     // General settings
-    General general = 1;
+    General general = 1 [(gogoproto.nullable) = false];
 
     // Validation related settings
-    Validation validation = 2;
+    Validation validation = 2 [(gogoproto.nullable) = false];
 
     // Config processing related settings
-    Processing processing = 3;
+    Processing processing = 3 [(gogoproto.nullable) = false];
 }
 
+// General settings that apply to the whole process or to multiple sub-components.
 message General {
+
     // Port for exposing self-monitoring information.
     // Defaults to 9093
-    int32 monitoring_port = 1;
+    uint32 monitoring_port = 1;
 
-    // Port to use for exposing profiling
+    // Port for exposing profiling
     // Defaults to 9094
     int32 pprof_port = 2;
 
@@ -55,23 +58,28 @@ message General {
     string kube_config = 5;
 
     // Liveness probe related settings
-    Probe liveness = 6;
+    Probe liveness = 6 [(gogoproto.nullable) = false];
 
     // Readiness probe related settings
-    Probe readiness = 7;
+    Probe readiness = 7 [(gogoproto.nullable) = false];
 
     // Introspection options
-    Introspection introspection = 8;
+    Introspection introspection = 8 [(gogoproto.nullable) = false];
 }
 
+// Introspection (CtrlZ) related settings
 message Introspection {
+    // Indicates that introspection should be disabled.
+    // Defaults to false
+    bool disable = 1;
+
     // The IP port to use for ctrlz.
     // Defaults to 9876
-    int32 port = 1;
+    uint32 port = 2;
 
     // The IP address to listen on for ctrlz.
     // Defaults to 127.0.0.1
-    string address = 2;
+    string address = 3;
 }
 
 // Validation related settings
@@ -88,7 +96,7 @@ message Validation {
     // Port where the webhook is served. Per k8s admission registration requirements this should be 443 unless
     // there is only a single port for the service.
     // Defaults to 443.
-    int32 webhook_port = 3;
+    uint32 webhook_port = 3;
 
     // Name of the k8s validatingwebhookconfiguration resource to create.
     // Defaults to "istio-galley".
@@ -110,19 +118,19 @@ message Validation {
     string service_name  = 7;
 
     // TLS settings for validation webhook service.
-    TLS tls = 8;
+    TLS tls = 8 [(gogoproto.nullable) = false];
 }
 
 // Config processing related settings
 message Processing {
     // Settings for the upstream configuration source
-    Source source = 2;
+    Source source = 2 [(gogoproto.nullable) = false];
 
     // Settings for the MCP Service
-    Server server = 3;
+    Server server = 3 [(gogoproto.nullable) = false];
 
-    // Configuration sinks that Galley should connect to and deliver configuration
-    repeated MCPService sinks = 4;
+    // TODO: Reserved for future dial-out work.
+    reserved 4;
 
     // DNS Domain suffix to use while constructing Ingress based resources.
     // Defaults to "cluster.local"
@@ -134,7 +142,6 @@ message Source {
     oneof source {
         KubernetesSource kubernetes = 1;
         FilesystemSource filesystem = 2;
-        MCPService mcp = 3;
     }
 }
 
@@ -149,24 +156,53 @@ message Server {
 
     // Maximum size of individual gRPC messages
     // Defaults to 1024 * 1024.
-    int32 max_received_message_size = 3;
+    uint32 max_received_message_size = 3;
 
     // Maximum number of outstanding RPCs per connection
     // Defaults to 1024.
-    int32 max_concurrent_streams = 4;
+    uint32 max_concurrent_streams = 4;
 
-    // Use insecure gRPC communication
-    // Defaults to false.
-    bool insecure = 5;
+    // Enable gRPC tracing.
+    // Defaults to false
+    bool grpc_tracing = 5;
+
+    // Disable resource readiness checks. This allows Galley to start if not all resource types are supported
+    // Defaults to false
+    bool disable_resource_ready_check = 6;
+
+    // Auth settings for the main MCP Server.
+    AuthProvider auth = 7 [(gogoproto.nullable) = false];
+}
+
+// AuthProvider settings
+message AuthProvider {
+    oneof provider {
+        InsecureAuthProvider insecure = 1;
+        MTLSAuthProvider mtls = 2;
+    }
+}
+
+message InsecureAuthProvider {
+
+}
+
+message MTLSAuthProvider {
+    // The path to the x509 certificate for https.
+    // Defaults to "/etc/certs/cert-chain.pem"
+    string client_certificate = 1;
+
+    // The path to the x509 private key matching `tls_cert_file`.
+    // Defaults to "/etc/certs/key.pem"
+    string private_key = 2;
+
+    // The path to the x509 CA bundle file.
+    // Defaults to "/etc/certs/root-cert.pem"
+    string ca_certificates = 3;
 
     // Optional whitelisting file for SPIFFE IDs. If the file is not found, then all incoming connections are
     // allowed.
     // Defaults to fail open.
-    string access_list_file = 6;
-
-    // Disable resource readiness checks. This allows Galley to start if not all resource types are supported
-    // Defaults to false
-    bool disable_resource_ready_check = 7;
+    string access_list_file = 4;
 }
 
 message KubernetesSource {
@@ -178,26 +214,6 @@ message FilesystemSource {
     // Path to a folder that contains file-based configuration for Istio.
     // Required
     string path = 1;
-}
-
-message MCPService {
-    // The address of the MCP Service to dial out to.
-    // Required
-    string address = 1;
-
-    // Use insecure gRPC communication
-    // Defaults to false.
-    bool insecure = 2;
-
-    // The client metadata to supply when connecting to this MCP Service.
-    map<string, string> client_metadata = 3;
-
-    // The name of the Auth plugin to use for gRPC security.
-    // TODO: Default
-    string auth_plugin = 4;
-
-    //  The settings for the auth plugin.
-    map<string, string> auth_plugin_settings = 5;
 }
 
 // TLS specific common settings
@@ -215,12 +231,16 @@ message TLS {
     string ca_certificates = 3;
 }
 
-// Liveness/Readiness Probe specific settings.
+// Liveness/Readiness probe specific settings.
 message Probe {
-    // Tthe path to the file used for the existence.
-    string path = 1;
+    // Disable the probe
+    // Defaults to false
+    bool disable = 1;
+
+    // The path to the file used for the existence.
+    string path = 2;
 
     // The interval for updating the file's last modified
     // time.
-    google.protobuf.Duration interval = 2;
+    google.protobuf.Duration interval = 3;
 }

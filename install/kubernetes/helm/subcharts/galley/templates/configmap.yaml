@@ -12,3 +12,5 @@ metadata:
 data:
   validatingwebhookconfiguration.yaml: |-
     {{- include "validatingwebhookconfiguration.yaml.tpl" . | indent 4}}
+  settings.yaml: |-
+    {{- include "settings.yaml.tpl" . | indent 4}}

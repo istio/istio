@@ -26,7 +26,6 @@ import (
 const (
 	defaultConfigMapFolder  = "/etc/config/"
 	defaultMeshConfigFolder = "/etc/mesh-config/"
-	defaultAccessListFile   = defaultConfigMapFolder + "accesslist.yaml"
 	defaultMeshConfigFile   = defaultMeshConfigFolder + "mesh"
 	defaultDomainSuffix     = "cluster.local"
 )
@@ -89,7 +88,7 @@ func DefaultArgs() *Args {
 		MaxConcurrentStreams:      1024,
 		IntrospectionOptions:      ctrlz.DefaultOptions(),
 		Insecure:                  false,
-		AccessListFile:            defaultAccessListFile,
+		AccessListFile:            "",
 		MeshConfigFile:            defaultMeshConfigFile,
 		EnableServer:              true,
 		CredentialOptions:         creds.DefaultOptions(),

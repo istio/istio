@@ -16,6 +16,8 @@ package settings
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
@@ -25,7 +27,7 @@ import (
 func Parse(txt string) (*Galley, error) {
 	cfg := Default()
 
-	b, err := yaml.JSONToYAML([]byte(txt))
+	b, err := yaml.YAMLToJSON([]byte(txt))
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +41,7 @@ func Parse(txt string) (*Galley, error) {
 }
 
 // ToYaml serializes Galley settings into Yaml.
-func ToYaml(g *Galley) (string, error) {
+func ToYaml(g *Galley) (result string, err error) {
 	m := jsonpb.Marshaler{Indent: "  "}
 	js, err := m.MarshalToString(g)
 	if err != nil {
@@ -52,4 +54,32 @@ func ToYaml(g *Galley) (string, error) {
 	}
 
 	return string(b), err
+}
+
+// ParseFileOrDefault parses the given file as Yaml and return Galley settings. If the file does not exist,
+// defaults are used.
+func ParseFileOrDefault(file string) (g *Galley, err error) {
+	defer func() {
+		if err != nil {
+			scope.Errorf("Error reading settings file(%q): %v", file, err)
+		}
+	}()
+
+	if _, err = os.Stat(file); err != nil {
+		if os.IsNotExist(err) {
+			err = nil
+			scope.Infof("Settings file not found, using defaults (file: %q)", file)
+			return Default(), nil
+		}
+		return
+	}
+
+	var b []byte
+	b, err = ioutil.ReadFile(file)
+	if err != nil {
+		return
+	}
+
+	g, err = Parse(string(b))
+	return
 }

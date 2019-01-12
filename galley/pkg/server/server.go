@@ -168,9 +168,11 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	s.stopCh = make(chan struct{})
 	checker := server.NewAllowAllChecker()
 	if !a.Insecure {
-		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
-		if err != nil {
-			return nil, err
+		if a.AccessListFile != "" {
+			checker, err = watchAccessList(s.stopCh, a.AccessListFile)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		watcher, err := creds.PollFiles(s.stopCh, a.CredentialOptions)

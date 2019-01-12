@@ -15,5 +15,9 @@
 // Package settings contains code that is related to Galley's own settings file.
 package settings
 
+import "istio.io/istio/pkg/log"
+
 // nolint
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh settings.proto --gogo_out=plugins=grpc:$GOPATH/src
+//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh settings.proto --gogo_out=Mplugins=grpc:$GOPATH/src -I. -I${GOPATH}/src/istio.io/istio/vendor/github.com/gogo/protobuf
+
+var scope = log.RegisterScope("settings", "Galley settings", 0)

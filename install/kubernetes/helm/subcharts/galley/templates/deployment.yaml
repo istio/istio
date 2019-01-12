@@ -41,22 +41,18 @@ spec:
           - containerPort: 9901
           command:
           - /usr/local/bin/galley
-          - --meshConfigFile=/etc/mesh-config/mesh
-          - --livenessProbeInterval=1s
-          - --livenessProbePath=/healthliveness
-          - --readinessProbePath=/healthready
-          - --readinessProbeInterval=1s
-{{- if $.Values.global.controlPlaneSecurityEnabled}}
-          - --insecure=false
-{{- else }}
-          - --insecure=true
-{{- end }}
-{{- if not $.Values.global.useMCP }}
-          - --enable-server=false
-{{- end }}
-          - --validation-webhook-config-file
-          - /etc/config/validatingwebhookconfiguration.yaml
-          - --monitoringPort={{ .Values.global.monitoringPort }}
+          - --settings
+          - /etc/settings/settings.yaml
+#
+#{{- if $.Values.global.controlPlaneSecurityEnabled}}
+#          - --insecure=false
+#{{- else }}
+#          - --insecure=true
+#{{- end }}
+#{{- if not $.Values.global.useMCP }}
+#          - --enable-server=false
+#{{- end }}
+#          - --monitoringPort={{ .Values.global.monitoringPort }}
           volumeMounts:
           - name: certs
             mountPath: /etc/certs
@@ -101,5 +97,8 @@ spec:
       - name: mesh-config
         configMap:
           name: istio
+      - name: settings
+        configMap:
+          name: istio-galley-settings
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
