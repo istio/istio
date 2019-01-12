@@ -356,7 +356,7 @@ func (b *backend) Apply(change *sink.Change) error {
 			collection = make(map[store.Key]*store.BackEndResource)
 			b.state.items[key.Kind] = collection
 		}
-		b.state.items[key.Kind][key] = val
+		collection[key] = val
 
 		// If the downstream users haven't started listening yet, we don't need to
 		// send any events.

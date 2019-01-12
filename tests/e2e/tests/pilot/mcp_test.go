@@ -84,7 +84,7 @@ func mcpServerResponse(req *source.Request) (*source.WatchResponse, source.Cance
 	cancelFunc = func() {
 		log.Printf("watch canceled for %s\n", req.Collection)
 	}
-	if req.Collection == fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName) {
+	if req.Collection == model.Gateway.Collection {
 		marshaledFirstGateway, err := proto.Marshal(firstGateway)
 		if err != nil {
 			log.Fatalf("marshaling gateway %s\n", err)
