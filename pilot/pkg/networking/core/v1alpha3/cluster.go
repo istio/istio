@@ -60,10 +60,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			return nil, err
 		}
 
-		sidecarScope := push.GetSidecarScope(proxy, instances)
+		sidecarScope := proxy.SidecarScope
 		recomputeOutboundClusters := true
 		if configgen.CanUsePrecomputedCDS(proxy) {
-			if sidecarScope.XDSOutboundClusters != nil {
+			if sidecarScope != nil && sidecarScope.XDSOutboundClusters != nil {
 				clusters = append(clusters, sidecarScope.XDSOutboundClusters...)
 				recomputeOutboundClusters = false
 			}
@@ -329,9 +329,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	// to those listeners i.e. clusters made out of the defaultEndpoint field.
 	// If the node has no sidecarScope and has interception mode set to NONE, then we should skip the inbound
 	// clusters, because there would be no corresponding inbound listeners
-	sidecarScope := push.GetSidecarScope(proxy, instances)
+	sidecarScope := proxy.SidecarScope
 
-	if !sidecarScope.HasCustomIngressListeners {
+	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// No user supplied sidecar scope or the user supplied one has no ingress listeners
 
 		// We should not create inbound listeners in NONE mode based on the service instances

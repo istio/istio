@@ -342,7 +342,7 @@ func (ps *PushContext) SetSidecarScope(proxy *Proxy) {
 		return
 	}
 
-	proxy.SidecarScope = ps.GetSidecarScope(proxy, instances)
+	proxy.SidecarScope = ps.getSidecarScope(proxy, instances)
 }
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
@@ -416,7 +416,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	return out
 }
 
-// GetSidecarScope returns a SidecarScope object associated with the
+// getSidecarScope returns a SidecarScope object associated with the
 // proxy. The SidecarScope object is a semi-processed view of the service
 // registry, and config state associated with the sidecar crd. The scope contains
 // a set of inbound and outbound listeners, services/configs per listener,
@@ -427,7 +427,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 //
 // Callers can check if the sidecarScope is from user generated object or not
 // by checking the sidecarScope.Config field, that contains the user provided config
-func (ps *PushContext) GetSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
+func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
 
 	var workloadLabels LabelsCollection
 	for _, w := range proxyInstances {

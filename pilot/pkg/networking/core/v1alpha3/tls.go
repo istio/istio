@@ -19,6 +19,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
@@ -151,19 +152,22 @@ func buildSidecarOutboundTLSFilterChainOpts(env *model.Environment, node *model.
 	// HTTPS or TLS ports without associated virtual service will be treated as opaque TCP traffic.
 	if !hasTLSMatch {
 		port := listenPort.Port
-
-		// If the service has only one port, use that instead of the
-		// listenPort. This is useful when a Sidecar's egress listener has
-		// a unix domain socket listener but wants to forward to a regular
-		// IP service.  We can auto infer these ports as long as its a
-		// single port service. Multiport services would require a
-		// virtualService with match/route block for appropriate mapping
-		// [handled in the for loop above]
-		if len(service.Ports) == 1 {
-			port = service.Ports[0].Port
+		var clusterName string
+		// The service could be nil if we are being called in the context of a sidecar config with
+		// user specified port in the egress listener. Since we dont know the destination service
+		// and this piece of code is establishing the final fallback path, we set the
+		// tcp proxy cluster to a blackhole cluster
+		if service != nil {
+			// If the service has only one port, use that instead of the
+			// listenPort. Same logic as GetDestinationCluster in route.
+			if len(service.Ports) == 1 {
+				port = service.Ports[0].Port
+			}
+			clusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+		} else {
+			clusterName = util.BlackHoleCluster
 		}
 
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
 			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, listenPort),
@@ -241,14 +245,21 @@ TcpLoop:
 	if !defaultRouteAdded {
 		port := listenPort.Port
 
-		// If the service has only one port, use that instead of the listenPort. This is useful when
-		// a Sidecar's egress listener on port X imports a bunch of single port services on different ports.
-		// We can auto infer these ports as long as its a single port service. Multiport services would require
-		// a virtualService with match block for appropriate mapping [handled in the for loop above]
-		if len(service.Ports) == 1 {
-			port = service.Ports[0].Port
+		var clusterName string
+		// The service could be nil if we are being called in the context of a sidecar config with
+		// user specified port in the egress listener. Since we dont know the destination service
+		// and this piece of code is establishing the final fallback path, we set the
+		// tcp proxy cluster to a blackhole cluster
+		if service != nil {
+			// If the service has only one port, use that instead of the
+			// listenPort. Same logic as GetDestinationCluster in route.
+			if len(service.Ports) == 1 {
+				port = service.Ports[0].Port
+			}
+			clusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
+		} else {
+			clusterName = util.BlackHoleCluster
 		}
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port)
 
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationIPAddress},
@@ -259,12 +270,20 @@ TcpLoop:
 	return out
 }
 
+// This function can be called for namespaces with the auto generated sidecar, i.e. once per service and per port.
+// OR, it could be called in the context of an egress listener with specific TCP port on a sidecar config.
+// In the latter case, there is no service associated with this listen port. So we have to account for this
+// missing service throughout this file
 func buildSidecarOutboundTCPTLSFilterChainOpts(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	configs []model.Config, destinationIPAddress string, service *model.Service, listenPort *model.Port,
 	proxyLabels model.LabelsCollection, gateways map[string]bool) []*filterChainOpts {
 
 	out := make([]*filterChainOpts, 0)
-	svcConfigs := getConfigsForHost(service.Hostname, configs)
+	var svcConfigs []*model.Config
+	if service != nil {
+		svcConfigs = getConfigsForHost(service.Hostname, configs)
+	}
+
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(env, node, push, destinationIPAddress, service, listenPort,
 		proxyLabels, gateways, svcConfigs)...)
 	out = append(out, buildSidecarOutboundTCPFilterChainOpts(env, node, push, destinationIPAddress, service, listenPort,

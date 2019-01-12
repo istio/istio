@@ -110,8 +110,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	var virtualServices []model.Config
 
 	// Get the list of services that correspond to this egressListener from the sidecarScope
-	sidecarScope := push.GetSidecarScope(node, proxyInstances)
-	if sidecarScope.Config != nil {
+	sidecarScope := node.SidecarScope
+	// sidecarScope should never be nil
+	if sidecarScope != nil {
 		// this is a use supplied sidecar scope. Get the services from the egress listener
 		egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
 		// We should never be getting a nil egress listener because the code that setup this RDS
