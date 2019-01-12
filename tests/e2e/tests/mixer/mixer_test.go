@@ -809,9 +809,16 @@ func getIngressOrFail(t *testing.T) string {
 // TestCheckCache tests that check cache works within the mesh.
 func TestCheckCache(t *testing.T) {
 	// Get pod id of sleep app.
-	pod, err := podID("app.kubernetes.io/name=sleep")
-	if err != nil {
-		fatalf(t, "fail getting pod id of sleep %v", err)
+	pod := ""
+	for _, appLabel := range []string{"app", "app.kubernetes.io/instance", "app.kubernetes.io/name"} {
+		podID, err := podID(fmt.Sprintf("%s=sleep", appLabel))
+		if err == nil {
+			pod = podID
+			break
+		}
+	}
+	if len(pod) == 0 {
+		fatalf(t, "fail getting pod id of sleep")
 	}
 	url := fmt.Sprintf("http://productpage.%s:9080/health", tc.Kube.Namespace)
 
