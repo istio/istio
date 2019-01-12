@@ -42,7 +42,7 @@ func (s *DiscoveryServer) pushRoute(con *XdsConnection, push *model.PushContext)
 	response := routeDiscoveryResponse(rawRoutes)
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("ADS: RDS: Send failure for node %v, closing grpc %v", con.modelNode, err)
+		adsLog.Warnf("ADS: RDS: Send failure %v: %v", con.modelNode.ID, err)
 		pushes.With(prometheus.Labels{"type": "rds_senderr"}).Add(1)
 		return err
 	}

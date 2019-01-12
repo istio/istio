@@ -160,6 +160,8 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 				Namespace:         namespace,
 				ResourceVersion:   obj.Metadata.Version,
 				CreationTimestamp: createTime,
+				Labels:            obj.Metadata.Labels,
+				Annotations:       obj.Metadata.Annotations,
 				Domain:            c.options.DomainSuffix,
 			},
 			Spec: obj.Body,

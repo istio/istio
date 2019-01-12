@@ -123,13 +123,13 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 				TypeURL:  spec.Target.TypeURL,
 				FullName: entries[0].Key,
 			},
-			Version:    resource.Version(resourceVersion),
-			CreateTime: entries[0].CreationTime,
+			Version: resource.Version(resourceVersion),
 		}
 
 		event.Entry = resource.Entry{
-			ID:   rid,
-			Item: entries[0].Resource,
+			ID:       rid,
+			Item:     entries[0].Resource,
+			Metadata: entries[0].Metadata,
 		}
 
 	case resource.Deleted:

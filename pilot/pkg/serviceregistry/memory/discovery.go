@@ -19,6 +19,8 @@ import (
 	"net"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -261,8 +263,8 @@ func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
-			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)
