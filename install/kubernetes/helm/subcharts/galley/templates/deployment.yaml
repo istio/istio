@@ -97,8 +97,5 @@ spec:
       - name: mesh-config
         configMap:
           name: istio
-      - name: settings
-        configMap:
-          name: istio-galley-settings
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
