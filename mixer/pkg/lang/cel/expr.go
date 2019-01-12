@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	elvis = "getOrElse"
+	elvis = "pick"
 )
 
 // Parse a CEL expression
