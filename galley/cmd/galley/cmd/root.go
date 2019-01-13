@@ -65,6 +65,13 @@ func GetRootCmd(args []string) *cobra.Command {
 				return
 			}
 
+			yml, err := settings.ToYaml(s)
+			if err != nil {
+				log.Fatalf("Error serializing configs for printing: %v", err)
+			} else {
+				log.Infof("Effective Settings:\n%v", yml)
+			}
+
 			livenessProbeOptions, err := settings.ToProbeOptions(&s.General.Liveness)
 			if err != nil {
 				log.Fatalf("Invalid liveness probe options: %v", err)

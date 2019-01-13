@@ -42,7 +42,7 @@ spec:
           command:
           - /usr/local/bin/galley
           - --settings
-          - /etc/settings/settings.yaml
+          - /etc/config/settings.yaml
           volumeMounts:
           - name: certs
             mountPath: /etc/certs

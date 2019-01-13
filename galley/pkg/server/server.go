@@ -267,7 +267,7 @@ func (s *Server) Close() error {
 //RunServer start Galley Server mode
 func RunServer(sa *Args, livenessProbeController,
 	readinessProbeController probe.Controller) {
-	log.Infof("Galley started with %s", sa)
+	log.Infof("Galley started with:\n%s", sa)
 	s, err := New(sa)
 	if err != nil {
 		log.Fatalf("Unable to initialize Galley Server: %v", err)
