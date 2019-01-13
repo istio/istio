@@ -43,16 +43,6 @@ spec:
           - /usr/local/bin/galley
           - --settings
           - /etc/settings/settings.yaml
-#
-#{{- if $.Values.global.controlPlaneSecurityEnabled}}
-#          - --insecure=false
-#{{- else }}
-#          - --insecure=true
-#{{- end }}
-#{{- if not $.Values.global.useMCP }}
-#          - --enable-server=false
-#{{- end }}
-#          - --monitoringPort={{ .Values.global.monitoringPort }}
           volumeMounts:
           - name: certs
             mountPath: /etc/certs

@@ -54,8 +54,8 @@ func ToServerArgs(s *Galley) (*server.Args, error) {
 	var enableServer bool
 	var configPath string
 	var insecure bool
-	var credentialOptions *creds.Options
 	var accessListFile string
+	credentialOptions := creds.DefaultOptions()
 
 	k := s.Processing.Source.GetKubernetes()
 	if k != nil && k.ResyncPeriod != nil {
@@ -76,15 +76,16 @@ func ToServerArgs(s *Galley) (*server.Args, error) {
 	i := s.Processing.Server.Auth.GetInsecure()
 	if i != nil {
 		insecure = true
-	}
-	m := s.Processing.Server.Auth.GetMtls()
-	if m != nil {
-		credentialOptions = &creds.Options{
-			KeyFile:           m.PrivateKey,
-			CertificateFile:   m.ClientCertificate,
-			CACertificateFile: m.CaCertificates,
+	} else {
+		m := s.Processing.Server.Auth.GetMtls()
+		if m != nil {
+			credentialOptions = &creds.Options{
+				KeyFile:           m.PrivateKey,
+				CertificateFile:   m.ClientCertificate,
+				CACertificateFile: m.CaCertificates,
+			}
+			accessListFile = m.AccessListFile
 		}
-		accessListFile = m.AccessListFile
 	}
 
 	a := server.DefaultArgs()

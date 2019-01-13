@@ -200,6 +200,8 @@ processing:
     filesystem:
       path: "/configss"
   server:
+    auth:
+      insecure: {}
     address: tcp://127.0.0.1:9901
     grpcTracing: true
     maxReceivedMessageSize: 1
@@ -215,7 +217,7 @@ processing:
 				EnableServer:              true,
 				DomainSuffix:              "c.l",
 				MeshConfigFile:            "/etc/mesh-config/mesh",
-				Insecure:                  false,
+				Insecure:                  true,
 				EnableGRPCTracing:         true,
 				DisableResourceReadyCheck: true,
 				CredentialOptions:         creds.DefaultOptions(),

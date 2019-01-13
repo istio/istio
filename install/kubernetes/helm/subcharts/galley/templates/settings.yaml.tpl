@@ -25,7 +25,7 @@ general:
   # Port for exposing self-monitoring information.
   # Defaults to 9093
   #
-  # monitoringPort: 9093
+  monitoringPort: {{ .Values.global.monitoringPort }}
 
   # Enable profiling for Galley
   # Defaults to false
@@ -102,7 +102,9 @@ processing:
     # Disable the server.
     # Defaults to false
     #
-    # disable: false
+{{- if not $.Values.global.useMCP }}
+    disable: true
+{{- end }}
 
     # Address to use for Galley's gRPC API, (e.g. tcp://127.0.0.1:9092 or unix:///path/to/file).
     # Defaults to tcp://0.0.0.0:9901
@@ -133,7 +135,7 @@ processing:
     # Defaults to mTLS
     #
     auth:
-
+{{- if $.Values.global.controlPlaneSecurityEnabled}}
       # Use mutual TLS for Authn.
       mtls:
         # The path to the x509 certificate.
@@ -158,6 +160,9 @@ processing:
         # Defaults to "".
         #
         # accessListFile: "/etc/config/accesslist.yaml"
+{{- else }}
+      insecure: {}
+{{- end }}
 
   # Source section contains settings for configuration input sources. The source section can contain either
   # a kubernetes stanza, or a filesystem stanza. If neither is specific, then Kubernetes will be used as

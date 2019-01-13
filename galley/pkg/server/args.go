@@ -111,9 +111,15 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
 	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
 	fmt.Fprintf(buf, "EnableServer: %v\n", a.EnableServer)
-	fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
-	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
-	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
+	var keyFile, certificateFile, caCertificateFile string
+	if a.CredentialOptions != nil {
+		keyFile = a.CredentialOptions.KeyFile
+		certificateFile = a.CredentialOptions.CertificateFile
+		caCertificateFile = a.CredentialOptions.CACertificateFile
+	}
+	fmt.Fprintf(buf, "KeyFile: %s\n", keyFile)
+	fmt.Fprintf(buf, "CertificateFile: %s\n", certificateFile)
+	fmt.Fprintf(buf, "CACertificateFile: %s\n", caCertificateFile)
 	fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
 	fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
 	fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
