@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
@@ -85,11 +84,11 @@ func mcpServerResponse(req *source.Request) (*source.WatchResponse, source.Cance
 		log.Printf("watch canceled for %s\n", req.Collection)
 	}
 	if req.Collection == model.Gateway.Collection {
-		marshaledFirstGateway, err := proto.Marshal(firstGateway)
+		marshaledFirstGateway, err := types.MarshalAny(firstGateway)
 		if err != nil {
 			log.Fatalf("marshaling gateway %s\n", err)
 		}
-		marshaledSecondGateway, err := proto.Marshal(secondGateway)
+		marshaledSecondGateway, err := types.MarshalAny(secondGateway)
 		if err != nil {
 			log.Fatalf("marshaling gateway %s\n", err)
 		}
@@ -103,20 +102,14 @@ func mcpServerResponse(req *source.Request) (*source.WatchResponse, source.Cance
 						Name:       "some-name",
 						CreateTime: fakeCreateTime,
 					},
-					Body: &types.Any{
-						TypeUrl: req.Collection,
-						Value:   marshaledFirstGateway,
-					},
+					Body: marshaledFirstGateway,
 				},
 				{
 					Metadata: &mcp.Metadata{
 						Name:       "some-other-name",
 						CreateTime: fakeCreateTime,
 					},
-					Body: &types.Any{
-						TypeUrl: req.Collection,
-						Value:   marshaledSecondGateway,
-					},
+					Body: marshaledSecondGateway,
 				},
 			},
 		}, cancelFunc
