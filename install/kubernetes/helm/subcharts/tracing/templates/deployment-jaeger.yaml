@@ -57,7 +57,7 @@ spec:
           - name: MEMORY_MAX_TRACES
             value: "{{ .Values.jaeger.memory.max_traces }}"
           - name: QUERY_BASE_PATH
-            value: {{ if $.Values.contextPath }} {{ $.Values.contextPath }} {{ else }} /{{ $.Values.provider }} {{ end }}
+            value: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} /{{ .Values.provider }} {{ end }}
           livenessProbe:
             httpGet:
               path: /

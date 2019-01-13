@@ -20,7 +20,7 @@ spec:
     - host: {{ $host }}
       http:
         paths:
-          - path: {{ if $.Values.contextPath }} {{ $.Values.contextPath }} {{ else }} /{{ $.Values.provider }} {{ end }}
+          - path: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} /{{ .Values.provider }} {{ end }}
             backend:
               serviceName: tracing
               servicePort: 80
@@ -29,7 +29,7 @@ spec:
 {{- else }}
     - http:
         paths:
-          - path: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} /{{ $.Values.provider }} {{ end }}
+          - path: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} /{{ .Values.provider }} {{ end }}
             backend:
               serviceName: tracing
               servicePort: 80
