@@ -22,19 +22,20 @@ import (
 	"os"
 	"strings"
 
+	"istio.io/istio/pkg/mcp/testing/monitoring"
+
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/client"
 
-	// Import the resource package to pull in all proto types.
-	_ "istio.io/istio/galley/pkg/kube/converter/legacy"
+	// Import the resource package to pull in all proto collection.
 	_ "istio.io/istio/galley/pkg/metadata"
 )
 
 var (
 	serverAddr = flag.String("server", "127.0.0.1:9901", "The server address")
-	types      = flag.String("types", "", "The fully qualified type URLs of resources to deploy")
+	collection = flag.String("collection", "", "The collection of resources to deploy")
 	id         = flag.String("id", "", "The node id for the client")
 )
 
@@ -43,10 +44,10 @@ type updater struct {
 
 // Update interface method implementation.
 func (u *updater) Apply(ch *client.Change) error {
-	fmt.Printf("Incoming change: %v\n", ch.TypeURL)
+	fmt.Printf("Incoming change: %v\n", ch.Collection)
 
 	for i, o := range ch.Objects {
-		fmt.Printf("%s[%d]\n", ch.TypeURL, i)
+		fmt.Printf("%s[%d]\n", ch.Collection, i)
 
 		b, err := json.MarshalIndent(o, "  ", "  ")
 		if err != nil {
@@ -63,7 +64,7 @@ func (u *updater) Apply(ch *client.Change) error {
 func main() {
 	flag.Parse()
 
-	typeNames := strings.Split(*types, ",")
+	collections := strings.Split(*collection, ",")
 
 	u := &updater{}
 
@@ -75,6 +76,6 @@ func main() {
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
 
-	c := client.New(cl, typeNames, u, *id, map[string]string{}, client.NewStatsContext("mcpc"))
+	c := client.New(cl, collections, u, *id, map[string]string{}, mcptestmon.NewInMemoryClientStatsContext())
 	c.Run(context.Background())
 }

@@ -206,12 +206,12 @@ func TestWildcardHostSidecarRouterWithMockCopilot(t *testing.T) {
 }
 
 func startMCPCopilot(serverResponse func(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc)) (*mockmcp.Server, error) {
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]string, len(model.IstioConfigTypes))
 	for i, m := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
+		collections[i] = m.Collection
 	}
 
-	server, err := mockmcp.NewServer(supportedTypes, serverResponse)
+	server, err := mockmcp.NewServer(collections, serverResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -320,21 +320,21 @@ func curlApp(endpoint, hostRoute url.URL) (string, error) {
 }
 
 var gatewayTestAllConfig = map[string]map[string]proto.Message{
-	fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName): map[string]proto.Message{
-		"cloudfoundry-ingress": gateway,
+	model.Gateway.Collection: {
+		model.Gateway.Collection: gateway,
 	},
 
-	fmt.Sprintf("type.googleapis.com/%s", model.VirtualService.MessageName): map[string]proto.Message{
+	model.VirtualService.Collection: {
 		"vs-1": virtualService(8060, "cloudfoundry-ingress", "/some/path", cfRouteOne, subsetOne),
 		"vs-2": virtualService(8070, "cloudfoundry-ingress", "", cfRouteTwo, subsetTwo),
 	},
 
-	fmt.Sprintf("type.googleapis.com/%s", model.DestinationRule.MessageName): map[string]proto.Message{
+	model.DestinationRule.Collection: {
 		"dr-1": destinationRule(cfRouteOne, subsetOne),
 		"dr-2": destinationRule(cfRouteTwo, subsetTwo),
 	},
 
-	fmt.Sprintf("type.googleapis.com/%s", model.ServiceEntry.MessageName): map[string]proto.Message{
+	model.ServiceEntry.Collection: {
 		"se-1": serviceEntry(8060, app1ListenPort, nil, cfRouteOne, subsetOne),
 		"se-2": serviceEntry(8070, app2ListenPort, nil, cfRouteTwo, subsetTwo),
 	},
@@ -358,9 +358,9 @@ func mcpSidecarServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchRespo
 	}
 
 	return &mcpserver.WatchResponse{
-		Version:   req.GetVersionInfo(),
-		TypeURL:   req.GetTypeUrl(),
-		Resources: []*mcp.Resource{},
+		Version:    req.GetVersionInfo(),
+		Collection: req.GetTypeUrl(),
+		Resources:  []*mcp.Resource{},
 	}, cancelFunc
 }
 
@@ -376,16 +376,16 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 	}
 
 	return &mcpserver.WatchResponse{
-		Version:   req.GetVersionInfo(),
-		TypeURL:   req.GetTypeUrl(),
-		Resources: []*mcp.Resource{},
+		Version:    req.GetVersionInfo(),
+		Collection: req.GetTypeUrl(),
+		Resources:  []*mcp.Resource{},
 	}, cancelFunc
 }
 
 func buildWatchResp(req *mcp.MeshConfigRequest, namedMsgs map[string]proto.Message) *mcpserver.WatchResponse {
 	resources := []*mcp.Resource{}
 	for name, msg := range namedMsgs {
-		marshaledMsg, err := proto.Marshal(msg)
+		body, err := types.MarshalAny(msg)
 		if err != nil {
 			log.Fatalf("marshaling %s: %s\n", name, err)
 		}
@@ -394,16 +394,13 @@ func buildWatchResp(req *mcp.MeshConfigRequest, namedMsgs map[string]proto.Messa
 				Name:       name,
 				CreateTime: fakeCreateTime,
 			},
-			Body: &types.Any{
-				TypeUrl: req.GetTypeUrl(),
-				Value:   marshaledMsg,
-			},
+			Body: body,
 		})
 	}
 	return &mcpserver.WatchResponse{
-		Version:   req.GetVersionInfo(),
-		TypeURL:   req.GetTypeUrl(),
-		Resources: resources,
+		Version:    req.GetVersionInfo(),
+		Collection: req.GetTypeUrl(),
+		Resources:  resources,
 	}
 }
 

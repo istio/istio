@@ -24,7 +24,7 @@ type messageTypeFn func(name string) reflect.Type
 
 // Schema contains metadata about configuration resources.
 type Schema struct {
-	byURL map[string]Info
+	byCollection map[string]Info
 
 	messageTypeFn messageTypeFn
 }
@@ -42,7 +42,7 @@ func NewSchemaBuilder() *SchemaBuilder {
 // newSchemaBuilder returns a new instance of SchemaBuilder.
 func newSchemaBuilder(messageTypeFn messageTypeFn) *SchemaBuilder {
 	s := &Schema{
-		byURL:         make(map[string]Info),
+		byCollection:  make(map[string]Info),
 		messageTypeFn: messageTypeFn,
 	}
 
@@ -52,28 +52,28 @@ func newSchemaBuilder(messageTypeFn messageTypeFn) *SchemaBuilder {
 }
 
 // Register a proto into the schema.
-func (b *SchemaBuilder) Register(typeURL string) Info {
-	if _, found := b.schema.byURL[typeURL]; found {
-		panic(fmt.Sprintf("schema.Register: Proto type is registered multiple times: %q", typeURL))
+func (b *SchemaBuilder) Register(rawCollection, typeURL string) Info {
+	if _, found := b.schema.byCollection[rawCollection]; found {
+		panic(fmt.Sprintf("schema.Register: collection is registered multiple times: %q", rawCollection))
 	}
 
-	// Before registering, ensure that the proto type is actually reachable.
-	url, err := newTypeURL(typeURL)
+	// Before registering, ensure that the collection is actually reachable.
+	collection, err := newCollection(rawCollection, typeURL)
 	if err != nil {
 		panic(err)
 	}
 
-	goType := b.schema.messageTypeFn(url.MessageName())
+	goType := b.schema.messageTypeFn(collection.MessageName())
 	if goType == nil {
-		panic(fmt.Sprintf("schema.Register: Proto type not found: %q", url.MessageName()))
+		panic(fmt.Sprintf("schema.Register: Proto type not found: %q", collection.MessageName()))
 	}
 
 	info := Info{
-		TypeURL: url,
-		goType:  goType,
+		Collection: collection,
+		goType:     goType,
 	}
 
-	b.schema.byURL[info.TypeURL.String()] = info
+	b.schema.byCollection[info.Collection.String()] = info
 
 	return info
 }
@@ -88,38 +88,38 @@ func (b *SchemaBuilder) Build() *Schema {
 	return s
 }
 
-// Lookup looks up a resource.Info by its type url.
-func (s *Schema) Lookup(url string) (Info, bool) {
-	i, ok := s.byURL[url]
+// Lookup looks up a resource.Info by its collection.
+func (s *Schema) Lookup(collection string) (Info, bool) {
+	i, ok := s.byCollection[collection]
 	return i, ok
 }
 
-// Get looks up a resource.Info by its type Url. Panics if it is not found.
-func (s *Schema) Get(url string) Info {
-	i, ok := s.Lookup(url)
+// Get looks up a resource.Info by its collection. Panics if it is not found.
+func (s *Schema) Get(collection string) Info {
+	i, ok := s.Lookup(collection)
 	if !ok {
-		panic(fmt.Sprintf("schema.Get: matching entry not found for url: %q", url))
+		panic(fmt.Sprintf("schema.Get: matching entry not found for collection: %q", collection))
 	}
 	return i
 }
 
 // All returns all known info objects
 func (s *Schema) All() []Info {
-	result := make([]Info, 0, len(s.byURL))
+	result := make([]Info, 0, len(s.byCollection))
 
-	for _, info := range s.byURL {
+	for _, info := range s.byCollection {
 		result = append(result, info)
 	}
 
 	return result
 }
 
-// TypeURLs returns all known type URLs.
-func (s *Schema) TypeURLs() []string {
-	result := make([]string, 0, len(s.byURL))
+// Collections returns all known collections.
+func (s *Schema) Collections() []string {
+	result := make([]string, 0, len(s.byCollection))
 
-	for _, info := range s.byURL {
-		result = append(result, info.TypeURL.string)
+	for _, info := range s.byCollection {
+		result = append(result, info.Collection.collection)
 	}
 
 	return result

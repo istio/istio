@@ -47,10 +47,10 @@ type Options struct {
 type Controller struct {
 	configStoreMu sync.RWMutex
 	// keys [type][namespace][name]
-	configStore              map[string]map[string]map[string]model.Config
-	descriptorsByMessageName map[string]model.ProtoSchema
-	options                  Options
-	eventHandlers            map[string][]func(model.Config, model.Event)
+	configStore             map[string]map[string]map[string]model.Config
+	descriptorsByCollection map[string]model.ProtoSchema
+	options                 Options
+	eventHandlers           map[string][]func(model.Config, model.Event)
 
 	syncedMu sync.Mutex
 	synced   map[string]bool
@@ -61,19 +61,19 @@ func NewController(options Options) CoreDataModel {
 	descriptorsByMessageName := make(map[string]model.ProtoSchema, len(model.IstioConfigTypes))
 	synced := make(map[string]bool)
 	for _, descriptor := range model.IstioConfigTypes {
-		// don't register duplicate descriptors for the same message name, e.g. auth policy
-		if _, ok := descriptorsByMessageName[descriptor.MessageName]; !ok {
-			descriptorsByMessageName[descriptor.MessageName] = descriptor
-			synced[descriptor.MessageName] = false
+		// don't register duplicate descriptors for the same collection
+		if _, ok := descriptorsByMessageName[descriptor.Collection]; !ok {
+			descriptorsByMessageName[descriptor.Collection] = descriptor
+			synced[descriptor.Collection] = false
 		}
 	}
 
 	return &Controller{
-		configStore:              make(map[string]map[string]map[string]model.Config),
-		options:                  options,
-		descriptorsByMessageName: descriptorsByMessageName,
-		eventHandlers:            make(map[string][]func(model.Config, model.Event)),
-		synced:                   synced,
+		configStore:             make(map[string]map[string]map[string]model.Config),
+		options:                 options,
+		descriptorsByCollection: descriptorsByMessageName,
+		eventHandlers:           make(map[string][]func(model.Config, model.Event)),
+		synced:                  synced,
 	}
 }
 
@@ -117,19 +117,18 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 // Apply receives changes from MCP server and creates the
 // corresponding config
 func (c *Controller) Apply(change *mcpclient.Change) error {
-	messagename := extractMessagename(change.TypeURL)
-	descriptor, ok := c.descriptorsByMessageName[messagename]
+	descriptor, ok := c.descriptorsByCollection[change.Collection]
 	if !ok {
-		return fmt.Errorf("apply type not supported %s", messagename)
+		return fmt.Errorf("apply type not supported %s", change.Collection)
 	}
 
 	schema, valid := c.ConfigDescriptor().GetByType(descriptor.Type)
 	if !valid {
-		return fmt.Errorf("descriptor type not supported %s", messagename)
+		return fmt.Errorf("descriptor type not supported %s", change.Collection)
 	}
 
 	c.syncedMu.Lock()
-	c.synced[messagename] = true
+	c.synced[change.Collection] = true
 	c.syncedMu.Unlock()
 
 	// innerStore is [namespace][name]
@@ -145,15 +144,9 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 			}
 		}
 
-		// adjust the type name for mesh-scoped resources
-		typ := descriptor.Type
-		if namespace == "" && descriptor.Type == model.AuthenticationPolicy.Type {
-			typ = model.AuthenticationMeshPolicy.Type
-		}
-
 		conf := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              typ,
+				Type:              descriptor.Type,
 				Group:             descriptor.Group,
 				Version:           descriptor.Version,
 				Name:              name,
@@ -181,25 +174,11 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		}
 	}
 
-	// de-mux namespace and cluster-scoped authentication policy from the same
-	// type_url stream.
-	const clusterScopedNamespace = ""
-	meshTypeInnerStore := make(map[string]map[string]model.Config)
-	var meshType string
-	if descriptor.Type == model.AuthenticationPolicy.Type {
-		meshType = model.AuthenticationMeshPolicy.Type
-		meshTypeInnerStore[clusterScopedNamespace] = innerStore[clusterScopedNamespace]
-		delete(innerStore, clusterScopedNamespace)
-	}
-
 	var prevStore map[string]map[string]model.Config
 
 	c.configStoreMu.Lock()
 	prevStore = c.configStore[descriptor.Type]
 	c.configStore[descriptor.Type] = innerStore
-	if meshType != "" {
-		c.configStore[meshType] = meshTypeInnerStore
-	}
 	c.configStoreMu.Unlock()
 
 	dispatch := func(model model.Config, event model.Event) {}
@@ -303,11 +282,4 @@ func extractNameNamespace(metadataName string) (string, string) {
 		return segments[0], segments[1]
 	}
 	return "", segments[0]
-}
-
-func extractMessagename(typeURL string) string {
-	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
-		return typeURL[slash+1:]
-	}
-	return typeURL
 }
