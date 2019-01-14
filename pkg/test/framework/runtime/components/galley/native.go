@@ -176,6 +176,7 @@ func (c *nativeComponent) restart() error {
 	a.DisableResourceReadyCheck = true
 	a.ConfigPath = c.configDir
 	a.MeshConfigFile = c.meshConfigFile
+	a.ExcludedResourceKinds = make([]string, 0)
 	s, err := server.New(a)
 	if err != nil {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)

@@ -25,7 +25,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestVerifyCRDPresence(t *testing.T) {
+func TestCheckCRDPresence(t *testing.T) {
 	prevInterval, prevTimeout := pollInterval, pollTimeout
 	pollInterval = time.Nanosecond
 	pollTimeout = time.Millisecond
@@ -92,7 +92,7 @@ func TestVerifyCRDPresence(t *testing.T) {
 				cs.Resources = append(cs.Resources, resourceList)
 			}
 
-			err := verifyResourceTypesPresence(cs, specs)
+			err := resourceTypesPresence(cs, specs)
 			if c.wantErr {
 				if err == nil {
 					tt.Fatal("expected error but got success")
