@@ -15,11 +15,13 @@
 package qualification
 
 import (
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 )
 
 func TestMain(m *testing.M) {
-	framework.Run("qualification", m)
+	rt,_ := framework.Run("qualification", m)
+	os.Exit(rt)
 }

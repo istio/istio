@@ -15,11 +15,13 @@
 package validation
 
 import (
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 )
 
 func TestMain(m *testing.M) {
-	framework.Run("galley_validation_test", m)
+	rt,_ := framework.Run("galley_validation_test", m)
+	os.Exit(rt)
 }

@@ -15,11 +15,13 @@
 package conversion
 
 import (
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 )
 
 func TestMain(m *testing.M) {
-	framework.Run("galley_conversion_test", m)
+	rt,_ := framework.Run("galley_conversion_test", m)
+	os.Exit(rt)
 }
