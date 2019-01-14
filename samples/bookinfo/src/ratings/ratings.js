@@ -54,7 +54,6 @@ dispatcher.onPost(/^\/ratings\/[0-9]*/, function (req, res) {
     return
   }
 
-
   if (process.env.SERVICE_VERSION === 'v2') { // the version that is backed by a database
     res.writeHead(501, {'Content-type': 'application/json'})
     res.end(JSON.stringify({error: 'Post not implemented for database backed ratings'}))
