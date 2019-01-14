@@ -117,7 +117,9 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	if !convertK8SService {
 		var filtered []kube.ResourceSpec
 		for _, t := range specs {
-			if t.Kind != "Service" {
+			// TODO(nmittler): Temporarily filter Node and Pod until custom sources land.
+			// Pod yaml cannot be parsed currently. See: https://github.com/istio/istio/issues/10891
+			if t.Kind != "Service" && t.Kind != "Node" && t.Kind != "Pod" {
 				filtered = append(filtered, t)
 			}
 		}
