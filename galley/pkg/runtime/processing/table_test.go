@@ -14,7 +14,6 @@
 
 package processing
 
-
 import (
 	"reflect"
 	"testing"
@@ -198,4 +197,3 @@ func TestCollection_ForEachItem(t *testing.T) {
 		t.Fatalf("unexpected count: %v", count)
 	}
 }
-

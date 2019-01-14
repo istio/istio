@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-
 type snapshotter struct {
 	projections map[resource.TypeURL][]Projection
 }

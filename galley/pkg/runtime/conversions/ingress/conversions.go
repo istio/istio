@@ -85,9 +85,9 @@ func ToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, meta re
 						FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
 						TypeURL:  metadata.VirtualService.TypeURL,
 					},
-					Version:    resource.Version(fmt.Sprintf("%s-%s", key.FullName, key.Version)),
+					Version: resource.Version(fmt.Sprintf("%s-%s", key.FullName, key.Version)),
 				},
-				Item: virtualService,
+				Item:     virtualService,
 				Metadata: meta,
 			}
 		}
@@ -212,9 +212,9 @@ func ToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingress.Ing
 				FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
 				TypeURL:  metadata.Gateway.TypeURL,
 			},
-			Version:    key.Version,
+			Version: key.Version,
 		},
-		Item: gateway,
+		Item:     gateway,
 		Metadata: meta,
 	}
 

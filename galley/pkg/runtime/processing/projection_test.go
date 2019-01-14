@@ -18,7 +18,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-
 )
 
 func TestStoredProjection_TypeURL(t *testing.T) {

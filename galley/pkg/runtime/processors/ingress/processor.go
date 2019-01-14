@@ -34,7 +34,7 @@ func AddProcessor(cfg *Config, b *processing.GraphBuilder) {
 func addGatewayPipeline(b *processing.GraphBuilder) {
 	p := processing.NewStoredProjection(metadata.Gateway.TypeURL)
 	g := &gwConverter{
-		 p: p,
+		p: p,
 	}
 	b.AddHandler(metadata.IngressSpec.TypeURL, g)
 	b.AddProjection(p)

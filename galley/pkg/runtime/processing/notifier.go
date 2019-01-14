@@ -22,7 +22,7 @@ type notifier struct {
 var _ ProjectionListener = &notifier{}
 
 func newNotifier(listeners []Listener, projections []Projection) *notifier {
-	n := &notifier {
+	n := &notifier{
 		listeners: listeners,
 	}
 

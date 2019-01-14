@@ -49,7 +49,7 @@ func addRes1V1() resource.Event {
 					FullName: resource.FullNameFromNamespaceAndName("ns1", "res1"),
 				},
 			},
-			Metadata: resource.Metadata {
+			Metadata: resource.Metadata{
 				CreateTime: time.Unix(1, 1),
 			},
 			Item: &types.Empty{},
@@ -68,7 +68,7 @@ func addRes2V1() resource.Event {
 					FullName: resource.FullNameFromNamespaceAndName("ns1", "res2"),
 				},
 			},
-			Metadata: resource.Metadata {
+			Metadata: resource.Metadata{
 				CreateTime: time.Unix(2, 1),
 			},
 			Item: &types.Empty{},
@@ -150,7 +150,7 @@ func TestPipeline_Changes(t *testing.T) {
 
 	ts, _ := types.TimestampProto(time.Time{})
 
-	expected := &mcp.Resource {
+	expected := &mcp.Resource{
 		Metadata: &mcp.Metadata{
 			Name:       "ns1/res1",
 			Version:    "v2",
