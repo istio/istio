@@ -3,9 +3,9 @@ rules:
   - base: master
     upstream: istio:master
     autoMerge: true
-    autoMergeHardReset: true
+    autoMergeHardReset: false
   - base: release-1.1
     upstream: istio:release-1.1
     autoMerge: true
-    autoMergeHardReset: true
+    autoMergeHardReset: false
     
