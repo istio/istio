@@ -845,9 +845,9 @@ func fetchRequestCount(t *testing.T, promAPI v1.API, service, additionalLabels s
 	retryFn := func(_ context.Context, i int) error {
 		t.Helper()
 		t.Logf("Trying to find metrics via promql (attempt %d)...", i)
-		query := fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service),reporterLabel, "destination", additionalLabels)
+		query := fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service), reporterLabel, "destination", additionalLabels)
 		t.Logf("prometheus query: %s", query)
-		totalReq, err := queryValue(promAPI,query)
+		totalReq, err := queryValue(promAPI, query)
 		if err != nil {
 			t.Logf("error getting total requests (msg: %v)", err)
 			return err
@@ -863,15 +863,17 @@ func fetchRequestCount(t *testing.T, promAPI v1.API, service, additionalLabels s
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
 
-	query := fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service),reporterLabel, "destination",responseCodeLabel, "429",additionalLabels)
-	prior429s, err = queryValue(promAPI,query)
+	query := fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service),
+		reporterLabel, "destination", responseCodeLabel, "429", additionalLabels)
+	prior429s, err = queryValue(promAPI, query)
 	if err != nil {
 		t.Logf("error getting prior 429s, using 0 as value (msg: %v)", err)
 		prior429s = 0
 	}
 
-	query = fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service),reporterLabel, "destination",responseCodeLabel, "200", additionalLabels)
-	prior200s, err = queryValue(promAPI,query)
+	query = fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service),
+		reporterLabel, "destination", responseCodeLabel, "200", additionalLabels)
+	prior200s, err = queryValue(promAPI, query)
 	if err != nil {
 		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
 		prior200s = 0
@@ -938,11 +940,11 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 
 	// establish baseline
 
-	initPrior429s, initPrior200s := fetchRequestCount(t, promAPI, "ratings", "",0)
+	initPrior429s, initPrior200s := fetchRequestCount(t, promAPI, "ratings", "", 0)
 
 	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
-	prior429s, prior200s:= fetchRequestCount(t, promAPI, "ratings", "",initPrior429s+initPrior200s+150)
+	prior429s, prior200s := fetchRequestCount(t, promAPI, "ratings", "", initPrior429s+initPrior200s+150)
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
 		fatalf(t, "no 429 is allotted time: prior429s:%v", prior429s)
@@ -979,7 +981,7 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	got200s, got429s := fetchRequestCount(t, promAPI, "ratings", "destination_version=\"v1\"",prior429s+prior200s+300)
+	got200s, got429s := fetchRequestCount(t, promAPI, "ratings", "destination_version=\"v1\"", prior429s+prior200s+300)
 	if got429s == 0 {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Could not find 429s: %v", err)
@@ -1058,11 +1060,11 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 	// establish baseline
 	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
-	initPrior429s, initPrior200s:= fetchRequestCount(t, promAPI, "ratings", "",0)
+	initPrior429s, initPrior200s := fetchRequestCount(t, promAPI, "ratings", "", 0)
 
 	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
-	prior429s, prior200s := fetchRequestCount(t, promAPI, "ratings", "",initPrior429s+initPrior200s+150-errorInRequestReportingAllowed)
+	prior429s, prior200s := fetchRequestCount(t, promAPI, "ratings", "", initPrior429s+initPrior200s+150-errorInRequestReportingAllowed)
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
 		fatalf(t, "no 429 in allotted time: prior429s:%v", prior429s)
@@ -1105,7 +1107,7 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	got429s, got200s := fetchRequestCount(t, promAPI, "ratings", "",prior429s+prior200s+300-errorInRequestReportingAllowed)
+	got429s, got200s := fetchRequestCount(t, promAPI, "ratings", "", prior429s+prior200s+300-errorInRequestReportingAllowed)
 
 	if got429s == 0 {
 		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
