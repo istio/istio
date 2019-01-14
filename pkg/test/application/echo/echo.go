@@ -92,7 +92,7 @@ func (a *echo) start() (err error) {
 	}
 
 	a.servers = make([]serverInterface, 0)
-	for i, p := range a.ports {
+	for _, p := range a.ports {
 		handler := &handler{
 			version: a.version,
 			caFile:  a.tlsCert,
