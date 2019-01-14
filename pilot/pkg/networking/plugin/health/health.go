@@ -23,7 +23,6 @@ import (
 	hcfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -141,14 +140,4 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
-}
-
-// OnPreComputePerRouteFilterConfig is called whenever a new push is initialized to set up Per Route Filter config
-func (Plugin) OnPreComputePerRouteFilterConfig(env *model.Environment, push *model.PushContext) map[string]*types.Struct {
-	return nil
-}
-
-// GetName returns the Plugin name
-func (Plugin) GetName() plugin.Name {
-	return plugin.Health
 }

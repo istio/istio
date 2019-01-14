@@ -24,7 +24,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -284,20 +283,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 		ValidateClusters: proto.BoolFalse,
 	}
 	// call plugins
-
 	for _, p := range configgen.Plugins {
-		var perRouteFilterConfig map[string]*types.Struct
-		if c, ok := configgen.PerRouteFilterConfig[p.GetName()].(map[string]*types.Struct); ok {
-			perRouteFilterConfig = c
-		} else {
-			perRouteFilterConfig = nil
-		}
 		in := &plugin.InputParams{
-			ListenerProtocol:     plugin.ListenerProtocolHTTP,
-			Env:                  env,
-			Node:                 node,
-			Push:                 push,
-			PerRouteFilterConfig: perRouteFilterConfig,
+			ListenerProtocol: plugin.ListenerProtocolHTTP,
+			Env:              env,
+			Node:             node,
+			Push:             push,
 		}
 		p.OnOutboundRouteConfiguration(in, routeCfg)
 	}

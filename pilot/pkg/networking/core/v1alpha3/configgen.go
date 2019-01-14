@@ -30,9 +30,6 @@ type ConfigGeneratorImpl struct {
 	// Must be rebuilt for each push epoch
 	PrecomputedOutboundClusters map[string][]*xdsapi.Cluster
 	// TODO: add others in future
-
-	// PerRouteFilterConfig has plugin Router Filter config
-	PerRouteFilterConfig map[plugin.Name]interface{}
 }
 
 func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
@@ -70,14 +67,6 @@ func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environmen
 	wg.Wait()
 
 	configgen.PrecomputedOutboundClusters = clustersByNamespace
-	for _, p := range configgen.Plugins {
-		perRouteFilterConfig := p.OnPreComputePerRouteFilterConfig(env, push)
-		if perRouteFilterConfig != nil {
-			configgen.PerRouteFilterConfig = make(map[plugin.Name]interface{})
-			configgen.PerRouteFilterConfig[p.GetName()] = perRouteFilterConfig
-			break
-		}
-	}
 	return nil
 }
 
