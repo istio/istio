@@ -20,16 +20,15 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/istio/galley/pkg/runtime/processing"
 	ingress "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pilot/pkg/model"
 )
 
 type vsConverter struct {
@@ -113,7 +112,7 @@ func (v *vsConverter) rebuild() {
 		entry := v.table.Item(name).(*resource.Entry)
 		i := entry.Item.(*ingress.IngressSpec)
 
-		ToVirtualService(entry.ID, i, entry.Metadata, v.config.DomainSuffix, ingressByHost)
+		ToVirtualService(entry.ID, i, v.config.DomainSuffix, ingressByHost)
 	}
 
 	if v.ingressByHosts == nil || !reflect.DeepEqual(v.ingressByHosts, ingressByHost) {
@@ -124,7 +123,8 @@ func (v *vsConverter) rebuild() {
 }
 
 // ToVirtualService converts from ingress spec to Istio VirtualServices
-func ToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, meta resource.Metadata, domainSuffix string, ingressByHost map[string]*resource.Entry) {
+func ToVirtualService(
+	key resource.VersionedKey, i *ingress.IngressSpec, domainSuffix string, ingressByHost map[string]*resource.Entry) {
 	// Ingress allows a single host - if missing '*' is assumed
 	// We need to merge all rules with a particular host across
 	// all ingresses, and return a separate VirtualService for each

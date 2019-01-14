@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"path"
 
-	"istio.io/istio/galley/pkg/runtime/processing"
 	"k8s.io/api/extensions/v1beta1"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
 )

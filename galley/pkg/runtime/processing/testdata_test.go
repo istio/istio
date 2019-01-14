@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	mcp "istio.io/api/mcp/v1alpha1"
 
+	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
@@ -128,29 +128,5 @@ func updateRes1V2() resource.Event {
 			},
 			Item: &types.Empty{},
 		},
-	}
-}
-
-func delete1() resource.Event {
-	return resource.Event{
-		Kind: resource.Deleted,
-		Entry: resource.Entry{
-			ID: resource.VersionedKey{
-				Version: "v1",
-				Key: resource.Key{
-					TypeURL:  emptyInfo.TypeURL,
-					FullName: resource.FullNameFromNamespaceAndName("ns1", "res1"),
-				},
-			},
-			Metadata: resource.Metadata{
-				CreateTime: time.Unix(1, 2),
-			},
-		},
-	}
-}
-
-func bogusEvent() resource.Event {
-	return resource.Event{
-		Kind: resource.None,
 	}
 }
