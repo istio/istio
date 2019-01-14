@@ -74,3 +74,10 @@ var (
 	// config. In most cases 'istio-system' should be included. Comma separated (ns1,ns2,istio-system)
 	NetworkScopes = os.Getenv("DEFAULT_NAMESPACE_DEPENDENCIES")
 )
+
+var (
+	// TODO: define all other default ports here, add docs
+
+	// DefaultPortHttpProxy is used as for HTTP PROXY mode. Can be overridden by ProxyHttpPort in mesh config.
+	DefaultPortHTTPProxy = 15002
+)

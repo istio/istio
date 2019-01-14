@@ -34,6 +34,7 @@ import (
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
+	"istio.io/istio/pkg/features/pilot"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -181,6 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
@@ -196,7 +198,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		generateManagementListeners := true
 
 		sidecarScope := node.SidecarScope
-		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners {
+		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
+			 noneMode {
 			generateManagementListeners = false
 		}
 
@@ -257,8 +260,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		})
 	}
 
+	httpProxyPort := mesh.ProxyHttpPort
+	if httpProxyPort == 0 && noneMode { // make sure http proxy is enabled for 'none' interception.
+		httpProxyPort = int32(pilot.DefaultPortHTTPProxy)
+	}
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	if mesh.ProxyHttpPort > 0 {
+	if httpProxyPort > 0 {
 		useRemoteAddress := false
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
