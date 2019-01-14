@@ -52,7 +52,7 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 			// Skip IngressSpec. We will create a separate processing pipeline for it.
 			continue
 		}
-		identity.AddToPipeline(info.TypeURL, b)
+		identity.AddProcessor(info.TypeURL, b)
 	}
 
 	// Add projection pipelines
