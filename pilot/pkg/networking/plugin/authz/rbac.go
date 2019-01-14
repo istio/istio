@@ -36,6 +36,7 @@ import (
 	network_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	policyproto "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -307,6 +308,16 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain configuration.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
+}
+
+// OnPreComputePerRouteFilterConfig is called whenever a new push is initialized to set up  Per Route Filter config
+func (Plugin) OnPreComputePerRouteFilterConfig(env *model.Environment, push *model.PushContext) map[string]*types.Struct {
+	return nil
+}
+
+// GetName returns the Plugin name
+func (Plugin) GetName() plugin.Name {
+	return plugin.Authz
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
