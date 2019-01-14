@@ -1,7 +1,6 @@
 # This is used to generate istio.yaml for a stress/load test cluster.
 
 global:
-  imagePullPolicy: Always
   hub: docker.io/istionightly
   tag: nightly-release-0.8
   meshExpansion: true
@@ -95,12 +94,6 @@ pilot:
     requests:
       cpu: 2800m
       memory: 2G
-
-ingress:
-  enabled: false
-
-prometheus:
-  enabled: true
 
 sidecar-injector:
   enabled: true
