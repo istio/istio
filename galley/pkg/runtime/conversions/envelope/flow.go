@@ -41,5 +41,5 @@ func AddDirectEnvelopePipeline(t resource.TypeURL, b *flow.PipelineBuilder) {
 
 // doEnvelope the incoming entry
 func doEnvelope(entry resource.Entry) (interface{}, error) {
-	return resource.Envelope(entry)
+	return resource.ToMcpResource(entry)
 }

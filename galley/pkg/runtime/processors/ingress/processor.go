@@ -17,14 +17,13 @@ package ingress
 import (
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("processor", "Galley data processing flow", 0)
 
-// AddIngressPipeline attaches Ingress processing components to the given Pipeline builder.
-func AddIngressPipeline(cfg *Config, b *processing.PipelineBuilder) {
+// AddProcessor attaches Ingress processing components to the given Graph builder.
+func AddProcessor(cfg *Config, b *processing.GraphBuilder) {
 	localCfg := *cfg
 
 	// Collection for collecting gateways
@@ -32,49 +31,19 @@ func AddIngressPipeline(cfg *Config, b *processing.PipelineBuilder) {
 	addVirtualServicePipeline(&localCfg, b)
 }
 
-func addGatewayPipeline(b *processing.PipelineBuilder) {
-
-	v := processing.NewCachedView(metadata.Gateway.TypeURL)
-	h := processing.HandlerFromFn(func (e resource.Event) {
-		switch e.Kind {
-		case resource.Added, resource.Updated:
-			r, err := toEnvelopedGateway(e.Entry)
-		case resource.Deleted:
-		}
-	})
-
-	b.AddView(v)
-	b.AddHandler(metadata.IngressSpec.TypeURL, h)
-
-	// table that will store enveloped gateway resources.
-	t := processing.NewTable()
-
-	// Accumulator that will do direct transformation of the resource to a Gateway and store.
-	a := processing.NewAccumulator(t, toEnvelopedGateway)
-
-	// View for exposing the transformed gateway resources for snapshotting
-	v := processing.NewTableView(metadata.Gateway.TypeURL, t, nil)
-
-	// Register the accumulator for listening to ingress changes.
-	b.AddHandler(metadata.IngressSpec.TypeURL, a)
-
-	// Expose the gateway view for snapshotting.
-	b.AddView(v)
+func addGatewayPipeline(b *processing.GraphBuilder) {
+	p := processing.NewStoredProjection(metadata.Gateway.TypeURL)
+	g := &gwConverter{
+		 p: p,
+	}
+	b.AddHandler(metadata.IngressSpec.TypeURL, g)
+	b.AddProjection(p)
 }
 
-func addVirtualServicePipeline(cfg *Config, b *processing.PipelineBuilder) {
-	// Create a table to store incoming ingresses
-	t := processing.NewEntryTable()
-
-	// Create a view on top of the ingress table that generate the virtual services.
-	vsView := &virtualServiceView{
-		table:  t,
+func addVirtualServicePipeline(cfg *Config, b *processing.GraphBuilder) {
+	v := &vsConverter{
 		config: cfg,
 	}
-
-	// Handle incoming ingress resources and accumulate them to the table
-	b.AddHandler(metadata.IngressSpec.TypeURL, t)
-
-	// Add the view to expose the Virtual Services.
-	b.AddView(vsView)
+	b.AddHandler(metadata.IngressSpec.TypeURL, v)
+	b.AddProjection(v)
 }

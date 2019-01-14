@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -16,17 +16,110 @@ package ingress
 
 import (
 	"fmt"
-	"path"
+	"reflect"
+	"sort"
 	"strings"
 
+	"istio.io/istio/galley/pkg/runtime/processing"
 	ingress "k8s.io/api/extensions/v1beta1"
+
+	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pilot/pkg/model"
 )
+
+type vsConverter struct {
+	generation int64
+	table    processing.Table
+	config   *Config
+	listener processing.ProjectionListener
+
+	// track collections generation to detect any changes that should retrigger a rebuild of cached state
+	lastCollectionGen int64
+	ingressByHosts    map[string]*resource.Entry
+}
+
+var _ processing.Projection = &vsConverter{}
+var _ processing.Handler = &vsConverter{}
+
+// Handle implements processing.Handler
+func (v *vsConverter) Handle(event resource.Event) {
+	switch event.Kind {
+	case resource.Added, resource.Updated:
+		v.table.Set()
+	case resource.Deleted:
+
+	default:
+		scope.Errorf("Unrecognized event received: %v", event.Kind)
+	}
+}
+
+// Type implements processing.View
+func (v *vsConverter) Type() resource.TypeURL {
+	return metadata.VirtualService.TypeURL
+}
+
+// Generation implements processing.Projection
+func (v *vsConverter) Generation() int64 {
+	v.rebuild()
+	return v.lastCollectionGen
+}
+
+// Get implements processing.Projection
+func (v *vsConverter) Get() []*mcp.Resource {
+	v.rebuild()
+
+	result := make([]*mcp.Resource, 0, len(v.ingressByHosts))
+	for _, e := range v.ingressByHosts {
+		env, err := resource.ToMcpResource(*e)
+		if err != nil {
+			scope.Errorf("Unable to envelope virtual service resource: %v", err)
+			continue
+		}
+		result = append(result, env)
+	}
+
+	return result
+}
+
+func (v *vsConverter) SetProjectionListener(l processing.ProjectionListener) {
+	v.listener = l
+}
+
+// rebuild the internal state of the view
+func (v *vsConverter) rebuild() {
+	if v.table.Generation() == v.lastCollectionGen {
+		// No need to rebuild
+		return
+	}
+
+	// Order names for stable generation.
+	var orderedNames []resource.FullName
+	for _, name := range v.table.Names() {
+		orderedNames = append(orderedNames, name)
+	}
+	sort.Slice(orderedNames, func(i, j int) bool {
+		return strings.Compare(orderedNames[i].String(), orderedNames[j].String()) < 0
+	})
+
+	ingressByHost := make(map[string]*resource.Entry)
+	for _, name := range orderedNames {
+		entry := v.table.Item(name)
+		i := entry.Body.(*ingress.IngressSpec) // TODO
+
+		ToVirtualService(entry.ID, i, entry.Metadata, v.config.DomainSuffix, ingressByHost)
+	}
+
+	if v.ingressByHosts == nil || !reflect.DeepEqual(v.ingressByHosts, ingressByHost) {
+		v.ingressByHosts = ingressByHost
+		v.lastCollectionGen = v.table.Generation()
+		v.generation++
+	}
+}
 
 // ToVirtualService converts from ingress spec to Istio VirtualServices
 func ToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, meta resource.Metadata, domainSuffix string, ingressByHost map[string]*resource.Entry) {
@@ -85,9 +178,9 @@ func ToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, meta re
 						FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
 						TypeURL:  metadata.VirtualService.TypeURL,
 					},
-					Version:    resource.Version(fmt.Sprintf("%s-%s", key.FullName, key.Version)),
+					Version: resource.Version(fmt.Sprintf("%s-%s", key.FullName, key.Version)),
 				},
-				Item: virtualService,
+				Item:     virtualService,
 				Metadata: meta,
 			}
 		}
@@ -155,68 +248,4 @@ func ingressBackendToHTTPRoute(backend *ingress.IngressBackend, namespace string
 			},
 		},
 	}
-}
-
-// ToGateway converts from ingress spec to Istio Gateway
-func ToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingress.IngressSpec) resource.Entry {
-	namespace, name := key.FullName.InterpretAsNamespaceAndName()
-
-	gateway := &v1alpha3.Gateway{
-		Selector: model.IstioIngressWorkloadLabels,
-	}
-
-	// FIXME this is a temporary hack until all test templates are updated
-	//for _, tls := range i.Spec.TLS {
-	if len(i.TLS) > 0 {
-		tls := i.TLS[0] // FIXME
-		// TODO validation when multiple wildcard tls secrets are given
-		if len(tls.Hosts) == 0 {
-			tls.Hosts = []string{"*"}
-		}
-		gateway.Servers = append(gateway.Servers, &v1alpha3.Server{
-			Port: &v1alpha3.Port{
-				Number:   443,
-				Protocol: string(model.ProtocolHTTPS),
-				Name:     fmt.Sprintf("https-443-i-%s-%s", name, namespace),
-			},
-			Hosts: tls.Hosts,
-			// While we accept multiple certs, we expect them to be mounted in
-			// /etc/certs/namespace/secretname/tls.crt|tls.key
-			Tls: &v1alpha3.Server_TLSOptions{
-				HttpsRedirect: false,
-				Mode:          v1alpha3.Server_TLSOptions_SIMPLE,
-				// TODO this is no longer valid for the new v2 stuff
-				PrivateKey:        path.Join(model.IngressCertsPath, model.IngressKeyFilename),
-				ServerCertificate: path.Join(model.IngressCertsPath, model.IngressCertFilename),
-				// TODO: make sure this is mounted
-				CaCertificates: path.Join(model.IngressCertsPath, model.RootCertFilename),
-			},
-		})
-	}
-
-	gateway.Servers = append(gateway.Servers, &v1alpha3.Server{
-		Port: &v1alpha3.Port{
-			Number:   80,
-			Protocol: string(model.ProtocolHTTP),
-			Name:     fmt.Sprintf("http-80-i-%s-%s", name, namespace),
-		},
-		Hosts: []string{"*"},
-	})
-
-	newName := name + "-" + model.IstioIngressGatewayName
-	newNamespace := model.IstioIngressNamespace
-
-	gw := resource.Entry{
-		ID: resource.VersionedKey{
-			Key: resource.Key{
-				FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
-				TypeURL:  metadata.Gateway.TypeURL,
-			},
-			Version:    key.Version,
-		},
-		Item: gateway,
-		Metadata: meta,
-	}
-
-	return gw
 }

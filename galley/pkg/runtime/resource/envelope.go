@@ -26,8 +26,8 @@ import (
 
 var scope = log.RegisterScope("resource", "Core resource model scope", 0)
 
-// Envelope converts a resource entry into its enveloped form.
-func Envelope(e Entry) (*mcp.Envelope, error) {
+// ToMcpResource converts a resource entry into its enveloped form.
+func ToMcpResource(e Entry) (*mcp.Resource, error) {
 
 	serialized, err := proto.Marshal(e.Item)
 	if err != nil {
@@ -35,19 +35,21 @@ func Envelope(e Entry) (*mcp.Envelope, error) {
 		return nil, err
 	}
 
-	createTime, err := types.TimestampProto(e.ID.CreateTime)
+	createTime, err := types.TimestampProto(e.Metadata.CreateTime)
 	if err != nil {
 		scope.Errorf("Error parsing resource create_time for event (%v): %v", e, err)
 		return nil, err
 	}
 
-	entry := &mcp.Envelope{
+	entry := &mcp.Resource{
 		Metadata: &mcp.Metadata{
-			Name:       e.ID.FullName.String(),
-			CreateTime: createTime,
-			Version:    string(e.ID.Version),
+			Name:        e.ID.FullName.String(),
+			CreateTime:  createTime,
+			Version:     string(e.ID.Version),
+			Annotations: e.Metadata.Annotations,
+			Labels:      e.Metadata.Labels,
 		},
-		Resource: &types.Any{
+		Body: &types.Any{
 			TypeUrl: e.ID.TypeURL.String(),
 			Value:   serialized,
 		},
@@ -56,11 +58,11 @@ func Envelope(e Entry) (*mcp.Envelope, error) {
 	return entry, nil
 }
 
-// EnvelopeAll envelopes and returns all the entries.
-func EnvelopeAll(entries []Entry) ([]*mcp.Envelope, error) {
-	result := make([]*mcp.Envelope, len(entries))
+// ToMcpResourceAll envelopes and returns all the entries.
+func ToMcpResourceAll(entries []Entry) ([]*mcp.Resource, error) {
+	result := make([]*mcp.Resource, len(entries))
 	for i, e := range entries {
-		r, err := Envelope(e)
+		r, err := ToMcpResource(e)
 		if err != nil {
 			return nil, err
 		}
@@ -69,27 +71,21 @@ func EnvelopeAll(entries []Entry) ([]*mcp.Envelope, error) {
 	return result, nil
 }
 
-// Extract an entry from an envelope.
-func Extract(s *Schema, e *mcp.Envelope) (Entry, error) {
-	info, found := s.Lookup(e.Resource.TypeUrl)
+// FromMcpResource an entry from an envelope.
+func FromMcpResource(s *Schema, e *mcp.Resource) (Entry, error) {
+	info, found := s.Lookup(e.Body.TypeUrl)
 	if !found {
-		return Entry{}, fmt.Errorf("resource Type not recognized: %v", e.Resource.TypeUrl)
-	}
-
-	createTime, err := types.TimestampFromProto(e.Metadata.CreateTime)
-	if err != nil {
-		return Entry{}, err
+		return Entry{}, fmt.Errorf("resource Type not recognized: %v", e.Body.TypeUrl)
 	}
 
 	p := info.NewProtoInstance()
-	if err = proto.Unmarshal(e.Resource.Value, p); err != nil {
+	if err := proto.Unmarshal(e.Body.Value, p); err != nil {
 		return Entry{}, fmt.Errorf("error unmarshaling proto: %v", err)
 	}
 
 	return Entry{
 		ID: VersionedKey{
-			Version:    Version(e.Metadata.Version),
-			CreateTime: createTime,
+			Version: Version(e.Metadata.Version),
 			Key: Key{
 				TypeURL:  info.TypeURL,
 				FullName: FullName{e.Metadata.Name},
@@ -99,11 +95,11 @@ func Extract(s *Schema, e *mcp.Envelope) (Entry, error) {
 	}, nil
 }
 
-// ExtractAll extracts all entries from the given envelopes and returns.
-func ExtractAll(s *Schema, es []*mcp.Envelope) ([]Entry, error) {
+// FromMcpResourceAll extracts all entries from the given envelopes and returns.
+func FromMcpResourceAll(s *Schema, es []*mcp.Resource) ([]Entry, error) {
 	result := make([]Entry, len(es))
 	for i, e := range es {
-		r, err := Extract(s, e)
+		r, err := FromMcpResource(s, e)
 		if err != nil {
 			return nil, err
 		}

@@ -67,7 +67,7 @@ func (b *PipelineBuilder) AddHandler(t resource.TypeURL, h Handler) {
 	b.builder.Add(t, h)
 }
 
-// AddView adds a new view
+// AddProjection adds a new view
 func (b *PipelineBuilder) AddView(v View) {
 	b.views = append(b.views, v)
 }

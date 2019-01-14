@@ -48,7 +48,7 @@ func (s *snapshotter) snapshot() snapshot.Snapshot {
 	for t, views := range s.views {
 		version := ""
 
-		var entries []*mcp.Envelope
+		var entries []*mcp.Resource
 		for _, v := range views {
 			g := v.Generation()
 			if version == "" {

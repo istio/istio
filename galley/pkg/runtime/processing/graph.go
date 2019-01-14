@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -19,70 +19,70 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-// Pipeline handles incoming events and creates a snapshot
-type Pipeline interface {
+// Graph handles incoming events and facilitates creation of snapshots.
+type Graph interface {
 	Handler
 
 	Snapshot(urls []resource.TypeURL) snapshot.Snapshot
 }
 
-type pipeline struct {
+type graph struct {
 	handler     Handler
 	snapshotter *snapshotter
 }
 
-var _ Pipeline = &pipeline{}
+var _ Graph = &graph{}
 
 // Handle implements Handler
-func (p *pipeline) Handle(e resource.Event) {
-	p.handler.Handle(e)
+func (g *graph) Handle(e resource.Event) {
+	g.handler.Handle(e)
 }
 
-// Snapshot implements Pipeline
-func (p *pipeline) Snapshot(urls []resource.TypeURL) snapshot.Snapshot {
-	return p.snapshotter.snapshot(urls)
+// Snapshot implements Graph
+func (g *graph) Snapshot(urls []resource.TypeURL) snapshot.Snapshot {
+	return g.snapshotter.snapshot(urls)
 }
 
-// PipelineBuilder builds a new pipeline
-type PipelineBuilder struct {
-	views      []View
-	dispatcher *DispatcherBuilder
-	listeners  []Listener
+// GraphBuilder builds a new graph
+type GraphBuilder struct {
+	projections []Projection
+	dispatcher  *DispatcherBuilder
+	listeners   []Listener
 }
 
-// NewPipelineBuilder returns a new PipelineBuilder
-func NewPipelineBuilder() *PipelineBuilder {
-	return &PipelineBuilder{
+// NewGraphBuilder returns a new GraphBuilder
+func NewGraphBuilder() *GraphBuilder {
+	return &GraphBuilder{
 		dispatcher: NewDispatcherBuilder(),
 	}
 }
 
 // AddHandler adds a new handler for the given resource type URL
-func (b *PipelineBuilder) AddHandler(t resource.TypeURL, h Handler) {
+func (b *GraphBuilder) AddHandler(t resource.TypeURL, h Handler) {
 	b.dispatcher.Add(t, h)
 }
 
-// AddView adds a new view
-func (b *PipelineBuilder) AddView(v View) {
-	b.views = append(b.views, v)
+// AddProjection adds a new projection
+func (b *GraphBuilder) AddProjection(p Projection) {
+	b.projections = append(b.projections, p)
 }
 
 // AddListener adds a new listener
-func (b *PipelineBuilder) AddListener(l Listener) {
+func (b *GraphBuilder) AddListener(l Listener) {
 	b.listeners = append(b.listeners, l)
 }
 
-// Build creates and returns a pipeline
-func (b *PipelineBuilder) Build() Pipeline {
+// Build creates and returns a graph
+func (b *GraphBuilder) Build() Graph {
 	handler := b.dispatcher.Build()
 
-	// TODO: Should we keep a reference to notifier
-	n := newNotifier(b.listeners, b.views)
+	// TODO: Should we keep a reference to notifier?
+	n := newNotifier(b.listeners, b.projections)
 	_ = n
 
-	snapshotter := newSnapshotter(b.views)
+	snapshotter := newSnapshotter(b.projections)
 
-	p := &pipeline{
+	p := &graph{
 		handler:     handler,
 		snapshotter: snapshotter,
 	}

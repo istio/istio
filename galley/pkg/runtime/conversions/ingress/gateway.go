@@ -27,8 +27,8 @@ func toEnvelopedGateway(entry resource.Entry) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("error converting entry proto to IngressSpec: %v", entry.Item)
 	}
-	gwEntry := ToGateway(entry.ID, ingress)
-	enveloped, err := resource.Envelope(gwEntry)
+	gwEntry := ToGateway(entry.ID, entry.Metadata, ingress)
+	enveloped, err := resource.ToMcpResource(gwEntry)
 	if err != nil {
 		scope.Errorf("Unable to envelope and store resource %q: %v", gwEntry.ID.String(), err)
 		return nil, err

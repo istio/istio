@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package direct
+package identity
 
 import (
 	"istio.io/istio/galley/pkg/runtime/processing"
@@ -22,15 +22,15 @@ import (
 
 var scope = log.RegisterScope("processor", "Galley data processing flow", 0)
 
-// AddToPipeline adds a new pipeline for converting an incoming proto, directly into enveloped
+// AddProcessor adds processor components for converting an incoming proto directly into enveloped
 // form, ready for snapshotting.
-func AddToPipeline(t resource.TypeURL, b *processing.PipelineBuilder) {
+func AddProcessor(t resource.TypeURL, b *processing.GraphBuilder) {
 
-	v := processing.NewCachedView(t)
+	v := processing.NewStoredProjection(t)
 	h := processing.HandlerFromFn(func(e resource.Event) {
 		switch e.Kind {
 		case resource.Added, resource.Updated:
-			env, err := resource.Envelope(e.Entry)
+			env, err := resource.ToMcpResource(e.Entry)
 			if err != nil {
 				scope.Errorf("Error enveloping incoming resource(%v): %v", e.Entry.ID, err)
 			}
@@ -42,5 +42,5 @@ func AddToPipeline(t resource.TypeURL, b *processing.PipelineBuilder) {
 	})
 
 	b.AddHandler(t, h)
-	b.AddView(v)
+	b.AddProjection(v)
 }

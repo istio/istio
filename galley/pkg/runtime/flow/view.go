@@ -24,16 +24,17 @@ type View interface {
 	// Type of the resources in this view.
 	Type() resource.TypeURL
 
-	// Generation is the unique id of the current state of view. Everytime the state changes, the
-	// generation is updated.
+	// Generation is the unique id of the current state of view. Every time the state underlying the view
+	// changes, generation is updated.
 	Generation() int64
 
 	// Get returns entries in this view
-	Get() []*mcp.Envelope
+	Get() []*mcp.Resource
 
 	SetViewListener(l ViewListener)
 }
 
+// ViewListener gets notified when the view changes
 type ViewListener interface {
 	Changed(v View)
 }

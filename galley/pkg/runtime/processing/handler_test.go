@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -12,11 +12,26 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package flow
+package processing
 
-type ResourceTable struct {
-	t *Table
+import (
+	"reflect"
+	"testing"
 
+	"istio.io/istio/galley/pkg/runtime/resource"
+)
+
+func TestHandlerFromFn(t *testing.T) {
+	var received resource.Event
+	h := HandlerFromFn(func(e resource.Event) {
+		received = e
+	})
+
+	sent := updateRes1V2()
+
+	h.Handle(sent)
+
+	if !reflect.DeepEqual(received, sent) {
+		t.Fatalf("Mismatch: got:%v, expected:%v", received, sent)
+	}
 }
-
-//var _ View = &ResourceTable{}

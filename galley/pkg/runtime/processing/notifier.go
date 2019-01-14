@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -19,22 +19,22 @@ type notifier struct {
 	listeners []Listener
 }
 
-var _ ViewListener = &notifier{}
+var _ ProjectionListener = &notifier{}
 
-func newNotifier(listeners []Listener, views []View) *notifier {
+func newNotifier(listeners []Listener, projections []Projection) *notifier {
 	n := &notifier {
 		listeners: listeners,
 	}
 
-	for _, v := range views {
-		v.SetViewListener(n)
+	for _, p := range projections {
+		p.SetProjectionListener(n)
 	}
 
 	return n
 }
 
-func (n *notifier) ViewChanged(v View) {
+func (n *notifier) ProjectionChanged(p Projection) {
 	for _, listener := range n.listeners {
-		listener.Changed(v.Type())
+		listener.TypeChanged(p.Type())
 	}
 }

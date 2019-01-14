@@ -60,7 +60,7 @@ func (v *virtualServiceView) rebuild() {
 		entry := v.table.Item(name)
 		ingress := entry.Item.(*v1beta1.IngressSpec) // TODO
 
-		ToVirtualService(entry.ID, ingress, v.config.DomainSuffix, ingressByHost)
+		ToVirtualService(entry.ID, ingress, entry.Metadata, v.config.DomainSuffix, ingressByHost)
 	}
 
 	if v.ingressByHosts == nil || !reflect.DeepEqual(v.ingressByHosts, ingressByHost) {
@@ -82,12 +82,12 @@ func (v *virtualServiceView) Generation() int64 {
 }
 
 // Get implements processing.View
-func (v *virtualServiceView) Get() []*mcp.Envelope {
+func (v *virtualServiceView) Get() []*mcp.Resource {
 	v.rebuild()
 
-	result := make([]*mcp.Envelope, 0, len(v.ingressByHosts))
+	result := make([]*mcp.Resource, 0, len(v.ingressByHosts))
 	for _, e := range v.ingressByHosts {
-		env, err := resource.Envelope(*e)
+		env, err := resource.ToMcpResource(*e)
 		if err != nil {
 			scope.Errorf("Unable to envelope virtual service resource: %v", err)
 			continue
@@ -96,4 +96,9 @@ func (v *virtualServiceView) Get() []*mcp.Envelope {
 	}
 
 	return result
+}
+
+func (v *virtualServiceView) SetViewListener(l flow.ViewListener) {
+
+	// TODO:
 }

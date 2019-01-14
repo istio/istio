@@ -22,7 +22,7 @@ import (
 )
 
 // ToEnvelopeFn converts an interface{} to an MCP envelope.
-type ToEnvelopeFn func(iface interface{}) (*mcp.Envelope, error)
+type ToEnvelopeFn func(iface interface{}) (*mcp.Resource, error)
 
 // TableView is a View implementation, backed by a table.
 type TableView struct {
@@ -38,8 +38,8 @@ var _ tableChangeListener = &TableView{}
 // NewTableView returns a TableView backed by the given Table instance.
 func NewTableView(typeURL resource.TypeURL, c *Table, xform ToEnvelopeFn) *TableView {
 	if xform == nil {
-		xform = func(iface interface{}) (*mcp.Envelope, error) {
-			e, ok := iface.(*mcp.Envelope)
+		xform = func(iface interface{}) (*mcp.Resource, error) {
+			e, ok := iface.(*mcp.Resource)
 			if !ok {
 				return nil, fmt.Errorf("unable to convert object to envelope: %v", iface)
 			}
@@ -69,8 +69,8 @@ func (v *TableView) Generation() int64 {
 }
 
 // Get implements View
-func (v *TableView) Get() []*mcp.Envelope {
-	result := make([]*mcp.Envelope, 0, v.table.Count())
+func (v *TableView) Get() []*mcp.Resource {
+	result := make([]*mcp.Resource, 0, v.table.Count())
 
 	v.table.ForEachItem(func(iface interface{}) {
 		e, err := v.xform(iface)

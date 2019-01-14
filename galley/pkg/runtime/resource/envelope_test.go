@@ -39,7 +39,7 @@ func TestEnvelope_Basic(t *testing.T) {
 		Item: &types.Empty{},
 	}
 
-	env, err := Envelope(e)
+	env, err := ToMcpResource(e)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestEnvelope_Basic(t *testing.T) {
 	b := NewSchemaBuilder()
 	b.Register("type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
-	ext, err := Extract(s, env)
+	ext, err := FromMcpResource(s, env)
 	if err != nil {
 		t.Fatalf("Unexpected error when extracting: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestEnvelope_MarshalError(t *testing.T) {
 		Item: &invalidProto{},
 	}
 
-	_, err := Envelope(e)
+	_, err := ToMcpResource(e)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
@@ -104,7 +104,7 @@ func TestEnvelope_TimestampError(t *testing.T) {
 		},
 		Item: &types.Empty{},
 	}
-	_, err := Envelope(e)
+	_, err := ToMcpResource(e)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
@@ -123,14 +123,14 @@ func TestExtract_NoRegisteredUrl(t *testing.T) {
 		Item: &types.Empty{},
 	}
 
-	env, err := Envelope(e)
+	env, err := ToMcpResource(e)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	b := NewSchemaBuilder()
 	s := b.Build()
-	if _, err = Extract(s, env); err == nil {
+	if _, err = FromMcpResource(s, env); err == nil {
 		t.Fatalf("expected error not found")
 	}
 }
@@ -148,7 +148,7 @@ func TestExtract_InvalidTimestamp(t *testing.T) {
 		Item: &types.Empty{},
 	}
 
-	env, err := Envelope(e)
+	env, err := ToMcpResource(e)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestExtract_InvalidTimestamp(t *testing.T) {
 	b := NewSchemaBuilder()
 	b.Register("type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
-	if _, err = Extract(s, env); err == nil {
+	if _, err = FromMcpResource(s, env); err == nil {
 		t.Fatalf("expected error not found")
 	}
 }
@@ -176,7 +176,7 @@ func TestExtract_UnmarshalError(t *testing.T) {
 		Item: &types.Empty{},
 	}
 
-	env, err := Envelope(e)
+	env, err := ToMcpResource(e)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestExtract_UnmarshalError(t *testing.T) {
 	i := s.byURL["type.googleapis.com/google.protobuf.Empty"]
 	i.goType = reflect.TypeOf(invalidProto{})
 	s.byURL["type.googleapis.com/google.protobuf.Empty"] = i
-	if _, err = Extract(s, env); err == nil {
+	if _, err = FromMcpResource(s, env); err == nil {
 		t.Fatalf("expected error not found")
 	}
 }
@@ -218,7 +218,7 @@ func TestEnvelopeAll(t *testing.T) {
 		},
 	}
 
-	envs, err := EnvelopeAll(entries)
+	envs, err := ToMcpResourceAll(entries)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestEnvelopeAll(t *testing.T) {
 	b.Register("type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
 
-	actual, err := ExtractAll(s, envs)
+	actual, err := FromMcpResourceAll(s, envs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestEnvelopeAll_Error(t *testing.T) {
 			Item: &types.Empty{},
 		}}
 
-	if _, err := EnvelopeAll(entries); err == nil {
+	if _, err := ToMcpResourceAll(entries); err == nil {
 		t.Fatal("expected error not found")
 	}
 }
@@ -293,7 +293,7 @@ func TestExtractAll_Error(t *testing.T) {
 		},
 	}
 
-	env, err := EnvelopeAll(entries)
+	env, err := ToMcpResourceAll(entries)
 	if err != nil {
 		t.Fatalf("unexpected eror: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestExtractAll_Error(t *testing.T) {
 	b := NewSchemaBuilder()
 	s := b.Build()
 
-	if _, err = ExtractAll(s, env); err == nil {
+	if _, err = FromMcpResourceAll(s, env); err == nil {
 		t.Fatal("expected error not found")
 	}
 }

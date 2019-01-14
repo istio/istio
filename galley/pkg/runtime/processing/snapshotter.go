@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright 2019 Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -24,46 +24,46 @@ import (
 
 
 type snapshotter struct {
-	views map[resource.TypeURL][]View
+	projections map[resource.TypeURL][]Projection
 }
 
 // newSnapshotter returns accumulator new instance of snapshotter
-func newSnapshotter(views []View) *snapshotter {
-	m := make(map[resource.TypeURL][]View)
-	for _, v := range views {
+func newSnapshotter(projections []Projection) *snapshotter {
+	m := make(map[resource.TypeURL][]Projection)
+	for _, v := range projections {
 		l := m[v.Type()]
 		l = append(l, v)
 		m[v.Type()] = l
 	}
 
 	return &snapshotter{
-		views: m,
+		projections: m,
 	}
 }
 
-// snapshot creates accumulator new snapshot from tracked views.
+// snapshot creates accumulator new snapshot from tracked projections.
 func (s *snapshotter) snapshot(urls []resource.TypeURL) snapshot.Snapshot {
 
 	b := snapshot.NewInMemoryBuilder()
 
 	for _, u := range urls {
-		views, found := s.views[u]
+		projections, found := s.projections[u]
 		if !found {
-			scope.Errorf("TypeURL not found for snapshotting: %v", u)
+			scope.Errorf("TypeURL not found for snapshotting: %p", u)
 			continue
 		}
 		version := ""
 
-		var entries []*mcp.Envelope
-		for _, v := range views {
-			g := v.Generation()
+		var entries []*mcp.Resource
+		for _, p := range projections {
+			g := p.Generation()
 			if version == "" {
 				version = strconv.FormatInt(g, 10)
 			} else {
 				version = version + "_" + strconv.FormatInt(g, 10)
 			}
 
-			entries = append(entries, v.Get()...)
+			entries = append(entries, p.Get()...)
 		}
 
 		b.Set(u.String(), version, entries)
