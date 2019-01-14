@@ -17,6 +17,7 @@
 # Compare 2 multi document kubernetes yaml files
 # It ensures that order does not matter
 #
+from __future__ import print_function
 import argparse
 import datadiff
 import sys
@@ -63,7 +64,7 @@ def normalize_configmap(res):
                 op = yaml.safe_load_all(data[k])
                 data[k] = list(op)
             except yaml.YAMLError as ex:
-                print ex
+                print(ex)
 
         return res
     except KeyError as ke:
@@ -127,28 +128,28 @@ def compare(args):
         if q0[k] != q1[k]:
             changed += 1
 
-    print "## +++ ", args.new
-    print "## --- ", args.orig
-    print "## Added:", len(added)
-    print "## Removed:", len(removed)
-    print "## Updated:", changed
-    print "## Unchanged:", len(common) - changed
+    print("## +++ ", args.new)
+    print("## --- ", args.orig)
+    print("## Added:", len(added))
+    print("## Removed:", len(removed))
+    print("## Updated:", changed)
+    print("## Unchanged:", len(common) - changed)
 
     for k in sorted(added):
-        print "+", k
+        print("+", k)
 
     for k in sorted(removed):
-        print "-", k
+        print("-", k)
 
-    print "## *************************"
+    print("## *************************")
 
     for k in sorted(common):
         if q0[k] != q1[k]:
-            print "## ", k
+            print("## ", k)
             s0 = yaml.safe_dump(q0[k], default_flow_style=False, indent=2)
             s1 = yaml.safe_dump(q1[k], default_flow_style=False, indent=2)
 
-            print datadiff.diff(s0, s1, fromfile=args.orig, tofile=args.new)
+            print(datadiff.diff(s0, s1, fromfile=args.orig, tofile=args.new))
 
     return changed + len(added) + len(removed)
 

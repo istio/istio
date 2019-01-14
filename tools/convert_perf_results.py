@@ -1,3 +1,4 @@
+from __future__ import print_function
 import json
 import os
 import sys
@@ -29,7 +30,7 @@ def csv_line(data):
     return ("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (labels, qps, duration, clients, min, max, avg, p50, p75, p90, p99, p99d9))
 
 # Print the header line
-print "Label,Driver,Target,qps,duration,clients,min,max,avg,p50,p75,p90,p99,p99.9"
+print("Label,Driver,Target,qps,duration,clients,min,max,avg,p50,p75,p90,p99,p99.9")
 
 # For each json file in current dir, interpret it as Fortio result json file and print a csv line for it.
 for fn in os.listdir(target_dir):
@@ -37,5 +38,5 @@ for fn in os.listdir(target_dir):
     if os.path.isfile(fullfn) and fullfn.endswith('.json'):
         with open(fullfn) as f:
             data = json.load(f)
-            print csv_line(data)
+            print(csv_line(data))
 
