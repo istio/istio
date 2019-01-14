@@ -18,8 +18,6 @@ data:
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
 {{- if not .Values.istio_cni.enabled }}
-{{ "[[ if (isset .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") -]]" }}
-{{ "[[ if ne (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"NONE\" -]]" }}
       - name: istio-init
 {{- if contains "/" .Values.global.proxy_init.image }}
         image: "{{ .Values.global.proxy_init.image }}"
@@ -57,8 +55,6 @@ data:
           privileged: true
           {{- end }}
         restartPolicy: Always
-{{ "[[ end -]]" }}
-{{ "[[ end -]]" }}
 {{- end }}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
