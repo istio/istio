@@ -1277,14 +1277,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_kube_source_listener_handle_event_success_total[1m]) * 60",
+          "expr": "rate(galley_source_kube_event_success_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Success",
           "refId": "A"
         },
         {
-          "expr": "rate(galley_kube_source_listener_handle_event_error_total[1m]) * 60",
+          "expr": "rate(galley_source_kube_event_error_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Error",
@@ -1368,7 +1368,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_kube_source_source_converter_success_total[1m]) * 60",
+          "expr": "rate(galley_source_kube_dynamic_converter_success_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{apiVersion=\"{{apiVersion}}\",group=\"{{group}}\",kind=\"{{kind}}\"}",
@@ -1452,7 +1452,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_kube_source_source_converter_failure_total[1m]) * 60",
+          "expr": "rate(galley_source_kube_dynamic_converter_failure_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Error",

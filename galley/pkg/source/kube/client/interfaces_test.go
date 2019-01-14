@@ -12,18 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package client_test
 
 import (
 	"testing"
+
+	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/source/kube/client"
 
 	"k8s.io/client-go/rest"
 )
 
 func TestCreateConfig(t *testing.T) {
-	k := kube{
-		cfg: &rest.Config{},
-	}
+	k := client.NewKube(&rest.Config{})
 
 	if _, err := k.DynamicInterface(); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -31,9 +33,18 @@ func TestCreateConfig(t *testing.T) {
 	if _, err := k.APIExtensionsClientset(); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
+	if _, err := k.KubeClient(); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+}
+
+func TestNewKubeWithInvalidConfigFileShouldFail(t *testing.T) {
+	g := NewGomegaWithT(t)
+	_, err := client.NewKubeFromConfigFile("badconfigfile")
+	g.Expect(err).ToNot(BeNil())
 }
 
 func TestNewKube(t *testing.T) {
 	// Should not panic
-	_ = NewKube(&rest.Config{})
+	_ = client.NewKube(&rest.Config{})
 }
