@@ -157,7 +157,7 @@ function putLocalReviews (productId, ratings) {
 }
 
 function getLocalReviews (productId) {
-  if(typeof userAddedRatings[productId] !== 'undefined') {
+  if (typeof userAddedRatings[productId] !== 'undefined') {
       return userAddedRatings[productId]
   }
   return {
