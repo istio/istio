@@ -396,20 +396,9 @@ type redisDeployment struct {
 }
 
 func (r *redisDeployment) Setup() error {
-	// Deploy Tiller if it not does not already exist. Otherwise, wait to see if it is running for 3m before
-	// trying to deploy.
-	if _, err := util.GetPodName("kube-system", "name=tiller", tc.Kube.KubeConfig); err == nil {
-		// if the pod exists, check to see if it is running...
-		if err := util.CheckPodRunning("kube-system", "name=tiller", tc.Kube.KubeConfig); err != nil {
-			if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
-				return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
-			}
-		}
-	} else {
-		// no sense in retrying if the pod was not deployed before... deploy it now...
-		if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
-			return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
-		}
+	// Deploy Tiller if not already deployed
+	if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
+		return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
 	}
 
 	setValue := "--set usePassword=false,persistence.enabled=false"

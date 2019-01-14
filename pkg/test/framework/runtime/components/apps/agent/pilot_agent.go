@@ -226,6 +226,7 @@ type pilotAgent struct {
 	envoy                     *envoy.Envoy
 	adminPort                 int
 	ports                     []*MappedPort
+	nodeID                    string
 	yamlFile                  string
 	ownedDir                  string
 	serviceEntry              model.Config
@@ -249,6 +250,12 @@ func (a *pilotAgent) GetAdminPort() int {
 // GetPorts implements the agent.Agent interface.
 func (a *pilotAgent) GetPorts() []*MappedPort {
 	return a.ports
+}
+
+// GetNodeID returns the envoy metadata ID for pilot's service discovery.
+func GetNodeID(agent Agent) string {
+	pa := agent.(*pilotAgent)
+	return pa.nodeID
 }
 
 // CheckConfiguredForService implements the agent.Agent interface.
@@ -385,6 +392,7 @@ func (a *pilotAgent) start(serviceName, version string, serviceManager *service.
 	}
 
 	nodeID := f.generateServiceNode(serviceName)
+	a.nodeID = nodeID
 
 	// Create the YAML configuration file for Envoy.
 	if err = a.createYamlFile(serviceName, nodeID, f); err != nil {
