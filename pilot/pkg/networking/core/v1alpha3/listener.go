@@ -956,8 +956,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 		if pluginParams.Port.Port == 0 {
 			rdsName = listenerOpts.bind // use the UDS as a rds name
 		} else {
-			// TODO: BUG! .. if bind is not empty, then RDS for every bound listener would be
-			// different. We need to send the unique listener name and not the port.
 			rdsName = fmt.Sprintf("%d", pluginParams.Port.Port)
 		}
 		listenerOpts.filterChainOpts = []*filterChainOpts{{
