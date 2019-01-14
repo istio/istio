@@ -54,10 +54,11 @@ dispatcher.onPost(/^\/ratings\/[0-9]*/, function (req, res) {
     return
   }
 
-  if (process.env.SERVICE_VERSION === 'v2') {
+
+  if (process.env.SERVICE_VERSION === 'v2') { // the version that is backed by a database
     res.writeHead(501, {'Content-type': 'application/json'})
     res.end(JSON.stringify({error: 'Post not implemented for database backed ratings'}))
-  } else {
+  } else { // the version that holds ratings in-memory
     res.writeHead(200, {'Content-type': 'application/json'})
     res.end(JSON.stringify(putLocalReviews(productId, ratings)))
   }
