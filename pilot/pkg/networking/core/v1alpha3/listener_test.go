@@ -40,6 +40,20 @@ var (
 		ID:          "v0.default",
 		DNSDomain:   "default.example.org",
 		Metadata:    map[string]string{model.NodeConfigNamespace: "not-default"},
+		ConfigNamespace: "not-default",
+	}
+	proxyInstances = []*model.ServiceInstance{
+		{
+			Service: &model.Service{
+				Hostname:     "v0.default.example.org",
+				Address:      "9.9.9.9",
+				CreationTime: tnow,
+				Attributes: model.ServiceAttributes{
+					Namespace: "not-default",
+				},
+			},
+			Labels: nil,
+		},
 	}
 )
 
@@ -309,18 +323,12 @@ func buildOutboundListeners(p plugin.Plugin, sidecarConfig *model.Config, servic
 		return nil
 	}
 
-	instances := make([]*model.ServiceInstance, len(services))
-	for i, s := range services {
-		instances[i] = &model.ServiceInstance{
-			Service: s,
-		}
-	}
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig)
 	}
-	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, instances)
+	return configgen.buildSidecarOutboundListeners(&env, &proxy, env.PushContext, proxyInstances)
 }
 
 func buildInboundListeners(p plugin.Plugin, sidecarConfig *model.Config, services ...*model.Service) []*xdsapi.Listener {

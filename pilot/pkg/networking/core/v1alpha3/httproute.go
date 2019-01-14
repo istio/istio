@@ -39,13 +39,11 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, no
 		return nil, err
 	}
 
-	services := push.Services(node)
-
 	switch node.Type {
 	case model.SidecarProxy:
-		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, services, routeName), nil
+		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
 	case model.Router, model.Ingress:
-		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, services, routeName)
+		return configgen.buildGatewayHTTPRouteConfig(env, node, push, proxyInstances, routeName)
 	}
 	return nil, nil
 }
@@ -95,7 +93,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
-	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) *xdsapi.RouteConfiguration {
+	proxyInstances []*model.ServiceInstance, routeName string) *xdsapi.RouteConfiguration {
 
 	listenerPort := 0
 	var err error
@@ -109,6 +107,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	}
 
 	var virtualServices []model.Config
+	var services []*model.Service
 
 	// Get the list of services that correspond to this egressListener from the sidecarScope
 	sidecarScope := node.SidecarScope
@@ -131,9 +130,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		// When generating RDS for ports created via the SidecarScope, we treat
 		// these ports as HTTP proxy style ports. All services attached to this listener
 		// must feature in this RDS route irrespective of the service port.
-		listenerPort = 0
+		if egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil {
+			listenerPort = 0
+		}
 	} else {
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
+		services = push.Services(node)
 		virtualServices = push.VirtualServices(node, meshGateway)
 	}
 
