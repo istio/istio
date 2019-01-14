@@ -143,7 +143,7 @@ func (ap *attributeProvider) newInterpreter() interpreter.Interpreter {
 }
 
 func (ap *attributeProvider) newActivation(bag attribute.Bag) interpreter.Activation {
-	return &attributeActivation{provider: ap, bag: bag}
+	return attributeActivation{provider: ap, bag: bag}
 }
 
 func (ap *attributeProvider) EnumValue(enumName string) ref.Value {
@@ -260,17 +260,17 @@ func (v value) IsSet(index ref.Value) ref.Value {
 	return types.True
 }
 
-func (a *attributeActivation) ResolveName(name string) (ref.Value, bool) {
+func (a attributeActivation) ResolveName(name string) (ref.Value, bool) {
 	if node, ok := a.provider.root.children[name]; ok {
 		return resolve(node, a.bag), true
 	}
 	return nil, false
 }
 
-func (a *attributeActivation) ResolveReference(exprID int64) (ref.Value, bool) {
+func (a attributeActivation) ResolveReference(exprID int64) (ref.Value, bool) {
 	return nil, false
 }
 
-func (a *attributeActivation) Parent() interpreter.Activation {
+func (a attributeActivation) Parent() interpreter.Activation {
 	return nil
 }

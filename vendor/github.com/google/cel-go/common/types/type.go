@@ -72,7 +72,10 @@ func (t *TypeValue) ConvertToType(typeVal ref.Type) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (t *TypeValue) Equal(other ref.Value) ref.Value {
-	return Bool(TypeType == other.Type() && t.Value() == other.Value())
+	if TypeType == other.Type() && t.TypeName() == other.(ref.Type).TypeName() {
+		return True
+	}
+	return False
 }
 
 // HasTrait indicates whether the type supports the given trait.

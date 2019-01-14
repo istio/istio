@@ -62,8 +62,9 @@ func StandardOverloads() []*Overload {
 		{Operator: operators.NotEquals,
 			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
 				eq := lhs.Equal(rhs)
-				if types.IsBool(eq) {
-					return !eq.(types.Bool)
+				eqBool, isbool := eq.(types.Bool)
+				if isbool {
+					return !eqBool
 				}
 				return eq
 			}},

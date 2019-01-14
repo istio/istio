@@ -326,8 +326,9 @@ end`,
 		conf: istio06AttributeSet,
 	},
 	{
-		E:    `request.headers[toLower("USER-AGENT")] == "curlish"`,
-		Type: descriptor.BOOL,
+		E:     `request.headers[toLower("USER-AGENT")] == "curlish"`,
+		Bench: true,
+		Type:  descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.headers": map[string]string{
 				"user-agent": "curlish",
@@ -335,6 +336,16 @@ end`,
 		},
 		R:    true,
 		conf: istio06AttributeSet,
+		IL: `
+fn eval() bool
+  resolve_f "request.headers"
+  apush_s "USER-AGENT"
+  call toLower
+  nlookup
+  aeq_s "curlish"
+  ret
+end
+`,
 	},
 	{
 		E:    `match(request.headers["user-agent"], "curl*")`,

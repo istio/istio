@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -119,7 +119,7 @@ func (d Double) Divide(other ref.Value) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (d Double) Equal(other ref.Value) ref.Value {
-	return Bool(DoubleType == other.Type() && d == other)
+	return Bool(DoubleType == other.Type() && d == other.(Double))
 }
 
 // Multiply implements traits.Multiplier.Multiply.

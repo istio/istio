@@ -24,64 +24,25 @@ import (
 )
 
 // Program contains instructions and related metadata.
-type Program interface {
-	// Begin returns an InstructionStepper which iterates through the
-	// instructions. Each call to Begin() returns a stepper that starts
-	// from the first instructions.
-	//
-	// Note: Init() must be called prior to Begin().
-	Begin() InstructionStepper
-
-	// GetInstruction returns the instruction at the given runtime expression id.
-	GetInstruction(runtimeID int64) Instruction
-
-	// Init ensures that instructions have been properly initialized prior to
-	// beginning the execution of a program. The init step may optimize the
-	// instruction set.
-	Init(dispatcher Dispatcher, state MutableEvalState)
-
-	// MaxInstructionID returns the identifier of the last expression in the
-	// program.
-	MaxInstructionID() int64
-
-	// Metadata used to determine source locations of sub-expressions.
-	Metadata() Metadata
-}
-
-// InstructionStepper steps through program instructions and provides an option
-// to jump a certain number of instructions forward or back.
-type InstructionStepper interface {
-	// Next returns the next instruction, or false if the end of the program
-	// has been reached.
-	Next() (Instruction, bool)
-
-	// JumpCount moves a relative count of instructions forward or back in the
-	// program and returns whether the jump was successful.
-	//
-	// A jump may be unsuccessful if the number of instructions to jump exceeds
-	// the beginning or end of the program.
-	JumpCount(count int) bool
-}
-
-type exprProgram struct {
+type Program struct {
 	expression      *exprpb.Expr
-	instructions    []Instruction
+	Instructions    []Instruction
 	metadata        Metadata
 	revInstructions map[int64]int
 	shortCircuit    bool
 }
 
 // NewCheckedProgram creates a Program from a checked CEL expression.
-func NewCheckedProgram(c *exprpb.CheckedExpr) Program {
+func NewCheckedProgram(c *exprpb.CheckedExpr) *Program {
 	// TODO: take advantage of the type-check information.
 	return NewProgram(c.Expr, c.SourceInfo)
 }
 
 // NewProgram creates a Program from a CEL expression and source information.
 func NewProgram(expression *exprpb.Expr,
-	info *exprpb.SourceInfo) Program {
+	info *exprpb.SourceInfo) *Program {
 	revInstructions := make(map[int64]int)
-	return &exprProgram{
+	return &Program{
 		expression:      expression,
 		revInstructions: revInstructions,
 		metadata:        newExprMetadata(info),
@@ -93,9 +54,9 @@ func NewProgram(expression *exprpb.Expr,
 // information which force evaluating all branches of the expression.
 func NewExhaustiveProgram(expression *exprpb.Expr,
 	// TODO: also disable short circuit in comprehensions.
-	info *exprpb.SourceInfo) Program {
+	info *exprpb.SourceInfo) *Program {
 	revInstructions := make(map[int64]int)
-	return &exprProgram{
+	return &Program{
 		expression:      expression,
 		revInstructions: revInstructions,
 		metadata:        newExprMetadata(info),
@@ -103,27 +64,26 @@ func NewExhaustiveProgram(expression *exprpb.Expr,
 	}
 }
 
-func (p *exprProgram) Begin() InstructionStepper {
-	if p.instructions == nil {
-		panic("the Begin() method was called before program Init()")
-	}
-	return &exprStepper{p, 0}
+// GetInstruction returns the instruction at the given runtime expression id.
+func (p *Program) GetInstruction(runtimeID int64) Instruction {
+	return p.Instructions[p.revInstructions[runtimeID]]
 }
 
-func (p *exprProgram) GetInstruction(runtimeID int64) Instruction {
-	return p.instructions[p.revInstructions[runtimeID]]
-}
-
-func (p *exprProgram) Init(dispatcher Dispatcher, state MutableEvalState) {
-	if p.instructions == nil {
-		p.instructions = WalkExpr(p.expression, p.metadata, dispatcher, state, p.shortCircuit)
-		for i, inst := range p.instructions {
+// Init ensures that instructions have been properly initialized prior to
+// beginning the execution of a program. The init step may optimize the
+// instruction set.
+func (p *Program) Init(state MutableEvalState) {
+	if p.Instructions == nil {
+		p.Instructions = WalkExpr(p.expression, p.metadata, state, p.shortCircuit)
+		for i, inst := range p.Instructions {
 			p.revInstructions[inst.GetID()] = i
 		}
 	}
 }
 
-func (p *exprProgram) MaxInstructionID() int64 {
+// MaxInstructionID returns the identifier of the last expression in the
+// program.
+func (p *Program) MaxInstructionID() int64 {
 	// The max instruction id is the highest expression id in the program,
 	// plus the count of the internal variables allocated for comprehensions.
 	//
@@ -136,43 +96,17 @@ func (p *exprProgram) MaxInstructionID() int64 {
 	return maxID(p.expression) + comprehensionCount(p.expression)*3
 }
 
-func (p *exprProgram) Metadata() Metadata {
+// Metadata used to determine source locations of sub-expressions.
+func (p *Program) Metadata() Metadata {
 	return p.metadata
 }
 
-func (p *exprProgram) String() string {
-	instStrs := make([]string, len(p.instructions), len(p.instructions))
-	for i, inst := range p.instructions {
+func (p *Program) String() string {
+	instStrs := make([]string, len(p.Instructions), len(p.Instructions))
+	for i, inst := range p.Instructions {
 		instStrs[i] = fmt.Sprintf("%d: %v", i, inst)
 	}
 	return strings.Join(instStrs, "\n")
-}
-
-// exprStepper keeps a cursor pointed at the next instruction to execute
-// in the program.
-type exprStepper struct {
-	program     *exprProgram
-	instruction int
-}
-
-func (s *exprStepper) Next() (Instruction, bool) {
-	if s.instruction < len(s.program.instructions) {
-		inst := s.instruction
-		s.instruction++
-		return s.program.instructions[inst], true
-	}
-	return nil, false
-}
-
-func (s *exprStepper) JumpCount(count int) bool {
-	// Adjust for the cursor already having been moved.
-	offset := count - 1
-	candidate := s.instruction + offset
-	if candidate >= 0 && candidate < len(s.program.instructions) {
-		s.instruction = candidate
-		return true
-	}
-	return false
 }
 
 // The exprMetadata type provides helper functions for retrieving source

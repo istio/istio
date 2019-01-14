@@ -141,12 +141,12 @@ func (u *unroller) nextID() int64 {
 	return u.id
 }
 
-// unroll eliminates Elvis and conditional() macros
-// it also replaces emptyStringMap with stringmap({})
+// unroll eliminates Elvis and conditional() macros with has() and ternary expressions
 func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 	switch v := in.ExprKind.(type) {
 	case *exprpb.Expr_ConstExpr, *exprpb.Expr_IdentExpr:
 		// do nothing
+
 	case *exprpb.Expr_ListExpr:
 		// recurse
 		elements := make([]*exprpb.Expr, len(v.ListExpr.Elements))
@@ -161,6 +161,7 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 				},
 			},
 		}
+
 	case *exprpb.Expr_StructExpr:
 		// recurse
 		entries := make([]*exprpb.Expr_CreateStruct_Entry, len(v.StructExpr.Entries))
@@ -201,6 +202,7 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 				},
 			},
 		}
+
 	case *exprpb.Expr_CallExpr:
 		// recurse
 		var target *exprpb.Expr
@@ -215,15 +217,6 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 
 		// rewrite functions, recurse otherwise
 		switch v.CallExpr.Function {
-		case "emptyStringMap":
-			if target != nil || len(args) > 0 {
-				u.err = multierror.Append(u.err, errors.New("unexpected arguments in emptyStringMap()"))
-				break
-			}
-			return &exprpb.Expr{
-				Id:       in.Id,
-				ExprKind: &exprpb.Expr_StructExpr{StructExpr: &exprpb.Expr_CreateStruct{}},
-			}
 		case "conditional":
 			return &exprpb.Expr{
 				Id: in.Id,
@@ -235,6 +228,7 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 					},
 				},
 			}
+
 		case elvis:
 			if target != nil {
 				u.err = multierror.Append(u.err, fmt.Errorf("unexpected target in expression %q", v))
@@ -310,5 +304,6 @@ func (u *unroller) unroll(in *exprpb.Expr) *exprpb.Expr {
 	default:
 		u.err = multierror.Append(u.err, fmt.Errorf("unsupported expression kind %q", v))
 	}
+
 	return in
 }

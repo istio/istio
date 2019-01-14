@@ -82,7 +82,7 @@ func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {
 // Equal implements ref.Value.Equal.
 func (b Bytes) Equal(other ref.Value) ref.Value {
 	return Bool(BytesType == other.Type() &&
-		bytes.Equal([]byte(b), other.(Bytes)))
+		bytes.Equal(b, other.(Bytes)))
 }
 
 // Size implements traits.Sizer.Size.

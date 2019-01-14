@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -54,14 +54,14 @@ func (s String) Compare(other ref.Value) ref.Value {
 	if StringType != other.Type() {
 		return NewErr("unsupported overload")
 	}
-	return Int(strings.Compare(string(s), string(other.(String))))
+	return Int(strings.Compare(s.Value().(string), other.Value().(string)))
 }
 
 // ConvertToNative implements ref.Value.ConvertToNative.
 func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 	switch typeDesc.Kind() {
 	case reflect.String:
-		return string(s), nil
+		return s.Value(), nil
 	case reflect.Ptr:
 		if typeDesc == jsonValueType {
 			return &structpb.Value{
@@ -69,7 +69,7 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 					StringValue: s.Value().(string)}}, nil
 		}
 		if typeDesc.Elem().Kind() == reflect.String {
-			p := string(s)
+			p := s.Value().(string)
 			return &p, nil
 		}
 	case reflect.Interface:
@@ -85,29 +85,29 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
 func (s String) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case IntType:
-		if n, err := strconv.ParseInt(string(s), 10, 64); err == nil {
+		if n, err := strconv.ParseInt(s.Value().(string), 10, 64); err == nil {
 			return Int(n)
 		}
 	case UintType:
-		if n, err := strconv.ParseUint(string(s), 10, 64); err == nil {
+		if n, err := strconv.ParseUint(s.Value().(string), 10, 64); err == nil {
 			return Uint(n)
 		}
 	case DoubleType:
-		if n, err := strconv.ParseFloat(string(s), 64); err == nil {
+		if n, err := strconv.ParseFloat(s.Value().(string), 64); err == nil {
 			return Double(n)
 		}
 	case BoolType:
-		if b, err := strconv.ParseBool(string(s)); err == nil {
+		if b, err := strconv.ParseBool(s.Value().(string)); err == nil {
 			return Bool(b)
 		}
 	case BytesType:
 		return Bytes(s)
 	case DurationType:
-		if d, err := time.ParseDuration(string(s)); err == nil {
+		if d, err := time.ParseDuration(s.Value().(string)); err == nil {
 			return Duration{ptypes.DurationProto(d)}
 		}
 	case TimestampType:
-		if t, err := time.Parse(time.RFC3339, string(s)); err == nil {
+		if t, err := time.Parse(time.RFC3339, s.Value().(string)); err == nil {
 			if ts, err := ptypes.TimestampProto(t); err == nil {
 				return Timestamp{ts}
 			}
@@ -122,7 +122,7 @@ func (s String) ConvertToType(typeVal ref.Type) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (s String) Equal(other ref.Value) ref.Value {
-	return Bool(StringType == other.Type() && s.Value() == other.Value())
+	return Bool(StringType == other.Type() && s == other.(String))
 }
 
 // Match implements traits.Matcher.Match.
@@ -130,7 +130,7 @@ func (s String) Match(pattern ref.Value) ref.Value {
 	if pattern.Type() != StringType {
 		return NewErr("unsupported overload")
 	}
-	matched, err := regexp.MatchString(string(pattern.(String)), string(s))
+	matched, err := regexp.MatchString(pattern.Value().(string), s.Value().(string))
 	if err != nil {
 		return &Err{err}
 	}
@@ -139,7 +139,7 @@ func (s String) Match(pattern ref.Value) ref.Value {
 
 // Size implements traits.Sizer.Size.
 func (s String) Size() ref.Value {
-	return Int(len([]rune(string(s))))
+	return Int(len([]rune(s.Value().(string))))
 }
 
 // Type implements ref.Value.Type.

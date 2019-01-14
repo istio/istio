@@ -37,12 +37,10 @@ const (
 // a recursive execution pattern.
 func WalkExpr(expression *exprpb.Expr,
 	metadata Metadata,
-	dispatcher Dispatcher,
 	state MutableEvalState,
 	shortCircuit bool) []Instruction {
 	nextID := maxID(expression)
 	walker := &astWalker{
-		dispatcher:   dispatcher,
 		genSymID:     nextID,
 		genExprID:    nextID,
 		metadata:     metadata,
@@ -54,7 +52,6 @@ func WalkExpr(expression *exprpb.Expr,
 
 // astWalker implementation of the AST walking logic.
 type astWalker struct {
-	dispatcher   Dispatcher
 	genExprID    int64
 	genSymID     int64
 	metadata     Metadata

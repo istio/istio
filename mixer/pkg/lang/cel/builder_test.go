@@ -87,7 +87,7 @@ func TestCEXLCompatibility(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(out, expected) {
-				t.Fatalf("got %s, expected %s (type %T and %T)", out, expected, out, expected)
+				t.Fatalf("got %#v, expected %s (type %T and %T)", out, expected, out, expected)
 			}
 
 			// override referenced attributes value

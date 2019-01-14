@@ -28,7 +28,7 @@ import (
 // Interpreter generates a new Interpretable from a Program.
 type Interpreter interface {
 	// NewInterpretable returns an Interpretable from a Program.
-	NewInterpretable(program Program) Interpretable
+	NewInterpretable(program *Program) Interpretable
 }
 
 // Interpretable can accept a given Activation and produce a value along with
@@ -66,28 +66,36 @@ func NewStandardInterpreter(packager packages.Packager,
 	return NewInterpreter(dispatcher, packager, typeProvider)
 }
 
-func (i *exprInterpreter) NewInterpretable(program Program) Interpretable {
+func (i *exprInterpreter) NewInterpretable(program *Program) Interpretable {
 	// program needs to be pruned with the TypeProvider
 	evalState := NewEvalState(program.MaxInstructionID() + 1)
-	program.Init(i.dispatcher, evalState)
+	intr := &exprInterpreter{
+		dispatcher:   i.dispatcher.Init(evalState),
+		packager:     i.packager,
+		typeProvider: i.typeProvider}
+	program.Init(evalState)
 	return &exprInterpretable{
-		interpreter: i,
+		interpreter: intr,
 		program:     program,
 		state:       evalState}
 }
 
 type exprInterpretable struct {
 	interpreter *exprInterpreter
-	program     Program
+	program     *Program
 	state       MutableEvalState
 }
 
 func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 	// register machine-like evaluation of the program with the given activation.
 	currActivation := activation
-	stepper := i.program.Begin()
+	// program counter
+	pc := 0
+	end := len(i.program.Instructions)
+	steps := i.program.Instructions
 	var resultID int64
-	for step, hasNext := stepper.Next(); hasNext; step, hasNext = stepper.Next() {
+	for pc < end {
+		step := steps[pc]
 		resultID = step.GetID()
 		switch step.(type) {
 		case *IdentExpr:
@@ -108,11 +116,14 @@ func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 		case *JumpInst:
 			jmpExpr := step.(*JumpInst)
 			if jmpExpr.OnCondition(i.state) {
-				if !stepper.JumpCount(jmpExpr.Count) {
+				jmpPc := pc + jmpExpr.Count
+				if jmpPc < 0 || jmpPc >= end {
 					// TODO: Error, the jump count should never exceed the
 					// program length.
 					panic("jumped too far")
 				}
+				pc = jmpPc
+				continue
 			}
 			// Special instructions for modifying the activation stack
 		case *PushScopeInst:
@@ -129,6 +140,7 @@ func (i *exprInterpretable) Eval(activation Activation) (ref.Value, EvalState) {
 		case *PopScopeInst:
 			currActivation = currActivation.Parent()
 		}
+		pc++
 	}
 	result := i.value(resultID)
 	if result == nil {
@@ -155,14 +167,19 @@ func (i *exprInterpretable) evalIdent(idExpr *IdentExpr, currActivation Activati
 func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activation) {
 	operand := i.value(selExpr.Operand)
 	if !operand.Type().HasTrait(traits.IndexerType) {
+		// If the operand is unknown, this could be an identifer.
+		if types.IsUnknown(operand) {
+			resVal := i.resolveUnknown(operand.(types.Unknown), selExpr, currActivation)
+			i.setValue(selExpr.GetID(), resVal)
+			return
+		}
+		// If the operand is an error, early return.
 		if types.IsError(operand) {
 			i.setValue(selExpr.GetID(), operand)
 			return
 		}
-		if !types.IsUnknown(operand) ||
-			!i.resolveUnknown(operand.(types.Unknown), selExpr, currActivation) {
-			i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
-		}
+		// Otherwise, create an error.
+		i.setValue(selExpr.GetID(), types.NewErr("invalid operand in select"))
 		return
 	}
 	field := types.String(selExpr.Field)
@@ -186,12 +203,16 @@ func (i *exprInterpretable) evalSelect(selExpr *SelectExpr, currActivation Activ
 // which may have generated unknown values during the course of execution if
 // the expression was not type-checked and the select, in fact, refers to a
 // qualified identifier name instead of a series of field selections.
+//
+// Returns one of the following:
+// - The resolved identifier value from the activation
+// - An unknown value if the expression is a valid identifier, but was not found.
+// - Otherwise, an error.
 func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 	selExpr *SelectExpr,
-	currActivation Activation) bool {
+	currActivation Activation) ref.Value {
 	if object, found := currActivation.ResolveReference(selExpr.ID); found {
-		i.setValue(selExpr.ID, object)
-		return true
+		return object
 	}
 	validIdent := true
 	identifier := selExpr.Field
@@ -213,40 +234,33 @@ func (i *exprInterpretable) resolveUnknown(unknown types.Unknown,
 		}
 	}
 	if !validIdent {
-		return false
+		return types.NewErr("invalid identifier encountered: %v", selExpr)
 	}
 	pkg := i.interpreter.packager
 	tp := i.interpreter.typeProvider
 	for _, id := range pkg.ResolveCandidateNames(identifier) {
 		if object, found := currActivation.ResolveName(id); found {
-			i.setValue(selExpr.ID, object)
-			return true
+			return object
 		}
 		if identVal, found := tp.FindIdent(id); found {
-			i.setValue(selExpr.ID, identVal)
-			return true
+			return identVal
 		}
 	}
-	i.setValue(selExpr.ID, append(types.Unknown{selExpr.ID}, unknown...))
-	return false
+	return append(types.Unknown{selExpr.ID}, unknown...)
 }
 
 func (i *exprInterpretable) evalCall(callExpr *CallExpr, currActivation Activation) {
-	argVals := make([]ref.Value, len(callExpr.Args), len(callExpr.Args))
-	for idx, argID := range callExpr.Args {
-		argVals[idx] = i.value(argID)
-		if callExpr.Strict && types.IsUnknownOrError(argVals[idx]) {
-			i.setValue(callExpr.GetID(), argVals[idx])
-			return
+	if callExpr.Strict {
+		for _, argID := range callExpr.Args {
+			argVal := i.value(argID)
+			argType := argVal.Type()
+			if types.IsUnknownOrError(argType) {
+				i.setValue(callExpr.GetID(), argVal)
+				return
+			}
 		}
 	}
-	ctx := &CallContext{
-		call:       callExpr,
-		activation: currActivation,
-		args:       argVals,
-		metadata:   i.program.Metadata()}
-	result := i.interpreter.dispatcher.Dispatch(ctx)
-	i.setValue(callExpr.GetID(), result)
+	i.interpreter.dispatcher.Dispatch(callExpr)
 }
 
 func (i *exprInterpretable) evalCreateList(listExpr *CreateListExpr) {

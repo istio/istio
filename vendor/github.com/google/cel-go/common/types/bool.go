@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -93,7 +93,7 @@ func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (b Bool) Equal(other ref.Value) ref.Value {
-	return Bool(BoolType == other.Type() && b.Value() == other.Value())
+	return Bool(BoolType == other.Type() && b == other.(Bool))
 }
 
 // Negate implements traits.Negater.Negate.

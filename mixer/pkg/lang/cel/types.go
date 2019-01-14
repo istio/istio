@@ -79,6 +79,7 @@ func recoverType(typ *exprpb.Type) v1beta1.ValueType {
 		case exprpb.Type_BOOL:
 			return v1beta1.BOOL
 		}
+
 	case *exprpb.Type_WellKnown:
 		switch t.WellKnown {
 		case exprpb.Type_TIMESTAMP:
@@ -86,6 +87,7 @@ func recoverType(typ *exprpb.Type) v1beta1.ValueType {
 		case exprpb.Type_DURATION:
 			return v1beta1.DURATION
 		}
+
 	case *exprpb.Type_MessageType:
 		switch t.MessageType {
 		case ipAddressType:
@@ -97,9 +99,14 @@ func recoverType(typ *exprpb.Type) v1beta1.ValueType {
 		case dnsType:
 			return v1beta1.DNS_NAME
 		}
+
 	case *exprpb.Type_MapType_:
-		// default to string map since empty map is dynamically typed
-		return v1beta1.STRING_MAP
+		if reflect.DeepEqual(t.MapType.KeyType, decls.String) &&
+			reflect.DeepEqual(t.MapType.ValueType, decls.String) {
+			return v1beta1.STRING_MAP
+		}
+
+		// remaining maps are not yet supported
 	}
 	return v1beta1.VALUE_TYPE_UNSPECIFIED
 }
@@ -215,7 +222,7 @@ func (v stringMapValue) Type() ref.Type {
 	return types.MapType
 }
 func (v stringMapValue) Value() interface{} {
-	return v
+	return v.value
 }
 func (v stringMapValue) Get(index ref.Value) ref.Value {
 	if index.Type() != types.StringType {

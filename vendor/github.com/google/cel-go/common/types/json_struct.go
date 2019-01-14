@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -40,7 +40,7 @@ func NewJSONStruct(st *structpb.Struct) traits.Mapper {
 }
 
 func (m *jsonStruct) Contains(index ref.Value) ref.Value {
-	return !Bool(IsError(m.Get(index)))
+	return !Bool(IsError(m.Get(index).Type()))
 }
 
 func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {

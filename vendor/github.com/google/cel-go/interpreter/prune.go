@@ -15,10 +15,11 @@
 package interpreter
 
 import (
-	"github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 )

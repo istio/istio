@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -127,7 +127,7 @@ func (i Int) Divide(other ref.Value) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (i Int) Equal(other ref.Value) ref.Value {
-	return Bool(IntType == other.Type() && i.Value() == other.Value())
+	return Bool(IntType == other.Type() && i == other.(Int))
 }
 
 // Modulo implements traits.Modder.Modulo.
