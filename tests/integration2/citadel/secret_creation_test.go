@@ -62,6 +62,6 @@ func TestSecretCreationKubernetes(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	rt,_ := framework.Run("citadel_test", m)
+	rt, _ := framework.Run("citadel_test", m)
 	os.Exit(rt)
 }

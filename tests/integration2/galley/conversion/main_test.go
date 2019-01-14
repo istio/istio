@@ -22,6 +22,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	rt,_ := framework.Run("galley_conversion_test", m)
+	rt, _ := framework.Run("galley_conversion_test", m)
 	os.Exit(rt)
 }

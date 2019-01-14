@@ -39,7 +39,7 @@ import (
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
 func TestMain(m *testing.M) {
-	rt,_ := framework.Run("authn_permissive_test", m)
+	rt, _ := framework.Run("authn_permissive_test", m)
 	os.Exit(rt)
 }
 

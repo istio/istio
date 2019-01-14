@@ -22,6 +22,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	rt,_ := framework.Run("qualification", m)
+	rt, _ := framework.Run("qualification", m)
 	os.Exit(rt)
 }
