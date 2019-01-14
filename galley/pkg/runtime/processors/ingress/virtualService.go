@@ -34,9 +34,9 @@ import (
 
 type vsConverter struct {
 	generation int64
-	table    processing.Table
-	config   *Config
-	listener processing.ProjectionListener
+	table      *processing.Table
+	config     *Config
+	listener   processing.ProjectionListener
 
 	// track collections generation to detect any changes that should retrigger a rebuild of cached state
 	lastCollectionGen int64
@@ -46,13 +46,22 @@ type vsConverter struct {
 var _ processing.Projection = &vsConverter{}
 var _ processing.Handler = &vsConverter{}
 
+func newVirtualServiceConverter(cfg *Config) *vsConverter {
+	return &vsConverter{
+		config: cfg,
+		table:  processing.NewTable(),
+	}
+}
+
 // Handle implements processing.Handler
 func (v *vsConverter) Handle(event resource.Event) {
 	switch event.Kind {
 	case resource.Added, resource.Updated:
-		v.table.Set()
+		v.table.Set(event.Entry.ID, &event.Entry)
+		v.rebuild()
 	case resource.Deleted:
-
+		v.table.Remove(event.Entry.ID.FullName)
+		v.rebuild()
 	default:
 		scope.Errorf("Unrecognized event received: %v", event.Kind)
 	}
@@ -65,14 +74,11 @@ func (v *vsConverter) Type() resource.TypeURL {
 
 // Generation implements processing.Projection
 func (v *vsConverter) Generation() int64 {
-	v.rebuild()
-	return v.lastCollectionGen
+	return v.table.Generation()
 }
 
 // Get implements processing.Projection
 func (v *vsConverter) Get() []*mcp.Resource {
-	v.rebuild()
-
 	result := make([]*mcp.Resource, 0, len(v.ingressByHosts))
 	for _, e := range v.ingressByHosts {
 		env, err := resource.ToMcpResource(*e)
@@ -92,10 +98,6 @@ func (v *vsConverter) SetProjectionListener(l processing.ProjectionListener) {
 
 // rebuild the internal state of the view
 func (v *vsConverter) rebuild() {
-	if v.table.Generation() == v.lastCollectionGen {
-		// No need to rebuild
-		return
-	}
 
 	// Order names for stable generation.
 	var orderedNames []resource.FullName
@@ -108,8 +110,8 @@ func (v *vsConverter) rebuild() {
 
 	ingressByHost := make(map[string]*resource.Entry)
 	for _, name := range orderedNames {
-		entry := v.table.Item(name)
-		i := entry.Body.(*ingress.IngressSpec) // TODO
+		entry := v.table.Item(name).(*resource.Entry)
+		i := entry.Item.(*ingress.IngressSpec)
 
 		ToVirtualService(entry.ID, i, entry.Metadata, v.config.DomainSuffix, ingressByHost)
 	}

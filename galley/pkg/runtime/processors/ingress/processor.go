@@ -41,9 +41,7 @@ func addGatewayPipeline(b *processing.GraphBuilder) {
 }
 
 func addVirtualServicePipeline(cfg *Config, b *processing.GraphBuilder) {
-	v := &vsConverter{
-		config: cfg,
-	}
-	b.AddHandler(metadata.IngressSpec.TypeURL, v)
-	b.AddProjection(v)
+	c := newVirtualServiceConverter(cfg)
+	b.AddHandler(metadata.IngressSpec.TypeURL, c)
+	b.AddProjection(c)
 }

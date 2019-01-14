@@ -48,7 +48,7 @@ func (g *gwConverter) Handle(event resource.Event) {
 		}
 		g.p.Set(e.ID.FullName, r)
 	case resource.Deleted:
-		g.p.Remove(event.Entry.ID.FullName)
+		g.p.Remove(toGatewayName(event.Entry.ID.FullName))
 	default:
 		scope.Errorf("Unrecognized event received: %v", event.Kind)
 	}
@@ -104,13 +104,10 @@ func ToGateway(entry resource.Entry) (resource.Entry, error) {
 		Hosts: []string{"*"},
 	})
 
-	newName := name + "-" + model.IstioIngressGatewayName
-	newNamespace := model.IstioIngressNamespace
-
 	gw := resource.Entry{
 		ID: resource.VersionedKey{
 			Key: resource.Key{
-				FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
+				FullName: toGatewayName(entry.ID.FullName),
 				TypeURL:  metadata.Gateway.TypeURL,
 			},
 			Version: entry.ID.Version,
@@ -120,4 +117,11 @@ func ToGateway(entry resource.Entry) (resource.Entry, error) {
 	}
 
 	return gw, nil
+}
+
+func toGatewayName(ingressName resource.FullName) resource.FullName {
+	_, name := ingressName.InterpretAsNamespaceAndName()
+	newName := name + "-" + model.IstioIngressGatewayName
+	newNamespace := model.IstioIngressNamespace
+	return resource.FullNameFromNamespaceAndName(newNamespace, newName)
 }
