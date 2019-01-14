@@ -754,11 +754,12 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 
 	// deploy tiller, helm cli is already available
 	if err := util.HelmInit("tiller"); err != nil {
-		log.Errorf("Failed to init helm tiller ")
+		log.Errorf("Failed to init helm tiller")
 		return err
 	}
-	// wait till tiller reaches running
-	return util.CheckPodRunning("kube-system", "name=tiller", k.KubeConfig)
+
+	// Wait until Helm's Tiller is running
+	return util.HelmTillerRunning()
 }
 
 var (
