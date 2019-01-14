@@ -21,7 +21,6 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -118,7 +117,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		// We should never be getting a nil egress listener because the code that setup this RDS
 		// call obviously saw an egress listener
 		if egressListener == nil {
-			log.Debugf("v1alpha3: could not find egressListener for routeName %s", routeName)
 			return nil
 		}
 
