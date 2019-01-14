@@ -15,11 +15,13 @@
 package mixer
 
 import (
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 )
 
 func TestMain(m *testing.M) {
-	framework.Run("mixer_test", m)
+	rt, _ := framework.Run("mixer_test", m)
+	os.Exit(rt)
 }
