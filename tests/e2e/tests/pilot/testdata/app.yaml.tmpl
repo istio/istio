@@ -58,11 +58,11 @@ spec:
         version: {{.version}}
         name: {{.deployment}}
       annotations:
-        sidecar.istio.io/userVolume: '{"uds":{"emptyDir":{"medium":"Memory"}}}'
-        sidecar.istio.io/userVolumeMount: '{"uds":{"mountPath":"/var/run/uds"}}'
 {{if eq .injectProxy "false"}}
-        sidecar.istio.io/inject: "false"
+        # add the proxy but dont setup IPtables.
+        sidecar.istio.io/interceptionMode: "NONE"
 {{end}}
+        sidecar.istio.io/userVolumeMount: '{"uds":{"mountPath":"/var/run/uds"}}'
     spec:
 {{if eq .serviceAccount "true"}}
       serviceAccountName: {{.service}}
@@ -71,6 +71,9 @@ spec:
       - name: app
         image: {{.Hub}}/app:{{.Tag}}
         imagePullPolicy: {{.ImagePullPolicy}}
+        volumeMounts:
+        - mountPath: /var/run/uds
+          name: uds
         args:
           - --port
           - "{{.port1}}"
@@ -116,4 +119,8 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 {{end}}
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: uds
 ---
