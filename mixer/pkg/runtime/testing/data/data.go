@@ -502,6 +502,9 @@ spec:
   - name: user
     values:
     - sample.output.value
+  - name: empty-header
+    values:
+    - '""'
 `
 
 // RuleCheckOutput2 is a testing rule for check output template with multiple outputs

@@ -69,6 +69,7 @@ type Server struct {
 	livenessProbe  probe.Controller
 	readinessProbe probe.Controller
 	*probe.Probe
+	configStore store.Store
 }
 
 type listenFunc func(network string, address string) (net.Listener, error)
@@ -211,7 +212,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		_ = s.Close()
 		return nil, err
 	}
-
+	s.configStore = st
 	log.Info("Starting runtime config watch...")
 	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
@@ -326,6 +327,11 @@ func (s *Server) Close() error {
 
 	if s.controlZ != nil {
 		s.controlZ.Close()
+	}
+
+	if s.configStore != nil {
+		s.configStore.Stop()
+		s.configStore = nil
 	}
 
 	if s.checkCache != nil {

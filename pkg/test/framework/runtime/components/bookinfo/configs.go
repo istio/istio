@@ -15,10 +15,10 @@
 package bookinfo
 
 import (
-	"io/ioutil"
 	"path"
 	"testing"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -50,10 +50,10 @@ func (l ConfigFile) LoadOrFail(t testing.TB) string {
 	t.Helper()
 	p := path.Join(env.BookInfoRoot, string(l))
 
-	by, err := ioutil.ReadFile(p)
+	content, err := test.ReadConfigFile(p)
 	if err != nil {
-		t.Fatalf("Unable to load config %s at %v", l, p)
+		t.Fatalf("unable to load config %s at %v, err:%v", l, p, err)
 	}
 
-	return string(by)
+	return content
 }
