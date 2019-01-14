@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"sync"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -344,8 +346,8 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, 
 	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
-			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)

@@ -80,6 +80,14 @@ func TestIdentity(t *testing.T) {
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"creationTimestamp": fakeCreateTime.Format(time.RFC3339),
+				"annotations": map[string]interface{}{
+					"a1_key": "a1_value",
+					"a2_key": "a2_value",
+				},
+				"labels": map[string]interface{}{
+					"l1_key": "l1_value",
+					"l2_key": "l2_value",
+				},
 			},
 			"spec": map[string]interface{}{
 				"foo": "bar",
@@ -107,16 +115,27 @@ func TestIdentity(t *testing.T) {
 			entries[0].CreationTime, fakeCreateTime)
 	}
 
-	actual, ok := entries[0].Resource.(*types.Struct)
-	if !ok {
-		t.Fatalf("Unable to convert to struct: %v", entries[0].Resource)
-	}
+	actual := entries[0]
 
-	expected := &types.Struct{
-		Fields: map[string]*types.Value{
-			"foo": {
-				Kind: &types.Value_StringValue{
-					StringValue: "bar",
+	expected := Entry{
+		Key:          key,
+		CreationTime: fakeCreateTime.Local(),
+		Metadata: resource.Metadata{
+			Annotations: map[string]string{
+				"a1_key": "a1_value",
+				"a2_key": "a2_value",
+			},
+			Labels: map[string]string{
+				"l1_key": "l1_value",
+				"l2_key": "l2_value",
+			},
+		},
+		Resource: &types.Struct{
+			Fields: map[string]*types.Value{
+				"foo": {
+					Kind: &types.Value_StringValue{
+						StringValue: "bar",
+					},
 				},
 			},
 		},
@@ -186,6 +205,14 @@ func TestLegacyMixerResource(t *testing.T) {
 			"kind": "k1",
 			"metadata": map[string]interface{}{
 				"creationTimestamp": fakeCreateTime.Format(time.RFC3339),
+				"annotations": map[string]interface{}{
+					"a1_key": "a1_value",
+					"a2_key": "a2_value",
+				},
+				"labels": map[string]interface{}{
+					"l1_key": "l1_value",
+					"l2_key": "l2_value",
+				},
 			},
 			"spec": map[string]interface{}{
 				"foo": "bar",
@@ -204,29 +231,30 @@ func TestLegacyMixerResource(t *testing.T) {
 		t.Fatalf("Expected one entry: %v", entries)
 	}
 
-	expectedKey := "k1/" + key.String()
-	if entries[0].Key.String() != expectedKey {
-		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", expectedKey, entries[0].Key)
-	}
+	actual := entries[0]
 
-	if !entries[0].CreationTime.Equal(fakeCreateTime) {
-		t.Fatalf("createTime mismatch: got %q want %q",
-			entries[0].CreationTime, fakeCreateTime)
-	}
-
-	actual, ok := entries[0].Resource.(*legacy.LegacyMixerResource)
-	if !ok {
-		t.Fatalf("Unable to convert to legacy: %v", entries[0].Resource)
-	}
-
-	expected := &legacy.LegacyMixerResource{
-		Name: "Key",
-		Kind: "k1",
-		Contents: &types.Struct{
-			Fields: map[string]*types.Value{
-				"foo": {
-					Kind: &types.Value_StringValue{
-						StringValue: "bar",
+	expected := Entry{
+		Key:          resource.FullNameFromNamespaceAndName("", "k1/"+key.String()),
+		CreationTime: fakeCreateTime.Local(),
+		Metadata: resource.Metadata{
+			Annotations: map[string]string{
+				"a1_key": "a1_value",
+				"a2_key": "a2_value",
+			},
+			Labels: map[string]string{
+				"l1_key": "l1_value",
+				"l2_key": "l2_value",
+			},
+		},
+		Resource: &legacy.LegacyMixerResource{
+			Name: "Key",
+			Kind: "k1",
+			Contents: &types.Struct{
+				Fields: map[string]*types.Value{
+					"foo": {
+						Kind: &types.Value_StringValue{
+							StringValue: "bar",
+						},
 					},
 				},
 			},
@@ -293,9 +321,9 @@ func TestAuthPolicyResource(t *testing.T) {
 	info := s.Get(typeURL)
 
 	cases := []struct {
-		name      string
-		in        *unstructured.Unstructured
-		wantProto *authn.Policy
+		name string
+		in   *unstructured.Unstructured
+		want Entry
 	}{
 		{
 			name: "no-op",
@@ -306,6 +334,14 @@ func TestAuthPolicyResource(t *testing.T) {
 						"creationTimestamp": fakeCreateTime.Format(time.RFC3339),
 						"name":              "foo",
 						"namespace":         "default",
+						"annotations": map[string]interface{}{
+							"a1_key": "a1_value",
+							"a2_key": "a2_value",
+						},
+						"labels": map[string]interface{}{
+							"l1_key": "l1_value",
+							"l2_key": "l2_value",
+						},
 					},
 					"spec": map[string]interface{}{
 						"targets": []interface{}{
@@ -321,13 +357,27 @@ func TestAuthPolicyResource(t *testing.T) {
 					},
 				},
 			},
-			wantProto: &authn.Policy{
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-				Peers: []*authn.PeerAuthenticationMethod{{
-					&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
-				}},
+			want: Entry{
+				Key:          resource.FullNameFromNamespaceAndName("default", "foo"),
+				CreationTime: fakeCreateTime.Local(),
+				Metadata: resource.Metadata{
+					Annotations: map[string]string{
+						"a1_key": "a1_value",
+						"a2_key": "a2_value",
+					},
+					Labels: map[string]string{
+						"l1_key": "l1_value",
+						"l2_key": "l2_value",
+					},
+				},
+				Resource: &authn.Policy{
+					Targets: []*authn.TargetSelector{{
+						Name: "foo",
+					}},
+					Peers: []*authn.PeerAuthenticationMethod{{
+						&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
+					}},
+				},
 			},
 		},
 		{
@@ -339,6 +389,14 @@ func TestAuthPolicyResource(t *testing.T) {
 						"creationTimestamp": fakeCreateTime.Format(time.RFC3339),
 						"name":              "foo",
 						"namespace":         "default",
+						"annotations": map[string]interface{}{
+							"a1_key": "a1_value",
+							"a2_key": "a2_value",
+						},
+						"labels": map[string]interface{}{
+							"l1_key": "l1_value",
+							"l2_key": "l2_value",
+						},
 					},
 					"spec": map[string]interface{}{
 						"targets": []interface{}{
@@ -354,19 +412,36 @@ func TestAuthPolicyResource(t *testing.T) {
 					},
 				},
 			},
-			wantProto: &authn.Policy{
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-				Peers: []*authn.PeerAuthenticationMethod{{
-					&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
-				}},
+			want: Entry{
+				Key:          resource.FullNameFromNamespaceAndName("default", "foo"),
+				CreationTime: fakeCreateTime.Local(),
+				Metadata: resource.Metadata{
+					Annotations: map[string]string{
+						"a1_key": "a1_value",
+						"a2_key": "a2_value",
+					},
+					Labels: map[string]string{
+						"l1_key": "l1_value",
+						"l2_key": "l2_value",
+					},
+				},
+				Resource: &authn.Policy{
+					Targets: []*authn.TargetSelector{{
+						Name: "foo",
+					}},
+					Peers: []*authn.PeerAuthenticationMethod{{
+						&authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}},
+					}},
+				},
 			},
 		},
 		{
-			name:      "nil resource",
-			in:        nil,
-			wantProto: nil,
+			name: "nil resource",
+			in:   nil,
+			want: Entry{
+				Key:      resource.FullNameFromNamespaceAndName("ns1", "res1"),
+				Resource: nil,
+			},
 		},
 	}
 
@@ -385,30 +460,10 @@ func TestAuthPolicyResource(t *testing.T) {
 				tt.Fatalf("Expected one entry: %v", entries)
 			}
 
-			gotKey := entries[0].Key
-			createTime := entries[0].CreationTime
-			pb := entries[0].Resource
+			got := entries[0]
 
-			if entries[0].Key != wantKey {
-				tt.Fatalf("Keys mismatch. got=%s, want=%s", gotKey, wantKey)
-			}
-
-			if c.in == nil {
-				return
-			}
-
-			if !createTime.Equal(fakeCreateTime) {
-				tt.Fatalf("createTime mismatch: got %q want %q",
-					createTime, fakeCreateTime)
-			}
-
-			gotProto, ok := pb.(*authn.Policy)
-			if !ok {
-				tt.Fatalf("Unable to convert to authn.Policy: %v", pb)
-			}
-
-			if !reflect.DeepEqual(gotProto, c.wantProto) {
-				tt.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", gotProto, c.wantProto)
+			if !reflect.DeepEqual(got, c.want) {
+				tt.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", got, c.want)
 			}
 		})
 	}
@@ -434,14 +489,17 @@ func TestKubeIngressResource(t *testing.T) {
 		IngressControllerMode: meshcfg.MeshConfig_DEFAULT,
 	})
 
+	var nilIngress *extensions.IngressSpec
 	cases := []struct {
-		name      string
-		in        *unstructured.Unstructured
-		wantProto *extensions.IngressSpec
-		cfg       *Config
+		name          string
+		shouldConvert bool
+		in            *unstructured.Unstructured
+		want          Entry
+		cfg           *Config
 	}{
 		{
-			name: "no-conversion",
+			name:          "no-conversion",
+			shouldConvert: false,
 			in: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind": "Ingress",
@@ -449,6 +507,14 @@ func TestKubeIngressResource(t *testing.T) {
 						"creationTimestamp": fakeCreateTime.Format(time.RFC3339),
 						"name":              "foo",
 						"namespace":         "default",
+						"annotations": map[string]interface{}{
+							"a1_key": "a1_value",
+							"a2_key": "a2_value",
+						},
+						"labels": map[string]interface{}{
+							"l1_key": "l1_value",
+							"l2_key": "l2_value",
+						},
 					},
 					"spec": map[string]interface{}{
 						"backend": map[string]interface{}{
@@ -462,10 +528,25 @@ func TestKubeIngressResource(t *testing.T) {
 				Mesh: meshCfgOff,
 			},
 
-			wantProto: nil,
+			want: Entry{
+				Key:          resource.FullNameFromNamespaceAndName("default", "foo"),
+				CreationTime: fakeCreateTime.Local(),
+				Metadata: resource.Metadata{
+					Annotations: map[string]string{
+						"a1_key": "a1_value",
+						"a2_key": "a2_value",
+					},
+					Labels: map[string]string{
+						"l1_key": "l1_value",
+						"l2_key": "l2_value",
+					},
+				},
+				Resource: nil,
+			},
 		},
 		{
-			name: "strict",
+			name:          "strict",
+			shouldConvert: true,
 			in: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"kind": "Ingress",
@@ -475,6 +556,10 @@ func TestKubeIngressResource(t *testing.T) {
 						"namespace":         "default",
 						"annotations": map[string]interface{}{
 							"kubernetes.io/ingress.class": "cls",
+						},
+						"labels": map[string]interface{}{
+							"l1_key": "l1_value",
+							"l2_key": "l2_value",
 						},
 					},
 					"spec": map[string]interface{}{
@@ -489,21 +574,38 @@ func TestKubeIngressResource(t *testing.T) {
 				Mesh: meshCfgStrict,
 			},
 
-			wantProto: &extensions.IngressSpec{
-				Backend: &extensions.IngressBackend{
-					ServiceName: "testsvc",
-					ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "80"},
+			want: Entry{
+				Key:          resource.FullNameFromNamespaceAndName("default", "foo"),
+				CreationTime: fakeCreateTime.Local(),
+				Metadata: resource.Metadata{
+					Annotations: map[string]string{
+						"kubernetes.io/ingress.class": "cls",
+					},
+					Labels: map[string]string{
+						"l1_key": "l1_value",
+						"l2_key": "l2_value",
+					},
+				},
+				Resource: &extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "testsvc",
+						ServicePort: intstr.IntOrString{Type: intstr.String, StrVal: "80"},
+					},
 				},
 			},
 		},
 		{
-			name: "nil",
-			in:   nil,
+			name:          "nil",
+			shouldConvert: true,
+			in:            nil,
 			cfg: &Config{
 				Mesh: meshCfgDefault,
 			},
 
-			wantProto: &extensions.IngressSpec{},
+			want: Entry{
+				Key:      resource.FullNameFromNamespaceAndName("ns1", "res1"),
+				Resource: nilIngress,
+			},
 		},
 	}
 
@@ -518,8 +620,7 @@ func TestKubeIngressResource(t *testing.T) {
 				tt.Fatalf("Unexpected error: %v", err)
 			}
 
-			if c.wantProto == nil {
-
+			if !c.shouldConvert {
 				if len(entries) != 0 {
 					tt.Fatalf("Expected zero entries: %v", entries)
 				}
@@ -530,30 +631,10 @@ func TestKubeIngressResource(t *testing.T) {
 				tt.Fatalf("Expected one entry: %v", entries)
 			}
 
-			gotKey := entries[0].Key
-			createTime := entries[0].CreationTime
-			pb := entries[0].Resource
+			got := entries[0]
 
-			if entries[0].Key != wantKey {
-				tt.Fatalf("Keys mismatch. got=%s, want=%s", gotKey, wantKey)
-			}
-
-			if c.in == nil {
-				return
-			}
-
-			if !createTime.Equal(fakeCreateTime) {
-				tt.Fatalf("createTime mismatch: got %q want %q",
-					createTime, fakeCreateTime)
-			}
-
-			gotProto, ok := pb.(*extensions.IngressSpec)
-			if !ok {
-				tt.Fatalf("Unable to convert to ingress spec: %v", pb)
-			}
-
-			if !reflect.DeepEqual(gotProto, c.wantProto) {
-				tt.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", gotProto, c.wantProto)
+			if !reflect.DeepEqual(got.Resource, c.want.Resource) {
+				tt.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", got.Resource, c.want.Resource)
 			}
 		})
 	}
@@ -612,7 +693,7 @@ func TestKubeServiceResource(t *testing.T) {
 	cases := []struct {
 		name string
 		from corev1.Service
-		want proto.Message
+		want Entry
 	}{
 		{
 			name: "Simple",
@@ -621,6 +702,14 @@ func TestKubeServiceResource(t *testing.T) {
 					Name:              "reviews",
 					Namespace:         "default",
 					CreationTimestamp: meta_v1.Time{Time: fakeCreateTime},
+					Annotations: map[string]string{
+						"a1_key": "a1_value",
+						"a2_key": "a2_value",
+					},
+					Labels: map[string]string{
+						"l1_key": "l1_value",
+						"l2_key": "l2_value",
+					},
 				},
 				Spec: corev1.ServiceSpec{
 					ClusterIP: "10.39.241.161",
@@ -646,26 +735,40 @@ func TestKubeServiceResource(t *testing.T) {
 					},
 				},
 			},
-			want: &networking.ServiceEntry{
-				Hosts:      []string{"reviews.default.svc.cluster.local"},
-				Addresses:  []string{"10.39.241.161"},
-				Resolution: networking.ServiceEntry_STATIC,
-				Location:   networking.ServiceEntry_MESH_INTERNAL,
-				Ports: []*networking.Port{
-					{
-						Name:     "http",
-						Number:   9080,
-						Protocol: "HTTP",
+			want: Entry{
+				Key:          resource.FullNameFromNamespaceAndName("default", "reviews"),
+				CreationTime: fakeCreateTime.Local(),
+				Metadata: resource.Metadata{
+					Annotations: map[string]string{
+						"a1_key": "a1_value",
+						"a2_key": "a2_value",
 					},
-					{
-						Name:     "https-web",
-						Number:   9081,
-						Protocol: "HTTPS",
+					Labels: map[string]string{
+						"l1_key": "l1_value",
+						"l2_key": "l2_value",
 					},
-					{
-						Name:     "ssh",
-						Number:   9082,
-						Protocol: "TCP",
+				},
+				Resource: &networking.ServiceEntry{
+					Hosts:      []string{"reviews.default.svc.cluster.local"},
+					Addresses:  []string{"10.39.241.161"},
+					Resolution: networking.ServiceEntry_STATIC,
+					Location:   networking.ServiceEntry_MESH_INTERNAL,
+					Ports: []*networking.Port{
+						{
+							Name:     "http",
+							Number:   9080,
+							Protocol: "HTTP",
+						},
+						{
+							Name:     "https-web",
+							Number:   9081,
+							Protocol: "HTTPS",
+						},
+						{
+							Name:     "ssh",
+							Number:   9082,
+							Protocol: "TCP",
+						},
 					},
 				},
 			},
@@ -679,17 +782,18 @@ func TestKubeServiceResource(t *testing.T) {
 			if err := convertJSON(&c.from, &u.Object); err != nil {
 				t.Fatalf("Internal test error: %v", err)
 			}
-			want := []Entry{{
-				Key:          resource.FullNameFromNamespaceAndName(c.from.Namespace, c.from.Name),
-				CreationTime: fakeCreateTime.Local(),
-				Resource:     c.want,
-			}}
-			got, err := kubeServiceResource(&Config{DomainSuffix: "cluster.local"}, resource.Info{}, want[0].Key, "kind", &u)
+			entries, err := kubeServiceResource(&Config{DomainSuffix: "cluster.local"}, resource.Info{}, c.want.Key, "kind", &u)
 			if err != nil {
-				t.Fatalf("kubeServiceResource: %v", err)
+				t.Fatalf("Unexpected error: %v", err)
 			}
-			if !reflect.DeepEqual(got, want) {
-				t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", got, want)
+			if len(entries) != 1 {
+				t.Fatalf("Expected one entry: %v", entries)
+			}
+
+			got := entries[0]
+
+			if !reflect.DeepEqual(got, c.want) {
+				t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", got, c.want)
 			}
 		})
 	}
