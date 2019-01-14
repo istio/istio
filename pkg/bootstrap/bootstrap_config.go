@@ -102,7 +102,6 @@ func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFnam
 
 	// spin up a new Envoy process
 	args := createArgs(config, node, configFname, epoch, cliarg)
-	args = append(args, "--v2-config-only")
 
 	/* #nosec */
 	cmd := exec.Command(config.BinaryPath, args...)
