@@ -19,6 +19,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -26,6 +27,9 @@ import (
 
 // ListenerProtocol is the protocol associated with the listener.
 type ListenerProtocol int
+
+// Name is the name of the plugin
+type Name string
 
 const (
 	// ListenerProtocolUnknown is an unknown type of listener.
@@ -90,6 +94,8 @@ type InputParams struct {
 	Subset string
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
+	// PerRouteFilterConfig holds per Route Filter config
+	PerRouteFilterConfig map[string]*types.Struct
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
@@ -150,4 +156,10 @@ type Plugin interface {
 	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
 	// configuration, like FilterChainMatch and TLSContext.
 	OnInboundFilterChains(in *InputParams) []FilterChain
+
+	// OnPreComputePerRouteFilterConfig is called whenever a new push is initialized to set up Per Route Filter config
+	OnPreComputePerRouteFilterConfig(env *model.Environment, push *model.PushContext) map[string]*types.Struct
+
+	// GetName returns the Plugin name
+	GetName() Name
 }

@@ -21,6 +21,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -72,13 +73,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	}
 
 	for _, p := range configgen.Plugins {
+		var perRouteFilterConfig map[string]*types.Struct
+		if c, ok := configgen.PerRouteFilterConfig[p.GetName()].(map[string]*types.Struct); ok {
+			perRouteFilterConfig = c
+		} else {
+			perRouteFilterConfig = nil
+		}
 		in := &plugin.InputParams{
-			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              env,
-			Node:             node,
-			ServiceInstance:  instance,
-			Service:          instance.Service,
-			Push:             push,
+			ListenerProtocol:     plugin.ListenerProtocolHTTP,
+			Env:                  env,
+			Node:                 node,
+			ServiceInstance:      instance,
+			Service:              instance.Service,
+			Push:                 push,
+			PerRouteFilterConfig: perRouteFilterConfig,
 		}
 		p.OnInboundRouteConfiguration(in, r)
 	}
@@ -177,11 +185,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 
 	// call plugins
 	for _, p := range configgen.Plugins {
+		var perRouteFilterConfig map[string]*types.Struct
+		if c, ok := configgen.PerRouteFilterConfig[p.GetName()].(map[string]*types.Struct); ok {
+			perRouteFilterConfig = c
+		} else {
+			perRouteFilterConfig = nil
+		}
 		in := &plugin.InputParams{
-			ListenerProtocol: plugin.ListenerProtocolHTTP,
-			Env:              env,
-			Node:             node,
-			Push:             push,
+			ListenerProtocol:     plugin.ListenerProtocolHTTP,
+			Env:                  env,
+			Node:                 node,
+			Push:                 push,
+			PerRouteFilterConfig: perRouteFilterConfig,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}

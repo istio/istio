@@ -326,6 +326,11 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 	return buildFilter(in, mutable)
 }
 
+// OnPreComputeMixerPerRouteFilterConfig is called whenever a new push is initialized to set up Mixer Per Route Filter config
+func (Plugin) OnPreComputeMixerPerRouteFilterConfig(env *model.Environment, push *model.PushContext) map[string]*types.Struct {
+	return nil
+}
+
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
@@ -374,4 +379,14 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+}
+
+// OnPreComputeMixerPerRouteFilterConfig is called whenever a new push is initialized to set up  Per Route Filter config
+func (Plugin) OnPreComputePerRouteFilterConfig(env *model.Environment, push *model.PushContext) map[string]*types.Struct {
+	return nil
+}
+
+// GetName returns the Plugin name
+func (Plugin) GetName() plugin.Name {
+	return plugin.Authn
 }
