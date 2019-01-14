@@ -190,7 +190,8 @@ func (s *httpServer) start() error {
 	}
 
 	if len(s.uds) > 0 {
-		listener, p, err = listenOnUDS(s.uds)
+		p = 0
+		listener, err = listenOnUDS(s.uds)
 	} else {
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, p, err = listenOnPort(s.port.Port)
@@ -271,12 +272,12 @@ func listenOnPort(port int) (net.Listener, int, error) {
 	return ln, port, nil
 }
 
-func listenOnUDS(uds string) (net.Listener, int, error) {
+func listenOnUDS(uds string) (net.Listener, error) {
 	os.Remove(uds)
 	ln, err := net.Listen("unix", uds)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	return ln, 0, nil
+	return ln, nil
 }
