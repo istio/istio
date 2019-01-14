@@ -620,38 +620,58 @@ func TestNewMetrics(t *testing.T) {
 
 	dumpK8Env()
 	allowRuleSync()
-	allowRuleSync() // TODO: better way to ensure MCP sync of new Mixer config...
 
-	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
-		fatalf(t, "Test app setup failure: %v", err)
+	var got float64
+
+	retry := util.Retrier{
+		BaseDelay: 10 * time.Second,
+		MaxDelay:  30 * time.Second,
+		Retries:   4,
 	}
 
-	log.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	allowPrometheusSync()
 	promAPI, err := promAPI()
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("sum(istio_double_request_count{%s=\"%s\"})", "destination", "productpage-v1")
-	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		fatalf(t, "Could not get metrics from prometheus: %v", err)
-	}
-	log.Infof("promvalue := %s", value.String())
 
-	got, err := vectorValue(value, map[string]string{})
-	if err != nil {
+	retryFn := func(ctx context.Context, i int) error {
+		if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+			return fmt.Errorf("test app setup failure: %v", err)
+		}
+
+		t.Logf("Successfully sent request(s) to /productpage; checking metrics...")
+		allowPrometheusSync()
+		query := fmt.Sprintf("sum(istio_double_request_count{%s=\"%s\"})", "destination", "productpage-v1")
+		t.Logf("prometheus query: %s", query)
+		value, err := promAPI.Query(ctx, query, time.Now())
+		if err != nil {
+			return fmt.Errorf("could not get metrics from prometheus: %v", err)
+		}
+		t.Logf("promvalue := %s", value.String())
+
+		got, err = vectorValue(value, map[string]string{})
+		if err != nil {
+			t.Logf("prometheus values for istio_double_request_count:\n%s", promDump(promAPI, "istio_double_request_count"))
+			t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
+			return fmt.Errorf("could not extract value from received metric: %v", err)
+		}
+
+		return nil
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
 		t.Logf("prometheus values for istio_double_request_count:\n%s", promDump(promAPI, "istio_double_request_count"))
-		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
+		dumpMixerMetrics()
 		fatalf(t, "Could not find metric value: %v", err)
 	}
+
 	want := float64(2)
 	if got < want {
 		t.Logf("prometheus values for istio_double_request_count:\n%s", promDump(promAPI, "istio_double_request_count"))
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
+
 }
 
 func TestKubeenvMetrics(t *testing.T) {
