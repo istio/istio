@@ -33,6 +33,7 @@ func AddProcessor(t resource.TypeURL, b *processing.GraphBuilder) {
 			env, err := resource.ToMcpResource(e.Entry)
 			if err != nil {
 				scope.Errorf("Error enveloping incoming resource(%v): %v", e.Entry.ID, err)
+				return
 			}
 			v.Set(e.Entry.ID.FullName, env)
 

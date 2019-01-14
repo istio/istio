@@ -16,6 +16,8 @@ package processing
 
 import (
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -39,6 +41,9 @@ func TestSnapshotter_Basic(t *testing.T) {
 	expected := []*mcp.Resource{toMcpResourceOrPanic(res1V1()), toMcpResourceOrPanic(res2V1())}
 
 	actual := sn.Resources(emptyInfo.TypeURL.String())
+	sort.Slice(actual, func(i, j int) bool {
+		return strings.Compare(actual[i].Metadata.Name, actual[j].Metadata.Name) < 0
+	})
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("Mismatch: got:%v, wanted:%v", actual, expected)
 	}

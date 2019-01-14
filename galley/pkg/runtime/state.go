@@ -37,6 +37,8 @@ type State struct {
 	pipeline processing.Graph
 
 	lock sync.Mutex
+
+	changeGen uint64
 }
 
 func newState(schema *resource.Schema, cfg *Config) *State {
@@ -61,6 +63,8 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 	}
 	ingress.AddProcessor(&icfg, b)
 
+	b.AddListener(s)
+
 	s.pipeline = b.Build()
 
 	return s
@@ -69,17 +73,17 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 func (s *State) apply(event resource.Event) bool {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.pipeline.Handle(event)
 
-	// TODO
-	return true
+	changeGen := s.changeGen
+	s.pipeline.Handle(event)
+	return changeGen != s.changeGen
 }
 
 func (s *State) buildSnapshot() snapshot.Snapshot {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	// TODO:
+	// TODO: cleanup and avoid allocations here
 	var urls []resource.TypeURL
 	for _, i := range s.schema.All() {
 		urls = append(urls, i.TypeURL)
@@ -98,4 +102,8 @@ func (s *State) String() string {
 	fmt.Fprintf(&b, "%v", sn)
 
 	return b.String()
+}
+
+func (s *State) TypeChanged(t resource.TypeURL) {
+	s.changeGen++
 }

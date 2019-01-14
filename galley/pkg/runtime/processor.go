@@ -15,9 +15,11 @@
 package runtime
 
 import (
-	"github.com/pkg/errors"
 
-	"time"
+"time"
+
+"github.com/pkg/errors"
+
 
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
