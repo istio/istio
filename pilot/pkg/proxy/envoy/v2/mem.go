@@ -105,6 +105,7 @@ func (sd *MemServiceDiscovery) ClearErrors() {
 func (sd *MemServiceDiscovery) AddHTTPService(name, vip string, port int) {
 	sd.AddService(model.Hostname(name), &model.Service{
 		Hostname: model.Hostname(name),
+		Address:  vip,
 		Ports: model.PortList{
 			{
 				Name:     "http-main",
