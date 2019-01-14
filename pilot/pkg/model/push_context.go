@@ -719,6 +719,7 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 	ps.sidecarsByNamespace = make(map[string][]*SidecarScope)
 	for _, sidecarConfig := range sidecarConfigs {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
+		sidecarConfig := sidecarConfig
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
 			ConvertToSidecarScope(ps, &sidecarConfig))
 	}

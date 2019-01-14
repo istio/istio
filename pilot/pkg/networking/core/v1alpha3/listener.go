@@ -275,7 +275,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			proxy:          node,
 			proxyInstances: proxyInstances,
 			bind:           listenAddress,
-			port:           int(mesh.ProxyHttpPort),
+			port:           int(httpProxyPort),
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
 					rds:              RDSHttpProxy,
@@ -669,6 +669,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	sidecarScope := node.SidecarScope
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
@@ -682,7 +683,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 		// determine the bindToPort setting for listeners
 		bindToPort := false
-		if node.GetInterceptionMode() == model.InterceptionNone {
+		if noneMode {
 			bindToPort = true
 		}
 

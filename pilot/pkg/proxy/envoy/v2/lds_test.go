@@ -14,6 +14,7 @@
 package v2_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -88,7 +89,7 @@ func TestLDSIsolated(t *testing.T) {
 			}
 
 			if err = util.Compare(got, want); err != nil {
-				t.Error(err)
+				t.Error(fmt.Errorf("Error in golden file %s %v", s, err))
 			}
 		}
 
