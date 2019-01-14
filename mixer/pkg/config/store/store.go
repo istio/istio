@@ -77,7 +77,11 @@ type BackEndResource struct {
 
 // Key returns the key of the resource in the store.
 func (ber *BackEndResource) Key() Key {
-	return Key{Kind: ber.Kind, Name: ber.Metadata.Name, Namespace: ber.Metadata.Namespace}
+	return Key{
+		Kind:      ber.Kind,
+		Name:      ber.Metadata.Name,
+		Namespace: ber.Metadata.Namespace,
+	}
 }
 
 // Resource represents a resources with converted spec.
@@ -230,7 +234,10 @@ func (s *store) Get(key Key) (*Resource, error) {
 	if err = convert(key, obj.Spec, pbSpec); err != nil {
 		return nil, err
 	}
-	return &Resource{Metadata: obj.Metadata, Spec: pbSpec}, nil
+	return &Resource{
+		Metadata: obj.Metadata,
+		Spec:     pbSpec,
+	}, nil
 }
 
 // List returns the whole mapping from key to resource specs in the store.

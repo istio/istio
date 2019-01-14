@@ -213,12 +213,13 @@ func (e *Environment) deployIstio() (err error) {
 	}()
 
 	e.deployment, err = deployment.NewHelmDeployment(deployment.HelmConfig{
-		Accessor:   e.Accessor,
-		Namespace:  e.systemNamespace.allocatedName,
-		WorkDir:    e.ctx.WorkDir(),
-		ChartDir:   e.s.ChartDir,
-		ValuesFile: e.s.ValuesFile,
-		Values:     e.s.Values,
+		Accessor:     e.Accessor,
+		Namespace:    e.systemNamespace.allocatedName,
+		WorkDir:      e.ctx.WorkDir(),
+		ChartDir:     e.s.ChartDir,
+		CrdsFilesDir: e.s.CrdsFilesDir,
+		ValuesFile:   e.s.ValuesFile,
+		Values:       e.s.Values,
 	})
 	if err == nil {
 		err = e.deployment.Deploy(e.Accessor, true, retry.Timeout(e.s.DeployTimeout))

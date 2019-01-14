@@ -60,7 +60,8 @@ func (b *InMemoryBuilder) Set(typeURL string, version string, resources []*mcp.R
 
 // SetEntry sets a single entry. Note that this is a slow operation, as update requires scanning
 // through existing entries.
-func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime time.Time, m proto.Message) error {
+func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime time.Time, labels,
+	annotations map[string]string, m proto.Message) error {
 	contents, err := proto.Marshal(m)
 	if err != nil {
 		return err
@@ -73,9 +74,11 @@ func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime tim
 
 	e := &mcp.Resource{
 		Metadata: &mcp.Metadata{
-			Name:       name,
-			CreateTime: createTimeProto,
-			Version:    version,
+			Name:        name,
+			CreateTime:  createTimeProto,
+			Labels:      labels,
+			Annotations: annotations,
+			Version:     version,
 		},
 		Body: &types.Any{
 			Value:   contents,
@@ -187,7 +190,7 @@ func (s *InMemory) String() string {
 	sort.Strings(messages)
 
 	for i, n := range messages {
-		fmt.Fprintf(&b, "[%d] (%s @%s)\n", i, n, s.versions[n])
+		_, _ = fmt.Fprintf(&b, "[%d] (%s @%s)\n", i, n, s.versions[n])
 
 		envs := s.resources[n]
 
@@ -199,7 +202,7 @@ func (s *InMemory) String() string {
 		})
 
 		for j, entry := range entries {
-			fmt.Fprintf(&b, "  [%d] (%s)\n", j, entry.Metadata.Name)
+			_, _ = fmt.Fprintf(&b, "  [%d] (%s)\n", j, entry.Metadata.Name)
 		}
 	}
 
