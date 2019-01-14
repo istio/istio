@@ -19,7 +19,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 )
@@ -83,6 +82,11 @@ func FromMcpResource(s *Schema, e *mcp.Resource) (Entry, error) {
 		return Entry{}, fmt.Errorf("error unmarshaling proto: %v", err)
 	}
 
+	createTime, err := types.TimestampFromProto(e.Metadata.CreateTime)
+	if err != nil {
+		return Entry{}, fmt.Errorf("error unmarshaling create time: %v", err)
+	}
+
 	return Entry{
 		ID: VersionedKey{
 			Version: Version(e.Metadata.Version),
@@ -90,6 +94,9 @@ func FromMcpResource(s *Schema, e *mcp.Resource) (Entry, error) {
 				TypeURL:  info.TypeURL,
 				FullName: FullName{e.Metadata.Name},
 			},
+		},
+		Metadata: Metadata{
+			CreateTime: createTime,
 		},
 		Item: p,
 	}, nil

@@ -113,7 +113,7 @@ func ToGateway(entry resource.Entry) (resource.Entry, error) {
 			Version: entry.ID.Version,
 		},
 		Item:     gateway,
-		Metadata: entry.Metadata,
+		Metadata: resource.Metadata{},
 	}
 
 	return gw, nil

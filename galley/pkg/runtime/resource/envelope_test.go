@@ -34,6 +34,8 @@ func TestEnvelope_Basic(t *testing.T) {
 				TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 				FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 			},
+		},
+		Metadata: Metadata{
 			CreateTime: time.Unix(1, 1).UTC(),
 		},
 		Item: &types.Empty{},
@@ -56,7 +58,7 @@ func TestEnvelope_Basic(t *testing.T) {
 		t.Fatal("CreateTime is nil")
 	}
 
-	if env.Resource == nil {
+	if env.Body == nil {
 		t.Fatal("Resource is nil is nil")
 	}
 
@@ -81,6 +83,8 @@ func TestEnvelope_MarshalError(t *testing.T) {
 				TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 				FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 			},
+		},
+		Metadata: Metadata{
 			CreateTime: time.Unix(1, 1).UTC(),
 		},
 		Item: &invalidProto{},
@@ -100,6 +104,8 @@ func TestEnvelope_TimestampError(t *testing.T) {
 				TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 				FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 			},
+		},
+		Metadata: Metadata{
 			CreateTime: time.Unix(math.MinInt64, math.MinInt64).UTC(),
 		},
 		Item: &types.Empty{},
@@ -118,6 +124,8 @@ func TestExtract_NoRegisteredUrl(t *testing.T) {
 				TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 				FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 			},
+		},
+		Metadata: Metadata{
 			CreateTime: time.Unix(1, 1).UTC(),
 		},
 		Item: &types.Empty{},
@@ -143,6 +151,8 @@ func TestExtract_InvalidTimestamp(t *testing.T) {
 				TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 				FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 			},
+		},
+		Metadata: Metadata{
 			CreateTime: time.Unix(1, 1).UTC(),
 		},
 		Item: &types.Empty{},
@@ -171,6 +181,8 @@ func TestExtract_UnmarshalError(t *testing.T) {
 				TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 				FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 			},
+		},
+		Metadata: Metadata{
 			CreateTime: time.Unix(1, 1).UTC(),
 		},
 		Item: &types.Empty{},
@@ -201,6 +213,8 @@ func TestEnvelopeAll(t *testing.T) {
 					TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 					FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 				},
+			},
+			Metadata: Metadata{
 				CreateTime: time.Unix(1, 1).UTC(),
 			},
 			Item: &types.Empty{},
@@ -212,6 +226,8 @@ func TestEnvelopeAll(t *testing.T) {
 					TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 					FullName: FullNameFromNamespaceAndName("ns2", "res2"),
 				},
+			},
+			Metadata: Metadata{
 				CreateTime: time.Unix(2, 2).UTC(),
 			},
 			Item: &types.Empty{},
@@ -246,6 +262,8 @@ func TestEnvelopeAll_Error(t *testing.T) {
 					TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 					FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 				},
+			},
+			Metadata: Metadata{
 				CreateTime: time.Unix(1, 1).UTC(),
 			},
 			Item: &invalidProto{},
@@ -257,6 +275,8 @@ func TestEnvelopeAll_Error(t *testing.T) {
 					TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 					FullName: FullNameFromNamespaceAndName("ns2", "res2"),
 				},
+			},
+			Metadata: Metadata{
 				CreateTime: time.Unix(2, 2).UTC(),
 			},
 			Item: &types.Empty{},
@@ -276,6 +296,8 @@ func TestExtractAll_Error(t *testing.T) {
 					TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 					FullName: FullNameFromNamespaceAndName("ns1", "res1"),
 				},
+			},
+			Metadata: Metadata{
 				CreateTime: time.Unix(1, 1).UTC(),
 			},
 			Item: &empty.Empty{},
@@ -287,6 +309,8 @@ func TestExtractAll_Error(t *testing.T) {
 					TypeURL:  TypeURL{"type.googleapis.com/google.protobuf.Empty"},
 					FullName: FullNameFromNamespaceAndName("ns2", "res2"),
 				},
+			},
+			Metadata: Metadata{
 				CreateTime: time.Unix(2, 2).UTC(),
 			},
 			Item: &types.Empty{},

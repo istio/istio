@@ -183,7 +183,7 @@ func ToVirtualService(key resource.VersionedKey, i *ingress.IngressSpec, meta re
 					Version: resource.Version(fmt.Sprintf("%s-%s", key.FullName, key.Version)),
 				},
 				Item:     virtualService,
-				Metadata: meta,
+				Metadata: resource.Metadata{},
 			}
 		}
 	}
