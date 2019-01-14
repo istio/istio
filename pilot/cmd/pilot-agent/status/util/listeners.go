@@ -21,7 +21,7 @@ import (
 
 	"net"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 var (

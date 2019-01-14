@@ -27,8 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/emicklei/go-restful"
-	"github.com/hashicorp/go-multierror"
+	restful "github.com/emicklei/go-restful"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"istio.io/istio/pilot/pkg/model"

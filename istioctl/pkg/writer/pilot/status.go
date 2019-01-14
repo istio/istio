@@ -22,7 +22,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Pilot responses

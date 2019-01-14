@@ -19,7 +19,7 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"

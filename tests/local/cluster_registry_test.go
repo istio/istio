@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api/v1"
 	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"

@@ -21,7 +21,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 )
 
 // TLSCheckWriter enables printing of tls-check using a single Pilot response

@@ -273,7 +273,7 @@ ident                         : dest.istio-system
 	{
 		name: "BasicReportError",
 		templates: []data.FakeTemplateSettings{{
-			Name: "treport",
+			Name:                  "treport",
 			ErrorOnDispatchReport: true,
 		}},
 		config: []string{
@@ -576,7 +576,7 @@ ident                         : dest.istio-system
 	{
 		name: "BasicPreprocessError",
 		templates: []data.FakeTemplateSettings{{
-			Name: "tapa",
+			Name:                    "tapa",
 			ErrorOnDispatchGenAttrs: true,
 		}},
 		config: []string{

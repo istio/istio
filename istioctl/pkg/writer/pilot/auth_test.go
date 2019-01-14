@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
 
@@ -103,8 +103,8 @@ func TestTLSCheckWriter_PrintSingle(t *testing.T) {
 func authInput() []v2.AuthenticationDebug {
 	return []v2.AuthenticationDebug{
 		{
-			Host: "host1",
-			Port: 1,
+			Host:                     "host1",
+			Port:                     1,
 			AuthenticationPolicyName: "auth-policy1/namespace1",
 			DestinationRuleName:      "destination-rule1/namespace1",
 			ServerProtocol:           "HTTP",
@@ -112,8 +112,8 @@ func authInput() []v2.AuthenticationDebug {
 			TLSConflictStatus:        "OK",
 		},
 		{
-			Host: "host2",
-			Port: 2,
+			Host:                     "host2",
+			Port:                     2,
 			AuthenticationPolicyName: "auth-policy2/namespace2",
 			DestinationRuleName:      "destination-rule2/namespace2",
 			ServerProtocol:           "HTTP",
@@ -121,8 +121,8 @@ func authInput() []v2.AuthenticationDebug {
 			TLSConflictStatus:        "OK",
 		},
 		{
-			Host: "",
-			Port: 9999,
+			Host:                     "",
+			Port:                     9999,
 			AuthenticationPolicyName: "auth-policy/namespace",
 			DestinationRuleName:      "destination-rule/namespace",
 			ServerProtocol:           "HTTP",

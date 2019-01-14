@@ -39,7 +39,7 @@ var (
 	samplesPerSec = 100000
 
 	grpcLatencyOpts = loadshedding.Options{
-		Mode: loadshedding.Enforce,
+		Mode:                    loadshedding.Enforce,
 		AverageLatencyThreshold: 1 * time.Nanosecond,
 		SampleHalfLife:          1 * time.Millisecond,
 		SamplesPerSecond:        rate.Every(1 * time.Nanosecond),

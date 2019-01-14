@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/tests/util"
 )
 

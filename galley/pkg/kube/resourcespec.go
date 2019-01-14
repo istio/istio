@@ -15,7 +15,7 @@
 package kube
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sc "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/galley/pkg/kube/converter"

@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"

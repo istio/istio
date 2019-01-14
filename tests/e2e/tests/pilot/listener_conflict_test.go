@@ -25,7 +25,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/tests/util"

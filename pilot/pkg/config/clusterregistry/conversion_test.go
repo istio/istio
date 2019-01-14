@@ -22,7 +22,7 @@ import (
 	"text/template"
 
 	"github.com/pborman/uuid"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"

@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
