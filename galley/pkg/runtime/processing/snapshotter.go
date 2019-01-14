@@ -48,7 +48,7 @@ func (s *snapshotter) snapshot(urls []resource.TypeURL) snapshot.Snapshot {
 	for _, u := range urls {
 		projections, found := s.projections[u]
 		if !found {
-			scope.Errorf("TypeURL not found for snapshotting: %p", u)
+			scope.Errorf("TypeURL not found for snapshotting: %v", u)
 			continue
 		}
 		version := ""
