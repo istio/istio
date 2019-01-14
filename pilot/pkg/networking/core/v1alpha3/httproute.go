@@ -21,6 +21,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
+	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -102,7 +103,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	if err != nil {
 		// we have a port whose name is http_proxy or unix:///foo/bar
 		// check for both.
-		if routeName != RDSHttpProxy || !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+		if routeName != RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
 			return nil
 		}
 	}
@@ -112,12 +113,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 	// Get the list of services that correspond to this egressListener from the sidecarScope
 	sidecarScope := node.SidecarScope
 	// sidecarScope should never be nil
-	if sidecarScope != nil {
+	if sidecarScope != nil && sidecarScope.Config != nil {
 		// this is a user supplied sidecar scope. Get the services from the egress listener
 		egressListener := sidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
 		// We should never be getting a nil egress listener because the code that setup this RDS
 		// call obviously saw an egress listener
 		if egressListener == nil {
+			log.Debugf("v1alpha3: could not find egressListener for routeName %s", routeName)
 			return nil
 		}
 
@@ -125,6 +127,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 		// To maintain correctness, we should only use the virtualservices for
 		// this listener and not all virtual services accessible to this proxy.
 		virtualServices = egressListener.VirtualServices()
+
+		// When generating RDS for ports created via the SidecarScope, we treat
+		// these ports as HTTP proxy style ports. All services attached to this listener
+		// must feature in this RDS route irrespective of the service port.
+		listenerPort = 0
 	} else {
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
 		virtualServices = push.VirtualServices(node, meshGateway)
@@ -137,19 +144,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			// Expect virtualServices to resolve to right port
 			nameToServiceMap[svc.Hostname] = svc
 		} else {
-			// TODO: BUG. With the new sidecar API, users could specify any
-			// arbitrary egress listener Port that has no relation to the
-			// service Port. If such is the case, the map below may be
-			// empty. If this map is empty, no virtual hosts would get formed.
-			//
-			// The problem is compounded when user specifies a port that
-			// exists in one service but not in other services in the
-			// listener. Given that this is specified in the context of a
-			// listener with a port, our options for auto inference are
-			// limited. We could completely skip those services who dont
-			// have matching port but how do we distinguish the case where
-			// user specifies port: 60000, host: ns1/*, with a
-			// virtualService matching this listener port?
 			if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 
 				nameToServiceMap[svc.Hostname] = &model.Service{
