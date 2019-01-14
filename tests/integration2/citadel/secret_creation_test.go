@@ -15,6 +15,7 @@
 package citadel
 
 import (
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -61,5 +62,6 @@ func TestSecretCreationKubernetes(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.Run("citadel_test", m)
+	rt, _ := framework.Run("citadel_test", m)
+	os.Exit(rt)
 }
