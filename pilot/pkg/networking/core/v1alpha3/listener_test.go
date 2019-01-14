@@ -35,11 +35,11 @@ var (
 	tnow  = time.Now()
 	tzero = time.Time{}
 	proxy = model.Proxy{
-		Type:        model.SidecarProxy,
-		IPAddresses: []string{"1.1.1.1"},
-		ID:          "v0.default",
-		DNSDomain:   "default.example.org",
-		Metadata:    map[string]string{model.NodeConfigNamespace: "not-default"},
+		Type:            model.SidecarProxy,
+		IPAddresses:     []string{"1.1.1.1"},
+		ID:              "v0.default",
+		DNSDomain:       "default.example.org",
+		Metadata:        map[string]string{model.NodeConfigNamespace: "not-default"},
 		ConfigNamespace: "not-default",
 	}
 	proxyInstances = []*model.ServiceInstance{
