@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
@@ -84,57 +83,51 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 	cancelFunc = func() {
 		log.Printf("watch canceled for %s\n", req.GetTypeUrl())
 	}
-	if req.GetTypeUrl() == fmt.Sprintf("type.googleapis.com/%s", model.Gateway.MessageName) {
-		marshaledFirstGateway, err := proto.Marshal(firstGateway)
+	if req.GetTypeUrl() == model.Gateway.Collection {
+		marshaledFirstGateway, err := types.MarshalAny(firstGateway)
 		if err != nil {
 			log.Fatalf("marshaling gateway %s\n", err)
 		}
-		marshaledSecondGateway, err := proto.Marshal(secondGateway)
+		marshaledSecondGateway, err := types.MarshalAny(secondGateway)
 		if err != nil {
 			log.Fatalf("marshaling gateway %s\n", err)
 		}
 
 		return &mcpserver.WatchResponse{
-			Version: req.GetVersionInfo(),
-			TypeURL: req.GetTypeUrl(),
+			Version:    req.GetVersionInfo(),
+			Collection: req.GetTypeUrl(),
 			Resources: []*mcp.Resource{
 				{
 					Metadata: &mcp.Metadata{
 						Name:       "some-name",
 						CreateTime: fakeCreateTime,
 					},
-					Body: &types.Any{
-						TypeUrl: req.GetTypeUrl(),
-						Value:   marshaledFirstGateway,
-					},
+					Body: marshaledFirstGateway,
 				},
 				{
 					Metadata: &mcp.Metadata{
 						Name:       "some-other-name",
 						CreateTime: fakeCreateTime,
 					},
-					Body: &types.Any{
-						TypeUrl: req.GetTypeUrl(),
-						Value:   marshaledSecondGateway,
-					},
+					Body: marshaledSecondGateway,
 				},
 			},
 		}, cancelFunc
 	}
 	return &mcpserver.WatchResponse{
-		Version:   req.GetVersionInfo(),
-		TypeURL:   req.GetTypeUrl(),
-		Resources: []*mcp.Resource{},
+		Version:    req.GetVersionInfo(),
+		Collection: req.GetTypeUrl(),
+		Resources:  []*mcp.Resource{},
 	}, cancelFunc
 }
 
 func runMcpServer() (*mockmcp.Server, error) {
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]string, len(model.IstioConfigTypes))
 	for i, m := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
+		collections[i] = m.Collection
 	}
 
-	server, err := mockmcp.NewServer(supportedTypes, mcpServerResponse)
+	server, err := mockmcp.NewServer(collections, mcpServerResponse)
 	if err != nil {
 		return nil, err
 	}

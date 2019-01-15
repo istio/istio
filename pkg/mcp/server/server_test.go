@@ -33,7 +33,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
+	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type mockConfigWatcher struct {
