@@ -91,7 +91,7 @@ func TestLDSIsolated(t *testing.T) {
 			}
 
 			if err = util.Compare(got, want); err != nil {
-				t.Error(fmt.Errorf("Error in golden file %s %v", s, err))
+				t.Error(fmt.Errorf("error in golden file %s %v", s, err))
 			}
 		}
 
