@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptest "istio.io/istio/pkg/mcp/testing"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
+	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type updater struct {
