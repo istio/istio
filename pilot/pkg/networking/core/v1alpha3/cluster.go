@@ -858,14 +858,18 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	cluster := &v2.Cluster{
 		Name: name,
 		Type: discoveryType,
-		LoadAssignment: &v2.ClusterLoadAssignment{
-			ClusterName: name,
-			Endpoints:   localityLbEndpoints,
-		},
 	}
 
 	if discoveryType == v2.Cluster_STRICT_DNS || discoveryType == v2.Cluster_LOGICAL_DNS {
 		cluster.DnsLookupFamily = v2.Cluster_V4_ONLY
+	}
+
+	if discoveryType == v2.Cluster_STATIC || discoveryType == v2.Cluster_STRICT_DNS ||
+		discoveryType == v2.Cluster_LOGICAL_DNS {
+		cluster.LoadAssignment = &v2.ClusterLoadAssignment{
+			ClusterName: name,
+			Endpoints:   localityLbEndpoints,
+		}
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)

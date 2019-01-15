@@ -680,7 +680,7 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 	out := xdshttpfault.HTTPFault{}
 	if in.Delay != nil {
 		out.Delay = &xdsfault.FaultDelay{Type: xdsfault.FaultDelay_FIXED}
-		if util.Is11Proxy(node) {
+		if util.IsProxyVersionGE11(node) {
 			if in.Delay.Percentage != nil {
 				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 			} else {
@@ -707,7 +707,7 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 
 	if in.Abort != nil {
 		out.Abort = &xdshttpfault.FaultAbort{}
-		if util.Is11Proxy(node) {
+		if util.IsProxyVersionGE11(node) {
 			if in.Abort.Percentage != nil {
 				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
 			} else {

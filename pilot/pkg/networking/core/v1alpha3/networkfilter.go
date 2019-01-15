@@ -54,7 +54,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 			Path: env.Mesh.AccessLogFile,
 		}
 
-		if util.Is11Proxy(node) {
+		if util.IsProxyVersionGE11(node) {
 			buildAccessLog(fl, env)
 		}
 

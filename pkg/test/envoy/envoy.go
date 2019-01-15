@@ -166,8 +166,6 @@ func (e *Envoy) getCommandArgs() []string {
 	args := []string{
 		"--base-id",
 		strconv.FormatUint(uint64(e.baseID), 10),
-		// Always force v2 config.
-		"--v2-config-only",
 		"--config-path",
 		e.YamlFile,
 		"--log-level",

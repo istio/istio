@@ -15,13 +15,62 @@
 package cloudwatch
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	istio_policy_v1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/cloudwatch/config"
+	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/logentry"
 	"istio.io/istio/mixer/template/metric"
 )
+
+func TestBasic(t *testing.T) {
+	info := GetInfo()
+
+	if !containsTemplate(info.SupportedTemplates, logentry.TemplateName, metric.TemplateName) {
+		t.Error("Didn't find all expected supported templates")
+	}
+
+	cfg := info.DefaultConfig
+	b := info.NewBuilder()
+
+	params := cfg.(*config.Params)
+	params.Namespace = "default"
+	params.LogGroupName = "group"
+	params.LogStreamName = "stream"
+	params.Logs = make(map[string]*config.Params_LogInfo)
+	params.Logs["empty"] = &config.Params_LogInfo{PayloadTemplate: "   "}
+	params.Logs["other"] = &config.Params_LogInfo{PayloadTemplate: `{{or (.source_ip) "-"}}`}
+
+	b.SetAdapterConfig(cfg)
+
+	if err := b.Validate(); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
+	}
+
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Errorf("Got error %v, expecting success", err)
+	}
+
+	if err = handler.Close(); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
+	}
+}
+
+func containsTemplate(s []string, template ...string) bool {
+	found := 0
+	for _, a := range s {
+		for _, t := range template {
+			if t == a {
+				found++
+			}
+		}
+	}
+	return found == len(template)
+}
 
 func TestValidate(t *testing.T) {
 	b := &builder{}
@@ -29,26 +78,86 @@ func TestValidate(t *testing.T) {
 	cases := []struct {
 		cfg            *config.Params
 		metricTypes    map[string]*metric.Type
+		logentryTypes  map[string]*logentry.Type
 		expectedErrors string
 	}{
 		// config missing namespace
 		{
-			&config.Params{},
+			&config.Params{
+				LogGroupName:  "logGroupName",
+				LogStreamName: "logStreamName",
+			},
 			map[string]*metric.Type{
 				"metric": {
 					Value: istio_policy_v1beta1.STRING,
 				},
 			},
+			map[string]*logentry.Type{
+				"logentry": {
+					Variables: map[string]istio_policy_v1beta1.ValueType{
+						"sourceUser": istio_policy_v1beta1.STRING,
+					},
+				},
+			},
 			"namespace",
 		},
-		// length of instance and handler metrics does not match
+		// config missing logGroupName
 		{
 			&config.Params{
-				Namespace: "namespace",
+				Namespace:     "namespace",
+				LogStreamName: "logStreamName",
 			},
 			map[string]*metric.Type{
 				"metric": {
 					Value: istio_policy_v1beta1.STRING,
+				},
+			},
+			map[string]*logentry.Type{
+				"logentry": {
+					Variables: map[string]istio_policy_v1beta1.ValueType{
+						"sourceUser": istio_policy_v1beta1.STRING,
+					},
+				},
+			},
+			"log_group_name",
+		},
+		// config missing logStreamName
+		{
+			&config.Params{
+				Namespace:    "namespace",
+				LogGroupName: "logGroupName",
+			},
+			map[string]*metric.Type{
+				"metric": {
+					Value: istio_policy_v1beta1.STRING,
+				},
+			},
+			map[string]*logentry.Type{
+				"logentry": {
+					Variables: map[string]istio_policy_v1beta1.ValueType{
+						"sourceUser": istio_policy_v1beta1.STRING,
+					},
+				},
+			},
+			"log_stream_name",
+		},
+		// length of instance and handler metrics does not match
+		{
+			&config.Params{
+				Namespace:     "namespace",
+				LogGroupName:  "logGroupName",
+				LogStreamName: "logStreamName",
+			},
+			map[string]*metric.Type{
+				"metric": {
+					Value: istio_policy_v1beta1.STRING,
+				},
+			},
+			map[string]*logentry.Type{
+				"logentry": {
+					Variables: map[string]istio_policy_v1beta1.ValueType{
+						"sourceUser": istio_policy_v1beta1.STRING,
+					},
 				},
 			},
 			"metricInfo",
@@ -60,10 +169,19 @@ func TestValidate(t *testing.T) {
 				MetricInfo: map[string]*config.Params_MetricDatum{
 					"metric": {},
 				},
+				LogGroupName:  "logGroupName",
+				LogStreamName: "logStreamName",
 			},
 			map[string]*metric.Type{
 				"newmetric": {
 					Value: istio_policy_v1beta1.STRING,
+				},
+			},
+			map[string]*logentry.Type{
+				"logentry": {
+					Variables: map[string]istio_policy_v1beta1.ValueType{
+						"sourceUser": istio_policy_v1beta1.STRING,
+					},
 				},
 			},
 			"metricInfo",
@@ -77,10 +195,19 @@ func TestValidate(t *testing.T) {
 						Unit: config.Count,
 					},
 				},
+				LogGroupName:  "logGroupName",
+				LogStreamName: "logStreamName",
 			},
 			map[string]*metric.Type{
 				"duration": {
 					Value: istio_policy_v1beta1.DURATION,
+				},
+			},
+			map[string]*logentry.Type{
+				"logentry": {
+					Variables: map[string]istio_policy_v1beta1.ValueType{
+						"sourceUser": istio_policy_v1beta1.STRING,
+					},
 				},
 			},
 			"duration",
@@ -94,10 +221,19 @@ func TestValidate(t *testing.T) {
 						Unit: config.Count,
 					},
 				},
+				LogGroupName:  "logGroupName",
+				LogStreamName: "logStreamName",
 			},
 			map[string]*metric.Type{
 				"dns": {
 					Value: istio_policy_v1beta1.DNS_NAME,
+				},
+			},
+			map[string]*logentry.Type{
+				"logentry": {
+					Variables: map[string]istio_policy_v1beta1.ValueType{
+						"sourceUser": istio_policy_v1beta1.STRING,
+					},
 				},
 			},
 			"value type",
@@ -111,6 +247,8 @@ func TestValidate(t *testing.T) {
 						Unit: config.Count,
 					},
 				},
+				LogGroupName:  "logGroupName",
+				LogStreamName: "logStreamName",
 			},
 			map[string]*metric.Type{
 				"dns": {
@@ -130,12 +268,36 @@ func TestValidate(t *testing.T) {
 					},
 				},
 			},
+			map[string]*logentry.Type{
+				"logentry": {
+					Variables: map[string]istio_policy_v1beta1.ValueType{
+						"sourceUser": istio_policy_v1beta1.STRING,
+					},
+				},
+			},
 			"dimensions",
+		},
+		// config missing variables
+		{
+			&config.Params{
+				LogGroupName:  "logGroupName",
+				LogStreamName: "logStreamName",
+			},
+			map[string]*metric.Type{
+				"metric": {
+					Value: istio_policy_v1beta1.STRING,
+				},
+			},
+			map[string]*logentry.Type{
+				"logentry": {},
+			},
+			"namespace",
 		},
 	}
 
 	for _, c := range cases {
 		b.SetMetricTypes(c.metricTypes)
+		b.SetLogEntryTypes(c.logentryTypes)
 		b.SetAdapterConfig(c.cfg)
 
 		errs := b.Validate()
