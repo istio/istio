@@ -36,7 +36,7 @@ func TestTypes_NewProtoInstance(t *testing.T) {
 	for _, info := range Types.All() {
 		p := info.NewProtoInstance()
 		name := pgogo.MessageName(p)
-		if name != info.Collection.MessageName() {
+		if name != info.TypeURL.MessageName() {
 			t.Fatalf("Name/TypeURL mismatch: TypeURL:%v, Name:%v", info.Collection, name)
 		}
 	}

@@ -25,11 +25,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
+// Collection of the resource.
+type Collection struct{ string }
+
 // TypeURL of the resource.
-type Collection struct {
-	collection string
-	typeURL    string // proto schema for resources in this collection
-}
+type TypeURL struct{ string }
 
 // Version is the version identifier of a resource.
 type Version string
@@ -41,7 +41,7 @@ type FullName struct {
 
 // Key uniquely identifies a (mutable) config resource in the config space.
 type Key struct {
-	// TypeURL of the resource.
+	// Collection of the resource.
 	Collection Collection
 
 	// Fully qualified name of the resource.
@@ -77,40 +77,51 @@ type Entry struct {
 
 // Info is the type metadata for an Entry.
 type Info struct {
-	// TypeURL of the resource that this info is about
+	// Collection of the resource that this info is about
 	Collection Collection
 
-	goType reflect.Type
+	goType  reflect.Type
+	TypeURL TypeURL
 }
 
-// newCollection validates the passed in string as a resource collection, and returns a strongly typed version.
-func newCollection(collection, rawurl string) (Collection, error) {
+// newTypeURL validates the passed in url as a type url, and returns a strongly typed version.
+func newTypeURL(rawurl string) (TypeURL, error) {
 	candidate, err := url.Parse(rawurl)
 	if err != nil {
-		return Collection{}, err
+		return TypeURL{}, err
 	}
 
 	if candidate.Scheme != "" && candidate.Scheme != "http" && candidate.Scheme != "https" {
-		return Collection{}, fmt.Errorf("only empty, http or https schemes are allowed: %q", candidate.Scheme)
+		return TypeURL{}, fmt.Errorf("only empty, http or https schemes are allowed: %q", candidate.Scheme)
 	}
 
 	parts := strings.Split(candidate.Path, "/")
 	if len(parts) <= 1 || parts[len(parts)-1] == "" {
-		return Collection{}, fmt.Errorf("invalid URL path: %q", candidate.Path)
+		return TypeURL{}, fmt.Errorf("invalid URL path: %q", candidate.Path)
 	}
 
-	return Collection{collection: collection, typeURL: rawurl}, nil
+	return TypeURL{rawurl}, nil
 }
 
-// MessageName portion of the collection's typeURL.
-func (t Collection) MessageName() string {
-	parts := strings.Split(t.typeURL, "/")
+// MessageName portion of the type URL.
+func (t TypeURL) MessageName() string {
+	parts := strings.Split(t.string, "/")
 	return parts[len(parts)-1]
 }
 
 // String interface method implementation.
+func (t TypeURL) String() string {
+	return t.string
+}
+
+// newCollection returns a strongly typed collection.
+func newCollection(collection string) Collection {
+	return Collection{collection}
+}
+
+// String interface method implementation.
 func (t Collection) String() string {
-	return t.collection
+	return t.string
 }
 
 // FullNameFromNamespaceAndName returns a FullName from namespace and name.

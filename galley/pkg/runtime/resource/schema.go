@@ -52,25 +52,25 @@ func newSchemaBuilder(messageTypeFn messageTypeFn) *SchemaBuilder {
 }
 
 // Register a proto into the schema.
-func (b *SchemaBuilder) Register(rawCollection, typeURL string) Info {
+func (b *SchemaBuilder) Register(rawCollection, rawTypeURL string) Info {
 	if _, found := b.schema.byCollection[rawCollection]; found {
 		panic(fmt.Sprintf("schema.Register: collection is registered multiple times: %q", rawCollection))
 	}
 
-	// Before registering, ensure that the collection is actually reachable.
-	collection, err := newCollection(rawCollection, typeURL)
+	typeURL, err := newTypeURL(rawTypeURL)
 	if err != nil {
 		panic(err)
 	}
 
-	goType := b.schema.messageTypeFn(collection.MessageName())
+	goType := b.schema.messageTypeFn(typeURL.MessageName())
 	if goType == nil {
-		panic(fmt.Sprintf("schema.Register: Proto type not found: %q", collection.MessageName()))
+		panic(fmt.Sprintf("schema.Register: Proto type not found: %q", typeURL.MessageName()))
 	}
 
 	info := Info{
-		Collection: collection,
+		Collection: newCollection(rawCollection),
 		goType:     goType,
+		TypeURL:    typeURL,
 	}
 
 	b.schema.byCollection[info.Collection.String()] = info
@@ -119,7 +119,7 @@ func (s *Schema) Collections() []string {
 	result := make([]string, 0, len(s.byCollection))
 
 	for _, info := range s.byCollection {
-		result = append(result, info.Collection.collection)
+		result = append(result, info.Collection.string)
 	}
 
 	return result

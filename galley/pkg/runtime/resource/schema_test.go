@@ -30,8 +30,8 @@ func TestSchema_All(t *testing.T) {
 		byCollection: make(map[string]Info),
 	}
 
-	foo := Info{Collection: Collection{"zoo/tar/com/foo", "zoo.tar.com/foo"}}
-	bar := Info{Collection: Collection{"zoo/tar/com/bar", "zoo.tar.com/bar"}}
+	foo := Info{Collection: Collection{"zoo/tar/com/foo"}}
+	bar := Info{Collection: Collection{"zoo/tar/com/bar"}}
 	s.byCollection[foo.Collection.String()] = foo
 	s.byCollection[bar.Collection.String()] = bar
 
