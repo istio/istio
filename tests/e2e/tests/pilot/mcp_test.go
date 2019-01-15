@@ -17,26 +17,25 @@ package pilot
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/mcp/snapshot"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
-	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	mcpserver "istio.io/istio/pkg/mcp/server"
-	mockmcp "istio.io/istio/tests/e2e/tests/pilot/mock/mcp"
 	"istio.io/istio/tests/util"
 
 	// Import the resource package to pull in all proto types.
 	_ "istio.io/istio/galley/pkg/metadata"
+	mcptesting "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -46,6 +45,7 @@ const (
 )
 
 var fakeCreateTime *types.Timestamp
+var fakeCreateTime2 = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
 
 func TestPilotMCPClient(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -58,6 +58,16 @@ func TestPilotMCPClient(t *testing.T) {
 	mcpServer, err := runMcpServer()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defer mcpServer.Close()
+
+	sn := snapshot.NewInMemoryBuilder()
+	for _, m := range model.IstioConfigTypes {
+		sn.SetVersion(m.Collection, "v0")
+	}
+
+	sn.SetEntry(model.Gateway.Collection, "some-name", "v1", fakeCreateTime2, nil, nil, firstGateway)
+	sn.SetEntry(model.Gateway.Collection, "some-other name", "v1", fakeCreateTime2, nil, nil, secondGateway)
+
+	mcpServer.Cache.SetSnapshot(snapshot.DefaultGroup, sn.Build())
 
 	tearDown := initLocalPilotTestEnv(t, mcpServer.Port, pilotGrpcPort, pilotDebugPort)
 	defer tearDown()
@@ -78,61 +88,12 @@ func TestPilotMCPClient(t *testing.T) {
 	}, "180s", "1s").Should(gomega.Succeed())
 }
 
-func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc) {
-	var cancelFunc mcpserver.CancelWatchFunc
-	cancelFunc = func() {
-		log.Printf("watch canceled for %s\n", req.GetTypeUrl())
-	}
-	if req.GetTypeUrl() == model.Gateway.Collection {
-		marshaledFirstGateway, err := types.MarshalAny(firstGateway)
-		if err != nil {
-			log.Fatalf("marshaling gateway %s\n", err)
-		}
-		marshaledSecondGateway, err := types.MarshalAny(secondGateway)
-		if err != nil {
-			log.Fatalf("marshaling gateway %s\n", err)
-		}
-
-		return &mcpserver.WatchResponse{
-			Version:    req.GetVersionInfo(),
-			Collection: req.GetTypeUrl(),
-			Resources: []*mcp.Resource{
-				{
-					Metadata: &mcp.Metadata{
-						Name:       "some-name",
-						CreateTime: fakeCreateTime,
-					},
-					Body: marshaledFirstGateway,
-				},
-				{
-					Metadata: &mcp.Metadata{
-						Name:       "some-other-name",
-						CreateTime: fakeCreateTime,
-					},
-					Body: marshaledSecondGateway,
-				},
-			},
-		}, cancelFunc
-	}
-	return &mcpserver.WatchResponse{
-		Version:    req.GetVersionInfo(),
-		Collection: req.GetTypeUrl(),
-		Resources:  []*mcp.Resource{},
-	}, cancelFunc
-}
-
-func runMcpServer() (*mockmcp.Server, error) {
+func runMcpServer() (*mcptesting.Server, error) {
 	collections := make([]string, len(model.IstioConfigTypes))
 	for i, m := range model.IstioConfigTypes {
 		collections[i] = m.Collection
 	}
-
-	server, err := mockmcp.NewServer(collections, mcpServerResponse)
-	if err != nil {
-		return nil, err
-	}
-
-	return server, nil
+	return mcptesting.NewServer(0, collections)
 }
 
 func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {
