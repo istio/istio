@@ -126,6 +126,7 @@ func TestOptions(t *testing.T) {
 	change := convert(
 		[]proto.Message{message[0]},
 		[]string{"service-bar"},
+		model.ServiceEntry.Collection,
 		model.ServiceEntry.MessageName)
 
 	err := controller.Apply(change)
@@ -141,6 +142,7 @@ func TestOptions(t *testing.T) {
 	change = convert(
 		[]proto.Message{message[0]},
 		[]string{"gateway-foo"},
+		model.Gateway.Collection,
 		model.Gateway.MessageName)
 
 	err = controller.Apply(change)
