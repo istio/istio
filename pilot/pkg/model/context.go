@@ -367,7 +367,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		SdsUdsPath:            "",
 		EnableSdsTokenMount:   false,
 		TrustDomain:           "",
-		OutboundTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY},
+		OutboundTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 	}
 }
 
