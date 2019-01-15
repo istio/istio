@@ -199,7 +199,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 		sidecarScope := node.SidecarScope
 		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
-			 noneMode {
+			noneMode {
 			generateManagementListeners = false
 		}
 

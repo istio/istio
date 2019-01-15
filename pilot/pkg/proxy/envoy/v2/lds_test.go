@@ -111,8 +111,7 @@ func TestLDSIsolated(t *testing.T) {
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta: map[string]string{
-			},
+			Meta:      map[string]string{},
 			IP:        "10.12.0.1", // matches none.yaml s1tcp.none
 			Namespace: "seexamples",
 		})
@@ -143,8 +142,7 @@ func TestLDSIsolated(t *testing.T) {
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
 		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta: map[string]string{
-			},
+			Meta:      map[string]string{},
 			IP:        "10.13.0.1",
 			Namespace: "exampleegressgw",
 		})
