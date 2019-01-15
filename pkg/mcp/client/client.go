@@ -85,11 +85,11 @@ func (u *InMemoryUpdater) Apply(c *Change) error {
 	return nil
 }
 
-// Get current state for the given Type URL.
-func (u *InMemoryUpdater) Get(typeURL string) []*Object {
+// Get current state for the given collection.
+func (u *InMemoryUpdater) Get(collection string) []*Object {
 	u.itemsMutex.Lock()
 	defer u.itemsMutex.Unlock()
-	return u.items[typeURL]
+	return u.items[collection]
 }
 
 type perTypeState struct {

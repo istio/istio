@@ -87,30 +87,26 @@ func datasetConfigIstioIoV1alpha2CirconusYaml() (*asset, error) {
 }
 
 var _datasetConfigIstioIoV1alpha2Circonus_expectedJson = []byte(`{
-  "type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource": [
+  "istio/config/v1alpha2/legacy/circonuses": [
     {
       "Metadata": {
-        "name": "circonus/valid-circonus"
-      },
-      "Resource": {
-        "contents": {
-          "fields": {
-            "submission_interval": {
-              "Kind": {
-                "StringValue": "10s"
-              }
-            },
-            "submission_url": {
-              "Kind": {
-                "StringValue": "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret"
-              }
-            }
-          }
-        },
-        "kind": "circonus",
         "name": "valid-circonus"
       },
-      "TypeURL": "type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource"
+      "Body": {
+        "fields": {
+          "submission_interval": {
+            "Kind": {
+              "StringValue": "10s"
+            }
+          },
+          "submission_url": {
+            "Kind": {
+              "StringValue": "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret"
+            }
+          }
+        }
+      },
+      "TypeURL": "type.googleapis.com/google.protobuf.Struct"
     }
   ]
 }
@@ -169,7 +165,7 @@ var _datasetExtensionsV1beta1Ingress_basic_expectedJson = []byte(`{
           "kubernetes.io/ingress.class": "cls"
         }
       },
-      "Resource": {
+      "Body": {
         "selector": {
           "istio": "ingress"
         },
@@ -666,13 +662,13 @@ func datasetNetworkingIstioIoV1alpha3DestinationruleYaml() (*asset, error) {
 }
 
 var _datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson = []byte(`{
-  "type.googleapis.com/istio.networking.v1alpha3.DestinationRule": [
+  "istio/networking/v1alpha3/destinationrules": [
     {
       "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.DestinationRule",
       "Metadata": {
         "name": "tcp-echo-destination"
       },
-      "Resource": {
+      "Body": {
         "host": "tcp-echo",
         "subsets": [
           {
@@ -741,13 +737,13 @@ func datasetNetworkingIstioIoV1alpha3GatewayYaml() (*asset, error) {
 }
 
 var _datasetNetworkingIstioIoV1alpha3Gateway_expectedJson = []byte(`{
-  "type.googleapis.com/istio.networking.v1alpha3.Gateway": [
+  "istio/networking/v1alpha3/gateways": [
     {
       "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.Gateway",
       "Metadata": {
         "name": "helloworld-gateway"
       },
-      "Resource": {
+      "Body": {
         "selector": {
           "istio": "ingressgateway"
         },
@@ -993,7 +989,7 @@ func datasetV1NodeYaml() (*asset, error) {
 }
 
 var _datasetV1Node_expectedJson = []byte(`{
-  "type.googleapis.com/k8s.io.api.core.v1.NodeSpec": [
+  "k8s/core/v1/nodes": [
     {
       "TypeURL": "type.googleapis.com/k8s.io.api.core.v1.NodeSpec",
       "Metadata": {
@@ -1333,7 +1329,7 @@ func datasetV1PodYaml() (*asset, error) {
 }
 
 var _datasetV1Pod_expectedJson = []byte(`{
-  "type.googleapis.com/k8s.io.api.core.v1.PodSpec": [
+  "k8s/core/v1/pods": [
     {
       "TypeURL": "type.googleapis.com/k8s.io.api.core.v1.PodSpec",
       "Metadata": {
