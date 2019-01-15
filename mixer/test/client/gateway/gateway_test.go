@@ -89,6 +89,8 @@ static_resources:
         port_value: {{.Ports.MixerPort}}
 `
 
+	// TODO(mandarjog): source.uid below should be in-mesh-app
+
 	checkAttributesOkOutbound = `
 {
   "connection.mtls": false,
