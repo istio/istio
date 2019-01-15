@@ -146,7 +146,6 @@ func TestTcpMetric(t *testing.T) {
 	visitProductPage(ingress, 30*time.Second, 200, t)
 
 	query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
-
 	validateMetric(t, prometheus, query, "istio_tcp_sent_bytes_total")
 
 	query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
