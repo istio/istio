@@ -31,7 +31,7 @@ func TestSetConnectionAgeCommandlineOptions(t *testing.T) {
 
 	buf := new(bytes.Buffer)
 	cmd.SetOutput(buf)
-	sec := time.Duration(1 * time.Second)
+	sec := 1 * time.Second
 	cmd.SetArgs([]string{
 		fmt.Sprintf("--keepaliveMaxServerConnectionAge=%v", sec),
 		fmt.Sprintf("--keepaliveMaxServerConnectionAgeGrace=%v", sec),
