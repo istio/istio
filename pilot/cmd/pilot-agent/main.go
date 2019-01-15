@@ -27,6 +27,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -240,6 +242,7 @@ var (
 				opts := make(map[string]string)
 				opts["PodName"] = os.Getenv("POD_NAME")
 				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+				opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
 
 				// protobuf encoding of IP_ADDRESS type
 				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
@@ -286,7 +289,9 @@ var (
 				go statusServer.Run(ctx)
 			}
 
+			log.Infof("PilotSAN %#v", pilotSAN)
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN, role.IPAddresses)
+
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(certs, agent.ConfigCh())
 
@@ -316,8 +321,10 @@ func getPilotSAN(domain string, ns string) []string {
 				pilotTrustDomain = domain
 			}
 		}
-		pilotSAN = envoy.GetPilotSAN(pilotTrustDomain, ns)
+		spiffe.SetTrustDomain(pilotTrustDomain)
+		pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
 	}
+	log.Infof("PilotSAN %#v", pilotSAN)
 	return pilotSAN
 }
 

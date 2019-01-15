@@ -27,6 +27,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -50,10 +52,10 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 )
 
-var (
-	defaultPilotSan = []string{
-		"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}
-)
+func defaultPilotSan() []string {
+	return []string{
+		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
+}
 
 func configFile(config string, epoch int) string {
 	return path.Join(config, fmt.Sprintf(EpochFileTemplate, epoch))
@@ -102,7 +104,6 @@ func RunProxy(config *meshconfig.ProxyConfig, node string, epoch int, configFnam
 
 	// spin up a new Envoy process
 	args := createArgs(config, node, configFname, epoch, cliarg)
-	args = append(args, "--v2-config-only")
 
 	/* #nosec */
 	cmd := exec.Command(config.BinaryPath, args...)
@@ -219,7 +220,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["config"] = config
 
 	if pilotSAN == nil {
-		pilotSAN = defaultPilotSan
+		pilotSAN = defaultPilotSan()
 	}
 	opts["pilot_SAN"] = pilotSAN
 

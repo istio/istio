@@ -42,6 +42,7 @@ type Fn func(cfg *Config, destination resource.Info, name resource.FullName, kin
 // Entry is a single converted entry.
 type Entry struct {
 	Key          resource.FullName
+	Metadata     resource.Metadata
 	CreationTime time.Time
 	Resource     proto.Message
 }
@@ -84,17 +85,21 @@ func convertJSON(from, to interface{}) error {
 func identity(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	var p proto.Message
 	creationTime := time.Time{}
+	var metadata resource.Metadata
 	if u != nil {
 		var err error
 		if p, err = toProto(destination, u.Object["spec"]); err != nil {
 			return nil, err
 		}
 		creationTime = u.GetCreationTimestamp().Time
+		metadata.Labels = u.GetLabels()
+		metadata.Annotations = u.GetAnnotations()
 	}
 
 	e := Entry{
 		Key:          name,
 		CreationTime: creationTime,
+		Metadata:     metadata,
 		Resource:     p,
 	}
 
@@ -108,6 +113,7 @@ func nilConverter(_ *Config, _ resource.Info, _ resource.FullName, _ string, _ *
 func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]Entry, error) {
 	s := &types.Struct{}
 	creationTime := time.Time{}
+	var metadata resource.Metadata
 	var res *legacy.LegacyMixerResource
 
 	if u != nil {
@@ -116,6 +122,8 @@ func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, kin
 			return nil, err
 		}
 		creationTime = u.GetCreationTimestamp().Time
+		metadata.Labels = u.GetLabels()
+		metadata.Annotations = u.GetAnnotations()
 		res = &legacy.LegacyMixerResource{
 			Name:     name.String(),
 			Kind:     kind,
@@ -129,6 +137,7 @@ func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, kin
 	e := Entry{
 		Key:          newName,
 		CreationTime: creationTime,
+		Metadata:     metadata,
 		Resource:     res,
 	}
 
@@ -138,12 +147,15 @@ func legacyMixerResource(_ *Config, _ resource.Info, name resource.FullName, kin
 func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	var p proto.Message
 	creationTime := time.Time{}
+	var metadata resource.Metadata
 	if u != nil {
 		var err error
 		if p, err = toProto(destination, u.Object["spec"]); err != nil {
 			return nil, err
 		}
 		creationTime = u.GetCreationTimestamp().Time
+		metadata.Labels = u.GetLabels()
+		metadata.Annotations = u.GetAnnotations()
 
 		policy, ok := p.(*authn.Policy)
 		if !ok {
@@ -186,6 +198,7 @@ func authPolicyResource(_ *Config, destination resource.Info, name resource.Full
 	e := Entry{
 		Key:          name,
 		CreationTime: creationTime,
+		Metadata:     metadata,
 		Resource:     p,
 	}
 
@@ -194,6 +207,7 @@ func authPolicyResource(_ *Config, destination resource.Info, name resource.Full
 
 func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	creationTime := time.Time{}
+	var metadata resource.Metadata
 	var p *extensions.IngressSpec
 	if u != nil {
 		ing := &extensions.Ingress{}
@@ -202,6 +216,8 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 		}
 
 		creationTime = u.GetCreationTimestamp().Time
+		metadata.Labels = u.GetLabels()
+		metadata.Annotations = u.GetAnnotations()
 
 		if !shouldProcessIngress(cfg, ing) {
 			return nil, nil
@@ -213,6 +229,7 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 	e := Entry{
 		Key:          name,
 		CreationTime: creationTime,
+		Metadata:     metadata,
 		Resource:     p,
 	}
 
@@ -240,7 +257,11 @@ func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _
 	return []Entry{{
 		Key:          name,
 		CreationTime: service.CreationTimestamp.Time,
-		Resource:     &se,
+		Metadata: resource.Metadata{
+			Labels:      service.Labels,
+			Annotations: service.Annotations,
+		},
+		Resource: &se,
 	}}, nil
 }
 

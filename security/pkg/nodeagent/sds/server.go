@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
-	iamclient "istio.io/istio/security/pkg/nodeagent/plugin/providers/google"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 )
 
@@ -140,7 +139,6 @@ func (s *Server) Stop() {
 // NewPlugins returns a slice of default Plugins.
 func NewPlugins(in []string) []plugin.Plugin {
 	var availablePlugins = map[string]plugin.Plugin{
-		plugin.GoogleIAM:           iamclient.NewPlugin(),
 		plugin.GoogleTokenExchange: stsclient.NewPlugin(),
 	}
 	var plugins []plugin.Plugin
