@@ -559,7 +559,6 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 func isRetryableErr(c codes.Code) bool {
 	switch c {
 	case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
-		log.Info("***retryable error")
 		return true
 	}
 	return false
