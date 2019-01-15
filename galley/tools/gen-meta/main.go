@@ -38,27 +38,27 @@ var knownProtoTypes = map[string]struct{}{
 
 // metadata is a combination of read and derived metadata.
 type metadata struct {
-	Resources       []*entry   `json:"resources"`
-	ProtoGoPackages []string   `json:"-"`
-	ProtoDefs       []protoDef `json:"-"`
+	Resources       []*entry        `json:"resources"`
+	ProtoGoPackages []string        `json:"-"`
+	CollectionDefs  []collectionDef `json:"-"`
 }
 
 // entry in a metadata file
 type entry struct {
-	Kind         string `json:"kind"`
-	ListKind     string `json:"listKind"`
-	Singular     string `json:"singular"`
-	Plural       string `json:"plural"`
-	Group        string `json:"group"`
-	Version      string `json:"version"`
-	Proto        string `json:"proto"`
-	Converter    string `json:"converter"`
-	ProtoPackage string `json:"protoPackage"`
-	Collection   string `json:"collection"`
+	Kind           string `json:"kind"`
+	ListKind       string `json:"listKind"`
+	Singular       string `json:"singular"`
+	Plural         string `json:"plural"`
+	Group          string `json:"group"`
+	Version        string `json:"version"`
+	Proto          string `json:"proto"`
+	Converter      string `json:"converter"`
+	ProtoGoPackage string `json:"protoPackage"`
+	Collection     string `json:"collection"`
 }
 
-// proto related metadata
-type protoDef struct {
+// collection related metadata
+type collectionDef struct {
 	FullName    string `json:"-"`
 	MessageName string `json:"-"`
 	Collection  string `json:"-"`
@@ -143,8 +143,8 @@ func readMetadata(path string) (*metadata, error) {
 			continue
 		}
 
-		if e.ProtoPackage != "" {
-			names[e.ProtoPackage] = struct{}{}
+		if e.ProtoGoPackage != "" {
+			names[e.ProtoGoPackage] = struct{}{}
 			continue
 		}
 
@@ -164,33 +164,33 @@ func readMetadata(path string) (*metadata, error) {
 
 	// Calculate the proto types that needs to be handled.
 	// First, single instance the proto definitions.
-	protoDefs := make(map[string]protoDef)
+	collectionDefs := make(map[string]collectionDef)
 	for _, e := range m.Resources {
 		if _, found := knownProtoTypes[e.Proto]; e.Proto == "" || found {
 			continue
 		}
 		parts := strings.Split(e.Proto, ".")
 		msgName := parts[len(parts)-1]
-		defn := protoDef{
+		defn := collectionDef{
 			MessageName: msgName,
 			FullName:    e.Proto,
 			Collection:  e.Collection,
 			Kind:        strings.Title(e.Kind),
 		}
 
-		if prevDefn, ok := protoDefs[e.Collection]; ok && defn != prevDefn {
+		if prevDefn, ok := collectionDefs[e.Collection]; ok && defn != prevDefn {
 			return nil, fmt.Errorf("proto definitions do not match: %+v != %+v", defn, prevDefn)
 		}
-		protoDefs[e.Collection] = defn
+		collectionDefs[e.Collection] = defn
 	}
 
-	for _, v := range protoDefs {
-		m.ProtoDefs = append(m.ProtoDefs, v)
+	for _, v := range collectionDefs {
+		m.CollectionDefs = append(m.CollectionDefs, v)
 	}
 
 	// Then, stable sort based on collection name.
-	sort.Slice(m.ProtoDefs, func(i, j int) bool {
-		return strings.Compare(m.ProtoDefs[i].Collection, m.ProtoDefs[j].Collection) < 0
+	sort.Slice(m.CollectionDefs, func(i, j int) bool {
+		return strings.Compare(m.CollectionDefs[i].Collection, m.CollectionDefs[j].Collection) < 0
 	})
 	sort.Slice(m.Resources, func(i, j int) bool {
 		return strings.Compare(m.Resources[i].Collection, m.Resources[j].Collection) < 0
@@ -210,7 +210,7 @@ package metadata
 import (
 	// Pull in all the known proto types to ensure we get their types registered.
 
-{{range .ProtoGoPackages}}	
+{{range .ProtoGoPackages}}
 	// Register protos in "{{.}}"
 	_ "{{.}}"
 {{end}}
@@ -222,7 +222,7 @@ import (
 var Types *resource.Schema
 
 var (
-	{{range .ProtoDefs}}
+	{{range .CollectionDefs}}
 		// {{.Kind}} metadata
 		{{.Kind}} resource.Info
 	{{end}}
@@ -231,8 +231,8 @@ var (
 func init() {
 	b := resource.NewSchemaBuilder()
 
-{{range .ProtoDefs}}	{{.Kind}} = b.Register(
-		"{{.TypeURL}}",
+{{range .CollectionDefs}}	{{.Kind}} = b.Register(
+		"{{.Collection}}",
 		"type.googleapis.com/{{.FullName}}")
 {{end}}
     Types = b.Build()
@@ -266,7 +266,7 @@ func init() {
 		Plural:     "{{.Plural}}",
 		Version:    "{{.Version}}",
 		Group:      "{{.Group}}",
-		Target:     metadata.Types.Get("{{.TypeURL}}"),
+		Target:     metadata.Types.Get("{{.Collection}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
     })
 {{end}}
