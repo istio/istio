@@ -23,7 +23,13 @@ global:
 
   proxy:
     image: proxyv2
-
+    
+    # DNS domain suffix for pilot proxy agent. Default value is "${POD_NAMESPACE}.svc.cluster.local".
+    proxyDomain: ""
+    
+    # DNS domain suffix for pilot proxy discovery. Default value is "cluster.local".
+    discoveryDomain: ""
+    
     # Resources for the sidecar.
     resources:
       requests:
@@ -544,7 +550,7 @@ kiali:
   enabled: false
   replicaCount: 1
   hub: docker.io/kiali
-  tag: v0.10
+  tag: v0.12
   ingress:
     enabled: false
     ## Used to create an Ingress record.
