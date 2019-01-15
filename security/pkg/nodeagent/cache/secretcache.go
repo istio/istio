@@ -466,8 +466,9 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 			break
 		}
 
+		isTimeout := startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now())
 		// If non-retryable error or reach envoy timeout, fail the request by returning err
-		if !isRetryableErr(status.Code(err)) || startTime.Add(time.Millisecond*envoyDefaultTimeoutInMilliSec).After(time.Now()) {
+		if !isRetryableErr(status.Code(err)) || isTimeout {
 			log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
 			return nil, err
 		}
@@ -558,6 +559,7 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 func isRetryableErr(c codes.Code) bool {
 	switch c {
 	case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
+		log.Info("***retryable error")
 		return true
 	}
 	return false
