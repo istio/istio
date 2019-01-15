@@ -103,9 +103,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 
 	// spin up a new Envoy process
 	args := e.args(fname, epoch)
-	if len(e.config.CustomConfigFile) == 0 {
-		args = append(args, "--v2-config-only")
-	}
 	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */

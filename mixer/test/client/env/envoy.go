@@ -48,7 +48,6 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 
 	baseID := ""
 	args := []string{"-c", confPath,
-		"--v2-config-only",
 		"--drain-time-s", "1",
 		"--allow-unknown-fields"}
 	if s.stress {
