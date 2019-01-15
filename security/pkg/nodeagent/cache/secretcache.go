@@ -475,7 +475,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 		// If reach envoy timeout, fail the request by returning err
 		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
-			log.Errorf("CSR retry timeout for for %q: %v", resourceName, err)
+			log.Errorf("CSR retry timeout for %q: %v", resourceName, err)
 			return nil, err
 		}
 
