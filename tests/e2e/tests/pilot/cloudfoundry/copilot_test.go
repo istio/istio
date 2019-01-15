@@ -341,7 +341,7 @@ var gatewayTestAllConfig = map[string]map[string]proto.Message{
 }
 
 var sidecarTestAllConfig = map[string]map[string]proto.Message{
-	fmt.Sprintf("type.googleapis.com/%s", model.ServiceEntry.MessageName): map[string]proto.Message{
+	model.ServiceEntry.Collection: {
 		"se-1": serviceEntry(sidecarServicePort, app3ListenPort, []string{"127.1.1.1"}, cfInternalRoute, subsetOne),
 	},
 }
