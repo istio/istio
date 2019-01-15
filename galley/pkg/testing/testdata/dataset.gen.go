@@ -15,9 +15,9 @@
 // dataset/networking.istio.io/v1alpha3/destinationRule_expected.json
 // dataset/networking.istio.io/v1alpha3/gateway.yaml
 // dataset/networking.istio.io/v1alpha3/gateway_expected.json
-// dataset/v1/node.yaml
+// dataset/v1/node.yaml.skip
 // dataset/v1/node_expected.json
-// dataset/v1/pod.yaml
+// dataset/v1/pod.yaml.skip
 // dataset/v1/pod_expected.json
 // DO NOT EDIT!
 
@@ -782,7 +782,7 @@ func datasetNetworkingIstioIoV1alpha3Gateway_expectedJson() (*asset, error) {
 	return a, nil
 }
 
-var _datasetV1NodeYaml = []byte(`apiVersion: v1
+var _datasetV1NodeYamlSkip = []byte(`apiVersion: v1
 kind: Node
 metadata:
   annotations:
@@ -975,17 +975,17 @@ status:
     systemUUID: F325F89C-D295-BDCD-A652-FD40F0049E32
 `)
 
-func datasetV1NodeYamlBytes() ([]byte, error) {
-	return _datasetV1NodeYaml, nil
+func datasetV1NodeYamlSkipBytes() ([]byte, error) {
+	return _datasetV1NodeYamlSkip, nil
 }
 
-func datasetV1NodeYaml() (*asset, error) {
-	bytes, err := datasetV1NodeYamlBytes()
+func datasetV1NodeYamlSkip() (*asset, error) {
+	bytes, err := datasetV1NodeYamlSkipBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/v1/node.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/v1/node.yaml.skip", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1038,7 +1038,7 @@ func datasetV1Node_expectedJson() (*asset, error) {
 	return a, nil
 }
 
-var _datasetV1PodYaml = []byte(`apiVersion: v1
+var _datasetV1PodYamlSkip = []byte(`apiVersion: v1
 kind: Pod
 metadata:
   annotations:
@@ -1315,17 +1315,17 @@ status:
   startTime: "2018-12-03T17:00:00Z"
 `)
 
-func datasetV1PodYamlBytes() ([]byte, error) {
-	return _datasetV1PodYaml, nil
+func datasetV1PodYamlSkipBytes() ([]byte, error) {
+	return _datasetV1PodYamlSkip, nil
 }
 
-func datasetV1PodYaml() (*asset, error) {
-	bytes, err := datasetV1PodYamlBytes()
+func datasetV1PodYamlSkip() (*asset, error) {
+	bytes, err := datasetV1PodYamlSkipBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dataset/v1/pod.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "dataset/v1/pod.yaml.skip", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1696,9 +1696,9 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/networking.istio.io/v1alpha3/destinationRule_expected.json": datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson,
 	"dataset/networking.istio.io/v1alpha3/gateway.yaml": datasetNetworkingIstioIoV1alpha3GatewayYaml,
 	"dataset/networking.istio.io/v1alpha3/gateway_expected.json": datasetNetworkingIstioIoV1alpha3Gateway_expectedJson,
-	"dataset/v1/node.yaml": datasetV1NodeYaml,
+	"dataset/v1/node.yaml.skip": datasetV1NodeYamlSkip,
 	"dataset/v1/node_expected.json": datasetV1Node_expectedJson,
-	"dataset/v1/pod.yaml": datasetV1PodYaml,
+	"dataset/v1/pod.yaml.skip": datasetV1PodYamlSkip,
 	"dataset/v1/pod_expected.json": datasetV1Pod_expectedJson,
 }
 
@@ -1771,9 +1771,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			}},
 		}},
 		"v1": &bintree{nil, map[string]*bintree{
-			"node.yaml": &bintree{datasetV1NodeYaml, map[string]*bintree{}},
+			"node.yaml.skip": &bintree{datasetV1NodeYamlSkip, map[string]*bintree{}},
 			"node_expected.json": &bintree{datasetV1Node_expectedJson, map[string]*bintree{}},
-			"pod.yaml": &bintree{datasetV1PodYaml, map[string]*bintree{}},
+			"pod.yaml.skip": &bintree{datasetV1PodYamlSkip, map[string]*bintree{}},
 			"pod_expected.json": &bintree{datasetV1Pod_expectedJson, map[string]*bintree{}},
 		}},
 	}},
