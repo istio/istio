@@ -100,6 +100,21 @@ func (w *fsNotifyWatcher) Add(path string) error {
 		return nil
 	}
 
+	var md5Sum string
+
+	if _, err := os.Stat(cleanedPath); err == nil {
+		md5Sum, err = getMd5Sum(cleanedPath)
+		if err != nil {
+			return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
+		}
+	} else {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to stat file: %s: %v", path, err)
+		}
+
+		// if the file doesn't exist, ignore the md5 sum.
+	}
+
 	// Build a new worker if not exist.
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -108,23 +123,6 @@ func (w *fsNotifyWatcher) Add(path string) error {
 	if err = watcher.Add(parentPath); err != nil {
 		watcher.Close()
 		return err
-	}
-
-	var md5Sum string
-
-	if _, err = os.Stat(cleanedPath); err == nil {
-		md5Sum, err = getMd5Sum(cleanedPath)
-		if err != nil {
-			watcher.Close()
-			return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
-		}
-	} else {
-		if !os.IsNotExist(err) {
-			watcher.Close()
-			return fmt.Errorf("failed to stat file: %s: %v", path, err)
-		}
-
-		// if the file doesn't exist, ignore the md5 sum.
 	}
 
 	wk := &worker{
