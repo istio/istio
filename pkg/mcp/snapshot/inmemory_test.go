@@ -26,8 +26,12 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 )
 
-var fakeCreateTime = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
-var fakeCreateTimeProto *types.Timestamp
+var (
+	fakeCreateTime      = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
+	fakeLabels          = map[string]string{"lk1": "lv1"}
+	fakeAnnotations     = map[string]string{"ak1": "av1"}
+	fakeCreateTimeProto *types.Timestamp
+)
 
 func init() {
 	var err error
@@ -41,8 +45,8 @@ func TestInMemoryBuilder(t *testing.T) {
 	b := NewInMemoryBuilder()
 	sn := b.Build()
 
-	if len(sn.envelopes) != 0 {
-		t.Fatal("Envelopes should have been empty")
+	if len(sn.resources) != 0 {
+		t.Fatal("Resources should have been empty")
 	}
 
 	if len(sn.versions) != 0 {
@@ -53,7 +57,7 @@ func TestInMemoryBuilder(t *testing.T) {
 func TestInMemoryBuilder_Set(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	items := []*mcp.Envelope{{Resource: &types.Any{}, Metadata: &mcp.Metadata{Name: "foo"}}}
+	items := []*mcp.Resource{{Body: &types.Any{}, Metadata: &mcp.Metadata{Name: "foo"}}}
 	b.Set("type", "v1", items)
 	sn := b.Build()
 
@@ -70,18 +74,20 @@ func TestInMemoryBuilder_Set(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 
 	sn := b.Build()
 
-	expected := []*mcp.Envelope{
+	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
-			Resource: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Body: &types.Any{TypeUrl: "type", Value: []byte{}},
 		},
 	}
 	actual := sn.Resources("type")
@@ -93,19 +99,21 @@ func TestInMemoryBuilder_SetEntry_Add(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 
 	sn := b.Build()
 
-	expected := []*mcp.Envelope{
+	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
-			Resource: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Body: &types.Any{TypeUrl: "type", Value: []byte{}},
 		},
 	}
 	actual := sn.Resources("type")
@@ -117,7 +125,7 @@ func TestInMemoryBuilder_SetEntry_Update(t *testing.T) {
 func TestInMemoryBuilder_SetEntry_Marshal_Error(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	err := b.SetEntry("type", "foo", "v0", fakeCreateTime, nil)
+	err := b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, nil)
 	if err == nil {
 		t.Fatal("expected error not found")
 	}
@@ -126,18 +134,20 @@ func TestInMemoryBuilder_SetEntry_Marshal_Error(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_EntryNotFound(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.DeleteEntry("type", "bar")
 	sn := b.Build()
 
-	expected := []*mcp.Envelope{
+	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
-			Resource: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Body: &types.Any{TypeUrl: "type", Value: []byte{}},
 		},
 	}
 	actual := sn.Resources("type")
@@ -152,8 +162,8 @@ func TestInMemoryBuilder_DeleteEntry_TypeNotFound(t *testing.T) {
 	b.DeleteEntry("type", "bar")
 	sn := b.Build()
 
-	if len(sn.envelopes) != 0 {
-		t.Fatal("Envelopes should have been empty")
+	if len(sn.resources) != 0 {
+		t.Fatal("Resources should have been empty")
 	}
 
 	if len(sn.versions) != 0 {
@@ -164,12 +174,12 @@ func TestInMemoryBuilder_DeleteEntry_TypeNotFound(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_Single(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.DeleteEntry("type", "foo")
 	sn := b.Build()
 
-	if len(sn.envelopes) != 0 {
-		t.Fatal("Envelopes should have been empty")
+	if len(sn.resources) != 0 {
+		t.Fatal("Resources should have been empty")
 	}
 
 	if len(sn.versions) != 0 {
@@ -180,19 +190,21 @@ func TestInMemoryBuilder_DeleteEntry_Single(t *testing.T) {
 func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.DeleteEntry("type", "foo")
 	sn := b.Build()
 
-	expected := []*mcp.Envelope{
+	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "bar",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "bar",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
-			Resource: &types.Any{TypeUrl: "type", Value: []byte{}},
+			Body: &types.Any{TypeUrl: "type", Value: []byte{}},
 		},
 	}
 	actual := sn.Resources("type")
@@ -204,7 +216,7 @@ func TestInMemoryBuilder_DeleteEntry_Multiple(t *testing.T) {
 func TestInMemoryBuilder_SetVersion(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.SetVersion("type", "v1")
 	sn := b.Build()
 
@@ -216,29 +228,33 @@ func TestInMemoryBuilder_SetVersion(t *testing.T) {
 func TestInMemory_Clone(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.SetVersion("type", "v1")
 	sn := b.Build()
 
 	sn2 := sn.Clone()
 
-	expected := []*mcp.Envelope{
+	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "bar",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "bar",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
-			Resource: &types.Any{TypeUrl: "type"},
+			Body: &types.Any{TypeUrl: "type"},
 		},
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
-			Resource: &types.Any{TypeUrl: "type"},
+			Body: &types.Any{TypeUrl: "type"},
 		},
 	}
 
@@ -262,8 +278,8 @@ func TestInMemory_Clone(t *testing.T) {
 func TestInMemory_Builder(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.SetVersion("type", "v1")
 	sn := b.Build()
 
@@ -271,22 +287,26 @@ func TestInMemory_Builder(t *testing.T) {
 
 	sn2 := b.Build()
 
-	expected := []*mcp.Envelope{
+	expected := []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "bar",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "bar",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
-			Resource: &types.Any{TypeUrl: "type"},
+			Body: &types.Any{TypeUrl: "type"},
 		},
 		{
 			Metadata: &mcp.Metadata{
-				Name:       "foo",
-				Version:    "v0",
-				CreateTime: fakeCreateTimeProto,
+				Name:        "foo",
+				Version:     "v0",
+				CreateTime:  fakeCreateTimeProto,
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
-			Resource: &types.Any{TypeUrl: "type"},
+			Body: &types.Any{TypeUrl: "type"},
 		},
 	}
 
@@ -310,8 +330,8 @@ func TestInMemory_Builder(t *testing.T) {
 func TestInMemory_String(t *testing.T) {
 	b := NewInMemoryBuilder()
 
-	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, &types.Any{})
-	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, &types.Any{})
+	_ = b.SetEntry("type", "foo", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
+	_ = b.SetEntry("type", "bar", "v0", fakeCreateTime, fakeLabels, fakeAnnotations, &types.Any{})
 	b.SetVersion("type", "v1")
 	sn := b.Build()
 

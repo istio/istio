@@ -160,6 +160,7 @@ func (b *backend) Init(kinds []string) error {
 				select {
 				case <-ctx.Done():
 					// nolint: govet
+					cancel()
 					return ctx.Err()
 				case <-time.After(requiredCertCheckFreq):
 					// retry
@@ -173,6 +174,7 @@ func (b *backend) Init(kinds []string) error {
 
 		watcher, err := creds.WatchFiles(ctx.Done(), b.credOptions)
 		if err != nil {
+			cancel()
 			return err
 		}
 		credentials := creds.CreateForClient(address, watcher)
@@ -200,7 +202,6 @@ func (b *backend) Init(kinds []string) error {
 
 	go c.Run(ctx)
 	b.cancel = cancel
-
 	return nil
 }
 
@@ -302,6 +303,8 @@ func (b *backend) Apply(change *client.Change) error {
 		var kind string
 		var name string
 		var contents proto.Message
+		var labels map[string]string
+		var annotations map[string]string
 
 		if scope.DebugEnabled() {
 			scope.Debugf("Processing incoming resource: %q @%s [%s]",
@@ -311,15 +314,19 @@ func (b *backend) Apply(change *client.Change) error {
 		// Demultiplex the resource, if it is a legacy type, and figure out its kind.
 		if isLegacyTypeURL(typeURL) {
 			// Extract the kind from payload.
-			legacyResource := o.Resource.(*legacy.LegacyMixerResource)
+			legacyResource := o.Body.(*legacy.LegacyMixerResource)
 			name = legacyResource.Name
 			kind = legacyResource.Kind
 			contents = legacyResource.Contents
+			labels = nil
+			annotations = nil
 		} else {
 			// Otherwise, simply do a direct mapping from typeURL to kind
 			name = o.Metadata.Name
 			kind = b.mapping.kind(typeURL)
-			contents = o.Resource
+			contents = o.Body
+			labels = o.Metadata.Labels
+			annotations = o.Metadata.Annotations
 		}
 
 		collection, found := newTypeStates[kind]
@@ -331,7 +338,7 @@ func (b *backend) Apply(change *client.Change) error {
 		// Map it to Mixer's store model, and put it in the new collection.
 
 		key := toKey(kind, name)
-		resource, err := toBackendResource(key, contents, o.Metadata.Version)
+		resource, err := toBackendResource(key, labels, annotations, contents, o.Metadata.Version)
 		if err != nil {
 			return err
 		}

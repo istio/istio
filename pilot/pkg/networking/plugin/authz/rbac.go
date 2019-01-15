@@ -27,6 +27,8 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/pkg/spiffe"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -81,7 +83,7 @@ const (
 	methodHeader = ":method"
 	pathHeader   = ":path"
 
-	spiffePrefix = "spiffe://"
+	spiffePrefix = spiffe.Scheme + "://"
 )
 
 // serviceMetadata is a collection of different kind of information about a service.
@@ -312,7 +314,7 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	// Only supports sidecar proxy for now.
-	if in.Node.Type != model.Sidecar {
+	if in.Node.Type != model.SidecarProxy {
 		return nil
 	}
 

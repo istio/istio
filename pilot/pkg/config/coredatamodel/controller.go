@@ -160,9 +160,11 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 				Namespace:         namespace,
 				ResourceVersion:   obj.Metadata.Version,
 				CreationTimestamp: createTime,
+				Labels:            obj.Metadata.Labels,
+				Annotations:       obj.Metadata.Annotations,
 				Domain:            c.options.DomainSuffix,
 			},
-			Spec: obj.Resource,
+			Spec: obj.Body,
 		}
 
 		if err := schema.Validate(conf.Name, conf.Namespace, conf.Spec); err != nil {

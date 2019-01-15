@@ -19,7 +19,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -102,25 +101,16 @@ type Proxy struct {
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 
-	// mutex control access to mutable fields in the Proxy. On-demand will modify the
-	// list of services based on calls from envoy.
-	mutex sync.RWMutex
-
-	// serviceDependencies, if set, controls the list of outbound listeners and routes
-	// for which the proxy will receive configurations. If nil, the proxy will get config
-	// for all visible services.
-	// The list will be populated either from explicit declarations or using 'on-demand'
-	// feature, before generation takes place. Each node may have a different list, based on
-	// the requests handled by envoy.
-	serviceDependencies []*Service
+	// the sidecarScope associated with the proxy
+	SidecarScope *SidecarScope
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 
 const (
-	// Sidecar type is used for sidecar proxies in the application containers
-	Sidecar NodeType = "sidecar"
+	// SidecarProxy type is used for sidecar proxies in the application containers
+	SidecarProxy NodeType = "sidecar"
 
 	// Ingress type is used for cluster ingress proxies
 	Ingress NodeType = "ingress"
@@ -132,7 +122,7 @@ const (
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
-	case Sidecar, Ingress, Router:
+	case SidecarProxy, Ingress, Router:
 		return true
 	default:
 		return false
@@ -240,7 +230,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	out.Type = NodeType(parts[0])
 
 	switch out.Type {
-	case Sidecar, Ingress, Router:
+	case SidecarProxy, Ingress, Router:
 	default:
 		return out, fmt.Errorf("invalid node type (valid types: ingress, sidecar, router in the service node %q", s)
 	}
@@ -260,7 +250,7 @@ func ParseServiceNodeWithMetadata(s string, metadata map[string]string) (*Proxy,
 	}
 
 	// Does query from ingress or router have to carry valid IP address?
-	if len(out.IPAddresses) == 0 && out.Type == Sidecar {
+	if len(out.IPAddresses) == 0 && out.Type == SidecarProxy {
 		return out, fmt.Errorf("no valid IP address in the service node id or metadata")
 	}
 
@@ -277,8 +267,16 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
-	if configNamespace, found := proxy.Metadata["CONFIG_NAMESPACE"]; found {
+	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
+	if configNamespace, found := proxy.Metadata[NodeConfigNamespace]; found {
 		return configNamespace
+	}
+
+	// if not found, for backward compatibility, extract the namespace from
+	// the proxy domain. this is a k8s specific hack and should be enabled
+	parts := strings.Split(proxy.DNSDomain, ".")
+	if len(parts) > 1 { // k8s will have namespace.<domain>
+		return parts[0]
 	}
 
 	return ""
@@ -454,4 +452,58 @@ func parseIPAddresses(s string) ([]string, error) {
 // Tell whether the given IP address is valid or not
 func isValidIPAddress(ip string) bool {
 	return net.ParseIP(ip) != nil
+}
+
+// Pile all node metadata constants here
+const (
+
+	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
+	// set at injection time. When set, the Endpoints returned to a note and not on same network
+	// will be replaced with the gateway defined in the settings.
+	NodeMetadataNetwork = "NETWORK"
+
+	// NodeMetadataInterceptionMode is the name of the metadata variable that carries info about
+	// traffic interception mode at the proxy
+	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
+
+	// NodeConfigNamespace is the name of the metadata variable that carries info about
+	// the config namespace associated with the proxy
+	NodeConfigNamespace = "CONFIG_NAMESPACE"
+)
+
+// TrafficInterceptionMode indicates how traffic to/from the workload is captured and
+// sent to Envoy. This should not be confused with the CaptureMode in the API that indicates
+// how the user wants traffic to be intercepted for the listener. TrafficInterceptionMode is
+// always derived from the Proxy metadata
+type TrafficInterceptionMode string
+
+const (
+	// InterceptionNone indicates that the workload is not using IPtables for traffic interception
+	InterceptionNone TrafficInterceptionMode = "NONE"
+
+	// InterceptionTproxy implies traffic intercepted by IPtables with TPROXY mode
+	InterceptionTproxy TrafficInterceptionMode = "TPROXY"
+
+	// InterceptionRedirect implies traffic intercepted by IPtables with REDIRECT mode
+	// This is our default mode
+	InterceptionRedirect TrafficInterceptionMode = "REDIRECT"
+)
+
+// GetInterceptionMode extracts the interception mode associated with the proxy
+// from the proxy metadata
+func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
+	if node == nil {
+		return InterceptionRedirect
+	}
+
+	switch node.Metadata[NodeMetadataInterceptionMode] {
+	case "TPROXY":
+		return InterceptionTproxy
+	case "REDIRECT":
+		return InterceptionRedirect
+	case "NONE":
+		return InterceptionNone
+	}
+
+	return InterceptionRedirect
 }

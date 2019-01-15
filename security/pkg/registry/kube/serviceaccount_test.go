@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -39,12 +40,14 @@ type serviceAccountPair struct {
 	newSvcAcct *v1.ServiceAccount
 }
 
+type testStruct struct {
+	name      string
+	namespace string
+	expected  string
+}
+
 func TestSpiffeID(t *testing.T) {
-	testCases := []struct {
-		name      string
-		namespace string
-		expected  string
-	}{
+	testCases := []testStruct{
 		{
 			name:      "foo",
 			namespace: "bar",
@@ -72,7 +75,7 @@ func TestSpiffeID(t *testing.T) {
 		},
 	}
 	for _, c := range testCases {
-		if id := getSpiffeID(createServiceAccount(c.name, c.namespace)); id != c.expected {
+		if id := getSpiffeID(createServiceAccount(c.name, c.namespace)); c.expected != id {
 			t.Errorf("getSpiffeID(%s, %s): expected %s, got %s", c.name, c.namespace, c.expected, id)
 		}
 	}

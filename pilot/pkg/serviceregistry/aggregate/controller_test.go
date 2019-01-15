@@ -425,7 +425,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 
 	for i := 0; i < len(accounts); i++ {
 		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one")
+			t.Fatal("Returned account result does not match expected one", accounts[i], expected[i])
 		}
 	}
 }

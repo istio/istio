@@ -19,6 +19,8 @@ import (
 	"os"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,6 +62,9 @@ var (
 				return err
 			}
 
+			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain,
+				serverArgs.Config.ControllerOptions.DomainSuffix, hasKubeRegistry()))
+
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
@@ -80,11 +85,21 @@ var (
 	}
 )
 
+// when we run on k8s, the default trust domain is 'cluster.local', otherwise it is the empty string
+func hasKubeRegistry() bool {
+	for _, r := range serverArgs.Service.Registries {
+		if serviceregistry.ServiceRegistry(r) == serviceregistry.KubernetesRegistry {
+			return true
+		}
+	}
+	return false
+}
+
 func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(serviceregistry.KubernetesRegistry)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
-			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MockRegistry))
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s})",
+			serviceregistry.KubernetesRegistry, serviceregistry.ConsulRegistry, serviceregistry.MCPRegistry, serviceregistry.MockRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ClusterRegistriesNamespace, "clusterRegistriesNamespace", metav1.NamespaceAll,
 		"Namespace for ConfigMap which stores clusters configs")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
@@ -120,6 +135,8 @@ func init() {
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
 		"DNS domain suffix")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.TrustDomain, "trust-domain", "",
+		"The domain serves to identify the system with spiffe")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
 		"URL for the Consul server")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Service.Consul.Interval, "consulserverInterval", 2*time.Second,

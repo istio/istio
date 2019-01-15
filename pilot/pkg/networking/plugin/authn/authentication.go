@@ -96,8 +96,15 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 	}
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			// TODO(incfly): should this be {"istio", "http1.1", "h2"}?
-			// Currently it works: when server is in permissive mode, client sidecar can send tls traffic.
+			// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
+			// which is used to differentiate between service mesh and legacy traffic.
+			//
+			// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
+			//
+			// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
+			// include "istio" for the secure traffic, but its TLSContext.ALPN must not
+			// include "istio", which would interfere with negotiation of the underlying
+			// protocol, e.g. HTTP/2.
 			AlpnProtocols: util.ALPNHttp,
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
@@ -253,7 +260,7 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy, proxyType model.Node
 		switch peer.GetParams().(type) {
 		case *authn.PeerAuthenticationMethod_Mtls:
 			// Only enable mTLS for sidecar, not Ingress/Router for now.
-			if proxyType == model.Sidecar {
+			if proxyType == model.SidecarProxy {
 				if peer.GetMtls() == nil {
 					peer.Params = &authn.PeerAuthenticationMethod_Mtls{Mtls: &authn.MutualTls{}}
 				}
@@ -330,7 +337,7 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *plugin.Mutable
 // Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
-	if in.Node.Type != model.Sidecar {
+	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
 	}

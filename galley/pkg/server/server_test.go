@@ -27,7 +27,6 @@ import (
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/server"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -58,18 +57,16 @@ loop:
 
 		switch i {
 		case 0:
-			p.logConfigure = func(*log.Options) error { return e }
-		case 1:
 			p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return nil, e }
-		case 2:
+		case 1:
 			p.newSource = func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error) {
 				return nil, e
 			}
-		case 3:
+		case 2:
 			p.netListen = func(network, address string) (net.Listener, error) { return nil, e }
-		case 4:
+		case 3:
 			p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return nil, e }
-		case 5:
+		case 4:
 			args.ConfigPath = "aaa"
 			p.fsNew = func(string, *kube.Schema, *converter.Config) (runtime.Source, error) { return nil, e }
 		default:

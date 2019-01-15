@@ -42,6 +42,7 @@ const (
 	istioInstallDir                = "install/kubernetes"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
+	authSdsInstallFile             = "istio-auth-sds.yaml"
 	nonAuthWithoutMCPInstallFile   = "istio-mcp.yaml"
 	authWithoutMCPInstallFile      = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
@@ -96,6 +97,7 @@ var (
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
+	authSdsEnable      = flag.Bool("auth_sds_enable", false, "Enable auth using key/cert distributed through SDS")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster       = flag.Bool("use_local_cluster", false,
 		"If true any LoadBalancer type services will be converted to a NodePort service during testing. If running on minikube, this should be set to true")
@@ -157,6 +159,7 @@ type KubeInfo struct {
 	localCluster     bool
 	namespaceCreated bool
 	AuthEnabled      bool
+	AuthSdsEnabled   bool
 	RBACEnabled      bool
 
 	// Istioctl installation
@@ -184,7 +187,11 @@ func getClusterWideInstallFile() string {
 	var istioYaml string
 	if *authEnable {
 		if *useMCP {
-			istioYaml = authInstallFile
+			if *authSdsEnable {
+				istioYaml = authSdsInstallFile
+			} else {
+				istioYaml = authInstallFile
+			}
 		} else {
 			istioYaml = authWithoutMCPInstallFile
 		}
@@ -294,6 +301,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 		AppManager:       a,
 		RemoteAppManager: aRemote,
 		AuthEnabled:      *authEnable,
+		AuthSdsEnabled:   *authSdsEnable,
 		RBACEnabled:      *rbacEnable,
 		ReleaseDir:       releaseDir,
 		BaseVersion:      baseVersion,
@@ -746,11 +754,12 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 
 	// deploy tiller, helm cli is already available
 	if err := util.HelmInit("tiller"); err != nil {
-		log.Errorf("Failed to init helm tiller ")
+		log.Errorf("Failed to init helm tiller")
 		return err
 	}
-	// wait till tiller reaches running
-	return util.CheckPodRunning("kube-system", "name=tiller", k.KubeConfig)
+
+	// Wait until Helm's Tiller is running
+	return util.HelmTillerRunning()
 }
 
 var (
