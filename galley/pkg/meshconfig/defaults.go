@@ -36,5 +36,6 @@ func Default() v1alpha1.MeshConfig {
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",
 		SdsUdsPath:            "",
+		OutboundTrafficPolicy: &v1alpha1.MeshConfig_OutboundTrafficPolicy{Mode: v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 	}
 }
