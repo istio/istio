@@ -65,8 +65,10 @@ func TestLDSIsolated(t *testing.T) {
 
 		// s1http - inbound HTTP on 7071 (forwarding to app on 30000 + 7071 - or custom port)
 		// All outbound on http proxy
-		if len(ldsr.HTTPListeners) != 2 {
-			t.Error("HTTP listeners, expecting 2 got ", len(ldsr.HTTPListeners), ldsr.HTTPListeners)
+		if len(ldsr.HTTPListeners) != 3 {
+			// TODO: we are still debating if for HTTP services we have any use case to create a 127.0.0.1:port outbound
+			// for the service (the http proxy is already covering this)
+			t.Error("HTTP listeners, expecting 3 got ", len(ldsr.HTTPListeners), ldsr.HTTPListeners)
 		}
 
 		// s1tcp:2000 outbound, bind=true (to reach other instances of the service)
