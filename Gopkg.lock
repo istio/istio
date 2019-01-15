@@ -156,7 +156,7 @@
   version = "0.10.0"
 
 [[projects]]
-  digest = "1:791e15db2252f9b5a4fb18b3b77ea0cd9c9cf2978cbec0c4183fceb191945fc3"
+  digest = "1:07f4e60d8a08ca0759227bc0a7a12867bb3461f2c4ed376b5160153552199b4f"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -180,12 +180,16 @@
     "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
+    "private/protocol/json/jsonutil",
+    "private/protocol/jsonrpc",
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
     "private/protocol/xml/xmlutil",
     "service/cloudwatch",
     "service/cloudwatch/cloudwatchiface",
+    "service/cloudwatchlogs",
+    "service/cloudwatchlogs/cloudwatchlogsiface",
     "service/sts",
   ]
   pruneopts = "NUT"
@@ -1979,6 +1983,8 @@
     "github.com/aws/aws-sdk-go/awstesting/unit",
     "github.com/aws/aws-sdk-go/service/cloudwatch",
     "github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface",
+    "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
+    "github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface",
     "github.com/cactus/go-statsd-client/statsd",
     "github.com/cactus/go-statsd-client/statsd/statsdtest",
     "github.com/cenkalti/backoff",
