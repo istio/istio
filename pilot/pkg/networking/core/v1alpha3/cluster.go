@@ -90,10 +90,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			if sidecarScope != nil && sidecarScope.XDSOutboundClusters != nil {
 				clusters = append(clusters, sidecarScope.XDSOutboundClusters...)
 				// For locality weighted loadbalancing
-				if proxy.Locality != nil {
-					for _, cluster := range clusters {
-						ApplyLocalityWeightSetting(proxy, cluster, push)
-					}
+				for _, cluster := range clusters {
+					ApplyLocalityWeightSetting(proxy, cluster, push)
 				}
 				recomputeOutboundClusters = false
 			}
@@ -117,6 +115,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			if configgen.PrecomputedOutboundClustersForGateways != nil &&
 				configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
 				clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace]...)
+				// For locality weighted loadbalancing
+				for _, cluster := range clusters {
+					ApplyLocalityWeightSetting(proxy, cluster, push)
+				}
 				recomputeOutboundClusters = false
 			}
 		}
@@ -138,6 +140,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 }
 
 func ApplyLocalityWeightSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
+	if cluster.LoadAssignment == nil || proxy.Locality == nil {
+		return
+	}
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
 	if config := push.DestinationRule(proxy, hostname); config != nil {
 		if port := push.ServicePort(hostname, portNumber); port != nil {
@@ -151,7 +156,6 @@ func ApplyLocalityWeightSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push
 				}
 			}
 		}
-
 	}
 }
 
@@ -785,7 +789,7 @@ func applyLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAs
 		return
 	}
 
-	for _, localityWeightSetting := range lb.LocalityWeightSettings {
+	for _, localityWeightSetting := range lb.GetLocalitySettings().GetDistribute() {
 		if localityWeightSetting != nil &&
 			util.LocalityMatch(proxy.Locality, localityWeightSetting.From) {
 			misMatched := map[int]struct{}{}
