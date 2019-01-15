@@ -47,10 +47,9 @@ var (
 		Match: "baz",
 	}
 
-	fakeCreateTime      = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
-	fakeLabels          = map[string]string{"lk1": "lv1"}
-	fakeAnnotations     = map[string]string{"ak1": "av1"}
-	fakeCreateTimeProto *types.Timestamp
+	fakeCreateTime  = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
+	fakeLabels      = map[string]string{"lk1": "lv1"}
+	fakeAnnotations = map[string]string{"ak1": "av1"}
 
 	// Well-known non-legacy Mixer types.
 	mixerKinds = []string{
