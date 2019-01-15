@@ -642,20 +642,13 @@ func TestNewMetrics(t *testing.T) {
 		t.Logf("Successfully sent request(s) to /productpage; checking metrics...")
 		allowPrometheusSync()
 		query := fmt.Sprintf("sum(istio_double_request_count{%s=\"%s\"})", "destination", "productpage-v1")
-		t.Logf("prometheus query: %s", query)
-		value, err := promAPI.Query(ctx, query, time.Now())
-		if err != nil {
-			return fmt.Errorf("could not get metrics from prometheus: %v", err)
-		}
-		t.Logf("promvalue := %s", value.String())
 
-		got, err = vectorValue(value, map[string]string{})
+		got, err = queryValue(promAPI, query)
 		if err != nil {
 			t.Logf("prometheus values for istio_double_request_count:\n%s", promDump(promAPI, "istio_double_request_count"))
 			t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 			return fmt.Errorf("could not extract value from received metric: %v", err)
 		}
-
 		return nil
 	}
 
