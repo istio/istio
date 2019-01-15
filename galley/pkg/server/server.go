@@ -185,7 +185,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
 	s.reporter = p.mcpMetricReporter("galley/")
-	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker, s.reporter)
+	s.mcp = server.New(distributor, metadata.Types.Collections(), checker, s.reporter)
 
 	// get the network stuff setup
 	network := "tcp"
