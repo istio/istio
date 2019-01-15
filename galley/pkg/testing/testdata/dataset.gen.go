@@ -87,12 +87,12 @@ func datasetConfigIstioIoV1alpha2CirconusYaml() (*asset, error) {
 }
 
 var _datasetConfigIstioIoV1alpha2Circonus_expectedJson = []byte(`{
-  "type.googleapis.com/istio.mcp.v1alpha1.extensions.LegacyMixerResource": [
+  "istio/config/v1alpha2/legacy/circonuses": [
     {
       "Metadata": {
         "name": "circonus/valid-circonus"
       },
-      "Resource": {
+      "Body": {
         "contents": {
           "fields": {
             "submission_interval": {
@@ -169,7 +169,7 @@ var _datasetExtensionsV1beta1Ingress_basic_expectedJson = []byte(`{
           "kubernetes.io/ingress.class": "cls"
         }
       },
-      "Resource": {
+      "Body": {
         "selector": {
           "istio": "ingress"
         },
@@ -666,13 +666,13 @@ func datasetNetworkingIstioIoV1alpha3DestinationruleYaml() (*asset, error) {
 }
 
 var _datasetNetworkingIstioIoV1alpha3Destinationrule_expectedJson = []byte(`{
-  "type.googleapis.com/istio.networking.v1alpha3.DestinationRule": [
+  "istio/networking/v1alpha3/destinationrules": [
     {
       "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.DestinationRule",
       "Metadata": {
         "name": "tcp-echo-destination"
       },
-      "Resource": {
+      "Body": {
         "host": "tcp-echo",
         "subsets": [
           {
@@ -741,13 +741,13 @@ func datasetNetworkingIstioIoV1alpha3GatewayYaml() (*asset, error) {
 }
 
 var _datasetNetworkingIstioIoV1alpha3Gateway_expectedJson = []byte(`{
-  "type.googleapis.com/istio.networking.v1alpha3.Gateway": [
+  "istio/networking/v1alpha3/gateways": [
     {
       "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.Gateway",
       "Metadata": {
         "name": "helloworld-gateway"
       },
-      "Resource": {
+      "Body": {
         "selector": {
           "istio": "ingressgateway"
         },
