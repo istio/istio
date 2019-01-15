@@ -15,8 +15,9 @@
 package converter
 
 import (
+	"encoding/json"
+
 	"github.com/ghodss/yaml"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	yaml2 "gopkg.in/yaml.v2"
 
@@ -37,7 +38,7 @@ func toproto(pb proto.Message, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	return jsonpb.UnmarshalString(js, pb)
+	return json.Unmarshal([]byte(js), pb)
 }
 
 func toJSON(data interface{}) (string, error) {
