@@ -96,7 +96,7 @@ var (
 	galleyTag          = flag.String("galley_tag", os.Getenv("TAG"), "Galley tag")
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
-    trustDomainEnable = flag.Bool("trust_domain_enable", false, "Enable different trust domains (e.g. test.local)")
+	trustDomainEnable  = flag.Bool("trust_domain_enable", false, "Enable different trust domains (e.g. test.local)")
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
 	authSdsEnable      = flag.Bool("auth_sds_enable", false, "Enable auth using key/cert distributed through SDS")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
