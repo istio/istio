@@ -122,9 +122,9 @@ type DiscoveryServer struct {
 	// shards.
 	mutex sync.RWMutex
 
-	// EndpointShardsByService for a service. This is a global (per-server) list, built from
+	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates.
-	EndpointShardsByService map[string]*EndpointShardsByService
+	EndpointShardsByService map[string]*EndpointShards
 
 	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
@@ -135,7 +135,7 @@ type DiscoveryServer struct {
 	// updated. This should only be used in the xDS server - will be removed/made private in 1.1,
 	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
 	// pushes between the 2 packages.
-	edsUpdates map[string]*EndpointShardsByService
+	edsUpdates map[string]*EndpointShards
 
 	updateChannel chan *updateReq
 
@@ -148,15 +148,17 @@ type updateReq struct {
 	full bool
 }
 
-// EndpointShardsByService holds the set of endpoint shards of a service. Registries update
+// EndpointShards holds the set of endpoint shards of a service. Registries update
 // individual shards incrementally. The shards are aggregated and split into
 // clusters when a push for the specific cluster is needed.
-type EndpointShardsByService struct {
+type EndpointShards struct {
+	// mutex protecting below map.
+	mutex sync.RWMutex
 
 	// Shards is used to track the shards. EDS updates are grouped by shard.
 	// Current implementation uses the registry name as key - in multicluster this is the
 	// name of the k8s cluster, derived from the config (secret).
-	Shards map[string]*EndpointShard
+	Shards map[string][]*model.IstioEndpoint
 
 	// ServiceAccounts has the concatenation of all service accounts seen so far in endpoints.
 	// This is updated on push, based on shards. If the previous list is different than
@@ -164,14 +166,6 @@ type EndpointShardsByService struct {
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
 	ServiceAccounts map[string]bool
-}
-
-// EndpointShard contains all the endpoints for a single shard (subset) of a service.
-// Shards are updated atomically by registries. A registry may split a service into
-// multiple shards (for example each deployment, or smaller sub-sets).
-type EndpointShard struct {
-	Shard   string
-	Entries []*model.IstioEndpoint
 }
 
 // Workload has the minimal info we need to detect if we need to push workloads, and to
@@ -201,9 +195,9 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 		Env:                     env,
 		ConfigGenerator:         generator,
 		ConfigController:        configCache,
-		EndpointShardsByService: map[string]*EndpointShardsByService{},
+		EndpointShardsByService: map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
-		edsUpdates:              map[string]*EndpointShardsByService{},
+		edsUpdates:              map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
 	}
@@ -298,7 +292,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
-func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsByService) {
+func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShards) {
 	if !full {
 		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
 		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
@@ -373,16 +367,13 @@ func (s *DiscoveryServer) ClearCache() {
 func (s *DiscoveryServer) doPush(full bool) {
 	// more config update events may happen while doPush is processing.
 	// we don't want to lose updates.
-	s.updateMutex.Lock()
 	s.mutex.Lock()
 	// Swap the edsUpdates map - tracking requests for incremental updates.
 	// The changes to the map are protected by ds.mutex.
 	edsUpdates := s.edsUpdates
 	// Reset - any new updates will be tracked by the new map
-	s.edsUpdates = map[string]*EndpointShardsByService{}
+	s.edsUpdates = map[string]*EndpointShards{}
 	s.mutex.Unlock()
-
-	s.updateMutex.Unlock()
 
 	s.Push(full, edsUpdates)
 }

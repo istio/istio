@@ -96,8 +96,15 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 	}
 	tls := &auth.DownstreamTlsContext{
 		CommonTlsContext: &auth.CommonTlsContext{
-			// TODO(incfly): should this be {"istio", "http1.1", "h2"}?
-			// Currently it works: when server is in permissive mode, client sidecar can send tls traffic.
+			// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
+			// which is used to differentiate between service mesh and legacy traffic.
+			//
+			// Client sidecar outbound cluster's TLSContext.ALPN must include "istio".
+			//
+			// Server sidecar filter chain's FilterChainMatch.ApplicationProtocols must
+			// include "istio" for the secure traffic, but its TLSContext.ALPN must not
+			// include "istio", which would interfere with negotiation of the underlying
+			// protocol, e.g. HTTP/2.
 			AlpnProtocols: util.ALPNHttp,
 		},
 		RequireClientCertificate: protovalue.BoolTrue,

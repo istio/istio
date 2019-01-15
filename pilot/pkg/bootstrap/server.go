@@ -214,6 +214,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if args.Namespace == "" {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
 	}
+	if args.KeepaliveOptions == nil {
+		args.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
 	if args.Config.ClusterRegistriesNamespace == "" {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace
@@ -1145,8 +1148,10 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:    options.Time,
-			Timeout: options.Timeout,
+			Time:                  options.Time,
+			Timeout:               options.Timeout,
+			MaxConnectionAge:      options.MaxServerConnectionAge,
+			MaxConnectionAgeGrace: options.MaxServerConnectionAgeGrace,
 		}),
 	}
 

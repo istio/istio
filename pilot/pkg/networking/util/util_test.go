@@ -97,12 +97,11 @@ func TestGetNetworkEndpointAddress(t *testing.T) {
 	}
 }
 
-func Test_isProxyVersion(t *testing.T) {
+func TestIsProxyVersionGE11(t *testing.T) {
 	tests := []struct {
-		name   string
-		node   *model.Proxy
-		prefix string
-		want   bool
+		name string
+		node *model.Proxy
+		want bool
 	}{
 		{
 			"the given Proxy version is 1.x",
@@ -111,8 +110,7 @@ func Test_isProxyVersion(t *testing.T) {
 					"ISTIO_PROXY_VERSION": "1.0",
 				},
 			},
-			"1.",
-			true,
+			false,
 		},
 		{
 			"the given Proxy version is not 1.x",
@@ -121,7 +119,6 @@ func Test_isProxyVersion(t *testing.T) {
 					"ISTIO_PROXY_VERSION": "0.8",
 				},
 			},
-			"1.",
 			false,
 		},
 		{
@@ -131,14 +128,40 @@ func Test_isProxyVersion(t *testing.T) {
 					"ISTIO_PROXY_VERSION": "1.1",
 				},
 			},
-			"1.1",
+			true,
+		},
+		{
+			"the given Proxy version is 1.1.1",
+			&model.Proxy{
+				Metadata: map[string]string{
+					"ISTIO_PROXY_VERSION": "1.1.1",
+				},
+			},
+			true,
+		},
+		{
+			"the given Proxy version is 2.0",
+			&model.Proxy{
+				Metadata: map[string]string{
+					"ISTIO_PROXY_VERSION": "2.0",
+				},
+			},
+			true,
+		},
+		{
+			"the given Proxy version is 10.0",
+			&model.Proxy{
+				Metadata: map[string]string{
+					"ISTIO_PROXY_VERSION": "2.0",
+				},
+			},
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isProxyVersion(tt.node, tt.prefix); got != tt.want {
-				t.Errorf("isProxyVersion() = %v, want %v", got, tt.want)
+			if got := IsProxyVersionGE11(tt.node); got != tt.want {
+				t.Errorf("IsProxyVersionGE11() = %v, want %v", got, tt.want)
 			}
 		})
 	}
