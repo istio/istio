@@ -59,8 +59,7 @@ spec:
         name: {{.deployment}}
       annotations:
 {{if eq .injectProxy "false"}}
-        # add the proxy but dont setup IPtables.
-        sidecar.istio.io/interceptionMode: "NONE"
+        sidecar.istio.io/inject: "false"
 {{end}}
         sidecar.istio.io/userVolumeMount: '{"uds":{"mountPath":"/var/run/uds"}}'
     spec:
