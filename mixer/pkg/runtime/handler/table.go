@@ -17,6 +17,7 @@ package handler
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
@@ -170,10 +171,20 @@ func (t *Table) Cleanup(current *Table) {
 			err = panicErr
 		}
 
-		if reportErr := entry.env.reportStrayWorkers(); reportErr != nil {
-			log.Warnf("unable to report if there are any stray go routines scheduled by the adapter '%s': %v",
-				entry.Name, reportErr)
-		}
+		go func(adapterEnv env, name string) {
+			strayWorkersFound := adapterEnv.hasStrayWorkers()
+			for i := 0; i < 10 && strayWorkersFound; i++ {
+				adapterEnv.Logger().Debugf("Found stray workers for adapter: %s; will check again in 10s.", name)
+				time.Sleep(1 * time.Second)
+				strayWorkersFound = adapterEnv.hasStrayWorkers()
+			}
+
+			if strayWorkersFound {
+				adapterEnv.reportStrayWorkers()
+			} else {
+				adapterEnv.Logger().Infof("adapter closed all scheduled daemons and workers")
+			}
+		}(entry.env, entry.Name)
 
 		if err != nil {
 			stats.Record(t.monitoringCtx, monitoring.CloseFailuresTotal.M(1))
