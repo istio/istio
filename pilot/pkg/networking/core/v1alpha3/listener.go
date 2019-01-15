@@ -1378,7 +1378,7 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 			Path: env.Mesh.AccessLogFile,
 		}
 
-		if util.Is11Proxy(node) {
+		if util.IsProxyVersionGE11(node) {
 			buildAccessLog(fl, env)
 		}
 
