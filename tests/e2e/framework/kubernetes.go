@@ -58,7 +58,7 @@ const (
 	istioEgressGatewayServiceName  = "istio-egressgateway"
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
-	maxDeploymentRolloutTime       = 480 * time.Second
+	maxDeploymentRolloutTime       = 960 * time.Second
 	maxValidationReadyCheckTime    = 30 * time.Second
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
@@ -709,9 +709,16 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
+	deployment_start := time.Now()
 	if err := util.CheckDeployments(k.Namespace, maxDeploymentRolloutTime, k.KubeConfig); err != nil {
+		t := time.Now()
+		elapsed := t.Sub(deployment_start)
+		log.Errorf("Deployment rollout failed after [%v]", elapsed)
 		return err
 	}
+	t := time.Now()
+	elapsed := t.Sub(deployment_start)
+	log.Infof("Deployment rollout succeeded after [%v]", elapsed)
 
 	if *useGalleyConfigValidator {
 		timeout := time.Now().Add(maxValidationReadyCheckTime)
