@@ -87,10 +87,71 @@ var (
 		},
 	}
 
+	serviceEntry = &networking.ServiceEntry{
+		Hosts: []string{"example.com"},
+		Ports: []*networking.Port{
+			{
+				Name:     "http",
+				Number:   7878,
+				Protocol: "http",
+			},
+		},
+		Location:   networking.ServiceEntry_MESH_INTERNAL,
+		Resolution: networking.ServiceEntry_STATIC,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
+			{
+				Address: "127.0.0.1",
+				Ports: map[string]uint32{
+					"http": 4433,
+				},
+				Labels: map[string]string{"label": "random-label"},
+			},
+		},
+	}
+
 	testControllerOptions = coredatamodel.Options{
 		DomainSuffix: "cluster.local",
 	}
 )
+
+func TestOptions(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var cacheCleared bool
+	testControllerOptions.ClearDiscoveryServerCache = func() {
+		cacheCleared = true
+	}
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	message := convertToResource(g, model.ServiceEntry.MessageName, []proto.Message{serviceEntry})
+	change := convert(
+		[]proto.Message{message[0]},
+		[]string{"service-bar"},
+		model.ServiceEntry.MessageName)
+
+	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err := controller.List(model.ServiceEntry.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
+	g.Expect(cacheCleared).To(gomega.Equal(false))
+
+	message = convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
+	change = convert(
+		[]proto.Message{message[0]},
+		[]string{"gateway-foo"},
+		model.Gateway.MessageName)
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err = controller.List(model.Gateway.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
+	g.Expect(cacheCleared).To(gomega.Equal(true))
+}
 
 func TestHasSynced(t *testing.T) {
 	t.Skip("Pending: https://github.com/istio/istio/issues/7947")
@@ -304,49 +365,6 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	c, err = controller.List("gateway", "")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(0))
-}
-
-func convert(resources []proto.Message, names []string, collection, responseMessageName string) *mcpclient.Change {
-	out := new(mcpclient.Change)
-	out.Collection = collection
-	for i, res := range resources {
-		out.Objects = append(out.Objects,
-			&mcpclient.Object{
-				TypeURL: responseMessageName,
-				Metadata: &mcpapi.Metadata{
-					Name: names[i],
-				},
-				Body: res,
-			},
-		)
-	}
-	return out
-}
-
-func convertToResource(g *gomega.GomegaWithT, messageName string, resources []proto.Message) (messages []proto.Message) {
-	for _, resource := range resources {
-		marshaled, err := proto.Marshal(resource)
-		g.Expect(err).ToNot(gomega.HaveOccurred())
-		message, err := makeMessage(marshaled, messageName)
-		g.Expect(err).ToNot(gomega.HaveOccurred())
-		messages = append(messages, message)
-	}
-	return messages
-}
-
-func makeMessage(value []byte, responseMessageName string) (proto.Message, error) {
-	resource := &types.Any{
-		TypeUrl: fmt.Sprintf("type.googleapis.com/%s", responseMessageName),
-		Value:   value,
-	}
-
-	var dynamicAny types.DynamicAny
-	err := types.UnmarshalAny(resource, &dynamicAny)
-	if err == nil {
-		return dynamicAny.Message, nil
-	}
-
-	return nil, err
 }
 
 func TestApplyClusterScopedAuthPolicy(t *testing.T) {
@@ -614,4 +632,47 @@ func TestEventHandler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func convert(resources []proto.Message, names []string, collection, responseMessageName string) *mcpclient.Change {
+	out := new(mcpclient.Change)
+	out.Collection = collection
+	for i, res := range resources {
+		out.Objects = append(out.Objects,
+			&mcpclient.Object{
+				TypeURL: responseMessageName,
+				Metadata: &mcpapi.Metadata{
+					Name: names[i],
+				},
+				Body: res,
+			},
+		)
+	}
+	return out
+}
+
+func convertToResource(g *gomega.GomegaWithT, messageName string, resources []proto.Message) (messages []proto.Message) {
+	for _, resource := range resources {
+		marshaled, err := proto.Marshal(resource)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		message, err := makeMessage(marshaled, messageName)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		messages = append(messages, message)
+	}
+	return messages
+}
+
+func makeMessage(value []byte, responseMessageName string) (proto.Message, error) {
+	resource := &types.Any{
+		TypeUrl: fmt.Sprintf("type.googleapis.com/%s", responseMessageName),
+		Value:   value,
+	}
+
+	var dynamicAny types.DynamicAny
+	err := types.UnmarshalAny(resource, &dynamicAny)
+	if err == nil {
+		return dynamicAny.Message, nil
+	}
+
+	return nil, err
 }
