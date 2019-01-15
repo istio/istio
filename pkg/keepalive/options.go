@@ -15,25 +15,44 @@
 package keepalive
 
 import (
+	"math"
 	"time"
 
 	"github.com/spf13/cobra"
 )
 
+const (
+	// Infinity is the maximum possible duration for keepalive values
+	Infinity = time.Duration(math.MaxInt64)
+)
+
 // Options defines the set of options used for grpc keepalive.
+// The Time and Timeout options are used for both client and server connections,
+// whereas MaxServerConnectionAge* options are applicable on the server side only
+// (as implied by the options' name...)
 type Options struct {
 	// After a duration of this time if the server/client doesn't see any activity it pings the peer to see if the transport is still alive.
 	Time time.Duration
 	// After having pinged for keepalive check, the server waits for a duration of Timeout and if no activity is seen even after that
 	// the connection is closed.
 	Timeout time.Duration
+	// MaxServerConnectionAge is a duration for the maximum amount of time a
+	// connection may exist before it will be closed by the server sending a GoAway.
+	// A random jitter is added to spread out connection storms.
+	// See https://github.com/grpc/grpc-go/blob/bd0b3b2aa2a9c87b323ee812359b0e9cda680dad/keepalive/keepalive.go#L49
+	MaxServerConnectionAge time.Duration // default value is infinity
+	// MaxServerConnectionAgeGrace is an additive period after MaxServerConnectionAge
+	// after which the connection will be forcibly closed by the server.
+	MaxServerConnectionAgeGrace time.Duration // default value is infinity
 }
 
 // DefaultOption returns the default keepalive options.
 func DefaultOption() *Options {
 	return &Options{
-		Time:    30 * time.Second,
-		Timeout: 10 * time.Second,
+		Time:                        30 * time.Second,
+		Timeout:                     10 * time.Second,
+		MaxServerConnectionAge:      Infinity,
+		MaxServerConnectionAgeGrace: Infinity,
 	}
 }
 
@@ -47,4 +66,9 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().DurationVar(&o.Timeout, "keepaliveTimeout", o.Timeout,
 		"After having pinged for keepalive check, the client/server waits for a duration of keepaliveTimeout "+
 			"and if no activity is seen even after that the connection is closed.")
+	cmd.PersistentFlags().DurationVar(&o.MaxServerConnectionAge, "keepaliveMaxServerConnectionAge",
+		o.MaxServerConnectionAge, "Maximum duration a connection will be kept open on the server before a graceful close.")
+	cmd.PersistentFlags().DurationVar(&o.MaxServerConnectionAgeGrace, "keepaliveMaxServerConnectionAgeGrace",
+		o.MaxServerConnectionAgeGrace, "Grace duration allowed before a server connection is forcibly closed "+
+			"after MaxServerConnectionAge expires.")
 }

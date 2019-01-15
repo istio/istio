@@ -1148,8 +1148,10 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:    options.Time,
-			Timeout: options.Timeout,
+			Time:                  options.Time,
+			Timeout:               options.Timeout,
+			MaxConnectionAge:      options.MaxServerConnectionAge,
+			MaxConnectionAgeGrace: options.MaxServerConnectionAgeGrace,
 		}),
 	}
 
