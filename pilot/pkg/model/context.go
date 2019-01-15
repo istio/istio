@@ -311,6 +311,22 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	return ""
 }
 
+// GetProxyMetadataDNSDomains returns a slice containing every DNS Domain that
+// has been injected into the proxy via the environment variable ISTIO_META_DNS_DOMAINS
+func GetProxyMetadataDNSDomains(proxy *Proxy) []string {
+	if proxy == nil {
+		return []string{}
+	}
+
+	// Return a slice of ISTIO_META_DNS_DOMAINS. The ISTIO_META_DNS_DOMAINS field is
+	// comma seperated.
+	if nodeMetadataDNSDomains, found := proxy.Metadata[NodeMetadataDNSDomains]; found {
+		return strings.Split(nodeMetadataDNSDomains, ",")
+	}
+
+	return []string{}
+}
+
 const (
 	serviceNodeSeparator = "~"
 
@@ -517,6 +533,9 @@ const (
 
 	// NodeMetadataInstanceIPs is the set of IPs attached to this proxy
 	NodeMetadataInstanceIPs = "INSTANCE_IPS"
+
+	// NodeMetaDataDNSDomains is the list of DNS domains used for resolution
+	NodeMetadataDNSDomains = "DNS_DOMAINS"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

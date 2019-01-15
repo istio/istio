@@ -221,6 +221,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) []string {
 	domains := []string{string(service.Hostname), fmt.Sprintf("%s:%d", service.Hostname, port)}
 	domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)...)
+	// TODO: can node.DNSDomain be integrated with the META?  Feels wrong to integrate the
+	// variables in that way...
+	for _, domain := range model.GetProxyMetadataDNSDomains(node) {
+		domains = append(domains, generateAltVirtualHosts(string(service.Hostname), port, domain)...)
+	}
 
 	if len(service.Address) > 0 && service.Address != model.UnspecifiedIP {
 		svcAddr := service.GetServiceAddressForProxy(node)
