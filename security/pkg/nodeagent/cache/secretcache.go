@@ -56,8 +56,8 @@ const (
 	// For REST APIs between envoy->nodeagent, default value of 1s is be used.
 	envoyDefaultTimeoutInMilliSec = 1000
 
-	// backOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
-	backOffIntervalInMilliSec = 50
+	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
+	initialBackOffIntervalInMilliSec = 50
 )
 
 type k8sJwtPayload struct {
@@ -458,7 +458,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 	startTime := time.Now()
 	retry := 0
-	backOffInMilliSec := envoyDefaultTimeoutInMilliSec
+	backOffInMilliSec := initialBackOffIntervalInMilliSec
 	var certChainPEM []string
 	for true {
 		certChainPEM, err = sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
@@ -475,7 +475,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 
 		retry++
 		backOffInMilliSec = retry * backOffInMilliSec
-		randomTime := rand.Intn(envoyDefaultTimeoutInMilliSec)
+		randomTime := rand.Intn(initialBackOffIntervalInMilliSec)
 		time.Sleep(time.Duration(backOffInMilliSec+randomTime) * time.Millisecond)
 		log.Warnf("Failed to sign cert for %q: %v, will retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
