@@ -14,7 +14,10 @@
 
 package test
 
-import "strings"
+import (
+	"io/ioutil"
+	"strings"
+)
 
 const separator = "\n---\n"
 
@@ -33,4 +36,13 @@ func JoinConfigs(parts ...string) string {
 // SplitConfigs splits config into chunks, based on the "---" separator.
 func SplitConfigs(cfg string) []string {
 	return strings.Split(cfg, separator)
+}
+
+func ReadConfigFile(filepath string) (string, error) {
+	by, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return "", err
+	}
+
+	return string(by), nil
 }

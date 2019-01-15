@@ -17,6 +17,8 @@ package v1alpha3
 import (
 	"fmt"
 	"path"
+	"strconv"
+	"strings"
 	"time"
 
 	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -50,23 +52,25 @@ const (
 func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, proxy *model.Proxy, push *model.PushContext) ([]*v2.Cluster, error) {
 	clusters := make([]*v2.Cluster, 0)
 
-	recomputeOutboundClusters := true
-	if configgen.CanUsePrecomputedCDS(proxy) {
-		if configgen.PrecomputedOutboundClusters != nil && configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace] != nil {
-			clusters = append(clusters, configgen.PrecomputedOutboundClusters[proxy.ConfigNamespace]...)
-			recomputeOutboundClusters = false
-		}
-	}
-
-	if recomputeOutboundClusters {
-		clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
-	}
-
-	if proxy.Type == model.Sidecar {
+	switch proxy.Type {
+	case model.SidecarProxy:
 		instances, err := env.GetProxyServiceInstances(proxy)
 		if err != nil {
 			log.Errorf("failed to get service proxy service instances: %v", err)
 			return nil, err
+		}
+
+		sidecarScope := proxy.SidecarScope
+		recomputeOutboundClusters := true
+		if configgen.CanUsePrecomputedCDS(proxy) {
+			if sidecarScope != nil && sidecarScope.XDSOutboundClusters != nil {
+				clusters = append(clusters, sidecarScope.XDSOutboundClusters...)
+				recomputeOutboundClusters = false
+			}
+		}
+
+		if recomputeOutboundClusters {
+			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
 		}
 
 		// Let ServiceDiscovery decide which IP and Port are used for management if
@@ -76,10 +80,23 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			managementPorts = append(managementPorts, env.ManagementPorts(ip)...)
 		}
 		clusters = append(clusters, configgen.buildInboundClusters(env, proxy, push, instances, managementPorts)...)
-	}
 
-	if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
-		clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
+	default: // Gateways
+		recomputeOutboundClusters := true
+		if configgen.CanUsePrecomputedCDS(proxy) {
+			if configgen.PrecomputedOutboundClustersForGateways != nil &&
+				configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
+				clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace]...)
+				recomputeOutboundClusters = false
+			}
+		}
+
+		if recomputeOutboundClusters {
+			clusters = append(clusters, configgen.buildOutboundClusters(env, proxy, push)...)
+		}
+		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(env, proxy, push)...)
+		}
 	}
 
 	// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
@@ -117,8 +134,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	}
 	networkView := model.GetNetworkView(proxy)
 
-	// NOTE: Proxy can be nil here due to precomputed CDS
-	// TODO: get rid of precomputed CDS when adding NetworkScopes as precomputed CDS is not useful in that context
 	for _, service := range push.Services(proxy) {
 		config := push.DestinationRule(proxy, service.Hostname)
 		for _, port := range service.Ports {
@@ -290,8 +305,8 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 	return util.LocalityLbWeightNormalize(LocalityLbEndpoints)
 }
 
-func buildInboundLocalityLbEndpoints(port int) []endpoint.LocalityLbEndpoints {
-	address := util.BuildAddress("127.0.0.1", uint32(port))
+func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityLbEndpoints {
+	address := util.BuildAddress(bind, uint32(port))
 	lbEndpoint := endpoint.LbEndpoint{
 		Endpoint: &endpoint.Endpoint{
 			Address: &address,
@@ -308,50 +323,134 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	push *model.PushContext, instances []*model.ServiceInstance, managementPorts []*model.Port) []*v2.Cluster {
 
 	clusters := make([]*v2.Cluster, 0)
-	inputParams := &plugin.InputParams{
-		Env:  env,
-		Push: push,
-		Node: proxy,
-	}
 
-	for _, instance := range instances {
-		// This cluster name is mainly for stats.
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-		localityLbEndpoints := buildInboundLocalityLbEndpoints(instance.Endpoint.Port)
-		localCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
-		setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
-		// call plugins
-		inputParams.ServiceInstance = instance
-		for _, p := range configgen.Plugins {
-			p.OnInboundCluster(inputParams, localCluster)
+	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
+	// or not. If the node has a sidecarscope with ingress listeners, we only return clusters corresponding
+	// to those listeners i.e. clusters made out of the defaultEndpoint field.
+	// If the node has no sidecarScope and has interception mode set to NONE, then we should skip the inbound
+	// clusters, because there would be no corresponding inbound listeners
+	sidecarScope := proxy.SidecarScope
+
+	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
+		// No user supplied sidecar scope or the user supplied one has no ingress listeners
+
+		// We should not create inbound listeners in NONE mode based on the service instances
+		// Doing so will prevent the workloads from starting as they would be listening on the same port
+		// Users are required to provide the sidecar config to define the inbound listeners
+		if proxy.GetInterceptionMode() == model.InterceptionNone {
+			return nil
 		}
 
-		// When users specify circuit breakers, they need to be set on the receiver end
-		// (server side) as well as client side, so that the server has enough capacity
-		// (not the defaults) to handle the increased traffic volume
-		// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
-		// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-		config := push.DestinationRule(proxy, instance.Service.Hostname)
-		if config != nil {
-			destinationRule := config.Spec.(*networking.DestinationRule)
-			if destinationRule.TrafficPolicy != nil {
-				// only connection pool settings make sense on the inbound path.
-				// upstream TLS settings/outlier detection/load balancer don't apply here.
-				applyConnectionPool(env, localCluster, destinationRule.TrafficPolicy.ConnectionPool)
+		for _, instance := range instances {
+			pluginParams := &plugin.InputParams{
+				Env:             env,
+				Node:            proxy,
+				ServiceInstance: instance,
+				Port:            instance.Endpoint.ServicePort,
+				Push:            push,
+				Bind:            LocalhostAddress,
 			}
+			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+			clusters = append(clusters, localCluster)
 		}
-		clusters = append(clusters, localCluster)
+
+		// Add a passthrough cluster for traffic to management ports (health check ports)
+		for _, port := range managementPorts {
+			clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, port.Name,
+				ManagementClusterHostname, port.Port)
+			localityLbEndpoints := buildInboundLocalityLbEndpoints(LocalhostAddress, port.Port)
+			mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
+			setUpstreamProtocol(mgmtCluster, port)
+			clusters = append(clusters, mgmtCluster)
+		}
+	} else {
+		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+		for _, ingressListener := range rule.Ingress {
+			// LDS would have setup the inbound clusters
+			// as inbound|portNumber|portName|Hostname
+			listenPort := &model.Port{
+				Port:     int(ingressListener.Port.Number),
+				Protocol: model.ParseProtocol(ingressListener.Port.Protocol),
+				Name:     ingressListener.Port.Name,
+			}
+
+			// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
+			// by the user and parse it into host:port or a unix domain socket
+			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
+			bind := LocalhostAddress
+			port := 0
+			var err error
+			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
+				// this is a UDS endpoint. assign it as is
+				bind = ingressListener.DefaultEndpoint
+			} else {
+				// parse the ip, port. Validation guarantees presence of :
+				parts := strings.Split(bind, ":")
+				if port, err = strconv.Atoi(parts[1]); err != nil {
+					continue
+				}
+			}
+
+			// First create a copy of a service instance
+			instance := &model.ServiceInstance{
+				Endpoint:       instances[0].Endpoint,
+				Service:        instances[0].Service,
+				Labels:         instances[0].Labels,
+				ServiceAccount: instances[0].ServiceAccount,
+			}
+
+			// Update the values here so that the plugins use the right ports
+			// uds values
+			// TODO: all plugins need to be updated to account for the fact that
+			// the port may be 0 but bind may have a UDS value
+			// Inboundroute will be different for
+			instance.Endpoint.Address = bind
+			instance.Endpoint.ServicePort = listenPort
+			instance.Endpoint.Port = port
+
+			pluginParams := &plugin.InputParams{
+				Env:             env,
+				Node:            proxy,
+				ServiceInstance: instances[0],
+				Port:            listenPort,
+				Push:            push,
+				Bind:            bind,
+			}
+			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+			clusters = append(clusters, localCluster)
+		}
 	}
 
-	// Add a passthrough cluster for traffic to management ports (health check ports)
-	for _, port := range managementPorts {
-		clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, "", ManagementClusterHostname, port.Port)
-		localityLbEndpoints := buildInboundLocalityLbEndpoints(port.Port)
-		mgmtCluster := buildDefaultCluster(env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
-		setUpstreamProtocol(mgmtCluster, port)
-		clusters = append(clusters, mgmtCluster)
-	}
 	return clusters
+}
+
+func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams) *v2.Cluster {
+	instance := pluginParams.ServiceInstance
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Name,
+		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
+	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.Port)
+	localCluster := buildDefaultCluster(pluginParams.Env, clusterName, v2.Cluster_STATIC, localityLbEndpoints)
+	setUpstreamProtocol(localCluster, instance.Endpoint.ServicePort)
+	// call plugins
+	for _, p := range configgen.Plugins {
+		p.OnInboundCluster(pluginParams, localCluster)
+	}
+
+	// When users specify circuit breakers, they need to be set on the receiver end
+	// (server side) as well as client side, so that the server has enough capacity
+	// (not the defaults) to handle the increased traffic volume
+	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
+	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
+	config := pluginParams.Push.DestinationRule(pluginParams.Node, instance.Service.Hostname)
+	if config != nil {
+		destinationRule := config.Spec.(*networking.DestinationRule)
+		if destinationRule.TrafficPolicy != nil {
+			// only connection pool settings make sense on the inbound path.
+			// upstream TLS settings/outlier detection/load balancer don't apply here.
+			applyConnectionPool(pluginParams.Env, localCluster, destinationRule.TrafficPolicy.ConnectionPool)
+		}
+	}
+	return localCluster
 }
 
 func convertResolution(resolution model.Resolution) v2.Cluster_DiscoveryType {
@@ -759,14 +858,18 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType v2.C
 	cluster := &v2.Cluster{
 		Name: name,
 		Type: discoveryType,
-		LoadAssignment: &v2.ClusterLoadAssignment{
-			ClusterName: name,
-			Endpoints:   localityLbEndpoints,
-		},
 	}
 
 	if discoveryType == v2.Cluster_STRICT_DNS || discoveryType == v2.Cluster_LOGICAL_DNS {
 		cluster.DnsLookupFamily = v2.Cluster_V4_ONLY
+	}
+
+	if discoveryType == v2.Cluster_STATIC || discoveryType == v2.Cluster_STRICT_DNS ||
+		discoveryType == v2.Cluster_LOGICAL_DNS {
+		cluster.LoadAssignment = &v2.ClusterLoadAssignment{
+			ClusterName: name,
+			Endpoints:   localityLbEndpoints,
+		}
 	}
 
 	defaultTrafficPolicy := buildDefaultTrafficPolicy(env, discoveryType)

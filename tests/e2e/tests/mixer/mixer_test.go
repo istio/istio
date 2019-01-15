@@ -57,19 +57,11 @@ const (
 	mixerMetricsPort = uint16(42422)
 	productPagePort  = uint16(10000)
 
-	srcLabel           = "source_service"
-	srcPodLabel        = "source_pod"
-	srcWorkloadLabel   = "source_workload"
-	srcOwnerLabel      = "source_owner"
-	srcUIDLabel        = "source_workload_uid"
-	destLabel          = "destination_service"
-	destPodLabel       = "destination_pod"
-	destWorkloadLabel  = "destination_workload"
-	destOwnerLabel     = "destination_owner"
-	destUIDLabel       = "destination_workload_uid"
-	destContainerLabel = "destination_container"
-	responseCodeLabel  = "response_code"
-	reporterLabel      = "reporter"
+	srcLabel          = "source_service"
+	srcWorkloadLabel  = "source_workload"
+	destLabel         = "destination_service"
+	responseCodeLabel = "response_code"
+	reporterLabel     = "reporter"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
@@ -305,7 +297,8 @@ func dumpK8Env() {
 	_, _ = util.Shell("kubectl --namespace %s get pods -o wide", tc.Kube.Namespace)
 
 	podLogs("istio="+ingressName, ingressName)
-	podLogs("istio=mixer", "mixer")
+	podLogs("istio=mixer,istio-mixer-type=policy", "mixer")
+	podLogs("istio=mixer,istio-mixer-type=telemetry", "mixer")
 	podLogs("istio=pilot", "discovery")
 	podLogs("app=productpage", "istio-proxy")
 
@@ -319,24 +312,6 @@ func podID(labelSelector string) (pod string, err error) {
 	}
 	pod = strings.Trim(pod, "'")
 	log.Infof("%s pod name: %s", labelSelector, pod)
-	return
-}
-
-func deployment(labelSelector string) (name, owner, uid string, err error) {
-	name, err = util.Shell("kubectl -n %s get deployment -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
-	if err != nil {
-		log.Warnf("could not get %s deployment: %v", labelSelector, err)
-		return
-	}
-	log.Infof("%s deployment name: %s", labelSelector, name)
-	uid = fmt.Sprintf("istio://%s/workloads/%s", tc.Kube.Namespace, name)
-	selfLink, err := util.Shell("kubectl -n %s get deployment -l %s -o jsonpath='{.items[0].metadata.selfLink}'", tc.Kube.Namespace, labelSelector)
-	if err != nil {
-		log.Warnf("could not get deployment %s self link: %v", name, err)
-		return
-	}
-	log.Infof("deployment %s self link: %s", labelSelector, selfLink)
-	owner = fmt.Sprintf("kubernetes:/%s", selfLink)
 	return
 }
 
@@ -421,11 +396,9 @@ type redisDeployment struct {
 }
 
 func (r *redisDeployment) Setup() error {
-	// Deploy Tiller if not already running.
-	if err := util.CheckPodRunning("kube-system", "name=tiller", tc.Kube.KubeConfig); err != nil {
-		if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
-			return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
-		}
+	// Deploy Tiller if not already deployed
+	if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
+		return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
 	}
 
 	setValue := "--set usePassword=false,persistence.enabled=false"
@@ -582,11 +555,11 @@ func TestTcpMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("istio_tcp_sent_bytes_total{destination_app=\"%s\"}", "mongodb")
+	query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
 	want := float64(1)
 	validateMetric(t, promAPI, query, "istio_tcp_sent_bytes_total", want)
 
-	query = fmt.Sprintf("istio_tcp_received_bytes_total{destination_app=\"%s\"}", "mongodb")
+	query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
 	validateMetric(t, promAPI, query, "istio_tcp_received_bytes_total", want)
 
 	query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
@@ -600,16 +573,33 @@ func TestTcpMetrics(t *testing.T) {
 func validateMetric(t *testing.T, promAPI v1.API, query, metricName string, want float64) {
 	t.Helper()
 	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		fatalf(t, "Could not get metrics from prometheus: %v", err)
+
+	var got float64
+
+	retry := util.Retrier{
+		BaseDelay: 30 * time.Second,
+		Retries:   4,
 	}
 
-	got, err := vectorValue(value, map[string]string{})
-	if err != nil {
+	retryFn := func(_ context.Context, i int) error {
+		t.Helper()
+		t.Logf("Trying to find metrics via promql (attempt %d)...", i)
+		value, err := promAPI.Query(context.Background(), query, time.Now())
+		if err != nil {
+			errorf(t, "Could not get metrics from prometheus: %v", err)
+			return err
+		}
+		got, err = vectorValue(value, map[string]string{})
+		t.Logf("vector value => got: %f, err: %v", got, err)
+		return err
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
 		t.Logf("prometheus values for %s:\n%s", metricName, promDump(promAPI, metricName))
+		dumpMixerMetrics()
 		fatalf(t, "Could not find metric value: %v", err)
 	}
+
 	t.Logf("%s: %f", metricName, got)
 	if got < want {
 		t.Logf("prometheus values for %s:\n%s", metricName, promDump(promAPI, metricName))
@@ -686,27 +676,9 @@ func TestKubeenvMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	productPagePod, err := podID("app=productpage")
-	if err != nil {
-		fatalf(t, "Could not get productpage pod ID: %v", err)
-	}
-	productPageWorkloadName, productPageOwner, productPageUID, err := deployment("app=productpage")
-	if err != nil {
-		fatalf(t, "Could not get productpage deployment metadata: %v", err)
-	}
-	ingressPod, err := podID(fmt.Sprintf("istio=%s", ingressName))
-	if err != nil {
-		fatalf(t, "Could not get ingress pod ID: %v", err)
-	}
-	ingressWorkloadName, ingressOwner, ingressUID, err := deployment(fmt.Sprintf("istio=%s", ingressName))
-	if err != nil {
-		fatalf(t, "Could not get ingress deployment metadata: %v", err)
-	}
 
-	query := fmt.Sprintf("istio_kube_request_count{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"%s\",%s=\"200\"}",
-		srcPodLabel, ingressPod, srcWorkloadLabel, ingressWorkloadName, srcOwnerLabel, ingressOwner, srcUIDLabel, ingressUID,
-		destPodLabel, productPagePod, destWorkloadLabel, productPageWorkloadName, destOwnerLabel, productPageOwner, destUIDLabel, productPageUID,
-		destContainerLabel, "productpage", responseCodeLabel)
+	// instead of trying to find an exact match, we'll loop through all successful requests to ensure no values are "unknown"
+	query := fmt.Sprintf("istio_kube_request_count{%s=\"200\"}", responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -714,14 +686,22 @@ func TestKubeenvMetrics(t *testing.T) {
 	}
 	log.Infof("promvalue := %s", value.String())
 
-	got, err := vectorValue(value, map[string]string{})
-	if err != nil {
-		t.Logf("prometheus values for istio_kube_request_count:\n%s", promDump(promAPI, "istio_kube_request_count"))
-		fatalf(t, "Error get metric value: %v", err)
+	if value.Type() != model.ValVector {
+		errorf(t, "Value not a model.Vector; was %s", value.Type().String())
 	}
-	want := float64(1)
-	if got < want {
-		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
+	vec := value.(model.Vector)
+
+	if got, want := len(vec), 1; got < want {
+		errorf(t, "Found %d istio_kube_request_count metrics, want at least %d", got, want)
+	}
+
+	for _, sample := range vec {
+		metric := sample.Metric
+		for labelKey, labelVal := range metric {
+			if labelVal == "unknown" {
+				errorf(t, "Unexpected 'unknown' value for label '%s' in sample '%s'", labelKey, sample)
+			}
+		}
 	}
 }
 

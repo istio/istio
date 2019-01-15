@@ -360,7 +360,7 @@ func mcpSidecarServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchRespo
 	return &mcpserver.WatchResponse{
 		Version:   req.GetVersionInfo(),
 		TypeURL:   req.GetTypeUrl(),
-		Envelopes: []*mcp.Envelope{},
+		Resources: []*mcp.Resource{},
 	}, cancelFunc
 }
 
@@ -378,23 +378,23 @@ func mcpServerResponse(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mc
 	return &mcpserver.WatchResponse{
 		Version:   req.GetVersionInfo(),
 		TypeURL:   req.GetTypeUrl(),
-		Envelopes: []*mcp.Envelope{},
+		Resources: []*mcp.Resource{},
 	}, cancelFunc
 }
 
 func buildWatchResp(req *mcp.MeshConfigRequest, namedMsgs map[string]proto.Message) *mcpserver.WatchResponse {
-	envelopes := []*mcp.Envelope{}
+	resources := []*mcp.Resource{}
 	for name, msg := range namedMsgs {
 		marshaledMsg, err := proto.Marshal(msg)
 		if err != nil {
 			log.Fatalf("marshaling %s: %s\n", name, err)
 		}
-		envelopes = append(envelopes, &mcp.Envelope{
+		resources = append(resources, &mcp.Resource{
 			Metadata: &mcp.Metadata{
 				Name:       name,
 				CreateTime: fakeCreateTime,
 			},
-			Resource: &types.Any{
+			Body: &types.Any{
 				TypeUrl: req.GetTypeUrl(),
 				Value:   marshaledMsg,
 			},
@@ -403,7 +403,7 @@ func buildWatchResp(req *mcp.MeshConfigRequest, namedMsgs map[string]proto.Messa
 	return &mcpserver.WatchResponse{
 		Version:   req.GetVersionInfo(),
 		TypeURL:   req.GetTypeUrl(),
-		Envelopes: envelopes,
+		Resources: resources,
 	}
 }
 

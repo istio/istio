@@ -70,6 +70,8 @@ var (
 	// IstioChartDir is the Kubernetes Helm chart directory in the repository
 	IstioChartDir = path.Join(ChartsDir, "istio")
 
+	CrdsFilesDir = path.Join(ChartsDir, "istio-init/files")
+
 	// BookInfoRoot is the root folder for the bookinfo samples
 	BookInfoRoot = path.Join(IstioRoot, "samples/bookinfo")
 

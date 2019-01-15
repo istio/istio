@@ -72,5 +72,7 @@ make init
 
 setup_cluster
 
-time make test.integration.kube T=-v
+JUNIT_UNIT_TEST_XML="${ARTIFACTS_DIR}/junit_unit-tests.xml" \
+T="-v" \
+make test.integration.kube
 

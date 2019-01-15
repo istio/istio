@@ -24,21 +24,27 @@ import (
 )
 
 const (
-	statCdsUpdates = "cluster_manager.cds.update_success"
-	statLdsUpdates = "listener_manager.lds.update_success"
+	statCdsUpdatesSuccess   = "cluster_manager.cds.update_success"
+	statCdsUpdatesRejection = "cluster_manager.cds.update_rejected"
+	statLdsUpdatesSuccess   = "listener_manager.lds.update_success"
+	statLdsUpdatesRejection = "listener_manager.lds.update_rejected"
 )
 
 // Stats contains values of interest from a poll of Envoy stats.
 type Stats struct {
-	CDSUpdates uint64
-	LDSUpdates uint64
+	CDSUpdatesSuccess   uint64
+	CDSUpdatesRejection uint64
+	LDSUpdatesSuccess   uint64
+	LDSUpdatesRejection uint64
 }
 
 // String representation of the Stats.
 func (s *Stats) String() string {
-	return fmt.Sprintf("cds updates: %d, lds updates: %d",
-		s.CDSUpdates,
-		s.LDSUpdates)
+	return fmt.Sprintf("cds updates: %d successful, %d rejected; lds updates: %d successful, %d rejected",
+		s.CDSUpdatesSuccess,
+		s.CDSUpdatesRejection,
+		s.LDSUpdatesSuccess,
+		s.LDSUpdatesRejection)
 }
 
 // GetStats from Envoy.
@@ -51,8 +57,10 @@ func GetStats(adminPort uint16) (*Stats, error) {
 	// Parse the Envoy stats.
 	s := &Stats{}
 	allStats := []*stat{
-		{name: statCdsUpdates, value: &s.CDSUpdates},
-		{name: statLdsUpdates, value: &s.LDSUpdates},
+		{name: statCdsUpdatesSuccess, value: &s.CDSUpdatesSuccess},
+		{name: statCdsUpdatesRejection, value: &s.CDSUpdatesRejection},
+		{name: statLdsUpdatesSuccess, value: &s.LDSUpdatesSuccess},
+		{name: statLdsUpdatesRejection, value: &s.LDSUpdatesRejection},
 	}
 	if err := parseStats(input, allStats); err != nil {
 		return nil, err
@@ -72,7 +80,7 @@ func parseStats(input *bytes.Buffer, stats []*stat) (err error) {
 	}
 	for _, stat := range stats {
 		if !stat.found {
-			err = multierror.Append(err, fmt.Errorf("envoy stat missing: %s", stat.name))
+			*stat.value = 0
 		}
 	}
 	return
