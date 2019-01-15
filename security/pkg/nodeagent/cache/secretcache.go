@@ -54,7 +54,7 @@ const (
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
 
-	// For REST APIs between envoy->nodeagent, default value of 1s is be used.
+	// For REST APIs between envoy->nodeagent, default value of 1s is used.
 	envoyDefaultTimeoutInMilliSec = 1000
 
 	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
@@ -467,10 +467,15 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 			break
 		}
 
-		isTimeout := startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now())
-		// If non-retryable error or reach envoy timeout, fail the request by returning err
-		if !isRetryableErr(status.Code(err)) || isTimeout {
-			log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
+		// If non-retryable error, fail the request by returning err
+		if !isRetryableErr(status.Code(err)) {
+			log.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
+			return nil, err
+		}
+
+		// If reach envoy timeout, fail the request by returning err
+		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
+			log.Errorf("CSR retry timeout for for %q: %v", resourceName, err)
 			return nil, err
 		}
 
