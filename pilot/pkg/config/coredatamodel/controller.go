@@ -23,6 +23,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/sink"
@@ -39,8 +40,8 @@ type CoreDataModel interface {
 
 // Options stores the configurable attributes of a Control
 type Options struct {
-	DomainSuffix              string
-	ClearDiscoveryServerCache func()
+	DomainSuffix string
+	XDSUpdater   model.XDSUpdater
 }
 
 // Controller is a temporary storage for the changes received
@@ -50,7 +51,7 @@ type Controller struct {
 	// keys [type][namespace][name]
 	configStore             map[string]map[string]map[string]*model.Config
 	descriptorsByCollection map[string]model.ProtoSchema
-	options                 Options
+	options                 *Options
 	eventHandlers           map[string][]func(model.Config, model.Event)
 
 	syncedMu sync.Mutex
@@ -58,7 +59,7 @@ type Controller struct {
 }
 
 // NewController provides a new CoreDataModel controller
-func NewController(options Options) CoreDataModel {
+func NewController(options *Options) CoreDataModel {
 	descriptorsByMessageName := make(map[string]model.ProtoSchema, len(model.IstioConfigTypes))
 	synced := make(map[string]bool)
 	for _, descriptor := range model.IstioConfigTypes {
@@ -175,17 +176,41 @@ func (c *Controller) Apply(change *sink.Change) error {
 		}
 	}
 
-	var prevStore map[string]map[string]*model.Config
-
 	c.configStoreMu.Lock()
-	prevStore = c.configStore[descriptor.Type]
 	c.configStore[descriptor.Type] = innerStore
 	c.configStoreMu.Unlock()
 
-	if descriptor.Type == model.ServiceEntry.Type {
-		c.serviceEntryEvents(innerStore, prevStore)
+	// TODO:What is the semantics for collection, should it match the type?
+	// do we need a new type for synthetic Service entries?
+	if descriptor.Type == model.ServiceEntry.Type &&
+		descriptor.Collection == "istio/networking/v1alpha1/serviceentries/synthetic" {
+		for ns, byName := range innerStore {
+			for name, config := range byName {
+				endpoints := []*model.IstioEndpoint{}
+				if se, ok := config.Spec.(*networking.ServiceEntry); ok {
+					for _, ep := range se.Endpoints {
+						for portName, port := range ep.Ports {
+							ep := &model.IstioEndpoint{
+								Address:         ep.Address,
+								EndpointPort:    uint32(port),
+								ServicePortName: portName,
+								Labels:          ep.Labels,
+								UID:             fmt.Sprintf("%s.%s", name, ns),
+								// TODO: how to get network?
+								//Network:
+							}
+							endpoints = append(endpoints, ep)
+						}
+					}
+				}
+				// we know everything associated to this type needs an update
+				// so no need to check version or equality of the endpoints
+				hostname := fmt.Sprintf("%s.%s.svc.%s", name, ns, c.options.DomainSuffix)
+				c.options.XDSUpdater.EDSUpdate("MCP", hostname, endpoints)
+			}
+		}
 	} else {
-		c.options.ClearDiscoveryServerCache()
+		c.options.XDSUpdater.ConfigUpdate(true)
 	}
 
 	return nil

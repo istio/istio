@@ -207,6 +207,7 @@ type Server struct {
 	istioConfigStore model.IstioConfigStore
 	mux              *http.ServeMux
 	kubeRegistry     *kube.Controller
+	mcpOptions       *coredatamodel.Options
 	fileWatcher      filewatcher.FileWatcher
 }
 
@@ -516,13 +517,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		}
 	}
 
-	options := coredatamodel.Options{
-		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
-		ClearDiscoveryServerCache: func() {
-			s.EnvoyXdsServer.ConfigUpdate(true)
-		},
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*client.Client
 	var clients2 []*sink.Client
@@ -630,8 +624,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			cancel()
 			return err
 		}
-
-		mcpController := coredatamodel.NewController(options)
+		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+		mcpController := coredatamodel.NewController(s.mcpOptions)
 		sinkOptions := &sink.Options{
 			CollectionOptions: collections,
 			Updater:           mcpController,
@@ -705,7 +699,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				return err
 			}
 
-			mcpController := coredatamodel.NewController(options)
+			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+			mcpController := coredatamodel.NewController(s.mcpOptions)
 			sinkOptions := &sink.Options{
 				CollectionOptions: collections,
 				Updater:           mcpController,
@@ -784,6 +779,9 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
 	if len(args.MCPServerAddrs) > 0 || len(s.mesh.ConfigSources) > 0 {
+		s.mcpOptions = &coredatamodel.Options{
+			DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+		}
 		if err := s.initMCPConfigController(args); err != nil {
 			return err
 		}
@@ -1009,6 +1007,10 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		s.kubeRegistry.Env = environment
 		s.kubeRegistry.InitNetworkLookup(s.meshNetworks)
 		s.kubeRegistry.XDSUpdater = s.EnvoyXdsServer
+	}
+
+	if s.mcpOptions != nil {
+		s.mcpOptions.XDSUpdater = s.EnvoyXdsServer
 	}
 
 	// create grpc/http server
