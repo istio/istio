@@ -30,18 +30,11 @@ func TestCEXLCompatibility(t *testing.T) {
 		}
 
 		t.Run(test.TestName(), func(t *testing.T) {
-			converted, err := sourceCEXLToCEL(test.E)
-			if err != nil {
-				if test.AstErr != "" {
-					t.Logf("expected parse error %q, got %v", test.AstErr, err)
-					return
-				}
-				t.Fatal(err)
-			}
+			t.Parallel()
 
 			finder := ast.NewFinder(test.Conf())
-			builder := NewBuilder(finder)
-			ex, typ, err := builder.Compile(converted)
+			builder := NewBuilder(finder, LegacySyntaxCEL)
+			ex, typ, err := builder.Compile(test.E)
 
 			if err != nil {
 				if test.CompileErr != "" {
@@ -108,10 +101,9 @@ func BenchmarkInterpreter(b *testing.B) {
 			continue
 		}
 
-		converted, _ := sourceCEXLToCEL(test.E)
 		finder := ast.NewFinder(test.Conf())
-		builder := NewBuilder(finder)
-		ex, _, _ := builder.Compile(converted)
+		builder := NewBuilder(finder, LegacySyntaxCEL)
+		ex, _, _ := builder.Compile(test.E)
 		bg := ilt.NewFakeBag(test.I)
 
 		b.Run(test.TestName(), func(bb *testing.B) {

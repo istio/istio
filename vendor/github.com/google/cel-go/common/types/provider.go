@@ -243,6 +243,12 @@ func NativeToValue(value interface{}) ref.Value {
 			return NewDynamicList(value)
 		case reflect.Map:
 			return NewDynamicMap(value)
+		// Enums are a type alias of int32, so they cannot be asserted as an
+		// int32 value, but rather need to be downcast to int32 before being
+		// converted to an Int representation.
+		case reflect.Int32:
+			intType := reflect.TypeOf(int32(0))
+			return Int(refValue.Convert(intType).Interface().(int32))
 		}
 	}
 	return NewErr("unsupported type conversion for value '%v'", value)

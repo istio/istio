@@ -553,7 +553,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:adcfaf923ca4e2bbbbfaf8ead0cfaaa7707465fb6e684027f40c451dbf68faf9"
+  digest = "1:37e0d09320fedf3b2cab640c0fcf7ddefe566e6702a689b7b64c776af30b57f3"
   name = "github.com/google/cel-go"
   packages = [
     "checker",
@@ -573,7 +573,7 @@
     "parser/gen",
   ]
   pruneopts = "NUT"
-  revision = "5d04cba99152a2ad0bd6df5ceb378a425cd43645"
+  revision = "712f27087b9520edca2d3c532e59372da38855e6"
 
 [[projects]]
   digest = "1:2e3c336fc7fde5c984d2841455a658a6d626450b1754a854b3b32e7a8f49a07a"
@@ -2092,7 +2092,6 @@
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/golang/sync/errgroup",
-<<<<<<< HEAD
     "github.com/google/cel-go/checker",
     "github.com/google/cel-go/checker/decls",
     "github.com/google/cel-go/common",
@@ -2105,9 +2104,7 @@
     "github.com/google/cel-go/interpreter",
     "github.com/google/cel-go/interpreter/functions",
     "github.com/google/cel-go/parser",
-=======
     "github.com/google/go-cmp/cmp",
->>>>>>> upstream/release-1.1
     "github.com/google/go-github/github",
     "github.com/google/uuid",
     "github.com/googleapis/gax-go",

@@ -28,17 +28,30 @@ import (
 	"istio.io/istio/mixer/pkg/lang/compiled"
 )
 
+// LanguageMode controls parsing and evaluation properties of the expression builder
+type LanguageMode int
+
+const (
+	// CEL mode uses CEL syntax and runtime
+	CEL LanguageMode = iota
+
+	// LegacySyntaxCEL uses CEXL syntax and CEL runtime
+	LegacySyntaxCEL
+)
+
 // ExpressionBuilder creates a CEL interpreter from an attribute manifest.
 type ExpressionBuilder struct {
+	mode        LanguageMode
 	provider    *attributeProvider
 	env         *checker.Env
 	interpreter interpreter.Interpreter
 }
 
 type expression struct {
-	provider *attributeProvider
-	expr     *exprpb.Expr
-	eval     interpreter.Interpretable
+	expr        *exprpb.Expr
+	provider    *attributeProvider
+	interpreter interpreter.Interpreter
+	checked     *exprpb.CheckedExpr
 }
 
 func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
@@ -48,7 +61,11 @@ func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
 		}
 	}()
 
-	result, _ := ex.eval.Eval(ex.provider.newActivation(bag))
+	// TODO: the following allocates space that prevents concurrent reuse
+	program := interpreter.NewCheckedProgram(ex.checked)
+	interpretable := ex.interpreter.NewInterpretable(program)
+
+	result, _ := interpretable.Eval(ex.provider.newActivation(bag))
 	out, err = recoverValue(result)
 	return
 }
@@ -81,9 +98,10 @@ func (ex *expression) String() string {
 }
 
 // NewBuilder returns a new ExpressionBuilder
-func NewBuilder(finder ast.AttributeDescriptorFinder) *ExpressionBuilder {
+func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageMode) *ExpressionBuilder {
 	provider := newAttributeProvider(finder.Attributes())
 	return &ExpressionBuilder{
+		mode:        mode,
 		provider:    provider,
 		env:         provider.newEnvironment(),
 		interpreter: provider.newInterpreter(),
@@ -94,14 +112,22 @@ func NewBuilder(finder ast.AttributeDescriptorFinder) *ExpressionBuilder {
 func (exb *ExpressionBuilder) Compile(text string) (ex compiled.Expression, typ descriptor.ValueType, err error) {
 	typ = descriptor.VALUE_TYPE_UNSPECIFIED
 
+	if exb.mode == LegacySyntaxCEL {
+		text, err = sourceCEXLToCEL(text)
+		if err != nil {
+			return
+		}
+	}
+
 	expr, err := Parse(text)
 	if err != nil {
 		return
 	}
 
 	out := &expression{
-		provider: exb.provider,
-		expr:     expr,
+		provider:    exb.provider,
+		interpreter: exb.interpreter,
+		expr:        expr,
 	}
 	ex = out
 
@@ -111,6 +137,6 @@ func (exb *ExpressionBuilder) Compile(text string) (ex compiled.Expression, typ 
 	}
 
 	typ = recoverType(checked.TypeMap[expr.Id])
-	out.eval = exb.interpreter.NewInterpretable(interpreter.NewCheckedProgram(checked))
+	out.checked = checked
 	return
 }
