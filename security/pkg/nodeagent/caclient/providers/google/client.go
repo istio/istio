@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -33,7 +34,10 @@ import (
 
 var usePodDefaultFlag = false
 
-const podIdentityFlag = "POD_IDENTITY"
+const (
+	podIdentityFlag   = "POD_IDENTITY"
+	bearerTokenPrefix = "Bearer "
+)
 
 type googleCAClient struct {
 	caEndpoint     string
@@ -81,6 +85,11 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	req := &gcapb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
+	}
+
+	// If the token doesn't have "Bearer " prefix, add it.
+	if !strings.HasSuffix(token, bearerTokenPrefix) {
+		token = bearerTokenPrefix + token
 	}
 
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
