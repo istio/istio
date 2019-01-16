@@ -140,7 +140,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 }
 
 func ApplyLocalityWeightSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
-	if cluster.LoadAssignment == nil || proxy.Locality == nil {
+	if cluster.LoadAssignment == nil {
 		return
 	}
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
@@ -785,13 +785,13 @@ func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networkin
 }
 
 func applyLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAssignment, lb *networking.LoadBalancerSettings) {
-	if proxy == nil || proxy.Locality == nil {
+	if proxy == nil {
 		return
 	}
 
 	for _, localityWeightSetting := range lb.GetLocalitySettings().GetDistribute() {
 		if localityWeightSetting != nil &&
-			util.LocalityMatch(proxy.Locality, localityWeightSetting.From) {
+			util.LocalityMatch(&proxy.Locality, localityWeightSetting.From) {
 			misMatched := map[int]struct{}{}
 			for i := range loadAssignment.Endpoints {
 				misMatched[i] = struct{}{}

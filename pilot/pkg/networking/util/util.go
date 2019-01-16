@@ -268,9 +268,7 @@ func ConvertLocality(locality string) *core.Locality {
 }
 
 func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
-	if proxyLocality == nil {
-		return false
-	}
+
 	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
 	regionMatch := ruleRegion == "*" || proxyLocality.Region == ruleRegion
 	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.Zone == ruleZone

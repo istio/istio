@@ -306,7 +306,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 			LoadAssignment: edsCluster.LoadAssignment,
 		}
 		dummyNode := &model.Proxy{
-			Locality: &locality,
+			Locality: locality,
 		}
 		networking_core.ApplyLocalityWeightSetting(dummyNode, dummyCluster, push)
 	}
@@ -454,7 +454,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 			LoadAssignment: edsCluster.LoadAssignment,
 		}
 		dummyNode := &model.Proxy{
-			Locality: &locality,
+			Locality: locality,
 		}
 		networking_core.ApplyLocalityWeightSetting(dummyNode, dummyCluster, push)
 	}
@@ -682,7 +682,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
 			edsClusters := map[core.Locality]*EdsCluster{
-				*con.modelNode.Locality: c,
+				con.modelNode.Locality: c,
 			}
 			if err := s.updateCluster(push, clusterName, edsClusters); err != nil {
 				adsLog.Errorf("error returned from updateCluster for cluster name %s, skipping it.", clusterName)
@@ -763,7 +763,7 @@ func (s *DiscoveryServer) getEdsCluster(proxy *model.Proxy, clusterName string) 
 	edsClusterMutex.RLock()
 	defer edsClusterMutex.RUnlock()
 	if _, ok := edsClusters[clusterName]; ok {
-		return edsClusters[clusterName][*proxy.Locality]
+		return edsClusters[clusterName][proxy.Locality]
 	}
 	return nil
 }
@@ -780,21 +780,21 @@ func (s *DiscoveryServer) getOrAddEdsCluster(proxy *model.Proxy, clusterName str
 			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = map[core.Locality]*EdsCluster{
-			*proxy.Locality: c,
+			proxy.Locality: c,
 		}
 		return c
 	}
-	if c != nil && c[*proxy.Locality] == nil {
+	if c != nil && c[proxy.Locality] == nil {
 		c := &EdsCluster{
 			discovery:  s,
 			EdsClients: map[string]*XdsConnection{},
 			FirstUse:   time.Now(),
 		}
-		edsClusters[clusterName][*proxy.Locality] = c
+		edsClusters[clusterName][proxy.Locality] = c
 		return c
 	}
 
-	return edsClusters[clusterName][*proxy.Locality]
+	return edsClusters[clusterName][proxy.Locality]
 }
 
 // removeEdsCon is called when a gRPC stream is closed, for each cluster that was watched by the

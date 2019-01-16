@@ -622,15 +622,17 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
-	nt.Locality = model.GetProxyLocality(discReq.Node)
-	if nt.Locality == nil {
+	locality := model.GetProxyLocality(discReq.Node)
+	if locality == nil {
 		locality := s.Env.GetProxyLocality(nt)
 		region, zone, subzone := util.SplitLocality(locality)
-		nt.Locality = &core.Locality{
+		nt.Locality = core.Locality{
 			Region:  region,
 			Zone:    zone,
 			SubZone: subzone,
 		}
+	} else {
+		nt.Locality = *locality
 	}
 	con.mu.Lock()
 	con.modelNode = nt
@@ -890,11 +892,6 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 		} else {
 			adsSidecarIDConnectionsMap[con.modelNode.ID][conID] = con
 		}
-		s.Env.Mutex.Lock()
-		if con.modelNode.Locality != nil {
-			s.Env.ProxyLocalities[*con.modelNode.Locality] = struct{}{}
-		}
-		s.Env.Mutex.Unlock()
 	}
 }
 
@@ -916,11 +913,6 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
-		s.Env.Mutex.Lock()
-		if con.modelNode.Locality != nil {
-			s.Env.ProxyLocalities[*con.modelNode.Locality] = struct{}{}
-		}
-		s.Env.Mutex.Unlock()
 	}
 }
 
