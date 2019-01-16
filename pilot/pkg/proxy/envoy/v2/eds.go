@@ -308,7 +308,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		dummyNode := &model.Proxy{
 			Locality: locality,
 		}
-		networking_core.ApplyLocalityWeightSetting(dummyNode, dummyCluster, push)
+		networking_core.ApplyLocalitySetting(dummyNode, dummyCluster, push)
 	}
 
 	return nil
@@ -456,7 +456,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		dummyNode := &model.Proxy{
 			Locality: locality,
 		}
-		networking_core.ApplyLocalityWeightSetting(dummyNode, dummyCluster, push)
+		networking_core.ApplyLocalitySetting(dummyNode, dummyCluster, push)
 	}
 	return nil
 }

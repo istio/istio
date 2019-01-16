@@ -291,3 +291,16 @@ func SplitLocality(locality string) (region, zone, subzone string) {
 		return items[0], items[1], items[2]
 	}
 }
+
+func LbPriority(proxyLocality *core.Locality, endpointsLocality *core.Locality) int {
+	if proxyLocality.Region == endpointsLocality.Region {
+		if proxyLocality.Zone == endpointsLocality.Zone {
+			if proxyLocality.SubZone == endpointsLocality.SubZone {
+				return 0
+			}
+			return 1
+		}
+		return 2
+	}
+	return 3
+}

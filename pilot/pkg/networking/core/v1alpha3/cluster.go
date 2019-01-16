@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -89,9 +90,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		if configgen.CanUsePrecomputedCDS(proxy) {
 			if sidecarScope != nil && sidecarScope.XDSOutboundClusters != nil {
 				clusters = append(clusters, sidecarScope.XDSOutboundClusters...)
-				// For locality weighted loadbalancing
+				// For locality loadbalancing
 				for _, cluster := range clusters {
-					ApplyLocalityWeightSetting(proxy, cluster, push)
+					ApplyLocalitySetting(proxy, cluster, push)
 				}
 				recomputeOutboundClusters = false
 			}
@@ -115,9 +116,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			if configgen.PrecomputedOutboundClustersForGateways != nil &&
 				configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
 				clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace]...)
-				// For locality weighted loadbalancing
+				// For locality loadbalancing
 				for _, cluster := range clusters {
-					ApplyLocalityWeightSetting(proxy, cluster, push)
+					ApplyLocalitySetting(proxy, cluster, push)
 				}
 				recomputeOutboundClusters = false
 			}
@@ -139,7 +140,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	return normalizeClusters(push, proxy, clusters), nil
 }
 
-func ApplyLocalityWeightSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
+func ApplyLocalitySetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
 	if cluster.LoadAssignment == nil {
 		return
 	}
@@ -147,12 +148,20 @@ func ApplyLocalityWeightSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push
 	if config := push.DestinationRule(proxy, hostname); config != nil {
 		if port := push.ServicePort(hostname, portNumber); port != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
-			_, _, loadBalancer, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
-			applyLocalityWeight(proxy, cluster.LoadAssignment, loadBalancer)
+			_, outlierDetection, loadBalancer, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+			setLocalityPriority := false
+			if outlierDetection != nil {
+				setLocalityPriority = true
+			}
+			applyLocalitySettings(proxy, cluster.LoadAssignment, loadBalancer.GetLocalitySettings(), setLocalityPriority)
 			for _, subset := range destinationRule.Subsets {
 				if subset.Name == subsetName {
-					_, _, loadBalancer, _ := SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
-					applyLocalityWeight(proxy, cluster.LoadAssignment, loadBalancer)
+					_, outlierDetection, loadBalancer, _ := SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+					setLocalityPriority = false
+					if outlierDetection != nil {
+						setLocalityPriority = true
+					}
+					applyLocalitySettings(proxy, cluster.LoadAssignment, loadBalancer.GetLocalitySettings(), setLocalityPriority)
 				}
 			}
 		}
@@ -612,7 +621,11 @@ func applyTrafficPolicy(env *model.Environment, proxy *model.Proxy, cluster *api
 
 	applyConnectionPool(env, cluster, connectionPool, direction)
 	applyOutlierDetection(cluster, outlierDetection)
-	applyLoadBalancer(proxy, cluster, loadBalancer)
+	setLocalityPriority := false
+	if outlierDetection != nil {
+		setLocalityPriority = true
+	}
+	applyLoadBalancer(proxy, cluster, loadBalancer, setLocalityPriority)
 	if clusterMode != SniDnatClusterMode {
 		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni)
 		applyUpstreamTLSSettings(env, cluster, tls)
@@ -744,7 +757,7 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 }
 
-func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings) {
+func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, localityPriority bool) {
 	if lb == nil {
 		return
 	}
@@ -781,15 +794,34 @@ func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networkin
 		},
 	}
 
-	applyLocalityWeight(proxy, cluster.LoadAssignment, lb)
+	applyLocalitySettings(proxy, cluster.LoadAssignment, lb.LocalitySettings, localityPriority)
 }
 
-func applyLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAssignment, lb *networking.LoadBalancerSettings) {
-	if proxy == nil {
+func applyLocalitySettings(
+	proxy *model.Proxy,
+	loadAssignment *apiv2.ClusterLoadAssignment,
+	localitySettings *networking.LoadBalancerSettings_LocalitySetting,
+	localityPriority bool) {
+	if proxy == nil || loadAssignment == nil {
 		return
 	}
 
-	for _, localityWeightSetting := range lb.GetLocalitySettings().GetDistribute() {
+	// one of Distribute or Failover settings can be applied.
+	applyLocalityWeight(proxy, loadAssignment, localitySettings.GetDistribute())
+	if localityPriority && localitySettings.GetDistribute() != nil {
+		applyLocalityFailover(proxy, loadAssignment, localitySettings.GetFailover())
+	}
+}
+
+func applyLocalityWeight(
+	proxy *model.Proxy,
+	loadAssignment *apiv2.ClusterLoadAssignment,
+	distribute []*networking.LoadBalancerSettings_LocalitySetting_Distribute) {
+	if distribute == nil {
+		return
+	}
+
+	for _, localityWeightSetting := range distribute {
 		if localityWeightSetting != nil &&
 			util.LocalityMatch(&proxy.Locality, localityWeightSetting.From) {
 			misMatched := map[int]struct{}{}
@@ -823,8 +855,46 @@ func applyLocalityWeight(proxy *model.Proxy, loadAssignment *apiv2.ClusterLoadAs
 			}
 			break
 		}
-
 	}
+}
+
+func applyLocalityFailover(
+	proxy *model.Proxy,
+	loadAssignment *v2.ClusterLoadAssignment,
+	failover []*networking.LoadBalancerSettings_LocalitySetting_Failover) {
+	priorityMap := map[int][]int{}
+
+	for i, localityEndpoint := range loadAssignment.Endpoints {
+		priority := util.LbPriority(&proxy.Locality, localityEndpoint.Locality)
+		// region not match, apply failover settings
+		if priority == 3 {
+			for _, failoverSetting := range failover {
+				if failoverSetting.From == proxy.Locality.Region {
+					if localityEndpoint.Locality.Region != failoverSetting.To {
+						priority = 4
+					}
+					break
+				}
+			}
+		}
+		priorityMap[priority] = append(priorityMap[priority], i)
+	}
+
+	// sort all priorities
+	priorities := []int{}
+	for priority := range priorityMap {
+		priorities = append(priorities, priority)
+	}
+	sort.Ints(priorities)
+	// adjust LocalityLbEndpoints priority
+	for i, priority := range priorities {
+		if i != priority {
+			for index := range priorityMap[priority] {
+				loadAssignment.Endpoints[index].Priority = uint32(i)
+			}
+		}
+	}
+
 }
 
 func applyUpstreamTLSSettings(env *model.Environment, cluster *apiv2.Cluster, tls *networking.TLSSettings) {
