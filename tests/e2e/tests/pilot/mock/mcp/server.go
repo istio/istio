@@ -55,11 +55,11 @@ type Server struct {
 	l  net.Listener
 }
 
-func NewServer(typeUrls []string, watchResponseFunc WatchResponse) (*Server, error) {
+func NewServer(collections []string, watchResponseFunc WatchResponse) (*Server, error) {
 	watcher := mockWatcher{
 		response: watchResponseFunc,
 	}
-	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := mcpserver.New(watcher, collections, mcpserver.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
 	l, err := net.Listen("tcp", "localhost:")
 	if err != nil {
@@ -82,7 +82,7 @@ func NewServer(typeUrls []string, watchResponseFunc WatchResponse) (*Server, err
 
 	return &Server{
 		Watcher:  &watcher,
-		TypeURLs: typeUrls,
+		TypeURLs: collections,
 		Port:     p,
 		URL:      u,
 		gs:       gs,

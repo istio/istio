@@ -497,9 +497,9 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]string, len(model.IstioConfigTypes))
 	for i, model := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", model.MessageName)
+		collections[i] = model.Collection
 	}
 
 	options := coredatamodel.Options{
@@ -606,7 +606,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 		mcpController := coredatamodel.NewController(options)
-		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+		mcpClient := mcpclient.New(cl, collections, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)
@@ -665,7 +665,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 			mcpController := coredatamodel.NewController(options)
-			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+			mcpClient := mcpclient.New(cl, collections, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
 			configz.Register(mcpClient)
 
 			clients = append(clients, mcpClient)

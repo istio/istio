@@ -24,12 +24,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
@@ -84,7 +82,7 @@ type updateHookFn func()
 
 // backend is StoreBackend implementation using MCP.
 type backend struct {
-	// mapping of CRD <> typeURLs.
+	// mapping of CRD <> collections.
 	mapping *mapping
 
 	// Use insecure communication for gRPC.
@@ -125,7 +123,7 @@ type state struct {
 
 	// items stored by kind, then by key.
 	items  map[string]map[store.Key]*store.BackEndResource
-	synced map[string]bool // by kind
+	synced map[string]bool // by collection
 }
 
 // Init implements store.Backend.Init.
@@ -136,9 +134,9 @@ func (b *backend) Init(kinds []string) error {
 	}
 	b.mapping = m
 
-	typeURLs := b.mapping.typeURLs()
-	scope.Infof("Requesting following types:")
-	for i, url := range typeURLs {
+	collections := b.mapping.collections()
+	scope.Infof("Requesting following collections:")
+	for i, url := range collections {
 		scope.Infof("  [%d] %s", i, url)
 	}
 
@@ -189,14 +187,14 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	c := client.New(cl, typeURLs, b, mixerNodeID, map[string]string{}, client.NewStatsContext("mixer"))
+	c := client.New(cl, collections, b, mixerNodeID, map[string]string{}, client.NewStatsContext("mixer"))
 	configz.Register(c)
 
 	b.state = &state{
 		items:  make(map[string]map[store.Key]*store.BackEndResource),
 		synced: make(map[string]bool),
 	}
-	for _, typeURL := range typeURLs {
+	for _, typeURL := range collections {
 		b.state.synced[typeURL] = false
 	}
 
@@ -293,41 +291,22 @@ func (b *backend) Apply(change *client.Change) error {
 	defer b.callUpdateHook()
 
 	newTypeStates := make(map[string]map[store.Key]*store.BackEndResource)
-	typeURL := change.TypeURL
 
-	b.state.synced[typeURL] = true
+	b.state.synced[change.Collection] = true
 
-	scope.Debugf("Received update for: type:%s, count:%d", typeURL, len(change.Objects))
+	scope.Debugf("Received update for: collection:%s, count:%d", change.Collection, len(change.Objects))
 
 	for _, o := range change.Objects {
-		var kind string
-		var name string
-		var contents proto.Message
-		var labels map[string]string
-		var annotations map[string]string
-
 		if scope.DebugEnabled() {
 			scope.Debugf("Processing incoming resource: %q @%s [%s]",
 				o.Metadata.Name, o.Metadata.Version, o.TypeURL)
 		}
 
-		// Demultiplex the resource, if it is a legacy type, and figure out its kind.
-		if isLegacyTypeURL(typeURL) {
-			// Extract the kind from payload.
-			legacyResource := o.Body.(*legacy.LegacyMixerResource)
-			name = legacyResource.Name
-			kind = legacyResource.Kind
-			contents = legacyResource.Contents
-			labels = nil
-			annotations = nil
-		} else {
-			// Otherwise, simply do a direct mapping from typeURL to kind
-			name = o.Metadata.Name
-			kind = b.mapping.kind(typeURL)
-			contents = o.Body
-			labels = o.Metadata.Labels
-			annotations = o.Metadata.Annotations
-		}
+		name := o.Metadata.Name
+		kind := b.mapping.kind(change.Collection)
+		contents := o.Body
+		labels := o.Metadata.Labels
+		annotations := o.Metadata.Annotations
 
 		collection, found := newTypeStates[kind]
 		if !found {

@@ -84,7 +84,7 @@ var (
 
 // WatchResponse contains a versioned collection of pre-serialized resources.
 type WatchResponse struct {
-	TypeURL string
+	Collection string
 
 	// Version of the resources in the response for the given
 	// type. The node responds with this version in subsequent
@@ -120,9 +120,9 @@ var _ mcp.AggregatedMeshConfigServiceServer = &Server{}
 
 // Server implements the Mesh Configuration Protocol (MCP) gRPC server.
 type Server struct {
-	watcher        Watcher
-	supportedTypes []string
-	nextStreamID   int64
+	watcher      Watcher
+	collections  []string
+	nextStreamID int64
 	// for auth check
 	authCheck                   AuthChecker
 	checkFailureRecordLimiter   *rate.Limiter
@@ -274,16 +274,16 @@ type Reporter interface {
 	SetClientsTotal(clients int64)
 	RecordSendError(err error, code codes.Code)
 	RecordRecvError(err error, code codes.Code)
-	RecordRequestSize(typeURL string, connectionID int64, size int)
-	RecordRequestAck(typeURL string, connectionID int64)
-	RecordRequestNack(typeURL string, connectionID int64)
+	RecordRequestSize(collection string, connectionID int64, size int)
+	RecordRequestAck(collection string, connectionID int64)
+	RecordRequestNack(collection string, connectionID int64)
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
-func New(watcher Watcher, supportedTypes []string, authChecker AuthChecker, reporter Reporter) *Server {
+func New(watcher Watcher, collections []string, authChecker AuthChecker, reporter Reporter) *Server {
 	s := &Server{
 		watcher:              watcher,
-		supportedTypes:       supportedTypes,
+		collections:          collections,
 		authCheck:            authChecker,
 		reporter:             reporter,
 		newConnectionLimiter: rate.NewLimiter(rate.Every(newConnectionFreq), newConnectionBurstSize),
@@ -333,13 +333,13 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	}
 
 	var types []string
-	for _, typeURL := range s.supportedTypes {
+	for _, collection := range s.collections {
 		w := &watch{
 			newPushResponseReadyChan: make(chan newPushResponseState, 1),
 			nonceVersionMap:          make(map[string]string),
 		}
-		con.watches[typeURL] = w
-		types = append(types, typeURL)
+		con.watches[collection] = w
+		types = append(types, collection)
 	}
 
 	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, 1))
@@ -433,7 +433,7 @@ func (con *connection) send(resp *WatchResponse) (string, error) {
 	msg := &mcp.MeshConfigResponse{
 		VersionInfo: resp.Version,
 		Resources:   resources,
-		TypeUrl:     resp.TypeURL,
+		TypeUrl:     resp.Collection,
 	}
 
 	// increment nonce
@@ -485,11 +485,13 @@ func (con *connection) close() {
 }
 
 func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
-	con.reporter.RecordRequestSize(req.TypeUrl, con.id, req.Size())
+	collection := req.TypeUrl
 
-	w, ok := con.watches[req.TypeUrl]
+	con.reporter.RecordRequestSize(collection, con.id, req.Size())
+
+	w, ok := con.watches[collection]
 	if !ok {
-		return status.Errorf(codes.InvalidArgument, "unsupported type_url %q", req.TypeUrl)
+		return status.Errorf(codes.InvalidArgument, "unsupported collection %q", collection)
 	}
 
 	// Reset on every request. Only the most recent NACK request (per
@@ -499,12 +501,12 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 	// nonces can be reused across streams; we verify nonce only if nonce is not initialized
 	if w.nonce == "" || w.nonce == req.ResponseNonce {
 		if w.nonce == "" {
-			scope.Infof("MCP: connection %v: WATCH for %v", con, req.TypeUrl)
+			scope.Infof("MCP: connection %v: WATCH for %v", con, collection)
 		} else {
 			if req.ErrorDetail != nil {
-				scope.Warnf("MCP: connection %v: NACK type_url=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
-					con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
-				con.reporter.RecordRequestNack(req.TypeUrl, con.id)
+				scope.Warnf("MCP: connection %v: NACK collection=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
+					con, collection, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
+				con.reporter.RecordRequestNack(collection, con.id)
 
 				if version, ok := w.nonceVersionMap[req.ResponseNonce]; ok {
 					w.mu.Lock()
@@ -512,28 +514,29 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 					w.mu.Unlock()
 				}
 			} else {
-				scope.Debugf("MCP: connection %v ACK type_url=%q version=%q with nonce=%q",
-					con, req.TypeUrl, req.VersionInfo, req.ResponseNonce)
-				con.reporter.RecordRequestAck(req.TypeUrl, con.id)
+				scope.Debugf("MCP: connection %v ACK collection=%q version=%q with nonce=%q",
+					con, collection, req.VersionInfo, req.ResponseNonce)
+				con.reporter.RecordRequestAck(collection, con.id)
 			}
 		}
 
 		if w.cancel != nil {
 			w.cancel()
 		}
+
 		w.cancel = con.watcher.Watch(req, w.saveResponseAndSchedulePush)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce value. These could be dup requests or out-of-order
 		// requests from a buggy node.
 		if req.ErrorDetail != nil {
-			scope.Errorf("MCP: connection %v: STALE NACK type_url=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
-				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
-			con.reporter.RecordRequestNack(req.TypeUrl, con.id)
+			scope.Errorf("MCP: connection %v: STALE NACK collection=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
+				con, collection, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
+			con.reporter.RecordRequestNack(collection, con.id)
 		} else {
-			scope.Errorf("MCP: connection %v: STALE ACK type_url=%v version=%v with nonce=%q (w.nonce=%q)", // nolint: lll
-				con, req.TypeUrl, req.VersionInfo, req.ResponseNonce, w.nonce)
-			con.reporter.RecordRequestAck(req.TypeUrl, con.id)
+			scope.Errorf("MCP: connection %v: STALE ACK collection=%v version=%v with nonce=%q (w.nonce=%q)", // nolint: lll
+				con, collection, req.VersionInfo, req.ResponseNonce, w.nonce)
+			con.reporter.RecordRequestAck(collection, con.id)
 		}
 	}
 
