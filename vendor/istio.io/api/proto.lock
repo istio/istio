@@ -207,16 +207,6 @@
                 "type": "PortSelector",
                 "is_repeated": true
               }
-            ],
-            "maps": [
-              {
-                "key_type": "string",
-                "field": {
-                  "id": 3,
-                  "name": "labels",
-                  "type": "string"
-                }
-              }
             ]
           },
           {
