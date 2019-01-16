@@ -35,3 +35,13 @@ service:
 
 gateway:
   enabled: false
+
+securityInitContainer:
+  initContainers:
+  - name: prom-init
+    image: "busybox"
+    command: ['sh', '-c', 'counter=0; until [ "$counter" -ge 30 ]; do if [ -d /etc/istio-certs ]; then exit 0; else echo waiting for istio certs && sleep 1 && counter=$((counter+1)); fi; done; exit 1;']
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+      - mountPath: /etc/istio-certs
+        name: istio-certs

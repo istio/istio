@@ -29,15 +29,10 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
-{{- if .Values.security.enabled }}
-      initContainers:
-      - name: prom-init
-        image: "busybox"
-        command: ['sh', '-c', 'counter=0; until [ "$counter" -ge 30 ]; do if [ -d /etc/istio-certs ]; then exit 0; else echo waiting for istio certs && sleep 1 && counter=$((counter+1)); fi; done; exit 1;']
-        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
-        volumeMounts:
-          - mountPath: /etc/istio-certs
-            name: istio-certs
+{{- if not .Values.security }}
+{{ toYaml .Values.securityInitContainer | indent 6 }}
+{{- else if .Values.security.enabled }}
+{{ toYaml .Values.securityInitContainer | indent 6 }}
 {{- end }}
       containers:
         - name: prometheus
