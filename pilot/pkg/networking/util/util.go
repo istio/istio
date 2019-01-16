@@ -267,12 +267,11 @@ func ConvertLocality(locality string) *core.Locality {
 	}
 }
 
-func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
-
+func LocalityMatch(proxyLocality model.LocalityInterface, ruleLocality string) bool {
 	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
-	regionMatch := ruleRegion == "*" || proxyLocality.Region == ruleRegion
-	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.Zone == ruleZone
-	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.SubZone == ruleSubzone
+	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
+	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
+	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
 
 	if regionMatch && zoneMatch && subzoneMatch {
 		return true
@@ -292,10 +291,10 @@ func SplitLocality(locality string) (region, zone, subzone string) {
 	}
 }
 
-func LbPriority(proxyLocality *core.Locality, endpointsLocality *core.Locality) int {
-	if proxyLocality.Region == endpointsLocality.Region {
-		if proxyLocality.Zone == endpointsLocality.Zone {
-			if proxyLocality.SubZone == endpointsLocality.SubZone {
+func LbPriority(proxyLocality, endpointsLocality model.LocalityInterface) int {
+	if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
+		if proxyLocality.GetZone() == endpointsLocality.GetZone() {
+			if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
 				return 0
 			}
 			return 1

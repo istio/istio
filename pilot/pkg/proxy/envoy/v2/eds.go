@@ -60,7 +60,7 @@ import (
 
 var (
 	edsClusterMutex sync.RWMutex
-	edsClusters     = map[string]map[core.Locality]*EdsCluster{}
+	edsClusters     = map[string]map[model.Locality]*EdsCluster{}
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
@@ -198,7 +198,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 // a cluster of same name but with different set of endpoints. See the
 // explanation below for more details
 func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName string,
-	edsClusters map[core.Locality]*EdsCluster) error {
+	edsClusters map[model.Locality]*EdsCluster) error {
 	var hostname model.Hostname
 	var port int
 	var subsetName string
@@ -394,7 +394,7 @@ func (s *DiscoveryServer) updateServiceShards(push *model.PushContext) error {
 
 // updateCluster is called from the event (or global cache invalidation) to update
 // the endpoints for the cluster.
-func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsClusters map[core.Locality]*EdsCluster) error {
+func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName string, edsClusters map[model.Locality]*EdsCluster) error {
 	// TODO: should we lock this as well ? Once we move to event-based it may not matter.
 	var locEps []endpoint.LocalityLbEndpoints
 	direction, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
@@ -490,7 +490,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]map[core.Locality]*EdsCluster, len(edsClusters))
+	cMap := make(map[string]map[model.Locality]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
 		_, _, hostname, _ := model.ParseSubsetKey(k)
 		if edsUpdates[string(hostname)] == nil {
@@ -681,7 +681,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 
 		l := loadAssignment(c)
 		if l == nil { // fresh cluster
-			edsClusters := map[core.Locality]*EdsCluster{
+			edsClusters := map[model.Locality]*EdsCluster{
 				con.modelNode.Locality: c,
 			}
 			if err := s.updateCluster(push, clusterName, edsClusters); err != nil {
@@ -779,7 +779,7 @@ func (s *DiscoveryServer) getOrAddEdsCluster(proxy *model.Proxy, clusterName str
 			EdsClients: map[string]*XdsConnection{},
 			FirstUse:   time.Now(),
 		}
-		edsClusters[clusterName] = map[core.Locality]*EdsCluster{
+		edsClusters[clusterName] = map[model.Locality]*EdsCluster{
 			proxy.Locality: c,
 		}
 		return c

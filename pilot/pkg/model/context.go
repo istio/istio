@@ -88,7 +88,7 @@ type Proxy struct {
 	ID string
 
 	// Locality is the location of where Envoy proxy runs.
-	Locality core.Locality
+	Locality Locality
 
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
@@ -287,12 +287,12 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 }
 
 // GetProxyLocality returns the locality where Envoy proxy is running.
-func GetProxyLocality(proxy *core.Node) *core.Locality {
+func GetProxyLocality(proxy *core.Node) *Locality {
 	if proxy == nil || proxy.Locality == nil {
 		return nil
 	}
 
-	return &core.Locality{
+	return &Locality{
 		Region:  proxy.Locality.Region,
 		Zone:    proxy.Locality.Zone,
 		SubZone: proxy.Locality.SubZone,

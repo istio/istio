@@ -626,7 +626,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	if locality == nil {
 		locality := s.Env.GetProxyLocality(nt)
 		region, zone, subzone := util.SplitLocality(locality)
-		nt.Locality = core.Locality{
+		nt.Locality = model.Locality{
 			Region:  region,
 			Zone:    zone,
 			SubZone: subzone,
