@@ -22,3 +22,4 @@ env:
 cpu:
   targetAverageUtilization: 80
 nodeSelector: {}
+tolerations: []

@@ -32,6 +32,7 @@ telemetry:
 
 podAnnotations: {}
 nodeSelector: {}
+tolerations: []
 
 adapters:
   kubernetesenv:

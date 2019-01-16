@@ -21,7 +21,7 @@ spec:
         app: {{ template "galley.name" . }}
         chart: {{ template "galley.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}      
+        release: {{ .Release.Name }}
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"
@@ -90,6 +90,12 @@ spec:
 {{ toYaml .Values.resources | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          tolerations:
+{{- if .Values.tolerations }}
+{{ toYaml .Values.tolerations | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultTolerations | indent 12 }}
 {{- end }}
       volumes:
       - name: certs

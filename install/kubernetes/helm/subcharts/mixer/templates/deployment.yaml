@@ -13,6 +13,12 @@
         emptyDir: {}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+      tolerations:
+{{- if $.Values.tolerations }}
+{{ toYaml $.Values.tolerations | indent 6 }}
+{{- else }}
+{{ toYaml $.Values.global.defaultTolerations | indent 6 }}
+{{- end }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
