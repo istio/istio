@@ -2689,31 +2689,35 @@ func TestValidateLoadBalancer(t *testing.T) {
 			},
 		},
 			valid: false},
-		{name: "invalid load balancer with LocalityWeightSettings total weight >100", in: networking.LoadBalancerSettings{
+		{name: "invalid load balancer with LocalityWeightSettings total weight > 100", in: networking.LoadBalancerSettings{
 			LbPolicy: &networking.LoadBalancerSettings_Simple{
 				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
 			},
-			LocalityWeightSettings: []*networking.LoadBalancerSettings_LocalityWeightSetting{
-				{
-					From: "a/b/c",
-					To: map[string]uint32{
-						"a/b/c": 80,
-						"a/b1":  25,
+			LocalitySettings: &networking.LoadBalancerSettings_LocalitySetting{
+				Distribute: []*networking.LoadBalancerSettings_LocalitySetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  25,
+						},
 					},
 				},
 			},
 		},
 			valid: false},
-		{name: "invalid load balancer with LocalityWeightSettings total weight <100", in: networking.LoadBalancerSettings{
+		{name: "invalid load balancer with LocalityWeightSettings total weight < 100", in: networking.LoadBalancerSettings{
 			LbPolicy: &networking.LoadBalancerSettings_Simple{
 				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
 			},
-			LocalityWeightSettings: []*networking.LoadBalancerSettings_LocalityWeightSetting{
-				{
-					From: "a/b/c",
-					To: map[string]uint32{
-						"a/b/c": 80,
-						"a/b1":  15,
+			LocalitySettings: &networking.LoadBalancerSettings_LocalitySetting{
+				Distribute: []*networking.LoadBalancerSettings_LocalitySetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  15,
+						},
 					},
 				},
 			},
@@ -2723,17 +2727,70 @@ func TestValidateLoadBalancer(t *testing.T) {
 			LbPolicy: &networking.LoadBalancerSettings_Simple{
 				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
 			},
-			LocalityWeightSettings: []*networking.LoadBalancerSettings_LocalityWeightSetting{
-				{
-					From: "a/b/c",
-					To: map[string]uint32{
-						"a/b/c": 0,
-						"a/b1":  100,
+			LocalitySettings: &networking.LoadBalancerSettings_LocalitySetting{
+				Distribute: []*networking.LoadBalancerSettings_LocalitySetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 0,
+							"a/b1":  100,
+						},
 					},
 				},
 			},
 		},
 			valid: false},
+		{name: "invalid load balancer both distribute and failover specified", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			},
+			LocalitySettings: &networking.LoadBalancerSettings_LocalitySetting{
+				Distribute: []*networking.LoadBalancerSettings_LocalitySetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b/d": 20,
+						},
+					},
+				},
+				Failover: []*networking.LoadBalancerSettings_LocalitySetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+			},
+		},
+			valid: false},
+		{name: "invalid load balancer failover src and dst have same region", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			},
+			LocalitySettings: &networking.LoadBalancerSettings_LocalitySetting{
+				Failover: []*networking.LoadBalancerSettings_LocalitySetting_Failover{
+					{
+						From: "region1",
+						To:   "region1",
+					},
+				},
+			},
+		},
+			valid: false},
+		{name: "valid load balancer with failover", in: networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_Simple{
+				Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+			},
+			LocalitySettings: &networking.LoadBalancerSettings_LocalitySetting{
+				Failover: []*networking.LoadBalancerSettings_LocalitySetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+			},
+		},
+			valid: true},
 	}
 
 	for _, c := range cases {

@@ -827,7 +827,7 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 
 	srcLocalities := []string{}
 
-	for _, locality := range settings.LocalityWeightSettings {
+	for _, locality := range settings.LocalitySettings.GetDistribute() {
 		srcLocalities = append(srcLocalities, locality.From)
 		var totalWeight uint32
 		destLocalities := []string{}
@@ -845,6 +845,16 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 	}
 
 	errs = appendErrors(errs, validateLocalities(srcLocalities))
+
+	for _, failover := range settings.LocalitySettings.GetFailover() {
+		if failover.From == failover.To {
+			errs = appendErrors(errs, fmt.Errorf("locality lb failover settings must specify different regions"))
+		}
+	}
+
+	if len(settings.LocalitySettings.GetDistribute()) > 0 && len(settings.LocalitySettings.GetFailover()) > 0 {
+		errs = appendErrors(errs, fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'"))
+	}
 
 	return
 }
