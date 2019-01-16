@@ -96,7 +96,7 @@ $('#login-modal').on('shown.bs.modal', function () {
     <div class="col-md-12">
       <h3 class="text-center text-primary">{{ product.title }}</h3>
       {% autoescape false %}
-        <p>Summary: {{ product.descriptionHtml }}</p>
+        <p>{{ product.descriptionHtml }}</p>
       {% endautoescape %}
     </div>
   </div>
