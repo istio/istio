@@ -33,8 +33,10 @@ The chart deploys pods that consume minimal resources.
 
 1. Install the Istio initializer chart:
     ```
-    $ helm install install/kubernetes/helm/istio-init --name istio-init
+    $ helm install install/kubernetes/helm/istio-init --name istio-init --namespace istio-system
     ```
+
+    > Although you can install the `istio-init` chart to any namespace, it is recommended to install `istio-init` in the same namespace(`istio-system`) as other Istio charts.
 
 ## Configuration
 
