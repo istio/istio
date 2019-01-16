@@ -33,8 +33,8 @@ type Server struct {
 	// The internal snapshot.Cache that the server is using.
 	Cache *snapshot.Cache
 
-	// TypeURLs that were originally passed in.
-	TypeURLs []string
+	// Collections that were originally passed in.
+	Collections []string
 
 	// Port that the service is listening on.
 	Port int
@@ -51,9 +51,9 @@ var _ io.Closer = &Server{}
 // NewServer creates and starts a new MCP Server. Returns a new Server instance upon success.
 // Specifying port as 0 will cause the server to bind to an arbitrary port. This port can be queried
 // from the Port field of the returned server struct.
-func NewServer(port int, typeUrls []string) (*Server, error) {
+func NewServer(port int, collections []string) (*Server, error) {
 	cache := snapshot.New(snapshot.DefaultGroupIndex)
-	s := server.New(cache, typeUrls, server.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := server.New(cache, collections, server.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	l, err := net.Listen("tcp", addr)
@@ -75,12 +75,12 @@ func NewServer(port int, typeUrls []string) (*Server, error) {
 	go func() { _ = gs.Serve(l) }()
 
 	return &Server{
-		Cache:    cache,
-		TypeURLs: typeUrls,
-		Port:     p,
-		URL:      u,
-		gs:       gs,
-		l:        l,
+		Cache:       cache,
+		Collections: collections,
+		Port:        p,
+		URL:         u,
+		gs:          gs,
+		l:           l,
 	}, nil
 }
 
@@ -93,7 +93,7 @@ func (t *Server) Close() (err error) {
 
 	t.l = nil // gRPC stack will close this
 	t.Cache = nil
-	t.TypeURLs = nil
+	t.Collections = nil
 	t.Port = 0
 
 	return

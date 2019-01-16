@@ -30,14 +30,14 @@ import (
 
 var testSchema = func() *resource.Schema {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
-	b.Register("type.googleapis.com/google.protobuf.Struct")
+	b.Register("empty", "type.googleapis.com/google.protobuf.Empty")
+	b.Register("struct", "type.googleapis.com/google.protobuf.Struct")
 	return b.Build()
 }()
 
 var (
-	emptyInfo  = testSchema.Get("type.googleapis.com/google.protobuf.Empty")
-	structInfo = testSchema.Get("type.googleapis.com/google.protobuf.Struct")
+	emptyInfo  = testSchema.Get("empty")
+	structInfo = testSchema.Get("struct")
 )
 
 func TestProcessor_Start(t *testing.T) {
@@ -108,7 +108,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{TypeURL: emptyInfo.TypeURL, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
+	k1 := resource.Key{Collection: emptyInfo.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
 	// Wait "long enough"
@@ -134,7 +134,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{TypeURL: info.TypeURL, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
+	k1 := resource.Key{Collection: info.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
 	// Wait "long enough"
@@ -165,7 +165,7 @@ func TestProcessor_Publishing(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	k1 := resource.Key{TypeURL: info.TypeURL, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
+	k1 := resource.Key{Collection: info.Collection, FullName: resource.FullNameFromNamespaceAndName("", "r1")}
 	src.Set(k1, resource.Metadata{}, &types.Empty{})
 
 	processCallCount.Wait()
