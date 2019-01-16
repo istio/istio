@@ -138,7 +138,9 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
-	server, tearDown := util.EnsureTestServer()
+	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+		args.Plugins = bootstrap.DefaultPlugins
+	})
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)

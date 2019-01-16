@@ -169,6 +169,6 @@ func WaitForPort(port uint16) {
 // IsPortUsed checks if a port is used
 func IsPortUsed(port uint16) bool {
 	serverPort := fmt.Sprintf("localhost:%v", port)
-	_, err := net.Dial("tcp", serverPort)
+	_, err := net.DialTimeout("tcp", serverPort, 100 * time.Millisecond)
 	return err == nil
 }
