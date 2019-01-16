@@ -22,8 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/mcp/snapshot"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
@@ -31,10 +29,12 @@ import (
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/tests/util"
 
 	// Import the resource package to pull in all proto types.
 	_ "istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/pkg/mcp/snapshot"
 	mcptesting "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/pkg/test/env"
 )
@@ -93,7 +93,7 @@ func runMcpServer() (*mcptesting.Server, error) {
 	for i, m := range model.IstioConfigTypes {
 		collections[i] = m.Collection
 	}
-	return mcptesting.NewServer(0, collections)
+	return mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections))
 }
 
 func runEnvoy(t *testing.T, grpcPort, debugPort uint16) *mixerEnv.TestSetup {

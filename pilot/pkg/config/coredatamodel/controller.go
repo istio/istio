@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
-	mcpclient "istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 var errUnsupported = errors.New("this operation is not supported by mcp controller")
@@ -34,7 +34,7 @@ var errUnsupported = errors.New("this operation is not supported by mcp controll
 // MCP Updater and ServiceDiscovery
 type CoreDataModel interface {
 	model.ConfigStoreCache
-	mcpclient.Updater
+	sink.Updater
 }
 
 // Options stores the configurable attributes of a Control
@@ -48,7 +48,7 @@ type Options struct {
 type Controller struct {
 	configStoreMu sync.RWMutex
 	// keys [type][namespace][name]
-	configStore             map[string]map[string]map[string]model.Config
+	configStore             map[string]map[string]map[string]*model.Config
 	descriptorsByCollection map[string]model.ProtoSchema
 	options                 Options
 	eventHandlers           map[string][]func(model.Config, model.Event)
@@ -70,7 +70,7 @@ func NewController(options Options) CoreDataModel {
 	}
 
 	return &Controller{
-		configStore:             make(map[string]map[string]map[string]model.Config),
+		configStore:             make(map[string]map[string]map[string]*model.Config),
 		options:                 options,
 		descriptorsByCollection: descriptorsByMessageName,
 		eventHandlers:           make(map[string][]func(model.Config, model.Event)),
@@ -103,21 +103,21 @@ func (c *Controller) List(typ, namespace string) (out []model.Config, err error)
 		// we replace the entire sub-map
 		for _, byNamespace := range byType {
 			for _, config := range byNamespace {
-				out = append(out, config)
+				out = append(out, *config)
 			}
 		}
 		return out, nil
 	}
 
 	for _, config := range byType[namespace] {
-		out = append(out, config)
+		out = append(out, *config)
 	}
 	return out, nil
 }
 
 // Apply receives changes from MCP server and creates the
 // corresponding config
-func (c *Controller) Apply(change *mcpclient.Change) error {
+func (c *Controller) Apply(change *sink.Change) error {
 	descriptor, ok := c.descriptorsByCollection[change.Collection]
 	if !ok {
 		return fmt.Errorf("apply type not supported %s", change.Collection)
@@ -133,7 +133,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 	c.syncedMu.Unlock()
 
 	// innerStore is [namespace][name]
-	innerStore := make(map[string]map[string]model.Config)
+	innerStore := make(map[string]map[string]*model.Config)
 	for _, obj := range change.Objects {
 		namespace, name := extractNameNamespace(obj.Metadata.Name)
 
@@ -145,7 +145,7 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 			}
 		}
 
-		conf := model.Config{
+		conf := &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Type:              descriptor.Type,
 				Group:             descriptor.Group,
@@ -169,13 +169,13 @@ func (c *Controller) Apply(change *mcpclient.Change) error {
 		if ok {
 			namedConfig[conf.Name] = conf
 		} else {
-			innerStore[conf.Namespace] = map[string]model.Config{
+			innerStore[conf.Namespace] = map[string]*model.Config{
 				conf.Name: conf,
 			}
 		}
 	}
 
-	var prevStore map[string]map[string]model.Config
+	var prevStore map[string]map[string]*model.Config
 
 	c.configStoreMu.Lock()
 	prevStore = c.configStore[descriptor.Type]
@@ -243,7 +243,7 @@ func (c *Controller) Delete(typ, name, namespace string) error {
 	return errUnsupported
 }
 
-func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]model.Config) {
+func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
 	dispatch := func(model model.Config, event model.Event) {}
 	if handlers, ok := c.eventHandlers[model.ServiceEntry.Type]; ok {
 		dispatch = func(model model.Config, event model.Event) {
@@ -260,13 +260,13 @@ func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 			if prevByNamespace, ok := prevStore[namespace]; ok {
 				if prevConfig, ok := prevByNamespace[name]; ok {
 					if config.ResourceVersion != prevConfig.ResourceVersion {
-						dispatch(config, model.EventUpdate)
+						dispatch(*config, model.EventUpdate)
 					}
 				} else {
-					dispatch(config, model.EventAdd)
+					dispatch(*config, model.EventAdd)
 				}
 			} else {
-				dispatch(config, model.EventAdd)
+				dispatch(*config, model.EventAdd)
 			}
 		}
 	}
@@ -276,10 +276,10 @@ func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 		for name, prevConfig := range prevByName {
 			if byNamespace, ok := currentStore[namespace]; ok {
 				if _, ok := byNamespace[name]; !ok {
-					dispatch(prevConfig, model.EventDelete)
+					dispatch(*prevConfig, model.EventDelete)
 				}
 			} else {
-				dispatch(prevConfig, model.EventDelete)
+				dispatch(*prevConfig, model.EventDelete)
 			}
 		}
 	}

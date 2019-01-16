@@ -29,7 +29,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
-	mcpclient "istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 var (
@@ -110,7 +110,8 @@ var (
 	}
 
 	testControllerOptions = coredatamodel.Options{
-		DomainSuffix: "cluster.local",
+		DomainSuffix:              "cluster.local",
+		ClearDiscoveryServerCache: func() {},
 	}
 )
 
@@ -430,13 +431,6 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	change = convert(
-		[]proto.Message{},
-		[]string{"default"},
-		model.AuthenticationMeshPolicy.Collection, model.AuthenticationMeshPolicy.MessageName)
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-
 	c, err = controller.List(model.AuthenticationPolicy.Type, "bar-namespace")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(len(c)).To(gomega.Equal(1))
@@ -471,8 +465,8 @@ func TestEventHandler(t *testing.T) {
 		t.Fatalf("Failed to parse create fake create time %v: %v", fakeCreateTime, err)
 	}
 
-	makeServiceEntry := func(name, host, version string) *mcpclient.Object {
-		return &mcpclient.Object{
+	makeServiceEntry := func(name, host, version string) *sink.Object {
+		return &sink.Object{
 			TypeURL: typeURL,
 			Metadata: &mcpapi.Metadata{
 				Name:        fmt.Sprintf("default/%s", name),
@@ -508,14 +502,14 @@ func TestEventHandler(t *testing.T) {
 	// Note: these tests steps are cumulative
 	steps := []struct {
 		name   string
-		change *mcpclient.Change
+		change *sink.Change
 		want   map[model.Event]map[string]model.Config
 	}{
 		{
 			name: "initial add",
-			change: &mcpclient.Change{
+			change: &sink.Change{
 				Collection: collection,
-				Objects: []*mcpclient.Object{
+				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v0"),
 				},
 			},
@@ -527,9 +521,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "update initial item",
-			change: &mcpclient.Change{
+			change: &sink.Change{
 				Collection: collection,
-				Objects: []*mcpclient.Object{
+				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v1"),
 				},
 			},
@@ -541,9 +535,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "subsequent add",
-			change: &mcpclient.Change{
+			change: &sink.Change{
 				Collection: collection,
-				Objects: []*mcpclient.Object{
+				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v1"),
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
@@ -556,9 +550,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "single delete",
-			change: &mcpclient.Change{
+			change: &sink.Change{
 				Collection: collection,
-				Objects: []*mcpclient.Object{
+				Objects: []*sink.Object{
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
 			},
@@ -570,9 +564,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "multiple update and add",
-			change: &mcpclient.Change{
+			change: &sink.Change{
 				Collection: collection,
-				Objects: []*mcpclient.Object{
+				Objects: []*sink.Object{
 					makeServiceEntry("foo1", "foo1.com", "v1"),
 					makeServiceEntry("foo2", "foo2.com", "v0"),
 					makeServiceEntry("foo3", "foo3.com", "v0"),
@@ -590,9 +584,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "multiple deletes, updates, and adds ",
-			change: &mcpclient.Change{
+			change: &sink.Change{
 				Collection: collection,
-				Objects: []*mcpclient.Object{
+				Objects: []*sink.Object{
 					makeServiceEntry("foo2", "foo2.com", "v1"),
 					makeServiceEntry("foo3", "foo3.com", "v0"),
 					makeServiceEntry("foo4", "foo4.com", "v0"),
@@ -636,12 +630,12 @@ func TestEventHandler(t *testing.T) {
 	}
 }
 
-func convert(resources []proto.Message, names []string, collection, responseMessageName string) *mcpclient.Change {
-	out := new(mcpclient.Change)
+func convert(resources []proto.Message, names []string, collection, responseMessageName string) *sink.Change {
+	out := new(sink.Change)
 	out.Collection = collection
 	for i, res := range resources {
 		out.Objects = append(out.Objects,
-			&mcpclient.Object{
+			&sink.Object{
 				TypeURL: responseMessageName,
 				Metadata: &mcpapi.Metadata{
 					Name: names[i],
