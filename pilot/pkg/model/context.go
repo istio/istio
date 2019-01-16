@@ -19,6 +19,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -61,6 +62,11 @@ type Environment struct {
 	// routable L3 network. A single routable L3 network can have one or more
 	// service registries.
 	MeshNetworks *meshconfig.MeshNetworks
+
+	// Mutex to protect below store
+	Mutex sync.RWMutex
+	// ProxyLocalities stores all localities of the proxy
+	ProxyLocalities map[core.Locality]struct{}
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,

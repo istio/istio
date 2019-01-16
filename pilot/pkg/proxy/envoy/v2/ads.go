@@ -625,13 +625,11 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	nt.Locality = model.GetProxyLocality(discReq.Node)
 	if nt.Locality == nil {
 		locality := s.Env.GetProxyLocality(nt)
-		if locality != "" {
-			region, zone, subzone := util.SplitLocality(locality)
-			nt.Locality = &core.Locality{
-				Region:  region,
-				Zone:    zone,
-				SubZone: subzone,
-			}
+		region, zone, subzone := util.SplitLocality(locality)
+		nt.Locality = &core.Locality{
+			Region:  region,
+			Zone:    zone,
+			SubZone: subzone,
 		}
 	}
 	con.mu.Lock()
@@ -767,9 +765,12 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]*EdsCluster, len(edsClusters))
+	cMap := make(map[string]map[core.Locality]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
-		cMap[k] = v
+		cMap[k] = map[core.Locality]*EdsCluster{}
+		for locality, edsCluster := range v {
+			cMap[k][locality] = edsCluster
+		}
 	}
 	edsClusterMutex.Unlock()
 
@@ -889,6 +890,11 @@ func (s *DiscoveryServer) addCon(conID string, con *XdsConnection) {
 		} else {
 			adsSidecarIDConnectionsMap[con.modelNode.ID][conID] = con
 		}
+		s.Env.Mutex.Lock()
+		if con.modelNode.Locality != nil {
+			s.Env.ProxyLocalities[*con.modelNode.Locality] = struct{}{}
+		}
+		s.Env.Mutex.Unlock()
 	}
 }
 
@@ -910,6 +916,11 @@ func (s *DiscoveryServer) removeCon(conID string, con *XdsConnection) {
 	xdsClients.Set(float64(len(adsClients)))
 	if con.modelNode != nil {
 		delete(adsSidecarIDConnectionsMap[con.modelNode.ID], conID)
+		s.Env.Mutex.Lock()
+		if con.modelNode.Locality != nil {
+			s.Env.ProxyLocalities[*con.modelNode.Locality] = struct{}{}
+		}
+		s.Env.Mutex.Unlock()
 	}
 }
 
