@@ -734,7 +734,7 @@ func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(versionInfo(), s.globalPushContext(), true, nil)
 }
 
-// AdsPushAll implements old style invalidation, generated when any rule or endpoint changes.
+// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
