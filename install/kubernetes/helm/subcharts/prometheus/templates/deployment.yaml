@@ -29,6 +29,7 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- if .Values.security.enabled }}
       initContainers:
       - name: prom-init
         image: "busybox"
@@ -37,6 +38,7 @@ spec:
         volumeMounts:
           - mountPath: /etc/istio-certs
             name: istio-certs
+{{- end }}
       containers:
         - name: prometheus
           image: "{{ .Values.hub }}/prometheus:{{ .Values.tag }}"
