@@ -10,16 +10,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
+      ca-certificates \
       curl \
       iptables \
       iproute2 \
       iputils-ping \
-      dnsutils \
+      knot-dnsutils \
       netcat \
       tcpdump \
       net-tools \
-      libc6-dbg gdb \
-      elvis-tiny \
       lsof \
       linux-tools-generic \
       sudo && apt-get upgrade -y && \

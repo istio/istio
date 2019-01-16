@@ -228,12 +228,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			}
 		}
 
-		// We need a passthrough filter to fill in the filter stack for orig_dst listener
-		passthroughTCPProxy := &tcp_proxy.TcpProxy{
-			StatPrefix:       util.PassthroughCluster,
-			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+		tcpProxy := &tcp_proxy.TcpProxy{
+			StatPrefix:       util.BlackHoleCluster,
+			ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
 		}
 
+		if mesh.OutboundTrafficPolicy.Mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+			// We need a passthrough filter to fill in the filter stack for orig_dst listener
+			tcpProxy = &tcp_proxy.TcpProxy{
+				StatPrefix:       util.PassthroughCluster,
+				ClusterSpecifier: &tcp_proxy.TcpProxy_Cluster{Cluster: util.PassthroughCluster},
+			}
+		}
 		var transparent *google_protobuf.BoolValue
 		if node.GetInterceptionMode() == model.InterceptionTproxy {
 			transparent = proto.BoolTrue
@@ -251,7 +257,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 						{
 							Name: xdsutil.TCPProxy,
 							ConfigType: &listener.Filter_Config{
-								Config: util.MessageToStruct(passthroughTCPProxy),
+								Config: util.MessageToStruct(tcpProxy),
 							},
 						},
 					},
