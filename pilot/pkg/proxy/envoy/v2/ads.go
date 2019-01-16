@@ -26,7 +26,6 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -767,9 +766,9 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]map[core.Locality]*EdsCluster, len(edsClusters))
+	cMap := make(map[string]map[model.Locality]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
-		cMap[k] = map[core.Locality]*EdsCluster{}
+		cMap[k] = map[model.Locality]*EdsCluster{}
 		for locality, edsCluster := range v {
 			cMap[k][locality] = edsCluster
 		}
