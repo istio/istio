@@ -644,8 +644,8 @@ func (s *DiscoveryServer) loadAssignmentsForClusterLegacy(push *model.PushContex
 
 // loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
-// perf tests.
-func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(push *model.PushContext,
+// perf tests. The logic to compute is based on the current UpdateClusterInc
+func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
 		clusterName string) (*xdsapi.ClusterLoadAssignment, bool) {
   // TODO: fail-safe, use the old implementation based on some flag.
   // Users who make sure all DestinationRules are in the right namespace and don't have override may turn it on
@@ -664,7 +664,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(push *model.PushCont
 	// proxy's config namespace. As such, this code searches through all
 	// destination rules, public and private and returns a completely
 	// arbitrary destination rule's subset labels!
-	labels := push.SubsetToLabels(subsetName, hostname)
+	labels := push.SubsetToLabelsIsolated(proxy, subsetName, hostname)
 
 	portMap, f := push.ServicePort2Name[string(hostname)]
 	if !f {
@@ -749,6 +749,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	emptyClusters := 0
 	endpoints := 0
 	empty := []string{}
+	sidecarScope := con.modelNode.SidecarScope
 
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
@@ -756,12 +757,19 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 
 		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 		if edsUpdatedServices != nil && edsUpdatedServices[string(hostname)] == nil {
-			// Cluster was not updated, skip recomputing.
+			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
 			continue
 		}
 
-		// TODO: decide which to use based on presence of Sidecar.
-		l, ok := s.loadAssignmentsForClusterLegacy(push, clusterName)
+		var l *xdsapi.ClusterLoadAssignment
+		var ok bool
+		// decide which to use based on presence of Sidecar.
+		if sidecarScope == nil || sidecarScope.Config == nil {
+			l, ok = s.loadAssignmentsForClusterLegacy(push, clusterName)
+		} else {
+			l, ok = s.loadAssignmentsForClusterIsolated(con.modelNode, push, clusterName)
+		}
 		if !ok {
 			continue
 		}

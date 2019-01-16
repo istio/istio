@@ -530,6 +530,30 @@ func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) Labe
 	return nil
 }
 
+// SubsetToLabels returns the labels associated with a subset of a given service.
+func (ps *PushContext) SubsetToLabelsIsolated(proxy *Proxy, subsetName string, hostname Hostname) LabelsCollection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
+	// destination rule than the default one. EDS should be computed per sidecar scope
+	config := ps.DestinationRule(proxy, hostname)
+	if config == nil {
+		return nil
+	}
+
+	rule := config.Spec.(*networking.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			return []Labels{subset.Labels}
+		}
+	}
+
+	return nil
+}
+
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
