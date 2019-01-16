@@ -115,7 +115,7 @@ mv_unless_max_exceeded() {
   local dst_file="${2}"
 
   file_size=$(wc -c "${src_file}" | awk '{print $1}')
-  local nsb=$(("${stored_log_bytes}" + "${file_size}"))
+  local nsb=$((stored_log_bytes + file_size))
 
   if (("${nsb}" > "${MAX_LOG_BYTES}")); then
     log "Not storing ${log_file} because appending its ${file_size} bytes would exceed max logged bytes ${MAX_LOG_BYTES}"
