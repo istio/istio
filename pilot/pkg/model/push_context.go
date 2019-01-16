@@ -441,6 +441,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
+		var defaultSidecar *SidecarScope
 		for _, wrapper := range sidecars {
 			if wrapper.Config != nil {
 				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
@@ -453,8 +454,17 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 					}
 					return wrapper
 				}
+				defaultSidecar = wrapper
+				continue
+			}
+			// Not sure when this can heppn (Config = nil ?)
+			if defaultSidecar != nil {
+				return defaultSidecar // still return the valid one
 			}
 			return wrapper
+		}
+		if defaultSidecar != nil {
+			return defaultSidecar // still return the valid one
 		}
 	}
 
@@ -708,6 +718,7 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 	ps.sidecarsByNamespace = make(map[string][]*SidecarScope)
 	for _, sidecarConfig := range sidecarConfigs {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
+		sidecarConfig := sidecarConfig
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
 			ConvertToSidecarScope(ps, &sidecarConfig))
 	}

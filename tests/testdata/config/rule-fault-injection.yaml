@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: fault
+  namespace: testns
 spec:
    hosts:
    - fault.test.istio.io
@@ -26,6 +27,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: fault
+  namespace: testns
 spec:
   host: c-weighted.extsvc.com
   subsets:
@@ -41,6 +43,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: fault
+  namespace: testns
 spec:
   hosts:
     - fault.test.istio.io
