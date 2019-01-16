@@ -538,6 +538,14 @@ func (h Hostname) Matches(o Hostname) bool {
 		return true
 	}
 
+	if len(h) == 0 {
+		return false
+	}
+
+	if len(o) == 0 && string(h[0]) != "*" {
+		return false
+	}
+
 	hWildcard := string(h[0]) == "*"
 	if hWildcard && len(o) == 0 {
 		return true
