@@ -25,8 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -34,6 +32,7 @@ import (
 	"google.golang.org/grpc/peer"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/mcp/internal/test"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
@@ -51,10 +50,12 @@ func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, pushResponse 
 	config.mu.Lock()
 	defer config.mu.Unlock()
 
-	config.counts[req.TypeUrl]++
+	collection := req.TypeUrl
 
-	if rsp, ok := config.responses[req.TypeUrl]; ok {
-		rsp.TypeURL = req.TypeUrl
+	config.counts[collection]++
+
+	if rsp, ok := config.responses[collection]; ok {
+		rsp.Collection = collection
 		pushResponse(rsp)
 		return nil
 	} else if config.closeWatch {
@@ -62,10 +63,10 @@ func (config *mockConfigWatcher) Watch(req *mcp.MeshConfigRequest, pushResponse 
 		return nil
 	} else {
 		// save open watch channel for later
-		config.watches[req.TypeUrl] = append(config.watches[req.TypeUrl], pushResponse)
+		config.watches[collection] = append(config.watches[collection], pushResponse)
 	}
 
-	if ch, ok := config.watchesCreated[req.TypeUrl]; ok {
+	if ch, ok := config.watchesCreated[collection]; ok {
 		ch <- struct{}{}
 	}
 
@@ -76,7 +77,7 @@ func (config *mockConfigWatcher) setResponse(response *WatchResponse) {
 	config.mu.Lock()
 	defer config.mu.Unlock()
 
-	typeURL := response.TypeURL
+	typeURL := response.Collection
 
 	if watches, ok := config.watches[typeURL]; ok {
 		for _, watch := range watches {
@@ -124,12 +125,6 @@ func (stream *mockStream) Send(resp *mcp.MeshConfigResponse) error {
 	if resp.TypeUrl == "" {
 		stream.t.Error("TypeUrl => got none, want non-empty")
 	}
-	for _, resource := range resp.Resources {
-		got := resource.Body.TypeUrl
-		if got != resp.TypeUrl {
-			stream.t.Errorf("TypeUrl => got %q, want %q", got, resp.TypeUrl)
-		}
-	}
 	stream.sent <- resp
 	if stream.sendError {
 		return errors.New("send error")
@@ -161,89 +156,22 @@ func makeMockStream(t *testing.T) *mockStream {
 	}
 }
 
-// fake protobuf types
-
-type fakeTypeBase struct{ Info string }
-
-func (f fakeTypeBase) Reset()                   {}
-func (f fakeTypeBase) String() string           { return f.Info }
-func (f fakeTypeBase) ProtoMessage()            {}
-func (f fakeTypeBase) Marshal() ([]byte, error) { return []byte(f.Info), nil }
-
-type fakeType0 struct{ fakeTypeBase }
-type fakeType1 struct{ fakeTypeBase }
-type fakeType2 struct{ fakeTypeBase }
-
-const (
-	typePrefix      = "type.googleapis.com/"
-	fakeType0Prefix = "istio.io.galley.pkg.mcp.server.fakeType0"
-	fakeType1Prefix = "istio.io.galley.pkg.mcp.server.fakeType1"
-	fakeType2Prefix = "istio.io.galley.pkg.mcp.server.fakeType2"
-
-	fakeType0TypeURL = typePrefix + fakeType0Prefix
-	fakeType1TypeURL = typePrefix + fakeType1Prefix
-	fakeType2TypeURL = typePrefix + fakeType2Prefix
-)
-
-func mustMarshalAny(pb proto.Message) *types.Any {
-	a, err := types.MarshalAny(pb)
-	if err != nil {
-		panic(err.Error())
-	}
-	return a
-}
-
-func init() {
-	proto.RegisterType((*fakeType0)(nil), fakeType0Prefix)
-	proto.RegisterType((*fakeType1)(nil), fakeType1Prefix)
-	proto.RegisterType((*fakeType2)(nil), fakeType2Prefix)
-
-	fakeResource0 = &mcp.Resource{
-		Metadata: &mcp.Metadata{Name: "f0"},
-		Body:     mustMarshalAny(&fakeType0{fakeTypeBase{"f0"}}),
-	}
-	fakeResource1 = &mcp.Resource{
-		Metadata: &mcp.Metadata{Name: "f1"},
-		Body:     mustMarshalAny(&fakeType1{fakeTypeBase{"f1"}}),
-	}
-	fakeResource2 = &mcp.Resource{
-		Metadata: &mcp.Metadata{Name: "f2"},
-		Body:     mustMarshalAny(&fakeType2{fakeTypeBase{"f2"}}),
-	}
-}
-
-var (
-	node = &mcp.SinkNode{
-		Id: "test-id",
-	}
-
-	fakeResource0 *mcp.Resource
-	fakeResource1 *mcp.Resource
-	fakeResource2 *mcp.Resource
-
-	WatchResponseTypes = []string{
-		fakeType0TypeURL,
-		fakeType1TypeURL,
-		fakeType2TypeURL,
-	}
-)
-
 func TestMultipleRequests(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: test.FakeType0Collection,
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -255,7 +183,7 @@ func TestMultipleRequests(t *testing.T) {
 	// check a response
 	select {
 	case rsp = <-stream.sent:
-		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{test.FakeType0Collection: 1}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -263,8 +191,8 @@ func TestMultipleRequests(t *testing.T) {
 	}
 
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode:      node,
-		TypeUrl:       fakeType0TypeURL,
+		SinkNode:      test.Node,
+		TypeUrl:       test.FakeType0Collection,
 		VersionInfo:   rsp.VersionInfo,
 		ResponseNonce: rsp.Nonce,
 	}
@@ -272,7 +200,7 @@ func TestMultipleRequests(t *testing.T) {
 	// check a response
 	select {
 	case <-stream.sent:
-		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{test.FakeType0Collection: 2}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -280,23 +208,31 @@ func TestMultipleRequests(t *testing.T) {
 	}
 }
 
+type fakeAuthChecker struct {
+	err error
+}
+
+func (f *fakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
+	return f.err
+}
+
 func TestAuthCheck_Failure(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: test.FakeType0Collection,
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 
 	checker := NewListAuthChecker()
-	s := New(config, WatchResponseTypes, checker, mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, checker, mcptestmon.NewInMemoryServerStatsContext())
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -309,28 +245,22 @@ func TestAuthCheck_Failure(t *testing.T) {
 	wg.Wait()
 }
 
-type fakeAuthChecker struct{}
-
-func (f *fakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
-	return nil
-}
-
 func TestAuthCheck_Success(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: test.FakeType0Collection,
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 
-	s := New(config, WatchResponseTypes, &fakeAuthChecker{}, mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, &fakeAuthChecker{}, mcptestmon.NewInMemoryServerStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
@@ -342,7 +272,7 @@ func TestAuthCheck_Success(t *testing.T) {
 	// check a response
 	select {
 	case rsp = <-stream.sent:
-		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{test.FakeType0Collection: 1}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -350,8 +280,8 @@ func TestAuthCheck_Success(t *testing.T) {
 	}
 
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode:      node,
-		TypeUrl:       fakeType0TypeURL,
+		SinkNode:      test.Node,
+		TypeUrl:       test.FakeType0Collection,
 		VersionInfo:   rsp.VersionInfo,
 		ResponseNonce: rsp.Nonce,
 	}
@@ -359,7 +289,7 @@ func TestAuthCheck_Success(t *testing.T) {
 	// check a response
 	select {
 	case <-stream.sent:
-		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{test.FakeType0Collection: 2}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -369,34 +299,34 @@ func TestAuthCheck_Success(t *testing.T) {
 
 func TestWatchBeforeResponsesAvailable(t *testing.T) {
 	config := makeMockConfigWatcher()
-	config.watchesCreated[fakeType0TypeURL] = make(chan struct{})
+	config.watchesCreated[test.FakeType0Collection] = make(chan struct{})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 	}()
 
-	<-config.watchesCreated[fakeType0TypeURL]
+	<-config.watchesCreated[test.FakeType0Collection]
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: test.FakeType0Collection,
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
 	// check a response
 	select {
 	case <-stream.sent:
 		close(stream.recv)
-		if want := map[string]int{fakeType0TypeURL: 1}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{test.FakeType0Collection: 1}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 	case <-time.After(time.Second):
@@ -411,12 +341,12 @@ func TestWatchClosed(t *testing.T) {
 	// make a request
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
 	}
@@ -426,20 +356,20 @@ func TestWatchClosed(t *testing.T) {
 func TestSendError(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: test.FakeType0Collection,
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.sendError = true
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	// check that response fails since watch gets closed
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
@@ -451,21 +381,21 @@ func TestSendError(t *testing.T) {
 func TestReceiveError(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: test.FakeType0Collection,
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.recvError = status.Error(codes.Internal, "internal receive error")
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -476,20 +406,20 @@ func TestReceiveError(t *testing.T) {
 func TestUnsupportedTypeError(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   "unsupportedType",
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: "unsupportedCollection",
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
 	// make a request
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
+		SinkNode: test.Node,
 		TypeUrl:  "unsupportedtype",
 	}
 
 	// check that response fails since watch gets closed
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -500,24 +430,24 @@ func TestUnsupportedTypeError(t *testing.T) {
 func TestStaleNonce(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: test.FakeType0Collection,
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 	stop := make(chan struct{})
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		// should be two watches called
-		if want := map[string]int{fakeType0TypeURL: 2}; !reflect.DeepEqual(want, config.counts) {
+		if want := map[string]int{test.FakeType0Collection: 2}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
 		close(stop)
@@ -526,15 +456,15 @@ func TestStaleNonce(t *testing.T) {
 	case <-stream.sent:
 		// stale request
 		stream.recv <- &mcp.MeshConfigRequest{
-			SinkNode:      node,
-			TypeUrl:       fakeType0TypeURL,
+			SinkNode:      test.Node,
+			TypeUrl:       test.FakeType0Collection,
 			ResponseNonce: "xyz",
 		}
 		// fresh request
 		stream.recv <- &mcp.MeshConfigRequest{
 			VersionInfo:   "1",
-			SinkNode:      node,
-			TypeUrl:       fakeType0TypeURL,
+			SinkNode:      test.Node,
+			TypeUrl:       test.FakeType0Collection,
 			ResponseNonce: "1",
 		}
 		close(stream.recv)
@@ -547,36 +477,36 @@ func TestStaleNonce(t *testing.T) {
 func TestAggregatedHandlers(t *testing.T) {
 	config := makeMockConfigWatcher()
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType0TypeURL,
-		Version:   "1",
-		Resources: []*mcp.Resource{fakeResource0},
+		Collection: test.FakeType0Collection,
+		Version:    "1",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 	})
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType1TypeURL,
-		Version:   "2",
-		Resources: []*mcp.Resource{fakeResource1},
+		Collection: test.FakeType1Collection,
+		Version:    "2",
+		Resources:  []*mcp.Resource{test.Type1A[0].Resource},
 	})
 	config.setResponse(&WatchResponse{
-		TypeURL:   fakeType2TypeURL,
-		Version:   "3",
-		Resources: []*mcp.Resource{fakeResource2},
+		Collection: test.FakeType2Collection,
+		Version:    "3",
+		Resources:  []*mcp.Resource{test.Type2A[0].Resource},
 	})
 
 	stream := makeMockStream(t)
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType0TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType0Collection,
 	}
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType1TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType1Collection,
 	}
 	stream.recv <- &mcp.MeshConfigRequest{
-		SinkNode: node,
-		TypeUrl:  fakeType2TypeURL,
+		SinkNode: test.Node,
+		TypeUrl:  test.FakeType2Collection,
 	}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	go func() {
 		if err := s.StreamAggregatedResources(stream); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
@@ -584,9 +514,9 @@ func TestAggregatedHandlers(t *testing.T) {
 	}()
 
 	want := map[string]int{
-		fakeType0TypeURL: 1,
-		fakeType1TypeURL: 1,
-		fakeType2TypeURL: 1,
+		test.FakeType0Collection: 1,
+		test.FakeType1Collection: 1,
+		test.FakeType2Collection: 1,
 	}
 
 	count := 0
@@ -612,9 +542,9 @@ func TestAggregateRequestType(t *testing.T) {
 	config := makeMockConfigWatcher()
 
 	stream := makeMockStream(t)
-	stream.recv <- &mcp.MeshConfigRequest{SinkNode: node}
+	stream.recv <- &mcp.MeshConfigRequest{SinkNode: test.Node}
 
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("StreamAggregatedResources() => got nil, want an error")
 	}
@@ -629,7 +559,7 @@ func TestRateLimitNACK(t *testing.T) {
 	}()
 
 	config := makeMockConfigWatcher()
-	s := New(config, WatchResponseTypes, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+	s := New(config, test.SupportedCollections, NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
 	stream := makeMockStream(t)
 	go func() {
@@ -692,7 +622,7 @@ func TestRateLimitNACK(t *testing.T) {
 
 	sendRequest := func(typeURL, nonce, version string, err error) {
 		req := &mcp.MeshConfigRequest{
-			SinkNode:      node,
+			SinkNode:      test.Node,
 			TypeUrl:       typeURL,
 			ResponseNonce: nonce,
 			VersionInfo:   version,
@@ -705,7 +635,7 @@ func TestRateLimitNACK(t *testing.T) {
 	}
 
 	// initial watch request
-	sendRequest(fakeType0TypeURL, "", "", nil)
+	sendRequest(test.FakeType0Collection, "", "", nil)
 
 	nonces := make(map[string]bool)
 	var prevNonce string
@@ -718,9 +648,9 @@ func TestRateLimitNACK(t *testing.T) {
 			if first {
 				first = false
 				config.setResponse(&WatchResponse{
-					TypeURL:   fakeType0TypeURL,
-					Version:   s.pushedVersion,
-					Resources: []*mcp.Resource{fakeResource0},
+					Collection: test.FakeType0Collection,
+					Version:    s.pushedVersion,
+					Resources:  []*mcp.Resource{test.Type0A[0].Resource},
 				})
 			}
 
@@ -742,7 +672,7 @@ func TestRateLimitNACK(t *testing.T) {
 
 			prevNonce = response.Nonce
 
-			sendRequest(fakeType0TypeURL, prevNonce, s.ackedVersion, s.errDetails)
+			sendRequest(test.FakeType0Collection, prevNonce, s.ackedVersion, s.errDetails)
 
 			if time.Now().After(finish) {
 				break

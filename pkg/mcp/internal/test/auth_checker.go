@@ -12,6 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: lll
-//go:generate $GOPATH/src/istio.io/istio/bin/protoc.sh -I. legacymixer.proto --gogo_out=Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types:${GOPATH}/src
-package legacy
+package test
+
+import (
+	"fmt"
+
+	"google.golang.org/grpc/credentials"
+)
+
+type FakeAuthChecker struct {
+	AllowError error
+}
+
+func NewFakeAuthChecker() *FakeAuthChecker {
+	return &FakeAuthChecker{}
+}
+
+func (f *FakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
+	return f.AllowError
+}
+
+func (f *FakeAuthChecker) AuthType() string {
+	fmt.Println("XXX", f.AllowError)
+	if f.AllowError != nil {
+		return "disallowed"
+	}
+	return "allowed"
+}

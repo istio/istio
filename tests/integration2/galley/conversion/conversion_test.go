@@ -94,9 +94,9 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal components.Galley) {
 		t.Fatalf("unable to apply config to Galley: %v", err)
 	}
 
-	for typeURL, e := range expected {
-		if err = gal.WaitForSnapshot(typeURL, e...); err != nil {
-			t.Errorf("Error waiting for %s:\n%v\n", typeURL, err)
+	for collection, e := range expected {
+		if err = gal.WaitForSnapshot(collection, e...); err != nil {
+			t.Errorf("Error waiting for %s:\n%v\n", collection, err)
 		}
 	}
 }

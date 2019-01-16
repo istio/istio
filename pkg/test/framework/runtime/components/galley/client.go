@@ -37,14 +37,14 @@ type client struct {
 	ctx     tcontext.Instance
 }
 
-func (c *client) waitForSnapshot(typeURL string, snapshot []map[string]interface{}) error {
+func (c *client) waitForSnapshot(collection string, snapshot []map[string]interface{}) error {
 	conn, err := c.dialGrpc()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = conn.Close() }()
 
-	urls := []string{typeURL}
+	collections := []string{collection}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -52,12 +52,12 @@ func (c *client) waitForSnapshot(typeURL string, snapshot []map[string]interface
 	u := mcpclient.NewInMemoryUpdater()
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	mcpc := mcpclient.New(cl, urls, u, "", map[string]string{}, mcptestmon.NewInMemoryClientStatsContext())
+	mcpc := mcpclient.New(cl, collections, u, "", map[string]string{}, mcptestmon.NewInMemoryClientStatsContext())
 	go mcpc.Run(ctx)
 
 	var result *comparisonResult
 	_, err = retry.Do(func() (interface{}, bool, error) {
-		items := u.Get(typeURL)
+		items := u.Get(collection)
 		result, err = c.checkSnapshot(items, snapshot)
 		if err != nil {
 			return nil, false, err

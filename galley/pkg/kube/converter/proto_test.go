@@ -27,9 +27,9 @@ func TestToProto_Success(t *testing.T) {
 	spec := map[string]interface{}{}
 
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
-	i := s.Get("type.googleapis.com/google.protobuf.Empty")
+	i := s.Get("foo")
 
 	p, err := toProto(i, spec)
 	if err != nil {
@@ -48,9 +48,9 @@ func TestToProto_Error(t *testing.T) {
 	}
 
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Any")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Any")
 	s := b.Build()
-	i := s.Get("type.googleapis.com/google.protobuf.Any")
+	i := s.Get("foo")
 
 	_, err := toProto(i, spec)
 	if err == nil {
