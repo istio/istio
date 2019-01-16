@@ -558,16 +558,23 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 						continue
 					}
 				}
+				validClusters := []string{}
+				for _, cn := range clusters {
+					_, _, hostname, _ := model.ParseSubsetKey(cn)
+					if len(hostname) > 0 {
+						validClusters = append(validClusters, cn)
+					}
+				}
 
 				for _, cn := range con.Clusters {
 					s.removeEdsCon(cn, con.ConID, con)
 				}
 
-				for _, cn := range clusters {
+				for _, cn := range validClusters {
 					s.addEdsCon(cn, con.ConID, con)
 				}
 
-				con.Clusters = clusters
+				con.Clusters = validClusters
 				adsLog.Debugf("ADS:EDS: REQ %s %s clusters: %d", peerAddr, con.ConID, len(con.Clusters))
 				err := s.pushEds(s.globalPushContext(), con, true, nil)
 				if err != nil {
