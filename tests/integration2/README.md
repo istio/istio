@@ -129,8 +129,9 @@ The test framework supports the following command-line flags:
 
 ```
 Common Flags:
---istio.test.work_dir <dir>      Local working directory for creating logs/temp files.
---istio.test.env <envname>       Specify the environment to run the tests against.
+--istio.test.work_dir <dir>          Local working directory for creating logs/temp files.
+--istio.test.env <envname>           Specify the environment to run the tests against.
+--log_output_level <Scope:LogLevel>  Output log level, for example, "CI:info" to turn on test log as info level. 
 
 Kubernetes Environment Flags:
 --istio.test.kube.config <path>                The path to the kube config file for cluster environments
