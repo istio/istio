@@ -497,6 +497,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 			// Cluster was not updated, skip recomputing.
 			continue
 		}
+		cMap[k] = make(map[model.Locality]*EdsCluster)
 		for locality, edsCluster := range v {
 			cMap[k][locality] = edsCluster
 		}
