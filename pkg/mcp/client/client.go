@@ -61,6 +61,36 @@ type Updater interface {
 	Apply(*Change) error
 }
 
+// InMemoryUpdater is an implementation of Updater that keeps a simple in-memory state.
+type InMemoryUpdater struct {
+	items      map[string][]*Object
+	itemsMutex sync.Mutex
+}
+
+var _ Updater = &InMemoryUpdater{}
+
+// NewInMemoryUpdater returns a new instance of InMemoryUpdater
+func NewInMemoryUpdater() *InMemoryUpdater {
+	return &InMemoryUpdater{
+		items: make(map[string][]*Object),
+	}
+}
+
+// Apply the change to the InMemoryUpdater.
+func (u *InMemoryUpdater) Apply(c *Change) error {
+	u.itemsMutex.Lock()
+	defer u.itemsMutex.Unlock()
+	u.items[c.TypeURL] = c.Objects
+	return nil
+}
+
+// Get current state for the given Type URL.
+func (u *InMemoryUpdater) Get(typeURL string) []*Object {
+	u.itemsMutex.Lock()
+	defer u.itemsMutex.Unlock()
+	return u.items[typeURL]
+}
+
 type perTypeState struct {
 	sync.Mutex
 	lastVersion string

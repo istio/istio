@@ -18,6 +18,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
+
+	prometheusApi "github.com/prometheus/client_golang/api"
+	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
+
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	testContext "istio.io/istio/pkg/test/framework/api/context"
@@ -25,16 +31,9 @@ import (
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-	"time"
-
-	prometheusApi "github.com/prometheus/client_golang/api"
-	prometheusApiV1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/model"
-
-	"istio.io/istio/pkg/test/util/retry"
-
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (

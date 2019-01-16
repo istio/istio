@@ -15,20 +15,19 @@
 package dependency
 
 import (
+	"fmt"
 	"io"
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/context"
-	"istio.io/istio/pkg/test/framework/runtime/api"
-	"istio.io/istio/pkg/test/framework/runtime/registry"
 	"reflect"
 	"testing"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-
+	"istio.io/istio/pkg/test/framework/runtime/api"
+	"istio.io/istio/pkg/test/framework/runtime/registry"
 	"istio.io/istio/pkg/test/scopes"
-
-	"fmt"
 )
 
 var _ component.Factory = &Manager{}

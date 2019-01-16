@@ -37,6 +37,9 @@ var (
 	// Mixer component
 	Mixer = component.ID("mixer")
 
+	// Galley component
+	Galley = component.ID("galley")
+
 	// Pilot component
 	Pilot = component.ID("pilot")
 

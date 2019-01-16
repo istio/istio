@@ -29,7 +29,8 @@ import (
 type LbEpInfo struct {
 	network string
 	address string
-	weight  uint32
+	// nolint: structcheck
+	weight uint32
 }
 
 type LocLbEpInfo struct {

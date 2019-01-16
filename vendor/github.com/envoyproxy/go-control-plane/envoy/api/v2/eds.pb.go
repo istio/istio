@@ -15,8 +15,10 @@ import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import bytes "bytes"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -46,9 +48,9 @@ type ClusterLoadAssignment struct {
 	// <envoy_api_msg_Cluster.EdsClusterConfig>`.
 	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
 	// List of endpoints to load balance to.
-	Endpoints []endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints"`
+	Endpoints []endpoint.LocalityLbEndpoints `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints"`
 	// Load balancing policy settings.
-	Policy               *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy" json:"policy,omitempty"`
+	Policy               *ClusterLoadAssignment_Policy `protobuf:"bytes,4,opt,name=policy,proto3" json:"policy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
 	XXX_unrecognized     []byte                        `json:"-"`
 	XXX_sizecache        int32                         `json:"-"`
@@ -58,7 +60,7 @@ func (m *ClusterLoadAssignment) Reset()         { *m = ClusterLoadAssignment{} }
 func (m *ClusterLoadAssignment) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment) ProtoMessage()    {}
 func (*ClusterLoadAssignment) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_51bf2017ce33a22f, []int{0}
+	return fileDescriptor_eds_54f904bbf5198003, []int{0}
 }
 func (m *ClusterLoadAssignment) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -129,17 +131,22 @@ type ClusterLoadAssignment_Policy struct {
 	//    "throttle"_drop = 60%
 	//    "lb"_drop = 20%  // 50% of the remaining 'actual' load, which is 40%.
 	//    actual_outgoing_load = 20% // remaining after applying all categories.
-	DropOverloads []*ClusterLoadAssignment_Policy_DropOverload `protobuf:"bytes,2,rep,name=drop_overloads,json=dropOverloads" json:"drop_overloads,omitempty"`
+	DropOverloads []*ClusterLoadAssignment_Policy_DropOverload `protobuf:"bytes,2,rep,name=drop_overloads,json=dropOverloads,proto3" json:"drop_overloads,omitempty"`
 	// Priority levels and localities are considered overprovisioned with this
 	// factor (in percentage). This means that we don't consider a priority
 	// level or locality unhealthy until the percentage of healthy hosts
 	// multiplied by the overprovisioning factor drops below 100.
 	// With the default value 140(1.4), Envoy doesn't consider a priority level
 	// or a locality unhealthy until their percentage of healthy hosts drops
-	// below 72%.
+	// below 72%. For example:
+	//
+	// .. code-block:: json
+	//
+	//  { "overprovisioning_factor": 100 }
+	//
 	// Read more at :ref:`priority levels <arch_overview_load_balancing_priority_levels>` and
 	// :ref:`localities <arch_overview_load_balancing_locality_weighted_lb>`.
-	OverprovisioningFactor *types.UInt32Value `protobuf:"bytes,3,opt,name=overprovisioning_factor,json=overprovisioningFactor" json:"overprovisioning_factor,omitempty"`
+	OverprovisioningFactor *types.UInt32Value `protobuf:"bytes,3,opt,name=overprovisioning_factor,json=overprovisioningFactor,proto3" json:"overprovisioning_factor,omitempty"`
 	XXX_NoUnkeyedLiteral   struct{}           `json:"-"`
 	XXX_unrecognized       []byte             `json:"-"`
 	XXX_sizecache          int32              `json:"-"`
@@ -149,7 +156,7 @@ func (m *ClusterLoadAssignment_Policy) Reset()         { *m = ClusterLoadAssignm
 func (m *ClusterLoadAssignment_Policy) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment_Policy) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_51bf2017ce33a22f, []int{0, 0}
+	return fileDescriptor_eds_54f904bbf5198003, []int{0, 0}
 }
 func (m *ClusterLoadAssignment_Policy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -196,7 +203,7 @@ type ClusterLoadAssignment_Policy_DropOverload struct {
 	// Identifier for the policy specifying the drop.
 	Category string `protobuf:"bytes,1,opt,name=category,proto3" json:"category,omitempty"`
 	// Percentage of traffic that should be dropped for the category.
-	DropPercentage       *_type.FractionalPercent `protobuf:"bytes,2,opt,name=drop_percentage,json=dropPercentage" json:"drop_percentage,omitempty"`
+	DropPercentage       *_type.FractionalPercent `protobuf:"bytes,2,opt,name=drop_percentage,json=dropPercentage,proto3" json:"drop_percentage,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -208,7 +215,7 @@ func (m *ClusterLoadAssignment_Policy_DropOverload) Reset() {
 func (m *ClusterLoadAssignment_Policy_DropOverload) String() string { return proto.CompactTextString(m) }
 func (*ClusterLoadAssignment_Policy_DropOverload) ProtoMessage()    {}
 func (*ClusterLoadAssignment_Policy_DropOverload) Descriptor() ([]byte, []int) {
-	return fileDescriptor_eds_51bf2017ce33a22f, []int{0, 0, 0}
+	return fileDescriptor_eds_54f904bbf5198003, []int{0, 0, 0}
 }
 func (m *ClusterLoadAssignment_Policy_DropOverload) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -368,8 +375,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for EndpointDiscoveryService service
-
+// EndpointDiscoveryServiceClient is the client API for EndpointDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type EndpointDiscoveryServiceClient interface {
 	// The resource_names field in DiscoveryRequest specifies a list of clusters
 	// to subscribe to updates for.
@@ -425,8 +433,7 @@ func (c *endpointDiscoveryServiceClient) FetchEndpoints(ctx context.Context, in 
 	return out, nil
 }
 
-// Server API for EndpointDiscoveryService service
-
+// EndpointDiscoveryServiceServer is the server API for EndpointDiscoveryService service.
 type EndpointDiscoveryServiceServer interface {
 	// The resource_names field in DiscoveryRequest specifies a list of clusters
 	// to subscribe to updates for.
@@ -641,6 +648,9 @@ func encodeVarintEds(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ClusterLoadAssignment) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ClusterName)
@@ -664,6 +674,9 @@ func (m *ClusterLoadAssignment) Size() (n int) {
 }
 
 func (m *ClusterLoadAssignment_Policy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.DropOverloads) > 0 {
@@ -683,6 +696,9 @@ func (m *ClusterLoadAssignment_Policy) Size() (n int) {
 }
 
 func (m *ClusterLoadAssignment_Policy_DropOverload) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Category)
@@ -1189,9 +1205,9 @@ var (
 	ErrIntOverflowEds   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor_eds_51bf2017ce33a22f) }
+func init() { proto.RegisterFile("envoy/api/v2/eds.proto", fileDescriptor_eds_54f904bbf5198003) }
 
-var fileDescriptor_eds_51bf2017ce33a22f = []byte{
+var fileDescriptor_eds_54f904bbf5198003 = []byte{
 	// 562 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0x41, 0x8b, 0xd3, 0x40,
 	0x14, 0xde, 0xc9, 0x96, 0x65, 0x77, 0xb6, 0xee, 0x4a, 0xd4, 0x6d, 0x08, 0x35, 0x5b, 0x8a, 0x42,

@@ -388,8 +388,8 @@ function run_canonical_perf_test() {
             DRIVER_URL="${FORTIO2_URL}"
             ;;
         *)
-            echo "unknown driver: ${DRIVER}"
-            exit -1
+            echo "unknown driver: ${DRIVER}" >&2
+            exit 1
             ;;
     esac
 
@@ -405,8 +405,8 @@ function run_canonical_perf_test() {
             TARGET_URL="${ECHO2_URL}"
             ;;
         *)
-            echo "unknown target: ${TARGET}"
-            exit -1
+            echo "unknown target: ${TARGET}" >&2
+            exit 1
             ;;
     esac
 

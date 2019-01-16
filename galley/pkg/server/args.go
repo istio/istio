@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	defaultConfigMapFolder  = "/etc/istio/config/"
-	defaultMeshConfigFolder = "/etc/istio/mesh-config/"
+	defaultConfigMapFolder  = "/etc/config/"
+	defaultMeshConfigFolder = "/etc/mesh-config/"
 	defaultAccessListFile   = defaultConfigMapFolder + "accesslist.yaml"
 	defaultMeshConfigFile   = defaultMeshConfigFolder + "mesh"
 	defaultDomainSuffix     = "cluster.local"
@@ -111,11 +111,11 @@ func (a *Args) String() string {
 	fmt.Fprintf(buf, "KubeConfig: %s\n", a.KubeConfig)
 	fmt.Fprintf(buf, "ResyncPeriod: %v\n", a.ResyncPeriod)
 	fmt.Fprintf(buf, "APIAddress: %s\n", a.APIAddress)
-	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.APIAddress)
+	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.EnableGRPCTracing)
 	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
 	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
-	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)
+	fmt.Fprintf(buf, "IntrospectionOptions: %+v\n", *a.IntrospectionOptions)
 	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
 	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
 	fmt.Fprintf(buf, "EnableServer: %v\n", a.EnableServer)

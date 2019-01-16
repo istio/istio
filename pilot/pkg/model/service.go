@@ -34,6 +34,8 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/features/pilot"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -359,12 +361,6 @@ type ServiceInstance struct {
 	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
-const (
-	// AZLabel indicates the region/zone of an instance. It is used if the native
-	// registry doesn't provide one.
-	AZLabel = "istio-az"
-)
-
 // GetLocality returns the availability zone from an instance.
 // - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
 // - consul: defaults to 'instance.Datacenter'
@@ -374,7 +370,7 @@ func (si *ServiceInstance) GetLocality() string {
 	if si.Endpoint.Locality != "" {
 		return si.Endpoint.Locality
 	}
-	return si.Labels[AZLabel]
+	return si.Labels[pilot.AZLabel]
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
@@ -440,6 +436,9 @@ type ServiceAttributes struct {
 	Namespace string
 	// UID is "destination.service.uid" attribute
 	UID string
+	// ConfigScope defines the visibility of Service in
+	// a namespace when the namespace is imported.
+	ConfigScope networking.ConfigScope
 }
 
 // ServiceDiscovery enumerates Istio service instances.

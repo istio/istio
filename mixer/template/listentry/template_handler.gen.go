@@ -52,8 +52,8 @@ type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
 
-	// Specifies the entry to verify in the list.
-	Value string
+	// Specifies the entry to verify in the list. This value can either be a string or an IP address.
+	Value interface{}
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

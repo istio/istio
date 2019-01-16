@@ -4,6 +4,11 @@
 #               | grep Running | head -1 | cut -f1 -d' ')
 # $ kubectl port-forward --namespace docker-registry $POD 5000:5000
 
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: docker-registry
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

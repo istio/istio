@@ -25,7 +25,6 @@ spec:
         chart: {{ template "pilot.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -54,16 +53,18 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if not .Values.sidecar }}
+{{- if $.Values.global.controlPlaneSecurityEnabled}}
+    {{- if not .Values.sidecar }}
           - --secureGrpcAddr
           - ":15011"
+    {{- end }}
+{{- else }}
+          - --secureGrpcAddr
+          - ""
 {{- end }}
 {{- if $.Values.global.useMCP }}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --mcpServerAddrs=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
     {{- else }}
           - --mcpServerAddrs=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
     {{- end }}
@@ -143,6 +144,9 @@ spec:
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
+        {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
           env:
           - name: POD_NAME

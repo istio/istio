@@ -32,10 +32,13 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 )
 
+type CertPoolFunc func() (*x509.CertPool, error)
+
 var (
-	scope       = []string{"https://www.googleapis.com/auth/cloud-platform"}
-	iamEndpoint = "iamcredentials.googleapis.com:443"
-	tlsFlag     = true
+	scope                    = []string{"https://www.googleapis.com/auth/cloud-platform"}
+	iamEndpoint              = "iamcredentials.googleapis.com:443"
+	tlsFlag                  = true
+	certFunc    CertPoolFunc = x509.SystemCertPool
 )
 
 // Plugin for google IAM interaction.
@@ -47,7 +50,7 @@ type Plugin struct {
 func NewPlugin() plugin.Plugin {
 	var opts grpc.DialOption
 	if tlsFlag {
-		pool, err := x509.SystemCertPool()
+		pool, err := certFunc()
 		if err != nil {
 			log.Errorf("could not get SystemCertPool: %v", err)
 			return nil
@@ -88,10 +91,7 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 		return "", time.Now(), errors.New("failed to exchange token")
 	}
 
-	expireTime, err := ptypes.Timestamp(r.ExpireTime)
-	if err != nil {
-		return "", time.Now(), errors.New("failed to exchange token")
-	}
+	expireTime, _ := ptypes.Timestamp(r.ExpireTime)
 
 	return r.AccessToken, expireTime, nil
 }

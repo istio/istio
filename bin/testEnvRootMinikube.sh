@@ -61,6 +61,7 @@ function startMinikubeNone() {
     export MINIKUBE_WANTREPORTERRORPROMPT=false
     export MINIKUBE_HOME=$HOME
     export CHANGE_MINIKUBE_NONE_USER=true
+	echo "IP forwarding setting: $(cat /proc/sys/net/ipv4/ip_forward)"
     sudo -E minikube start \
          --kubernetes-version=v1.9.0 \
          --vm-driver=none \

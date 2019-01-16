@@ -39,7 +39,7 @@ func (x DubboProxy_ProtocolType) String() string {
 	return proto.EnumName(DubboProxy_ProtocolType_name, int32(x))
 }
 func (DubboProxy_ProtocolType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_dubbo_proxy_7a533e05a41797ac, []int{0, 0}
+	return fileDescriptor_dubbo_proxy_90d444f7a8aea9cc, []int{0, 0}
 }
 
 // Configure the serialization protocol used.
@@ -60,11 +60,9 @@ func (x DubboProxy_SerializationType) String() string {
 	return proto.EnumName(DubboProxy_SerializationType_name, int32(x))
 }
 func (DubboProxy_SerializationType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_dubbo_proxy_7a533e05a41797ac, []int{0, 1}
+	return fileDescriptor_dubbo_proxy_90d444f7a8aea9cc, []int{0, 1}
 }
 
-// [#protodoc-title: Extensions Thrift Proxy]
-// Thrift Proxy filter configuration.
 type DubboProxy struct {
 	// The human readable prefix to use when emitting statistics.
 	StatPrefix           string                       `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
@@ -79,7 +77,7 @@ func (m *DubboProxy) Reset()         { *m = DubboProxy{} }
 func (m *DubboProxy) String() string { return proto.CompactTextString(m) }
 func (*DubboProxy) ProtoMessage()    {}
 func (*DubboProxy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dubbo_proxy_7a533e05a41797ac, []int{0}
+	return fileDescriptor_dubbo_proxy_90d444f7a8aea9cc, []int{0}
 }
 func (m *DubboProxy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -181,6 +179,9 @@ func encodeVarintDubboProxy(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *DubboProxy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.StatPrefix)
@@ -436,10 +437,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/network/dubbo_proxy/v2alpha1/dubbo_proxy.proto", fileDescriptor_dubbo_proxy_7a533e05a41797ac)
+	proto.RegisterFile("envoy/config/filter/network/dubbo_proxy/v2alpha1/dubbo_proxy.proto", fileDescriptor_dubbo_proxy_90d444f7a8aea9cc)
 }
 
-var fileDescriptor_dubbo_proxy_7a533e05a41797ac = []byte{
+var fileDescriptor_dubbo_proxy_90d444f7a8aea9cc = []byte{
 	// 316 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x8f, 0xb1, 0x4e, 0x02, 0x31,
 	0x1c, 0x87, 0xe9, 0x21, 0x46, 0xfe, 0xa2, 0x39, 0xba, 0x88, 0x0e, 0x04, 0x99, 0x88, 0x43, 0x1b,

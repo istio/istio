@@ -28,9 +28,9 @@ type Connection struct {
 	// in Envoy logs.
 	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Local address.
-	LocalAddress *core.Address `protobuf:"bytes,2,opt,name=local_address,json=localAddress" json:"local_address,omitempty"`
+	LocalAddress *core.Address `protobuf:"bytes,2,opt,name=local_address,json=localAddress,proto3" json:"local_address,omitempty"`
 	// Remote address.
-	RemoteAddress        *core.Address `protobuf:"bytes,3,opt,name=remote_address,json=remoteAddress" json:"remote_address,omitempty"`
+	RemoteAddress        *core.Address `protobuf:"bytes,3,opt,name=remote_address,json=remoteAddress,proto3" json:"remote_address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -40,7 +40,7 @@ func (m *Connection) Reset()         { *m = Connection{} }
 func (m *Connection) String() string { return proto.CompactTextString(m) }
 func (*Connection) ProtoMessage()    {}
 func (*Connection) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{0}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{0}
 }
 func (m *Connection) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -93,7 +93,7 @@ func (m *Connection) GetRemoteAddress() *core.Address {
 // Event in a capture trace.
 type Event struct {
 	// Timestamp for event.
-	Timestamp *types.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
+	Timestamp *types.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// Read or write with content as bytes string.
 	//
 	// Types that are valid to be assigned to EventSelector:
@@ -109,7 +109,7 @@ func (m *Event) Reset()         { *m = Event{} }
 func (m *Event) String() string { return proto.CompactTextString(m) }
 func (*Event) ProtoMessage()    {}
 func (*Event) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{1}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{1}
 }
 func (m *Event) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -145,10 +145,10 @@ type isEvent_EventSelector interface {
 }
 
 type Event_Read_ struct {
-	Read *Event_Read `protobuf:"bytes,2,opt,name=read,oneof"`
+	Read *Event_Read `protobuf:"bytes,2,opt,name=read,proto3,oneof"`
 }
 type Event_Write_ struct {
-	Write *Event_Write `protobuf:"bytes,3,opt,name=write,oneof"`
+	Write *Event_Write `protobuf:"bytes,3,opt,name=write,proto3,oneof"`
 }
 
 func (*Event_Read_) isEvent_EventSelector()  {}
@@ -269,7 +269,7 @@ func (m *Event_Read) Reset()         { *m = Event_Read{} }
 func (m *Event_Read) String() string { return proto.CompactTextString(m) }
 func (*Event_Read) ProtoMessage()    {}
 func (*Event_Read) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{1, 0}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{1, 0}
 }
 func (m *Event_Read) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -320,7 +320,7 @@ func (m *Event_Write) Reset()         { *m = Event_Write{} }
 func (m *Event_Write) String() string { return proto.CompactTextString(m) }
 func (*Event_Write) ProtoMessage()    {}
 func (*Event_Write) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{1, 1}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{1, 1}
 }
 func (m *Event_Write) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -368,9 +368,9 @@ func (m *Event_Write) GetEndStream() bool {
 // sink (e.g. file set, network) responsible for later reassembly.
 type Trace struct {
 	// Connection properties.
-	Connection *Connection `protobuf:"bytes,1,opt,name=connection" json:"connection,omitempty"`
+	Connection *Connection `protobuf:"bytes,1,opt,name=connection,proto3" json:"connection,omitempty"`
 	// Sequence of observed events.
-	Events               []*Event `protobuf:"bytes,2,rep,name=events" json:"events,omitempty"`
+	Events               []*Event `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -380,7 +380,7 @@ func (m *Trace) Reset()         { *m = Trace{} }
 func (m *Trace) String() string { return proto.CompactTextString(m) }
 func (*Trace) ProtoMessage()    {}
 func (*Trace) Descriptor() ([]byte, []int) {
-	return fileDescriptor_capture_b7254821859335d7, []int{2}
+	return fileDescriptor_capture_581d45ac99e3ae35, []int{2}
 }
 func (m *Trace) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -659,6 +659,9 @@ func encodeVarintCapture(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Connection) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Id != 0 {
@@ -679,6 +682,9 @@ func (m *Connection) Size() (n int) {
 }
 
 func (m *Event) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Timestamp != nil {
@@ -695,6 +701,9 @@ func (m *Event) Size() (n int) {
 }
 
 func (m *Event_Read_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Read != nil {
@@ -704,6 +713,9 @@ func (m *Event_Read_) Size() (n int) {
 	return n
 }
 func (m *Event_Write_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Write != nil {
@@ -713,6 +725,9 @@ func (m *Event_Write_) Size() (n int) {
 	return n
 }
 func (m *Event_Read) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Data)
@@ -726,6 +741,9 @@ func (m *Event_Read) Size() (n int) {
 }
 
 func (m *Event_Write) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Data)
@@ -742,6 +760,9 @@ func (m *Event_Write) Size() (n int) {
 }
 
 func (m *Trace) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Connection != nil {
@@ -1462,10 +1483,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/data/tap/v2alpha/capture.proto", fileDescriptor_capture_b7254821859335d7)
+	proto.RegisterFile("envoy/data/tap/v2alpha/capture.proto", fileDescriptor_capture_581d45ac99e3ae35)
 }
 
-var fileDescriptor_capture_b7254821859335d7 = []byte{
+var fileDescriptor_capture_581d45ac99e3ae35 = []byte{
 	// 413 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x91, 0xcf, 0x6a, 0x14, 0x41,
 	0x10, 0xc6, 0xd3, 0x93, 0xdd, 0x60, 0x2a, 0xc9, 0x12, 0xfa, 0x20, 0x61, 0x20, 0x9b, 0xb0, 0x7a,

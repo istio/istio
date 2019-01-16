@@ -15,13 +15,13 @@
 package components
 
 import (
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/ids"
 	"net/http"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/ids"
 )
 
 // AppProtocol enumerates the protocol options for calling an DeployedAppEndpoint endpoint.

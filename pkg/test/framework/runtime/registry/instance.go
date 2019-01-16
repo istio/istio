@@ -16,10 +16,11 @@ package registry
 
 import (
 	"fmt"
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/key"
-	"testing"
 )
 
 var _ component.Defaults = &Instance{}

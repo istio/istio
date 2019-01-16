@@ -15,13 +15,14 @@
 package components
 
 import (
+	"testing"
+
 	"github.com/gogo/googleapis/google/rpc"
+
+	mixerV1 "istio.io/api/mixer/v1"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"testing"
-
-	mixerV1 "istio.io/api/mixer/v1"
 )
 
 // Mixer represents a deployed Mixer instance.

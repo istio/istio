@@ -15,7 +15,6 @@
 package yaml
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -24,7 +23,7 @@ import (
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
+	foo "istio.io/istio/mixer/pkg/protobuf/yaml/testdata/all"
 )
 
 func TestDecoder(t *testing.T) {
@@ -157,7 +156,7 @@ sf64: 12345`,
 			data: `
 flt: 1.12
 dbl: 123.456`,
-			want: map[string]interface{}{"flt": float32(1.12), "dbl": 123.456},
+			want: map[string]interface{}{"flt": float64(float32(1.12)), "dbl": 123.456},
 		},
 		{
 			name: "repeated fixed encoding",
@@ -182,7 +181,7 @@ r_flt:
 				"r_f64":  []interface{}{int64(12345)},
 				"r_sf64": []interface{}{int64(123456)},
 				"r_dbl":  []interface{}{123.123, 456.456},
-				"r_flt":  []interface{}{float32(1.1), float32(1.13)},
+				"r_flt":  []interface{}{float64(float32(1.1)), float64(float32(1.13))},
 			},
 		},
 		{
@@ -208,7 +207,7 @@ r_flt_unpacked:
 				"r_f64_unpacked":  []interface{}{int64(12345)},
 				"r_sf64_unpacked": []interface{}{int64(123456)},
 				"r_dbl_unpacked":  []interface{}{123.123, 456.456},
-				"r_flt_unpacked":  []interface{}{float32(1.1), float32(1.13)},
+				"r_flt_unpacked":  []interface{}{float64(float32(1.1)), float64(float32(1.13))},
 			},
 		},
 		{
@@ -279,10 +278,10 @@ map_str_str:
   key2: val2`,
 			fields: map[string]bool{"map_str_str": true},
 			want: map[string]interface{}{
-				"map_str_str": map[string]string{
+				"map_str_str": attribute.WrapStringMap(map[string]string{
 					"key1": "val1",
 					"key2": "val2",
-				},
+				}),
 			},
 		},
 		{
@@ -372,8 +371,21 @@ duration_istio_value:
 				}
 			}
 
-			if !reflect.DeepEqual(got, td.want) {
+			if len(got) != len(td.want) {
 				tt.Errorf("yaml.Decode(%q) => got %#v, want %#v", td.name, got, td.want)
+			}
+
+			for k, v := range got {
+				switch vt := v.(type) {
+				case *attribute.List:
+					if !vt.Equal(attribute.NewListForTesting(k, td.want[k].([]interface{}))) {
+						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
+					}
+				default:
+					if !attribute.Equal(v, td.want[k]) {
+						tt.Errorf("yaml.Decode(%q) => got %#v, want %#v for %q", td.name, v, td.want[k], k)
+					}
+				}
 			}
 		})
 		t.Run(td.name+"/type-check", func(tt *testing.T) {
@@ -437,7 +449,7 @@ duration_istio_value:
 					if got != v1beta1.TIMESTAMP {
 						t.Errorf("field %q incorrect deduced type: got %v, want timestamp", field.GetName(), got)
 					}
-				case map[string]string:
+				case attribute.StringMap:
 					if got != v1beta1.STRING_MAP {
 						t.Errorf("field %q incorrect deduced type: got %v, want string map", field.GetName(), got)
 					}

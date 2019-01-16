@@ -26,7 +26,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // information.
 type Certificates struct {
 	// List of certificates known to an Envoy.
-	Certificates         []*Certificate `protobuf:"bytes,1,rep,name=certificates" json:"certificates,omitempty"`
+	Certificates         []*Certificate `protobuf:"bytes,1,rep,name=certificates,proto3" json:"certificates,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -74,9 +74,9 @@ func (m *Certificates) GetCertificates() []*Certificate {
 
 type Certificate struct {
 	// Details of CA certificate.
-	CaCert []*CertificateDetails `protobuf:"bytes,1,rep,name=ca_cert,json=caCert" json:"ca_cert,omitempty"`
+	CaCert []*CertificateDetails `protobuf:"bytes,1,rep,name=ca_cert,json=caCert,proto3" json:"ca_cert,omitempty"`
 	// Details of Certificate Chain
-	CertChain            []*CertificateDetails `protobuf:"bytes,2,rep,name=cert_chain,json=certChain" json:"cert_chain,omitempty"`
+	CertChain            []*CertificateDetails `protobuf:"bytes,2,rep,name=cert_chain,json=certChain,proto3" json:"cert_chain,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -135,13 +135,13 @@ type CertificateDetails struct {
 	// Certificate Serial Number.
 	SerialNumber string `protobuf:"bytes,2,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`
 	// List of Subject Alternate names.
-	SubjectAltNames []*SubjectAlternateName `protobuf:"bytes,3,rep,name=subject_alt_names,json=subjectAltNames" json:"subject_alt_names,omitempty"`
+	SubjectAltNames []*SubjectAlternateName `protobuf:"bytes,3,rep,name=subject_alt_names,json=subjectAltNames,proto3" json:"subject_alt_names,omitempty"`
 	// Minimum of days until expiration of certificate and it's chain.
 	DaysUntilExpiration uint64 `protobuf:"varint,4,opt,name=days_until_expiration,json=daysUntilExpiration,proto3" json:"days_until_expiration,omitempty"`
 	// Indicates the time from which the certificate is valid.
-	ValidFrom *types.Timestamp `protobuf:"bytes,5,opt,name=valid_from,json=validFrom" json:"valid_from,omitempty"`
+	ValidFrom *types.Timestamp `protobuf:"bytes,5,opt,name=valid_from,json=validFrom,proto3" json:"valid_from,omitempty"`
 	// Indicates the time at which the certificate expires.
-	ExpirationTime       *types.Timestamp `protobuf:"bytes,6,opt,name=expiration_time,json=expirationTime" json:"expiration_time,omitempty"`
+	ExpirationTime       *types.Timestamp `protobuf:"bytes,6,opt,name=expiration_time,json=expirationTime,proto3" json:"expiration_time,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -578,6 +578,9 @@ func encodeVarintCerts(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Certificates) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Certificates) > 0 {
@@ -593,6 +596,9 @@ func (m *Certificates) Size() (n int) {
 }
 
 func (m *Certificate) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.CaCert) > 0 {
@@ -614,6 +620,9 @@ func (m *Certificate) Size() (n int) {
 }
 
 func (m *CertificateDetails) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Path)
@@ -648,6 +657,9 @@ func (m *CertificateDetails) Size() (n int) {
 }
 
 func (m *SubjectAlternateName) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Name != nil {
@@ -660,6 +672,9 @@ func (m *SubjectAlternateName) Size() (n int) {
 }
 
 func (m *SubjectAlternateName_Dns) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Dns)
@@ -667,6 +682,9 @@ func (m *SubjectAlternateName_Dns) Size() (n int) {
 	return n
 }
 func (m *SubjectAlternateName_Uri) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Uri)

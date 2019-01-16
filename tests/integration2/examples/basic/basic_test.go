@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"testing"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.

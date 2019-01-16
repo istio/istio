@@ -217,6 +217,9 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	s.dispatcher = rt.Dispatcher()
 
+	// see issue https://github.com/istio/istio/issues/9596
+	a.NumCheckCacheEntries = 0
+
 	if a.NumCheckCacheEntries > 0 {
 		s.checkCache = checkcache.New(a.NumCheckCacheEntries)
 	}

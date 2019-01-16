@@ -17,21 +17,22 @@ package agent
 import (
 	"bufio"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
 	"net"
 	"os"
 	"strconv"
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/application"
-
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	proxyEnvoy "istio.io/istio/pilot/pkg/proxy/envoy"
+	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
 	"istio.io/istio/pkg/test/envoy"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
+	"istio.io/istio/pkg/test/util/reserveport"
 )
 
 const (
@@ -109,10 +110,15 @@ func testForApps(t *testing.T, appFactory *echo.Factory, serviceNames ...string)
 
 	appFactoryFunc := appFactory.NewApplication
 
+	portMgr, err := reserveport.NewPortManager()
+
+	if err != nil {
+		t.Fatalf("failed to reserve Ports: %v", err)
+	}
 	// Create the agents.
 	agents := make([]Agent, len(serviceNames))
 	for i, serviceName := range serviceNames {
-		agents[i] = newAgent(serviceName, serviceManager, agentFactory, appFactoryFunc, t)
+		agents[i] = newAgent(serviceName, serviceManager, agentFactory, appFactoryFunc, portMgr, t)
 		defer agents[i].Close()
 	}
 
@@ -170,9 +176,10 @@ func logConfigs(agents []Agent) {
 	f.Flush()
 }
 
-func newAgent(serviceName string, serviceManager *service.Manager, factory Factory, appFactory application.Factory, t *testing.T) Agent {
+func newAgent(serviceName string, serviceManager *service.Manager, factory Factory, appFactory application.Factory,
+	portMgr reserveport.PortManager, t *testing.T) Agent {
 	t.Helper()
-	a, err := factory(serviceName, "", serviceManager, appFactory)
+	a, err := factory(serviceName, "", serviceManager, appFactory, portMgr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +242,7 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 			HTTPAddr:       ":0",
 			MonitoringAddr: ":0",
 			GrpcAddr:       ":0",
-			SecureGrpcAddr: ":0",
+			SecureGrpcAddr: "",
 		},
 		MeshConfig: &mesh,
 		Config: bootstrap.ConfigArgs{
@@ -246,6 +253,8 @@ func newPilot(configStore model.ConfigStoreCache, t *testing.T) (*bootstrap.Serv
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
 			Registries: []string{},
 		},
+		KeepaliveOptions: keepalive.DefaultOption(),
+		ForceStop:        true,
 	}
 
 	// Create the server for the discovery service.

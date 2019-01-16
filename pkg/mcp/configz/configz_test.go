@@ -32,8 +32,8 @@ import (
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/mcp/testing"
-	"istio.io/istio/pkg/mcp/testing/monitoring"
+	mcptest "istio.io/istio/pkg/mcp/testing"
+	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type updater struct {
