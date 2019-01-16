@@ -69,6 +69,9 @@ type TestSetup struct {
 
 	// expected source.uid attribute at the mixer gRPC metadata
 	mixerSourceUID string
+
+	// Dir is the working dir for envoy
+	Dir string
 }
 
 // NewTestSetup creates a new test setup
