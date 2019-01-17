@@ -92,7 +92,7 @@ var (
 	// PolicyBackend component
 	PolicyBackend = component.Descriptor{
 		ID:                ids.PolicyBackend,
-		IsSystemComponent: false,
+		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Mixer,
 			&ids.Environment,
