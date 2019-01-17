@@ -24,8 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/mcp/snapshot"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/onsi/gomega"
 
@@ -33,6 +31,8 @@ import (
 	mixerEnv "istio.io/istio/mixer/test/client/env"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/source"
 	mcptesting "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -243,7 +243,7 @@ func startMCPCopilot() (*mcptesting.Server, error) {
 		collections[i] = m.Collection
 	}
 
-	server, err := mcptesting.NewServer(0, collections)
+	server, err := mcptesting.NewServer(0, source.CollectionOptionsFromSlice(collections))
 	if err != nil {
 		return nil, err
 	}

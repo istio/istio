@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
@@ -34,12 +33,13 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type testStream struct {
 	sync.Mutex
-	change map[string]*Change
+	change map[string]*sink.Change
 
 	requestC        chan *mcp.MeshConfigRequest  // received from client
 	responseC       chan *mcp.MeshConfigResponse // to-be-sent to client
@@ -57,7 +57,7 @@ func newTestStream() *testStream {
 		requestC:        make(chan *mcp.MeshConfigRequest, 10),
 		responseC:       make(chan *mcp.MeshConfigResponse, 10),
 		responseClosedC: make(chan struct{}, 10),
-		change:          make(map[string]*Change),
+		change:          make(map[string]*sink.Change),
 	}
 }
 
@@ -118,7 +118,7 @@ func (ts *testStream) Recv() (*mcp.MeshConfigResponse, error) {
 	}
 }
 
-func (ts *testStream) Apply(change *Change) error {
+func (ts *testStream) Apply(change *sink.Change) error {
 	if ts.updateError {
 		return errors.New("update error")
 	}
@@ -141,33 +141,11 @@ func checkRequest(got *mcp.MeshConfigRequest, want *mcp.MeshConfigRequest) error
 	return nil
 }
 
-var _ Updater = &testStream{}
-
-var (
-	key      = "node-id"
-	metadata = map[string]string{"foo": "bar"}
-	client   *mcp.SinkNode
-
-	supportedCollections = []string{
-		test.FakeType0Collection,
-		test.FakeType1Collection,
-		test.FakeType2Collection,
-	}
-)
-
-func init() {
-	client = &mcp.SinkNode{
-		Id:          key,
-		Annotations: map[string]string{},
-	}
-	for k, v := range metadata {
-		client.Annotations[k] = v
-	}
-}
+var _ sink.Updater = &testStream{}
 
 func makeRequest(collection, version, nonce string, errorCode codes.Code) *mcp.MeshConfigRequest {
 	req := &mcp.MeshConfigRequest{
-		SinkNode:      client,
+		SinkNode:      test.Node,
 		TypeUrl:       collection,
 		VersionInfo:   version,
 		ResponseNonce: nonce,
@@ -193,7 +171,14 @@ func makeResponse(collection, version, nonce string, resources ...*mcp.Resource)
 func TestSingleTypeCases(t *testing.T) {
 	ts := newTestStream()
 
-	c := New(ts, supportedCollections, ts, key, metadata, mcptestmon.NewInMemoryClientStatsContext())
+	options := &sink.Options{
+		CollectionOptions: sink.CollectionOptionsFromSlice(test.SupportedCollections),
+		Updater:           ts,
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	c := New(ts, options)
 	ctx, cancelClient := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
@@ -209,24 +194,24 @@ func TestSingleTypeCases(t *testing.T) {
 	}()
 
 	// Check metadata fields first
-	if !reflect.DeepEqual(c.Metadata(), metadata) {
-		t.Fatalf("metadata mismatch: got:\n%v\nwanted:\n%v\n", c.metadata, metadata)
+	if !reflect.DeepEqual(c.Metadata(), test.NodeMetadata) {
+		t.Fatalf("metadata mismatch: got:\n%v\nwanted:\n%v\n", c.metadata, test.NodeMetadata)
 	}
 
-	if c.ID() != key {
-		t.Fatalf("id mismatch: got\n%v\nwanted:\n%v\n", c.ID(), key)
+	if c.ID() != test.NodeID {
+		t.Fatalf("id mismatch: got\n%v\nwanted:\n%v\n", c.ID(), test.NodeID)
 	}
 
-	if !reflect.DeepEqual(c.Collections(), supportedCollections) {
-		t.Fatalf("type url mismatch: got:\n%v\nwanted:\n%v\n", c.Collections(), supportedCollections)
+	if !reflect.DeepEqual(c.Collections(), test.SupportedCollections) {
+		t.Fatalf("type url mismatch: got:\n%v\nwanted:\n%v\n", c.Collections(), test.SupportedCollections)
 	}
 
 	wantInitial := make(map[string]*mcp.MeshConfigRequest)
-	for _, collection := range supportedCollections {
+	for _, collection := range test.SupportedCollections {
 		wantInitial[collection] = makeRequest(collection, "", "", codes.OK)
 	}
 	gotInitial := make(map[string]*mcp.MeshConfigRequest)
-	for i := 0; i < len(supportedCollections); i++ {
+	for i := 0; i < len(test.SupportedCollections); i++ {
 		select {
 		case got := <-ts.requestC:
 			gotInitial[got.TypeUrl] = got
@@ -242,17 +227,18 @@ func TestSingleTypeCases(t *testing.T) {
 		name         string
 		sendResponse *mcp.MeshConfigResponse
 		wantRequest  *mcp.MeshConfigRequest
-		wantChange   *Change
-		wantJournal  []RecentRequestInfo
+		wantChange   *sink.Change
+		wantJournal  []sink.RecentRequestInfo
 		updateError  bool
 	}{
 		{
-			name:         "ACK request (type0)",
+			name: "ACK request (type0)",
+
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v0", "type0/n0", test.Type0A[0].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "type0/v0", "type0/n0", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
@@ -260,12 +246,13 @@ func TestSingleTypeCases(t *testing.T) {
 			},
 		},
 		{
-			name:         "ACK request (type1)",
+			name: "ACK request (type1)",
+
 			sendResponse: makeResponse(test.FakeType1Collection, "type1/v0", "type1/n0", test.Type1A[0].Resource),
 			wantRequest:  makeRequest(test.FakeType1Collection, "type1/v0", "type1/n0", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType1Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType1TypeURL,
 					Metadata: test.Type1A[0].Metadata,
 					Body:     test.Type1A[0].Proto,
@@ -273,12 +260,13 @@ func TestSingleTypeCases(t *testing.T) {
 			},
 		},
 		{
-			name:         "ACK request (type2)",
+			name: "ACK request (type2)",
+
 			sendResponse: makeResponse(test.FakeType2Collection, "type2/v0", "type2/n0", test.Type2A[0].Resource),
 			wantRequest:  makeRequest(test.FakeType2Collection, "type2/v0", "type2/n0", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType2Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType2TypeURL,
 					Metadata: test.Type2A[0].Metadata,
 					Body:     test.Type2A[0].Proto,
@@ -289,9 +277,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "NACK request (unsupported type_url)",
 			sendResponse: makeResponse(test.FakeType0Collection+"Garbage", "type0/v1", "type0/n1", test.Type0A[0].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection+"Garbage", "", "type0/n1", codes.Unimplemented),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
@@ -302,9 +290,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "NACK request (unmarshal error)",
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v1", "type0/n2", test.BadUnmarshal.Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "type0/v0", "type0/n2", codes.Unknown),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
@@ -316,9 +304,9 @@ func TestSingleTypeCases(t *testing.T) {
 			updateError:  true,
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v1", "type0/n3", test.Type0A[0].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "type0/v0", "type0/n3", codes.InvalidArgument),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
@@ -329,9 +317,9 @@ func TestSingleTypeCases(t *testing.T) {
 			name:         "ACK request after previous NACKs",
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v1", "type0/n3", test.Type0A[1].Resource, test.Type0A[2].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "type0/v1", "type0/n3", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[1].Metadata,
 					Body:     test.Type0A[1].Proto,
@@ -370,7 +358,7 @@ func TestSingleTypeCases(t *testing.T) {
 		}
 
 		lastEntry := entries[len(entries)-1]
-		if err := checkRequest(lastEntry.Request.toMeshConfigRequest(), step.wantRequest); err != nil {
+		if err := checkRequest(lastEntry.Request.ToMeshConfigRequest(), step.wantRequest); err != nil {
 			t.Fatalf("%v: failed to publish the right journal entries: %v", step.name, err)
 		}
 	}
@@ -379,7 +367,14 @@ func TestSingleTypeCases(t *testing.T) {
 func TestReconnect(t *testing.T) {
 	ts := newTestStream()
 
-	c := New(ts, []string{test.FakeType0Collection}, ts, key, metadata, mcptestmon.NewInMemoryClientStatsContext())
+	options := &sink.Options{
+		CollectionOptions: []sink.CollectionOptions{{Name: test.FakeType0Collection}},
+		Updater:           ts,
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	c := New(ts, options)
 	ctx, cancelClient := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
@@ -398,17 +393,18 @@ func TestReconnect(t *testing.T) {
 		name         string
 		sendResponse *mcp.MeshConfigResponse
 		wantRequest  *mcp.MeshConfigRequest
-		wantChange   *Change
+		wantChange   *sink.Change
 		sendError    bool
 		recvError    bool
 	}{
 		{
 			name:         "Initial request (type0)",
 			sendResponse: nil, // client initiates the exchange
-			wantRequest:  makeRequest(test.FakeType0Collection, "", "", codes.OK),
-			wantChange: &Change{
+
+			wantRequest: makeRequest(test.FakeType0Collection, "", "", codes.OK),
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
@@ -419,9 +415,9 @@ func TestReconnect(t *testing.T) {
 			name:         "ACK request (type0)",
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v0", "type0/n0", test.Type0A[0].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "type0/v0", "type0/n0", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
@@ -432,9 +428,9 @@ func TestReconnect(t *testing.T) {
 			name:         "send error",
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v1", "type0/n1", test.Type0A[1].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "", "", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[0].Metadata,
 					Body:     test.Type0A[0].Proto,
@@ -446,9 +442,9 @@ func TestReconnect(t *testing.T) {
 			name:         "ACK request after reconnect on send error",
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v1", "type0/n1", test.Type0A[1].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "type0/v1", "type0/n1", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[1].Metadata,
 					Body:     test.Type0A[1].Proto,
@@ -459,9 +455,9 @@ func TestReconnect(t *testing.T) {
 			name:         "recv error",
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v2", "type0/n2", test.Type0A[2].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "", "", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[1].Metadata,
 					Body:     test.Type0A[1].Proto,
@@ -473,9 +469,9 @@ func TestReconnect(t *testing.T) {
 			name:         "ACK request after reconnect on recv error",
 			sendResponse: makeResponse(test.FakeType0Collection, "type0/v2", "type0/n2", test.Type0A[2].Resource),
 			wantRequest:  makeRequest(test.FakeType0Collection, "type0/v2", "type0/n2", codes.OK),
-			wantChange: &Change{
+			wantChange: &sink.Change{
 				Collection: test.FakeType0Collection,
-				Objects: []*Object{{
+				Objects: []*sink.Object{{
 					TypeURL:  test.FakeType0TypeURL,
 					Metadata: test.Type0A[2].Metadata,
 					Body:     test.Type0A[2].Proto,
@@ -525,41 +521,5 @@ func TestReconnect(t *testing.T) {
 		if err := ts.wantRequest(step.wantRequest); err != nil {
 			t.Fatalf("%v: failed to receive correct request: %v", step.name, err)
 		}
-	}
-}
-
-func TestInMemoryUpdater(t *testing.T) {
-	u := NewInMemoryUpdater()
-
-	o := u.Get("foo")
-	if len(o) != 0 {
-		t.Fatalf("Unexpected items in updater: %v", o)
-	}
-
-	c := Change{
-		Collection: "foo",
-		Objects: []*Object{
-			{
-				TypeURL: "foo",
-				Metadata: &mcp.Metadata{
-					Name: "bar",
-				},
-				Body: &types.Empty{},
-			},
-		},
-	}
-
-	err := u.Apply(&c)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	o = u.Get("foo")
-	if len(o) != 1 {
-		t.Fatalf("expected item not found: %v", o)
-	}
-
-	if o[0].Metadata.Name != "bar" {
-		t.Fatalf("expected name not found on object: %v", o)
 	}
 }

@@ -18,11 +18,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	yaml "gopkg.in/yaml.v2"
 
 	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/mcp/env"
 	"istio.io/istio/pkg/mcp/server"
 )
 
@@ -37,6 +39,16 @@ var (
 	watchEventHandledProbe func()
 )
 
+var (
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// many authz failures are logs as a burst every AUTHZ_FAILURE_LOG_FREQ.
+	authzFailureLogBurstSize = env.Integer("AUTHZ_FAILURE_LOG_BURST_SIZE", 1)
+
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// frequently bursts of authz failures are logged.
+	authzFailureLogFreq = env.Duration("AUTHZ_FAILURE_LOG_FREQ", time.Minute)
+)
+
 func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.ListAuthChecker, error) {
 	// Do the initial read.
 	list, err := readAccessList(accessListFile)
@@ -44,12 +56,15 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 		return nil, err
 	}
 
-	checker := server.NewListAuthChecker()
+	options := server.DefaultListAuthCheckerOptions()
+	options.AuthzFailureLogBurstSize = authzFailureLogBurstSize
+	options.AuthzFailureLogFreq = authzFailureLogFreq
 	if list.IsBlackList {
-		checker.SetMode(server.AuthBlackList)
+		options.AuthMode = server.AuthBlackList
 	} else {
-		checker.SetMode(server.AuthWhiteList)
+		options.AuthMode = server.AuthWhiteList
 	}
+	checker := server.NewListAuthChecker(options)
 	checker.Set(list.Allowed...)
 
 	watcher := newFileWatcher()

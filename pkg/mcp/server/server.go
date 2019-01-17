@@ -17,7 +17,6 @@ package server
 import (
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -31,105 +30,44 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/env"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/source"
 )
 
-var (
-	scope = log.RegisterScope("mcp", "mcp debugging", 0)
-)
-
-func envInt(name string, def int) int {
-	if v := os.Getenv(name); v != "" {
-		if a, err := strconv.Atoi(v); err == nil {
-			return a
-		}
-	}
-	return def
-}
-
-func envDur(name string, def time.Duration) time.Duration {
-	if v := os.Getenv(name); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			return d
-		}
-	}
-	return def
-}
+var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 var (
 	// For the purposes of rate limiting new connections, this controls how many
 	// new connections are allowed as a burst every NEW_CONNECTION_FREQ.
-	newConnectionBurstSize = envInt("NEW_CONNECTION_BURST_SIZE", 10)
+	newConnectionBurstSize = env.Integer("NEW_CONNECTION_BURST_SIZE", 10)
 
 	// For the purposes of rate limiting new connections, this controls how
 	// frequently new bursts of connections are allowed.
-	newConnectionFreq = envDur("NEW_CONNECTION_FREQ", 10*time.Millisecond)
-
-	// For the purposes of logging rate limiting authz failures, this controls how
-	// many authz failus are logs as a burst every AUTHZ_FAILURE_LOG_FREQ.
-	authzFailureLogBurstSize = envInt("AUTHZ_FAILURE_LOG_BURST_SIZE", 1)
-
-	// For the purposes of logging rate limiting authz failures, this controls how
-	// frequently bursts of authz failures are logged.
-	authzFailureLogFreq = envDur("AUTHZ_FAILURE_LOG_FREQ", time.Minute)
+	newConnectionFreq = env.Duration("NEW_CONNECTION_FREQ", 10*time.Millisecond)
 
 	// Controls the rate limit frequency for re-pushing previously NACK'd pushes
 	// for each type.
-	nackLimitFreq = envDur("NACK_LIMIT_FREQ", 1*time.Second)
+	nackLimitFreq = env.Duration("NACK_LIMIT_FREQ", 1*time.Second)
 
 	// Controls the delay for re-retrying a configuration push if the previous
 	// attempt was not possible, e.g. the lower-level serving layer was busy. This
 	// should typically be set fairly small (order of milliseconds).
-	retryPushDelay = envDur("RETRY_PUSH_DELAY", 10*time.Millisecond)
+	retryPushDelay = env.Duration("RETRY_PUSH_DELAY", 10*time.Millisecond)
 )
-
-// WatchResponse contains a versioned collection of pre-serialized resources.
-type WatchResponse struct {
-	Collection string
-
-	// Version of the resources in the response for the given
-	// type. The node responds with this version in subsequent
-	// requests as an acknowledgment.
-	Version string
-
-	// Resources to be included in the response.
-	Resources []*mcp.Resource
-}
-
-type (
-	// CancelWatchFunc allows the consumer to cancel a previous watch,
-	// terminating the watch for the request.
-	CancelWatchFunc func()
-
-	// PushResponseFunc allows the consumer to push a response for the
-	// corresponding watch.
-	PushResponseFunc func(*WatchResponse)
-)
-
-// Watcher requests watches for configuration resources by node, last
-// applied version, and type. The watch should send the responses when
-// they are ready. The watch can be canceled by the consumer.
-type Watcher interface {
-	// Watch returns a new open watch for a non-empty request.
-	//
-	// Cancel is an optional function to release resources in the
-	// producer. It can be called idempotently to cancel and release resources.
-	Watch(*mcp.MeshConfigRequest, PushResponseFunc) CancelWatchFunc
-}
 
 var _ mcp.AggregatedMeshConfigServiceServer = &Server{}
 
 // Server implements the Mesh Configuration Protocol (MCP) gRPC server.
 type Server struct {
-	watcher      Watcher
-	collections  []string
+	watcher      source.Watcher
+	collections  []source.CollectionOptions
 	nextStreamID int64
 	// for auth check
-	authCheck                   AuthChecker
-	checkFailureRecordLimiter   *rate.Limiter
-	failureCountSinceLastRecord int
-	connections                 int64
-	reporter                    Reporter
-	newConnectionLimiter        *rate.Limiter
+	authCheck            AuthChecker
+	connections          int64
+	reporter             monitoring.Reporter
+	newConnectionLimiter *rate.Limiter
 }
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
@@ -161,7 +99,7 @@ type watch struct {
 	newPushResponseReadyChan chan newPushResponseState
 
 	mu                      sync.Mutex
-	newPushResponse         *WatchResponse
+	newPushResponse         *source.WatchResponse
 	mostRecentNackedVersion string
 	timer                   *time.Timer
 	closed                  bool
@@ -236,7 +174,7 @@ func (w *watch) schedulePush() {
 // may be re-schedule as necessary but this should be transparent to the
 // caller. The caller may provide a nil response to indicate that the watch
 // should be closed.
-func (w *watch) saveResponseAndSchedulePush(response *WatchResponse) {
+func (w *watch) saveResponseAndSchedulePush(response *source.WatchResponse) {
 	w.mu.Lock()
 	w.newPushResponse = response
 	if response == nil {
@@ -262,38 +200,20 @@ type connection struct {
 	requestC chan *mcp.MeshConfigRequest // a channel for receiving incoming requests
 	reqError error                       // holds error if request channel is closed
 	watches  map[string]*watch           // per-type watches
-	watcher  Watcher
+	watcher  source.Watcher
 
-	reporter Reporter
-}
-
-// Reporter is used to report metrics for an MCP server.
-type Reporter interface {
-	io.Closer
-
-	SetClientsTotal(clients int64)
-	RecordSendError(err error, code codes.Code)
-	RecordRecvError(err error, code codes.Code)
-	RecordRequestSize(collection string, connectionID int64, size int)
-	RecordRequestAck(collection string, connectionID int64)
-	RecordRequestNack(collection string, connectionID int64)
+	reporter monitoring.Reporter
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
-func New(watcher Watcher, collections []string, authChecker AuthChecker, reporter Reporter) *Server {
+func New(options *source.Options, authChecker AuthChecker) *Server {
 	s := &Server{
-		watcher:              watcher,
-		collections:          collections,
+		watcher:              options.Watcher,
+		collections:          options.CollectionsOptions,
 		authCheck:            authChecker,
-		reporter:             reporter,
+		reporter:             options.Reporter,
 		newConnectionLimiter: rate.NewLimiter(rate.Every(newConnectionFreq), newConnectionBurstSize),
 	}
-
-	// Initialize record limiter for the auth checker.
-	limit := rate.Every(authzFailureLogFreq)
-	limiter := rate.NewLimiter(limit, authzFailureLogBurstSize)
-	s.checkFailureRecordLimiter = limiter
-
 	return s
 }
 
@@ -314,11 +234,6 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	}
 
 	if err := s.authCheck.Check(authInfo); err != nil {
-		s.failureCountSinceLastRecord++
-		if s.checkFailureRecordLimiter.Allow() {
-			scope.Warnf("NewConnection: auth check failed: %v (repeated %d times).", err, s.failureCountSinceLastRecord)
-			s.failureCountSinceLastRecord = 0
-		}
 		return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
@@ -338,11 +253,11 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 			newPushResponseReadyChan: make(chan newPushResponseState, 1),
 			nonceVersionMap:          make(map[string]string),
 		}
-		con.watches[collection] = w
-		types = append(types, collection)
+		con.watches[collection.Name] = w
+		types = append(types, collection.Name)
 	}
 
-	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, 1))
+	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, 1))
 
 	scope.Debugf("MCP: connection %v: NEW, supported types: %#v", con, types)
 	return con, nil
@@ -417,7 +332,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 
 func (s *Server) closeConnection(con *connection) {
 	con.close()
-	s.reporter.SetClientsTotal(atomic.AddInt64(&s.connections, -1))
+	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, -1))
 }
 
 // String implements Stringer.String.
@@ -425,7 +340,7 @@ func (con *connection) String() string {
 	return fmt.Sprintf("{addr=%v id=%v}", con.peerAddr, con.id)
 }
 
-func (con *connection) send(resp *WatchResponse) (string, error) {
+func (con *connection) send(resp *source.WatchResponse) (string, error) {
 	resources := make([]mcp.Resource, 0, len(resp.Resources))
 	for _, resource := range resp.Resources {
 		resources = append(resources, *resource)
@@ -506,7 +421,8 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 			if req.ErrorDetail != nil {
 				scope.Warnf("MCP: connection %v: NACK collection=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
 					con, collection, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
-				con.reporter.RecordRequestNack(collection, con.id)
+
+				con.reporter.RecordRequestNack(collection, con.id, codes.Code(req.ErrorDetail.Code))
 
 				if version, ok := w.nonceVersionMap[req.ResponseNonce]; ok {
 					w.mu.Lock()
@@ -524,7 +440,12 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 			w.cancel()
 		}
 
-		w.cancel = con.watcher.Watch(req, w.saveResponseAndSchedulePush)
+		sr := &source.Request{
+			SinkNode:    req.SinkNode,
+			Collection:  collection,
+			VersionInfo: req.VersionInfo,
+		}
+		w.cancel = con.watcher.Watch(sr, w.saveResponseAndSchedulePush)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce value. These could be dup requests or out-of-order
@@ -532,7 +453,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		if req.ErrorDetail != nil {
 			scope.Errorf("MCP: connection %v: STALE NACK collection=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
 				con, collection, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
-			con.reporter.RecordRequestNack(collection, con.id)
+			con.reporter.RecordRequestNack(collection, con.id, codes.Code(req.ErrorDetail.Code))
 		} else {
 			scope.Errorf("MCP: connection %v: STALE ACK collection=%v version=%v with nonce=%q (w.nonce=%q)", // nolint: lll
 				con, collection, req.VersionInfo, req.ResponseNonce, w.nonce)
@@ -545,7 +466,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 	return nil
 }
 
-func (con *connection) pushServerResponse(w *watch, resp *WatchResponse) error {
+func (con *connection) pushServerResponse(w *watch, resp *source.WatchResponse) error {
 	nonce, err := con.send(resp)
 	if err != nil {
 		return err

@@ -25,7 +25,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/internal/test"
-	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/source"
 )
 
 type fakeSnapshot struct {
@@ -77,16 +77,16 @@ func nextStrVersion(version *int64) string {
 
 }
 
-func createTestWatch(c server.Watcher, typeURL, version string, responseC chan *server.WatchResponse, wantResponse, wantCancel bool) (*server.WatchResponse, server.CancelWatchFunc, error) { // nolint: lll
-	req := &mcp.MeshConfigRequest{
-		TypeUrl:     typeURL,
+func createTestWatch(c source.Watcher, typeURL, version string, responseC chan *source.WatchResponse, wantResponse, wantCancel bool) (*source.WatchResponse, source.CancelWatchFunc, error) { // nolint: lll
+	req := &source.Request{
+		Collection:  typeURL,
 		VersionInfo: version,
 		SinkNode: &mcp.SinkNode{
 			Id: DefaultGroup,
 		},
 	}
 
-	cancel := c.Watch(req, func(response *server.WatchResponse) {
+	cancel := c.Watch(req, func(response *source.WatchResponse) {
 		responseC <- response
 	})
 
@@ -120,7 +120,7 @@ func createTestWatch(c server.Watcher, typeURL, version string, responseC chan *
 	return nil, cancel, nil
 }
 
-func getAsyncResponse(responseC chan *server.WatchResponse) (*server.WatchResponse, bool) {
+func getAsyncResponse(responseC chan *source.WatchResponse) (*source.WatchResponse, bool) {
 	select {
 	case got, more := <-responseC:
 		if !more {
@@ -141,10 +141,11 @@ func TestCreateWatch(t *testing.T) {
 	c.SetSnapshot(DefaultGroup, snapshot)
 
 	// verify immediate and async responses are handled independently across types.
+
 	for _, collection := range test.SupportedCollections {
 		t.Run(collection, func(t *testing.T) {
 			collectionVersion := initVersion
-			responseC := make(chan *server.WatchResponse, 1)
+			responseC := make(chan *source.WatchResponse, 1)
 
 			// verify immediate response
 			if _, _, err := createTestWatch(c, collection, "", responseC, true, false); err != nil {
@@ -166,7 +167,7 @@ func TestCreateWatch(t *testing.T) {
 			c.SetSnapshot(DefaultGroup, snapshot)
 
 			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
-				wantResponse := &server.WatchResponse{
+				wantResponse := &source.WatchResponse{
 					Collection: collection,
 					Version:    collectionVersion,
 					Resources:  snapshot.Resources(collection),
@@ -201,7 +202,7 @@ func TestWatchCancel(t *testing.T) {
 	for _, collection := range test.SupportedCollections {
 		t.Run(collection, func(t *testing.T) {
 			collectionVersion := initVersion
-			responseC := make(chan *server.WatchResponse, 1)
+			responseC := make(chan *source.WatchResponse, 1)
 
 			// verify immediate response
 			if _, _, err := createTestWatch(c, collection, "", responseC, true, false); err != nil {
@@ -238,7 +239,7 @@ func TestClearSnapshot(t *testing.T) {
 
 	for _, collection := range test.SupportedCollections {
 		t.Run(collection, func(t *testing.T) {
-			responseC := make(chan *server.WatchResponse, 1)
+			responseC := make(chan *source.WatchResponse, 1)
 
 			// verify no immediate response if snapshot is cleared.
 			c.ClearSnapshot(DefaultGroup)
@@ -253,7 +254,7 @@ func TestClearSnapshot(t *testing.T) {
 			c.SetSnapshot(DefaultGroup, snapshot)
 
 			if gotResponse, _ := getAsyncResponse(responseC); gotResponse != nil {
-				wantResponse := &server.WatchResponse{
+				wantResponse := &source.WatchResponse{
 					Collection: collection,
 					Version:    typeVersion,
 					Resources:  snapshot.Resources(collection),
@@ -277,7 +278,7 @@ func TestClearStatus(t *testing.T) {
 
 	for _, collection := range test.SupportedCollections {
 		t.Run(collection, func(t *testing.T) {
-			responseC := make(chan *server.WatchResponse, 1)
+			responseC := make(chan *source.WatchResponse, 1)
 
 			if _, _, err := createTestWatch(c, collection, "", responseC, false, true); err != nil {
 				t.Fatalf("CreateWatch() failed: %v", err)

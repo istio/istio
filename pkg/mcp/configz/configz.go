@@ -20,7 +20,7 @@ import (
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
-	"istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 // configzTopic topic is a Topic fw.implementation that exposes the state info about an MCP sink.
@@ -34,7 +34,7 @@ var _ fw.Topic = &configzTopic{}
 
 // SinkTopic defines the expected interface for producing configz data from an MCP sink.
 type SinkTopic interface {
-	SnapshotRequestInfo() []client.RecentRequestInfo
+	SnapshotRequestInfo() []sink.RecentRequestInfo
 	Metadata() map[string]string
 	ID() string
 	Collections() []string
@@ -69,7 +69,7 @@ type data struct {
 	Metadata    map[string]string
 	Collections []string
 
-	LatestRequests []client.RecentRequestInfo
+	LatestRequests []sink.RecentRequestInfo
 }
 
 // Activate is implementation of Topic.Activate.

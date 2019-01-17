@@ -25,7 +25,8 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/mcp/source"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 // Server is a simple MCP server, used for testing purposes.
@@ -34,7 +35,7 @@ type Server struct {
 	Cache *snapshot.Cache
 
 	// Collections that were originally passed in.
-	Collections []string
+	Collections []source.CollectionOptions
 
 	// Port that the service is listening on.
 	Port int
@@ -51,9 +52,15 @@ var _ io.Closer = &Server{}
 // NewServer creates and starts a new MCP Server. Returns a new Server instance upon success.
 // Specifying port as 0 will cause the server to bind to an arbitrary port. This port can be queried
 // from the Port field of the returned server struct.
-func NewServer(port int, collections []string) (*Server, error) {
+func NewServer(port int, collections []source.CollectionOptions) (*Server, error) {
 	cache := snapshot.New(snapshot.DefaultGroupIndex)
-	s := server.New(cache, collections, server.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
+
+	options := &source.Options{
+		Watcher:            cache,
+		CollectionsOptions: collections,
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+	}
+	s := server.New(options, server.NewAllowAllChecker())
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	l, err := net.Listen("tcp", addr)
