@@ -157,8 +157,7 @@ func ApplyLocalitySetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *mode
 			for _, subset := range destinationRule.Subsets {
 				if subset.Name == subsetName {
 					_, outlierDetection, loadBalancer, _ := SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
-					setLocalityPriority = false
-					if outlierDetection != nil {
+					if outlierDetection != nil && !setLocalityPriority {
 						setLocalityPriority = true
 					}
 					applyLocalitySettings(proxy, cluster.LoadAssignment, loadBalancer.GetLocalitySettings(), setLocalityPriority)
