@@ -301,6 +301,7 @@ func validateInterceptionMode(mode string) error {
 	switch mode {
 	case meshconfig.ProxyConfig_REDIRECT.String():
 	case meshconfig.ProxyConfig_TPROXY.String():
+	case "NONE": // not a global mesh config - must be enabled for each sidecar
 	default:
 		return fmt.Errorf("interceptionMode invalid: %v", mode)
 	}
