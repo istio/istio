@@ -296,7 +296,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 
 		edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 			ClusterName: clusterName,
-			Endpoints:   locEps,
+			Endpoints:   clonedLocEps,
 		}
 		if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 			edsCluster.NonEmptyTime = time.Now()
