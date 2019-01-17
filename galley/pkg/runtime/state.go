@@ -211,7 +211,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 			gw.ID.FullName.String(),
 			string(gw.ID.Version),
 			gw.Metadata.CreateTime,
-			gw.Metadata.Labels,
+			nil,
 			nil,
 			gw.Item)
 		if err != nil {
@@ -225,7 +225,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 			e.ID.FullName.String(),
 			string(e.ID.Version),
 			e.Metadata.CreateTime,
-			e.Metadata.Labels,
+			nil,
 			nil,
 			e.Item)
 		if err != nil {
