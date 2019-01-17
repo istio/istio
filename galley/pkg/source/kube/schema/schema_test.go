@@ -12,28 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package schema
 
 import (
+	"reflect"
 	"testing"
-
-	"k8s.io/client-go/rest"
 )
 
-func TestCreateConfig(t *testing.T) {
-	k := kube{
-		cfg: &rest.Config{},
+func TestSchemaBuilder(t *testing.T) {
+	spec := ResourceSpec{
+		Kind:     "kind",
+		Version:  "version",
+		ListKind: "listkind",
+		Plural:   "plural",
+		Singular: "singular",
+		Group:    "groupd",
 	}
 
-	if _, err := k.DynamicInterface(); err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if _, err := k.APIExtensionsClientset(); err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-}
+	b := NewBuilder()
+	b.Add(spec)
+	s := b.Build()
 
-func TestNewKube(t *testing.T) {
-	// Should not panic
-	_ = NewKube(&rest.Config{})
+	actual := s.All()
+
+	expected := []ResourceSpec{spec}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
+	}
 }

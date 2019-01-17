@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package stats
 
 import (
 	"context"
@@ -21,6 +21,8 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+
+	"istio.io/istio/galley/pkg/source/kube/log"
 )
 
 const (
@@ -44,12 +46,12 @@ var (
 var (
 	listenerHandleEventError = stats.Int64(
 		"galley/kube/source/listener_handle_event_error_total",
-		"The number of times the listener's handleEvent has errored",
+		"The number of times the source's handleEvent has errored",
 		stats.UnitDimensionless)
 
 	listenerHandleEventSuccess = stats.Int64(
 		"galley/kube/source/listener_handle_event_success_total",
-		"The number of times the listener's handleEvent has succeeded",
+		"The number of times the source's handleEvent has succeeded",
 		stats.UnitDimensionless)
 
 	sourceConversionSuccess = stats.Int64(
@@ -62,16 +64,18 @@ var (
 		stats.UnitDimensionless)
 )
 
-func recordHandleEventError(msg string) {
+// RecordHandleEventError records an error handling a kube event.
+func RecordHandleEventError(msg string) {
 	ctx, ctxErr := tag.New(context.Background(), tag.Insert(ErrorTag, msg))
 	if ctxErr != nil {
-		scope.Errorf("error creating context to record handleEvent error")
+		log.Scope.Errorf("error creating context to record handleEvent error")
 	} else {
 		stats.Record(ctx, listenerHandleEventError.M(1))
 	}
 }
 
-func recordHandleEventSuccess() {
+// RecordHandleEventSuccess records successfully handling a kube event.
+func RecordHandleEventSuccess() {
 	stats.Record(context.Background(), listenerHandleEventSuccess.M(1))
 }
 
@@ -81,7 +85,8 @@ type contextKey struct {
 
 var ctxCache = sync.Map{}
 
-func recordConverterResult(success bool, apiVersion, group, kind string) {
+// RecordConverterResult records the result of a kube resource conversion from unstructured.
+func RecordConverterResult(success bool, apiVersion, group, kind string) {
 	var metric *stats.Int64Measure
 	if success {
 		metric = sourceConversionSuccess
@@ -95,7 +100,7 @@ func recordConverterResult(success bool, apiVersion, group, kind string) {
 		ctx, err = tag.New(context.Background(), tag.Insert(APIVersionTag, apiVersion),
 			tag.Insert(GroupTag, group), tag.Insert(KindTag, kind))
 		if err != nil {
-			scope.Errorf("Error creating monitoring context for counting conversion result: %v", err)
+			log.Scope.Errorf("Error creating monitoring context for counting conversion result: %v", err)
 			return
 		}
 		ctxCache.Store(key, ctx)
