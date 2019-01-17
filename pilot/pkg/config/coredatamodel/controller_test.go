@@ -16,10 +16,14 @@ package coredatamodel_test
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -110,14 +114,26 @@ var (
 	syntheticServiceEntry = &networking.ServiceEntry{
 		Hosts: []string{"example2.com"},
 		Ports: []*networking.Port{
+			{Number: 80, Name: "http-port", Protocol: "http"},
+			{Number: 8080, Name: "http-alt-port", Protocol: "http"},
+		},
+		Location:   networking.ServiceEntry_MESH_EXTERNAL,
+		Resolution: networking.ServiceEntry_DNS,
+		Endpoints: []*networking.ServiceEntry_Endpoint{
 			{
-				Name:     "http",
-				Number:   8989,
-				Protocol: "http",
+				Address: "2.2.2.2",
+				Ports:   map[string]uint32{"http-port": 7080, "http-alt-port": 18080},
+			},
+			{
+				Address: "3.3.3.3",
+				Ports:   map[string]uint32{"http-port": 1080},
+			},
+			{
+				Address: "4.4.4.4",
+				Ports:   map[string]uint32{"http-port": 1080},
+				Labels:  map[string]string{"foo": "bar"},
 			},
 		},
-		Location:   networking.ServiceEntry_MESH_INTERNAL,
-		Resolution: networking.ServiceEntry_NONE,
 	}
 
 	testControllerOptions = &coredatamodel.Options{
@@ -126,12 +142,14 @@ var (
 )
 
 type FakeXdsUpdater struct {
-	Events chan string
+	Events    chan string
+	Endpoints chan []*model.IstioEndpoint
 }
 
 func NewFakeXDS() *FakeXdsUpdater {
 	return &FakeXdsUpdater{
-		Events: make(chan string, 100),
+		Events:    make(chan string, 100),
+		Endpoints: make(chan []*model.IstioEndpoint, 100),
 	}
 }
 
@@ -141,6 +159,7 @@ func (f *FakeXdsUpdater) ConfigUpdate(bool) {
 
 func (f *FakeXdsUpdater) EDSUpdate(shard, hostname string, entry []*model.IstioEndpoint) error {
 	f.Events <- "EDSUpdate"
+	f.Endpoints <- entry
 	return nil
 }
 
@@ -150,23 +169,45 @@ func (f *FakeXdsUpdater) SvcUpdate(shard, hostname string, ports map[string]uint
 func (f *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
 }
 
-func TestIncrementalServiceEntry(t *testing.T) {
+func TestIncrementalEndpointUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
+	testControllerOptions.IncrementalEDS = true
 	controller := coredatamodel.NewController(testControllerOptions)
 
+	verifyEndpoints := func(endpoints, expected []*model.IstioEndpoint) {
+		sort.Slice(endpoints, func(i, j int) bool {
+			return endpoints[i].EndpointPort < endpoints[j].EndpointPort
+		})
+		sort.Slice(expected, func(i, j int) bool {
+			return expected[i].EndpointPort < expected[j].EndpointPort
+		})
+		for i := range endpoints {
+			g.Expect(endpoints[i].Address).To(gomega.Equal(expected[i].Address))
+			g.Expect(endpoints[i].EndpointPort).To(gomega.Equal(expected[i].EndpointPort))
+			g.Expect(endpoints[i].ServicePortName).To(gomega.Equal(expected[i].ServicePortName))
+			g.Expect(endpoints[i].Labels).To(gomega.Equal(expected[i].Labels))
+			g.Expect(endpoints[i].UID).To(gomega.Equal(expected[i].UID))
+			g.Expect(endpoints[i].Network).To(gomega.Equal(expected[i].Network))
+			g.Expect(endpoints[i].Locality).To(gomega.Equal(expected[i].Locality))
+			g.Expect(endpoints[i].LbWeight).To(gomega.Equal(expected[i].LbWeight))
+		}
+	}
+
+	ginkgo.By("SyntheticServiceEntry update")
 	message := convertToResource(
 		g,
-		model.ServiceEntry.MessageName,
+		model.SyntheticServiceEntry.MessageName,
 		[]proto.Message{syntheticServiceEntry})
 
 	change := convert(
 		[]proto.Message{message[0]},
-		[]string{"synthetic-service-entry"},
-		"istio/networking/v1alpha1/serviceentries/synthetic",
-		model.ServiceEntry.MessageName)
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"1",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -174,10 +215,27 @@ func TestIncrementalServiceEntry(t *testing.T) {
 	c, err := controller.List(model.SyntheticServiceEntry.Type, "")
 	g.Expect(c).ToNot(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	// to make sure only called once
-	g.Expect(len(fx.Events)).To(gomega.Equal(1))
-	g.Expect(<-fx.Events).To(gomega.Equal("ConfigUpdate"))
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
 
+	change = convert(
+		[]proto.Message{message[0]},
+		[]string{"randomNameSpace/synthetic-service-entry"},
+		"2",
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		model.SyntheticServiceEntry.MessageName)
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	ginkgo.By("making sure EDSUpdate is called once")
+	g.Expect(len(fx.Events)).To(gomega.Equal(1))
+	g.Expect(<-fx.Events).To(gomega.Equal("EDSUpdate"))
+
+	endpoints := <-fx.Endpoints
+	expectedEndpoints := extractEndpoints(syntheticServiceEntry, "synthetic-service-entry", "randomNameSpace")
+	verifyEndpoints(endpoints, expectedEndpoints)
+
+	ginkgo.By("ServiceEntry update")
 	message = convertToResource(
 		g,
 		model.ServiceEntry.MessageName,
@@ -186,6 +244,7 @@ func TestIncrementalServiceEntry(t *testing.T) {
 	change = convert(
 		[]proto.Message{message[0]},
 		[]string{"real-service-entry"},
+		"1",
 		model.ServiceEntry.Collection,
 		model.ServiceEntry.MessageName)
 
@@ -195,10 +254,261 @@ func TestIncrementalServiceEntry(t *testing.T) {
 	c, err = controller.List(model.ServiceEntry.Type, "")
 	g.Expect(c).ToNot(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	// to make sure only called once
+	g.Expect(len(fx.Events)).To(gomega.Equal(0))
+
+	change = convert(
+		[]proto.Message{message[0]},
+		[]string{"real-service-entry"},
+		"2",
+		model.ServiceEntry.Collection,
+		model.ServiceEntry.MessageName)
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	ginkgo.By("making sure EDSUpdate is called once")
 	g.Expect(len(fx.Events)).To(gomega.Equal(1))
 	g.Expect(<-fx.Events).To(gomega.Equal("EDSUpdate"))
 
+	endpoints = <-fx.Endpoints
+	expectedEndpoints = extractEndpoints(serviceEntry, "real-service-entry", "")
+	verifyEndpoints(endpoints, expectedEndpoints)
+
+	ginkgo.By("Gateway update")
+	message = convertToResource(
+		g,
+		model.Gateway.MessageName,
+		[]proto.Message{gateway})
+
+	change = convert(
+		[]proto.Message{message[0]},
+		[]string{"just-a-gateway"},
+		"1",
+		model.Gateway.Collection,
+		model.Gateway.MessageName)
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err = controller.List(model.Gateway.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	g.Expect(len(fx.Events)).To(gomega.Equal(1))
+	g.Expect(<-fx.Events).To(gomega.Equal("ConfigUpdate"))
+
+}
+
+// TODO(Nino-k): remove this case once incrementalUpdate is default
+func TestEventHandler(t *testing.T) {
+	testControllerOptions.IncrementalEDS = false
+	controller := coredatamodel.NewController(testControllerOptions)
+
+	makeName := func(namespace, name string) string {
+		return namespace + "/" + name
+	}
+
+	gotEvents := map[model.Event]map[string]model.Config{
+		model.EventAdd:    map[string]model.Config{},
+		model.EventUpdate: map[string]model.Config{},
+		model.EventDelete: map[string]model.Config{},
+	}
+	controller.RegisterEventHandler(model.ServiceEntry.Type, func(m model.Config, e model.Event) {
+		gotEvents[e][makeName(m.Namespace, m.Name)] = m
+	})
+
+	typeURL := "type.googleapis.com/istio.networking.v1alpha3.ServiceEntry"
+	collection := model.ServiceEntry.Collection
+
+	fakeCreateTime, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
+	fakeCreateTimeProto, err := types.TimestampProto(fakeCreateTime)
+	if err != nil {
+		t.Fatalf("Failed to parse create fake create time %v: %v", fakeCreateTime, err)
+	}
+
+	makeServiceEntry := func(name, host, version string) *sink.Object {
+		return &sink.Object{
+			TypeURL: typeURL,
+			Metadata: &mcpapi.Metadata{
+				Name:        fmt.Sprintf("default/%s", name),
+				CreateTime:  fakeCreateTimeProto,
+				Version:     version,
+				Labels:      map[string]string{"lk1": "lv1"},
+				Annotations: map[string]string{"ak1": "av1"},
+			},
+			Body: &networking.ServiceEntry{
+				Hosts: []string{host},
+			},
+		}
+	}
+
+	makeServiceEntryModel := func(name, host, version string) model.Config {
+		return model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:              model.ServiceEntry.Type,
+				Group:             model.ServiceEntry.Group,
+				Version:           model.ServiceEntry.Version,
+				Name:              name,
+				Namespace:         "default",
+				Domain:            "cluster.local",
+				ResourceVersion:   version,
+				CreationTimestamp: fakeCreateTime,
+				Labels:            map[string]string{"lk1": "lv1"},
+				Annotations:       map[string]string{"ak1": "av1"},
+			},
+			Spec: &networking.ServiceEntry{Hosts: []string{host}},
+		}
+	}
+
+	// Note: these tests steps are cumulative
+	steps := []struct {
+		name   string
+		change *sink.Change
+		want   map[model.Event]map[string]model.Config
+	}{
+		{
+			name: "initial add",
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
+					makeServiceEntry("foo", "foo.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventAdd: map[string]model.Config{
+					"default/foo": makeServiceEntryModel("foo", "foo.com", "v0"),
+				},
+			},
+		},
+		{
+			name: "update initial item",
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
+					makeServiceEntry("foo", "foo.com", "v1"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventUpdate: map[string]model.Config{
+					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
+				},
+			},
+		},
+		{
+			name: "subsequent add",
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
+					makeServiceEntry("foo", "foo.com", "v1"),
+					makeServiceEntry("foo1", "foo1.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventAdd: map[string]model.Config{
+					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v0"),
+				},
+			},
+		},
+		{
+			name: "single delete",
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
+					makeServiceEntry("foo1", "foo1.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventDelete: map[string]model.Config{
+					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
+				},
+			},
+		},
+		{
+			name: "multiple update and add",
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
+					makeServiceEntry("foo1", "foo1.com", "v1"),
+					makeServiceEntry("foo2", "foo2.com", "v0"),
+					makeServiceEntry("foo3", "foo3.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventAdd: map[string]model.Config{
+					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v0"),
+					"default/foo3": makeServiceEntryModel("foo3", "foo3.com", "v0"),
+				},
+				model.EventUpdate: map[string]model.Config{
+					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
+				},
+			},
+		},
+		{
+			name: "multiple deletes, updates, and adds ",
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
+					makeServiceEntry("foo2", "foo2.com", "v1"),
+					makeServiceEntry("foo3", "foo3.com", "v0"),
+					makeServiceEntry("foo4", "foo4.com", "v0"),
+					makeServiceEntry("foo5", "foo5.com", "v0"),
+				},
+			},
+			want: map[model.Event]map[string]model.Config{
+				model.EventAdd: map[string]model.Config{
+					"default/foo4": makeServiceEntryModel("foo4", "foo4.com", "v0"),
+					"default/foo5": makeServiceEntryModel("foo5", "foo5.com", "v0"),
+				},
+				model.EventUpdate: map[string]model.Config{
+					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v1"),
+				},
+				model.EventDelete: map[string]model.Config{
+					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
+				},
+			},
+		},
+	}
+
+	for i, s := range steps {
+		t.Run(fmt.Sprintf("[%v] %s", i, s.name), func(tt *testing.T) {
+			if err := controller.Apply(s.change); err != nil {
+				tt.Fatalf("Apply() failed: %v", err)
+			}
+
+			for eventType, wantConfigs := range s.want {
+				gotConfigs := gotEvents[eventType]
+				if !reflect.DeepEqual(gotConfigs, wantConfigs) {
+					tt.Fatalf("wrong %v event: \n got %+v \nwant %+v", eventType, gotConfigs, wantConfigs)
+				}
+			}
+			// clear saved events after every step
+			gotEvents = map[model.Event]map[string]model.Config{
+				model.EventAdd:    map[string]model.Config{},
+				model.EventUpdate: map[string]model.Config{},
+				model.EventDelete: map[string]model.Config{},
+			}
+		})
+	}
+}
+
+func extractEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoints []*model.IstioEndpoint) {
+	for _, ep := range se.Endpoints {
+		for portName, port := range ep.Ports {
+			ep := &model.IstioEndpoint{
+				Address:         ep.Address,
+				EndpointPort:    port,
+				ServicePortName: portName,
+				Labels:          ep.Labels,
+				UID:             fmt.Sprintf("%s.%s", cfgName, ns),
+				Network:         ep.Network,
+				Locality:        ep.Locality,
+				LbWeight:        ep.Weight,
+				// ServiceAccount:??
+			}
+			endpoints = append(endpoints, ep)
+		}
+	}
+	return endpoints
 }
 
 func TestOptions(t *testing.T) {
@@ -210,6 +520,7 @@ func TestOptions(t *testing.T) {
 	change := convert(
 		[]proto.Message{message[0]},
 		[]string{"service-bar"},
+		"1",
 		model.ServiceEntry.Collection,
 		model.ServiceEntry.MessageName)
 
@@ -269,6 +580,7 @@ func TestListAllNameSpace(t *testing.T) {
 	change := convert(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "some-other-gateway3"},
+		"1",
 		model.Gateway.Collection,
 		model.Gateway.MessageName)
 
@@ -305,6 +617,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 	change := convert(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "namespace1/some-other-gateway3"},
+		"1",
 		model.Gateway.Collection,
 		model.Gateway.MessageName)
 
@@ -335,6 +648,7 @@ func TestApplyInvalidType(t *testing.T) {
 	change := convert(
 		[]proto.Message{message[0]},
 		[]string{"some-gateway"},
+		"1",
 		"bad-collection",
 		"bad-type")
 
@@ -367,6 +681,7 @@ func TestApplyValidTypeWithNoBaseURL(t *testing.T) {
 
 		change := convert([]proto.Message{message},
 			[]string{"some-gateway"},
+			"1",
 			model.Gateway.Collection,
 			model.Gateway.MessageName)
 
@@ -393,6 +708,7 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 
 	change := convert([]proto.Message{message[0]},
 		[]string{"istio-namespace/some-gateway"},
+		"1",
 		model.Gateway.Collection,
 		model.Gateway.MessageName)
 
@@ -415,6 +731,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 
 	change := convert([]proto.Message{message[0]},
 		[]string{"some-gateway"},
+		"1",
 		model.Gateway.Collection,
 		model.Gateway.MessageName)
 
@@ -436,6 +753,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 	change := convert([]proto.Message{message[0]},
 		[]string{"some-gateway"},
+		"1",
 		model.Gateway.Collection,
 		model.Gateway.MessageName)
 
@@ -450,6 +768,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 
 	change = convert([]proto.Message{},
 		[]string{"some-gateway"},
+		"1",
 		model.Gateway.Collection,
 		model.Gateway.MessageName)
 
@@ -475,6 +794,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change := convert(
 		[]proto.Message{message0[0]},
 		[]string{"bar-namespace/foo"},
+		"1",
 		model.AuthenticationPolicy.Collection,
 		model.AuthenticationPolicy.MessageName)
 
@@ -484,6 +804,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convert(
 		[]proto.Message{message1[0]},
 		[]string{"default"},
+		"1",
 		model.AuthenticationMeshPolicy.Collection,
 		model.AuthenticationMeshPolicy.MessageName)
 
@@ -510,6 +831,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convert(
 		[]proto.Message{message1[0]},
 		[]string{"default"},
+		"1",
 		model.AuthenticationPolicy.Collection,
 		model.AuthenticationPolicy.MessageName)
 
@@ -528,6 +850,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convert(
 		[]proto.Message{message0[0]},
 		[]string{"bar-namespace/foo"},
+		"1",
 		model.AuthenticationPolicy.Collection,
 		model.AuthenticationPolicy.MessageName)
 
@@ -537,7 +860,9 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	change = convert(
 		[]proto.Message{},
 		[]string{"default"},
-		model.AuthenticationMeshPolicy.Collection, model.AuthenticationMeshPolicy.MessageName)
+		"1",
+		model.AuthenticationMeshPolicy.Collection,
+		model.AuthenticationMeshPolicy.MessageName)
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -551,197 +876,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(c[0].Spec).To(gomega.Equal(message0[0]))
 }
 
-//func TestEventHandler(t *testing.T) {
-//	controller := coredatamodel.NewController(testControllerOptions)
-//
-//	makeName := func(namespace, name string) string {
-//		return namespace + "/" + name
-//	}
-//
-//	gotEvents := map[model.Event]map[string]model.Config{
-//		model.EventAdd:    map[string]model.Config{},
-//		model.EventUpdate: map[string]model.Config{},
-//		model.EventDelete: map[string]model.Config{},
-//	}
-//	controller.RegisterEventHandler(model.ServiceEntry.Type, func(m model.Config, e model.Event) {
-//		gotEvents[e][makeName(m.Namespace, m.Name)] = m
-//	})
-//
-//	typeURL := "type.googleapis.com/istio.networking.v1alpha3.ServiceEntry"
-//	collection := model.ServiceEntry.Collection
-//
-//	fakeCreateTime, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
-//	fakeCreateTimeProto, err := types.TimestampProto(fakeCreateTime)
-//	if err != nil {
-//		t.Fatalf("Failed to parse create fake create time %v: %v", fakeCreateTime, err)
-//	}
-//
-//	makeServiceEntry := func(name, host, version string) *sink.Object {
-//		return &sink.Object{
-//			TypeURL: typeURL,
-//			Metadata: &mcpapi.Metadata{
-//				Name:        fmt.Sprintf("default/%s", name),
-//				CreateTime:  fakeCreateTimeProto,
-//				Version:     version,
-//				Labels:      map[string]string{"lk1": "lv1"},
-//				Annotations: map[string]string{"ak1": "av1"},
-//			},
-//			Body: &networking.ServiceEntry{
-//				Hosts: []string{host},
-//			},
-//		}
-//	}
-//
-//	makeServiceEntryModel := func(name, host, version string) model.Config {
-//		return model.Config{
-//			ConfigMeta: model.ConfigMeta{
-//				Type:              model.ServiceEntry.Type,
-//				Group:             model.ServiceEntry.Group,
-//				Version:           model.ServiceEntry.Version,
-//				Name:              name,
-//				Namespace:         "default",
-//				Domain:            "cluster.local",
-//				ResourceVersion:   version,
-//				CreationTimestamp: fakeCreateTime,
-//				Labels:            map[string]string{"lk1": "lv1"},
-//				Annotations:       map[string]string{"ak1": "av1"},
-//			},
-//			Spec: &networking.ServiceEntry{Hosts: []string{host}},
-//		}
-//	}
-//
-//	// Note: these tests steps are cumulative
-//	steps := []struct {
-//		name   string
-//		change *sink.Change
-//		want   map[model.Event]map[string]model.Config
-//	}{
-//		{
-//			name: "initial add",
-//			change: &sink.Change{
-//				Collection: collection,
-//				Objects: []*sink.Object{
-//					makeServiceEntry("foo", "foo.com", "v0"),
-//				},
-//			},
-//			want: map[model.Event]map[string]model.Config{
-//				model.EventAdd: map[string]model.Config{
-//					"default/foo": makeServiceEntryModel("foo", "foo.com", "v0"),
-//				},
-//			},
-//		},
-//		{
-//			name: "update initial item",
-//			change: &sink.Change{
-//				Collection: collection,
-//				Objects: []*sink.Object{
-//					makeServiceEntry("foo", "foo.com", "v1"),
-//				},
-//			},
-//			want: map[model.Event]map[string]model.Config{
-//				model.EventUpdate: map[string]model.Config{
-//					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
-//				},
-//			},
-//		},
-//		{
-//			name: "subsequent add",
-//			change: &sink.Change{
-//				Collection: collection,
-//				Objects: []*sink.Object{
-//					makeServiceEntry("foo", "foo.com", "v1"),
-//					makeServiceEntry("foo1", "foo1.com", "v0"),
-//				},
-//			},
-//			want: map[model.Event]map[string]model.Config{
-//				model.EventAdd: map[string]model.Config{
-//					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v0"),
-//				},
-//			},
-//		},
-//		{
-//			name: "single delete",
-//			change: &sink.Change{
-//				Collection: collection,
-//				Objects: []*sink.Object{
-//					makeServiceEntry("foo1", "foo1.com", "v0"),
-//				},
-//			},
-//			want: map[model.Event]map[string]model.Config{
-//				model.EventDelete: map[string]model.Config{
-//					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
-//				},
-//			},
-//		},
-//		{
-//			name: "multiple update and add",
-//			change: &sink.Change{
-//				Collection: collection,
-//				Objects: []*sink.Object{
-//					makeServiceEntry("foo1", "foo1.com", "v1"),
-//					makeServiceEntry("foo2", "foo2.com", "v0"),
-//					makeServiceEntry("foo3", "foo3.com", "v0"),
-//				},
-//			},
-//			want: map[model.Event]map[string]model.Config{
-//				model.EventAdd: map[string]model.Config{
-//					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v0"),
-//					"default/foo3": makeServiceEntryModel("foo3", "foo3.com", "v0"),
-//				},
-//				model.EventUpdate: map[string]model.Config{
-//					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
-//				},
-//			},
-//		},
-//		{
-//			name: "multiple deletes, updates, and adds ",
-//			change: &sink.Change{
-//				Collection: collection,
-//				Objects: []*sink.Object{
-//					makeServiceEntry("foo2", "foo2.com", "v1"),
-//					makeServiceEntry("foo3", "foo3.com", "v0"),
-//					makeServiceEntry("foo4", "foo4.com", "v0"),
-//					makeServiceEntry("foo5", "foo5.com", "v0"),
-//				},
-//			},
-//			want: map[model.Event]map[string]model.Config{
-//				model.EventAdd: map[string]model.Config{
-//					"default/foo4": makeServiceEntryModel("foo4", "foo4.com", "v0"),
-//					"default/foo5": makeServiceEntryModel("foo5", "foo5.com", "v0"),
-//				},
-//				model.EventUpdate: map[string]model.Config{
-//					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v1"),
-//				},
-//				model.EventDelete: map[string]model.Config{
-//					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v1"),
-//				},
-//			},
-//		},
-//	}
-//
-//	for i, s := range steps {
-//		t.Run(fmt.Sprintf("[%v] %s", i, s.name), func(tt *testing.T) {
-//			if err := controller.Apply(s.change); err != nil {
-//				tt.Fatalf("Apply() failed: %v", err)
-//			}
-//
-//			for eventType, wantConfigs := range s.want {
-//				gotConfigs := gotEvents[eventType]
-//				if !reflect.DeepEqual(gotConfigs, wantConfigs) {
-//					tt.Fatalf("wrong %v event: \n got %+v \nwant %+v", eventType, gotConfigs, wantConfigs)
-//				}
-//			}
-//			// clear saved events after every step
-//			gotEvents = map[model.Event]map[string]model.Config{
-//				model.EventAdd:    map[string]model.Config{},
-//				model.EventUpdate: map[string]model.Config{},
-//				model.EventDelete: map[string]model.Config{},
-//			}
-//		})
-//	}
-//}
-
-func convert(resources []proto.Message, names []string, collection, typeURL string) *sink.Change {
+func convert(resources []proto.Message, names []string, version, collection, typeURL string) *sink.Change {
 	out := new(sink.Change)
 	out.Collection = collection
 	for i, res := range resources {
@@ -749,7 +884,8 @@ func convert(resources []proto.Message, names []string, collection, typeURL stri
 			&sink.Object{
 				TypeURL: typeURL,
 				Metadata: &mcpapi.Metadata{
-					Name: names[i],
+					Name:    names[i],
+					Version: version,
 				},
 				Body: res,
 			},

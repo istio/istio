@@ -40,8 +40,9 @@ type CoreDataModel interface {
 
 // Options stores the configurable attributes of a Control
 type Options struct {
-	DomainSuffix string
-	XDSUpdater   model.XDSUpdater
+	IncrementalEDS bool
+	DomainSuffix   string
+	XDSUpdater     model.XDSUpdater
 }
 
 // Controller is a temporary storage for the changes received
@@ -129,9 +130,7 @@ func (c *Controller) Apply(change *sink.Change) error {
 		return fmt.Errorf("descriptor type not supported %s", change.Collection)
 	}
 
-	c.syncedMu.Lock()
-	c.synced[change.Collection] = true
-	c.syncedMu.Unlock()
+	c.sync(change.Collection)
 
 	// innerStore is [namespace][name]
 	innerStore := make(map[string]map[string]*model.Config)
@@ -176,39 +175,23 @@ func (c *Controller) Apply(change *sink.Change) error {
 		}
 	}
 
+	var prevStore map[string]map[string]*model.Config
 	c.configStoreMu.Lock()
+	prevStore = c.configStore[descriptor.Type]
 	c.configStore[descriptor.Type] = innerStore
 	c.configStoreMu.Unlock()
 
-	if descriptor.Type == model.ServiceEntry.Type &&
-		descriptor.Collection == model.ServiceEntry.Collection {
-		for ns, byName := range innerStore {
-			for name, config := range byName {
-				endpoints := []*model.IstioEndpoint{}
-				if se, ok := config.Spec.(*networking.ServiceEntry); ok {
-					for _, ep := range se.Endpoints {
-						for portName, port := range ep.Ports {
-							ep := &model.IstioEndpoint{
-								Address:         ep.Address,
-								EndpointPort:    port,
-								ServicePortName: portName,
-								Labels:          ep.Labels,
-								UID:             fmt.Sprintf("%s.%s", name, ns),
-								// TODO: how to get network and ServiceAccount?
-							}
-							endpoints = append(endpoints, ep)
-						}
-					}
-				}
-				// we know everything associated to this type needs an update
-				// so no need to check version or equality of the endpoints
-				hostname := fmt.Sprintf("%s.%s.svc.%s", name, ns, c.options.DomainSuffix)
-				c.options.XDSUpdater.EDSUpdate("MCP", hostname, endpoints)
-			}
+	if c.options.IncrementalEDS &&
+		descriptor.Collection == model.ServiceEntry.Collection ||
+		descriptor.Collection == model.SyntheticServiceEntry.Collection {
+		if err := c.incrementalUpdate(innerStore, prevStore); err != nil {
+			return err
 		}
+	} else if descriptor.Type == model.ServiceEntry.Type { // TODO(Nino-k): remove this case once incrementalUpdate is default
+		c.serviceEntryEvents(innerStore, prevStore)
+		return nil
 	} else {
-		// for everything else do full config update
-		// since envoy currently only support incremental for EDS
+		// notify envoy to request a config push for everything else
 		c.options.XDSUpdater.ConfigUpdate(true)
 	}
 
@@ -265,6 +248,96 @@ func (c *Controller) Create(config model.Config) (revision string, err error) {
 // Delete is not implemented
 func (c *Controller) Delete(typ, name, namespace string) error {
 	return errUnsupported
+}
+
+func (c *Controller) sync(collection string) {
+	c.syncedMu.Lock()
+	c.synced[collection] = true
+	c.syncedMu.Unlock()
+}
+
+func (c *Controller) incrementalUpdate(innerStore, prevStore map[string]map[string]*model.Config) error {
+	for ns, byName := range innerStore {
+		for name, config := range byName {
+			if prevByNamespace, ok := prevStore[ns]; ok {
+				if prevConfig, ok := prevByNamespace[name]; ok {
+					if config.ResourceVersion != prevConfig.ResourceVersion {
+						if se, ok := config.Spec.(*networking.ServiceEntry); ok {
+							endpoints := serviceEndpoints(se, name, ns)
+							hostname := fmt.Sprintf("%s.%s.svc.%s", name, ns, c.options.DomainSuffix)
+							// TODO: should we only do this if resourceVersion is changed?
+							if err := c.options.XDSUpdater.EDSUpdate("MCP", hostname, endpoints); err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
+	dispatch := func(model model.Config, event model.Event) {}
+	if handlers, ok := c.eventHandlers[model.ServiceEntry.Type]; ok {
+		dispatch = func(model model.Config, event model.Event) {
+			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
+			for _, handler := range handlers {
+				handler(model, event)
+			}
+		}
+	}
+
+	// add/update
+	for namespace, byName := range currentStore {
+		for name, config := range byName {
+			if prevByNamespace, ok := prevStore[namespace]; ok {
+				if prevConfig, ok := prevByNamespace[name]; ok {
+					if config.ResourceVersion != prevConfig.ResourceVersion {
+						dispatch(*config, model.EventUpdate)
+					}
+				} else {
+					dispatch(*config, model.EventAdd)
+				}
+			} else {
+				dispatch(*config, model.EventAdd)
+			}
+		}
+	}
+
+	// remove
+	for namespace, prevByName := range prevStore {
+		for name, prevConfig := range prevByName {
+			if byNamespace, ok := currentStore[namespace]; ok {
+				if _, ok := byNamespace[name]; !ok {
+					dispatch(*prevConfig, model.EventDelete)
+				}
+			} else {
+				dispatch(*prevConfig, model.EventDelete)
+			}
+		}
+	}
+}
+
+func serviceEndpoints(se *networking.ServiceEntry, cfgName, ns string) (endpoints []*model.IstioEndpoint) {
+	for _, ep := range se.Endpoints {
+		for portName, port := range ep.Ports {
+			ep := &model.IstioEndpoint{
+				Address:         ep.Address,
+				EndpointPort:    port,
+				ServicePortName: portName,
+				Labels:          ep.Labels,
+				UID:             fmt.Sprintf("%s.%s", cfgName, ns),
+				Network:         ep.Network,
+				Locality:        ep.Locality,
+				LbWeight:        ep.Weight,
+				// ServiceAccount:??
+			}
+			endpoints = append(endpoints, ep)
+		}
+	}
+	return endpoints
 }
 
 func extractNameNamespace(metadataName string) (string, string) {

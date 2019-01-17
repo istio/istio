@@ -177,6 +177,7 @@ type PilotArgs struct {
 	MCPServerAddrs       []string
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
+	IncrementalEDS       bool
 	KeepaliveOptions     *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
@@ -624,7 +625,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			cancel()
 			return err
 		}
-		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 		mcpController := coredatamodel.NewController(s.mcpOptions)
 		sinkOptions := &sink.Options{
 			CollectionOptions: collections,
@@ -699,7 +699,6 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				return err
 			}
 
-			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 			mcpController := coredatamodel.NewController(s.mcpOptions)
 			sinkOptions := &sink.Options{
 				CollectionOptions: collections,
@@ -780,7 +779,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 func (s *Server) initConfigController(args *PilotArgs) error {
 	if len(args.MCPServerAddrs) > 0 || len(s.mesh.ConfigSources) > 0 {
 		s.mcpOptions = &coredatamodel.Options{
-			DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+			DomainSuffix:   args.Config.ControllerOptions.DomainSuffix,
+			IncrementalEDS: args.IncrementalEDS,
 		}
 		if err := s.initMCPConfigController(args); err != nil {
 			return err

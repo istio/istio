@@ -120,6 +120,8 @@ func init() {
 	serverArgs.MCPCredentialOptions.AttachCobraFlags(discoveryCmd)
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.MCPMaxMessageSize, "mcpMaxMsgSize", bootstrap.DefaultMCPMaxMsgSize,
 		"Max message size received by MCP's grpc client")
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.IncrementalEDS, "incrementalEDS", false,
+		"Enable incremental EDS updates to Envoy")
 
 	// Config Controller options
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.Config.DisableInstallCRDs, "disable-install-crds", false,
