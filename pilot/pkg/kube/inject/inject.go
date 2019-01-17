@@ -33,6 +33,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -301,7 +302,7 @@ func validateInterceptionMode(mode string) error {
 	switch mode {
 	case meshconfig.ProxyConfig_REDIRECT.String():
 	case meshconfig.ProxyConfig_TPROXY.String():
-	case "NONE": // not a global mesh config - must be enabled for each sidecar
+	case string(model.InterceptionNone): // not a global mesh config - must be enabled for each sidecar
 	default:
 		return fmt.Errorf("interceptionMode invalid: %v", mode)
 	}
