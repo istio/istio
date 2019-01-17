@@ -3712,7 +3712,7 @@ func TestValidateSidecar(t *testing.T) {
 		in    *networking.Sidecar
 		valid bool
 	}{
-		{"empty ingress and egress", &networking.Sidecar{}, false},
+		{"empty ingress and egress", &networking.Sidecar{}, true},
 		{"default", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{

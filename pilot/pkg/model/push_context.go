@@ -457,7 +457,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceIn
 				defaultSidecar = wrapper
 				continue
 			}
-			// Not sure when this can heppn (Config = nil ?)
+			// Not sure when this can happen (Config = nil ?)
 			if defaultSidecar != nil {
 				return defaultSidecar // still return the valid one
 			}

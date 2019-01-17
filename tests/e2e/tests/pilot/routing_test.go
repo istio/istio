@@ -22,7 +22,6 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
@@ -792,7 +791,8 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 	})
 }
 
-func TestSidecarScope(t *testing.T) {
+// User explicitly imports from one or more namespaces
+func TestNonEmptySidecarScope(t *testing.T) {
 	var cfgs []*deployableConfig
 	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
@@ -919,5 +919,78 @@ func TestSidecarScope(t *testing.T) {
 				}, c.onFailure)
 			}
 		}
+	})
+}
+
+// Default sidecar setup where we only allow namespace local egress
+// with an empty sidecar API object
+func TestEmptySidecarScope(t *testing.T) {
+	var cfgs []*deployableConfig
+	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
+		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
+		// a delay when we push the new config.
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				if err := cfg.TeardownNoDelay(); err != nil {
+					t.Fatal(err)
+				}
+				cfg = nil
+			}
+		}
+
+		cfgs = make([]*deployableConfig, 0)
+		for ns, rules := range ruleYamls {
+			// Apply the new rules in the namespace
+			cfg := &deployableConfig{
+				Namespace:  ns,
+				YamlFiles:  rules,
+				kubeconfig: tc.Kube.KubeConfig,
+			}
+			if err := cfg.Setup(); err != nil {
+				t.Fatal(err)
+			}
+			cfgs = append(cfgs, cfg)
+		}
+	}
+	// Upon function exit, delete the active rule.
+	defer func() {
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				_ = cfg.Teardown()
+			}
+		}
+	}()
+
+	rules := make(map[string][]string)
+	rules[tc.Kube.Namespace] = []string{"testdata/networking/v1alpha3/sidecar-scope-empty.yaml"}
+	rules["ns1"] = []string{
+		"testdata/networking/v1alpha3/service-entry-google.yaml",
+	}
+
+	if err := util.CreateNamespace("ns1", tc.Kube.KubeConfig); err != nil {
+		t.Errorf("Unable to create namespace ns1: %v", err)
+	}
+	defer func() {
+		if err := util.DeleteNamespace("ns1", tc.Kube.KubeConfig); err != nil {
+			t.Error("Failed to delete namespace ns1")
+		}
+	}()
+
+	applyRuleFunc(t, rules)
+	// Wait a few seconds so that the older proxy listeners get overwritten
+	time.Sleep(10 * time.Second)
+
+	t.Run("v1alpha3", func(t *testing.T) {
+		for cluster := range tc.Kube.Clusters {
+			testName := fmt.Sprintf("%s from %s cluster", t.Name(), cluster)
+			runRetriableTest(t, testName, 5, func() error {
+				resp := ClientRequest(cluster, "a", "http://google.com", 1, "")
+				if resp.IsHTTPOk() {
+					return fmt.Errorf("can reach google.com. (should be unreachable)")
+				}
+				return nil
+			})
+		}
+
 	})
 }
