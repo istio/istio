@@ -48,6 +48,8 @@ const (
 	DEFAULT_STEP_RATE = time.Millisecond
 )
 
+// BenchmarkSteadtState_* tests are not meaningful stress tests, but are here to establish a baseline.
+
 func BenchmarkSteadyState_1Client(b *testing.B) {
 	benchmarkSteadyState(1, b)
 }
@@ -350,6 +352,7 @@ func (d *driver) run(t testing.TB) {
 	fmt.Printf("STEPS: %d\n", d.steps)
 	fmt.Printf("APPLIED: %d\n", d.applied)
 	fmt.Printf("No GoRoutines: %d\n", runtime.NumGoroutine())
+	mcpserver.DumpActiveGoroutines()
 }
 
 func (d *driver) runIterations(t testing.TB, iter int) {

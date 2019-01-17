@@ -15,8 +15,10 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -55,6 +57,35 @@ var (
 	// should typically be set fairly small (order of milliseconds).
 	retryPushDelay = env.Duration("RETRY_PUSH_DELAY", 10*time.Millisecond)
 )
+
+func getGID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
+}
+
+var activeGoroutines = sync.Map{}
+
+func wrapGoroutine(s string, fn func()) {
+	gid := getGID()
+	activeGoroutines.Store(gid, s)
+	defer activeGoroutines.Delete(gid)
+	fn()
+}
+
+func DumpActiveGoroutines() {
+	i := 0
+	fmt.Printf("======== Active GoRoutines ======\n")
+	activeGoroutines.Range(func(key, value interface{}) bool {
+//		fmt.Printf("[%d] *** ACTIVE GoRoutine(%d): %s\n", i, key, value)
+		i++
+		return true
+	})
+	fmt.Printf("======== DONE Active GoRoutines (%d) ======\n", i)
+}
 
 var _ mcp.AggregatedMeshConfigServiceServer = &Server{}
 
@@ -129,9 +160,10 @@ func (w *watch) schedulePush() {
 	if w.closed {
 		// unlock before channel write
 		w.mu.Unlock()
-
+		fmt.Printf("Schedule push:closing: %d\n", getGID())
 		select {
 		case w.newPushResponseReadyChan <- newPushResponseStateClosed:
+			fmt.Printf("Schedule push done!!! :closing: %d\n", getGID())
 		default:
 			time.AfterFunc(retryPushDelay, w.schedulePush)
 		}
@@ -276,26 +308,38 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	}
 
 	defer s.closeConnection(con)
-	go con.receive()
+	go wrapGoroutine("con.receive", con.receive)
 
 	// fan-in per-type response channels into single response channel for the select loop below.
 	responseChan := make(chan *watch, 1)
 	for _, w := range con.watches {
-		go func(w *watch) {
-			for state := range w.newPushResponseReadyChan {
-				if state == newPushResponseStateClosed {
-					break
+		go wrapGoroutine("fan-in-watch", func() {
+			fmt.Printf("Fan-in-watch entering: %d\n", getGID())
+			func(w *watch) {
+				for state := range w.newPushResponseReadyChan {
+					if state == newPushResponseStateClosed {
+						fmt.Printf("Fan-in-watch breaking: %d\n", getGID())
+						break
+					}
+					responseChan <- w
 				}
-				responseChan <- w
-			}
 
-			// Any closed watch can close the overall connection. Use
-			// `nil` value to indicate a closed state to the run loop
-			// below instead of closing the channel to avoid closing
-			// the channel multiple times.
-			responseChan <- nil
-		}(w)
+				// Any closed watch can close the overall connection. Use
+				// `nil` value to indicate a closed state to the run loop
+				// below instead of closing the channel to avoid closing
+				// the channel multiple times.
+				responseChan <- nil
+
+				fmt.Printf("Fan-in-watch exiting: %d\n", getGID())
+			}(w)
+		})
 	}
+	// ensure all the fan-in channels are closed on exit
+	defer func() {
+		for _, w := range con.watches {
+			w.saveResponseAndSchedulePush(nil)
+		}
+	}()
 
 	for {
 		select {
