@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/mcp/source"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
+
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
@@ -31,22 +34,22 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptest "istio.io/istio/pkg/mcp/testing"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type updater struct {
 }
 
-func (u *updater) Apply(c *client.Change) error {
+func (u *updater) Apply(c *sink.Change) error {
 	return nil
 }
 
 const testEmptyCollection = "/test/collection/empty"
 
 func TestConfigZ(t *testing.T) {
-	s, err := mcptest.NewServer(0, []string{testEmptyCollection})
+	s, err := mcptest.NewServer(0, []source.CollectionOptions{{Name: testEmptyCollection}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,9 +62,15 @@ func TestConfigZ(t *testing.T) {
 
 	u := &updater{}
 	clnt := mcp.NewAggregatedMeshConfigServiceClient(cc)
-	cl := client.New(clnt, []string{testEmptyCollection}, u,
-		snapshot.DefaultGroup, map[string]string{"foo": "bar"},
-		mcptestmon.NewInMemoryClientStatsContext())
+
+	options := &sink.Options{
+		CollectionOptions: []sink.CollectionOptions{{Name: testEmptyCollection}},
+		Updater:           u,
+		ID:                snapshot.DefaultGroup,
+		Metadata:          map[string]string{"foo": "bar"},
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	cl := client.New(clnt, options)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go cl.Run(ctx)

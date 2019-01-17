@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"
 )
 
@@ -94,7 +95,7 @@ type testState struct {
 func createState(t *testing.T) *testState {
 	st := &testState{}
 
-	var collections []string
+	var collections []source.CollectionOptions
 	var kinds []string
 	m, err := constructMapping(mixerKinds, kube.Types)
 	if err != nil {
@@ -102,7 +103,9 @@ func createState(t *testing.T) *testState {
 	}
 	st.mapping = m
 	for t, k := range st.mapping.collectionsToKinds {
-		collections = append(collections, t)
+		collections = append(collections, source.CollectionOptions{
+			Name: t,
+		})
 		kinds = append(kinds, k)
 	}
 
