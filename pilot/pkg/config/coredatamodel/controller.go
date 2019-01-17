@@ -268,48 +268,6 @@ func (c *Controller) Delete(typ, name, namespace string) error {
 	return errUnsupported
 }
 
-func (c *Controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
-	dispatch := func(model model.Config, event model.Event) {}
-	if handlers, ok := c.eventHandlers[model.ServiceEntry.Type]; ok {
-		dispatch = func(model model.Config, event model.Event) {
-			log.Debugf("MCP event dispatch: key=%v event=%v", model.Key(), event.String())
-			for _, handler := range handlers {
-				handler(model, event)
-			}
-		}
-	}
-
-	// add/update
-	for namespace, byName := range currentStore {
-		for name, config := range byName {
-			if prevByNamespace, ok := prevStore[namespace]; ok {
-				if prevConfig, ok := prevByNamespace[name]; ok {
-					if config.ResourceVersion != prevConfig.ResourceVersion {
-						dispatch(*config, model.EventUpdate)
-					}
-				} else {
-					dispatch(*config, model.EventAdd)
-				}
-			} else {
-				dispatch(*config, model.EventAdd)
-			}
-		}
-	}
-
-	// remove
-	for namespace, prevByName := range prevStore {
-		for name, prevConfig := range prevByName {
-			if byNamespace, ok := currentStore[namespace]; ok {
-				if _, ok := byNamespace[name]; !ok {
-					dispatch(*prevConfig, model.EventDelete)
-				}
-			} else {
-				dispatch(*prevConfig, model.EventDelete)
-			}
-		}
-	}
-}
-
 func extractNameNamespace(metadataName string) (string, string) {
 	segments := strings.Split(metadataName, "/")
 	if len(segments) == 2 {

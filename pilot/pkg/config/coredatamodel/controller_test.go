@@ -138,18 +138,18 @@ func (f *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, ann
 }
 
 func TestIncrementalServiceEntry(t *testing.T) {
-	t.Skip("WIP")
+	t.Skip("wip")
 	g := gomega.NewGomegaWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToResource(g, "istio.networking.v1alpha3.SyntheticServiceEntry", []proto.Message{serviceEntry})
+	message := convertToResource(g, model.ServiceEntry.MessageName, []proto.Message{serviceEntry})
 	change := convert(
 		[]proto.Message{message[0]},
 		[]string{"service-bar"},
-		model.ServiceEntry.Collection,
+		"istio/networking/v1alpha1/serviceentries/synthetic",
 		model.ServiceEntry.MessageName)
 
 	err := controller.Apply(change)
@@ -159,12 +159,15 @@ func TestIncrementalServiceEntry(t *testing.T) {
 	g.Expect(c).ToNot(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
+	// to make sure only called once
+	g.Expect(len(fx.Events)).To(gomega.Equal(1))
 	g.Expect(<-fx.Events).To(gomega.Equal("EDSUpdate"))
 
 	//	message = convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 	//	change = convert(
 	//		[]proto.Message{message[0]},
 	//		[]string{"gateway-foo"},
+	//		model.Gateway.Collection,
 	//		model.Gateway.MessageName)
 	//
 	//	err = controller.Apply(change)
@@ -174,14 +177,16 @@ func TestIncrementalServiceEntry(t *testing.T) {
 	//	g.Expect(c).ToNot(gomega.BeNil())
 	//	g.Expect(err).ToNot(gomega.HaveOccurred())
 	//	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
+	//	// to make sure only called once
 	//	g.Expect(len(fx.Events)).To(gomega.Equal(1))
+	//	g.Expect(<-fx.Events).To(gomega.Equal("ConfigUpdates"))
 
 }
 
 func TestOptions(t *testing.T) {
+	t.Skip("WIP")
 	g := gomega.NewGomegaWithT(t)
-	fx := NewFakeXDS()
-	testControllerOptions.XDSUpdater = fx
+
 	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToResource(g, model.ServiceEntry.MessageName, []proto.Message{serviceEntry})
@@ -195,6 +200,21 @@ func TestOptions(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	c, err := controller.List(model.ServiceEntry.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
+
+	message = convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
+	change = convert(
+		[]proto.Message{message[0]},
+		[]string{"gateway-foo"},
+		model.Gateway.Collection,
+		model.Gateway.MessageName)
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err = controller.List(model.Gateway.Type, "")
 	g.Expect(c).ToNot(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
@@ -237,6 +257,9 @@ func TestListCorrectTypeNoData(t *testing.T) {
 
 func TestListAllNameSpace(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+
+	fx := NewFakeXDS()
+	testControllerOptions.XDSUpdater = fx
 	controller := coredatamodel.NewController(testControllerOptions)
 
 	messages := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway, gateway2, gateway3})
@@ -307,7 +330,11 @@ func TestApplyInvalidType(t *testing.T) {
 	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, "bad/collection", "bad-type")
+	change := convert(
+		[]proto.Message{message[0]},
+		[]string{"some-gateway"},
+		"bad-collection",
+		"bad-type")
 
 	err := controller.Apply(change)
 	g.Expect(err).To(gomega.HaveOccurred())
@@ -340,6 +367,7 @@ func TestApplyValidTypeWithNoBaseURL(t *testing.T) {
 			[]string{"some-gateway"},
 			model.Gateway.Collection,
 			model.Gateway.MessageName)
+
 		err = controller.Apply(change)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -365,6 +393,7 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 		[]string{"istio-namespace/some-gateway"},
 		model.Gateway.Collection,
 		model.Gateway.MessageName)
+
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -386,6 +415,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 		[]string{"some-gateway"},
 		model.Gateway.Collection,
 		model.Gateway.MessageName)
+
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -480,6 +510,7 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 		[]string{"default"},
 		model.AuthenticationPolicy.Collection,
 		model.AuthenticationPolicy.MessageName)
+
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -491,12 +522,21 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(c[0].Type).To(gomega.Equal(model.AuthenticationMeshPolicy.Type))
 	g.Expect(c[0].Spec).To(gomega.Equal(message1[0]))
 
-	// verify the namespace scoped resource can be added and mesh-scoped resource removed in the same batch
+	// verify the namespace scoped resource can be added and mesh-scoped resource removed
 	change = convert(
 		[]proto.Message{message0[0]},
 		[]string{"bar-namespace/foo"},
 		model.AuthenticationPolicy.Collection,
 		model.AuthenticationPolicy.MessageName)
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	change = convert(
+		[]proto.Message{},
+		[]string{"default"},
+		model.AuthenticationMeshPolicy.Collection, model.AuthenticationMeshPolicy.MessageName)
+
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
