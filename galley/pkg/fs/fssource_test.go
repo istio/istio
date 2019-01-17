@@ -133,6 +133,8 @@ type scenario struct {
 }
 
 var checkResult = func(ch chan resource.Event, expected string, t *testing.T, expectedSequence int) {
+	t.Helper()
+
 	log := logChannelOutput(ch, expectedSequence)
 	if log != expected {
 		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
@@ -140,6 +142,8 @@ var checkResult = func(ch chan resource.Event, expected string, t *testing.T, ex
 }
 
 func (fst *fsTestSourceState) testSetup(t *testing.T) {
+	t.Helper()
+
 	var err error
 
 	fst.rootPath, err = ioutil.TempDir("", "configPath")
@@ -195,7 +199,7 @@ func TestFsSource(t *testing.T) {
 			initFileName:     "virtual_service.yml",
 			expectedSequence: 2,
 			expectedResult: strings.TrimSpace(`
-			[Event](Added: [VKey](type.googleapis.com/istio.networking.v1alpha3.VirtualService:route-for-myapp @v0))`),
+			[Event](Added: [VKey](istio/networking/v1alpha3/virtualservices:route-for-myapp @v0))`),
 			fileAction:  func(_ chan resource.Event, _ runtime.Source) {},
 			checkResult: checkResult},
 		"FsSource_AddFile": {
@@ -203,7 +207,7 @@ func TestFsSource(t *testing.T) {
 			initFileName:     "",
 			expectedSequence: 2,
 			expectedResult: strings.TrimSpace(`
-			[Event](Added: [VKey](type.googleapis.com/istio.networking.v1alpha3.VirtualService:route-for-myapp @v1))`),
+			[Event](Added: [VKey](istio/networking/v1alpha3/virtualservices:route-for-myapp @v1))`),
 			fileAction: func(_ chan resource.Event, _ runtime.Source) {
 				fst.configFiles["virtual_service.yml"] = []byte(virtualServiceYAML)
 				err := fst.writeFile()
@@ -218,7 +222,7 @@ func TestFsSource(t *testing.T) {
 			initFileName:     "virtual_service.yml",
 			expectedSequence: 3,
 			expectedResult: strings.TrimSpace(`
-			[Event](Deleted: [VKey](type.googleapis.com/istio.networking.v1alpha3.VirtualService:route-for-myapp @v0))`),
+			[Event](Deleted: [VKey](istio/networking/v1alpha3/virtualservices:route-for-myapp @v0))`),
 			fileAction: func(_ chan resource.Event, _ runtime.Source) {
 				err := fst.deleteFile()
 				if err != nil {
@@ -232,7 +236,7 @@ func TestFsSource(t *testing.T) {
 			initFileName:     "virtual_service.yml",
 			expectedSequence: 4,
 			expectedResult: strings.TrimSpace(`
-			[Event](Added: [VKey](type.googleapis.com/istio.networking.v1alpha3.VirtualService:route-for-myapp-changed @v1))`),
+			[Event](Added: [VKey](istio/networking/v1alpha3/virtualservices:route-for-myapp-changed @v1))`),
 			fileAction: func(_ chan resource.Event, _ runtime.Source) {
 				err := ioutil.WriteFile(filepath.Join(fst.rootPath, "virtual_service.yml"), []byte(virtualServiceChangedYAML), 0600)
 				if err != nil {
@@ -251,7 +255,7 @@ func TestFsSource(t *testing.T) {
 					t.Fatalf("Unexpected error: %v", err)
 				}
 				donec := make(chan bool)
-				expected := "[Event](Deleted: [VKey](type.googleapis.com/istio.policy.v1beta1.Rule:some.mixer.rule @v0))"
+				expected := "[Event](Deleted: [VKey](istio/policy/v1beta1/rules:some.mixer.rule @v0))"
 				go checkEventOccurs(expected, ch, donec)
 				select {
 				case <-time.After(5 * time.Second):

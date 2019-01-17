@@ -23,10 +23,10 @@ import (
 	"go.opencensus.io/tag"
 )
 
-const typeURL = "typeURL"
+const collection = "collection"
 
-// TypeURLTag holds the type URL for the context.
-var TypeURLTag tag.Key
+// CollectionTag holds the type URL for the context.
+var CollectionTag tag.Key
 
 var (
 	strategyOnChangeTotal = stats.Int64(
@@ -101,8 +101,8 @@ func recordProcessorSnapshotPublished(events int64, snapshotSpan time.Duration) 
 		processorSnapshotLifetimesMs.M(snapshotSpan.Nanoseconds()/1e6))
 }
 
-func recordStateTypeCount(typeURL string, count int) {
-	ctx, err := tag.New(context.Background(), tag.Insert(TypeURLTag, typeURL))
+func recordStateTypeCount(collection string, count int) {
+	ctx, err := tag.New(context.Background(), tag.Insert(CollectionTag, collection))
 	if err != nil {
 		scope.Errorf("Error creating monitoring context for counting state: %v", err)
 	} else {
@@ -122,12 +122,12 @@ func newView(measure stats.Measure, keys []tag.Key, aggregation *view.Aggregatio
 
 func init() {
 	var err error
-	if TypeURLTag, err = tag.NewKey(typeURL); err != nil {
+	if CollectionTag, err = tag.NewKey(collection); err != nil {
 		panic(err)
 	}
 
 	var noKeys []tag.Key
-	typeURLKeys := []tag.Key{TypeURLTag}
+	collectionKeys := []tag.Key{CollectionTag}
 
 	err = view.Register(
 		newView(strategyOnTimerResetTotal, noKeys, view.Count()),
@@ -138,7 +138,7 @@ func init() {
 		newView(processorEventsProcessed, noKeys, view.Count()),
 		newView(processorSnapshotsPublished, noKeys, view.Count()),
 		newView(processorEventsPerSnapshot, noKeys, view.Distribution(0, 1, 2, 4, 8, 16, 32, 64, 128, 256)),
-		newView(stateTypeInstancesTotal, typeURLKeys, view.LastValue()),
+		newView(stateTypeInstancesTotal, collectionKeys, view.LastValue()),
 		newView(processorSnapshotLifetimesMs, noKeys, durationDistributionMs),
 	)
 

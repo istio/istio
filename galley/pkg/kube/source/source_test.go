@@ -39,9 +39,9 @@ var emptyInfo resource.Info
 
 func init() {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("empty", "type.googleapis.com/google.protobuf.Empty")
 	schema := b.Build()
-	emptyInfo, _ = schema.Lookup("type.googleapis.com/google.protobuf.Empty")
+	emptyInfo, _ = schema.Lookup("empty")
 }
 
 func schemaWithSpecs(specs []kube.ResourceSpec) *kube.Schema {
@@ -141,7 +141,7 @@ func TestSource_BasicEvents(t *testing.T) {
 
 	log := logChannelOutput(ch, 2)
 	expected := strings.TrimSpace(`
-[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:ns/f1 @rv1))
+[Event](Added: [VKey](empty:ns/f1 @rv1))
 [Event](FullSync)
 `)
 	if log != expected {
@@ -151,7 +151,7 @@ func TestSource_BasicEvents(t *testing.T) {
 	w.Send(watch.Event{Type: watch.Deleted, Object: &i1})
 	log = logChannelOutput(ch, 1)
 	expected = strings.TrimSpace(`
-[Event](Deleted: [VKey](type.googleapis.com/google.protobuf.Empty:ns/f1 @rv1))
+[Event](Deleted: [VKey](empty:ns/f1 @rv1))
 		`)
 	if log != expected {
 		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
@@ -353,7 +353,7 @@ func TestSource_MangledNames(t *testing.T) {
 	// The mangled name foo/ns/f1 should appear.
 	log := logChannelOutput(ch, 1)
 	expected := strings.TrimSpace(`
-[Event](Added: [VKey](type.googleapis.com/google.protobuf.Empty:foo/ns/f1 @rv1))
+[Event](Added: [VKey](empty:foo/ns/f1 @rv1))
 `)
 	if log != expected {
 		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)

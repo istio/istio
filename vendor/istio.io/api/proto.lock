@@ -207,6 +207,16 @@
                 "type": "PortSelector",
                 "is_repeated": true
               }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
             ]
           },
           {
@@ -581,6 +591,11 @@
                 "id": 5,
                 "name": "error_detail",
                 "type": "google.rpc.Status"
+              },
+              {
+                "id": 6,
+                "name": "incremental",
+                "type": "bool"
               }
             ],
             "maps": [
@@ -623,6 +638,11 @@
                 "id": 5,
                 "name": "nonce",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "incremental",
+                "type": "bool"
               }
             ]
           }
@@ -4832,6 +4852,35 @@
         ],
         "messages": [
           {
+            "name": "WorkloadSelector",
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 1,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "AuthorizationPolicy",
+            "fields": [
+              {
+                "id": 1,
+                "name": "workload_selector",
+                "type": "WorkloadSelector"
+              },
+              {
+                "id": 2,
+                "name": "allow",
+                "type": "ServiceRoleBinding",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "ServiceRole",
             "fields": [
               {
@@ -4852,8 +4901,26 @@
                 "is_repeated": true
               },
               {
+                "id": 5,
+                "name": "hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 6,
+                "name": "not_hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "paths",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_paths",
                 "type": "string",
                 "is_repeated": true
               },
@@ -4861,6 +4928,24 @@
                 "id": 3,
                 "name": "methods",
                 "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "not_methods",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "ports",
+                "type": "int32",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "not_ports",
+                "type": "int32",
                 "is_repeated": true
               },
               {
@@ -4919,9 +5004,57 @@
                 "type": "string"
               },
               {
+                "id": 4,
+                "name": "principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "not_principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "group",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "not_namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "ips",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 11,
+                "name": "not_ips",
+                "type": "string",
+                "is_repeated": true
               }
             ],
             "maps": [
@@ -4982,6 +5115,12 @@
                     "id": 1,
                     "name": "services",
                     "type": "string",
+                    "is_repeated": true
+                  },
+                  {
+                    "id": 3,
+                    "name": "workload_selectors",
+                    "type": "WorkloadSelector",
                     "is_repeated": true
                   },
                   {
