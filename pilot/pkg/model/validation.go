@@ -850,6 +850,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 		if failover.From == failover.To {
 			errs = appendErrors(errs, fmt.Errorf("locality lb failover settings must specify different regions"))
 		}
+		if strings.Contains(failover.To, "*") {
+			errs = appendErrors(errs, fmt.Errorf("locality lb failover region should not contain '*' wildcard"))
+		}
 	}
 
 	if len(settings.LocalitySettings.GetDistribute()) > 0 && len(settings.LocalitySettings.GetFailover()) > 0 {

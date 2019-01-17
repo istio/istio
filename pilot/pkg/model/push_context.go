@@ -480,7 +480,7 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 	return ps.sidecarsByNamespace
 }
 
-// DestinationRule returns a destination rule for a service name in a given domain.
+// ServicePort returns the port model for the given service and port.
 func (ps *PushContext) ServicePort(hostname Hostname, port int) *Port {
 	portList := ps.ServicePort2Name[string(hostname)]
 	for i := range portList {
