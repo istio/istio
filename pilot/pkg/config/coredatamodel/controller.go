@@ -180,10 +180,8 @@ func (c *Controller) Apply(change *sink.Change) error {
 	c.configStore[descriptor.Type] = innerStore
 	c.configStoreMu.Unlock()
 
-	// TODO:What is the semantics for collection, should it match the type?
-	// do we need a new type for synthetic Service entries?
 	if descriptor.Type == model.ServiceEntry.Type &&
-		descriptor.Collection == "istio/networking/v1alpha1/serviceentries/synthetic" {
+		descriptor.Collection == model.ServiceEntry.Collection {
 		for ns, byName := range innerStore {
 			for name, config := range byName {
 				endpoints := []*model.IstioEndpoint{}
@@ -192,12 +190,11 @@ func (c *Controller) Apply(change *sink.Change) error {
 						for portName, port := range ep.Ports {
 							ep := &model.IstioEndpoint{
 								Address:         ep.Address,
-								EndpointPort:    uint32(port),
+								EndpointPort:    port,
 								ServicePortName: portName,
 								Labels:          ep.Labels,
 								UID:             fmt.Sprintf("%s.%s", name, ns),
-								// TODO: how to get network?
-								//Network:
+								// TODO: how to get network and ServiceAccount?
 							}
 							endpoints = append(endpoints, ep)
 						}
@@ -210,6 +207,8 @@ func (c *Controller) Apply(change *sink.Change) error {
 			}
 		}
 	} else {
+		// for everything else do full config update
+		// since envoy currently only support incremental for EDS
 		c.options.XDSUpdater.ConfigUpdate(true)
 	}
 

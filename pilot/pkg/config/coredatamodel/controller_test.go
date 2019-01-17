@@ -107,6 +107,19 @@ var (
 		},
 	}
 
+	syntheticServiceEntry = &networking.ServiceEntry{
+		Hosts: []string{"example2.com"},
+		Ports: []*networking.Port{
+			{
+				Name:     "http",
+				Number:   8989,
+				Protocol: "http",
+			},
+		},
+		Location:   networking.ServiceEntry_MESH_INTERNAL,
+		Resolution: networking.ServiceEntry_NONE,
+	}
+
 	testControllerOptions = &coredatamodel.Options{
 		DomainSuffix: "cluster.local",
 	}
@@ -138,53 +151,57 @@ func (f *FakeXdsUpdater) WorkloadUpdate(id string, labels map[string]string, ann
 }
 
 func TestIncrementalServiceEntry(t *testing.T) {
-	t.Skip("wip")
 	g := gomega.NewGomegaWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
 	controller := coredatamodel.NewController(testControllerOptions)
 
-	message := convertToResource(g, model.ServiceEntry.MessageName, []proto.Message{serviceEntry})
+	message := convertToResource(
+		g,
+		model.ServiceEntry.MessageName,
+		[]proto.Message{syntheticServiceEntry})
+
 	change := convert(
 		[]proto.Message{message[0]},
-		[]string{"service-bar"},
+		[]string{"synthetic-service-entry"},
 		"istio/networking/v1alpha1/serviceentries/synthetic",
 		model.ServiceEntry.MessageName)
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	c, err := controller.List(model.ServiceEntry.Type, "")
+	c, err := controller.List(model.SyntheticServiceEntry.Type, "")
 	g.Expect(c).ToNot(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
+	// to make sure only called once
+	g.Expect(len(fx.Events)).To(gomega.Equal(1))
+	g.Expect(<-fx.Events).To(gomega.Equal("ConfigUpdate"))
+
+	message = convertToResource(
+		g,
+		model.ServiceEntry.MessageName,
+		[]proto.Message{serviceEntry})
+
+	change = convert(
+		[]proto.Message{message[0]},
+		[]string{"real-service-entry"},
+		model.ServiceEntry.Collection,
+		model.ServiceEntry.MessageName)
+
+	err = controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	c, err = controller.List(model.ServiceEntry.Type, "")
+	g.Expect(c).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	// to make sure only called once
 	g.Expect(len(fx.Events)).To(gomega.Equal(1))
 	g.Expect(<-fx.Events).To(gomega.Equal("EDSUpdate"))
 
-	//	message = convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
-	//	change = convert(
-	//		[]proto.Message{message[0]},
-	//		[]string{"gateway-foo"},
-	//		model.Gateway.Collection,
-	//		model.Gateway.MessageName)
-	//
-	//	err = controller.Apply(change)
-	//	g.Expect(err).ToNot(gomega.HaveOccurred())
-	//
-	//	c, err = controller.List(model.Gateway.Type, "")
-	//	g.Expect(c).ToNot(gomega.BeNil())
-	//	g.Expect(err).ToNot(gomega.HaveOccurred())
-	//	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
-	//	// to make sure only called once
-	//	g.Expect(len(fx.Events)).To(gomega.Equal(1))
-	//	g.Expect(<-fx.Events).To(gomega.Equal("ConfigUpdates"))
-
 }
 
 func TestOptions(t *testing.T) {
-	t.Skip("WIP")
 	g := gomega.NewGomegaWithT(t)
 
 	controller := coredatamodel.NewController(testControllerOptions)
@@ -200,21 +217,6 @@ func TestOptions(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	c, err := controller.List(model.ServiceEntry.Type, "")
-	g.Expect(c).ToNot(gomega.BeNil())
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))
-
-	message = convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
-	change = convert(
-		[]proto.Message{message[0]},
-		[]string{"gateway-foo"},
-		model.Gateway.Collection,
-		model.Gateway.MessageName)
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
-
-	c, err = controller.List(model.Gateway.Type, "")
 	g.Expect(c).ToNot(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(c[0].Domain).To(gomega.Equal(testControllerOptions.DomainSuffix))

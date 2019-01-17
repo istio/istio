@@ -366,6 +366,17 @@ var (
 		Collection:  metadata.IstioNetworkingV1alpha3Serviceentries.Collection.String(),
 	}
 
+	// ServiceEntry describes service entries
+	SyntheticServiceEntry = ProtoSchema{
+		Type:        "synthetic-service-entry",
+		Plural:      "synthetic-service-entries",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.SyntheticServiceEntry",
+		Validate:    ValidateServiceEntry,
+		Collection:  "istio/networking/v1alpha1/serviceentries/synthetic",
+	}
+
 	// DestinationRule describes destination rules
 	DestinationRule = ProtoSchema{
 		Type:        "destination-rule",
@@ -519,6 +530,7 @@ var (
 		VirtualService,
 		Gateway,
 		ServiceEntry,
+		SyntheticServiceEntry,
 		DestinationRule,
 		EnvoyFilter,
 		Sidecar,
