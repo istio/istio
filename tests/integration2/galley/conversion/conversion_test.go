@@ -45,7 +45,7 @@ func TestConversion(t *testing.T) {
 
 			// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 			// component
-			ctx.RequireOrFail(t, lifecycle.Suite, &descriptors.NativeEnvironment)
+			ctx.RequireOrSkip(t, lifecycle.Suite, &descriptors.NativeEnvironment)
 
 			ctx.RequireOrFail(t, lifecycle.Test, &ids.Galley)
 
