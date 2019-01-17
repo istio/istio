@@ -165,7 +165,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 	if r.Egress == nil || len(r.Egress) == 0 {
 		defaultEgressListener := &networking.IstioEgressListener{
-			Hosts: []string{fmt.Sprint("%s/*", sidecarConfig.Namespace)},
+			Hosts: []string{fmt.Sprintf("%s/*", sidecarConfig.Namespace)},
 		}
 		out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, defaultEgressListener))
 	} else {

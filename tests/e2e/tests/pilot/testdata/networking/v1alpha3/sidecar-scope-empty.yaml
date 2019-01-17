@@ -1,0 +1,5 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: sidecar-scope-empty
+spec: {}
