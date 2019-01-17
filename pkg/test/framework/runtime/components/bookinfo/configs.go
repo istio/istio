@@ -32,8 +32,14 @@ const (
 	// NetworkingDestinationRuleAll uses "networking/destination-rule-all.yaml"
 	NetworkingDestinationRuleAll ConfigFile = "networking/destination-rule-all.yaml"
 
+	// NetworkingDestinationRuleAllMtls uses "networking/destination-rule-all-mtls.yaml"
+	NetworkingDestinationRuleAllMtls ConfigFile = "networking/destination-rule-all-mtls.yaml"
+
 	// NetworkingVirtualServiceAllV1 uses "networking/virtual-service-all-v1.yaml"
 	NetworkingVirtualServiceAllV1 ConfigFile = "networking/virtual-service-all-v1.yaml"
+
+	// NetworkingTcpDbRule uses "networking/virtual-service-ratings-db.yaml"
+	NetworkingTCPDbRule ConfigFile = "networking/virtual-service-ratings-db.yaml"
 
 	// MixerRuleRatingsRatelimit uses "policy/mixer-rule-ratings-ratelimit.yaml"
 	MixerRuleRatingsRatelimit ConfigFile = "policy/mixer-rule-ratings-ratelimit.yaml"

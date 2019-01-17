@@ -258,8 +258,6 @@ helm/upgrade:
 	  istio-system install/kubernetes/helm/istio
 
 # Delete istio installed with helm
-# Note that for Helm 2.10, the CRDs are not cleared
 helm/delete:
 	${HELM} delete --purge istio-system
 	for i in install/kubernetes/helm/istio-init/files/crd-*; do kubectl delete -f $i; done
-	kubectl delete -f install/kubernetes/helm/istio/templates/crds.yaml

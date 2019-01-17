@@ -156,7 +156,7 @@ func TestListAuthChecker(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 
-			c := NewListAuthChecker()
+			c := NewListAuthChecker(DefaultListAuthCheckerOptions())
 			c.SetMode(testCase.mode)
 			if testCase.extractIDsFn != nil {
 				c.extractIDsFn = testCase.extractIDsFn
@@ -239,11 +239,12 @@ func TestListAuthChecker_Allowed(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			checker := NewListAuthChecker()
+			options := DefaultListAuthCheckerOptions()
+			options.AuthMode = c.mode
+			checker := NewListAuthChecker(options)
 			if c.id != "" {
 				checker.Set(c.id)
 			}
-			checker.SetMode(c.mode)
 
 			result := checker.Allowed(c.testid)
 			if result != c.expect {
@@ -260,8 +261,9 @@ func TestListAuthChecker_String(t *testing.T) {
 		}
 	}()
 
-	c := NewListAuthChecker()
-	c.SetMode(AuthBlackList)
+	options := DefaultListAuthCheckerOptions()
+	options.AuthMode = AuthBlackList
+	c := NewListAuthChecker(options)
 
 	c.Set("1", "2", "3")
 

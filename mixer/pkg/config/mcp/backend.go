@@ -34,6 +34,8 @@ import (
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
 )
@@ -97,6 +99,8 @@ type backend struct {
 	// The cancellation function that is used to cancel gRPC/MCP operations.
 	cancel context.CancelFunc
 
+	mcpReporter monitoring.Reporter
+
 	// The in-memory state, where resources are kept for out-of-band get and list calls.
 	state *state
 
@@ -115,7 +119,7 @@ type backend struct {
 
 var _ store.Backend = &backend{}
 var _ probe.SupportsProbe = &backend{}
-var _ client.Updater = &backend{}
+var _ sink.Updater = &backend{}
 
 // state is the in-memory cache.
 type state struct {
@@ -135,9 +139,10 @@ func (b *backend) Init(kinds []string) error {
 	b.mapping = m
 
 	collections := b.mapping.collections()
+
 	scope.Infof("Requesting following collections:")
-	for i, url := range collections {
-		scope.Infof("  [%d] %s", i, url)
+	for i, name := range collections {
+		scope.Infof("  [%d] %s", i, name)
 	}
 
 	// nolint: govet
@@ -187,15 +192,22 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	c := client.New(cl, collections, b, mixerNodeID, map[string]string{}, client.NewStatsContext("mixer"))
+	b.mcpReporter = monitoring.NewStatsContext("mixer")
+	options := &sink.Options{
+		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
+		Updater:           b,
+		ID:                mixerNodeID,
+		Reporter:          b.mcpReporter,
+	}
+	c := client.New(cl, options)
 	configz.Register(c)
 
 	b.state = &state{
 		items:  make(map[string]map[store.Key]*store.BackEndResource),
 		synced: make(map[string]bool),
 	}
-	for _, typeURL := range collections {
-		b.state.synced[typeURL] = false
+	for _, collection := range collections {
+		b.state.synced[collection] = false
 	}
 
 	go c.Run(ctx)
@@ -235,6 +247,7 @@ func (b *backend) Stop() {
 		b.cancel()
 		b.cancel = nil
 	}
+	b.mcpReporter.Close()
 }
 
 // Watch creates a channel to receive the events.
@@ -285,7 +298,7 @@ func (b *backend) List() map[store.Key]*store.BackEndResource {
 }
 
 // Apply implements client.Updater.Apply
-func (b *backend) Apply(change *client.Change) error {
+func (b *backend) Apply(change *sink.Change) error {
 	b.state.Lock()
 	defer b.state.Unlock()
 	defer b.callUpdateHook()
