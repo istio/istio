@@ -127,11 +127,8 @@ global:
   proxy:
     image: proxyv2
 
-    # DNS domain suffix for pilot proxy agent. Default value is "${POD_NAMESPACE}.svc.cluster.local".
-    proxyDomain: ""
-
-    # DNS domain suffix for pilot proxy discovery. Default value is "cluster.local".
-    discoveryDomain: ""
+    # cluster domain. Default value is "cluster.local".
+    clusterDomain: "cluster.local"
 
     # Resources for the sidecar.
     resources:
