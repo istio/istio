@@ -41,6 +41,11 @@ type State struct {
 	// entries for per-message-type State.
 	entriesLock sync.Mutex
 	entries     map[resource.Collection]*resourceTypeState
+
+	// Virtual version numbers for Gateways & VirtualServices for Ingress projected ones
+	ingressGWVersion   int64
+	ingressVSVersion   int64
+	lastIngressVersion int64
 }
 
 // per-resource-type State.
@@ -153,24 +158,26 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 
 	// Build ingress projections
 	state := s.entries[metadata.Ingress.Collection]
-	if state == nil || len (state.entries) == 0 {
+	if state == nil || len(state.entries) == 0 {
 		return
 	}
 
-	s.versionCounter++
-	version := s.versionCounter
+	if s.lastIngressVersion != state.version {
+		// Ingresses has changed
+		s.versionCounter++
+		s.ingressGWVersion = s.versionCounter
+		s.versionCounter++
+		s.ingressVSVersion = s.versionCounter
+		s.lastIngressVersion = state.version
+	}
+
 	versionStr := fmt.Sprintf("%d_%d",
-		s.entries[metadata.Gateway.Collection].version,
-		version)
+		s.entries[metadata.Gateway.Collection].version, s.ingressGWVersion)
 	b.SetVersion(metadata.Gateway.Collection.String(), versionStr)
 
-	s.versionCounter++
-	version = s.versionCounter
 	versionStr = fmt.Sprintf("%d_%d",
-		s.entries[metadata.VirtualService.Collection].version,
-		version)
+		s.entries[metadata.VirtualService.Collection].version, s.ingressVSVersion)
 	b.SetVersion(metadata.VirtualService.Collection.String(), versionStr)
-
 
 	// Order names for stable generation.
 	var orderedNames []resource.FullName
