@@ -32,7 +32,6 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	meshcfg "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/model"
@@ -71,10 +70,10 @@ func TestNilConverter(t *testing.T) {
 
 func TestIdentity(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Struct")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Struct")
 	s := b.Build()
 
-	info := s.Get("type.googleapis.com/google.protobuf.Struct")
+	info := s.Get("foo")
 
 	u := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -148,10 +147,10 @@ func TestIdentity(t *testing.T) {
 
 func TestIdentity_Error(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Empty")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Empty")
 	s := b.Build()
 
-	info := s.Get("type.googleapis.com/google.protobuf.Empty")
+	info := s.Get("foo")
 
 	u := &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -172,10 +171,10 @@ func TestIdentity_Error(t *testing.T) {
 
 func TestIdentity_NilResource(t *testing.T) {
 	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Struct")
+	b.Register("foo", "type.googleapis.com/google.protobuf.Struct")
 	s := b.Build()
 
-	info := s.Get("type.googleapis.com/google.protobuf.Struct")
+	info := s.Get("foo")
 
 	key := resource.FullNameFromNamespaceAndName("foo", "Key")
 
@@ -193,132 +192,15 @@ func TestIdentity_NilResource(t *testing.T) {
 	}
 }
 
-func TestLegacyMixerResource(t *testing.T) {
-	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Struct")
-	s := b.Build()
-
-	info := s.Get("type.googleapis.com/google.protobuf.Struct")
-
-	u := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"kind": "k1",
-			"metadata": map[string]interface{}{
-				"creationTimestamp": fakeCreateTime.Format(time.RFC3339),
-				"annotations": map[string]interface{}{
-					"a1_key": "a1_value",
-					"a2_key": "a2_value",
-				},
-				"labels": map[string]interface{}{
-					"l1_key": "l1_value",
-					"l2_key": "l2_value",
-				},
-			},
-			"spec": map[string]interface{}{
-				"foo": "bar",
-			},
-		},
-	}
-
-	key := resource.FullNameFromNamespaceAndName("", "Key")
-
-	entries, err := legacyMixerResource(nil, info, key, "k1", u)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	if len(entries) != 1 {
-		t.Fatalf("Expected one entry: %v", entries)
-	}
-
-	actual := entries[0]
-
-	expected := Entry{
-		Key:          resource.FullNameFromNamespaceAndName("", "k1/"+key.String()),
-		CreationTime: fakeCreateTime.Local(),
-		Metadata: resource.Metadata{
-			Annotations: map[string]string{
-				"a1_key": "a1_value",
-				"a2_key": "a2_value",
-			},
-			Labels: map[string]string{
-				"l1_key": "l1_value",
-				"l2_key": "l2_value",
-			},
-		},
-		Resource: &legacy.LegacyMixerResource{
-			Name: "Key",
-			Kind: "k1",
-			Contents: &types.Struct{
-				Fields: map[string]*types.Value{
-					"foo": {
-						Kind: &types.Value_StringValue{
-							StringValue: "bar",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	if !reflect.DeepEqual(actual, expected) {
-		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
-	}
-}
-
-func TestLegacyMixerResource_NilResource(t *testing.T) {
-	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Struct")
-	s := b.Build()
-
-	info := s.Get("type.googleapis.com/google.protobuf.Struct")
-
-	key := resource.FullNameFromNamespaceAndName("ns1", "Key")
-
-	entries, err := legacyMixerResource(nil, info, key, "k1", nil)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	if len(entries) != 1 {
-		t.Fatalf("Expected one entry: %v", entries)
-	}
-
-	expectedKey := "k1/" + key.String()
-	if entries[0].Key.String() != expectedKey {
-		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", expectedKey, entries[0].Key)
-	}
-}
-
-func TestLegacyMixerResource_Error(t *testing.T) {
-	b := resource.NewSchemaBuilder()
-	b.Register("type.googleapis.com/google.protobuf.Any")
-	s := b.Build()
-
-	info := s.Get("type.googleapis.com/google.protobuf.Any")
-
-	u := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"kind": "k1",
-			"spec": 23,
-		},
-	}
-
-	key := resource.FullNameFromNamespaceAndName("", "Key")
-
-	_, err := legacyMixerResource(nil, info, key, "", u)
-	if err == nil {
-		t.Fatalf("expected error not found")
-	}
-}
-
 func TestAuthPolicyResource(t *testing.T) {
 	typeURL := fmt.Sprintf("type.googleapis.com/" + proto.MessageName((*authn.Policy)(nil)))
+	collection := "test/collection/authpolicy"
+
 	b := resource.NewSchemaBuilder()
-	b.Register(typeURL)
+	b.Register(collection, typeURL)
 	s := b.Build()
 
-	info := s.Get(typeURL)
+	info := s.Get(collection)
 
 	cases := []struct {
 		name string
@@ -471,11 +353,13 @@ func TestAuthPolicyResource(t *testing.T) {
 
 func TestKubeIngressResource(t *testing.T) {
 	typeURL := fmt.Sprintf("type.googleapis.com/" + proto.MessageName((*extensions.IngressSpec)(nil)))
+	collection := "test/collection/ingress"
+
 	b := resource.NewSchemaBuilder()
-	b.Register(typeURL)
+	b.Register(collection, typeURL)
 	s := b.Build()
 
-	info := s.Get(typeURL)
+	info := s.Get(collection)
 
 	meshCfgOff := meshconfig.NewInMemory()
 	meshCfgStrict := meshconfig.NewInMemory()

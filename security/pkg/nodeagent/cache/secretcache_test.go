@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 
@@ -410,9 +413,13 @@ func newMockCAClient() *mockCAClient {
 
 func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	atomic.AddUint64(&c.signInvokeCount, 1)
+	if atomic.LoadUint64(&c.signInvokeCount) == 0 {
+		atomic.AddUint64(&c.signInvokeCount, 1)
+		return nil, status.Error(codes.Internal, "some internal error")
+	}
 
 	if atomic.LoadUint64(&c.signInvokeCount) == 1 {
+		atomic.AddUint64(&c.signInvokeCount, 1)
 		return mockCertChain1st, nil
 	}
 

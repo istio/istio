@@ -39,8 +39,10 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 )
@@ -53,7 +55,7 @@ type Server struct {
 	grpcServer *grpc.Server
 	processor  *runtime.Processor
 	mcp        *server.Server
-	reporter   server.Reporter
+	reporter   monitoring.Reporter
 	listener   net.Listener
 	controlZ   *ctrlz.Server
 	stopCh     chan struct{}
@@ -65,7 +67,7 @@ type patchTable struct {
 	newSource                   func(kube.Interfaces, time.Duration, *kube.Schema, *kubeConverter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
-	mcpMetricReporter           func(string) server.Reporter
+	mcpMetricReporter           func(string) monitoring.Reporter
 	fsNew                       func(string, *kube.Schema, *kubeConverter.Config) (runtime.Source, error)
 }
 
@@ -75,7 +77,7 @@ func defaultPatchTable() patchTable {
 		verifyResourceTypesPresence: kubeSource.VerifyResourceTypesPresence,
 		newSource:                   kubeSource.New,
 		netListen:                   net.Listen,
-		mcpMetricReporter:           func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
+		mcpMetricReporter:           func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) },
 		newMeshConfigCache:          func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
 		fsNew:                       fs.New,
 	}
@@ -117,7 +119,9 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	if !convertK8SService {
 		var filtered []kube.ResourceSpec
 		for _, t := range specs {
-			if t.Kind != "Service" {
+			// TODO(nmittler): Temporarily filter Node and Pod until custom sources land.
+			// Pod yaml cannot be parsed currently. See: https://github.com/istio/istio/issues/10891
+			if t.Kind != "Service" && t.Kind != "Node" && t.Kind != "Pod" {
 				filtered = append(filtered, t)
 			}
 		}
@@ -166,7 +170,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
-	checker := server.NewAllowAllChecker()
+	var checker server.AuthChecker = server.NewAllowAllChecker()
 	if !a.Insecure {
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
@@ -185,7 +189,14 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
 	s.reporter = p.mcpMetricReporter("galley/")
-	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker, s.reporter)
+
+	options := &source.Options{
+		Watcher:            distributor,
+		Reporter:           s.reporter,
+		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+	}
+
+	s.mcp = server.New(options, checker)
 
 	// get the network stuff setup
 	network := "tcp"

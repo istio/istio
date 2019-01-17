@@ -317,7 +317,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 type XdsEvent struct {
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices map[string]*EndpointShardsByService
+	edsUpdatedServices map[string]*EndpointShards
 
 	push *model.PushContext
 
@@ -355,11 +355,10 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			return
 		}
 		select {
+		case reqChannel <- req:
 		case <-con.stream.Context().Done():
 			adsLog.Errorf("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
-		default:
-			reqChannel <- req
 		}
 	}
 }
@@ -630,10 +629,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	con.mu.Unlock()
 
-	s.globalPushContext().UpdateNodeIsolation(con.modelNode)
-
-	// TODO
-	// use networkScope to update the list of namespace and service dependencies
+	// Set the sidecarScope associated with this proxy if its a sidecar.
+	if con.modelNode.Type == model.SidecarProxy {
+		s.globalPushContext().SetSidecarScope(con.modelNode)
+	}
 
 	return nil
 }
@@ -659,8 +658,11 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	// This needs to be called to update list of visible services in the node.
-	pushEv.push.UpdateNodeIsolation(con.modelNode)
+	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
+	// Saves compute cycles in networking code
+	if con.modelNode.Type == model.SidecarProxy {
+		pushEv.push.SetSidecarScope(con.modelNode)
+	}
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
@@ -735,7 +737,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	full bool, edsUpdates map[string]*EndpointShardsByService) {
+	full bool, edsUpdates map[string]*EndpointShards) {
 	if !full {
 		s.edsIncremental(version, push, edsUpdates)
 		return
@@ -773,7 +775,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool,
-	edsUpdates map[string]*EndpointShardsByService) {
+	edsUpdates map[string]*EndpointShards) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table

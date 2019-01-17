@@ -237,6 +237,8 @@ func buildEnvForClustersWithIstioMutualWithSNI(sniValue string) *model.Environme
 				},
 			},
 		}})
+	// Initialize the sidecarScope again as it was previously initialized with empty destination rules
+	env.PushContext.InitSidecarScopes(env)
 
 	return env
 }
@@ -395,6 +397,8 @@ func buildEnvForClustersWithTCPKeepalive(configType ConfigType) *model.Environme
 			},
 		},
 	})
+	// Reinitialize sidecar scopes as it got initialized with empty destination rules in the InitContext call
+	env.PushContext.InitSidecarScopes(env)
 
 	return env
 }

@@ -77,7 +77,14 @@ data:
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain }}
 
-    #
+    # Set the default behavior of the sidecar for handling outbound traffic from the application:
+    # REGISTRY_ONLY - restrict outbound traffic to services defined in the service registry as well
+    #   as those defined through ServiceEntries
+    # ALLOW_ANY - outbound traffic to unknown destinations will be allowed, in case there are no
+    #   services or ServiceEntries for the destination port
+    outboundTrafficPolicy:
+      mode: {{ .Values.global.outboundTrafficPolicy.mode }}
+
     defaultConfig:
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.

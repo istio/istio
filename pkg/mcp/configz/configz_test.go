@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/mcp/source"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
+
 	"github.com/gogo/protobuf/types"
 	"google.golang.org/grpc"
 
@@ -31,20 +34,22 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	mcptest "istio.io/istio/pkg/mcp/testing"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
 type updater struct {
 }
 
-func (u *updater) Apply(c *client.Change) error {
+func (u *updater) Apply(c *sink.Change) error {
 	return nil
 }
 
+const testEmptyCollection = "/test/collection/empty"
+
 func TestConfigZ(t *testing.T) {
-	s, err := mcptest.NewServer(0, []string{"type.googleapis.com/google.protobuf.Empty"})
+	s, err := mcptest.NewServer(0, []source.CollectionOptions{{Name: testEmptyCollection}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,9 +62,15 @@ func TestConfigZ(t *testing.T) {
 
 	u := &updater{}
 	clnt := mcp.NewAggregatedMeshConfigServiceClient(cc)
-	cl := client.New(clnt, []string{"type.googleapis.com/google.protobuf.Empty"}, u,
-		snapshot.DefaultGroup, map[string]string{"foo": "bar"},
-		mcptestmon.NewInMemoryClientStatsContext())
+
+	options := &sink.Options{
+		CollectionOptions: []sink.CollectionOptions{{Name: testEmptyCollection}},
+		Updater:           u,
+		ID:                snapshot.DefaultGroup,
+		Metadata:          map[string]string{"foo": "bar"},
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	cl := client.New(clnt, options)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go cl.Run(ctx)
@@ -84,9 +95,8 @@ func TestConfigZ(t *testing.T) {
 	t.Run("configz with initial requests", func(tt *testing.T) { testConfigZWithNoRequest(tt, baseURL) })
 
 	b := snapshot.NewInMemoryBuilder()
-	b.SetVersion("type.googleapis.com/google.protobuf.Empty", "23")
-	err = b.SetEntry("type.googleapis.com/google.protobuf.Empty", "foo", "v0",
-		time.Time{}, nil, nil, &types.Empty{})
+	b.SetVersion(testEmptyCollection, "23")
+	err = b.SetEntry(testEmptyCollection, "foo", "v0", time.Time{}, nil, nil, &types.Empty{})
 	if err != nil {
 		t.Fatalf("Setting an entry should not have failed: %v", err)
 	}
@@ -117,27 +127,33 @@ func testConfigZWithNoRequest(t *testing.T, baseURL string) {
 	if !strings.Contains(data, "foo") || !strings.Contains(data, "bar") {
 		t.Fatalf("Metadata should have been displayed: %q", data)
 	}
-	if !strings.Contains(data, "type.googleapis.com/google.protobuf.Empty") {
-		t.Fatalf("Supported urls should have been displayed: %q", data)
+	if !strings.Contains(data, testEmptyCollection) {
+		t.Fatalf("Collections should have been displayed: %q", data)
 	}
-	if strings.Count(data, "type.googleapis.com/google.protobuf.Empty") != 2 {
-		t.Fatalf("Only supported urls and the initial ACK request should have been displayed: %q", data)
+	want := 2
+	if got := strings.Count(data, testEmptyCollection); got != want {
+		t.Fatalf("Only the collection and initial ACK request should have been displayed: got %v want %v: %q",
+			got, want, data)
 	}
 }
 
 func testConfigZWithOneRequest(t *testing.T, baseURL string) {
+	t.Helper()
+
 	for i := 0; i < 10; i++ {
 		data := request(t, baseURL+"/configz")
-		if strings.Count(data, "type.googleapis.com/google.protobuf.Empty") != 3 {
+		if strings.Count(data, testEmptyCollection) != 3 {
 			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 		return
 	}
-	t.Fatal("Both supported urls, the initial request, and a recent ACK request should have been displayed")
+	t.Fatal("Both collections, the initial request, and a recent ACK request should have been displayed")
 }
 
 func testConfigJWithOneRequest(t *testing.T, baseURL string) {
+	t.Helper()
+
 	data := request(t, baseURL+"/configj/")
 
 	m := make(map[string]interface{})
@@ -154,9 +170,9 @@ func testConfigJWithOneRequest(t *testing.T, baseURL string) {
 		t.Fatalf("Should have contained metadata: %v", data)
 	}
 
-	if len(m["SupportedTypeURLs"].([]interface{})) != 1 ||
-		m["SupportedTypeURLs"].([]interface{})[0].(string) != "type.googleapis.com/google.protobuf.Empty" {
-		t.Fatalf("Should have contained supported type urls: %v", data)
+	if len(m["Collections"].([]interface{})) != 1 ||
+		m["Collections"].([]interface{})[0].(string) != testEmptyCollection {
+		t.Fatalf("Should have contained supported collections: %v", data)
 	}
 
 	if len(m["LatestRequests"].([]interface{})) != 2 {

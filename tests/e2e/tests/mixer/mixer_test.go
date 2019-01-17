@@ -396,20 +396,9 @@ type redisDeployment struct {
 }
 
 func (r *redisDeployment) Setup() error {
-	// Deploy Tiller if it not does not already exist. Otherwise, wait to see if it is running for 3m before
-	// trying to deploy.
-	if _, err := util.GetPodName("kube-system", "name=tiller", tc.Kube.KubeConfig); err == nil {
-		// if the pod exists, check to see if it is running...
-		if err := util.CheckPodRunning("kube-system", "name=tiller", tc.Kube.KubeConfig); err != nil {
-			if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
-				return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
-			}
-		}
-	} else {
-		// no sense in retrying if the pod was not deployed before... deploy it now...
-		if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
-			return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
-		}
+	// Deploy Tiller if not already deployed
+	if errDeployTiller := tc.Kube.DeployTiller(); errDeployTiller != nil {
+		return fmt.Errorf("failed to deploy helm tiller: %v", errDeployTiller)
 	}
 
 	setValue := "--set usePassword=false,persistence.enabled=false"
@@ -867,30 +856,54 @@ func testCheckCache(t *testing.T, visit func() error, app string) {
 }
 
 // nolint: unparam
-func fetchRequestCount(t *testing.T, promAPI v1.API, service string) (prior429s float64, prior200s float64, value model.Value) {
+func fetchRequestCount(t *testing.T, promAPI v1.API, service, additionalLabels string, totalReqExpected float64) (prior429s float64, prior200s float64) {
 	var err error
 	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("istio_requests_total{%s=\"%s\"}", destLabel, fqdn(service))
-	t.Logf("prometheus query: %s", query)
-	value, err = promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
+
+	retry := util.Retrier{
+		BaseDelay: 30 * time.Second,
+		Retries:   4,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		t.Helper()
+		t.Logf("Trying to find metrics via promql (attempt %d)...", i)
+		query := fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service), reporterLabel, "destination", additionalLabels)
+		t.Logf("prometheus query: %s", query)
+		totalReq, err := queryValue(promAPI, query)
+		if err != nil {
+			t.Logf("error getting total requests (msg: %v)", err)
+			return err
+		}
+		if totalReq < totalReqExpected {
+			return fmt.Errorf("total Requests: %f less than expected: %f", totalReq, totalReqExpected)
+		}
+		return nil
+	}
+
+	if _, err := retry.Retry(context.Background(), retryFn); err != nil {
+		dumpMixerMetrics()
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
 
-	prior429s, err = vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "destination"})
+	query := fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service),
+		reporterLabel, "destination", responseCodeLabel, "429", additionalLabels)
+	prior429s, err = queryValue(promAPI, query)
 	if err != nil {
 		t.Logf("error getting prior 429s, using 0 as value (msg: %v)", err)
 		prior429s = 0
 	}
 
-	prior200s, err = vectorValue(value, map[string]string{responseCodeLabel: "200", reporterLabel: "destination"})
+	query = fmt.Sprintf("sum(istio_requests_total{%s=\"%s\",%s=\"%s\",%s=\"%s\",%s})", destLabel, fqdn(service),
+		reporterLabel, "destination", responseCodeLabel, "200", additionalLabels)
+	prior200s, err = queryValue(promAPI, query)
 	if err != nil {
 		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
 		prior200s = 0
 	}
 	t.Logf("Baseline established: prior200s = %f, prior429s = %f", prior200s, prior429s)
 
-	return prior429s, prior200s, value
+	return prior429s, prior200s
 }
 
 func sendTraffic(t *testing.T, msg string, calls int64) *fhttp.HTTPRunnerResults {
@@ -950,11 +963,11 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 
 	// establish baseline
 
-	initPrior429s, _, _ := fetchRequestCount(t, promAPI, "ratings")
+	initPrior429s, initPrior200s := fetchRequestCount(t, promAPI, "ratings", "", 0)
 
 	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
-	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings")
+	prior429s, prior200s := fetchRequestCount(t, promAPI, "ratings", "", initPrior429s+initPrior200s+150)
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
 		fatalf(t, "no 429 is allotted time: prior429s:%v", prior429s)
@@ -991,55 +1004,49 @@ func TestMetricsAndRateLimitAndRulesAndBookinfo(t *testing.T) {
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	_, _, value := fetchRequestCount(t, promAPI, "ratings")
-	log.Infof("promvalue := %s", value.String())
-
-	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "destination_version": "v1"})
-	if err != nil {
+	got200s, got429s := fetchRequestCount(t, promAPI, "ratings", "destination_version=\"v1\"", prior429s+prior200s+300)
+	if got429s == 0 {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Could not find 429s: %v", err)
-		got = 0 // want to see 200 rate even if no 429s were recorded
 	}
 
 	// Lenient calculation TODO: tighten/simplify
-	want := math.Floor(want429s * .25)
+	want429s = math.Floor(want429s * .25)
 
-	got = got - prior429s
+	got429s = got429s - prior429s
 
-	t.Logf("Actual 429s: %f (%f rps)", got, got/actualDuration)
+	t.Logf("Actual 429s: %f (%f rps)", got429s, got429s/actualDuration)
 
 	// check resource exhausted
-	if got < want {
+	if got429s < want429s {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
-		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
+		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got429s, want429s)
 	}
 
-	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", "destination_version": "v1"})
-	if err != nil {
+	if got200s == 0 {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
 		errorf(t, "Could not find successes value: %v", err)
-		got = 0
 	}
 
-	got = got - prior200s
+	got200s = got200s - prior200s
 
-	t.Logf("Actual 200s: %f (%f rps), expecting ~1 rps", got, got/actualDuration)
+	t.Logf("Actual 200s: %f (%f rps), expecting ~1 rps", got200s, got200s/actualDuration)
 
 	// establish some baseline to protect against flakiness due to randomness in routing
 	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
 	// less than 10, don't fail this test).
-	want = math.Floor(want200s * .25)
+	want := math.Floor(want200s * .25)
 
 	// check successes
-	if got < want {
+	if got200s < want {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
-		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
+		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got200s, want)
 	}
 	// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 25% - should be only 5% or so
 	want200s = math.Ceil(want200s * 1.5)
-	if got > want200s {
+	if got200s > want {
 		t.Logf("prometheus values for istio_requests_total:\n%s", promDump(promAPI, "istio_requests_total"))
-		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
+		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got200s, want200s)
 	}
 }
 
@@ -1071,14 +1078,16 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
 
+	// This is the number of requests we allow to be missing to be reported, so as to make test stable.
+	errorInRequestReportingAllowed := 5.0
 	// establish baseline
 	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
-	initPrior429s, _, _ := fetchRequestCount(t, promAPI, "ratings")
+	initPrior429s, initPrior200s := fetchRequestCount(t, promAPI, "ratings", "", 0)
 
 	_ = sendTraffic(t, "Warming traffic...", 150)
 	allowPrometheusSync()
-	prior429s, prior200s, _ := fetchRequestCount(t, promAPI, "ratings")
+	prior429s, prior200s := fetchRequestCount(t, promAPI, "ratings", "", initPrior429s+initPrior200s+150-errorInRequestReportingAllowed)
 	// check if at least one more prior429 was reported
 	if prior429s-initPrior429s < 1 {
 		fatalf(t, "no 429 in allotted time: prior429s:%v", prior429s)
@@ -1121,64 +1130,59 @@ func testRedisQuota(t *testing.T, quotaRule string) {
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	_, _, value := fetchRequestCount(t, promAPI, "ratings")
-	log.Infof("promvalue := %s", value.String())
+	got429s, got200s := fetchRequestCount(t, promAPI, "ratings", "", prior429s+prior200s+300-errorInRequestReportingAllowed)
 
-	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", reporterLabel: "destination"})
-	if err != nil {
+	if got429s == 0 {
 		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
 			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 429), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
 		t.Logf("prometheus values for istio_requests_total for 429's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		errorf(t, "Could not find 429s: %v", err)
-		got = 0 // want to see 200 rate even if no 429s were recorded
 	}
 
-	want := math.Floor(want429s * 0.70)
+	want429s = math.Floor(want429s * 0.70)
 
-	got = got - prior429s
+	got429s = got429s - prior429s
 
-	t.Logf("Actual 429s: %f (%f rps)", got, got/actualDuration)
+	t.Logf("Actual 429s: %f (%f rps)", got429s, got429s/actualDuration)
 
 	// check resource exhausted
-	if got < want {
+	if got429s < want429s {
 		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
 			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 429), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
 		t.Logf("prometheus values for istio_requests_total for 429's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
-		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
+		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got429s, want429s)
 	}
 
-	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", reporterLabel: "destination"})
-	if err != nil {
+	if got200s == 0 {
 		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
 			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 200), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
 		t.Logf("prometheus values for istio_requests_total for 200's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
 		errorf(t, "Could not find successes value: %v", err)
-		got = 0
 	}
 
-	got = got - prior200s
+	got200s = got200s - prior200s
 
-	t.Logf("Actual 200s: %f (%f rps), expecting ~1.666rps", got, got/actualDuration)
+	t.Logf("Actual 200s: %f (%f rps), expecting ~1.666rps", got200s, got200s/actualDuration)
 
 	// establish some baseline to protect against flakiness due to randomness in routing
 	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
 	// less than 10, don't fail this test).
-	want = math.Floor(want200s * 0.70)
+	want := math.Floor(want200s * 0.70)
 
 	// check successes
-	if got < want {
+	if got200s < want {
 		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
 			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 200), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
 		t.Logf("prometheus values for istio_requests_total for 200's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
-		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
+		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got200s, want)
 	}
 	// TODO: until https://github.com/istio/istio/issues/3028 is fixed, use 25% - should be only 5% or so
 	want200s = math.Ceil(want200s * 1.25)
-	if got > want200s {
+	if got200s > want200s {
 		attributes := []string{fmt.Sprintf("%s=\"%s\"", destLabel, fqdn("ratings")),
 			fmt.Sprintf("%s=\"%d\"", responseCodeLabel, 200), fmt.Sprintf("%s=\"%s\"", reporterLabel, "destination")}
 		t.Logf("prometheus values for istio_requests_total for 200's:\n%s", promDumpWithAttributes(promAPI, "istio_requests_total", attributes))
-		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
+		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got200s, want200s)
 	}
 }
 
