@@ -159,6 +159,20 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
+				defaultCluster.Metadata = &core.Metadata{
+					FilterMetadata: map[string]*types.Struct{
+						util.IstioMetadataKey: {
+							Fields:               map[string]*types.Value{
+								util.IstioMetadataDestinationRuleKey : {
+									Kind:                 &types.Value_StringValue{
+										StringValue: fmt.Sprintf("%s.%s.%s", config.Name,
+											config.Namespace, config.Domain),
+									},
+								},
+							},
+						},
+					},
+				}
 
 				for _, subset := range destinationRule.Subsets {
 					inputParams.Subset = subset.Name
@@ -175,6 +189,21 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 					setUpstreamProtocol(subsetCluster, port)
 					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni, DefaultClusterMode)
+					subsetCluster.Metadata = &core.Metadata{
+						FilterMetadata: map[string]*types.Struct{
+							util.IstioMetadataKey: {
+								Fields:               map[string]*types.Value{
+									util.IstioMetadataDestinationRuleKey : {
+										Kind:                 &types.Value_StringValue{
+											StringValue: fmt.Sprintf("%s.%s.%s", config.Name,
+												config.Namespace, config.Domain),
+										},
+									},
+								},
+							},
+						},
+					}
+
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(inputParams, subsetCluster)
@@ -219,6 +248,20 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 			if config != nil {
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, nil, "", SniDnatClusterMode)
+				defaultCluster.Metadata = &core.Metadata{
+					FilterMetadata: map[string]*types.Struct{
+						util.IstioMetadataKey: {
+							Fields:               map[string]*types.Value{
+								util.IstioMetadataDestinationRuleKey : {
+									Kind:                 &types.Value_StringValue{
+										StringValue: fmt.Sprintf("%s.%s.%s", config.Name,
+											config.Namespace, config.Domain),
+									},
+								},
+							},
+						},
+					},
+				}
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
@@ -232,6 +275,20 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 					updateEds(subsetCluster)
 					applyTrafficPolicy(env, subsetCluster, destinationRule.TrafficPolicy, port, nil, "", SniDnatClusterMode)
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, nil, "", SniDnatClusterMode)
+					subsetCluster.Metadata = &core.Metadata{
+						FilterMetadata: map[string]*types.Struct{
+							util.IstioMetadataKey: {
+								Fields:               map[string]*types.Value{
+									util.IstioMetadataDestinationRuleKey : {
+										Kind:                 &types.Value_StringValue{
+											StringValue: fmt.Sprintf("%s.%s.%s", config.Name,
+												config.Namespace, config.Domain),
+										},
+									},
+								},
+							},
+						},
+					}
 					clusters = append(clusters, subsetCluster)
 				}
 			}
@@ -448,6 +505,21 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(pluginParams.Env, localCluster, destinationRule.TrafficPolicy.ConnectionPool)
+			localCluster.Metadata = &core.Metadata{
+				FilterMetadata: map[string]*types.Struct{
+					util.IstioMetadataKey: {
+						Fields:               map[string]*types.Value{
+							util.IstioMetadataDestinationRuleKey : {
+								Kind:                 &types.Value_StringValue{
+									StringValue: fmt.Sprintf("%s.%s.%s", config.Name,
+										config.Namespace, config.Domain),
+								},
+							},
+						},
+					},
+				},
+			}
+
 		}
 	}
 	return localCluster

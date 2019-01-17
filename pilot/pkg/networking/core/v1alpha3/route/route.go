@@ -246,19 +246,17 @@ func BuildHTTPRoutesForVirtualService(
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
 	}
 
-	vsName := virtualService.ConfigMeta.Name
-
 	out := make([]route.Route, 0, len(vs.Http))
 allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(push, node, http, match, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
@@ -300,7 +298,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels model.Label
 // translateRoute translates HTTP routes
 func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
-	vsName string,
+	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) *route.Route {
@@ -321,6 +319,20 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	out := &route.Route{
 		Match:           translateRouteMatch(match),
 		PerFilterConfig: make(map[string]*types.Struct),
+		Metadata : &core.Metadata{
+			FilterMetadata: map[string]*types.Struct{
+				util.IstioMetadataKey: {
+					Fields:               map[string]*types.Value{
+						util.IstioMetadataVirtualServiceKey : {
+							Kind:                 &types.Value_StringValue{
+								StringValue: fmt.Sprintf("%s.%s.%s", virtualService.Name,
+									virtualService.Namespace, virtualService.Domain),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	if redirect := in.Redirect; redirect != nil {
@@ -446,7 +458,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out.Decorator = &route.Decorator{
-		Operation: getRouteOperation(out, vsName, port),
+		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
 		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))

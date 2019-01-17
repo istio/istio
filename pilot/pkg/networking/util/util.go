@@ -44,7 +44,15 @@ const (
 	PassthroughCluster = "PassthroughCluster"
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-
+	// IstioMetadataKey is the key under which metadata is added to a route or cluster
+	// regarding the virtual service or destination rule used for each
+	IstioMetadataKey = "networking.istio.io"
+	// IstioMetadataVirtualServiceKey is the key name for the virtual service inside
+	// the Istio metadata
+	IstioMetadataVirtualServiceKey = "VirtualService"
+	// IstioMetadataDestinationRuleKey is the key name for the destination rule inside
+	// the Istio metadata
+	IstioMetadataDestinationRuleKey = "DestinationRule"
 	// The range of LoadBalancingWeight is [1, 128]
 	maxLoadBalancingWeight = 128
 )
