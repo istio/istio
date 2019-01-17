@@ -16,11 +16,9 @@
 package lang
 
 import (
-	"fmt"
-	"reflect"
+	"os"
 
 	"istio.io/api/policy/v1beta1"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -34,80 +32,19 @@ type (
 	}
 )
 
+var (
+	// languageMode selects the evaluation engine for Mixer expressions
+	languageMode = os.Getenv("MIXER_LANG_MODE")
+)
+
 // NewBuilder returns an expression builder
 func NewBuilder(finder ast.AttributeDescriptorFinder) Compiler {
-	return &validatingCompiler{
-		cexl: compiled.NewBuilder(finder),
-		cel:  cel.NewBuilder(finder, cel.LegacySyntaxCEL),
+	switch languageMode {
+	case "COMPAT":
+		return cel.NewBuilder(finder, cel.LegacySyntaxCEL)
+	case "CEL":
+		return cel.NewBuilder(finder, cel.CEL)
+	default:
+		return compiled.NewBuilder(finder)
 	}
-}
-
-type validatingCompiler struct {
-	cel, cexl Compiler
-}
-
-type validatingExpression struct {
-	expr      string
-	cel, cexl compiled.Expression
-}
-
-func (vc *validatingCompiler) Compile(expr string) (compiled.Expression, v1beta1.ValueType, error) {
-	celEx, celTyp, celErr := vc.cel.Compile(expr)
-	cexlEx, cexlTyp, cexlErr := vc.cexl.Compile(expr)
-
-	if cexlErr != nil && celErr == nil {
-		panic(fmt.Sprintf("expected CEL error: %v %q", cexlErr, expr))
-	}
-	if celErr != nil && cexlErr == nil {
-		panic(fmt.Sprintf("expected CEXL error: %v %q", celErr, expr))
-	}
-	if celTyp != cexlTyp {
-		panic(fmt.Errorf("type difference CEL %v and CEXL %v for %q", celTyp, cexlTyp, expr))
-	}
-
-	return &validatingExpression{expr: expr, cel: celEx, cexl: cexlEx}, celTyp, celErr
-}
-
-func (ve *validatingExpression) validate(celEx interface{}, celErr error, cexlEx interface{}, cexlErr error,
-	attributes attribute.Bag) {
-	if cexlErr != nil && celErr == nil {
-		panic(fmt.Sprintf("expected CEL error: %v %q %s", cexlErr, ve.expr, attributes))
-	}
-	if celErr != nil && cexlErr == nil {
-		panic(fmt.Sprintf("expected CEXL error: %v %q %s", celErr, ve.expr, attributes))
-	}
-	if !reflect.DeepEqual(celEx, cexlEx) {
-		panic(fmt.Sprintf("unexpected expression value: CEL %v and CEXL %v, %q %s \n %s", celEx, cexlEx, ve.expr, ve.cel, attributes))
-	}
-}
-
-func (ve *validatingExpression) Evaluate(attributes attribute.Bag) (interface{}, error) {
-	cel, celErr := ve.cel.Evaluate(attributes)
-	cexl, cexlErr := ve.cexl.Evaluate(attributes)
-	ve.validate(cel, celErr, cexl, cexlErr, attributes)
-	return cel, celErr
-}
-func (ve *validatingExpression) EvaluateBoolean(attributes attribute.Bag) (bool, error) {
-	cel, celErr := ve.cel.EvaluateBoolean(attributes)
-	cexl, cexlErr := ve.cexl.EvaluateBoolean(attributes)
-	ve.validate(cel, celErr, cexl, cexlErr, attributes)
-	return cel, celErr
-}
-func (ve *validatingExpression) EvaluateString(attributes attribute.Bag) (string, error) {
-	cel, celErr := ve.cel.EvaluateString(attributes)
-	cexl, cexlErr := ve.cexl.EvaluateString(attributes)
-	ve.validate(cel, celErr, cexl, cexlErr, attributes)
-	return cel, celErr
-}
-func (ve *validatingExpression) EvaluateDouble(attributes attribute.Bag) (float64, error) {
-	cel, celErr := ve.cel.EvaluateDouble(attributes)
-	cexl, cexlErr := ve.cexl.EvaluateDouble(attributes)
-	ve.validate(cel, celErr, cexl, cexlErr, attributes)
-	return cel, celErr
-}
-func (ve *validatingExpression) EvaluateInteger(attributes attribute.Bag) (int64, error) {
-	cel, celErr := ve.cel.EvaluateInteger(attributes)
-	cexl, cexlErr := ve.cexl.EvaluateInteger(attributes)
-	ve.validate(cel, celErr, cexl, cexlErr, attributes)
-	return cel, celErr
 }
