@@ -807,8 +807,9 @@ func applyLocalitySettings(
 	}
 
 	// one of Distribute or Failover settings can be applied.
-	applyLocalityWeight(proxy, loadAssignment, localitySettings.GetDistribute())
-	if localityPriority && localitySettings.GetDistribute() != nil {
+	if localitySettings.GetDistribute() != nil {
+		applyLocalityWeight(proxy, loadAssignment, localitySettings.GetDistribute())
+	} else if localityPriority {
 		applyLocalityFailover(proxy, loadAssignment, localitySettings.GetFailover())
 	}
 }
@@ -833,10 +834,12 @@ func applyLocalityWeight(
 				destLocMap := map[int]uint32{}
 				totalWeight := uint32(0)
 				for i, ep := range loadAssignment.Endpoints {
-					if util.LocalityMatch(ep.Locality, locality) {
-						delete(misMatched, i)
-						destLocMap[i] = ep.LoadBalancingWeight.Value
-						totalWeight += destLocMap[i]
+					if _, exist := misMatched[i]; exist {
+						if util.LocalityMatch(ep.Locality, locality) {
+							delete(misMatched, i)
+							destLocMap[i] = ep.LoadBalancingWeight.Value
+							totalWeight += destLocMap[i]
+						}
 					}
 				}
 				// in case wildcard dest matching multi groups of endpoints
@@ -877,6 +880,7 @@ func applyLocalityFailover(
 				}
 			}
 		}
+		loadAssignment.Endpoints[i].Priority = uint32(priority)
 		priorityMap[priority] = append(priorityMap[priority], i)
 	}
 
