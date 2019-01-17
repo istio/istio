@@ -17,10 +17,11 @@ package runtime
 import (
 	"bytes"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/gogo/protobuf/types"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/conversions"
@@ -152,11 +153,37 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 
 	// Build ingress projections
 	state := s.entries[metadata.Ingress.Collection]
-	if state == nil {
+	if state == nil || len (state.entries) == 0 {
 		return
 	}
 
-	for name, entry := range state.entries {
+	s.versionCounter++
+	version := s.versionCounter
+	versionStr := fmt.Sprintf("%d_%d",
+		s.entries[metadata.Gateway.Collection].version,
+		version)
+	b.SetVersion(metadata.Gateway.Collection.String(), versionStr)
+
+	s.versionCounter++
+	version = s.versionCounter
+	versionStr = fmt.Sprintf("%d_%d",
+		s.entries[metadata.VirtualService.Collection].version,
+		version)
+	b.SetVersion(metadata.VirtualService.Collection.String(), versionStr)
+
+
+	// Order names for stable generation.
+	var orderedNames []resource.FullName
+	for name := range state.entries {
+		orderedNames = append(orderedNames, name)
+	}
+	sort.Slice(orderedNames, func(i, j int) bool {
+		return strings.Compare(orderedNames[i].String(), orderedNames[j].String()) < 0
+	})
+
+	for _, name := range orderedNames {
+		entry := state.entries[name]
+
 		ingress, err := conversions.ToIngressSpec(entry)
 		if err != nil {
 			// Shouldn't happen
@@ -177,7 +204,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 			string(gw.ID.Version),
 			gw.Metadata.CreateTime,
 			gw.Metadata.Labels,
-			gw.Metadata.Annotations,
+			nil,
 			gw.Item)
 		if err != nil {
 			scope.Errorf("Unable to set gateway entry: %v", err)
@@ -191,7 +218,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 			string(e.ID.Version),
 			e.Metadata.CreateTime,
 			e.Metadata.Labels,
-			e.Metadata.Annotations,
+			nil,
 			e.Item)
 		if err != nil {
 			scope.Errorf("Unable to set virtualservice entry: %v", err)
