@@ -583,8 +583,9 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		}
 	}
 
+	// TODO: pending discussion on API default behavior.
 	if len(rule.Ingress) == 0 && len(rule.Egress) == 0 {
-		return fmt.Errorf("sidecar: missing ingress/egress listeners")
+		return fmt.Errorf("sidecar: missing ingress/egress")
 	}
 
 	portMap := make(map[uint32]struct{})

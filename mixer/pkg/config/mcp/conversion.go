@@ -34,7 +34,7 @@ type mapping struct {
 	collectionsToKinds map[string]string
 }
 
-// construct a mapping of kinds and Collections. allKinds is the kind set that was passed
+// construct a mapping of kinds and collections. allKinds is the kind set that was passed
 // as part of backend creation.
 func constructMapping(allKinds []string, schema *kube.Schema) (*mapping, error) {
 	// The mapping is constructed from the common metadata we have for the Kubernetes.
@@ -64,7 +64,7 @@ func constructMapping(allKinds []string, schema *kube.Schema) (*mapping, error) 
 	// We couldn't find metadata for some of the well-known Mixer kinds. This shouldn't happen
 	// and is a fatal error.
 	if len(missingKinds) > 0 {
-		return nil, fmt.Errorf("unable to map some Mixer kinds to Collections: %q",
+		return nil, fmt.Errorf("unable to map some Mixer kinds to collections: %q",
 			strings.Join(missingKinds, ","))
 	}
 

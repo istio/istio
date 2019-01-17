@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/features/pilot"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 )
@@ -181,6 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		return nil, err
 	}
 
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	listeners := make([]*xdsapi.Listener, 0)
 
 	if mesh.ProxyListenPort > 0 {
@@ -196,7 +198,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		generateManagementListeners := true
 
 		sidecarScope := node.SidecarScope
-		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners {
+		if sidecarScope != nil && sidecarScope.HasCustomIngressListeners ||
+			noneMode {
 			generateManagementListeners = false
 		}
 
@@ -263,8 +266,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 		})
 	}
 
+	httpProxyPort := mesh.ProxyHttpPort
+	if httpProxyPort == 0 && noneMode { // make sure http proxy is enabled for 'none' interception.
+		httpProxyPort = int32(pilot.DefaultPortHTTPProxy)
+	}
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
-	if mesh.ProxyHttpPort > 0 {
+	if httpProxyPort > 0 {
 		useRemoteAddress := false
 		traceOperation := http_conn.EGRESS
 		listenAddress := LocalhostAddress
@@ -274,7 +281,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 			proxy:          node,
 			proxyInstances: proxyInstances,
 			bind:           listenAddress,
-			port:           int(mesh.ProxyHttpPort),
+			port:           int(httpProxyPort),
 			filterChainOpts: []*filterChainOpts{{
 				httpOpts: &httpListenerOpts{
 					rds:              RDSHttpProxy,
@@ -332,6 +339,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 	}
 
 	sidecarScope := node.SidecarScope
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// There is no user supplied sidecarScope for this namespace
@@ -362,6 +370,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				env:            env,
 				proxy:          node,
 				proxyInstances: proxyInstances,
+				proxyLabels:    proxyLabels,
 				bind:           bind,
 				port:           endpoint.Port,
 				bindToPort:     bindToPort,
@@ -390,7 +399,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 		for _, ingressListener := range rule.Ingress {
 			// determine the bindToPort setting for listeners
 			bindToPort := false
-			if node.GetInterceptionMode() == model.InterceptionNone {
+			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
 			} else {
@@ -412,9 +421,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 			}
 
 			bind := ingressListener.Bind
-			// if bindToPort is true, we set the bind address if empty to 127.0.0.1
+			// if bindToPort is true, we set the bind address if empty to 0.0.0.0 - this is an inbound port.
 			if len(bind) == 0 && bindToPort {
-				bind = LocalhostAddress
+				bind = WildcardAddress
 			} else if len(bind) == 0 {
 				// auto infer the IP from the proxyInstances
 				// We assume all endpoints in the proxy instances have the same IP
@@ -426,6 +435,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				env:            env,
 				proxy:          node,
 				proxyInstances: proxyInstances,
+				proxyLabels:    proxyLabels,
 				bind:           bind,
 				port:           listenPort.Port,
 				bindToPort:     bindToPort,
@@ -668,6 +678,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	sidecarScope := node.SidecarScope
+	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 
 	var tcpListeners, httpListeners []*xdsapi.Listener
 	// For conflict resolution
@@ -681,7 +692,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 		// determine the bindToPort setting for listeners
 		bindToPort := false
-		if node.GetInterceptionMode() == model.InterceptionNone {
+		if noneMode {
 			bindToPort = true
 		}
 

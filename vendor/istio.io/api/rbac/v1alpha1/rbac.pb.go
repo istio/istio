@@ -71,6 +71,8 @@
 		rbac/v1alpha1/rbac.proto
 
 	It has these top-level messages:
+		WorkloadSelector
+		AuthorizationPolicy
 		ServiceRole
 		AccessRule
 		ServiceRoleBinding
@@ -159,11 +161,74 @@ var RbacConfig_Mode_value = map[string]int32{
 func (x RbacConfig_Mode) String() string {
 	return proto.EnumName(RbacConfig_Mode_name, int32(x))
 }
-func (RbacConfig_Mode) EnumDescriptor() ([]byte, []int) { return fileDescriptorRbac, []int{5, 0} }
+func (RbacConfig_Mode) EnumDescriptor() ([]byte, []int) { return fileDescriptorRbac, []int{7, 0} }
+
+// $hide_from_docs
+// This is forked from the networking/v1alpha3/sidecar.proto to avoid a direct
+// dependency from the rbac API on networking API.
+// TODO: Move the WorkloadSelector to a common place to be shared by other packages.
+// WorkloadSelector specifies the criteria used to determine if the Gateway
+// or Sidecar resource can be applied to a proxy. The matching criteria
+// includes the metadata associated with a proxy, workload info such as
+// labels attached to the pod/VM, or any other info that the proxy provides
+// to Istio during the initial handshake. If multiple conditions are
+// specified, all conditions need to match in order for the workload to be
+// selected. Currently, only label based selection mechanism is supported.
+type WorkloadSelector struct {
+	// One or more labels that indicate a specific set of pods/VMs on which
+	// this sidecar configuration should be applied. The scope of label
+	// search is restricted to the configuration namespace in which the the
+	// resource is present.
+	Labels map[string]string `protobuf:"bytes,1,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (m *WorkloadSelector) Reset()                    { *m = WorkloadSelector{} }
+func (m *WorkloadSelector) String() string            { return proto.CompactTextString(m) }
+func (*WorkloadSelector) ProtoMessage()               {}
+func (*WorkloadSelector) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{0} }
+
+func (m *WorkloadSelector) GetLabels() map[string]string {
+	if m != nil {
+		return m.Labels
+	}
+	return nil
+}
+
+// $hide_from_docs
+// AuthorizationPolicy to enforce access control on a selected workload.
+type AuthorizationPolicy struct {
+	// $hide_from_docs
+	// Optional. One or more labels that indicate a specific set of pods/VMs
+	// on which this authorization policy should be applied. Leave this empty to
+	// select all pods/VMs.
+	// The scope of label search is platform dependent. On Kubernetes, for example,
+	// the scope includes pods running in the same namespace as the authorization policy itself.
+	WorkloadSelector *WorkloadSelector `protobuf:"bytes,1,opt,name=workload_selector,json=workloadSelector" json:"workload_selector,omitempty"`
+	// $hide_from_docs
+	// A list of bindings that specify the subjects and permissions to the selected workload.
+	Allow []*ServiceRoleBinding `protobuf:"bytes,2,rep,name=allow" json:"allow,omitempty"`
+}
+
+func (m *AuthorizationPolicy) Reset()                    { *m = AuthorizationPolicy{} }
+func (m *AuthorizationPolicy) String() string            { return proto.CompactTextString(m) }
+func (*AuthorizationPolicy) ProtoMessage()               {}
+func (*AuthorizationPolicy) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{1} }
+
+func (m *AuthorizationPolicy) GetWorkloadSelector() *WorkloadSelector {
+	if m != nil {
+		return m.WorkloadSelector
+	}
+	return nil
+}
+
+func (m *AuthorizationPolicy) GetAllow() []*ServiceRoleBinding {
+	if m != nil {
+		return m.Allow
+	}
+	return nil
+}
 
 // ServiceRole specification contains a list of access rules (permissions).
-// This represent the "Spec" part of the ServiceRole object. The name and namespace
-// of the ServiceRole is specified in "metadata" section of the ServiceRole object.
 type ServiceRole struct {
 	// Required. The set of access rules (permissions) that the role has.
 	Rules []*AccessRule `protobuf:"bytes,1,rep,name=rules" json:"rules,omitempty"`
@@ -172,7 +237,7 @@ type ServiceRole struct {
 func (m *ServiceRole) Reset()                    { *m = ServiceRole{} }
 func (m *ServiceRole) String() string            { return proto.CompactTextString(m) }
 func (*ServiceRole) ProtoMessage()               {}
-func (*ServiceRole) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{0} }
+func (*ServiceRole) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{2} }
 
 func (m *ServiceRole) GetRules() []*AccessRule {
 	if m != nil {
@@ -190,32 +255,70 @@ type AccessRule struct {
 	// or "*.mtv.cluster.local" (suffix match).
 	// If set to ["*"], it refers to all services in the namespace.
 	Services []string `protobuf:"bytes,1,rep,name=services" json:"services,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of HTTP hosts. This is matched against the HOST header in
+	// a HTTP request. Exact match, prefix match and suffix match are supported.
+	// For example, the host "test.abc.com" matches "test.abc.com" (exact match),
+	// or "*.abc.com" (prefix match), or "test.abc.*" (suffix match).
+	// If not specified, it matches to any host.
+	Hosts []string `protobuf:"bytes,5,rep,name=hosts" json:"hosts,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of HTTP hosts that must not be matched.
+	NotHosts []string `protobuf:"bytes,6,rep,name=not_hosts,json=notHosts" json:"not_hosts,omitempty"`
 	// Optional. A list of HTTP paths or gRPC methods.
 	// gRPC methods must be presented as fully-qualified name in the form of
 	// "/packageName.serviceName/methodName" and are case sensitive.
-	// Exact match, prefix match, and suffix match are supported for paths.
-	// For example, the path "/books/review" matches
-	// "/books/review" (exact match), or "/books/*" (prefix match),
-	// or "*/review" (suffix match).
-	// If not specified, it applies to any path.
+	// Exact match, prefix match, and suffix match are supported. For example,
+	// the path "/books/review" matches "/books/review" (exact match),
+	// or "/books/*" (prefix match), or "*/review" (suffix match).
+	// If not specified, it matches to any path.
 	Paths []string `protobuf:"bytes,2,rep,name=paths" json:"paths,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of HTTP paths or gRPC methods that must not be matched.
+	NotPaths []string `protobuf:"bytes,7,rep,name=not_paths,json=notPaths" json:"not_paths,omitempty"`
 	// Optional. A list of HTTP methods (e.g., "GET", "POST").
 	// It is ignored in gRPC case because the value is always "POST".
-	// If set to ["*"] or not specified, it applies to any method.
+	// If not specified, it matches to any methods.
 	Methods []string `protobuf:"bytes,3,rep,name=methods" json:"methods,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of HTTP methods that must not be matched.
+	// Note: It's an error to set methods and not_methods at the same time.
+	NotMethods []string `protobuf:"bytes,8,rep,name=not_methods,json=notMethods" json:"not_methods,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of port numbers of the request. If not specified, it matches
+	// to any port number.
+	// Note: It's an error to set ports and not_ports at the same time.
+	Ports []int32 `protobuf:"varint,9,rep,packed,name=ports" json:"ports,omitempty"`
+	// $hide_from_docs
+	// Optional.  A list of port numbers that must not be matched.
+	// Note: It's an error to set ports and not_ports at the same time.
+	NotPorts []int32 `protobuf:"varint,10,rep,packed,name=not_ports,json=notPorts" json:"not_ports,omitempty"`
 	// Optional. Extra constraints in the ServiceRole specification.
-	// The above ServiceRole example shows an example of constraint "version".
 	Constraints []*AccessRule_Constraint `protobuf:"bytes,4,rep,name=constraints" json:"constraints,omitempty"`
 }
 
 func (m *AccessRule) Reset()                    { *m = AccessRule{} }
 func (m *AccessRule) String() string            { return proto.CompactTextString(m) }
 func (*AccessRule) ProtoMessage()               {}
-func (*AccessRule) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{1} }
+func (*AccessRule) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{3} }
 
 func (m *AccessRule) GetServices() []string {
 	if m != nil {
 		return m.Services
+	}
+	return nil
+}
+
+func (m *AccessRule) GetHosts() []string {
+	if m != nil {
+		return m.Hosts
+	}
+	return nil
+}
+
+func (m *AccessRule) GetNotHosts() []string {
+	if m != nil {
+		return m.NotHosts
 	}
 	return nil
 }
@@ -227,9 +330,37 @@ func (m *AccessRule) GetPaths() []string {
 	return nil
 }
 
+func (m *AccessRule) GetNotPaths() []string {
+	if m != nil {
+		return m.NotPaths
+	}
+	return nil
+}
+
 func (m *AccessRule) GetMethods() []string {
 	if m != nil {
 		return m.Methods
+	}
+	return nil
+}
+
+func (m *AccessRule) GetNotMethods() []string {
+	if m != nil {
+		return m.NotMethods
+	}
+	return nil
+}
+
+func (m *AccessRule) GetPorts() []int32 {
+	if m != nil {
+		return m.Ports
+	}
+	return nil
+}
+
+func (m *AccessRule) GetNotPorts() []int32 {
+	if m != nil {
+		return m.NotPorts
 	}
 	return nil
 }
@@ -246,17 +377,16 @@ type AccessRule_Constraint struct {
 	// Key of the constraint.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// List of valid values for the constraint.
-	// Exact match, prefix match, and suffix match are supported for constraint values.
-	// For example, the value "v1alpha2" matches
-	// "v1alpha2" (exact match), or "v1*" (prefix match),
-	// or "*alpha2" (suffix match).
+	// Exact match, prefix match, and suffix match are supported.
+	// For example, the value "v1alpha2" matches "v1alpha2" (exact match),
+	// or "v1*" (prefix match), or "*alpha2" (suffix match).
 	Values []string `protobuf:"bytes,2,rep,name=values" json:"values,omitempty"`
 }
 
 func (m *AccessRule_Constraint) Reset()                    { *m = AccessRule_Constraint{} }
 func (m *AccessRule_Constraint) String() string            { return proto.CompactTextString(m) }
 func (*AccessRule_Constraint) ProtoMessage()               {}
-func (*AccessRule_Constraint) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{1, 0} }
+func (*AccessRule_Constraint) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{3, 0} }
 
 func (m *AccessRule_Constraint) GetKey() string {
 	if m != nil {
@@ -273,9 +403,6 @@ func (m *AccessRule_Constraint) GetValues() []string {
 }
 
 // ServiceRoleBinding assigns a ServiceRole to a list of subjects.
-// This represents the "Spec" part of the ServiceRoleBinding object. The name and namespace
-// of the ServiceRoleBinding is specified in "metadata" section of the ServiceRoleBinding
-// object.
 type ServiceRoleBinding struct {
 	// Required. List of subjects that are assigned the ServiceRole object.
 	Subjects []*Subject `protobuf:"bytes,1,rep,name=subjects" json:"subjects,omitempty"`
@@ -289,7 +416,7 @@ type ServiceRoleBinding struct {
 func (m *ServiceRoleBinding) Reset()                    { *m = ServiceRoleBinding{} }
 func (m *ServiceRoleBinding) String() string            { return proto.CompactTextString(m) }
 func (*ServiceRoleBinding) ProtoMessage()               {}
-func (*ServiceRoleBinding) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{2} }
+func (*ServiceRoleBinding) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{4} }
 
 func (m *ServiceRoleBinding) GetSubjects() []*Subject {
 	if m != nil {
@@ -318,17 +445,45 @@ type Subject struct {
 	// Optional. The user name/ID that the subject represents.
 	User string `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
 	// $hide_from_docs
+	// Optional. A list of principals that the subject represents. This is matched to the
+	// `source.principal` attribute. If not specified, it applies to any principals.
+	Principals []string `protobuf:"bytes,4,rep,name=principals" json:"principals,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of principals that must not be matched.
+	NotPrincipals []string `protobuf:"bytes,5,rep,name=not_principals,json=notPrincipals" json:"not_principals,omitempty"`
+	// $hide_from_docs
 	// Optional. The group that the subject belongs to.
+	// Deprecated. Use groups and not_groups instead.
 	Group string `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of groups that the subject represents. This is matched to the
+	// `request.auth.claims[groups]` attribute. If not specified, it applies to any groups.
+	Groups []string `protobuf:"bytes,6,rep,name=groups" json:"groups,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of groups that must not be matched.
+	NotGroups []string `protobuf:"bytes,7,rep,name=not_groups,json=notGroups" json:"not_groups,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of namespaces that the subject represents. This is matched to
+	// the `source.namespace` attribute. If not specified, it applies to any namespaces.
+	Namespaces []string `protobuf:"bytes,8,rep,name=namespaces" json:"namespaces,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of namespaces that must not be matched.
+	NotNamespaces []string `protobuf:"bytes,9,rep,name=not_namespaces,json=notNamespaces" json:"not_namespaces,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of IP address or CIDR ranges that the subject represents.
+	// E.g. 192.168.100.2 or 10.1.0.0/16. If not specified, it applies to any IP addresses.
+	Ips []string `protobuf:"bytes,10,rep,name=ips" json:"ips,omitempty"`
+	// $hide_from_docs
+	// Optional. A list of IP addresses or CIDR ranges that must not be matched.
+	NotIps []string `protobuf:"bytes,11,rep,name=not_ips,json=notIps" json:"not_ips,omitempty"`
 	// Optional. The set of properties that identify the subject.
-	// The above ServiceRoleBinding example shows an example of property "source.namespace".
 	Properties map[string]string `protobuf:"bytes,3,rep,name=properties" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (m *Subject) Reset()                    { *m = Subject{} }
 func (m *Subject) String() string            { return proto.CompactTextString(m) }
 func (*Subject) ProtoMessage()               {}
-func (*Subject) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{3} }
+func (*Subject) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{5} }
 
 func (m *Subject) GetUser() string {
 	if m != nil {
@@ -337,11 +492,67 @@ func (m *Subject) GetUser() string {
 	return ""
 }
 
+func (m *Subject) GetPrincipals() []string {
+	if m != nil {
+		return m.Principals
+	}
+	return nil
+}
+
+func (m *Subject) GetNotPrincipals() []string {
+	if m != nil {
+		return m.NotPrincipals
+	}
+	return nil
+}
+
 func (m *Subject) GetGroup() string {
 	if m != nil {
 		return m.Group
 	}
 	return ""
+}
+
+func (m *Subject) GetGroups() []string {
+	if m != nil {
+		return m.Groups
+	}
+	return nil
+}
+
+func (m *Subject) GetNotGroups() []string {
+	if m != nil {
+		return m.NotGroups
+	}
+	return nil
+}
+
+func (m *Subject) GetNamespaces() []string {
+	if m != nil {
+		return m.Namespaces
+	}
+	return nil
+}
+
+func (m *Subject) GetNotNamespaces() []string {
+	if m != nil {
+		return m.NotNamespaces
+	}
+	return nil
+}
+
+func (m *Subject) GetIps() []string {
+	if m != nil {
+		return m.Ips
+	}
+	return nil
+}
+
+func (m *Subject) GetNotIps() []string {
+	if m != nil {
+		return m.NotIps
+	}
+	return nil
 }
 
 func (m *Subject) GetProperties() map[string]string {
@@ -357,15 +568,14 @@ type RoleRef struct {
 	// Currently, "ServiceRole" is the only supported value for "kind".
 	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Required. The name of the ServiceRole object being referenced.
-	// The ServiceRole object must be in the same namespace as the ServiceRoleBinding
-	// object.
+	// The ServiceRole object must be in the same namespace as the ServiceRoleBinding object.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 }
 
 func (m *RoleRef) Reset()                    { *m = RoleRef{} }
 func (m *RoleRef) String() string            { return proto.CompactTextString(m) }
 func (*RoleRef) ProtoMessage()               {}
-func (*RoleRef) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{4} }
+func (*RoleRef) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{6} }
 
 func (m *RoleRef) GetKind() string {
 	if m != nil {
@@ -422,7 +632,7 @@ type RbacConfig struct {
 func (m *RbacConfig) Reset()                    { *m = RbacConfig{} }
 func (m *RbacConfig) String() string            { return proto.CompactTextString(m) }
 func (*RbacConfig) ProtoMessage()               {}
-func (*RbacConfig) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{5} }
+func (*RbacConfig) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{7} }
 
 func (m *RbacConfig) GetMode() RbacConfig_Mode {
 	if m != nil {
@@ -456,6 +666,9 @@ func (m *RbacConfig) GetEnforcementMode() EnforcementMode {
 type RbacConfig_Target struct {
 	// A list of services.
 	Services []string `protobuf:"bytes,1,rep,name=services" json:"services,omitempty"`
+	// $hide_from_docs
+	// A list of workloads.
+	WorkloadSelectors []*WorkloadSelector `protobuf:"bytes,3,rep,name=workload_selectors,json=workloadSelectors" json:"workload_selectors,omitempty"`
 	// A list of namespaces.
 	Namespaces []string `protobuf:"bytes,2,rep,name=namespaces" json:"namespaces,omitempty"`
 }
@@ -463,11 +676,18 @@ type RbacConfig_Target struct {
 func (m *RbacConfig_Target) Reset()                    { *m = RbacConfig_Target{} }
 func (m *RbacConfig_Target) String() string            { return proto.CompactTextString(m) }
 func (*RbacConfig_Target) ProtoMessage()               {}
-func (*RbacConfig_Target) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{5, 0} }
+func (*RbacConfig_Target) Descriptor() ([]byte, []int) { return fileDescriptorRbac, []int{7, 0} }
 
 func (m *RbacConfig_Target) GetServices() []string {
 	if m != nil {
 		return m.Services
+	}
+	return nil
+}
+
+func (m *RbacConfig_Target) GetWorkloadSelectors() []*WorkloadSelector {
+	if m != nil {
+		return m.WorkloadSelectors
 	}
 	return nil
 }
@@ -480,6 +700,8 @@ func (m *RbacConfig_Target) GetNamespaces() []string {
 }
 
 func init() {
+	proto.RegisterType((*WorkloadSelector)(nil), "istio.rbac.v1alpha1.WorkloadSelector")
+	proto.RegisterType((*AuthorizationPolicy)(nil), "istio.rbac.v1alpha1.AuthorizationPolicy")
 	proto.RegisterType((*ServiceRole)(nil), "istio.rbac.v1alpha1.ServiceRole")
 	proto.RegisterType((*AccessRule)(nil), "istio.rbac.v1alpha1.AccessRule")
 	proto.RegisterType((*AccessRule_Constraint)(nil), "istio.rbac.v1alpha1.AccessRule.Constraint")
@@ -491,6 +713,81 @@ func init() {
 	proto.RegisterEnum("istio.rbac.v1alpha1.EnforcementMode", EnforcementMode_name, EnforcementMode_value)
 	proto.RegisterEnum("istio.rbac.v1alpha1.RbacConfig_Mode", RbacConfig_Mode_name, RbacConfig_Mode_value)
 }
+func (m *WorkloadSelector) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WorkloadSelector) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Labels) > 0 {
+		for k, _ := range m.Labels {
+			dAtA[i] = 0xa
+			i++
+			v := m.Labels[k]
+			mapSize := 1 + len(k) + sovRbac(uint64(len(k))) + 1 + len(v) + sovRbac(uint64(len(v)))
+			i = encodeVarintRbac(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintRbac(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintRbac(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	return i, nil
+}
+
+func (m *AuthorizationPolicy) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AuthorizationPolicy) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.WorkloadSelector != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRbac(dAtA, i, uint64(m.WorkloadSelector.Size()))
+		n1, err := m.WorkloadSelector.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	if len(m.Allow) > 0 {
+		for _, msg := range m.Allow {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintRbac(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
 func (m *ServiceRole) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -593,6 +890,102 @@ func (m *AccessRule) MarshalTo(dAtA []byte) (int, error) {
 			i += n
 		}
 	}
+	if len(m.Hosts) > 0 {
+		for _, s := range m.Hosts {
+			dAtA[i] = 0x2a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.NotHosts) > 0 {
+		for _, s := range m.NotHosts {
+			dAtA[i] = 0x32
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.NotPaths) > 0 {
+		for _, s := range m.NotPaths {
+			dAtA[i] = 0x3a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.NotMethods) > 0 {
+		for _, s := range m.NotMethods {
+			dAtA[i] = 0x42
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Ports) > 0 {
+		dAtA3 := make([]byte, len(m.Ports)*10)
+		var j2 int
+		for _, num1 := range m.Ports {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA3[j2] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j2++
+			}
+			dAtA3[j2] = uint8(num)
+			j2++
+		}
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintRbac(dAtA, i, uint64(j2))
+		i += copy(dAtA[i:], dAtA3[:j2])
+	}
+	if len(m.NotPorts) > 0 {
+		dAtA5 := make([]byte, len(m.NotPorts)*10)
+		var j4 int
+		for _, num1 := range m.NotPorts {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA5[j4] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j4++
+			}
+			dAtA5[j4] = uint8(num)
+			j4++
+		}
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintRbac(dAtA, i, uint64(j4))
+		i += copy(dAtA[i:], dAtA5[:j4])
+	}
 	return i, nil
 }
 
@@ -666,11 +1059,11 @@ func (m *ServiceRoleBinding) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRbac(dAtA, i, uint64(m.RoleRef.Size()))
-		n1, err := m.RoleRef.MarshalTo(dAtA[i:])
+		n6, err := m.RoleRef.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n1
+		i += n6
 	}
 	if m.Mode != 0 {
 		dAtA[i] = 0x18
@@ -722,6 +1115,126 @@ func (m *Subject) MarshalTo(dAtA []byte) (int, error) {
 			i++
 			i = encodeVarintRbac(dAtA, i, uint64(len(v)))
 			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.Principals) > 0 {
+		for _, s := range m.Principals {
+			dAtA[i] = 0x22
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.NotPrincipals) > 0 {
+		for _, s := range m.NotPrincipals {
+			dAtA[i] = 0x2a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Groups) > 0 {
+		for _, s := range m.Groups {
+			dAtA[i] = 0x32
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.NotGroups) > 0 {
+		for _, s := range m.NotGroups {
+			dAtA[i] = 0x3a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Namespaces) > 0 {
+		for _, s := range m.Namespaces {
+			dAtA[i] = 0x42
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.NotNamespaces) > 0 {
+		for _, s := range m.NotNamespaces {
+			dAtA[i] = 0x4a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Ips) > 0 {
+		for _, s := range m.Ips {
+			dAtA[i] = 0x52
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.NotIps) > 0 {
+		for _, s := range m.NotIps {
+			dAtA[i] = 0x5a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
 		}
 	}
 	return i, nil
@@ -781,21 +1294,21 @@ func (m *RbacConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRbac(dAtA, i, uint64(m.Inclusion.Size()))
-		n2, err := m.Inclusion.MarshalTo(dAtA[i:])
+		n7, err := m.Inclusion.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += n7
 	}
 	if m.Exclusion != nil {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRbac(dAtA, i, uint64(m.Exclusion.Size()))
-		n3, err := m.Exclusion.MarshalTo(dAtA[i:])
+		n8, err := m.Exclusion.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n3
+		i += n8
 	}
 	if m.EnforcementMode != 0 {
 		dAtA[i] = 0x20
@@ -850,6 +1363,18 @@ func (m *RbacConfig_Target) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
+	if len(m.WorkloadSelectors) > 0 {
+		for _, msg := range m.WorkloadSelectors {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintRbac(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
 	return i, nil
 }
 
@@ -862,6 +1387,36 @@ func encodeVarintRbac(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *WorkloadSelector) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Labels) > 0 {
+		for k, v := range m.Labels {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovRbac(uint64(len(k))) + 1 + len(v) + sovRbac(uint64(len(v)))
+			n += mapEntrySize + 1 + sovRbac(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *AuthorizationPolicy) Size() (n int) {
+	var l int
+	_ = l
+	if m.WorkloadSelector != nil {
+		l = m.WorkloadSelector.Size()
+		n += 1 + l + sovRbac(uint64(l))
+	}
+	if len(m.Allow) > 0 {
+		for _, e := range m.Allow {
+			l = e.Size()
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	return n
+}
+
 func (m *ServiceRole) Size() (n int) {
 	var l int
 	_ = l
@@ -900,6 +1455,44 @@ func (m *AccessRule) Size() (n int) {
 			l = e.Size()
 			n += 1 + l + sovRbac(uint64(l))
 		}
+	}
+	if len(m.Hosts) > 0 {
+		for _, s := range m.Hosts {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.NotHosts) > 0 {
+		for _, s := range m.NotHosts {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.NotPaths) > 0 {
+		for _, s := range m.NotPaths {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.NotMethods) > 0 {
+		for _, s := range m.NotMethods {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.Ports) > 0 {
+		l = 0
+		for _, e := range m.Ports {
+			l += sovRbac(uint64(e))
+		}
+		n += 1 + sovRbac(uint64(l)) + l
+	}
+	if len(m.NotPorts) > 0 {
+		l = 0
+		for _, e := range m.NotPorts {
+			l += sovRbac(uint64(e))
+		}
+		n += 1 + sovRbac(uint64(l)) + l
 	}
 	return n
 }
@@ -958,6 +1551,54 @@ func (m *Subject) Size() (n int) {
 			n += mapEntrySize + 1 + sovRbac(uint64(mapEntrySize))
 		}
 	}
+	if len(m.Principals) > 0 {
+		for _, s := range m.Principals {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.NotPrincipals) > 0 {
+		for _, s := range m.NotPrincipals {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.Groups) > 0 {
+		for _, s := range m.Groups {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.NotGroups) > 0 {
+		for _, s := range m.NotGroups {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.Namespaces) > 0 {
+		for _, s := range m.Namespaces {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.NotNamespaces) > 0 {
+		for _, s := range m.NotNamespaces {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.Ips) > 0 {
+		for _, s := range m.Ips {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
+	if len(m.NotIps) > 0 {
+		for _, s := range m.NotIps {
+			l = len(s)
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
 	return n
 }
 
@@ -1010,6 +1651,12 @@ func (m *RbacConfig_Target) Size() (n int) {
 			n += 1 + l + sovRbac(uint64(l))
 		}
 	}
+	if len(m.WorkloadSelectors) > 0 {
+		for _, e := range m.WorkloadSelectors {
+			l = e.Size()
+			n += 1 + l + sovRbac(uint64(l))
+		}
+	}
 	return n
 }
 
@@ -1025,6 +1672,288 @@ func sovRbac(x uint64) (n int) {
 }
 func sozRbac(x uint64) (n int) {
 	return sovRbac(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *WorkloadSelector) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRbac
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WorkloadSelector: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WorkloadSelector: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Labels", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Labels == nil {
+				m.Labels = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowRbac
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowRbac
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthRbac
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowRbac
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthRbac
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipRbac(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthRbac
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Labels[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRbac(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRbac
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AuthorizationPolicy) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRbac
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AuthorizationPolicy: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AuthorizationPolicy: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field WorkloadSelector", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.WorkloadSelector == nil {
+				m.WorkloadSelector = &WorkloadSelector{}
+			}
+			if err := m.WorkloadSelector.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Allow", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Allow = append(m.Allow, &ServiceRoleBinding{})
+			if err := m.Allow[len(m.Allow)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRbac(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRbac
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *ServiceRole) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -1254,6 +2183,246 @@ func (m *AccessRule) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hosts", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Hosts = append(m.Hosts, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NotHosts", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NotHosts = append(m.NotHosts, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NotPaths", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NotPaths = append(m.NotPaths, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NotMethods", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NotMethods = append(m.NotMethods, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 9:
+			if wireType == 0 {
+				var v int32
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowRbac
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= (int32(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.Ports = append(m.Ports, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowRbac
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= (int(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthRbac
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				for iNdEx < postIndex {
+					var v int32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowRbac
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.Ports = append(m.Ports, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ports", wireType)
+			}
+		case 10:
+			if wireType == 0 {
+				var v int32
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowRbac
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= (int32(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.NotPorts = append(m.NotPorts, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowRbac
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= (int(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthRbac
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				for iNdEx < postIndex {
+					var v int32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowRbac
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.NotPorts = append(m.NotPorts, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field NotPorts", wireType)
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRbac(dAtA[iNdEx:])
@@ -1721,6 +2890,238 @@ func (m *Subject) Unmarshal(dAtA []byte) error {
 			}
 			m.Properties[mapkey] = mapvalue
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Principals", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Principals = append(m.Principals, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NotPrincipals", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NotPrincipals = append(m.NotPrincipals, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Groups", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Groups = append(m.Groups, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NotGroups", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NotGroups = append(m.NotGroups, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Namespaces", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Namespaces = append(m.Namespaces, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NotNamespaces", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NotNamespaces = append(m.NotNamespaces, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ips", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Ips = append(m.Ips, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NotIps", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NotIps = append(m.NotIps, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRbac(dAtA[iNdEx:])
@@ -2091,6 +3492,37 @@ func (m *RbacConfig_Target) Unmarshal(dAtA []byte) error {
 			}
 			m.Namespaces = append(m.Namespaces, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field WorkloadSelectors", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRbac
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRbac
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.WorkloadSelectors = append(m.WorkloadSelectors, &WorkloadSelector{})
+			if err := m.WorkloadSelectors[len(m.WorkloadSelectors)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRbac(dAtA[iNdEx:])
@@ -2220,44 +3652,62 @@ var (
 func init() { proto.RegisterFile("rbac/v1alpha1/rbac.proto", fileDescriptorRbac) }
 
 var fileDescriptorRbac = []byte{
-	// 615 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0xdd, 0x6a, 0xdb, 0x4c,
-	0x10, 0xcd, 0x5a, 0x8e, 0x1d, 0x8f, 0x3f, 0x12, 0x7d, 0xdb, 0xb4, 0x08, 0x53, 0x5c, 0x63, 0x4a,
-	0x31, 0xa1, 0xc8, 0x24, 0xa5, 0x21, 0x14, 0x7a, 0xd1, 0xd8, 0x0a, 0x35, 0x24, 0x56, 0x58, 0xa7,
-	0x3f, 0xf4, 0x26, 0xc8, 0xf2, 0xc6, 0xd9, 0x46, 0xde, 0x15, 0xbb, 0x52, 0x68, 0xde, 0xaa, 0x8f,
-	0xd0, 0xcb, 0x5e, 0xf6, 0x09, 0x4a, 0xc9, 0x93, 0x14, 0xad, 0x2c, 0xc9, 0x09, 0x6e, 0x42, 0xee,
-	0x66, 0xce, 0xcc, 0x19, 0x9f, 0x39, 0x63, 0x2d, 0x58, 0x72, 0xec, 0xf9, 0xdd, 0xcb, 0x6d, 0x2f,
-	0x08, 0xcf, 0xbd, 0xed, 0x6e, 0x92, 0xd9, 0xa1, 0x14, 0x91, 0xc0, 0x8f, 0x98, 0x8a, 0x98, 0xb0,
-	0x35, 0x92, 0xd5, 0xdb, 0x7d, 0xa8, 0x8f, 0xa8, 0xbc, 0x64, 0x3e, 0x25, 0x22, 0xa0, 0xf8, 0x35,
-	0xac, 0xca, 0x38, 0xa0, 0xca, 0x42, 0x2d, 0xa3, 0x53, 0xdf, 0x79, 0x66, 0x2f, 0xe1, 0xd8, 0xef,
-	0x7c, 0x9f, 0x2a, 0x45, 0xe2, 0x80, 0x92, 0xb4, 0xbb, 0xfd, 0x1b, 0x01, 0x14, 0x28, 0x6e, 0xc0,
-	0x9a, 0x4a, 0x87, 0xa6, 0x83, 0x6a, 0x24, 0xcf, 0xf1, 0x26, 0xac, 0x86, 0x5e, 0x74, 0xae, 0xac,
-	0x92, 0x2e, 0xa4, 0x09, 0xb6, 0xa0, 0x3a, 0xa3, 0xd1, 0xb9, 0x98, 0x28, 0xcb, 0xd0, 0x78, 0x96,
-	0xe2, 0x43, 0xa8, 0xfb, 0x82, 0xab, 0x48, 0x7a, 0x8c, 0x47, 0xca, 0x2a, 0x6b, 0x5d, 0x5b, 0xf7,
-	0xe8, 0xb2, 0x7b, 0x39, 0x85, 0x2c, 0xd2, 0x1b, 0xbb, 0x00, 0x45, 0x09, 0x9b, 0x60, 0x5c, 0xd0,
-	0x2b, 0x0b, 0xb5, 0x50, 0xa7, 0x46, 0x92, 0x10, 0x3f, 0x81, 0xca, 0xa5, 0x17, 0xc4, 0x34, 0x93,
-	0x37, 0xcf, 0xda, 0x3f, 0x10, 0xe0, 0x05, 0x9f, 0xf6, 0x19, 0x9f, 0x30, 0x3e, 0xc5, 0x7b, 0xb0,
-	0xa6, 0xe2, 0xf1, 0x57, 0xea, 0x47, 0x99, 0x63, 0x4f, 0x97, 0x2a, 0x1b, 0xa5, 0x4d, 0x24, 0xef,
-	0xc6, 0xbb, 0x50, 0x95, 0x22, 0xa0, 0x84, 0x9e, 0x59, 0xa5, 0x16, 0xfa, 0x27, 0x91, 0xa4, 0x3d,
-	0x24, 0x6b, 0xc6, 0x7b, 0x50, 0x9e, 0x89, 0x09, 0xb5, 0x8c, 0x16, 0xea, 0xac, 0xef, 0x3c, 0x5f,
-	0x4a, 0x72, 0xf8, 0x99, 0x90, 0x3e, 0x9d, 0x51, 0x1e, 0x1d, 0x89, 0x09, 0x25, 0x9a, 0x91, 0xac,
-	0x50, 0x9d, 0xeb, 0xc0, 0x18, 0xca, 0xb1, 0xa2, 0x72, 0xbe, 0xb9, 0x8e, 0x93, 0xc3, 0x4c, 0xa5,
-	0x88, 0x43, 0xad, 0xa7, 0x46, 0xd2, 0x04, 0x1f, 0x02, 0x84, 0x52, 0x84, 0x54, 0x46, 0x8c, 0xa6,
-	0xb7, 0xa9, 0xef, 0xbc, 0xbc, 0x6b, 0x47, 0xfb, 0x38, 0x6f, 0x77, 0x78, 0x24, 0xaf, 0xc8, 0x02,
-	0xbf, 0xf1, 0x16, 0x36, 0x6e, 0x95, 0x97, 0xdc, 0x60, 0x13, 0x56, 0xb5, 0xeb, 0x99, 0x10, 0x9d,
-	0xbc, 0x29, 0xed, 0xa1, 0xf6, 0x36, 0x54, 0xe7, 0x86, 0x24, 0x1b, 0x5c, 0x30, 0x3e, 0xc9, 0x36,
-	0x48, 0xe2, 0x04, 0xe3, 0xde, 0x2c, 0xe3, 0xe9, 0xb8, 0xfd, 0xdd, 0x00, 0x20, 0x63, 0xcf, 0xef,
-	0x09, 0x7e, 0xc6, 0xa6, 0xb9, 0x7d, 0xe8, 0x0e, 0xfb, 0x8a, 0x76, 0xbb, 0xb0, 0x0f, 0xf7, 0xa1,
-	0xc6, 0xb8, 0x1f, 0xc4, 0x8a, 0x09, 0x3e, 0x3f, 0xd9, 0x8b, 0xfb, 0xe8, 0x27, 0x9e, 0x9c, 0xd2,
-	0x88, 0x14, 0xc4, 0x64, 0x0a, 0xfd, 0x96, 0x4d, 0x31, 0x1e, 0x36, 0x25, 0x27, 0x62, 0x17, 0x4c,
-	0x5a, 0xdc, 0xf8, 0x54, 0x6f, 0x54, 0x7e, 0xc0, 0x1f, 0x62, 0x83, 0xde, 0x04, 0x1a, 0x7d, 0xa8,
-	0xa4, 0xbf, 0x72, 0xe7, 0xa7, 0xdb, 0x04, 0x48, 0x3c, 0x55, 0xa1, 0xe7, 0xe7, 0x1f, 0xc8, 0x02,
-	0xd2, 0x76, 0xa0, 0x9c, 0x4c, 0xc3, 0x55, 0x30, 0xdc, 0x83, 0x03, 0x73, 0x05, 0x57, 0xa0, 0xe4,
-	0x0e, 0x4d, 0x84, 0x1f, 0xc3, 0xff, 0xee, 0xf0, 0xf4, 0xd3, 0xe0, 0xe4, 0xfd, 0xe9, 0x60, 0xd8,
-	0x3b, 0xfc, 0x30, 0x1a, 0xb8, 0x43, 0xb3, 0xb4, 0x08, 0x3b, 0x9f, 0x33, 0xd8, 0xd8, 0xea, 0xc2,
-	0xc6, 0x2d, 0xc1, 0xf8, 0x3f, 0x58, 0x73, 0x86, 0x07, 0x2e, 0xe9, 0x39, 0x7d, 0x73, 0x05, 0xaf,
-	0x03, 0x1c, 0x3b, 0xe4, 0x68, 0x30, 0x1a, 0x0d, 0x3e, 0x3a, 0x26, 0xda, 0xef, 0xfc, 0xbc, 0x6e,
-	0xa2, 0x5f, 0xd7, 0x4d, 0xf4, 0xe7, 0xba, 0x89, 0xbe, 0x34, 0x52, 0x07, 0x98, 0xe8, 0x7a, 0x21,
-	0xeb, 0xde, 0x78, 0x0d, 0xc7, 0x15, 0xfd, 0x12, 0xbe, 0xfa, 0x1b, 0x00, 0x00, 0xff, 0xff, 0x00,
-	0xdb, 0x22, 0xbc, 0x25, 0x05, 0x00, 0x00,
+	// 909 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x56, 0xdd, 0x6e, 0x23, 0x35,
+	0x14, 0xde, 0xc9, 0xe4, 0xa7, 0x39, 0x81, 0x76, 0xea, 0x85, 0x65, 0x14, 0x20, 0x5b, 0x45, 0x2c,
+	0x44, 0x2b, 0x94, 0xa8, 0x45, 0xac, 0x0a, 0xd2, 0x5e, 0x6c, 0xdb, 0x94, 0x8d, 0xd4, 0x26, 0x95,
+	0x53, 0x58, 0xc4, 0x4d, 0x34, 0x99, 0xb8, 0x8d, 0xe9, 0xd4, 0x1e, 0xd9, 0x4e, 0x4b, 0xb9, 0xe4,
+	0x86, 0x57, 0x40, 0x3c, 0x01, 0x0f, 0xc0, 0x03, 0x70, 0xc9, 0x25, 0x8f, 0x80, 0xfa, 0x24, 0xc8,
+	0xf6, 0xfc, 0xa4, 0x69, 0xe8, 0xb6, 0x77, 0x3e, 0xdf, 0x39, 0xdf, 0x39, 0x9f, 0xed, 0xcf, 0x99,
+	0x80, 0x2f, 0xc6, 0x41, 0xd8, 0xb9, 0xd8, 0x0c, 0xa2, 0x78, 0x1a, 0x6c, 0x76, 0x74, 0xd4, 0x8e,
+	0x05, 0x57, 0x1c, 0x3d, 0xa6, 0x52, 0x51, 0xde, 0x36, 0x48, 0x9a, 0x6f, 0xfe, 0xe6, 0x80, 0xf7,
+	0x86, 0x8b, 0xb3, 0x88, 0x07, 0x93, 0x21, 0x89, 0x48, 0xa8, 0xb8, 0x40, 0x3d, 0x28, 0x47, 0xc1,
+	0x98, 0x44, 0xd2, 0x77, 0x36, 0xdc, 0x56, 0x6d, 0x6b, 0xb3, 0xbd, 0x84, 0xda, 0x5e, 0xa4, 0xb5,
+	0x0f, 0x0c, 0xa7, 0xcb, 0x94, 0xb8, 0xc2, 0x49, 0x83, 0xfa, 0x57, 0x50, 0x9b, 0x83, 0x91, 0x07,
+	0xee, 0x19, 0xb9, 0xf2, 0x9d, 0x0d, 0xa7, 0x55, 0xc5, 0x7a, 0x89, 0xde, 0x83, 0xd2, 0x45, 0x10,
+	0xcd, 0x88, 0x5f, 0x30, 0x98, 0x0d, 0xbe, 0x2e, 0x6c, 0x3b, 0xcd, 0x3f, 0x1c, 0x78, 0xfc, 0x6a,
+	0xa6, 0xa6, 0x5c, 0xd0, 0x9f, 0x03, 0x45, 0x39, 0x3b, 0xe2, 0x11, 0x0d, 0xaf, 0x10, 0x86, 0xf5,
+	0xcb, 0x64, 0xf4, 0x48, 0x26, 0xb3, 0x4d, 0xc7, 0xda, 0xd6, 0xb3, 0x7b, 0x09, 0xc5, 0xde, 0xe5,
+	0xe2, 0x8e, 0x5f, 0x42, 0x29, 0x88, 0x22, 0x7e, 0xe9, 0x17, 0xcc, 0x86, 0x3f, 0x5b, 0xda, 0x67,
+	0x48, 0xc4, 0x05, 0x0d, 0x09, 0xe6, 0x11, 0xd9, 0xa1, 0x6c, 0x42, 0xd9, 0x29, 0xb6, 0xac, 0xe6,
+	0x1e, 0xd4, 0xe6, 0x92, 0xe8, 0x4b, 0x28, 0x89, 0x59, 0x44, 0xd2, 0xe3, 0x7b, 0xba, 0xb4, 0xdb,
+	0xab, 0x30, 0x24, 0x52, 0xe2, 0x59, 0x44, 0xb0, 0xad, 0x6e, 0xfe, 0xe2, 0x02, 0xe4, 0x28, 0xaa,
+	0xc3, 0x8a, 0xb4, 0x4d, 0x6d, 0xa3, 0x2a, 0xce, 0x62, 0x7d, 0x6a, 0x71, 0xa0, 0xa6, 0xd2, 0xe8,
+	0xad, 0x62, 0x1b, 0x20, 0x1f, 0x2a, 0xe7, 0x44, 0x4d, 0xf9, 0x44, 0xfa, 0xae, 0xc1, 0xd3, 0x10,
+	0x1d, 0x40, 0x2d, 0xe4, 0x4c, 0x2a, 0x11, 0x50, 0xa6, 0xa4, 0x5f, 0x34, 0xba, 0x9e, 0xbf, 0x45,
+	0x57, 0x7b, 0x37, 0xa3, 0xe0, 0x79, 0xba, 0x9e, 0x3e, 0xe5, 0x52, 0x49, 0xbf, 0x64, 0xa7, 0x9b,
+	0x00, 0x7d, 0x08, 0x55, 0xc6, 0xd5, 0xc8, 0x66, 0xca, 0x56, 0x30, 0xe3, 0xea, 0xf5, 0x7c, 0xd2,
+	0x8a, 0xae, 0x64, 0xc9, 0x23, 0xa3, 0xfb, 0x29, 0xd4, 0x74, 0x32, 0xd5, 0xbe, 0x62, 0xd2, 0xc0,
+	0xb8, 0x3a, 0x4c, 0xe4, 0xeb, 0xed, 0x72, 0xa1, 0xa4, 0x5f, 0xdd, 0x70, 0x5b, 0x25, 0x6c, 0x83,
+	0xac, 0xa7, 0xc9, 0x80, 0xc9, 0x98, 0x9e, 0x3a, 0xae, 0xbf, 0x00, 0xc8, 0xe5, 0x2f, 0xf1, 0xdd,
+	0x13, 0x28, 0x1b, 0xab, 0xa5, 0x47, 0x98, 0x44, 0xcd, 0xbf, 0x1c, 0x40, 0xb7, 0x2f, 0x1a, 0x6d,
+	0xc3, 0x8a, 0x9c, 0x8d, 0x7f, 0x24, 0xa1, 0x4a, 0x6f, 0xf5, 0xa3, 0xe5, 0x1e, 0xb1, 0x45, 0x38,
+	0xab, 0x46, 0x2f, 0xa0, 0x22, 0x78, 0x44, 0x30, 0x39, 0x31, 0x16, 0xff, 0x3f, 0x22, 0xb6, 0x35,
+	0x38, 0x2d, 0x46, 0xdb, 0x50, 0x3c, 0xe7, 0x13, 0xe2, 0xbb, 0x1b, 0x4e, 0x6b, 0x75, 0xeb, 0x93,
+	0xa5, 0xa4, 0x2e, 0x3b, 0xe1, 0x22, 0x24, 0xe7, 0x84, 0xa9, 0x43, 0x3e, 0x21, 0xd8, 0x30, 0x9a,
+	0x7f, 0xba, 0x50, 0x49, 0x74, 0x20, 0x04, 0xc5, 0x99, 0x24, 0x22, 0xd9, 0xb9, 0x59, 0x23, 0x1f,
+	0x4a, 0xa7, 0x82, 0xcf, 0x62, 0xfb, 0xe4, 0x76, 0x0a, 0xbe, 0x83, 0x2d, 0x80, 0x0e, 0x00, 0x62,
+	0xc1, 0x63, 0x22, 0x14, 0x25, 0xd6, 0x43, 0xb5, 0xad, 0xcf, 0xef, 0xda, 0x67, 0xfb, 0x28, 0x2b,
+	0xb7, 0xef, 0x7e, 0x8e, 0x8f, 0x1a, 0xba, 0x1b, 0x65, 0x21, 0x8d, 0x83, 0xc8, 0x7a, 0xae, 0x8a,
+	0xe7, 0x10, 0xf4, 0x0c, 0x56, 0xcd, 0xfd, 0xe5, 0x35, 0xd6, 0x4f, 0xef, 0xea, 0x4b, 0xcc, 0xcb,
+	0x9e, 0x40, 0xd9, 0xa8, 0x4b, 0x4d, 0x95, 0x44, 0xe8, 0x63, 0xd0, 0x16, 0x19, 0x25, 0x39, 0xeb,
+	0x29, 0x6d, 0x88, 0x6f, 0x6c, 0xba, 0x01, 0xc0, 0x82, 0x73, 0x22, 0xe3, 0x40, 0x3f, 0xa0, 0xd4,
+	0x53, 0x19, 0x92, 0x4e, 0x9f, 0xab, 0xa9, 0x66, 0xd3, 0xfb, 0x79, 0x99, 0x07, 0x2e, 0x8d, 0xad,
+	0xbd, 0xaa, 0x58, 0x2f, 0xd1, 0x07, 0x50, 0xd1, 0x44, 0x8d, 0xd6, 0xac, 0x20, 0xc6, 0x55, 0x2f,
+	0x96, 0xf5, 0x97, 0xb0, 0xb6, 0x70, 0x1c, 0x0f, 0xfa, 0xbd, 0xdb, 0x84, 0x4a, 0x62, 0x02, 0x7d,
+	0x6b, 0x67, 0x94, 0x4d, 0xd2, 0x5b, 0xd3, 0x6b, 0x8d, 0x69, 0xad, 0x09, 0xcf, 0xac, 0x9b, 0xbf,
+	0x16, 0x01, 0xf0, 0x38, 0x08, 0x77, 0x39, 0x3b, 0xa1, 0xa7, 0x99, 0x65, 0x9c, 0x3b, 0x2c, 0x93,
+	0x97, 0xb7, 0x73, 0xcb, 0xa0, 0x3d, 0xa8, 0x52, 0x16, 0x46, 0x33, 0x49, 0x39, 0x4b, 0x6c, 0xfa,
+	0xe9, 0xdb, 0xe8, 0xc7, 0x81, 0x38, 0x25, 0x0a, 0xe7, 0x44, 0xdd, 0x85, 0xfc, 0x94, 0x76, 0x71,
+	0x1f, 0xd6, 0x25, 0x23, 0xa2, 0x01, 0x78, 0x24, 0xf7, 0xf5, 0xc8, 0xec, 0xa8, 0xf8, 0x80, 0x47,
+	0xb0, 0x46, 0x6e, 0x02, 0xf5, 0xdf, 0x1d, 0x28, 0xdb, 0x31, 0x77, 0xfe, 0xa6, 0xde, 0x34, 0x4c,
+	0xe1, 0x96, 0x61, 0x8e, 0x01, 0xdd, 0xfa, 0xee, 0xa4, 0x8f, 0xe4, 0x9e, 0x1f, 0x9e, 0xf5, 0xc5,
+	0x0f, 0x8f, 0x6c, 0x76, 0xa1, 0xa8, 0x45, 0xa2, 0x0a, 0xb8, 0x83, 0xfd, 0x7d, 0xef, 0x11, 0x2a,
+	0x43, 0x61, 0xd0, 0xf7, 0x1c, 0xf4, 0x3e, 0xac, 0x0f, 0xfa, 0xa3, 0x37, 0xbd, 0xe3, 0xd7, 0xa3,
+	0x5e, 0x7f, 0xf7, 0xe0, 0xdb, 0x61, 0x6f, 0xd0, 0xf7, 0x0a, 0xf3, 0x70, 0xf7, 0xfb, 0x14, 0x76,
+	0x9f, 0x77, 0x60, 0x6d, 0xe1, 0x1c, 0xd0, 0x3b, 0xb0, 0xd2, 0xed, 0xef, 0x0f, 0xf0, 0x6e, 0x77,
+	0xcf, 0x7b, 0x84, 0x56, 0x01, 0x8e, 0xba, 0xf8, 0xb0, 0x37, 0x1c, 0xf6, 0xbe, 0xeb, 0x7a, 0xce,
+	0x4e, 0xeb, 0xef, 0xeb, 0x86, 0xf3, 0xcf, 0x75, 0xc3, 0xf9, 0xf7, 0xba, 0xe1, 0xfc, 0x50, 0xb7,
+	0xf2, 0x29, 0xef, 0x04, 0x31, 0xed, 0xdc, 0xf8, 0x0b, 0x31, 0x2e, 0x9b, 0xbf, 0x0f, 0x5f, 0xfc,
+	0x17, 0x00, 0x00, 0xff, 0xff, 0x6e, 0x5d, 0x8c, 0xf1, 0x5a, 0x08, 0x00, 0x00,
 }

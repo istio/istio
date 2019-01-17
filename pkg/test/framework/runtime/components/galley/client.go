@@ -26,7 +26,8 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	mcpclient "istio.io/istio/pkg/mcp/client"
-	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/istio/pkg/mcp/testing/monitoring"
 	tcontext "istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -44,15 +45,19 @@ func (c *client) waitForSnapshot(collection string, snapshot []map[string]interf
 	}
 	defer func() { _ = conn.Close() }()
 
-	collections := []string{collection}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	u := mcpclient.NewInMemoryUpdater()
+	u := sink.NewInMemoryUpdater()
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	mcpc := mcpclient.New(cl, collections, u, "", map[string]string{}, mcptestmon.NewInMemoryClientStatsContext())
+	options := &sink.Options{
+		CollectionOptions: sink.CollectionOptionsFromSlice([]string{collection}),
+		Updater:           u,
+		ID:                "",
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	mcpc := mcpclient.New(cl, options)
 	go mcpc.Run(ctx)
 
 	var result *comparisonResult
@@ -64,7 +69,7 @@ func (c *client) waitForSnapshot(collection string, snapshot []map[string]interf
 		}
 		err = result.generateError()
 		return nil, err == nil, err
-	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*20))
+	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*30))
 
 	return err
 }
@@ -82,7 +87,7 @@ func (c *client) waitForStartup() (err error) {
 	return
 }
 
-func (c *client) checkSnapshot(actual []*mcpclient.Object, expected []map[string]interface{}) (*comparisonResult, error) {
+func (c *client) checkSnapshot(actual []*sink.Object, expected []map[string]interface{}) (*comparisonResult, error) {
 	expectedMap := make(map[string]interface{})
 	for _, e := range expected {
 		name, err := extractName(e)

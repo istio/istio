@@ -21,14 +21,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/googleapis/google/rpc"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 var (
@@ -37,60 +37,6 @@ var (
 
 	scope = log.RegisterScope("mcp", "mcp debugging", 0)
 )
-
-// Object contains a decoded versioned object with metadata received from the server.
-type Object struct {
-	TypeURL  string
-	Metadata *mcp.Metadata
-	Body     proto.Message
-}
-
-// Change is a collection of configuration objects of the same protobuf type.
-type Change struct {
-	Collection string
-	Objects    []*Object
-
-	// TODO(ayj) add incremental add/remove enum when the mcp protocol supports it.
-}
-
-// Updater provides configuration changes in batches of the same protobuf message type.
-type Updater interface {
-	// Apply is invoked when the client receives new configuration updates
-	// from the server. The caller should return an error if any of the provided
-	// configuration resources are invalid or cannot be applied. The client will
-	// propagate errors back to the server accordingly.
-	Apply(*Change) error
-}
-
-// InMemoryUpdater is an implementation of Updater that keeps a simple in-memory state.
-type InMemoryUpdater struct {
-	items      map[string][]*Object
-	itemsMutex sync.Mutex
-}
-
-var _ Updater = &InMemoryUpdater{}
-
-// NewInMemoryUpdater returns a new instance of InMemoryUpdater
-func NewInMemoryUpdater() *InMemoryUpdater {
-	return &InMemoryUpdater{
-		items: make(map[string][]*Object),
-	}
-}
-
-// Apply the change to the InMemoryUpdater.
-func (u *InMemoryUpdater) Apply(c *Change) error {
-	u.itemsMutex.Lock()
-	defer u.itemsMutex.Unlock()
-	u.items[c.Collection] = c.Objects
-	return nil
-}
-
-// Get current state for the given collection.
-func (u *InMemoryUpdater) Get(collection string) []*Object {
-	u.itemsMutex.Lock()
-	defer u.itemsMutex.Unlock()
-	return u.items[collection]
-}
 
 type perTypeState struct {
 	sync.Mutex
@@ -125,113 +71,36 @@ type Client struct {
 	stream   mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient
 	state    map[string]*perTypeState
 	nodeInfo *mcp.SinkNode
-	updater  Updater
+	updater  sink.Updater
 
-	journal  recentRequestsJournal
+	journal  *sink.RecentRequestsJournal
 	metadata map[string]string
-	reporter MetricReporter
-}
-
-// JournaledRequest is a common structure for journaling
-// both mcp.MeshConfigRequest and mcp.RequestResources. It can be replaced with
-// mcp.RequestResources once we fully switch over to the new API.
-type JournaledRequest struct {
-	VersionInfo   string
-	Collection    string
-	ResponseNonce string
-	ErrorDetail   *rpc.Status
-	SinkNode      *mcp.SinkNode
-}
-
-func (jr *JournaledRequest) toMeshConfigRequest() *mcp.MeshConfigRequest {
-	return &mcp.MeshConfigRequest{
-		TypeUrl:       jr.Collection,
-		VersionInfo:   jr.VersionInfo,
-		ResponseNonce: jr.ResponseNonce,
-		ErrorDetail:   jr.ErrorDetail,
-		SinkNode:      jr.SinkNode,
-	}
-}
-
-// RecentRequestInfo is metadata about a request that the client has sent.
-type RecentRequestInfo struct {
-	Time    time.Time
-	Request *JournaledRequest
-}
-
-// Acked indicates whether the message was an ack or not.
-func (r RecentRequestInfo) Acked() bool {
-	return r.Request.ErrorDetail != nil
-}
-
-// recentRequestsJournal captures debug metadata about the latest requests that was sent by this client.
-type recentRequestsJournal struct {
-	itemsMutex sync.Mutex
-	items      []RecentRequestInfo
-}
-
-// MetricReporter is used to report metrics for an MCP client.
-type MetricReporter interface {
-	RecordSendError(err error, code codes.Code)
-	RecordRecvError(err error, code codes.Code)
-	RecordRequestAck(collection string)
-	RecordRequestNack(collection string, err error)
-	RecordStreamCreateSuccess()
-}
-
-func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) { // nolint:interfacer
-	r.itemsMutex.Lock()
-	defer r.itemsMutex.Unlock()
-
-	item := RecentRequestInfo{
-		Time: time.Now(),
-		Request: &JournaledRequest{
-			VersionInfo:   req.VersionInfo,
-			Collection:    req.TypeUrl,
-			ResponseNonce: req.ResponseNonce,
-			ErrorDetail:   req.ErrorDetail,
-			SinkNode:      req.SinkNode,
-		},
-	}
-
-	r.items = append(r.items, item)
-	for len(r.items) > 20 {
-		r.items = r.items[1:]
-	}
-}
-
-func (r *recentRequestsJournal) snapshot() []RecentRequestInfo {
-	r.itemsMutex.Lock()
-	defer r.itemsMutex.Unlock()
-
-	result := make([]RecentRequestInfo, len(r.items))
-	copy(result, r.items)
-
-	return result
+	reporter monitoring.Reporter
 }
 
 // New creates a new instance of the MCP client for the specified message types.
-func New(mcpClient mcp.AggregatedMeshConfigServiceClient, collections []string, updater Updater, id string, metadata map[string]string, reporter MetricReporter) *Client { // nolint: lll
+func New(mcpClient mcp.AggregatedMeshConfigServiceClient, options *sink.Options) *Client { // nolint: lll
 	nodeInfo := &mcp.SinkNode{
-		Id:          id,
+		Id:          options.ID,
 		Annotations: map[string]string{},
 	}
-	for k, v := range metadata {
+	for k, v := range options.Metadata {
 		nodeInfo.Annotations[k] = v
 	}
 
 	state := make(map[string]*perTypeState)
-	for _, collection := range collections {
-		state[collection] = &perTypeState{}
+	for _, collection := range options.CollectionOptions {
+		state[collection.Name] = &perTypeState{}
 	}
 
 	return &Client{
 		client:   mcpClient,
 		state:    state,
 		nodeInfo: nodeInfo,
-		updater:  updater,
-		metadata: metadata,
-		reporter: reporter,
+		updater:  options.Updater,
+		metadata: options.Metadata,
+		reporter: options.Reporter,
+		journal:  sink.NewRequestJournal(),
 	}
 }
 
@@ -239,10 +108,12 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, collections []string, 
 var handleResponseDoneProbe = func() {}
 
 func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version string, err error) *mcp.MeshConfigRequest {
+	errorDetails, _ := status.FromError(err)
+
 	scope.Errorf("MCP: sending NACK for version=%v nonce=%v: error=%q", version, response.Nonce, err)
 
-	c.reporter.RecordRequestNack(response.TypeUrl, err)
-	errorDetails, _ := status.FromError(err)
+	c.reporter.RecordRequestNack(response.TypeUrl, 0, errorDetails.Code())
+
 	req := &mcp.MeshConfigRequest{
 		SinkNode:      c.nodeInfo,
 		TypeUrl:       response.TypeUrl,
@@ -266,9 +137,9 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 		return c.sendNACKRequest(response, "", errDetails)
 	}
 
-	change := &Change{
+	change := &sink.Change{
 		Collection: collection,
-		Objects:    make([]*Object, 0, len(response.Resources)),
+		Objects:    make([]*sink.Object, 0, len(response.Resources)),
 	}
 	for _, resource := range response.Resources {
 		var dynamicAny types.DynamicAny
@@ -276,7 +147,7 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 			return c.sendNACKRequest(response, state.version(), err)
 		}
 
-		object := &Object{
+		object := &sink.Object{
 			TypeURL:  resource.Body.TypeUrl,
 			Metadata: resource.Metadata,
 			Body:     dynamicAny.Message,
@@ -289,8 +160,8 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 		return c.sendNACKRequest(response, state.version(), errDetails)
 	}
 
-	// ACK
-	c.reporter.RecordRequestAck(collection)
+	c.reporter.RecordRequestAck(collection, 0)
+
 	req := &mcp.MeshConfigRequest{
 		SinkNode:      c.nodeInfo,
 		TypeUrl:       collection,
@@ -368,7 +239,7 @@ func (c *Client) Run(ctx context.Context) {
 				req = c.handleResponse(response)
 			}
 
-			c.journal.record(req)
+			c.journal.RecordMeshConfigRequest(req)
 
 			if err := c.stream.Send(req); err != nil {
 				c.reporter.RecordSendError(err, status.Code(err))
@@ -396,8 +267,8 @@ func (c *Client) Run(ctx context.Context) {
 }
 
 // SnapshotRequestInfo returns a snapshot of the last known set of request results.
-func (c *Client) SnapshotRequestInfo() []RecentRequestInfo {
-	return c.journal.snapshot()
+func (c *Client) SnapshotRequestInfo() []sink.RecentRequestInfo {
+	return c.journal.Snapshot()
 }
 
 // Metadata that is originally supplied when creating this client.

@@ -20,7 +20,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/source"
 )
 
 var scope = log.RegisterScope("mcp", "mcp debugging", 0)
@@ -64,11 +64,11 @@ func New(groupIndex GroupIndexFn) *Cache {
 	}
 }
 
-var _ server.Watcher = &Cache{}
+var _ source.Watcher = &Cache{}
 
 type responseWatch struct {
-	request      *mcp.MeshConfigRequest // original request
-	pushResponse server.PushResponseFunc
+	request      *source.Request
+	pushResponse source.PushResponseFunc
 }
 
 // StatusInfo records watch status information of a remote node.
@@ -95,7 +95,7 @@ func (si *StatusInfo) LastWatchRequestTime() time.Time {
 }
 
 // Watch returns a watch for an MCP request.
-func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushResponseFunc) server.CancelWatchFunc { // nolint: lll
+func (c *Cache) Watch(request *source.Request, pushResponse source.PushResponseFunc) source.CancelWatchFunc { // nolint: lll
 	group := c.groupIndex(request.SinkNode)
 
 	c.mu.Lock()
@@ -115,22 +115,22 @@ func (c *Cache) Watch(request *mcp.MeshConfigRequest, pushResponse server.PushRe
 	info.lastWatchRequestTime = time.Now()
 	info.mu.Unlock()
 
-	// TODO - update non-incremental MCP API to use collections instead of TypeURL
-	collection := request.TypeUrl
+	collection := request.Collection
 
 	// return an immediate response if a snapshot is available and the
 	// requested version doesn't match.
 	if snapshot, ok := c.snapshots[group]; ok {
-		version := snapshot.Version(collection)
+
+		version := snapshot.Version(request.Collection)
 		scope.Debugf("Found snapshot for group: %q for %v @ version: %q",
-			group, collection, version)
+			group, request.Collection, version)
 
 		if version != request.VersionInfo {
 			scope.Debugf("Responding to group %q snapshot:\n%v\n", group, snapshot)
-			response := &server.WatchResponse{
-				Collection: collection,
+			response := &source.WatchResponse{
+				Collection: request.Collection,
 				Version:    version,
-				Resources:  snapshot.Resources(collection),
+				Resources:  snapshot.Resources(request.Collection),
 			}
 			pushResponse(response)
 			return nil
@@ -168,25 +168,21 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 	// update the existing entry
 	c.snapshots[group] = snapshot
 
-	// TODO - update non-incremental MCP API to use collections instead of TypeURL
-
 	// trigger existing watches for which version changed
 	if info, ok := c.status[group]; ok {
 		info.mu.Lock()
 		defer info.mu.Unlock()
 
 		for id, watch := range info.watches {
-			collection := watch.request.TypeUrl
-
-			version := snapshot.Version(collection)
+			version := snapshot.Version(watch.request.Collection)
 			if version != watch.request.VersionInfo {
 				scope.Infof("SetSnapshot(): respond to watch %d for %v @ version %q",
-					id, collection, version)
+					id, watch.request.Collection, version)
 
-				response := &server.WatchResponse{
-					Collection: collection,
+				response := &source.WatchResponse{
+					Collection: watch.request.Collection,
 					Version:    version,
-					Resources:  snapshot.Resources(collection),
+					Resources:  snapshot.Resources(watch.request.Collection),
 				}
 				watch.pushResponse(response)
 
@@ -194,7 +190,7 @@ func (c *Cache) SetSnapshot(group string, snapshot Snapshot) {
 				delete(info.watches, id)
 
 				scope.Debugf("SetSnapshot(): watch %d for %v @ version %q complete",
-					id, collection, version)
+					id, watch.request.Collection, version)
 			}
 		}
 	}
