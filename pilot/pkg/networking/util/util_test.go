@@ -18,7 +18,9 @@ import (
 	"reflect"
 	"testing"
 
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -366,5 +368,58 @@ func TestLocalityMatch(t *testing.T) {
 				t.Errorf("Expected matching result %v, but got %v", tt.match, match)
 			}
 		})
+	}
+}
+
+func TestCloneCluster(t *testing.T) {
+	cluster := buildFakeCluster()
+	clone := CloneCluster(cluster)
+	cluster.LoadAssignment.Endpoints[0].LoadBalancingWeight.Value = 10
+	cluster.LoadAssignment.Endpoints[0].Priority = 8
+	cluster.LoadAssignment.Endpoints[0].LbEndpoints = nil
+
+	if clone.LoadAssignment.Endpoints[0].LoadBalancingWeight.GetValue() == 10 {
+		t.Errorf("LoadBalancingWeight mutated")
+	}
+	if clone.LoadAssignment.Endpoints[0].Priority == 8 {
+		t.Errorf("Priority mutated")
+	}
+	if clone.LoadAssignment.Endpoints[0].LbEndpoints == nil {
+		t.Errorf("LbEndpoints mutated")
+	}
+}
+
+func buildFakeCluster() *v2.Cluster {
+	return &v2.Cluster{
+		Name: "outbound|8080||test.example.org",
+		LoadAssignment: &v2.ClusterLoadAssignment{
+			ClusterName: "outbound|8080||test.example.org",
+			Endpoints: []endpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+			},
+		},
 	}
 }

@@ -91,8 +91,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 			if sidecarScope != nil && sidecarScope.XDSOutboundClusters != nil {
 				clusters = append(clusters, sidecarScope.XDSOutboundClusters...)
 				// For locality loadbalancing
-				for _, cluster := range clusters {
-					ApplyLocalitySetting(proxy, cluster, push)
+				for i, cluster := range clusters {
+					if cluster.LoadAssignment != nil {
+						clone := util.CloneCluster(cluster)
+						ApplyLocalitySetting(proxy, cluster, push)
+						clusters[i] = clone
+					}
 				}
 				recomputeOutboundClusters = false
 			}
@@ -117,8 +121,12 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 				configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
 				clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace]...)
 				// For locality loadbalancing
-				for _, cluster := range clusters {
-					ApplyLocalitySetting(proxy, cluster, push)
+				for i, cluster := range clusters {
+					if cluster.LoadAssignment != nil {
+						clone := util.CloneCluster(cluster)
+						ApplyLocalitySetting(proxy, clone, push)
+						clusters[i] = clone
+					}
 				}
 				recomputeOutboundClusters = false
 			}
@@ -141,9 +149,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 }
 
 func ApplyLocalitySetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
-	if cluster.LoadAssignment == nil {
-		return
-	}
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
 	if config := push.DestinationRule(proxy, hostname); config != nil {
 		if port := push.ServicePort(hostname, portNumber); port != nil {

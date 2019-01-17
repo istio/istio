@@ -277,16 +277,10 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	edsInstances.With(prometheus.Labels{"cluster": clusterName}).Set(float64(cnt))
 
 	for locality, edsCluster := range edsClusters {
-		clonedLocEps := make([]endpoint.LocalityLbEndpoints, 0, len(locEps))
 		// shallow copy locEps LocalityLbEndpoints,
 		// because below may mutate its LoadBalancingWeight or Priority
-		for _, localEp := range locEps {
-			clone := localEp
-			clone.LoadBalancingWeight = &types.UInt32Value{
-				Value: localEp.GetLoadBalancingWeight().GetValue(),
-			}
-			clonedLocEps = append(clonedLocEps, clone)
-		}
+		clonedLocEps := util.CloneLocalityLbEndpoints(locEps)
+
 		// There is a chance multiple goroutines will update the cluster at the same time.
 		// This could be prevented by a lock - but because the update may be slow, it may be
 		// better to accept the extra computations.
@@ -298,7 +292,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 			ClusterName: clusterName,
 			Endpoints:   clonedLocEps,
 		}
-		if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
+		if len(clonedLocEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
 			edsCluster.NonEmptyTime = time.Now()
 		}
 		dummyCluster := &xdsapi.Cluster{
@@ -425,16 +419,9 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 	locEps = LoadBalancingWeightNormalize(locEps)
 
 	for locality, edsCluster := range edsClusters {
-		clonedLocEps := make([]endpoint.LocalityLbEndpoints, 0, len(locEps))
 		// shallow copy locEps LocalityLbEndpoints,
 		// because below may mutate its LoadBalancingWeight or Priority
-		for _, localEp := range locEps {
-			clone := localEp
-			clone.LoadBalancingWeight = &types.UInt32Value{
-				Value: localEp.GetLoadBalancingWeight().GetValue(),
-			}
-			clonedLocEps = append(clonedLocEps, clone)
-		}
+		clonedLocEps := util.CloneLocalityLbEndpoints(locEps)
 
 		// There is a chance multiple goroutines will update the cluster at the same time.
 		// This could be prevented by a lock - but because the update may be slow, it may be

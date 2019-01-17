@@ -303,3 +303,33 @@ func LbPriority(proxyLocality, endpointsLocality model.LocalityInterface) int {
 	}
 	return 3
 }
+
+// return a shallow copy cluster
+func CloneCluster(cluster *xdsapi.Cluster) *xdsapi.Cluster {
+	if cluster == nil {
+		return nil
+	}
+
+	out := *cluster
+	loadAssignment := *cluster.LoadAssignment
+	out.LoadAssignment = &loadAssignment
+	clonedLocEps := CloneLocalityLbEndpoints(loadAssignment.Endpoints)
+	out.LoadAssignment.Endpoints = clonedLocEps
+
+	return &out
+}
+
+// return a shallow copy LocalityLbEndpoints
+func CloneLocalityLbEndpoints(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
+	out := make([]endpoint.LocalityLbEndpoints, 0, len(endpoints))
+	for _, ep := range endpoints {
+		clone := ep
+		if ep.LoadBalancingWeight != nil {
+			clone.LoadBalancingWeight = &types.UInt32Value{
+				Value: ep.GetLoadBalancingWeight().GetValue(),
+			}
+		}
+		out = append(out, clone)
+	}
+	return out
+}
