@@ -46,7 +46,7 @@ metadata:
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
-  host: "kubernetes.default.svc.cluster.local"
+  host: "kubernetes.default.svc.{{ .Values.global.proxy.clusterDomain }}"
   trafficPolicy:
     tls:
       mode: DISABLE

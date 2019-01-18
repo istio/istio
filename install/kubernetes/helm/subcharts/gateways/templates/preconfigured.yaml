@@ -165,7 +165,7 @@ spec:
      filterType: NETWORK
      filterConfig:
        cluster_pattern: "\\.global$"
-       cluster_replacement: ".svc.cluster.local"
+       cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"
 ---
 ## To ensure all traffic to *.global is using mTLS
 apiVersion: networking.istio.io/v1alpha3

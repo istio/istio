@@ -127,11 +127,8 @@ global:
   proxy:
     image: proxyv2
 
-    # DNS domain suffix for pilot proxy agent. Default value is "${POD_NAMESPACE}.svc.cluster.local".
-    proxyDomain: ""
-
-    # DNS domain suffix for pilot proxy discovery. Default value is "cluster.local".
-    discoveryDomain: ""
+    # cluster domain. Default value is "cluster.local".
+    clusterDomain: "cluster.local"
 
     # Resources for the sidecar.
     resources:
@@ -280,7 +277,7 @@ global:
   # If not set, controller watches all namespaces
   oneNamespace: false
 
-  # Default node selector to be applied to all deployments so that all pos can be 
+  # Default node selector to be applied to all deployments so that all pods can be 
   # constrained to run a particular nodes. Each component can overwrite these default 
   # values by adding its node selector block in the relevant section below and setting 
   # the desired values.

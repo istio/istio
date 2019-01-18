@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package kube
 
 import (
 	"errors"
@@ -21,21 +21,22 @@ import (
 	"sync"
 	"testing"
 
+	"istio.io/istio/galley/pkg/runtime/resource"
+	kubeLog "istio.io/istio/galley/pkg/source/kube/log"
+	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/testing/common"
+	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/log"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/fake"
 	dtesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/galley/pkg/testing/common"
-	"istio.io/istio/galley/pkg/testing/mock"
-	"istio.io/istio/pkg/log"
 )
 
-var info = kube.ResourceSpec{
+var info = schema.ResourceSpec{
 	Kind:     "kind",
 	ListKind: "listkind",
 	Group:    "group",
@@ -73,9 +74,9 @@ func TestListener_NewClient_Debug(t *testing.T) {
 	processorFn := func(l *listener, eventKind resource.EventKind, key resource.FullName, version string, u *unstructured.Unstructured) {
 	}
 
-	old := scope.GetOutputLevel()
-	defer scope.SetOutputLevel(old)
-	scope.SetOutputLevel(log.DebugLevel)
+	old := kubeLog.Scope.GetOutputLevel()
+	defer kubeLog.Scope.SetOutputLevel(old)
+	kubeLog.Scope.SetOutputLevel(log.DebugLevel)
 	_, _ = newListener(k, 0, info, processorFn)
 	// should not crash
 }
@@ -495,9 +496,9 @@ func TestListener_Tombstone_ObjDecodeError(t *testing.T) {
 
 	a.start()
 
-	old := scope.GetOutputLevel()
-	defer scope.SetOutputLevel(old)
-	scope.SetOutputLevel(log.DebugLevel)
+	old := kubeLog.Scope.GetOutputLevel()
+	defer kubeLog.Scope.SetOutputLevel(old)
+	kubeLog.Scope.SetOutputLevel(log.DebugLevel)
 
 	item := cache.DeletedFinalStateUnknown{Key: "foo", Obj: struct{}{}}
 	a.handleEvent(resource.Deleted, item)

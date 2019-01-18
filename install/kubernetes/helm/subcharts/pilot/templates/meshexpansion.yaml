@@ -12,7 +12,7 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   hosts:
-  - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
+  - istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-ilb-gateway
   tcp:
@@ -20,21 +20,21 @@ spec:
     - port: 15011
     route:
     - destination:
-        host: istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
+        host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15011
   - match:
     - port: 15010
     route:
     - destination:
-        host: istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
+        host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15010
   - match:
     - port: 5353
     route:
     - destination:
-        host: kube-dns.kube-system.svc.cluster.local
+        host: kube-dns.kube-system.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 53
 ---
@@ -52,7 +52,7 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   hosts:
-  - istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
+  - istio-pilot.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   gateways:
   - meshexpansion-gateway
   tcp:
@@ -60,7 +60,7 @@ spec:
     - port: 15011
     route:
     - destination:
-        host: istio-pilot.{{ $.Release.Namespace }}.svc.cluster.local
+        host: istio-pilot.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 15011
 ---
@@ -78,7 +78,7 @@ metadata:
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
-  host: istio-pilot.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     portLevelSettings:
     - port:

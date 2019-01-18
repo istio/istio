@@ -35,7 +35,7 @@ metadata:
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
-  host: grafana.{{ .Release.Namespace }}.svc.cluster.local
+  host: grafana.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -60,7 +60,7 @@ spec:
     - port: 15031
     route:
     - destination:
-        host: grafana.{{ .Release.Namespace }}.svc.cluster.local
+        host: grafana.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: {{ .Values.service.externalPort }}
 {{- end }}
