@@ -18,10 +18,11 @@ package none
 
 import (
 	"google.golang.org/grpc"
+
 	"istio.io/istio/galley/pkg/authplugin"
 )
 
-func returnAuth(config map[string]string) ([]grpc.DialOption, error) {
+func returnAuth(config map[string]string) ([]grpc.DialOption, error) { // nolint: unparam
 	return nil, nil
 }
 

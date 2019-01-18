@@ -23,10 +23,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
+
 	"istio.io/istio/galley/pkg/authplugin"
 )
 
 func returnAuth(config map[string]string) ([]grpc.DialOption, error) {
+	_ = config
 	ctx := context.Background()
 	creds, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/<SCOPE>")
 	if err != nil {
@@ -34,7 +36,7 @@ func returnAuth(config map[string]string) ([]grpc.DialOption, error) {
 	}
 
 	grpcOpts := []grpc.DialOption{
-		grpc.WithPerRPCCredentials(oauth.TokenSource{creds.TokenSource}),
+		grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: creds.TokenSource}),
 		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")),
 	}
 
