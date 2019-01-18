@@ -185,11 +185,13 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	}
 
 	go func() {
-		if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
-			log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+		for {
+			// Retry if Serve() fails
+			log.Info("Start SDS grpc server for ingress gateway proxy")
+			if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
+				log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+			}
 		}
-
-		log.Info("SDS grpc server for ingress gateway proxy started")
 	}()
 
 	return nil
