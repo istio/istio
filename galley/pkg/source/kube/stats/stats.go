@@ -46,12 +46,12 @@ var (
 var (
 	listenerHandleEventError = stats.Int64(
 		"galley/kube/source/listener_handle_event_error_total",
-		"The number of times the source's handleEvent has errored",
+		"The number of times the listener's handleEvent has errored",
 		stats.UnitDimensionless)
 
 	listenerHandleEventSuccess = stats.Int64(
 		"galley/kube/source/listener_handle_event_success_total",
-		"The number of times the source's handleEvent has succeeded",
+		"The number of times the listener's handleEvent has succeeded",
 		stats.UnitDimensionless)
 
 	sourceConversionSuccess = stats.Int64(
