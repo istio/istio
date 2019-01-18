@@ -319,20 +319,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	out := &route.Route{
 		Match:           translateRouteMatch(match),
 		PerFilterConfig: make(map[string]*types.Struct),
-		Metadata : &core.Metadata{
-			FilterMetadata: map[string]*types.Struct{
-				util.IstioMetadataKey: {
-					Fields:               map[string]*types.Value{
-						util.IstioMetadataVirtualServiceKey : {
-							Kind:                 &types.Value_StringValue{
-								StringValue: fmt.Sprintf("%s.%s.%s", virtualService.Name,
-									virtualService.Namespace, virtualService.Domain),
-							},
-						},
-					},
-				},
-			},
-		},
+		Metadata:        util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
 	if redirect := in.Redirect; redirect != nil {

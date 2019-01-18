@@ -46,13 +46,7 @@ const (
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
-	IstioMetadataKey = "networking.istio.io"
-	// IstioMetadataVirtualServiceKey is the key name for the virtual service inside
-	// the Istio metadata
-	IstioMetadataVirtualServiceKey = "VirtualService"
-	// IstioMetadataDestinationRuleKey is the key name for the destination rule inside
-	// the Istio metadata
-	IstioMetadataDestinationRuleKey = "DestinationRule"
+	istioMetadataKey = "istio"
 	// The range of LoadBalancingWeight is [1, 128]
 	maxLoadBalancingWeight = 128
 )
@@ -284,5 +278,25 @@ func ConvertLocality(locality string) *core.Locality {
 			Zone:    items[1],
 			SubZone: items[2],
 		}
+	}
+}
+
+// BuildConfigInfoMetadata builds core.Metadata struct containing the
+// name.namespace of the config, the type, etc. Used by Mixer plugins
+// to generate telemetry
+func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
+	return &core.Metadata{
+		FilterMetadata: map[string]*types.Struct{
+			istioMetadataKey: {
+				Fields: map[string]*types.Value{
+					config.Type: {
+						Kind: &types.Value_StringValue{
+							StringValue: fmt.Sprintf("%s.%s.%s", config.Name,
+								config.Namespace, config.Domain),
+						},
+					},
+				},
+			},
+		},
 	}
 }
