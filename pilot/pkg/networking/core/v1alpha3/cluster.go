@@ -401,21 +401,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// Right now we don't track the targetPort in the ServiceInstance - only the service port.
 			// For now we'll match on name ( and require the name of the port to be unique inside a namespace )
 			// Proper fix is to track targetPort, or use service port number in Sidecar
-			var instance *model.ServiceInstance
-			for _, realinstance := range instances {
-				for _, iport := range realinstance.Service.Ports {
-					if iport.Name == ingressListener.Port.Name {
-						// TODO: this can't be correct, what happens with the other instances ? Likely works for test with single svc only
-						// First create a copy of a service instance
-						instance = &model.ServiceInstance{
-							Endpoint:       realinstance.Endpoint,
-							Service:        realinstance.Service,
-							Labels:         realinstance.Labels,
-							ServiceAccount: realinstance.ServiceAccount,
-						}
-					}
-				}
-			}
+			instance := configgen.findInstance(instances, ingressListener)
 
 			if instance == nil {
 				// We didn't find a matching port
@@ -453,6 +439,25 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	}
 
 	return clusters
+}
+
+func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceInstance, ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
+	var instance *model.ServiceInstance
+	for _, realinstance := range instances {
+		for _, iport := range realinstance.Service.Ports {
+			if iport.Name == ingressListener.Port.Name {
+				// TODO: this can't be correct, what happens with the other instances ? Likely works for test with single svc only
+				// First create a copy of a service instance
+				instance = &model.ServiceInstance{
+					Endpoint:       realinstance.Endpoint,
+					Service:        realinstance.Service,
+					Labels:         realinstance.Labels,
+					ServiceAccount: realinstance.ServiceAccount,
+				}
+			}
+		}
+	}
+	return instance
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams) *v2.Cluster {

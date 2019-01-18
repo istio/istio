@@ -422,6 +422,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				Name:     ingressListener.Port.Name,
 			}
 
+			// if app doesn't have a declared ServicePort, but a sidecar ingress is defined - we can't generate a listener
+			// for that port since we don't know what policies or configs apply to it ( many are based on service matching).
+			// Sidecar doesn't include all the info needed to configure a port. 
+			instance := configgen.findInstance(proxyInstances, ingressListener)
+
+			if instance == nil {
+				// We didn't find a matching port
+				continue
+			}
+
 			bind := ingressListener.Bind
 			// if bindToPort is true, we set the bind address if empty to 0.0.0.0 - this is an inbound port.
 			if len(bind) == 0 && bindToPort {
@@ -430,7 +440,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				// auto infer the IP from the proxyInstances
 				// We assume all endpoints in the proxy instances have the same IP
 				// as they should all be pointing to the same network endpoint
-				bind = proxyInstances[0].Endpoint.Address
+				bind = instance.Endpoint.Address
 			}
 
 			listenerOpts := buildListenerOpts{
@@ -443,20 +453,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				bindToPort:     bindToPort,
 			}
 
-			// Construct a dummy service instance for this port so that the rest of the code doesn't freak out
-			// due to a missing instance. Technically this instance is not a service instance as it corresponds to
-			// some workload listener. But given that we force all workloads to be part of atleast one service,
-			// lets create a service instance for this workload based on the first service associated with the workload.
-			// TODO: We are arbitrarily using the first proxyInstance. When a workload has multiple services bound to it,
-			// what happens? We could run the loop for every instance but we would have the same listeners.
-
-			// First create a copy of a service instance
-			instance := &model.ServiceInstance{
-				Endpoint:       proxyInstances[0].Endpoint,
-				Service:        proxyInstances[0].Service,
-				Labels:         proxyInstances[0].Labels,
-				ServiceAccount: proxyInstances[0].ServiceAccount,
-			}
 
 			// Update the values here so that the plugins use the right ports
 			// uds values
