@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,10 +48,41 @@ func init() {
 	appPort = uint16(app.GetPorts()[0].Port)
 }
 
+func TestNewServer(t *testing.T) {
+	testCases := []struct {
+		httpProbe string
+		err       string
+	}{
+		{
+			httpProbe: "invalid-prober-json-encoding",
+			err:       "failed to decode",
+		},
+	}
+	for _, tc := range testCases {
+		_, err := NewServer(Config{
+			KubeAppHTTPProbers: tc.httpProbe,
+		})
+		if err == nil {
+			if tc.err != "" {
+				t.Errorf("test case failed [%v], expect error %v", tc.httpProbe, tc.err)
+			}
+			continue
+		}
+		// error case, error string should match.
+		if !strings.Contains(err.Error(), tc.err) {
+			t.Errorf("test case failed [%v], expect error %v, got %v", tc.httpProbe, tc.err, err)
+		}
+	}
+}
+
 func TestAppProbe(t *testing.T) {
-	server := NewServer(Config{
+	server, err := NewServer(Config{
 		StatusPort: 0,
 	})
+	if err != nil {
+		t.Errorf("failed to create status server %v", err)
+		return
+	}
 	go server.Run(context.Background())
 
 	// We wait a bit here to ensure server's statusPort is updated.

@@ -16,6 +16,7 @@ package status
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -27,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/log"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -36,17 +38,20 @@ const (
 	IstioAppPortHeader = "istio-app-probe-port"
 )
 
-// AppProbeInfo defines the information for Pilot agent to take over application probing.
-type AppProbeInfo struct {
-	Path string
-	Port uint16
+// KubeHTTPProbers holds the information about a Kubernetes pod prober.
+type KubeAppProbers struct {
+	// Liveness is the map from container name of a pod to the liveness probe.
+	Liveness map[string]*corev1.HTTPGetAction `json:"liveness"`
+	// Readiness is the map from container name of a pod to the readiness probe.
+	Readiness map[string]*corev1.HTTPGetAction `json:"readiness"`
 }
 
 // Config for the status server.
 type Config struct {
-	StatusPort       uint16
-	AdminPort        uint16
-	ApplicationPorts []uint16
+	StatusPort         uint16
+	AdminPort          uint16
+	ApplicationPorts   []uint16
+	KubeAppHTTPProbers string
 }
 
 // Server provides an endpoint for handling status probes.
@@ -55,17 +60,25 @@ type Server struct {
 	ready               *ready.Probe
 	mutex               sync.RWMutex
 	lastProbeSuccessful bool
+	appKubeProbers      KubeAppProbers
 }
 
 // NewServer creates a new status server.
-func NewServer(config Config) *Server {
-	return &Server{
+func NewServer(config Config) (*Server, error) {
+	s := &Server{
 		statusPort: config.StatusPort,
 		ready: &ready.Probe{
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
 		},
 	}
+	if config.KubeAppHTTPProbers == "" {
+		return s, nil
+	}
+	if err := json.Unmarshal([]byte(config.KubeAppHTTPProbers), &s.appKubeProbers); err != nil {
+		return nil, fmt.Errorf("failed to decode app http prober err = %v, json string = %v", err, config.KubeAppHTTPProbers)
+	}
+	return s, nil
 }
 
 // Run opens a the status port and begins accepting probes.
