@@ -17,24 +17,22 @@ package fs
 import (
 	"crypto/sha1"
 	"fmt"
-
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/howeyc/fsnotify"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"istio.io/istio/galley/pkg/kube/converter"
-
-	"istio.io/istio/pkg/log"
-
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/source"
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/source/kube"
+	"istio.io/istio/galley/pkg/source/kube/converter"
+	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/pkg/log"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var supportedExtensions = map[string]bool{
@@ -87,7 +85,7 @@ func (s *fsSource) readFiles(root string) map[resource.FullName]*istioResource {
 		}
 		//add watcher for sub folders
 		if info.Mode().IsDir() {
-			s.watcher.Watch(path)
+			_ = s.watcher.Watch(path)
 		}
 		return nil
 	})
@@ -214,12 +212,12 @@ func (s *fsSource) initialCheck() {
 // Stop implements runtime.Source
 func (s *fsSource) Stop() {
 	close(s.donec)
-	s.watcher.Close()
+	_ = s.watcher.Close()
 }
 
 func (s *fsSource) process(eventKind resource.EventKind, key resource.FullName, resourceKind string, r *istioResource) {
 	var u *unstructured.Unstructured
-	var spec kube.ResourceSpec
+	var spec schema.ResourceSpec
 	var kind string
 	// no need to care about real data when deleting resources
 	if eventKind == resource.Deleted {
@@ -229,14 +227,14 @@ func (s *fsSource) process(eventKind resource.EventKind, key resource.FullName, 
 		u = r.u
 		kind = r.u.GetKind()
 	}
-	for _, v := range kube_meta.Types.All() {
+	for _, v := range kubeMeta.Types.All() {
 		if v.Kind == kind {
 			spec = v
 			break
 		}
 	}
 
-	source.ProcessEvent(s.config, spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
+	kube.ProcessEvent(s.config, spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
 }
 
 // Start implements runtime.Source
@@ -247,7 +245,7 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 		return nil, err
 	}
 	s.watcher = watcher
-	s.watcher.Watch(s.root)
+	_ = s.watcher.Watch(s.root)
 	s.initialCheck()
 	go func() {
 		for {
@@ -266,7 +264,7 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 					} else {
 						if fi.Mode().IsDir() {
 							scope.Debugf("add watcher for new folder %s", ev.Name)
-							s.watcher.Watch(ev.Name)
+							_ = s.watcher.Watch(ev.Name)
 						} else {
 							newData := s.readFile(ev.Name, fi, true)
 							if newData != nil && len(newData) != 0 {
@@ -280,7 +278,7 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 						scope.Warnf("error occurs for watching %s", ev.Name)
 					} else {
 						if fi.Mode().IsDir() {
-							s.watcher.RemoveWatch(ev.Name)
+							_ = s.watcher.RemoveWatch(ev.Name)
 						} else {
 							newData := s.readFile(ev.Name, fi, false)
 							if newData != nil && len(newData) != 0 {
@@ -301,7 +299,7 @@ func (s *fsSource) Start() (chan resource.Event, error) {
 }
 
 // New returns a File System implementation of runtime.Source.
-func New(root string, schema *kube.Schema, config *converter.Config) (runtime.Source, error) {
+func New(root string, schema *schema.Instance, config *converter.Config) (runtime.Source, error) {
 	fs := &fsSource{
 		config:          config,
 		root:            root,
