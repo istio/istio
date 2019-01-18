@@ -390,6 +390,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
+				s.mesh = mesh
 				s.EnvoyXdsServer.ConfigUpdate(true)
 			}
 		})
