@@ -23,6 +23,9 @@ spec:
 {{- if eq $key "telemetry" }}
   - name: prometheus
     port: 42422
+{{- if $spec.sessionAffinityEnabled }}
+  sessionAffinity: ClientIP
+{{- end }}
 {{- end }}
   selector:
     istio: mixer
