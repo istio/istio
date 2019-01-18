@@ -128,6 +128,10 @@ type Port struct {
 	// service. See NetworkEndpoint definition below.
 	Port int `json:"port"`
 
+	// TargetPort where the endpoints of the service are running.
+	// Typically the same with Port, but can also be the name of a port.
+	TargetPort string `json:"targetPort"`
+
 	// Protocol to be used for the port.
 	Protocol Protocol `json:"protocol,omitempty"`
 }
