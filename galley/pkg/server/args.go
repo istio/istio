@@ -92,24 +92,30 @@ type Args struct {
 	// SinkAuthMode should be set to a name of an authentication plugin,
 	// see the istio.io/istio/galley/pkg/autplugins package.
 	SinkAuthMode string
+
+	// If true, Galley will convert the Istio Authenticaion and Authorization policy to use label
+	// selector instead of service names in the policy.
+	ConvertAuthToUseLabelSelector bool
+
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIAddress:                "tcp://0.0.0.0:9901",
-		MaxReceivedMessageSize:    1024 * 1024,
-		MaxConcurrentStreams:      1024,
-		IntrospectionOptions:      ctrlz.DefaultOptions(),
-		Insecure:                  false,
-		AccessListFile:            defaultAccessListFile,
-		MeshConfigFile:            defaultMeshConfigFile,
-		EnableServer:              true,
-		CredentialOptions:         creds.DefaultOptions(),
-		ConfigPath:                "",
-		DomainSuffix:              defaultDomainSuffix,
-		DisableResourceReadyCheck: false,
-		ExcludedResourceKinds:     defaultExcludedResourceKinds(),
+		APIAddress:                    "tcp://0.0.0.0:9901",
+		MaxReceivedMessageSize:        1024 * 1024,
+		MaxConcurrentStreams:          1024,
+		IntrospectionOptions:          ctrlz.DefaultOptions(),
+		Insecure:                      false,
+		AccessListFile:                defaultAccessListFile,
+		MeshConfigFile:                defaultMeshConfigFile,
+		EnableServer:                  true,
+		CredentialOptions:             creds.DefaultOptions(),
+		ConfigPath:                    "",
+		DomainSuffix:                  defaultDomainSuffix,
+		DisableResourceReadyCheck:     false,
+		ExcludedResourceKinds:         defaultExcludedResourceKinds(),
+		ConvertAuthToUseLabelSelector: false,
 	}
 }
 
@@ -145,6 +151,7 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "ExcludedResourceKinds: %v\n", a.ExcludedResourceKinds)
 	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
 	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)
+	_, _ = fmt.Fprintf(buf, "ConvertAuthToUseLabelSelector: %v\n", a.ConvertAuthToUseLabelSelector)
 
 	return buf.String()
 }

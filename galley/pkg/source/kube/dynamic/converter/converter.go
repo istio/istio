@@ -210,11 +210,25 @@ func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _
 			Protocol: string(kube.ConvertProtocol(kubePort.Name, kubePort.Protocol)),
 		})
 	}
+
+	annotations := service.Annotations
+	if selector, err := json.Marshal(service.Spec.Selector); err != nil {
+		scope.Errorf("failed to marshal service selector: %v", err)
+	} else {
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+
+		// Store the selector in a special annotation which will later be used to convert authentication
+		// policy to use label selectors instead of service names.
+		annotations["_service_spec_selector_"] = string(selector)
+	}
+
 	return []Entry{{
 		Key: name,
 		Metadata: resource.Metadata{
 			Labels:      service.Labels,
-			Annotations: service.Annotations,
+			Annotations: annotations,
 			CreateTime:  service.CreationTimestamp.Time,
 		},
 		Resource: &se,

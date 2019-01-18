@@ -23,4 +23,8 @@ type Config struct {
 
 	// Domain suffix to use
 	DomainSuffix string
+
+	// If true, Galley will convert the Istio Authenticaion and Authorization policy to use label
+	// selector instead of service names in the policy.
+	ConvertAuthToUseLabelSelector bool
 }

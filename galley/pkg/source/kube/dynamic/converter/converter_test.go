@@ -597,6 +597,9 @@ func TestKubeServiceResource(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					ClusterIP: "10.39.241.161",
+					Selector: map[string]string{
+						"a": "1", "b": "2",
+					},
 					Ports: []corev1.ServicePort{
 						{
 							Name:       "http",
@@ -623,8 +626,9 @@ func TestKubeServiceResource(t *testing.T) {
 				Key: resource.FullNameFromNamespaceAndName("default", "reviews"),
 				Metadata: resource.Metadata{
 					Annotations: map[string]string{
-						"a1_key": "a1_value",
-						"a2_key": "a2_value",
+						"a1_key":                  "a1_value",
+						"a2_key":                  "a2_value",
+						"_service_spec_selector_": `{"a":"1","b":"2"}`,
 					},
 					Labels: map[string]string{
 						"l1_key": "l1_value",

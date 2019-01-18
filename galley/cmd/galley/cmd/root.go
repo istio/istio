@@ -154,6 +154,8 @@ func GetRootCmd(args []string) *cobra.Command {
 		serverArgs.SinkAddress, "Address of MCP Resource Sink server for Galley to connect to. Ex: 'foo.com:1234'")
 	rootCmd.PersistentFlags().StringVar(&serverArgs.SinkAuthMode, "sinkAuthMode",
 		serverArgs.SinkAuthMode, "Name of authentication plugin to use for connection to sink server.")
+	rootCmd.PersistentFlags().BoolVar(&serverArgs.ConvertAuthToUseLabelSelector, "convertAuthToUseLabelSelector", serverArgs.ConvertAuthToUseLabelSelector,
+		"Converts Istio Authentication and Authorization policy to use label selectors instead of service names in the policy.")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 

@@ -138,6 +138,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	processorCfg := runtime.Config{
 		DomainSuffix: a.DomainSuffix,
 		Mesh:         mesh,
+		ConvertAuthToUseLabelSelector: a.ConvertAuthToUseLabelSelector,
 	}
 	distributor := snapshot.New(groups.IndexFunction)
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
