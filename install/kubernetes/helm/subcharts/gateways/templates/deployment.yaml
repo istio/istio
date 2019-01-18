@@ -14,7 +14,9 @@ metadata:
     {{ $key }}: {{ $val }}
     {{- end }}
 spec:
+{{- if not $spec.autoscaleMin }}
   replicas: {{ $spec.replicaCount }}
+{{- end }}
   template:
     metadata:
       labels:
