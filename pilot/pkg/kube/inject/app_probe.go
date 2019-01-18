@@ -93,7 +93,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	}
 
 	// Change the application containers' probe to point to sidecar's status port.
-	rewriteProbe := func(probe *corev1.Probe, portMap map[string]int32) {
+	rewriteProbe := func(probe *corev1.Probe, appProbers *status.KubeAppProbers, portMap map[string]int32) {
 		if probe == nil || probe.HTTPGet == nil {
 			return
 		}
@@ -109,11 +109,11 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 				log.Errorf("named port not found in the map skip rewriting probing %v", *probe)
 				return
 			}
-			header.Value = strconv.Itoa(int(port))
 		}
 		httpGet.HTTPHeaders = append(httpGet.HTTPHeaders, header)
 		httpGet.Port = intstr.FromInt(statusPort)
 	}
+	appProberInfo := status.KubeAppProbers{}
 	for _, c := range podSpec.Containers {
 		// Skip sidecar container.
 		if c.Name == istioProxyContainerName {
@@ -123,7 +123,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 		for _, p := range c.Ports {
 			portMap[p.Name] = p.ContainerPort
 		}
-		rewriteProbe(c.ReadinessProbe, portMap)
-		rewriteProbe(c.LivenessProbe, portMap)
+		rewriteProbe(c.ReadinessProbe, &appProberInfo, c.Name, "ready", portMap)
+		rewriteProbe(c.LivenessProbe, &appProberInfo, c.Name, "livez", portMap)
 	}
 }
