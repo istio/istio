@@ -215,6 +215,7 @@ waitForPodsReady() {
             fi
         done
         if [  "${ready}" = "true" ]; then
+            echo "${pods_str}"
             echo "All pods ready."
             return
         fi
@@ -328,6 +329,9 @@ echo "Waiting for traffic to settle..."
 sleep 20
 
 installIstioSystemAtVersionHelmTemplate "${TO_HUB}" "${TO_TAG}" "${TO_PATH}"
+# Wait a bit for the pod status to show up.
+# FIXME(mostrowski): this should test for pods at target version.
+sleep 10
 waitForPodsReady "${ISTIO_NAMESPACE}"
 # In principle it should be possible to restart data plane immediately, but being conservative here.
 sleep 60
@@ -346,6 +350,7 @@ restartDataPlane echosrv-deployment-v1
 sleep 140
 
 installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
+sleep 10
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
 echo "Test ran for ${SECONDS} seconds."
