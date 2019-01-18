@@ -16,12 +16,14 @@ package runtime
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -194,11 +196,82 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	// Build entities that are derived from existing ones.
 	s.buildProjections(b)
 
+	if s.config.UpgradeAuthenticationPolicyToV2 {
+		// upgrade the AuthenticationPolicy to v2 version.
+		s.upgradeAuthenticationPolicyToV2(b)
+	}
+
 	return b.Build()
 }
 
 func (s *State) buildProjections(b *snapshot.InMemoryBuilder) {
 	s.buildIngressProjectionResources(b)
+}
+
+func (s *State) createAuthConverter() *conversions.AuthConverter {
+	serviceState := s.entries[metadata.K8sCoreV1Services.Collection]
+	if serviceState == nil {
+		return nil
+	}
+
+	authConverter := conversions.AuthConverter{}
+	for name, entry := range serviceState.entries {
+		selector := make(resource.Labels)
+		// The entry is actually the ServiceEntry, not the k8s Service due to the conversion happened in
+		// kubeServiceResource(). We have to look into the annotation to get the mapping relations between
+		// a service name and the workload labels.
+		// We don't need this after https://github.com/istio/istio/pull/11293.
+		data := entry.Metadata.Annotations["_istio_service_spec_selector_"]
+		if err := json.Unmarshal([]byte(data), &selector); err != nil {
+			scope.Errorf("failed to unmarshal service %s: %v", name, err)
+			continue
+		}
+		authConverter.AddService(name, selector)
+	}
+
+	scope.Debugf("created auth converter: %s", authConverter)
+	return &authConverter
+}
+
+func (s *State) upgradeAuthenticationPolicyToV2(b *snapshot.InMemoryBuilder) {
+	authConverter := s.createAuthConverter()
+	if authConverter == nil {
+		return
+	}
+
+	state := s.entries[metadata.IstioAuthenticationV1alpha1Policies.Collection]
+	if state == nil {
+		return
+	}
+
+	// Upgrade the authentication to v2 version, currently this only includes converting service name
+	// to label selectors in the policy.
+	for name, entry := range state.entries {
+		policy, err := conversions.ToAuthenticationPolicy(entry)
+		if err != nil {
+			scope.Errorf("error updating authentication policy: %s", err)
+			return
+		}
+
+		namespace, _ := name.InterpretAsNamespaceAndName()
+		for _, target := range policy.Targets {
+			selectors := authConverter.GetSelectors(target.Name, namespace, false)
+
+			if len(selectors) != 1 {
+				scope.Warnf("found no selectors for authentication policy %s/%s", namespace, target.Name)
+				continue
+			}
+			scope.Debugf("matched authentication policy %s/%s with selectors: %s",
+				namespace, target.Name, selectors)
+			target.Labels = selectors[0]
+		}
+
+		if entry.Body.Value, err = proto.Marshal(policy); err != nil {
+			scope.Errorf("failed to marshal updated authentication policy: %s", err)
+			continue
+		}
+		scope.Debugf("updated authentication policy: %v", entry)
+	}
 }
 
 func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {

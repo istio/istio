@@ -96,25 +96,30 @@ type Args struct {
 	// SinkMeta list of key=values to attach as gRPC stream metadata to
 	// outgoing Sink connections.
 	SinkMeta []string
+
+	// If true, Galley will convert the Istio Authentication policy to v2 version. This includes converting
+	// the service names to label selectors and other necessary modifications in the policy.
+	UpgradeAuthenticationPolicyToV2 bool
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
 func DefaultArgs() *Args {
 	return &Args{
-		APIAddress:                "tcp://0.0.0.0:9901",
-		MaxReceivedMessageSize:    1024 * 1024,
-		MaxConcurrentStreams:      1024,
-		IntrospectionOptions:      ctrlz.DefaultOptions(),
-		Insecure:                  false,
-		AccessListFile:            defaultAccessListFile,
-		MeshConfigFile:            defaultMeshConfigFile,
-		EnableServer:              true,
-		CredentialOptions:         creds.DefaultOptions(),
-		ConfigPath:                "",
-		DomainSuffix:              defaultDomainSuffix,
-		DisableResourceReadyCheck: false,
-		ExcludedResourceKinds:     defaultExcludedResourceKinds(),
-		SinkMeta:                  make([]string, 0),
+		APIAddress:                      "tcp://0.0.0.0:9901",
+		MaxReceivedMessageSize:          1024 * 1024,
+		MaxConcurrentStreams:            1024,
+		IntrospectionOptions:            ctrlz.DefaultOptions(),
+		Insecure:                        false,
+		AccessListFile:                  defaultAccessListFile,
+		MeshConfigFile:                  defaultMeshConfigFile,
+		EnableServer:                    true,
+		CredentialOptions:               creds.DefaultOptions(),
+		ConfigPath:                      "",
+		DomainSuffix:                    defaultDomainSuffix,
+		DisableResourceReadyCheck:       false,
+		ExcludedResourceKinds:           defaultExcludedResourceKinds(),
+		SinkMeta:                        make([]string, 0),
+		UpgradeAuthenticationPolicyToV2: false,
 	}
 }
 
@@ -151,6 +156,7 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "SinkAddress: %v\n", a.SinkAddress)
 	_, _ = fmt.Fprintf(buf, "SinkAuthMode: %v\n", a.SinkAuthMode)
 	_, _ = fmt.Fprintf(buf, "SinkMeta: %v\n", a.SinkMeta)
+	_, _ = fmt.Fprintf(buf, "UpgradeAuthenticationPolicyToV2: %v\n", a.UpgradeAuthenticationPolicyToV2)
 
 	return buf.String()
 }
