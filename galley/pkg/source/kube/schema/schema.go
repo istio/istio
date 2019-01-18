@@ -12,32 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kube
+package schema
 
-// Schema represents a set of known Kubernetes resource types.
-type Schema struct {
+// Instance represents a set of known Kubernetes resource types.
+type Instance struct {
 	entries []ResourceSpec
 }
 
-// SchemaBuilder is a builder for schema.
-type SchemaBuilder struct {
-	schema *Schema
+// Builder is a builder for schema.
+type Builder struct {
+	schema *Instance
 }
 
-// NewSchemaBuilder returns a new instance of a SchemaBuilder.
-func NewSchemaBuilder() *SchemaBuilder {
-	return &SchemaBuilder{
-		schema: &Schema{},
+// NewBuilder returns a new instance of a Builder.
+func NewBuilder() *Builder {
+	return &Builder{
+		schema: &Instance{},
 	}
 }
 
 // Add a new ResourceSpec to the schema.
-func (b *SchemaBuilder) Add(entry ResourceSpec) {
+func (b *Builder) Add(entry ResourceSpec) {
 	b.schema.entries = append(b.schema.entries, entry)
 }
 
 // Build a new instance of schema.
-func (b *SchemaBuilder) Build() *Schema {
+func (b *Builder) Build() *Instance {
 	s := b.schema
 
 	// Avoid modify after Build.
@@ -47,6 +47,6 @@ func (b *SchemaBuilder) Build() *Schema {
 }
 
 // All returns information about all known types.
-func (e *Schema) All() []ResourceSpec {
+func (e *Instance) All() []ResourceSpec {
 	return e.entries
 }
