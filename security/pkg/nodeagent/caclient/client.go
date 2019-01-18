@@ -54,7 +54,7 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool, tlsRootCert []by
 	case citadelName:
 		cs, err := kube.CreateClientset("", "")
 		if err != nil {
-			return nil, fmt.Errorf("Could not create k8s clientset: %v", err)
+			return nil, fmt.Errorf("could not create k8s clientset: %v", err)
 		}
 		controller := configmap.NewController(ns, cs.CoreV1())
 		rootCert, err := getCATLSRootCertFromConfigMap(controller, retryInterval, maxRetries)
