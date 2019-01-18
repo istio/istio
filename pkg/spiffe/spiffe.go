@@ -46,7 +46,7 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
 
-	// replace specifial character in spiffee
+	// replace specifial character in spiffe
 	trustDomain = strings.Replace(trustDomain, "@", ".", -1)
 	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", trustDomain, ns, serviceAccount), err
 }
