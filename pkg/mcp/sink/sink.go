@@ -38,11 +38,6 @@ type perCollectionState struct {
 
 	// determines when incremental delivery is enabled for this collection
 	incrementalEnabled bool
-
-	// The first update received in a new stream may not be incremental. In such
-	// cases, we must invoke the updater with a non-incremental change. To do so, we
-	// track whether we've received an update for the current stream.
-	updateReceivedForStream bool
 }
 
 // Sink implements the resource sink message exchange for MCP. It can be instantiated by client and server
@@ -142,7 +137,6 @@ func (sink *Sink) handleResponse(resources *mcp.Resources) *mcp.RequestResources
 	// update version tracking if change is successfully applied
 	sink.mu.Lock()
 	internal.UpdateResourceVersionTracking(state.versions, resources)
-	state.updateReceivedForStream = true
 	sink.mu.Unlock()
 
 	// ACK
