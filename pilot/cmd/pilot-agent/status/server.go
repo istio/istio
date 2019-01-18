@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/log"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -38,13 +40,23 @@ const (
 	IstioAppPortHeader = "istio-app-probe-port"
 )
 
-// KubeHTTPProbers holds the information about a Kubernetes pod prober.
-type KubeAppProbers struct {
-	// Liveness is the map from container name of a pod to the liveness probe.
-	Liveness map[string]*corev1.HTTPGetAction `json:"liveness"`
-	// Readiness is the map from container name of a pod to the readiness probe.
-	Readiness map[string]*corev1.HTTPGetAction `json:"readiness"`
-}
+var (
+	appProberPattern = regexp.MustCompile(`^/app-health/[^\/]+/(livez|readyz)$`)
+)
+
+// // KubeAppProbers holds the information about a Kubernetes pod prober.
+// type KubeAppProbers struct {
+// 	// Probers is the map from the prober URL path to the Kubernetes Prober config.
+// 	// For example, "/app-health/hello-world/liveness" entry contains livenss prober config for
+// 	// container "hello-world".
+// 	Probers map[string]*corev1.HTTPGetAction `json:"probers"`
+// }
+
+// KubeAppProbers holds the information about a Kubernetes pod prober.
+// It's a map from the prober URL path to the Kubernetes Prober config.
+// For example, "/app-health/hello-world/liveness" entry contains livenss prober config for
+// container "hello-world".
+type KubeAppProbers map[string]*corev1.HTTPGetAction
 
 // Config for the status server.
 type Config struct {
@@ -78,6 +90,17 @@ func NewServer(config Config) (*Server, error) {
 	if err := json.Unmarshal([]byte(config.KubeAppHTTPProbers), &s.appKubeProbers); err != nil {
 		return nil, fmt.Errorf("failed to decode app http prober err = %v, json string = %v", err, config.KubeAppHTTPProbers)
 	}
+	// Validate the map key conforms the regex pattern.
+	for path, prober := range s.appKubeProbers {
+		// fmt.Println("path is ", path)
+		if !appProberPattern.Match([]byte(path)) {
+			return nil, fmt.Errorf("invalid key, must be in form of /app-health/container-name/ready|live")
+		}
+		if prober.Port.Type != intstr.Int {
+			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
+		}
+	}
+	// fmt.Println("jianfeih debugging ", s.appKubeProbers)
 	return s, nil
 }
 
@@ -88,6 +111,8 @@ func (s *Server) Run(ctx context.Context) {
 	// Add the handler for ready probes.
 	http.HandleFunc(readyPath, s.handleReadyProbe)
 	http.HandleFunc("/", s.handleAppProbe)
+
+	http.HandleFunc("/app-health", s.handleAppProbe)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
@@ -136,30 +161,35 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
-	appPort := req.Header.Get(IstioAppPortHeader)
-	if _, err := strconv.Atoi(appPort); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+	// Validate the request first.
+	path := req.URL.Path
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + req.URL.Path
+	}
+	prober, exists := s.appKubeProbers[path]
+	if !exists {
+		log.Errorf("Prober does not exists url %v", path)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
+
+	// Construct request sent to the application using localhost.
 	httpClient := &http.Client{
 		// TODO: figure out the appropriate timeout?
 		Timeout: 10 * time.Second,
 	}
-	path := req.URL.Path
-	if !strings.HasPrefix(req.URL.Path, "/") {
-		path = "/" + req.URL.Path
-	}
-	url := fmt.Sprintf("http://127.0.0.1:%s%s", appPort, path)
+	url := fmt.Sprintf("http://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
 	appReq, err := http.NewRequest(req.Method, url, req.Body)
-	for key, value := range req.Header {
-		appReq.Header[key] = value
-	}
-
 	if err != nil {
 		log.Errorf("Failed to copy request to probe app %v, url %v", err, path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	for key, value := range req.Header {
+		appReq.Header[key] = value
+	}
+
 	response, err := httpClient.Do(appReq)
 	if err != nil {
 		log.Errorf("Request to probe app failed: %v, url %v", err, path)

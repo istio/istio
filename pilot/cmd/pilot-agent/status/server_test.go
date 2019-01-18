@@ -53,13 +53,25 @@ func TestNewServer(t *testing.T) {
 		httpProbe string
 		err       string
 	}{
+		// Json can't be parsed.
 		{
 			httpProbe: "invalid-prober-json-encoding",
 			err:       "failed to decode",
 		},
+		// map key is not well formed.
 		{
-			httpProbe: `{"liveness":{"a":{"path":"path","port":32},"b":{"path":"path","port":32,` +
-				`"httpHeaders":[{"name":"header-name","value":"header-value"}]}},"readiness":{"b":{"path":"path","port":32}}}`,
+			httpProbe: `{"abc": {"path": "/app-foo/health"}}`,
+			err:       "invalid key",
+		},
+		// Port is not Int typed.
+		{
+			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}`,
+			err:       "must be int type",
+		},
+		// A valid input.
+		{
+			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},` +
+				`"/app-health/buisness/livez": {"path": "/buisiness/live", "port": 9090}}`,
 		},
 	}
 	for _, tc := range testCases {
@@ -73,16 +85,22 @@ func TestNewServer(t *testing.T) {
 			}
 			continue
 		}
+		if tc.err == "" {
+			t.Errorf("test case failed [%v], expect no error, got %v", tc.httpProbe, err)
+		}
 		// error case, error string should match.
 		if !strings.Contains(err.Error(), tc.err) {
 			t.Errorf("test case failed [%v], expect error %v, got %v", tc.httpProbe, tc.err, err)
 		}
+		fmt.Printf("jianfieh debug tc %v, err %v\n", tc, err)
 	}
 }
 
 func TestAppProbe(t *testing.T) {
 	server, err := NewServer(Config{
 		StatusPort: 0,
+		KubeAppHTTPProbers: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},` +
+			`"/app-health/buisness/livez": {"path": "/buisiness/live", "port": 9090}}`,
 	})
 	if err != nil {
 		t.Errorf("failed to create status server %v", err)
