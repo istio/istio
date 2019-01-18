@@ -56,11 +56,19 @@ func testMetric(t *testing.T, ctx component.Repository, label string, labelValue
 	t.Helper()
 
 	mxr := components.GetMixer(ctx, t)
+	env, err := kube.GetEnvironment(ctx)
+	if err != nil {
+		t.Fatalf("Could not get test environment: %v", err)
+	}
+	destinationRuleAll := bookinfo.NetworkingDestinationRuleAll
+	if env.IsMtlsEnabled() {
+		destinationRuleAll = bookinfo.NetworkingDestinationRuleAllMtls
+	}
 	mxr.Configure(t,
 		lifecycle.Test,
 		test.JoinConfigs(
 			bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
-			bookinfo.NetworkingDestinationRuleAll.LoadOrFail(t),
+			destinationRuleAll.LoadOrFail(t),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
 		))
 
@@ -68,10 +76,7 @@ func testMetric(t *testing.T, ctx component.Repository, label string, labelValue
 	ingress := components.GetIngress(ctx, t)
 
 	// Warm up
-	_, err := ingress.Call("/productpage")
-	if err != nil {
-		t.Fatal(err)
-	}
+	visitProductPage(ingress, 30*time.Second, 200, t)
 
 	// Wait for some data to arrive.
 	initial, err := prometheus.WaitForQuiesce(`istio_requests_total{%s=%q,response_code="200"}`, label, labelValue)
@@ -80,10 +85,7 @@ func testMetric(t *testing.T, ctx component.Repository, label string, labelValue
 	}
 	t.Logf("Baseline established: initial = %v", initial)
 
-	_, err = ingress.Call("/productpage")
-	if err != nil {
-		t.Fatal(err)
-	}
+	visitProductPage(ingress, 30*time.Second, 200, t)
 
 	final, err := prometheus.WaitForQuiesce(`istio_requests_total{%s=%q,response_code="200"}`, label, labelValue)
 	if err != nil {
@@ -91,13 +93,16 @@ func testMetric(t *testing.T, ctx component.Repository, label string, labelValue
 	}
 	t.Logf("Quiesced to: final = %v", final)
 
+	metricName := "istio_requests_total"
 	i, err := prometheus.Sum(initial, nil)
 	if err != nil {
+		t.Logf("prometheus values for %s:\n%s", metricName, promDump(prometheus, metricName))
 		t.Fatal(err)
 	}
 
 	f, err := prometheus.Sum(final, nil)
 	if err != nil {
+		t.Logf("prometheus values for %s:\n%s", metricName, promDump(prometheus, metricName))
 		t.Fatal(err)
 	}
 
@@ -170,6 +175,7 @@ func validateMetric(t *testing.T, prometheus components.Prometheus, query, metri
 
 	got, err := prometheus.Sum(value, nil)
 	if err != nil {
+		t.Logf("value: %s", value.String())
 		t.Logf("prometheus values for %s:\n%s", metricName, promDump(prometheus, metricName))
 		t.Fatalf("Could not find metric value: %v", err)
 	}
