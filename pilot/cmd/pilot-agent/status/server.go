@@ -38,6 +38,9 @@ const (
 	readyPath = "/healthz/ready"
 	// IstioAppPortHeader is the header name to indicate the app port for health check.
 	IstioAppPortHeader = "istio-app-probe-port"
+	// KubeAppProberCmdFlagName is the name of the command line flag for pilot agent to pass app
+	// prober config.
+	KubeAppProberCmdFlagName = "kubeAppProberConfig"
 )
 
 var (

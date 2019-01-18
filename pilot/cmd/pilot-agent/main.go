@@ -424,8 +424,9 @@ func init() {
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
-	proxyCmd.PersistentFlags().StringVar(&appHTTPProbers, "appHTTPProbers", "", "The json encoded string to "+
-		"pass app HTTP probe information from")
+	proxyCmd.PersistentFlags().StringVar(&appHTTPProbers, status.KubeAppProberCmdFlagName, "",
+		"The json encoded string to pass app HTTP probe information from injector(istioctl or webhook). "+
+			"This flag should never be set manually.")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
