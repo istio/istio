@@ -96,10 +96,8 @@
           name: http-envoy-prom
         args:
         - proxy
-{{- if $.Values.global.proxy.proxyDomain }}
         - --domain
-        - {{ $.Values.global.proxy.proxyDomain }}
-{{- end }}
+        - $(POD_NAMESPACE).svc.{{ $.Values.global.proxy.clusterDomain }}
         - --serviceCluster
         - istio-policy
         - --templateFile
@@ -236,10 +234,8 @@
           name: http-envoy-prom
         args:
         - proxy
-{{- if $.Values.global.proxy.proxyDomain }}
         - --domain
-        - {{ $.Values.global.proxy.proxyDomain }}
-{{- end }}
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --serviceCluster
         - istio-telemetry
         - --templateFile

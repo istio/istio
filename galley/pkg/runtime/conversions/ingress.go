@@ -37,7 +37,7 @@ var scope = log.RegisterScope("conversions", "proto converters for runtime state
 // ToIngressSpec unwraps an MCP resource proto
 func ToIngressSpec(e *mcp.Resource) (*ingress.IngressSpec, error) {
 
-	p := metadata.IngressSpec.NewProtoInstance()
+	p := metadata.Ingress.NewProtoInstance()
 	i, ok := p.(*ingress.IngressSpec)
 	if !ok {
 		// Shouldn't happen
@@ -105,8 +105,8 @@ func IngressToVirtualService(key resource.VersionedKey, meta resource.Metadata, 
 			ingressByHost[host] = resource.Entry{
 				ID: resource.VersionedKey{
 					Key: resource.Key{
-						FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
-						TypeURL:  metadata.VirtualService.TypeURL,
+						FullName:   resource.FullNameFromNamespaceAndName(newNamespace, newName),
+						Collection: metadata.VirtualService.Collection,
 					},
 					Version: key.Version,
 				},
@@ -232,8 +232,8 @@ func IngressToGateway(key resource.VersionedKey, meta resource.Metadata, i *ingr
 	gw := resource.Entry{
 		ID: resource.VersionedKey{
 			Key: resource.Key{
-				FullName: resource.FullNameFromNamespaceAndName(newNamespace, newName),
-				TypeURL:  metadata.VirtualService.TypeURL,
+				FullName:   resource.FullNameFromNamespaceAndName(newNamespace, newName),
+				Collection: metadata.VirtualService.Collection,
 			},
 			Version: key.Version,
 		},

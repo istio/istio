@@ -161,11 +161,13 @@ func (s *Server) initWorkloadSdsService(options *Options) error {
 	}
 
 	go func() {
-		if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
-			log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+		for {
+			// Retry if Serve() fails
+			log.Info("Start SDS grpc server")
+			if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
+				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+			}
 		}
-
-		log.Info("SDS grpc server for workload proxies started")
 	}()
 
 	return nil

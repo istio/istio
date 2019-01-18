@@ -29,7 +29,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/coredatamodel"
 	"istio.io/istio/pilot/pkg/model"
-	mcpclient "istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 var (
@@ -110,7 +110,8 @@ var (
 	}
 
 	testControllerOptions = coredatamodel.Options{
-		DomainSuffix: "cluster.local",
+		DomainSuffix:              "cluster.local",
+		ClearDiscoveryServerCache: func() {},
 	}
 )
 
@@ -126,6 +127,7 @@ func TestOptions(t *testing.T) {
 	change := convert(
 		[]proto.Message{message[0]},
 		[]string{"service-bar"},
+		model.ServiceEntry.Collection,
 		model.ServiceEntry.MessageName)
 
 	err := controller.Apply(change)
@@ -141,6 +143,7 @@ func TestOptions(t *testing.T) {
 	change = convert(
 		[]proto.Message{message[0]},
 		[]string{"gateway-foo"},
+		model.Gateway.Collection,
 		model.Gateway.MessageName)
 
 	err = controller.Apply(change)
@@ -197,7 +200,7 @@ func TestListAllNameSpace(t *testing.T) {
 	change := convert(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "some-other-gateway3"},
-		model.Gateway.MessageName)
+		model.Gateway.Collection, model.Gateway.MessageName)
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -232,7 +235,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 	change := convert(
 		[]proto.Message{message, message2, message3},
 		[]string{"namespace1/some-gateway1", "default/some-other-gateway", "namespace1/some-other-gateway3"},
-		model.Gateway.MessageName)
+		model.Gateway.Collection, model.Gateway.MessageName)
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -258,7 +261,8 @@ func TestApplyInvalidType(t *testing.T) {
 	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, "bad-type")
+	change := convert([]proto.Message{message[0]}, []string{"some-gateway"},
+		"bad-collection", "bad-type")
 
 	err := controller.Apply(change)
 	g.Expect(err).To(gomega.HaveOccurred())
@@ -287,7 +291,8 @@ func TestApplyValidTypeWithNoBaseURL(t *testing.T) {
 		message, err := makeMessage(marshaledGateway, model.Gateway.MessageName)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
-		change := convert([]proto.Message{message}, []string{"some-gateway"}, model.Gateway.MessageName)
+		change := convert([]proto.Message{message}, []string{"some-gateway"},
+			model.Gateway.Collection, model.Gateway.MessageName)
 		err = controller.Apply(change)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -309,7 +314,8 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 
-	change := convert([]proto.Message{message[0]}, []string{"istio-namespace/some-gateway"}, model.Gateway.MessageName)
+	change := convert([]proto.Message{message[0]}, []string{"istio-namespace/some-gateway"},
+		model.Gateway.Collection, model.Gateway.MessageName)
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -327,7 +333,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
 
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.MessageName)
+	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.Collection, model.Gateway.MessageName)
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -344,7 +350,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	controller := coredatamodel.NewController(testControllerOptions)
 
 	message := convertToResource(g, model.Gateway.MessageName, []proto.Message{gateway})
-	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.MessageName)
+	change := convert([]proto.Message{message[0]}, []string{"some-gateway"}, model.Gateway.Collection, model.Gateway.MessageName)
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -355,7 +361,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 	g.Expect(c[0].Type).To(gomega.Equal(model.Gateway.Type))
 	g.Expect(c[0].Spec).To(gomega.Equal(message[0]))
 
-	change = convert([]proto.Message{}, []string{"some-gateway"}, model.Gateway.MessageName)
+	change = convert([]proto.Message{}, []string{"some-gateway"}, model.Gateway.Collection, model.Gateway.MessageName)
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
@@ -372,10 +378,17 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	message1 := convertToResource(g, model.AuthenticationMeshPolicy.MessageName, []proto.Message{authnPolicy1})
 
 	change := convert(
-		[]proto.Message{message0[0], message1[0]},
-		[]string{"bar-namespace/foo", "default"},
-		model.AuthenticationPolicy.MessageName)
+		[]proto.Message{message0[0]},
+		[]string{"bar-namespace/foo"},
+		model.AuthenticationPolicy.Collection, model.AuthenticationPolicy.MessageName)
 	err := controller.Apply(change)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	change = convert(
+		[]proto.Message{message1[0]},
+		[]string{"default"},
+		model.AuthenticationMeshPolicy.Collection, model.AuthenticationMeshPolicy.MessageName)
+	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	c, err := controller.List(model.AuthenticationPolicy.Type, "bar-namespace")
@@ -396,9 +409,9 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 
 	// verify the namespace scoped resource can be deleted
 	change = convert(
-		[]proto.Message{message1[0]},
-		[]string{"default"},
-		model.AuthenticationPolicy.MessageName)
+		[]proto.Message{},
+		[]string{},
+		model.AuthenticationPolicy.Collection, model.AuthenticationPolicy.MessageName)
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -410,11 +423,11 @@ func TestApplyClusterScopedAuthPolicy(t *testing.T) {
 	g.Expect(c[0].Type).To(gomega.Equal(model.AuthenticationMeshPolicy.Type))
 	g.Expect(c[0].Spec).To(gomega.Equal(message1[0]))
 
-	// verify the namespace scoped resource can be added and mesh-scoped resource removed in the same batch
+	// verify the namespace scoped resource can be added and mesh-scoped resource removed
 	change = convert(
 		[]proto.Message{message0[0]},
 		[]string{"bar-namespace/foo"},
-		model.AuthenticationPolicy.MessageName)
+		model.AuthenticationPolicy.Collection, model.AuthenticationPolicy.MessageName)
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -444,6 +457,7 @@ func TestEventHandler(t *testing.T) {
 	})
 
 	typeURL := "type.googleapis.com/istio.networking.v1alpha3.ServiceEntry"
+	collection := model.ServiceEntry.Collection
 
 	fakeCreateTime, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05Z")
 	fakeCreateTimeProto, err := types.TimestampProto(fakeCreateTime)
@@ -451,8 +465,8 @@ func TestEventHandler(t *testing.T) {
 		t.Fatalf("Failed to parse create fake create time %v: %v", fakeCreateTime, err)
 	}
 
-	makeServiceEntry := func(name, host, version string) *mcpclient.Object {
-		return &mcpclient.Object{
+	makeServiceEntry := func(name, host, version string) *sink.Object {
+		return &sink.Object{
 			TypeURL: typeURL,
 			Metadata: &mcpapi.Metadata{
 				Name:        fmt.Sprintf("default/%s", name),
@@ -488,14 +502,14 @@ func TestEventHandler(t *testing.T) {
 	// Note: these tests steps are cumulative
 	steps := []struct {
 		name   string
-		change *mcpclient.Change
+		change *sink.Change
 		want   map[model.Event]map[string]model.Config
 	}{
 		{
 			name: "initial add",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v0"),
 				},
 			},
@@ -507,9 +521,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "update initial item",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v1"),
 				},
 			},
@@ -521,9 +535,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "subsequent add",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo", "foo.com", "v1"),
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
@@ -536,9 +550,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "single delete",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
 			},
@@ -550,9 +564,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "multiple update and add",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo1", "foo1.com", "v1"),
 					makeServiceEntry("foo2", "foo2.com", "v0"),
 					makeServiceEntry("foo3", "foo3.com", "v0"),
@@ -570,9 +584,9 @@ func TestEventHandler(t *testing.T) {
 		},
 		{
 			name: "multiple deletes, updates, and adds ",
-			change: &mcpclient.Change{
-				TypeURL: typeURL,
-				Objects: []*mcpclient.Object{
+			change: &sink.Change{
+				Collection: collection,
+				Objects: []*sink.Object{
 					makeServiceEntry("foo2", "foo2.com", "v1"),
 					makeServiceEntry("foo3", "foo3.com", "v0"),
 					makeServiceEntry("foo4", "foo4.com", "v0"),
@@ -616,12 +630,12 @@ func TestEventHandler(t *testing.T) {
 	}
 }
 
-func convert(resources []proto.Message, names []string, responseMessageName string) *mcpclient.Change {
-	out := new(mcpclient.Change)
-	out.TypeURL = responseMessageName
+func convert(resources []proto.Message, names []string, collection, responseMessageName string) *sink.Change {
+	out := new(sink.Change)
+	out.Collection = collection
 	for i, res := range resources {
 		out.Objects = append(out.Objects,
-			&mcpclient.Object{
+			&sink.Object{
 				TypeURL: responseMessageName,
 				Metadata: &mcpapi.Metadata{
 					Name: names[i],

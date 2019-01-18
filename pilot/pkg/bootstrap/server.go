@@ -74,9 +74,11 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	mcpclient "istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/version"
 )
 
@@ -497,9 +499,11 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
 	for i, model := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", model.MessageName)
+		collections[i] = sink.CollectionOptions{
+			Name: model.Collection,
+		}
 	}
 
 	options := coredatamodel.Options{
@@ -510,9 +514,11 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	var clients []*mcpclient.Client
+	var clients []*client.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
+
+	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
 
 	for _, configSource := range s.mesh.ConfigSources {
 		url, err := url.Parse(configSource.Address)
@@ -606,7 +612,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 		mcpController := coredatamodel.NewController(options)
-		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+		sinkOptions := &sink.Options{
+			CollectionOptions: collections,
+			Updater:           mcpController,
+			ID:                clientNodeID,
+			Reporter:          reporter,
+		}
+		mcpClient := client.New(cl, sinkOptions)
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)
@@ -665,7 +677,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 			mcpController := coredatamodel.NewController(options)
-			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+			sinkOptions := &sink.Options{
+				CollectionOptions: collections,
+				Updater:           mcpController,
+				ID:                clientNodeID,
+				Reporter:          reporter,
+			}
+			mcpClient := client.New(cl, sinkOptions)
 			configz.Register(mcpClient)
 
 			clients = append(clients, mcpClient)
@@ -698,6 +716,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			for _, conn := range conns {
 				_ = conn.Close() // nolint: errcheck
 			}
+
+			reporter.Close()
 		}()
 
 		return nil
