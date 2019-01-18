@@ -19,13 +19,13 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"github.com/fsnotify/fsnotify"
+	multierror "github.com/hashicorp/go-multierror"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
-
-	"github.com/fsnotify/fsnotify"
-	multierror "github.com/hashicorp/go-multierror"
+	"time"
 )
 
 // FileWatcher is an interface that watches a set of files,
@@ -81,27 +81,14 @@ func (w *fsNotifyWatcher) Add(path string) error {
 	defer w.mu.Unlock()
 
 	cleanedPath, parentPath := formatPath(path)
-	if worker, workerExist := w.workers[parentPath]; workerExist {
-		if _, pathExist := worker.watchedFiles[cleanedPath]; pathExist {
+	wk, workerExist := w.workers[parentPath]
+	if workerExist {
+		if _, pathExist := wk.watchedFiles[cleanedPath]; pathExist {
 			return fmt.Errorf("path %s already added", path)
 		}
-
-		// And the path into worker maps if not exist.
-		md5Sum, err := getMd5Sum(cleanedPath)
-		if err != nil {
-			return fmt.Errorf("failed to get md5 sum for %s: %v", path, err)
-		}
-		worker.watchedFiles[cleanedPath] = &fileTracker{
-			events: make(chan fsnotify.Event, 1),
-			errors: make(chan error, 1),
-			md5Sum: md5Sum,
-		}
-
-		return nil
 	}
 
 	var md5Sum string
-
 	if _, err := os.Stat(cleanedPath); err == nil {
 		md5Sum, err = getMd5Sum(cleanedPath)
 		if err != nil {
@@ -111,61 +98,79 @@ func (w *fsNotifyWatcher) Add(path string) error {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("failed to stat file: %s: %v", path, err)
 		}
-
 		// if the file doesn't exist, ignore the md5 sum.
 	}
 
-	// Build a new worker if not exist.
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	if err = watcher.Add(parentPath); err != nil {
-		watcher.Close()
-		return err
-	}
+	if !workerExist {
+		// Build a new worker if not exist.
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return err
+		}
+		if err = watcher.Add(parentPath); err != nil {
+			watcher.Close()
+			watcher = nil
+		}
 
-	wk := &worker{
-		watcher: watcher,
-		watchedFiles: map[string]*fileTracker{
-			cleanedPath: {
-				events: make(chan fsnotify.Event, 1),
-				errors: make(chan error, 1),
-				md5Sum: md5Sum,
-			},
-		},
-	}
-	w.workers[parentPath] = wk
+		wk = &worker{
+			watcher:      watcher,
+			watchedFiles: map[string]*fileTracker{},
+		}
+		w.workers[parentPath] = wk
+		if watcher != nil {
+			go func() {
+				for {
+					select {
+					case event, ok := <-watcher.Events:
+						if !ok { // 'Events' channel is closed
+							return
+						}
 
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok { // 'Events' channel is closed
-					return
-				}
-
-				for path, tracker := range wk.watchedFiles {
-					newSum, _ := getMd5Sum(path)
-					if newSum != "" && newSum != tracker.md5Sum {
-						tracker.md5Sum = newSum
-						tracker.events <- event
-						break
+						for path, tracker := range wk.watchedFiles {
+							newSum, _ := getMd5Sum(path)
+							if newSum != "" && newSum != tracker.md5Sum {
+								tracker.md5Sum = newSum
+								tracker.events <- event
+								break
+							}
+						}
+					case err, ok := <-watcher.Errors:
+						if !ok {
+							// 'Errors' channel is closed. Construct an error for it.
+							// We'll only close worker errors channel in "Remove" for consistency.
+							err = errors.New("channel closed")
+						}
+						for _, tracker := range wk.watchedFiles {
+							tracker.errors <- err
+						}
+						return
 					}
 				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					// 'Errors' channel is closed. Construct an error for it.
-					// We'll only close worker errors channel in "Remove" for consistency.
-					err = errors.New("channel closed")
+			}()
+		} else {
+			go func() {
+				for {
+					time.Sleep(1 * time.Second)
+					for path, tracker := range wk.watchedFiles {
+						newSum, _ := getMd5Sum(path)
+						if newSum != "" && newSum != tracker.md5Sum {
+							tracker.md5Sum = newSum
+							tracker.events <- fsnotify.Event{
+								Name: path,
+								Op:   fsnotify.Write,
+							}
+						}
+					}
 				}
-				for _, tracker := range wk.watchedFiles {
-					tracker.errors <- err
-				}
-				return
-			}
+			}()
 		}
-	}()
+	}
+
+	wk.watchedFiles[cleanedPath] = &fileTracker{
+		events: make(chan fsnotify.Event, 1),
+		errors: make(chan error, 1),
+		md5Sum: md5Sum,
+	}
 
 	return nil
 }
