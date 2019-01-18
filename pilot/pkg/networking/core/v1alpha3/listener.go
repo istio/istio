@@ -395,7 +395,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-
+		if len(proxyInstances) == 0 {
+			return listeners // no services defined.
+		}
 		for _, ingressListener := range rule.Ingress {
 			// determine the bindToPort setting for listeners
 			bindToPort := false

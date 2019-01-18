@@ -364,7 +364,12 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
+		if instances == nil || len(instances) == 0 {
+			return clusters
+		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+		// Will generate inbound listeners based on ingress listed ports.
+		// TODO: verify that Ingress contains the ports defined by app ( no need to duplicate )
 		for _, ingressListener := range rule.Ingress {
 			// LDS would have setup the inbound clusters
 			// as inbound|portNumber|portName|Hostname
@@ -391,6 +396,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 				}
 			}
 
+			// TODO: this can't be correct, what happens with the other instances ? Likely works for test with single svc only
 			// First create a copy of a service instance
 			instance := &model.ServiceInstance{
 				Endpoint:       instances[0].Endpoint,
