@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/meshconfig"
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	sn "istio.io/istio/pkg/mcp/snapshot"
 )
 
@@ -314,7 +314,7 @@ func runTestCode(t *testing.T, test scenario) {
 	}
 	fst.testSetup(t)
 	defer fst.testTeardown(t)
-	s, err := New(fst.rootPath, kube_meta.Types, &converter.Config{Mesh: meshconfig.NewInMemory()})
+	s, err := New(fst.rootPath, kubeMeta.Types, &converter.Config{Mesh: meshconfig.NewInMemory()})
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}

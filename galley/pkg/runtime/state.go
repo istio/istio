@@ -17,6 +17,8 @@ package runtime
 import (
 	"bytes"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/gogo/protobuf/types"
@@ -40,6 +42,11 @@ type State struct {
 	// entries for per-message-type State.
 	entriesLock sync.Mutex
 	entries     map[resource.Collection]*resourceTypeState
+
+	// Virtual version numbers for Gateways & VirtualServices for Ingress projected ones
+	ingressGWVersion   int64
+	ingressVSVersion   int64
+	lastIngressVersion int64
 }
 
 // per-resource-type State.
@@ -152,11 +159,39 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 
 	// Build ingress projections
 	state := s.entries[metadata.Ingress.Collection]
-	if state == nil {
+	if state == nil || len(state.entries) == 0 {
 		return
 	}
 
-	for name, entry := range state.entries {
+	if s.lastIngressVersion != state.version {
+		// Ingresses has changed
+		s.versionCounter++
+		s.ingressGWVersion = s.versionCounter
+		s.versionCounter++
+		s.ingressVSVersion = s.versionCounter
+		s.lastIngressVersion = state.version
+	}
+
+	versionStr := fmt.Sprintf("%d_%d",
+		s.entries[metadata.Gateway.Collection].version, s.ingressGWVersion)
+	b.SetVersion(metadata.Gateway.Collection.String(), versionStr)
+
+	versionStr = fmt.Sprintf("%d_%d",
+		s.entries[metadata.VirtualService.Collection].version, s.ingressVSVersion)
+	b.SetVersion(metadata.VirtualService.Collection.String(), versionStr)
+
+	// Order names for stable generation.
+	var orderedNames []resource.FullName
+	for name := range state.entries {
+		orderedNames = append(orderedNames, name)
+	}
+	sort.Slice(orderedNames, func(i, j int) bool {
+		return strings.Compare(orderedNames[i].String(), orderedNames[j].String()) < 0
+	})
+
+	for _, name := range orderedNames {
+		entry := state.entries[name]
+
 		ingress, err := conversions.ToIngressSpec(entry)
 		if err != nil {
 			// Shouldn't happen
@@ -176,8 +211,8 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 			gw.ID.FullName.String(),
 			string(gw.ID.Version),
 			gw.Metadata.CreateTime,
-			gw.Metadata.Labels,
-			gw.Metadata.Annotations,
+			nil,
+			nil,
 			gw.Item)
 		if err != nil {
 			scope.Errorf("Unable to set gateway entry: %v", err)
@@ -190,8 +225,8 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 			e.ID.FullName.String(),
 			string(e.ID.Version),
 			e.Metadata.CreateTime,
-			e.Metadata.Labels,
-			e.Metadata.Annotations,
+			nil,
+			nil,
 			e.Item)
 		if err != nil {
 			scope.Errorf("Unable to set virtualservice entry: %v", err)

@@ -21,11 +21,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/meshconfig"
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/source/kube/client"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
@@ -37,12 +38,12 @@ loop:
 	for i := 0; ; i++ {
 		p := defaultPatchTable()
 		mk := mock.NewKube()
-		p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
-		p.newSource = func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error) {
+		p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
+		p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
 			return runtime.NewInMemorySource(), nil
 		}
 		p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-		p.fsNew = func(string, *kube.Schema, *converter.Config) (runtime.Source, error) {
+		p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
 			return runtime.NewInMemorySource(), nil
 		}
 		p.mcpMetricReporter = func(string) monitoring.Reporter {
@@ -57,9 +58,9 @@ loop:
 
 		switch i {
 		case 0:
-			p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return nil, e }
+			p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return nil, e }
 		case 1:
-			p.newSource = func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error) {
+			p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
 				return nil, e
 			}
 		case 2:
@@ -68,7 +69,7 @@ loop:
 			p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return nil, e }
 		case 4:
 			args.ConfigPath = "aaa"
-			p.fsNew = func(string, *kube.Schema, *converter.Config) (runtime.Source, error) { return nil, e }
+			p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) { return nil, e }
 		default:
 			break loop
 		}
@@ -83,18 +84,18 @@ loop:
 func TestNewServer(t *testing.T) {
 	p := defaultPatchTable()
 	mk := mock.NewKube()
-	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
-	p.newSource = func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error) {
+	p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
+	p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	p.fsNew = func(string, *kube.Schema, *converter.Config) (runtime.Source, error) {
+	p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
-	p.verifyResourceTypesPresence = func(kube.Interfaces) error {
+	p.verifyResourceTypesPresence = func(client.Interfaces) error {
 		return nil
 	}
 
@@ -131,15 +132,15 @@ func TestNewServer(t *testing.T) {
 func TestServer_Basic(t *testing.T) {
 	p := defaultPatchTable()
 	mk := mock.NewKube()
-	p.newKubeFromConfigFile = func(string) (kube.Interfaces, error) { return mk, nil }
-	p.newSource = func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error) {
+	p.newKubeFromConfigFile = func(string) (client.Interfaces, error) { return mk, nil }
+	p.newSource = func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error) {
 		return runtime.NewInMemorySource(), nil
 	}
 	p.mcpMetricReporter = func(s string) monitoring.Reporter {
 		return mcptestmon.NewInMemoryStatsContext()
 	}
 	p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return meshconfig.NewInMemory(), nil }
-	p.verifyResourceTypesPresence = func(kube.Interfaces) error {
+	p.verifyResourceTypesPresence = func(client.Interfaces) error {
 		return nil
 	}
 

@@ -12,26 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package dynamic
 
 import (
 	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/pkg/log"
-)
+	"istio.io/istio/galley/pkg/source/kube/client"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	"istio.io/istio/galley/pkg/source/kube/log"
+	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/source/kube/stats"
 
-var scope = log.RegisterScope("kube", "kube-specific debugging", 0)
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
 // source is an implementation of runtime.Source.
 type sourceImpl struct {
 	cfg    *converter.Config
-	ifaces kube.Interfaces
+	ifaces client.Interfaces
 	ch     chan resource.Event
 
 	listeners []*listener
@@ -40,22 +40,22 @@ type sourceImpl struct {
 var _ runtime.Source = &sourceImpl{}
 
 // New returns a Kubernetes implementation of runtime.Source.
-func New(k kube.Interfaces, resyncPeriod time.Duration, schema *kube.Schema, cfg *converter.Config) (runtime.Source, error) {
+func New(k client.Interfaces, resyncPeriod time.Duration, schema *schema.Instance, cfg *converter.Config) (runtime.Source, error) {
 	s := &sourceImpl{
 		cfg:    cfg,
 		ifaces: k,
 		ch:     make(chan resource.Event, 1024),
 	}
 
-	scope.Infof("Registering the following resources:")
+	log.Scope.Infof("Registering the following resources:")
 	for i, spec := range schema.All() {
-		scope.Infof("[%d]", i)
-		scope.Infof("  Source:    %s", spec.CanonicalResourceName())
-		scope.Infof("  Type URL:  %s", spec.Target.Collection)
+		log.Scope.Infof("[%d]", i)
+		log.Scope.Infof("  Source:    %s", spec.CanonicalResourceName())
+		log.Scope.Infof("  Type URL:  %s", spec.Target.Collection)
 
 		l, err := newListener(k, resyncPeriod, spec, s.process)
 		if err != nil {
-			scope.Errorf("Error registering listener: %v", err)
+			log.Scope.Errorf("Error registering listener: %v", err)
 			return nil, err
 		}
 
@@ -94,21 +94,21 @@ func (s *sourceImpl) process(l *listener, kind resource.EventKind, key resource.
 }
 
 // ProcessEvent process the incoming message and convert it to event
-func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.EventKind, key resource.FullName, resourceVersion string,
+func ProcessEvent(cfg *converter.Config, spec schema.ResourceSpec, kind resource.EventKind, key resource.FullName, resourceVersion string,
 	u *unstructured.Unstructured, ch chan resource.Event) {
 
 	var event resource.Event
 
 	entries, err := spec.Converter(cfg, spec.Target, key, spec.Kind, u)
 	if err != nil {
-		scope.Errorf("Unable to convert unstructured to proto: %s/%s: %v", key, resourceVersion, err)
-		recordConverterResult(false, spec.Version, spec.Group, spec.Kind)
+		log.Scope.Errorf("Unable to convert unstructured to proto: %s/%s: %v", key, resourceVersion, err)
+		stats.RecordConverterResult(false, spec.Version, spec.Group, spec.Kind)
 		return
 	}
-	recordConverterResult(true, spec.Version, spec.Group, spec.Kind)
+	stats.RecordConverterResult(true, spec.Version, spec.Group, spec.Kind)
 
 	if len(entries) == 0 {
-		scope.Debugf("Did not receive any entries from converter: kind=%v, key=%v, rv=%s", kind, key, resourceVersion)
+		log.Scope.Debugf("Did not receive any entries from converter: kind=%v, key=%v, rv=%s", kind, key, resourceVersion)
 		return
 	}
 
@@ -149,6 +149,6 @@ func ProcessEvent(cfg *converter.Config, spec kube.ResourceSpec, kind resource.E
 		}
 	}
 
-	scope.Debugf("Dispatching source event: %v", event)
+	log.Scope.Debugf("Dispatching source event: %v", event)
 	ch <- event
 }
