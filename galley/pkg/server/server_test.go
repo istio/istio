@@ -25,7 +25,7 @@ import (
 	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/source/kube/client"
-	"istio.io/istio/galley/pkg/source/kube/converter"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/mcp/monitoring"

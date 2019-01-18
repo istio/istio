@@ -7,7 +7,7 @@ package kube
 
 import (
 	"istio.io/istio/galley/pkg/metadata"
-	"istio.io/istio/galley/pkg/source/kube/converter"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 )
 

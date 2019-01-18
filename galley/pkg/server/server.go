@@ -33,9 +33,9 @@ import (
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/source/fs"
-	kubeSource "istio.io/istio/galley/pkg/source/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
-	kubeConverter "istio.io/istio/galley/pkg/source/kube/converter"
+	"istio.io/istio/galley/pkg/source/kube/dynamic"
+	kubeConverter "istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/source/kube/schema/check"
 	"istio.io/istio/pkg/ctrlz"
@@ -77,7 +77,7 @@ func defaultPatchTable() patchTable {
 	return patchTable{
 		newKubeFromConfigFile:       client.NewKubeFromConfigFile,
 		verifyResourceTypesPresence: check.VerifyResourceTypesPresence,
-		newSource:                   kubeSource.New,
+		newSource:                   dynamic.New,
 		netListen:                   net.Listen,
 		mcpMetricReporter:           func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) },
 		newMeshConfigCache:          func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
