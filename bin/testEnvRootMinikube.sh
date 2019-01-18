@@ -48,6 +48,31 @@ function startMinikubeNone() {
     export MINIKUBE_WANTREPORTERRORPROMPT=false
     export MINIKUBE_HOME=$HOME
     export CHANGE_MINIKUBE_NONE_USER=true
+
+    # Troubleshoot problem with Docker build on some CircleCI machines
+    if [ -f /proc/sys/net/ipv4/ip_forward ]; then
+      echo "IP forwarding setting: $(cat /proc/sys/net/ipv4/ip_forward)"
+      echo "My hostname is:"
+      hostname
+      echo "My distro is:"
+      cat /etc/*-release
+      echo "Contents of /etc/sysctl.d/"
+      ls -l /etc/sysctl.d/ || true
+      echo "Contents of /etc/sysctl.conf"
+      grep ip_forward /etc/sysctl.conf
+      echo "Config files setting ip_forward"
+      find /etc/sysctl.d/ -type f -exec grep ip_forward \{\} \; -print
+      if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq 0 ]; then
+        whoami
+        echo "Cannot build images without IPv4 forwarding, attempting to turn on forwarding"
+        sudo sysctl -w net.ipv4.ip_forward=1
+        if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq 0 ]; then
+          echo "Cannot build images without IPv4 forwarding"
+          exit 1
+        fi
+      fi
+    fi
+
     sudo -E minikube start \
          --kubernetes-version=v1.9.0 \
          --vm-driver=none \
