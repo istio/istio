@@ -288,7 +288,7 @@ var (
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
-					KubeAppHTTPProbers: appHttpProbers,
+					KubeAppHTTPProbers: appHTTPProbers,
 				})
 				if err != nil {
 					return err
@@ -424,7 +424,7 @@ func init() {
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
-	proxyCmd.PersistentFlags().StringVar(&appHttpProbers, "appHttpProbeInfo", "", "The json encoded string to "+
+	proxyCmd.PersistentFlags().StringVar(&appHTTPProbers, "appHTTPProbers", "", "The json encoded string to "+
 		"pass app HTTP probe information from")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")

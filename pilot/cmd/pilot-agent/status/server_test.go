@@ -57,11 +57,16 @@ func TestNewServer(t *testing.T) {
 			httpProbe: "invalid-prober-json-encoding",
 			err:       "failed to decode",
 		},
+		{
+			httpProbe: `{"liveness":{"a":{"path":"path","port":32},"b":{"path":"path","port":32,` +
+				`"httpHeaders":[{"name":"header-name","value":"header-value"}]}},"readiness":{"b":{"path":"path","port":32}}}`,
+		},
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Config{
 			KubeAppHTTPProbers: tc.httpProbe,
 		})
+
 		if err == nil {
 			if tc.err != "" {
 				t.Errorf("test case failed [%v], expect error %v", tc.httpProbe, tc.err)
