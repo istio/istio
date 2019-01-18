@@ -963,7 +963,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
@@ -990,7 +990,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
