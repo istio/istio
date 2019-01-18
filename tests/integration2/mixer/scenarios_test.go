@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 )
 
 // This file contains Mixer tests that are ported from Mixer E2E tests
@@ -56,19 +55,11 @@ func testMetric(t *testing.T, ctx component.Repository, label string, labelValue
 	t.Helper()
 
 	mxr := components.GetMixer(ctx, t)
-	env, err := kube.GetEnvironment(ctx)
-	if err != nil {
-		t.Fatalf("Could not get test environment: %v", err)
-	}
-	destinationRuleAll := bookinfo.NetworkingDestinationRuleAll
-	if env.IsMtlsEnabled() {
-		destinationRuleAll = bookinfo.NetworkingDestinationRuleAllMtls
-	}
 	mxr.Configure(t,
 		lifecycle.Test,
 		test.JoinConfigs(
 			bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
-			destinationRuleAll.LoadOrFail(t),
+			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
 		))
 
@@ -128,19 +119,11 @@ func TestTcpMetric(t *testing.T) {
 	}
 
 	mxr := components.GetMixer(ctx, t)
-	env, err := kube.GetEnvironment(ctx)
-	if err != nil {
-		t.Fatalf("Could not get test environment: %v", err)
-	}
-	destinationRuleAll := bookinfo.NetworkingDestinationRuleAll
-	if env.IsMtlsEnabled() {
-		destinationRuleAll = bookinfo.NetworkingDestinationRuleAllMtls
-	}
 	mxr.Configure(t,
 		lifecycle.Test,
 		test.JoinConfigs(
 			bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
-			destinationRuleAll.LoadOrFail(t),
+			bookinfo.GetDestinationRuleConfigFile(t, ctx).LoadOrFail(t),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
 			bookinfo.NetworkingTCPDbRule.LoadOrFail(t),
 		))
