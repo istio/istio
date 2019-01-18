@@ -17,35 +17,21 @@ package status
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/application"
-	"istio.io/istio/pkg/test/application/echo"
 )
 
-var (
-	appPort uint16
-)
+type handler struct{}
 
-func init() {
-	appFactory := &echo.Factory{
-		Ports: model.PortList{{
-			Name:     "http",
-			Protocol: model.ProtocolHTTP,
-		}},
-		Version: "version-foo",
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/hello/sunnyvale" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	app, err := appFactory.NewApplication(application.Dialer{HTTP: application.DefaultHTTPDoFunc})
-	if err != nil {
-		log.Fatalf("Failed to create application %v", err)
-	}
-	log.Fatalf("application created %v", app.GetPorts())
-	appPort = uint16(app.GetPorts()[0].Port)
+	w.Write([]byte("welcome, it works"))
 }
 
 func TestNewServer(t *testing.T) {
@@ -92,15 +78,22 @@ func TestNewServer(t *testing.T) {
 		if !strings.Contains(err.Error(), tc.err) {
 			t.Errorf("test case failed [%v], expect error %v, got %v", tc.httpProbe, tc.err, err)
 		}
-		fmt.Printf("jianfieh debug tc %v, err %v\n", tc, err)
 	}
 }
 
 func TestAppProbe(t *testing.T) {
+	// Starts the application first.
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Errorf("failed to allocate unused port %v", err)
+	}
+	go http.Serve(listener, &handler{})
+	appPort := listener.Addr().(*net.TCPAddr).Port
+
+	// Starts the pilot agent status server.
 	server, err := NewServer(Config{
-		StatusPort: 0,
-		KubeAppHTTPProbers: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},` +
-			`"/app-health/buisness/livez": {"path": "/buisiness/live", "port": 9090}}`,
+		StatusPort:         0,
+		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v}}`, appPort),
 	})
 	if err != nil {
 		t.Errorf("failed to create status server %v", err)
@@ -116,19 +109,17 @@ func TestAppProbe(t *testing.T) {
 	server.mutex.RUnlock()
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 	testCases := []struct {
-		probePath     string
-		appPortHeader string
-		statusCode    int
-		err           string
+		probePath  string
+		statusCode int
+		err        string
 	}{
 		{
-			probePath:     fmt.Sprintf(":%v/", statusPort),
-			appPortHeader: fmt.Sprintf("%v", appPort),
-			statusCode:    200,
+			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
+			statusCode: http.StatusBadRequest,
 		},
 		{
-			probePath:  fmt.Sprintf(":%v/ill-formed-path", statusPort),
-			statusCode: 400,
+			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
+			statusCode: http.StatusOK,
 		},
 	}
 	for _, tc := range testCases {
@@ -136,9 +127,6 @@ func TestAppProbe(t *testing.T) {
 		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
 		if err != nil {
 			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		if tc.appPortHeader != "" {
-			req.Header.Add(IstioAppPortHeader, tc.appPortHeader)
 		}
 		resp, err := client.Do(req)
 		if err != nil {

@@ -100,7 +100,6 @@ func NewServer(config Config) (*Server, error) {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 		}
 	}
-	// fmt.Println("jianfeih debugging ", s.appKubeProbers)
 	return s, nil
 }
 
@@ -169,30 +168,32 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	prober, exists := s.appKubeProbers[path]
 	if !exists {
 		log.Errorf("Prober does not exists url %v", path)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
 
-	// Construct request sent to the application using localhost.
+	// Construct a request sent to the application.
 	httpClient := &http.Client{
 		// TODO: figure out the appropriate timeout?
 		Timeout: 10 * time.Second,
 	}
 	url := fmt.Sprintf("http://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
-	appReq, err := http.NewRequest(req.Method, url, req.Body)
+	// TODO: should body be restricted?
+	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Errorf("Failed to copy request to probe app %v, url %v", err, path)
+		log.Errorf("Failed to create request to probe app %v, original url %v", err, path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	for key, value := range req.Header {
-		appReq.Header[key] = value
+	for _, header := range prober.HTTPHeaders {
+		appReq.Header[header.Name] = []string{header.Value}
 	}
 
+	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {
-		log.Errorf("Request to probe app failed: %v, url %v", err, path)
+		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, prober.Path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
