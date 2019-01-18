@@ -139,7 +139,7 @@ e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
 
-e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_pilotv2_sd
+e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_sds_pilotv2
 
 # This is used to keep a record of the test results.
 CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
@@ -258,8 +258,6 @@ helm/upgrade:
 	  istio-system install/kubernetes/helm/istio
 
 # Delete istio installed with helm
-# Note that for Helm 2.10, the CRDs are not cleared
 helm/delete:
 	${HELM} delete --purge istio-system
 	for i in install/kubernetes/helm/istio-init/files/crd-*; do kubectl delete -f $i; done
-	kubectl delete -f install/kubernetes/helm/istio/templates/crds.yaml
