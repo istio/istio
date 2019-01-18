@@ -597,7 +597,7 @@ func connectionID(node string) string {
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	full bool, edsUpdatedServices map[string]*EndpointShards) error {
-	clas := []*xdsapi.ClusterLoadAssignment{}
+	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
 
 	emptyClusters := 0
 	endpoints := 0
@@ -646,10 +646,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 			emptyClusters++
 			empty = append(empty, clusterName)
 		}
-		clas = append(clas, l)
+		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(clas)
+	response := endpointDiscoveryResponse(loadAssignments)
 	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
@@ -746,15 +746,15 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	}
 }
 
-func endpointDiscoveryResponse(clas []*xdsapi.ClusterLoadAssignment) *xdsapi.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
 		TypeUrl:     EndpointType,
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}
-	for _, cla := range clas {
-		cr, _ := types.MarshalAny(cla)
-		out.Resources = append(out.Resources, *cr)
+	for _, loadAssignment := range loadAssignments {
+		resource, _ := types.MarshalAny(loadAssignment)
+		out.Resources = append(out.Resources, *resource)
 	}
 
 	return out
