@@ -538,20 +538,12 @@ func (h Hostname) Matches(o Hostname) bool {
 		return true
 	}
 
-	if len(h) == 0 {
-		return false
-	}
-
-	if len(o) == 0 && string(h[0]) != "*" {
-		return false
-	}
-
-	hWildcard := string(h[0]) == "*"
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
 	if hWildcard && len(o) == 0 {
 		return true
 	}
 
-	oWildcard := string(o[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 	if !hWildcard && !oWildcard {
 		// both are non-wildcards, so do normal string comparison
 		return h == o
@@ -585,8 +577,8 @@ func (h Hostname) SubsetOf(o Hostname) bool {
 		return true
 	}
 
-	hWildcard := string(h[0]) == "*"
-	oWildcard := string(o[0]) == "*"
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 	if !oWildcard {
 		if hWildcard {
 			return false
