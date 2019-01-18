@@ -692,16 +692,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
 		virtualServices := push.VirtualServices(node, meshGateway)
 
-		// determine the bindToPort setting for listeners
+		// bindToPort will be false - 'none' mode requires Sidecar.
 		bindToPort := false
-		if noneMode {
-			bindToPort = true
-		}
-
 		bind := ""
-		if bindToPort {
-			bind = LocalhostAddress
-		}
 		for _, service := range services {
 			for _, servicePort := range service.Ports {
 				// if the workload has NONE mode interception, then we generate TCP ports only
@@ -756,7 +749,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 			// determine the bindToPort setting for listeners
 			bindToPort := false
-			if node.GetInterceptionMode() == model.InterceptionNone {
+			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
 			} else {
@@ -804,14 +797,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						bind = WildcardAddress
 					}
 				}
-
+				port := maybeMapPort(listenPort.Port, bindToPort)
 				listenerOpts := buildListenerOpts{
 					env:            env,
 					proxy:          node,
 					proxyInstances: proxyInstances,
 					proxyLabels:    proxyLabels,
 					bind:           bind,
-					port:           listenPort.Port,
+					port:           port,
 					bindToPort:     bindToPort,
 				}
 
@@ -904,6 +897,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	return append(tcpListeners, httpListeners...)
+}
+
+// Base used to remap privileged ports. 15000 is the range used by Istio special ports.
+const privPortRemap = 15200
+
+// maybeMapPort may remap privileged ports. Proxy doesn't run as root, so if bind=true ports <1024 will
+// not be accepted, envoy will reject the full config.
+func maybeMapPort(i int, bindToPort bool) int {
+	if bindToPort || i > 1024 {
+		return i
+	}
+
+	// TODO: add some setting or override
+	return i + privPortRemap
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
