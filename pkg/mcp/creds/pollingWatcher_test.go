@@ -368,16 +368,14 @@ func newFixture(t *testing.T) *watcherFixture {
 
 func (f *watcherFixture) newWatcher() (err error) {
 	ch := make(chan struct{})
-	w, err := PollFolder(ch, f.folder)
+	// Reduce poll time for quick turnaround of events
+	w, err := pollFolder(ch, f.folder, time.Millisecond)
 	if err != nil {
 		return err
 	}
 
 	f.ch = ch
 	f.w = w
-
-	// Reduce poll time for quick turnaround of events
-	f.w.(*pollingWatcher).pollInterval = time.Millisecond
 
 	return nil
 }

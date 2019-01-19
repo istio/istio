@@ -15,7 +15,7 @@
 package envoy
 
 import (
-	"fmt"
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
@@ -24,20 +24,12 @@ const (
 	pilotSvcAccName string = "istio-pilot-service-account"
 )
 
-func getSAN(domain, ns, svcAccName string) []string {
-	// spiffe SAN for services is of the form. e.g. for pilot
-	// "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
-	svcSAN := fmt.Sprintf("spiffe://%v/ns/%v/sa/%v", domain, ns, svcAccName)
-	svcSANs := []string{svcSAN}
-	return svcSANs
-}
-
 // GetMixerSAN returns the SAN used for mixer mTLS
-func GetMixerSAN(domain, ns string) []string {
-	return getSAN(domain, ns, mixerSvcAccName)
+func GetMixerSAN(ns string) string {
+	return spiffe.MustGenSpiffeURI(ns, mixerSvcAccName)
 }
 
 // GetPilotSAN returns the SAN used for pilot mTLS
-func GetPilotSAN(domain, ns string) []string {
-	return getSAN(domain, ns, pilotSvcAccName)
+func GetPilotSAN(ns string) string {
+	return spiffe.MustGenSpiffeURI(ns, pilotSvcAccName)
 }

@@ -214,14 +214,14 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 		return nil, fmt.Errorf("the certificate chain in the CSR response is of unexpected format")
 	}
 	var certChain []string
-	certChain = append(certChain, cert)
+	certChain = append(certChain, cert+"\n")
 	for idx, c := range chain {
 		_, ok := c.(string)
 		if !ok {
 			log.Errorf("the certificate in the certificate chain %v is not a string", idx)
 			return nil, fmt.Errorf("the certificate in the certificate chain %v is not a string", idx)
 		}
-		certChain = append(certChain, c.(string))
+		certChain = append(certChain, c.(string)+"\n")
 	}
 
 	return certChain, nil

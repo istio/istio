@@ -104,7 +104,7 @@ var _assetsTemplatesCollectionItemHtml = []byte(`{{ define "content" }}
     {{ if ne $context.Error "" }}
         <b>{{$context.Error}}</b>
     {{else}}
-        <p> Item {{ $context.Collection }}/{{ $context.Key }}</p>
+        <p> Item {{ $context.TypeURL }}/{{ $context.Key }}</p>
         <div class="language-yaml highlighter-rouge">
             <div class="highlight">
                 <pre class="highlight"><code>{{ $context.Value }}</code></pre>
@@ -139,7 +139,7 @@ var _assetsTemplatesCollectionListHtml = []byte(`{{ define "content" }}
     {{ if ne $context.Error "" }}
         <b>{{$context.Error}}</b>
     {{else}}
-        <p> Collection {{ $context.Collection }} </p>
+        <p> TypeURL {{ $context.TypeURL }} </p>
 
         <table>
             <thead>
@@ -153,7 +153,7 @@ var _assetsTemplatesCollectionListHtml = []byte(`{{ define "content" }}
                  {{ range $index, $key := $context.Keys }}
                 <tr>
                     <td>{{$index}}</td>
-                    <td><a href="{{$context.Collection}}/{{$key}}">{{$key}}</a></td>
+                    <td><a href="{{$context.TypeURL}}/{{$key}}">{{$key}}</a></td>
                 </tr>
                 {{ end }}
             </tbody>
@@ -408,7 +408,7 @@ var _assetsTemplatesMemHtml = []byte(`{{ define "content" }}
 </table>
 
 <br>
-<button class="btn btn-istio" onclick="forceCollection()">Force Garbage Collection</button>
+<button class="btn btn-istio" onclick="forceCollection()">Force Garbage TypeURL</button>
 
 {{ template "last-refresh" .}}
 

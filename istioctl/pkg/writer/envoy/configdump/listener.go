@@ -45,13 +45,13 @@ func (l *ListenerFilter) Verify(listener *xdsapi.Listener) bool {
 	if l.Address == "" && l.Port == 0 && l.Type == "" {
 		return true
 	}
-	if l.Address != "" && strings.ToLower(retrieveListenerAddress(listener)) != strings.ToLower(l.Address) {
+	if l.Address != "" && !strings.EqualFold(retrieveListenerAddress(listener), l.Address) {
 		return false
 	}
 	if l.Port != 0 && retrieveListenerPort(listener) != l.Port {
 		return false
 	}
-	if l.Type != "" && strings.ToLower(retrieveListenerType(listener)) != strings.ToLower(l.Type) {
+	if l.Type != "" && !strings.EqualFold(retrieveListenerType(listener), l.Type) {
 		return false
 	}
 	return true

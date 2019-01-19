@@ -43,7 +43,7 @@ var (
 
 	// HelloProxyV0 is a mock proxy v0 of HelloService
 	HelloProxyV0 = model.Proxy{
-		Type:        model.Sidecar,
+		Type:        model.SidecarProxy,
 		IPAddresses: []string{HelloInstanceV0},
 		ID:          "v0.default",
 		DNSDomain:   "default.svc.cluster.local",
@@ -51,7 +51,7 @@ var (
 
 	// HelloProxyV1 is a mock proxy v1 of HelloService
 	HelloProxyV1 = model.Proxy{
-		Type:        model.Sidecar,
+		Type:        model.SidecarProxy,
 		IPAddresses: []string{HelloInstanceV1},
 		ID:          "v1.default",
 		DNSDomain:   "default.svc.cluster.local",

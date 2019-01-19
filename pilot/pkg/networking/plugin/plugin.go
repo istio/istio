@@ -82,6 +82,12 @@ type InputParams struct {
 	// For outbound/inbound sidecars this is the service port (not endpoint port)
 	// For inbound listener on gateway, this is the gateway server port
 	Port *model.Port
+	// Bind holds the listener IP or unix domain socket to which this listener is bound
+	// if bind is using UDS, the port will be 0 with valid protocol and name
+	Bind string
+	// SidecarConfig holds the Sidecar CRD associated with this listener
+	SidecarConfig *model.Config
+
 	// The subset associated with the service for which the cluster is being programmed
 	Subset string
 	// Push holds stats and other information about the current push.

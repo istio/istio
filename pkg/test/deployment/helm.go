@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
@@ -35,14 +36,18 @@ metadata:
   labels:
     istio-injection: disabled
 `
+	zeroCRDInstallFile = "crd-10.yaml"
+	oneCRDInstallFile  = "crd-11.yaml"
+	twoCRDInstallFile  = "crd-certmanager-10.yaml"
 )
 
 // HelmConfig configuration for a Helm-based deployment.
 type HelmConfig struct {
-	Accessor  *kube.Accessor
-	Namespace string
-	WorkDir   string
-	ChartDir  string
+	Accessor     *kube.Accessor
+	Namespace    string
+	WorkDir      string
+	ChartDir     string
+	CrdsFilesDir string
 
 	// Can be either a file name under ChartDir or an absolute file path.
 	ValuesFile string
@@ -81,8 +86,11 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 	// TODO: This is Istio deployment specific. We may need to remove/reconcile this as a parameter
 	// when we support Helm deployment of non-Istio artifacts.
 	namespaceData := fmt.Sprintf(namespaceTemplate, c.Namespace)
-
-	generatedYaml = namespaceData + generatedYaml
+	crdsData, err := getCrdsYamlFiles(c)
+	if err != nil {
+		return nil, err
+	}
+	generatedYaml = test.JoinConfigs(namespaceData, crdsData, generatedYaml)
 
 	if err = ioutil.WriteFile(yamlFilePath, []byte(generatedYaml), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("unable to write helm generated yaml: %v", err)
@@ -90,6 +98,22 @@ func NewHelmDeployment(c HelmConfig) (*Instance, error) {
 
 	scopes.CI.Infof("Created Helm-generated Yaml file: %s", yamlFilePath)
 	return NewYamlDeployment(c.Namespace, yamlFilePath), nil
+}
+
+func getCrdsYamlFiles(c HelmConfig) (string, error) {
+	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
+	// This slice contains the list of CRD files installed during testing
+	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile}
+	// Get Joined Crds Yaml file
+	prevContent := ""
+	for _, yamlFileName := range istioCRDFileNames {
+		content, err := test.ReadConfigFile(path.Join(c.CrdsFilesDir, yamlFileName))
+		if err != nil {
+			return "", err
+		}
+		prevContent = test.JoinConfigs(content, prevContent)
+	}
+	return prevContent, nil
 }
 
 // HelmTemplate calls "helm template".

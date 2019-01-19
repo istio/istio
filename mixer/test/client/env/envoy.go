@@ -48,7 +48,6 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 
 	baseID := ""
 	args := []string{"-c", confPath,
-		"--v2-config-only",
 		"--drain-time-s", "1",
 		"--allow-unknown-fields"}
 	if s.stress {
@@ -78,6 +77,9 @@ func (s *TestSetup) NewEnvoy() (*Envoy, error) {
 	cmd := exec.Command(envoyPath, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
+	if s.Dir != "" {
+		cmd.Dir = s.Dir
+	}
 	return &Envoy{
 		cmd:    cmd,
 		ports:  s.ports,

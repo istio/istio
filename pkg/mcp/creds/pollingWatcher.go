@@ -61,12 +61,16 @@ func (p *pollingWatcher) certPool() *x509.CertPool {
 //
 // Internally PollFolder will call PollFiles.
 func PollFolder(stop <-chan struct{}, folder string) (CertificateWatcher, error) {
+	return pollFolder(stop, folder, time.Minute)
+}
+
+func pollFolder(stop <-chan struct{}, folder string, interval time.Duration) (CertificateWatcher, error) {
 	cred := &Options{
 		CertificateFile:   path.Join(folder, defaultCertificateFile),
 		KeyFile:           path.Join(folder, defaultKeyFile),
 		CACertificateFile: path.Join(folder, defaultCACertificateFile),
 	}
-	return PollFiles(stop, cred)
+	return pollFiles(stop, cred, interval)
 }
 
 // PollFiles loads certificate & key files from the file system. The method will start a background

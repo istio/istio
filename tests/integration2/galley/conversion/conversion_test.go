@@ -45,9 +45,9 @@ func TestConversion(t *testing.T) {
 
 			// TODO: Limit to Native environment until the Kubernetes environment is supported in the Galley
 			// component
-			ctx.Require(lifecycle.Suite, &descriptors.NativeEnvironment)
+			ctx.RequireOrSkip(t, lifecycle.Suite, &descriptors.NativeEnvironment)
 
-			ctx.Require(lifecycle.Test, &ids.Galley)
+			ctx.RequireOrFail(t, lifecycle.Test, &ids.Galley)
 
 			gal := components.GetGalley(ctx, t)
 
@@ -94,9 +94,9 @@ func runTest(t *testing.T, fset *testdata.FileSet, gal components.Galley) {
 		t.Fatalf("unable to apply config to Galley: %v", err)
 	}
 
-	for typeURL, e := range expected {
-		if err = gal.WaitForSnapshot(typeURL, e...); err != nil {
-			t.Errorf("Error waiting for %s:\n%v\n", typeURL, err)
+	for collection, e := range expected {
+		if err = gal.WaitForSnapshot(collection, e...); err != nil {
+			t.Errorf("Error waiting for %s:\n%v\n", collection, err)
 		}
 	}
 }
