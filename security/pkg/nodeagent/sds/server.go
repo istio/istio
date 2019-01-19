@@ -76,6 +76,9 @@ type Options struct {
 
 	// The Vault TLS root certificate.
 	VaultTLSRootCert string
+
+	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.

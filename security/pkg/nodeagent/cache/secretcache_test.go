@@ -74,6 +74,10 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
+	if got, want := opt.AlwaysValidTokenFlag, false; got != want {
+		t.Errorf("opt.AlwaysValidTokenFlag default: got: %v, want: %v", got, want)
+	}
+
 	proxyID := "proxy1-id"
 	ctx := context.Background()
 	gotSecret, err := sc.GenerateSecret(ctx, proxyID, testResourceName, "jwtToken1")
@@ -381,6 +385,49 @@ func TestConstructCSRHostName(t *testing.T) {
 		if got != c.expected {
 			t.Errorf("constructCSRHostName got %q, want %q", got, c.expected)
 		}
+	}
+}
+
+func TestSetAlwaysValidTokenFlag(t *testing.T) {
+	fakeCACli := newMockCAClient()
+	opt := Options{
+		SecretTTL:            200 * time.Microsecond,
+		RotationInterval:     200 * time.Microsecond,
+		EvictionDuration:     10 * time.Second,
+		AlwaysValidTokenFlag: true,
+	}
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	defer func() {
+		sc.Close()
+	}()
+
+	if got, want := sc.isTokenExpired(), false; got != want {
+		t.Errorf("isTokenExpired: got: %v, want: %v", got, want)
+	}
+	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+
+	// Wait until key rotation job run to update cached secret.
+	wait := 200 * time.Millisecond
+	retries := 0
+	for ; retries < 5; retries++ {
+		time.Sleep(wait)
+		if atomic.LoadUint64(&sc.secretChangedCount) == uint64(0) {
+			// Retry after some sleep.
+			wait *= 2
+			continue
+		}
+
+		break
+	}
+	if retries == 5 {
+		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
 	}
 }
 
