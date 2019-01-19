@@ -140,6 +140,7 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 			os.Exit(1)
 		}
 		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
+		workloadSdsCacheOptions.AlwaysValidTokenFlag = serverOptions.AlwaysValidTokenFlag
 		workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, workloadSdsCacheOptions)
 	} else {
