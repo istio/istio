@@ -42,8 +42,8 @@ const (
 )
 
 var (
-	retryTimeout = retry.Timeout(time.Second * 30)
-	retryDelay   = retry.Delay(time.Second * 5)
+	retryTimeout = retry.Timeout(time.Second * 120)
+	retryDelay   = retry.Delay(time.Second * 20)
 
 	_ components.Prometheus = &kubeComponent{}
 	_ api.Component         = &kubeComponent{}

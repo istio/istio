@@ -27,7 +27,7 @@ import (
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/galley/pkg/source/kube/converter"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	sn "istio.io/istio/pkg/mcp/snapshot"
 )
 

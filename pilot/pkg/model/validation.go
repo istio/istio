@@ -1993,7 +1993,10 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	if retries.RetryOn != "" {
 		retryOnPolicies := strings.Split(retries.RetryOn, ",")
 		for _, policy := range retryOnPolicies {
-			if !supportedRetryOnPolicies[policy] {
+			// Try converting it to an integer to see if it's a valid HTTP status code.
+			i, _ := strconv.Atoi(policy)
+
+			if http.StatusText(i) == "" && !supportedRetryOnPolicies[policy] {
 				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
 			}
 		}
