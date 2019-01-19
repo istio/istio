@@ -233,8 +233,8 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 # Ensure expected GOPATH setup
 .PHONY: check-tree
 check-tree:
-	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/istio.io/istio" ]; then \
-		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root=$(ISTIO_GO), GO_TOP=$(GO_TOP) ; \
+	@if [ ! "$(ISTIO_GO)" -ef "$(GO_TOP)/src/istio.io/istio" ]; then \
+		echo Not building in expected path \'GOPATH/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root="$(ISTIO_GO)", GO_TOP="$(GO_TOP)" ; \
 		exit 1; fi
 
 # Downloads envoy, based on the SHA defined in the base pilot Dockerfile
