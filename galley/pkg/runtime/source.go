@@ -68,7 +68,11 @@ func (s *InMemorySource) Start() (chan resource.Event, error) {
 
 	// publish current items
 	for _, item := range s.items {
-		s.ch <- resource.Event{Kind: resource.Added, Entry: resource.Entry{ID: item.ID, Item: item.Item}}
+		s.ch <- resource.Event{Kind: resource.Added, Entry: resource.Entry{
+			ID:       item.ID,
+			Metadata: item.Metadata,
+			Item:     item.Item,
+		}}
 	}
 	s.ch <- resource.Event{Kind: resource.FullSync}
 
@@ -89,7 +93,7 @@ func (s *InMemorySource) Stop() {
 }
 
 // Set the value in the in-memory store.
-func (s *InMemorySource) Set(k resource.Key, item proto.Message) {
+func (s *InMemorySource) Set(k resource.Key, metadata resource.Metadata, item proto.Message) {
 	s.stateLock.Lock()
 	defer s.stateLock.Unlock()
 
@@ -104,7 +108,11 @@ func (s *InMemorySource) Set(k resource.Key, item proto.Message) {
 	}
 
 	if s.ch != nil {
-		s.ch <- resource.Event{Kind: kind, Entry: resource.Entry{ID: resource.VersionedKey{Key: k, Version: v}, Item: item}}
+		s.ch <- resource.Event{Kind: kind, Entry: resource.Entry{
+			ID:       resource.VersionedKey{Key: k, Version: v},
+			Metadata: metadata,
+			Item:     item,
+		}}
 	}
 }
 

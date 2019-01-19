@@ -211,9 +211,6 @@ type XdsConnection struct {
 	// same info can be sent to all clients, without recomputing.
 	pushChannel chan *XdsEvent
 
-	// doneChannel will be closed when the client is closed.
-	doneChannel chan struct{}
-
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
@@ -320,7 +317,7 @@ func (s *DiscoveryServer) configDump(conn *XdsConnection) (*adminapi.ConfigDump,
 type XdsEvent struct {
 	// If not empty, it is used to indicate the event is caused by a change in the clusters.
 	// Only EDS for the listed clusters will be sent.
-	edsUpdatedServices map[string]*EndpointShardsByService
+	edsUpdatedServices map[string]*EndpointShards
 
 	push *model.PushContext
 
@@ -332,7 +329,6 @@ type XdsEvent struct {
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
 		pushChannel:  make(chan *XdsEvent),
-		doneChannel:  make(chan struct{}),
 		PeerAddr:     peerAddr,
 		Clusters:     []string{},
 		Connect:      time.Now(),
@@ -358,7 +354,12 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			totalXDSInternalErrors.Add(1)
 			return
 		}
-		reqChannel <- req
+		select {
+		case reqChannel <- req:
+		case <-con.stream.Context().Done():
+			adsLog.Errorf("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			return
+		}
 	}
 }
 
@@ -369,7 +370,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	if ok {
 		peerAddr = peerInfo.Addr.String()
 	}
-	var discReq *xdsapi.DiscoveryRequest
 
 	t0 := time.Now()
 	// rate limit the herd, after restart all endpoints will reconnect to the
@@ -390,7 +390,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 		return err
 	}
 	con := newXdsConnection(peerAddr, stream)
-	defer close(con.doneChannel)
 
 	// Do not call: defer close(con.pushChannel) !
 	// the push channel will be garbage collected when the connection is no longer used.
@@ -409,7 +408,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	for {
 		// Block until either a request is received or a push is triggered.
 		select {
-		case discReq, ok = <-reqChannel:
+		case discReq, ok := <-reqChannel:
 			if !ok {
 				// Remote side closed connection.
 				return receiveError
@@ -630,10 +629,10 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	con.mu.Unlock()
 
-	s.globalPushContext().UpdateNodeIsolation(con.modelNode)
-
-	// TODO
-	// use networkScope to update the list of namespace and service dependencies
+	// Set the sidecarScope associated with this proxy if its a sidecar.
+	if con.modelNode.Type == model.SidecarProxy {
+		s.globalPushContext().SetSidecarScope(con.modelNode)
+	}
 
 	return nil
 }
@@ -659,8 +658,11 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
-	// This needs to be called to update list of visible services in the node.
-	pushEv.push.UpdateNodeIsolation(con.modelNode)
+	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
+	// Saves compute cycles in networking code
+	if con.modelNode.Type == model.SidecarProxy {
+		pushEv.push.SetSidecarScope(con.modelNode)
+	}
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
@@ -735,7 +737,7 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
-	full bool, edsUpdates map[string]*EndpointShardsByService) {
+	full bool, edsUpdates map[string]*EndpointShards) {
 	if !full {
 		s.edsIncremental(version, push, edsUpdates)
 		return
@@ -773,7 +775,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(version string, push *model.PushContext, full bool,
-	edsUpdates map[string]*EndpointShardsByService) {
+	edsUpdates map[string]*EndpointShards) {
 
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
@@ -834,7 +836,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 			}:
 				client.LastPush = time.Now()
 				client.LastPushFailure = timeZero
-			case <-client.doneChannel: // connection was closed
+			case <-client.stream.Context().Done(): // grpc stream was closed
 				adsLog.Infof("Client closed connection %v", client.ConID)
 			case <-time.After(PushTimeout):
 				// This may happen to some clients if the other side is in a bad state and can't receive.

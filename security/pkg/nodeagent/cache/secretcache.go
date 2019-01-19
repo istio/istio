@@ -22,10 +22,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gogo/status"
+	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/model"
@@ -49,6 +53,12 @@ const (
 
 	// identityTemplate is the format template of identity in the CSR request.
 	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
+
+	// For REST APIs between envoy->nodeagent, default value of 1s is used.
+	envoyDefaultTimeoutInMilliSec = 1000
+
+	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
+	initialBackOffIntervalInMilliSec = 50
 )
 
 type k8sJwtPayload struct {
@@ -447,10 +457,33 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
-	certChainPEM, err := sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
-	if err != nil {
-		log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
-		return nil, err
+	startTime := time.Now()
+	retry := 0
+	backOffInMilliSec := initialBackOffIntervalInMilliSec
+	var certChainPEM []string
+	for true {
+		certChainPEM, err = sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+		if err == nil {
+			break
+		}
+
+		// If non-retryable error, fail the request by returning err
+		if !isRetryableErr(status.Code(err)) {
+			log.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
+			return nil, err
+		}
+
+		// If reach envoy timeout, fail the request by returning err
+		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
+			log.Errorf("CSR retry timeout for %q: %v", resourceName, err)
+			return nil, err
+		}
+
+		retry++
+		backOffInMilliSec = retry * backOffInMilliSec
+		randomTime := rand.Intn(initialBackOffIntervalInMilliSec)
+		time.Sleep(time.Duration(backOffInMilliSec+randomTime) * time.Millisecond)
+		log.Warnf("Failed to sign cert for %q: %v, will retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
 
 	certChain := []byte{}
@@ -527,4 +560,12 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 	}
 
 	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
+}
+
+func isRetryableErr(c codes.Code) bool {
+	switch c {
+	case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
+		return true
+	}
+	return false
 }

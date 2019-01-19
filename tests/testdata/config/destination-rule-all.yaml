@@ -3,6 +3,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: destall
+  namespace: testns
 spec:
    hosts:
    - destall.default.svc.cluster.local
@@ -20,6 +21,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: destall
+  namespace: testns
 spec:
   # DNS name, prefix wildcard, short name relative to context
   # IP or CIDR only for services in gateways

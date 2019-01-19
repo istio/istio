@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	oprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/exporter/prometheus"
@@ -69,6 +68,7 @@ type Server struct {
 	livenessProbe  probe.Controller
 	readinessProbe probe.Controller
 	*probe.Probe
+	configStore store.Store
 }
 
 type listenFunc func(network string, address string) (net.Listener, error)
@@ -151,7 +151,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to setup tracing")
 		}
-		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer())))
+		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(TracingServerInterceptor(ot.GlobalTracer())))
 	}
 
 	// get the network stuff setup
@@ -206,7 +206,7 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	if err := st.WaitForSynced(30 * time.Second); err != nil {
 		return nil, err
 	}
-
+	s.configStore = st
 	log.Info("Starting runtime config watch...")
 	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
@@ -319,6 +319,11 @@ func (s *Server) Close() error {
 
 	if s.controlZ != nil {
 		s.controlZ.Close()
+	}
+
+	if s.configStore != nil {
+		s.configStore.Stop()
+		s.configStore = nil
 	}
 
 	if s.checkCache != nil {

@@ -20,7 +20,7 @@ import (
 
 func TestEntries_Binding(t *testing.T) {
 	for _, e := range Types.All() {
-		if e.Target.TypeURL.String() == "" {
+		if e.Target.Collection.String() == "" {
 			t.Fatalf("Invalid binding to empty target: %v", e)
 		}
 	}

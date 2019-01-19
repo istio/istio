@@ -48,6 +48,9 @@ source "${ROOT}/prow/lib.sh"
 setup_e2e_cluster
 
 E2E_ARGS+=("--test_logs_path=${ARTIFACTS_DIR}")
+# e2e tests on prow use clusters borrowed from boskos, which cleans up the
+# clusters. There is no need to cleanup in the test jobs.
+E2E_ARGS+=("--skip_cleanup")
 
 export HUB=${HUB:-"gcr.io/istio-testing"}
 export TAG="${TAG:-${GIT_SHA}}"

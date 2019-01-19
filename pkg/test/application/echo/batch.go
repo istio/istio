@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -39,6 +40,7 @@ type BatchOptions struct {
 	QPS     int
 	Timeout time.Duration
 	URL     string
+	UDS     string
 	Header  http.Header
 	Message string
 	CAFile  string
@@ -120,6 +122,18 @@ func NewBatch(ops BatchOptions) (*Batch, error) {
 }
 
 func newProtocol(ops BatchOptions) (protocol, error) {
+	var httpDialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	var wsDialContext func(network, addr string) (net.Conn, error)
+	if len(ops.UDS) > 0 {
+		httpDialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
+			return net.Dial("unix", ops.UDS)
+		}
+
+		wsDialContext = func(_, _ string) (net.Conn, error) {
+			return net.Dial("unix", ops.UDS)
+		}
+	}
+
 	if strings.HasPrefix(ops.URL, "http://") || strings.HasPrefix(ops.URL, "https://") {
 		/* #nosec */
 		client := &http.Client{
@@ -127,6 +141,7 @@ func newProtocol(ops BatchOptions) (protocol, error) {
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,
 				},
+				DialContext: httpDialContext,
 			},
 			Timeout: ops.Timeout,
 		}
@@ -178,6 +193,7 @@ func newProtocol(ops BatchOptions) (protocol, error) {
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
+			NetDial:          wsDialContext,
 			HandshakeTimeout: ops.Timeout,
 		}
 		return &websocketProtocol{

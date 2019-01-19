@@ -418,43 +418,26 @@
       }
     },
     {
-      "protopath": "mcp:/:v1alpha1:/:envelope.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "Envelope",
-            "fields": [
-              {
-                "id": 1,
-                "name": "metadata",
-                "type": "istio.mcp.v1alpha1.Metadata"
-              },
-              {
-                "id": 2,
-                "name": "resource",
-                "type": "google.protobuf.Any"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "protopath": "mcp:/:v1alpha1:/:mcp.proto",
       "def": {
         "messages": [
           {
-            "name": "Client",
+            "name": "SinkNode",
             "fields": [
               {
                 "id": 1,
                 "name": "id",
                 "type": "string"
-              },
+              }
+            ],
+            "maps": [
               {
-                "id": 2,
-                "name": "metadata",
-                "type": "google.protobuf.Struct"
+                "key_type": "string",
+                "field": {
+                  "id": 2,
+                  "name": "annotations",
+                  "type": "string"
+                }
               }
             ]
           },
@@ -468,8 +451,8 @@
               },
               {
                 "id": 2,
-                "name": "client",
-                "type": "Client"
+                "name": "sink_node",
+                "type": "SinkNode"
               },
               {
                 "id": 3,
@@ -498,8 +481,8 @@
               },
               {
                 "id": 2,
-                "name": "envelopes",
-                "type": "Envelope",
+                "name": "resources",
+                "type": "Resource",
                 "is_repeated": true
               },
               {
@@ -519,8 +502,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "client",
-                "type": "Client"
+                "name": "sink_node",
+                "type": "SinkNode"
               },
               {
                 "id": 2,
@@ -559,8 +542,8 @@
               },
               {
                 "id": 2,
-                "name": "envelopes",
-                "type": "Envelope",
+                "name": "resources",
+                "type": "Resource",
                 "is_repeated": true
               },
               {
@@ -571,6 +554,73 @@
               },
               {
                 "id": 4,
+                "name": "nonce",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "RequestResources",
+            "fields": [
+              {
+                "id": 1,
+                "name": "sink_node",
+                "type": "SinkNode"
+              },
+              {
+                "id": 2,
+                "name": "collection",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "response_nonce",
+                "type": "string"
+              },
+              {
+                "id": 5,
+                "name": "error_detail",
+                "type": "google.rpc.Status"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "initial_resource_versions",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Resources",
+            "fields": [
+              {
+                "id": 1,
+                "name": "system_version_info",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "collection",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "resources",
+                "type": "Resource",
+                "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "removed_resources",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
                 "name": "nonce",
                 "type": "string"
               }
@@ -592,6 +642,30 @@
                 "name": "IncrementalAggregatedResources",
                 "in_type": "IncrementalMeshConfigRequest",
                 "out_type": "IncrementalMeshConfigResponse",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          },
+          {
+            "name": "ResourceSource",
+            "rpcs": [
+              {
+                "name": "EstablishResourceStream",
+                "in_type": "RequestResources",
+                "out_type": "Resources",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          },
+          {
+            "name": "ResourceSink",
+            "rpcs": [
+              {
+                "name": "EstablishResourceStream",
+                "in_type": "Resources",
+                "out_type": "RequestResources",
                 "in_streamed": true,
                 "out_streamed": true
               }
@@ -621,6 +695,46 @@
                 "id": 3,
                 "name": "version",
                 "type": "string"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 4,
+                  "name": "labels",
+                  "type": "string"
+                }
+              },
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 5,
+                  "name": "annotations",
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "mcp:/:v1alpha1:/:resource.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Resource",
+            "fields": [
+              {
+                "id": 1,
+                "name": "metadata",
+                "type": "istio.mcp.v1alpha1.Metadata"
+              },
+              {
+                "id": 2,
+                "name": "body",
+                "type": "google.protobuf.Any"
               }
             ]
           }
@@ -4718,6 +4832,35 @@
         ],
         "messages": [
           {
+            "name": "WorkloadSelector",
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 1,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "AuthorizationPolicy",
+            "fields": [
+              {
+                "id": 1,
+                "name": "workload_selector",
+                "type": "WorkloadSelector"
+              },
+              {
+                "id": 2,
+                "name": "allow",
+                "type": "ServiceRoleBinding",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "ServiceRole",
             "fields": [
               {
@@ -4738,8 +4881,26 @@
                 "is_repeated": true
               },
               {
+                "id": 5,
+                "name": "hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 6,
+                "name": "not_hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "paths",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_paths",
                 "type": "string",
                 "is_repeated": true
               },
@@ -4747,6 +4908,24 @@
                 "id": 3,
                 "name": "methods",
                 "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "not_methods",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "ports",
+                "type": "int32",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "not_ports",
+                "type": "int32",
                 "is_repeated": true
               },
               {
@@ -4805,9 +4984,57 @@
                 "type": "string"
               },
               {
+                "id": 4,
+                "name": "principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "not_principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "group",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "not_namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "ips",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 11,
+                "name": "not_ips",
+                "type": "string",
+                "is_repeated": true
               }
             ],
             "maps": [
@@ -4868,6 +5095,12 @@
                     "id": 1,
                     "name": "services",
                     "type": "string",
+                    "is_repeated": true
+                  },
+                  {
+                    "id": 3,
+                    "name": "workload_selectors",
+                    "type": "WorkloadSelector",
                     "is_repeated": true
                   },
                   {

@@ -1,3 +1,17 @@
+// Copyright 2019 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package performance
 
 import (
@@ -13,7 +27,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
@@ -25,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"
 	"istio.io/istio/tests/util"
 )
@@ -114,15 +128,15 @@ func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 			version := strconv.Itoa(v)
 			for _, m := range model.IstioConfigTypes {
 				if m.MessageName == model.ServiceEntry.MessageName {
-					b.Set("type.googleapis.com/istio.networking.v1alpha3.ServiceEntry", version, generateServiceEntries(t))
+					b.Set(model.ServiceEntry.Collection, version, generateServiceEntries(t))
 				} else if m.MessageName == model.Gateway.MessageName {
 					gw, err := generateGateway()
 					if err != nil {
 						t.Fatal(err)
 					}
-					b.Set("type.googleapis.com/istio.networking.v1alpha3.Gateway", version, gw)
+					b.Set(model.Gateway.Collection, version, gw)
 				} else {
-					b.Set(fmt.Sprintf("type.googleapis.com/%s", m.MessageName), version, []*mcp.Envelope{})
+					b.Set(m.Collection, version, []*mcp.Resource{})
 				}
 			}
 
@@ -176,11 +190,11 @@ func adsConnectAndWait(n int, pilotAddr string, t *testing.T) (adscs []*adsc.ADS
 }
 
 func runMcpServer() (*mcptest.Server, error) {
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]string, len(model.IstioConfigTypes))
 	for i, m := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", m.MessageName)
+		collections[i] = m.Collection
 	}
-	return mcptest.NewServer(0, supportedTypes)
+	return mcptest.NewServer(0, source.CollectionOptionsFromSlice(collections))
 }
 
 func initLocalPilotTestEnv(t *testing.T, mcpPort int, grpcAddr, debugAddr string) util.TearDownFunc {
@@ -222,7 +236,7 @@ func registeredServiceEntries(apiEndpoint string) (int, error) {
 	return strings.Count(debug, serviceDomain), nil
 }
 
-func generateServiceEntries(t *testing.T) (envelopes []*mcp.Envelope) {
+func generateServiceEntries(t *testing.T) (resources []*mcp.Resource) {
 	port := 1
 
 	createTime, err := createTime()
@@ -234,27 +248,24 @@ func generateServiceEntries(t *testing.T) (envelopes []*mcp.Envelope) {
 		servicePort := port + 1
 		backendPort := servicePort + 1
 		host := fmt.Sprintf("%s.%s", randName(), serviceDomain)
-		se, err := marshaledServiceEntry(servicePort, backendPort, host)
+		body, err := marshaledServiceEntry(servicePort, backendPort, host)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		envelopes = append(envelopes, &mcp.Envelope{
+		resources = append(resources, &mcp.Resource{
 			Metadata: &mcp.Metadata{
 				Name:       fmt.Sprintf("serviceEntry-%s", randName()),
 				CreateTime: createTime,
 			},
-			Resource: &types.Any{
-				TypeUrl: fmt.Sprintf("type.googleapis.com/%s", model.ServiceEntry.MessageName),
-				Value:   se,
-			},
+			Body: body,
 		})
 		port = backendPort
 	}
-	return envelopes
+	return resources
 }
 
-func marshaledServiceEntry(servicePort, backendPort int, host string) ([]byte, error) {
+func marshaledServiceEntry(servicePort, backendPort int, host string) (*types.Any, error) {
 	serviceEntry := &networking.ServiceEntry{
 		Hosts: []string{host},
 		Ports: []*networking.Port{
@@ -277,10 +288,10 @@ func marshaledServiceEntry(servicePort, backendPort int, host string) ([]byte, e
 		},
 	}
 
-	return proto.Marshal(serviceEntry)
+	return types.MarshalAny(serviceEntry)
 }
 
-func generateGateway() ([]*mcp.Envelope, error) {
+func generateGateway() ([]*mcp.Resource, error) {
 	gateway := &networking.Gateway{
 		Servers: []*networking.Server{
 			&networking.Server{
@@ -294,7 +305,7 @@ func generateGateway() ([]*mcp.Envelope, error) {
 		},
 	}
 
-	gw, err := proto.Marshal(gateway)
+	body, err := types.MarshalAny(gateway)
 	if err != nil {
 		return nil, err
 	}
@@ -304,16 +315,13 @@ func generateGateway() ([]*mcp.Envelope, error) {
 		return nil, err
 	}
 
-	return []*mcp.Envelope{
+	return []*mcp.Resource{
 		{
 			Metadata: &mcp.Metadata{
 				Name:       fmt.Sprintf("gateway-%s", randName()),
 				CreateTime: createTime,
 			},
-			Resource: &types.Any{
-				TypeUrl: "type.googleapis.com/istio.networking.v1alpha3.Gateway",
-				Value:   gw,
-			},
+			Body: body,
 		},
 	}, nil
 }

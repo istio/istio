@@ -30,6 +30,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
@@ -65,21 +66,21 @@ type VirtualHostWrapper struct {
 	Routes []route.Route
 }
 
-// BuildVirtualHostsFromConfigAndRegistry creates virtual hosts from the given set of virtual services and a list of
-// services from the service registry. Services are indexed by FQDN hostnames.
-func BuildVirtualHostsFromConfigAndRegistry(
+// BuildSidecarVirtualHostsFromConfigAndRegistry creates virtual hosts from
+// the given set of virtual services and a list of services from the
+// service registry. Services are indexed by FQDN hostnames.
+func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
 	serviceRegistry map[model.Hostname]*model.Service,
-	proxyLabels model.LabelsCollection) []VirtualHostWrapper {
+	proxyLabels model.LabelsCollection,
+	virtualServices []model.Config, listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
 
-	meshGateway := map[string]bool{model.IstioMeshGateway: true}
-	virtualServices := push.VirtualServices(node, meshGateway)
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, meshGateway)
+		wrappers := buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, proxyLabels, listenPort)
 		if len(wrappers) == 0 {
 			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
 			continue
@@ -108,7 +109,7 @@ func BuildVirtualHostsFromConfigAndRegistry(
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
 					Services: []*model.Service{svc},
-					Routes:   []route.Route{*BuildDefaultHTTPRoute(cluster, traceOperation)},
+					Routes:   []route.Route{*BuildDefaultHTTPOutboundRoute(cluster, traceOperation)},
 				})
 			}
 		}
@@ -144,17 +145,18 @@ func separateVSHostsAndServices(virtualService model.Config,
 	return hosts, servicesInVirtualService
 }
 
-// buildVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
+// buildSidecarVirtualHostsForVirtualService creates virtual hosts corresponding to a virtual service.
 // Called for each port to determine the list of vhosts on the given port.
 // It may return an empty list if no VirtualService rule has a matching service.
-func buildVirtualHostsForVirtualService(
+func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
 	proxyLabels model.LabelsCollection,
-	gatewayName map[string]bool) []VirtualHostWrapper {
+	listenPort int) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
+
 	// Now group these services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in
 	// order to build the cluster name (outbound|<port>|<subset>|<serviceFQDN>)
@@ -178,9 +180,10 @@ func buildVirtualHostsForVirtualService(
 		// the current code is written.
 		serviceByPort[80] = nil
 	}
+	meshGateway := map[string]bool{model.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
 	for port, portServices := range serviceByPort {
-		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, port, proxyLabels, gatewayName)
+		routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, proxyLabels, meshGateway)
 		if err != nil || len(routes) == 0 {
 			continue
 		}
@@ -229,12 +232,13 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 // This is called for each port to compute virtual hosts.
 // Each VirtualService is tried, with a list of services that listen on the port.
 // Error indicates the given virtualService can't be used on the port.
+// This function is used by both the gateway and the sidecar
 func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
 	virtualService model.Config,
 	serviceRegistry map[model.Hostname]*model.Service,
-	port int,
+	listenPort int,
 	proxyLabels model.LabelsCollection,
 	gatewayNames map[string]bool) ([]route.Route, error) {
 
@@ -249,13 +253,13 @@ func BuildHTTPRoutesForVirtualService(
 allroutes:
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+			if r := translateRoute(push, node, http, nil, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 				out = append(out, *r)
 			}
 			break allroutes // we have a rule with catch all match prefix: /. Other rules are of no use
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(push, node, http, match, port, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
+				if r := translateRoute(push, node, http, match, listenPort, vsName, serviceRegistry, proxyLabels, gatewayNames); r != nil {
 					out = append(out, *r)
 					rType, _ := getEnvoyRouteTypeAndVal(r)
 					if rType == envoyCatchAll {
@@ -331,7 +335,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	} else {
 		action := &route.RouteAction{
 			Cors:        translateCORSPolicy(in.CorsPolicy),
-			RetryPolicy: translateRetryPolicy(in.Retries),
+			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
 		if in.Timeout != nil {
@@ -558,32 +562,6 @@ func translateHeaderMatch(name string, in *networking.StringMatch) route.HeaderM
 	return out
 }
 
-// translateRetryPolicy translates retry policy
-func translateRetryPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
-	if in != nil && in.Attempts > 0 {
-		d := util.GogoDurationToDuration(in.PerTryTimeout)
-		// default retry on condition
-		retryOn := "gateway-error,connect-failure,refused-stream,unavailable,cancelled,resource-exhausted"
-		if in.RetryOn != "" {
-			retryOn = in.RetryOn
-		}
-		return &route.RouteAction_RetryPolicy{
-			NumRetries:    &types.UInt32Value{Value: uint32(in.GetAttempts())},
-			RetryOn:       retryOn,
-			PerTryTimeout: &d,
-			RetryHostPredicate: []*route.RouteAction_RetryPolicy_RetryHostPredicate{
-				{
-					// to configure retries to prefer hosts that haven’t been attempted already,
-					// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
-					Name: "envoy.retry_host_predicates.previous_hosts",
-				},
-			},
-			HostSelectionRetryMaxAttempts: 3,
-		}
-	}
-	return nil
-}
-
 // translateCORSPolicy translates CORS policy
 func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	if in == nil {
@@ -631,8 +609,8 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	return fmt.Sprintf("%s:%d%s", vsName, port, path)
 }
 
-// BuildDefaultHTTPRoute builds a default route.
-func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
+// BuildDefaultHTTPInboundRoute builds a default inbound route.
+func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
 	notimeout := 0 * time.Second
 
 	return &route.Route{
@@ -648,6 +626,16 @@ func BuildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 			},
 		},
 	}
+}
+
+// BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
+func BuildDefaultHTTPOutboundRoute(clusterName string, operation string) *route.Route {
+	// Start with the same configuration as for inbound.
+	out := BuildDefaultHTTPInboundRoute(clusterName, operation)
+
+	// Add a default retry policy for outbound routes.
+	out.GetRoute().RetryPolicy = retry.DefaultPolicy()
+	return out
 }
 
 // translatePercentToFractionalPercent translates an v1alpha3 Percent instance
@@ -677,7 +665,7 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 	out := xdshttpfault.HTTPFault{}
 	if in.Delay != nil {
 		out.Delay = &xdsfault.FaultDelay{Type: xdsfault.FaultDelay_FIXED}
-		if util.Is11Proxy(node) {
+		if util.IsProxyVersionGE11(node) {
 			if in.Delay.Percentage != nil {
 				out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 			} else {
@@ -704,7 +692,7 @@ func translateFault(node *model.Proxy, in *networking.HTTPFaultInjection) *xdsht
 
 	if in.Abort != nil {
 		out.Abort = &xdshttpfault.FaultAbort{}
-		if util.Is11Proxy(node) {
+		if util.IsProxyVersionGE11(node) {
 			if in.Abort.Percentage != nil {
 				out.Abort.Percentage = translatePercentToFractionalPercent(in.Abort.Percentage)
 			} else {

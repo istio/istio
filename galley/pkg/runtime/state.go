@@ -17,9 +17,10 @@ package runtime
 import (
 	"bytes"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -40,7 +41,12 @@ type State struct {
 
 	// entries for per-message-type State.
 	entriesLock sync.Mutex
-	entries     map[resource.TypeURL]*resourceTypeState
+	entries     map[resource.Collection]*resourceTypeState
+
+	// Virtual version numbers for Gateways & VirtualServices for Ingress projected ones
+	ingressGWVersion   int64
+	ingressVSVersion   int64
+	lastIngressVersion int64
 }
 
 // per-resource-type State.
@@ -48,7 +54,7 @@ type resourceTypeState struct {
 	// The version number for the current State of the object. Every time entries or versions change,
 	// the version number also change
 	version  int64
-	entries  map[resource.FullName]*mcp.Envelope
+	entries  map[resource.FullName]*mcp.Resource
 	versions map[resource.FullName]resource.Version
 }
 
@@ -56,14 +62,14 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 	s := &State{
 		schema:  schema,
 		config:  cfg,
-		entries: make(map[resource.TypeURL]*resourceTypeState),
+		entries: make(map[resource.Collection]*resourceTypeState),
 	}
 
 	// pre-populate state for all known types so that built snapshots
 	// includes valid default version for empty resource collections.
 	for _, info := range schema.All() {
-		s.entries[info.TypeURL] = &resourceTypeState{
-			entries:  make(map[resource.FullName]*mcp.Envelope),
+		s.entries[info.Collection] = &resourceTypeState{
+			entries:  make(map[resource.FullName]*mcp.Resource),
 			versions: make(map[resource.FullName]resource.Version),
 		}
 	}
@@ -72,7 +78,7 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 }
 
 func (s *State) apply(event resource.Event) bool {
-	pks, found := s.getResourceTypeState(event.Entry.ID.TypeURL)
+	pks, found := s.getResourceTypeState(event.Entry.ID.Collection)
 	if !found {
 		return false
 	}
@@ -88,19 +94,19 @@ func (s *State) apply(event resource.Event) bool {
 
 		// TODO: Check for content-wise equality
 
-		entry, ok := s.envelopeResource(event.Entry)
+		entry, ok := s.toResource(event.Entry)
 		if !ok {
 			return false
 		}
 
 		pks.entries[event.Entry.ID.FullName] = entry
 		pks.versions[event.Entry.ID.FullName] = event.Entry.ID.Version
-		recordStateTypeCount(event.Entry.ID.TypeURL.String(), len(pks.entries))
+		recordStateTypeCount(event.Entry.ID.Collection.String(), len(pks.entries))
 
 	case resource.Deleted:
 		delete(pks.entries, event.Entry.ID.FullName)
 		delete(pks.versions, event.Entry.ID.FullName)
-		recordStateTypeCount(event.Entry.ID.TypeURL.String(), len(pks.entries))
+		recordStateTypeCount(event.Entry.ID.Collection.String(), len(pks.entries))
 
 	default:
 		scope.Errorf("Unknown event kind: %v", event.Kind)
@@ -115,7 +121,7 @@ func (s *State) apply(event resource.Event) bool {
 	return true
 }
 
-func (s *State) getResourceTypeState(name resource.TypeURL) (*resourceTypeState, bool) {
+func (s *State) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -129,13 +135,13 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 
 	b := snapshot.NewInMemoryBuilder()
 
-	for typeURL, state := range s.entries {
-		entries := make([]*mcp.Envelope, 0, len(state.entries))
+	for collection, state := range s.entries {
+		entries := make([]*mcp.Resource, 0, len(state.entries))
 		for _, entry := range state.entries {
 			entries = append(entries, entry)
 		}
 		version := fmt.Sprintf("%d", state.version)
-		b.Set(typeURL.String(), version, entries)
+		b.Set(collection.String(), version, entries)
 	}
 
 	// Build entities that are derived from existing ones.
@@ -152,28 +158,61 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	ingressByHost := make(map[string]resource.Entry)
 
 	// Build ingress projections
-	state := s.entries[metadata.IngressSpec.TypeURL]
-	if state == nil {
+	state := s.entries[metadata.Ingress.Collection]
+	if state == nil || len(state.entries) == 0 {
 		return
 	}
 
-	for name, entry := range state.entries {
+	if s.lastIngressVersion != state.version {
+		// Ingresses has changed
+		s.versionCounter++
+		s.ingressGWVersion = s.versionCounter
+		s.versionCounter++
+		s.ingressVSVersion = s.versionCounter
+		s.lastIngressVersion = state.version
+	}
+
+	versionStr := fmt.Sprintf("%d_%d",
+		s.entries[metadata.Gateway.Collection].version, s.ingressGWVersion)
+	b.SetVersion(metadata.Gateway.Collection.String(), versionStr)
+
+	versionStr = fmt.Sprintf("%d_%d",
+		s.entries[metadata.VirtualService.Collection].version, s.ingressVSVersion)
+	b.SetVersion(metadata.VirtualService.Collection.String(), versionStr)
+
+	// Order names for stable generation.
+	var orderedNames []resource.FullName
+	for name := range state.entries {
+		orderedNames = append(orderedNames, name)
+	}
+	sort.Slice(orderedNames, func(i, j int) bool {
+		return strings.Compare(orderedNames[i].String(), orderedNames[j].String()) < 0
+	})
+
+	for _, name := range orderedNames {
+		entry := state.entries[name]
+
 		ingress, err := conversions.ToIngressSpec(entry)
-		key := extractKey(name, entry, state.versions[name])
 		if err != nil {
 			// Shouldn't happen
 			scope.Errorf("error during ingress projection: %v", err)
 			continue
 		}
-		conversions.IngressToVirtualService(key, ingress, s.config.DomainSuffix, ingressByHost)
 
-		gw := conversions.IngressToGateway(key, ingress)
+		key := extractKey(name, state.versions[name])
+		meta := extractMetadata(entry)
+
+		conversions.IngressToVirtualService(key, meta, ingress, s.config.DomainSuffix, ingressByHost)
+
+		gw := conversions.IngressToGateway(key, meta, ingress)
 
 		err = b.SetEntry(
-			metadata.Gateway.TypeURL.String(),
+			metadata.Gateway.Collection.String(),
 			gw.ID.FullName.String(),
 			string(gw.ID.Version),
-			gw.ID.CreateTime,
+			gw.Metadata.CreateTime,
+			nil,
+			nil,
 			gw.Item)
 		if err != nil {
 			scope.Errorf("Unable to set gateway entry: %v", err)
@@ -182,10 +221,12 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 
 	for _, e := range ingressByHost {
 		err := b.SetEntry(
-			metadata.VirtualService.TypeURL.String(),
+			metadata.VirtualService.Collection.String(),
 			e.ID.FullName.String(),
 			string(e.ID.Version),
-			e.ID.CreateTime,
+			e.Metadata.CreateTime,
+			nil,
+			nil,
 			e.Item)
 		if err != nil {
 			scope.Errorf("Unable to set virtualservice entry: %v", err)
@@ -193,46 +234,52 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	}
 }
 
-func extractKey(name resource.FullName, entry *mcp.Envelope, version resource.Version) resource.VersionedKey {
+func extractKey(name resource.FullName, version resource.Version) resource.VersionedKey {
+	return resource.VersionedKey{
+		Key: resource.Key{
+			Collection: metadata.Ingress.Collection,
+			FullName:   name,
+		},
+		Version: version,
+	}
+}
+
+func extractMetadata(entry *mcp.Resource) resource.Metadata {
 	ts, err := types.TimestampFromProto(entry.Metadata.CreateTime)
 	if err != nil {
 		// It is an invalid timestamp. This shouldn't happen.
 		scope.Errorf("Error converting proto timestamp to time.Time: %v", err)
 	}
 
-	return resource.VersionedKey{
-		Key: resource.Key{
-			TypeURL:  metadata.IngressSpec.TypeURL,
-			FullName: name,
-		},
-		Version:    version,
-		CreateTime: ts,
+	return resource.Metadata{
+		CreateTime:  ts,
+		Labels:      entry.Metadata.GetLabels(),
+		Annotations: entry.Metadata.GetAnnotations(),
 	}
 }
 
-func (s *State) envelopeResource(e resource.Entry) (*mcp.Envelope, bool) {
-	serialized, err := proto.Marshal(e.Item)
+func (s *State) toResource(e resource.Entry) (*mcp.Resource, bool) {
+	body, err := types.MarshalAny(e.Item)
 	if err != nil {
 		scope.Errorf("Error serializing proto from source e: %v:", e)
 		return nil, false
 	}
 
-	createTime, err := types.TimestampProto(e.ID.CreateTime)
+	createTime, err := types.TimestampProto(e.Metadata.CreateTime)
 	if err != nil {
 		scope.Errorf("Error parsing resource create_time for event (%v): %v", e, err)
 		return nil, false
 	}
 
-	entry := &mcp.Envelope{
+	entry := &mcp.Resource{
 		Metadata: &mcp.Metadata{
-			Name:       e.ID.FullName.String(),
-			CreateTime: createTime,
-			Version:    string(e.ID.Version),
+			Name:        e.ID.FullName.String(),
+			CreateTime:  createTime,
+			Version:     string(e.ID.Version),
+			Labels:      e.Metadata.Labels,
+			Annotations: e.Metadata.Annotations,
 		},
-		Resource: &types.Any{
-			TypeUrl: e.ID.TypeURL.String(),
-			Value:   serialized,
-		},
+		Body: body,
 	}
 
 	return entry, true
@@ -242,10 +289,10 @@ func (s *State) envelopeResource(e resource.Entry) (*mcp.Envelope, bool) {
 func (s *State) String() string {
 	var b bytes.Buffer
 
-	fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
+	_, _ = fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
 
 	sn := s.buildSnapshot().(*snapshot.InMemory)
-	fmt.Fprintf(&b, "%v", sn)
+	_, _ = fmt.Fprintf(&b, "%v", sn)
 
 	return b.String()
 }

@@ -27,7 +27,7 @@ func TestListenerMatch(t *testing.T) {
 	inputParams := &plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
 		Node: &model.Proxy{
-			Type: model.Sidecar,
+			Type: model.SidecarProxy,
 		},
 		Port: &model.Port{
 			Name: "http-foo",

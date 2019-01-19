@@ -86,12 +86,22 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
-// BuildAddress returns a SocketAddress with the given ip and port.
-func BuildAddress(ip string, port uint32) core.Address {
+// BuildAddress returns a SocketAddress with the given ip and port or uds.
+func BuildAddress(bind string, port uint32) core.Address {
+	if len(bind) > 0 && strings.HasPrefix(bind, model.UnixAddressPrefix) {
+		return core.Address{
+			Address: &core.Address_Pipe{
+				Pipe: &core.Pipe{
+					Path: bind,
+				},
+			},
+		}
+	}
+
 	return core.Address{
 		Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
-				Address: ip,
+				Address: bind,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: port,
 				},
@@ -212,20 +222,13 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 	})
 }
 
-// isProxyVersion checks whether the given Proxy version matches the supplied prefix.
-func isProxyVersion(node *model.Proxy, prefix string) bool {
-	ver, found := node.GetProxyVersion()
-	return found && strings.HasPrefix(ver, prefix)
-}
-
-// Is1xProxy checks whether the given Proxy version is 1.x.
-func Is1xProxy(node *model.Proxy) bool {
-	return isProxyVersion(node, "1.")
-}
-
-// Is11Proxy checks whether the given Proxy version is 1.1.
-func Is11Proxy(node *model.Proxy) bool {
-	return isProxyVersion(node, "1.1")
+// IsProxyVersionGE11 checks whether the given Proxy version is greater than or equals 1.1.
+func IsProxyVersionGE11(node *model.Proxy) bool {
+	ver, _ := node.GetProxyVersion()
+	if ver >= "1.1" {
+		return true
+	}
+	return false
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all

@@ -809,6 +809,10 @@ the field value:</p>
   - x.output.f
 </code></pre>
 
+<p>If the header value expression evaluates to an empty string, and the operation is to either replace
+or append a header, then the operation is not applied. This permits conditional behavior on behalf of the
+adapter to optionally modify the headers.</p>
+
 <table class="message-fields">
 <thead>
 <tr>
