@@ -213,6 +213,7 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 	}
 
 	if istioListener.Hosts != nil {
+		// TODO: BUG, this means you can't have 2 explicit imports for same namespace ( override each other )
 		for _, h := range istioListener.Hosts {
 			parts := strings.SplitN(h, "/", 2)
 			out.listenerHosts[parts[0]] = Hostname(parts[1])
