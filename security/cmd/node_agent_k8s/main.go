@@ -68,6 +68,10 @@ const (
 
 	// The environmental variable name for Vault TLS root certificate.
 	vaultTLSRootCert = "VAULT_TLS_ROOT_CERT"
+
+	// The environmental variable name for the flag which is used to indicate the token passed
+	// from envoy is always valid(ex, normal 8ks JWT).
+	alwaysValidTokenFlag = "VALID_TOKEN"
 )
 
 var (
@@ -175,6 +179,12 @@ func init() {
 		enableIngressGatewaySdsEnv = env
 	}
 
+	alwaysValidTokenFlagEnv := false
+	val = os.Getenv(alwaysValidTokenFlag)
+	if env, err := strconv.ParseBool(val); err == nil {
+		alwaysValidTokenFlagEnv = env
+	}
+
 	rootCmd.PersistentFlags().BoolVar(&serverOptions.EnableWorkloadSDS, "enableWorkloadSDS",
 		enableWorkloadSdsEnv,
 		"If true, node agent works as SDS server and provisions key/certificate to workload proxies.")
@@ -206,6 +216,10 @@ func init() {
 		10*time.Minute, "Secret rotation job running interval")
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
+
+	rootCmd.PersistentFlags().BoolVar(&serverOptions.AlwaysValidTokenFlag, "alwaysValidTokenFlag",
+		alwaysValidTokenFlagEnv,
+		"If true, node agent assume token passed from envoy is always valid.")
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAddress, "vaultAddress", os.Getenv(vaultAddress),
 		"Vault address")
