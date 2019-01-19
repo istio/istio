@@ -30,10 +30,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/util"
 )
 
@@ -175,12 +174,12 @@ type KubeInfo struct {
 	appPods  map[string]*appPodsInfo
 	Clusters map[string]string
 
-	KubeConfig       string
-	KubeClient       kubernetes.Interface
-	RemoteKubeConfig string
-	RemoteKubeClient kubernetes.Interface
-	RemoteAppManager *AppManager
-	RemoteIstioctl   *Istioctl
+	KubeConfig         string
+	KubeAccessor       *testKube.Accessor
+	RemoteKubeConfig   string
+	RemoteKubeAccessor *testKube.Accessor
+	RemoteAppManager   *AppManager
+	RemoteIstioctl     *Istioctl
 }
 
 func getClusterWideInstallFile() string {
@@ -241,7 +240,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	// environment's kubeconfig if an empty string is provided.  Therefore in the
 	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
-	var kubeClient, remoteKubeClient kubernetes.Interface
+	var remoteKubeAccessor *testKube.Accessor
 	var aRemote *AppManager
 	var remoteI *Istioctl
 	if *multiClusterDir != "" {
@@ -260,10 +259,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
 		}
-		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
-			return nil, err
-		}
-		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+		if remoteKubeAccessor, err = testKube.NewAccessor(remoteKubeConfig, tmpDir); err != nil {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
@@ -280,6 +276,11 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 
+	kubeAccessor, err := testKube.NewAccessor(kubeConfig, tmpDir)
+	if err != nil {
+		return nil, err
+	}
+
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)
 	clusters[PrimaryCluster] = kubeConfig
@@ -291,26 +292,26 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
-		Namespace:        *namespace,
-		namespaceCreated: false,
-		TmpDir:           tmpDir,
-		yamlDir:          yamlDir,
-		localCluster:     *localCluster,
-		Istioctl:         i,
-		RemoteIstioctl:   remoteI,
-		AppManager:       a,
-		RemoteAppManager: aRemote,
-		AuthEnabled:      *authEnable,
-		AuthSdsEnabled:   *authSdsEnable,
-		RBACEnabled:      *rbacEnable,
-		ReleaseDir:       releaseDir,
-		BaseVersion:      baseVersion,
-		KubeConfig:       kubeConfig,
-		KubeClient:       kubeClient,
-		RemoteKubeConfig: remoteKubeConfig,
-		RemoteKubeClient: remoteKubeClient,
-		appPods:          appPods,
-		Clusters:         clusters,
+		Namespace:          *namespace,
+		namespaceCreated:   false,
+		TmpDir:             tmpDir,
+		yamlDir:            yamlDir,
+		localCluster:       *localCluster,
+		Istioctl:           i,
+		RemoteIstioctl:     remoteI,
+		AppManager:         a,
+		RemoteAppManager:   aRemote,
+		AuthEnabled:        *authEnable,
+		AuthSdsEnabled:     *authSdsEnable,
+		RBACEnabled:        *rbacEnable,
+		ReleaseDir:         releaseDir,
+		BaseVersion:        baseVersion,
+		KubeConfig:         kubeConfig,
+		KubeAccessor:       kubeAccessor,
+		RemoteKubeConfig:   remoteKubeConfig,
+		RemoteKubeAccessor: remoteKubeAccessor,
+		appPods:            appPods,
+		Clusters:           clusters,
 	}, nil
 }
 

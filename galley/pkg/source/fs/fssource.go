@@ -27,8 +27,8 @@ import (
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/galley/pkg/source/kube"
-	"istio.io/istio/galley/pkg/source/kube/converter"
+	"istio.io/istio/galley/pkg/source/kube/dynamic"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/pkg/log"
 
@@ -234,7 +234,7 @@ func (s *fsSource) process(eventKind resource.EventKind, key resource.FullName, 
 		}
 	}
 
-	kube.ProcessEvent(s.config, spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
+	dynamic.ProcessEvent(s.config, spec, eventKind, key, fmt.Sprintf("v%d", s.version), u, s.ch)
 }
 
 // Start implements runtime.Source
