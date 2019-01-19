@@ -68,6 +68,20 @@ const (
 
 	// The environmental variable name for Vault TLS root certificate.
 	vaultTLSRootCert = "VAULT_TLS_ROOT_CERT"
+
+	// The environmental variable name for secret TTL, node agent decides whether a secret
+	// is expired if time.now - secret.createtime >= secretTTL.
+	// example value format like "90m"
+	secretTTL = "SECRET_TTL"
+
+	// The environmental variable name for grace duration that secret is re-generated
+	// before it's expired time.
+	// example value format like "10m"
+	SecretRefreshGraceDuration = "SECRET_GRACE_DURATION"
+
+	// The environmental variable name for key rotation job running interval.
+	// example value format like "20m"
+	SecretRotationJobRunInterval = "SECRET_JOB_RUN_INTERVAL"
 )
 
 var (
@@ -198,14 +212,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&serverOptions.CertFile, "sdsCertFile", "", "SDS gRPC TLS server-side certificate")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.KeyFile, "sdsKeyFile", "", "SDS gRPC TLS server-side key")
 
-	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretTTL, "secretTtl",
-		24*time.Hour, "Secret's TTL")
-	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretRefreshGraceDuration, "secretRefreshGraceDuration",
-		time.Hour, "Secret's Refresh Grace Duration")
-	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.RotationInterval, "secretRotationInterval",
-		10*time.Minute, "Secret rotation job running interval")
-	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
-		24*time.Hour, "Secret eviction time duration")
+	setCacheTimeParams()
 
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultAddress, "vaultAddress", os.Getenv(vaultAddress),
 		"Vault address")
@@ -220,6 +227,33 @@ func init() {
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
+}
+
+func setCacheTimeParams() {
+	secretTTLDuration := 24 * time.Hour
+	if env, err := time.ParseDuration(os.Getenv(secretTTL)); err == nil {
+		secretTTLDuration = env
+	}
+
+	secretRefreshGraceDuration := time.Hour
+	if env, err := time.ParseDuration(os.Getenv(SecretRefreshGraceDuration)); err == nil {
+		secretRefreshGraceDuration = env
+	}
+
+	secretRotationJobRunInterval := 10 * time.Minute
+	if env, err := time.ParseDuration(os.Getenv(SecretRotationJobRunInterval)); err == nil {
+		secretRotationJobRunInterval = env
+	}
+
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretTTL, "secretTtl",
+		secretTTLDuration, "Secret's TTL")
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.SecretRefreshGraceDuration, "secretRefreshGraceDuration",
+		secretRefreshGraceDuration, "Secret's Refresh Grace Duration")
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.RotationInterval, "secretRotationInterval",
+		secretRotationJobRunInterval, "Secret rotation job running interval")
+
+	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
+		24*time.Hour, "Secret eviction time duration")
 }
 
 func main() {
