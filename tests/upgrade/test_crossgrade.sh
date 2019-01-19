@@ -106,7 +106,10 @@ TEST_NAMESPACE="test"
 
 # This must be at least as long as the script execution time.
 # Edit fortio-cli.yaml to the same value when changing this.
-TRAFFIC_RUNTIME_SEC=700
+TRAFFIC_RUNTIME_SEC=500
+
+# Used to signal that background external process is done.
+EXTERNAL_FORTIO_DONE_FILE=${TMP_DIR}/fortio_done_file
 
 echo_and_run() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
 
@@ -142,9 +145,25 @@ installTest() {
 }
 
 # Sends traffic from internal pod (Fortio load command) to Fortio echosrv.
+# Since this may block for some time due to restarts, it should be run in the background. Use waitForJob to check for
+# completion.
 sendInternalRequestTraffic() {
-   writeMsg "Sending internal traffic"
-   kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml" || die "kubectl apply fortio-cli.yaml failed"
+    writeMsg "Sending internal traffic"
+    local job_name=cli-fortio
+    local n=0
+    while [ $n -lt 10 ]; do
+        kubectl delete job -n "${TEST_NAMESPACE}" "${job_name}"
+        start_time=${SECONDS}
+        kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml" || die "kubectl apply fortio-cli.yaml failed"
+        waitForJob "${job_name}"
+        # Any timeouts typically occur in the first 20s
+        if (( SECONDS - start_time > 100 )); then
+            echo "${job_name} completed successfully"
+            return 0
+        fi
+        echo "${job_name} exited too soon, restarting"
+        ((n++))
+    done
 }
 
 # Runs traffic from external fortio client, with retries.
@@ -157,6 +176,14 @@ runFortioLoadCommand() {
       ((n++))
       sleep 10
     done
+    echo "done" >> "${EXTERNAL_FORTIO_DONE_FILE}"
+}
+
+waitForExternalRequestTraffic() {
+    echo "Waiting for external traffic to complete"
+    while [ ! -f "${EXTERNAL_FORTIO_DONE_FILE}" ]; do
+        sleep 10
+    done
 }
 
 # Sends external traffic from machine test is running on to Fortio echosrv through external IP and ingress gateway LB.
@@ -164,7 +191,6 @@ sendExternalRequestTraffic() {
     writeMsg "Sending external traffic"
     runFortioLoadCommand "${1}" &
 }
-
 
 restartDataPlane() {
     # Apply label within deployment spec.
@@ -251,6 +277,17 @@ checkEchosrv() {
     done
 }
 
+waitForJob() {
+    echo "Waiting for job ${1} to complete..."
+    local start_time=${SECONDS}
+    until kubectl get jobs -n "${TEST_NAMESPACE}" ${1} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' | grep True ; do
+        sleep 1 ;
+    done
+    run_time=0
+    (( run_time = SECONDS - start_time ))
+    echo "Job ${1} ran for ${run_time} seconds."
+}
+
 resetNamespaces() {
     sleep_time_sec=10
     sleep_time_sofar=0
@@ -321,7 +358,8 @@ installTest
 waitForPodsReady "${TEST_NAMESPACE}"
 checkEchosrv
 
-sendInternalRequestTraffic
+# Run internal traffic in the background since we may have to relaunch it if the job fails.
+sendInternalRequestTraffic &
 sendExternalRequestTraffic "${INGRESS_ADDR}"
 # Let traffic clients establish all connections. There's some small startup delay, this covers it.
 echo "Waiting for traffic to settle..."
@@ -355,7 +393,9 @@ fi
 
 cli_pod_name=$(kubectl -n "${TEST_NAMESPACE}" get pods -lapp=cli-fortio -o jsonpath='{.items[0].metadata.name}')
 echo "Traffic client pod is ${cli_pod_name}, waiting for traffic to complete..."
+waitForJob cli-fortio
 kubectl logs -f -n "${TEST_NAMESPACE}" -c echosrv "${cli_pod_name}" &> "${POD_FORTIO_LOG}" || echo "Could not find ${cli_pod_name}"
+waitForExternalRequestTraffic
 
 local_log_str=$(grep "Code 200" "${LOCAL_FORTIO_LOG}")
 pod_log_str=$(grep "Code 200"  "${POD_FORTIO_LOG}")
