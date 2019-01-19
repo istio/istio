@@ -1,3 +1,7 @@
+# To test in real cluster:
+# kubectl create ns none
+# kubectl label namespace none istio-injection=enabled
+
 # All configs for 'none' namespace, used to test interception without iptables.
 # In this mode the namespace isolation is required - the tests will also verify isolation
 # It is important to update the tests in ../envoy/v2 which verify the number of generated listeners.
@@ -7,8 +11,155 @@
 
 # TODO: the IP addresses are not namespaced yet, so must be unique on the mesh (flat namespace) including in
 # ServiceEntry tests. Removing deps on ip in progress.
+---
+# Default sidecar
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: none
+spec:
+  egress:
+    - hosts:
+        # TODO: if not imported, disable mixer checks
+        - istio-system/istio-policy.istio-system
+        - istio-system/istio-mixer.istio-system # Doesn't work
+        - istio-system/* # WORKS
+        - none/*
+        - default/test.default # TODO: without namespace it  fails validation !
+      # TODO: if we include the namespace, why do we need full name ? Importing regular services should work.
+
+  # Label selection seems to confuse the new code.
+  ingress:
+    - port:
+        number: 7071
+        protocol: HTTP
+        name: httplocal
+      default_endpoint: 127.0.0.1:17071
+    - port:
+        number: 7070
+        protocol: TCP
+        name: tcplocal
+      default_endpoint: 127.0.0.1:17070
+    # Fortio ports
+    - port:
+        number: 18080
+        protocol: HTTP
+        name: http-echo
+      default_endpoint: 127.0.0.1:28080
+    - port:
+        number: 18079
+        protocol: TCP
+        name: grpc-ping
+      default_endpoint: 127.0.0.1:28079
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio
+  namespace: none
+spec:
+  ports:
+  - port: 8080 # This is the service port - connect to fortio:8080 as client (using http proxy or in mesh)
+    name: http-echo
+    targetPort: 18080 # This port should listen on the target machine
+  - port: 8079
+    name: grpc-ping
+    targetPort: 18079
+  selector:
+    app: fortio
 
 ---
+# TODO: VirtualService using new Gateway style
+
+# TODO: use UDS
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio
+  namespace: none
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio
+        version: v1
+        #INTERCEPTION_MODE: NONE
+      annotations:
+        sidecar.istio.io/interceptionMode: NONE
+        status.sidecar.istio.io/port: "0"
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        ports:
+         - containerPort: 18080
+         - containerPort: 18079
+        args:
+          - server
+          - -http-port
+          #- 127.0.0.1:28080 # This is the port from Sidecar. Normally should be localhost
+          - :28080 # bound to 0.0.0.0 to allow additional perf testing.
+          - -grpc-port
+          - :28079
+        env:
+        - name: HTTP_PROXY
+          value: 127.0.0.1:15002
+        resources:
+          requests:
+            cpu: 1000m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+---
+
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: fortio-cli
+  namespace: none
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio-cli
+        version: v1
+      annotations:
+        status.sidecar.istio.io/port: "0"
+        sidecar.istio.io/interceptionMode: NONE
+    spec:
+      containers:
+      - name: echosrv
+        image: istio/fortio:latest
+        imagePullPolicy: Always
+        args:
+          - load
+          - -t
+          - "0"
+          - -c
+          - "32"
+          - -qps
+          - "500"
+          - http://fortio:8080/echo?size=5000
+        env:
+        - name: HTTP_PROXY
+          value: 127.0.0.1:15002
+        resources:
+          requests:
+            cpu: 500m
+            memory: "1G"
+          limits:
+            cpu: 1000m
+            memory: "1G"
+
+---
+
 # "None" mode depends on unique ports for each defined service or service entry.
 # Not supported/require iptables:
 # - TCP with 'addresses' field - needs iptables
@@ -65,58 +216,6 @@ spec:
   - address: 10.11.0.1
     ports:
       httplocal: 7071
-
----
-
-## Sidecar selecting the s1tcp service, which is used in the test.
-#apiVersion: networking.istio.io/v1alpha3
-#kind: Sidecar
-#metadata:
-#  name: s1http
-#  namespace: none
-#spec:
-#  workload_selector:
-#    labels:
-#      app: s1tcp
-#
-#  ingress:
-#  - port:
-#      number: 7071
-#      protocol: TCP
-#      name: tcplocal
-#    default_endpoint: 127.0.0.1:17071
-#  - port:
-#      number: 7070
-#      protocol: TCP
-#      name: tcplocal
-#    default_endpoint: 127.0.0.1:17070
-
----
-
-# Default sidecar
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: default
-  namespace: none
-spec:
-  egress:
-  - hosts:
-    - none/*
-    - default/test.default # TODO: without namespace it  fails validation !
-    # TODO: if we include the namespace, why do we need full name ? Importing regular services should work.
-  # Label selection seems to confuse the new code.
-  ingress:
-  - port:
-      number: 7071
-      protocol: HTTP
-      name: httplocal
-    default_endpoint: 127.0.0.1:17071
-  - port:
-      number: 7070
-      protocol: TCP
-      name: tcplocal
-    default_endpoint: 127.0.0.1:17070
 
 ---
 
@@ -242,7 +341,7 @@ spec:
   - api1.facebook.com
   location: MESH_EXTERNAL
   ports:
-  - number: 443
+  - number: 2443
     name: https
     protocol: TLS
   resolution: DNS
@@ -259,14 +358,14 @@ spec:
   - api1.facebook.com
   tls:
   - match:
-    - port: 443
+    - port: 2443
       sniHosts:
       - www1.googleapis.com
     route:
     - destination:
         host: www1.googleapis.com
   - match:
-    - port: 443
+    - port: 2443
       sniHosts:
       - api1.facebook.com
     route:
