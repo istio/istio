@@ -248,16 +248,16 @@ const kubeTemplate = `
 package kube
 
 import (
-	"istio.io/istio/galley/pkg/source/kube/converter"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/metadata"
 )
 
 // Types in the schema.
-var Types *schema.Schema
+var Types *schema.Instance
 
 func init() {
-	b := schema.NewSchemaBuilder()
+	b := schema.NewBuilder()
 {{range .Resources}}
 	b.Add(schema.ResourceSpec{
 		Kind:       "{{.Kind}}",
