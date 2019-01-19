@@ -140,7 +140,6 @@ func newSecretCache(serverOptions sds.Options) (workloadSecretCache, gatewaySecr
 			os.Exit(1)
 		}
 		workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
-		workloadSdsCacheOptions.AlwaysValidTokenFlag = serverOptions.AlwaysValidTokenFlag
 		workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
 		workloadSecretCache = cache.NewSecretCache(wSecretFetcher, sds.NotifyProxy, workloadSdsCacheOptions)
 	} else {
@@ -217,8 +216,7 @@ func init() {
 		10*time.Minute, "Secret rotation job running interval")
 	rootCmd.PersistentFlags().DurationVar(&workloadSdsCacheOptions.EvictionDuration, "secretEvictionDuration",
 		24*time.Hour, "Secret eviction time duration")
-
-	rootCmd.PersistentFlags().BoolVar(&serverOptions.AlwaysValidTokenFlag, "alwaysValidTokenFlag",
+	rootCmd.PersistentFlags().BoolVar(&workloadSdsCacheOptions.AlwaysValidTokenFlag, "alwaysValidTokenFlag",
 		alwaysValidTokenFlagEnv,
 		"If true, node agent assume token passed from envoy is always valid.")
 
