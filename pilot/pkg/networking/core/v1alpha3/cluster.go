@@ -475,23 +475,23 @@ func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceIns
 	ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
 	var instance *model.ServiceInstance
 	for _, realinstance := range instances {
-			if realinstance.Endpoint.Port == int(ingressListener.Port.Number) {
-				instance = &model.ServiceInstance{
-					Endpoint:       realinstance.Endpoint,
-					Service:        realinstance.Service,
-					Labels:         realinstance.Labels,
-					ServiceAccount: realinstance.ServiceAccount,
-				}
+		if realinstance.Endpoint.Port == int(ingressListener.Port.Number) {
+			instance = &model.ServiceInstance{
+				Endpoint:       realinstance.Endpoint,
+				Service:        realinstance.Service,
+				Labels:         realinstance.Labels,
+				ServiceAccount: realinstance.ServiceAccount,
 			}
+		}
 		//for _, iport := range realinstance.Service.Ports {
-			//if iport.Name == ingressListener.Port.Name {
-			//	instance = &model.ServiceInstance{
-			//		Endpoint:       realinstance.Endpoint,
-			//		Service:        realinstance.Service,
-			//		Labels:         realinstance.Labels,
-			//		ServiceAccount: realinstance.ServiceAccount,
-			//	}
-			//}
+		//if iport.Name == ingressListener.Port.Name {
+		//	instance = &model.ServiceInstance{
+		//		Endpoint:       realinstance.Endpoint,
+		//		Service:        realinstance.Service,
+		//		Labels:         realinstance.Labels,
+		//		ServiceAccount: realinstance.ServiceAccount,
+		//	}
+		//}
 		//}
 	}
 	return instance
