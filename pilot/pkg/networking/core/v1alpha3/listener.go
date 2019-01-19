@@ -424,7 +424,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 			// if app doesn't have a declared ServicePort, but a sidecar ingress is defined - we can't generate a listener
 			// for that port since we don't know what policies or configs apply to it ( many are based on service matching).
-			// Sidecar doesn't include all the info needed to configure a port. 
+			// Sidecar doesn't include all the info needed to configure a port.
 			instance := configgen.findInstance(proxyInstances, ingressListener)
 
 			if instance == nil {
@@ -452,7 +452,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				port:           listenPort.Port,
 				bindToPort:     bindToPort,
 			}
-
 
 			// Update the values here so that the plugins use the right ports
 			// uds values

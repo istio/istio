@@ -62,10 +62,10 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 
 func convertPort(port v1.ServicePort) *model.Port {
 	return &model.Port{
-		Name:     port.Name,
-		Port:     int(port.Port),
+		Name:       port.Name,
+		Port:       int(port.Port),
 		TargetPort: port.TargetPort.String(),
-		Protocol: ConvertProtocol(port.Name, port.Protocol),
+		Protocol:   ConvertProtocol(port.Name, port.Protocol),
 	}
 }
 

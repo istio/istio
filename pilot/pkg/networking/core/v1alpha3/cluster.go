@@ -441,7 +441,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceInstance, ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
+func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceInstance,
+	ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
 	var instance *model.ServiceInstance
 	for _, realinstance := range instances {
 		for _, iport := range realinstance.Service.Ports {

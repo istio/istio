@@ -33,7 +33,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
-	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +42,7 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
