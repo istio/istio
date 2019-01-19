@@ -24,18 +24,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
 )
@@ -84,7 +84,7 @@ type updateHookFn func()
 
 // backend is StoreBackend implementation using MCP.
 type backend struct {
-	// mapping of CRD <> typeURLs.
+	// mapping of CRD <> collections.
 	mapping *mapping
 
 	// Use insecure communication for gRPC.
@@ -98,6 +98,8 @@ type backend struct {
 
 	// The cancellation function that is used to cancel gRPC/MCP operations.
 	cancel context.CancelFunc
+
+	mcpReporter monitoring.Reporter
 
 	// The in-memory state, where resources are kept for out-of-band get and list calls.
 	state *state
@@ -117,7 +119,7 @@ type backend struct {
 
 var _ store.Backend = &backend{}
 var _ probe.SupportsProbe = &backend{}
-var _ client.Updater = &backend{}
+var _ sink.Updater = &backend{}
 
 // state is the in-memory cache.
 type state struct {
@@ -125,7 +127,7 @@ type state struct {
 
 	// items stored by kind, then by key.
 	items  map[string]map[store.Key]*store.BackEndResource
-	synced map[string]bool // by kind
+	synced map[string]bool // by collection
 }
 
 // Init implements store.Backend.Init.
@@ -136,10 +138,11 @@ func (b *backend) Init(kinds []string) error {
 	}
 	b.mapping = m
 
-	typeURLs := b.mapping.typeURLs()
-	scope.Infof("Requesting following types:")
-	for i, url := range typeURLs {
-		scope.Infof("  [%d] %s", i, url)
+	collections := b.mapping.collections()
+
+	scope.Infof("Requesting following collections:")
+	for i, name := range collections {
+		scope.Infof("  [%d] %s", i, name)
 	}
 
 	// nolint: govet
@@ -160,6 +163,7 @@ func (b *backend) Init(kinds []string) error {
 				select {
 				case <-ctx.Done():
 					// nolint: govet
+					cancel()
 					return ctx.Err()
 				case <-time.After(requiredCertCheckFreq):
 					// retry
@@ -173,6 +177,7 @@ func (b *backend) Init(kinds []string) error {
 
 		watcher, err := creds.WatchFiles(ctx.Done(), b.credOptions)
 		if err != nil {
+			cancel()
 			return err
 		}
 		credentials := creds.CreateForClient(address, watcher)
@@ -187,20 +192,26 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	c := client.New(cl, typeURLs, b, mixerNodeID, map[string]string{}, client.NewStatsContext("mixer"))
+	b.mcpReporter = monitoring.NewStatsContext("mixer")
+	options := &sink.Options{
+		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
+		Updater:           b,
+		ID:                mixerNodeID,
+		Reporter:          b.mcpReporter,
+	}
+	c := client.New(cl, options)
 	configz.Register(c)
 
 	b.state = &state{
 		items:  make(map[string]map[store.Key]*store.BackEndResource),
 		synced: make(map[string]bool),
 	}
-	for _, typeURL := range typeURLs {
-		b.state.synced[typeURL] = false
+	for _, collection := range collections {
+		b.state.synced[collection] = false
 	}
 
 	go c.Run(ctx)
 	b.cancel = cancel
-
 	return nil
 }
 
@@ -236,6 +247,7 @@ func (b *backend) Stop() {
 		b.cancel()
 		b.cancel = nil
 	}
+	b.mcpReporter.Close()
 }
 
 // Watch creates a channel to receive the events.
@@ -286,41 +298,28 @@ func (b *backend) List() map[store.Key]*store.BackEndResource {
 }
 
 // Apply implements client.Updater.Apply
-func (b *backend) Apply(change *client.Change) error {
+func (b *backend) Apply(change *sink.Change) error {
 	b.state.Lock()
 	defer b.state.Unlock()
 	defer b.callUpdateHook()
 
 	newTypeStates := make(map[string]map[store.Key]*store.BackEndResource)
-	typeURL := change.TypeURL
 
-	b.state.synced[typeURL] = true
+	b.state.synced[change.Collection] = true
 
-	scope.Debugf("Received update for: type:%s, count:%d", typeURL, len(change.Objects))
+	scope.Debugf("Received update for: collection:%s, count:%d", change.Collection, len(change.Objects))
 
 	for _, o := range change.Objects {
-		var kind string
-		var name string
-		var contents proto.Message
-
 		if scope.DebugEnabled() {
 			scope.Debugf("Processing incoming resource: %q @%s [%s]",
 				o.Metadata.Name, o.Metadata.Version, o.TypeURL)
 		}
 
-		// Demultiplex the resource, if it is a legacy type, and figure out its kind.
-		if isLegacyTypeURL(typeURL) {
-			// Extract the kind from payload.
-			legacyResource := o.Resource.(*legacy.LegacyMixerResource)
-			name = legacyResource.Name
-			kind = legacyResource.Kind
-			contents = legacyResource.Contents
-		} else {
-			// Otherwise, simply do a direct mapping from typeURL to kind
-			name = o.Metadata.Name
-			kind = b.mapping.kind(typeURL)
-			contents = o.Resource
-		}
+		name := o.Metadata.Name
+		kind := b.mapping.kind(change.Collection)
+		contents := o.Body
+		labels := o.Metadata.Labels
+		annotations := o.Metadata.Annotations
 
 		collection, found := newTypeStates[kind]
 		if !found {
@@ -331,7 +330,7 @@ func (b *backend) Apply(change *client.Change) error {
 		// Map it to Mixer's store model, and put it in the new collection.
 
 		key := toKey(kind, name)
-		resource, err := toBackendResource(key, contents, o.Metadata.Version)
+		resource, err := toBackendResource(key, labels, annotations, contents, o.Metadata.Version)
 		if err != nil {
 			return err
 		}

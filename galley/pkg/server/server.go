@@ -28,20 +28,23 @@ import (
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/cmd/shared"
-	"istio.io/istio/galley/pkg/fs"
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/converter"
-	"istio.io/istio/galley/pkg/kube/source"
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/metadata"
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/source/fs"
+	"istio.io/istio/galley/pkg/source/kube/client"
+	"istio.io/istio/galley/pkg/source/kube/dynamic"
+	kubeConverter "istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/source/kube/schema/check"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/snapshot"
+	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
 )
@@ -54,31 +57,29 @@ type Server struct {
 	grpcServer *grpc.Server
 	processor  *runtime.Processor
 	mcp        *server.Server
-	reporter   server.Reporter
+	reporter   monitoring.Reporter
 	listener   net.Listener
 	controlZ   *ctrlz.Server
 	stopCh     chan struct{}
 }
 
 type patchTable struct {
-	logConfigure                func(*log.Options) error
-	newKubeFromConfigFile       func(string) (kube.Interfaces, error)
-	verifyResourceTypesPresence func(kube.Interfaces) error
-	newSource                   func(kube.Interfaces, time.Duration, *kube.Schema, *converter.Config) (runtime.Source, error)
+	newKubeFromConfigFile       func(string) (client.Interfaces, error)
+	verifyResourceTypesPresence func(client.Interfaces) error
+	newSource                   func(client.Interfaces, time.Duration, *schema.Instance, *kubeConverter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
-	mcpMetricReporter           func(string) server.Reporter
-	fsNew                       func(string, *kube.Schema, *converter.Config) (runtime.Source, error)
+	mcpMetricReporter           func(string) monitoring.Reporter
+	fsNew                       func(string, *schema.Instance, *kubeConverter.Config) (runtime.Source, error)
 }
 
 func defaultPatchTable() patchTable {
 	return patchTable{
-		logConfigure:                log.Configure,
-		newKubeFromConfigFile:       kube.NewKubeFromConfigFile,
-		verifyResourceTypesPresence: source.VerifyResourceTypesPresence,
-		newSource:                   source.New,
+		newKubeFromConfigFile:       client.NewKubeFromConfigFile,
+		verifyResourceTypesPresence: check.VerifyResourceTypesPresence,
+		newSource:                   dynamic.New,
 		netListen:                   net.Listen,
-		mcpMetricReporter:           func(prefix string) server.Reporter { return server.NewStatsContext(prefix) },
+		mcpMetricReporter:           func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) },
 		newMeshConfigCache:          func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
 		fsNew:                       fs.New,
 	}
@@ -108,23 +109,21 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 		}
 	}()
 
-	if err = p.logConfigure(a.LoggingOptions); err != nil {
-		return nil, err
-	}
-
 	mesh, err := p.newMeshConfigCache(a.MeshConfigFile)
 	if err != nil {
 		return nil, err
 	}
-	converterCfg := &converter.Config{
+	converterCfg := &kubeConverter.Config{
 		Mesh:         mesh,
 		DomainSuffix: a.DomainSuffix,
 	}
-	specs := kube_meta.Types.All()
+	specs := kubeMeta.Types.All()
 	if !convertK8SService {
-		var filtered []kube.ResourceSpec
+		var filtered []schema.ResourceSpec
 		for _, t := range specs {
-			if t.Kind != "Service" {
+			// TODO(nmittler): Temporarily filter Node and Pod until custom sources land.
+			// Pod yaml cannot be parsed currently. See: https://github.com/istio/istio/issues/10891
+			if t.Kind != "Service" && t.Kind != "Node" && t.Kind != "Pod" {
 				filtered = append(filtered, t)
 			}
 		}
@@ -133,15 +132,15 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	sort.Slice(specs, func(i, j int) bool {
 		return strings.Compare(specs[i].CanonicalResourceName(), specs[j].CanonicalResourceName()) < 0
 	})
-	sb := kube.NewSchemaBuilder()
+	sb := schema.NewBuilder()
 	for _, s := range specs {
 		sb.Add(s)
 	}
-	schema := sb.Build()
+	kubeSchema := sb.Build()
 
 	var src runtime.Source
 	if a.ConfigPath != "" {
-		src, err = p.fsNew(a.ConfigPath, schema, converterCfg)
+		src, err = p.fsNew(a.ConfigPath, kubeSchema, converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +154,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 				return nil, err
 			}
 		}
-		src, err = p.newSource(k, a.ResyncPeriod, schema, converterCfg)
+		src, err = p.newSource(k, a.ResyncPeriod, kubeSchema, converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +172,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	grpcOptions = append(grpcOptions, grpc.MaxRecvMsgSize(int(a.MaxReceivedMessageSize)))
 
 	s.stopCh = make(chan struct{})
-	checker := server.NewAllowAllChecker()
+	var checker server.AuthChecker = server.NewAllowAllChecker()
 	if !a.Insecure {
 		checker, err = watchAccessList(s.stopCh, a.AccessListFile)
 		if err != nil {
@@ -192,7 +191,14 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
 	s.reporter = p.mcpMetricReporter("galley/")
-	s.mcp = server.New(distributor, metadata.Types.TypeURLs(), checker, s.reporter)
+
+	options := &source.Options{
+		Watcher:            distributor,
+		Reporter:           s.reporter,
+		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+	}
+
+	s.mcp = server.New(options, checker)
 
 	// get the network stuff setup
 	network := "tcp"
@@ -270,15 +276,14 @@ func (s *Server) Close() error {
 }
 
 //RunServer start Galley Server mode
-func RunServer(sa *Args, printf, fatalf shared.FormatFn, livenessProbeController,
+func RunServer(sa *Args, livenessProbeController,
 	readinessProbeController probe.Controller) {
-	printf("Galley started with\n%s", sa)
+	log.Infof("Galley started with %s", sa)
 	s, err := New(sa)
 	if err != nil {
-		fatalf("Unable to initialize Galley Server: %v", err)
+		log.Fatalf("Unable to initialize Galley Server: %v", err)
 	}
-	printf("Istio Galley: %s", version.Info)
-	printf("Starting gRPC server on %v", sa.APIAddress)
+	log.Infof("Istio Galley: %s\nStarting gRPC server on %v", version.Info, sa.APIAddress)
 	s.Run()
 	if livenessProbeController != nil {
 		serverLivenessProbe := probe.NewProbe()

@@ -15,13 +15,14 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/pkg/probe"
 )
 
-func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
+func probeCmd() *cobra.Command {
 	var (
 		probeOptions probe.Options
 	)
@@ -31,12 +32,13 @@ func probeCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 		Short: "Check the liveness or readiness of a locally-running server",
 		Run: func(cmd *cobra.Command, _ []string) {
 			if !probeOptions.IsValid() {
-				fatalf("some options are not valid")
+				fmt.Fprintf(cmd.OutOrStdout(), "some options are not valid")
+				return
 			}
 			if err := probe.NewFileClient(&probeOptions).GetStatus(); err != nil {
-				fatalf("fail on inspecting path %s: %v", probeOptions.Path, err)
+				fmt.Fprintf(cmd.OutOrStdout(), "fail on inspecting path %s: %v", probeOptions.Path, err)
 			}
-			printf("OK")
+			fmt.Fprintf(cmd.OutOrStdout(), "OK")
 		},
 	}
 	probeCmd.PersistentFlags().StringVar(&probeOptions.Path, "probe-path", "",

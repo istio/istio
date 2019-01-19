@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: gateway-bound-route
+  namespace: testns
 spec:
   hosts:
     - uk.bookinfo.com

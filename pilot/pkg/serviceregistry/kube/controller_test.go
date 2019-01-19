@@ -24,6 +24,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 )
@@ -136,7 +138,6 @@ func (fx *FakeXdsUpdater) Clear() {
 		case <-fx.Events:
 		default:
 			wait = false
-			break
 		}
 	}
 }
@@ -468,6 +469,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 }
 
 func TestController_GetIstioServiceAccounts(t *testing.T) {
+	oldTrustDomain := spiffe.GetTrustDomain()
+	spiffe.SetTrustDomain(domainSuffix)
+	defer spiffe.SetTrustDomain(oldTrustDomain)
+
 	controller, fx := newFakeController(t)
 	defer controller.Stop()
 
@@ -832,17 +837,6 @@ func TestController_ExternalNameService(t *testing.T) {
 			MeshExternal: true,
 			Resolution:   model.DNSLB,
 		},
-	}
-	var expectedInstanceList []*model.ServiceInstance
-	for i, svc := range expectedSvcList {
-		expectedInstanceList = append(expectedInstanceList, &model.ServiceInstance{
-			Endpoint: model.NetworkEndpoint{
-				Address:     k8sSvcs[i].Spec.ExternalName,
-				Port:        svc.Ports[0].Port,
-				ServicePort: svc.Ports[0],
-			},
-			Service: svc,
-		})
 	}
 
 	svcList, _ := controller.Services()

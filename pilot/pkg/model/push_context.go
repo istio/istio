@@ -17,14 +17,12 @@ package model
 import (
 	"encoding/json"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pkg/features/pilot"
 )
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -60,6 +58,9 @@ type PushContext struct {
 	privateDestRuleByHostByNamespace map[string]map[Hostname]*combinedDestinationRule
 	publicDestRuleHosts              []Hostname
 	publicDestRuleByHost             map[Hostname]*combinedDestinationRule
+
+	// sidecars for each namespace
+	sidecarsByNamespace map[string][]*SidecarScope
 	////////// END ////////
 
 	// The following data is either a global index or used in the inbound path.
@@ -280,6 +281,7 @@ func NewPushContext() *PushContext {
 		publicDestRuleHosts:               []Hostname{},
 		privateDestRuleByHostByNamespace:  map[string]map[Hostname]*combinedDestinationRule{},
 		privateDestRuleHostsByNamespace:   map[string][]Hostname{},
+		sidecarsByNamespace:               map[string][]*SidecarScope{},
 
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},
@@ -322,8 +324,37 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
+// SetSidecarScope identifies the sidecar scope object associated with this
+// proxy and updates the proxy Node. This is a convenience hack so that
+// callers can simply call push.Services(node) while the implementation of
+// push.Services can return the set of services from the proxyNode's
+// sidecar scope or from the push context's set of global services. Similar
+// logic applies to push.VirtualServices and push.DestinationRule. The
+// short cut here is useful only for CDS and parts of RDS generation code.
+//
+// Listener generation code will still use the SidecarScope object directly
+// as it needs the set of services for each listener port.
+func (ps *PushContext) SetSidecarScope(proxy *Proxy) {
+	instances, err := ps.Env.GetProxyServiceInstances(proxy)
+	if err != nil {
+		log.Errorf("failed to get service proxy service instances: %v", err)
+		// TODO: fallback to node metadata labels
+		return
+	}
+
+	proxy.SidecarScope = ps.getSidecarScope(proxy, instances)
+}
+
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
+	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
+	// sidecarScope.config is nil if there is no sidecar scope for the namespace
+	// TODO: This is a temporary gate until the sidecar implementation is stable. Once its stable, remove the
+	// config != nil check
+	if proxy != nil && proxy.SidecarScope != nil && proxy.SidecarScope.Config != nil && proxy.Type == SidecarProxy {
+		return proxy.SidecarScope.Services()
+	}
+
 	out := []*Service{}
 
 	// First add private services
@@ -341,43 +372,9 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	return out
 }
 
-// UpdateNodeIsolation will update per-node data holding visible services and configs for the node.
-// It is called:
-// - on connect
-// - on config change events (full push)
-// - TODO: on-demand events from Envoy
-func (ps *PushContext) UpdateNodeIsolation(proxy *Proxy) {
-	// For now Router (Gateway) is not using the isolation - the Gateway already has explicit
-	// bindings.
-	if pilot.NetworkScopes != "" && proxy.Type == Sidecar {
-		// Add global namespaces. This may be loaded from mesh config ( after the API is stable and
-		// reviewed ), or from an env variable.
-		adminNs := strings.Split(pilot.NetworkScopes, ",")
-		globalDeps := map[string]bool{}
-		for _, ns := range adminNs {
-			globalDeps[ns] = true
-		}
-
-		proxy.mutex.RLock()
-		defer proxy.mutex.RUnlock()
-		res := []*Service{}
-		for _, s := range ps.publicServices {
-			serviceNamespace := s.Attributes.Namespace
-			if serviceNamespace == "" {
-				res = append(res, s)
-			} else if globalDeps[serviceNamespace] || serviceNamespace == proxy.ConfigNamespace {
-				res = append(res, s)
-			}
-		}
-		res = append(res, ps.privateServicesByNamespace[proxy.ConfigNamespace]...)
-		proxy.serviceDependencies = res
-
-		// TODO: read Gateways,NetworkScopes/etc to populate additional entries
-	}
-}
-
 // VirtualServices lists all virtual services bound to the specified gateways
-// This replaces store.VirtualServices
+// This replaces store.VirtualServices. Used only by the gateways
+// Sidecars use the egressListener.VirtualServices().
 func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) []Config {
 	configs := make([]Config, 0)
 	out := make([]Config, 0)
@@ -419,8 +416,82 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 	return out
 }
 
+// getSidecarScope returns a SidecarScope object associated with the
+// proxy. The SidecarScope object is a semi-processed view of the service
+// registry, and config state associated with the sidecar crd. The scope contains
+// a set of inbound and outbound listeners, services/configs per listener,
+// etc. The sidecar scopes are precomputed in the initSidecarContext
+// function based on the Sidecar API objects in each namespace. If there is
+// no sidecar api object, a default sidecarscope is assigned to the
+// namespace which enables connectivity to all services in the mesh.
+//
+// Callers can check if the sidecarScope is from user generated object or not
+// by checking the sidecarScope.Config field, that contains the user provided config
+func (ps *PushContext) getSidecarScope(proxy *Proxy, proxyInstances []*ServiceInstance) *SidecarScope {
+
+	var workloadLabels LabelsCollection
+	for _, w := range proxyInstances {
+		workloadLabels = append(workloadLabels, w.Labels)
+	}
+
+	// Find the most specific matching sidecar config from the proxy's
+	// config namespace If none found, construct a sidecarConfig on the fly
+	// that allows the sidecar to talk to any namespace (the default
+	// behavior in the absence of sidecars).
+	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
+		// TODO: logic to merge multiple sidecar resources
+		// Currently we assume that there will be only one sidecar config for a namespace.
+		var defaultSidecar *SidecarScope
+		for _, wrapper := range sidecars {
+			if wrapper.Config != nil {
+				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
+				// if there is no workload selector, the config applies to all workloads
+				// if there is a workload selector, check for matching workload labels
+				if sidecar.GetWorkloadSelector() != nil {
+					workloadSelector := Labels(sidecar.GetWorkloadSelector().GetLabels())
+					if !workloadLabels.IsSupersetOf(workloadSelector) {
+						continue
+					}
+					return wrapper
+				}
+				defaultSidecar = wrapper
+				continue
+			}
+			// Not sure when this can heppn (Config = nil ?)
+			if defaultSidecar != nil {
+				return defaultSidecar // still return the valid one
+			}
+			return wrapper
+		}
+		if defaultSidecar != nil {
+			return defaultSidecar // still return the valid one
+		}
+	}
+
+	return DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+}
+
+// GetAllSidecarScopes returns a map of namespace and the set of SidecarScope
+// object associated with the namespace. This will be used by the CDS code to
+// precompute CDS output for each sidecar scope. Since we have a default sidecarscope
+// for namespaces that dont explicitly have one, we are guaranteed to
+// have the CDS output cached for every namespace/sidecar scope combo.
+func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
+	return ps.sidecarsByNamespace
+}
+
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
+	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
+	// sidecarScope.config is nil if there is no sidecar scope for the namespace
+	// TODO: This is a temporary gate until the sidecar implementation is stable. Once its stable, remove the
+	// config != nil check
+	if proxy != nil && proxy.SidecarScope != nil && proxy.SidecarScope.Config != nil && proxy.Type == SidecarProxy {
+		// If there is a sidecar scope for this proxy, return the destination rule
+		// from the sidecar scope.
+		return proxy.SidecarScope.DestinationRule(hostname)
+	}
+
 	if proxy == nil {
 		for ns, privateDestHosts := range ps.privateDestRuleHostsByNamespace {
 			if host, ok := MostSpecificHostMatch(hostname, privateDestHosts); ok {
@@ -452,6 +523,8 @@ func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) Labe
 		return nil
 	}
 
+	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
+	// destination rule than the default one. EDS should be computed per sidecar scope
 	config := ps.DestinationRule(nil, hostname)
 	if config == nil {
 		return nil
@@ -493,6 +566,11 @@ func (ps *PushContext) InitContext(env *Environment) error {
 
 	if err = ps.initAuthorizationPolicies(env); err != nil {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
+		return err
+	}
+
+	// Must be initialized in the end
+	if err = ps.InitSidecarScopes(env); err != nil {
 		return err
 	}
 
@@ -540,6 +618,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		return err
 	}
 
+	// TODO(rshriram): parse each virtual service and maintain a map of the
+	// virtualservice name, the list of registry hosts in the VS and non
+	// registry DNS names in the VS.  This should cut down processing in
+	// the RDS code. See separateVSHostsAndServices in route/route.go
 	sortConfigByCreationTime(vservices)
 
 	// convert all shortnames in virtual services into FQDNs
@@ -607,6 +689,47 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
 		default:
 			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+		}
+	}
+
+	return nil
+}
+
+// InitSidecarScopes synthesizes Sidecar CRDs into objects called
+// SidecarScope.  The SidecarScope object is a semi-processed view of the
+// service registry, and config state associated with the sidecar CRD. The
+// scope contains a set of inbound and outbound listeners, services/configs
+// per listener, etc. The sidecar scopes are precomputed based on the
+// Sidecar API objects in each namespace. If there is no sidecar api object
+// for a namespace, a default sidecarscope is assigned to the namespace
+// which enables connectivity to all services in the mesh.
+//
+// When proxies connect to Pilot, we identify the sidecar scope associated
+// with the proxy and derive listeners/routes/clusters based on the sidecar
+// scope.
+func (ps *PushContext) InitSidecarScopes(env *Environment) error {
+	sidecarConfigs, err := env.List(Sidecar.Type, NamespaceAll)
+	if err != nil {
+		return err
+	}
+
+	sortConfigByCreationTime(sidecarConfigs)
+
+	ps.sidecarsByNamespace = make(map[string][]*SidecarScope)
+	for _, sidecarConfig := range sidecarConfigs {
+		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
+		sidecarConfig := sidecarConfig
+		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
+			ConvertToSidecarScope(ps, &sidecarConfig))
+	}
+
+	// prebuild default sidecar scopes for other namespaces that dont have a sidecar CRD object.
+	// Workloads in these namespaces can reach any service in the mesh - the default istio behavior
+	// The DefaultSidecarScopeForNamespace function represents this behavior.
+	for _, s := range ps.ServiceByHostname {
+		ns := s.Attributes.Namespace
+		if len(ps.sidecarsByNamespace[ns]) == 0 {
+			ps.sidecarsByNamespace[ns] = []*SidecarScope{DefaultSidecarScopeForNamespace(ps, ns)}
 		}
 	}
 

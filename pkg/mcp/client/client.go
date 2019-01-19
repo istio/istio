@@ -21,13 +21,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/gogo/status"
 	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
 var (
@@ -36,60 +37,6 @@ var (
 
 	scope = log.RegisterScope("mcp", "mcp debugging", 0)
 )
-
-// Object contains a decoded versioned object with metadata received from the server.
-type Object struct {
-	TypeURL  string
-	Metadata *mcp.Metadata
-	Resource proto.Message
-}
-
-// Change is a collection of configuration objects of the same protobuf type.
-type Change struct {
-	TypeURL string
-	Objects []*Object
-
-	// TODO(ayj) add incremental add/remove enum when the mcp protocol supports it.
-}
-
-// Updater provides configuration changes in batches of the same protobuf message type.
-type Updater interface {
-	// Apply is invoked when the client receives new configuration updates
-	// from the server. The caller should return an error if any of the provided
-	// configuration resources are invalid or cannot be applied. The client will
-	// propagate errors back to the server accordingly.
-	Apply(*Change) error
-}
-
-// InMemoryUpdater is an implementation of Updater that keeps a simple in-memory state.
-type InMemoryUpdater struct {
-	items      map[string][]*Object
-	itemsMutex sync.Mutex
-}
-
-var _ Updater = &InMemoryUpdater{}
-
-// NewInMemoryUpdater returns a new instance of InMemoryUpdater
-func NewInMemoryUpdater() *InMemoryUpdater {
-	return &InMemoryUpdater{
-		items: make(map[string][]*Object),
-	}
-}
-
-// Apply the change to the InMemoryUpdater.
-func (u *InMemoryUpdater) Apply(c *Change) error {
-	u.itemsMutex.Lock()
-	defer u.itemsMutex.Unlock()
-	u.items[c.TypeURL] = c.Objects
-	return nil
-}
-
-// Get current state for the given Type URL.
-func (u *InMemoryUpdater) Get(typeURL string) []*Object {
-	u.itemsMutex.Lock()
-	defer u.itemsMutex.Unlock()
-	return u.items[typeURL]
-}
 
 type perTypeState struct {
 	sync.Mutex
@@ -120,94 +67,40 @@ func (s *perTypeState) version() string {
 //
 // - Decoding the received configuration updates and providing them to the user via a batched set of changes.
 type Client struct {
-	client     mcp.AggregatedMeshConfigServiceClient
-	stream     mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient
-	state      map[string]*perTypeState
-	clientInfo *mcp.Client
-	updater    Updater
+	client   mcp.AggregatedMeshConfigServiceClient
+	stream   mcp.AggregatedMeshConfigService_StreamAggregatedResourcesClient
+	state    map[string]*perTypeState
+	nodeInfo *mcp.SinkNode
+	updater  sink.Updater
 
-	journal  recentRequestsJournal
+	journal  *sink.RecentRequestsJournal
 	metadata map[string]string
-	reporter MetricReporter
-}
-
-// RecentRequestInfo is metadata about a request that the client has sent.
-type RecentRequestInfo struct {
-	Time    time.Time
-	Request *mcp.MeshConfigRequest
-}
-
-// Acked indicates whether the message was an ack or not.
-func (r RecentRequestInfo) Acked() bool {
-	return r.Request.ErrorDetail != nil
-}
-
-// recentRequestsJournal captures debug metadata about the latest requests that was sent by this client.
-type recentRequestsJournal struct {
-	itemsMutex sync.Mutex
-	items      []RecentRequestInfo
-}
-
-// MetricReporter is used to report metrics for an MCP client.
-type MetricReporter interface {
-	RecordSendError(err error, code codes.Code)
-	RecordRecvError(err error, code codes.Code)
-	RecordRequestAck(typeURL string)
-	RecordRequestNack(typeURL string, err error)
-	RecordStreamCreateSuccess()
-}
-
-func (r *recentRequestsJournal) record(req *mcp.MeshConfigRequest) { // nolint:interfacer
-	r.itemsMutex.Lock()
-	defer r.itemsMutex.Unlock()
-
-	item := RecentRequestInfo{
-		Time:    time.Now(),
-		Request: proto.Clone(req).(*mcp.MeshConfigRequest),
-	}
-
-	r.items = append(r.items, item)
-	for len(r.items) > 20 {
-		r.items = r.items[1:]
-	}
-}
-
-func (r *recentRequestsJournal) snapshot() []RecentRequestInfo {
-	r.itemsMutex.Lock()
-	defer r.itemsMutex.Unlock()
-
-	result := make([]RecentRequestInfo, len(r.items))
-	copy(result, r.items)
-
-	return result
+	reporter monitoring.Reporter
 }
 
 // New creates a new instance of the MCP client for the specified message types.
-func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []string, updater Updater, id string, metadata map[string]string, reporter MetricReporter) *Client { // nolint: lll
-	clientInfo := &mcp.Client{
-		Id: id,
-		Metadata: &types.Struct{
-			Fields: map[string]*types.Value{},
-		},
+func New(mcpClient mcp.AggregatedMeshConfigServiceClient, options *sink.Options) *Client { // nolint: lll
+	nodeInfo := &mcp.SinkNode{
+		Id:          options.ID,
+		Annotations: map[string]string{},
 	}
-	for k, v := range metadata {
-		clientInfo.Metadata.Fields[k] = &types.Value{
-			Kind: &types.Value_StringValue{StringValue: v},
-		}
+	for k, v := range options.Metadata {
+		nodeInfo.Annotations[k] = v
 	}
 
 	state := make(map[string]*perTypeState)
-	for _, typeURL := range supportedTypeURLs {
-		state[typeURL] = &perTypeState{}
+	for _, collection := range options.CollectionOptions {
+		state[collection.Name] = &perTypeState{}
 	}
 
 	return &Client{
-		client:     mcpClient,
-		state:      state,
-		clientInfo: clientInfo,
-		updater:    updater,
-		metadata:   metadata,
-		reporter:   reporter,
+		client:   mcpClient,
+		state:    state,
+		nodeInfo: nodeInfo,
+		updater:  options.Updater,
+		metadata: options.Metadata,
+		reporter: options.Reporter,
+		journal:  sink.NewRequestJournal(),
 	}
 }
 
@@ -215,12 +108,14 @@ func New(mcpClient mcp.AggregatedMeshConfigServiceClient, supportedTypeURLs []st
 var handleResponseDoneProbe = func() {}
 
 func (c *Client) sendNACKRequest(response *mcp.MeshConfigResponse, version string, err error) *mcp.MeshConfigRequest {
+	errorDetails, _ := status.FromError(err)
+
 	scope.Errorf("MCP: sending NACK for version=%v nonce=%v: error=%q", version, response.Nonce, err)
 
-	c.reporter.RecordRequestNack(response.TypeUrl, err)
-	errorDetails, _ := status.FromError(err)
+	c.reporter.RecordRequestNack(response.TypeUrl, 0, errorDetails.Code())
+
 	req := &mcp.MeshConfigRequest{
-		Client:        c.clientInfo,
+		SinkNode:      c.nodeInfo,
 		TypeUrl:       response.TypeUrl,
 		VersionInfo:   version,
 		ResponseNonce: response.Nonce,
@@ -234,33 +129,28 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 		defer handleResponseDoneProbe()
 	}
 
-	state, ok := c.state[response.TypeUrl]
+	collection := response.TypeUrl
+
+	state, ok := c.state[collection]
 	if !ok {
-		errDetails := status.Errorf(codes.Unimplemented, "unsupported type_url: %v", response.TypeUrl)
+		errDetails := status.Errorf(codes.Unimplemented, "unsupported collection: %v", collection)
 		return c.sendNACKRequest(response, "", errDetails)
 	}
 
-	change := &Change{
-		TypeURL: response.TypeUrl,
-		Objects: make([]*Object, 0, len(response.Envelopes)),
+	change := &sink.Change{
+		Collection: collection,
+		Objects:    make([]*sink.Object, 0, len(response.Resources)),
 	}
-	for _, envelope := range response.Envelopes {
+	for _, resource := range response.Resources {
 		var dynamicAny types.DynamicAny
-		if err := types.UnmarshalAny(envelope.Resource, &dynamicAny); err != nil {
+		if err := types.UnmarshalAny(resource.Body, &dynamicAny); err != nil {
 			return c.sendNACKRequest(response, state.version(), err)
 		}
 
-		if response.TypeUrl != envelope.Resource.TypeUrl {
-			errDetails := status.Errorf(codes.InvalidArgument,
-				"response type_url(%v) does not match resource type_url(%v)",
-				response.TypeUrl, envelope.Resource.TypeUrl)
-			return c.sendNACKRequest(response, state.version(), errDetails)
-		}
-
-		object := &Object{
-			TypeURL:  response.TypeUrl,
-			Metadata: envelope.Metadata,
-			Resource: dynamicAny.Message,
+		object := &sink.Object{
+			TypeURL:  resource.Body.TypeUrl,
+			Metadata: resource.Metadata,
+			Body:     dynamicAny.Message,
 		}
 		change.Objects = append(change.Objects, object)
 	}
@@ -270,11 +160,11 @@ func (c *Client) handleResponse(response *mcp.MeshConfigResponse) *mcp.MeshConfi
 		return c.sendNACKRequest(response, state.version(), errDetails)
 	}
 
-	// ACK
-	c.reporter.RecordRequestAck(response.TypeUrl)
+	c.reporter.RecordRequestAck(collection, 0)
+
 	req := &mcp.MeshConfigRequest{
-		Client:        c.clientInfo,
-		TypeUrl:       response.TypeUrl,
+		SinkNode:      c.nodeInfo,
+		TypeUrl:       collection,
 		VersionInfo:   response.VersionInfo,
 		ResponseNonce: response.Nonce,
 	}
@@ -291,10 +181,10 @@ func (c *Client) Run(ctx context.Context) {
 	// for rules to ensure stream resources are not leaked.
 
 	initRequests := make([]*mcp.MeshConfigRequest, 0, len(c.state))
-	for typeURL := range c.state {
+	for collection := range c.state {
 		initRequests = append(initRequests, &mcp.MeshConfigRequest{
-			Client:  c.clientInfo,
-			TypeUrl: typeURL,
+			SinkNode: c.nodeInfo,
+			TypeUrl:  collection,
 		})
 	}
 
@@ -349,7 +239,7 @@ func (c *Client) Run(ctx context.Context) {
 				req = c.handleResponse(response)
 			}
 
-			c.journal.record(req)
+			c.journal.RecordMeshConfigRequest(req)
 
 			if err := c.stream.Send(req); err != nil {
 				c.reporter.RecordSendError(err, status.Code(err))
@@ -365,8 +255,9 @@ func (c *Client) Run(ctx context.Context) {
 					break
 				}
 			} else {
-				if req.ErrorDetail == nil && req.TypeUrl != "" {
-					if state, ok := c.state[req.TypeUrl]; ok {
+				collection := req.TypeUrl
+				if req.ErrorDetail == nil && collection != "" {
+					if state, ok := c.state[collection]; ok {
 						state.setVersion(version)
 					}
 				}
@@ -376,8 +267,8 @@ func (c *Client) Run(ctx context.Context) {
 }
 
 // SnapshotRequestInfo returns a snapshot of the last known set of request results.
-func (c *Client) SnapshotRequestInfo() []RecentRequestInfo {
-	return c.journal.snapshot()
+func (c *Client) SnapshotRequestInfo() []sink.RecentRequestInfo {
+	return c.journal.Snapshot()
 }
 
 // Metadata that is originally supplied when creating this client.
@@ -392,11 +283,11 @@ func (c *Client) Metadata() map[string]string {
 
 // ID is the node id for this client.
 func (c *Client) ID() string {
-	return c.clientInfo.Id
+	return c.nodeInfo.Id
 }
 
-// SupportedTypeURLs returns the TypeURLs that this client requests.
-func (c *Client) SupportedTypeURLs() []string {
+// Collections returns the collections that this client requests.
+func (c *Client) Collections() []string {
 	result := make([]string, 0, len(c.state))
 
 	for k := range c.state {

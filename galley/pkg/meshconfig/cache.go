@@ -103,6 +103,7 @@ func (c *FsCache) reload() {
 	c.cachedMutex.Lock()
 	defer c.cachedMutex.Unlock()
 	c.cached = cfg
+	scope.Infof("Reloaded mesh config: \n%s\n", string(by))
 }
 
 // Close closes this cache.

@@ -80,17 +80,17 @@ func (e *EndpointFilter) Verify(host *adminapi.HostStatus, cluster string) bool 
 	if e.Address == "" && e.Port == 0 && e.Cluster == "" && e.Status == "" {
 		return true
 	}
-	if e.Address != "" && strings.ToLower(retrieveEndpointAddress(host)) != strings.ToLower(e.Address) {
+	if e.Address != "" && !strings.EqualFold(retrieveEndpointAddress(host), e.Address) {
 		return false
 	}
 	if e.Port != 0 && retrieveEndpointPort(host) != e.Port {
 		return false
 	}
-	if e.Cluster != "" && strings.ToLower(cluster) != strings.ToLower(e.Cluster) {
+	if e.Cluster != "" && !strings.EqualFold(cluster, e.Cluster) {
 		return false
 	}
 	status := retrieveEndpointStatus(host)
-	if e.Status != "" && strings.ToLower(core.HealthStatus_name[int32(status)]) != strings.ToLower(e.Status) {
+	if e.Status != "" && !strings.EqualFold(core.HealthStatus_name[int32(status)], e.Status) {
 		return false
 	}
 	return true
