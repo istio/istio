@@ -22,9 +22,9 @@ import (
 
 func TestTypes_Info(t *testing.T) {
 	for _, info := range Types.All() {
-		i, found := Types.Lookup(info.TypeURL.String())
+		i, found := Types.Lookup(info.Collection.String())
 		if !found {
-			t.Fatalf("Unable to find by lookup: %q", info.TypeURL.String())
+			t.Fatalf("Unable to find by lookup: %q", info.Collection.String())
 		}
 		if i != info {
 			t.Fatalf("Lookup mismatch. Expected:%v, Actual:%v", info, i)
@@ -37,14 +37,14 @@ func TestTypes_NewProtoInstance(t *testing.T) {
 		p := info.NewProtoInstance()
 		name := pgogo.MessageName(p)
 		if name != info.TypeURL.MessageName() {
-			t.Fatalf("Name/TypeURL mismatch: TypeURL:%v, Name:%v", info.TypeURL, name)
+			t.Fatalf("Name/TypeURL mismatch: TypeURL:%v, Name:%v", info.Collection, name)
 		}
 	}
 }
 
-func TestTypes_LookupByTypeURL(t *testing.T) {
+func TestTypes_LookupByCollection(t *testing.T) {
 	for _, info := range Types.All() {
-		i, found := Types.Lookup(info.TypeURL.String())
+		i, found := Types.Lookup(info.Collection.String())
 
 		if !found {
 			t.Fatalf("Expected info not found: %v", info)
@@ -56,8 +56,8 @@ func TestTypes_LookupByTypeURL(t *testing.T) {
 	}
 }
 
-func TestTypes_TypeURLs(t *testing.T) {
-	for _, url := range Types.TypeURLs() {
+func TestTypes_Collections(t *testing.T) {
+	for _, url := range Types.Collections() {
 		_, found := Types.Lookup(url)
 
 		if !found {
@@ -68,8 +68,8 @@ func TestTypes_TypeURLs(t *testing.T) {
 
 func TestTypes_Lookup(t *testing.T) {
 	for _, info := range Types.All() {
-		if _, found := Types.Lookup(info.TypeURL.String()); !found {
-			t.Fatalf("expected info not found for: %s", info.TypeURL.String())
+		if _, found := Types.Lookup(info.Collection.String()); !found {
+			t.Fatalf("expected info not found for: %s", info.Collection.String())
 		}
 	}
 }

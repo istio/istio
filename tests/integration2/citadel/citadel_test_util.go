@@ -18,6 +18,8 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	"istio.io/istio/pkg/spiffe"
+
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/security/pkg/k8s/controller"
@@ -39,7 +41,7 @@ func ExamineSecret(secret *v1.Secret) error {
 		}
 	}
 
-	expectedID, err := util.GenSanURI(secret.GetNamespace(), "default")
+	expectedID, err := spiffe.GenSpiffeURI(secret.GetNamespace(), "default")
 	if err != nil {
 		return err
 	}

@@ -74,9 +74,11 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	mcpclient "istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/version"
 )
 
@@ -214,6 +216,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if args.Namespace == "" {
 		args.Namespace = os.Getenv("POD_NAMESPACE")
 	}
+	if args.KeepaliveOptions == nil {
+		args.KeepaliveOptions = istiokeepalive.DefaultOption()
+	}
 	if args.Config.ClusterRegistriesNamespace == "" {
 		if args.Namespace != "" {
 			args.Config.ClusterRegistriesNamespace = args.Namespace
@@ -230,31 +235,31 @@ func NewServer(args PilotArgs) (*Server, error) {
 
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("kube client: %v", err)
 	}
 	if err := s.initMesh(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mesh: %v", err)
 	}
 	if err := s.initMeshNetworks(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mesh networks: %v", err)
 	}
 	if err := s.initMixerSan(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("mixer san: %v", err)
 	}
 	if err := s.initConfigController(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("config controller: %v", err)
 	}
 	if err := s.initServiceControllers(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("service controllers: %v", err)
 	}
 	if err := s.initDiscoveryService(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("discovery service: %v", err)
 	}
 	if err := s.initMonitor(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("monitor: %v", err)
 	}
 	if err := s.initClusterRegistries(&args); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cluster registries: %v", err)
 	}
 
 	if args.CtrlZOptions != nil {
@@ -385,6 +390,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
+				s.mesh = mesh
 				s.EnvoyXdsServer.ConfigUpdate(true)
 			}
 		})
@@ -454,10 +460,10 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 // initMixerSan configures the mixerSAN configuration item. The mesh must already have been configured.
 func (s *Server) initMixerSan(args *PilotArgs) error {
 	if s.mesh == nil {
-		return fmt.Errorf("the mesh has not been configured before configuring mixer san")
+		return fmt.Errorf("the mesh has not been configured before configuring mixer spiffe")
 	}
 	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		s.mixerSAN = envoy.GetMixerSAN(args.Config.ControllerOptions.DomainSuffix, args.Namespace)
+		s.mixerSAN = []string{envoy.GetMixerSAN(args.Namespace)}
 	}
 	return nil
 }
@@ -494,19 +500,26 @@ func (c *mockController) Run(<-chan struct{}) {}
 
 func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	clientNodeID := ""
-	supportedTypes := make([]string, len(model.IstioConfigTypes))
+	collections := make([]sink.CollectionOptions, len(model.IstioConfigTypes))
 	for i, model := range model.IstioConfigTypes {
-		supportedTypes[i] = fmt.Sprintf("type.googleapis.com/%s", model.MessageName)
+		collections[i] = sink.CollectionOptions{
+			Name: model.Collection,
+		}
 	}
 
 	options := coredatamodel.Options{
 		DomainSuffix: args.Config.ControllerOptions.DomainSuffix,
+		ClearDiscoveryServerCache: func() {
+			s.EnvoyXdsServer.ConfigUpdate(true)
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	var clients []*mcpclient.Client
+	var clients []*client.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
+
+	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
 
 	for _, configSource := range s.mesh.ConfigSources {
 		url, err := url.Parse(configSource.Address)
@@ -600,7 +613,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 		}
 		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 		mcpController := coredatamodel.NewController(options)
-		mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+		sinkOptions := &sink.Options{
+			CollectionOptions: collections,
+			Updater:           mcpController,
+			ID:                clientNodeID,
+			Reporter:          reporter,
+		}
+		mcpClient := client.New(cl, sinkOptions)
 		configz.Register(mcpClient)
 
 		clients = append(clients, mcpClient)
@@ -659,7 +678,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
 			mcpController := coredatamodel.NewController(options)
-			mcpClient := mcpclient.New(cl, supportedTypes, mcpController, clientNodeID, map[string]string{}, mcpclient.NewStatsContext("pilot"))
+			sinkOptions := &sink.Options{
+				CollectionOptions: collections,
+				Updater:           mcpController,
+				ID:                clientNodeID,
+				Reporter:          reporter,
+			}
+			mcpClient := client.New(cl, sinkOptions)
 			configz.Register(mcpClient)
 
 			clients = append(clients, mcpClient)
@@ -692,6 +717,8 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			for _, conn := range conns {
 				_ = conn.Close() // nolint: errcheck
 			}
+
+			reporter.Close()
 		}()
 
 		return nil
@@ -850,6 +877,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
+		case serviceregistry.MCPRegistry:
+			log.Infof("no-op: get service info from MCP ServiceEntries.")
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
 		}
@@ -997,7 +1026,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	if args.DiscoveryOptions.SecureGrpcAddr != "" {
 		// create secure grpc server
 		if err := s.initSecureGrpcServer(args.KeepaliveOptions); err != nil {
-			return err
+			return fmt.Errorf("secure grpc server: %s", err)
 		}
 		// create secure grpc listener
 		secureGrpcListener, err := net.Listen("tcp", args.DiscoveryOptions.SecureGrpcAddr)
@@ -1143,8 +1172,10 @@ func (s *Server) grpcServerOptions(options *istiokeepalive.Options) []grpc.Serve
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:    options.Time,
-			Timeout: options.Timeout,
+			Time:                  options.Time,
+			Timeout:               options.Timeout,
+			MaxConnectionAge:      options.MaxServerConnectionAge,
+			MaxConnectionAgeGrace: options.MaxServerConnectionAgeGrace,
 		}),
 	}
 

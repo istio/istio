@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
-	iamclient "istio.io/istio/security/pkg/nodeagent/plugin/providers/google"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 )
 
@@ -140,7 +139,6 @@ func (s *Server) Stop() {
 // NewPlugins returns a slice of default Plugins.
 func NewPlugins(in []string) []plugin.Plugin {
 	var availablePlugins = map[string]plugin.Plugin{
-		plugin.GoogleIAM:           iamclient.NewPlugin(),
 		plugin.GoogleTokenExchange: stsclient.NewPlugin(),
 	}
 	var plugins []plugin.Plugin
@@ -163,11 +161,13 @@ func (s *Server) initWorkloadSdsService(options *Options) error {
 	}
 
 	go func() {
-		if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
-			log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+		for {
+			// Retry if Serve() fails
+			log.Info("Start SDS grpc server")
+			if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
+				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+			}
 		}
-
-		log.Info("SDS grpc server for workload proxies started")
 	}()
 
 	return nil

@@ -58,7 +58,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 	response := con.clusters(rawClusters)
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("CDS: Send failure, closing grpc %s: %v", con.modelNode.ID, err)
+		adsLog.Warnf("CDS: Send failure %s: %v", con.ConID, err)
 		pushes.With(prometheus.Labels{"type": "cds_senderr"}).Add(1)
 		return err
 	}
@@ -66,7 +66,7 @@ func (s *DiscoveryServer) pushCds(con *XdsConnection, push *model.PushContext, v
 
 	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH %s for %s %q, Clusters: %d, Services %d", version,
-		con.modelNode.ID, con.PeerAddr, len(rawClusters), len(push.Services(nil)))
+		con.ConID, con.PeerAddr, len(rawClusters), len(push.Services(nil)))
 	return nil
 }
 

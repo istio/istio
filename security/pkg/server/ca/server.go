@@ -181,7 +181,7 @@ func (s *Server) Run() error {
 }
 
 // New creates a new instance of `IstioCAServiceServer`.
-func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int) (*Server, error) {
+func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []string, port int, trustDomain string) (*Server, error) {
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
 	}
@@ -191,7 +191,7 @@ func New(ca ca.CertificateAuthority, ttl time.Duration, forCA bool, hostlist []s
 	authenticators := []authenticator{&authenticate.ClientCertAuthenticator{}}
 	log.Info("added client certificate authenticator")
 
-	authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath)
+	authenticator, err := authenticate.NewKubeJWTAuthenticator(k8sAPIServerURL, caCertPath, jwtPath, trustDomain)
 	if err == nil {
 		authenticators = append(authenticators, authenticator)
 		log.Info("added K8s JWT authenticator")

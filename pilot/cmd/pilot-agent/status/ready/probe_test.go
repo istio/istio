@@ -15,12 +15,12 @@
 package ready
 
 import (
-	. "github.com/onsi/gomega"
-
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 var probe = Probe{AdminPort: 1234}

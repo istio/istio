@@ -52,10 +52,13 @@ func (q *eventQueue) convertValue(ev BackendEvent) (Event, error) {
 	if err = convert(ev.Key, ev.Value.Spec, pbSpec); err != nil {
 		return Event{}, err
 	}
-	return Event{Key: ev.Key, Type: ev.Type, Value: &Resource{
-		Metadata: ev.Value.Metadata,
-		Spec:     pbSpec,
-	}}, nil
+	return Event{
+		Key:  ev.Key,
+		Type: ev.Type,
+		Value: &Resource{
+			Metadata: ev.Value.Metadata,
+			Spec:     pbSpec,
+		}}, nil
 }
 
 func (q *eventQueue) run() {

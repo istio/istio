@@ -139,6 +139,8 @@ e2e_pilotv2_v1alpha3: | istioctl test/local/noauth/e2e_pilotv2
 
 e2e_bookinfo_envoyv2_v1alpha3: | istioctl test/local/auth/e2e_bookinfo_envoyv2
 
+e2e_pilotv2_auth_sds: | istioctl test/local/auth/e2e_sds_pilotv2
+
 # This is used to keep a record of the test results.
 CAPTURE_LOG=| tee -a ${OUT_DIR}/tests/build-log.txt
 
@@ -183,6 +185,14 @@ test/local/noauth/e2e_pilotv2: out_dir generate_yaml_coredump
 test/local/auth/e2e_pilotv2: out_dir generate_yaml_coredump
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
 		--auth_enable=true --ingress=false --rbac_enable=true --cluster_wide \
+		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	# Run the pilot controller tests
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
+
+# test with MTLS using key/cert distributed through SDS
+test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_test_yaml
+	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/pilot \
+		--auth_enable=true --auth_sds_enable=true  --ingress=false --rbac_enable=true --cluster_wide \
 		${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 	# Run the pilot controller tests
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
@@ -248,8 +258,6 @@ helm/upgrade:
 	  istio-system install/kubernetes/helm/istio
 
 # Delete istio installed with helm
-# Note that for Helm 2.10, the CRDs are not cleared
 helm/delete:
 	${HELM} delete --purge istio-system
 	for i in install/kubernetes/helm/istio-init/files/crd-*; do kubectl delete -f $i; done
-	kubectl delete -f install/kubernetes/helm/istio/templates/crds.yaml

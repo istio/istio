@@ -142,4 +142,3 @@ install_gometalinter
 run_gometalinter
 run_helm_lint
 check_grafana_dashboards
-check_licenses
