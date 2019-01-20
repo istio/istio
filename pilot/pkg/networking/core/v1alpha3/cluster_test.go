@@ -407,7 +407,6 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 		if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1/subzone1") {
-			t.Logf("===== %d", localityEndpoint.LoadBalancingWeight)
 			g.Expect(localityEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(90)))
 			continue
 		}
@@ -464,6 +463,18 @@ func buildEnvForClustersWithDistribute() *model.Environment {
 			Seconds: 10,
 			Nanos:   1,
 		},
+		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
+			Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+				{
+					From: "region1/zone1/subzone1",
+					To: map[string]uint32{
+						"region1/zone1/subzone1": 90,
+						"region1/zone1/subzone2": 5,
+						"region1/zone1/subzone3": 5,
+					},
+				},
+			},
+		},
 	}
 
 	configStore := &fakes.IstioConfigStore{}
@@ -487,20 +498,6 @@ func buildEnvForClustersWithDistribute() *model.Environment {
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					LoadBalancer: &networking.LoadBalancerSettings{
-						LocalitySettings: &networking.LoadBalancerSettings_LocalitySetting{
-							Distribute: []*networking.LoadBalancerSettings_LocalitySetting_Distribute{
-								{
-									From: "region1/zone1/subzone1",
-									To: map[string]uint32{
-										"region1/zone1/subzone1": 90,
-										"region1/zone1/subzone2": 5,
-										"region1/zone1/subzone3": 5,
-									},
-								},
-							},
-						},
-					},
 					OutlierDetection: &networking.OutlierDetection{
 						ConsecutiveErrors: 5,
 					},
@@ -534,6 +531,14 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			Seconds: 10,
 			Nanos:   1,
 		},
+		LocalityLbSetting: &meshconfig.LocalityLoadBalancerSetting{
+			Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1",
+					To:   "region2",
+				},
+			},
+		},
 	}
 
 	configStore := &fakes.IstioConfigStore{}
@@ -557,16 +562,6 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			Spec: &networking.DestinationRule{
 				Host: "test.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
-					LoadBalancer: &networking.LoadBalancerSettings{
-						LocalitySettings: &networking.LoadBalancerSettings_LocalitySetting{
-							Failover: []*networking.LoadBalancerSettings_LocalitySetting_Failover{
-								{
-									From: "region1",
-									To:   "region2",
-								},
-							},
-						},
-					},
 					OutlierDetection: &networking.OutlierDetection{
 						ConsecutiveErrors: 5,
 					},
