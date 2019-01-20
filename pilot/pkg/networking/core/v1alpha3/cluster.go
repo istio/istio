@@ -31,6 +31,7 @@ import (
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -94,7 +95,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 				for i, cluster := range clusters {
 					if cluster.LoadAssignment != nil {
 						clone := util.CloneCluster(cluster)
-						ApplyLocalitySetting(proxy, cluster, push)
+						ApplyLocalityLBSetting(proxy, cluster, push)
 						clusters[i] = clone
 					}
 				}
@@ -124,7 +125,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 				for i, cluster := range clusters {
 					if cluster.LoadAssignment != nil {
 						clone := util.CloneCluster(cluster)
-						ApplyLocalitySetting(proxy, clone, push)
+						ApplyLocalityLBSetting(proxy, clone, push)
 						clusters[i] = clone
 					}
 				}
@@ -148,24 +149,24 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 	return normalizeClusters(push, proxy, clusters), nil
 }
 
-func ApplyLocalitySetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
+func ApplyLocalityLBSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
 	if config := push.DestinationRule(proxy, hostname); config != nil {
 		if port := push.ServicePort(hostname, portNumber); port != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
-			_, outlierDetection, loadBalancer, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
+			_, outlierDetection, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
 			setLocalityPriority := false
 			if outlierDetection != nil {
 				setLocalityPriority = true
 			}
-			applyLocalitySettings(proxy, cluster.LoadAssignment, loadBalancer.GetLocalitySettings(), setLocalityPriority)
+			applyLocalityLBSetting(proxy, cluster.LoadAssignment, push.Env.Mesh.LocalityLbSetting, setLocalityPriority)
 			for _, subset := range destinationRule.Subsets {
 				if subset.Name == subsetName {
-					_, outlierDetection, loadBalancer, _ := SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
+					_, outlierDetection, _, _ := SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
 					if outlierDetection != nil && !setLocalityPriority {
 						setLocalityPriority = true
 					}
-					applyLocalitySettings(proxy, cluster.LoadAssignment, loadBalancer.GetLocalitySettings(), setLocalityPriority)
+					applyLocalityLBSetting(proxy, cluster.LoadAssignment, push.Env.Mesh.LocalityLbSetting, setLocalityPriority)
 				}
 			}
 		}
@@ -629,7 +630,8 @@ func applyTrafficPolicy(env *model.Environment, proxy *model.Proxy, cluster *api
 	if outlierDetection != nil {
 		setLocalityPriority = true
 	}
-	applyLoadBalancer(proxy, cluster, loadBalancer, setLocalityPriority)
+	applyLoadBalancer(cluster, loadBalancer)
+	applyLocalityLBSetting(proxy, cluster.LoadAssignment, env.Mesh.LocalityLbSetting, setLocalityPriority)
 	if clusterMode != SniDnatClusterMode {
 		tls = conditionallyConvertToIstioMtls(tls, serviceAccounts, defaultSni)
 		applyUpstreamTLSSettings(env, cluster, tls)
@@ -761,7 +763,7 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 }
 
-func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings, localityPriority bool) {
+func applyLoadBalancer(cluster *apiv2.Cluster, lb *networking.LoadBalancerSettings) {
 	if lb == nil {
 		return
 	}
@@ -797,31 +799,29 @@ func applyLoadBalancer(proxy *model.Proxy, cluster *apiv2.Cluster, lb *networkin
 			LocalityWeightedLbConfig: &apiv2.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		},
 	}
-
-	applyLocalitySettings(proxy, cluster.LoadAssignment, lb.LocalitySettings, localityPriority)
 }
 
-func applyLocalitySettings(
+func applyLocalityLBSetting(
 	proxy *model.Proxy,
 	loadAssignment *apiv2.ClusterLoadAssignment,
-	localitySettings *networking.LoadBalancerSettings_LocalitySetting,
+	localityLB *meshconfig.LocalityLoadBalancerSetting,
 	localityPriority bool) {
 	if proxy == nil || loadAssignment == nil {
 		return
 	}
 
 	// one of Distribute or Failover settings can be applied.
-	if localitySettings.GetDistribute() != nil {
-		applyLocalityWeight(proxy, loadAssignment, localitySettings.GetDistribute())
+	if localityLB.GetDistribute() != nil {
+		applyLocalityWeight(proxy, loadAssignment, localityLB.GetDistribute())
 	} else if localityPriority {
-		applyLocalityFailover(proxy, loadAssignment, localitySettings.GetFailover())
+		applyLocalityFailover(proxy, loadAssignment, localityLB.GetFailover())
 	}
 }
 
 func applyLocalityWeight(
 	proxy *model.Proxy,
 	loadAssignment *apiv2.ClusterLoadAssignment,
-	distribute []*networking.LoadBalancerSettings_LocalitySetting_Distribute) {
+	distribute []*meshconfig.LocalityLoadBalancerSetting_Distribute) {
 	if distribute == nil {
 		return
 	}
@@ -868,7 +868,7 @@ func applyLocalityWeight(
 func applyLocalityFailover(
 	proxy *model.Proxy,
 	loadAssignment *v2.ClusterLoadAssignment,
-	failover []*networking.LoadBalancerSettings_LocalitySetting_Failover) {
+	failover []*meshconfig.LocalityLoadBalancerSetting_Failover) {
 	priorityMap := map[int][]int{}
 
 	for i, localityEndpoint := range loadAssignment.Endpoints {

@@ -403,7 +403,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 	env := buildEnvForClustersWithDistribute()
 	cluster := buildFakeCluster()
-	core.ApplyLocalitySetting(proxy, cluster, env.PushContext)
+	core.ApplyLocalityLBSetting(proxy, cluster, env.PushContext)
 
 	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 		if util.LocalityMatch(localityEndpoint.Locality, "region1/zone1/subzone1") {
@@ -419,7 +419,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	}
 
 	env = buildEnvForClustersWithFailover()
-	core.ApplyLocalitySetting(proxy, cluster, env.PushContext)
+	core.ApplyLocalityLBSetting(proxy, cluster, env.PushContext)
 	for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 		if localityEndpoint.Locality.Region == proxy.Locality.Region {
 			if localityEndpoint.Locality.Zone == proxy.Locality.Zone {
