@@ -87,6 +87,10 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 	if err != nil {
 		return nil, nil, err
 	}
+	err = cmd.ValidateMeshConfig(meshConfig)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	log.Infof("New configuration: sha256sum %x", sha256.Sum256(data))
 	log.Infof("Policy: %v", c.Policy)
