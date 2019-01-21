@@ -27,6 +27,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"istio.io/istio/pkg/mcp/debug"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/env"
@@ -274,44 +276,51 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	}
 
 	defer s.closeConnection(con)
-	go con.receive()
+	debug.Go("con.receive", con.receive)
 
 	// done channel is used to ensure all allocated go-routines to exit.
 	done := make(chan struct{})
 
 	// fan-in per-type response channels into single response channel for the select loop below.
 	responseChan := make(chan *watch, 1)
-
 	for _, w := range con.watches {
-		go func(w *watch) {
-		loop:
-			for {
-				select {
-				case state := <-w.newPushResponseReadyChan:
-					if state == newPushResponseStateClosed {
-						break loop
-					}
+		debug.Go("fan-in-watch", func() {
+			func(w *watch) {
+			loop:
+				for {
 					select {
-					case responseChan <- w:
+					case state := <-w.newPushResponseReadyChan:
+						if state == newPushResponseStateClosed {
+							break loop
+						}
+						select {
+						case responseChan <- w:
+						case <-done:
+							break loop
+						}
 					case <-done:
 						break loop
 					}
-
-				case <-done:
-					break loop
 				}
-			}
 
-			// Any closed watch can close the overall connection. Use
-			// `nil` value to indicate a closed state to the run loop
-			// below instead of closing the channel to avoid closing
-			// the channel multiple times.
-			select {
-			case responseChan <- nil:
-			case <-done:
-			}
-		}(w)
+				// Any closed watch can close the overall connection. Use
+				// `nil` value to indicate a closed state to the run loop
+				// below instead of closing the channel to avoid closing
+				// the channel multiple times.
+				select {
+				case responseChan <- nil:
+				case <-done:
+				}
+
+			}(w)
+		})
 	}
+	//// ensure all the fan-in channels are closed on exit
+	//defer func() {
+	//	for _, w := range con.watches {
+	//		w.saveResponseAndSchedulePush(nil)
+	//	}
+	//}()
 
 	defer close(done)
 
@@ -346,6 +355,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 			return stream.Context().Err()
 		}
 	}
+
 }
 
 func (s *Server) closeConnection(con *connection) {
