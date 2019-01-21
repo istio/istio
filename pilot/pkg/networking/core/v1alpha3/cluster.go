@@ -573,6 +573,9 @@ func buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.TLSSe
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
 func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
 	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.TLSSettings) {
+	if policy == nil {
+		return nil, nil, nil, nil
+	}
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
@@ -619,9 +622,6 @@ const (
 // listenerOpts
 func applyTrafficPolicy(env *model.Environment, proxy *model.Proxy, cluster *apiv2.Cluster, policy *networking.TrafficPolicy,
 	port *model.Port, serviceAccounts []string, defaultSni string, clusterMode ClusterMode, direction model.TrafficDirection) {
-	if policy == nil {
-		return
-	}
 	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(policy, port)
 
 	applyConnectionPool(env, cluster, connectionPool, direction)
