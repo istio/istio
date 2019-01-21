@@ -62,11 +62,11 @@ function startMinikubeNone() {
       grep ip_forward /etc/sysctl.conf
       echo "Config files setting ip_forward"
       find /etc/sysctl.d/ -type f -exec grep ip_forward \{\} \; -print
-      if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq 0 ]; then
+      if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq "0" ]; then
         whoami
         echo "Cannot build images without IPv4 forwarding, attempting to turn on forwarding"
         sudo sysctl -w net.ipv4.ip_forward=1
-        if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq 0 ]; then
+        if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq "0" ]; then
           echo "Cannot build images without IPv4 forwarding"
           exit 1
         fi
