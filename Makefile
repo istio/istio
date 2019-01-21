@@ -564,7 +564,7 @@ istioctl-racetest: istioctl
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
+	(cd mixer; RACE_TEST=true go test ${T} -race ./...)
 
 .PHONY: galley-racetest
 galley-racetest: depend
