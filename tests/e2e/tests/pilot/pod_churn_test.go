@@ -54,8 +54,7 @@ const (
 // to ensure that no 503s are received by the application. This verifies that Envoy is properly retrying disconnected
 // endpoints.
 func TestPodChurn(t *testing.T) {
-	// TODO: remove this once https://github.com/istio/istio/issues/11115 fixed
-	t.Skip()
+	t.Skip("https://github.com/istio/istio/issues/11115")
 	// Deploy the churn app
 	app := newChurnApp(t)
 	defer app.stop()
