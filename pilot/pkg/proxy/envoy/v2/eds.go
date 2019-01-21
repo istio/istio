@@ -748,7 +748,11 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 
 func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment) *xdsapi.DiscoveryResponse {
 	out := &xdsapi.DiscoveryResponse{
-		TypeUrl:     EndpointType,
+		TypeUrl: EndpointType,
+		// Pilot does not really care for versioning. It always supplies what's currently
+		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
+		// responses. Pilot believes in eventual consistency and that at some point, Envoy
+		// will begin seeing results it deems to be good.
 		VersionInfo: versionInfo(),
 		Nonce:       nonce(),
 	}
