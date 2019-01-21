@@ -1,3 +1,4 @@
+{{- if and (.Values.enabled) (.Values.gateway.enabled) }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -5,12 +6,16 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   selector:
-    istio: {{ .Values.gatewayName }}
+    istio: {{ .Values.gateway.name }}
   servers:
   - port:
       number: 15032
-      name: http2-tracing
-      protocol: HTTP2
+      name: https-tracing
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      serverCertificate: /etc/certs/cert-chain.pem
+      privateKey: /etc/certs/key.pem
     hosts:
     - "*"
 ---
@@ -20,7 +25,7 @@ metadata:
   name: tracing
   namespace: {{ .Release.Namespace }}
 spec:
-  host: tracing.{{ .Release.Namespace }}.svc.cluster.local
+  host: tracing.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -40,7 +45,8 @@ spec:
     - port: 15032
     route:
     - destination:
-        host: tracing.{{ .Release.Namespace }}.svc.cluster.local
+        host: tracing.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 80
 ---
+{{- end }}

@@ -10,14 +10,20 @@ ifdef CIRCLECI
 repo_dir = .
 docker_gen = /usr/bin/protoc -I/protobuf -I$(repo_dir)
 out_path = $(OUT_PATH)
+docker_lock = protolock
+docker_tool = prototool
 else
 gen_img := gcr.io/istio-testing/protoc:2018-06-12
+lock_img := gcr.io/istio-testing/protolock:2018-10-23
+all_img := gcr.io/istio-testing/api-build-tools:2018-10-31
 pwd := $(shell pwd)
 mount_dir := /src
 repo_dir := istio.io/api
 repo_mount := $(mount_dir)/istio.io/api
 docker_gen := docker run --rm -v $(pwd):$(repo_mount) -w $(mount_dir) $(gen_img) -I$(repo_dir)
 out_path = .
+docker_lock = docker run --rm -v $(pwd):$(repo_mount) -w $(repo_mount) $(lock_img)
+docker_tool = docker run --rm -v $(pwd):$(repo_mount) -w $(repo_mount) $(all_img) prototool
 endif
 
 ########################
@@ -99,12 +105,14 @@ generate-mcp-go: $(config_mcp_pb_gos) $(config_mcp_pb_doc)
 
 $(config_mcp_pb_gos) $(config_mcp_pb_doc): $(config_mcp_protos)
 	## Generate mcp/v1alpha1/*.pb.go + $(config_mcp_pb_doc)
+	@$(docker_lock) status
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(config_mcp_path) $^
 
 generate-mcp-python: $(config_mcp_pb_pythons)
 
 $(config_mcp_pb_pythons): $(config_mcp_protos)
 	## Generate python/istio_api/mcp/v1alpha1/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-mcp:
@@ -125,12 +133,14 @@ generate-mesh-go: $(mesh_pb_gos) $(mesh_pb_doc)
 
 $(mesh_pb_gos) $(mesh_pb_doc): $(mesh_protos)
 	## Generate mesh/v1alpha1/*.pb.go + $(mesh_pb_doc)
+	@$(docker_lock) status
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(mesh_path) $^
 
 generate-mesh-python: $(mesh_pb_pythons)
 
 $(mesh_pb_pythons): $(mesh_protos)
 	## Generate python/istio_api/mesh/v1alpha1/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-mesh:
@@ -173,18 +183,22 @@ generate-mixer-go: \
 
 $(mixer_v1_pb_gos) $(mixer_v1_pb_doc): $(mixer_v1_protos)
 	## Generate mixer/v1/*.pb.go + $(mixer_v1_pb_doc)
+	@$(docker_lock) status
 	@$(docker_gen) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_v1_path) $^
 
 $(mixer_config_client_pb_gos) $(mixer_config_client_pb_doc): $(mixer_config_client_protos)
 	## Generate mixer/v1/config/client/*.pb.go + $(mixer_config_client_pb_doc)
+	@$(docker_lock) status
 	@$(docker_gen) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_config_client_path) $^
 
 $(mixer_adapter_model_v1beta1_pb_gos) $(mixer_adapter_model_v1beta1_pb_doc) : $(mixer_adapter_model_v1beta1_protos)
 	## Generate mixer/adapter/model/v1beta1/*.pb.go + $(mixer_adapter_model_v1beta1_pb_doc)
+	@$(docker_lock) status
 	@$(docker_gen) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(mixer_adapter_model_v1beta1_path) $^
 
 $(policy_v1beta1_pb_gos) $(policy_v1beta1_pb_doc) : $(policy_v1beta1_protos)
 	## Generate policy/v1beta1/*.pb.go + $(policy_v1beta1_pb_doc)
+	@$(docker_lock) status
 	@$(docker_gen) $(gogoslick_plugin) $(protoc_gen_docs_plugin)$(policy_v1beta1_path) $^
 
 generate-mixer-python: \
@@ -195,18 +209,22 @@ generate-mixer-python: \
 
 $(mixer_v1_pb_pythons): $(mixer_v1_protos)
 	## Generate python/istio_api/mixer/v1/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(mixer_config_client_pb_pythons): $(mixer_config_client_protos)
 	## Generate python/istio_api/mixer/v1/config/client/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(mixer_adapter_model_v1beta1_pb_pythons): $(mixer_adapter_model_v1beta1_protos)
 	## Generate python/istio_api/mixer/adapter/model/v1beta1/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 $(policy_v1beta1_pb_pythons): $(policy_v1beta1_protos)
 	## Generate python/istio_api/policy/v1beta1/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-mixer:
@@ -227,12 +245,14 @@ generate-routing-go: $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc)
 
 $(routing_v1alpha3_pb_gos) $(routing_v1alpha3_pb_doc): $(routing_v1alpha3_protos)
 	## Generate networking/v1alpha3/*.pb.go
+	@$(docker_lock) status
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(routing_v1alpha3_path) $^
 
 generate-routing-python: $(routing_v1alpha3_pb_pythons)
 
 $(routing_v1alpha3_pb_pythons): $(routing_v1alpha3_protos)
 	## Generate python/istio_api/networking/v1alpha3/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-routing:
@@ -253,12 +273,14 @@ generate-rbac-go: $(rbac_v1alpha1_pb_gos) $(rbac_v1alpha1_pb_doc)
 
 $(rbac_v1alpha1_pb_gos) $(rbac_v1alpha1_pb_doc): $(rbac_v1alpha1_protos)
 	## Generate rbac/v1alpha1/*.pb.go
+	@$(docker_lock) status
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(rbac_v1alpha1_path) $^
 
 generate-rbac-python: $(rbac_v1alpha1_protos)
 
 $(rbac_v1alpha1_pb_pythons): $(rbac_v1alpha1_protos)
 	## Generate python/istio_api/rbac/v1alpha1/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-rbac:
@@ -280,12 +302,14 @@ generate-authn-go: $(authn_v1alpha1_pb_gos) $(authn_v1alpha1_pb_doc)
 
 $(authn_v1alpha1_pb_gos) $(authn_v1alpha1_pb_doc): $(authn_v1alpha1_protos)
 	## Generate authentication/v1alpha1/*.pb.go
+	@$(docker_lock) status
 	@$(docker_gen) $(gogofast_plugin) $(protoc_gen_docs_plugin)$(authn_v1alpha1_path) $^
 
 generate-authn-python: $(authn_v1alpha1_pb_pythons)
 
 $(authn_v1alpha1_pb_pythons): $(authn_v1alpha1_protos)
 	## Generate python/istio_api/authentication/v1alpha1/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-authn:
@@ -306,6 +330,7 @@ generate-envoy-go: $(envoy_pb_gos) $(envoy_pb_doc)
 # Envoy APIs is internal APIs, documents is not required.
 $(envoy_pb_gos): $(envoy_protos)
 	## Generate envoy/*/*.pb.go
+	@$(docker_lock) status
 	@$(docker_gen) $(gogofast_plugin) $^
 
 generate-envoy-python: $(envoy_pb_pythons)
@@ -313,10 +338,28 @@ generate-envoy-python: $(envoy_pb_pythons)
 # Envoy APIs is internal APIs, documents is not required.
 $(envoy_pb_pythons): $(envoy_protos)
 	## Generate envoy/*/*_pb2.py
+	@$(docker_lock) status
 	@$(docker_gen) $(protoc_gen_python_plugin) $^
 
 clean-envoy:
 	rm -f $(envoy_pb_gos)
+
+#####################
+# Protolock
+#####################
+
+proto-commit:
+	@$(docker_lock) commit
+
+proto-commit-force:
+	@$(docker_lock) commit --force
+
+#####################
+# Lint
+#####################
+
+lint:
+	@$(docker_tool) lint --protoc-bin-path=/usr/bin/protoc --protoc-wkt-path=/protobuf
 
 #####################
 # Cleanup

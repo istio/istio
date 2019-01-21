@@ -19,13 +19,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	envoy_admin_v2alpha "github.com/envoyproxy/go-control-plane/envoy/admin/v2alpha"
 	routeapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
@@ -35,9 +34,9 @@ type HealthCheckState string
 
 const (
 	// HealthCheckLive indicates Envoy is live and ready to serve requests
-	HealthCheckLive HealthCheckState = "live"
+	HealthCheckLive HealthCheckState = "LIVE"
 	// HealthCheckDraining indicates Envoy is not currently capable of serving requests
-	HealthCheckDraining HealthCheckState = "draining"
+	HealthCheckDraining HealthCheckState = "DRAINING"
 )
 
 const (
@@ -61,40 +60,38 @@ type ServerInfo struct {
 
 // GetServerInfo returns a structure representing a call to /server_info
 func GetServerInfo(adminPort int) (ServerInfo, error) {
-	requestURL := fmt.Sprintf("http://127.0.0.1:%d/server_info", adminPort)
-	buffer, err := doHTTPGet(requestURL)
-	if err != nil {
-		return nilServerInfo, err
-	}
-	body := strings.TrimSpace(buffer.String())
-
-	parts := strings.Split(body, " ")
-	if len(parts) != 6 {
-		return nilServerInfo, fmt.Errorf("call to /server_info returned invalid response: %s", body)
-	}
-
-	currentHotRestartEpochUptime, err := strconv.Atoi(parts[3])
+	buffer, err := doEnvoyGet("server_info", adminPort)
 	if err != nil {
 		return nilServerInfo, err
 	}
 
-	totalUptime, err := strconv.Atoi(parts[4])
+	msg := &envoy_admin_v2alpha.ServerInfo{}
+	if err := jsonpb.Unmarshal(buffer, msg); err != nil {
+		return nilServerInfo, err
+	}
+
+	currentHotRestartEpochUptime, err := types.DurationFromProto(msg.UptimeCurrentEpoch)
 	if err != nil {
 		return nilServerInfo, err
 	}
 
-	currentHotRestartEpoch, err := strconv.Atoi(parts[5])
+	totalUptime, err := types.DurationFromProto(msg.UptimeAllEpochs)
 	if err != nil {
 		return nilServerInfo, err
+	}
+
+	currentEpoch := 0
+	if msg.CommandLineOptions != nil {
+		currentEpoch = int(msg.CommandLineOptions.RestartEpoch)
 	}
 
 	return ServerInfo{
-		ProcessName:                  parts[0],
-		CompiledSHABuildType:         parts[1],
-		HealthCheckState:             HealthCheckState(parts[2]),
-		CurrentHotRestartEpochUptime: time.Second * time.Duration(currentHotRestartEpochUptime),
-		TotalUptime:                  time.Second * time.Duration(totalUptime),
-		CurrentHotRestartEpoch:       currentHotRestartEpoch,
+		ProcessName:                  "envoy",
+		CompiledSHABuildType:         msg.Version,
+		HealthCheckState:             HealthCheckState(msg.State.String()),
+		CurrentHotRestartEpochUptime: currentHotRestartEpochUptime,
+		TotalUptime:                  totalUptime,
+		CurrentHotRestartEpoch:       currentEpoch,
 	}, nil
 }
 

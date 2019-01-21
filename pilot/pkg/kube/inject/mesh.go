@@ -36,6 +36,7 @@ const (
 [[- $readinessPeriodValue           := (annotation .ObjectMeta $readinessPeriodKey "{{ .ReadinessPeriodSeconds }}") ]]
 [[- $readinessFailureThresholdValue := (annotation .ObjectMeta $readinessFailureThresholdKey {{ .ReadinessFailureThreshold }}) -]]
 [[- $readinessApplicationPortsValue := (annotation .ObjectMeta $readinessApplicationPortsKey (applicationPorts .Spec.Containers)) -]]
+rewriteAppHTTPProbe: {{ .RewriteAppHTTPProbe }}
 initContainers:
 - name: istio-init
   image: {{ .InitImage }}
@@ -140,6 +141,10 @@ containers:
     periodSeconds: [[ $readinessPeriodValue ]]
     failureThreshold: [[ $readinessFailureThresholdValue ]]
   [[ end -]]
+  ports:
+  - containerPort: 15090
+    protocol: TCP
+    name: http-envoy-prom
   env:
   - name: POD_NAME
     valueFrom:
@@ -183,6 +188,9 @@ containers:
     [[ end -]]
     [[ if eq (annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode) "TPROXY" -]]
     runAsUser: 1337
+    {{- if and .SDSEnabled .EnableSdsTokenMount }}
+    runAsGroup: 1337
+    {{ end -}}
     [[- end ]]
   volumeMounts:
   - mountPath: /etc/istio/proxy
@@ -193,12 +201,25 @@ containers:
 {{ if eq .SDSEnabled true -}}
   - mountPath: /var/run/sds
     name: sdsudspath
+{{ if eq .EnableSdsTokenMount true -}}
+  - mountPath: /var/run/secrets/tokens
+    name: istio-token
+{{ end -}}
 {{ end -}}
 volumes:
 {{ if eq .SDSEnabled true -}}
 - name: sdsudspath
   hostPath:
     path: /var/run/sds
+{{ if eq .EnableSdsTokenMount true -}}
+- name: istio-token
+  projected:
+    sources:
+    - serviceAccountToken:
+      path: istio-token
+      expirationSeconds: 43200
+      audience: istio
+{{ end -}}
 {{ end -}}
 - emptyDir:
     medium: Memory

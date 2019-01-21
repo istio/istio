@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/log"
@@ -58,7 +58,7 @@ func (k *KubeInfo) getEndpointIPForService(svc string) (ip string, err error) {
 	var eps *v1.Endpoints
 	// Wait until endpoint is obtained
 	for i := 0; i <= 200; i++ {
-		eps, err = k.KubeClient.CoreV1().Endpoints(k.Namespace).Get(svc, getOpt)
+		eps, err = k.KubeAccessor.GetEndpoints(k.Namespace, svc, getOpt)
 		if (len(eps.Subsets) == 0) || (err != nil) {
 			time.Sleep(time.Second * 1)
 		} else {

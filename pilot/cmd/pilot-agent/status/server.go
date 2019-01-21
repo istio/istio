@@ -32,10 +32,8 @@ import (
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
-	// appReadinessPath is the path handled by pilot agent for application's readiness probe.
-	appReadinessPath = "/app/ready"
-	// appLivenessPath is the path handled by pilot agent for application's liveness probe.
-	appLivenessPath = "/app/live"
+	// IstioAppPortHeader is the header name to indicate the app port for health check.
+	IstioAppPortHeader = "istio-app-probe-port"
 )
 
 // AppProbeInfo defines the information for Pilot agent to take over application probing.
@@ -49,20 +47,12 @@ type Config struct {
 	StatusPort       uint16
 	AdminPort        uint16
 	ApplicationPorts []uint16
-	// AppReadinessURL specifies the path, including the port to take over Kubernetes readiness probe.
-	// This allows Kubernetes probing to work even mTLS is turned on for the workload.
-	AppReadinessURL string
-	// AppLivenessURL specifies the path, including the port to take over Kubernetes liveness probe.
-	// This allows Kubernetes probing to work even mTLS is turned on for the workload.
-	AppLivenessURL string
 }
 
 // Server provides an endpoint for handling status probes.
 type Server struct {
 	statusPort          uint16
 	ready               *ready.Probe
-	appLiveURL          string
-	appReadyURL         string
 	mutex               sync.RWMutex
 	lastProbeSuccessful bool
 }
@@ -70,9 +60,7 @@ type Server struct {
 // NewServer creates a new status server.
 func NewServer(config Config) *Server {
 	return &Server{
-		statusPort:  config.StatusPort,
-		appLiveURL:  config.AppLivenessURL,
-		appReadyURL: config.AppReadinessURL,
+		statusPort: config.StatusPort,
 		ready: &ready.Probe{
 			AdminPort:        config.AdminPort,
 			ApplicationPorts: config.ApplicationPorts,
@@ -86,17 +74,7 @@ func (s *Server) Run(ctx context.Context) {
 
 	// Add the handler for ready probes.
 	http.HandleFunc(readyPath, s.handleReadyProbe)
-
-	// TODO: we require non empty url to take over the health check. Make sure this is consistent in injector.
-	if s.appReadyURL != "" {
-		log.Infof("Pilot agent takes over readiness probe, path %v", s.appReadyURL)
-		http.HandleFunc(appReadinessPath, s.handleAppReadinessProbe)
-	}
-
-	if s.appLiveURL != "" {
-		log.Infof("Pilot agent takes over liveness probe, path %v", s.appLiveURL)
-		http.HandleFunc(appLivenessPath, s.handleAppLivenessProbe)
-	}
+	http.HandleFunc("/", s.handleAppProbe)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
 	if err != nil {
@@ -144,36 +122,38 @@ func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
 	s.mutex.Unlock()
 }
 
-func (s *Server) handleAppReadinessProbe(w http.ResponseWriter, req *http.Request) {
-	requestStatusCode(fmt.Sprintf("http://127.0.0.1%s", s.appReadyURL), w, req)
-}
-
-func (s *Server) handleAppLivenessProbe(w http.ResponseWriter, req *http.Request) {
-	requestStatusCode(fmt.Sprintf("http://127.0.0.1%s", s.appLiveURL), w, req)
-}
-
-func requestStatusCode(appURL string, w http.ResponseWriter, req *http.Request) {
+func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
+	appPort := req.Header.Get(IstioAppPortHeader)
+	if _, err := strconv.Atoi(appPort); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	httpClient := &http.Client{
 		// TODO: figure out the appropriate timeout?
 		Timeout: 10 * time.Second,
 	}
-
-	appReq, err := http.NewRequest(req.Method, appURL, req.Body)
+	path := req.URL.Path
+	if !strings.HasPrefix(req.URL.Path, "/") {
+		path = "/" + req.URL.Path
+	}
+	url := fmt.Sprintf("http://127.0.0.1:%s%s", appPort, path)
+	appReq, err := http.NewRequest(req.Method, url, req.Body)
 	for key, value := range req.Header {
 		appReq.Header[key] = value
 	}
 
 	if err != nil {
-		log.Errorf("Failed to copy request to probe app %v", err)
+		log.Errorf("Failed to copy request to probe app %v, url %v", err, path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	response, err := httpClient.Do(appReq)
 	if err != nil {
-		log.Errorf("Request to probe app failed: %v", err)
+		log.Errorf("Request to probe app failed: %v, url %v", err, path)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	defer response.Body.Close()
 
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)

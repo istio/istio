@@ -44,11 +44,11 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	}
 
 	node := &model.Proxy{
-		Type:      model.Sidecar,
-		IPAddress: "1.1.1.1",
-		ID:        "someID",
-		Domain:    "foo.com",
-		Metadata:  map[string]string{"ISTIO_PROXY_VERSION": "1.1"},
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "someID",
+		DNSDomain:   "foo.com",
+		Metadata:    map[string]string{"ISTIO_PROXY_VERSION": "1.1"},
 	}
 	gatewayNames := map[string]bool{"some-gateway": true}
 
@@ -63,7 +63,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 
-		ttl := time.Duration(time.Nanosecond * 100)
+		ttl := time.Nanosecond * 100
 		push := &model.PushContext{}
 		push.SetDestinationRules([]model.Config{
 			{

@@ -75,7 +75,7 @@ type isDoubleMatcher_MatchPattern interface {
 }
 
 type DoubleMatcher_Range struct {
-	Range *_type.DoubleRange `protobuf:"bytes,1,opt,name=range,oneof"`
+	Range *_type.DoubleRange `protobuf:"bytes,1,opt,name=range,proto3,oneof"`
 }
 type DoubleMatcher_Exact struct {
 	Exact float64 `protobuf:"fixed64,2,opt,name=exact,proto3,oneof"`
@@ -237,6 +237,9 @@ func encodeVarintNumber(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *DoubleMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MatchPattern != nil {
@@ -249,6 +252,9 @@ func (m *DoubleMatcher) Size() (n int) {
 }
 
 func (m *DoubleMatcher_Range) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Range != nil {
@@ -258,6 +264,9 @@ func (m *DoubleMatcher_Range) Size() (n int) {
 	return n
 }
 func (m *DoubleMatcher_Exact) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 9

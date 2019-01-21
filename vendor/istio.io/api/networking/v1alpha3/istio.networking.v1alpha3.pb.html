@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/istio.routing.v1alpha1/
-number_of_entries: 52
+number_of_entries: 62
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -37,6 +37,81 @@ actual choice of the version is determined by the proxy/sidecar, enabling the
 application code to decouple itself from the evolution of dependent
 services.</p>
 
+<h2 id="CaptureMode">CaptureMode</h2>
+<section>
+<p>CaptureMode describes how traffic to a listener is expected to be
+captured. Applicable only when the listener is bound to an IP.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CaptureMode-DEFAULT">
+<td><code>DEFAULT</code></td>
+<td>
+<p>The default capture mode defined by the environment</p>
+
+</td>
+</tr>
+<tr id="CaptureMode-IPTABLES">
+<td><code>IPTABLES</code></td>
+<td>
+<p>Capture traffic using IPtables redirection</p>
+
+</td>
+</tr>
+<tr id="CaptureMode-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>No traffic capture. When used in egress listener, the application is
+expected to explicitly communicate with the listener port/unix
+domain socket. When used in ingress listener, care needs to be taken
+to ensure that the listener port is not in use by other processes on
+the host.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConfigScope">ConfigScope</h2>
+<section>
+<p>ConfigScope defines the visibility of an Istio configuration artifact in
+a namespace when the namespace is imported.  By default all
+configuration artifacts are public. Configurations with private scope
+will not be imported when the namespace containing the configuration is
+imported in a Sidecar.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConfigScope-PUBLIC">
+<td><code>PUBLIC</code></td>
+<td>
+<p>Config with this scope are visible to all workloads in the mesh</p>
+
+</td>
+</tr>
+<tr id="ConfigScope-PRIVATE">
+<td><code>PRIVATE</code></td>
+<td>
+<p>Configs with this scope are visible to only workloads in the same
+namespace as the configuration resource.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="ConnectionPoolSettings">ConnectionPoolSettings</h2>
 <section>
 <p>Connection pool settings for an upstream host. The settings apply to
@@ -59,6 +134,9 @@ spec:
       tcp:
         maxConnections: 100
         connectTimeout: 30ms
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
 </code></pre>
 
 <table class="message-fields">
@@ -168,6 +246,60 @@ cluster at a given time. Defaults to 3.</p>
 
 </td>
 </tr>
+<tr id="ConnectionPoolSettings-TCPSettings-tcp_keepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="#ConnectionPoolSettings-TCPSettings-TcpKeepalive">ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td>
+<p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="ConnectionPoolSettings-TCPSettings-TcpKeepalive">ConnectionPoolSettings.TCPSettings.TcpKeepalive</h2>
+<section>
+<p>TCP keepalive.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-probes">
+<td><code>probes</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>Maximum number of keepalive probes to send without response before
+deciding the connection is dead. Default is to use the OS level configuration
+(unless overridden, Linux defaults to 9.)</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-time">
+<td><code>time</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The time duration a connection needs to be idle before keep-alive
+probes start being sent. Default is to use the OS level configuration
+(unless overridden, Linux defaults to 7200s (ie 2 hours.)</p>
+
+</td>
+</tr>
+<tr id="ConnectionPoolSettings-TCPSettings-TcpKeepalive-interval">
+<td><code>interval</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
+<td>
+<p>The time duration between keep-alive probes.
+Default is to use the OS level configuration
+(unless overridden, Linux defaults to 75s.)</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -175,12 +307,12 @@ cluster at a given time. Defaults to 3.</p>
 <section>
 <p>Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 service. Refer to
-https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS">https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS</a>
 for further details about cross origin resource sharing. For example,
 the following rule restricts cross origin requests to those originating
 from example.com domain using HTTP POST/GET, and sets the
-Access-Control-Allow-Credentials header to false. In addition, it only
-exposes X-Foo-bar header and sets an expiry period of 1 day.</p>
+<code>Access-Control-Allow-Credentials</code> header to false. In addition, it only
+exposes <code>X-Foo-bar</code> header and sets an expiry period of 1 day.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -256,8 +388,8 @@ access. Serialized into Access-Control-Expose-Headers header.</p>
 <td><code>maxAge</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
-<p>Specifies how long the the results of a preflight request can be
-cached. Translates to the Access-Control-Max-Age header.</p>
+<p>Specifies how long the results of a preflight request can be
+cached. Translates to the <code>Access-Control-Max-Age</code> header.</p>
 
 </td>
 </tr>
@@ -267,7 +399,7 @@ cached. Translates to the Access-Control-Max-Age header.</p>
 <td>
 <p>Indicates whether the caller is allowed to send the actual request
 (not the preflight) using credentials. Translates to
-Access-Control-Allow-Credentials header.</p>
+<code>Access-Control-Allow-Credentials</code> header.</p>
 
 </td>
 </tr>
@@ -570,6 +702,17 @@ sizes, outlier detection).</p>
 <td>
 <p>One or more named sets that represent individual versions of a
 service. Traffic policies can be overridden at subset level.</p>
+
+</td>
+</tr>
+<tr id="DestinationRule-config_scope">
+<td><code>configScope</code></td>
+<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<td>
+<p>The visibility setting associated with this DestinationRule. Set to
+PRIVATE if this destination rule should not be exported, i.e. restrict
+the applicability of this destination rule to only workloads in the same
+namespace as the destination rule.</p>
 
 </td>
 </tr>
@@ -987,6 +1130,7 @@ ports are allowed into the mesh.</p>
 kind: Gateway
 metadata:
   name: my-gateway
+  namespace: some-config-namespace
 spec:
   selector:
     app: my-gateway-controller
@@ -1044,13 +1188,14 @@ gets redirected to &ldquo;https://uk.bookinfo.com&rdquo; (i.e. 80 redirects to 4
 kind: VirtualService
 metadata:
   name: bookinfo-rule
+  namespace: bookinfo-namespace
 spec:
   hosts:
   - reviews.prod.svc.cluster.local
   - uk.bookinfo.com
   - eu.bookinfo.com
   gateways:
-  - my-gateway
+  - some-config-namespace/my-gateway
   - mesh # applies to all the sidecars in the mesh
   http:
   - match:
@@ -1085,11 +1230,13 @@ reserved name <code>mesh</code>.</p>
 kind: VirtualService
 metadata:
   name: bookinfo-Mongo
+  namespace: bookinfo-namespace
 spec:
   hosts:
   - mongosvr.prod.svc.cluster.local #name of internal Mongo service
   gateways:
-  - my-gateway
+  - some-config-namespace/my-gateway # can omit the namespace if gateway is in same
+                                       namespace as virtual service.
   tcp:
   - match:
     - port: 27017
@@ -1122,10 +1269,10 @@ spec:
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 <p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
-on which this gateway configuration should be applied.
-The scope of label search is platform dependent.
-On Kubernetes, for example, the scope includes pods running in
-all reachable namespaces.</p>
+on which this gateway configuration should be applied. The scope of
+label search is restricted to the configuration namespace in which the
+the resource is present. In other words, the Gateway resource must
+reside in the same namespace as the gateway workload.</p>
 
 </td>
 </tr>
@@ -1551,6 +1698,7 @@ spec:
     retries:
       attempts: 3
       perTryTimeout: 2s
+      retryOn: gateway-error,connect-failure,refused-stream
 </code></pre>
 
 <table class="message-fields">
@@ -1577,6 +1725,18 @@ number of retries attempted depends on the httpReqTimeout.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE &gt;=1ms.</p>
+
+</td>
+</tr>
+<tr id="HTTPRetry-retry_on">
+<td><code>retryOn</code></td>
+<td><code>string</code></td>
+<td>
+<p>Specifies the conditions under which retry takes place.
+One or more policies can be specified using a ‘,’ delimited list.
+The supported policies can be found in
+<a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on">https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on</a>
+and <a href="https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on">https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on</a></p>
 
 </td>
 </tr>
@@ -1740,7 +1900,7 @@ destination.</p>
 <td><code><a href="#CorsPolicy">CorsPolicy</a></code></td>
 <td>
 <p>Cross-Origin Resource Sharing policy (CORS). Refer to
-https://developer.mozilla.org/en-US/docs/Web/HTTP/Access<em>control</em>CORS
+https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
 for further details about cross origin resource sharing.</p>
 
 </td>
@@ -1749,43 +1909,52 @@ for further details about cross origin resource sharing.</p>
 <td><code>appendHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Use of <code>append_headers</code> is deprecated. Use the <code>append_request_headers</code>
+<p>Use of <code>append_headers</code> is deprecated. Use the <code>headers</code>
 field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-remove_response_headers">
+<tr id="HTTPRoute-remove_response_headers" class="deprecated ">
 <td><code>removeResponseHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>HTTP headers to remove before returning a response to the caller.</p>
+<p>Use of <code>remove_response_header</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-append_response_headers">
+<tr id="HTTPRoute-append_response_headers" class="deprecated ">
 <td><code>appendResponseHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Additional HTTP headers to add before returning a response to the
-caller.</p>
+<p>Use of <code>append_response_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-remove_request_headers">
+<tr id="HTTPRoute-remove_request_headers" class="deprecated ">
 <td><code>removeRequestHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>HTTP headers to remove before forwarding a request to the
-destination service.</p>
+<p>Use of <code>remove_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRoute-append_request_headers">
+<tr id="HTTPRoute-append_request_headers" class="deprecated ">
 <td><code>appendRequestHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Additional HTTP headers to add before forwarding a request to the
-destination service.</p>
+<p>Use of <code>append_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRoute-headers">
+<td><code>headers</code></td>
+<td><code><a href="#Headers">Headers</a></code></td>
+<td>
+<p>Header manipulation rules</p>
 
 </td>
 </tr>
@@ -1887,38 +2056,265 @@ be 100.</p>
 
 </td>
 </tr>
-<tr id="HTTPRouteDestination-remove_response_headers">
+<tr id="HTTPRouteDestination-remove_response_headers" class="deprecated ">
 <td><code>removeResponseHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>HTTP headers to remove before returning a response to the caller.</p>
+<p>Use of <code>remove_response_header</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRouteDestination-append_response_headers">
+<tr id="HTTPRouteDestination-append_response_headers" class="deprecated ">
 <td><code>appendResponseHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Additional HTTP headers to add before returning a response to the
-caller.</p>
+<p>Use of <code>append_response_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRouteDestination-remove_request_headers">
+<tr id="HTTPRouteDestination-remove_request_headers" class="deprecated ">
 <td><code>removeRequestHeaders</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>HTTP headers to remove before forwarding a request to the
-destination service.</p>
+<p>Use of <code>remove_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
 
 </td>
 </tr>
-<tr id="HTTPRouteDestination-append_request_headers">
+<tr id="HTTPRouteDestination-append_request_headers" class="deprecated ">
 <td><code>appendRequestHeaders</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Additional HTTP headers to add before forwarding a request to the
-destination service.</p>
+<p>Use of <code>append_request_headers</code> is deprecated. Use the <code>headers</code>
+field instead.</p>
+
+</td>
+</tr>
+<tr id="HTTPRouteDestination-headers">
+<td><code>headers</code></td>
+<td><code><a href="#Headers">Headers</a></code></td>
+<td>
+<p>Header manipulation rules</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Headers">Headers</h2>
+<section>
+<p>Header manipulation rules</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Headers-request">
+<td><code>request</code></td>
+<td><code><a href="#Headers-HeaderOperations">Headers.HeaderOperations</a></code></td>
+<td>
+<p>Header manipulation rules to apply before forwarding a request
+to the destination service</p>
+
+</td>
+</tr>
+<tr id="Headers-response">
+<td><code>response</code></td>
+<td><code><a href="#Headers-HeaderOperations">Headers.HeaderOperations</a></code></td>
+<td>
+<p>Header manipulation rules to apply before returning a response
+to the caller</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Headers-HeaderOperations">Headers.HeaderOperations</h2>
+<section>
+<p>HeaderOperations Describes the header manipulations to apply</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Headers-HeaderOperations-set">
+<td><code>set</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Overwrite the headers specified by key with the given values</p>
+
+</td>
+</tr>
+<tr id="Headers-HeaderOperations-add">
+<td><code>add</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Append the given values to the headers specified by keys
+(will create a comma-separated list of values)</p>
+
+</td>
+</tr>
+<tr id="Headers-HeaderOperations-remove">
+<td><code>remove</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Remove a the specified headers</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstioEgressListener">IstioEgressListener</h2>
+<section>
+<p>IstioEgressListener specifies the properties of an outbound traffic
+listener on the sidecar proxy attached to a workload.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioEgressListener-port">
+<td><code>port</code></td>
+<td><code><a href="#Port">Port</a></code></td>
+<td>
+<p>The port associated with the listener. If using unix domain socket,
+use 0 as the port number, with a valid protocol. The port if
+specified, will be used as the default destination port associated
+with the imported hosts. If the port is omitted, Istio will infer the
+listener ports based on the imported hosts. Note that when multiple
+egress listeners are specified, where one or more listeners have
+specific ports while others have no port, the hosts exposed on a
+listener port will be based on the listener with the most specific
+port.</p>
+
+</td>
+</tr>
+<tr id="IstioEgressListener-bind">
+<td><code>bind</code></td>
+<td><code>string</code></td>
+<td>
+<p>The ip or the unix domain socket to which the listener should be bound
+to. Port MUST be specified if bind is not empty. Format: x.x.x.x or
+unix:///path/to/uds or unix://@foobar (Linux abstract namespace). If
+omitted, Istio will autoconfigure the defaults based on imported
+services, the workload to which this configuration is applied to and
+the captureMode. If captureMode is NONE, bind will default to
+127.0.0.1.</p>
+
+</td>
+</tr>
+<tr id="IstioEgressListener-capture_mode">
+<td><code>captureMode</code></td>
+<td><code><a href="#CaptureMode">CaptureMode</a></code></td>
+<td>
+<p>When the bind address is an IP, the captureMode option dictates
+how traffic to the listener is expected to be captured (or not).
+captureMode must be DEFAULT or NONE for unix domain socket binds.</p>
+
+</td>
+</tr>
+<tr id="IstioEgressListener-hosts">
+<td><code>hosts</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>REQUIRED: One or more services/virtualServices exposed by the listener
+in namespace/dnsName format.  Publicly scoped services and
+VirtualServices from remote namespaces corresponding to the specified
+hosts will be imported. The service in a namespace can be a service in
+the service registry (e.g., a kubernetes or cloud foundry service) or
+a service specified via ServiceEntry configuration. In addition, any
+publicly scoped DestinationRule associated with the imported services
+will also be imported.</p>
+
+<p>Set the namespace to * to import a particular service from any
+available namespace (e.g., &ldquo;*/foo.example.com&rdquo;). Set the dnsName field
+to * to import all services from the specified namespace (e.g.,
+&ldquo;prod/*&rdquo;). The services should be specified using FQDN format.</p>
+
+<p>NOTE: Only exported services and configuration artifacts from a
+namespace can be imported. Private services/configuration will not be
+imported. Refer to the scope setting associated with VirtualService,
+DestinationRule, ServiceEntry, etc. for details.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="IstioIngressListener">IstioIngressListener</h2>
+<section>
+<p>IstioIngressListener specifies the properties of an inbound
+traffic listener on the sidecar proxy attached to a workload.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="IstioIngressListener-port">
+<td><code>port</code></td>
+<td><code><a href="#Port">Port</a></code></td>
+<td>
+<p>REQUIRED. The port associated with the listener. If using
+unix domain socket, use 0 as the port number, with a valid
+protocol.</p>
+
+</td>
+</tr>
+<tr id="IstioIngressListener-bind">
+<td><code>bind</code></td>
+<td><code>string</code></td>
+<td>
+<p>The ip or the unix domain socket to which the listener should be bound
+to. Format: x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux
+abstract namespace). If omitted, Istio will autoconfigure the defaults
+based on imported services and the workload to which this
+configuration is applied to.</p>
+
+</td>
+</tr>
+<tr id="IstioIngressListener-capture_mode">
+<td><code>captureMode</code></td>
+<td><code><a href="#CaptureMode">CaptureMode</a></code></td>
+<td>
+<p>When the bind address is an IP, the captureMode option dictates
+how traffic to the listener is expected to be captured (or not).
+captureMode must be DEFAULT or NONE for unix domain socket binds.</p>
+
+</td>
+</tr>
+<tr id="IstioIngressListener-default_endpoint">
+<td><code>defaultEndpoint</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED: The loopback IP endpoint or unix domain socket to which
+traffic should be forwarded to. This configuration can be used to
+redirect traffic arriving at the bind point on the sidecar to a port
+or unix domain socket where the application workload is listening for
+connections. Format should be 127.0.0.1:PORT or unix:///path/to/socket</p>
 
 </td>
 </tr>
@@ -1986,7 +2382,7 @@ match is independent of sourceLabels.</p>
 <section>
 <p>Load balancing policies to apply for a specific destination. See Envoy&rsquo;s
 load balancing
-<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html">documentation</a>
+<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/load_balancing">documentation</a>
 for more details.</p>
 
 <p>For example, the following rule uses a round robin load balancing policy
@@ -2021,6 +2417,31 @@ the User cookie as the hash key.</p>
            ttl: 0s
 </code></pre>
 
+<p>The following example sets up locality weight for the ratings service
+Assume ratings service resides in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;,
+and originating clusters also reside in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;.
+This example specifies when clusters from &ldquo;region1/zone1/<em>&rdquo; accessing ratings service, 80% of the traffic
+is shipped to &ldquo;region1/zone1/</em>&rdquo; ratings service endpoints, and the rest 20% to &ldquo;region1/zone2/*&rdquo;.</p>
+
+<pre><code class="language-yaml"> apiVersion: networking.istio.io/v1alpha3
+ kind: DestinationRule
+ metadata:
+   name: bookinfo-ratings
+ spec:
+   host: ratings.prod.svc.cluster.local
+   trafficPolicy:
+     loadBalancer:
+       localityWeightSettings:
+         - from: region1/zone1/*
+           to:
+             &quot;region1/zone1/*&quot;: 80
+             &quot;region1/zone2/*&quot;: 20
+         - from: region1/zone2/*
+           to:
+             &quot;region1/zone1/*&quot;: 20
+             &quot;region1/zone2/*&quot;: 80
+</code></pre>
+
 <table class="message-fields">
 <thead>
 <tr>
@@ -2040,6 +2461,17 @@ the User cookie as the hash key.</p>
 <td><code>consistentHash</code></td>
 <td><code><a href="#LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
 <td>
+</td>
+</tr>
+<tr id="LoadBalancerSettings-locality_weight_settings">
+<td><code>localityWeightSettings</code></td>
+<td><code><a href="#LoadBalancerSettings-LocalityWeightSetting">LoadBalancerSettings.LocalityWeightSetting[]</a></code></td>
+<td>
+<p>Explicitly assign loadbalancing weight across different zones and geographical locations.
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing">Locality weighted load balancing</a>
+If empty, the locality weight is set according to the endpoints number within it.
+If duplicated settings are present, then the first one will take effect.</p>
+
 </td>
 </tr>
 </tbody>
@@ -2138,6 +2570,42 @@ be generated.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>REQUIRED. Lifetime of the cookie.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LoadBalancerSettings-LocalityWeightSetting">LoadBalancerSettings.LocalityWeightSetting</h2>
+<section>
+<p>Originating -&gt; upstream cluster locality weight set, support wildcard matching &lsquo;<em>&rsquo;
+&lsquo;</em>&rsquo; matches all localities
+&lsquo;region1/*&rsquo; matches all zones in region1</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LoadBalancerSettings-LocalityWeightSetting-from">
+<td><code>from</code></td>
+<td><code>string</code></td>
+<td>
+<p>Originating locality, &lsquo;/&rsquo; separated, e.g. &lsquo;region/zone/sub_zone&rsquo;.</p>
+
+</td>
+</tr>
+<tr id="LoadBalancerSettings-LocalityWeightSetting-to">
+<td><code>to</code></td>
+<td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
+<td>
+<p>Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
+Should assign loadbalancing weight for all localities, otherwise the traffic are not routed
+following the percentage of weight.</p>
 
 </td>
 </tr>
@@ -2283,6 +2751,18 @@ service that can be ejected. Defaults to 10%.</p>
 
 </td>
 </tr>
+<tr id="OutlierDetection-min_health_percent">
+<td><code>minHealthPercent</code></td>
+<td><code>int32</code></td>
+<td>
+<p>Outlier detection will be enabled as long as the associated load balancing
+pool has at least min<em>health</em>percent hosts in healthy mode. When the
+percentage of healthy hosts in the load balancing pool drops below this
+threshold, outlier detection will be disabled and the proxy will load balance
+across all hosts in the pool (healthy and unhealthy).  The default is 50%.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -2335,7 +2815,8 @@ service that can be ejected. Defaults to 10%.</p>
 <td>
 <p>REQUIRED: The protocol exposed on the port.
 MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP|TLS.
-TLS is used to indicate secure connections to non HTTP services.</p>
+TLS implies the connection will be routed based on the SNI header to
+the destination without terminating the TLS connection.</p>
 
 </td>
 </tr>
@@ -2485,7 +2966,8 @@ spec:
 <td><code><a href="#Port">Port</a></code></td>
 <td>
 <p>REQUIRED: The Port on which the proxy should listen for incoming
-connections</p>
+connections. If using unix domain socket, use 0 as the port number,
+with a valid protocol and port name, along with the bind parameter.</p>
 
 </td>
 </tr>
@@ -2517,6 +2999,16 @@ newexample.com will not match.</p>
 <p>Set of TLS related options that govern the server&rsquo;s behavior. Use
 these options to control if all http requests should be redirected to
 https, and the TLS modes to use.</p>
+
+</td>
+</tr>
+<tr id="Server-default_endpoint">
+<td><code>defaultEndpoint</code></td>
+<td><code>string</code></td>
+<td>
+<p>The loopback IP endpoint or unix domain socket to which traffic should
+be forwarded to by default. Format should be 127.0.0.1:PORT or
+unix:///path/to/socket or unix://@foobar (Linux abstract namespace).</p>
 
 </td>
 </tr>
@@ -2637,29 +3129,29 @@ Otherwise default to the default cipher list supported by Envoy.</p>
 
 </td>
 </tr>
-<tr id="Server-TLSOptions-TLSProtocol-TLSv1_0">
-<td><code>TLSv1_0</code></td>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_0">
+<td><code>TLSV1_0</code></td>
 <td>
 <p>TLS version 1.0</p>
 
 </td>
 </tr>
-<tr id="Server-TLSOptions-TLSProtocol-TLSv1_1">
-<td><code>TLSv1_1</code></td>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_1">
+<td><code>TLSV1_1</code></td>
 <td>
 <p>TLS version 1.1</p>
 
 </td>
 </tr>
-<tr id="Server-TLSOptions-TLSProtocol-TLSv1_2">
-<td><code>TLSv1_2</code></td>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_2">
+<td><code>TLSV1_2</code></td>
 <td>
 <p>TLS version 1.2</p>
 
 </td>
 </tr>
-<tr id="Server-TLSOptions-TLSProtocol-TLSv1_3">
-<td><code>TLSv1_3</code></td>
+<tr id="Server-TLSOptions-TLSProtocol-TLSV1_3">
+<td><code>TLSV1_3</code></td>
 <td>
 <p>TLS version 1.3</p>
 
@@ -2941,7 +3433,7 @@ spec:
   - address: unix:///var/run/example/socket
 </code></pre>
 
-<p>For HTTP based services, it is possible to create a VirtualService
+<p>For HTTP-based services, it is possible to create a VirtualService
 backed by multiple DNS addressable endpoints. In such a scenario, the
 application can use the HTTP_PROXY environment variable to transparently
 reroute API calls for the VirtualService to a chosen backend. For
@@ -2959,7 +3451,7 @@ spec:
   location: MESH_EXTERNAL
   ports:
   - number: 80
-    name: https
+    name: http
     protocol: HTTP
   resolution: DNS
   endpoints:
@@ -2974,10 +3466,10 @@ spec:
       https: 7080
 </code></pre>
 
-<p>With HTTP_PROXY=http://localhost/, calls from the application to
-http://foo.bar.com will be load balanced across the three domains
-specified above. In other words, a call to http://foo.bar.com/baz would
-be translated to http://uk.foo.bar.com/baz.</p>
+<p>With <code>HTTP_PROXY=http://localhost/</code>, calls from the application to
+<code>http://foo.bar.com</code> will be load balanced across the three domains
+specified above. In other words, a call to <code>http://foo.bar.com/baz</code> would
+be translated to <code>http://uk.foo.bar.com/baz</code>.</p>
 
 <table class="message-fields">
 <thead>
@@ -2995,7 +3487,7 @@ be translated to http://uk.foo.bar.com/baz.</p>
 <p>REQUIRED. The hosts associated with the ServiceEntry. Could be a DNS
 name with wildcard prefix (external services only). DNS names in hosts
 will be ignored if the application accesses the service over non-HTTP
-protocols such as mongo/opaque TCP/even HTTPS. In such scenarios, the
+protocols such as mongo/opaque TCP/HTTPS. In such scenarios, the
 IP addresses specified in the Addresses field or the port will be used
 to uniquely identify the destination.</p>
 
@@ -3008,7 +3500,7 @@ to uniquely identify the destination.</p>
 <p>The virtual IP addresses associated with the service. Could be CIDR
 prefix. For HTTP services, the addresses field will be ignored and
 the destination will be identified based on the HTTP Host/Authority
-header. For non-HTTP protocols such as mongo/opaque TCP/even HTTPS,
+header. For non-HTTP protocols such as mongo/opaque TCP/HTTPS,
 the hosts will be ignored. If one or more IP addresses are specified,
 the incoming traffic will be identified as belonging to this service
 if the destination IP matches the IP/CIDRs specified in the addresses
@@ -3057,6 +3549,18 @@ said port will be allowed (i.e. 0.0.0.0:<port>).</p>
 <td><code><a href="#ServiceEntry-Endpoint">ServiceEntry.Endpoint[]</a></code></td>
 <td>
 <p>One or more endpoints associated with the service.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-config_scope">
+<td><code>configScope</code></td>
+<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<td>
+<p>The visibility setting associated with this service entry. Set to
+PRIVATE if this service should not be visible outside the namespace
+where the service entry was added. The default scope is public,
+i.e. the service added by the service entry will be visible to
+workloads in the entire mesh.</p>
 
 </td>
 </tr>
@@ -3142,6 +3646,15 @@ will prefer e1 from the same locality over e2 from a different
 locality. Endpoint e2 could be the IP associated with a gateway
 (that bridges networks n1 and n2), or the IP associated with a
 standard service endpoint.</p>
+
+</td>
+</tr>
+<tr id="ServiceEntry-Endpoint-weight">
+<td><code>weight</code></td>
+<td><code>uint32</code></td>
+<td>
+<p>The load balancing weight associated with the endpoint. Endpoints
+with higher weights will receive proportionally higher traffic.</p>
 
 </td>
 </tr>
@@ -3236,6 +3749,129 @@ wildcards are not used. If endpoints are specified, the DNS
 addresses specified in the endpoints will be resolved to determine
 the destination IP address.  DNS resolution cannot be used with unix
 domain socket endpoints.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Sidecar">Sidecar</h2>
+<section>
+<p><code>Sidecar</code> describes the configuration of the sidecar proxy that mediates
+inbound and outbound communication to the workload it is attached to. By
+default, Istio will program all sidecar proxies in the mesh with the
+necessary configuration required to reach every workload in the mesh, as
+well as accept traffic on all the ports associated with the
+workload. The Sidecar resource provides a way to fine tune the set of
+ports, protocols that the proxy will accept when forwarding traffic to
+and from the workload. In addition, it is possible to restrict the set
+of services that the proxy can reach when forwarding outbound traffic
+from the workload.</p>
+
+<p>Services and configuration in a mesh are organized into one or more
+namespaces (e.g., a Kubernetes namespace or a CF org/space). A Sidecar
+resource in a namespace will apply to one or more workloads in the same
+namespace, selected using the workloadSelector. In the absence of a
+workloadSelector, it will apply to all workloads in the same
+namespace. When determining the Sidecar resource to be applied to a
+workload, preference will be given to the resource with a
+workloadSelector that selects this workload, over a Sidecar resource
+without any workloadSelector.</p>
+
+<p>NOTE: <em><em>Each namespace can have only one Sidecar resource without any
+workload selector</em></em>. The behavior of the system is undefined if more
+than one selector-less Sidecar resources exist in a given namespace. The
+behavior of the system is undefined if two or more Sidecar resources
+with a workload selector select the same workload.</p>
+
+<p>The example below delcares a Sidecar resource in the prod-us1 namespace
+that configures the sidecars in the namespace to allow egress traffic to
+public services in the prod-us1, prod-apis, and the istio-system
+namespaces.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: prod-us1
+spec:
+  egress:
+  - hosts:
+    - &quot;prod-us1/*&quot;
+    - &quot;prod-apis/*&quot;
+    - &quot;istio-system/*&quot;
+</code></pre>
+
+<p>The example below delcares a Sidecar resource in the prod-us1 namespace
+that accepts inbound HTTP traffic on port 9080 and forwards
+it to the attached workload listening on a unix domain socket. In the
+egress direction, in addition to the istio-system namespace, the sidecar
+proxies only HTTP traffic bound for port 9080 for services in the
+prod-us1 namespace.</p>
+
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default
+  namespace: prod-us1
+spec:
+  ingress:
+  - port:
+      number: 9080
+      protocol: HTTP
+      name: somename
+    defaultEndpoint: unix:///var/run/someuds.sock
+  egress:
+  - hosts:
+    - &quot;istio-system/*&quot;
+  - port:
+      number: 9080
+      protocol: HTTP
+      name: egresshttp
+    hosts:
+    - &quot;prod-us1/*&quot;
+</code></pre>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Sidecar-workload_selector">
+<td><code>workloadSelector</code></td>
+<td><code><a href="#WorkloadSelector">WorkloadSelector</a></code></td>
+<td>
+<p>Criteria used to select the specific set of pods/VMs on which this
+sidecar configuration should be applied. If omitted, the sidecar
+configuration will be applied to all workloads in the same config
+namespace.</p>
+
+</td>
+</tr>
+<tr id="Sidecar-ingress">
+<td><code>ingress</code></td>
+<td><code><a href="#IstioIngressListener">IstioIngressListener[]</a></code></td>
+<td>
+<p>Ingress specifies the configuration of the sidecar for processing
+inbound traffic to the attached workload. If omitted, Istio will
+autoconfigure the sidecar based on the information about the workload
+obtained from the orchestration platform (e.g., exposed ports, services,
+etc.).</p>
+
+</td>
+</tr>
+<tr id="Sidecar-egress">
+<td><code>egress</code></td>
+<td><code><a href="#IstioEgressListener">IstioEgressListener[]</a></code></td>
+<td>
+<p>Egress specifies the configuration of the sidecar for processing
+outbound traffic from the attached workload to other services in the
+mesh. If omitted, Istio will autoconfigure the sidecar to be able to
+reach every service in the mesh that is visible to this namespace.</p>
 
 </td>
 </tr>
@@ -3550,7 +4186,7 @@ is matched if any one of the match blocks succeed.</p>
 </section>
 <h2 id="TLSSettings">TLSSettings</h2>
 <section>
-<p>SSL/TLS related settings for upstream connections. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_ssl.html#config-cluster-manager-cluster-ssl">TLS
+<p>SSL/TLS related settings for upstream connections. See Envoy&rsquo;s <a href="https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/auth/cert.proto.html">TLS
 context</a>
 for more details. These settings are common to both HTTP and TCP upstreams.</p>
 
@@ -3852,7 +4488,7 @@ to be customized for specific client contexts.</p>
 
 <p>The following example on Kubernetes, routes all HTTP traffic by default to
 pods of the reviews service with label &ldquo;version: v1&rdquo;. In addition,
-HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
+HTTP requests with path starting with /wpcatalog/ or /consumercatalog/ will
 be rewritten to /newcatalog and sent to pods with label &ldquo;version: v2&rdquo;.</p>
 
 <pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
@@ -3990,6 +4626,50 @@ traffic.</p>
 <p>An ordered list of route rules for opaque TCP traffic. TCP routes will
 be applied to any port that is not a HTTP or TLS port. The first rule
 matching an incoming request is used.</p>
+
+</td>
+</tr>
+<tr id="VirtualService-config_scope">
+<td><code>configScope</code></td>
+<td><code><a href="#ConfigScope">ConfigScope</a></code></td>
+<td>
+<p>The visibility setting associated with this VirtualService. Set to
+PRIVATE if this virtual service should not be exported, i.e. restrict
+the applicability of this virtual service to only workloads in the same
+namespace as the virtual service.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="WorkloadSelector">WorkloadSelector</h2>
+<section>
+<p>WorkloadSelector specifies the criteria used to determine if the Gateway
+or Sidecar resource can be applied to a proxy. The matching criteria
+includes the metadata associated with a proxy, workload info such as
+labels attached to the pod/VM, or any other info that the proxy provides
+to Istio during the initial handshake. If multiple conditions are
+specified, all conditions need to match in order for the workload to be
+selected. Currently, only label based selection mechanism is supported.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="WorkloadSelector-labels">
+<td><code>labels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>REQUIRED: One or more labels that indicate a specific set of pods/VMs
+on which this sidecar configuration should be applied. The scope of
+label search is restricted to the configuration namespace in which the
+the resource is present.</p>
 
 </td>
 </tr>

@@ -11,25 +11,55 @@ spec:
           host: c
           subset: v1
         weight: 75
-        appendRequestHeaders:
+        appendRequestHeaders: #deprecated
           istio-custom-dest-req-header: user-defined-value
-        removeRequestHeaders:
+        removeRequestHeaders: #deprecated
         - istio-custom-dest-req-header-remove
-        appendResponseHeaders:
+        appendResponseHeaders: #deprecated
           istio-custom-dest-resp-header: user-defined-value
-        removeResponseHeaders:
+        removeResponseHeaders: #deprecated
         - istio-custom-dest-resp-header-remove
+        headers:
+          request:
+            add: 
+              dst-req-append: added-in-request
+            set: 
+              dst-req-replace: new-value
+            remove: 
+              - dst-req-remove
+          response:
+            add:
+              dst-res-append: added-in-response
+            set:
+              dst-res-replace: new-value
+            remove:
+              - dst-res-remove
       - destination:
           host: c
           subset: v2
         weight: 25
-      append_headers: # TODO: deprecate
+      append_headers: #deprecated
         istio-custom-header: user-defined-value
-      appendRequestHeaders:
+      appendRequestHeaders: #deprecated
         istio-custom-req-header: user-defined-value
-      removeRequestHeaders:
+      removeRequestHeaders: #deprecated
       - istio-custom-req-header-remove
-      appendResponseHeaders:
+      appendResponseHeaders: #deprecated
         istio-custom-resp-header: user-defined-value
-      removeResponseHeaders:
+      removeResponseHeaders: #deprecated
       - istio-custom-resp-header-remove
+      headers:
+        request:
+          add: 
+            req-append: added-in-request
+          set: 
+            req-replace: new-value
+          remove: 
+            - req-remove
+        response:
+          add:
+            res-append: added-in-response
+          set:
+            res-replace: new-value
+          remove:
+            - res-remove

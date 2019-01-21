@@ -14,6 +14,10 @@ metadata:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
@@ -21,7 +25,6 @@ spec:
         chart: {{ template "pilot.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"
@@ -41,27 +44,31 @@ spec:
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           args:
           - "discovery"
-{{- if $.Values.global.proxy.discoveryDomain }}
+          - --monitoringAddr=:{{ .Values.global.monitoringPort }}
           - --domain
-          - {{ $.Values.global.proxy.discoveryDomain }}
-{{- end }}
+          - {{ .Values.global.proxy.clusterDomain }}
 {{- if .Values.global.oneNamespace }}
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if not .Values.sidecar }}
+{{- if $.Values.global.controlPlaneSecurityEnabled}}
+    {{- if not .Values.sidecar }}
           - --secureGrpcAddr
           - ":15011"
+    {{- end }}
+{{- else }}
+          - --secureGrpcAddr
+          - ""
 {{- end }}
 {{- if $.Values.global.useMCP }}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --mcpServerAddrs=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
     {{- else }}
           - --mcpServerAddrs=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
     {{- end }}
+{{- end }}
+{{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
           ports:
           - containerPort: 8080
@@ -87,8 +94,6 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          - name: PILOT_CACHE_SQUASH
-            value: "5"
           {{- if .Values.env }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
@@ -113,7 +118,11 @@ spec:
             readOnly: true
 {{- if .Values.sidecar }}
         - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
           image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
+{{- end }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
           - containerPort: 15003
@@ -122,10 +131,8 @@ spec:
           - containerPort: 15011
           args:
           - proxy
-{{- if $.Values.global.proxy.proxyDomain }}
           - --domain
-          - {{ $.Values.global.proxy.proxyDomain }}
-{{- end }}
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
           - --serviceCluster
           - istio-pilot
           - --templateFile
@@ -136,6 +143,9 @@ spec:
         {{- else }}
           - --controlPlaneAuthPolicy
           - NONE
+        {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
           env:
           - name: POD_NAME

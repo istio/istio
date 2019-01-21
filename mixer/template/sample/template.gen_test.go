@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
-	"istio.io/istio/mixer/template/sample/apa"
+	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
 	sample_report "istio.io/istio/mixer/template/sample/report"
@@ -1062,27 +1062,6 @@ attribute_bindings:
 			}
 		})
 	}
-}
-
-func cmp(m interface{}, n interface{}) bool {
-	a := InterfaceSlice(m)
-	b := InterfaceSlice(n)
-	if len(a) != len(b) {
-		return false
-	}
-
-	for _, x1 := range a {
-		f := false
-		for _, x2 := range b {
-			if reflect.DeepEqual(x1, x2) {
-				f = true
-			}
-		}
-		if !f {
-			return false
-		}
-	}
-	return true
 }
 
 func InterfaceSlice(slice interface{}) []interface{} {

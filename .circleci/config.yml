@@ -4,7 +4,7 @@ version: 2
 defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
-    - image: istio/ci:go1.10-k8s1.10.4-helm2.7.2-minikube0.25
+    - image: istio/ci:go1.11-k8s1.10.4-helm2.7.2-minikube0.25
   environment:
     GOPATH: /go
     SKIP_CLEANUP: true
@@ -106,7 +106,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-simple-mcp:
+  e2e-simple-non-mcp:
     <<: *integrationDefaults
     environment:
             - KUBECONFIG: /go/out/minikube.conf
@@ -129,7 +129,7 @@ jobs:
             make docker.all
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: E2E_ARGS="--use_mcp" make test/local/auth/e2e_simple
+      - run: E2E_ARGS="--use_mcp=false" make test/local/auth/e2e_simple
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
       - <<: *markJobFinishesOnGCS
@@ -181,7 +181,7 @@ jobs:
       - store_artifacts:
           path: /var/lib/localkube/
 
-  e2e-dashboard-mcp:
+  e2e-dashboard-non-mcp:
     <<: *integrationDefaults
     environment:
             - KUBECONFIG: /go/out/minikube.conf
@@ -207,7 +207,7 @@ jobs:
       - run:
           command: |
             PATH=$GOPATH/bin:$PATH \
-            E2E_ARGS="--skip_cleanup -use_local_cluster --use_mcp -test.v" \
+            E2E_ARGS="--skip_cleanup -use_local_cluster --use_mcp=false -test.v" \
             set -o pipefail
             make e2e_dashboard | tee -a /go/out/tests/build-log.txt
       - <<: *recordZeroExitCodeIfTestPassed
@@ -236,7 +236,7 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make docker.all generate_e2e_test_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
@@ -256,7 +256,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  e2e-mixer-noauth-v1alpha3-v2-mcp:
+  e2e-mixer-noauth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
     steps:
       - <<: *initWorkingDir
@@ -272,16 +272,16 @@ jobs:
               # Should only happen when re-running a job, and the workspace is gone
               time make build test-bins
             fi
-            make docker.all generate_yaml
+            make docker.all generate_e2e_test_yaml
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
       - run:
           no_output_timeout: 20m
           # Run the test even if previous failed
           when: always
-          name: make e2e_mixer (mcp)
+          name: make e2e_mixer (non-mcp)
           command: |
-            E2E_ARGS="--use_mcp" \
+            E2E_ARGS="--use_mcp=false" \
             make test/local/noauth/e2e_mixer_envoyv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
@@ -395,7 +395,7 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  e2e-pilot-noauth-v1alpha3-v2-mcp:
+  e2e-pilot-noauth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -423,7 +423,7 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                E2E_ARGS="--use_mcp" \
+                E2E_ARGS="--use_mcp=false" \
                 make test/local/noauth/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
@@ -485,7 +485,7 @@ jobs:
               export PATH=$GOPATH/bin:$PATH
               make localTestEnv
               set -o pipefail
-              make test.integration T=-v | tee -a /go/out/tests/build-log.txt
+              make test.integration.local T=-v | tee -a /go/out/tests/build-log.txt
         - <<: *recordZeroExitCodeIfTestPassed
         - <<: *recordNonzeroExitCodeIfTestFailed
         - <<: *markJobFinishesOnGCS
@@ -494,47 +494,7 @@ jobs:
         - store_artifacts:
             path: /tmp
 
-  test-integration-kubernetes:
-    <<: *integrationDefaults
-    environment:
-      - KUBECONFIG: /go/out/minikube.conf
-      - TEST_ENV: minikube-none
-      - GOPATH: /go
-    steps:
-      - <<: *initWorkingDir
-      - checkout
-      - attach_workspace:
-          at:  /go
-      - <<: *markJobStartsOnGCS
-      - run: make sync
-      - run: bin/testEnvRootMinikube.sh start
-      - run:
-          command: |
-            if [ ! -f /go/out/linux_amd64/release/pilot-discovery ]; then
-              # Should only happen when re-running a job, and the workspace is gone
-              time make build test-bins
-            fi
-            make docker.all generate_yaml
-      - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
-      - run:
-          no_output_timeout: 20m
-          # Run the test even if previous failed
-          when: always
-          name: make test.integration.kube
-          command: |
-            make test.integration.kube T=-v | tee -a /go/out/tests/build-log.txt
-      - <<: *recordZeroExitCodeIfTestPassed
-      - <<: *recordNonzeroExitCodeIfTestFailed
-      - <<: *markJobFinishesOnGCS
-      - store_artifacts:
-          path: /home/circleci/logs
-      - store_artifacts:
-          path: /tmp
-      - store_test_results:
-          path: /go/out/tests
-
-  e2e-pilot-auth-v1alpha3-v2-mcp:
+  e2e-pilot-auth-v1alpha3-v2-non-mcp:
     <<: *integrationDefaults
     steps:
       - <<: *initWorkingDir
@@ -558,7 +518,7 @@ jobs:
           # Run the test even if previous failed
           when: always
           command: |
-                E2E_ARGS="--use_mcp" \
+                E2E_ARGS="--use_mcp=false" \
                 make test/local/auth/e2e_pilotv2
       - <<: *recordZeroExitCodeIfTestPassed
       - <<: *recordNonzeroExitCodeIfTestFailed
@@ -595,20 +555,27 @@ jobs:
       ISTIO_BIN: /go/bin
     steps:
       - checkout
+      - <<: *markJobStartsOnGCS
       - run: make init
       - run: make build test-bins /go/bin/go-junit-report
       - run:
           name: Starting Kubernetes API Server standalone and running tests
           command: |
-            make localTestEnv
             cd /go/src/istio.io/istio
-            MAXPROCS=6 bin/codecov.sh
+            MAXPROCS=6 bin/codecov_diff.sh
+      - <<: *recordZeroExitCodeIfTestPassed
+      - <<: *recordNonzeroExitCodeIfTestFailed
       - run:
-          name: Uploading code coverage to codecov.io
+          name: markJobFinishesOnGCS
           when: always
-          command: bash <(curl -s https://codecov.io/bash) -f /go/out/codecov/coverage.cov
+          command: |
+            bin/ci2gubernator.sh --exit_code=$(cat exit_code) --junit_xml=/go/out/tests/junit.xml
       - store_artifacts:
           path: /go/out/codecov
+      - store_artifacts:
+          path: /go/out/tests
+      - store_test_results:
+          path: /go/out/tests
 
   test:
     <<: *defaults
@@ -687,7 +654,7 @@ jobs:
 
   shellcheck:
     docker:
-      - image: koalaman/shellcheck-alpine:v0.5.0
+      - image: koalaman/shellcheck-alpine:v0.6.0
     steps:
       - checkout
       - run:
@@ -808,13 +775,13 @@ workflows:
       - e2e-simple:
           requires:
             - build
-      - e2e-simple-mcp:
+      - e2e-simple-non-mcp:
           requires:
             - build
       - e2e-dashboard:
           requires:
             - build
-      - e2e-dashboard-mcp:
+      - e2e-dashboard-non-mcp:
           requires:
             - build
       - benchcheck:
@@ -824,7 +791,7 @@ workflows:
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
-      - e2e-mixer-noauth-v1alpha3-v2-mcp:
+      - e2e-mixer-noauth-v1alpha3-v2-non-mcp:
           requires:
             - build
       - e2e-galley:
@@ -836,13 +803,13 @@ workflows:
       - e2e-pilot-noauth-v1alpha3-v2: # no auth+v1alpha3+v2
           requires:
             - build
-      - e2e-pilot-noauth-v1alpha3-v2-mcp: # no auth+v1alpha3+v2
+      - e2e-pilot-noauth-v1alpha3-v2-non-mcp: # no auth+v1alpha3+v2
           requires:
             - build
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
           requires:
             - build
-      - e2e-pilot-auth-v1alpha3-v2-mcp: # auth+v1alpha3+v2 with MCP
+      - e2e-pilot-auth-v1alpha3-v2-non-mcp: # auth+v1alpha3+v2 without MCP
           requires:
             - build
 
@@ -856,22 +823,19 @@ workflows:
       - e2e-mixer-noauth-v1alpha3-v2:
           requires:
             - build
-      - e2e-mixer-noauth-v1alpha3-v2-mcp:
-          requires:
-            - build
       - e2e-galley:
           requires:
             - build
       - e2e-simple:
           requires:
             - build
+      - e2e-dashboard:
+          requires:
+            - build
       - racetest:
           requires:
             - test
       - e2e-pilot-auth-v1alpha3-v2: # auth+v1alpha3+v2
-          requires:
-            - build
-      - e2e-pilot-auth-v1alpha3-v2-mcp: # auth+v1alpha3+v2 with MCP
           requires:
             - build
       - e2e-pilot-noauth-v1alpha3-v2: # noauth+v1alpha3+v2
@@ -881,8 +845,5 @@ workflows:
           requires:
             - build
       - test-integration-local:
-          requires:
-            - build
-      - test-integration-kubernetes:
           requires:
             - build

@@ -53,14 +53,32 @@ func (m *AccessLog) Validate() error {
 		}
 	}
 
-	if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return AccessLogValidationError{
-				Field:  "Config",
-				Reason: "embedded message failed validation",
-				Cause:  err,
+	switch m.ConfigType.(type) {
+
+	case *AccessLog_Config:
+
+		if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AccessLogValidationError{
+					Field:  "Config",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
 			}
 		}
+
+	case *AccessLog_TypedConfig:
+
+		if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AccessLogValidationError{
+					Field:  "TypedConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil
@@ -778,7 +796,7 @@ func (m *ResponseFlagFilter) Validate() error {
 		if _, ok := _ResponseFlagFilter_Flags_InLookup[item]; !ok {
 			return ResponseFlagFilterValidationError{
 				Field:  fmt.Sprintf("Flags[%v]", idx),
-				Reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX RLSE]",
+				Reason: "value must be in list [LH UH UT LR UR UF UC UO NR DI FI RL UAEX RLSE DC]",
 			}
 		}
 
@@ -833,4 +851,5 @@ var _ResponseFlagFilter_Flags_InLookup = map[string]struct{}{
 	"RL":   {},
 	"UAEX": {},
 	"RLSE": {},
+	"DC":   {},
 }

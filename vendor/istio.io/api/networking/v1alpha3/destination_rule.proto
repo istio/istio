@@ -15,6 +15,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "networking/v1alpha3/virtual_service.proto";
+import "networking/v1alpha3/sidecar.proto";
 import "gogoproto/gogo.proto";
 
 package istio.networking.v1alpha3;
@@ -117,6 +118,12 @@ message DestinationRule {
   // One or more named sets that represent individual versions of a
   // service. Traffic policies can be overridden at subset level.
   repeated Subset subsets = 3;
+
+  // The visibility setting associated with this DestinationRule. Set to
+  // PRIVATE if this destination rule should not be exported, i.e. restrict
+  // the applicability of this destination rule to only workloads in the same
+  // namespace as the destination rule.
+  ConfigScope config_scope = 4;
 }
 
 // Traffic policies to apply for a specific destination, across all
@@ -220,7 +227,7 @@ message Subset {
 
 // Load balancing policies to apply for a specific destination. See Envoy's
 // load balancing
-// [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html)
+// [documentation](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/load_balancing)
 // for more details.
 //
 // For example, the following rule uses a round robin load balancing policy
@@ -255,6 +262,32 @@ message Subset {
 //          httpCookie:
 //            name: user
 //            ttl: 0s
+// ```
+//
+// The following example sets up locality weight for the ratings service
+// Assume ratings service resides in "region1/zone1/*" and "region1/zone2/*",
+// and originating clusters also reside in "region1/zone1/*" and "region1/zone2/*".
+// This example specifies when clusters from "region1/zone1/*" accessing ratings service, 80% of the traffic
+// is shipped to "region1/zone1/*" ratings service endpoints, and the rest 20% to "region1/zone2/*".
+//
+// ```yaml
+//  apiVersion: networking.istio.io/v1alpha3
+//  kind: DestinationRule
+//  metadata:
+//    name: bookinfo-ratings
+//  spec:
+//    host: ratings.prod.svc.cluster.local
+//    trafficPolicy:
+//      loadBalancer:
+//        localityWeightSettings:
+//          - from: region1/zone1/*
+//            to:
+//              "region1/zone1/*": 80
+//              "region1/zone2/*": 20
+//          - from: region1/zone2/*
+//            to:
+//              "region1/zone1/*": 20
+//              "region1/zone2/*": 80
 // ```
 message LoadBalancerSettings {
   // Standard load balancing algorithms that require no tuning.
@@ -319,6 +352,19 @@ message LoadBalancerSettings {
     uint64 minimum_ring_size = 4;
   };
 
+  // Originating -> upstream cluster locality weight set, support wildcard matching '*'
+  // '*' matches all localities
+  // 'region1/*' matches all zones in region1
+  message LocalityWeightSetting{
+    // Originating locality, '/' separated, e.g. 'region/zone/sub_zone'.
+    string from = 1;
+
+    // Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
+    // Should assign loadbalancing weight for all localities, otherwise the traffic are not routed
+    // following the percentage of weight.
+    map<string, uint32> to = 2;
+  };
+
   // (-- TODO: Enable Subset load balancing after moving to v2 API Also
   // look into enabling Priotity based load balancing for spilling over
   // from one priority pool to another. --)
@@ -328,6 +374,12 @@ message LoadBalancerSettings {
     SimpleLB simple = 1;
     ConsistentHashLB consistent_hash = 2;
   }
+
+  // Explicitly assign loadbalancing weight across different zones and geographical locations.
+  // Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing)
+  // If empty, the locality weight is set according to the endpoints number within it.
+  // If duplicated settings are present, then the first one will take effect.
+  repeated LocalityWeightSetting locality_weight_settings = 3;
 }
 
 // Connection pool settings for an upstream host. The settings apply to
@@ -351,15 +403,39 @@ message LoadBalancerSettings {
 //       tcp:
 //         maxConnections: 100
 //         connectTimeout: 30ms
+//         tcpKeepalive:
+//           time: 7200s
+//           interval: 75s
 // ```
 message ConnectionPoolSettings {
   // Settings common to both HTTP and TCP upstream connections.
   message TCPSettings {
+    // TCP keepalive.
+    message TcpKeepalive {
+      // Maximum number of keepalive probes to send without response before
+      // deciding the connection is dead. Default is to use the OS level configuration
+      // (unless overridden, Linux defaults to 9.)
+      uint32 probes = 1;
+
+      // The time duration a connection needs to be idle before keep-alive
+      // probes start being sent. Default is to use the OS level configuration
+      // (unless overridden, Linux defaults to 7200s (ie 2 hours.)
+      google.protobuf.Duration time = 2;
+
+      // The time duration between keep-alive probes.
+      // Default is to use the OS level configuration
+      // (unless overridden, Linux defaults to 75s.)
+      google.protobuf.Duration interval = 3;
+    };
+
     // Maximum number of HTTP1 /TCP connections to a destination host.
     int32 max_connections = 1;
 
     // TCP connection timeout.
     google.protobuf.Duration connect_timeout = 2;
+
+    // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+    TcpKeepalive tcp_keepalive = 3;
   };
 
   // Settings applicable to HTTP1.1/HTTP2/GRPC connections.
@@ -393,7 +469,7 @@ message ConnectionPoolSettings {
 // failures to a given host counts as an error when measuring the
 // consecutive errors metric. See Envoy's [outlier
 // detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier)
-// for more details. 
+// for more details.
 //
 // The following rule sets a connection pool size of 100 connections and
 // 1000 concurrent HTTP2 requests, with no more than 10 req/connection to
@@ -442,10 +518,17 @@ message OutlierDetection {
   // Maximum % of hosts in the load balancing pool for the upstream
   // service that can be ejected. Defaults to 10%.
   int32 max_ejection_percent = 4;
+
+  // Outlier detection will be enabled as long as the associated load balancing
+  // pool has at least min_health_percent hosts in healthy mode. When the
+  // percentage of healthy hosts in the load balancing pool drops below this
+  // threshold, outlier detection will be disabled and the proxy will load balance
+  // across all hosts in the pool (healthy and unhealthy).  The default is 50%.
+  int32 min_health_percent = 5;
 }
 
 // SSL/TLS related settings for upstream connections. See Envoy's [TLS
-// context](https://www.envoyproxy.io/docs/envoy/latest/api-v1/cluster_manager/cluster_ssl.html#config-cluster-manager-cluster-ssl)
+// context](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/auth/cert.proto.html)
 // for more details. These settings are common to both HTTP and TCP upstreams.
 //
 // For example, the following rule configures a client to use mutual TLS

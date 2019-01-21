@@ -94,11 +94,11 @@ spec:
 {{- end }}
 {{- end }}
 
-{{- if .Values.global.multiCluster.connectUsingGateway }}
+{{- if .Values.global.multiCluster.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: istio-multicluster-gateway
+  name: istio-multicluster-egressgateway
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
@@ -107,28 +107,21 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   selector:
-    istio: mcgateway
+    istio: egressgateway
   servers:
   - hosts:
-    # This is a dummy port to keep AWS LB happy.
-    # DO NOT REMOVE.
-    - "*.local"
-    port:
-      name: http
-      number: 80
-      protocol: HTTP
-  - hosts:
-    - "*.local"
+    - "*.global"
     port:
       name: tls
       number: 15443
       protocol: TLS
-    tls: {}
+    tls:
+      mode: AUTO_PASSTHROUGH
 ---
 apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
+kind: Gateway
 metadata:
-  name: istio-multicluster-virtualservice
+  name: istio-multicluster-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
@@ -136,35 +129,22 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  gateways:
-  - istio-multicluster-gateway
-  hosts:
-  - "*.local"
-  http: #black hole all port 80 traffic.
-  - match:
-    - port: 80
-    route:
-    - destination:
-        host: non.existent.cluster
-      weight: 100
-  # We need a TLS block to setup the filter chain
-  # The actual routing happens using the SNI filter
-  tls:
-  - match:
-    - port: 15443
-      sniHosts:
-      - "*.local"
-    route:
-    - destination:        
-        host: non.existent.cluster
-        port:
-          number: 15443
-      weight: 100
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - "*.global"
+    port:
+      name: tls
+      number: 15443
+      protocol: TLS
+    tls:
+      mode: AUTO_PASSTHROUGH
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: istio-multicluster-envoy-filter
+  name: istio-multicluster-ingressgateway
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
@@ -173,13 +153,35 @@ metadata:
     release: {{ .Release.Name }}
 spec:
    workloadLabels:
-     istio: mcgateway
+     istio: ingressgateway
    filters:
    - listenerMatch:
        portNumber: 15443
        listenerType: GATEWAY
-     filterName: envoy.filters.network.sni_cluster
+     insertPosition:
+       index: AFTER
+       relativeTo: envoy.filters.network.sni_cluster
+     filterName: envoy.filters.network.tcp_cluster_rewrite
      filterType: NETWORK
-     filterConfig: {}
+     filterConfig:
+       cluster_pattern: "\\.global$"
+       cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"       
+---
+## To ensure all traffic to *.global is using mTLS
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: istio-multicluster-destinationrule
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "gateway.name" . }}
+    chart: {{ template "gateway.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  host: "*.global"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
 ---
 {{- end }}

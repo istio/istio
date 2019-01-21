@@ -378,13 +378,6 @@ func (m *CommonTlsContext) Validate() error {
 		}
 	}
 
-	if len(m.GetTlsCertificates()) > 1 {
-		return CommonTlsContextValidationError{
-			Field:  "TlsCertificates",
-			Reason: "value must contain no more than 1 item(s)",
-		}
-	}
-
 	for idx, item := range m.GetTlsCertificates() {
 		_, _ = idx, item
 
@@ -400,6 +393,13 @@ func (m *CommonTlsContext) Validate() error {
 
 	}
 
+	if len(m.GetTlsCertificateSdsSecretConfigs()) > 1 {
+		return CommonTlsContextValidationError{
+			Field:  "TlsCertificateSdsSecretConfigs",
+			Reason: "value must contain no more than 1 item(s)",
+		}
+	}
+
 	for idx, item := range m.GetTlsCertificateSdsSecretConfigs() {
 		_, _ = idx, item
 
@@ -413,16 +413,6 @@ func (m *CommonTlsContext) Validate() error {
 			}
 		}
 
-	}
-
-	if v, ok := interface{}(m.GetDeprecatedV1()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CommonTlsContextValidationError{
-				Field:  "DeprecatedV1",
-				Reason: "embedded message failed validation",
-				Cause:  err,
-			}
-		}
 	}
 
 	switch m.ValidationContextType.(type) {
@@ -445,6 +435,18 @@ func (m *CommonTlsContext) Validate() error {
 			if err := v.Validate(); err != nil {
 				return CommonTlsContextValidationError{
 					Field:  "ValidationContextSdsSecretConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *CommonTlsContext_CombinedValidationContext:
+
+		if v, ok := interface{}(m.GetCombinedValidationContext()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CommonTlsContextValidationError{
+					Field:  "CombinedValidationContext",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -513,6 +515,16 @@ func (m *UpstreamTlsContext) Validate() error {
 	}
 
 	// no validation rules for AllowRenegotiation
+
+	if v, ok := interface{}(m.GetMaxSessionKeys()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return UpstreamTlsContextValidationError{
+				Field:  "MaxSessionKeys",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
 
 	return nil
 }
@@ -785,23 +797,57 @@ func (e SecretValidationError) Error() string {
 
 var _ error = SecretValidationError{}
 
-// Validate checks the field values on CommonTlsContext_DeprecatedV1 with the
-// rules defined in the proto definition for this message. If any rules are
+// Validate checks the field values on
+// CommonTlsContext_CombinedCertificateValidationContext with the rules
+// defined in the proto definition for this message. If any rules are
 // violated, an error is returned.
-func (m *CommonTlsContext_DeprecatedV1) Validate() error {
+func (m *CommonTlsContext_CombinedCertificateValidationContext) Validate() error {
 	if m == nil {
 		return nil
 	}
 
-	// no validation rules for AltAlpnProtocols
+	if m.GetDefaultValidationContext() == nil {
+		return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+			Field:  "DefaultValidationContext",
+			Reason: "value is required",
+		}
+	}
+
+	if v, ok := interface{}(m.GetDefaultValidationContext()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+				Field:  "DefaultValidationContext",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if m.GetValidationContextSdsSecretConfig() == nil {
+		return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+			Field:  "ValidationContextSdsSecretConfig",
+			Reason: "value is required",
+		}
+	}
+
+	if v, ok := interface{}(m.GetValidationContextSdsSecretConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CommonTlsContext_CombinedCertificateValidationContextValidationError{
+				Field:  "ValidationContextSdsSecretConfig",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
 
 	return nil
 }
 
-// CommonTlsContext_DeprecatedV1ValidationError is the validation error
-// returned by CommonTlsContext_DeprecatedV1.Validate if the designated
-// constraints aren't met.
-type CommonTlsContext_DeprecatedV1ValidationError struct {
+// CommonTlsContext_CombinedCertificateValidationContextValidationError is the
+// validation error returned by
+// CommonTlsContext_CombinedCertificateValidationContext.Validate if the
+// designated constraints aren't met.
+type CommonTlsContext_CombinedCertificateValidationContextValidationError struct {
 	Field  string
 	Reason string
 	Cause  error
@@ -809,7 +855,7 @@ type CommonTlsContext_DeprecatedV1ValidationError struct {
 }
 
 // Error satisfies the builtin error interface
-func (e CommonTlsContext_DeprecatedV1ValidationError) Error() string {
+func (e CommonTlsContext_CombinedCertificateValidationContextValidationError) Error() string {
 	cause := ""
 	if e.Cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
@@ -821,11 +867,11 @@ func (e CommonTlsContext_DeprecatedV1ValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sCommonTlsContext_DeprecatedV1.%s: %s%s",
+		"invalid %sCommonTlsContext_CombinedCertificateValidationContext.%s: %s%s",
 		key,
 		e.Field,
 		e.Reason,
 		cause)
 }
 
-var _ error = CommonTlsContext_DeprecatedV1ValidationError{}
+var _ error = CommonTlsContext_CombinedCertificateValidationContextValidationError{}

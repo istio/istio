@@ -46,9 +46,9 @@ func (Config_ValueType) EnumDescriptor() ([]byte, []int) {
 
 type Config struct {
 	// The list of rules to apply to requests.
-	RequestRules []*Config_Rule `protobuf:"bytes,1,rep,name=request_rules,json=requestRules" json:"request_rules,omitempty"`
+	RequestRules []*Config_Rule `protobuf:"bytes,1,rep,name=request_rules,json=requestRules,proto3" json:"request_rules,omitempty"`
 	// The list of rules to apply to responses.
-	ResponseRules        []*Config_Rule `protobuf:"bytes,2,rep,name=response_rules,json=responseRules" json:"response_rules,omitempty"`
+	ResponseRules        []*Config_Rule `protobuf:"bytes,2,rep,name=response_rules,json=responseRules,proto3" json:"response_rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -190,12 +190,12 @@ type Config_Rule struct {
 	//
 	// If the value in the KeyValuePair is non-empty, it'll be used instead
 	// of the header value.
-	OnHeaderPresent *Config_KeyValuePair `protobuf:"bytes,2,opt,name=on_header_present,json=onHeaderPresent" json:"on_header_present,omitempty"`
+	OnHeaderPresent *Config_KeyValuePair `protobuf:"bytes,2,opt,name=on_header_present,json=onHeaderPresent,proto3" json:"on_header_present,omitempty"`
 	// If the header is not present, apply this metadata KeyValuePair.
 	//
 	// The value in the KeyValuePair must be set, since it'll be used in lieu
 	// of the missing header value.
-	OnHeaderMissing *Config_KeyValuePair `protobuf:"bytes,3,opt,name=on_header_missing,json=onHeaderMissing" json:"on_header_missing,omitempty"`
+	OnHeaderMissing *Config_KeyValuePair `protobuf:"bytes,3,opt,name=on_header_missing,json=onHeaderMissing,proto3" json:"on_header_missing,omitempty"`
 	// Whether or not to remove the header after a rule is applied.
 	//
 	// This prevents headers from leaking.
@@ -428,6 +428,9 @@ func encodeVarintHeaderToMetadata(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Config) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.RequestRules) > 0 {
@@ -449,6 +452,9 @@ func (m *Config) Size() (n int) {
 }
 
 func (m *Config_KeyValuePair) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.MetadataNamespace)
@@ -473,6 +479,9 @@ func (m *Config_KeyValuePair) Size() (n int) {
 }
 
 func (m *Config_Rule) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Header)

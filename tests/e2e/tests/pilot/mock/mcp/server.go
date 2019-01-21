@@ -20,18 +20,20 @@ import (
 	"net/url"
 
 	"google.golang.org/grpc"
+
 	mcp "istio.io/api/mcp/v1alpha1"
-	mcpserver "istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/server"
+	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
-type WatchResponse func(req *mcp.MeshConfigRequest) (*mcpserver.WatchResponse, mcpserver.CancelWatchFunc)
+type WatchResponse func(req *source.Request) (*source.WatchResponse, source.CancelWatchFunc)
 
 type mockWatcher struct {
 	response WatchResponse
 }
 
-func (m mockWatcher) Watch(req *mcp.MeshConfigRequest, pushResponse mcpserver.PushResponseFunc) mcpserver.CancelWatchFunc {
+func (m mockWatcher) Watch(req *source.Request, pushResponse source.PushResponseFunc) source.CancelWatchFunc {
 	response, cancel := m.response(req)
 	pushResponse(response)
 	return cancel
@@ -41,8 +43,8 @@ type Server struct {
 	// The internal snapshot.Cache that the server is using.
 	Watcher *mockWatcher
 
-	// TypeURLs that were originally passed in.
-	TypeURLs []string
+	// Collections that were originally passed in.
+	Collections []string
 
 	// Port that the service is listening on.
 	Port int
@@ -54,13 +56,19 @@ type Server struct {
 	l  net.Listener
 }
 
-func NewServer(addr string, typeUrls []string, watchResponseFunc WatchResponse) (*Server, error) {
+func NewServer(collections []string, watchResponseFunc WatchResponse) (*Server, error) {
 	watcher := mockWatcher{
 		response: watchResponseFunc,
 	}
-	s := mcpserver.New(watcher, typeUrls, mcpserver.NewAllowAllChecker(), mcptestmon.NewInMemoryServerStatsContext())
 
-	l, err := net.Listen("tcp", addr)
+	options := &source.Options{
+		Watcher:            watcher,
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+		CollectionsOptions: source.CollectionOptionsFromSlice(collections),
+	}
+	s := server.New(options, server.NewAllowAllChecker())
+
+	l, err := net.Listen("tcp", "localhost:")
 	if err != nil {
 		return nil, err
 	}
@@ -75,17 +83,18 @@ func NewServer(addr string, typeUrls []string, watchResponseFunc WatchResponse) 
 
 	gs := grpc.NewServer()
 
-	mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
+	// mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
+	mcp.RegisterResourceSourceServer(gs, s)
 	go func() { _ = gs.Serve(l) }()
-	log.Printf("MCP mock server listening on %s", addr)
+	log.Printf("MCP mock server listening on localhost:%d", p)
 
 	return &Server{
-		Watcher:  &watcher,
-		TypeURLs: typeUrls,
-		Port:     p,
-		URL:      u,
-		gs:       gs,
-		l:        l,
+		Watcher:     &watcher,
+		Collections: collections,
+		Port:        p,
+		URL:         u,
+		gs:          gs,
+		l:           l,
 	}, nil
 }
 
@@ -97,7 +106,7 @@ func (t *Server) Close() (err error) {
 
 	t.l = nil // gRPC stack will close this
 	t.Watcher = nil
-	t.TypeURLs = nil
+	t.Collections = nil
 	t.Port = 0
 
 	return

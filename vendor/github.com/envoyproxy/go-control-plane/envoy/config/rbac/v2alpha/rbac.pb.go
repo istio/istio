@@ -49,7 +49,7 @@ func (x RBAC_Action) String() string {
 	return proto.EnumName(RBAC_Action_name, int32(x))
 }
 func (RBAC_Action) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_fd3c983d5bac499a, []int{0, 0}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{0, 0}
 }
 
 // Role Based Access Control (RBAC) provides service-level and method-level access control for a
@@ -98,7 +98,7 @@ type RBAC struct {
 	//   * `action` is "DENY" and none of the policies match
 	Action RBAC_Action `protobuf:"varint,1,opt,name=action,proto3,enum=envoy.config.rbac.v2alpha.RBAC_Action" json:"action,omitempty"`
 	// Maps from policy name to policy. A match occurs when at least one policy matches the request.
-	Policies             map[string]*Policy `protobuf:"bytes,2,rep,name=policies" json:"policies,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	Policies             map[string]*Policy `protobuf:"bytes,2,rep,name=policies,proto3" json:"policies,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -108,7 +108,7 @@ func (m *RBAC) Reset()         { *m = RBAC{} }
 func (m *RBAC) String() string { return proto.CompactTextString(m) }
 func (*RBAC) ProtoMessage()    {}
 func (*RBAC) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_fd3c983d5bac499a, []int{0}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{0}
 }
 func (m *RBAC) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -158,11 +158,11 @@ type Policy struct {
 	// Required. The set of permissions that define a role. Each permission is matched with OR
 	// semantics. To match all actions for this policy, a single Permission with the `any` field set
 	// to true should be used.
-	Permissions []*Permission `protobuf:"bytes,1,rep,name=permissions" json:"permissions,omitempty"`
+	Permissions []*Permission `protobuf:"bytes,1,rep,name=permissions,proto3" json:"permissions,omitempty"`
 	// Required. The set of principals that are assigned/denied the role based on “action”. Each
 	// principal is matched with OR semantics. To match all downstreams for this policy, a single
 	// Principal with the `any` field set to true should be used.
-	Principals           []*Principal `protobuf:"bytes,2,rep,name=principals" json:"principals,omitempty"`
+	Principals           []*Principal `protobuf:"bytes,2,rep,name=principals,proto3" json:"principals,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -172,7 +172,7 @@ func (m *Policy) Reset()         { *m = Policy{} }
 func (m *Policy) String() string { return proto.CompactTextString(m) }
 func (*Policy) ProtoMessage()    {}
 func (*Policy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_fd3c983d5bac499a, []int{1}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{1}
 }
 func (m *Policy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -237,7 +237,7 @@ func (m *Permission) Reset()         { *m = Permission{} }
 func (m *Permission) String() string { return proto.CompactTextString(m) }
 func (*Permission) ProtoMessage()    {}
 func (*Permission) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_fd3c983d5bac499a, []int{2}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{2}
 }
 func (m *Permission) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -273,31 +273,31 @@ type isPermission_Rule interface {
 }
 
 type Permission_AndRules struct {
-	AndRules *Permission_Set `protobuf:"bytes,1,opt,name=and_rules,json=andRules,oneof"`
+	AndRules *Permission_Set `protobuf:"bytes,1,opt,name=and_rules,json=andRules,proto3,oneof"`
 }
 type Permission_OrRules struct {
-	OrRules *Permission_Set `protobuf:"bytes,2,opt,name=or_rules,json=orRules,oneof"`
+	OrRules *Permission_Set `protobuf:"bytes,2,opt,name=or_rules,json=orRules,proto3,oneof"`
 }
 type Permission_Any struct {
 	Any bool `protobuf:"varint,3,opt,name=any,proto3,oneof"`
 }
 type Permission_Header struct {
-	Header *route.HeaderMatcher `protobuf:"bytes,4,opt,name=header,oneof"`
+	Header *route.HeaderMatcher `protobuf:"bytes,4,opt,name=header,proto3,oneof"`
 }
 type Permission_DestinationIp struct {
-	DestinationIp *core.CidrRange `protobuf:"bytes,5,opt,name=destination_ip,json=destinationIp,oneof"`
+	DestinationIp *core.CidrRange `protobuf:"bytes,5,opt,name=destination_ip,json=destinationIp,proto3,oneof"`
 }
 type Permission_DestinationPort struct {
 	DestinationPort uint32 `protobuf:"varint,6,opt,name=destination_port,json=destinationPort,proto3,oneof"`
 }
 type Permission_Metadata struct {
-	Metadata *matcher.MetadataMatcher `protobuf:"bytes,7,opt,name=metadata,oneof"`
+	Metadata *matcher.MetadataMatcher `protobuf:"bytes,7,opt,name=metadata,proto3,oneof"`
 }
 type Permission_NotRule struct {
-	NotRule *Permission `protobuf:"bytes,8,opt,name=not_rule,json=notRule,oneof"`
+	NotRule *Permission `protobuf:"bytes,8,opt,name=not_rule,json=notRule,proto3,oneof"`
 }
 type Permission_RequestedServerName struct {
-	RequestedServerName *matcher.StringMatcher `protobuf:"bytes,9,opt,name=requested_server_name,json=requestedServerName,oneof"`
+	RequestedServerName *matcher.StringMatcher `protobuf:"bytes,9,opt,name=requested_server_name,json=requestedServerName,proto3,oneof"`
 }
 
 func (*Permission_AndRules) isPermission_Rule()            {}
@@ -584,7 +584,7 @@ func _Permission_OneofSizer(msg proto.Message) (n int) {
 // Used in the `and_rules` and `or_rules` fields in the `rule` oneof. Depending on the context,
 // each are applied with the associated behavior.
 type Permission_Set struct {
-	Rules                []*Permission `protobuf:"bytes,1,rep,name=rules" json:"rules,omitempty"`
+	Rules                []*Permission `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -594,7 +594,7 @@ func (m *Permission_Set) Reset()         { *m = Permission_Set{} }
 func (m *Permission_Set) String() string { return proto.CompactTextString(m) }
 func (*Permission_Set) ProtoMessage()    {}
 func (*Permission_Set) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_fd3c983d5bac499a, []int{2, 0}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{2, 0}
 }
 func (m *Permission_Set) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -651,7 +651,7 @@ func (m *Principal) Reset()         { *m = Principal{} }
 func (m *Principal) String() string { return proto.CompactTextString(m) }
 func (*Principal) ProtoMessage()    {}
 func (*Principal) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_fd3c983d5bac499a, []int{3}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{3}
 }
 func (m *Principal) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -687,28 +687,28 @@ type isPrincipal_Identifier interface {
 }
 
 type Principal_AndIds struct {
-	AndIds *Principal_Set `protobuf:"bytes,1,opt,name=and_ids,json=andIds,oneof"`
+	AndIds *Principal_Set `protobuf:"bytes,1,opt,name=and_ids,json=andIds,proto3,oneof"`
 }
 type Principal_OrIds struct {
-	OrIds *Principal_Set `protobuf:"bytes,2,opt,name=or_ids,json=orIds,oneof"`
+	OrIds *Principal_Set `protobuf:"bytes,2,opt,name=or_ids,json=orIds,proto3,oneof"`
 }
 type Principal_Any struct {
 	Any bool `protobuf:"varint,3,opt,name=any,proto3,oneof"`
 }
 type Principal_Authenticated_ struct {
-	Authenticated *Principal_Authenticated `protobuf:"bytes,4,opt,name=authenticated,oneof"`
+	Authenticated *Principal_Authenticated `protobuf:"bytes,4,opt,name=authenticated,proto3,oneof"`
 }
 type Principal_SourceIp struct {
-	SourceIp *core.CidrRange `protobuf:"bytes,5,opt,name=source_ip,json=sourceIp,oneof"`
+	SourceIp *core.CidrRange `protobuf:"bytes,5,opt,name=source_ip,json=sourceIp,proto3,oneof"`
 }
 type Principal_Header struct {
-	Header *route.HeaderMatcher `protobuf:"bytes,6,opt,name=header,oneof"`
+	Header *route.HeaderMatcher `protobuf:"bytes,6,opt,name=header,proto3,oneof"`
 }
 type Principal_Metadata struct {
-	Metadata *matcher.MetadataMatcher `protobuf:"bytes,7,opt,name=metadata,oneof"`
+	Metadata *matcher.MetadataMatcher `protobuf:"bytes,7,opt,name=metadata,proto3,oneof"`
 }
 type Principal_NotId struct {
-	NotId *Principal `protobuf:"bytes,8,opt,name=not_id,json=notId,oneof"`
+	NotId *Principal `protobuf:"bytes,8,opt,name=not_id,json=notId,proto3,oneof"`
 }
 
 func (*Principal_AndIds) isPrincipal_Identifier()         {}
@@ -973,7 +973,7 @@ func _Principal_OneofSizer(msg proto.Message) (n int) {
 // Used in the `and_ids` and `or_ids` fields in the `identifier` oneof. Depending on the context,
 // each are applied with the associated behavior.
 type Principal_Set struct {
-	Ids                  []*Principal `protobuf:"bytes,1,rep,name=ids" json:"ids,omitempty"`
+	Ids                  []*Principal `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -983,7 +983,7 @@ func (m *Principal_Set) Reset()         { *m = Principal_Set{} }
 func (m *Principal_Set) String() string { return proto.CompactTextString(m) }
 func (*Principal_Set) ProtoMessage()    {}
 func (*Principal_Set) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_fd3c983d5bac499a, []int{3, 0}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{3, 0}
 }
 func (m *Principal_Set) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1023,7 +1023,7 @@ func (m *Principal_Set) GetIds() []*Principal {
 type Principal_Authenticated struct {
 	// The name of the principal. If set, The URI SAN is used from the certificate, otherwise the
 	// subject field is used. If unset, it applies to any user that is authenticated.
-	PrincipalName        *matcher.StringMatcher `protobuf:"bytes,2,opt,name=principal_name,json=principalName" json:"principal_name,omitempty"`
+	PrincipalName        *matcher.StringMatcher `protobuf:"bytes,2,opt,name=principal_name,json=principalName,proto3" json:"principal_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -1033,7 +1033,7 @@ func (m *Principal_Authenticated) Reset()         { *m = Principal_Authenticated
 func (m *Principal_Authenticated) String() string { return proto.CompactTextString(m) }
 func (*Principal_Authenticated) ProtoMessage()    {}
 func (*Principal_Authenticated) Descriptor() ([]byte, []int) {
-	return fileDescriptor_rbac_fd3c983d5bac499a, []int{3, 1}
+	return fileDescriptor_rbac_6ea35024e7e60c07, []int{3, 1}
 }
 func (m *Principal_Authenticated) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1569,6 +1569,9 @@ func encodeVarintRbac(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *RBAC) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Action != 0 {
@@ -1594,6 +1597,9 @@ func (m *RBAC) Size() (n int) {
 }
 
 func (m *Policy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Permissions) > 0 {
@@ -1615,6 +1621,9 @@ func (m *Policy) Size() (n int) {
 }
 
 func (m *Permission) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Rule != nil {
@@ -1627,6 +1636,9 @@ func (m *Permission) Size() (n int) {
 }
 
 func (m *Permission_AndRules) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.AndRules != nil {
@@ -1636,6 +1648,9 @@ func (m *Permission_AndRules) Size() (n int) {
 	return n
 }
 func (m *Permission_OrRules) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.OrRules != nil {
@@ -1645,12 +1660,18 @@ func (m *Permission_OrRules) Size() (n int) {
 	return n
 }
 func (m *Permission_Any) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 2
 	return n
 }
 func (m *Permission_Header) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Header != nil {
@@ -1660,6 +1681,9 @@ func (m *Permission_Header) Size() (n int) {
 	return n
 }
 func (m *Permission_DestinationIp) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DestinationIp != nil {
@@ -1669,12 +1693,18 @@ func (m *Permission_DestinationIp) Size() (n int) {
 	return n
 }
 func (m *Permission_DestinationPort) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 1 + sovRbac(uint64(m.DestinationPort))
 	return n
 }
 func (m *Permission_Metadata) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Metadata != nil {
@@ -1684,6 +1714,9 @@ func (m *Permission_Metadata) Size() (n int) {
 	return n
 }
 func (m *Permission_NotRule) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.NotRule != nil {
@@ -1693,6 +1726,9 @@ func (m *Permission_NotRule) Size() (n int) {
 	return n
 }
 func (m *Permission_RequestedServerName) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RequestedServerName != nil {
@@ -1702,6 +1738,9 @@ func (m *Permission_RequestedServerName) Size() (n int) {
 	return n
 }
 func (m *Permission_Set) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Rules) > 0 {
@@ -1717,6 +1756,9 @@ func (m *Permission_Set) Size() (n int) {
 }
 
 func (m *Principal) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Identifier != nil {
@@ -1729,6 +1771,9 @@ func (m *Principal) Size() (n int) {
 }
 
 func (m *Principal_AndIds) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.AndIds != nil {
@@ -1738,6 +1783,9 @@ func (m *Principal_AndIds) Size() (n int) {
 	return n
 }
 func (m *Principal_OrIds) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.OrIds != nil {
@@ -1747,12 +1795,18 @@ func (m *Principal_OrIds) Size() (n int) {
 	return n
 }
 func (m *Principal_Any) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 2
 	return n
 }
 func (m *Principal_Authenticated_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Authenticated != nil {
@@ -1762,6 +1816,9 @@ func (m *Principal_Authenticated_) Size() (n int) {
 	return n
 }
 func (m *Principal_SourceIp) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.SourceIp != nil {
@@ -1771,6 +1828,9 @@ func (m *Principal_SourceIp) Size() (n int) {
 	return n
 }
 func (m *Principal_Header) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Header != nil {
@@ -1780,6 +1840,9 @@ func (m *Principal_Header) Size() (n int) {
 	return n
 }
 func (m *Principal_Metadata) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Metadata != nil {
@@ -1789,6 +1852,9 @@ func (m *Principal_Metadata) Size() (n int) {
 	return n
 }
 func (m *Principal_NotId) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.NotId != nil {
@@ -1798,6 +1864,9 @@ func (m *Principal_NotId) Size() (n int) {
 	return n
 }
 func (m *Principal_Set) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Ids) > 0 {
@@ -1813,6 +1882,9 @@ func (m *Principal_Set) Size() (n int) {
 }
 
 func (m *Principal_Authenticated) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.PrincipalName != nil {
@@ -3110,10 +3182,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptor_rbac_fd3c983d5bac499a)
+	proto.RegisterFile("envoy/config/rbac/v2alpha/rbac.proto", fileDescriptor_rbac_6ea35024e7e60c07)
 }
 
-var fileDescriptor_rbac_fd3c983d5bac499a = []byte{
+var fileDescriptor_rbac_6ea35024e7e60c07 = []byte{
 	// 847 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x55, 0x41, 0x8f, 0x1b, 0x35,
 	0x18, 0xcd, 0xcc, 0x64, 0x66, 0x27, 0xdf, 0x2a, 0x4b, 0xe4, 0xaa, 0x62, 0x88, 0xe8, 0x92, 0x86,

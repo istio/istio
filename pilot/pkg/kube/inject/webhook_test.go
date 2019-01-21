@@ -27,7 +27,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/onsi/gomega"
@@ -716,6 +716,10 @@ func TestHelmInject(t *testing.T) {
 			inputFile: "resource_annotations.yaml",
 			wantFile:  "resource_annotations.yaml.injected",
 		},
+		{
+			inputFile: "user-volume.yaml",
+			wantFile:  "user-volume.yaml.injected",
+		},
 	}
 
 	for ci, c := range cases {
@@ -801,7 +805,7 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) *Webhook {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate := string(loadConfigMapWithHelm(t))
+	sidecarTemplate := loadConfigMapWithHelm(t)
 	return createTestWebhook(sidecarTemplate)
 }
 
@@ -1021,13 +1025,6 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
 	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
 
-	// collect automatically injected pod labels so that they can
-	// be adjusted later.
-	envNames := map[string]bool{}
-	for k := range got.Spec.Template.ObjectMeta.Labels {
-		envNames["ISTIO_META_"+k] = true
-	}
-
 	envVars := make([]corev1.EnvVar, 0)
 	for _, env := range gotIstioProxy.Env {
 		if env.ValueFrom != nil {
@@ -1039,10 +1036,6 @@ func compareDeployments(got, want *extv1beta1.Deployment, name string, t *testin
 			if err := json.Unmarshal([]byte(env.Value), &mm); err != nil {
 				t.Fatalf("unable to unmarshal %s: %v", env.Value, err)
 			}
-			continue
-		}
-		// adjust for injected var names.
-		if _, found := envNames[env.Name]; found {
 			continue
 		}
 		envVars = append(envVars, env)

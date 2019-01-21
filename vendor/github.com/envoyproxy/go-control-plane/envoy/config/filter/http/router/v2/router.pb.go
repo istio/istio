@@ -25,7 +25,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type Router struct {
 	// Whether the router generates dynamic cluster statistics. Defaults to
 	// true. Can be disabled in high performance scenarios.
-	DynamicStats *types.BoolValue `protobuf:"bytes,1,opt,name=dynamic_stats,json=dynamicStats" json:"dynamic_stats,omitempty"`
+	DynamicStats *types.BoolValue `protobuf:"bytes,1,opt,name=dynamic_stats,json=dynamicStats,proto3" json:"dynamic_stats,omitempty"`
 	// Whether to start a child span for egress routed calls. This can be
 	// useful in scenarios where other filters (auth, ratelimit, etc.) make
 	// outbound calls and have child spans rooted at the same ingress
@@ -35,7 +35,7 @@ type Router struct {
 	// are configured in the same way as access logs, but each log entry represents
 	// an upstream request. Presuming retries are configured, multiple upstream
 	// requests may be made for each downstream (inbound) request.
-	UpstreamLog []*v2.AccessLog `protobuf:"bytes,3,rep,name=upstream_log,json=upstreamLog" json:"upstream_log,omitempty"`
+	UpstreamLog []*v2.AccessLog `protobuf:"bytes,3,rep,name=upstream_log,json=upstreamLog,proto3" json:"upstream_log,omitempty"`
 	// Do not add any additional *x-envoy-* headers to requests or responses. This
 	// only affects the :ref:`router filter generated *x-envoy-* headers
 	// <config_http_filters_router_headers_set>`, other Envoy filters and the HTTP
@@ -183,6 +183,9 @@ func encodeVarintRouter(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Router) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DynamicStats != nil {

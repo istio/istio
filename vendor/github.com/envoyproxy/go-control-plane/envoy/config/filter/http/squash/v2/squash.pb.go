@@ -51,15 +51,15 @@ type Squash struct {
 	//  }
 	//
 	// (where POD_NAME, POD_NAMESPACE are configured in the pod via the Downward API)
-	AttachmentTemplate *types.Struct `protobuf:"bytes,2,opt,name=attachment_template,json=attachmentTemplate" json:"attachment_template,omitempty"`
+	AttachmentTemplate *types.Struct `protobuf:"bytes,2,opt,name=attachment_template,json=attachmentTemplate,proto3" json:"attachment_template,omitempty"`
 	// The timeout for individual requests sent to the Squash cluster. Defaults to 1 second.
-	RequestTimeout *time.Duration `protobuf:"bytes,3,opt,name=request_timeout,json=requestTimeout,stdduration" json:"request_timeout,omitempty"`
+	RequestTimeout *time.Duration `protobuf:"bytes,3,opt,name=request_timeout,json=requestTimeout,proto3,stdduration" json:"request_timeout,omitempty"`
 	// The total timeout Squash will delay a request and wait for it to be attached. Defaults to 60
 	// seconds.
-	AttachmentTimeout *time.Duration `protobuf:"bytes,4,opt,name=attachment_timeout,json=attachmentTimeout,stdduration" json:"attachment_timeout,omitempty"`
+	AttachmentTimeout *time.Duration `protobuf:"bytes,4,opt,name=attachment_timeout,json=attachmentTimeout,proto3,stdduration" json:"attachment_timeout,omitempty"`
 	// Amount of time to poll for the status of the attachment object in the Squash server
 	// (to check if has been attached). Defaults to 1 second.
-	AttachmentPollPeriod *time.Duration `protobuf:"bytes,5,opt,name=attachment_poll_period,json=attachmentPollPeriod,stdduration" json:"attachment_poll_period,omitempty"`
+	AttachmentPollPeriod *time.Duration `protobuf:"bytes,5,opt,name=attachment_poll_period,json=attachmentPollPeriod,proto3,stdduration" json:"attachment_poll_period,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -213,6 +213,9 @@ func encodeVarintSquash(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Squash) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Cluster)

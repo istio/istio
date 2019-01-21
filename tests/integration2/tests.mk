@@ -7,9 +7,12 @@
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 _INTEGRATION_TEST_LOGGING_FLAG =
-_INTEGRATION_TEST_INGRESS_FLAG =
 ifneq ($(CI),)
     _INTEGRATION_TEST_LOGGING_FLAG = --log_output_level CI:info
+endif
+
+_INTEGRATION_TEST_INGRESS_FLAG =
+ifeq (${TEST_ENV},minikube)
     _INTEGRATION_TEST_INGRESS_FLAG = --istio.test.kube.minikubeingress
 endif
 
@@ -29,39 +32,47 @@ ifneq ($(KUBECONFIG),)
     INTEGRATION_TEST_KUBECONFIG = $(KUBECONFIG)
 endif
 
-# The names of the integration test folders at ROOT/tests/integration2/*.
-_INTEGRATION_TEST_NAMES = galley mixer citadel
-
-# Generate the names of the integration test targets that use local environment (i.e. test.integration.galley)
-_INTEGRATION_TESTS_LOCAL = $(addprefix test.integration., $(_INTEGRATION_TEST_NAMES))
-
-# Generate the names of the integration test targets that use kubernetes environment (i.e. test.integration.galley.kube)
-_INTEGRATION_TESTS_KUBE  = $(addsuffix .kube, $(addprefix test.integration., $(_INTEGRATION_TEST_NAMES)))
-
 # This is a useful debugging target for testing everything.
-.PHONY: test.integration.all
+#.PHONY: test.integration.all
 test.integration.all: test.integration test.integration.kube
 
-# All integration tests targeting local environment.
-.PHONY: test.integration
-test.integration: $(_INTEGRATION_TESTS_LOCAL)
-
-# All integration tests targeting Kubernetes environment.
-.PHONY: test.integration.kube
-test.integration.kube: $(_INTEGRATION_TESTS_KUBE)
-
-# Generate integration test targets for local environment.
-$(_INTEGRATION_TESTS_LOCAL): test.integration.%:
-	$(GO) test -p 1 ${T} ./tests/integration2/$*/... --istio.test.env local
-
 # Generate integration test targets for kubernetes environment.
-$(_INTEGRATION_TESTS_KUBE): test.integration.%.kube:
-	$(GO) test -p 1 ${T} ./tests/integration2/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} \
+test.integration.%.kube:
+	$(GO) test -p 1 ${T} ./tests/integration2/$*/... ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} -timeout 30m \
 	--istio.test.env kubernetes \
 	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
 	--istio.test.kube.deploy \
 	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
 	${_INTEGRATION_TEST_INGRESS_FLAG}
 
+# Generate integration test targets for local environment.
+test.integration.%:
+	$(GO) test -p 1 ${T} ./tests/integration2/$*/... --istio.test.env native
 
+JUNIT_UNIT_TEST_XML ?= $(ISTIO_OUT)/junit_unit-tests.xml
+JUNIT_REPORT = $(shell which go-junit-report 2> /dev/null || echo "${ISTIO_BIN}/go-junit-report")
+
+# TODO: Exclude examples and qualification since they are very flaky.
+TEST_PACKAGES = $(shell go list ./tests/integration2/... | grep -v /qualification | grep -v /examples)
+
+# All integration tests targeting local environment.
+.PHONY: test.integration.local
+test.integration.local: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} --istio.test.env native \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
+
+# All integration tests targeting Kubernetes environment.
+.PHONY: test.integration.kube
+test.integration.kube: | $(JUNIT_REPORT)
+	mkdir -p $(dir $(JUNIT_UNIT_TEST_XML))
+	set -o pipefail; \
+	$(GO) test -p 1 ${T} ${TEST_PACKAGES} ${_INTEGRATION_TEST_WORKDIR_FLAG} ${_INTEGRATION_TEST_LOGGING_FLAG} -timeout 30m \
+	--istio.test.env kubernetes \
+	--istio.test.kube.config ${INTEGRATION_TEST_KUBECONFIG} \
+	--istio.test.kube.deploy \
+	--istio.test.kube.helm.values global.hub=${HUB},global.tag=${TAG} \
+	${_INTEGRATION_TEST_INGRESS_FLAG} \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 

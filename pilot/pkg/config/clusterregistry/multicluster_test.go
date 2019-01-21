@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
@@ -87,7 +87,7 @@ func Test_KubeSecretController(t *testing.T) {
 
 	clientset := fake.NewSimpleClientset()
 
-	mc, err := NewMulticluster(clientset, testSecretNameSpace, WatchedNamespace, DomainSuffix, ResyncPeriod, mockserviceController, nil)
+	mc, err := NewMulticluster(clientset, testSecretNameSpace, WatchedNamespace, DomainSuffix, ResyncPeriod, mockserviceController, nil, nil)
 
 	if err != nil {
 		t.Fatalf("error creating Multicluster object and startign secret controller: %v", err)

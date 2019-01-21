@@ -30,7 +30,7 @@ type FaultAbort struct {
 	ErrorType isFaultAbort_ErrorType `protobuf_oneof:"error_type"`
 	// The percentage of requests/operations/connections that will be aborted with the error code
 	// provided.
-	Percentage           *_type.FractionalPercent `protobuf:"bytes,3,opt,name=percentage" json:"percentage,omitempty"`
+	Percentage           *_type.FractionalPercent `protobuf:"bytes,3,opt,name=percentage,proto3" json:"percentage,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -155,10 +155,10 @@ func _FaultAbort_OneofSizer(msg proto.Message) (n int) {
 type HTTPFault struct {
 	// If specified, the filter will inject delays based on the values in the
 	// object. At least *abort* or *delay* must be specified.
-	Delay *v2.FaultDelay `protobuf:"bytes,1,opt,name=delay" json:"delay,omitempty"`
+	Delay *v2.FaultDelay `protobuf:"bytes,1,opt,name=delay,proto3" json:"delay,omitempty"`
 	// If specified, the filter will abort requests based on the values in
 	// the object. At least *abort* or *delay* must be specified.
-	Abort *FaultAbort `protobuf:"bytes,2,opt,name=abort" json:"abort,omitempty"`
+	Abort *FaultAbort `protobuf:"bytes,2,opt,name=abort,proto3" json:"abort,omitempty"`
 	// Specifies the name of the (destination) upstream cluster that the
 	// filter should match on. Fault injection will be restricted to requests
 	// bound to the specific upstream cluster.
@@ -172,14 +172,14 @@ type HTTPFault struct {
 	// headers in the filter config. A match will happen if all the headers in the
 	// config are present in the request with the same values (or based on
 	// presence if the *value* field is not in the config).
-	Headers []*route.HeaderMatcher `protobuf:"bytes,4,rep,name=headers" json:"headers,omitempty"`
+	Headers []*route.HeaderMatcher `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty"`
 	// Faults are injected for the specified list of downstream hosts. If this
 	// setting is not set, faults are injected for all downstream nodes.
 	// Downstream node name is taken from :ref:`the HTTP
 	// x-envoy-downstream-service-node
 	// <config_http_conn_man_headers_downstream-service-node>` header and compared
 	// against downstream_nodes list.
-	DownstreamNodes      []string `protobuf:"bytes,5,rep,name=downstream_nodes,json=downstreamNodes" json:"downstream_nodes,omitempty"`
+	DownstreamNodes      []string `protobuf:"bytes,5,rep,name=downstream_nodes,json=downstreamNodes,proto3" json:"downstream_nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -386,6 +386,9 @@ func encodeVarintFault(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *FaultAbort) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ErrorType != nil {
@@ -402,12 +405,18 @@ func (m *FaultAbort) Size() (n int) {
 }
 
 func (m *FaultAbort_HttpStatus) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 1 + sovFault(uint64(m.HttpStatus))
 	return n
 }
 func (m *HTTPFault) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Delay != nil {

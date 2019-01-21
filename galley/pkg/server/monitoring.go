@@ -55,6 +55,8 @@ func StartSelfMonitoring(stop <-chan struct{}, port uint) {
 		}
 	})
 
+	version.Info.RecordComponentBuildTag("galley")
+
 	server := &http.Server{
 		Handler: mux,
 	}

@@ -69,9 +69,14 @@ func GetMutableBag(parent Bag) *MutableBag {
 
 // GetMutableBagForTesting returns a Mutable bag based on the specified map
 // Use this function only for testing purposes.
-func GetMutableBagForTesting(v map[string]interface{}) *MutableBag {
+func GetMutableBagForTesting(values map[string]interface{}) *MutableBag {
 	m := GetMutableBag(nil)
-	m.values = v
+	m.values = values
+	for k, v := range values {
+		if !CheckType(v) {
+			panic(fmt.Errorf("unexpected type for the testing bag %T: %q = %q", v, k, v))
+		}
+	}
 	return m
 }
 
@@ -103,12 +108,8 @@ func copyValue(v interface{}) interface{} {
 		copy(c, t)
 		return c
 
-	case map[string]string:
-		c := make(map[string]string, len(t))
-		for k2, v2 := range t {
-			c[k2] = v2
-		}
-		return c
+	case StringMap:
+		return t.copyValue()
 	}
 
 	return v
@@ -183,6 +184,15 @@ func (mb *MutableBag) Names() []string {
 
 // Set creates an override for a named attribute.
 func (mb *MutableBag) Set(name string, value interface{}) {
+	// prevent use of a bag that's in the pool
+	if mb.parent == nil {
+		panic(fmt.Errorf("attempt to use a bag after its Done method has been called"))
+	}
+
+	if !CheckType(value) {
+		panic(fmt.Errorf("invalid type %T for %q with value %v", value, name, value))
+	}
+
 	mb.values[name] = value
 }
 
@@ -218,7 +228,12 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 
 	for _, k := range keys {
 		index := ds.assignDictIndex(k)
-		v, _ := mb.Get(k) // if not found, nil return will be ignored by the switch below
+		v, found := mb.Get(k)
+
+		// nil can be []byte type, so we should handle not found without type switching
+		if !found {
+			continue
+		}
 
 		switch t := v.(type) {
 		case string:
@@ -269,9 +284,9 @@ func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict m
 			}
 			output.Bytes[index] = t
 
-		case map[string]string:
-			sm := make(map[int32]int32, len(t))
-			for smk, smv := range t {
+		case StringMap:
+			sm := make(map[int32]int32, len(t.entries))
+			for smk, smv := range t.entries {
 				sm[ds.assignDictIndex(smk)] = ds.assignDictIndex(smv)
 			}
 
@@ -417,7 +432,9 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 			sm[name2] = value2
 		}
 
-		if err := mb.insertProtoAttr(name, sm, seen, lg); err != nil {
+		v := StringMap{name: name, entries: sm}
+
+		if err := mb.insertProtoAttr(name, v, seen, lg); err != nil {
 			return err
 		}
 	}

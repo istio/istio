@@ -301,14 +301,14 @@ type TcpKeepalive struct {
 	// Maximum number of keepalive probes to send without response before deciding
 	// the connection is dead. Default is to use the OS level configuration (unless
 	// overridden, Linux defaults to 9.)
-	KeepaliveProbes *types.UInt32Value `protobuf:"bytes,1,opt,name=keepalive_probes,json=keepaliveProbes" json:"keepalive_probes,omitempty"`
+	KeepaliveProbes *types.UInt32Value `protobuf:"bytes,1,opt,name=keepalive_probes,json=keepaliveProbes,proto3" json:"keepalive_probes,omitempty"`
 	// The number of seconds a connection needs to be idle before keep-alive probes
 	// start being sent. Default is to use the OS level configuration (unless
 	// overridden, Linux defaults to 7200s (ie 2 hours.)
-	KeepaliveTime *types.UInt32Value `protobuf:"bytes,2,opt,name=keepalive_time,json=keepaliveTime" json:"keepalive_time,omitempty"`
+	KeepaliveTime *types.UInt32Value `protobuf:"bytes,2,opt,name=keepalive_time,json=keepaliveTime,proto3" json:"keepalive_time,omitempty"`
 	// The number of seconds between keep-alive probes. Default is to use the OS
 	// level configuration (unless overridden, Linux defaults to 75s.)
-	KeepaliveInterval    *types.UInt32Value `protobuf:"bytes,3,opt,name=keepalive_interval,json=keepaliveInterval" json:"keepalive_interval,omitempty"`
+	KeepaliveInterval    *types.UInt32Value `protobuf:"bytes,3,opt,name=keepalive_interval,json=keepaliveInterval,proto3" json:"keepalive_interval,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -370,7 +370,7 @@ func (m *TcpKeepalive) GetKeepaliveInterval() *types.UInt32Value {
 
 type BindConfig struct {
 	// The address to bind to when creating a socket.
-	SourceAddress SocketAddress `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress" json:"source_address"`
+	SourceAddress SocketAddress `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress,proto3" json:"source_address"`
 	// Whether to set the *IP_FREEBIND* option when creating the socket. When this
 	// flag is set to true, allows the :ref:`source_address
 	// <envoy_api_field_UpstreamBindConfig.source_address>` to be an IP address
@@ -378,10 +378,10 @@ type BindConfig struct {
 	// to false, the option *IP_FREEBIND* is disabled on the socket. When this
 	// flag is not set (default), the socket is not modified, i.e. the option is
 	// neither enabled nor disabled.
-	Freebind *types.BoolValue `protobuf:"bytes,2,opt,name=freebind" json:"freebind,omitempty"`
+	Freebind *types.BoolValue `protobuf:"bytes,2,opt,name=freebind,proto3" json:"freebind,omitempty"`
 	// Additional socket options that may not be present in Envoy source code or
 	// precompiled binaries.
-	SocketOptions        []*SocketOption `protobuf:"bytes,3,rep,name=socket_options,json=socketOptions" json:"socket_options,omitempty"`
+	SocketOptions        []*SocketOption `protobuf:"bytes,3,rep,name=socket_options,json=socketOptions,proto3" json:"socket_options,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -495,10 +495,10 @@ type isAddress_Address interface {
 }
 
 type Address_SocketAddress struct {
-	SocketAddress *SocketAddress `protobuf:"bytes,1,opt,name=socket_address,json=socketAddress,oneof"`
+	SocketAddress *SocketAddress `protobuf:"bytes,1,opt,name=socket_address,json=socketAddress,proto3,oneof"`
 }
 type Address_Pipe struct {
-	Pipe *Pipe `protobuf:"bytes,2,opt,name=pipe,oneof"`
+	Pipe *Pipe `protobuf:"bytes,2,opt,name=pipe,proto3,oneof"`
 }
 
 func (*Address_SocketAddress) isAddress_Address() {}
@@ -605,7 +605,7 @@ type CidrRange struct {
 	// IPv4 or IPv6 address, e.g. ``192.0.0.0`` or ``2001:db8::``.
 	AddressPrefix string `protobuf:"bytes,1,opt,name=address_prefix,json=addressPrefix,proto3" json:"address_prefix,omitempty"`
 	// Length of prefix, e.g. 0, 32.
-	PrefixLen            *types.UInt32Value `protobuf:"bytes,2,opt,name=prefix_len,json=prefixLen" json:"prefix_len,omitempty"`
+	PrefixLen            *types.UInt32Value `protobuf:"bytes,2,opt,name=prefix_len,json=prefixLen,proto3" json:"prefix_len,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -1271,6 +1271,9 @@ func encodeVarintAddress(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Pipe) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Path)
@@ -1284,6 +1287,9 @@ func (m *Pipe) Size() (n int) {
 }
 
 func (m *SocketAddress) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Protocol != 0 {
@@ -1310,12 +1316,18 @@ func (m *SocketAddress) Size() (n int) {
 }
 
 func (m *SocketAddress_PortValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 1 + sovAddress(uint64(m.PortValue))
 	return n
 }
 func (m *SocketAddress_NamedPort) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.NamedPort)
@@ -1323,6 +1335,9 @@ func (m *SocketAddress_NamedPort) Size() (n int) {
 	return n
 }
 func (m *TcpKeepalive) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.KeepaliveProbes != nil {
@@ -1344,6 +1359,9 @@ func (m *TcpKeepalive) Size() (n int) {
 }
 
 func (m *BindConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = m.SourceAddress.Size()
@@ -1365,6 +1383,9 @@ func (m *BindConfig) Size() (n int) {
 }
 
 func (m *Address) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Address != nil {
@@ -1377,6 +1398,9 @@ func (m *Address) Size() (n int) {
 }
 
 func (m *Address_SocketAddress) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.SocketAddress != nil {
@@ -1386,6 +1410,9 @@ func (m *Address_SocketAddress) Size() (n int) {
 	return n
 }
 func (m *Address_Pipe) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Pipe != nil {
@@ -1395,6 +1422,9 @@ func (m *Address_Pipe) Size() (n int) {
 	return n
 }
 func (m *CidrRange) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.AddressPrefix)

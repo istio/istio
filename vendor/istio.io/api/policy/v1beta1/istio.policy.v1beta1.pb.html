@@ -4,7 +4,7 @@ description: Describes the rules used to configure Mixer's policy and telemetry 
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 18
+number_of_entries: 23
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -188,6 +188,41 @@ encoding scheme will be decided later.</p>
 </tbody>
 </table>
 </section>
+<h2 id="Authentication">Authentication</h2>
+<section>
+<p>Authentication allows the operator to specify the authentication of
+connections to out-of-process infrastructure backend.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Authentication-tls" class="oneof oneof-start">
+<td><code>tls</code></td>
+<td><code><a href="#Tls">Tls (oneof)</a></code></td>
+<td>
+<p>Originate a TLS connection to the adapter and present an auth token
+in each call for client authentication.</p>
+
+</td>
+</tr>
+<tr id="Authentication-mutual" class="oneof">
+<td><code>mutual</code></td>
+<td><code><a href="#Mutual">Mutual (oneof)</a></code></td>
+<td>
+<p>Secure connections to the adapter using mutual TLS by presenting
+client certificates for authentication.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Connection">Connection</h2>
 <section>
 <p>Connection allows the operator to specify the endpoint for out-of-process infrastructure backend.
@@ -215,6 +250,15 @@ Connection is part of the handler custom resource and is specified alongside ada
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Timeout for remote calls to the backend.</p>
+
+</td>
+</tr>
+<tr id="Connection-authentication">
+<td><code>authentication</code></td>
+<td><code><a href="#Authentication">Authentication</a></code></td>
+<td>
+<p>Auth config for the connection to the backend. If omitted, plain text will
+be used.</p>
 
 </td>
 </tr>
@@ -577,6 +621,108 @@ attribute_bindings:
 </tbody>
 </table>
 </section>
+<h2 id="Mutual">Mutual</h2>
+<section>
+<p>Mutual let operator specify tls config for mixer as client if mtls is used to
+secure connection to adapter backend.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Mutual-private_key">
+<td><code>privateKey</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to the file holding the private key for mtls. If omitted, the
+default mixer private key will be used.</p>
+
+</td>
+</tr>
+<tr id="Mutual-client_certificate">
+<td><code>clientCertificate</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to the file holding client certificate for mtls. If omitted, the
+default mixer certificates will be used.</p>
+
+</td>
+</tr>
+<tr id="Mutual-ca_certificates">
+<td><code>caCertificates</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to the file holding additional CA certificates that are needed to
+verify the presented adapter certificates. By default mixer should already
+include Istio CA certificates and system certificates in cert pool.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="OAuth">OAuth</h2>
+<section>
+<p>OAuth let operator specify config to fetch access token via oauth when using
+TLS for connection to the backend.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="OAuth-client_id">
+<td><code>clientId</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. OAuth client id for mixer.</p>
+
+</td>
+</tr>
+<tr id="OAuth-client_secret">
+<td><code>clientSecret</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. The path to the file holding the client secret for oauth.</p>
+
+</td>
+</tr>
+<tr id="OAuth-token_url">
+<td><code>tokenUrl</code></td>
+<td><code>string</code></td>
+<td>
+<p>REQUIRED. The Resource server&rsquo;s token endpoint URL.</p>
+
+</td>
+</tr>
+<tr id="OAuth-scopes">
+<td><code>scopes</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>List of requested permissions.</p>
+
+</td>
+</tr>
+<tr id="OAuth-endpoint_params">
+<td><code>endpointParams</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Additional parameters for requests to the token endpoint.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Rule">Rule</h2>
 <section>
 <p>A Rule is a selector and a set of intentions to be executed when the
@@ -633,7 +779,7 @@ name starts with &ldquo;ratings&rdquo;</li>
 <td><code>requestHeaderOperations</code></td>
 <td><code><a href="#Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate[]</a></code></td>
 <td>
-<p>Optional. Templatized operations on the request headers using attributes produced by the
+<p>Optional. Templatized operations on the request headers using values produced by the
 rule actions.</p>
 
 </td>
@@ -642,7 +788,7 @@ rule actions.</p>
 <td><code>responseHeaderOperations</code></td>
 <td><code><a href="#Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate[]</a></code></td>
 <td>
-<p>Optional. Templatized operations on the response headers using attributes produced by the
+<p>Optional. Templatized operations on the response headers using values produced by the
 rule actions.</p>
 
 </td>
@@ -652,7 +798,20 @@ rule actions.</p>
 </section>
 <h2 id="Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate</h2>
 <section>
-<p>A template for an HTTP header manipulation.</p>
+<p>A template for an HTTP header manipulation. Values in the template are expressions
+that may reference action outputs by name. For example, if an action <code>x</code> produces an output
+with a field <code>f</code>, then the header value expressions may use attribute <code>x.output.f</code> to reference
+the field value:</p>
+
+<pre><code class="language-yaml">request_header_operations:
+- name: x-istio-header
+  values:
+  - x.output.f
+</code></pre>
+
+<p>If the header value expression evaluates to an empty string, and the operation is to either replace
+or append a header, then the operation is not applied. This permits conditional behavior on behalf of the
+adapter to optionally modify the headers.</p>
 
 <table class="message-fields">
 <thead>
@@ -667,7 +826,7 @@ rule actions.</p>
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>Required. Header name.</p>
+<p>Required. Header name literal value.</p>
 
 </td>
 </tr>
@@ -675,7 +834,7 @@ rule actions.</p>
 <td><code>values</code></td>
 <td><code>string[]</code></td>
 <td>
-<p>Optional. Header values to replace or append.</p>
+<p>Optional. Header value expressions.</p>
 
 </td>
 </tr>
@@ -705,21 +864,21 @@ rule actions.</p>
 <tr id="Rule-HeaderOperationTemplate-Operation-REPLACE">
 <td><code>REPLACE</code></td>
 <td>
-<p>replaces the header with the given name</p>
+<p>Replace a header by name.</p>
 
 </td>
 </tr>
 <tr id="Rule-HeaderOperationTemplate-Operation-REMOVE">
 <td><code>REMOVE</code></td>
 <td>
-<p>removes the header with the given name (the value is ignored)</p>
+<p>Remove a header by name. Values are ignored.</p>
 
 </td>
 </tr>
 <tr id="Rule-HeaderOperationTemplate-Operation-APPEND">
 <td><code>APPEND</code></td>
 <td>
-<p>appends the values to the existing values (preserving existing values)</p>
+<p>Append values to the existing header values.</p>
 
 </td>
 </tr>
@@ -748,6 +907,97 @@ type TimeStamp</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#timestamp">google.protobuf.Timestamp</a></code></td>
 <td>
 <p>TimeStamp encoded as google.protobuf.Timestamp.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tls">Tls</h2>
+<section>
+<p>Tls let operator specify client authentication setting when TLS is used for
+connection to the backend.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tls-ca_certificates">
+<td><code>caCertificates</code></td>
+<td><code>string</code></td>
+<td>
+<p>The path to the file holding additional CA certificates to well known
+public certs.</p>
+
+</td>
+</tr>
+<tr id="Tls-token_path" class="oneof oneof-start">
+<td><code>tokenPath</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>The path to the file holding the auth token (password, jwt token, api
+key, etc).</p>
+
+</td>
+</tr>
+<tr id="Tls-oauth" class="oneof">
+<td><code>oauth</code></td>
+<td><code><a href="#OAuth">OAuth (oneof)</a></code></td>
+<td>
+<p>Oauth config to fetch access token from auth provider.</p>
+
+</td>
+</tr>
+<tr id="Tls-auth_header" class="oneof oneof-start">
+<td><code>authHeader</code></td>
+<td><code><a href="#Tls-AuthHeader">Tls.AuthHeader (oneof)</a></code></td>
+<td>
+<p>Access token is passed as authorization header.</p>
+
+</td>
+</tr>
+<tr id="Tls-custom_header" class="oneof">
+<td><code>customHeader</code></td>
+<td><code>string (oneof)</code></td>
+<td>
+<p>Customized header key to hold access token, e.g. x-api-key. Token will be
+passed as what it is.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="Tls-AuthHeader">Tls.AuthHeader</h2>
+<section>
+<p>AuthHeader specifies how to pass access token with authorization header.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Tls-AuthHeader-PLAIN">
+<td><code>PLAIN</code></td>
+<td>
+<p>Access token is passed in authorization header as what it is
+(authorization: some-token).</p>
+
+</td>
+</tr>
+<tr id="Tls-AuthHeader-BEARER">
+<td><code>BEARER</code></td>
+<td>
+<p>Access token is passed to adapter as bearer token (i.e. authorization:
+bearer some-token).</p>
 
 </td>
 </tr>

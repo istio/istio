@@ -32,18 +32,18 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type HealthCheck struct {
 	// Specifies whether the filter operates in pass through mode or not.
-	PassThroughMode *types.BoolValue `protobuf:"bytes,1,opt,name=pass_through_mode,json=passThroughMode" json:"pass_through_mode,omitempty"`
+	PassThroughMode *types.BoolValue `protobuf:"bytes,1,opt,name=pass_through_mode,json=passThroughMode,proto3" json:"pass_through_mode,omitempty"`
 	// If operating in pass through mode, the amount of time in milliseconds
 	// that the filter should cache the upstream response.
-	CacheTime *time.Duration `protobuf:"bytes,3,opt,name=cache_time,json=cacheTime,stdduration" json:"cache_time,omitempty"`
+	CacheTime *time.Duration `protobuf:"bytes,3,opt,name=cache_time,json=cacheTime,proto3,stdduration" json:"cache_time,omitempty"`
 	// If operating in non-pass-through mode, specifies a set of upstream cluster
 	// names and the minimum percentage of servers in each of those clusters that
 	// must be healthy in order for the filter to return a 200.
-	ClusterMinHealthyPercentages map[string]*_type.Percent `protobuf:"bytes,4,rep,name=cluster_min_healthy_percentages,json=clusterMinHealthyPercentages" json:"cluster_min_healthy_percentages,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	ClusterMinHealthyPercentages map[string]*_type.Percent `protobuf:"bytes,4,rep,name=cluster_min_healthy_percentages,json=clusterMinHealthyPercentages,proto3" json:"cluster_min_healthy_percentages,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Specifies a set of health check request headers to match on. The health check filter will
 	// check a request’s headers against all the specified headers. To specify the health check
 	// endpoint, set the ``:path`` header to match on.
-	Headers              []*route.HeaderMatcher `protobuf:"bytes,5,rep,name=headers" json:"headers,omitempty"`
+	Headers              []*route.HeaderMatcher `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -205,6 +205,9 @@ func encodeVarintHealthCheck(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *HealthCheck) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.PassThroughMode != nil {

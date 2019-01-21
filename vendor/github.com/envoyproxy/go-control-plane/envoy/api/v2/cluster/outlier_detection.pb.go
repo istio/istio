@@ -30,37 +30,37 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type OutlierDetection struct {
 	// The number of consecutive 5xx responses before a consecutive 5xx ejection
 	// occurs. Defaults to 5.
-	Consecutive_5Xx *types.UInt32Value `protobuf:"bytes,1,opt,name=consecutive_5xx,json=consecutive5xx" json:"consecutive_5xx,omitempty"`
+	Consecutive_5Xx *types.UInt32Value `protobuf:"bytes,1,opt,name=consecutive_5xx,json=consecutive5xx,proto3" json:"consecutive_5xx,omitempty"`
 	// The time interval between ejection analysis sweeps. This can result in
 	// both new ejections as well as hosts being returned to service. Defaults
 	// to 10000ms or 10s.
-	Interval *types.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval *types.Duration `protobuf:"bytes,2,opt,name=interval,proto3" json:"interval,omitempty"`
 	// The base time that a host is ejected for. The real time is equal to the
 	// base time multiplied by the number of times the host has been ejected.
 	// Defaults to 30000ms or 30s.
-	BaseEjectionTime *types.Duration `protobuf:"bytes,3,opt,name=base_ejection_time,json=baseEjectionTime" json:"base_ejection_time,omitempty"`
+	BaseEjectionTime *types.Duration `protobuf:"bytes,3,opt,name=base_ejection_time,json=baseEjectionTime,proto3" json:"base_ejection_time,omitempty"`
 	// The maximum % of an upstream cluster that can be ejected due to outlier
 	// detection. Defaults to 10% but will eject at least one host regardless of the value.
-	MaxEjectionPercent *types.UInt32Value `protobuf:"bytes,4,opt,name=max_ejection_percent,json=maxEjectionPercent" json:"max_ejection_percent,omitempty"`
+	MaxEjectionPercent *types.UInt32Value `protobuf:"bytes,4,opt,name=max_ejection_percent,json=maxEjectionPercent,proto3" json:"max_ejection_percent,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through consecutive 5xx. This setting can be used to disable
 	// ejection or to ramp it up slowly. Defaults to 100.
-	EnforcingConsecutive_5Xx *types.UInt32Value `protobuf:"bytes,5,opt,name=enforcing_consecutive_5xx,json=enforcingConsecutive5xx" json:"enforcing_consecutive_5xx,omitempty"`
+	EnforcingConsecutive_5Xx *types.UInt32Value `protobuf:"bytes,5,opt,name=enforcing_consecutive_5xx,json=enforcingConsecutive5xx,proto3" json:"enforcing_consecutive_5xx,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through success rate statistics. This setting can be used to
 	// disable ejection or to ramp it up slowly. Defaults to 100.
-	EnforcingSuccessRate *types.UInt32Value `protobuf:"bytes,6,opt,name=enforcing_success_rate,json=enforcingSuccessRate" json:"enforcing_success_rate,omitempty"`
+	EnforcingSuccessRate *types.UInt32Value `protobuf:"bytes,6,opt,name=enforcing_success_rate,json=enforcingSuccessRate,proto3" json:"enforcing_success_rate,omitempty"`
 	// The number of hosts in a cluster that must have enough request volume to
 	// detect success rate outliers. If the number of hosts is less than this
 	// setting, outlier detection via success rate statistics is not performed
 	// for any host in the cluster. Defaults to 5.
-	SuccessRateMinimumHosts *types.UInt32Value `protobuf:"bytes,7,opt,name=success_rate_minimum_hosts,json=successRateMinimumHosts" json:"success_rate_minimum_hosts,omitempty"`
+	SuccessRateMinimumHosts *types.UInt32Value `protobuf:"bytes,7,opt,name=success_rate_minimum_hosts,json=successRateMinimumHosts,proto3" json:"success_rate_minimum_hosts,omitempty"`
 	// The minimum number of total requests that must be collected in one
 	// interval (as defined by the interval duration above) to include this host
 	// in success rate based outlier detection. If the volume is lower than this
 	// setting, outlier detection via success rate statistics is not performed
 	// for that host. Defaults to 100.
-	SuccessRateRequestVolume *types.UInt32Value `protobuf:"bytes,8,opt,name=success_rate_request_volume,json=successRateRequestVolume" json:"success_rate_request_volume,omitempty"`
+	SuccessRateRequestVolume *types.UInt32Value `protobuf:"bytes,8,opt,name=success_rate_request_volume,json=successRateRequestVolume,proto3" json:"success_rate_request_volume,omitempty"`
 	// This factor is used to determine the ejection threshold for success rate
 	// outlier ejection. The ejection threshold is the difference between the
 	// mean success rate, and the product of this factor and the standard
@@ -68,15 +68,15 @@ type OutlierDetection struct {
 	// success_rate_stdev_factor). This factor is divided by a thousand to get a
 	// double. That is, if the desired factor is 1.9, the runtime value should
 	// be 1900. Defaults to 1900.
-	SuccessRateStdevFactor *types.UInt32Value `protobuf:"bytes,9,opt,name=success_rate_stdev_factor,json=successRateStdevFactor" json:"success_rate_stdev_factor,omitempty"`
+	SuccessRateStdevFactor *types.UInt32Value `protobuf:"bytes,9,opt,name=success_rate_stdev_factor,json=successRateStdevFactor,proto3" json:"success_rate_stdev_factor,omitempty"`
 	// The number of consecutive gateway failures (502, 503, 504 status or
 	// connection errors that are mapped to one of those status codes) before a
 	// consecutive gateway failure ejection occurs. Defaults to 5.
-	ConsecutiveGatewayFailure *types.UInt32Value `protobuf:"bytes,10,opt,name=consecutive_gateway_failure,json=consecutiveGatewayFailure" json:"consecutive_gateway_failure,omitempty"`
+	ConsecutiveGatewayFailure *types.UInt32Value `protobuf:"bytes,10,opt,name=consecutive_gateway_failure,json=consecutiveGatewayFailure,proto3" json:"consecutive_gateway_failure,omitempty"`
 	// The % chance that a host will be actually ejected when an outlier status
 	// is detected through consecutive gateway failures. This setting can be
 	// used to disable ejection or to ramp it up slowly. Defaults to 0.
-	EnforcingConsecutiveGatewayFailure *types.UInt32Value `protobuf:"bytes,11,opt,name=enforcing_consecutive_gateway_failure,json=enforcingConsecutiveGatewayFailure" json:"enforcing_consecutive_gateway_failure,omitempty"`
+	EnforcingConsecutiveGatewayFailure *types.UInt32Value `protobuf:"bytes,11,opt,name=enforcing_consecutive_gateway_failure,json=enforcingConsecutiveGatewayFailure,proto3" json:"enforcing_consecutive_gateway_failure,omitempty"`
 	XXX_NoUnkeyedLiteral               struct{}           `json:"-"`
 	XXX_unrecognized                   []byte             `json:"-"`
 	XXX_sizecache                      int32              `json:"-"`
@@ -393,6 +393,9 @@ func encodeVarintOutlierDetection(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *OutlierDetection) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Consecutive_5Xx != nil {

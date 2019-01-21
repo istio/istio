@@ -121,7 +121,7 @@ type Capture struct {
 	//	*Capture_FileSink
 	SinkSelector isCapture_SinkSelector `protobuf_oneof:"sink_selector"`
 	// The underlying transport socket being wrapped.
-	TransportSocket      *core.TransportSocket `protobuf:"bytes,2,opt,name=transport_socket,json=transportSocket" json:"transport_socket,omitempty"`
+	TransportSocket      *core.TransportSocket `protobuf:"bytes,2,opt,name=transport_socket,json=transportSocket,proto3" json:"transport_socket,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -167,7 +167,7 @@ type isCapture_SinkSelector interface {
 }
 
 type Capture_FileSink struct {
-	FileSink *FileSink `protobuf:"bytes,1,opt,name=file_sink,json=fileSink,oneof"`
+	FileSink *FileSink `protobuf:"bytes,1,opt,name=file_sink,json=fileSink,proto3,oneof"`
 }
 
 func (*Capture_FileSink) isCapture_SinkSelector() {}
@@ -347,6 +347,9 @@ func encodeVarintCapture(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *FileSink) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.PathPrefix)
@@ -363,6 +366,9 @@ func (m *FileSink) Size() (n int) {
 }
 
 func (m *Capture) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.SinkSelector != nil {
@@ -379,6 +385,9 @@ func (m *Capture) Size() (n int) {
 }
 
 func (m *Capture_FileSink) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.FileSink != nil {

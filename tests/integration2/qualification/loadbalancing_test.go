@@ -22,16 +22,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test/framework/environment"
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/ids"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
+	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 )
 
 const (
@@ -41,26 +43,35 @@ const (
 	threshold    = 0.5
 )
 
-// NOTE: To avoid noise due to autoscaling, set the following flags to the same value (>1):
-// --istio.test.kube.ingressGateway.replicaCount
-// --istio.test.kube.ingressGateway.autoscaleMin
-// --istio.test.kube.ingressGateway.autoscaleMax
+// NOTE: To avoid noise due to autoscaling, set the following helm values to the same value (>1):
+//
+// --istio.test.env=kubernetes
+// --istio.test.kube.helm.values=gateways.istio-ingressgateway.replicaCount=3,\
+//                               gateways.istio-ingressgateway.autoscaleMin=3,\
+//                               gateways.istio-ingressgateway.autoscaleMax=3
+//
+// To run against an existing deployment, set:
+// --istio.test.kube.deploy=false
+//
+// To use a particular kubeconfig (other than ~/.kube/config), set:
+// --istio.test.kube.config=<path>
 func TestIngressLoadBalancing(t *testing.T) {
-	framework.Requires(t, dependency.Mixer, dependency.Kubernetes, dependency.Prometheus, dependency.BookInfo, dependency.Ingress)
+	ctx := framework.GetContext(t)
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Mixer, &ids.Prometheus, &ids.BookInfo, &ids.Ingress)
 
-	env := framework.AcquireEnvironment(t)
-
-	env.DeployBookInfoOrFail(t)
-
-	env.Configure(t,
+	env := kube.GetEnvironmentOrFail(ctx, t)
+	str, err := env.ApplyContents(env.TestNamespace(),
 		test.JoinConfigs(
 			bookinfo.NetworkingBookinfoGateway.LoadOrFail(t),
 			bookinfo.NetworkingDestinationRuleAll.LoadOrFail(t),
 			bookinfo.NetworkingVirtualServiceAllV1.LoadOrFail(t),
 		))
+	if err != nil {
+		t.Fatalf("%s: %v", str, err)
+	}
 
-	prometheus := env.GetPrometheusOrFail(t)
-	ingress := env.GetIngressOrFail(t)
+	prometheus := components.GetPrometheus(ctx, t)
+	ingress := components.GetIngress(ctx, t)
 
 	rangeStart := time.Now()
 
@@ -147,7 +158,7 @@ func getCPUSamples(v model.Value, t *testing.T) []float64 {
 	return totals
 }
 
-func sendTraffic(duration time.Duration, ingress environment.DeployedIngress, wg *sync.WaitGroup) {
+func sendTraffic(duration time.Duration, ingress components.Ingress, wg *sync.WaitGroup) {
 	timeout := time.After(duration)
 	for {
 		select {

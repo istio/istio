@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -116,6 +116,7 @@ func (pc *PodCache) event(obj interface{}, ev model.Event) error {
 	return nil
 }
 
+// nolint: unparam
 func (pc *PodCache) getPodKey(addr string) (string, bool) {
 	pc.RLock()
 	defer pc.RUnlock()
@@ -124,25 +125,25 @@ func (pc *PodCache) getPodKey(addr string) (string, bool) {
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
-func (pc *PodCache) getPodByIP(addr string) (*v1.Pod, bool) {
+func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 	pc.RLock()
 	defer pc.RUnlock()
 
 	key, exists := pc.keys[addr]
 	if !exists {
-		return nil, false
+		return nil
 	}
 	item, exists, err := pc.informer.GetStore().GetByKey(key)
 	if !exists || err != nil {
-		return nil, false
+		return nil
 	}
-	return item.(*v1.Pod), true
+	return item.(*v1.Pod)
 }
 
 // labelsByIP returns pod labels or nil if pod not found or an error occurred
 func (pc *PodCache) labelsByIP(addr string) (model.Labels, bool) {
-	pod, exists := pc.getPodByIP(addr)
-	if !exists {
+	pod := pc.getPodByIP(addr)
+	if pod == nil {
 		return nil, false
 	}
 	return convertLabels(pod.ObjectMeta), true

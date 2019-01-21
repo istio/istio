@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -152,8 +152,8 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 							"mixer": mxServiceConfig,
 						}}}}}}},
 		HttpFilters: []*hcm.HttpFilter{{
-			Name:   "mixer",
-			Config: mxConf,
+			Name:       "mixer",
+			ConfigType: &hcm.HttpFilter_Config{mxConf},
 		}, {
 			Name: util.Router,
 		}},
@@ -171,8 +171,8 @@ func makeListener(s *env.TestSetup, key string) *v2.Listener {
 			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(s.Ports().ServerProxyPort)}}}},
 		FilterChains: []listener.FilterChain{{
 			Filters: []listener.Filter{{
-				Name:   util.HTTPConnectionManager,
-				Config: pbst,
+				Name:       util.HTTPConnectionManager,
+				ConfigType: &listener.Filter_Config{pbst},
 			}},
 		}},
 	}

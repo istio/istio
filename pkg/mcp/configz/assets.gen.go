@@ -94,11 +94,11 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
         <table>
             <thead>
             <tr>
-                <th>Suported Type URLs</th>
+                <th>Suported Collections</th>
             </tr>
             </thead>
             <tbody>
-            {{ range $value := .SupportedTypeURLs }}
+            {{ range $value := .Collections }}
             <tr>
                 <td>{{$value}}</td>
             {{end}}
@@ -114,8 +114,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
             </tr>
             <tr>
                 <th>Time</th>
-                <th>Type</th>
-                <th>Version</th>
+                <th>Collection</th>
                 <th>Acked</th>
                 <th>Nonce</th>
             </tr>
@@ -125,8 +124,7 @@ var _assetsTemplatesConfigHtml = []byte(`{{ define "content" }}
         {{ range $entry := .LatestRequests }}
             <tr>
                 <td>{{$entry.Time.Format "2006-01-02T15:04:05Z07:00"}}</td>
-                <td>{{$entry.Request.TypeUrl}}</td>
-                <td>{{$entry.Request.VersionInfo}}</td>
+                <td>{{$entry.Request.Collection}}</td>
                 <td>{{$entry.Acked}}</td>
                 <td>{{$entry.Request.ResponseNonce}}</td>
             </tr>

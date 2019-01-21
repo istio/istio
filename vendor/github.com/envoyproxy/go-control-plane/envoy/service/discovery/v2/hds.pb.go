@@ -11,8 +11,10 @@ import endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 import _ "github.com/gogo/googleapis/google/api"
 import types "github.com/gogo/protobuf/types"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -58,7 +60,7 @@ func (Capability_Protocol) EnumDescriptor() ([]byte, []int) {
 // Defines supported protocols etc, so the management server can assign proper
 // endpoints to healthcheck.
 type Capability struct {
-	HealthCheckProtocols []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocols,json=healthCheckProtocols,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocols,omitempty"`
+	HealthCheckProtocols []Capability_Protocol `protobuf:"varint,1,rep,packed,name=health_check_protocols,json=healthCheckProtocols,proto3,enum=envoy.service.discovery.v2.Capability_Protocol" json:"health_check_protocols,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -105,8 +107,8 @@ func (m *Capability) GetHealthCheckProtocols() []Capability_Protocol {
 }
 
 type HealthCheckRequest struct {
-	Node                 *core.Node  `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
-	Capability           *Capability `protobuf:"bytes,2,opt,name=capability" json:"capability,omitempty"`
+	Node                 *core.Node  `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Capability           *Capability `protobuf:"bytes,2,opt,name=capability,proto3" json:"capability,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -160,7 +162,7 @@ func (m *HealthCheckRequest) GetCapability() *Capability {
 }
 
 type EndpointHealth struct {
-	Endpoint             *endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint" json:"endpoint,omitempty"`
+	Endpoint             *endpoint.Endpoint `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
 	HealthStatus         core.HealthStatus  `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
@@ -215,7 +217,7 @@ func (m *EndpointHealth) GetHealthStatus() core.HealthStatus {
 }
 
 type EndpointHealthResponse struct {
-	EndpointsHealth      []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth" json:"endpoints_health,omitempty"`
+	EndpointsHealth      []*EndpointHealth `protobuf:"bytes,1,rep,name=endpoints_health,json=endpointsHealth,proto3" json:"endpoints_health,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -315,10 +317,10 @@ type isHealthCheckRequestOrEndpointHealthResponse_RequestType interface {
 }
 
 type HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest struct {
-	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,oneof"`
+	HealthCheckRequest *HealthCheckRequest `protobuf:"bytes,1,opt,name=health_check_request,json=healthCheckRequest,proto3,oneof"`
 }
 type HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse struct {
-	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,oneof"`
+	EndpointHealthResponse *EndpointHealthResponse `protobuf:"bytes,2,opt,name=endpoint_health_response,json=endpointHealthResponse,proto3,oneof"`
 }
 
 func (*HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest) isHealthCheckRequestOrEndpointHealthResponse_RequestType() {
@@ -422,8 +424,8 @@ func _HealthCheckRequestOrEndpointHealthResponse_OneofSizer(msg proto.Message) (
 }
 
 type LocalityEndpoints struct {
-	Locality             *core.Locality       `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
-	Endpoints            []*endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints" json:"endpoints,omitempty"`
+	Locality             *core.Locality       `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
+	Endpoints            []*endpoint.Endpoint `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -482,8 +484,8 @@ func (m *LocalityEndpoints) GetEndpoints() []*endpoint.Endpoint {
 // same cluster structure as that provided by EDS.
 type ClusterHealthCheck struct {
 	ClusterName          string               `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	HealthChecks         []*core.HealthCheck  `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks" json:"health_checks,omitempty"`
-	LocalityEndpoints    []*LocalityEndpoints `protobuf:"bytes,3,rep,name=locality_endpoints,json=localityEndpoints" json:"locality_endpoints,omitempty"`
+	HealthChecks         []*core.HealthCheck  `protobuf:"bytes,2,rep,name=health_checks,json=healthChecks,proto3" json:"health_checks,omitempty"`
+	LocalityEndpoints    []*LocalityEndpoints `protobuf:"bytes,3,rep,name=locality_endpoints,json=localityEndpoints,proto3" json:"locality_endpoints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -544,9 +546,9 @@ func (m *ClusterHealthCheck) GetLocalityEndpoints() []*LocalityEndpoints {
 }
 
 type HealthCheckSpecifier struct {
-	ClusterHealthChecks []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=cluster_health_checks,json=clusterHealthChecks" json:"cluster_health_checks,omitempty"`
+	ClusterHealthChecks []*ClusterHealthCheck `protobuf:"bytes,1,rep,name=cluster_health_checks,json=clusterHealthChecks,proto3" json:"cluster_health_checks,omitempty"`
 	// The default is 1 second.
-	Interval             *types.Duration `protobuf:"bytes,2,opt,name=interval" json:"interval,omitempty"`
+	Interval             *types.Duration `protobuf:"bytes,2,opt,name=interval,proto3" json:"interval,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -619,8 +621,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for HealthDiscoveryService service
-
+// HealthDiscoveryServiceClient is the client API for HealthDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type HealthDiscoveryServiceClient interface {
 	// 1. Envoy starts up and if its can_healthcheck option in the static
 	//    bootstrap config is enabled, sends HealthCheckRequest to the management
@@ -711,8 +714,7 @@ func (c *healthDiscoveryServiceClient) FetchHealthCheck(ctx context.Context, in 
 	return out, nil
 }
 
-// Server API for HealthDiscoveryService service
-
+// HealthDiscoveryServiceServer is the server API for HealthDiscoveryService service.
 type HealthDiscoveryServiceServer interface {
 	// 1. Envoy starts up and if its can_healthcheck option in the static
 	//    bootstrap config is enabled, sends HealthCheckRequest to the management
@@ -1174,6 +1176,9 @@ func encodeVarintHds(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Capability) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.HealthCheckProtocols) > 0 {
@@ -1190,6 +1195,9 @@ func (m *Capability) Size() (n int) {
 }
 
 func (m *HealthCheckRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Node != nil {
@@ -1207,6 +1215,9 @@ func (m *HealthCheckRequest) Size() (n int) {
 }
 
 func (m *EndpointHealth) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Endpoint != nil {
@@ -1223,6 +1234,9 @@ func (m *EndpointHealth) Size() (n int) {
 }
 
 func (m *EndpointHealthResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.EndpointsHealth) > 0 {
@@ -1238,6 +1252,9 @@ func (m *EndpointHealthResponse) Size() (n int) {
 }
 
 func (m *HealthCheckRequestOrEndpointHealthResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RequestType != nil {
@@ -1250,6 +1267,9 @@ func (m *HealthCheckRequestOrEndpointHealthResponse) Size() (n int) {
 }
 
 func (m *HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.HealthCheckRequest != nil {
@@ -1259,6 +1279,9 @@ func (m *HealthCheckRequestOrEndpointHealthResponse_HealthCheckRequest) Size() (
 	return n
 }
 func (m *HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.EndpointHealthResponse != nil {
@@ -1268,6 +1291,9 @@ func (m *HealthCheckRequestOrEndpointHealthResponse_EndpointHealthResponse) Size
 	return n
 }
 func (m *LocalityEndpoints) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Locality != nil {
@@ -1287,6 +1313,9 @@ func (m *LocalityEndpoints) Size() (n int) {
 }
 
 func (m *ClusterHealthCheck) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ClusterName)
@@ -1312,6 +1341,9 @@ func (m *ClusterHealthCheck) Size() (n int) {
 }
 
 func (m *HealthCheckSpecifier) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.ClusterHealthChecks) > 0 {
@@ -1412,6 +1444,10 @@ func (m *Capability) Unmarshal(dAtA []byte) error {
 				postIndex := iNdEx + packedLen
 				if postIndex > l {
 					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				if elementCount != 0 && len(m.HealthCheckProtocols) == 0 {
+					m.HealthCheckProtocols = make([]Capability_Protocol, 0, elementCount)
 				}
 				for iNdEx < postIndex {
 					var v Capability_Protocol

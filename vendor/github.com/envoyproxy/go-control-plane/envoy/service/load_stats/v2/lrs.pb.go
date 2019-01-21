@@ -11,8 +11,10 @@ import endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 import types "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -31,9 +33,9 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type LoadStatsRequest struct {
 	// Node identifier for Envoy instance.
-	Node *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	// A list of load stats to report.
-	ClusterStats         []*endpoint.ClusterStats `protobuf:"bytes,2,rep,name=cluster_stats,json=clusterStats" json:"cluster_stats,omitempty"`
+	ClusterStats         []*endpoint.ClusterStats `protobuf:"bytes,2,rep,name=cluster_stats,json=clusterStats,proto3" json:"cluster_stats,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -91,7 +93,7 @@ func (m *LoadStatsRequest) GetClusterStats() []*endpoint.ClusterStats {
 // [#not-implemented-hide:] Not configuration. TBD how to doc proto APIs.
 type LoadStatsResponse struct {
 	// Clusters to report stats for.
-	Clusters []string `protobuf:"bytes,1,rep,name=clusters" json:"clusters,omitempty"`
+	Clusters []string `protobuf:"bytes,1,rep,name=clusters,proto3" json:"clusters,omitempty"`
 	// The minimum interval of time to collect stats over. This is only a minimum for two reasons:
 	// 1. There may be some delay from when the timer fires until stats sampling occurs.
 	// 2. For clusters that were already feature in the previous *LoadStatsResponse*, any traffic
@@ -99,7 +101,7 @@ type LoadStatsResponse struct {
 	//    *LoadStatsResponse* will also be accumulated and billed to the cluster. This avoids a period
 	//    of inobservability that might otherwise exists between the messages. New clusters are not
 	//    subject to this consideration.
-	LoadReportingInterval *types.Duration `protobuf:"bytes,2,opt,name=load_reporting_interval,json=loadReportingInterval" json:"load_reporting_interval,omitempty"`
+	LoadReportingInterval *types.Duration `protobuf:"bytes,2,opt,name=load_reporting_interval,json=loadReportingInterval,proto3" json:"load_reporting_interval,omitempty"`
 	// Set to *true* if the management server supports endpoint granularity
 	// report.
 	ReportEndpointGranularity bool     `protobuf:"varint,3,opt,name=report_endpoint_granularity,json=reportEndpointGranularity,proto3" json:"report_endpoint_granularity,omitempty"`
@@ -175,8 +177,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for LoadReportingService service
-
+// LoadReportingServiceClient is the client API for LoadReportingService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type LoadReportingServiceClient interface {
 	// Advanced API to allow for multi-dimensional load balancing by remote
 	// server. For receiving LB assignments, the steps are:
@@ -248,8 +251,7 @@ func (x *loadReportingServiceStreamLoadStatsClient) Recv() (*LoadStatsResponse, 
 	return m, nil
 }
 
-// Server API for LoadReportingService service
-
+// LoadReportingServiceServer is the server API for LoadReportingService service.
 type LoadReportingServiceServer interface {
 	// Advanced API to allow for multi-dimensional load balancing by remote
 	// server. For receiving LB assignments, the steps are:
@@ -436,6 +438,9 @@ func encodeVarintLrs(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *LoadStatsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Node != nil {
@@ -455,6 +460,9 @@ func (m *LoadStatsRequest) Size() (n int) {
 }
 
 func (m *LoadStatsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Clusters) > 0 {

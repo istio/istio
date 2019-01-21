@@ -189,8 +189,8 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, defaultApaAttributes["ai"])
 	}
 
-	if ai, ok := outBag.Get("generated.ip"); !ok || !bytes.Equal(ai.([]byte), []byte{0x2, 0x3, 0x4, 0x5}) {
-		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, []byte{0x2, 0x3, 0x4, 0x5})
+	if ai, ok := outBag.Get("generated.ip"); !ok || !bytes.Equal(ai.([]byte), []byte(net.ParseIP("2.3.4.5"))) {
+		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, "2.3.4.5")
 	}
 }
 
@@ -213,7 +213,7 @@ func executeDispatchReport(t *testing.T, h adapter.Handler) error {
 
 func executeDispatchCheck(t *testing.T, h adapter.Handler) (adapter.CheckResult, error) {
 	instance := createInstance(t, sample_check.TemplateName, &defaultCheckInstanceParam, defaultCheckAttributes)
-	return SupportedTmplInfo[sample_check.TemplateName].DispatchCheck(context.TODO(), h, instance)
+	return SupportedTmplInfo[sample_check.TemplateName].DispatchCheck(context.TODO(), h, instance, nil, "")
 }
 
 func executeDispatchQuota(t *testing.T, h adapter.Handler, a adapter.QuotaArgs) (adapter.QuotaResult, error) {

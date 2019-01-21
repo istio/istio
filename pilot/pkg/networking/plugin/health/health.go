@@ -23,11 +23,11 @@ import (
 	hcfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/proto"
 )
 
 // Plugin implements Istio mTLS auth
@@ -42,17 +42,17 @@ func NewPlugin() plugin.Plugin {
 func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: xdsutil.HealthCheck,
-		Config: util.MessageToStruct(&hcfilter.HealthCheck{
-			PassThroughMode: &types.BoolValue{
-				Value: true,
-			},
-			Headers: []*envoy_api_v2_route.HeaderMatcher{
-				{
-					Name:                 ":path",
-					HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: probe.Path},
+		ConfigType: &http_conn.HttpFilter_Config{
+			Config: util.MessageToStruct(&hcfilter.HealthCheck{
+				PassThroughMode: proto.BoolTrue,
+				Headers: []*envoy_api_v2_route.HeaderMatcher{
+					{
+						Name:                 ":path",
+						HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: probe.Path},
+					},
 				},
-			},
-		}),
+			}),
+		},
 	}
 }
 
@@ -96,7 +96,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
-	if in.Node.Type != model.Sidecar {
+	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
 	}
@@ -111,8 +111,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
-			buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(in.Node.IPAddress),
-				&in.ServiceInstance.Endpoint)
+			for _, ip := range in.Node.IPAddresses {
+				buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(ip),
+					&in.ServiceInstance.Endpoint)
+			}
 		}
 	}
 

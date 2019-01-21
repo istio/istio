@@ -21,7 +21,7 @@ set -o pipefail
 set -x
 
 # shellcheck disable=SC1091
-#source "/workspace/gcb_env.sh"
+source "/workspace/gcb_env.sh"
 
 # Remove the old folder in case there is any stale file.
 gsutil -q rm -rf "gs://${CB_GCS_STAGING_BUCKET}/daily-build/${CB_BRANCH}-latest-daily/" || echo "No old build"

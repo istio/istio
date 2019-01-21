@@ -15,7 +15,9 @@
 package mock
 
 import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"errors"
+
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -31,7 +33,7 @@ func NewKube() *Kube {
 }
 
 // DynamicInterface implementation.
-func (k *Kube) DynamicInterface(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error) {
+func (k *Kube) DynamicInterface() (dynamic.Interface, error) {
 	if len(k.response1) == 0 {
 		panic("No more responses left")
 	}
@@ -52,4 +54,9 @@ func (k *Kube) DynamicInterface(gv schema.GroupVersion, kind string, listKind st
 func (k *Kube) AddResponse(r1 interface{}, r2 error) {
 	k.response1 = append(k.response1, r1)
 	k.response2 = append(k.response2, r2)
+}
+
+// APIExtensionsClientset returns a new apiextensions clientset
+func (k *Kube) APIExtensionsClientset() (clientset.Interface, error) {
+	return nil, errors.New("not supported")
 }

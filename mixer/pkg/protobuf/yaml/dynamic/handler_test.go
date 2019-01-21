@@ -19,8 +19,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	attributeV1beta1 "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -30,6 +32,7 @@ import (
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 	sampleapa "istio.io/istio/mixer/test/spyAdapter/template/apa"
+	checkproducer "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
 	spy "istio.io/istio/mixer/test/spybackend"
 )
 
@@ -115,6 +118,10 @@ func TestNoSessionBackend(t *testing.T) {
 	args.Behavior.HandleSampleApaResult = &sampleapa.OutputMsg{
 		Int64Primitive: 1337,
 	}
+	args.Behavior.HandleSampleCheckResult = &v1beta1.CheckResult{ValidUseCount: 32}
+	args.Behavior.HandleCheckOutput = &checkproducer.OutputMsg{
+		StringPrimitive: "test-nosession",
+	}
 
 	var s spy.Server
 	var err error
@@ -156,6 +163,8 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 		v1beta1.TEMPLATE_VARIETY_QUOTA)
 	apaDi := loadInstance(t, "apa", "test/spyAdapter/template/apa/tmpl_handler_service.descriptor_set",
 		v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR)
+	checkoutputDi := loadInstance(t, "checkproducer", "test/spyAdapter/template/checkoutput/tmpl_handler_service.descriptor_set",
+		v1beta1.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT)
 
 	unknownQuota := &TemplateConfig{
 		Name:         "unknownQuota",
@@ -171,7 +180,7 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 
 	h, err := BuildHandler("spy",
 		&attributeV1beta1.Connection{Address: s.Addr().String()}, false, adapterConfig,
-		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota, apaDi})
+		[]*TemplateConfig{listentryDi, metricDi, quotaDi, unknownQuota, apaDi, checkoutputDi})
 
 	if err != nil {
 		t.Fatalf("unable to build handler: %v", err)
@@ -198,17 +207,39 @@ func validateNoSessionBackend(s *spy.NoSessionServer, t *testing.T) {
 
 	// check
 	linst := &listentry.InstanceMsg{
-		Name:  "n1",
-		Value: "v1",
+		Name: "n1",
+		Value: &attributeV1beta1.Value{
+			Value: &attributeV1beta1.Value_StringValue{
+				StringValue: "v1",
+			},
+		},
 	}
 	linstBa, _ := linst.Marshal()
-	le, err := h.HandleRemoteCheck(context.Background(), &adapter.EncodedInstance{Name: listentryDi.Name, Data: linstBa})
+	le, err := h.HandleRemoteCheck(context.Background(), &adapter.EncodedInstance{Name: listentryDi.Name, Data: linstBa}, nil, "")
 	if err != nil {
 		t.Fatalf("HandleRemoteCheck returned: %v", err)
 	}
 
 	expectEqual(linst, s.Requests.HandleListEntryRequest[0].Instance, t)
 	expectEqual(le, asAdapterCheckResult(s.Behavior.HandleListEntryResult), t)
+
+	// check with output
+	checkinst := &checkproducer.InstanceMsg{
+		StringPrimitive: "input-instance",
+	}
+	checkinstBa, _ := checkinst.Marshal()
+	checkOut := attribute.GetMutableBag(nil)
+	defer checkOut.Done()
+	cpe, err := h.HandleRemoteCheck(context.Background(), &adapter.EncodedInstance{Name: checkoutputDi.Name, Data: checkinstBa},
+		checkOut, "some_long_prefix.")
+	if err != nil {
+		t.Fatalf("HandleRemoteCheck with output failed: %v", err)
+	}
+
+	expectEqual(cpe, asAdapterCheckResult(s.Behavior.HandleSampleCheckResult), t)
+	if val, ok := checkOut.Get("some_long_prefix.stringPrimitive"); !ok || val != "test-nosession" {
+		t.Errorf("HandleRemoteCheck => got %t, %v, want 'test-nosession'", ok, val)
+	}
 
 	// report
 	minst := &metric.InstanceMsg{
@@ -278,7 +309,7 @@ func asAdapterCheckResult(result *v1beta1.CheckResult) *adapter.CheckResult {
 }
 
 func TestCodecErrors(t *testing.T) {
-	c := Codec{}
+	c := Codec{decode: protoUnmarshal}
 	t.Run(c.String()+".marshalError", func(t *testing.T) {
 		if _, err := c.Marshal("ABC"); err != nil {
 			if !strings.Contains(err.Error(), "unable to marshal") {
@@ -328,4 +359,60 @@ func TestBuildHandler_ConnectError(t *testing.T) {
 			t.Fatalf("unable to build handler: %v", err)
 		}
 		h.Close()*/
+}
+
+func TestHandlerTimeout(t *testing.T) {
+	args := spy.DefaultArgs()
+	args.Behavior.HandleMetricResult = &v1beta1.ReportResult{}
+	args.Behavior.HandleMetricSleep = 1 * time.Second
+	var s spy.Server
+	var err error
+	if s, err = spy.NewNoSessionServer(args); err != nil {
+		t.Fatalf("unable to start Spy")
+	}
+	s.Run()
+	defer func() {
+		_ = s.Close()
+	}()
+
+	t.Logf("Started server at: %v", s.Addr())
+
+	metricDi := loadInstance(t, "metric", "template/metric/template_handler_service.descriptor_set",
+		v1beta1.TEMPLATE_VARIETY_REPORT)
+
+	adapterConfig := &types.Any{
+		TypeUrl: "@abc",
+		Value:   []byte("abcd"),
+	}
+	timeout := 10 * time.Millisecond
+	h, err := BuildHandler("spy",
+		&attributeV1beta1.Connection{Address: s.Addr().String(), Timeout: &timeout}, false, adapterConfig,
+		[]*TemplateConfig{metricDi})
+	if err != nil {
+		t.Fatalf("cannot connect to remote handler %v", err)
+	}
+
+	minst := &metric.InstanceMsg{
+		Name: metricDi.Name,
+		Value: &attributeV1beta1.Value{
+			Value: &attributeV1beta1.Value_StringValue{
+				StringValue: "aaaaaaaaaaaaaaaa",
+			},
+		},
+	}
+	minstBa, _ := minst.Marshal()
+	mi := &adapter.EncodedInstance{
+		Name: metricDi.Name,
+		Data: minstBa,
+	}
+	start := time.Now()
+	if err := h.HandleRemoteReport(context.Background(), []*adapter.EncodedInstance{mi}); err == nil {
+		t.Fatalf("want HandleRemoteReport return error, got nil")
+	} else if !strings.Contains(err.Error(), "DeadlineExceeded") {
+		t.Fatalf("want HandleRemoteReport return deadline exceeded, got %v", err)
+	}
+	elapse := time.Since(start)
+	if elapse > 300*time.Millisecond {
+		t.Errorf("want elapse time less than 300 milliseconds, got %v", elapse)
+	}
 }

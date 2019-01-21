@@ -81,9 +81,9 @@ func (Gzip_CompressionLevel_Enum) EnumDescriptor() ([]byte, []int) {
 type Gzip struct {
 	// Value from 1 to 9 that controls the amount of internal memory used by zlib. Higher values
 	// use more memory, but are faster and produce better compression results. The default value is 5.
-	MemoryLevel *types.UInt32Value `protobuf:"bytes,1,opt,name=memory_level,json=memoryLevel" json:"memory_level,omitempty"`
+	MemoryLevel *types.UInt32Value `protobuf:"bytes,1,opt,name=memory_level,json=memoryLevel,proto3" json:"memory_level,omitempty"`
 	// Minimum response length, in bytes, which will trigger compression. The default value is 30.
-	ContentLength *types.UInt32Value `protobuf:"bytes,2,opt,name=content_length,json=contentLength" json:"content_length,omitempty"`
+	ContentLength *types.UInt32Value `protobuf:"bytes,2,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
 	// A value used for selecting the zlib compression level. This setting will affect speed and
 	// amount of compression applied to the content. "BEST" provides higher compression at the cost of
 	// higher latency, "SPEED" provides lower compression with minimum impact on response time.
@@ -101,7 +101,7 @@ type Gzip struct {
 	// application/json, text/html, etc. When this field is not defined, compression will be applied
 	// to the following mime-types: "application/javascript", "application/json",
 	// "application/xhtml+xml", "image/svg+xml", "text/css", "text/html", "text/plain", "text/xml".
-	ContentType []string `protobuf:"bytes,6,rep,name=content_type,json=contentType" json:"content_type,omitempty"`
+	ContentType []string `protobuf:"bytes,6,rep,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	// If true, disables compression when the response contains an etag header. When it is false, the
 	// filter will preserve weak etags and remove the ones that require strong validation.
 	DisableOnEtagHeader bool `protobuf:"varint,7,opt,name=disable_on_etag_header,json=disableOnEtagHeader,proto3" json:"disable_on_etag_header,omitempty"`
@@ -112,7 +112,7 @@ type Gzip struct {
 	// Larger window results in better compression at the expense of memory usage. The default is 12
 	// which will produce a 4096 bytes window. For more details about this parameter, please refer to
 	// zlib manual > deflateInit2.
-	WindowBits           *types.UInt32Value `protobuf:"bytes,9,opt,name=window_bits,json=windowBits" json:"window_bits,omitempty"`
+	WindowBits           *types.UInt32Value `protobuf:"bytes,9,opt,name=window_bits,json=windowBits,proto3" json:"window_bits,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -379,6 +379,9 @@ func encodeVarintGzip(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Gzip) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MemoryLevel != nil {
@@ -418,6 +421,9 @@ func (m *Gzip) Size() (n int) {
 }
 
 func (m *Gzip_CompressionLevel) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {

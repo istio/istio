@@ -10,8 +10,10 @@ import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import v2 "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -71,7 +73,7 @@ var xxx_messageInfo_StreamAccessLogsResponse proto.InternalMessageInfo
 type StreamAccessLogsMessage struct {
 	// Identifier data that will only be sent in the first message on the stream. This is effectively
 	// structured metadata and is a performance optimization.
-	Identifier *StreamAccessLogsMessage_Identifier `protobuf:"bytes,1,opt,name=identifier" json:"identifier,omitempty"`
+	Identifier *StreamAccessLogsMessage_Identifier `protobuf:"bytes,1,opt,name=identifier,proto3" json:"identifier,omitempty"`
 	// Batches of log entries of a single type. Generally speaking, a given stream should only
 	// ever include one type of log entry.
 	//
@@ -124,10 +126,10 @@ type isStreamAccessLogsMessage_LogEntries interface {
 }
 
 type StreamAccessLogsMessage_HttpLogs struct {
-	HttpLogs *StreamAccessLogsMessage_HTTPAccessLogEntries `protobuf:"bytes,2,opt,name=http_logs,json=httpLogs,oneof"`
+	HttpLogs *StreamAccessLogsMessage_HTTPAccessLogEntries `protobuf:"bytes,2,opt,name=http_logs,json=httpLogs,proto3,oneof"`
 }
 type StreamAccessLogsMessage_TcpLogs struct {
-	TcpLogs *StreamAccessLogsMessage_TCPAccessLogEntries `protobuf:"bytes,3,opt,name=tcp_logs,json=tcpLogs,oneof"`
+	TcpLogs *StreamAccessLogsMessage_TCPAccessLogEntries `protobuf:"bytes,3,opt,name=tcp_logs,json=tcpLogs,proto3,oneof"`
 }
 
 func (*StreamAccessLogsMessage_HttpLogs) isStreamAccessLogsMessage_LogEntries() {}
@@ -237,7 +239,7 @@ func _StreamAccessLogsMessage_OneofSizer(msg proto.Message) (n int) {
 
 type StreamAccessLogsMessage_Identifier struct {
 	// The node sending the access log messages over the stream.
-	Node *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	// The friendly name of the log configured in :ref:`CommonGrpcAccessLogConfig
 	// <envoy_api_msg_config.accesslog.v2.CommonGrpcAccessLogConfig>`.
 	LogName              string   `protobuf:"bytes,2,opt,name=log_name,json=logName,proto3" json:"log_name,omitempty"`
@@ -295,7 +297,7 @@ func (m *StreamAccessLogsMessage_Identifier) GetLogName() string {
 
 // Wrapper for batches of HTTP access log entries.
 type StreamAccessLogsMessage_HTTPAccessLogEntries struct {
-	LogEntry             []*v2.HTTPAccessLogEntry `protobuf:"bytes,1,rep,name=log_entry,json=logEntry" json:"log_entry,omitempty"`
+	LogEntry             []*v2.HTTPAccessLogEntry `protobuf:"bytes,1,rep,name=log_entry,json=logEntry,proto3" json:"log_entry,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -348,7 +350,7 @@ func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) GetLogEntry() []*v2.HTTPA
 // [#not-implemented-hide:]
 // Wrapper for batches of TCP access log entries.
 type StreamAccessLogsMessage_TCPAccessLogEntries struct {
-	LogEntry             []*v2.TCPAccessLogEntry `protobuf:"bytes,1,rep,name=log_entry,json=logEntry" json:"log_entry,omitempty"`
+	LogEntry             []*v2.TCPAccessLogEntry `protobuf:"bytes,1,rep,name=log_entry,json=logEntry,proto3" json:"log_entry,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -414,8 +416,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for AccessLogService service
-
+// AccessLogServiceClient is the client API for AccessLogService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AccessLogServiceClient interface {
 	// Envoy will connect and send StreamAccessLogsMessage messages forever. It does not expect any
 	// response to be sent as nothing would be done in the case of failure. The server should
@@ -468,8 +471,7 @@ func (x *accessLogServiceStreamAccessLogsClient) CloseAndRecv() (*StreamAccessLo
 	return m, nil
 }
 
-// Server API for AccessLogService service
-
+// AccessLogServiceServer is the server API for AccessLogService service.
 type AccessLogServiceServer interface {
 	// Envoy will connect and send StreamAccessLogsMessage messages forever. It does not expect any
 	// response to be sent as nothing would be done in the case of failure. The server should
@@ -724,6 +726,9 @@ func encodeVarintAls(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *StreamAccessLogsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -733,6 +738,9 @@ func (m *StreamAccessLogsResponse) Size() (n int) {
 }
 
 func (m *StreamAccessLogsMessage) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Identifier != nil {
@@ -749,6 +757,9 @@ func (m *StreamAccessLogsMessage) Size() (n int) {
 }
 
 func (m *StreamAccessLogsMessage_HttpLogs) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.HttpLogs != nil {
@@ -758,6 +769,9 @@ func (m *StreamAccessLogsMessage_HttpLogs) Size() (n int) {
 	return n
 }
 func (m *StreamAccessLogsMessage_TcpLogs) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TcpLogs != nil {
@@ -767,6 +781,9 @@ func (m *StreamAccessLogsMessage_TcpLogs) Size() (n int) {
 	return n
 }
 func (m *StreamAccessLogsMessage_Identifier) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Node != nil {
@@ -784,6 +801,9 @@ func (m *StreamAccessLogsMessage_Identifier) Size() (n int) {
 }
 
 func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.LogEntry) > 0 {
@@ -799,6 +819,9 @@ func (m *StreamAccessLogsMessage_HTTPAccessLogEntries) Size() (n int) {
 }
 
 func (m *StreamAccessLogsMessage_TCPAccessLogEntries) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.LogEntry) > 0 {

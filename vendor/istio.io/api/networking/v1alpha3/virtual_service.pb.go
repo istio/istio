@@ -28,7 +28,7 @@ var _ = math.Inf
 //
 // The following example on Kubernetes, routes all HTTP traffic by default to
 // pods of the reviews service with label "version: v1". In addition,
-// HTTP requests containing /wpcatalog/, /consumercatalog/ url prefixes will
+// HTTP requests with path starting with /wpcatalog/ or /consumercatalog/ will
 // be rewritten to /newcatalog and sent to pods with label "version: v2".
 //
 //
@@ -134,6 +134,11 @@ type VirtualService struct {
 	// be applied to any port that is not a HTTP or TLS port. The first rule
 	// matching an incoming request is used.
 	Tcp []*TCPRoute `protobuf:"bytes,4,rep,name=tcp" json:"tcp,omitempty"`
+	// The visibility setting associated with this VirtualService. Set to
+	// PRIVATE if this virtual service should not be exported, i.e. restrict
+	// the applicability of this virtual service to only workloads in the same
+	// namespace as the virtual service.
+	ConfigScope ConfigScope `protobuf:"varint,6,opt,name=config_scope,json=configScope,proto3,enum=istio.networking.v1alpha3.ConfigScope" json:"config_scope,omitempty"`
 }
 
 func (m *VirtualService) Reset()                    { *m = VirtualService{} }
@@ -174,6 +179,13 @@ func (m *VirtualService) GetTcp() []*TCPRoute {
 		return m.Tcp
 	}
 	return nil
+}
+
+func (m *VirtualService) GetConfigScope() ConfigScope {
+	if m != nil {
+		return m.ConfigScope
+	}
+	return ConfigScope_PUBLIC
 }
 
 // Destination indicates the network addressable service to which the
@@ -395,23 +407,26 @@ type HTTPRoute struct {
 	// destination.
 	Mirror *Destination `protobuf:"bytes,9,opt,name=mirror" json:"mirror,omitempty"`
 	// Cross-Origin Resource Sharing policy (CORS). Refer to
-	// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+	// https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
 	// for further details about cross origin resource sharing.
 	CorsPolicy *CorsPolicy `protobuf:"bytes,10,opt,name=cors_policy,json=corsPolicy" json:"cors_policy,omitempty"`
-	// Use of `append_headers` is deprecated. Use the `append_request_headers`
+	// Use of `append_headers` is deprecated. Use the `headers`
 	// field instead.
 	AppendHeaders map[string]string `protobuf:"bytes,11,rep,name=append_headers,json=appendHeaders" json:"append_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// HTTP headers to remove before returning a response to the caller.
+	// Use of `remove_response_header` is deprecated. Use the `headers`
+	// field instead.
 	RemoveResponseHeaders []string `protobuf:"bytes,12,rep,name=remove_response_headers,json=removeResponseHeaders" json:"remove_response_headers,omitempty"`
-	// Additional HTTP headers to add before returning a response to the
-	// caller.
+	// Use of `append_response_headers` is deprecated. Use the `headers`
+	// field instead.
 	AppendResponseHeaders map[string]string `protobuf:"bytes,13,rep,name=append_response_headers,json=appendResponseHeaders" json:"append_response_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// HTTP headers to remove before forwarding a request to the
-	// destination service.
+	// Use of `remove_request_headers` is deprecated. Use the `headers`
+	// field instead.
 	RemoveRequestHeaders []string `protobuf:"bytes,14,rep,name=remove_request_headers,json=removeRequestHeaders" json:"remove_request_headers,omitempty"`
-	// Additional HTTP headers to add before forwarding a request to the
-	// destination service.
+	// Use of `append_request_headers` is deprecated. Use the `headers`
+	// field instead.
 	AppendRequestHeaders map[string]string `protobuf:"bytes,15,rep,name=append_request_headers,json=appendRequestHeaders" json:"append_request_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Header manipulation rules
+	Headers *Headers `protobuf:"bytes,16,opt,name=headers" json:"headers,omitempty"`
 }
 
 func (m *HTTPRoute) Reset()                    { *m = HTTPRoute{} }
@@ -524,6 +539,81 @@ func (m *HTTPRoute) GetAppendRequestHeaders() map[string]string {
 	return nil
 }
 
+func (m *HTTPRoute) GetHeaders() *Headers {
+	if m != nil {
+		return m.Headers
+	}
+	return nil
+}
+
+// Header manipulation rules
+type Headers struct {
+	// Header manipulation rules to apply before forwarding a request
+	// to the destination service
+	Request *Headers_HeaderOperations `protobuf:"bytes,1,opt,name=request" json:"request,omitempty"`
+	// Header manipulation rules to apply before returning a response
+	// to the caller
+	Response *Headers_HeaderOperations `protobuf:"bytes,2,opt,name=response" json:"response,omitempty"`
+}
+
+func (m *Headers) Reset()                    { *m = Headers{} }
+func (m *Headers) String() string            { return proto.CompactTextString(m) }
+func (*Headers) ProtoMessage()               {}
+func (*Headers) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{3} }
+
+func (m *Headers) GetRequest() *Headers_HeaderOperations {
+	if m != nil {
+		return m.Request
+	}
+	return nil
+}
+
+func (m *Headers) GetResponse() *Headers_HeaderOperations {
+	if m != nil {
+		return m.Response
+	}
+	return nil
+}
+
+// HeaderOperations Describes the header manipulations to apply
+type Headers_HeaderOperations struct {
+	// Overwrite the headers specified by key with the given values
+	Set map[string]string `protobuf:"bytes,1,rep,name=set" json:"set,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Append the given values to the headers specified by keys
+	// (will create a comma-separated list of values)
+	Add map[string]string `protobuf:"bytes,2,rep,name=add" json:"add,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Remove a the specified headers
+	Remove []string `protobuf:"bytes,3,rep,name=remove" json:"remove,omitempty"`
+}
+
+func (m *Headers_HeaderOperations) Reset()         { *m = Headers_HeaderOperations{} }
+func (m *Headers_HeaderOperations) String() string { return proto.CompactTextString(m) }
+func (*Headers_HeaderOperations) ProtoMessage()    {}
+func (*Headers_HeaderOperations) Descriptor() ([]byte, []int) {
+	return fileDescriptorVirtualService, []int{3, 0}
+}
+
+func (m *Headers_HeaderOperations) GetSet() map[string]string {
+	if m != nil {
+		return m.Set
+	}
+	return nil
+}
+
+func (m *Headers_HeaderOperations) GetAdd() map[string]string {
+	if m != nil {
+		return m.Add
+	}
+	return nil
+}
+
+func (m *Headers_HeaderOperations) GetRemove() []string {
+	if m != nil {
+		return m.Remove
+	}
+	return nil
+}
+
 // Describes match conditions and actions for routing unterminated TLS
 // traffic (TLS/HTTPS) The following routing rule forwards unterminated TLS
 // traffic arriving at port 443 of gateway called "mygateway" to internal
@@ -568,7 +658,7 @@ type TLSRoute struct {
 func (m *TLSRoute) Reset()                    { *m = TLSRoute{} }
 func (m *TLSRoute) String() string            { return proto.CompactTextString(m) }
 func (*TLSRoute) ProtoMessage()               {}
-func (*TLSRoute) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{3} }
+func (*TLSRoute) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{4} }
 
 func (m *TLSRoute) GetMatch() []*TLSMatchAttributes {
 	if m != nil {
@@ -618,7 +708,7 @@ type TCPRoute struct {
 func (m *TCPRoute) Reset()                    { *m = TCPRoute{} }
 func (m *TCPRoute) String() string            { return proto.CompactTextString(m) }
 func (*TCPRoute) ProtoMessage()               {}
-func (*TCPRoute) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{4} }
+func (*TCPRoute) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{5} }
 
 func (m *TCPRoute) GetMatch() []*L4MatchAttributes {
 	if m != nil {
@@ -733,7 +823,7 @@ type HTTPMatchRequest struct {
 func (m *HTTPMatchRequest) Reset()                    { *m = HTTPMatchRequest{} }
 func (m *HTTPMatchRequest) String() string            { return proto.CompactTextString(m) }
 func (*HTTPMatchRequest) ProtoMessage()               {}
-func (*HTTPMatchRequest) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{5} }
+func (*HTTPMatchRequest) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{6} }
 
 func (m *HTTPMatchRequest) GetUri() *StringMatch {
 	if m != nil {
@@ -866,24 +956,27 @@ type HTTPRouteDestination struct {
 	// If there is only one destination in a rule, the weight value is assumed to
 	// be 100.
 	Weight int32 `protobuf:"varint,2,opt,name=weight,proto3" json:"weight,omitempty"`
-	// HTTP headers to remove before returning a response to the caller.
+	// Use of `remove_response_header` is deprecated. Use the `headers`
+	// field instead.
 	RemoveResponseHeaders []string `protobuf:"bytes,3,rep,name=remove_response_headers,json=removeResponseHeaders" json:"remove_response_headers,omitempty"`
-	// Additional HTTP headers to add before returning a response to the
-	// caller.
+	// Use of `append_response_headers` is deprecated. Use the `headers`
+	// field instead.
 	AppendResponseHeaders map[string]string `protobuf:"bytes,4,rep,name=append_response_headers,json=appendResponseHeaders" json:"append_response_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// HTTP headers to remove before forwarding a request to the
-	// destination service.
+	// Use of `remove_request_headers` is deprecated. Use the `headers`
+	// field instead.
 	RemoveRequestHeaders []string `protobuf:"bytes,5,rep,name=remove_request_headers,json=removeRequestHeaders" json:"remove_request_headers,omitempty"`
-	// Additional HTTP headers to add before forwarding a request to the
-	// destination service.
+	// Use of `append_request_headers` is deprecated. Use the `headers`
+	// field instead.
 	AppendRequestHeaders map[string]string `protobuf:"bytes,6,rep,name=append_request_headers,json=appendRequestHeaders" json:"append_request_headers,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// Header manipulation rules
+	Headers *Headers `protobuf:"bytes,7,opt,name=headers" json:"headers,omitempty"`
 }
 
 func (m *HTTPRouteDestination) Reset()         { *m = HTTPRouteDestination{} }
 func (m *HTTPRouteDestination) String() string { return proto.CompactTextString(m) }
 func (*HTTPRouteDestination) ProtoMessage()    {}
 func (*HTTPRouteDestination) Descriptor() ([]byte, []int) {
-	return fileDescriptorVirtualService, []int{6}
+	return fileDescriptorVirtualService, []int{7}
 }
 
 func (m *HTTPRouteDestination) GetDestination() *Destination {
@@ -928,6 +1021,13 @@ func (m *HTTPRouteDestination) GetAppendRequestHeaders() map[string]string {
 	return nil
 }
 
+func (m *HTTPRouteDestination) GetHeaders() *Headers {
+	if m != nil {
+		return m.Headers
+	}
+	return nil
+}
+
 // L4 routing rule weighted destination.
 type RouteDestination struct {
 	// REQUIRED. Destination uniquely identifies the instances of a service
@@ -942,7 +1042,7 @@ type RouteDestination struct {
 func (m *RouteDestination) Reset()                    { *m = RouteDestination{} }
 func (m *RouteDestination) String() string            { return proto.CompactTextString(m) }
 func (*RouteDestination) ProtoMessage()               {}
-func (*RouteDestination) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{7} }
+func (*RouteDestination) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{8} }
 
 func (m *RouteDestination) GetDestination() *Destination {
 	if m != nil {
@@ -986,7 +1086,7 @@ type L4MatchAttributes struct {
 func (m *L4MatchAttributes) Reset()                    { *m = L4MatchAttributes{} }
 func (m *L4MatchAttributes) String() string            { return proto.CompactTextString(m) }
 func (*L4MatchAttributes) ProtoMessage()               {}
-func (*L4MatchAttributes) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{8} }
+func (*L4MatchAttributes) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{9} }
 
 func (m *L4MatchAttributes) GetDestinationSubnets() []string {
 	if m != nil {
@@ -1053,10 +1153,12 @@ type TLSMatchAttributes struct {
 	Gateways []string `protobuf:"bytes,6,rep,name=gateways" json:"gateways,omitempty"`
 }
 
-func (m *TLSMatchAttributes) Reset()                    { *m = TLSMatchAttributes{} }
-func (m *TLSMatchAttributes) String() string            { return proto.CompactTextString(m) }
-func (*TLSMatchAttributes) ProtoMessage()               {}
-func (*TLSMatchAttributes) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{9} }
+func (m *TLSMatchAttributes) Reset()         { *m = TLSMatchAttributes{} }
+func (m *TLSMatchAttributes) String() string { return proto.CompactTextString(m) }
+func (*TLSMatchAttributes) ProtoMessage()    {}
+func (*TLSMatchAttributes) Descriptor() ([]byte, []int) {
+	return fileDescriptorVirtualService, []int{10}
+}
 
 func (m *TLSMatchAttributes) GetSniHosts() []string {
 	if m != nil {
@@ -1136,7 +1238,7 @@ type HTTPRedirect struct {
 func (m *HTTPRedirect) Reset()                    { *m = HTTPRedirect{} }
 func (m *HTTPRedirect) String() string            { return proto.CompactTextString(m) }
 func (*HTTPRedirect) ProtoMessage()               {}
-func (*HTTPRedirect) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{10} }
+func (*HTTPRedirect) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{11} }
 
 func (m *HTTPRedirect) GetUri() string {
 	if m != nil {
@@ -1190,7 +1292,7 @@ type HTTPRewrite struct {
 func (m *HTTPRewrite) Reset()                    { *m = HTTPRewrite{} }
 func (m *HTTPRewrite) String() string            { return proto.CompactTextString(m) }
 func (*HTTPRewrite) ProtoMessage()               {}
-func (*HTTPRewrite) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{11} }
+func (*HTTPRewrite) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{12} }
 
 func (m *HTTPRewrite) GetUri() string {
 	if m != nil {
@@ -1219,7 +1321,7 @@ type StringMatch struct {
 func (m *StringMatch) Reset()                    { *m = StringMatch{} }
 func (m *StringMatch) String() string            { return proto.CompactTextString(m) }
 func (*StringMatch) ProtoMessage()               {}
-func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{12} }
+func (*StringMatch) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{13} }
 
 type isStringMatch_MatchType interface {
 	isStringMatch_MatchType()
@@ -1370,6 +1472,7 @@ func _StringMatch_OneofSizer(msg proto.Message) (n int) {
 //     retries:
 //       attempts: 3
 //       perTryTimeout: 2s
+//       retryOn: gateway-error,connect-failure,refused-stream
 // ```
 //
 type HTTPRetry struct {
@@ -1379,12 +1482,18 @@ type HTTPRetry struct {
 	Attempts int32 `protobuf:"varint,1,opt,name=attempts,proto3" json:"attempts,omitempty"`
 	// Timeout per retry attempt for a given request. format: 1h/1m/1s/1ms. MUST BE >=1ms.
 	PerTryTimeout *google_protobuf.Duration `protobuf:"bytes,2,opt,name=per_try_timeout,json=perTryTimeout" json:"per_try_timeout,omitempty"`
+	// Specifies the conditions under which retry takes place.
+	// One or more policies can be specified using a ‘,’ delimited list.
+	// The supported policies can be found in
+	// <https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-on>
+	// and <https://www.envoyproxy.io/docs/envoy/latest/configuration/http_filters/router_filter#x-envoy-retry-grpc-on>
+	RetryOn string `protobuf:"bytes,3,opt,name=retry_on,json=retryOn,proto3" json:"retry_on,omitempty"`
 }
 
 func (m *HTTPRetry) Reset()                    { *m = HTTPRetry{} }
 func (m *HTTPRetry) String() string            { return proto.CompactTextString(m) }
 func (*HTTPRetry) ProtoMessage()               {}
-func (*HTTPRetry) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{13} }
+func (*HTTPRetry) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{14} }
 
 func (m *HTTPRetry) GetAttempts() int32 {
 	if m != nil {
@@ -1400,14 +1509,21 @@ func (m *HTTPRetry) GetPerTryTimeout() *google_protobuf.Duration {
 	return nil
 }
 
+func (m *HTTPRetry) GetRetryOn() string {
+	if m != nil {
+		return m.RetryOn
+	}
+	return ""
+}
+
 // Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
 // service. Refer to
-// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS>
 // for further details about cross origin resource sharing. For example,
 // the following rule restricts cross origin requests to those originating
 // from example.com domain using HTTP POST/GET, and sets the
-// Access-Control-Allow-Credentials header to false. In addition, it only
-// exposes X-Foo-bar header and sets an expiry period of 1 day.
+// `Access-Control-Allow-Credentials` header to false. In addition, it only
+// exposes `X-Foo-bar` header and sets an expiry period of 1 day.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -1448,19 +1564,19 @@ type CorsPolicy struct {
 	// A white list of HTTP headers that the browsers are allowed to
 	// access. Serialized into Access-Control-Expose-Headers header.
 	ExposeHeaders []string `protobuf:"bytes,4,rep,name=expose_headers,json=exposeHeaders" json:"expose_headers,omitempty"`
-	// Specifies how long the the results of a preflight request can be
-	// cached. Translates to the Access-Control-Max-Age header.
+	// Specifies how long the results of a preflight request can be
+	// cached. Translates to the `Access-Control-Max-Age` header.
 	MaxAge *google_protobuf.Duration `protobuf:"bytes,5,opt,name=max_age,json=maxAge" json:"max_age,omitempty"`
 	// Indicates whether the caller is allowed to send the actual request
 	// (not the preflight) using credentials. Translates to
-	// Access-Control-Allow-Credentials header.
+	// `Access-Control-Allow-Credentials` header.
 	AllowCredentials *google_protobuf1.BoolValue `protobuf:"bytes,6,opt,name=allow_credentials,json=allowCredentials" json:"allow_credentials,omitempty"`
 }
 
 func (m *CorsPolicy) Reset()                    { *m = CorsPolicy{} }
 func (m *CorsPolicy) String() string            { return proto.CompactTextString(m) }
 func (*CorsPolicy) ProtoMessage()               {}
-func (*CorsPolicy) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{14} }
+func (*CorsPolicy) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{15} }
 
 func (m *CorsPolicy) GetAllowOrigin() []string {
 	if m != nil {
@@ -1525,7 +1641,7 @@ func (m *HTTPFaultInjection) Reset()         { *m = HTTPFaultInjection{} }
 func (m *HTTPFaultInjection) String() string { return proto.CompactTextString(m) }
 func (*HTTPFaultInjection) ProtoMessage()    {}
 func (*HTTPFaultInjection) Descriptor() ([]byte, []int) {
-	return fileDescriptorVirtualService, []int{15}
+	return fileDescriptorVirtualService, []int{16}
 }
 
 func (m *HTTPFaultInjection) GetDelay() *HTTPFaultInjection_Delay {
@@ -1590,7 +1706,7 @@ func (m *HTTPFaultInjection_Delay) Reset()         { *m = HTTPFaultInjection_Del
 func (m *HTTPFaultInjection_Delay) String() string { return proto.CompactTextString(m) }
 func (*HTTPFaultInjection_Delay) ProtoMessage()    {}
 func (*HTTPFaultInjection_Delay) Descriptor() ([]byte, []int) {
-	return fileDescriptorVirtualService, []int{15, 0}
+	return fileDescriptorVirtualService, []int{16, 0}
 }
 
 type isHTTPFaultInjection_Delay_HttpDelayType interface {
@@ -1764,7 +1880,7 @@ func (m *HTTPFaultInjection_Abort) Reset()         { *m = HTTPFaultInjection_Abo
 func (m *HTTPFaultInjection_Abort) String() string { return proto.CompactTextString(m) }
 func (*HTTPFaultInjection_Abort) ProtoMessage()    {}
 func (*HTTPFaultInjection_Abort) Descriptor() ([]byte, []int) {
-	return fileDescriptorVirtualService, []int{15, 1}
+	return fileDescriptorVirtualService, []int{16, 1}
 }
 
 type isHTTPFaultInjection_Abort_ErrorType interface {
@@ -1921,7 +2037,7 @@ type PortSelector struct {
 func (m *PortSelector) Reset()                    { *m = PortSelector{} }
 func (m *PortSelector) String() string            { return proto.CompactTextString(m) }
 func (*PortSelector) ProtoMessage()               {}
-func (*PortSelector) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{16} }
+func (*PortSelector) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{17} }
 
 type isPortSelector_Port interface {
 	isPortSelector_Port()
@@ -2033,7 +2149,7 @@ type Percent struct {
 func (m *Percent) Reset()                    { *m = Percent{} }
 func (m *Percent) String() string            { return proto.CompactTextString(m) }
 func (*Percent) ProtoMessage()               {}
-func (*Percent) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{17} }
+func (*Percent) Descriptor() ([]byte, []int) { return fileDescriptorVirtualService, []int{18} }
 
 func (m *Percent) GetValue() float64 {
 	if m != nil {
@@ -2046,6 +2162,8 @@ func init() {
 	proto.RegisterType((*VirtualService)(nil), "istio.networking.v1alpha3.VirtualService")
 	proto.RegisterType((*Destination)(nil), "istio.networking.v1alpha3.Destination")
 	proto.RegisterType((*HTTPRoute)(nil), "istio.networking.v1alpha3.HTTPRoute")
+	proto.RegisterType((*Headers)(nil), "istio.networking.v1alpha3.Headers")
+	proto.RegisterType((*Headers_HeaderOperations)(nil), "istio.networking.v1alpha3.Headers.HeaderOperations")
 	proto.RegisterType((*TLSRoute)(nil), "istio.networking.v1alpha3.TLSRoute")
 	proto.RegisterType((*TCPRoute)(nil), "istio.networking.v1alpha3.TCPRoute")
 	proto.RegisterType((*HTTPMatchRequest)(nil), "istio.networking.v1alpha3.HTTPMatchRequest")
@@ -2144,6 +2262,11 @@ func (m *VirtualService) MarshalTo(dAtA []byte) (int, error) {
 			}
 			i += n
 		}
+	}
+	if m.ConfigScope != 0 {
+		dAtA[i] = 0x30
+		i++
+		i = encodeVarintVirtualService(dAtA, i, uint64(m.ConfigScope))
 	}
 	return i, nil
 }
@@ -2388,6 +2511,123 @@ func (m *HTTPRoute) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], v)
 		}
 	}
+	if m.Headers != nil {
+		dAtA[i] = 0x82
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintVirtualService(dAtA, i, uint64(m.Headers.Size()))
+		n9, err := m.Headers.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n9
+	}
+	return i, nil
+}
+
+func (m *Headers) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Headers) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Request != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintVirtualService(dAtA, i, uint64(m.Request.Size()))
+		n10, err := m.Request.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n10
+	}
+	if m.Response != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintVirtualService(dAtA, i, uint64(m.Response.Size()))
+		n11, err := m.Response.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n11
+	}
+	return i, nil
+}
+
+func (m *Headers_HeaderOperations) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Headers_HeaderOperations) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Set) > 0 {
+		for k, _ := range m.Set {
+			dAtA[i] = 0xa
+			i++
+			v := m.Set[k]
+			mapSize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
+			i = encodeVarintVirtualService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.Add) > 0 {
+		for k, _ := range m.Add {
+			dAtA[i] = 0x12
+			i++
+			v := m.Add[k]
+			mapSize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
+			i = encodeVarintVirtualService(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintVirtualService(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.Remove) > 0 {
+		for _, s := range m.Remove {
+			dAtA[i] = 0x1a
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
 	return i, nil
 }
 
@@ -2494,41 +2734,41 @@ func (m *HTTPMatchRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Uri.Size()))
-		n9, err := m.Uri.MarshalTo(dAtA[i:])
+		n12, err := m.Uri.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n9
+		i += n12
 	}
 	if m.Scheme != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Scheme.Size()))
-		n10, err := m.Scheme.MarshalTo(dAtA[i:])
+		n13, err := m.Scheme.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n10
+		i += n13
 	}
 	if m.Method != nil {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Method.Size()))
-		n11, err := m.Method.MarshalTo(dAtA[i:])
+		n14, err := m.Method.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n11
+		i += n14
 	}
 	if m.Authority != nil {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Authority.Size()))
-		n12, err := m.Authority.MarshalTo(dAtA[i:])
+		n15, err := m.Authority.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n12
+		i += n15
 	}
 	if len(m.Headers) > 0 {
 		for k, _ := range m.Headers {
@@ -2550,11 +2790,11 @@ func (m *HTTPMatchRequest) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintVirtualService(dAtA, i, uint64(v.Size()))
-				n13, err := v.MarshalTo(dAtA[i:])
+				n16, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n13
+				i += n16
 			}
 		}
 	}
@@ -2617,11 +2857,11 @@ func (m *HTTPRouteDestination) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Destination.Size()))
-		n14, err := m.Destination.MarshalTo(dAtA[i:])
+		n17, err := m.Destination.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n14
+		i += n17
 	}
 	if m.Weight != 0 {
 		dAtA[i] = 0x10
@@ -2692,6 +2932,16 @@ func (m *HTTPRouteDestination) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], v)
 		}
 	}
+	if m.Headers != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintVirtualService(dAtA, i, uint64(m.Headers.Size()))
+		n18, err := m.Headers.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n18
+	}
 	return i, nil
 }
 
@@ -2714,11 +2964,11 @@ func (m *RouteDestination) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Destination.Size()))
-		n15, err := m.Destination.MarshalTo(dAtA[i:])
+		n19, err := m.Destination.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n15
+		i += n19
 	}
 	if m.Weight != 0 {
 		dAtA[i] = 0x10
@@ -2971,11 +3221,11 @@ func (m *StringMatch) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.MatchType != nil {
-		nn16, err := m.MatchType.MarshalTo(dAtA[i:])
+		nn20, err := m.MatchType.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn16
+		i += nn20
 	}
 	return i, nil
 }
@@ -3028,11 +3278,17 @@ func (m *HTTPRetry) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.PerTryTimeout.Size()))
-		n17, err := m.PerTryTimeout.MarshalTo(dAtA[i:])
+		n21, err := m.PerTryTimeout.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n17
+		i += n21
+	}
+	if len(m.RetryOn) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintVirtualService(dAtA, i, uint64(len(m.RetryOn)))
+		i += copy(dAtA[i:], m.RetryOn)
 	}
 	return i, nil
 }
@@ -3116,21 +3372,21 @@ func (m *CorsPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.MaxAge.Size()))
-		n18, err := m.MaxAge.MarshalTo(dAtA[i:])
+		n22, err := m.MaxAge.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n18
+		i += n22
 	}
 	if m.AllowCredentials != nil {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.AllowCredentials.Size()))
-		n19, err := m.AllowCredentials.MarshalTo(dAtA[i:])
+		n23, err := m.AllowCredentials.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n19
+		i += n23
 	}
 	return i, nil
 }
@@ -3154,21 +3410,21 @@ func (m *HTTPFaultInjection) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Delay.Size()))
-		n20, err := m.Delay.MarshalTo(dAtA[i:])
+		n24, err := m.Delay.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n20
+		i += n24
 	}
 	if m.Abort != nil {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Abort.Size()))
-		n21, err := m.Abort.MarshalTo(dAtA[i:])
+		n25, err := m.Abort.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n21
+		i += n25
 	}
 	return i, nil
 }
@@ -3194,21 +3450,21 @@ func (m *HTTPFaultInjection_Delay) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Percent))
 	}
 	if m.HttpDelayType != nil {
-		nn22, err := m.HttpDelayType.MarshalTo(dAtA[i:])
+		nn26, err := m.HttpDelayType.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn22
+		i += nn26
 	}
 	if m.Percentage != nil {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Percentage.Size()))
-		n23, err := m.Percentage.MarshalTo(dAtA[i:])
+		n27, err := m.Percentage.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n23
+		i += n27
 	}
 	return i, nil
 }
@@ -3219,11 +3475,11 @@ func (m *HTTPFaultInjection_Delay_FixedDelay) MarshalTo(dAtA []byte) (int, error
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.FixedDelay.Size()))
-		n24, err := m.FixedDelay.MarshalTo(dAtA[i:])
+		n28, err := m.FixedDelay.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n24
+		i += n28
 	}
 	return i, nil
 }
@@ -3233,11 +3489,11 @@ func (m *HTTPFaultInjection_Delay_ExponentialDelay) MarshalTo(dAtA []byte) (int,
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.ExponentialDelay.Size()))
-		n25, err := m.ExponentialDelay.MarshalTo(dAtA[i:])
+		n29, err := m.ExponentialDelay.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n25
+		i += n29
 	}
 	return i, nil
 }
@@ -3262,21 +3518,21 @@ func (m *HTTPFaultInjection_Abort) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Percent))
 	}
 	if m.ErrorType != nil {
-		nn26, err := m.ErrorType.MarshalTo(dAtA[i:])
+		nn30, err := m.ErrorType.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn26
+		i += nn30
 	}
 	if m.Percentage != nil {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintVirtualService(dAtA, i, uint64(m.Percentage.Size()))
-		n27, err := m.Percentage.MarshalTo(dAtA[i:])
+		n31, err := m.Percentage.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n27
+		i += n31
 	}
 	return i, nil
 }
@@ -3320,11 +3576,11 @@ func (m *PortSelector) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Port != nil {
-		nn28, err := m.Port.MarshalTo(dAtA[i:])
+		nn32, err := m.Port.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn28
+		i += nn32
 	}
 	return i, nil
 }
@@ -3409,6 +3665,9 @@ func (m *VirtualService) Size() (n int) {
 			l = e.Size()
 			n += 1 + l + sovVirtualService(uint64(l))
 		}
+	}
+	if m.ConfigScope != 0 {
+		n += 1 + sovVirtualService(uint64(m.ConfigScope))
 	}
 	return n
 }
@@ -3511,6 +3770,52 @@ func (m *HTTPRoute) Size() (n int) {
 			_ = v
 			mapEntrySize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
 			n += mapEntrySize + 1 + sovVirtualService(uint64(mapEntrySize))
+		}
+	}
+	if m.Headers != nil {
+		l = m.Headers.Size()
+		n += 2 + l + sovVirtualService(uint64(l))
+	}
+	return n
+}
+
+func (m *Headers) Size() (n int) {
+	var l int
+	_ = l
+	if m.Request != nil {
+		l = m.Request.Size()
+		n += 1 + l + sovVirtualService(uint64(l))
+	}
+	if m.Response != nil {
+		l = m.Response.Size()
+		n += 1 + l + sovVirtualService(uint64(l))
+	}
+	return n
+}
+
+func (m *Headers_HeaderOperations) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Set) > 0 {
+		for k, v := range m.Set {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
+			n += mapEntrySize + 1 + sovVirtualService(uint64(mapEntrySize))
+		}
+	}
+	if len(m.Add) > 0 {
+		for k, v := range m.Add {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
+			n += mapEntrySize + 1 + sovVirtualService(uint64(mapEntrySize))
+		}
+	}
+	if len(m.Remove) > 0 {
+		for _, s := range m.Remove {
+			l = len(s)
+			n += 1 + l + sovVirtualService(uint64(l))
 		}
 	}
 	return n
@@ -3641,6 +3946,10 @@ func (m *HTTPRouteDestination) Size() (n int) {
 			mapEntrySize := 1 + len(k) + sovVirtualService(uint64(len(k))) + 1 + len(v) + sovVirtualService(uint64(len(v)))
 			n += mapEntrySize + 1 + sovVirtualService(uint64(mapEntrySize))
 		}
+	}
+	if m.Headers != nil {
+		l = m.Headers.Size()
+		n += 1 + l + sovVirtualService(uint64(l))
 	}
 	return n
 }
@@ -3796,6 +4105,10 @@ func (m *HTTPRetry) Size() (n int) {
 	}
 	if m.PerTryTimeout != nil {
 		l = m.PerTryTimeout.Size()
+		n += 1 + l + sovVirtualService(uint64(l))
+	}
+	l = len(m.RetryOn)
+	if l > 0 {
 		n += 1 + l + sovVirtualService(uint64(l))
 	}
 	return n
@@ -4147,6 +4460,25 @@ func (m *VirtualService) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ConfigScope", wireType)
+			}
+			m.ConfigScope = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ConfigScope |= (ConfigScope(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipVirtualService(dAtA[iNdEx:])
@@ -5062,6 +5394,470 @@ func (m *HTTPRoute) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.AppendRequestHeaders[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 16:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Headers", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Headers == nil {
+				m.Headers = &Headers{}
+			}
+			if err := m.Headers.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipVirtualService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Headers) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowVirtualService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Headers: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Headers: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Request", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Request == nil {
+				m.Request = &Headers_HeaderOperations{}
+			}
+			if err := m.Request.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Response", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Response == nil {
+				m.Response = &Headers_HeaderOperations{}
+			}
+			if err := m.Response.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipVirtualService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Headers_HeaderOperations) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowVirtualService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HeaderOperations: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HeaderOperations: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Set", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Set == nil {
+				m.Set = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowVirtualService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowVirtualService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowVirtualService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipVirtualService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Set[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Add", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Add == nil {
+				m.Add = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowVirtualService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowVirtualService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowVirtualService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipVirtualService(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthVirtualService
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Add[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Remove", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Remove = append(m.Remove, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -6153,6 +6949,39 @@ func (m *HTTPRouteDestination) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.AppendRequestHeaders[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Headers", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Headers == nil {
+				m.Headers = &Headers{}
+			}
+			if err := m.Headers.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -7288,6 +8117,35 @@ func (m *HTTPRetry) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RetryOn", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowVirtualService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthVirtualService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RetryOn = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipVirtualService(dAtA[iNdEx:])
@@ -8273,107 +9131,119 @@ func init() {
 }
 
 var fileDescriptorVirtualService = []byte{
-	// 1617 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x58, 0x5f, 0x6f, 0xdb, 0x46,
-	0x12, 0x0f, 0x25, 0x51, 0xb6, 0x46, 0xb2, 0x63, 0xef, 0x39, 0x0e, 0xa3, 0x0b, 0x7c, 0x8e, 0x72,
-	0xb9, 0xf3, 0x21, 0x17, 0x09, 0x67, 0xe7, 0xee, 0x8c, 0x36, 0x71, 0x62, 0xd9, 0x49, 0x94, 0x22,
-	0x41, 0x03, 0xda, 0xcd, 0x43, 0x5f, 0x08, 0x8a, 0x5a, 0x4b, 0x4c, 0x28, 0x92, 0xdd, 0x5d, 0x5a,
-	0xd6, 0x53, 0x81, 0xa2, 0x5f, 0xa0, 0x45, 0x5f, 0x8b, 0xa2, 0x9f, 0xa4, 0xaf, 0x7d, 0xec, 0x27,
-	0x28, 0x82, 0x3c, 0xf6, 0x4b, 0xb4, 0xd8, 0x59, 0x52, 0xa2, 0x2d, 0x5b, 0x7f, 0xda, 0xb4, 0xe8,
-	0x1b, 0x77, 0x77, 0x7e, 0xb3, 0xb3, 0xb3, 0xb3, 0xbf, 0x99, 0x21, 0xfc, 0xcb, 0xa7, 0xa2, 0x17,
-	0xb0, 0xd7, 0xae, 0xdf, 0xae, 0x1d, 0xff, 0xc7, 0xf6, 0xc2, 0x8e, 0xbd, 0x55, 0x3b, 0x76, 0x99,
-	0x88, 0x6c, 0xcf, 0xe2, 0x94, 0x1d, 0xbb, 0x0e, 0xad, 0x86, 0x2c, 0x10, 0x01, 0xb9, 0xe6, 0x72,
-	0xe1, 0x06, 0xd5, 0x21, 0xa0, 0x9a, 0x00, 0xca, 0x6b, 0xed, 0x20, 0x68, 0x7b, 0xb4, 0x86, 0x82,
-	0xcd, 0xe8, 0xa8, 0xd6, 0x8a, 0x98, 0x2d, 0xdc, 0xc0, 0x57, 0xd0, 0xd1, 0xf5, 0x1e, 0xb3, 0xc3,
-	0x90, 0x32, 0xae, 0xd6, 0x2b, 0x3f, 0x69, 0xb0, 0xf8, 0x52, 0x6d, 0x7a, 0xa0, 0xf6, 0x24, 0x2b,
-	0xa0, 0x77, 0x02, 0x2e, 0xb8, 0xa1, 0xad, 0x67, 0x37, 0x0a, 0xa6, 0x1a, 0x90, 0x32, 0xcc, 0xb7,
-	0x6d, 0x41, 0x7b, 0x76, 0x9f, 0x1b, 0x19, 0x5c, 0x18, 0x8c, 0xc9, 0x36, 0xe4, 0x3a, 0x42, 0x84,
-	0x46, 0x76, 0x3d, 0xbb, 0x51, 0xdc, 0xfc, 0x7b, 0xf5, 0x42, 0x73, 0xab, 0x8d, 0xc3, 0xc3, 0x17,
-	0x66, 0x10, 0x09, 0x6a, 0x22, 0x82, 0xfc, 0x17, 0xb2, 0xc2, 0x09, 0x8d, 0x1c, 0x02, 0x6f, 0x8e,
-	0x01, 0x1e, 0xee, 0xc5, 0x38, 0x29, 0x8f, 0x30, 0x8f, 0x1b, 0xfa, 0x64, 0xd8, 0xb3, 0x83, 0x04,
-	0xe6, 0xf1, 0xca, 0x31, 0x14, 0xf7, 0x29, 0x17, 0xae, 0x8f, 0x1e, 0x22, 0x04, 0x72, 0xf2, 0x6c,
-	0x86, 0xb6, 0xae, 0x6d, 0x14, 0x4c, 0xfc, 0x26, 0xab, 0x90, 0xe7, 0x51, 0x93, 0x53, 0x61, 0x64,
-	0x70, 0x36, 0x1e, 0x91, 0xf7, 0x21, 0x17, 0x06, 0x4c, 0x18, 0xd9, 0x75, 0x6d, 0xa3, 0xb8, 0xf9,
-	0xcf, 0x31, 0x5b, 0xbe, 0x08, 0x98, 0x38, 0xa0, 0x1e, 0x75, 0x44, 0xc0, 0x4c, 0x04, 0x55, 0xbe,
-	0x05, 0x28, 0x0c, 0x4e, 0x4e, 0x76, 0x41, 0xef, 0xda, 0xc2, 0xe9, 0xa0, 0x7f, 0x8b, 0x9b, 0xb7,
-	0x27, 0xb8, 0xeb, 0xb9, 0x94, 0x35, 0xe9, 0x27, 0x11, 0xe5, 0xc2, 0x54, 0x48, 0xf2, 0x08, 0x74,
-	0x26, 0x75, 0xe1, 0x4d, 0x14, 0x37, 0x6b, 0xd3, 0x78, 0x3c, 0x75, 0x72, 0x53, 0xa1, 0xc9, 0x1e,
-	0xcc, 0x33, 0xda, 0x72, 0x19, 0x75, 0xa6, 0x39, 0x18, 0x6a, 0x8a, 0xc5, 0xcd, 0x01, 0x90, 0x3c,
-	0x84, 0x39, 0x46, 0x7b, 0xcc, 0x15, 0xd4, 0xc8, 0xa1, 0x8e, 0x7f, 0x4c, 0xd4, 0x81, 0xd2, 0x66,
-	0x02, 0x23, 0xb7, 0x61, 0xb9, 0x47, 0x9b, 0x3c, 0x70, 0x5e, 0x53, 0x61, 0x45, 0x61, 0x9b, 0xd9,
-	0x2d, 0x6a, 0xe8, 0xeb, 0xda, 0xc6, 0xbc, 0xb9, 0x34, 0x58, 0xf8, 0x48, 0xcd, 0x93, 0x2d, 0x98,
-	0x13, 0x6e, 0x97, 0x06, 0x91, 0x30, 0xf2, 0xb8, 0xdd, 0xb5, 0xaa, 0x0a, 0xf1, 0x6a, 0x12, 0xe2,
-	0xd5, 0xfd, 0xf8, 0x09, 0x98, 0x89, 0x24, 0xd9, 0x91, 0x36, 0x0a, 0xe6, 0x52, 0x6e, 0xcc, 0x21,
-	0x68, 0x62, 0x8c, 0x52, 0xc1, 0xfa, 0x66, 0x02, 0x22, 0x7b, 0xa0, 0x1f, 0xd9, 0x91, 0x27, 0x8c,
-	0x79, 0x44, 0xdf, 0x99, 0x80, 0x7e, 0x2c, 0x65, 0x9f, 0xfa, 0xaf, 0xa8, 0xa3, 0xbc, 0x8d, 0x58,
-	0xb2, 0x03, 0xf9, 0xae, 0xcb, 0x58, 0xc0, 0x8c, 0xc2, 0x44, 0x3f, 0xa5, 0x2f, 0x2b, 0x46, 0x91,
-	0xc7, 0x50, 0x74, 0x02, 0xc6, 0xad, 0x30, 0xf0, 0x5c, 0xa7, 0x6f, 0x00, 0x2a, 0xb9, 0x35, 0x46,
-	0xc9, 0x5e, 0xc0, 0xf8, 0x0b, 0x14, 0x36, 0xc1, 0x19, 0x7c, 0x93, 0x26, 0x2c, 0x4a, 0x0a, 0xf0,
-	0x5b, 0x56, 0x87, 0xda, 0x2d, 0xca, 0xb8, 0x51, 0xc4, 0x28, 0xfa, 0xff, 0x34, 0x51, 0x54, 0xdd,
-	0x45, 0x68, 0x43, 0x21, 0x1f, 0xf9, 0x82, 0xf5, 0xeb, 0x19, 0x43, 0x33, 0x17, 0xec, 0xf4, 0x3c,
-	0xf9, 0x1f, 0x5c, 0x65, 0xb4, 0x1b, 0x1c, 0x53, 0x8b, 0x51, 0x1e, 0x06, 0x3e, 0xa7, 0x83, 0xcd,
-	0x4a, 0x48, 0x1e, 0x57, 0xd4, 0xb2, 0x19, 0xaf, 0x26, 0xb8, 0x1e, 0x5c, 0x8d, 0x6d, 0x1b, 0xc1,
-	0x2d, 0xa0, 0x91, 0x0f, 0x66, 0x30, 0xf2, 0x8c, 0x72, 0x34, 0xd6, 0xbc, 0x62, 0x9f, 0xb7, 0x46,
-	0xee, 0xc2, 0xea, 0xc0, 0x60, 0x7c, 0x6a, 0x83, 0x7d, 0x17, 0xd1, 0xde, 0x95, 0xc4, 0x5e, 0x5c,
-	0x4c, 0x50, 0x02, 0x56, 0x07, 0xe6, 0x9e, 0x46, 0x5d, 0x46, 0x6b, 0x77, 0x66, 0xb2, 0x36, 0xad,
-	0x5a, 0x19, 0xbb, 0x62, 0x9f, 0xb3, 0x54, 0x7e, 0x08, 0x64, 0xf4, 0x16, 0xc8, 0x12, 0x64, 0x5f,
-	0xd3, 0x7e, 0x4c, 0x66, 0xf2, 0x53, 0x12, 0xf9, 0xb1, 0xed, 0x45, 0x34, 0xa6, 0x32, 0x35, 0x78,
-	0x2f, 0xb3, 0xad, 0x95, 0x1b, 0x50, 0xbe, 0xd8, 0x45, 0x33, 0x69, 0x7a, 0x02, 0xd7, 0x2e, 0x34,
-	0x7f, 0x16, 0x45, 0x95, 0x2f, 0x35, 0x98, 0x4f, 0xd8, 0x5a, 0xbe, 0xb7, 0x34, 0x45, 0xde, 0x19,
-	0xcf, 0xf0, 0xc8, 0x90, 0xbb, 0x42, 0x30, 0xb7, 0x19, 0x09, 0xca, 0x13, 0x92, 0xdc, 0x3d, 0x4d,
-	0x92, 0xe3, 0x78, 0xf6, 0x02, 0x82, 0xac, 0x7c, 0x21, 0x8d, 0x8a, 0x33, 0x0f, 0xa9, 0x9f, 0x36,
-	0xea, 0xdf, 0x63, 0xf4, 0x3d, 0xbb, 0xfb, 0xfb, 0xd9, 0xf4, 0x8d, 0x0e, 0x4b, 0x67, 0xf3, 0x02,
-	0xd9, 0x86, 0x6c, 0xc4, 0x5c, 0xf4, 0xf4, 0x78, 0x62, 0x39, 0x10, 0xcc, 0xf5, 0xdb, 0x0a, 0x2b,
-	0x21, 0x92, 0x95, 0xb8, 0xd3, 0xa1, 0x5d, 0x75, 0x25, 0xd3, 0x83, 0x63, 0x14, 0xb2, 0x1a, 0x15,
-	0x9d, 0xa0, 0x15, 0x67, 0x90, 0xa9, 0xf1, 0x0a, 0x45, 0xf6, 0xa1, 0x60, 0x47, 0xa2, 0x13, 0x30,
-	0x57, 0xf4, 0xa7, 0x48, 0x20, 0x69, 0x15, 0x43, 0x20, 0x31, 0x61, 0x2e, 0x79, 0x79, 0xaa, 0x28,
-	0xd8, 0x9e, 0x21, 0xab, 0x56, 0x4f, 0xbd, 0xb9, 0x44, 0x91, 0x2c, 0x0f, 0x30, 0xe5, 0xcb, 0x34,
-	0xb3, 0xa0, 0x32, 0x39, 0x69, 0xc2, 0x02, 0x0f, 0x22, 0xe6, 0x50, 0xcb, 0xb3, 0x9b, 0xd4, 0x93,
-	0xe9, 0x44, 0xee, 0x76, 0x7f, 0x96, 0xdd, 0x0e, 0x50, 0xc1, 0x33, 0xc4, 0xab, 0x2d, 0x4b, 0x3c,
-	0x35, 0x75, 0xaa, 0xd2, 0x9a, 0x3f, 0x5d, 0x69, 0x95, 0x9b, 0x50, 0x9a, 0xf0, 0xc2, 0xee, 0xa5,
-	0x5f, 0xd8, 0xf4, 0xbe, 0x4c, 0x3d, 0xe9, 0x07, 0xb0, 0x3c, 0x62, 0xe2, 0x4c, 0x4f, 0xf9, 0xe7,
-	0x1c, 0xac, 0x9c, 0x57, 0x76, 0x90, 0x06, 0x14, 0x5b, 0xc3, 0xe1, 0x14, 0xd1, 0x9a, 0x0e, 0xff,
-	0x34, 0x54, 0x96, 0x69, 0x3d, 0xea, 0xb6, 0x3b, 0xaa, 0x4c, 0xd3, 0xcd, 0x78, 0x34, 0x2e, 0xef,
-	0x64, 0xc7, 0xe5, 0x9d, 0xcf, 0xb4, 0x8b, 0x13, 0x8f, 0x2a, 0x4e, 0x3f, 0x98, 0xb1, 0xc6, 0x7a,
-	0xa7, 0x39, 0x48, 0x1f, 0x93, 0x83, 0x3e, 0xbd, 0x30, 0x07, 0xe5, 0xd1, 0xf0, 0xa7, 0xbf, 0xd6,
-	0xf0, 0x69, 0xd3, 0xd1, 0x9f, 0x30, 0x99, 0x08, 0x58, 0xfa, 0xe3, 0x83, 0xaf, 0xf2, 0x5d, 0x06,
-	0x96, 0x47, 0x98, 0x9f, 0xd4, 0xe0, 0x2f, 0x29, 0xb0, 0xc5, 0xa3, 0xa6, 0x4f, 0x07, 0xcd, 0x15,
-	0x49, 0x2d, 0x1d, 0xa8, 0x95, 0x01, 0xef, 0x64, 0x52, 0xbc, 0x73, 0x73, 0xc0, 0x3b, 0x0a, 0x8f,
-	0x64, 0x5b, 0x48, 0x88, 0x43, 0x21, 0x89, 0x73, 0x96, 0x9c, 0x72, 0x13, 0x8b, 0x90, 0x11, 0x73,
-	0x67, 0x62, 0x27, 0xfd, 0x0c, 0x3b, 0xfd, 0x66, 0xe6, 0xf8, 0x31, 0x03, 0x64, 0x34, 0xa1, 0x93,
-	0xbf, 0x42, 0x81, 0xfb, 0xae, 0x95, 0xee, 0x4a, 0xe7, 0xb9, 0xef, 0x36, 0xb0, 0x31, 0xbd, 0xc0,
-	0xbf, 0x99, 0x89, 0xfe, 0xcd, 0x8e, 0xf3, 0x6f, 0xee, 0x1c, 0xff, 0xb6, 0xce, 0xfa, 0x57, 0x9f,
-	0x58, 0x92, 0x8e, 0x1e, 0x66, 0x26, 0x07, 0xe7, 0xdf, 0xb5, 0x83, 0x77, 0xa0, 0x94, 0x6e, 0xe3,
-	0x24, 0x36, 0xa9, 0x1b, 0x0a, 0xaa, 0x1e, 0xb8, 0x9e, 0xce, 0xc7, 0x0a, 0x3f, 0x9c, 0xa8, 0xdc,
-	0x87, 0x62, 0xaa, 0x85, 0x9b, 0x19, 0x4e, 0xa1, 0x98, 0x4a, 0x3a, 0x64, 0x15, 0x74, 0x7a, 0x62,
-	0x3b, 0x71, 0x07, 0xde, 0xb8, 0x64, 0xaa, 0x21, 0x31, 0x20, 0x1f, 0x32, 0x7a, 0xe4, 0x9e, 0x28,
-	0x0d, 0x8d, 0x4b, 0x66, 0x3c, 0x96, 0x08, 0x46, 0xdb, 0xf4, 0x44, 0xc5, 0xbf, 0x44, 0xe0, 0xb0,
-	0x5e, 0x02, 0xc0, 0x02, 0xcb, 0x12, 0xfd, 0x90, 0x56, 0x5e, 0xc5, 0xed, 0xb6, 0x6c, 0xe2, 0xa4,
-	0x3f, 0x6d, 0x21, 0x68, 0x37, 0xc4, 0xd8, 0x91, 0xef, 0x75, 0x30, 0x26, 0xbb, 0x70, 0x39, 0xa4,
-	0xcc, 0x12, 0xac, 0x6f, 0x25, 0x4d, 0x65, 0x66, 0x52, 0x53, 0xb9, 0x10, 0x52, 0x76, 0xc8, 0xfa,
-	0x87, 0x4a, 0xbe, 0xf2, 0x75, 0x06, 0x60, 0xd8, 0x68, 0x91, 0x1b, 0x50, 0xb2, 0x3d, 0x2f, 0xe8,
-	0x59, 0x01, 0x73, 0xdb, 0xae, 0x1f, 0x47, 0x6b, 0x11, 0xe7, 0x3e, 0xc4, 0x29, 0x19, 0x6b, 0x4a,
-	0x44, 0x55, 0x40, 0x49, 0xa8, 0x2a, 0xdc, 0x73, 0x35, 0x37, 0x14, 0x3a, 0x9d, 0xbe, 0x94, 0x50,
-	0x42, 0xfd, 0xb7, 0x60, 0x91, 0x9e, 0x84, 0xc1, 0x99, 0x5c, 0x55, 0x30, 0x17, 0xd4, 0x6c, 0x22,
-	0xb6, 0x09, 0x73, 0x5d, 0xfb, 0xc4, 0xb2, 0xdb, 0xaa, 0xab, 0x1e, 0x7b, 0xba, 0x7c, 0xd7, 0x3e,
-	0xd9, 0x6d, 0x53, 0xf2, 0x04, 0x96, 0xd5, 0xfe, 0x0e, 0xa3, 0x2d, 0xea, 0x0b, 0xd7, 0xf6, 0x78,
-	0xdc, 0x70, 0x97, 0x47, 0xd0, 0xf5, 0x20, 0xf0, 0x5e, 0xca, 0x18, 0x33, 0x97, 0x10, 0xb4, 0x37,
-	0xc4, 0x54, 0xbe, 0xd2, 0x81, 0x8c, 0xf6, 0xc4, 0xe4, 0x29, 0xe8, 0x2d, 0xea, 0xd9, 0xfd, 0x98,
-	0x87, 0xb7, 0x66, 0xea, 0xa8, 0xab, 0xfb, 0x12, 0x6a, 0x2a, 0x0d, 0x52, 0x95, 0xdd, 0x4c, 0x08,
-	0x73, 0x66, 0x55, 0xbb, 0x12, 0x6a, 0x2a, 0x0d, 0xe5, 0xcf, 0x33, 0xa0, 0xa3, 0x6e, 0x72, 0x1d,
-	0xe6, 0x42, 0xca, 0x1c, 0xea, 0xab, 0xe0, 0xd4, 0xb1, 0xc9, 0x4d, 0xa6, 0xc8, 0x3d, 0x28, 0x1e,
-	0xb9, 0x27, 0xb4, 0x65, 0xa9, 0x33, 0x4c, 0x8a, 0x99, 0xc6, 0x25, 0x13, 0x50, 0x5e, 0xe9, 0x6e,
-	0xc0, 0xb2, 0xbc, 0x20, 0x5f, 0xb9, 0x28, 0xd6, 0x91, 0x9d, 0xac, 0x63, 0x29, 0x85, 0x52, 0x9a,
-	0xea, 0x00, 0xb1, 0x49, 0xc3, 0xcb, 0xad, 0x8c, 0xfb, 0x37, 0xa5, 0x84, 0xcd, 0x14, 0xaa, 0xbe,
-	0x0c, 0x97, 0x3b, 0x42, 0x84, 0xca, 0x0c, 0x7c, 0x3f, 0xe5, 0x37, 0x1a, 0xe8, 0xe8, 0x97, 0x09,
-	0x6e, 0xb8, 0x01, 0x45, 0x84, 0x72, 0x61, 0x8b, 0x88, 0xab, 0x6c, 0x28, 0xcf, 0x2a, 0x27, 0x0f,
-	0x70, 0x4e, 0x8a, 0xb4, 0x59, 0xe8, 0x24, 0x22, 0xc9, 0xb3, 0x05, 0x39, 0x39, 0x14, 0x91, 0x80,
-	0x4d, 0x8b, 0xe2, 0xcf, 0x91, 0x5c, 0x22, 0x82, 0x93, 0x8f, 0xf0, 0xd7, 0xc7, 0xbb, 0x38, 0x67,
-	0x09, 0x00, 0x37, 0x50, 0x14, 0xf1, 0x18, 0x4a, 0xe9, 0x1f, 0x75, 0x92, 0x72, 0xfc, 0xa8, 0xdb,
-	0xa4, 0x0c, 0xcf, 0xb9, 0x20, 0x29, 0x47, 0x8d, 0xc9, 0x0a, 0xe4, 0x7c, 0x3b, 0x6e, 0x8f, 0xa4,
-	0x5d, 0x38, 0xaa, 0xe7, 0x55, 0x12, 0xa9, 0xfc, 0x0d, 0xe6, 0xe2, 0xcd, 0x86, 0xac, 0x2b, 0x35,
-	0x68, 0x31, 0xeb, 0xd6, 0xab, 0xdf, 0xbf, 0x5d, 0xd3, 0x7e, 0x78, 0xbb, 0xa6, 0xbd, 0x79, 0xbb,
-	0xa6, 0x7d, 0xbc, 0xae, 0x6c, 0x76, 0x83, 0x9a, 0x1d, 0xba, 0xb5, 0x73, 0xfe, 0x00, 0x37, 0xf3,
-	0x78, 0xf3, 0x5b, 0xbf, 0x04, 0x00, 0x00, 0xff, 0xff, 0x43, 0x4f, 0x80, 0x3f, 0x1f, 0x16, 0x00,
-	0x00,
+	// 1812 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x59, 0x4f, 0x73, 0x1b, 0x49,
+	0x15, 0xcf, 0x48, 0x1a, 0xfd, 0x79, 0x92, 0x1d, 0xbb, 0xf1, 0x66, 0x27, 0x62, 0x2b, 0x38, 0x5a,
+	0x76, 0x31, 0xb5, 0xac, 0x5c, 0x28, 0xb0, 0xb8, 0x96, 0x6c, 0x76, 0x6d, 0x27, 0x59, 0x85, 0x4a,
+	0x88, 0x6b, 0x64, 0xf6, 0xc0, 0x65, 0xaa, 0x35, 0xd3, 0x96, 0x86, 0x8c, 0x66, 0x86, 0xee, 0x1e,
+	0xdb, 0x2a, 0x8e, 0xfc, 0xb9, 0x43, 0x71, 0xa5, 0xf8, 0x14, 0x5c, 0xb8, 0x70, 0xe5, 0x44, 0xf1,
+	0x09, 0xa8, 0x54, 0x0e, 0x5c, 0xf9, 0x0a, 0x54, 0xff, 0x99, 0xd1, 0xd8, 0xb2, 0x35, 0x92, 0x09,
+	0x14, 0x27, 0xab, 0xbb, 0xdf, 0xef, 0xf5, 0xeb, 0xd7, 0xfd, 0xde, 0xfb, 0xcd, 0x33, 0x7c, 0x3b,
+	0x24, 0xfc, 0x2c, 0xa2, 0xaf, 0xfc, 0x70, 0xb4, 0x7b, 0xfa, 0x5d, 0x1c, 0xc4, 0x63, 0xfc, 0x60,
+	0xf7, 0xd4, 0xa7, 0x3c, 0xc1, 0x81, 0xc3, 0x08, 0x3d, 0xf5, 0x5d, 0xd2, 0x8d, 0x69, 0xc4, 0x23,
+	0x74, 0xd7, 0x67, 0xdc, 0x8f, 0xba, 0x33, 0x40, 0x37, 0x05, 0xb4, 0xef, 0x8d, 0xa2, 0x68, 0x14,
+	0x90, 0x5d, 0x29, 0x38, 0x4c, 0x4e, 0x76, 0xbd, 0x84, 0x62, 0xee, 0x47, 0xa1, 0x82, 0xce, 0xaf,
+	0x9f, 0x51, 0x1c, 0xc7, 0x84, 0x32, 0xbd, 0x7e, 0xff, 0x2a, 0x2b, 0x98, 0xef, 0x11, 0x17, 0x53,
+	0x25, 0xd2, 0xf9, 0x53, 0x09, 0xd6, 0xbf, 0x52, 0x76, 0x0d, 0x94, 0x59, 0x68, 0x0b, 0xcc, 0x71,
+	0xc4, 0x38, 0xb3, 0x8c, 0xed, 0xf2, 0x4e, 0xc3, 0x56, 0x03, 0xd4, 0x86, 0xfa, 0x08, 0x73, 0x72,
+	0x86, 0xa7, 0xcc, 0x2a, 0xc9, 0x85, 0x6c, 0x8c, 0xf6, 0xa0, 0x32, 0xe6, 0x3c, 0xb6, 0xca, 0xdb,
+	0xe5, 0x9d, 0x66, 0xef, 0x9b, 0xdd, 0x6b, 0x4f, 0xd4, 0xed, 0x1f, 0x1f, 0x1f, 0xd9, 0x51, 0xc2,
+	0x89, 0x2d, 0x11, 0xe8, 0xfb, 0x50, 0xe6, 0x6e, 0x6c, 0x55, 0x24, 0xf0, 0xfd, 0x05, 0xc0, 0xe3,
+	0x43, 0x8d, 0x13, 0xf2, 0x12, 0x16, 0x30, 0xcb, 0x2c, 0x86, 0x3d, 0x1f, 0xa4, 0xb0, 0x80, 0xa1,
+	0x67, 0xd0, 0x72, 0xa3, 0xf0, 0xc4, 0x1f, 0x39, 0xcc, 0x8d, 0x62, 0x62, 0x55, 0xb7, 0x8d, 0x9d,
+	0xf5, 0xde, 0x87, 0x0b, 0xf0, 0x87, 0x52, 0x7c, 0x20, 0xa4, 0xed, 0xa6, 0x3b, 0x1b, 0x74, 0x4e,
+	0xa1, 0xf9, 0x98, 0x30, 0xee, 0x87, 0xf2, 0x3e, 0x10, 0x82, 0x8a, 0x70, 0x93, 0x65, 0x6c, 0x1b,
+	0x3b, 0x0d, 0x5b, 0xfe, 0x46, 0x77, 0xa0, 0xca, 0x92, 0x21, 0x23, 0xdc, 0x2a, 0xc9, 0x59, 0x3d,
+	0x42, 0x3f, 0x84, 0x4a, 0x1c, 0x51, 0x6e, 0x95, 0xb7, 0x8d, 0x9d, 0x66, 0xef, 0x5b, 0x0b, 0x76,
+	0x3f, 0x8a, 0x28, 0x1f, 0x90, 0x80, 0xb8, 0x3c, 0xa2, 0xb6, 0x04, 0x75, 0xfe, 0x05, 0xd0, 0xc8,
+	0x9c, 0x88, 0xf6, 0xc1, 0x9c, 0x60, 0xee, 0x8e, 0xe5, 0x55, 0x35, 0x7b, 0x1f, 0x15, 0x78, 0xfe,
+	0x85, 0x90, 0xb5, 0xc9, 0xcf, 0x13, 0xc2, 0xb8, 0xad, 0x90, 0xe8, 0x09, 0x98, 0x54, 0xe8, 0x92,
+	0x97, 0xda, 0xec, 0xed, 0x2e, 0x73, 0x79, 0xb9, 0x93, 0xdb, 0x0a, 0x8d, 0x0e, 0xa1, 0x4e, 0x89,
+	0xe7, 0x53, 0xe2, 0x2e, 0x73, 0x30, 0xa9, 0x49, 0x8b, 0xdb, 0x19, 0x10, 0x7d, 0x01, 0x35, 0x4a,
+	0xce, 0xa8, 0xcf, 0x89, 0x55, 0x91, 0x3a, 0x3e, 0x2c, 0xd4, 0x21, 0xa5, 0xed, 0x14, 0x86, 0x3e,
+	0x82, 0xcd, 0x33, 0x32, 0x64, 0x91, 0xfb, 0x8a, 0x70, 0x27, 0x89, 0x47, 0x14, 0x7b, 0xc4, 0x32,
+	0xb7, 0x8d, 0x9d, 0xba, 0xbd, 0x91, 0x2d, 0xfc, 0x44, 0xcd, 0xa3, 0x07, 0x50, 0xe3, 0xfe, 0x84,
+	0x44, 0x09, 0x97, 0x2f, 0xa1, 0xd9, 0xbb, 0xdb, 0x55, 0x01, 0xd5, 0x4d, 0x03, 0xaa, 0xfb, 0x58,
+	0x07, 0x9c, 0x9d, 0x4a, 0xa2, 0x47, 0xc2, 0x46, 0x4e, 0x7d, 0xc2, 0xac, 0x9a, 0x04, 0x15, 0x3e,
+	0x77, 0xc2, 0xe9, 0xd4, 0x4e, 0x41, 0xe8, 0x10, 0xcc, 0x13, 0x9c, 0x04, 0xdc, 0xaa, 0x4b, 0xf4,
+	0xc7, 0x05, 0xe8, 0xa7, 0x42, 0xf6, 0x59, 0xf8, 0x33, 0xe2, 0x2a, 0x6f, 0x4b, 0x2c, 0x7a, 0x04,
+	0xd5, 0x89, 0x4f, 0x69, 0x44, 0xad, 0x46, 0xa1, 0x9f, 0xf2, 0x97, 0xa5, 0x51, 0xe8, 0x29, 0x34,
+	0xdd, 0x88, 0x32, 0x27, 0x8e, 0x02, 0xdf, 0x9d, 0x5a, 0x20, 0x95, 0x7c, 0xb0, 0x30, 0x0e, 0x28,
+	0x3b, 0x92, 0xc2, 0x36, 0xb8, 0xd9, 0x6f, 0x34, 0x84, 0x75, 0x91, 0x70, 0x42, 0xcf, 0x19, 0x13,
+	0xec, 0x11, 0xca, 0xac, 0xa6, 0x7c, 0x45, 0x3f, 0x58, 0xe6, 0x15, 0x75, 0xf7, 0x25, 0xb4, 0xaf,
+	0x90, 0x4f, 0x42, 0x4e, 0xa7, 0x07, 0x25, 0xcb, 0xb0, 0xd7, 0x70, 0x7e, 0x1e, 0x7d, 0x0a, 0xef,
+	0x52, 0x32, 0x89, 0x4e, 0x89, 0x43, 0x09, 0x8b, 0xa3, 0x90, 0x91, 0x6c, 0xb3, 0x96, 0xc8, 0x43,
+	0x12, 0xf3, 0x8e, 0x12, 0xb1, 0xb5, 0x44, 0x8a, 0xfd, 0x05, 0xbc, 0xab, 0xed, 0x9b, 0xc3, 0xae,
+	0x49, 0x43, 0x3f, 0x5f, 0xc1, 0xd0, 0x4b, 0xca, 0x67, 0x06, 0xbf, 0x83, 0xaf, 0x5a, 0x47, 0x7b,
+	0x70, 0x27, 0x33, 0x5c, 0x86, 0x5c, 0xb6, 0xf7, 0x7a, 0x66, 0xf7, 0x56, 0x6a, 0xb7, 0x14, 0x48,
+	0x91, 0xe7, 0x70, 0x27, 0x33, 0xfb, 0x22, 0xf2, 0xb6, 0xb4, 0xfa, 0xd1, 0x4a, 0x56, 0xe7, 0x55,
+	0xcf, 0x8c, 0xde, 0xc2, 0x57, 0x2c, 0xa3, 0x87, 0x50, 0x4b, 0xb7, 0xda, 0x90, 0x8f, 0xa2, 0xb3,
+	0x68, 0x2b, 0x25, 0x69, 0xa7, 0x90, 0xf6, 0x17, 0x80, 0xe6, 0xef, 0x14, 0x6d, 0x40, 0xf9, 0x15,
+	0x99, 0xea, 0xd4, 0x28, 0x7e, 0x8a, 0x0a, 0x73, 0x8a, 0x83, 0x84, 0xe8, 0xc4, 0xa8, 0x06, 0x9f,
+	0x96, 0xf6, 0x8c, 0x76, 0x1f, 0xda, 0xd7, 0x3b, 0x7b, 0x25, 0x4d, 0x5f, 0xc2, 0xdd, 0x6b, 0x1d,
+	0xb0, 0x8a, 0xa2, 0xce, 0x3f, 0xcb, 0x50, 0x4b, 0xdd, 0xf3, 0x42, 0x04, 0xbf, 0x54, 0x27, 0xb1,
+	0xcd, 0xde, 0x83, 0x62, 0xf7, 0xe8, 0xbf, 0x2f, 0x63, 0xa2, 0x52, 0x09, 0xb3, 0x53, 0x1d, 0xe8,
+	0xa5, 0x48, 0x9a, 0xea, 0x9c, 0x72, 0xdf, 0x1b, 0xea, 0xcb, 0x94, 0xb4, 0xff, 0x5c, 0x82, 0x8d,
+	0xcb, 0xcb, 0xe8, 0xc7, 0x50, 0x16, 0x45, 0x48, 0x95, 0x88, 0x87, 0x37, 0xd8, 0xa0, 0x3b, 0x20,
+	0x5c, 0xfa, 0xcd, 0x16, 0x8a, 0x84, 0x3e, 0xec, 0x79, 0xba, 0x5e, 0xdc, 0x48, 0xdf, 0xbe, 0xe7,
+	0x69, 0x7d, 0xd8, 0xf3, 0x44, 0x9d, 0x54, 0x51, 0x20, 0xf9, 0x43, 0xc3, 0xd6, 0xa3, 0xf6, 0x27,
+	0x50, 0x4f, 0x37, 0x5e, 0xe9, 0xe6, 0x3f, 0x81, 0x7a, 0xba, 0xc1, 0x4a, 0x17, 0xfd, 0x3b, 0x03,
+	0xea, 0x29, 0x5f, 0x10, 0x69, 0x3a, 0x5f, 0x59, 0x3f, 0x5e, 0xcc, 0x31, 0x64, 0x61, 0xdd, 0xe7,
+	0x9c, 0xfa, 0xc3, 0x84, 0x13, 0x96, 0xd6, 0xd6, 0xfd, 0x8b, 0xb5, 0x75, 0x51, 0x79, 0xbe, 0xa6,
+	0xae, 0x76, 0x7e, 0x2b, 0x8c, 0xd2, 0xdc, 0x07, 0x1d, 0x5c, 0x34, 0xea, 0x3b, 0x0b, 0xf4, 0x3d,
+	0xff, 0xde, 0x7f, 0xcf, 0xa6, 0x3f, 0x9a, 0xb0, 0x71, 0x99, 0x4e, 0xa0, 0x3d, 0x28, 0x27, 0xd4,
+	0xd7, 0x61, 0xb1, 0xa8, 0x1e, 0x0d, 0x38, 0xf5, 0xc3, 0x91, 0xc2, 0x0a, 0x88, 0x28, 0x66, 0xcc,
+	0x1d, 0x93, 0x49, 0x1a, 0x03, 0xcb, 0x82, 0x35, 0x4a, 0x16, 0x43, 0xc2, 0xc7, 0x91, 0xa7, 0x89,
+	0xc7, 0xd2, 0x78, 0x85, 0x42, 0x8f, 0xa1, 0x81, 0x13, 0x3e, 0x8e, 0xa8, 0xcf, 0xa7, 0x4b, 0xf0,
+	0x8e, 0xbc, 0x8a, 0x19, 0x10, 0xd9, 0xb3, 0xcc, 0xa9, 0x68, 0xe9, 0xde, 0x0a, 0x64, 0xac, 0x9b,
+	0xcf, 0x4e, 0x59, 0x3e, 0x15, 0xac, 0x52, 0x32, 0x45, 0xc1, 0x4e, 0xd6, 0x14, 0x01, 0x44, 0x43,
+	0x58, 0x63, 0x51, 0x42, 0x5d, 0xe2, 0x04, 0x78, 0x48, 0x02, 0xc1, 0x42, 0xc4, 0x6e, 0x9f, 0xad,
+	0xb2, 0xdb, 0x40, 0x2a, 0x78, 0x2e, 0xf1, 0x6a, 0xcb, 0x16, 0xcb, 0x4d, 0x5d, 0xe0, 0xfa, 0xf5,
+	0x8b, 0x5c, 0xbf, 0x3d, 0x84, 0x56, 0x41, 0x2a, 0x7d, 0x98, 0x8f, 0xb0, 0xe5, 0x7d, 0x99, 0x8b,
+	0xe0, 0xcf, 0x61, 0x73, 0xce, 0xc4, 0x95, 0x42, 0xf9, 0x6f, 0x26, 0x6c, 0x5d, 0xc5, 0x56, 0x51,
+	0x1f, 0x9a, 0xde, 0x6c, 0xb8, 0xc4, 0x6b, 0xcd, 0x3f, 0xff, 0x3c, 0x54, 0x64, 0xad, 0x33, 0xe2,
+	0x8f, 0xc6, 0x8a, 0xdd, 0x9b, 0xb6, 0x1e, 0x2d, 0xa2, 0x2b, 0xe5, 0x22, 0xba, 0xf2, 0x1b, 0xe3,
+	0x7a, 0xbe, 0xa2, 0x3e, 0x91, 0x7e, 0xb4, 0x22, 0x3d, 0x7f, 0xeb, 0xd4, 0xc5, 0x2c, 0xa0, 0x2e,
+	0xbf, 0x34, 0xae, 0xe5, 0x2e, 0x55, 0x79, 0x82, 0x67, 0x37, 0x3d, 0xc1, 0x0d, 0x69, 0x4c, 0x6d,
+	0x75, 0x1a, 0xf3, 0x7f, 0x48, 0x42, 0x38, 0x6c, 0xfc, 0xef, 0xdf, 0x72, 0xe7, 0x2f, 0x25, 0xd8,
+	0x9c, 0x2b, 0x24, 0x68, 0x17, 0xbe, 0x96, 0x03, 0x3b, 0x2c, 0x19, 0x86, 0x24, 0xeb, 0x16, 0xa0,
+	0xdc, 0xd2, 0x40, 0xad, 0x64, 0x69, 0xac, 0x94, 0x4b, 0x63, 0xef, 0x67, 0x69, 0x4c, 0xe1, 0x65,
+	0xee, 0x6e, 0xa4, 0x79, 0x48, 0x21, 0x91, 0x7b, 0x39, 0xd7, 0x55, 0x0a, 0xe9, 0xef, 0x9c, 0xb9,
+	0x2b, 0x25, 0x3b, 0xf3, 0x52, 0xb2, 0xfb, 0x8f, 0x13, 0xd1, 0x3f, 0x4a, 0x80, 0xe6, 0xf9, 0x01,
+	0xfa, 0x3a, 0x34, 0x58, 0xe8, 0x3b, 0xf9, 0x36, 0x4b, 0x9d, 0x85, 0x7e, 0x5f, 0x76, 0x5a, 0xae,
+	0xf1, 0x6f, 0xa9, 0xd0, 0xbf, 0xe5, 0x45, 0xfe, 0xad, 0x5c, 0xe1, 0x5f, 0xef, 0xb2, 0x7f, 0xcd,
+	0xc2, 0x8f, 0xa2, 0xf9, 0xc3, 0xac, 0xe4, 0xe0, 0xea, 0xdb, 0x76, 0xf0, 0x23, 0x68, 0xe5, 0x9b,
+	0x09, 0x02, 0x9b, 0xd2, 0x90, 0x86, 0xa2, 0x17, 0xef, 0xe5, 0xcb, 0xbb, 0xc2, 0xcf, 0x26, 0x3a,
+	0x9f, 0x41, 0x33, 0xd7, 0x48, 0x58, 0x19, 0x4e, 0xa0, 0x99, 0xab, 0x61, 0xe8, 0x0e, 0x98, 0xe4,
+	0x1c, 0xbb, 0xba, 0x0f, 0xd4, 0xbf, 0x65, 0xab, 0x21, 0xb2, 0xa0, 0x1a, 0x53, 0x72, 0xe2, 0x9f,
+	0x2b, 0x0d, 0xfd, 0x5b, 0xb6, 0x1e, 0x0b, 0x04, 0x25, 0x23, 0x72, 0xae, 0xde, 0xbf, 0x40, 0xc8,
+	0xe1, 0x41, 0x0b, 0x40, 0xf2, 0x35, 0x87, 0x4f, 0x63, 0xd2, 0xf9, 0xb5, 0xa1, 0xbb, 0x3e, 0x44,
+	0xf8, 0xa7, 0x0d, 0x75, 0xcc, 0x39, 0x99, 0xc4, 0xf2, 0xf1, 0x88, 0x80, 0xcd, 0xc6, 0x68, 0x1f,
+	0x6e, 0xc7, 0x84, 0x3a, 0x9c, 0x4e, 0x9d, 0xb4, 0xb7, 0x51, 0x2a, 0xea, 0x6d, 0xac, 0xc5, 0x84,
+	0x1e, 0xd3, 0xe9, 0xb1, 0xee, 0x70, 0xdc, 0x15, 0x5f, 0x25, 0x42, 0x41, 0x14, 0xea, 0xa8, 0x94,
+	0xcd, 0x8b, 0xe9, 0xcb, 0xb0, 0xf3, 0x87, 0x12, 0xc0, 0xac, 0x15, 0x80, 0xee, 0x43, 0x0b, 0x07,
+	0x41, 0x74, 0xe6, 0x44, 0xd4, 0x1f, 0xf9, 0xa1, 0x7e, 0xc9, 0x4d, 0x39, 0xf7, 0x52, 0x4e, 0x89,
+	0x77, 0xa8, 0x44, 0x14, 0xd9, 0x4a, 0x9f, 0xb1, 0xc2, 0xbd, 0x50, 0x73, 0x33, 0xa1, 0x0b, 0x95,
+	0x52, 0x0b, 0xa5, 0x39, 0xfd, 0x03, 0x58, 0x27, 0xe7, 0x71, 0x74, 0xa9, 0x24, 0x36, 0xec, 0x35,
+	0x35, 0x9b, 0x8a, 0xf5, 0xa0, 0x36, 0xc1, 0xe7, 0x0e, 0x1e, 0xa9, 0xbe, 0xcf, 0xc2, 0x83, 0x57,
+	0x27, 0xf8, 0x7c, 0x7f, 0x44, 0xd0, 0x97, 0xb0, 0xa9, 0xf6, 0x77, 0x29, 0xf1, 0x48, 0xc8, 0x7d,
+	0x1c, 0x30, 0xdd, 0x12, 0x6a, 0xcf, 0xa1, 0x0f, 0xa2, 0x28, 0xf8, 0x4a, 0xbc, 0x3f, 0x7b, 0x43,
+	0x82, 0x0e, 0x67, 0x98, 0xce, 0xef, 0x4d, 0x40, 0xf3, 0x5d, 0x1b, 0xf4, 0x0c, 0x4c, 0x8f, 0x04,
+	0x78, 0xba, 0xcc, 0x47, 0xe3, 0x1c, 0xba, 0xfb, 0x58, 0x40, 0x6d, 0xa5, 0x41, 0xa8, 0xc2, 0xc3,
+	0x34, 0x99, 0xae, 0xac, 0x6a, 0x5f, 0x40, 0x6d, 0xa5, 0xa1, 0xfd, 0xab, 0x12, 0x98, 0x52, 0x37,
+	0x7a, 0x0f, 0x6a, 0x31, 0xa1, 0x2e, 0x09, 0xd5, 0xc3, 0x35, 0x65, 0x65, 0x4d, 0xa7, 0xd0, 0x43,
+	0x68, 0x9e, 0xf8, 0xe7, 0xc4, 0x73, 0xd4, 0x19, 0x8a, 0x9e, 0x53, 0xff, 0x96, 0x0d, 0x52, 0x5e,
+	0xe9, 0xee, 0xc3, 0xa6, 0xb8, 0xa0, 0x50, 0xb9, 0x48, 0xeb, 0x28, 0x17, 0xeb, 0xd8, 0xc8, 0xa1,
+	0x94, 0xa6, 0x03, 0x00, 0x6d, 0xd2, 0xec, 0x72, 0x17, 0xd5, 0xf5, 0x23, 0x25, 0x6c, 0xe7, 0x50,
+	0x07, 0x9b, 0x70, 0x7b, 0xcc, 0x79, 0xac, 0xcc, 0x90, 0xb1, 0xd5, 0x7e, 0x6d, 0x80, 0x29, 0xfd,
+	0x52, 0xe0, 0x86, 0xfb, 0xd0, 0x94, 0x50, 0xc6, 0x31, 0x4f, 0x98, 0xaa, 0x94, 0xe2, 0xac, 0x62,
+	0x72, 0x20, 0xe7, 0x84, 0xc8, 0x88, 0xc6, 0x6e, 0x2a, 0x92, 0x86, 0x34, 0x88, 0xc9, 0x99, 0x88,
+	0x00, 0xf4, 0x1c, 0x22, 0xdb, 0x77, 0x95, 0x54, 0x44, 0x4e, 0x3e, 0x91, 0xcd, 0xb9, 0xb7, 0x71,
+	0xce, 0x16, 0x80, 0xdc, 0x40, 0xa5, 0x8f, 0xa7, 0xd0, 0xca, 0xb7, 0x92, 0x45, 0x3a, 0x0a, 0x93,
+	0xc9, 0x90, 0x50, 0x79, 0xce, 0x35, 0x91, 0x8e, 0xd4, 0x18, 0x6d, 0x41, 0x25, 0xc4, 0xfa, 0x4b,
+	0x4c, 0xd8, 0x25, 0x47, 0x07, 0x55, 0x55, 0x60, 0x3a, 0xdf, 0x80, 0x9a, 0xde, 0x6c, 0x96, 0x91,
+	0x85, 0x06, 0x43, 0x67, 0xe4, 0x83, 0xee, 0x5f, 0xdf, 0xdc, 0x33, 0xfe, 0xfe, 0xe6, 0x9e, 0xf1,
+	0xfa, 0xcd, 0x3d, 0xe3, 0xa7, 0xdb, 0xca, 0x66, 0x3f, 0xda, 0xc5, 0xb1, 0xbf, 0x7b, 0xc5, 0xff,
+	0x22, 0x86, 0x55, 0x79, 0xf3, 0x0f, 0xfe, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x2f, 0xaf, 0xea, 0xb9,
+	0x2f, 0x19, 0x00, 0x00,
 }

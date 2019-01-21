@@ -50,9 +50,9 @@ func GetDefaultServiceConfig() *mccpb.ServiceConfig {
 	return &mccpb.ServiceConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP2}},
-				"target.user": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-user"}},
-				"target.name": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-name"}},
+				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: meshIP2}},
+				"target.user": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "target-user"}},
+				"target.name": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "target-name"}},
 			},
 		},
 	}
@@ -63,9 +63,9 @@ func GetDefaultHTTPServerConf() *mccpb.HttpClientConfig {
 	mfConf := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP1}},
-				"target.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{"POD222"}},
-				"target.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ222"}},
+				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: meshIP1}},
+				"target.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "POD222"}},
+				"target.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "XYZ222"}},
 			},
 		},
 	}
@@ -77,9 +77,9 @@ func GetDefaultHTTPClientConf() *mccpb.HttpClientConfig {
 	mfConf := &mccpb.HttpClientConfig{
 		ForwardAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh3.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP3}},
-				"source.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{"POD11"}},
-				"source.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ11"}},
+				"mesh3.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: meshIP3}},
+				"source.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "POD11"}},
+				"source.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "XYZ11"}},
 			},
 		},
 	}
@@ -91,9 +91,9 @@ func GetDefaultTCPServerConf() *mccpb.TcpClientConfig {
 	mfConf := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{meshIP1}},
-				"target.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{"POD222"}},
-				"target.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ222"}},
+				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{BytesValue: meshIP1}},
+				"target.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "POD222"}},
+				"target.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "XYZ222"}},
 			},
 		},
 	}

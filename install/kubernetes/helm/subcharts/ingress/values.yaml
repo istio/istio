@@ -5,10 +5,17 @@ enabled: false
 replicaCount: 1
 autoscaleMin: 1
 autoscaleMax: 5
+nodeSelector: {}
+
+podDisruptionBudget: {}
+  # minAvailable: 1
+  # maxUnavailable: 1
+
 service:
   annotations: {}
   loadBalancerIP: ""
   type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
+  #externalTrafficPolicy: Local #change to Local to preserve source IP or Cluster for default behaviour or leave commented out
   ports:
   - port: 80
     name: http

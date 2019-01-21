@@ -32,9 +32,8 @@ import (
 type (
 	// Decoder transforms protobuf-encoded bytes to attribute values.
 	Decoder struct {
-		resolver   Resolver
-		fields     map[wire.Number]*descriptor.FieldDescriptorProto
-		attrPrefix string
+		resolver Resolver
+		fields   map[wire.Number]*descriptor.FieldDescriptorProto
 	}
 )
 
@@ -44,8 +43,7 @@ type (
 // A nil field mask implies all fields are decoded.
 // This decoder is specialized to a single-level proto schema (no nested field dereferences
 // in the resulting output).
-// Attribute prefix is appended to the field names in the output attribute bag.
-func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool, attrPrefix string) *Decoder {
+func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool) *Decoder {
 	message := resolver.ResolveMessage(msgName)
 	fields := make(map[wire.Number]*descriptor.FieldDescriptorProto)
 
@@ -56,18 +54,19 @@ func NewDecoder(resolver Resolver, msgName string, fieldMask map[string]bool, at
 	}
 
 	return &Decoder{
-		resolver:   resolver,
-		fields:     fields,
-		attrPrefix: attrPrefix,
+		resolver: resolver,
+		fields:   fields,
 	}
 }
 
 // Decode function parses wire-encoded bytes to attribute values. The keys are field names
 // in the message specified by the field mask.
-func (d *Decoder) Decode(b []byte, out *attribute.MutableBag) error {
+// Attribute prefix is appended to the field names in the output attribute bag.
+func (d *Decoder) Decode(b []byte, out *attribute.MutableBag, attrPrefix string) error {
 	visitor := &decodeVisitor{
-		decoder: d,
-		out:     out,
+		decoder:    d,
+		out:        out,
+		attrPrefix: attrPrefix,
 	}
 
 	for len(b) > 0 {
@@ -82,22 +81,24 @@ func (d *Decoder) Decode(b []byte, out *attribute.MutableBag) error {
 }
 
 type decodeVisitor struct {
-	decoder *Decoder
-	out     *attribute.MutableBag
-	err     error
+	decoder    *Decoder
+	out        *attribute.MutableBag
+	attrPrefix string
+	err        error
 }
 
 func (dv *decodeVisitor) setValue(f *descriptor.FieldDescriptorProto, val interface{}) {
-	name := dv.decoder.attrPrefix + f.GetName()
+	name := dv.attrPrefix + f.GetName()
 	if f.IsRepeated() {
-		var arr []interface{}
+		var arr *attribute.List
 		old, ok := dv.out.Get(name)
 		if !ok {
-			arr = make([]interface{}, 0, 1)
+			arr = attribute.NewList(name)
+			dv.out.Set(name, arr)
 		} else {
-			arr = old.([]interface{})
+			arr = old.(*attribute.List)
 		}
-		dv.out.Set(name, append(arr, val))
+		arr.Append(val)
 	} else {
 		dv.out.Set(name, val)
 	}
@@ -120,7 +121,7 @@ func (dv *decodeVisitor) Varint(n wire.Number, v uint64) {
 		val = int64(v)
 	case descriptor.FieldDescriptorProto_TYPE_SINT32,
 		descriptor.FieldDescriptorProto_TYPE_SINT64:
-		val = int64(wire.DecodeZigZag(v))
+		val = wire.DecodeZigZag(v)
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
 		val = int64(v)
 	default:
@@ -142,7 +143,7 @@ func (dv *decodeVisitor) Fixed32(n wire.Number, v uint32) {
 	case descriptor.FieldDescriptorProto_TYPE_SFIXED32:
 		val = int64(v)
 	case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-		val = math.Float32frombits(v)
+		val = float64(math.Float32frombits(v))
 	default:
 		dv.err = multierror.Append(dv.err, fmt.Errorf("unexpected field type %q for fixed32 encoding", f.GetType()))
 		return
@@ -201,7 +202,7 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 		dv.setValue(f, v)
 		return
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-		name := dv.decoder.attrPrefix + f.GetName()
+		name := dv.attrPrefix + f.GetName()
 		if isMap(dv.decoder.resolver, f) {
 			// validate proto type to be map<string, string>
 			mapType := dv.decoder.resolver.ResolveMessage(f.GetTypeName())
@@ -218,13 +219,12 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 			}
 
 			// translate map<X, Y> proto3 field type to record Mixer type (map[string]string)
-			var m map[string]string
+			var m attribute.StringMap
 			val, ok := dv.out.Get(name)
 			if !ok {
-				m = make(map[string]string)
-				dv.out.Set(name, m)
+				m = attribute.NewStringMap(name)
 			} else {
-				m = val.(map[string]string)
+				m = val.(attribute.StringMap)
 			}
 
 			visitor := &mapVisitor{desc: mapType}
@@ -237,16 +237,17 @@ func (dv *decodeVisitor) Bytes(n wire.Number, v []byte) {
 				v = v[m:]
 			}
 
-			m[visitor.key] = visitor.value
+			m.Set(visitor.key, visitor.value)
+			dv.out.Set(name, m)
 			return
 		}
 
 		// parse the entirety of the message recursively for value types
 		if _, ok := valueResolver.descriptors[f.GetTypeName()]; ok && !f.IsRepeated() {
-			decoder := NewDecoder(valueResolver, f.GetTypeName(), nil, "")
+			decoder := NewDecoder(valueResolver, f.GetTypeName(), nil)
 			inner := attribute.GetMutableBag(nil)
 			defer inner.Done()
-			if err := decoder.Decode(v, inner); err != nil {
+			if err := decoder.Decode(v, inner, ""); err != nil {
 				dv.err = multierror.Append(dv.err, fmt.Errorf("failed to decode field %q: %v", f.GetName(), err))
 				return
 			}

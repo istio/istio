@@ -83,9 +83,9 @@ type MetadataMatcher struct {
 	// The filter name to retrieve the Struct from the Metadata.
 	Filter string `protobuf:"bytes,1,opt,name=filter,proto3" json:"filter,omitempty"`
 	// The path to retrieve the Value from the Struct.
-	Path []*MetadataMatcher_PathSegment `protobuf:"bytes,2,rep,name=path" json:"path,omitempty"`
+	Path []*MetadataMatcher_PathSegment `protobuf:"bytes,2,rep,name=path,proto3" json:"path,omitempty"`
 	// The MetadataMatcher is matched if the value retrieved by path is matched to this value.
-	Value                *ValueMatcher `protobuf:"bytes,3,opt,name=value" json:"value,omitempty"`
+	Value                *ValueMatcher `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -366,6 +366,9 @@ func encodeVarintMetadata(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *MetadataMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Filter)
@@ -389,6 +392,9 @@ func (m *MetadataMatcher) Size() (n int) {
 }
 
 func (m *MetadataMatcher_PathSegment) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Segment != nil {
@@ -401,6 +407,9 @@ func (m *MetadataMatcher_PathSegment) Size() (n int) {
 }
 
 func (m *MetadataMatcher_PathSegment_Key) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Key)

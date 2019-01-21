@@ -224,7 +224,7 @@ func _StringMatcher_OneofSizer(msg proto.Message) (n int) {
 
 // Specifies a list of ways to match a string.
 type ListStringMatcher struct {
-	Patterns             []*StringMatcher `protobuf:"bytes,1,rep,name=patterns" json:"patterns,omitempty"`
+	Patterns             []*StringMatcher `protobuf:"bytes,1,rep,name=patterns,proto3" json:"patterns,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -377,6 +377,9 @@ func encodeVarintString(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *StringMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MatchPattern != nil {
@@ -389,6 +392,9 @@ func (m *StringMatcher) Size() (n int) {
 }
 
 func (m *StringMatcher_Exact) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Exact)
@@ -396,6 +402,9 @@ func (m *StringMatcher_Exact) Size() (n int) {
 	return n
 }
 func (m *StringMatcher_Prefix) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Prefix)
@@ -403,6 +412,9 @@ func (m *StringMatcher_Prefix) Size() (n int) {
 	return n
 }
 func (m *StringMatcher_Suffix) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Suffix)
@@ -410,6 +422,9 @@ func (m *StringMatcher_Suffix) Size() (n int) {
 	return n
 }
 func (m *StringMatcher_Regex) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Regex)
@@ -417,6 +432,9 @@ func (m *StringMatcher_Regex) Size() (n int) {
 	return n
 }
 func (m *ListStringMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Patterns) > 0 {

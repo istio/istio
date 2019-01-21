@@ -28,9 +28,9 @@ type Connection struct {
 	// in Envoy logs.
 	Id uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Local address.
-	LocalAddress *core.Address `protobuf:"bytes,2,opt,name=local_address,json=localAddress" json:"local_address,omitempty"`
+	LocalAddress *core.Address `protobuf:"bytes,2,opt,name=local_address,json=localAddress,proto3" json:"local_address,omitempty"`
 	// Remote address.
-	RemoteAddress        *core.Address `protobuf:"bytes,3,opt,name=remote_address,json=remoteAddress" json:"remote_address,omitempty"`
+	RemoteAddress        *core.Address `protobuf:"bytes,3,opt,name=remote_address,json=remoteAddress,proto3" json:"remote_address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -93,7 +93,7 @@ func (m *Connection) GetRemoteAddress() *core.Address {
 // Event in a capture trace.
 type Event struct {
 	// Timestamp for event.
-	Timestamp *types.Timestamp `protobuf:"bytes,1,opt,name=timestamp" json:"timestamp,omitempty"`
+	Timestamp *types.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// Read or write with content as bytes string.
 	//
 	// Types that are valid to be assigned to EventSelector:
@@ -145,10 +145,10 @@ type isEvent_EventSelector interface {
 }
 
 type Event_Read_ struct {
-	Read *Event_Read `protobuf:"bytes,2,opt,name=read,oneof"`
+	Read *Event_Read `protobuf:"bytes,2,opt,name=read,proto3,oneof"`
 }
 type Event_Write_ struct {
-	Write *Event_Write `protobuf:"bytes,3,opt,name=write,oneof"`
+	Write *Event_Write `protobuf:"bytes,3,opt,name=write,proto3,oneof"`
 }
 
 func (*Event_Read_) isEvent_EventSelector()  {}
@@ -368,9 +368,9 @@ func (m *Event_Write) GetEndStream() bool {
 // sink (e.g. file set, network) responsible for later reassembly.
 type Trace struct {
 	// Connection properties.
-	Connection *Connection `protobuf:"bytes,1,opt,name=connection" json:"connection,omitempty"`
+	Connection *Connection `protobuf:"bytes,1,opt,name=connection,proto3" json:"connection,omitempty"`
 	// Sequence of observed events.
-	Events               []*Event `protobuf:"bytes,2,rep,name=events" json:"events,omitempty"`
+	Events               []*Event `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -659,6 +659,9 @@ func encodeVarintCapture(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Connection) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Id != 0 {
@@ -679,6 +682,9 @@ func (m *Connection) Size() (n int) {
 }
 
 func (m *Event) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Timestamp != nil {
@@ -695,6 +701,9 @@ func (m *Event) Size() (n int) {
 }
 
 func (m *Event_Read_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Read != nil {
@@ -704,6 +713,9 @@ func (m *Event_Read_) Size() (n int) {
 	return n
 }
 func (m *Event_Write_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Write != nil {
@@ -713,6 +725,9 @@ func (m *Event_Write_) Size() (n int) {
 	return n
 }
 func (m *Event_Read) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Data)
@@ -726,6 +741,9 @@ func (m *Event_Read) Size() (n int) {
 }
 
 func (m *Event_Write) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Data)
@@ -742,6 +760,9 @@ func (m *Event_Write) Size() (n int) {
 }
 
 func (m *Trace) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Connection != nil {

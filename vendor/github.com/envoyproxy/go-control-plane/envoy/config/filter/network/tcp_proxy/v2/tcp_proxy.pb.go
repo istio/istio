@@ -41,24 +41,24 @@ type TcpProxy struct {
 	// Optional endpoint metadata match criteria. Only endpoints in the upstream
 	// cluster with metadata matching that set in metadata_match will be
 	// considered. The filter name should be specified as *envoy.lb*.
-	MetadataMatch *core.Metadata `protobuf:"bytes,9,opt,name=metadata_match,json=metadataMatch" json:"metadata_match,omitempty"`
+	MetadataMatch *core.Metadata `protobuf:"bytes,9,opt,name=metadata_match,json=metadataMatch,proto3" json:"metadata_match,omitempty"`
 	// The idle timeout for connections managed by the TCP proxy filter. The idle timeout
 	// is defined as the period in which there are no bytes sent or received on either
 	// the upstream or downstream connection. If not set, connections will never be closed
 	// by the TCP proxy due to being idle.
-	IdleTimeout *time.Duration `protobuf:"bytes,8,opt,name=idle_timeout,json=idleTimeout,stdduration" json:"idle_timeout,omitempty"`
+	IdleTimeout *time.Duration `protobuf:"bytes,8,opt,name=idle_timeout,json=idleTimeout,proto3,stdduration" json:"idle_timeout,omitempty"`
 	// [#not-implemented-hide:] The idle timeout for connections managed by the TCP proxy
 	// filter. The idle timeout is defined as the period in which there is no
 	// active traffic. If not set, there is no idle timeout. When the idle timeout
 	// is reached the connection will be closed. The distinction between
 	// downstream_idle_timeout/upstream_idle_timeout provides a means to set
 	// timeout based on the last byte sent on the downstream/upstream connection.
-	DownstreamIdleTimeout *types.Duration `protobuf:"bytes,3,opt,name=downstream_idle_timeout,json=downstreamIdleTimeout" json:"downstream_idle_timeout,omitempty"`
+	DownstreamIdleTimeout *types.Duration `protobuf:"bytes,3,opt,name=downstream_idle_timeout,json=downstreamIdleTimeout,proto3" json:"downstream_idle_timeout,omitempty"`
 	// [#not-implemented-hide:]
-	UpstreamIdleTimeout *types.Duration `protobuf:"bytes,4,opt,name=upstream_idle_timeout,json=upstreamIdleTimeout" json:"upstream_idle_timeout,omitempty"`
+	UpstreamIdleTimeout *types.Duration `protobuf:"bytes,4,opt,name=upstream_idle_timeout,json=upstreamIdleTimeout,proto3" json:"upstream_idle_timeout,omitempty"`
 	// Configuration for :ref:`access logs <arch_overview_access_logs>`
 	// emitted by the this tcp_proxy.
-	AccessLog []*v2.AccessLog `protobuf:"bytes,5,rep,name=access_log,json=accessLog" json:"access_log,omitempty"`
+	AccessLog []*v2.AccessLog `protobuf:"bytes,5,rep,name=access_log,json=accessLog,proto3" json:"access_log,omitempty"`
 	// TCP Proxy filter configuration using deprecated V1 format. This is required for complex
 	// routing until filter chain matching in the listener is implemented.
 	//
@@ -68,10 +68,10 @@ type TcpProxy struct {
 	//   <https://github.com/envoyproxy/envoy/issues/2441>`_. If you want to configure the filter
 	//   using v1 config structure, please make this field a boolean with value ``true`` and configure
 	//   via the opaque ``value`` field like is suggested in :api:`envoy/config/filter/README.md`.
-	DeprecatedV1 *TcpProxy_DeprecatedV1 `protobuf:"bytes,6,opt,name=deprecated_v1,json=deprecatedV1" json:"deprecated_v1,omitempty"` // Deprecated: Do not use.
+	DeprecatedV1 *TcpProxy_DeprecatedV1 `protobuf:"bytes,6,opt,name=deprecated_v1,json=deprecatedV1,proto3" json:"deprecated_v1,omitempty"` // Deprecated: Do not use.
 	// The maximum number of unsuccessful connection attempts that will be made before
 	// giving up. If the parameter is not specified, 1 connection attempt will be made.
-	MaxConnectAttempts   *types.UInt32Value `protobuf:"bytes,7,opt,name=max_connect_attempts,json=maxConnectAttempts" json:"max_connect_attempts,omitempty"`
+	MaxConnectAttempts   *types.UInt32Value `protobuf:"bytes,7,opt,name=max_connect_attempts,json=maxConnectAttempts,proto3" json:"max_connect_attempts,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -120,7 +120,7 @@ type TcpProxy_Cluster struct {
 	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3,oneof"`
 }
 type TcpProxy_WeightedClusters struct {
-	WeightedClusters *TcpProxy_WeightedCluster `protobuf:"bytes,10,opt,name=weighted_clusters,json=weightedClusters,oneof"`
+	WeightedClusters *TcpProxy_WeightedCluster `protobuf:"bytes,10,opt,name=weighted_clusters,json=weightedClusters,proto3,oneof"`
 }
 
 func (*TcpProxy_Cluster) isTcpProxy_ClusterSpecifier()          {}
@@ -280,7 +280,7 @@ func _TcpProxy_OneofSizer(msg proto.Message) (n int) {
 type TcpProxy_DeprecatedV1 struct {
 	// The route table for the filter. All filter instances must have a route
 	// table, even if it is empty.
-	Routes               []*TcpProxy_DeprecatedV1_TCPRoute `protobuf:"bytes,1,rep,name=routes" json:"routes,omitempty"`
+	Routes               []*TcpProxy_DeprecatedV1_TCPRoute `protobuf:"bytes,1,rep,name=routes,proto3" json:"routes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
 	XXX_unrecognized     []byte                            `json:"-"`
 	XXX_sizecache        int32                             `json:"-"`
@@ -345,7 +345,7 @@ type TcpProxy_DeprecatedV1_TCPRoute struct {
 	// address of the downstream connection might be different from the
 	// addresses on which the proxy is listening if the connection has been
 	// redirected.
-	DestinationIpList []*core.CidrRange `protobuf:"bytes,2,rep,name=destination_ip_list,json=destinationIpList" json:"destination_ip_list,omitempty"`
+	DestinationIpList []*core.CidrRange `protobuf:"bytes,2,rep,name=destination_ip_list,json=destinationIpList,proto3" json:"destination_ip_list,omitempty"`
 	// An optional string containing a comma-separated list of port numbers
 	// or ranges. The criteria is satisfied if the destination port of the
 	// downstream connection is contained in at least one of the specified
@@ -359,7 +359,7 @@ type TcpProxy_DeprecatedV1_TCPRoute struct {
 	// of the downstream connection is contained in at least one of the
 	// specified subnets. If the parameter is not specified or the list is
 	// empty, the source IP address is ignored.
-	SourceIpList []*core.CidrRange `protobuf:"bytes,4,rep,name=source_ip_list,json=sourceIpList" json:"source_ip_list,omitempty"`
+	SourceIpList []*core.CidrRange `protobuf:"bytes,4,rep,name=source_ip_list,json=sourceIpList,proto3" json:"source_ip_list,omitempty"`
 	// An optional string containing a comma-separated list of port numbers
 	// or ranges. The criteria is satisfied if the source port of the
 	// downstream connection is contained in at least one of the specified
@@ -444,7 +444,7 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) GetSourcePorts() string {
 // The router selects an upstream cluster based on these weights.
 type TcpProxy_WeightedCluster struct {
 	// Specifies one or more upstream clusters associated with the route.
-	Clusters             []*TcpProxy_WeightedCluster_ClusterWeight `protobuf:"bytes,1,rep,name=clusters" json:"clusters,omitempty"`
+	Clusters             []*TcpProxy_WeightedCluster_ClusterWeight `protobuf:"bytes,1,rep,name=clusters,proto3" json:"clusters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                                  `json:"-"`
 	XXX_unrecognized     []byte                                    `json:"-"`
 	XXX_sizecache        int32                                     `json:"-"`
@@ -857,6 +857,9 @@ func encodeVarintTcpProxy(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *TcpProxy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.StatPrefix)
@@ -903,6 +906,9 @@ func (m *TcpProxy) Size() (n int) {
 }
 
 func (m *TcpProxy_Cluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Cluster)
@@ -910,6 +916,9 @@ func (m *TcpProxy_Cluster) Size() (n int) {
 	return n
 }
 func (m *TcpProxy_WeightedClusters) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.WeightedClusters != nil {
@@ -919,6 +928,9 @@ func (m *TcpProxy_WeightedClusters) Size() (n int) {
 	return n
 }
 func (m *TcpProxy_DeprecatedV1) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Routes) > 0 {
@@ -934,6 +946,9 @@ func (m *TcpProxy_DeprecatedV1) Size() (n int) {
 }
 
 func (m *TcpProxy_DeprecatedV1_TCPRoute) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Cluster)
@@ -967,6 +982,9 @@ func (m *TcpProxy_DeprecatedV1_TCPRoute) Size() (n int) {
 }
 
 func (m *TcpProxy_WeightedCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Clusters) > 0 {
@@ -982,6 +1000,9 @@ func (m *TcpProxy_WeightedCluster) Size() (n int) {
 }
 
 func (m *TcpProxy_WeightedCluster_ClusterWeight) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)

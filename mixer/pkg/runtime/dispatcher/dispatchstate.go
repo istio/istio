@@ -52,6 +52,9 @@ type dispatchState struct {
 	outputBag   *attribute.MutableBag
 	checkResult adapter.CheckResult
 	quotaResult adapter.QuotaResult
+
+	// attribute prefix for the output bag
+	outputPrefix string
 }
 
 func (ds *dispatchState) clear() {
@@ -63,6 +66,7 @@ func (ds *dispatchState) clear() {
 	ds.quotaArgs = adapter.QuotaArgs{}
 	ds.err = nil
 	ds.outputBag = nil
+	ds.outputPrefix = ""
 	ds.checkResult = adapter.CheckResult{}
 	ds.quotaResult = adapter.QuotaResult{}
 
@@ -79,9 +83,26 @@ func (ds *dispatchState) beginSpan(ctx context.Context) (opentracing.Span, conte
 	return span, ctx, time.Now()
 }
 
+func (ds *dispatchState) logCheckResultToDispatchSpan(span opentracing.Span) {
+	if ds.session.impl.enableTracing {
+		logCheckResultToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, ds.checkResult, ds.err)
+	}
+}
+
+func (ds *dispatchState) logQuotaResultToDispatchSpan(span opentracing.Span) {
+	if ds.session.impl.enableTracing {
+		logQuotaResultToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, ds.quotaResult, ds.err)
+	}
+}
+
+func (ds *dispatchState) logErrToDispatchSpan(span opentracing.Span) {
+	if ds.session.impl.enableTracing {
+		logErrorToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, ds.err)
+	}
+}
+
 func (ds *dispatchState) completeSpan(ctx context.Context, span opentracing.Span, duration time.Duration, err error) {
 	if ds.session.impl.enableTracing {
-		logToDispatchSpan(span, ds.destination.Template.Name, ds.destination.HandlerName, ds.destination.AdapterName, err)
 		span.Finish()
 	}
 	newCtx, _ := tag.New(ctx, tag.Insert(monitoring.ErrorTag, strconv.FormatBool(err != nil)))
@@ -121,18 +142,26 @@ func (ds *dispatchState) invokeHandler(interface{}) {
 	case tpb.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
 		ds.outputBag, ds.err = ds.destination.Template.DispatchGenAttrs(
 			ctx, ds.destination.Handler, ds.instances[0], ds.inputBag, ds.mapper)
+		ds.logErrToDispatchSpan(span)
 
-	case tpb.TEMPLATE_VARIETY_CHECK:
+	case tpb.TEMPLATE_VARIETY_CHECK, tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
+		// allocate a bag to store check output results
+		// this bag is released in session waitForDispatched
+		ds.outputBag = attribute.GetMutableBag(nil)
+
 		ds.checkResult, ds.err = ds.destination.Template.DispatchCheck(
-			ctx, ds.destination.Handler, ds.instances[0])
+			ctx, ds.destination.Handler, ds.instances[0], ds.outputBag, ds.outputPrefix)
+		ds.logCheckResultToDispatchSpan(span)
 
 	case tpb.TEMPLATE_VARIETY_REPORT:
 		ds.err = ds.destination.Template.DispatchReport(
 			ctx, ds.destination.Handler, ds.instances)
+		ds.logErrToDispatchSpan(span)
 
 	case tpb.TEMPLATE_VARIETY_QUOTA:
 		ds.quotaResult, ds.err = ds.destination.Template.DispatchQuota(
 			ctx, ds.destination.Handler, ds.instances[0], ds.quotaArgs)
+		ds.logQuotaResultToDispatchSpan(span)
 
 	default:
 		panic(fmt.Sprintf("unknown variety type: '%v'", ds.destination.Template.Variety))

@@ -25,4 +25,10 @@ service IstioCertificateService {
   rpc CreateCertificate(IstioCertificateRequest)
       returns (IstioCertificateResponse) {
   }
+
+  // Using provided CSR, returns a signed certificate that represents a
+  // Kubernetes pod identity.
+  rpc CreatePodCertificate(IstioCertificateRequest)
+      returns (IstioCertificateResponse) {
+  }
 }

@@ -6,6 +6,7 @@ package v2
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
+import types "github.com/gogo/protobuf/types"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 
 import io "io"
@@ -30,17 +31,21 @@ type FileAccessLog struct {
 	// Access log format. Envoy supports :ref:`custom access log formats
 	// <config_access_log_format>` as well as a :ref:`default format
 	// <config_access_log_default_format>`.
-	Format               string   `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	//
+	// Types that are valid to be assigned to AccessLogFormat:
+	//	*FileAccessLog_Format
+	//	*FileAccessLog_JsonFormat
+	AccessLogFormat      isFileAccessLog_AccessLogFormat `protobuf_oneof:"access_log_format"`
+	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
+	XXX_unrecognized     []byte                          `json:"-"`
+	XXX_sizecache        int32                           `json:"-"`
 }
 
 func (m *FileAccessLog) Reset()         { *m = FileAccessLog{} }
 func (m *FileAccessLog) String() string { return proto.CompactTextString(m) }
 func (*FileAccessLog) ProtoMessage()    {}
 func (*FileAccessLog) Descriptor() ([]byte, []int) {
-	return fileDescriptor_file_2831bc57087c8234, []int{0}
+	return fileDescriptor_file_f3ece1fa5088fe2b, []int{0}
 }
 func (m *FileAccessLog) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -69,6 +74,29 @@ func (m *FileAccessLog) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FileAccessLog proto.InternalMessageInfo
 
+type isFileAccessLog_AccessLogFormat interface {
+	isFileAccessLog_AccessLogFormat()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type FileAccessLog_Format struct {
+	Format string `protobuf:"bytes,2,opt,name=format,proto3,oneof"`
+}
+type FileAccessLog_JsonFormat struct {
+	JsonFormat *types.Struct `protobuf:"bytes,3,opt,name=json_format,json=jsonFormat,proto3,oneof"`
+}
+
+func (*FileAccessLog_Format) isFileAccessLog_AccessLogFormat()     {}
+func (*FileAccessLog_JsonFormat) isFileAccessLog_AccessLogFormat() {}
+
+func (m *FileAccessLog) GetAccessLogFormat() isFileAccessLog_AccessLogFormat {
+	if m != nil {
+		return m.AccessLogFormat
+	}
+	return nil
+}
+
 func (m *FileAccessLog) GetPath() string {
 	if m != nil {
 		return m.Path
@@ -77,10 +105,87 @@ func (m *FileAccessLog) GetPath() string {
 }
 
 func (m *FileAccessLog) GetFormat() string {
-	if m != nil {
-		return m.Format
+	if x, ok := m.GetAccessLogFormat().(*FileAccessLog_Format); ok {
+		return x.Format
 	}
 	return ""
+}
+
+func (m *FileAccessLog) GetJsonFormat() *types.Struct {
+	if x, ok := m.GetAccessLogFormat().(*FileAccessLog_JsonFormat); ok {
+		return x.JsonFormat
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*FileAccessLog) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _FileAccessLog_OneofMarshaler, _FileAccessLog_OneofUnmarshaler, _FileAccessLog_OneofSizer, []interface{}{
+		(*FileAccessLog_Format)(nil),
+		(*FileAccessLog_JsonFormat)(nil),
+	}
+}
+
+func _FileAccessLog_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*FileAccessLog)
+	// access_log_format
+	switch x := m.AccessLogFormat.(type) {
+	case *FileAccessLog_Format:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		_ = b.EncodeStringBytes(x.Format)
+	case *FileAccessLog_JsonFormat:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.JsonFormat); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("FileAccessLog.AccessLogFormat has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _FileAccessLog_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*FileAccessLog)
+	switch tag {
+	case 2: // access_log_format.format
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeStringBytes()
+		m.AccessLogFormat = &FileAccessLog_Format{x}
+		return true, err
+	case 3: // access_log_format.json_format
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Struct)
+		err := b.DecodeMessage(msg)
+		m.AccessLogFormat = &FileAccessLog_JsonFormat{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _FileAccessLog_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*FileAccessLog)
+	// access_log_format
+	switch x := m.AccessLogFormat.(type) {
+	case *FileAccessLog_Format:
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(len(x.Format)))
+		n += len(x.Format)
+	case *FileAccessLog_JsonFormat:
+		s := proto.Size(x.JsonFormat)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
 }
 
 func init() {
@@ -107,11 +212,12 @@ func (m *FileAccessLog) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintFile(dAtA, i, uint64(len(m.Path)))
 		i += copy(dAtA[i:], m.Path)
 	}
-	if len(m.Format) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintFile(dAtA, i, uint64(len(m.Format)))
-		i += copy(dAtA[i:], m.Format)
+	if m.AccessLogFormat != nil {
+		nn1, err := m.AccessLogFormat.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn1
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -119,6 +225,28 @@ func (m *FileAccessLog) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *FileAccessLog_Format) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	dAtA[i] = 0x12
+	i++
+	i = encodeVarintFile(dAtA, i, uint64(len(m.Format)))
+	i += copy(dAtA[i:], m.Format)
+	return i, nil
+}
+func (m *FileAccessLog_JsonFormat) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.JsonFormat != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintFile(dAtA, i, uint64(m.JsonFormat.Size()))
+		n2, err := m.JsonFormat.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	return i, nil
+}
 func encodeVarintFile(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -129,18 +257,43 @@ func encodeVarintFile(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *FileAccessLog) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Path)
 	if l > 0 {
 		n += 1 + l + sovFile(uint64(l))
 	}
-	l = len(m.Format)
-	if l > 0 {
-		n += 1 + l + sovFile(uint64(l))
+	if m.AccessLogFormat != nil {
+		n += m.AccessLogFormat.Size()
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *FileAccessLog_Format) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Format)
+	n += 1 + l + sovFile(uint64(l))
+	return n
+}
+func (m *FileAccessLog_JsonFormat) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.JsonFormat != nil {
+		l = m.JsonFormat.Size()
+		n += 1 + l + sovFile(uint64(l))
 	}
 	return n
 }
@@ -243,7 +396,39 @@ func (m *FileAccessLog) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Format = string(dAtA[iNdEx:postIndex])
+			m.AccessLogFormat = &FileAccessLog_Format{string(dAtA[iNdEx:postIndex])}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JsonFormat", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFile
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFile
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.Struct{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.AccessLogFormat = &FileAccessLog_JsonFormat{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -373,20 +558,25 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/accesslog/v2/file.proto", fileDescriptor_file_2831bc57087c8234)
+	proto.RegisterFile("envoy/config/accesslog/v2/file.proto", fileDescriptor_file_f3ece1fa5088fe2b)
 }
 
-var fileDescriptor_file_2831bc57087c8234 = []byte{
-	// 173 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_file_f3ece1fa5088fe2b = []byte{
+	// 248 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x49, 0xcd, 0x2b, 0xcb,
 	0xaf, 0xd4, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0xd7, 0x4f, 0x4c, 0x4e, 0x4e, 0x2d, 0x2e, 0xce,
 	0xc9, 0x4f, 0xd7, 0x2f, 0x33, 0xd2, 0x4f, 0xcb, 0xcc, 0x49, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9,
 	0x17, 0x92, 0x04, 0xab, 0xd2, 0x83, 0xa8, 0xd2, 0x83, 0xab, 0xd2, 0x2b, 0x33, 0x92, 0x12, 0x2f,
-	0x4b, 0xcc, 0xc9, 0x4c, 0x49, 0x2c, 0x49, 0xd5, 0x87, 0x31, 0x20, 0x7a, 0x94, 0xdc, 0xb8, 0x78,
-	0xdd, 0x32, 0x73, 0x52, 0x1d, 0xc1, 0x8a, 0x7d, 0xf2, 0xd3, 0x85, 0x64, 0xb9, 0x58, 0x0a, 0x12,
-	0x4b, 0x32, 0x24, 0x18, 0x15, 0x18, 0x35, 0x38, 0x9d, 0x38, 0x77, 0xbd, 0x3c, 0xc0, 0xcc, 0x52,
-	0xc4, 0xa4, 0xc0, 0x18, 0x04, 0x16, 0x16, 0x12, 0xe3, 0x62, 0x4b, 0xcb, 0x2f, 0xca, 0x4d, 0x2c,
-	0x91, 0x60, 0x02, 0x29, 0x08, 0x82, 0xf2, 0x9c, 0x04, 0x4e, 0x3c, 0x92, 0x63, 0xbc, 0xf0, 0x48,
-	0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x28, 0xa6, 0x32, 0xa3, 0x24, 0x36, 0xb0, 0x05, 0xc6, 0x80,
-	0x00, 0x00, 0x00, 0xff, 0xff, 0x89, 0xe9, 0x7e, 0x6e, 0xbc, 0x00, 0x00, 0x00,
+	0x4b, 0xcc, 0xc9, 0x4c, 0x49, 0x2c, 0x49, 0xd5, 0x87, 0x31, 0x20, 0x7a, 0xa4, 0x64, 0xd2, 0xf3,
+	0xf3, 0xd3, 0x73, 0x52, 0xf5, 0xc1, 0xbc, 0xa4, 0xd2, 0x34, 0xfd, 0xe2, 0x92, 0xa2, 0xd2, 0xe4,
+	0x12, 0x88, 0xac, 0xd2, 0x4c, 0x46, 0x2e, 0x5e, 0xb7, 0xcc, 0x9c, 0x54, 0x47, 0xb0, 0x59, 0x3e,
+	0xf9, 0xe9, 0x42, 0xb2, 0x5c, 0x2c, 0x05, 0x89, 0x25, 0x19, 0x12, 0x8c, 0x0a, 0x8c, 0x1a, 0x9c,
+	0x4e, 0x9c, 0xbb, 0x5e, 0x1e, 0x60, 0x66, 0x29, 0x62, 0x52, 0x60, 0x0c, 0x02, 0x0b, 0x0b, 0x49,
+	0x70, 0xb1, 0xa5, 0xe5, 0x17, 0xe5, 0x26, 0x96, 0x48, 0x30, 0x81, 0x14, 0x78, 0x30, 0x04, 0x41,
+	0xf9, 0x42, 0x56, 0x5c, 0xdc, 0x59, 0xc5, 0xf9, 0x79, 0xf1, 0x50, 0x69, 0x66, 0x05, 0x46, 0x0d,
+	0x6e, 0x23, 0x71, 0x3d, 0x88, 0xf5, 0x7a, 0x30, 0xeb, 0xf5, 0x82, 0xc1, 0xd6, 0x7b, 0x30, 0x04,
+	0x71, 0x81, 0x54, 0xbb, 0x81, 0x15, 0x3b, 0x09, 0x73, 0x09, 0x42, 0x7c, 0x13, 0x9f, 0x93, 0x9f,
+	0x0e, 0x35, 0xc1, 0x49, 0xe0, 0xc4, 0x23, 0x39, 0xc6, 0x0b, 0x8f, 0xe4, 0x18, 0x1f, 0x3c, 0x92,
+	0x63, 0x8c, 0x62, 0x2a, 0x33, 0x4a, 0x62, 0x03, 0x9b, 0x62, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff,
+	0xf5, 0xb3, 0x8d, 0xf2, 0x2e, 0x01, 0x00, 0x00,
 }

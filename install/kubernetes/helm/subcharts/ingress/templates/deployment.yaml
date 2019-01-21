@@ -18,7 +18,6 @@ spec:
         chart: {{ template "ingress.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
         istio: ingress
       annotations:
         sidecar.istio.io/inject: "false"
@@ -38,10 +37,8 @@ spec:
           args:
           - proxy
           - ingress
-{{- if $.Values.global.proxy.proxyDomain }}
           - --domain
-          - {{ $.Values.global.proxy.proxyDomain }}
-{{- end }}
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
           - --log_output_level
           - 'info'
           - --drainDuration
@@ -70,6 +67,9 @@ spec:
           - NONE
           - --discoveryAddress
           - istio-pilot:15010
+        {{- end }}
+        {{- if .Values.global.trustDomain }}
+          - --trust-domain={{ .Values.global.trustDomain }}
         {{- end }}
           resources:
 {{- if .Values.resources }}

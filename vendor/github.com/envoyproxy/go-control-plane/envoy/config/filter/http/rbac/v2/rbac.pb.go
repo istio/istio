@@ -27,11 +27,11 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type RBAC struct {
 	// Specify the RBAC rules to be applied globally.
 	// If absent, no enforcing RBAC policy will be applied.
-	Rules *v2alpha.RBAC `protobuf:"bytes,1,opt,name=rules" json:"rules,omitempty"`
+	Rules *v2alpha.RBAC `protobuf:"bytes,1,opt,name=rules,proto3" json:"rules,omitempty"`
 	// Shadow rules are not enforced by the filter (i.e., returning a 403)
 	// but will emit stats and logs and can be used for rule testing.
 	// If absent, no shadow RBAC policy will be applied.
-	ShadowRules          *v2alpha.RBAC `protobuf:"bytes,2,opt,name=shadow_rules,json=shadowRules" json:"shadow_rules,omitempty"`
+	ShadowRules          *v2alpha.RBAC `protobuf:"bytes,2,opt,name=shadow_rules,json=shadowRules,proto3" json:"shadow_rules,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -87,7 +87,7 @@ func (m *RBAC) GetShadowRules() *v2alpha.RBAC {
 type RBACPerRoute struct {
 	// Override the global configuration of the filter with this new config.
 	// If absent, the global RBAC policy will be disabled for this route.
-	Rbac                 *RBAC    `protobuf:"bytes,2,opt,name=rbac" json:"rbac,omitempty"`
+	Rbac                 *RBAC    `protobuf:"bytes,2,opt,name=rbac,proto3" json:"rbac,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -219,6 +219,9 @@ func encodeVarintRbac(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *RBAC) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Rules != nil {
@@ -236,6 +239,9 @@ func (m *RBAC) Size() (n int) {
 }
 
 func (m *RBACPerRoute) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Rbac != nil {

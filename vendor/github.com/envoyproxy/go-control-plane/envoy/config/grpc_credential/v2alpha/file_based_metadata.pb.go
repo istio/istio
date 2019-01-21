@@ -24,7 +24,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type FileBasedMetadataConfig struct {
 	// Location or inline data of secret to use for authentication of the Google gRPC connection
 	// this secret will be attached to a header of the gRPC connection
-	SecretData *core.DataSource `protobuf:"bytes,1,opt,name=secret_data,json=secretData" json:"secret_data,omitempty"`
+	SecretData *core.DataSource `protobuf:"bytes,1,opt,name=secret_data,json=secretData,proto3" json:"secret_data,omitempty"`
 	// Metadata header key to use for sending the secret data
 	// if no header key is set, "authorization" header will be used
 	HeaderKey string `protobuf:"bytes,2,opt,name=header_key,json=headerKey,proto3" json:"header_key,omitempty"`
@@ -146,6 +146,9 @@ func encodeVarintFileBasedMetadata(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *FileBasedMetadataConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.SecretData != nil {

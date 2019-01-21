@@ -12,6 +12,10 @@ metadata:
     istio: citadel
 spec:
   replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
@@ -19,7 +23,6 @@ spec:
         chart: {{ template "security.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
         istio: citadel
       annotations:
         sidecar.istio.io/inject: "false"
@@ -48,8 +51,8 @@ spec:
             - --root-cert=/etc/cacerts/root-cert.pem
             - --cert-chain=/etc/cacerts/cert-chain.pem
           {{- end }}
-          {{- if .Values.identityDomain }}
-            - --identity-domain={{ .Values.identityDomain }}
+          {{- if .Values.trustDomain }}
+            - --trust-domain={{ .Values.trustDomain }}
           {{- end }}
           resources:
 {{- if .Values.resources }}

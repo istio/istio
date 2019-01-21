@@ -19,17 +19,21 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	policypb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	protoyaml "istio.io/istio/mixer/pkg/protobuf/yaml"
+	"istio.io/istio/mixer/pkg/protobuf/yaml/wire"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -53,6 +57,9 @@ type (
 
 		// n generates dedupeID when not given.
 		n *atomic.Uint64
+
+		// timeout for remote handle calls.
+		timeout time.Duration
 	}
 
 	// Svc encapsulates abstract service
@@ -65,7 +72,7 @@ type (
 
 		TemplateName string
 		encoder      *messageEncoder
-		decoder      *protoyaml.Decoder
+		decoder      func([]byte, interface{}) error
 	}
 
 	// TemplateConfig is template configuration
@@ -79,7 +86,7 @@ type (
 	// Codec in no-op on the way out and unmarshals using either normal means
 	// or a custom dynamic decoder on the way in
 	Codec struct {
-		decoder *protoyaml.Decoder
+		decode func([]byte, interface{}) error
 	}
 )
 
@@ -92,11 +99,16 @@ func BuildHandler(name string, connConfig *policypb.Connection, sessionBased boo
 		return nil, errors.Errorf("empty connection address")
 	}
 
+	timeout := time.Duration(0)
+	if ct := connConfig.GetTimeout(); ct != nil {
+		timeout = *ct
+	}
 	hh = &Handler{
 		Name:       name,
 		svcMap:     make(map[string]*Svc, len(templateConfig)),
 		connConfig: connConfig,
 		n:          &atomic.Uint64{},
+		timeout:    timeout,
 	}
 
 	// RemoteAdapterSvc is bound to a template
@@ -171,7 +183,12 @@ func (h *Handler) handleRemote(ctx context.Context, qr proto.Marshaler,
 		return err
 	}
 
-	codec := grpc.CallCustomCodec(Codec{decoder: svc.decoder})
+	codec := grpc.CallCustomCodec(Codec{decode: svc.decoder})
+	if h.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, h.timeout)
+		defer cancel()
+	}
 	if err := h.conn.Invoke(ctx, svc.GrpcPath(), ba, resultPtr, codec); err != nil {
 		handlerLog.Warnf("unable to connect to:%s, %s", svc.GrpcPath(), h.connConfig.Address)
 		return errors.WithStack(err)
@@ -194,16 +211,23 @@ func (h *Handler) HandleRemoteGenAttrs(ctx context.Context, encodedInstance *ada
 var _ adapter.RemoteCheckHandler = &Handler{}
 
 // HandleRemoteCheck implements adapter.RemoteCheckHandler api
-func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance *adapter.EncodedInstance) (*adapter.CheckResult, error) {
-	result := &v1beta1.CheckResult{}
-	if err := h.handleRemote(ctx, nil, "", result, encodedInstance); err != nil {
+func (h *Handler) HandleRemoteCheck(ctx context.Context, encodedInstance *adapter.EncodedInstance,
+	output *attribute.MutableBag, outPrefix string) (*adapter.CheckResult, error) {
+
+	co := &CheckOutput{
+		result:    &v1beta1.CheckResult{},
+		outBag:    output,
+		outPrefix: outPrefix,
+	}
+
+	if err := h.handleRemote(ctx, nil, "", co, encodedInstance); err != nil {
 		return nil, err
 	}
 
 	return &adapter.CheckResult{
-		Status:        result.Status,
-		ValidUseCount: result.ValidUseCount,
-		ValidDuration: result.ValidDuration,
+		Status:        co.result.Status,
+		ValidUseCount: co.result.ValidUseCount,
+		ValidDuration: co.result.ValidDuration,
 	}, nil
 }
 
@@ -264,11 +288,7 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bo
 		return nil, errors.WithStack(err)
 	}
 
-	// enable custom decoder for varieties that need it
-	var decoder *protoyaml.Decoder
-	if variety == v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
-		decoder = protoyaml.NewDecoder(res, method.GetOutputType(), nil, "output.")
-	}
+	de := buildResponseDecoder(variety, res, pkg)
 
 	return &Svc{
 		Name:         svc.GetName(),
@@ -277,7 +297,7 @@ func RemoteAdapterSvc(namePrefix string, res protoyaml.Resolver, sessionBased bo
 		InputType:    method.GetInputType(),
 		OutputType:   method.GetOutputType(),
 		encoder:      me,
-		decoder:      decoder,
+		decoder:      de,
 		TemplateName: templateName,
 	}, nil
 }
@@ -399,6 +419,102 @@ func (s Svc) encodeRequest(qr proto.Marshaler, dedupID string, encodedInstances 
 	return ba, nil
 }
 
+// CheckOutput is a generic container for the response of remote check calls with output.
+// It is used to unpack the value using a combination of the static and dynamic decoders.
+type CheckOutput struct {
+	result    *v1beta1.CheckResult
+	outBag    *attribute.MutableBag
+	outPrefix string
+
+	// decoder for decoding "output" field
+	decoder *protoyaml.Decoder
+
+	// aggregate error
+	err error
+}
+
+// Varint implements proto decoding interface
+func (out *CheckOutput) Varint(wire.Number, uint64) {}
+
+// Fixed32 implements proto decoding interface
+func (out *CheckOutput) Fixed32(wire.Number, uint32) {}
+
+// Fixed64 implements proto decoding interface
+func (out *CheckOutput) Fixed64(wire.Number, uint64) {}
+
+// Bytes implements proto decoding interface
+func (out *CheckOutput) Bytes(n wire.Number, v []byte) {
+	switch n {
+	case 1 /* CheckResult result = 1; */ :
+		if err := out.result.Unmarshal(v); err != nil {
+			out.err = multierror.Append(out.err, err)
+		}
+	case 2 /* OutputMsg output = 2; */ :
+		if err := out.decoder.Decode(v, out.outBag, out.outPrefix); err != nil {
+			out.err = multierror.Append(out.err, err)
+		}
+	default:
+		out.err = multierror.Append(out.err, fmt.Errorf("unexpected field number %d", n))
+	}
+}
+
+func buildResponseDecoder(variety v1beta1.TemplateVariety, res protoyaml.Resolver,
+	pkg string) func(data []byte, v interface{}) error {
+	// enable custom decoder for varieties that need it
+	switch variety {
+
+	case v1beta1.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR:
+		outputMsg := "." + pkg + ".OutputMsg"
+		protodecoder := protoyaml.NewDecoder(res, outputMsg, nil)
+		return func(data []byte, v interface{}) error {
+			out, ok := v.(*attribute.MutableBag)
+			if !ok {
+				return fmt.Errorf("expect an attribute bag for the custom decoder: %T", v)
+			}
+			return protodecoder.Decode(data, out, "output.")
+		}
+
+	case v1beta1.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT:
+		outputMsg := "." + pkg + ".OutputMsg"
+		protodecoder := protoyaml.NewDecoder(res, outputMsg, nil)
+		return func(data []byte, v interface{}) error {
+			out, ok := v.(*CheckOutput)
+			if !ok {
+				return fmt.Errorf("expect an attribute bag with a check result for the custom decoder: %T", v)
+			}
+			out.decoder = protodecoder
+			for len(data) > 0 {
+				_, _, n := wire.ConsumeField(out, data)
+				if n < 0 {
+					return wire.ParseError(n)
+				}
+				data = data[n:]
+			}
+			return out.err
+		}
+
+	case v1beta1.TEMPLATE_VARIETY_CHECK:
+		return func(data []byte, v interface{}) error {
+			out, ok := v.(*CheckOutput)
+			if !ok {
+				return fmt.Errorf("expect an attribute bag with a check result for the custom decoder: %T", v)
+			}
+			return out.result.Unmarshal(data)
+		}
+
+	default:
+		return protoUnmarshal
+	}
+}
+
+func protoUnmarshal(data []byte, v interface{}) error {
+	um, ok := v.(proto.Unmarshaler)
+	if !ok {
+		return fmt.Errorf("unable to unmarshal type:%T, %v", v, v)
+	}
+	return um.Unmarshal(data)
+}
+
 // Marshal does a noo-op marshal if input in bytes, otherwise it is an error.
 func (c Codec) Marshal(v interface{}) ([]byte, error) {
 	if ba, ok := v.([]byte); ok {
@@ -410,20 +526,7 @@ func (c Codec) Marshal(v interface{}) ([]byte, error) {
 
 // Unmarshal uses custom decoder or delegates to standard proto Unmarshal
 func (c Codec) Unmarshal(data []byte, v interface{}) error {
-	if c.decoder != nil {
-		out, ok := v.(*attribute.MutableBag)
-		if !ok {
-			return fmt.Errorf("expect an attribute bag for the custom decoder: %T", v)
-		}
-		return c.decoder.Decode(data, out)
-	}
-
-	// delegate
-	if um, ok := v.(proto.Unmarshaler); ok {
-		return um.Unmarshal(data)
-	}
-
-	return fmt.Errorf("unable to unmarshal type:%T, %v", v, v)
+	return c.decode(data, v)
 }
 
 // String returns name of the codec.

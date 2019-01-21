@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -31,10 +32,11 @@ import (
 
 // Factory is a factory for echo applications.
 type Factory struct {
-	Ports   model.PortList
-	TLSCert string
-	TLSCKey string
-	Version string
+	Ports     model.PortList
+	TLSCert   string
+	TLSCKey   string
+	Version   string
+	UDSServer string
 }
 
 // NewApplication implements the application.Factory interface.
@@ -51,6 +53,7 @@ func (f *Factory) NewApplication(dialer application.Dialer) (application.Applica
 		tlsCert: f.TLSCert,
 		tlsCKey: f.TLSCKey,
 		version: f.Version,
+		uds:     f.UDSServer,
 		dialer:  dialer.Fill(),
 	}
 	if err := app.start(); err != nil {
@@ -67,6 +70,7 @@ type echo struct {
 	tlsCKey string
 	version string
 	dialer  application.Dialer
+	uds     string
 
 	servers []serverInterface
 }
@@ -87,8 +91,8 @@ func (a *echo) start() (err error) {
 		return err
 	}
 
-	a.servers = make([]serverInterface, len(a.ports))
-	for i, p := range a.ports {
+	a.servers = make([]serverInterface, 0)
+	for _, p := range a.ports {
 		handler := &handler{
 			version: a.version,
 			caFile:  a.tlsCert,
@@ -100,22 +104,33 @@ func (a *echo) start() (err error) {
 		case model.ProtocolHTTP:
 			fallthrough
 		case model.ProtocolHTTPS:
-			a.servers[i] = &httpServer{
+			a.servers = append(a.servers, &httpServer{
 				port: p,
 				h:    handler,
-			}
+			})
 		case model.ProtocolHTTP2:
 			fallthrough
 		case model.ProtocolGRPC:
-			a.servers[i] = &grpcServer{
+			a.servers = append(a.servers, &grpcServer{
 				port:    p,
 				h:       handler,
 				tlsCert: a.tlsCert,
 				tlsCKey: a.tlsCKey,
-			}
+			})
 		default:
 			return fmt.Errorf("unsupported protocol: %s", p.Protocol)
 		}
+	}
+
+	if len(a.uds) > 0 {
+		a.servers = append(a.servers, &httpServer{
+			uds: a.uds,
+			h: &handler{
+				version: a.version,
+				caFile:  a.tlsCert,
+				dialer:  a.dialer,
+			},
+		})
 	}
 
 	// Start the servers, updating port numbers as necessary.
@@ -161,27 +176,43 @@ type serverInterface interface {
 type httpServer struct {
 	server *http.Server
 	port   *model.Port
+	uds    string
 	h      *handler
 }
 
 func (s *httpServer) start() error {
-	// Listen on the given port and update the port if it changed from what was passed in.
-	listener, p, err := listenOnPort(s.port.Port)
-	if err != nil {
-		return err
-	}
-	// Store the actual listening port back to the argument.
-	s.port.Port = p
-	s.h.port = p
-	fmt.Printf("Listening HTTP/1.1 on %v\n", p)
+	var listener net.Listener
+	var p int
+	var err error
 
 	s.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", p),
 		Handler: s.h,
 	}
 
+	if len(s.uds) > 0 {
+		p = 0
+		listener, err = listenOnUDS(s.uds)
+	} else {
+		// Listen on the given port and update the port if it changed from what was passed in.
+		listener, p, err = listenOnPort(s.port.Port)
+		// Store the actual listening port back to the argument.
+		s.port.Port = p
+		s.h.port = p
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if len(s.uds) > 0 {
+		fmt.Printf("Listening HTTP/1.1 on %v\n", s.uds)
+	} else {
+		s.server.Addr = fmt.Sprintf(":%d", p)
+		fmt.Printf("Listening HTTP/1.1 on %v\n", p)
+	}
+
 	// Start serving HTTP traffic.
-	go s.server.Serve(listener)
+	go func() { _ = s.server.Serve(listener) }()
 	return nil
 }
 
@@ -192,7 +223,6 @@ func (s *httpServer) stop() error {
 type grpcServer struct {
 	tlsCert string
 	tlsCKey string
-	version string
 	port    *model.Port
 	h       *handler
 
@@ -223,7 +253,7 @@ func (s *grpcServer) start() error {
 	proto.RegisterEchoTestServiceServer(s.server, s.h)
 
 	// Start serving GRPC traffic.
-	go s.server.Serve(listener)
+	go func() { _ = s.server.Serve(listener) }()
 	return nil
 }
 
@@ -240,4 +270,14 @@ func listenOnPort(port int) (net.Listener, int, error) {
 
 	port = ln.Addr().(*net.TCPAddr).Port
 	return ln, port, nil
+}
+
+func listenOnUDS(uds string) (net.Listener, error) {
+	os.Remove(uds)
+	ln, err := net.Listen("unix", uds)
+	if err != nil {
+		return nil, err
+	}
+
+	return ln, nil
 }

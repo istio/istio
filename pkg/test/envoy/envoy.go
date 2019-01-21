@@ -87,7 +87,7 @@ func (e *Envoy) Start() (err error) {
 	// If there is an error upon exiting this function, stop the server.
 	defer func() {
 		if err != nil {
-			e.Stop()
+			_ = e.Stop()
 		}
 	}()
 
@@ -166,8 +166,6 @@ func (e *Envoy) getCommandArgs() []string {
 	args := []string{
 		"--base-id",
 		strconv.FormatUint(uint64(e.baseID), 10),
-		// Always force v2 config.
-		"--v2-config-only",
 		"--config-path",
 		e.YamlFile,
 		"--log-level",

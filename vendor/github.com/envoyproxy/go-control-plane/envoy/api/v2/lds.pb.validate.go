@@ -132,6 +132,16 @@ func (m *Listener) Validate() error {
 
 	}
 
+	if v, ok := interface{}(m.GetListenerFiltersTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				Field:  "ListenerFiltersTimeout",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
 	if v, ok := interface{}(m.GetTransparent()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
@@ -171,6 +181,16 @@ func (m *Listener) Validate() error {
 		if err := v.Validate(); err != nil {
 			return ListenerValidationError{
 				Field:  "TcpFastOpenQueueLength",
+				Reason: "embedded message failed validation",
+				Cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetBugfixReverseWriteFilterOrder()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListenerValidationError{
+				Field:  "BugfixReverseWriteFilterOrder",
 				Reason: "embedded message failed validation",
 				Cause:  err,
 			}

@@ -1,0 +1,5 @@
+*.descriptor      linguist-generated=true
+*.descriptor      -diff -merge
+*.descriptor_set  linguist-generated=true
+*.descriptor_set  -diff -merge
+*.pb.html linguist-generated=true

@@ -21,6 +21,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -96,12 +97,11 @@ func TestGetNetworkEndpointAddress(t *testing.T) {
 	}
 }
 
-func Test_isProxyVersion(t *testing.T) {
+func TestIsProxyVersionGE11(t *testing.T) {
 	tests := []struct {
-		name   string
-		node   *model.Proxy
-		prefix string
-		want   bool
+		name string
+		node *model.Proxy
+		want bool
 	}{
 		{
 			"the given Proxy version is 1.x",
@@ -110,8 +110,7 @@ func Test_isProxyVersion(t *testing.T) {
 					"ISTIO_PROXY_VERSION": "1.0",
 				},
 			},
-			"1.",
-			true,
+			false,
 		},
 		{
 			"the given Proxy version is not 1.x",
@@ -120,7 +119,6 @@ func Test_isProxyVersion(t *testing.T) {
 					"ISTIO_PROXY_VERSION": "0.8",
 				},
 			},
-			"1.",
 			false,
 		},
 		{
@@ -130,14 +128,145 @@ func Test_isProxyVersion(t *testing.T) {
 					"ISTIO_PROXY_VERSION": "1.1",
 				},
 			},
-			"1.1",
+			true,
+		},
+		{
+			"the given Proxy version is 1.1.1",
+			&model.Proxy{
+				Metadata: map[string]string{
+					"ISTIO_PROXY_VERSION": "1.1.1",
+				},
+			},
+			true,
+		},
+		{
+			"the given Proxy version is 2.0",
+			&model.Proxy{
+				Metadata: map[string]string{
+					"ISTIO_PROXY_VERSION": "2.0",
+				},
+			},
+			true,
+		},
+		{
+			"the given Proxy version is 10.0",
+			&model.Proxy{
+				Metadata: map[string]string{
+					"ISTIO_PROXY_VERSION": "2.0",
+				},
+			},
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isProxyVersion(tt.node, tt.prefix); got != tt.want {
-				t.Errorf("isProxyVersion() = %v, want %v", got, tt.want)
+			if got := IsProxyVersionGE11(tt.node); got != tt.want {
+				t.Errorf("IsProxyVersionGE11() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveHostsInNetworksConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		address  string
+		modified bool
+	}{
+		{
+			"Gateway with IP address",
+			"9.142.3.1",
+			false,
+		},
+		{
+			"Gateway with localhost address",
+			"localhost",
+			true,
+		},
+		{
+			"Gateway with empty address",
+			"",
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"network": {
+						Gateways: []*meshconfig.Network_IstioNetworkGateway{
+							{
+								Gw: &meshconfig.Network_IstioNetworkGateway_Address{
+									Address: tt.address,
+								},
+							},
+						},
+					},
+				},
+			}
+			ResolveHostsInNetworksConfig(config)
+			addrAfter := config.Networks["network"].Gateways[0].GetAddress()
+			if addrAfter == tt.address && tt.modified {
+				t.Fatalf("Expected network address to be modified but it's the same as before calling the function")
+			}
+			if addrAfter != tt.address && !tt.modified {
+				t.Fatalf("Expected network address not to be modified after calling the function")
+			}
+		})
+	}
+}
+
+func TestConvertLocality(t *testing.T) {
+	tests := []struct {
+		name     string
+		locality string
+		want     *core.Locality
+	}{
+		{
+			"nil locality",
+			"",
+			nil,
+		},
+		{
+			"locality with only region",
+			"region",
+			&core.Locality{
+				Region: "region",
+			},
+		},
+		{
+			"locality with region and zone",
+			"region/zone",
+			&core.Locality{
+				Region: "region",
+				Zone:   "zone",
+			},
+		},
+		{
+			"locality with region zone and subzone",
+			"region/zone/subzone",
+			&core.Locality{
+				Region:  "region",
+				Zone:    "zone",
+				SubZone: "subzone",
+			},
+		},
+		{
+			"locality with region zone subzone and rack",
+			"region/zone/subzone/rack",
+			&core.Locality{
+				Region:  "region",
+				Zone:    "zone",
+				SubZone: "subzone",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ConvertLocality(tt.locality)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Expected locality %#v, but got %#v", tt.want, got)
 			}
 		})
 	}

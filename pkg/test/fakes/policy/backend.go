@@ -25,6 +25,7 @@ import (
 	google_rpc "github.com/gogo/googleapis/google/rpc"
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
+
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_adapter_model_v1beta11 "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/template/checknothing"
@@ -74,7 +75,7 @@ func (b *Backend) Port() int {
 
 // Start the gRPC service for the policy backend.
 func (b *Backend) Start() error {
-	scope.Infof("Starting Policy Backend at port: %d", b.port)
+	scope.Info("Starting Policy Backend")
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", b.port))
 	if err != nil {
@@ -90,7 +91,7 @@ func (b *Backend) Start() error {
 	RegisterControllerServiceServer(grpcServer, b)
 
 	go func() {
-		scope.Info("Starting the GRPC service")
+		scope.Infof("Starting the GRPC service at port: %d", b.port)
 		_ = grpcServer.Serve(listener)
 	}()
 
@@ -150,7 +151,8 @@ func (b *Backend) GetReports(ctx context.Context, req *GetReportsRequest) (*GetR
 func (b *Backend) Close() error {
 	scope.Info("Backend.Close")
 	b.server.Stop()
-	return b.listener.Close()
+	_ = b.listener.Close()
+	return nil
 }
 
 // Validate is an implementation InfrastructureBackendServer.Validate.

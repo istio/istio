@@ -8,8 +8,10 @@ import fmt "fmt"
 import math "math"
 import v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -77,8 +79,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for AggregatedDiscoveryService service
-
+// AggregatedDiscoveryServiceClient is the client API for AggregatedDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type AggregatedDiscoveryServiceClient interface {
 	// This is a gRPC-only API.
 	StreamAggregatedResources(ctx context.Context, opts ...grpc.CallOption) (AggregatedDiscoveryService_StreamAggregatedResourcesClient, error)
@@ -155,8 +158,7 @@ func (x *aggregatedDiscoveryServiceIncrementalAggregatedResourcesClient) Recv() 
 	return m, nil
 }
 
-// Server API for AggregatedDiscoveryService service
-
+// AggregatedDiscoveryServiceServer is the server API for AggregatedDiscoveryService service.
 type AggregatedDiscoveryServiceServer interface {
 	// This is a gRPC-only API.
 	StreamAggregatedResources(AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
@@ -271,6 +273,9 @@ func encodeVarintAds(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *AdsDummy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {

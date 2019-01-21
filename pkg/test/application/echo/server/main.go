@@ -31,6 +31,7 @@ import (
 var (
 	httpPorts []int
 	grpcPorts []int
+	uds       string
 	version   string
 	crt       string
 	key       string
@@ -39,13 +40,14 @@ var (
 func init() {
 	flag.IntSliceVar(&httpPorts, "port", []int{8080}, "HTTP/1.1 ports")
 	flag.IntSliceVar(&grpcPorts, "grpc", []int{7070}, "GRPC ports")
+	flag.StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
 	flag.StringVar(&version, "version", "", "Version string")
 	flag.StringVar(&crt, "crt", "", "gRPC TLS server-side certificate")
 	flag.StringVar(&key, "key", "", "gRPC TLS server-side key")
 }
 
 func main() {
-	log.Configure(log.DefaultOptions())
+	_ = log.Configure(log.DefaultOptions())
 
 	flag.Parse()
 
@@ -69,10 +71,11 @@ func main() {
 	}
 
 	f := &echo.Factory{
-		Ports:   ports,
-		TLSCert: crt,
-		TLSCKey: key,
-		Version: version,
+		Ports:     ports,
+		TLSCert:   crt,
+		TLSCKey:   key,
+		Version:   version,
+		UDSServer: uds,
 	}
 	if _, err := f.NewApplication(application.Dialer{}); err != nil {
 		log.Errora(err)

@@ -128,6 +128,7 @@ var (
 	verbosity                    int
 	versionStr                   string // override build version
 	enableCoreDump               bool
+	rewriteAppHTTPProbe          bool
 	imagePullPolicy              string
 	statusPort                   int
 	readinessInitialDelaySeconds uint32
@@ -259,7 +260,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 			// hub and tag params only work with ISTIOCTL_USE_BUILTIN_DEFAULTS
 			// so must be specified together. hub and tag no longer have defaults.
 			if hub != "" || tag != "" {
-				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behaviour.
+				// ISTIOCTL_USE_BUILTIN_DEFAULTS is used to have legacy behavior.
 				if !getBoolEnv("ISTIOCTL_USE_BUILTIN_DEFAULTS", false) {
 					return errors.New("one of injectConfigFile or injectConfigMapName is required\n" +
 						"use the following command to get the current injector file\n" +
@@ -274,6 +275,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 				if sidecarTemplate, err = inject.GenerateTemplateFromParams(&inject.Params{
 					InitImage:                    inject.InitImageName(hub, tag, debugMode),
 					ProxyImage:                   inject.ProxyImageName(hub, tag, debugMode),
+					RewriteAppHTTPProbe:          rewriteAppHTTPProbe,
 					Verbosity:                    verbosity,
 					SidecarProxyUID:              sidecarProxyUID,
 					Version:                      versionStr,
@@ -372,10 +374,12 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected Envoy sidecar (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
+	injectCmd.PersistentFlags().BoolVar(&rewriteAppHTTPProbe, "rewriteAppProbe", false, "Whether injector "+
+		"rewrites the liveness health check to let kubelet health check the app when mtls is on.")
 	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
 		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
 			"The default policy is IfNotPresent.")
-	injectCmd.PersistentFlags().IntVar(&statusPort, "statusPort", inject.DefaultStatusPort,
+	injectCmd.PersistentFlags().IntVar(&statusPort, inject.StatusPortCmdFlagName, inject.DefaultStatusPort,
 		"HTTP Port on which to serve pilot agent status. The path /healthz/ can be used for health checking. "+
 			"If zero, agent status will not be provided.")
 	injectCmd.PersistentFlags().Uint32Var(&readinessInitialDelaySeconds, "readinessInitialDelaySeconds", inject.DefaultReadinessInitialDelaySeconds,

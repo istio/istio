@@ -13,6 +13,7 @@ metadata:
 data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
+    rewriteAppHTTPProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
     template: |-
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
@@ -59,7 +60,7 @@ data:
           {{ end }}
         restartPolicy: Always
 {{- end }}
-      {{ if eq .Values.global.proxy.enableCoreDump true }}
+      {{- if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:
         - -c
@@ -71,7 +72,7 @@ data:
         resources: {}
         securityContext:
           privileged: true
-      {{ end }}
+      {{- end }}
 {{- end }}
       containers:
       - name: istio-proxy
@@ -83,10 +84,8 @@ data:
         args:
         - proxy
         - sidecar
-{{- if .Values.global.proxy.proxyDomain }}
         - --domain
-        - {{ .Values.global.proxy.proxyDomain }}
-{{- end }}
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --configPath
         - {{ "[[ .ProxyConfig.ConfigPath ]]" }}
         - --binaryPath
@@ -146,22 +145,33 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
+        - name: ISTIO_META_CONFIG_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: ISTIO_META_INTERCEPTION_MODE
           value: {{ "[[ or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String ]]" }}
+        {{- if .Values.global.network }}
+        - name: ISTIO_META_NETWORK
+          value: "{{ .Values.global.network }}"
+        {{- end }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
-          {{ if eq .Values.global.proxy.privileged true }}
+          {{- if eq .Values.global.proxy.privileged true }}
           privileged: true
-          {{ end -}}
-          {{ if ne .Values.global.proxy.enableCoreDump true }}
+          {{- end }}
+          {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
-          {{ end -}}
+          {{- end }}
           {{ "[[ if eq (or (index .ObjectMeta.Annotations \"sidecar.istio.io/interceptionMode\") .ProxyConfig.InterceptionMode.String) \"TPROXY\" -]]" }}
           capabilities:
             add:
             - NET_ADMIN
           runAsGroup: 1337
           {{ "[[ else -]]" }}
+          {{ if and .Values.global.sds.enabled .Values.global.sds.useTrustworthyJwt }}
+          runAsGroup: 1337
+          {{- end }}
           runAsUser: 1337
           {{ "[[- end ]]" }}
         resources:
@@ -177,22 +187,37 @@ data:
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+        {{- if ne .Values.global.sds.enabled true }}
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
-        {{ if .Values.global.sds.enabled }}
+        {{- end }}
+        {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
-        {{ end }}
+        {{- if .Values.global.sds.useTrustworthyJwt }}
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+        {{- end }}
+        {{- end }}
       volumes:
-      {{ if .Values.global.sds.enabled }}
-      - name: sds-uds-path
-        hostPath:
-          path: /var/run/sds
-      {{ end }}
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      {{- if .Values.global.sds.enabled }}
+      - name: sds-uds-path
+        hostPath:
+          path: /var/run/sds
+      {{- if .Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.trustDomain }}
+      {{- end }}
+      {{- else }}
       - name: istio-certs
         secret:
           optional: true
@@ -201,4 +226,5 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+      {{- end }}
 {{- end }}

@@ -79,13 +79,13 @@ type isValueMatcher_MatchPattern interface {
 }
 
 type ValueMatcher_NullMatch_ struct {
-	NullMatch *ValueMatcher_NullMatch `protobuf:"bytes,1,opt,name=null_match,json=nullMatch,oneof"`
+	NullMatch *ValueMatcher_NullMatch `protobuf:"bytes,1,opt,name=null_match,json=nullMatch,proto3,oneof"`
 }
 type ValueMatcher_DoubleMatch struct {
-	DoubleMatch *DoubleMatcher `protobuf:"bytes,2,opt,name=double_match,json=doubleMatch,oneof"`
+	DoubleMatch *DoubleMatcher `protobuf:"bytes,2,opt,name=double_match,json=doubleMatch,proto3,oneof"`
 }
 type ValueMatcher_StringMatch struct {
-	StringMatch *StringMatcher `protobuf:"bytes,3,opt,name=string_match,json=stringMatch,oneof"`
+	StringMatch *StringMatcher `protobuf:"bytes,3,opt,name=string_match,json=stringMatch,proto3,oneof"`
 }
 type ValueMatcher_BoolMatch struct {
 	BoolMatch bool `protobuf:"varint,4,opt,name=bool_match,json=boolMatch,proto3,oneof"`
@@ -94,7 +94,7 @@ type ValueMatcher_PresentMatch struct {
 	PresentMatch bool `protobuf:"varint,5,opt,name=present_match,json=presentMatch,proto3,oneof"`
 }
 type ValueMatcher_ListMatch struct {
-	ListMatch *ListMatcher `protobuf:"bytes,6,opt,name=list_match,json=listMatch,oneof"`
+	ListMatch *ListMatcher `protobuf:"bytes,6,opt,name=list_match,json=listMatch,proto3,oneof"`
 }
 
 func (*ValueMatcher_NullMatch_) isValueMatcher_MatchPattern()   {}
@@ -391,7 +391,7 @@ type isListMatcher_MatchPattern interface {
 }
 
 type ListMatcher_OneOf struct {
-	OneOf *ValueMatcher `protobuf:"bytes,1,opt,name=one_of,json=oneOf,oneof"`
+	OneOf *ValueMatcher `protobuf:"bytes,1,opt,name=one_of,json=oneOf,proto3,oneof"`
 }
 
 func (*ListMatcher_OneOf) isListMatcher_MatchPattern() {}
@@ -651,6 +651,9 @@ func encodeVarintValue(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ValueMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MatchPattern != nil {
@@ -663,6 +666,9 @@ func (m *ValueMatcher) Size() (n int) {
 }
 
 func (m *ValueMatcher_NullMatch_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.NullMatch != nil {
@@ -672,6 +678,9 @@ func (m *ValueMatcher_NullMatch_) Size() (n int) {
 	return n
 }
 func (m *ValueMatcher_DoubleMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DoubleMatch != nil {
@@ -681,6 +690,9 @@ func (m *ValueMatcher_DoubleMatch) Size() (n int) {
 	return n
 }
 func (m *ValueMatcher_StringMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.StringMatch != nil {
@@ -690,18 +702,27 @@ func (m *ValueMatcher_StringMatch) Size() (n int) {
 	return n
 }
 func (m *ValueMatcher_BoolMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 2
 	return n
 }
 func (m *ValueMatcher_PresentMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 2
 	return n
 }
 func (m *ValueMatcher_ListMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ListMatch != nil {
@@ -711,6 +732,9 @@ func (m *ValueMatcher_ListMatch) Size() (n int) {
 	return n
 }
 func (m *ValueMatcher_NullMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -720,6 +744,9 @@ func (m *ValueMatcher_NullMatch) Size() (n int) {
 }
 
 func (m *ListMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MatchPattern != nil {
@@ -732,6 +759,9 @@ func (m *ListMatcher) Size() (n int) {
 }
 
 func (m *ListMatcher_OneOf) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.OneOf != nil {

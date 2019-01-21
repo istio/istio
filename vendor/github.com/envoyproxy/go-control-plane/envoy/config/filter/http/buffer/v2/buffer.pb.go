@@ -31,10 +31,10 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 type Buffer struct {
 	// The maximum request size that the filter will buffer before the connection
 	// manager will stop buffering and return a 413 response.
-	MaxRequestBytes *types.UInt32Value `protobuf:"bytes,1,opt,name=max_request_bytes,json=maxRequestBytes" json:"max_request_bytes,omitempty"`
+	MaxRequestBytes *types.UInt32Value `protobuf:"bytes,1,opt,name=max_request_bytes,json=maxRequestBytes,proto3" json:"max_request_bytes,omitempty"`
 	// The maximum number of seconds that the filter will wait for a complete
 	// request before returning a 408 response.
-	MaxRequestTime       *time.Duration `protobuf:"bytes,2,opt,name=max_request_time,json=maxRequestTime,stdduration" json:"max_request_time,omitempty"`
+	MaxRequestTime       *time.Duration `protobuf:"bytes,2,opt,name=max_request_time,json=maxRequestTime,proto3,stdduration" json:"max_request_time,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -140,7 +140,7 @@ type BufferPerRoute_Disabled struct {
 	Disabled bool `protobuf:"varint,1,opt,name=disabled,proto3,oneof"`
 }
 type BufferPerRoute_Buffer struct {
-	Buffer *Buffer `protobuf:"bytes,2,opt,name=buffer,oneof"`
+	Buffer *Buffer `protobuf:"bytes,2,opt,name=buffer,proto3,oneof"`
 }
 
 func (*BufferPerRoute_Disabled) isBufferPerRoute_Override() {}
@@ -349,6 +349,9 @@ func encodeVarintBuffer(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Buffer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MaxRequestBytes != nil {
@@ -366,6 +369,9 @@ func (m *Buffer) Size() (n int) {
 }
 
 func (m *BufferPerRoute) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Override != nil {
@@ -378,12 +384,18 @@ func (m *BufferPerRoute) Size() (n int) {
 }
 
 func (m *BufferPerRoute_Disabled) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 2
 	return n
 }
 func (m *BufferPerRoute_Buffer) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Buffer != nil {

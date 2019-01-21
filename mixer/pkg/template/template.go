@@ -49,7 +49,9 @@ type (
 	HandlerSupportsTemplateFn func(hndlr adapter.Handler) bool
 
 	// DispatchCheckFn dispatches the instance to the handler.
-	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
+	// It may also produce output attributes in the output bag with the given prefix.
+	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{},
+		out *attribute.MutableBag, outPrefix string) (cr adapter.CheckResult, err error)
 
 	// DispatchReportFn dispatches the instances to the handler.
 	DispatchReportFn func(ctx context.Context, handler adapter.Handler, instances []interface{}) error

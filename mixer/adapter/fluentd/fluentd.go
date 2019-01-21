@@ -84,13 +84,13 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	return han, nil
 }
 
-func (b *builder) injectBuild(ctx context.Context, env adapter.Env, l fluentdLogger) (adapter.Handler, error) {
+func (b *builder) injectBuild(env adapter.Env, l fluentdLogger) adapter.Handler {
 	han := &handler{
 		logger: l,
 		types:  b.types,
 		env:    env,
 	}
-	return han, nil
+	return han
 }
 
 // adapter.HandlerBuilder#SetAdapterConfig

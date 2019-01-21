@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
+
 	rbacproto "istio.io/api/rbac/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -123,21 +125,22 @@ func TestRolesForNamespace(t *testing.T) {
 		expectedRolesServiceRoleBinding []model.Config
 	}{
 		{
-			name:          "authzPolicies is nil",
-			authzPolicies: nil,
-			ns:            model.NamespaceAll,
+			// nolint: goimports
+			name:                            "authzPolicies is nil",
+			authzPolicies:                   nil,
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: []model.Config{},
 		},
 		{
-			name:          "the NamespaceToPolicies of authzPolicies is nil",
-			authzPolicies: &model.AuthorizationPolicies{},
-			ns:            model.NamespaceAll,
+			name:                            "the NamespaceToPolicies of authzPolicies is nil",
+			authzPolicies:                   &model.AuthorizationPolicies{},
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: []model.Config{},
 		},
 		{
-			name:          "the namespaces of authzPolicies in NamespaceToPolicies is not exist",
-			authzPolicies: &model.AuthorizationPolicies{map[string]*model.RolesAndBindings{}, nil},
-			ns:            model.NamespaceAll,
+			name:                            "the namespaces of authzPolicies in NamespaceToPolicies is not exist",
+			authzPolicies:                   &model.AuthorizationPolicies{map[string]*model.RolesAndBindings{}, nil},
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: []model.Config{},
 		},
 		{
@@ -151,7 +154,8 @@ func TestRolesForNamespace(t *testing.T) {
 				},
 				nil,
 			},
-			ns: model.NamespaceAll,
+			// nolint: goimports
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: []model.Config{},
 		},
 		{
@@ -165,7 +169,8 @@ func TestRolesForNamespace(t *testing.T) {
 				},
 				nil,
 			},
-			ns: model.NamespaceAll,
+			// nolint: goimports
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: []model.Config{roleCfg, bindingCfg},
 		},
 	}
@@ -197,21 +202,22 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 		expectedRolesServiceRoleBinding map[string][]*rbacproto.ServiceRoleBinding
 	}{
 		{
-			name:          "authzPolicies is nil",
-			authzPolicies: nil,
-			ns:            model.NamespaceAll,
+			// nolint: goimports
+			name:                            "authzPolicies is nil",
+			authzPolicies:                   nil,
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: map[string][]*rbacproto.ServiceRoleBinding{},
 		},
 		{
-			name:          "the NamespaceToPolicies of authzPolicies is nil",
-			authzPolicies: &model.AuthorizationPolicies{},
-			ns:            model.NamespaceAll,
+			name:                            "the NamespaceToPolicies of authzPolicies is nil",
+			authzPolicies:                   &model.AuthorizationPolicies{},
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: map[string][]*rbacproto.ServiceRoleBinding{},
 		},
 		{
-			name:          "the namespaces of authzPolicies in NamespaceToPolicies is not exist",
-			authzPolicies: &model.AuthorizationPolicies{map[string]*model.RolesAndBindings{}, nil},
-			ns:            model.NamespaceAll,
+			name:                            "the namespaces of authzPolicies in NamespaceToPolicies is not exist",
+			authzPolicies:                   &model.AuthorizationPolicies{map[string]*model.RolesAndBindings{}, nil},
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: map[string][]*rbacproto.ServiceRoleBinding{},
 		},
 		{
@@ -225,7 +231,8 @@ func TestRoleToBindingsForNamespace(t *testing.T) {
 				},
 				nil,
 			},
-			ns: model.NamespaceAll,
+			// nolint: goimports
+			ns:                              model.NamespaceAll,
 			expectedRolesServiceRoleBinding: map[string][]*rbacproto.ServiceRoleBinding{},
 		},
 		{
@@ -289,8 +296,7 @@ func TestNewAuthzPolicies(t *testing.T) {
 	}
 }
 
-func storeWithConfig(
-	clusterRbacConfig *rbacproto.RbacConfig, rbacConfig *rbacproto.RbacConfig) model.IstioConfigStore {
+func storeWithConfig(clusterRbacConfig, rbacConfig proto.Message) model.IstioConfigStore {
 	store := memory.Make(model.IstioConfigTypes)
 
 	if clusterRbacConfig != nil {

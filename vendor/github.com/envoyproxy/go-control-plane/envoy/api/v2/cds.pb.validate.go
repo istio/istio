@@ -200,6 +200,8 @@ func (m *Cluster) Validate() error {
 
 	// no validation rules for ExtensionProtocolOptions
 
+	// no validation rules for TypedExtensionProtocolOptions
+
 	if d := m.GetDnsRefreshRate(); d != nil {
 		dur := *d
 
@@ -346,6 +348,18 @@ func (m *Cluster) Validate() error {
 			if err := v.Validate(); err != nil {
 				return ClusterValidationError{
 					Field:  "OriginalDstLbConfig",
+					Reason: "embedded message failed validation",
+					Cause:  err,
+				}
+			}
+		}
+
+	case *Cluster_LeastRequestLbConfig_:
+
+		if v, ok := interface{}(m.GetLeastRequestLbConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ClusterValidationError{
+					Field:  "LeastRequestLbConfig",
 					Reason: "embedded message failed validation",
 					Cause:  err,
 				}
@@ -588,6 +602,8 @@ func (m *Cluster_LbSubsetConfig) Validate() error {
 
 	// no validation rules for LocalityWeightAware
 
+	// no validation rules for ScaleLocalityWeight
+
 	return nil
 }
 
@@ -621,6 +637,60 @@ func (e Cluster_LbSubsetConfigValidationError) Error() string {
 }
 
 var _ error = Cluster_LbSubsetConfigValidationError{}
+
+// Validate checks the field values on Cluster_LeastRequestLbConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, an error is returned.
+func (m *Cluster_LeastRequestLbConfig) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	if wrapper := m.GetChoiceCount(); wrapper != nil {
+
+		if wrapper.GetValue() < 2 {
+			return Cluster_LeastRequestLbConfigValidationError{
+				Field:  "ChoiceCount",
+				Reason: "value must be greater than or equal to 2",
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// Cluster_LeastRequestLbConfigValidationError is the validation error returned
+// by Cluster_LeastRequestLbConfig.Validate if the designated constraints
+// aren't met.
+type Cluster_LeastRequestLbConfigValidationError struct {
+	Field  string
+	Reason string
+	Cause  error
+	Key    bool
+}
+
+// Error satisfies the builtin error interface
+func (e Cluster_LeastRequestLbConfigValidationError) Error() string {
+	cause := ""
+	if e.Cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.Cause)
+	}
+
+	key := ""
+	if e.Key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCluster_LeastRequestLbConfig.%s: %s%s",
+		key,
+		e.Field,
+		e.Reason,
+		cause)
+}
+
+var _ error = Cluster_LeastRequestLbConfigValidationError{}
 
 // Validate checks the field values on Cluster_RingHashLbConfig with the rules
 // defined in the proto definition for this message. If any rules are

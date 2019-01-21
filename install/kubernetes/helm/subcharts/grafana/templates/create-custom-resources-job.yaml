@@ -44,7 +44,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-grafana-post-install
+  name: istio-grafana-post-install-{{ .Values.global.tag | printf "%v" | trunc 32 }}
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
@@ -63,7 +63,6 @@ spec:
         chart: {{ template "grafana.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
     spec:
       serviceAccountName: istio-grafana-post-install-account
       containers:

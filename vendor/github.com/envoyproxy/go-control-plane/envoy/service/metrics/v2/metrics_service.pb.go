@@ -10,8 +10,10 @@ import core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import prometheus "istio.io/gogo-genproto/prometheus"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -68,9 +70,9 @@ var xxx_messageInfo_StreamMetricsResponse proto.InternalMessageInfo
 type StreamMetricsMessage struct {
 	// Identifier data effectively is a structured metadata. As a performance optimization this will
 	// only be sent in the first message on the stream.
-	Identifier *StreamMetricsMessage_Identifier `protobuf:"bytes,1,opt,name=identifier" json:"identifier,omitempty"`
+	Identifier *StreamMetricsMessage_Identifier `protobuf:"bytes,1,opt,name=identifier,proto3" json:"identifier,omitempty"`
 	// A list of metric entries
-	EnvoyMetrics         []*prometheus.MetricFamily `protobuf:"bytes,2,rep,name=envoy_metrics,json=envoyMetrics" json:"envoy_metrics,omitempty"`
+	EnvoyMetrics         []*prometheus.MetricFamily `protobuf:"bytes,2,rep,name=envoy_metrics,json=envoyMetrics,proto3" json:"envoy_metrics,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -125,7 +127,7 @@ func (m *StreamMetricsMessage) GetEnvoyMetrics() []*prometheus.MetricFamily {
 
 type StreamMetricsMessage_Identifier struct {
 	// The node sending metrics over the stream.
-	Node                 *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node                 *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -185,8 +187,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for MetricsService service
-
+// MetricsServiceClient is the client API for MetricsService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type MetricsServiceClient interface {
 	// Envoy will connect and send StreamMetricsMessage messages forever. It does not expect any
 	// response to be sent as nothing would be done in the case of failure.
@@ -235,8 +238,7 @@ func (x *metricsServiceStreamMetricsClient) CloseAndRecv() (*StreamMetricsRespon
 	return m, nil
 }
 
-// Server API for MetricsService service
-
+// MetricsServiceServer is the server API for MetricsService service.
 type MetricsServiceServer interface {
 	// Envoy will connect and send StreamMetricsMessage messages forever. It does not expect any
 	// response to be sent as nothing would be done in the case of failure.
@@ -392,6 +394,9 @@ func encodeVarintMetricsService(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *StreamMetricsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -401,6 +406,9 @@ func (m *StreamMetricsResponse) Size() (n int) {
 }
 
 func (m *StreamMetricsMessage) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Identifier != nil {
@@ -420,6 +428,9 @@ func (m *StreamMetricsMessage) Size() (n int) {
 }
 
 func (m *StreamMetricsMessage_Identifier) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Node != nil {

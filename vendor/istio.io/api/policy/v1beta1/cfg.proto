@@ -127,31 +127,50 @@ message Rule {
   // Optional. The actions that will be executed when match evaluates to `true`.
   repeated Action actions = 2;
 
-  // A template for an HTTP header manipulation.
+  // A template for an HTTP header manipulation. Values in the template are expressions
+  // that may reference action outputs by name. For example, if an action `x` produces an output
+  // with a field `f`, then the header value expressions may use attribute `x.output.f` to reference
+  // the field value:
+  //
+  // ```yaml
+  // request_header_operations:
+  // - name: x-istio-header
+  //   values:
+  //   - x.output.f
+  // ```
+  //
+  // If the header value expression evaluates to an empty string, and the operation is to either replace
+  // or append a header, then the operation is not applied. This permits conditional behavior on behalf of the
+  // adapter to optionally modify the headers.
   message HeaderOperationTemplate {
 
-    // Required. Header name.
+    // Required. Header name literal value.
     string name = 1;
 
-    // Optional. Header values to replace or append.
+    // Optional. Header value expressions.
     repeated string values = 2;
 
     // Header operation type.
     enum Operation {
-      REPLACE = 0;  // replaces the header with the given name
-      REMOVE = 1;   // removes the header with the given name (the value is ignored)
-      APPEND = 2;   // appends the values to the existing values (preserving existing values)
+      // Replace a header by name.
+      REPLACE = 0;
+
+      // Remove a header by name. Values are ignored.
+      REMOVE = 1;
+
+      // Append values to the existing header values.
+      APPEND = 2;
     }
 
     // Optional. Header operation type. Default operation is to replace the value of the header by name.
     Operation operation = 3;
   }
 
-  // Optional. Templatized operations on the request headers using attributes produced by the
+  // Optional. Templatized operations on the request headers using values produced by the
   // rule actions.
   repeated HeaderOperationTemplate request_header_operations = 3;
 
-  // Optional. Templatized operations on the response headers using attributes produced by the
+  // Optional. Templatized operations on the response headers using values produced by the
   // rule actions.
   repeated HeaderOperationTemplate response_header_operations = 4;
 
@@ -332,9 +351,11 @@ message Connection {
   string address = 2;
 
   // Timeout for remote calls to the backend.
-  google.protobuf.Duration timeout = 3;
+  google.protobuf.Duration timeout = 3 [(gogoproto.stdduration) = true];
 
-  // TODO: Add auth related fields.
+  // Auth config for the connection to the backend. If omitted, plain text will
+  // be used.
+  Authentication authentication = 4;
 }
 
 // $hide_from_docs
@@ -416,4 +437,93 @@ message FractionalPercent {
   // Specifies the denominator. If the denominator specified is less than the numerator, the final
   // fractional percentage is capped at 1 (100%).
   DenominatorType denominator = 2;
+}
+
+// Authentication allows the operator to specify the authentication of
+// connections to out-of-process infrastructure backend.
+message Authentication {
+  oneof auth_type {
+    // Originate a TLS connection to the adapter and present an auth token
+    // in each call for client authentication.
+    Tls tls = 1;
+
+    // Secure connections to the adapter using mutual TLS by presenting
+    // client certificates for authentication.
+    Mutual mutual = 2;
+  };
+}
+
+// Tls let operator specify client authentication setting when TLS is used for
+// connection to the backend.
+message Tls {
+  // The path to the file holding additional CA certificates to well known
+  // public certs.
+  string ca_certificates = 1;
+
+  // Specifies how to get access token for client authn and authz.
+  oneof token_source {
+    // The path to the file holding the auth token (password, jwt token, api
+    // key, etc).
+    string token_path = 2;
+
+    // Oauth config to fetch access token from auth provider.
+    OAuth oauth = 3;
+  }
+
+  // AuthHeader specifies how to pass access token with authorization header.
+  enum AuthHeader {
+    // Access token is passed in authorization header as what it is
+    // (authorization: some-token).
+    PLAIN = 0;
+
+    // Access token is passed to adapter as bearer token (i.e. authorization:
+    // bearer some-token).
+    BEARER = 1;
+  }
+
+  // Specifies how to pass access token to the adapter backend.
+  oneof token_type {
+    // Access token is passed as authorization header.
+    AuthHeader auth_header = 4;
+
+    // Customized header key to hold access token, e.g. x-api-key. Token will be
+    // passed as what it is.
+    string custom_header = 5;
+  }
+}
+
+// OAuth let operator specify config to fetch access token via oauth when using
+// TLS for connection to the backend.
+message OAuth {
+  // REQUIRED. OAuth client id for mixer.
+  string client_id = 1;
+
+  // REQUIRED. The path to the file holding the client secret for oauth.
+  string client_secret = 2;
+
+  // REQUIRED. The Resource server's token endpoint URL.
+  string token_url = 3;
+
+  // List of requested permissions.
+  repeated string scopes = 4;
+
+  // Additional parameters for requests to the token endpoint.
+  map<string, string> endpoint_params = 5;
+}
+
+// Mutual let operator specify tls config for mixer as client if mtls is used to
+// secure connection to adapter backend.
+message Mutual {
+  // The path to the file holding the private key for mtls. If omitted, the
+  // default mixer private key will be used.
+  string private_key = 1;
+
+  // The path to the file holding client certificate for mtls. If omitted, the
+  // default mixer certificates will be used.
+  string client_certificate = 2;
+
+  // The path to the file holding additional CA certificates that are needed to
+  // verify the presented adapter certificates. By default mixer should already
+  // include Istio CA certificates and system certificates in cert pool.
+  string ca_certificates = 3;
 }

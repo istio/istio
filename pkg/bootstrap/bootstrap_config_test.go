@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -66,7 +66,8 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
-			base: "tracing_lightstep",
+			// nolint: goimports
+			base:                       "tracing_lightstep",
 			expectLightstepAccessToken: true,
 		},
 		{
@@ -92,7 +93,7 @@ func TestGolden(t *testing.T) {
 
 			_, localEnv := createEnv(t, c.labels, c.annotations)
 			fn, err := WriteBootstrap(cfg, "sidecar~1.2.3.4~foo~bar", 0, []string{
-				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv)
+				"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}, nil, localEnv, []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -110,7 +111,6 @@ func TestGolden(t *testing.T) {
 				t.Error("Error modifying generated file ", err)
 				return
 			}
-
 			// re-read generated file with the changes having been made
 			real, err = ioutil.ReadFile(fn)
 			if err != nil {
@@ -326,17 +326,23 @@ func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (
 	mergeMap(merged, anno)
 
 	envs := make([]string, 0)
-	envs = envEncode(labels, IstioMetaPrefix, func(s string) string {
-		return s
-	}, envs)
+
+	if labels != nil {
+		envs = append(envs, encodeAsJSON(t, labels, "LABELS"))
+	}
+
 	if anno != nil {
-		jsonStr, err := json.Marshal(anno)
-		if err != nil {
-			t.Fatalf("failed to marshal %v: %v", anno, err)
-		}
-		envs = append(envs, IstioMetaJSONPrefix+"annotations="+string(jsonStr))
+		envs = append(envs, encodeAsJSON(t, anno, "ANNOTATIONS"))
 	}
 	return merged, envs
+}
+
+func encodeAsJSON(t *testing.T, data map[string]string, name string) string {
+	jsonStr, err := json.Marshal(data)
+	if err != nil {
+		t.Fatalf("failed to marshal %s %v: %v", name, data, err)
+	}
+	return IstioMetaJSONPrefix + name + "=" + string(jsonStr)
 }
 
 func TestNodeMetadata(t *testing.T) {
@@ -346,7 +352,7 @@ func TestNodeMetadata(t *testing.T) {
 		"istio": "sidecar",
 	}
 	anno := map[string]string{
-		"istio.io/enable": "{\"abc\": 20}",
+		"istio.io/enable": "{20: 20}",
 	}
 
 	_, envs := createEnv(t, labels, nil)

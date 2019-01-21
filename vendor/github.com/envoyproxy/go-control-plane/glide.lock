@@ -1,15 +1,15 @@
-hash: b822b3a802107e4f825f218cd178bff9fd39a5d7e6fdf3f704cd2acd067ebee9
-updated: 2018-09-24T13:23:57.33690157-07:00
+hash: 848ee6cec6eb07c9f25f8ba7711d34f8690ebc74b673b001c2480ecaed889069
+updated: 2019-01-03T15:13:47.274325-06:00
 imports:
 - name: github.com/envoyproxy/data-plane-api
-  version: 4406edd4e29f5b7e254bdee75ef6354fdf756eb3
+  version: 6ad6c651384df9743caf5126c4878db646b767ac
 - name: github.com/gogo/googleapis
-  version: 0cd9801be74a10d5ac39d69626eac8255ffcd502
+  version: 8558fb44d2f1fc223118afc694129d2c2d2924d1
   subpackages:
   - google/api
   - google/rpc
 - name: github.com/gogo/protobuf
-  version: 636bf0302bc95575d69441b25a2603156ffdddf1
+  version: 4cbf7e384e768b4e01799441fdf2a706a5635ae7
   subpackages:
   - gogoproto
   - jsonpb
@@ -19,7 +19,7 @@ imports:
   - sortkeys
   - types
 - name: github.com/golang/protobuf
-  version: ab9f9a6dab164b7d1246e0e688b0ab7b94d8553e
+  version: d7fc20193620986259ffb1f9b9da752114ee14a4
   subpackages:
   - proto
   - protoc-gen-go/descriptor
@@ -27,25 +27,27 @@ imports:
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
+- name: github.com/konsorten/go-windows-terminal-sequences
+  version: 5c8c8bd35d3832f5d134ae1e1e375b69a4d25242
 - name: github.com/lyft/protoc-gen-validate
   version: f9d2b11e44149635b23a002693b76512b01ae515
   subpackages:
   - validate
 - name: github.com/sirupsen/logrus
-  version: 3e01752db0189b9157070a0e1668a620f9a85da2
+  version: bcd833dfe83d3cebad139e4a29ed79cb2318bf95
 - name: golang.org/x/crypto
-  version: 5119cf507ed5294cc409c092980c7497ee5d6fd2
+  version: 0c41d7ab0a0ee717d4590a44bcb987dfd9e183eb
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
-  version: 5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec
+  version: 9b4f9f5ad5197c79fd623a3638e70d8b26cef344
   subpackages:
   - context
+  - http/httpguts
   - http2
   - http2/hpack
   - idna
   - internal/timeseries
-  - lex/httplex
   - trace
 - name: golang.org/x/sys
   version: acbc56fc7007d2a01796d5bde54f39e3b3e95945
@@ -53,35 +55,40 @@ imports:
   - unix
   - windows
 - name: golang.org/x/text
-  version: e19ae1496984b1c655b8044a65c0300a3c878dd3
+  version: 4d1c5fb19474adfe9562c9847ba425e7da817e81
   subpackages:
   - secure/bidirule
   - transform
   - unicode/bidi
   - unicode/norm
 - name: google.golang.org/genproto
-  version: a8101f21cf983e773d0c1133ebc5424792003214
+  version: 94acd270e44e65579b9ee3cdab25034d33fed608
   subpackages:
   - googleapis
   - googleapis/rpc/status
   - opencensus
 - name: google.golang.org/grpc
-  version: 8dea3dc473e90c8179e519d91302d0597c0ca1d1
+  version: df014850f6dee74ba2fc94874043a9f3f75fbfd8
   subpackages:
   - balancer
   - balancer/base
   - balancer/roundrobin
+  - binarylog/grpc_binarylog_v1
   - codes
   - connectivity
   - credentials
+  - credentials/internal
   - encoding
   - encoding/proto
   - grpclog
   - internal
   - internal/backoff
+  - internal/binarylog
   - internal/channelz
   - internal/envconfig
   - internal/grpcrand
+  - internal/grpcsync
+  - internal/syscall
   - internal/transport
   - keepalive
   - metadata
@@ -94,7 +101,7 @@ imports:
   - status
   - tap
 - name: istio.io/gogo-genproto
-  version: dd2b5b6a8f1400838165245e704a011a30154a44
+  version: e7e4d094a5f0fc3c2245f37ce54ccbbd83fd4355
   subpackages:
   - opencensus/proto/trace
   - prometheus

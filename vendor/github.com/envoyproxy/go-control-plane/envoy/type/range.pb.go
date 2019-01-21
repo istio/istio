@@ -281,6 +281,9 @@ func encodeVarintRange(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Int64Range) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Start != 0 {
@@ -296,6 +299,9 @@ func (m *Int64Range) Size() (n int) {
 }
 
 func (m *DoubleRange) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Start != 0 {

@@ -51,7 +51,7 @@ func (x ComparisonFilter_Op) String() string {
 	return proto.EnumName(ComparisonFilter_Op_name, int32(x))
 }
 func (ComparisonFilter_Op) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{2, 0}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{2, 0}
 }
 
 type AccessLog struct {
@@ -62,25 +62,29 @@ type AccessLog struct {
 	// #. "envoy.http_grpc_access_log"
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Filter which is used to determine if the access log needs to be written.
-	Filter *AccessLogFilter `protobuf:"bytes,2,opt,name=filter" json:"filter,omitempty"`
-	// Custom configuration that depends on the access log being instantiated. Built-in configurations
-	// include:
+	Filter *AccessLogFilter `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"`
+	// Custom configuration that depends on the access log being instantiated. Built-in
+	// configurations include:
 	//
 	// #. "envoy.file_access_log": :ref:`FileAccessLog
 	//    <envoy_api_msg_config.accesslog.v2.FileAccessLog>`
 	// #. "envoy.http_grpc_access_log": :ref:`HttpGrpcAccessLogConfig
 	//    <envoy_api_msg_config.accesslog.v2.HttpGrpcAccessLogConfig>`
-	Config               *types.Struct `protobuf:"bytes,3,opt,name=config" json:"config,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
-	XXX_unrecognized     []byte        `json:"-"`
-	XXX_sizecache        int32         `json:"-"`
+	//
+	// Types that are valid to be assigned to ConfigType:
+	//	*AccessLog_Config
+	//	*AccessLog_TypedConfig
+	ConfigType           isAccessLog_ConfigType `protobuf_oneof:"config_type"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
 func (m *AccessLog) Reset()         { *m = AccessLog{} }
 func (m *AccessLog) String() string { return proto.CompactTextString(m) }
 func (*AccessLog) ProtoMessage()    {}
 func (*AccessLog) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{0}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{0}
 }
 func (m *AccessLog) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -109,6 +113,29 @@ func (m *AccessLog) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_AccessLog proto.InternalMessageInfo
 
+type isAccessLog_ConfigType interface {
+	isAccessLog_ConfigType()
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type AccessLog_Config struct {
+	Config *types.Struct `protobuf:"bytes,3,opt,name=config,proto3,oneof"`
+}
+type AccessLog_TypedConfig struct {
+	TypedConfig *types.Any `protobuf:"bytes,4,opt,name=typed_config,json=typedConfig,proto3,oneof"`
+}
+
+func (*AccessLog_Config) isAccessLog_ConfigType()      {}
+func (*AccessLog_TypedConfig) isAccessLog_ConfigType() {}
+
+func (m *AccessLog) GetConfigType() isAccessLog_ConfigType {
+	if m != nil {
+		return m.ConfigType
+	}
+	return nil
+}
+
 func (m *AccessLog) GetName() string {
 	if m != nil {
 		return m.Name
@@ -124,10 +151,91 @@ func (m *AccessLog) GetFilter() *AccessLogFilter {
 }
 
 func (m *AccessLog) GetConfig() *types.Struct {
-	if m != nil {
-		return m.Config
+	if x, ok := m.GetConfigType().(*AccessLog_Config); ok {
+		return x.Config
 	}
 	return nil
+}
+
+func (m *AccessLog) GetTypedConfig() *types.Any {
+	if x, ok := m.GetConfigType().(*AccessLog_TypedConfig); ok {
+		return x.TypedConfig
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*AccessLog) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _AccessLog_OneofMarshaler, _AccessLog_OneofUnmarshaler, _AccessLog_OneofSizer, []interface{}{
+		(*AccessLog_Config)(nil),
+		(*AccessLog_TypedConfig)(nil),
+	}
+}
+
+func _AccessLog_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*AccessLog)
+	// config_type
+	switch x := m.ConfigType.(type) {
+	case *AccessLog_Config:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Config); err != nil {
+			return err
+		}
+	case *AccessLog_TypedConfig:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.TypedConfig); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("AccessLog.ConfigType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _AccessLog_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*AccessLog)
+	switch tag {
+	case 3: // config_type.config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Struct)
+		err := b.DecodeMessage(msg)
+		m.ConfigType = &AccessLog_Config{msg}
+		return true, err
+	case 4: // config_type.typed_config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Any)
+		err := b.DecodeMessage(msg)
+		m.ConfigType = &AccessLog_TypedConfig{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _AccessLog_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*AccessLog)
+	// config_type
+	switch x := m.ConfigType.(type) {
+	case *AccessLog_Config:
+		s := proto.Size(x.Config)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *AccessLog_TypedConfig:
+		s := proto.Size(x.TypedConfig)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
 }
 
 type AccessLogFilter struct {
@@ -151,7 +259,7 @@ func (m *AccessLogFilter) Reset()         { *m = AccessLogFilter{} }
 func (m *AccessLogFilter) String() string { return proto.CompactTextString(m) }
 func (*AccessLogFilter) ProtoMessage()    {}
 func (*AccessLogFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{1}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{1}
 }
 func (m *AccessLogFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -187,31 +295,31 @@ type isAccessLogFilter_FilterSpecifier interface {
 }
 
 type AccessLogFilter_StatusCodeFilter struct {
-	StatusCodeFilter *StatusCodeFilter `protobuf:"bytes,1,opt,name=status_code_filter,json=statusCodeFilter,oneof"`
+	StatusCodeFilter *StatusCodeFilter `protobuf:"bytes,1,opt,name=status_code_filter,json=statusCodeFilter,proto3,oneof"`
 }
 type AccessLogFilter_DurationFilter struct {
-	DurationFilter *DurationFilter `protobuf:"bytes,2,opt,name=duration_filter,json=durationFilter,oneof"`
+	DurationFilter *DurationFilter `protobuf:"bytes,2,opt,name=duration_filter,json=durationFilter,proto3,oneof"`
 }
 type AccessLogFilter_NotHealthCheckFilter struct {
-	NotHealthCheckFilter *NotHealthCheckFilter `protobuf:"bytes,3,opt,name=not_health_check_filter,json=notHealthCheckFilter,oneof"`
+	NotHealthCheckFilter *NotHealthCheckFilter `protobuf:"bytes,3,opt,name=not_health_check_filter,json=notHealthCheckFilter,proto3,oneof"`
 }
 type AccessLogFilter_TraceableFilter struct {
-	TraceableFilter *TraceableFilter `protobuf:"bytes,4,opt,name=traceable_filter,json=traceableFilter,oneof"`
+	TraceableFilter *TraceableFilter `protobuf:"bytes,4,opt,name=traceable_filter,json=traceableFilter,proto3,oneof"`
 }
 type AccessLogFilter_RuntimeFilter struct {
-	RuntimeFilter *RuntimeFilter `protobuf:"bytes,5,opt,name=runtime_filter,json=runtimeFilter,oneof"`
+	RuntimeFilter *RuntimeFilter `protobuf:"bytes,5,opt,name=runtime_filter,json=runtimeFilter,proto3,oneof"`
 }
 type AccessLogFilter_AndFilter struct {
-	AndFilter *AndFilter `protobuf:"bytes,6,opt,name=and_filter,json=andFilter,oneof"`
+	AndFilter *AndFilter `protobuf:"bytes,6,opt,name=and_filter,json=andFilter,proto3,oneof"`
 }
 type AccessLogFilter_OrFilter struct {
-	OrFilter *OrFilter `protobuf:"bytes,7,opt,name=or_filter,json=orFilter,oneof"`
+	OrFilter *OrFilter `protobuf:"bytes,7,opt,name=or_filter,json=orFilter,proto3,oneof"`
 }
 type AccessLogFilter_HeaderFilter struct {
-	HeaderFilter *HeaderFilter `protobuf:"bytes,8,opt,name=header_filter,json=headerFilter,oneof"`
+	HeaderFilter *HeaderFilter `protobuf:"bytes,8,opt,name=header_filter,json=headerFilter,proto3,oneof"`
 }
 type AccessLogFilter_ResponseFlagFilter struct {
-	ResponseFlagFilter *ResponseFlagFilter `protobuf:"bytes,9,opt,name=response_flag_filter,json=responseFlagFilter,oneof"`
+	ResponseFlagFilter *ResponseFlagFilter `protobuf:"bytes,9,opt,name=response_flag_filter,json=responseFlagFilter,proto3,oneof"`
 }
 
 func (*AccessLogFilter_StatusCodeFilter) isAccessLogFilter_FilterSpecifier()     {}
@@ -506,7 +614,7 @@ type ComparisonFilter struct {
 	// Comparison operator.
 	Op ComparisonFilter_Op `protobuf:"varint,1,opt,name=op,proto3,enum=envoy.config.filter.accesslog.v2.ComparisonFilter_Op" json:"op,omitempty"`
 	// Value to compare against.
-	Value                *core.RuntimeUInt32 `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+	Value                *core.RuntimeUInt32 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -516,7 +624,7 @@ func (m *ComparisonFilter) Reset()         { *m = ComparisonFilter{} }
 func (m *ComparisonFilter) String() string { return proto.CompactTextString(m) }
 func (*ComparisonFilter) ProtoMessage()    {}
 func (*ComparisonFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{2}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{2}
 }
 func (m *ComparisonFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -562,7 +670,7 @@ func (m *ComparisonFilter) GetValue() *core.RuntimeUInt32 {
 // Filters on HTTP response/status code.
 type StatusCodeFilter struct {
 	// Comparison.
-	Comparison           *ComparisonFilter `protobuf:"bytes,1,opt,name=comparison" json:"comparison,omitempty"`
+	Comparison           *ComparisonFilter `protobuf:"bytes,1,opt,name=comparison,proto3" json:"comparison,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -572,7 +680,7 @@ func (m *StatusCodeFilter) Reset()         { *m = StatusCodeFilter{} }
 func (m *StatusCodeFilter) String() string { return proto.CompactTextString(m) }
 func (*StatusCodeFilter) ProtoMessage()    {}
 func (*StatusCodeFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{3}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{3}
 }
 func (m *StatusCodeFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -611,7 +719,7 @@ func (m *StatusCodeFilter) GetComparison() *ComparisonFilter {
 // Filters on total request duration in milliseconds.
 type DurationFilter struct {
 	// Comparison.
-	Comparison           *ComparisonFilter `protobuf:"bytes,1,opt,name=comparison" json:"comparison,omitempty"`
+	Comparison           *ComparisonFilter `protobuf:"bytes,1,opt,name=comparison,proto3" json:"comparison,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -621,7 +729,7 @@ func (m *DurationFilter) Reset()         { *m = DurationFilter{} }
 func (m *DurationFilter) String() string { return proto.CompactTextString(m) }
 func (*DurationFilter) ProtoMessage()    {}
 func (*DurationFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{4}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{4}
 }
 func (m *DurationFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -669,7 +777,7 @@ func (m *NotHealthCheckFilter) Reset()         { *m = NotHealthCheckFilter{} }
 func (m *NotHealthCheckFilter) String() string { return proto.CompactTextString(m) }
 func (*NotHealthCheckFilter) ProtoMessage()    {}
 func (*NotHealthCheckFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{5}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{5}
 }
 func (m *NotHealthCheckFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -710,7 +818,7 @@ func (m *TraceableFilter) Reset()         { *m = TraceableFilter{} }
 func (m *TraceableFilter) String() string { return proto.CompactTextString(m) }
 func (*TraceableFilter) ProtoMessage()    {}
 func (*TraceableFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{6}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{6}
 }
 func (m *TraceableFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -745,7 +853,7 @@ type RuntimeFilter struct {
 	// If found in runtime, this value will replace the default numerator.
 	RuntimeKey string `protobuf:"bytes,1,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"`
 	// The default sampling percentage. If not specified, defaults to 0% with denominator of 100.
-	PercentSampled *_type.FractionalPercent `protobuf:"bytes,2,opt,name=percent_sampled,json=percentSampled" json:"percent_sampled,omitempty"`
+	PercentSampled *_type.FractionalPercent `protobuf:"bytes,2,opt,name=percent_sampled,json=percentSampled,proto3" json:"percent_sampled,omitempty"`
 	// By default, sampling pivots on the header
 	// :ref:`x-request-id<config_http_conn_man_headers_x-request-id>` being present. If
 	// :ref:`x-request-id<config_http_conn_man_headers_x-request-id>` is present, the filter will
@@ -768,7 +876,7 @@ func (m *RuntimeFilter) Reset()         { *m = RuntimeFilter{} }
 func (m *RuntimeFilter) String() string { return proto.CompactTextString(m) }
 func (*RuntimeFilter) ProtoMessage()    {}
 func (*RuntimeFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{7}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{7}
 }
 func (m *RuntimeFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -822,7 +930,7 @@ func (m *RuntimeFilter) GetUseIndependentRandomness() bool {
 // Filters are evaluated sequentially and if one of them returns false, the
 // filter returns false immediately.
 type AndFilter struct {
-	Filters              []*AccessLogFilter `protobuf:"bytes,1,rep,name=filters" json:"filters,omitempty"`
+	Filters              []*AccessLogFilter `protobuf:"bytes,1,rep,name=filters,proto3" json:"filters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -832,7 +940,7 @@ func (m *AndFilter) Reset()         { *m = AndFilter{} }
 func (m *AndFilter) String() string { return proto.CompactTextString(m) }
 func (*AndFilter) ProtoMessage()    {}
 func (*AndFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{8}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{8}
 }
 func (m *AndFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -872,7 +980,7 @@ func (m *AndFilter) GetFilters() []*AccessLogFilter {
 // Filters are evaluated sequentially and if one of them returns true, the
 // filter returns true immediately.
 type OrFilter struct {
-	Filters              []*AccessLogFilter `protobuf:"bytes,2,rep,name=filters" json:"filters,omitempty"`
+	Filters              []*AccessLogFilter `protobuf:"bytes,2,rep,name=filters,proto3" json:"filters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -882,7 +990,7 @@ func (m *OrFilter) Reset()         { *m = OrFilter{} }
 func (m *OrFilter) String() string { return proto.CompactTextString(m) }
 func (*OrFilter) ProtoMessage()    {}
 func (*OrFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{9}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{9}
 }
 func (m *OrFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -922,7 +1030,7 @@ func (m *OrFilter) GetFilters() []*AccessLogFilter {
 type HeaderFilter struct {
 	// Only requests with a header which matches the specified HeaderMatcher will pass the filter
 	// check.
-	Header               *route.HeaderMatcher `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
+	Header               *route.HeaderMatcher `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
 	XXX_unrecognized     []byte               `json:"-"`
 	XXX_sizecache        int32                `json:"-"`
@@ -932,7 +1040,7 @@ func (m *HeaderFilter) Reset()         { *m = HeaderFilter{} }
 func (m *HeaderFilter) String() string { return proto.CompactTextString(m) }
 func (*HeaderFilter) ProtoMessage()    {}
 func (*HeaderFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{10}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{10}
 }
 func (m *HeaderFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -975,7 +1083,7 @@ type ResponseFlagFilter struct {
 	// Only responses with the any of the flags listed in this field will be logged.
 	// This field is optional. If it is not specified, then any response flag will pass
 	// the filter check.
-	Flags                []string `protobuf:"bytes,1,rep,name=flags" json:"flags,omitempty"`
+	Flags                []string `protobuf:"bytes,1,rep,name=flags,proto3" json:"flags,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -985,7 +1093,7 @@ func (m *ResponseFlagFilter) Reset()         { *m = ResponseFlagFilter{} }
 func (m *ResponseFlagFilter) String() string { return proto.CompactTextString(m) }
 func (*ResponseFlagFilter) ProtoMessage()    {}
 func (*ResponseFlagFilter) Descriptor() ([]byte, []int) {
-	return fileDescriptor_accesslog_50b5c40a907dce22, []int{11}
+	return fileDescriptor_accesslog_6667b9f86c711a8c, []int{11}
 }
 func (m *ResponseFlagFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1067,15 +1175,12 @@ func (m *AccessLog) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n1
 	}
-	if m.Config != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAccesslog(dAtA, i, uint64(m.Config.Size()))
-		n2, err := m.Config.MarshalTo(dAtA[i:])
+	if m.ConfigType != nil {
+		nn2, err := m.ConfigType.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n2
+		i += nn2
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1083,6 +1188,34 @@ func (m *AccessLog) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *AccessLog_Config) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Config != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintAccesslog(dAtA, i, uint64(m.Config.Size()))
+		n3, err := m.Config.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	return i, nil
+}
+func (m *AccessLog_TypedConfig) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.TypedConfig != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintAccesslog(dAtA, i, uint64(m.TypedConfig.Size()))
+		n4, err := m.TypedConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
 func (m *AccessLogFilter) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1099,11 +1232,11 @@ func (m *AccessLogFilter) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.FilterSpecifier != nil {
-		nn3, err := m.FilterSpecifier.MarshalTo(dAtA[i:])
+		nn5, err := m.FilterSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn3
+		i += nn5
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1117,11 +1250,11 @@ func (m *AccessLogFilter_StatusCodeFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.StatusCodeFilter.Size()))
-		n4, err := m.StatusCodeFilter.MarshalTo(dAtA[i:])
+		n6, err := m.StatusCodeFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n4
+		i += n6
 	}
 	return i, nil
 }
@@ -1131,11 +1264,11 @@ func (m *AccessLogFilter_DurationFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.DurationFilter.Size()))
-		n5, err := m.DurationFilter.MarshalTo(dAtA[i:])
+		n7, err := m.DurationFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n5
+		i += n7
 	}
 	return i, nil
 }
@@ -1145,11 +1278,11 @@ func (m *AccessLogFilter_NotHealthCheckFilter) MarshalTo(dAtA []byte) (int, erro
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.NotHealthCheckFilter.Size()))
-		n6, err := m.NotHealthCheckFilter.MarshalTo(dAtA[i:])
+		n8, err := m.NotHealthCheckFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n6
+		i += n8
 	}
 	return i, nil
 }
@@ -1159,11 +1292,11 @@ func (m *AccessLogFilter_TraceableFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.TraceableFilter.Size()))
-		n7, err := m.TraceableFilter.MarshalTo(dAtA[i:])
+		n9, err := m.TraceableFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
+		i += n9
 	}
 	return i, nil
 }
@@ -1173,11 +1306,11 @@ func (m *AccessLogFilter_RuntimeFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.RuntimeFilter.Size()))
-		n8, err := m.RuntimeFilter.MarshalTo(dAtA[i:])
+		n10, err := m.RuntimeFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n8
+		i += n10
 	}
 	return i, nil
 }
@@ -1187,11 +1320,11 @@ func (m *AccessLogFilter_AndFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.AndFilter.Size()))
-		n9, err := m.AndFilter.MarshalTo(dAtA[i:])
+		n11, err := m.AndFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n9
+		i += n11
 	}
 	return i, nil
 }
@@ -1201,11 +1334,11 @@ func (m *AccessLogFilter_OrFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.OrFilter.Size()))
-		n10, err := m.OrFilter.MarshalTo(dAtA[i:])
+		n12, err := m.OrFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n10
+		i += n12
 	}
 	return i, nil
 }
@@ -1215,11 +1348,11 @@ func (m *AccessLogFilter_HeaderFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.HeaderFilter.Size()))
-		n11, err := m.HeaderFilter.MarshalTo(dAtA[i:])
+		n13, err := m.HeaderFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n11
+		i += n13
 	}
 	return i, nil
 }
@@ -1229,11 +1362,11 @@ func (m *AccessLogFilter_ResponseFlagFilter) MarshalTo(dAtA []byte) (int, error)
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.ResponseFlagFilter.Size()))
-		n12, err := m.ResponseFlagFilter.MarshalTo(dAtA[i:])
+		n14, err := m.ResponseFlagFilter.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n12
+		i += n14
 	}
 	return i, nil
 }
@@ -1261,11 +1394,11 @@ func (m *ComparisonFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Value.Size()))
-		n13, err := m.Value.MarshalTo(dAtA[i:])
+		n15, err := m.Value.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n13
+		i += n15
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1292,11 +1425,11 @@ func (m *StatusCodeFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Comparison.Size()))
-		n14, err := m.Comparison.MarshalTo(dAtA[i:])
+		n16, err := m.Comparison.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n14
+		i += n16
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1323,11 +1456,11 @@ func (m *DurationFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Comparison.Size()))
-		n15, err := m.Comparison.MarshalTo(dAtA[i:])
+		n17, err := m.Comparison.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n15
+		i += n17
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1402,11 +1535,11 @@ func (m *RuntimeFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.PercentSampled.Size()))
-		n16, err := m.PercentSampled.MarshalTo(dAtA[i:])
+		n18, err := m.PercentSampled.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n16
+		i += n18
 	}
 	if m.UseIndependentRandomness {
 		dAtA[i] = 0x18
@@ -1509,11 +1642,11 @@ func (m *HeaderFilter) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAccesslog(dAtA, i, uint64(m.Header.Size()))
-		n17, err := m.Header.MarshalTo(dAtA[i:])
+		n19, err := m.Header.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n17
+		i += n19
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1567,6 +1700,9 @@ func encodeVarintAccesslog(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *AccessLog) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -1577,9 +1713,8 @@ func (m *AccessLog) Size() (n int) {
 		l = m.Filter.Size()
 		n += 1 + l + sovAccesslog(uint64(l))
 	}
-	if m.Config != nil {
-		l = m.Config.Size()
-		n += 1 + l + sovAccesslog(uint64(l))
+	if m.ConfigType != nil {
+		n += m.ConfigType.Size()
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1587,7 +1722,34 @@ func (m *AccessLog) Size() (n int) {
 	return n
 }
 
+func (m *AccessLog_Config) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Config != nil {
+		l = m.Config.Size()
+		n += 1 + l + sovAccesslog(uint64(l))
+	}
+	return n
+}
+func (m *AccessLog_TypedConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.TypedConfig != nil {
+		l = m.TypedConfig.Size()
+		n += 1 + l + sovAccesslog(uint64(l))
+	}
+	return n
+}
 func (m *AccessLogFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.FilterSpecifier != nil {
@@ -1600,6 +1762,9 @@ func (m *AccessLogFilter) Size() (n int) {
 }
 
 func (m *AccessLogFilter_StatusCodeFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.StatusCodeFilter != nil {
@@ -1609,6 +1774,9 @@ func (m *AccessLogFilter_StatusCodeFilter) Size() (n int) {
 	return n
 }
 func (m *AccessLogFilter_DurationFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DurationFilter != nil {
@@ -1618,6 +1786,9 @@ func (m *AccessLogFilter_DurationFilter) Size() (n int) {
 	return n
 }
 func (m *AccessLogFilter_NotHealthCheckFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.NotHealthCheckFilter != nil {
@@ -1627,6 +1798,9 @@ func (m *AccessLogFilter_NotHealthCheckFilter) Size() (n int) {
 	return n
 }
 func (m *AccessLogFilter_TraceableFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TraceableFilter != nil {
@@ -1636,6 +1810,9 @@ func (m *AccessLogFilter_TraceableFilter) Size() (n int) {
 	return n
 }
 func (m *AccessLogFilter_RuntimeFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RuntimeFilter != nil {
@@ -1645,6 +1822,9 @@ func (m *AccessLogFilter_RuntimeFilter) Size() (n int) {
 	return n
 }
 func (m *AccessLogFilter_AndFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.AndFilter != nil {
@@ -1654,6 +1834,9 @@ func (m *AccessLogFilter_AndFilter) Size() (n int) {
 	return n
 }
 func (m *AccessLogFilter_OrFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.OrFilter != nil {
@@ -1663,6 +1846,9 @@ func (m *AccessLogFilter_OrFilter) Size() (n int) {
 	return n
 }
 func (m *AccessLogFilter_HeaderFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.HeaderFilter != nil {
@@ -1672,6 +1858,9 @@ func (m *AccessLogFilter_HeaderFilter) Size() (n int) {
 	return n
 }
 func (m *AccessLogFilter_ResponseFlagFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ResponseFlagFilter != nil {
@@ -1681,6 +1870,9 @@ func (m *AccessLogFilter_ResponseFlagFilter) Size() (n int) {
 	return n
 }
 func (m *ComparisonFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Op != 0 {
@@ -1697,6 +1889,9 @@ func (m *ComparisonFilter) Size() (n int) {
 }
 
 func (m *StatusCodeFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Comparison != nil {
@@ -1710,6 +1905,9 @@ func (m *StatusCodeFilter) Size() (n int) {
 }
 
 func (m *DurationFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Comparison != nil {
@@ -1723,6 +1921,9 @@ func (m *DurationFilter) Size() (n int) {
 }
 
 func (m *NotHealthCheckFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -1732,6 +1933,9 @@ func (m *NotHealthCheckFilter) Size() (n int) {
 }
 
 func (m *TraceableFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -1741,6 +1945,9 @@ func (m *TraceableFilter) Size() (n int) {
 }
 
 func (m *RuntimeFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.RuntimeKey)
@@ -1761,6 +1968,9 @@ func (m *RuntimeFilter) Size() (n int) {
 }
 
 func (m *AndFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Filters) > 0 {
@@ -1776,6 +1986,9 @@ func (m *AndFilter) Size() (n int) {
 }
 
 func (m *OrFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Filters) > 0 {
@@ -1791,6 +2004,9 @@ func (m *OrFilter) Size() (n int) {
 }
 
 func (m *HeaderFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Header != nil {
@@ -1804,6 +2020,9 @@ func (m *HeaderFilter) Size() (n int) {
 }
 
 func (m *ResponseFlagFilter) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Flags) > 0 {
@@ -1948,12 +2167,43 @@ func (m *AccessLog) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Config == nil {
-				m.Config = &types.Struct{}
-			}
-			if err := m.Config.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &types.Struct{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.ConfigType = &AccessLog_Config{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TypedConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAccesslog
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAccesslog
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.Any{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ConfigType = &AccessLog_TypedConfig{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -3256,67 +3506,70 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/config/filter/accesslog/v2/accesslog.proto", fileDescriptor_accesslog_50b5c40a907dce22)
+	proto.RegisterFile("envoy/config/filter/accesslog/v2/accesslog.proto", fileDescriptor_accesslog_6667b9f86c711a8c)
 }
 
-var fileDescriptor_accesslog_50b5c40a907dce22 = []byte{
-	// 928 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x95, 0xc1, 0x6f, 0xdb, 0xb6,
-	0x17, 0xc7, 0x2b, 0x26, 0x76, 0xed, 0xd7, 0xc6, 0xd6, 0x8f, 0x08, 0x7e, 0xf1, 0x82, 0x2c, 0xf0,
-	0x74, 0x2a, 0x3a, 0x40, 0xea, 0xdc, 0xad, 0xa7, 0x62, 0x58, 0xed, 0xda, 0xb3, 0x31, 0xaf, 0x59,
-	0x99, 0x1a, 0x2b, 0x36, 0x20, 0x06, 0x2d, 0xd1, 0xb6, 0x50, 0x59, 0x14, 0x28, 0xda, 0x40, 0xae,
-	0x3b, 0xee, 0xd8, 0xeb, 0xfe, 0x91, 0x61, 0xbb, 0x74, 0xb7, 0x1d, 0xf7, 0x27, 0x0c, 0xb9, 0xf5,
-	0xba, 0xbf, 0x60, 0x10, 0x49, 0x29, 0xb6, 0x5b, 0xc0, 0xc1, 0xb0, 0x1d, 0x6c, 0x89, 0x7c, 0xfc,
-	0x7e, 0xde, 0x7b, 0x14, 0xdf, 0x23, 0x3c, 0x60, 0xf1, 0x8a, 0x5f, 0x7a, 0x3e, 0x8f, 0xa7, 0xe1,
-	0xcc, 0x9b, 0x86, 0x91, 0x64, 0xc2, 0xa3, 0xbe, 0xcf, 0xd2, 0x34, 0xe2, 0x33, 0x6f, 0xd5, 0xba,
-	0x1e, 0xb8, 0x89, 0xe0, 0x92, 0xe3, 0xa6, 0x52, 0xb8, 0x5a, 0xe1, 0x6a, 0x85, 0x7b, 0xbd, 0x68,
-	0xd5, 0x3a, 0x3e, 0xd1, 0x4c, 0x9a, 0x84, 0x99, 0xde, 0xe7, 0x82, 0x79, 0x13, 0x9a, 0x32, 0xad,
-	0x3f, 0x3e, 0xdd, 0xb0, 0x0a, 0xbe, 0x94, 0x4c, 0xff, 0x1b, 0x7b, 0x43, 0xdb, 0xe5, 0x65, 0xc2,
-	0xbc, 0x84, 0x09, 0x9f, 0xc5, 0xd2, 0x58, 0x4e, 0x66, 0x9c, 0xcf, 0x22, 0xe6, 0xa9, 0xd1, 0x64,
-	0x39, 0xf5, 0x52, 0x29, 0x96, 0x7e, 0x6e, 0x3d, 0x5a, 0xd1, 0x28, 0x0c, 0xa8, 0x64, 0x5e, 0xfe,
-	0xa2, 0x0d, 0xce, 0x4f, 0x16, 0x54, 0x9f, 0xa8, 0xf8, 0x86, 0x7c, 0x86, 0x31, 0xec, 0xc7, 0x74,
-	0xc1, 0x1a, 0x56, 0xd3, 0xba, 0x57, 0x25, 0xea, 0x1d, 0x0f, 0xa0, 0xac, 0xf3, 0x68, 0xa0, 0xa6,
-	0x75, 0xef, 0x4e, 0xeb, 0x13, 0x77, 0x57, 0x8e, 0x6e, 0x01, 0xec, 0x29, 0x23, 0x31, 0x00, 0xec,
-	0x41, 0x59, 0xab, 0x1a, 0x7b, 0x0a, 0x75, 0xe4, 0xea, 0xa0, 0xdd, 0x3c, 0x68, 0xf7, 0x5c, 0x05,
-	0x4d, 0xcc, 0x32, 0xe7, 0xaf, 0x32, 0xd4, 0xb7, 0x60, 0x78, 0x02, 0x38, 0x95, 0x54, 0x2e, 0xd3,
-	0xb1, 0xcf, 0x03, 0x36, 0x36, 0xb1, 0x59, 0x0a, 0xd8, 0xda, 0x1d, 0xdb, 0xb9, 0xd2, 0x76, 0x78,
-	0xc0, 0x34, 0xaf, 0x7f, 0x8b, 0xd8, 0xe9, 0xd6, 0x1c, 0xfe, 0x1e, 0xea, 0xc1, 0x52, 0x50, 0x19,
-	0xf2, 0x78, 0xbc, 0x91, 0xfc, 0x83, 0xdd, 0x0e, 0x9e, 0x1a, 0x61, 0x81, 0xaf, 0x05, 0x1b, 0x33,
-	0x98, 0xc3, 0x51, 0xcc, 0xe5, 0x78, 0xce, 0x68, 0x24, 0xe7, 0x63, 0x7f, 0xce, 0xfc, 0x57, 0xb9,
-	0x13, 0xbd, 0x2d, 0x8f, 0x76, 0x3b, 0x79, 0xc6, 0x65, 0x5f, 0xe9, 0x3b, 0x99, 0xbc, 0x70, 0x75,
-	0x18, 0xbf, 0x67, 0x1e, 0x5f, 0x80, 0x2d, 0x05, 0xf5, 0x19, 0x9d, 0x44, 0xc5, 0x7e, 0xed, 0xdf,
-	0xf4, 0x5b, 0xbe, 0xc8, 0x95, 0x85, 0x93, 0xba, 0xdc, 0x9c, 0xc2, 0x2f, 0xa1, 0x26, 0x96, 0xb1,
-	0x0c, 0x17, 0x05, 0xbd, 0xa4, 0xe8, 0xde, 0x6e, 0x3a, 0xd1, 0xba, 0x82, 0x7d, 0x20, 0xd6, 0x27,
-	0xf0, 0x10, 0x80, 0xc6, 0x41, 0x4e, 0x2d, 0x2b, 0xea, 0xc7, 0x37, 0x38, 0x7f, 0x71, 0x50, 0x10,
-	0xab, 0x34, 0x1f, 0xe0, 0x01, 0x54, 0xb9, 0xc8, 0x61, 0xb7, 0x15, 0xec, 0xfe, 0x6e, 0xd8, 0x99,
-	0x28, 0x58, 0x15, 0x6e, 0xde, 0xf1, 0x08, 0x0e, 0xe6, 0x8c, 0x06, 0xac, 0xc0, 0x55, 0x14, 0xce,
-	0xdd, 0x8d, 0xeb, 0x2b, 0x59, 0x81, 0xbc, 0x3b, 0x5f, 0x1b, 0xe3, 0x39, 0x1c, 0x0a, 0x96, 0x26,
-	0x3c, 0x4e, 0xd9, 0x78, 0x1a, 0xd1, 0x59, 0x4e, 0xaf, 0x2a, 0xfa, 0xa7, 0x37, 0xd8, 0x4f, 0xa3,
-	0xee, 0x45, 0x74, 0x56, 0xf8, 0xc0, 0xe2, 0x9d, 0xd9, 0xf6, 0x07, 0x60, 0x6b, 0xfd, 0x38, 0x4d,
-	0x98, 0x1f, 0x4e, 0x43, 0x26, 0x70, 0xe9, 0xe7, 0xb7, 0x6f, 0xf6, 0x2c, 0xe7, 0x57, 0x0b, 0xec,
-	0x0e, 0x5f, 0x24, 0x54, 0x84, 0x69, 0x71, 0x68, 0x9f, 0x03, 0xe2, 0x89, 0xaa, 0xb2, 0x5a, 0xeb,
-	0xb3, 0xdd, 0x71, 0x6c, 0xeb, 0xdd, 0xb3, 0xa4, 0x0d, 0xbf, 0xbc, 0x7d, 0xb3, 0x57, 0xfa, 0xc1,
-	0x42, 0xb6, 0x45, 0x10, 0x4f, 0xf0, 0x23, 0x28, 0xad, 0x68, 0xb4, 0x64, 0xa6, 0xb4, 0x9a, 0x86,
-	0x4a, 0x93, 0x30, 0x23, 0x64, 0x9d, 0x31, 0x3f, 0x1e, 0xa3, 0x41, 0x2c, 0x1f, 0xb6, 0x88, 0x5e,
-	0xee, 0x9c, 0x00, 0x3a, 0x4b, 0x70, 0x19, 0x50, 0xf7, 0xb9, 0x7d, 0x2b, 0x7b, 0x7e, 0xd9, 0xb5,
-	0xad, 0xec, 0x39, 0xec, 0xda, 0xc8, 0x11, 0x60, 0x6f, 0x97, 0x38, 0xbe, 0x00, 0xf0, 0x8b, 0x80,
-	0x6e, 0xde, 0x2a, 0xb6, 0x93, 0x30, 0x19, 0xfc, 0xa8, 0x32, 0x58, 0x23, 0x3a, 0x09, 0xd4, 0x36,
-	0xab, 0xfe, 0x3f, 0xf7, 0xf8, 0x7f, 0x38, 0x7c, 0x5f, 0x0b, 0x70, 0xfe, 0x07, 0xf5, 0xad, 0x82,
-	0x75, 0x7e, 0xb3, 0xe0, 0x60, 0xa3, 0xcc, 0xf0, 0x7d, 0xb8, 0x93, 0xd7, 0xeb, 0x2b, 0x76, 0xa9,
-	0x9b, 0x7d, 0xbb, 0x9a, 0x79, 0xda, 0x17, 0xa8, 0x69, 0x11, 0x30, 0xd6, 0xaf, 0xd8, 0x25, 0xee,
-	0x41, 0xdd, 0xdc, 0x33, 0xe3, 0x94, 0x2e, 0x92, 0x88, 0x05, 0xe6, 0x73, 0x7d, 0x68, 0xb2, 0xc9,
-	0xae, 0x22, 0xb7, 0x27, 0xa8, 0x9f, 0x65, 0x4f, 0xa3, 0x6f, 0xf4, 0x62, 0x52, 0x33, 0xaa, 0x73,
-	0x2d, 0xc2, 0x8f, 0xe1, 0x78, 0x99, 0xb2, 0x71, 0x18, 0x07, 0x2c, 0x61, 0x71, 0x90, 0xf1, 0x04,
-	0x8d, 0x03, 0xbe, 0x88, 0x59, 0x9a, 0xaa, 0xbe, 0x57, 0x21, 0x8d, 0x65, 0xca, 0x06, 0xd7, 0x0b,
-	0x48, 0x61, 0x77, 0x02, 0xa8, 0x16, 0x35, 0x8d, 0xbf, 0x85, 0xdb, 0x7a, 0xef, 0xd2, 0x86, 0xd5,
-	0xdc, 0xfb, 0x47, 0x37, 0x92, 0xd9, 0xd7, 0xd7, 0x16, 0xaa, 0x20, 0x92, 0xd3, 0x1c, 0x1f, 0x2a,
-	0x79, 0xb1, 0xaf, 0x3b, 0x41, 0xff, 0xaa, 0x93, 0x11, 0xdc, 0x5d, 0x6f, 0x01, 0xb8, 0x0b, 0x65,
-	0xdd, 0x02, 0xcc, 0x29, 0xf9, 0x68, 0xb3, 0x0c, 0xf4, 0xe5, 0xaf, 0x15, 0x5f, 0x53, 0xe9, 0xcf,
-	0xb7, 0x0e, 0x85, 0x11, 0x3b, 0x12, 0xf0, 0xbb, 0xb5, 0x8f, 0x2f, 0xa0, 0x94, 0xb5, 0x11, 0xbd,
-	0x51, 0xd5, 0x76, 0x3f, 0x13, 0x76, 0x5e, 0x5b, 0x5f, 0x38, 0x9f, 0x8b, 0xc7, 0x04, 0x0d, 0xfb,
-	0x04, 0x8d, 0xb2, 0xdf, 0x0b, 0x82, 0x86, 0x84, 0xa0, 0x51, 0xf6, 0xeb, 0x11, 0x34, 0xea, 0x10,
-	0x34, 0x3a, 0x23, 0xe8, 0x19, 0x21, 0xe8, 0xe9, 0x80, 0xa0, 0xde, 0x80, 0x20, 0x32, 0x24, 0xfb,
-	0xa3, 0x27, 0xdd, 0x97, 0x64, 0x9f, 0x0c, 0xcf, 0xbb, 0x44, 0x63, 0xdb, 0xf6, 0xef, 0x57, 0xa7,
-	0xd6, 0x1f, 0x57, 0xa7, 0xd6, 0x9f, 0x57, 0xa7, 0xd6, 0x77, 0x68, 0xd5, 0x9a, 0x94, 0xd5, 0x55,
-	0xfe, 0xf0, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x1c, 0x57, 0x65, 0x8d, 0x3b, 0x09, 0x00, 0x00,
+var fileDescriptor_accesslog_6667b9f86c711a8c = []byte{
+	// 973 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x96, 0x41, 0x6f, 0xdb, 0x36,
+	0x14, 0xc7, 0x23, 0xc6, 0x71, 0xe3, 0x97, 0x26, 0xd6, 0x88, 0x60, 0x71, 0x83, 0x2c, 0xf0, 0x74,
+	0x2a, 0x3a, 0x40, 0x6a, 0xdd, 0xad, 0xc0, 0x80, 0x1d, 0x16, 0x3b, 0x76, 0x6d, 0xcc, 0x6b, 0x56,
+	0xa6, 0xc6, 0x8a, 0x0d, 0xa8, 0x40, 0x4b, 0xb4, 0x2d, 0x54, 0x16, 0x05, 0x4a, 0x36, 0xe6, 0xeb,
+	0x8e, 0x3b, 0xf6, 0xd3, 0x0c, 0xdb, 0xa5, 0xbb, 0xed, 0xb8, 0x8f, 0x30, 0xe4, 0x32, 0xf4, 0xba,
+	0x4f, 0x30, 0x88, 0xa4, 0x14, 0xdb, 0x29, 0xe0, 0x60, 0xd8, 0x0e, 0x8a, 0x44, 0x3e, 0xfe, 0x7f,
+	0x8f, 0xef, 0x85, 0xef, 0xd1, 0xf0, 0x90, 0x45, 0x73, 0xbe, 0x70, 0x3c, 0x1e, 0x8d, 0x82, 0xb1,
+	0x33, 0x0a, 0xc2, 0x94, 0x09, 0x87, 0x7a, 0x1e, 0x4b, 0x92, 0x90, 0x8f, 0x9d, 0x79, 0xe3, 0x7a,
+	0x60, 0xc7, 0x82, 0xa7, 0x1c, 0xd7, 0xa5, 0xc2, 0x56, 0x0a, 0x5b, 0x29, 0xec, 0xeb, 0x45, 0xf3,
+	0xc6, 0xf1, 0x89, 0x62, 0xd2, 0x38, 0xc8, 0xf4, 0x1e, 0x17, 0xcc, 0x19, 0xd2, 0x84, 0x29, 0xfd,
+	0xf1, 0xe9, 0x8a, 0x55, 0xf0, 0x59, 0xca, 0xd4, 0x5f, 0x6d, 0xaf, 0x29, 0x7b, 0xba, 0x88, 0x99,
+	0x13, 0x33, 0xe1, 0xb1, 0x28, 0xd5, 0x96, 0x7b, 0x63, 0xce, 0xc7, 0x21, 0x73, 0xe4, 0x68, 0x38,
+	0x1b, 0x39, 0x34, 0x5a, 0x68, 0xd3, 0xc9, 0xba, 0x29, 0x49, 0xc5, 0xcc, 0xcb, 0x85, 0x47, 0x73,
+	0x1a, 0x06, 0x3e, 0x4d, 0x99, 0x93, 0x7f, 0x28, 0x83, 0xf5, 0x97, 0x01, 0x95, 0x33, 0xb9, 0xf5,
+	0x3e, 0x1f, 0x63, 0x0c, 0xa5, 0x88, 0x4e, 0x59, 0xcd, 0xa8, 0x1b, 0xf7, 0x2b, 0x44, 0x7e, 0xe3,
+	0x1e, 0x94, 0x55, 0x88, 0x35, 0x54, 0x37, 0xee, 0xef, 0x35, 0x1e, 0xd9, 0x9b, 0xc2, 0xb7, 0x0b,
+	0x60, 0x47, 0x1a, 0x89, 0x06, 0xe0, 0x47, 0x50, 0x56, 0xaa, 0xda, 0xb6, 0x44, 0x1d, 0xd9, 0x6a,
+	0xd3, 0x76, 0xbe, 0x69, 0xfb, 0x52, 0x6e, 0xba, 0xbb, 0x45, 0xf4, 0x42, 0xfc, 0x39, 0xdc, 0xcd,
+	0xf2, 0xe0, 0xbb, 0x5a, 0x58, 0x92, 0xc2, 0xc3, 0x1b, 0xc2, 0xb3, 0x68, 0xd1, 0xdd, 0x22, 0x7b,
+	0x72, 0x6d, 0x4b, 0x2e, 0x6d, 0xee, 0xc3, 0x9e, 0x12, 0xb9, 0xd9, 0xac, 0xf5, 0x77, 0x19, 0xaa,
+	0x6b, 0x1b, 0xc3, 0x43, 0xc0, 0x49, 0x4a, 0xd3, 0x59, 0xe2, 0x7a, 0xdc, 0x67, 0xae, 0x8e, 0xd3,
+	0x90, 0x3e, 0x1a, 0x9b, 0xe3, 0xbc, 0x94, 0xda, 0x16, 0xf7, 0x99, 0xe2, 0x75, 0xb7, 0x88, 0x99,
+	0xac, 0xcd, 0xe1, 0xef, 0xa1, 0xea, 0xcf, 0x04, 0x4d, 0x03, 0x1e, 0xb9, 0x2b, 0x89, 0x7c, 0xb8,
+	0xd9, 0xc1, 0xb9, 0x16, 0x16, 0xf8, 0x03, 0x7f, 0x65, 0x06, 0x73, 0x38, 0x8a, 0x78, 0xea, 0x4e,
+	0x18, 0x0d, 0xd3, 0x89, 0xeb, 0x4d, 0x98, 0xf7, 0x3a, 0x77, 0xa2, 0x52, 0xfc, 0x64, 0xb3, 0x93,
+	0x67, 0x3c, 0xed, 0x4a, 0x7d, 0x2b, 0x93, 0x17, 0xae, 0x0e, 0xa3, 0xf7, 0xcc, 0xe3, 0x57, 0x60,
+	0xa6, 0x82, 0x7a, 0x8c, 0x0e, 0xc3, 0x22, 0x5f, 0xa5, 0xdb, 0x9e, 0x8b, 0x17, 0xb9, 0xb2, 0x70,
+	0x52, 0x4d, 0x57, 0xa7, 0xf0, 0x4b, 0x38, 0x10, 0xb3, 0x28, 0x0d, 0xa6, 0x05, 0x7d, 0x47, 0xd2,
+	0x9d, 0xcd, 0x74, 0xa2, 0x74, 0x05, 0x7b, 0x5f, 0x2c, 0x4f, 0xe0, 0x3e, 0x00, 0x8d, 0xfc, 0x9c,
+	0x5a, 0x96, 0xd4, 0x4f, 0x6e, 0x71, 0x96, 0x23, 0xbf, 0x20, 0x56, 0x68, 0x3e, 0xc0, 0x3d, 0xa8,
+	0x70, 0x91, 0xc3, 0xee, 0x48, 0xd8, 0x83, 0xcd, 0xb0, 0x0b, 0x51, 0xb0, 0x76, 0xb9, 0xfe, 0xc6,
+	0x03, 0xd8, 0x9f, 0x30, 0xea, 0xb3, 0x02, 0xb7, 0x2b, 0x71, 0xf6, 0x66, 0x5c, 0x57, 0xca, 0x0a,
+	0xe4, 0xdd, 0xc9, 0xd2, 0x18, 0x4f, 0xe0, 0x50, 0xb0, 0x24, 0xe6, 0x51, 0xc2, 0xdc, 0x51, 0x48,
+	0xc7, 0x39, 0xbd, 0x22, 0xe9, 0x9f, 0xde, 0x22, 0x9f, 0x5a, 0xdd, 0x09, 0xe9, 0xb8, 0xf0, 0x81,
+	0xc5, 0x8d, 0xd9, 0xe6, 0x3d, 0x30, 0x95, 0xde, 0x4d, 0x62, 0xe6, 0x05, 0xa3, 0x80, 0x09, 0xbc,
+	0xf3, 0xf3, 0xbb, 0xb7, 0xdb, 0x86, 0xf5, 0xab, 0x01, 0x66, 0x8b, 0x4f, 0x63, 0x2a, 0x82, 0xa4,
+	0x38, 0xb4, 0xcf, 0x01, 0xf1, 0x58, 0x56, 0xd9, 0x41, 0xe3, 0xb3, 0xcd, 0xfb, 0x58, 0xd7, 0xdb,
+	0x17, 0x71, 0x13, 0x7e, 0x79, 0xf7, 0x76, 0x7b, 0xe7, 0x47, 0x03, 0x99, 0x06, 0x41, 0x3c, 0xc6,
+	0x4f, 0x60, 0x67, 0x4e, 0xc3, 0x19, 0xd3, 0xa5, 0x55, 0xd7, 0x54, 0x1a, 0x07, 0x19, 0x21, 0x6b,
+	0xc0, 0xf9, 0xf1, 0x18, 0xf4, 0xa2, 0xf4, 0x71, 0x83, 0xa8, 0xe5, 0xd6, 0x09, 0xa0, 0x8b, 0x18,
+	0x97, 0x01, 0xb5, 0x9f, 0x9b, 0x5b, 0xd9, 0xfb, 0x69, 0xdb, 0x34, 0xb2, 0x77, 0xbf, 0x6d, 0x22,
+	0x4b, 0x80, 0xb9, 0x5e, 0xe2, 0xf8, 0x15, 0x80, 0x57, 0x6c, 0xe8, 0xf6, 0xad, 0x62, 0x3d, 0x08,
+	0x1d, 0xc1, 0x4f, 0x32, 0x82, 0x25, 0xa2, 0x15, 0xc3, 0xc1, 0x6a, 0xd5, 0xff, 0xef, 0x1e, 0x3f,
+	0x84, 0xc3, 0xf7, 0xb5, 0x00, 0xeb, 0x03, 0xa8, 0xae, 0x15, 0xac, 0xf5, 0x9b, 0x01, 0xfb, 0x2b,
+	0x65, 0x86, 0x1f, 0xc0, 0x5e, 0x5e, 0xaf, 0xaf, 0xd9, 0x42, 0x5d, 0x1c, 0xcd, 0x4a, 0xe6, 0xa9,
+	0x24, 0x50, 0xdd, 0x20, 0xa0, 0xad, 0x5f, 0xb1, 0x05, 0xee, 0x40, 0x55, 0x5f, 0x67, 0x6e, 0x42,
+	0xa7, 0x71, 0xc8, 0x7c, 0xfd, 0xef, 0xfa, 0x48, 0x47, 0x93, 0xf5, 0x69, 0xbb, 0x23, 0xa8, 0x97,
+	0x45, 0x4f, 0xc3, 0x6f, 0xd4, 0x62, 0x72, 0xa0, 0x55, 0x97, 0x4a, 0x84, 0xbf, 0x80, 0xe3, 0x59,
+	0xc2, 0xdc, 0x20, 0xf2, 0x59, 0xcc, 0x22, 0x3f, 0xe3, 0x09, 0x1a, 0xf9, 0x7c, 0x1a, 0xb1, 0x24,
+	0x91, 0x7d, 0x6f, 0x97, 0xd4, 0x66, 0x09, 0xeb, 0x5d, 0x2f, 0x20, 0x85, 0xdd, 0xf2, 0xa1, 0x52,
+	0xd4, 0x34, 0xfe, 0x16, 0xee, 0xa8, 0xdc, 0x25, 0x35, 0xa3, 0xbe, 0xfd, 0xaf, 0x6e, 0x37, 0x9d,
+	0xd7, 0x37, 0x06, 0xda, 0x45, 0x24, 0xa7, 0x59, 0x1e, 0xec, 0xe6, 0xc5, 0xbe, 0xec, 0x04, 0xfd,
+	0xa7, 0x4e, 0x06, 0x70, 0x77, 0xb9, 0x05, 0xe0, 0x36, 0x94, 0x55, 0x0b, 0xd0, 0xa7, 0xe4, 0xe3,
+	0xd5, 0x32, 0x50, 0xbf, 0x31, 0x94, 0xe2, 0x6b, 0x9a, 0x7a, 0x93, 0xb5, 0x43, 0xa1, 0xc5, 0xd6,
+	0x0f, 0x80, 0x6f, 0xd6, 0x3e, 0x1e, 0xc2, 0x4e, 0xd6, 0x46, 0x54, 0xa2, 0x2a, 0xcd, 0x7e, 0x26,
+	0x7c, 0xfa, 0xc6, 0x38, 0xb7, 0x9a, 0xe2, 0x4b, 0x82, 0xfa, 0x5d, 0x82, 0x06, 0xd9, 0xf3, 0x82,
+	0xa0, 0x3e, 0x21, 0x68, 0x90, 0x3d, 0x1d, 0x82, 0x06, 0x2d, 0x82, 0x06, 0x17, 0x04, 0x3d, 0x23,
+	0x04, 0x9d, 0xf7, 0x08, 0xea, 0xf4, 0x08, 0x22, 0x7d, 0x52, 0x1a, 0x9c, 0xb5, 0x5f, 0x92, 0x12,
+	0xe9, 0x5f, 0xb6, 0x09, 0x3a, 0x6f, 0x11, 0x85, 0x6e, 0x9a, 0xbf, 0x5f, 0x9d, 0x1a, 0x7f, 0x5c,
+	0x9d, 0x1a, 0x7f, 0x5e, 0x9d, 0x1a, 0xdf, 0xa1, 0x79, 0x63, 0x58, 0x96, 0x37, 0xfc, 0xe3, 0x7f,
+	0x02, 0x00, 0x00, 0xff, 0xff, 0xc8, 0x25, 0xb4, 0x38, 0xa6, 0x09, 0x00, 0x00,
 }

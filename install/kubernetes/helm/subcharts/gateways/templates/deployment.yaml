@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "enabled") }}
+{{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -54,6 +54,30 @@ spec:
             privileged: true
 {{- end }}
       containers:
+{{- if $spec.sds }}
+{{- if $spec.sds.enabled }}
+        - name: ingress-sds
+{{- if contains "/" $spec.sds.image }}
+          image: "{{ $spec.sds.image }}"
+{{- else }}
+          image: "{{ $.Values.global.hub }}/{{ $spec.sds.image }}:{{ $.Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          env:
+          - name: "ENABLE_WORKLOAD_SDS"
+            value: "false"
+          - name: "ENABLE_INGRESS_GATEWAY_SDS"
+            value: "true"
+          - name: "INGRESS_GATEWAY_NAMESPACE"
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          volumeMounts:
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+{{- end }}
+{{- end }}
         - name: istio-proxy
 {{- if contains "/" $.Values.global.proxy.image }}
           image: "{{ $.Values.global.proxy.image }}"
@@ -65,18 +89,14 @@ spec:
             {{- range $key, $val := $spec.ports }}
             - containerPort: {{ $val.port }}
             {{- end }}
-{{ if ne $.Values.global.proxy.stats.prometheusPort 0. }}
-            - containerPort: {{ $.Values.global.proxy.stats.prometheusPort }}
+            - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
-{{ end }}
           args:
           - proxy
           - router
-{{- if $.Values.global.proxy.proxyDomain }}
           - --domain
-          - {{ $.Values.global.proxy.proxyDomain }}
-{{- end }}
+          - $(POD_NAMESPACE).svc.{{ $.Values.global.proxy.clusterDomain }}
           - --log_output_level
           - 'info'
           - --drainDuration
@@ -120,6 +140,9 @@ spec:
           - istio-pilot:15010
           {{- end }}
         {{- end }}
+        {{- if $.Values.global.trustDomain }}
+          - --trust-domain={{ $.Values.global.trustDomain }}
+        {{- end }}
           resources:
 {{- if $spec.resources }}
 {{ toYaml $spec.resources | indent 12 }}
@@ -145,17 +168,38 @@ spec:
           - name: ISTIO_META_POD_NAME
             valueFrom:
               fieldRef:
-                fieldPath: metadata.name                
-          {{- if $spec.envVariables }}
-          {{- range $key, $val := $spec.envVariables }}
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: ISTIO_META_CONFIG_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
+          - name: ISTIO_META_USER_SDS
+            value: "true"
+          {{- end }}
+          {{- end }}
+          {{- if $spec.env }}
+          {{- range $key, $val := $spec.env }}
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
-          {{ end }}
+          {{- end }}
           volumeMounts:
-          {{ if $.Values.global.sds.enabled }}
+          {{- if $.Values.global.sds.enabled }}
           - name: sdsudspath
             mountPath: /var/run/sds
+          {{- if $.Values.global.sds.useTrustworthyJwt }}
+          - name: istio-token
+            mountPath: /var/run/secrets/tokens
+          {{- end }}
+          {{- end }}
+          {{- if $spec.sds }}
+          {{- if $spec.sds.enabled }}
+          - name: ingressgatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
+          {{- end }}
           {{- end }}
           - name: istio-certs
             mountPath: /etc/certs
@@ -169,10 +213,25 @@ spec:
 {{ toYaml $spec.additionalContainers | indent 8 }}
 {{- end }}
       volumes:
-      {{ if $.Values.global.sds.enabled }}
+      {{- if $spec.sds }}
+      {{- if $spec.sds.enabled }}
+      - name: ingressgatewaysdsudspath
+        emptyDir: {}
+      {{- end }}
+      {{- end }}
+      {{- if $.Values.global.sds.enabled }}
       - name: sdsudspath
         hostPath:
           path: /var/run/sds
+      {{- if $.Values.global.sds.useTrustworthyJwt }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
+              expirationSeconds: 43200
+              audience: {{ $.Values.global.trustDomain }}
+      {{- end }}
       {{- end }}
       - name: istio-certs
         secret:
@@ -191,7 +250,7 @@ spec:
           optional: true
       {{- end }}
       affinity:
-      {{- include "nodeaffinity" $ | indent 6 }}
+      {{- include "gatewaynodeaffinity" (dict "root" $ "nodeSelector" $spec.nodeSelector) | indent 6 }}
 ---
 {{- end }}
 {{- end }}

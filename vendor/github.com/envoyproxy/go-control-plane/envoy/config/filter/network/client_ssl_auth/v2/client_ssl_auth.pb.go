@@ -42,11 +42,11 @@ type ClientSSLAuth struct {
 	// authentication service. Default is 60000 (60s). The actual fetch time
 	// will be this value plus a random jittered value between
 	// 0-refresh_delay_ms milliseconds.
-	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,stdduration" json:"refresh_delay,omitempty"`
+	RefreshDelay *time.Duration `protobuf:"bytes,3,opt,name=refresh_delay,json=refreshDelay,proto3,stdduration" json:"refresh_delay,omitempty"`
 	// An optional list of IP address and subnet masks that should be white
 	// listed for access by the filter. If no list is provided, there is no
 	// IP white list.
-	IpWhiteList          []*core.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList" json:"ip_white_list,omitempty"`
+	IpWhiteList          []*core.CidrRange `protobuf:"bytes,4,rep,name=ip_white_list,json=ipWhiteList,proto3" json:"ip_white_list,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -181,6 +181,9 @@ func encodeVarintClientSslAuth(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ClientSSLAuth) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.AuthApiCluster)

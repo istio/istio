@@ -48,7 +48,7 @@ type HttpUri struct {
 	//	*HttpUri_Cluster
 	HttpUpstreamType isHttpUri_HttpUpstreamType `protobuf_oneof:"http_upstream_type"`
 	// Sets the maximum duration in milliseconds that a response can take to arrive upon request.
-	Timeout              *time.Duration `protobuf:"bytes,3,opt,name=timeout,stdduration" json:"timeout,omitempty"`
+	Timeout              *time.Duration `protobuf:"bytes,3,opt,name=timeout,proto3,stdduration" json:"timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -243,6 +243,9 @@ func encodeVarintHttpUri(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *HttpUri) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Uri)
@@ -263,6 +266,9 @@ func (m *HttpUri) Size() (n int) {
 }
 
 func (m *HttpUri_Cluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Cluster)

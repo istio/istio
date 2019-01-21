@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pkg/proto"
 )
 
 func TestRequireTls(t *testing.T) {
@@ -270,29 +271,31 @@ func TestBuildJwtFilter(t *testing.T) {
 			},
 			expected: &http_conn.HttpFilter{
 				Name: "jwt-auth",
-				Config: &types.Struct{
-					Fields: map[string]*types.Value{
-						"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
-						"rules": {
-							Kind: &types.Value_ListValue{
-								ListValue: &types.ListValue{
-									Values: []*types.Value{
-										{
-											Kind: &types.Value_StructValue{
-												StructValue: &types.Struct{
-													Fields: map[string]*types.Value{
-														"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
-														"forward_payload_header": {
-															Kind: &types.Value_StringValue{
-																StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+				ConfigType: &http_conn.HttpFilter_Config{
+					&types.Struct{
+						Fields: map[string]*types.Value{
+							"allow_missing_or_failed": {Kind: &types.Value_BoolValue{BoolValue: true}},
+							"rules": {
+								Kind: &types.Value_ListValue{
+									ListValue: &types.ListValue{
+										Values: []*types.Value{
+											{
+												Kind: &types.Value_StructValue{
+													StructValue: &types.Struct{
+														Fields: map[string]*types.Value{
+															"forward": {Kind: &types.Value_BoolValue{BoolValue: true}},
+															"forward_payload_header": {
+																Kind: &types.Value_StringValue{
+																	StringValue: "istio-sec-da39a3ee5e6b4b0d3255bfef95601890afd80709",
+																},
 															},
-														},
-														"local_jwks": {
-															Kind: &types.Value_StructValue{
-																StructValue: &types.Struct{
-																	Fields: map[string]*types.Value{
-																		"inline_string": {
-																			Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
+															"local_jwks": {
+																Kind: &types.Value_StructValue{
+																	StructValue: &types.Struct{
+																		Fields: map[string]*types.Value{
+																			"inline_string": {
+																				Kind: &types.Value_StringValue{StringValue: test.JwtPubKey1},
+																			},
 																		},
 																	},
 																},
@@ -442,7 +445,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.SidecarProxy); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
@@ -494,7 +497,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := BuildAuthNFilter(c.in, model.Sidecar)
+		got := BuildAuthNFilter(c.in, model.SidecarProxy)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
@@ -545,13 +548,15 @@ func TestOnInboundFilterChains(t *testing.T) {
 			},
 			AlpnProtocols: []string{"h2", "http/1.1"},
 		},
-		RequireClientCertificate: &types.BoolValue{Value: true},
+		RequireClientCertificate: proto.BoolTrue,
 	}
 	cases := []struct {
-		name       string
-		in         *authn.Policy
-		sdsUdsPath string
-		expected   []plugin.FilterChain
+		name              string
+		in                *authn.Policy
+		sdsUdsPath        string
+		useTrustworthyJwt bool
+		useNormalJwt      bool
+		expected          []plugin.FilterChain
 	}{
 		{
 			name: "NoAuthnPolicy",
@@ -629,10 +634,10 @@ func TestOnInboundFilterChains(t *testing.T) {
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio"},
 					},
-					RequiredListenerFilters: []listener.ListenerFilter{
+					ListenerFilters: []listener.ListenerFilter{
 						{
-							Name:   "envoy.listener.tls_inspector",
-							Config: &types.Struct{},
+							Name:       "envoy.listener.tls_inspector",
+							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},
 						},
 					},
 				},
@@ -658,19 +663,22 @@ func TestOnInboundFilterChains(t *testing.T) {
 							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 								constructSDSConfig(model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
 							},
-							ValidationContextType: &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-								ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+									DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+									ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+								},
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
-						RequireClientCertificate: &types.BoolValue{Value: true},
+						RequireClientCertificate: proto.BoolTrue,
 					},
 				},
 			},
 		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in, c.sdsUdsPath, false); !reflect.DeepEqual(got, c.expected) {
+		if got := setupFilterChains(c.in, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, map[string]string{}); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}

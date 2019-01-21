@@ -18,11 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
+	pkgtest "istio.io/istio/pkg/test"
 )
 
 const secretName string = "testSecretName"
@@ -71,6 +73,18 @@ func mockLoadKubeConfig(kubeconfig []byte) (*clientcmdapi.Config, error) {
 	return &clientcmdapi.Config{}, nil
 }
 
+func verifyControllerDeleted(t *testing.T, timeoutName string) {
+	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
+		return testDeleteControllerCalled == true
+	})
+}
+
+func verifyControllerCreated(t *testing.T, timeoutName string) {
+	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
+		return testCreateControllerCalled == true
+	})
+}
+
 func Test_SecretController(t *testing.T) {
 	LoadKubeConfig = mockLoadKubeConfig
 
@@ -89,12 +103,8 @@ func Test_SecretController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error on secret create: %v", err)
 	}
-	time.Sleep(10 * time.Millisecond)
 
-	// Test
-	if testCreateControllerCalled != true {
-		t.Fatalf("Test failed on create secret, create callback function not called")
-	}
+	verifyControllerCreated(t, "Create remote secret controller")
 
 	if testDeleteControllerCalled != false {
 		t.Fatalf("Test failed on create secret, delete callback function called")
@@ -108,14 +118,12 @@ func Test_SecretController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error on secret delete: %v", err)
 	}
-	time.Sleep(10 * time.Millisecond)
+
+	// Test - Verify that the remote controller has been removed.
+	verifyControllerDeleted(t, "delete remote secret controller")
 
 	// Test
 	if testCreateControllerCalled != false {
 		t.Fatalf("Test failed on delete secret, create callback function called")
-	}
-
-	if testDeleteControllerCalled != true {
-		t.Fatalf("Test failed on delete secret, delete callback function not called")
 	}
 }

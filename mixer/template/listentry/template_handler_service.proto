@@ -45,7 +45,8 @@ import "gogoproto/gogo.proto";
 import "mixer/adapter/model/v1beta1/extensions.proto";
 import "google/protobuf/any.proto";
 import "mixer/adapter/model/v1beta1/check.proto";
-
+import "policy/v1beta1/value_type.proto";
+import "policy/v1beta1/type.proto";
 
 option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
 option (istio.mixer.adapter.model.v1beta1.template_name) = "listentry";
@@ -81,6 +82,8 @@ message HandleListEntryRequest {
 
 
 
+
+
 // Contains instance payload for 'listentry' template. This is passed to infrastructure backends during request-time
 // through HandleListEntryService.HandleListEntry.
 message InstanceMsg {
@@ -88,8 +91,8 @@ message InstanceMsg {
     // Name of the instance as specified in configuration.
     string name = 72295727;
     
-    // Specifies the entry to verify in the list.
-    string value = 1;
+    // Specifies the entry to verify in the list. This value can either be a string or an IP address.
+    istio.policy.v1beta1.Value value = 1;
     
 }
 
@@ -97,13 +100,16 @@ message InstanceMsg {
 // infrastructure backends during configuration-time through [InfrastructureBackend.CreateSession][TODO: Link to this fragment].
 message Type {
     
+    // Specifies the entry to verify in the list. This value can either be a string or an IP address.
+    istio.policy.v1beta1.ValueType value = 1;
+    
 }
 
 
 // Represents instance configuration schema for 'listentry' template.
 message InstanceParam {
     
-    // Specifies the entry to verify in the list.
+    // Specifies the entry to verify in the list. This value can either be a string or an IP address.
     string value = 1;
     
 }

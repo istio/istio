@@ -24,18 +24,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/kube/converter/legacy"
 	"istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/client"
 	"istio.io/istio/pkg/mcp/configz"
 	"istio.io/istio/pkg/mcp/creds"
+	"istio.io/istio/pkg/mcp/monitoring"
+	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/probe"
 )
@@ -52,7 +52,7 @@ const (
 // Do not use 'init()' for automatic registration; linker will drop
 // the whole module because it looks unused.
 func Register(builders map[string]store.Builder) {
-	builder := func(u *url.URL, gv *schema.GroupVersion, credOptions *creds.Options, _ []string) (store.Backend, error) {
+	var builder store.Builder = func(u *url.URL, _ *schema.GroupVersion, credOptions *creds.Options, _ []string) (store.Backend, error) {
 		return newStore(u, credOptions, nil)
 	}
 
@@ -60,7 +60,7 @@ func Register(builders map[string]store.Builder) {
 	builders["mcps"] = builder
 }
 
-// NewStore creates a new Store instance.
+// newStore creates a new Store instance.
 func newStore(u *url.URL, credOptions *creds.Options, fn updateHookFn) (store.Backend, error) {
 	insecure := true
 	if u.Scheme == "mcps" {
@@ -82,9 +82,9 @@ func newStore(u *url.URL, credOptions *creds.Options, fn updateHookFn) (store.Ba
 // updateHookFn is a testing hook function
 type updateHookFn func()
 
-// Store offers store.StoreBackend interface through kubernetes custom resource definitions.
+// backend is StoreBackend implementation using MCP.
 type backend struct {
-	// mapping of CRD <> typeURLs.
+	// mapping of CRD <> collections.
 	mapping *mapping
 
 	// Use insecure communication for gRPC.
@@ -98,6 +98,8 @@ type backend struct {
 
 	// The cancellation function that is used to cancel gRPC/MCP operations.
 	cancel context.CancelFunc
+
+	mcpReporter monitoring.Reporter
 
 	// The in-memory state, where resources are kept for out-of-band get and list calls.
 	state *state
@@ -117,14 +119,15 @@ type backend struct {
 
 var _ store.Backend = &backend{}
 var _ probe.SupportsProbe = &backend{}
-var _ client.Updater = &backend{}
+var _ sink.Updater = &backend{}
 
 // state is the in-memory cache.
 type state struct {
 	sync.RWMutex
 
 	// items stored by kind, then by key.
-	items map[string]map[store.Key]*store.BackEndResource
+	items  map[string]map[store.Key]*store.BackEndResource
+	synced map[string]bool // by collection
 }
 
 // Init implements store.Backend.Init.
@@ -135,12 +138,14 @@ func (b *backend) Init(kinds []string) error {
 	}
 	b.mapping = m
 
-	typeURLs := b.mapping.typeURLs()
-	scope.Infof("Requesting following types:")
-	for i, url := range typeURLs {
-		scope.Infof("  [%d] %s", i, url)
+	collections := b.mapping.collections()
+
+	scope.Infof("Requesting following collections:")
+	for i, name := range collections {
+		scope.Infof("  [%d] %s", i, name)
 	}
 
+	// nolint: govet
 	ctx, cancel := context.WithCancel(context.Background())
 
 	securityOption := grpc.WithInsecure()
@@ -157,6 +162,8 @@ func (b *backend) Init(kinds []string) error {
 				log.Infof("%v not found. Checking again in %v", requiredFiles[0], requiredCertCheckFreq)
 				select {
 				case <-ctx.Done():
+					// nolint: govet
+					cancel()
 					return ctx.Err()
 				case <-time.After(requiredCertCheckFreq):
 					// retry
@@ -170,6 +177,7 @@ func (b *backend) Init(kinds []string) error {
 
 		watcher, err := creds.WatchFiles(ctx.Done(), b.credOptions)
 		if err != nil {
+			cancel()
 			return err
 		}
 		credentials := creds.CreateForClient(address, watcher)
@@ -184,31 +192,62 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	c := client.New(cl, typeURLs, b, mixerNodeID, map[string]string{}, client.NewStatsContext("mixer"))
+	b.mcpReporter = monitoring.NewStatsContext("mixer")
+	options := &sink.Options{
+		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
+		Updater:           b,
+		ID:                mixerNodeID,
+		Reporter:          b.mcpReporter,
+	}
+	c := client.New(cl, options)
 	configz.Register(c)
 
 	b.state = &state{
-		items: make(map[string]map[store.Key]*store.BackEndResource),
+		items:  make(map[string]map[store.Key]*store.BackEndResource),
+		synced: make(map[string]bool),
+	}
+	for _, collection := range collections {
+		b.state.synced[collection] = false
 	}
 
 	go c.Run(ctx)
 	b.cancel = cancel
-
 	return nil
 }
 
 // WaitForSynced implements store.Backend interface.
-func (b *backend) WaitForSynced(time.Duration) error {
-	// TODO(ozevren): implement for MCP
-	return nil
+func (b *backend) WaitForSynced(timeout time.Duration) error {
+	stop := time.After(timeout)
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-stop:
+			return fmt.Errorf("exceeded timeout %v", timeout)
+		case <-tick.C:
+			ready := true
+
+			for _, synced := range b.state.synced {
+				if !synced {
+					ready = false
+					break
+				}
+			}
+			if ready {
+				return nil
+			}
+		}
+	}
 }
 
-// Stop implements store.backend.Stop.
+// Stop implements store.Backend.Stop.
 func (b *backend) Stop() {
 	if b.cancel != nil {
 		b.cancel()
 		b.cancel = nil
 	}
+	b.mcpReporter.Close()
 }
 
 // Watch creates a channel to receive the events.
@@ -259,39 +298,28 @@ func (b *backend) List() map[store.Key]*store.BackEndResource {
 }
 
 // Apply implements client.Updater.Apply
-func (b *backend) Apply(change *client.Change) error {
+func (b *backend) Apply(change *sink.Change) error {
 	b.state.Lock()
 	defer b.state.Unlock()
 	defer b.callUpdateHook()
 
 	newTypeStates := make(map[string]map[store.Key]*store.BackEndResource)
-	typeURL := change.TypeURL
 
-	scope.Debugf("Received update for: type:%s, count:%d", typeURL, len(change.Objects))
+	b.state.synced[change.Collection] = true
+
+	scope.Debugf("Received update for: collection:%s, count:%d", change.Collection, len(change.Objects))
 
 	for _, o := range change.Objects {
-		var kind string
-		var name string
-		var contents proto.Message
-
 		if scope.DebugEnabled() {
 			scope.Debugf("Processing incoming resource: %q @%s [%s]",
 				o.Metadata.Name, o.Metadata.Version, o.TypeURL)
 		}
 
-		// Demultiplex the resource, if it is a legacy type, and figure out its kind.
-		if isLegacyTypeURL(typeURL) {
-			// Extract the kind from payload.
-			legacyResource := o.Resource.(*legacy.LegacyMixerResource)
-			name = legacyResource.Name
-			kind = legacyResource.Kind
-			contents = legacyResource.Contents
-		} else {
-			// Otherwise, simply do a direct mapping from typeURL to kind
-			name = o.Metadata.Name
-			kind = b.mapping.kind(typeURL)
-			contents = o.Resource
-		}
+		name := o.Metadata.Name
+		kind := b.mapping.kind(change.Collection)
+		contents := o.Body
+		labels := o.Metadata.Labels
+		annotations := o.Metadata.Annotations
 
 		collection, found := newTypeStates[kind]
 		if !found {
@@ -302,7 +330,7 @@ func (b *backend) Apply(change *client.Change) error {
 		// Map it to Mixer's store model, and put it in the new collection.
 
 		key := toKey(kind, name)
-		resource, err := toBackendResource(key, contents, o.Metadata.Version)
+		resource, err := toBackendResource(key, labels, annotations, contents, o.Metadata.Version)
 		if err != nil {
 			return err
 		}

@@ -59,7 +59,7 @@ type FaultDelay struct {
 	//	*FaultDelay_FixedDelay
 	FaultDelaySecifier isFaultDelay_FaultDelaySecifier `protobuf_oneof:"fault_delay_secifier"`
 	// The percentage of operations/connection requests on which the delay will be injected.
-	Percentage           *_type.FractionalPercent `protobuf:"bytes,4,opt,name=percentage" json:"percentage,omitempty"`
+	Percentage           *_type.FractionalPercent `protobuf:"bytes,4,opt,name=percentage,proto3" json:"percentage,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                 `json:"-"`
 	XXX_unrecognized     []byte                   `json:"-"`
 	XXX_sizecache        int32                    `json:"-"`
@@ -105,7 +105,7 @@ type isFaultDelay_FaultDelaySecifier interface {
 }
 
 type FaultDelay_FixedDelay struct {
-	FixedDelay *time.Duration `protobuf:"bytes,3,opt,name=fixed_delay,json=fixedDelay,oneof,stdduration"`
+	FixedDelay *time.Duration `protobuf:"bytes,3,opt,name=fixed_delay,json=fixedDelay,proto3,oneof,stdduration"`
 }
 
 func (*FaultDelay_FixedDelay) isFaultDelay_FaultDelaySecifier() {}
@@ -274,6 +274,9 @@ func encodeVarintFault(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *FaultDelay) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Type != 0 {
@@ -293,6 +296,9 @@ func (m *FaultDelay) Size() (n int) {
 }
 
 func (m *FaultDelay_FixedDelay) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.FixedDelay != nil {

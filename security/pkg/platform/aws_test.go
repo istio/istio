@@ -191,7 +191,7 @@ func TestAwsGetServiceIdentity(t *testing.T) {
 			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		} else if serviceIdentity != c.expectedServiceIdentity {
 			t.Errorf("%s: Wrong Service Identity. Expected %v, Actual %v", id,
-				string(c.expectedServiceIdentity), string(serviceIdentity))
+				c.expectedServiceIdentity, serviceIdentity)
 		}
 	}
 }
@@ -318,7 +318,7 @@ func TestAwsGetCredentialTypes(t *testing.T) {
 		credentialType := awsc.GetCredentialType()
 		if credentialType != c.expectedType {
 			t.Errorf("%s: Wrong Credential Type. Expected %v, Actual %v", id,
-				string(c.expectedType), string(credentialType))
+				c.expectedType, credentialType)
 		}
 	}
 }

@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 13
+number_of_entries: 16
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -67,7 +67,7 @@ sources.</p>
 <td>
 <p>Address of the server implementing the Istio Mesh Configuration
 protocol (MCP). Can be IP address or a fully qualified DNS name.
-Use file:/// to specify a file-based backend with absolute path to the directory.</p>
+Use fs:/// to specify a file-based backend with absolute path to the directory.</p>
 
 </td>
 </tr>
@@ -148,6 +148,15 @@ to connect to Mixer.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-sidecar_to_telemetry_session_affinity">
+<td><code>sidecarToTelemetrySessionAffinity</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enable session affinity for envoy mixer reports so that calls from a proxy will
+always target the same mixer instance.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-proxy_listen_port">
 <td><code>proxyListenPort</code></td>
 <td><code>int32</code></td>
@@ -170,6 +179,14 @@ other services.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>Connection timeout used by Envoy. (MUST BE &gt;=1ms)</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-tcp_keepalive">
+<td><code>tcpKeepalive</code></td>
+<td><code><a href="https://istio.io/docs/reference/config/istio.networking.v1alpha3.html#ConnectionPoolSettings-TCPSettings-TcpKeepalive">istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive</a></code></td>
+<td>
+<p>If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.</p>
 
 </td>
 </tr>
@@ -221,7 +238,16 @@ Empty value disables access logging.</p>
 <td><code>accessLogFormat</code></td>
 <td><code>string</code></td>
 <td>
-<p>Format for the proxy access log (text or json).
+<p>Format for the proxy access log
+Empty value results in proxy&rsquo;s default access log format</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-access_log_encoding">
+<td><code>accessLogEncoding</code></td>
+<td><code><a href="#MeshConfig-AccessLogEncoding">MeshConfig.AccessLogEncoding</a></code></td>
+<td>
+<p>Encoding for the proxy access log (text or json).
 Default value is text.</p>
 
 </td>
@@ -235,6 +261,21 @@ Default value is text.</p>
 In case of Kubernetes, the proxy config is applied once during the injection process,
 and remain constant for the duration of the pod. The rest of the mesh config can be changed
 at runtime and config gets distributed dynamically.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-outbound_traffic_policy">
+<td><code>outboundTrafficPolicy</code></td>
+<td><code><a href="#MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</a></code></td>
+<td>
+<p>Set the default behavior of the sidecar for handling outbound traffic
+from the application.  If your application uses one or more external
+services that are not known apriori, setting the policy to ALLOW<em>ANY
+will cause the sidecars to route any unknown traffic originating from
+the application to its requested destination.  Users are strongly
+encouraged to use ServiceEntries to explicitly declare any external
+dependencies, instead of using allow</em>any, so that traffic to these
+services can be monitored.</p>
 
 </td>
 </tr>
@@ -263,6 +304,39 @@ Use secret-mount files instead of SDS if set to empty.</p>
 rules, and other Istio configuration artifacts. Multiple data sources
 can be configured for a single control plane.</p>
 
+</td>
+</tr>
+<tr id="MeshConfig-trust_domain">
+<td><code>trustDomain</code></td>
+<td><code>string</code></td>
+<td>
+<p>The trust domain corresponds to the trust root of a system.
+Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+Fallback to old identity format(without trust domain) if not set.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-AccessLogEncoding">MeshConfig.AccessLogEncoding</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-AccessLogEncoding-TEXT">
+<td><code>TEXT</code></td>
+<td>
+</td>
+</tr>
+<tr id="MeshConfig-AccessLogEncoding-JSON">
+<td><code>JSON</code></td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -304,6 +378,55 @@ annotations match the value specified in the ingress_class parameter
 described earlier. Use this mode if Istio ingress controller will be
 a secondary ingress controller (e.g., in addition to a
 cloud-provided ingress controller).</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-OutboundTrafficPolicy-mode">
+<td><code>mode</code></td>
+<td><code><a href="#MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</a></code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</h2>
+<section>
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-REGISTRY_ONLY">
+<td><code>REGISTRY_ONLY</code></td>
+<td>
+<p>outbound traffic will be restricted to services defined in the
+service registry as well as those defined through ServiceEntries</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-ALLOW_ANY">
+<td><code>ALLOW_ANY</code></td>
+<td>
+<p>outbound traffic to unknown destinations will be allowed, in case
+there are no services or ServiceEntries for the destination port</p>
 
 </td>
 </tr>
@@ -458,7 +581,7 @@ adding ISTIO<em>META</em>NETWORK environment variable to the sidecar.</p></li>
 </ol>
 
 <p>a. By matching the registry name with one of the &ldquo;from<em>registries&rdquo;
-   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assinged to a
+   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assigned to a
    single network.</p>
 
 <p>b. By matching the IP against one of the CIDR ranges in a mesh

@@ -23,18 +23,19 @@ import (
 )
 
 func TestCDS(t *testing.T) {
-	initLocalPilotTestEnv(t)
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
 
-	cdsr, err := connectADS(util.MockPilotGrpcAddr)
+	cdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = sendCDSReq(sidecarId(app3Ip, "app3"), cdsr)
+	err = sendCDSReq(sidecarID(app3Ip, "app3"), cdsr)
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	defer cancel()
 	res, err := cdsr.Recv()
 	if err != nil {
 		t.Fatal("Failed to receive CDS", err)

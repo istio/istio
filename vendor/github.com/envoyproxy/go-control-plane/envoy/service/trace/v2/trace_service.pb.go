@@ -11,8 +11,10 @@ import _ "github.com/gogo/googleapis/google/api"
 import _ "github.com/lyft/protoc-gen-validate/validate"
 import trace "istio.io/gogo-genproto/opencensus/proto/trace"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -70,9 +72,9 @@ type StreamTracesMessage struct {
 	// Identifier data effectively is a structured metadata.
 	// As a performance optimization this will only be sent in the first message
 	// on the stream.
-	Identifier *StreamTracesMessage_Identifier `protobuf:"bytes,1,opt,name=identifier" json:"identifier,omitempty"`
+	Identifier *StreamTracesMessage_Identifier `protobuf:"bytes,1,opt,name=identifier,proto3" json:"identifier,omitempty"`
 	// A list of Span entries
-	Spans                []*trace.Span `protobuf:"bytes,2,rep,name=spans" json:"spans,omitempty"`
+	Spans                []*trace.Span `protobuf:"bytes,2,rep,name=spans,proto3" json:"spans,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -127,7 +129,7 @@ func (m *StreamTracesMessage) GetSpans() []*trace.Span {
 
 type StreamTracesMessage_Identifier struct {
 	// The node sending the access log messages over the stream.
-	Node                 *core.Node `protobuf:"bytes,1,opt,name=node" json:"node,omitempty"`
+	Node                 *core.Node `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -187,8 +189,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for TraceService service
-
+// TraceServiceClient is the client API for TraceService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type TraceServiceClient interface {
 	// Envoy will connect and send StreamTracesMessage messages forever. It does
 	// not expect any response to be sent as nothing would be done in the case
@@ -238,8 +241,7 @@ func (x *traceServiceStreamTracesClient) CloseAndRecv() (*StreamTracesResponse, 
 	return m, nil
 }
 
-// Server API for TraceService service
-
+// TraceServiceServer is the server API for TraceService service.
 type TraceServiceServer interface {
 	// Envoy will connect and send StreamTracesMessage messages forever. It does
 	// not expect any response to be sent as nothing would be done in the case
@@ -396,6 +398,9 @@ func encodeVarintTraceService(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *StreamTracesResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -405,6 +410,9 @@ func (m *StreamTracesResponse) Size() (n int) {
 }
 
 func (m *StreamTracesMessage) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Identifier != nil {
@@ -424,6 +432,9 @@ func (m *StreamTracesMessage) Size() (n int) {
 }
 
 func (m *StreamTracesMessage_Identifier) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Node != nil {

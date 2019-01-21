@@ -17,7 +17,7 @@ package cache
 import (
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/util"
 )
@@ -99,7 +99,7 @@ func GetResourceReferences(resources map[string]Resource) map[string]bool {
 					}
 
 					config := &hcm.HttpConnectionManager{}
-					if util.StructToMessage(filter.Config, config) == nil && config != nil {
+					if util.StructToMessage(filter.GetConfig(), config) == nil && config != nil {
 						if rds, ok := config.RouteSpecifier.(*hcm.HttpConnectionManager_Rds); ok && rds != nil && rds.Rds != nil {
 							out[rds.Rds.RouteConfigName] = true
 						}

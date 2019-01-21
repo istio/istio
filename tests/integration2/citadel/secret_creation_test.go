@@ -15,23 +15,28 @@
 package citadel
 
 import (
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/dependency"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/ids"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
 )
 
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,
 // and that when secrets are deleted, new secrets will be created.
 func TestSecretCreationKubernetes(t *testing.T) {
-	framework.Requires(t, dependency.Kubernetes, dependency.Citadel)
-	env := framework.AcquireEnvironment(t)
-	c := env.GetCitadelOrFail(t)
+	ctx := framework.GetContext(t)
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Citadel)
+
+	c := components.GetCitadel(ctx, t)
 
 	// Test the existence of istio.default secret.
 	s, err := c.WaitForSecretToExist()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	t.Log(`checking secret "istio.default" is correctly created`)
@@ -57,5 +62,6 @@ func TestSecretCreationKubernetes(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.Run("citadel_test", m)
+	rt, _ := framework.Run("citadel_test", m)
+	os.Exit(rt)
 }

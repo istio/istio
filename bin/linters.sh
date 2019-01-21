@@ -86,10 +86,13 @@ function install_gometalinter() {
     echo 'Gometalinter installed successfully'
 }
 
+function install_golangcilint() {
+  GOLANGCI_VERSION="v1.12.4"
+  curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
+  golangci-lint --version
+}
+
 function run_gometalinter() {
-    echo 'Running gometalinter ....'
-    $gometalinter --config=./lintconfig_base.json ./...
-    echo 'gometalinter OK'
     echo 'Running gometalinter on adapters ....'
     pushd mixer/tools/adapterlinter
     go install .
@@ -106,6 +109,11 @@ function run_gometalinter() {
     echo 'testlinter OK'
 }
 
+function run_golangcilint() {
+    echo 'Running golangci-lint ...'
+    golangci-lint run ./...
+}
+
 function run_helm_lint() {
     echo 'Running helm lint on istio & istio-remote ....'
     helm lint ./install/kubernetes/helm/{istio,istio-remote}
@@ -118,10 +126,18 @@ function check_grafana_dashboards() {
     echo 'dashboards OK'
 }
 
+function check_licenses() {
+    echo 'Checking Licenses for Istio dependencies'
+    go run tools/license/get_dep_licenses.go > LICENSES.txt
+    echo 'Licenses OK'
+}
+
 ensure_pilot_types
 format
 check_licenses
 check_spelling
+install_golangcilint
+run_golangcilint
 install_gometalinter
 run_gometalinter
 run_helm_lint

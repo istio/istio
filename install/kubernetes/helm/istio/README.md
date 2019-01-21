@@ -30,6 +30,7 @@ To enable or disable each component, change the corresponding `enabled` flag.
 - Kubernetes 1.9 or newer cluster with RBAC (Role-Based Access Control) enabled is required
 - Helm 2.7.2 or newer or alternately the ability to modify RBAC rules is also required
 - If you want to enable automatic sidecar injection, Kubernetes 1.9+ with `admissionregistration` API is required, and `kube-apiserver` process must have the `admission-control` flag set with the `MutatingAdmissionWebhook` and `ValidatingAdmissionWebhook` admission controllers added and listed in the correct order.
+- The `istio-init` chart must be run to completion prior to install the `istio` chart.
 
 ## Resources Required
 
@@ -52,17 +53,6 @@ The chart deploys pods that consume minimum resources as specified in the resour
     $ NAMESPACE=istio-system
     $ kubectl create ns $NAMESPACE
     ```
-
-1. If using a Helm version prior to 2.10.0, install Istio’s [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/#customresourcedefinitions) via `kubectl apply`, and wait a few seconds for the CRDs to be committed in the kube-apiserver:
-    ```
-    $ kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
-    ```
-    > If you are enabling `certmanager`, you also need to install its CRDs and wait a few seconds for the CRDs to be committed in the kube-apiserver:
-    ```
-    $ kubectl apply -f install/kubernetes/helm/istio/charts/certmanager/templates/crds.yaml
-    ```
-
-    > Helm version 2.10.0 supports a way to register CRDs via an internal feature called `crd-install`.  This feature does not exist in prior versions of Helm.
 
 1. If you are enabling `kiali`, you need to create the secret that contains the username and passphrase for `kiali` dashboard:
     ```
@@ -116,6 +106,11 @@ The chart deploys pods that consume minimum resources as specified in the resour
     EOF
     ```
 
+1. Add `istio.io` chart repository and point to the release:
+    ```
+    $ helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
+    ```
+
 1. Build the Helm dependencies:
     ```
     $ helm dep update install/kubernetes/helm/istio
@@ -155,11 +150,14 @@ Helm charts expose configuration options which are currently in alpha.  The curr
 | `global.arch.s390x` | Specifies the scheduling policy for `s390x` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |
 | `global.arch.ppc64le` | Specifies the scheduling policy for `ppc64le` architectures | 0 = never, 1 = least preferred, 2 = no preference, 3 = most preferred | `2` |
 | `ingress.enabled` | Specifies whether Ingress should be installed | true/false | `true` |
+| `gateways.enabled` | Specifies whether gateway(both Ingres and Egress) should be installed | true/false | `true` |
 | `gateways.istio-ingressgateway.enabled` | Specifies whether Ingress gateway should be installed | true/false | `true` |
 | `gateways.istio-egressgateway.enabled` | Specifies whether Egress gateway should be installed | true/false | `true` |
-| `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | `true` |
+| `sidecarInjectorWebhook.enabled` | Specifies whether automatic sidecar-injector should be installed | true/false | `true` |
 | `galley.enabled` | Specifies whether Galley should be installed for server-side config validation | true/false | `true` |
-| `mixer.enabled` | Specifies whether Mixer should be installed | true/false | `true` |
+| `security.enabled` | Specifies whether Citadel should be installed | true/false | `true` |
+| `mixer.policy.enabled` | Specifies whether Mixer Policy should be installed | true/false | `true` |
+| `mixer.telemetry.enabled` | Specifies whether Mixer Telemetry should be installed | true/false | `true` |
 | `pilot.enabled` | Specifies whether Pilot should be installed | true/false | `true` |
 | `grafana.enabled` | Specifies whether Grafana addon should be installed | true/false | `false` |
 | `grafana.persist` | Specifies whether Grafana addon should persist config data | true/false | `false` |

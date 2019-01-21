@@ -9,6 +9,15 @@ enabled: true
 
 istio-ingressgateway:
   enabled: true
+  #
+  # Secret Discovery Service (SDS) configuration for ingress gateway.
+  #
+  sds:
+    # If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
+    enabled: false
+    # SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
+    # This server runs in the same pod as ingress gateway.
+    image: node-agent-k8s
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -24,8 +33,12 @@ istio-ingressgateway:
     #  memory: 256Mi
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   loadBalancerIP: ""
-  loadBalancerSourceRanges: {}
+  loadBalancerSourceRanges: []
+  externalIPs: []
   serviceAnnotations: {}
   podAnnotations: {}
   type: LoadBalancer #change to NodePort, ClusterIP or LoadBalancer if need be
@@ -47,16 +60,20 @@ istio-ingressgateway:
   ## Disable if not needed
   - port: 15029
     targetPort: 15029
-    name: http-kiali
+    name: https-kiali
   - port: 15030
     targetPort: 15030
-    name: http2-prometheus
+    name: https-prometheus
   - port: 15031
     targetPort: 15031
-    name: http2-grafana
+    name: https-grafana
   - port: 15032
     targetPort: 15032
-    name: http2-tracing
+    name: https-tracing
+    # This is the port where sni routing happens
+  - port: 15443
+    targetPort: 15443
+    name: tls
   #### MESH EXPANSION PORTS  ########
   # Pilot and Citadel MTLS ports are enabled in gateway - but will only redirect
   # to pilot/citadel if global.meshExpansion settings are enabled.
@@ -73,8 +90,8 @@ istio-ingressgateway:
   - port: 853
     targetPort: 853
     name: tcp-dns-tls
-  ####### end MESH EXPANSION PORTS ######  
-  ##############   
+  ####### end MESH EXPANSION PORTS ######
+  ##############
   secretVolumes:
   - name: ingressgateway-certs
     secretName: istio-ingressgateway-certs
@@ -82,6 +99,13 @@ istio-ingressgateway:
   - name: ingressgateway-ca-certs
     secretName: istio-ingressgateway-ca-certs
     mountPath: /etc/istio/ingressgateway-ca-certs
+  ### Advanced options ############
+  env:
+    # A gateway with this mode ensures that pilot generates an additional
+    # set of clusters for internal services but without Istio mTLS, to
+    # enable cross cluster routing.
+    ISTIO_META_ROUTER_MODE: "sni-dnat"
+  nodeSelector: {}
 
 istio-egressgateway:
   enabled: true
@@ -93,6 +117,9 @@ istio-egressgateway:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   serviceAnnotations: {}
   podAnnotations: {}
   type: ClusterIP #change to NodePort or LoadBalancer if need be
@@ -101,6 +128,10 @@ istio-egressgateway:
     name: http2
   - port: 443
     name: https
+    # This is the port where sni routing happens
+  - port: 15443
+    targetPort: 15443
+    name: tls
   secretVolumes:
   - name: egressgateway-certs
     secretName: istio-egressgateway-certs
@@ -109,7 +140,7 @@ istio-egressgateway:
     secretName: istio-egressgateway-ca-certs
     mountPath: /etc/istio/egressgateway-ca-certs
   #### Advanced options ########
-  envVariables:
+  env:
     # Set this to "external" if and only if you want the egress gateway to
     # act as a transparent SNI gateway that routes mTLS/TLS traffic to
     # external services defined using service entries, where the service
@@ -117,7 +148,12 @@ istio-egressgateway:
     # network field set to "external". By default its set to "" so that
     # the egress gateway sees the same set of endpoints as the sidecars
     # preserving backward compatibility
-    ISTIO_META_REQUESTED_NETWORK_VIEW: ""
+    # ISTIO_META_REQUESTED_NETWORK_VIEW: ""
+    # A gateway with this mode ensures that pilot generates an additional
+    # set of clusters for internal services but without Istio mTLS, to
+    # enable cross cluster routing.
+    ISTIO_META_ROUTER_MODE: "sni-dnat"
+  nodeSelector: {}
 
 # Mesh ILB gateway creates a gateway of type InternalLoadBalancer,
 # for mesh expansion. It exposes the mtls ports for Pilot,CA as well
@@ -132,6 +168,9 @@ istio-ilbgateway:
   autoscaleMax: 5
   cpu:
     targetAverageUtilization: 80
+  podDisruptionBudget: {}
+    # minAvailable: 1
+    # maxUnavailable: 1
   resources:
     requests:
       cpu: 800m
@@ -164,45 +203,4 @@ istio-ilbgateway:
   - name: ilbgateway-ca-certs
     secretName: istio-ilbgateway-ca-certs
     mountPath: /etc/istio/ilbgateway-ca-certs
-
-# MultiCluster gateway is used to route traffic into local cluster, based
-# on the SNI value in the TLS connection. In a multi-cluster setup, a
-# remote service sends traffic with the Envoy cluster encoded in the SNI
-# value. The gateway forwards traffic to the envoy cluster (service+subset+port).
-istio-mcgateway:
-  enabled: false
-  cpu:
-    targetAverageUtilization: 80
-  labels:
-    app: istio-mcgateway
-    istio: mcgateway
-  replicaCount: 1
-  autoscaleMin: 1
-  autoscaleMax: 5
-  resources:
-    requests:
-      cpu: 800m
-      memory: 512Mi
-    #limits:
-    #  cpu: 1800m
-    #  memory: 256Mi
-  loadBalancerIP: ""
-  podAnnotations: {}
-  type: LoadBalancer
-  ports:
-    # Port 80 is not used. But we still need this because AWS LB marks
-    # the gateway as unhealthy without some response.
-    # Traffic into port 80 returns 404 always, but keeps AWS LB happy.
-  - port: 80
-    targetPort: 80
-    name: http
-    # This is the port where sni routing happens
-  - port: 15443
-    targetPort: 15443
-    name: tls
-  ### Advanced options ############
-  envVariables:
-    # A gateway with this mode ensures that pilot does not
-    # generate mTLS clusters for the mcgateway except for
-    # istio-telemetry,istio-policy
-    ISTIO_META_ISTIO_ROUTER_MODE: "sni-dnat"
+  nodeSelector: {}

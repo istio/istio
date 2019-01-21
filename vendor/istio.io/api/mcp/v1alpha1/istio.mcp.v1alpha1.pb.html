@@ -2,7 +2,7 @@
 title: istio.mcp.v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 9
+number_of_entries: 13
 ---
 <p>This package defines the common, core types used by the Mesh Configuration Protocol.</p>
 
@@ -27,76 +27,31 @@ update the resources on the client. This supports the goal of
 scalability of MCP resources.</p>
 
 </section>
+<h3 id="ResourceSink">ResourceSink</h3>
+<section>
+<p>Service where the source is the gRPC client. The source is responsible for
+initiating connections and opening streams.</p>
+
+<pre id="ResourceSink-EstablishResourceStream"><code class="language-proto">rpc EstablishResourceStream(Resources) returns (RequestResources)
+</code></pre>
+<p>The source, acting as gRPC client, establishes a new resource stream
+with the sink. The sink sends RequestResources message to and
+receives Resources messages from the source.</p>
+
+</section>
+<h3 id="ResourceSource">ResourceSource</h3>
+<section>
+<p>Service where the sink is the gRPC client. The sink is responsible for
+initiating connections and opening streams.</p>
+
+<pre id="ResourceSource-EstablishResourceStream"><code class="language-proto">rpc EstablishResourceStream(RequestResources) returns (Resources)
+</code></pre>
+<p>The sink, acting as gRPC client, establishes a new resource stream
+with the source. The sink sends RequestResources message to
+and receives Resources messages from the source.</p>
+
+</section>
 <h2 id="Types">Types</h2>
-<h3 id="Client">Client</h3>
-<section>
-<p>Identifies a specific MCP client instance. The client identifier is
-presented to the management server, which may use this identifier
-to distinguish per client configuration for serving. This
-information is not authoriative. Authoritative identity should come
-from the underlying transport layer (e.g. rpc credentials).</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Client-id">
-<td><code>id</code></td>
-<td><code>string</code></td>
-<td>
-<p>An opaque identifier for the MCP client.</p>
-
-</td>
-</tr>
-<tr id="Client-metadata">
-<td><code>metadata</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#struct">google.protobuf.Struct</a></code></td>
-<td>
-<p>Opaque metadata extending the client identifier.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h3 id="Envelope">Envelope</h3>
-<section>
-<p>Envelope for a configuration resource as transferred via the Mesh Configuration Protocol.
-Each envelope is made up of common metadata, and a type-specific resource payload.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="Envelope-metadata">
-<td><code>metadata</code></td>
-<td><code><a href="#Metadata">Metadata</a></code></td>
-<td>
-<p>Common metadata describing the resource.</p>
-
-</td>
-</tr>
-<tr id="Envelope-resource">
-<td><code>resource</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
-<td>
-<p>The resource itself.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
 <h3 id="IncrementalMeshConfigRequest">IncrementalMeshConfigRequest</h3>
 <section>
 <p>IncrementalMeshConfigRequest are be sent in 2 situations:</p>
@@ -118,11 +73,11 @@ Each envelope is made up of common metadata, and a type-specific resource payloa
 </tr>
 </thead>
 <tbody>
-<tr id="IncrementalMeshConfigRequest-client">
-<td><code>client</code></td>
-<td><code><a href="#Client">Client</a></code></td>
+<tr id="IncrementalMeshConfigRequest-sink_node">
+<td><code>sinkNode</code></td>
+<td><code><a href="#SinkNode">SinkNode</a></code></td>
 <td>
-<p>The client making the request.</p>
+<p>The sink node making the request.</p>
 
 </td>
 </tr>
@@ -203,11 +158,11 @@ system<em>version</em>info is present for debugging purposes only.</p>
 
 </td>
 </tr>
-<tr id="IncrementalMeshConfigResponse-envelopes">
-<td><code>envelopes</code></td>
-<td><code><a href="#Envelope">Envelope[]</a></code></td>
+<tr id="IncrementalMeshConfigResponse-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resource">Resource[]</a></code></td>
 <td>
-<p>The response resources wrapped in the common MCP <em>Envelope</em>
+<p>The response resources wrapped in the common MCP <em>Resource</em>
 message. These are typed resources that match the type url in the
 IncrementalMeshConfigRequest.</p>
 
@@ -265,11 +220,11 @@ below) has an independent version associated with it.</p>
 
 </td>
 </tr>
-<tr id="MeshConfigRequest-client">
-<td><code>client</code></td>
-<td><code><a href="#Client">Client</a></code></td>
+<tr id="MeshConfigRequest-sink_node">
+<td><code>sinkNode</code></td>
+<td><code><a href="#SinkNode">SinkNode</a></code></td>
 <td>
-<p>The client making the request.</p>
+<p>The sink node making the request.</p>
 
 </td>
 </tr>
@@ -331,11 +286,11 @@ same type in response to a MeshConfigRequest.</p>
 
 </td>
 </tr>
-<tr id="MeshConfigResponse-envelopes">
-<td><code>envelopes</code></td>
-<td><code><a href="#Envelope">Envelope[]</a></code></td>
+<tr id="MeshConfigResponse-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resource">Resource[]</a></code></td>
 <td>
-<p>The response resources wrapped in the common MCP <em>Envelope</em>
+<p>The response resources wrapped in the common MCP <em>Resource</em>
 message.</p>
 
 </td>
@@ -344,9 +299,9 @@ message.</p>
 <td><code>typeUrl</code></td>
 <td><code>string</code></td>
 <td>
-<p>Type URL for resources wrapped in the provided envelope(s). This
+<p>Type URL for resources wrapped in the provided resources(s). This
 must be consistent with the type_url in the wrapper messages if
-envelopes is non-empty.</p>
+resources is non-empty.</p>
 
 </td>
 </tr>
@@ -385,10 +340,38 @@ MeshConfigRequest bearing the nonce.</p>
 <td><code>name</code></td>
 <td><code>string</code></td>
 <td>
-<p>The name of the resource. It is unique within the context of a
-resource type and the origin server of the resource. The resource
-type is identified by the TypeUrl of the resource field of the
-Envelope message.</p>
+<p>Fully qualified name of the resource. Unique in context of a collection.</p>
+
+<p>The fully qualified name consists of a directory and basename. The directory identifies
+the resources location in a resource hierarchy. The basename identifies the specific
+resource name within the context of that directory.</p>
+
+<p>The directory and basename are composed of one or more segments. Segments must be
+valid <a href="https://tools.ietf.org/html/rfc1123">DNS labels</a>. “/” is the delimiter between
+segments</p>
+
+<p>The rightmost segment is the basename. All segments to the
+left of the basename form the directory. Segments moving towards the left
+represent higher positions in the resource hierarchy, similar to reverse
+DNS notation. e.g.</p>
+
+<p>/<org>/<team>/<subteam>/<resource basename></p>
+
+<p>An empty directory indicates a resource that is located at the root of the
+hierarchy, e.g.</p>
+
+<p>/<globally scoped resource></p>
+
+<p>On Kubernetes the resource hierarchy is two-levels: namespaces and
+cluster-scoped (i.e. global).</p>
+
+<p>Namespace resources fully qualified name is of the form:</p>
+
+<p>&rdquo;/<k8s namespace>/<k8s resource name>&ldquo;</p>
+
+<p>Cluster scoped resources are located at the root of the hierarchy and are of the form:</p>
+
+<p>&rdquo;/<k8s resource name>&ldquo;</p>
 
 </td>
 </tr>
@@ -404,8 +387,277 @@ Envelope message.</p>
 <td><code>version</code></td>
 <td><code>string</code></td>
 <td>
-<p>The resource level version. It allows MCP to track the state of
-individual resources.</p>
+<p>Resource version. This is used to determine when resources change across
+resource updates. It should be treated as opaque by consumers/sinks.</p>
+
+</td>
+</tr>
+<tr id="Metadata-labels">
+<td><code>labels</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Map of string keys and values that can be used to organize and categorize
+resources within a collection.</p>
+
+</td>
+</tr>
+<tr id="Metadata-annotations">
+<td><code>annotations</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Map of string keys and values that can be used by source and sink to communicate
+arbitrary metadata about this resource.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="RequestResources">RequestResources</h3>
+<section>
+<p>A RequestResource can be sent in two situations:</p>
+
+<p>Initial message in an MCP bidirectional change stream
+as an ACK or NACK response to a previous Resources. In
+this case the response<em>nonce is set to the nonce value
+in the Resources. ACK/NACK is determined by the presence
+of error</em>detail.</p>
+
+<ul>
+<li>ACK  (nonce!=&ldquo;&rdquo;,error_details==nil)</li>
+<li>NACK (nonce!=&ldquo;&rdquo;,error_details!=nil)</li>
+<li>New/Update request (nonce==&ldquo;&rdquo;,error_details ignored)</li>
+</ul>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="RequestResources-sink_node">
+<td><code>sinkNode</code></td>
+<td><code><a href="#SinkNode">SinkNode</a></code></td>
+<td>
+<p>The sink node making the request.</p>
+
+</td>
+</tr>
+<tr id="RequestResources-collection">
+<td><code>collection</code></td>
+<td><code>string</code></td>
+<td>
+<p>Type of resource collection that is being requested, e.g.</p>
+
+<p>istio/networking/v1alpha3/VirtualService
+k8s/<apiVersion>/<kind></p>
+
+</td>
+</tr>
+<tr id="RequestResources-initial_resource_versions">
+<td><code>initialResourceVersions</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>When the RequestResources is the first in a stream, the initial<em>resource</em>versions must
+be populated. Otherwise, initial<em>resource</em>versions must be omitted. The keys are the
+resources names of the MCP resources known to the MCP client. The values in the map
+are the associated resource level version info.</p>
+
+</td>
+</tr>
+<tr id="RequestResources-response_nonce">
+<td><code>responseNonce</code></td>
+<td><code>string</code></td>
+<td>
+<p>When the RequestResources is an ACK or NACK message in response to a previous RequestResources,
+the response<em>nonce must be the nonce in the RequestResources. Otherwise response</em>nonce must
+be omitted.</p>
+
+</td>
+</tr>
+<tr id="RequestResources-error_detail">
+<td><code>errorDetail</code></td>
+<td><code><a href="#google-rpc-Status">google.rpc.Status</a></code></td>
+<td>
+<p>This is populated when the previously received resources could not be applied
+The <em>message</em> field in <em>error_details</em> provides the source internal error
+related to the failure.</p>
+
+</td>
+</tr>
+<tr id="RequestResources-incremental">
+<td><code>incremental</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Request an incremental update for the specified collection. The source may choose to
+honor this request or ignore and and provide a full-state update in the corresponding
+<code>Resource</code> response.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Resource">Resource</h3>
+<section>
+<p>Resource as transferred via the Mesh Configuration Protocol. Each
+resource is made up of common metadata, and a type-specific resource payload.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Resource-metadata">
+<td><code>metadata</code></td>
+<td><code><a href="#Metadata">Metadata</a></code></td>
+<td>
+<p>Common metadata describing the resource.</p>
+
+</td>
+</tr>
+<tr id="Resource-body">
+<td><code>body</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#any">google.protobuf.Any</a></code></td>
+<td>
+<p>The primary payload for the resource.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="Resources">Resources</h3>
+<section>
+<p>Resources do not need to include a full snapshot of the tracked
+resources. Instead they are a diff to the state of a MCP client.
+Per resource versions allow sources and sinks to track state at
+the resource granularity. An MCP incremental session is always
+in the context of a gRPC bidirectional stream. This allows the
+MCP source to keep track of the state of MCP sink connected to
+it.</p>
+
+<p>In Incremental MCP the nonce field is required and used to pair
+Resources to an RequestResources ACK or NACK.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="Resources-system_version_info">
+<td><code>systemVersionInfo</code></td>
+<td><code>string</code></td>
+<td>
+<p>The version of the response data (used for debugging).</p>
+
+</td>
+</tr>
+<tr id="Resources-collection">
+<td><code>collection</code></td>
+<td><code>string</code></td>
+<td>
+<p>Type of resource collection that is being requested, e.g.</p>
+
+<p>istio/networking/v1alpha3/VirtualService
+k8s/<apiVersion>/<kind></p>
+
+</td>
+</tr>
+<tr id="Resources-resources">
+<td><code>resources</code></td>
+<td><code><a href="#Resource">Resource[]</a></code></td>
+<td>
+<p>The response resources wrapped in the common MCP <em>Resource</em> message.
+These are typed resources that match the type url in the
+RequestResources message.</p>
+
+<p>When <code>incremental</code> is true, this contains an array of resources to add/update
+for the specified collection. This modifies the existing collection at the sink</p>
+
+<p>When <code>incremental</code> is false, this contains the full set of resources for the
+specified collection. This replaces any previously delivered resources.</p>
+
+</td>
+</tr>
+<tr id="Resources-removed_resources">
+<td><code>removedResources</code></td>
+<td><code>string[]</code></td>
+<td>
+<p>Names of resources that have been deleted and to be
+removed from the MCP sink node. Removed resources for missing
+resources can be ignored.</p>
+
+<p>When <code>incremental</code> is true, this contains an array of resource names to remove
+for the specified collection. This modifies the existing resource collection at
+the sink.</p>
+
+<p>When <code>incremental</code> is false, this field should be ignored.</p>
+
+</td>
+</tr>
+<tr id="Resources-nonce">
+<td><code>nonce</code></td>
+<td><code>string</code></td>
+<td>
+<p>Required. The nonce provides a way for RequestChange to uniquely
+reference a RequestResources.</p>
+
+</td>
+</tr>
+<tr id="Resources-incremental">
+<td><code>incremental</code></td>
+<td><code>bool</code></td>
+<td>
+<p>This resource response is an incremental update. The source should only send
+incremental updates if the sink requested them.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h3 id="SinkNode">SinkNode</h3>
+<section>
+<p>Identifies a specific MCP sink node instance. The node identifier is
+presented to the resource source, which may use this identifier
+to distinguish per sink configuration for serving. This
+information is not authoritative. Authoritative identity should come
+from the underlying transport layer (e.g. rpc credentials).</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="SinkNode-id">
+<td><code>id</code></td>
+<td><code>string</code></td>
+<td>
+<p>An opaque identifier for the MCP node.</p>
+
+</td>
+</tr>
+<tr id="SinkNode-annotations">
+<td><code>annotations</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Opaque annotations extending the node identifier.</p>
 
 </td>
 </tr>

@@ -109,6 +109,9 @@ func encodeVarintFixedHeap(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *FixedHeapConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.MaxHeapSizeBytes != 0 {

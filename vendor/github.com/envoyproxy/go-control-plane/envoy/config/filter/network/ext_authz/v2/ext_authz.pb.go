@@ -31,7 +31,7 @@ type ExtAuthz struct {
 	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// The external authorization gRPC service configuration.
 	// The default timeout is set to 200ms by this filter.
-	GrpcService *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService" json:"grpc_service,omitempty"`
+	GrpcService *core.GrpcService `protobuf:"bytes,2,opt,name=grpc_service,json=grpcService,proto3" json:"grpc_service,omitempty"`
 	// The filter's behaviour in case the external authorization service does
 	// not respond back. When it is set to true, Envoy will also allow traffic in case of
 	// communication failure between authorization service and the proxy.
@@ -156,6 +156,9 @@ func encodeVarintExtAuthz(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ExtAuthz) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.StatPrefix)

@@ -53,7 +53,7 @@ func generateServiceBinding(subject, serviceRoleRef string, mode rbacproto.Enfor
 	}
 }
 
-// nolint:deadcode
+// nolint:deadcode,unparam
 func generatePermission(headerName, matchSpecifier string) *policy.Permission {
 	return &policy.Permission{
 		Rule: &policy.Permission_AndRules{

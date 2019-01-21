@@ -33,7 +33,7 @@ type CircuitBreakers struct {
 	// the first one in the list is used. If no Thresholds is defined for a given
 	// :ref:`RoutingPriority<envoy_api_enum_core.RoutingPriority>`, the default values
 	// are used.
-	Thresholds           []*CircuitBreakers_Thresholds `protobuf:"bytes,1,rep,name=thresholds" json:"thresholds,omitempty"`
+	Thresholds           []*CircuitBreakers_Thresholds `protobuf:"bytes,1,rep,name=thresholds,proto3" json:"thresholds,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
 	XXX_unrecognized     []byte                        `json:"-"`
 	XXX_sizecache        int32                         `json:"-"`
@@ -89,16 +89,16 @@ type CircuitBreakers_Thresholds struct {
 	Priority core.RoutingPriority `protobuf:"varint,1,opt,name=priority,proto3,enum=envoy.api.v2.core.RoutingPriority" json:"priority,omitempty"`
 	// The maximum number of connections that Envoy will make to the upstream
 	// cluster. If not specified, the default is 1024.
-	MaxConnections *types.UInt32Value `protobuf:"bytes,2,opt,name=max_connections,json=maxConnections" json:"max_connections,omitempty"`
+	MaxConnections *types.UInt32Value `protobuf:"bytes,2,opt,name=max_connections,json=maxConnections,proto3" json:"max_connections,omitempty"`
 	// The maximum number of pending requests that Envoy will allow to the
 	// upstream cluster. If not specified, the default is 1024.
-	MaxPendingRequests *types.UInt32Value `protobuf:"bytes,3,opt,name=max_pending_requests,json=maxPendingRequests" json:"max_pending_requests,omitempty"`
+	MaxPendingRequests *types.UInt32Value `protobuf:"bytes,3,opt,name=max_pending_requests,json=maxPendingRequests,proto3" json:"max_pending_requests,omitempty"`
 	// The maximum number of parallel requests that Envoy will make to the
 	// upstream cluster. If not specified, the default is 1024.
-	MaxRequests *types.UInt32Value `protobuf:"bytes,4,opt,name=max_requests,json=maxRequests" json:"max_requests,omitempty"`
+	MaxRequests *types.UInt32Value `protobuf:"bytes,4,opt,name=max_requests,json=maxRequests,proto3" json:"max_requests,omitempty"`
 	// The maximum number of parallel retries that Envoy will allow to the
 	// upstream cluster. If not specified, the default is 3.
-	MaxRetries           *types.UInt32Value `protobuf:"bytes,5,opt,name=max_retries,json=maxRetries" json:"max_retries,omitempty"`
+	MaxRetries           *types.UInt32Value `protobuf:"bytes,5,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -356,6 +356,9 @@ func encodeVarintCircuitBreaker(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *CircuitBreakers) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Thresholds) > 0 {
@@ -371,6 +374,9 @@ func (m *CircuitBreakers) Size() (n int) {
 }
 
 func (m *CircuitBreakers_Thresholds) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Priority != 0 {

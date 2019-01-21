@@ -31,7 +31,8 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/pkg/mcp/snapshot"
-	"istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/source"
+	mcptest "istio.io/istio/pkg/mcp/testing"
 )
 
 var (
@@ -47,22 +48,33 @@ var (
 		Match: "baz",
 	}
 
-	fakeCreateTime      = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
-	fakeCreateTimeProto *types.Timestamp
+	fakeCreateTime  = time.Date(2018, time.January, 1, 2, 3, 4, 5, time.UTC)
+	fakeLabels      = map[string]string{"lk1": "lv1"}
+	fakeAnnotations = map[string]string{"ak1": "av1"}
+
+	// Well-known non-legacy Mixer types.
+	mixerKinds = []string{
+		constant.AdapterKind,
+		constant.AttributeManifestKind,
+		constant.InstanceKind,
+		constant.HandlerKind,
+		constant.RulesKind,
+		constant.TemplateKind,
+	}
 )
 
 func init() {
 	var err error
-	fakeCreateTimeProto, err = types.TimestampProto(fakeCreateTime)
+	_, err = types.TimestampProto(fakeCreateTime)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func typeURLOf(nonLegacyKind string) string {
+func collectionOf(nonLegacyKind string) string {
 	for _, u := range kube.Types.All() {
 		if u.Kind == nonLegacyKind {
-			return u.Target.TypeURL.String()
+			return u.Target.Collection.String()
 		}
 	}
 
@@ -83,19 +95,21 @@ type testState struct {
 func createState(t *testing.T) *testState {
 	st := &testState{}
 
-	var typeUrls []string
+	var collections []source.CollectionOptions
 	var kinds []string
-	m, err := constructMapping([]string{}, kube.Types)
+	m, err := constructMapping(mixerKinds, kube.Types)
 	if err != nil {
 		t.Fatal(err)
 	}
 	st.mapping = m
-	for t, k := range st.mapping.typeURLsToKinds {
-		typeUrls = append(typeUrls, t)
+	for t, k := range st.mapping.collectionsToKinds {
+		collections = append(collections, source.CollectionOptions{
+			Name: t,
+		})
 		kinds = append(kinds, k)
 	}
 
-	if st.server, err = mcptest.NewServer(0, typeUrls); err != nil {
+	if st.server, err = mcptest.NewServer(0, collections); err != nil {
 		t.Fatal(err)
 	}
 
@@ -125,15 +139,42 @@ func (s *testState) close(t *testing.T) {
 	}
 }
 
+func TestBackend_HasSynced(t *testing.T) {
+	st := createState(t)
+	defer st.close(t)
+
+	if err := st.backend.WaitForSynced(100 * time.Millisecond); err == nil {
+		t.Fatal("WaitForSynced() should return not ready before first full server push")
+	}
+
+	b := snapshot.NewInMemoryBuilder()
+	for typeURL := range st.mapping.collectionsToKinds {
+		b.SetVersion(typeURL, "0")
+
+	}
+	sn := b.Build()
+
+	st.updateWg.Add(len(st.mapping.collectionsToKinds))
+	st.server.Cache.SetSnapshot(mixerNodeID, sn)
+	st.updateWg.Wait()
+
+	if err := st.backend.WaitForSynced(time.Millisecond * 100); err != nil {
+		t.Fatal("WaitForSynced() should return ready with empty snapshot")
+	}
+}
+
 func TestBackend_List(t *testing.T) {
 	st := createState(t)
 	defer st.close(t)
 
 	b := snapshot.NewInMemoryBuilder()
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns1/e1", "v1",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r1)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns2/e2", "v2",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r2)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "e3", "v3",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r3)
+	b.SetVersion(collectionOf(constant.RulesKind), "type-v1")
 	sn := b.Build()
 
 	st.updateWg.Add(1)
@@ -150,9 +191,11 @@ func TestBackend_List(t *testing.T) {
 		}: {
 			Kind: constant.RulesKind,
 			Metadata: store.ResourceMeta{
-				Name:      "e1",
-				Namespace: "ns1",
-				Revision:  "v1",
+				Name:        "e1",
+				Namespace:   "ns1",
+				Revision:    "v1",
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Spec: map[string]interface{}{"match": "foo"},
 		},
@@ -163,9 +206,11 @@ func TestBackend_List(t *testing.T) {
 		}: {
 			Kind: constant.RulesKind,
 			Metadata: store.ResourceMeta{
-				Name:      "e2",
-				Namespace: "ns2",
-				Revision:  "v2",
+				Name:        "e2",
+				Namespace:   "ns2",
+				Revision:    "v2",
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Spec: map[string]interface{}{"match": "bar"},
 		},
@@ -176,9 +221,11 @@ func TestBackend_List(t *testing.T) {
 		}: {
 			Kind: constant.RulesKind,
 			Metadata: store.ResourceMeta{
-				Name:      "e3",
-				Namespace: "",
-				Revision:  "v3",
+				Name:        "e3",
+				Namespace:   "",
+				Revision:    "v3",
+				Labels:      fakeLabels,
+				Annotations: fakeAnnotations,
 			},
 			Spec: map[string]interface{}{"match": "baz"},
 		},
@@ -193,8 +240,9 @@ func TestBackend_Get(t *testing.T) {
 
 	b := snapshot.NewInMemoryBuilder()
 
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
-	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns1/e1", "v1",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r1)
+	b.SetVersion(collectionOf(constant.RulesKind), "type-v1")
 	sn := b.Build()
 
 	st.updateWg.Add(1)
@@ -209,9 +257,11 @@ func TestBackend_Get(t *testing.T) {
 	expected := &store.BackEndResource{
 		Kind: constant.RulesKind,
 		Metadata: store.ResourceMeta{
-			Name:      "e1",
-			Namespace: "ns1",
-			Revision:  "v1",
+			Name:        "e1",
+			Namespace:   "ns1",
+			Revision:    "v1",
+			Labels:      fakeLabels,
+			Annotations: fakeAnnotations,
 		},
 		Spec: map[string]interface{}{"match": "foo"},
 	}
@@ -243,10 +293,14 @@ func TestBackend_Watch(t *testing.T) {
 	}
 
 	b := snapshot.NewInMemoryBuilder()
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns1/e1", "v1", fakeCreateTime, r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v2", fakeCreateTime, r2)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v3", fakeCreateTime, r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "type-v1")
+
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns1/e1", "v1",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r1)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns2/e2", "v2",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r2)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "e3", "v3",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r3)
+	b.SetVersion(collectionOf(constant.RulesKind), "type-v1")
 
 	sn := b.Build()
 
@@ -276,9 +330,11 @@ loop:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:      "e1",
-					Namespace: "ns1",
-					Revision:  "v1",
+					Name:        "e1",
+					Namespace:   "ns1",
+					Revision:    "v1",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "foo"},
 			},
@@ -289,9 +345,11 @@ loop:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:      "e2",
-					Namespace: "ns2",
-					Revision:  "v2",
+					Name:        "e2",
+					Namespace:   "ns2",
+					Revision:    "v2",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "bar"},
 			},
@@ -302,8 +360,10 @@ loop:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:     "e3",
-					Revision: "v3",
+					Name:        "e3",
+					Revision:    "v3",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "baz"},
 			},
@@ -317,10 +377,12 @@ loop:
 
 	// delete ns1/e1
 	// update ns2/e2 (r2 -> r1)
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "ns2/e2", "v4", fakeCreateTime, r1)
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "ns2/e2", "v4",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r1)
 	// e3 doesn't change
-	_ = b.SetEntry(typeURLOf(constant.RulesKind), "e3", "v5", fakeCreateTime, r3)
-	b.SetVersion(typeURLOf(constant.RulesKind), "type-v2")
+	_ = b.SetEntry(collectionOf(constant.RulesKind), "e3", "v5",
+		fakeCreateTime, fakeLabels, fakeAnnotations, r3)
+	b.SetVersion(collectionOf(constant.RulesKind), "type-v2")
 
 	sn = b.Build()
 
@@ -353,9 +415,11 @@ loop2:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:      "e2",
-					Namespace: "ns2",
-					Revision:  "v4",
+					Name:        "e2",
+					Namespace:   "ns2",
+					Revision:    "v4",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "foo"}, // r1's contents
 			},
@@ -367,8 +431,10 @@ loop2:
 			Value: &store.BackEndResource{
 				Kind: constant.RulesKind,
 				Metadata: store.ResourceMeta{
-					Name:     "e3",
-					Revision: "v5",
+					Name:        "e3",
+					Revision:    "v5",
+					Labels:      fakeLabels,
+					Annotations: fakeAnnotations,
 				},
 				Spec: map[string]interface{}{"match": "baz"},
 			},
@@ -376,7 +442,6 @@ loop2:
 	}
 
 	checkEqual(t, actual, expected)
-
 }
 
 func checkEqual(t *testing.T, actual, expected interface{}) {

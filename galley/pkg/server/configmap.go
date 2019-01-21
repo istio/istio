@@ -17,115 +17,91 @@ package server
 import (
 	"fmt"
 	"io/ioutil"
-	"sync"
+	"os"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 
+	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/mcp/env"
 	"istio.io/istio/pkg/mcp/server"
 )
 
 type accessList struct {
-	Allowed []string
-}
-
-type fileWatcher interface {
-	Add(path string) error
-	Close() error
-	Events() chan fsnotify.Event
-	Errors() chan error
-}
-
-type fsNotifyWatcher struct {
-	*fsnotify.Watcher
-}
-
-func (w *fsNotifyWatcher) Add(path string) error       { return w.Watcher.Add(path) }
-func (w *fsNotifyWatcher) Close() error                { return w.Watcher.Close() }
-func (w *fsNotifyWatcher) Events() chan fsnotify.Event { return w.Watcher.Events }
-func (w *fsNotifyWatcher) Errors() chan error          { return w.Watcher.Errors }
-
-func newFsnotifyWatcher() (fileWatcher, error) {
-	w, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
-	return &fsNotifyWatcher{Watcher: w}, nil
+	IsBlackList bool
+	Allowed     []string
 }
 
 var (
-	newFileWatcher         = newFsnotifyWatcher
+	newFileWatcher         = filewatcher.NewWatcher
 	readFile               = ioutil.ReadFile
 	watchEventHandledProbe func()
 )
 
-func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.ListAuthChecker, error) {
+var (
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// many authz failures are logs as a burst every AUTHZ_FAILURE_LOG_FREQ.
+	authzFailureLogBurstSize = env.Integer("AUTHZ_FAILURE_LOG_BURST_SIZE", 1)
 
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// frequently bursts of authz failures are logged.
+	authzFailureLogFreq = env.Duration("AUTHZ_FAILURE_LOG_FREQ", time.Minute)
+)
+
+func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.ListAuthChecker, error) {
 	// Do the initial read.
 	list, err := readAccessList(accessListFile)
 	if err != nil {
 		return nil, err
 	}
 
-	checker := server.NewListAuthChecker()
+	options := server.DefaultListAuthCheckerOptions()
+	options.AuthzFailureLogBurstSize = authzFailureLogBurstSize
+	options.AuthzFailureLogFreq = authzFailureLogFreq
+	if list.IsBlackList {
+		options.AuthMode = server.AuthBlackList
+	} else {
+		options.AuthMode = server.AuthWhiteList
+	}
+	checker := server.NewListAuthChecker(options)
 	checker.Set(list.Allowed...)
 
-	watcher, err := newFileWatcher()
-	if err != nil {
-		return nil, err
-	}
+	watcher := newFileWatcher()
 
-	// TODO: https://github.com/istio/istio/issues/7877
-	// It looks like fsnotify watchers have problems due to following symlinks. This needs to be handled.
 	if err = watcher.Add(accessListFile); err != nil {
 		return nil, fmt.Errorf("unable to watch accesslist file %q: %v", accessListFile, err)
 	}
 
-	// Coordinate the goroutines for orderly shutdown
-	var exitSignal sync.WaitGroup
-	exitSignal.Add(2)
-
 	go func() {
-		defer exitSignal.Done()
-
 		for {
 			select {
-			case e := <-watcher.Events():
-				if e.Op&fsnotify.Write == fsnotify.Write {
+			case e := <-watcher.Events(accessListFile):
+				if e.Op&fsnotify.Write == fsnotify.Write || e.Op&fsnotify.Create == fsnotify.Create {
 					if list, err = readAccessList(accessListFile); err != nil {
 						scope.Errorf("Error reading access list %q: %v", accessListFile, err)
 					} else {
+						if list.IsBlackList {
+							checker.SetMode(server.AuthBlackList)
+						} else {
+							checker.SetMode(server.AuthWhiteList)
+						}
 						checker.Set(list.Allowed...)
 					}
+				} else if e.Op&fsnotify.Remove == fsnotify.Remove {
+					checker.SetMode(server.AuthBlackList)
+					checker.Set()
 				}
 				if watchEventHandledProbe != nil {
 					watchEventHandledProbe()
 				}
-			case <-stopCh:
-				return
-			}
-		}
-	}()
-
-	// Watch error events in a separate go routine See:
-	// https://github.com/fsnotify/fsnotify#faq
-	go func() {
-		defer exitSignal.Done()
-
-		for {
-			select {
-			case e := <-watcher.Errors():
+			case e := <-watcher.Errors(accessListFile):
 				scope.Errorf("error event while watching access list file: %v", e)
-
 			case <-stopCh:
+				_ = watcher.Close()
 				return
 			}
 		}
-	}()
-
-	go func() {
-		exitSignal.Wait()
-		_ = watcher.Close()
 	}()
 
 	return checker, nil
@@ -134,6 +110,11 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 func readAccessList(accessListFile string) (accessList, error) {
 	b, err := readFile(accessListFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Treat a non-existent access list file as default open
+			return accessList{IsBlackList: true}, nil
+		}
+
 		return accessList{}, fmt.Errorf("unable to read access list file %q: %v", accessListFile, err)
 	}
 

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	oprometheus "github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/exporter/prometheus"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
 	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
@@ -68,6 +68,7 @@ type Server struct {
 	livenessProbe  probe.Controller
 	readinessProbe probe.Controller
 	*probe.Probe
+	configStore store.Store
 }
 
 type listenFunc func(network string, address string) (net.Listener, error)
@@ -145,7 +146,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to setup tracing")
 		}
-		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer())))
+		grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(TracingServerInterceptor(ot.GlobalTracer())))
 	}
 
 	// get the network stuff setup
@@ -210,7 +211,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		_ = s.Close()
 		return nil, err
 	}
-
+	s.configStore = st
 	log.Info("Starting runtime config watch...")
 	rt = p.newRuntime(st, templateMap, adapterMap, a.ConfigDefaultNamespace,
 		s.gp, s.adapterGP, a.TracingOptions.TracingEnabled())
@@ -221,6 +222,9 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	s.dispatcher = rt.Dispatcher()
+
+	// see issue https://github.com/istio/istio/issues/9596
+	a.NumCheckCacheEntries = 0
 
 	if a.NumCheckCacheEntries > 0 {
 		s.checkCache = checkcache.New(a.NumCheckCacheEntries)
@@ -242,10 +246,15 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("could not register default server views: %v", err)
 	}
 
-	grpcOptions = append(grpcOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+	throttler := loadshedding.NewThrottler(a.LoadSheddingOptions)
+	if eval := throttler.Evaluator(loadshedding.GRPCLatencyEvaluatorName); eval != nil {
+		grpcOptions = append(grpcOptions, grpc.StatsHandler(newMultiStatsHandler(&ocgrpc.ServerHandler{}, eval.(*loadshedding.GRPCLatencyEvaluator))))
+	} else {
+		grpcOptions = append(grpcOptions, grpc.StatsHandler(&ocgrpc.ServerHandler{}))
+	}
 
 	s.server = grpc.NewServer(grpcOptions...)
-	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache))
+	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
 
 	if a.LivenessProbeOptions.IsValid() {
 		s.livenessProbe = probe.NewFileController(a.LivenessProbeOptions)
@@ -317,6 +326,11 @@ func (s *Server) Close() error {
 
 	if s.controlZ != nil {
 		s.controlZ.Close()
+	}
+
+	if s.configStore != nil {
+		s.configStore.Stop()
+		s.configStore = nil
 	}
 
 	if s.checkCache != nil {

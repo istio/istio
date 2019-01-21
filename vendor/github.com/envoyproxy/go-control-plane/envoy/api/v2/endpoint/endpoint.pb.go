@@ -37,7 +37,7 @@ type Endpoint struct {
 	//   specified :ref:`resolver <envoy_api_field_core.SocketAddress.resolver_name>`
 	//   in the Address). For LOGICAL or STRICT DNS, it is expected to be hostname,
 	//   and will be resolved via DNS.
-	Address *core.Address `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Address *core.Address `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	// The optional health check configuration is used as configuration for the
 	// health checker to contact the health checked host.
 	//
@@ -45,7 +45,7 @@ type Endpoint struct {
 	//
 	//   This takes into effect only for upstream clusters with
 	//   :ref:`active health checking <arch_overview_health_checking>` enabled.
-	HealthCheckConfig    *Endpoint_HealthCheckConfig `protobuf:"bytes,2,opt,name=health_check_config,json=healthCheckConfig" json:"health_check_config,omitempty"`
+	HealthCheckConfig    *Endpoint_HealthCheckConfig `protobuf:"bytes,2,opt,name=health_check_config,json=healthCheckConfig,proto3" json:"health_check_config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
 	XXX_unrecognized     []byte                      `json:"-"`
 	XXX_sizecache        int32                       `json:"-"`
@@ -155,7 +155,7 @@ func (m *Endpoint_HealthCheckConfig) GetPortValue() uint32 {
 // An Endpoint that Envoy can route traffic to.
 type LbEndpoint struct {
 	// Upstream host identifier
-	Endpoint *Endpoint `protobuf:"bytes,1,opt,name=endpoint" json:"endpoint,omitempty"`
+	Endpoint *Endpoint `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
 	// Optional health status when known and supplied by EDS server.
 	HealthStatus core.HealthStatus `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.api.v2.core.HealthStatus" json:"health_status,omitempty"`
 	// The endpoint metadata specifies values that may be used by the load
@@ -165,7 +165,7 @@ type LbEndpoint struct {
 	// This may be matched against in a route's
 	// :ref:`RouteAction <envoy_api_msg_route.RouteAction>` metadata_match field
 	// to subset the endpoints considered in cluster load balancing.
-	Metadata *core.Metadata `protobuf:"bytes,3,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *core.Metadata `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// The optional load balancing weight of the upstream host, in the range 1 -
 	// 128. Envoy uses the load balancing weight in some of the built in load
 	// balancers. The load balancing weight for an endpoint is divided by the sum
@@ -180,7 +180,7 @@ type LbEndpoint struct {
 	//   The limit of 128 is somewhat arbitrary, but is applied due to performance
 	//   concerns with the current implementation and can be removed when
 	//   `this issue <https://github.com/envoyproxy/envoy/issues/1285>`_ is fixed.
-	LoadBalancingWeight  *types.UInt32Value `protobuf:"bytes,4,opt,name=load_balancing_weight,json=loadBalancingWeight" json:"load_balancing_weight,omitempty"`
+	LoadBalancingWeight  *types.UInt32Value `protobuf:"bytes,4,opt,name=load_balancing_weight,json=loadBalancingWeight,proto3" json:"load_balancing_weight,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -253,9 +253,9 @@ func (m *LbEndpoint) GetLoadBalancingWeight() *types.UInt32Value {
 // balancing weights or different priorities.
 type LocalityLbEndpoints struct {
 	// Identifies location of where the upstream hosts run.
-	Locality *core.Locality `protobuf:"bytes,1,opt,name=locality" json:"locality,omitempty"`
+	Locality *core.Locality `protobuf:"bytes,1,opt,name=locality,proto3" json:"locality,omitempty"`
 	// The group of endpoints belonging to the locality specified.
-	LbEndpoints []LbEndpoint `protobuf:"bytes,2,rep,name=lb_endpoints,json=lbEndpoints" json:"lb_endpoints"`
+	LbEndpoints []LbEndpoint `protobuf:"bytes,2,rep,name=lb_endpoints,json=lbEndpoints,proto3" json:"lb_endpoints"`
 	// Optional: Per priority/region/zone/sub_zone weight - range 1-128. The load
 	// balancing weight for a locality is divided by the sum of the weights of all
 	// localities  at the same priority level to produce the effective percentage
@@ -272,7 +272,7 @@ type LocalityLbEndpoints struct {
 	//   The limit of 128 is somewhat arbitrary, but is applied due to performance
 	//   concerns with the current implementation and can be removed when
 	//   `this issue <https://github.com/envoyproxy/envoy/issues/1285>`_ is fixed.
-	LoadBalancingWeight *types.UInt32Value `protobuf:"bytes,3,opt,name=load_balancing_weight,json=loadBalancingWeight" json:"load_balancing_weight,omitempty"`
+	LoadBalancingWeight *types.UInt32Value `protobuf:"bytes,3,opt,name=load_balancing_weight,json=loadBalancingWeight,proto3" json:"load_balancing_weight,omitempty"`
 	// Optional: the priority for this LocalityLbEndpoints. If unspecified this will
 	// default to the highest priority (0).
 	//
@@ -680,6 +680,9 @@ func encodeVarintEndpoint(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *Endpoint) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Address != nil {
@@ -697,6 +700,9 @@ func (m *Endpoint) Size() (n int) {
 }
 
 func (m *Endpoint_HealthCheckConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.PortValue != 0 {
@@ -709,6 +715,9 @@ func (m *Endpoint_HealthCheckConfig) Size() (n int) {
 }
 
 func (m *LbEndpoint) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Endpoint != nil {
@@ -733,6 +742,9 @@ func (m *LbEndpoint) Size() (n int) {
 }
 
 func (m *LocalityLbEndpoints) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Locality != nil {

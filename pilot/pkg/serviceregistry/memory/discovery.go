@@ -19,6 +19,8 @@ import (
 	"net"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -114,10 +116,10 @@ func MakeInstance(service *model.Service, port *model.Port, version int, az stri
 			Address:     MakeIP(service, version),
 			Port:        target,
 			ServicePort: port,
+			Locality:    az,
 		},
-		Service:          service,
-		Labels:           map[string]string{"version": fmt.Sprintf("v%d", version)},
-		AvailabilityZone: az,
+		Service: service,
+		Labels:  map[string]string{"version": fmt.Sprintf("v%d", version)},
 	}
 }
 
@@ -226,12 +228,14 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	for _, service := range sd.services {
 		if !service.External() {
 			for v := 0; v < sd.versions; v++ {
-				if node.IPAddress == MakeIP(service, v) {
+				// Only one IP for memory discovery?
+				if node.IPAddresses[0] == MakeIP(service, v) {
 					for _, port := range service.Ports {
 						out = append(out, MakeInstance(service, port, v, "zone/region"))
 					}
 				}
 			}
+
 		}
 	}
 	return out, sd.GetProxyServiceInstancesError
@@ -259,8 +263,8 @@ func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
-			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)

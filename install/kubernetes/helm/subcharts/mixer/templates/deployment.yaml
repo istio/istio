@@ -22,17 +22,15 @@
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
-        - containerPort: 9093
+        - containerPort: {{ .Values.global.monitoringPort }}
         - containerPort: 42422
         args:
+          - --monitoringPort={{ .Values.global.monitoringPort }}
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMCP }}
     {{- if $.Values.global.controlPlaneSecurityEnabled}}
           - --configStoreURL=mcps://istio-galley.{{ $.Release.Namespace }}.svc:9901
-          - --certFile=/etc/certs/cert-chain.pem
-          - --keyFile=/etc/certs/key.pem
-          - --caCertFile=/etc/certs/root-cert.pem
     {{- else }}
           - --configStoreURL=mcp://istio-galley.{{ $.Release.Namespace }}.svc:9901
     {{- end }}
@@ -40,6 +38,11 @@
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
+          {{- if $.Values.adapters.useAdapterCRDs }}
+          - --useAdapterCRDs=true
+          {{- else }}
+          - --useAdapterCRDs=false
+          {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
@@ -69,22 +72,26 @@
         livenessProbe:
           httpGet:
             path: /version
-            port: 9093
+            port: {{ .Values.global.monitoringPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
+{{- if contains "/" $.Values.global.proxy.image }}
+        image: "{{ $.Values.global.proxy.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
-        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+        - containerPort: 15090
           protocol: TCP
           name: http-envoy-prom
-{{ end }}
         args:
         - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.{{ $.Values.global.proxy.clusterDomain }}
         - --serviceCluster
         - istio-policy
         - --templateFile
@@ -95,6 +102,9 @@
       {{- else }}
         - --controlPlaneAuthPolicy
         - NONE
+      {{- end }}
+      {{- if $.Values.global.trustDomain }}
+        - --trust-domain={{ $.Values.global.trustDomain }}
       {{- end }}
         env:
         - name: POD_NAME
@@ -136,10 +146,8 @@
           optional: true
       - name: uds-socket
         emptyDir: {}
-    {{- if $.Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml $.Values.nodeSelector | indent 8 }}
-    {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
       containers:
       - name: mixer
 {{- if contains "/" .Values.image }}
@@ -149,9 +157,10 @@
 {{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
-        - containerPort: 9093
+        - containerPort: {{ .Values.global.monitoringPort }}
         - containerPort: 42422
         args:
+          - --monitoringPort={{ .Values.global.monitoringPort }}
           - --address
           - unix:///sock/mixer.socket
 {{- if $.Values.global.useMCP }}
@@ -167,6 +176,11 @@
           - --configStoreURL=k8s://
 {{- end }}
           - --configDefaultNamespace={{ $.Release.Namespace }}
+          {{- if $.Values.adapters.useAdapterCRDs }}
+          - --useAdapterCRDs=true
+          {{- else }}
+          - --useAdapterCRDs=false
+          {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
           {{- else }}
@@ -196,27 +210,26 @@
         livenessProbe:
           httpGet:
             path: /version
-            port: 9093
+            port: {{ .Values.global.monitoringPort }}
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
+{{- if contains "/" $.Values.global.proxy.image }}
+        image: "{{ $.Values.global.proxy.image }}"
+{{- else }}
         image: "{{ $.Values.global.hub }}/{{ $.Values.global.proxy.image }}:{{ $.Values.global.tag }}"
+{{- end }}
         imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
         ports:
         - containerPort: 9091
         - containerPort: 15004
-{{ if ne .Values.global.proxy.stats.prometheusPort 0. }}
-        ports:
-        - containerPort: {{ .Values.global.proxy.stats.prometheusPort }}
+        - containerPort: 15090
           protocol: TCP
           name: http-envoy-prom
-{{ end }}
         args:
         - proxy
-{{- if $.Values.global.proxy.proxyDomain }}
         - --domain
-        - {{ $.Values.global.proxy.proxyDomain }}
-{{- end }}
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --serviceCluster
         - istio-telemetry
         - --templateFile
@@ -259,42 +272,59 @@
 {{- end }}
 
 
-{{- $mixers := list "policy" "telemetry" }}
-{{- range $idx, $mname := $mixers }}
+{{- range $key, $spec := .Values }}
+{{- if or (eq $key "policy") (eq $key "telemetry") }}
+{{- if $spec.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: istio-{{ $mname }}
+  name: istio-{{ $key }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: {{ template "mixer.name" $ }}
+    app: istio-mixer
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
+    version: {{ $.Chart.Version }}
     istio: mixer
 spec:
-  replicas: {{ $.Values.replicaCount }}
+  replicas: {{ $spec.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: {{ $key }}
+      chart: {{ template "mixer.chart" $ }}
+      heritage: {{ $.Release.Service }}
+      release: {{ $.Release.Name }}
+      version: {{ $.Chart.Version }}
+      istio: mixer
+      istio-mixer-type: {{ $key }}
   template:
     metadata:
       labels:
-        app: {{ template "mixer.name" $ }}
+        app: {{ $key }}
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}
         version: {{ $.Chart.Version }}
         istio: mixer
-        istio-mixer-type: {{ $mname }}
+        istio-mixer-type: {{ $key }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
 {{- with $.Values.podAnnotations }}
 {{ toYaml . | indent 8 }}
 {{- end }}
-{{- if eq $mname "policy"}}
+{{- if eq $key "policy"}}
 {{- template "policy_container" $ }}
 {{- else }}
 {{- template "telemetry_container" $ }}
 {{- end }}
 
 ---
+{{- end }}
+{{- end }}
 {{- end }} {{/* range */}}

@@ -9,8 +9,10 @@ import math "math"
 import v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 import _ "github.com/gogo/googleapis/google/api"
 
-import context "golang.org/x/net/context"
-import grpc "google.golang.org/grpc"
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 import io "io"
 
@@ -78,8 +80,9 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for SecretDiscoveryService service
-
+// SecretDiscoveryServiceClient is the client API for SecretDiscoveryService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type SecretDiscoveryServiceClient interface {
 	StreamSecrets(ctx context.Context, opts ...grpc.CallOption) (SecretDiscoveryService_StreamSecretsClient, error)
 	FetchSecrets(ctx context.Context, in *v2.DiscoveryRequest, opts ...grpc.CallOption) (*v2.DiscoveryResponse, error)
@@ -133,8 +136,7 @@ func (c *secretDiscoveryServiceClient) FetchSecrets(ctx context.Context, in *v2.
 	return out, nil
 }
 
-// Server API for SecretDiscoveryService service
-
+// SecretDiscoveryServiceServer is the server API for SecretDiscoveryService service.
 type SecretDiscoveryServiceServer interface {
 	StreamSecrets(SecretDiscoveryService_StreamSecretsServer) error
 	FetchSecrets(context.Context, *v2.DiscoveryRequest) (*v2.DiscoveryResponse, error)
@@ -239,6 +241,9 @@ func encodeVarintSds(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *SdsDummy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {

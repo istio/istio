@@ -64,7 +64,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // This enables building complex application scenarios with a generic backend.
 type RateLimitDescriptor struct {
 	// Descriptor entries.
-	Entries              []*RateLimitDescriptor_Entry `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty"`
+	Entries              []*RateLimitDescriptor_Entry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
 	XXX_sizecache        int32                        `json:"-"`
@@ -247,6 +247,9 @@ func encodeVarintRatelimit(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *RateLimitDescriptor) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Entries) > 0 {
@@ -262,6 +265,9 @@ func (m *RateLimitDescriptor) Size() (n int) {
 }
 
 func (m *RateLimitDescriptor_Entry) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Key)

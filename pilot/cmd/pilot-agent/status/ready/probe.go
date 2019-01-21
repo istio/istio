@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 )
@@ -71,7 +71,9 @@ func (p *Probe) checkUpdated() error {
 		return err
 	}
 
-	if s.CDSUpdates > 0 && s.LDSUpdates > 0 {
+	CDSUpdated := s.CDSUpdatesSuccess > 0 || s.CDSUpdatesRejection > 0
+	LDSUpdated := s.LDSUpdatesSuccess > 0 || s.LDSUpdatesRejection > 0
+	if CDSUpdated && LDSUpdated {
 		return nil
 	}
 

@@ -1,13 +1,11 @@
 {{- if .Values.ingress.enabled -}}
-{{- $serviceName := "zipkin" -}}
-{{- $servicePort := .Values.service.externalPort -}}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{ template "tracing.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: jaeger
+    app: {{ .Values.provider }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -17,16 +15,26 @@ metadata:
     {{- end }}
 spec:
   rules:
+{{- if .Values.ingress.hosts }}
     {{- range $host := .Values.ingress.hosts }}
     - host: {{ $host }}
       http:
         paths:
-          - path: /
+          - path: {{ if $.Values.contextPath }} {{ $.Values.contextPath }} {{ else }} /{{ $.Values.provider }} {{ end }}
             backend:
-              serviceName: {{ $serviceName }}
-              servicePort: {{ $servicePort }}
+              serviceName: tracing
+              servicePort: 80
+
     {{- end -}}
-  {{- if .Values.ingress.tls }}
+{{- else }}
+    - http:
+        paths:
+          - path: {{ if .Values.contextPath }} {{ .Values.contextPath }} {{ else }} /{{ .Values.provider }} {{ end }}
+            backend:
+              serviceName: tracing
+              servicePort: 80
+{{- end }}
+   {{- if .Values.ingress.tls }}
   tls:
 {{ toYaml .Values.ingress.tls | indent 4 }}
   {{- end -}}

@@ -295,7 +295,7 @@ func TestReport(t *testing.T) {
 	}
 }
 
-func startGRPCService(attrSrv *AttributesServer) (*grpc.Server, string, error) {
+func startGRPCService(attrSrv mixerpb.MixerServer) (*grpc.Server, string, error) {
 	lis, port, err := ListenerAndPort()
 	if err != nil {
 		return nil, "", fmt.Errorf("could not find suitable listener: %v", err)

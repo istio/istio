@@ -14,12 +14,10 @@
 
 package resource
 
-import "testing"
-
-func TestEvent_String(t *testing.T) {
-	// Ensure that it doesn't crash
-	_ = Event{}.String()
-}
+import (
+	"strings"
+	"testing"
+)
 
 func TestEventKind_String(t *testing.T) {
 	tests := map[EventKind]string{
@@ -32,11 +30,48 @@ func TestEventKind_String(t *testing.T) {
 	}
 
 	for i, e := range tests {
-		t.Run(e, (func(t *testing.T) {
+		t.Run(e, func(t *testing.T) {
 			a := i.String()
 			if a != e {
 				t.Fatalf("Mismatch: Actual=%v, Expected=%v", a, e)
 			}
-		}))
+		})
+	}
+}
+
+func TestEvent_String(t *testing.T) {
+	tests := []struct {
+		i   Event
+		exp string
+	}{
+		{
+			i:   Event{},
+			exp: "[Event](None)",
+		},
+		{
+			i:   Event{Kind: Added, Entry: Entry{ID: VersionedKey{Version: "foo", Key: Key{FullName: FullName{"fn"}}}}},
+			exp: "[Event](Added: [VKey](:fn @foo))",
+		},
+		{
+			i:   Event{Kind: Updated, Entry: Entry{ID: VersionedKey{Version: "foo", Key: Key{FullName: FullName{"fn"}}}}},
+			exp: "[Event](Updated: [VKey](:fn @foo))",
+		},
+		{
+			i:   Event{Kind: Deleted, Entry: Entry{ID: VersionedKey{Version: "foo", Key: Key{FullName: FullName{"fn"}}}}},
+			exp: "[Event](Deleted: [VKey](:fn @foo))",
+		},
+		{
+			i:   Event{Kind: FullSync},
+			exp: "[Event](FullSync)",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			actual := tc.i.String()
+			if strings.TrimSpace(actual) != strings.TrimSpace(tc.exp) {
+				t.Fatalf("Mismatch. got:%v, expected:%v", actual, tc.exp)
+			}
+		})
 	}
 }

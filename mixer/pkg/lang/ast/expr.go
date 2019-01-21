@@ -369,7 +369,7 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 
 	case *ast.IndexExpr:
 		// accessing a map
-		// request.header["abc"]
+		// request.headers["abc"]
 		tgt.Fn = &Function{Name: tMap[token.LBRACK]}
 		if err = processFunc(tgt.Fn, []ast.Expr{v.X, v.Index}); err != nil {
 			return

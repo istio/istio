@@ -28,11 +28,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -55,6 +57,8 @@ type Service struct {
 	// Address specifies the service IPv4 address of the load balancer
 	Address string `json:"address,omitempty"`
 
+	// Protect concurrent ClusterVIPs read/write
+	Mutex sync.RWMutex
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
 	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
@@ -105,6 +109,10 @@ const (
 
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
+
+	// AZLabel indicates the region/zone of an instance. It is used if the native
+	// registry doesn't provide one.
+	AZLabel = "istio-az"
 )
 
 // Port represents a network port where a service is listening for
@@ -133,6 +141,8 @@ type Protocol string
 const (
 	// ProtocolGRPC declares that the port carries gRPC traffic
 	ProtocolGRPC Protocol = "GRPC"
+	// ProtocolGRPCWeb declares that the port carries gRPC traffic
+	ProtocolGRPCWeb Protocol = "GRPC-Web"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
@@ -199,6 +209,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolUDP
 	case "grpc":
 		return ProtocolGRPC
+	case "grpc-web":
+		return ProtocolGRPCWeb
 	case "http":
 		return ProtocolHTTP
 	case "http2":
@@ -219,7 +231,7 @@ func ParseProtocol(s string) Protocol {
 // IsHTTP2 is true for protocols that use HTTP/2 as transport protocol
 func (p Protocol) IsHTTP2() bool {
 	switch p {
-	case ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolHTTP2, ProtocolGRPC, ProtocolGRPCWeb:
 		return true
 	default:
 		return false
@@ -229,7 +241,7 @@ func (p Protocol) IsHTTP2() bool {
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
 	switch p {
-	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolHTTP, ProtocolHTTP2, ProtocolGRPC, ProtocolGRPCWeb:
 		return true
 	default:
 		return false
@@ -298,6 +310,12 @@ type NetworkEndpoint struct {
 
 	// The network where this endpoint is present
 	Network string
+
+	// The locality where the endpoint is present. / separated string
+	Locality string
+
+	// The load balancing weight associated with this endpoint.
+	LbWeight uint32
 }
 
 // Labels is a non empty set of arbitrary strings. Each version of a service can
@@ -340,28 +358,20 @@ type ProbeList []*Probe
 //      --> NetworkEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 //      --> NetworkEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
 type ServiceInstance struct {
-	Endpoint         NetworkEndpoint `json:"endpoint,omitempty"`
-	Service          *Service        `json:"service,omitempty"`
-	Labels           Labels          `json:"labels,omitempty"`
-	AvailabilityZone string          `json:"az,omitempty"`
-	ServiceAccount   string          `json:"serviceaccount,omitempty"`
+	Endpoint       NetworkEndpoint `json:"endpoint,omitempty"`
+	Service        *Service        `json:"service,omitempty"`
+	Labels         Labels          `json:"labels,omitempty"`
+	ServiceAccount string          `json:"serviceaccount,omitempty"`
 }
 
-const (
-	// AZLabel indicates the region/zone of an instance. It is used if the native
-	// registry doesn't provide one.
-	AZLabel = "istio-az"
-)
-
-// GetAZ returns the availability zone from an instance.
+// GetLocality returns the availability zone from an instance.
 // - k8s: region/zone, extracted from node's failure-domain.beta.kubernetes.io/{region,zone}
 // - consul: defaults to 'instance.Datacenter'
 //
-// This is used by EDS to group the endpoints by AZ and by .
-// TODO: remove me?
-func (si *ServiceInstance) GetAZ() string {
-	if si.AvailabilityZone != "" {
-		return si.AvailabilityZone
+// This is used by CDS/EDS to group the endpoints by locality.
+func (si *ServiceInstance) GetLocality() string {
+	if si.Endpoint.Locality != "" {
+		return si.Endpoint.Locality
 	}
 	return si.Labels[AZLabel]
 }
@@ -369,7 +379,7 @@ func (si *ServiceInstance) GetAZ() string {
 // IstioEndpoint has the information about a single address+port for a specific
 // service and shard.
 //
-// This will eventually replace NetworkEndpoint and ServiceInstance:
+// TODO: Replace NetworkEndpoint and ServiceInstance with Istio endpoints
 // - ServicePortName replaces ServicePort, since port number and protocol may not
 // be available when endpoint callbacks are made.
 // - It no longer splits into one ServiceInstance and one NetworkEndpoint - both
@@ -413,6 +423,12 @@ type IstioEndpoint struct {
 
 	// Network holds the network where this endpoint is present
 	Network string
+
+	// The locality where the endpoint is present. / separated string
+	Locality string
+
+	// The load balancing weight associated with this endpoint.
+	LbWeight uint32
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -423,6 +439,9 @@ type ServiceAttributes struct {
 	Namespace string
 	// UID is "destination.service.uid" attribute
 	UID string
+	// ConfigScope defines the visibility of Service in
+	// a namespace when the namespace is imported.
+	ConfigScope networking.ConfigScope
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -813,6 +832,14 @@ func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname Host
 	return fmt.Sprintf("%s|%d|%s|%s", direction, port, subsetName, hostname)
 }
 
+// BuildDNSSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
+// The proxy queries Pilot with this key to obtain the list of instances in a subset.
+// This is used only for the SNI-DNAT router. Do not use for other purposes.
+// The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
+func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname Hostname, port int) string {
+	return fmt.Sprintf("%s_.%d_.%s_.%s", direction, port, subsetName, hostname)
+}
+
 // IsValidSubsetKey checks if a string is valid for subset key parsing.
 func IsValidSubsetKey(s string) bool {
 	return strings.Count(s, "|") == 3
@@ -820,13 +847,31 @@ func IsValidSubsetKey(s string) bool {
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname Hostname, port int) {
-	parts := strings.Split(s, "|")
+	var parts []string
+	dnsSrvMode := false
+	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
+	// Since we dont want every callsite to implement the logic to differentiate between the two forms
+	// we add an alternate parser here.
+	if strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionOutbound)) ||
+		strings.HasPrefix(s, fmt.Sprintf("%s_", TrafficDirectionInbound)) {
+		parts = strings.SplitN(s, ".", 4)
+		dnsSrvMode = true
+	} else {
+		parts = strings.Split(s, "|")
+	}
+
 	if len(parts) < 4 {
 		return
 	}
-	direction = TrafficDirection(parts[0])
-	port, _ = strconv.Atoi(parts[1])
+
+	direction = TrafficDirection(strings.TrimSuffix(parts[0], "_"))
+	port, _ = strconv.Atoi(strings.TrimSuffix(parts[1], "_"))
 	subsetName = parts[2]
+
+	if dnsSrvMode {
+		subsetName = strings.TrimSuffix(parts[2], "_")
+	}
+
 	hostname = Hostname(parts[3])
 	return
 }
@@ -872,7 +917,9 @@ func ParseLabelsString(s string) Labels {
 }
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
-func (s Service) GetServiceAddressForProxy(node *Proxy) string {
+func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
+	s.Mutex.RLock()
+	defer s.Mutex.RUnlock()
 	if node.ClusterID != "" && s.ClusterVIPs[node.ClusterID] != "" {
 		return s.ClusterVIPs[node.ClusterID]
 	}

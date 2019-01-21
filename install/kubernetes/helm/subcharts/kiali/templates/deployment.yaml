@@ -10,6 +10,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: kiali
   template:
     metadata:
       name: kiali
@@ -18,7 +21,6 @@ spec:
         chart: {{ template "kiali.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -53,6 +55,10 @@ spec:
               key: {{ .Values.dashboard.passphraseKey }}
         - name: PROMETHEUS_SERVICE_URL
           value: {{ .Values.prometheusAddr }}
+{{- if .Values.contextPath }}
+        - name: SERVER_WEB_ROOT
+          value: {{ .Values.contextPath }}
+{{- end }}
         volumeMounts:
         - name: kiali-configuration
           mountPath: "/kiali-configuration"
@@ -66,3 +72,5 @@ spec:
       - name: kiali-configuration
         configMap:
           name: kiali
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
