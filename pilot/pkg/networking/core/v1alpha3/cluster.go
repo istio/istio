@@ -94,6 +94,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 				// For locality loadbalancing
 				for i, cluster := range clusters {
 					if cluster.LoadAssignment != nil {
+						// TODO: cache per locality
+						// Currently make a shallow copy of cluster which is fast
 						clone := util.CloneCluster(cluster)
 						ApplyLocalityLBSetting(proxy, cluster, push)
 						clusters[i] = clone
@@ -826,6 +828,10 @@ func applyLocalityWeight(
 		return
 	}
 
+	// Support Locality weighted load balancing by providing weights
+	// in LocalityLbEndpoints via load_balancing_weight.
+	// By setting weights across different localities, it can allow
+	// Envoy to weight assignments across different zones and geographical locations.
 	for _, localityWeightSetting := range distribute {
 		if localityWeightSetting != nil &&
 			util.LocalityMatch(&proxy.Locality, localityWeightSetting.From) {
