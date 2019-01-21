@@ -867,7 +867,7 @@ func applyLocalityWeight(
 
 func applyLocalityFailover(
 	proxy *model.Proxy,
-	loadAssignment *v2.ClusterLoadAssignment,
+	loadAssignment *apiv2.ClusterLoadAssignment,
 	failover []*meshconfig.LocalityLoadBalancerSetting_Failover) {
 	priorityMap := map[int][]int{}
 
