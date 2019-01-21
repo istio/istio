@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package dynamic
 
 import (
 	"errors"
@@ -21,18 +21,19 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+
+	"istio.io/istio/galley/pkg/meshconfig"
+	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
+	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/testing/mock"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic/fake"
 	dtesting "k8s.io/client-go/testing"
-
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/converter"
-	"istio.io/istio/galley/pkg/meshconfig"
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
-	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/galley/pkg/testing/mock"
 )
 
 var emptyInfo resource.Info
@@ -40,12 +41,12 @@ var emptyInfo resource.Info
 func init() {
 	b := resource.NewSchemaBuilder()
 	b.Register("empty", "type.googleapis.com/google.protobuf.Empty")
-	schema := b.Build()
-	emptyInfo, _ = schema.Lookup("empty")
+	s := b.Build()
+	emptyInfo, _ = s.Lookup("empty")
 }
 
-func schemaWithSpecs(specs []kube.ResourceSpec) *kube.Schema {
-	sb := kube.NewSchemaBuilder()
+func schemaWithSpecs(specs []schema.ResourceSpec) *schema.Instance {
+	sb := schema.NewBuilder()
 	for _, s := range specs {
 		sb.Add(s)
 	}
@@ -62,7 +63,7 @@ func TestNewSource(t *testing.T) {
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	p, err := New(k, 0, kube_meta.Types, &cfg)
+	p, err := New(k, 0, kubeMeta.Types, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error found: %v", err)
 	}
@@ -79,7 +80,7 @@ func TestNewSource_Error(t *testing.T) {
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	_, err := New(k, 0, kube_meta.Types, &cfg)
+	_, err := New(k, 0, kubeMeta.Types, &cfg)
 	if err == nil || err.Error() != "newDynamicClient error" {
 		t.Fatalf("Expected error not found: %v", err)
 	}
@@ -112,7 +113,7 @@ func TestSource_BasicEvents(t *testing.T) {
 		return true, w, nil
 	})
 
-	schema := schemaWithSpecs([]kube.ResourceSpec{
+	specs := schemaWithSpecs([]schema.ResourceSpec{
 		{
 			Kind:      "List",
 			Singular:  "List",
@@ -125,7 +126,7 @@ func TestSource_BasicEvents(t *testing.T) {
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	s, err := New(k, 0, schema, &cfg)
+	s, err := New(k, 0, specs, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -187,7 +188,7 @@ func TestSource_BasicEvents_NoConversion(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	schema := schemaWithSpecs([]kube.ResourceSpec{
+	specs := schemaWithSpecs([]schema.ResourceSpec{
 		{
 			Kind:      "List",
 			Singular:  "List",
@@ -200,7 +201,7 @@ func TestSource_BasicEvents_NoConversion(t *testing.T) {
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	s, err := New(k, 0, schema, &cfg)
+	s, err := New(k, 0, specs, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -250,7 +251,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	schema := schemaWithSpecs([]kube.ResourceSpec{
+	specs := schemaWithSpecs([]schema.ResourceSpec{
 		{
 			Kind:     "foo",
 			Singular: "foo",
@@ -265,7 +266,7 @@ func TestSource_ProtoConversionError(t *testing.T) {
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	s, err := New(k, 0, schema, &cfg)
+	s, err := New(k, 0, specs, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -316,7 +317,7 @@ func TestSource_MangledNames(t *testing.T) {
 		return true, mock.NewWatch(), nil
 	})
 
-	schema := schemaWithSpecs([]kube.ResourceSpec{
+	specs := schemaWithSpecs([]schema.ResourceSpec{
 		{
 			Kind:     "foo",
 			Singular: "foo",
@@ -336,7 +337,7 @@ func TestSource_MangledNames(t *testing.T) {
 	cfg := converter.Config{
 		Mesh: meshconfig.NewInMemory(),
 	}
-	s, err := New(k, 0, schema, &cfg)
+	s, err := New(k, 0, specs, &cfg)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

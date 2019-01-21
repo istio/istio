@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package dynamic
 
 import (
 	"fmt"
@@ -20,16 +20,19 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/source/kube/client"
+	"istio.io/istio/galley/pkg/source/kube/log"
+	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/source/kube/stats"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
-
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
 // processorFn is a callback function that will receive change events back from listener.
@@ -41,7 +44,7 @@ type listener struct {
 	// Lock for changing the running state of the listener
 	stateLock sync.Mutex
 
-	spec kube.ResourceSpec
+	spec schema.ResourceSpec
 
 	resyncPeriod time.Duration
 
@@ -60,19 +63,19 @@ type listener struct {
 
 // newListener returns a new instance of an listener.
 func newListener(
-	kubeInterface kube.Interfaces, resyncPeriod time.Duration, spec kube.ResourceSpec, processor processorFn) (*listener, error) {
+	kubeInterface client.Interfaces, resyncPeriod time.Duration, spec schema.ResourceSpec, processor processorFn) (*listener, error) {
 
-	if scope.DebugEnabled() {
-		scope.Debugf("Creating a new resource listener for: name='%s', gv:'%v'", spec.Singular, spec.GroupVersion())
+	if log.Scope.DebugEnabled() {
+		log.Scope.Debugf("Creating a new resource listener for: name='%s', gv:'%v'", spec.Singular, spec.GroupVersion())
 	}
 
-	client, err := kubeInterface.DynamicInterface()
+	c, err := kubeInterface.DynamicInterface()
 	if err != nil {
-		scope.Debugf("Error creating dynamic interface: %s: %v", spec.CanonicalResourceName(), err)
+		log.Scope.Debugf("Error creating dynamic interface: %s: %v", spec.CanonicalResourceName(), err)
 		return nil, err
 	}
 
-	resourceClient := client.Resource(spec.GroupVersion().WithResource(spec.Plural))
+	resourceClient := c.Resource(spec.GroupVersion().WithResource(spec.Plural))
 
 	return &listener{
 		spec:           spec,
@@ -88,11 +91,11 @@ func (l *listener) start() {
 	defer l.stateLock.Unlock()
 
 	if l.stopCh != nil {
-		scope.Errorf("already synchronizing resources: name='%s', gv='%v'", l.spec.Singular, l.spec.GroupVersion())
+		log.Scope.Errorf("already synchronizing resources: name='%s', gv='%v'", l.spec.Singular, l.spec.GroupVersion())
 		return
 	}
 
-	scope.Debugf("Starting listener for %s(%v)", l.spec.Singular, l.spec.GroupVersion())
+	log.Scope.Debugf("Starting listener for %s(%v)", l.spec.Singular, l.spec.GroupVersion())
 
 	l.stopCh = make(chan struct{})
 
@@ -140,7 +143,7 @@ func (l *listener) stop() {
 	defer l.stateLock.Unlock()
 
 	if l.stopCh == nil {
-		scope.Errorf("already stopped")
+		log.Scope.Errorf("already stopped")
 		return
 	}
 
@@ -154,17 +157,17 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 		var tombstone cache.DeletedFinalStateUnknown
 		if tombstone, ok = obj.(cache.DeletedFinalStateUnknown); !ok {
 			msg := fmt.Sprintf("error decoding object, invalid type: %v", reflect.TypeOf(obj))
-			scope.Error(msg)
-			recordHandleEventError(msg)
+			log.Scope.Error(msg)
+			stats.RecordHandleEventError(msg)
 			return
 		}
 		if object, ok = tombstone.Obj.(metav1.Object); !ok {
 			msg := fmt.Sprintf("error decoding object tombstone, invalid type: %v", reflect.TypeOf(tombstone.Obj))
-			scope.Error(msg)
-			recordHandleEventError(msg)
+			log.Scope.Error(msg)
+			stats.RecordHandleEventError(msg)
 			return
 		}
-		scope.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		log.Scope.Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
 
 	key := resource.FullNameFromNamespaceAndName(object.GetNamespace(), object.GetName())
@@ -177,16 +180,16 @@ func (l *listener) handleEvent(c resource.EventKind, obj interface{}) {
 		// https://github.com/kubernetes/kubernetes/pull/63972
 		// k8s machinery does not always preserve TypeMeta in list operations. Restore it
 		// using aprior knowledge of the GVK for this listener.
-		u.SetGroupVersionKind(schema.GroupVersionKind{
+		u.SetGroupVersionKind(runtimeSchema.GroupVersionKind{
 			Group:   l.spec.Group,
 			Version: l.spec.Version,
 			Kind:    l.spec.Kind,
 		})
 	}
 
-	if scope.DebugEnabled() {
-		scope.Debugf("Sending event: [%v] from: %s", c, l.spec.CanonicalResourceName())
+	if log.Scope.DebugEnabled() {
+		log.Scope.Debugf("Sending event: [%v] from: %s", c, l.spec.CanonicalResourceName())
 	}
 	l.processor(l, c, key, object.GetResourceVersion(), u)
-	recordHandleEventSuccess()
+	stats.RecordHandleEventSuccess()
 }

@@ -69,7 +69,7 @@ func (c *client) waitForSnapshot(collection string, snapshot []map[string]interf
 		}
 		err = result.generateError()
 		return nil, err == nil, err
-	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*20))
+	}, retry.Delay(time.Millisecond), retry.Timeout(time.Second*30))
 
 	return err
 }

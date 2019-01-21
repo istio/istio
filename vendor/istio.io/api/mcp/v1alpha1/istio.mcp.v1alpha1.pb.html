@@ -488,6 +488,16 @@ related to the failure.</p>
 
 </td>
 </tr>
+<tr id="RequestResources-incremental">
+<td><code>incremental</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Request an incremental update for the specified collection. The source may choose to
+honor this request or ignore and and provide a full-state update in the corresponding
+<code>Resource</code> response.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -573,6 +583,12 @@ k8s/<apiVersion>/<kind></p>
 These are typed resources that match the type url in the
 RequestResources message.</p>
 
+<p>When <code>incremental</code> is true, this contains an array of resources to add/update
+for the specified collection. This modifies the existing collection at the sink</p>
+
+<p>When <code>incremental</code> is false, this contains the full set of resources for the
+specified collection. This replaces any previously delivered resources.</p>
+
 </td>
 </tr>
 <tr id="Resources-removed_resources">
@@ -583,6 +599,12 @@ RequestResources message.</p>
 removed from the MCP sink node. Removed resources for missing
 resources can be ignored.</p>
 
+<p>When <code>incremental</code> is true, this contains an array of resource names to remove
+for the specified collection. This modifies the existing resource collection at
+the sink.</p>
+
+<p>When <code>incremental</code> is false, this field should be ignored.</p>
+
 </td>
 </tr>
 <tr id="Resources-nonce">
@@ -591,6 +613,15 @@ resources can be ignored.</p>
 <td>
 <p>Required. The nonce provides a way for RequestChange to uniquely
 reference a RequestResources.</p>
+
+</td>
+</tr>
+<tr id="Resources-incremental">
+<td><code>incremental</code></td>
+<td><code>bool</code></td>
+<td>
+<p>This resource response is an incremental update. The source should only send
+incremental updates if the sink requested them.</p>
 
 </td>
 </tr>

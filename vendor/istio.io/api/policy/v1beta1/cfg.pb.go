@@ -346,12 +346,17 @@ func (m *Rule) GetSampling() *Sampling {
 // that may reference action outputs by name. For example, if an action `x` produces an output
 // with a field `f`, then the header value expressions may use attribute `x.output.f` to reference
 // the field value:
+//
 // ```yaml
 // request_header_operations:
 // - name: x-istio-header
 //   values:
 //   - x.output.f
 // ```
+//
+// If the header value expression evaluates to an empty string, and the operation is to either replace
+// or append a header, then the operation is not applied. This permits conditional behavior on behalf of the
+// adapter to optionally modify the headers.
 type Rule_HeaderOperationTemplate struct {
 	// Required. Header name literal value.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
