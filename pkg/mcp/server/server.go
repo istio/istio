@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -22,12 +23,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"istio.io/istio/pkg/mcp/debug"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
@@ -82,109 +83,6 @@ type AuthChecker interface {
 	Check(authInfo credentials.AuthInfo) error
 }
 
-type newPushResponseState int
-
-const (
-	newPushResponseStateReady newPushResponseState = iota
-	newPushResponseStateClosed
-)
-
-// watch maintains local push state of the most recent watch per-type.
-type watch struct {
-	// only accessed from connection goroutine
-	cancel          func()
-	nonce           string // most recent nonce
-	nonceVersionMap map[string]string
-
-	// NOTE: do not hold `mu` when reading/writing to this channel.
-	newPushResponseReadyChan chan newPushResponseState
-
-	mu                      sync.Mutex
-	newPushResponse         *source.WatchResponse
-	mostRecentNackedVersion string
-	timer                   *time.Timer
-	closed                  bool
-}
-
-func (w *watch) delayedPush() {
-	w.mu.Lock()
-	w.timer = nil
-	w.mu.Unlock()
-
-	select {
-	case w.newPushResponseReadyChan <- newPushResponseStateReady:
-	default:
-		time.AfterFunc(retryPushDelay, w.schedulePush)
-	}
-}
-
-// Try to schedule pushing a response to the node. The push may
-// be re-scheduled as needed. Additional care is taken to rate limit
-// re-pushing responses that were previously NACK'd. This avoid flooding
-// the node with responses while also allowing transient NACK'd responses
-// to be retried.
-func (w *watch) schedulePush() {
-	w.mu.Lock()
-
-	// close the watch
-	if w.closed {
-		// unlock before channel write
-		w.mu.Unlock()
-		select {
-		case w.newPushResponseReadyChan <- newPushResponseStateClosed:
-		default:
-			time.AfterFunc(retryPushDelay, w.schedulePush)
-		}
-		return
-	}
-
-	// no-op if the response has already be sent
-	if w.newPushResponse == nil {
-		w.mu.Unlock()
-		return
-	}
-
-	// delay re-sending a previously nack'd response
-	if w.newPushResponse.Version == w.mostRecentNackedVersion {
-		if w.timer == nil {
-			w.timer = time.AfterFunc(nackLimitFreq, w.delayedPush)
-		}
-		w.mu.Unlock()
-		return
-	}
-
-	// Otherwise, try to schedule the response to be sent.
-	if w.timer != nil {
-		if !w.timer.Stop() {
-			<-w.timer.C
-		}
-		w.timer = nil
-	}
-	// unlock before channel write
-	w.mu.Unlock()
-	select {
-	case w.newPushResponseReadyChan <- newPushResponseStateReady:
-	default:
-		time.AfterFunc(retryPushDelay, w.schedulePush)
-	}
-
-}
-
-// Save the pushed response in the newPushResponse and schedule a push. The push
-// may be re-schedule as necessary but this should be transparent to the
-// caller. The caller may provide a nil response to indicate that the watch
-// should be closed.
-func (w *watch) saveResponseAndSchedulePush(response *source.WatchResponse) {
-	w.mu.Lock()
-	w.newPushResponse = response
-	if response == nil {
-		w.closed = true
-	}
-	w.mu.Unlock()
-
-	w.schedulePush()
-}
-
 // connection maintains per-stream connection state for a
 // node. Access to the stream and watch state is serialized
 // through request and response channels.
@@ -193,16 +91,30 @@ type connection struct {
 	stream   mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer
 	id       int64
 
+	context context.Context
+	cancel  context.CancelFunc
+
+	sendLimiter    *rate.Limiter
+	receiveLimiter *rate.Limiter
+
+	// Tracks the current active requests that are in-flight. Used for bandwidth limiting of receive
+	// requests.
+	activeRequests *semaphore.Weighted
+
+	closed bool
+	responseC      chan *mcp.MeshConfigResponse
+
 	// unique nonce generator for req-resp pairs per xDS stream; the server
 	// ignores stale nonces. nonce is only modified within send() function.
 	streamNonce int64
 
-	requestC chan *mcp.MeshConfigRequest // a channel for receiving incoming requests
-	reqError error                       // holds error if request channel is closed
-	watches  map[string]*watch           // per-type watches
-	watcher  source.Watcher
+	err error
+
+	tracker *watchTracker
 
 	reporter monitoring.Reporter
+
+	mu sync.Mutex
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
@@ -237,25 +149,29 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		return nil, status.Errorf(codes.Unauthenticated, "Authentication failure: %v", err)
 	}
 
+	var types []string
+	for _, collection := range s.collections {
+		types = append(types, collection.Name)
+	}
+
+	ctx, cancel := context.WithCancel(stream.Context())
 	con := &connection{
 		stream:   stream,
 		peerAddr: peerAddr,
-		requestC: make(chan *mcp.MeshConfigRequest),
-		watches:  make(map[string]*watch),
-		watcher:  s.watcher,
-		id:       atomic.AddInt64(&s.nextStreamID, 1),
-		reporter: s.reporter,
+		//requestC:    make(chan *mcp.MeshConfigRequest),
+		context:        ctx,
+		cancel:         cancel,
+		activeRequests: semaphore.NewWeighted(int64(len(s.collections)+2)), // TODO: Magic number
+		responseC:      make(chan *mcp.MeshConfigResponse),
+		sendLimiter:    rate.NewLimiter(rate.Every(time.Millisecond), 10), // TODO: Magic values
+		receiveLimiter: rate.NewLimiter(rate.Every(time.Millisecond * 2), 10), // TODO: Magic values
+
+		tracker: newWatchTracker(s.watcher, types),
+
+		id:             atomic.AddInt64(&s.nextStreamID, 1),
+		reporter:       s.reporter,
 	}
 
-	var types []string
-	for _, collection := range s.collections {
-		w := &watch{
-			newPushResponseReadyChan: make(chan newPushResponseState, 1),
-			nonceVersionMap:          make(map[string]string),
-		}
-		con.watches[collection.Name] = w
-		types = append(types, collection.Name)
-	}
 
 	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, 1))
 
@@ -276,86 +192,11 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	}
 
 	defer s.closeConnection(con)
-	debug.Go("con.receive", con.receive)
+	goWithDebug("con.sendPump", con.sendPump)
+	goWithDebug("con.receivePump", con.receivePump)
 
-	// done channel is used to ensure all allocated go-routines to exit.
-	done := make(chan struct{})
-
-	// fan-in per-type response channels into single response channel for the select loop below.
-	responseChan := make(chan *watch, 1)
-	for _, w := range con.watches {
-		debug.Go("fan-in-watch", func() {
-			func(w *watch) {
-			loop:
-				for {
-					select {
-					case state := <-w.newPushResponseReadyChan:
-						if state == newPushResponseStateClosed {
-							break loop
-						}
-						select {
-						case responseChan <- w:
-						case <-done:
-							break loop
-						}
-					case <-done:
-						break loop
-					}
-				}
-
-				// Any closed watch can close the overall connection. Use
-				// `nil` value to indicate a closed state to the run loop
-				// below instead of closing the channel to avoid closing
-				// the channel multiple times.
-				select {
-				case responseChan <- nil:
-				case <-done:
-				}
-
-			}(w)
-		})
-	}
-	//// ensure all the fan-in channels are closed on exit
-	//defer func() {
-	//	for _, w := range con.watches {
-	//		w.saveResponseAndSchedulePush(nil)
-	//	}
-	//}()
-
-	defer close(done)
-
-	for {
-		select {
-		case w, more := <-responseChan:
-			if !more || w == nil {
-				return status.Error(codes.Unavailable, "server canceled watch")
-			}
-
-			w.mu.Lock()
-			resp := w.newPushResponse
-			w.newPushResponse = nil
-			w.mu.Unlock()
-
-			// newPushResponse may have been cleared before we got to it
-			if resp == nil {
-				break
-			}
-			if err := con.pushServerResponse(w, resp); err != nil {
-				return err
-			}
-		case req, more := <-con.requestC:
-			if !more {
-				return con.reqError
-			}
-			if err := con.processClientRequest(req); err != nil {
-				return err
-			}
-		case <-stream.Context().Done():
-			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
-			return stream.Context().Err()
-		}
-	}
-
+	<-con.context.Done()
+	return con.err
 }
 
 func (s *Server) closeConnection(con *connection) {
@@ -363,12 +204,123 @@ func (s *Server) closeConnection(con *connection) {
 	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, -1))
 }
 
+func (con *connection) receivePump() {
+	for {
+		if err := con.receiveLimiter.Wait(con.context); err != nil {
+			scope.Debugf("MCP: connection %v: error in receive limiter: %v", con, err)
+			return
+		}
+
+		if err := con.activeRequests.Acquire(con.context, 1); err != nil {
+			scope.Debugf("MCP: connection %v: error in activeRequests.Acquire: %v", con, err)
+			return
+		}
+
+		request, err := con.stream.Recv()
+		if err != nil {
+			code := status.Code(err)
+			if code == codes.Canceled || err == io.EOF { // TODO: is handling canceled, the right thing?
+				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
+				con.markClosed()
+				return
+			}
+			con.reporter.RecordRecvError(err, code)
+			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
+			con.markAsError(err)
+			return
+		}
+
+		processed, err := con.process(request)
+		if err != nil {
+			con.markAsError(err)
+			return
+		}
+
+		if !processed {
+			con.activeRequests.Release(1)
+		}
+	}
+}
+
+func (con *connection) process(request *mcp.MeshConfigRequest) (bool, error) {
+	collection := request.TypeUrl
+
+	con.reporter.RecordRequestSize(collection, con.id, request.Size())
+
+	w, found := con.tracker.getWatch(collection)
+	if !found {
+		return false, status.Errorf(codes.InvalidArgument, "unsupported collection %q", collection)
+	}
+
+	if !w.registerRequest(request.ResponseNonce, request.ErrorDetail == nil) {
+		// We couldn't mark
+		return false, nil
+	}
+
+	if request.ErrorDetail == nil {
+		con.reporter.RecordRequestAck(collection, con.id)
+		scope.Debugf("MCP: connection %v ACK collection=%q version=%q with nonce=%q",
+			con, collection, request.VersionInfo, request.ResponseNonce)
+
+	} else {
+		con.reporter.RecordRequestNack(collection, con.id, codes.Code(request.ErrorDetail.Code))
+		scope.Warnf("MCP: connection %v: NACK collection=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
+			con, collection, request.VersionInfo, request.ResponseNonce, w.nonce, request.ErrorDetail)
+	}
+
+	w.beginWatch(con.tracker.watcher, request.VersionInfo)
+
+	return nil
+}
+
+func (con *connection) markClosed() {
+	con.mu.Lock()
+	defer con.mu.Unlock()
+	con.closed = true
+}
+
+func (con *connection) markAsError(err error) {
+	con.mu.Lock()
+	defer con.mu.Unlock()
+	con.closed = true
+	con.err = err
+	con.cancel()
+}
+
 // String implements Stringer.String.
 func (con *connection) String() string {
 	return fmt.Sprintf("{addr=%v id=%v}", con.peerAddr, con.id)
 }
 
-func (con *connection) send(resp *source.WatchResponse) (string, error) {
+func (con *connection) sendPump() {
+loop:
+	for {
+		if err := con.sendLimiter.Wait(con.context); err != nil {
+			scope.Errorf("Error waiting in send limiter: %v", err)
+			// If the context is cancelled, then the following select should detect and exit the loop.
+		}
+
+		select {
+		case <-con.context.Done():
+			scope.Debugf("MCP: connection %v: Exiting the send pump (err: %v)", con, con.context.Err())
+			break loop
+
+		case response := <-con.responseC:
+			if err := con.stream.Send(response); err != nil {
+				con.reporter.RecordSendError(err, status.Code(err))
+				scope.Errorf("Error sending response: %v")
+				con.err = err // TODO: not thread safe
+				con.cancel()
+				break loop
+			}
+			scope.Debugf("MCP: connection %v: SEND version=%v nonce=%v",
+				con, response.VersionInfo, response.Nonce)
+			con.activeRequests.Release(1)
+		}
+	}
+}
+
+func (con *connection) prepareResponse(resp *source.WatchResponse) *mcp.MeshConfigResponse {
 	resources := make([]mcp.Resource, 0, len(resp.Resources))
 	for _, resource := range resp.Resources {
 		resources = append(resources, *resource)
@@ -382,43 +334,194 @@ func (con *connection) send(resp *source.WatchResponse) (string, error) {
 	// increment nonce
 	con.streamNonce = con.streamNonce + 1
 	msg.Nonce = strconv.FormatInt(con.streamNonce, 10)
-	if err := con.stream.Send(msg); err != nil {
-		con.reporter.RecordSendError(err, status.Code(err))
-
-		return "", err
-	}
-	scope.Debugf("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
-	return msg.Nonce, nil
+	return msg
 }
 
-func (con *connection) receive() {
-	defer close(con.requestC)
-	for {
-		req, err := con.stream.Recv()
-		if err != nil {
-			code := status.Code(err)
-			if code == codes.Canceled || err == io.EOF {
-				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
-				return
-			}
-			con.reporter.RecordRecvError(err, code)
-			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
-			// Save the stream error prior to closing the stream. The caller
-			// should access the error after the channel closure.
-			con.reqError = err
-			return
-		}
-		select {
-		case con.requestC <- req:
-		case <-con.stream.Context().Done():
-			scope.Debugf("MCP: connection %v: stream done, err=%v", con, con.stream.Context().Err())
-			return
-		}
-	}
-}
+//func (con *connection) send(resp *source.WatchResponse) (string, error) {
+//	resources := make([]mcp.Resource, 0, len(resp.Resources))
+//	for _, resource := range resp.Resources {
+//		resources = append(resources, *resource)
+//	}
+//	msg := &mcp.MeshConfigResponse{
+//		VersionInfo: resp.Version,
+//		Resources:   resources,
+//		TypeUrl:     resp.Collection,
+//	}
+//
+//	// increment nonce
+//	con.streamNonce = con.streamNonce + 1
+//	msg.Nonce = strconv.FormatInt(con.streamNonce, 10)
+//	if err := con.stream.Send(msg); err != nil {
+//		con.reporter.RecordSendError(err, status.Code(err))
+//
+//		return "", err
+//	}
+//	scope.Debugf("MCP: connection %v: SEND version=%v nonce=%v", con, resp.Version, msg.Nonce)
+//	return msg.Nonce, nil
+//}
+//
+//func (con *connection) receivePump() {
+//	for {
+//		if err := con.receiveLimiter.Wait(con.context); err != nil {
+//			scope.Debugf("MCP: connection %v: error in receive limiter: %v", con, err)
+//			return
+//		}
+//
+//		if err := con.activeRequests.Acquire(con.context, 1); err != nil {
+//			scope.Debugf("MCP: connection %v: error in activeRequests.Acquire: %v", con, err)
+//			return
+//		}
+//
+//		request, err := con.stream.Recv()
+//		if err != nil {
+//			code := status.Code(err)
+//			if code == codes.Canceled || err == io.EOF { // TODO: is handling canceled, the right thing?
+//				scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
+//				con.closed = true // TODO: make thread safe
+//				// Do not call cancel. Send pump should finish and terminate.
+//				return
+//			}
+//			con.reporter.RecordRecvError(err, code)
+//			scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
+//			// Save the stream error prior to closing the stream.
+//			con.err = err
+//			con.closed = true // TODO: make thread safe
+//			con.cancel()
+//			return
+//		}
+//
+//		if err := con.process(request); err != nil {
+//			con.err = err
+//			con.cancel()
+//			con.closed = true // TODO: make thread safe
+//			return
+//		}
+//	}
+//
+//	//defer close(con.requestC)
+//	//for {
+//	//	req, err := con.stream.Recv()
+//	//	if err != nil {
+//	//		code := status.Code(err)
+//	//		if code == codes.Canceled || err == io.EOF {
+//	//			scope.Infof("MCP: connection %v: TERMINATED %q", con, err)
+//	//			return
+//	//		}
+//	//		con.reporter.RecordRecvError(err, code)
+//	//		scope.Errorf("MCP: connection %v: TERMINATED with errors: %v", con, err)
+//	//		// Save the stream error prior to closing the stream. The caller
+//	//		// should access the error after the channel closure.
+//	//		con.err = err
+//	//		return
+//	//	}
+//	//	select {
+//	//	case con.requestC <- req:
+//	//	case <-con.stream.Context().Done():
+//	//		scope.Debugf("MCP: connection %v: stream done, err=%v", con, con.stream.Context().Err())
+//	//		return
+//	//	}
+//	//}
+//}
+
+//func (con *connection) process(request *mcp.MeshConfigRequest) error {
+//	collection := request.TypeUrl
+//
+//	con.reporter.RecordRequestSize(collection, con.id, request.Size())
+//
+//	if request.ErrorDetail == nil {
+//		con.reporter.RecordRequestAck(collection, con.id)
+//		scope.Debugf("MCP: connection %v ACK collection=%q version=%q with nonce=%q",
+//			con, collection, request.VersionInfo, request.ResponseNonce)
+//
+//		if err := con.tracker.ack(collection, request.SinkNode, request.ResponseNonce, request.VersionInfo); err != nil {
+//			return err
+//		}
+//	} else {
+//		con.reporter.RecordRequestNack(collection, con.id, codes.Code(request.ErrorDetail.Code))
+//		scope.Warnf("MCP: connection %v: NACK collection=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
+//			con, collection, request.VersionInfo, request.ResponseNonce, w.nonce, request.ErrorDetail)
+//
+//		if err := con.tracker.nack(collection, request.SinkNode, request.ResponseNonce, request.VersionInfo); err != nil {
+//			return err
+//		}
+//	}
+//
+//
+//	//
+//	//// Reset on every request. Only the most recent NACK request (per
+//	//// nonce) is tracked.
+//	//w.mostRecentNackedVersion = ""
+//	//
+//	//// nonces can be reused across streams; we verify nonce only if nonce is not initialized
+//	//if w.nonce == "" || w.nonce == request.ResponseNonce {
+//	//	if w.nonce == "" {
+//	//		scope.Infof("MCP: connection %v: WATCH for %v", con, collection)
+//	//	} else {
+//	//		if request.ErrorDetail != nil {
+//	//			scope.Warnf("MCP: connection %v: NACK collection=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
+//	//				con, collection, request.VersionInfo, request.ResponseNonce, w.nonce, request.ErrorDetail)
+//	//
+//	//			con.reporter.RecordRequestNack(collection, con.id, codes.Code(request.ErrorDetail.Code))
+//	//
+//	//			if version, ok := w.nonceVersionMap[request.ResponseNonce]; ok {
+//	//				w.mu.Lock()
+//	//				w.mostRecentNackedVersion = version
+//	//				w.mu.Unlock()
+//	//			}
+//	//		} else {
+//	//			scope.Debugf("MCP: connection %v ACK collection=%q version=%q with nonce=%q",
+//	//				con, collection, request.VersionInfo, request.ResponseNonce)
+//	//			con.reporter.RecordRequestAck(collection, con.id)
+//	//		}
+//	//	}
+//	//
+//	//	if w.cancel != nil {
+//	//		w.cancel()
+//	//	}
+//	//
+//	//	sr := &source.Request{
+//	//		SinkNode:    request.SinkNode,
+//	//		Collection:  collection,
+//	//		VersionInfo: request.VersionInfo,
+//	//	}
+//	//	w.cancel = con.tracker.watcher.Watch(sr, func(r *source.WatchResponse) {
+//	//		response := con.prepareResponse(r)
+//	//		w.cancel()
+//	//		w.cancel = nil
+//	//		select {
+//	//		case con.responseC <- response:
+//	//		default:
+//	//			con.err = fmt.Errorf("channel full") // TODO: Error
+//	//		}
+//	//		con.pushServerResponse(w, )
+//	//	})
+//
+//	//} else {
+//	//	// This error path should not happen! Skip any requests that don't match the
+//	//	// latest watch's nonce value. These could be dup requests or out-of-order
+//	//	// requests from a buggy node.
+//	//	if request.ErrorDetail != nil {
+//	//		scope.Errorf("MCP: connection %v: STALE NACK collection=%v version=%v with nonce=%q (w.nonce=%q) error=%#v", // nolint: lll
+//	//			con, collection, request.VersionInfo, request.ResponseNonce, w.nonce, request.ErrorDetail)
+//	//		con.reporter.RecordRequestNack(collection, con.id, codes.Code(request.ErrorDetail.Code))
+//	//	} else {
+//	//		scope.Errorf("MCP: connection %v: STALE ACK collection=%v version=%v with nonce=%q (w.nonce=%q)", // nolint: lll
+//	//			con, collection, request.VersionInfo, request.ResponseNonce, w.nonce)
+//	//		con.reporter.RecordRequestAck(collection, con.id)
+//	//	}
+//	//
+//	//	return fmt.Errorf("stale (N)ACK: collection=%v version=%v with nonce=%q (w.nonce=%q)",
+//	//		collection, request.VersionInfo, request.ResponseNonce, w.nonce)
+//	//}
+//	//
+//	//delete(w.nonceVersionMap, request.ResponseNonce)
+//	return nil
+//}
 
 func (con *connection) close() {
 	scope.Infof("MCP: connection %v: CLOSED", con)
+
+	con.cancel()
 
 	for _, w := range con.watches {
 		if w.cancel != nil {
