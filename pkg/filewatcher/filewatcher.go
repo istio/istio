@@ -42,7 +42,8 @@ type fsNotifyWatcher struct {
 	mu sync.RWMutex
 	// The watcher maintain a map of workers,
 	// keyed by watched dir (parent dir of watched files).
-	workers map[string]*worker
+	workers      map[string]*worker
+	forcePolling bool
 }
 
 type worker struct {
@@ -69,7 +70,8 @@ type fileTracker struct {
 // NewWatcher return with a FileWatcher instance that implemented with fsnotify.
 func NewWatcher() FileWatcher {
 	w := &fsNotifyWatcher{
-		workers: map[string]*worker{},
+		workers:      map[string]*worker{},
+		forcePolling: false,
 	}
 
 	return w
@@ -105,9 +107,9 @@ func (w *fsNotifyWatcher) Add(path string) error {
 		// Build a new worker if not exist.
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
-			return err
-		}
-		if err = watcher.Add(parentPath); err != nil {
+			watcher.Close()
+			watcher = nil
+		} else if err = watcher.Add(parentPath); err != nil {
 			watcher.Close()
 			watcher = nil
 		}
@@ -116,53 +118,13 @@ func (w *fsNotifyWatcher) Add(path string) error {
 			watcher:      watcher,
 			watchedFiles: map[string]*fileTracker{},
 		}
-		w.workers[parentPath] = wk
-		if watcher != nil {
-			go func() {
-				for {
-					select {
-					case event, ok := <-watcher.Events:
-						if !ok { // 'Events' channel is closed
-							return
-						}
 
-						for path, tracker := range wk.watchedFiles {
-							newSum, _ := getMd5Sum(path)
-							if newSum != "" && newSum != tracker.md5Sum {
-								tracker.md5Sum = newSum
-								tracker.events <- event
-								break
-							}
-						}
-					case err, ok := <-watcher.Errors:
-						if !ok {
-							// 'Errors' channel is closed. Construct an error for it.
-							// We'll only close worker errors channel in "Remove" for consistency.
-							err = errors.New("channel closed")
-						}
-						for _, tracker := range wk.watchedFiles {
-							tracker.errors <- err
-						}
-						return
-					}
-				}
-			}()
+		w.workers[parentPath] = wk
+		if watcher == nil || w.forcePolling {
+			// fallback to polling
+			go wk.pollEvents()
 		} else {
-			go func() {
-				for {
-					time.Sleep(1 * time.Second)
-					for path, tracker := range wk.watchedFiles {
-						newSum, _ := getMd5Sum(path)
-						if newSum != "" && newSum != tracker.md5Sum {
-							tracker.md5Sum = newSum
-							tracker.events <- fsnotify.Event{
-								Name: path,
-								Op:   fsnotify.Write,
-							}
-						}
-					}
-				}
-			}()
+			go wk.watchEvents()
 		}
 	}
 
@@ -173,6 +135,51 @@ func (w *fsNotifyWatcher) Add(path string) error {
 	}
 
 	return nil
+}
+func (w *worker) watchEvents() {
+	for {
+		select {
+		case event, ok := <-w.watcher.Events:
+			if !ok { // 'Events' channel is closed
+				return
+			}
+
+			for path, tracker := range w.watchedFiles {
+				newSum, _ := getMd5Sum(path)
+				if newSum != "" && newSum != tracker.md5Sum {
+					tracker.md5Sum = newSum
+					tracker.events <- event
+					break
+				}
+			}
+		case err, ok := <-w.watcher.Errors:
+			if !ok {
+				// 'Errors' channel is closed. Construct an error for it.
+				// We'll only close worker errors channel in "Remove" for consistency.
+				err = errors.New("channel closed")
+			}
+			for _, tracker := range w.watchedFiles {
+				tracker.errors <- err
+			}
+			return
+		}
+	}
+}
+
+func (w *worker) pollEvents() {
+	for {
+		time.Sleep(1 * time.Second)
+		for path, tracker := range w.watchedFiles {
+			newSum, _ := getMd5Sum(path)
+			if newSum != "" && newSum != tracker.md5Sum {
+				tracker.md5Sum = newSum
+				tracker.events <- fsnotify.Event{
+					Name: path,
+					Op:   fsnotify.Write,
+				}
+			}
+		}
+	}
 }
 
 // Remove is implementation of Remove interface of FileWatcher.

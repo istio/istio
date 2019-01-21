@@ -81,6 +81,28 @@ func newTwoWatchFile(t *testing.T) (string, string, func()) {
 	return watchFile1, watchFile2, cleanup
 }
 
+// Generate the max number of files the system can watch
+func newMaxWatchFiles(t *testing.T) (string, string, func()) {
+	g := NewGomegaWithT(t)
+
+	watchDir, err := ioutil.TempDir("", "")
+	g.Expect(err).NotTo(HaveOccurred())
+
+	watchFile1 := path.Join(watchDir, "test1.conf")
+	err = ioutil.WriteFile(watchFile1, []byte("foo: bar\n"), 0640)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	watchFile2 := path.Join(watchDir, "test2.conf")
+	err = ioutil.WriteFile(watchFile2, []byte("foo: baz\n"), 0640)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	cleanup := func() {
+		os.RemoveAll(watchDir)
+	}
+
+	return watchFile1, watchFile2, cleanup
+}
+
 // newSymlinkedWatchFile simulates the behavior of k8s configmap/secret.
 // Path structure looks like:
 //      <watchDir>/test.conf
@@ -118,151 +140,157 @@ func newSymlinkedWatchFile(t *testing.T) (string, string, func()) {
 }
 
 func TestWatchFile(t *testing.T) {
-	t.Run("file content changed", func(t *testing.T) {
-		g := NewGomegaWithT(t)
 
-		// Given a file being watched
-		watchFile, cleanup := newWatchFile(t)
-		defer cleanup()
-		_, err := os.Stat(watchFile)
-		g.Expect(err).NotTo(HaveOccurred())
+	watchers := []FileWatcher{
+		NewWatcher(),
+		&fsNotifyWatcher{
+			workers:      map[string]*worker{},
+			forcePolling: true,
+		},
+	}
 
-		w := NewWatcher()
-		w.Add(watchFile)
-		events := w.Events(watchFile)
+	for _, w := range watchers {
+		t.Run("file content changed", func(t *testing.T) {
+			g := NewGomegaWithT(t)
 
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
-			select {
-			case <-events:
-				wg.Done()
+			// Given a file being watched
+			watchFile, cleanup := newWatchFile(t)
+			defer cleanup()
+			_, err := os.Stat(watchFile)
+			g.Expect(err).NotTo(HaveOccurred())
+
+			w.Add(watchFile)
+			events := w.Events(watchFile)
+
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				select {
+				case <-events:
+					wg.Done()
+				}
+			}()
+
+			// Overwriting the file and waiting its event to be received.
+			err = ioutil.WriteFile(watchFile, []byte("foo: baz\n"), 0640)
+			g.Expect(err).NotTo(HaveOccurred())
+			wg.Wait()
+		})
+
+		t.Run("link to real file changed (for k8s configmap/secret path)", func(t *testing.T) {
+			// skip if not executed on Linux
+			if runtime.GOOS != "linux" {
+				t.Skipf("Skipping test as symlink replacements don't work on non-linux environment...")
 			}
-		}()
+			g := NewGomegaWithT(t)
 
-		// Overwriting the file and waiting its event to be received.
-		err = ioutil.WriteFile(watchFile, []byte("foo: baz\n"), 0640)
-		g.Expect(err).NotTo(HaveOccurred())
-		wg.Wait()
-	})
+			watchDir, watchFile, cleanup := newSymlinkedWatchFile(t)
+			defer cleanup()
 
-	t.Run("link to real file changed (for k8s configmap/secret path)", func(t *testing.T) {
-		// skip if not executed on Linux
-		if runtime.GOOS != "linux" {
-			t.Skipf("Skipping test as symlink replacements don't work on non-linux environment...")
-		}
-		g := NewGomegaWithT(t)
+			w.Add(watchFile)
+			events := w.Events(watchFile)
 
-		watchDir, watchFile, cleanup := newSymlinkedWatchFile(t)
-		defer cleanup()
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				select {
+				case <-events:
+					wg.Done()
+				}
+			}()
 
-		w := NewWatcher()
-		w.Add(watchFile)
-		events := w.Events(watchFile)
+			// Link to another `test.conf` file
+			dataDir2 := path.Join(watchDir, "data2")
+			err := os.Mkdir(dataDir2, 0777)
+			g.Expect(err).NotTo(HaveOccurred())
 
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
-			select {
-			case <-events:
-				wg.Done()
-			}
-		}()
+			watchFile2 := path.Join(dataDir2, "test.conf")
+			err = ioutil.WriteFile(watchFile2, []byte("foo: baz\n"), 0640)
+			g.Expect(err).NotTo(HaveOccurred())
 
-		// Link to another `test.conf` file
-		dataDir2 := path.Join(watchDir, "data2")
-		err := os.Mkdir(dataDir2, 0777)
-		g.Expect(err).NotTo(HaveOccurred())
+			// change the symlink using the `ln -sfn` command
+			err = exec.Command("ln", "-sfn", dataDir2, path.Join(watchDir, "data")).Run()
+			g.Expect(err).NotTo(HaveOccurred())
 
-		watchFile2 := path.Join(dataDir2, "test.conf")
-		err = ioutil.WriteFile(watchFile2, []byte("foo: baz\n"), 0640)
-		g.Expect(err).NotTo(HaveOccurred())
+			// Wait its event to be received.
+			wg.Wait()
+		})
 
-		// change the symlink using the `ln -sfn` command
-		err = exec.Command("ln", "-sfn", dataDir2, path.Join(watchDir, "data")).Run()
-		g.Expect(err).NotTo(HaveOccurred())
+		t.Run("file added later", func(t *testing.T) {
+			g := NewGomegaWithT(t)
 
-		// Wait its event to be received.
-		wg.Wait()
-	})
+			// Given a file being watched
+			watchFile, cleanup := newWatchFileThatDoesNotExist(t)
+			defer cleanup()
 
-	t.Run("file added later", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+			w.Add(watchFile)
+			events := w.Events(watchFile)
 
-		// Given a file being watched
-		watchFile, cleanup := newWatchFileThatDoesNotExist(t)
-		defer cleanup()
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			go func() {
+				select {
+				case <-events:
+					wg.Done()
+				}
+			}()
 
-		w := NewWatcher()
-		w.Add(watchFile)
-		events := w.Events(watchFile)
+			// Overwriting the file and waiting its event to be received.
+			err := ioutil.WriteFile(watchFile, []byte("foo: baz\n"), 0640)
+			g.Expect(err).NotTo(HaveOccurred())
+			wg.Wait()
+		})
 
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-		go func() {
-			select {
-			case <-events:
-				wg.Done()
-			}
-		}()
+		t.Run("events lifecycle is correct", func(t *testing.T) {
+			g := NewGomegaWithT(t)
 
-		// Overwriting the file and waiting its event to be received.
-		err := ioutil.WriteFile(watchFile, []byte("foo: baz\n"), 0640)
-		g.Expect(err).NotTo(HaveOccurred())
-		wg.Wait()
-	})
-}
+			watchFile1, watchFile2, cleanup := newTwoWatchFile(t)
+			defer cleanup()
 
-func TestWatcherLifecycle(t *testing.T) {
-	g := NewGomegaWithT(t)
+			// Validate Add behavior
+			err := w.Add(watchFile1)
+			g.Expect(err).NotTo(HaveOccurred())
+			err = w.Add(watchFile2)
+			g.Expect(err).NotTo(HaveOccurred())
+			err = w.Add(watchFile2)
+			g.Expect(err).To(HaveOccurred())
 
-	watchFile1, watchFile2, cleanup := newTwoWatchFile(t)
-	defer cleanup()
+			// Validate events and errors channel are fulfilled.
+			events1 := w.Events(watchFile1)
+			g.Expect(events1).NotTo(BeNil())
+			events2 := w.Events(watchFile2)
+			g.Expect(events2).NotTo(BeNil())
 
-	w := NewWatcher()
+			errors1 := w.Errors(watchFile1)
+			g.Expect(errors1).NotTo(BeNil())
+			errors2 := w.Errors(watchFile2)
+			g.Expect(errors2).NotTo(BeNil())
 
-	// Validate Add behavior
-	err := w.Add(watchFile1)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = w.Add(watchFile2)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = w.Add(watchFile2)
-	g.Expect(err).To(HaveOccurred())
+			// Validate Remove behavior
+			err = w.Remove(watchFile1)
+			g.Expect(err).NotTo(HaveOccurred())
+			err = w.Remove(watchFile1)
+			g.Expect(err).To(HaveOccurred())
+			events1 = w.Events(watchFile1)
+			g.Expect(events1).To(BeNil())
+			errors1 = w.Errors(watchFile1)
+			g.Expect(errors1).To(BeNil())
+			events2 = w.Events(watchFile2)
+			g.Expect(events2).NotTo(BeNil())
+			errors2 = w.Errors(watchFile2)
+			g.Expect(errors2).NotTo(BeNil())
 
-	// Validate events and errors channel are fulfilled.
-	events1 := w.Events(watchFile1)
-	g.Expect(events1).NotTo(BeNil())
-	events2 := w.Events(watchFile2)
-	g.Expect(events2).NotTo(BeNil())
-
-	errors1 := w.Errors(watchFile1)
-	g.Expect(errors1).NotTo(BeNil())
-	errors2 := w.Errors(watchFile2)
-	g.Expect(errors2).NotTo(BeNil())
-
-	// Validate Remove behavior
-	err = w.Remove(watchFile1)
-	g.Expect(err).NotTo(HaveOccurred())
-	err = w.Remove(watchFile1)
-	g.Expect(err).To(HaveOccurred())
-	events1 = w.Events(watchFile1)
-	g.Expect(events1).To(BeNil())
-	errors1 = w.Errors(watchFile1)
-	g.Expect(errors1).To(BeNil())
-	events2 = w.Events(watchFile2)
-	g.Expect(events2).NotTo(BeNil())
-	errors2 = w.Errors(watchFile2)
-	g.Expect(errors2).NotTo(BeNil())
-
-	// Validate Close behavior
-	err = w.Close()
-	g.Expect(err).NotTo(HaveOccurred())
-	events1 = w.Events(watchFile1)
-	g.Expect(events1).To(BeNil())
-	errors1 = w.Errors(watchFile1)
-	g.Expect(errors1).To(BeNil())
-	events2 = w.Events(watchFile2)
-	g.Expect(events2).To(BeNil())
-	errors2 = w.Errors(watchFile2)
-	g.Expect(errors2).To(BeNil())
+			// Validate Close behavior
+			err = w.Close()
+			g.Expect(err).NotTo(HaveOccurred())
+			events1 = w.Events(watchFile1)
+			g.Expect(events1).To(BeNil())
+			errors1 = w.Errors(watchFile1)
+			g.Expect(errors1).To(BeNil())
+			events2 = w.Events(watchFile2)
+			g.Expect(events2).To(BeNil())
+			errors2 = w.Errors(watchFile2)
+			g.Expect(errors2).To(BeNil())
+		})
+	}
 }
