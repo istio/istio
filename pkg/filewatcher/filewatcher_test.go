@@ -81,28 +81,6 @@ func newTwoWatchFile(t *testing.T) (string, string, func()) {
 	return watchFile1, watchFile2, cleanup
 }
 
-// Generate the max number of files the system can watch
-func newMaxWatchFiles(t *testing.T) (string, string, func()) {
-	g := NewGomegaWithT(t)
-
-	watchDir, err := ioutil.TempDir("", "")
-	g.Expect(err).NotTo(HaveOccurred())
-
-	watchFile1 := path.Join(watchDir, "test1.conf")
-	err = ioutil.WriteFile(watchFile1, []byte("foo: bar\n"), 0640)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	watchFile2 := path.Join(watchDir, "test2.conf")
-	err = ioutil.WriteFile(watchFile2, []byte("foo: baz\n"), 0640)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	cleanup := func() {
-		os.RemoveAll(watchDir)
-	}
-
-	return watchFile1, watchFile2, cleanup
-}
-
 // newSymlinkedWatchFile simulates the behavior of k8s configmap/secret.
 // Path structure looks like:
 //      <watchDir>/test.conf
