@@ -292,10 +292,10 @@ func NewPushContext() *PushContext {
 		namespaceLocalDestRules:           map[string]*processedDestRules{},
 		namespaceExportedDestRules:        map[string]*processedDestRules{},
 		allExportedDestRules: &processedDestRules{
-			hosts: make([]Hostname, 0),
+			hosts:    make([]Hostname, 0),
 			destRule: map[Hostname]*combinedDestinationRule{},
 		},
-		sidecarsByNamespace:               map[string][]*SidecarScope{},
+		sidecarsByNamespace: map[string][]*SidecarScope{},
 
 		ServiceByHostname: map[Hostname]*Service{},
 		ProxyStatus:       map[string]map[string]ProxyPushStatus{},

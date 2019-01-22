@@ -756,9 +756,9 @@ func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.H
 	destination := dst.GetDestination()
 	destinationRule := push.DestinationRule(node,
 		&model.Service{
-			Hostname: model.Hostname(destination.Host),
-			Attributes: model.ServiceAttributes{Namespace:configNamespace},
-			})
+			Hostname:   model.Hostname(destination.Host),
+			Attributes: model.ServiceAttributes{Namespace: configNamespace},
+		})
 	if destinationRule == nil {
 		return nil
 	}
