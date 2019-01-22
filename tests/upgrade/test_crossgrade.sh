@@ -127,7 +127,7 @@ withRetries() {
       echo "RUNNING $*" ; "${@}" && break
       echo "Failed, sleeping ${sleep_sec} and retrying..."
       ((n++))
-      sleep ${sleep_sec}
+      sleep "${sleep_sec}"
     done
 
     if (( n == max_retries )); then die "${@} failed after retrying ${max_retries} times."; fi
@@ -149,7 +149,7 @@ withRetriesMaxTime() {
       sleep ${sleep_sec}
     done
 
-    if (( SECONDS - start_time >=  total_time_max )); then die "${@} failed after retrying for ${total_time_max} seconds."; fi
+    if (( SECONDS - start_time >=  total_time_max )); then die "$* failed after retrying for ${total_time_max} seconds."; fi
     echo "Succeeded."
 }
 
@@ -162,7 +162,7 @@ installIstioSystemAtVersionHelmTemplate() {
     release_path="${3}"/install/kubernetes/helm/istio
     if [[ "${release_path}" == *"1.1"* || "${release_path}" == *"master"* ]]; then
         # See https://preliminary.istio.io/docs/setup/kubernetes/helm-install/
-        for i in install/kubernetes/helm/istio-init/files/crd*yaml; do kubectl apply -f $i; done
+        for i in install/kubernetes/helm/istio-init/files/crd*yaml; do kubectl apply -f "${i}"; done
     fi
 
     helm template "${release_path}" "${auth_opts}" \
@@ -239,7 +239,7 @@ _waitForIngress() {
     INGRESS_HOST=$(kubectl -n "${ISTIO_NAMESPACE}" get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     INGRESS_PORT=$(kubectl -n "${ISTIO_NAMESPACE}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
     INGRESS_ADDR=${INGRESS_HOST}:${INGRESS_PORT}
-    if [ -z ${INGRESS_HOST} ]; then return 1; fi
+    if [ -z "${INGRESS_HOST}" ]; then return 1; fi
 }
 
 waitForIngress() {
@@ -271,7 +271,7 @@ _waitForPodsReady() {
 
 waitForPodsReady() {
     echo "Waiting for pods to be ready in ${1}..."
-    withRetriesMaxTime 300 10 _waitForPodsReady ${1}
+    withRetriesMaxTime 300 10 _waitForPodsReady "${1}"
     echo "All pods ready."
 }
 
@@ -293,7 +293,7 @@ checkEchosrv() {
 waitForJob() {
     echo "Waiting for job ${1} to complete..."
     local start_time=${SECONDS}
-    until kubectl get jobs -n "${TEST_NAMESPACE}" ${1} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' | grep True ; do
+    until kubectl get jobs -n "${TEST_NAMESPACE}" "${1}" -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' | grep True ; do
         sleep 1 ;
     done
     run_time=0
