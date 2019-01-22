@@ -18,8 +18,6 @@ func TestAgeDefaultsToInfinite(t *testing.T) {
 
 	if ko.MaxServerConnectionAge != keepalive.Infinity {
 		t.Errorf("%s maximum connection age %v", t.Name(), ko.MaxServerConnectionAge)
-	} else if ko.MaxServerConnectionAgeGrace != keepalive.Infinity {
-		t.Errorf("%s maximum connection age grace %v", t.Name(), ko.MaxServerConnectionAgeGrace)
 	}
 }
 
@@ -34,7 +32,6 @@ func TestSetConnectionAgeCommandlineOptions(t *testing.T) {
 	sec := 1 * time.Second
 	cmd.SetArgs([]string{
 		fmt.Sprintf("--keepaliveMaxServerConnectionAge=%v", sec),
-		fmt.Sprintf("--keepaliveMaxServerConnectionAgeGrace=%v", sec),
 	})
 
 	if err := cmd.Execute(); err != nil {
@@ -42,7 +39,5 @@ func TestSetConnectionAgeCommandlineOptions(t *testing.T) {
 	}
 	if ko.MaxServerConnectionAge != sec {
 		t.Errorf("%s maximum connection age %v", t.Name(), ko.MaxServerConnectionAge)
-	} else if ko.MaxServerConnectionAgeGrace != sec {
-		t.Errorf("%s maximum connection age grace %v", t.Name(), ko.MaxServerConnectionAgeGrace)
 	}
 }

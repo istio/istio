@@ -43,7 +43,6 @@ func (x ConfigScope) String() string {
 }
 func (ConfigScope) EnumDescriptor() ([]byte, []int) { return fileDescriptorSidecar, []int{0} }
 
-// $hide_from_docs
 // CaptureMode describes how traffic to a listener is expected to be
 // captured. Applicable only when the listener is bound to an IP.
 type CaptureMode int32
@@ -105,8 +104,9 @@ func (CaptureMode) EnumDescriptor() ([]byte, []int) { return fileDescriptorSidec
 // with a workload selector select the same workload.
 //
 // The example below delcares a Sidecar resource in the prod-us1 namespace
-// that configures the sidecar to allow egress traffic to public services
-// in the prod-us1, prod-apis, and the istio-system namespaces.
+// that configures the sidecars in the namespace to allow egress traffic to
+// public services in the prod-us1, prod-apis, and the istio-system
+// namespaces.
 //
 // ```yaml
 // apiVersion: networking.istio.io/v1alpha3
@@ -122,14 +122,43 @@ func (CaptureMode) EnumDescriptor() ([]byte, []int) { return fileDescriptorSidec
 //     - "istio-system/*"
 // ```
 //
+// The example below delcares a Sidecar resource in the prod-us1 namespace
+// that accepts inbound HTTP traffic on port 9080 and forwards
+// it to the attached workload listening on a unix domain socket. In the
+// egress direction, in addition to the istio-system namespace, the sidecar
+// proxies only HTTP traffic bound for port 9080 for services in the
+// prod-us1 namespace.
+//
+// ```yaml
+// apiVersion: networking.istio.io/v1alpha3
+// kind: Sidecar
+// metadata:
+//   name: default
+//   namespace: prod-us1
+// spec:
+//   ingress:
+//   - port:
+//       number: 9080
+//       protocol: HTTP
+//       name: somename
+//     defaultEndpoint: unix:///var/run/someuds.sock
+//   egress:
+//   - hosts:
+//     - "istio-system/*"
+//   - port:
+//       number: 9080
+//       protocol: HTTP
+//       name: egresshttp
+//     hosts:
+//     - "prod-us1/*"
+// ```
+//
 type Sidecar struct {
-	// $hide_from_docs
 	// Criteria used to select the specific set of pods/VMs on which this
 	// sidecar configuration should be applied. If omitted, the sidecar
-	// configuration will be applied to all workloads in the current config
+	// configuration will be applied to all workloads in the same config
 	// namespace.
 	WorkloadSelector *WorkloadSelector `protobuf:"bytes,1,opt,name=workload_selector,json=workloadSelector" json:"workload_selector,omitempty"`
-	// $hide_from_docs
 	// Ingress specifies the configuration of the sidecar for processing
 	// inbound traffic to the attached workload. If omitted, Istio will
 	// autoconfigure the sidecar based on the information about the workload
@@ -169,7 +198,6 @@ func (m *Sidecar) GetEgress() []*IstioEgressListener {
 	return nil
 }
 
-// $hide_from_docs
 // IstioIngressListener specifies the properties of an inbound
 // traffic listener on the sidecar proxy attached to a workload.
 type IstioIngressListener struct {
@@ -185,11 +213,12 @@ type IstioIngressListener struct {
 	Bind string `protobuf:"bytes,2,opt,name=bind,proto3" json:"bind,omitempty"`
 	// When the bind address is an IP, the captureMode option dictates
 	// how traffic to the listener is expected to be captured (or not).
+	// captureMode must be DEFAULT or NONE for unix domain socket binds.
 	CaptureMode CaptureMode `protobuf:"varint,3,opt,name=capture_mode,json=captureMode,proto3,enum=istio.networking.v1alpha3.CaptureMode" json:"capture_mode,omitempty"`
-	// The loopback IP endpoint or unix domain socket to which traffic should
-	// be forwarded to by default. This configuration can be used to redirect
-	// traffic arriving at the bind point on the sidecar to a port or unix
-	// domain socket where the application workload is listening for
+	// REQUIRED: The loopback IP endpoint or unix domain socket to which
+	// traffic should be forwarded to. This configuration can be used to
+	// redirect traffic arriving at the bind point on the sidecar to a port
+	// or unix domain socket where the application workload is listening for
 	// connections. Format should be 127.0.0.1:PORT or unix:///path/to/socket
 	DefaultEndpoint string `protobuf:"bytes,4,opt,name=default_endpoint,json=defaultEndpoint,proto3" json:"default_endpoint,omitempty"`
 }
@@ -230,7 +259,6 @@ func (m *IstioIngressListener) GetDefaultEndpoint() string {
 // IstioEgressListener specifies the properties of an outbound traffic
 // listener on the sidecar proxy attached to a workload.
 type IstioEgressListener struct {
-	// $hide_from_docs
 	// The port associated with the listener. If using unix domain socket,
 	// use 0 as the port number, with a valid protocol. The port if
 	// specified, will be used as the default destination port associated
@@ -241,19 +269,20 @@ type IstioEgressListener struct {
 	// listener port will be based on the listener with the most specific
 	// port.
 	Port *Port `protobuf:"bytes,1,opt,name=port" json:"port,omitempty"`
-	// $hide_from_docs
 	// The ip or the unix domain socket to which the listener should be bound
-	// to. Port MUST be specified if bind is not empty. Format:
-	// x.x.x.x or unix:///path/to/uds or unix://@foobar (Linux abstract
-	// namespace). If omitted, Istio will autoconfigure the defaults based on
-	// imported services and the workload to which this configuration is
-	// applied to.
+	// to. Port MUST be specified if bind is not empty. Format: x.x.x.x or
+	// unix:///path/to/uds or unix://@foobar (Linux abstract namespace). If
+	// omitted, Istio will autoconfigure the defaults based on imported
+	// services, the workload to which this configuration is applied to and
+	// the captureMode. If captureMode is NONE, bind will default to
+	// 127.0.0.1.
 	Bind string `protobuf:"bytes,2,opt,name=bind,proto3" json:"bind,omitempty"`
 	// When the bind address is an IP, the captureMode option dictates
 	// how traffic to the listener is expected to be captured (or not).
+	// captureMode must be DEFAULT or NONE for unix domain socket binds.
 	CaptureMode CaptureMode `protobuf:"varint,3,opt,name=capture_mode,json=captureMode,proto3,enum=istio.networking.v1alpha3.CaptureMode" json:"capture_mode,omitempty"`
-	// One or more services/virtualServices exposed by the listener in
-	// namespace/dnsName format.  Publicly scoped services and
+	// REQUIRED: One or more services/virtualServices exposed by the listener
+	// in namespace/dnsName format.  Publicly scoped services and
 	// VirtualServices from remote namespaces corresponding to the specified
 	// hosts will be imported. The service in a namespace can be a service in
 	// the service registry (e.g., a kubernetes or cloud foundry service) or
@@ -314,10 +343,10 @@ func (m *IstioEgressListener) GetHosts() []string {
 // specified, all conditions need to match in order for the workload to be
 // selected. Currently, only label based selection mechanism is supported.
 type WorkloadSelector struct {
-	// One or more labels that indicate a specific set of pods/VMs on which
-	// this sidecar configuration should be applied. The scope of label
-	// search is restricted to the configuration namespace in which the the
-	// resource is present.
+	// REQUIRED: One or more labels that indicate a specific set of pods/VMs
+	// on which this sidecar configuration should be applied. The scope of
+	// label search is restricted to the configuration namespace in which the
+	// the resource is present.
 	Labels map[string]string `protobuf:"bytes,1,rep,name=labels" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
