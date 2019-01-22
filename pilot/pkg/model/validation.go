@@ -446,7 +446,18 @@ func validateServer(server *networking.Server) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, host := range server.Hosts {
-			errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, true))
+			// short name hosts are not allowed in gateways
+			if host != "*" && !strings.Contains(host, ".") {
+				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
+			}
+			if err := ValidateWildcardDomain(host); err != nil {
+				ipAddr := net.ParseIP(host) // Could also be an IP
+				if ipAddr == nil {
+					errs = appendErrors(errs, err)
+				}
+			}
+			// TODO: switch to this code once ns/name format support is added to gateway
+			//errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, true))
 		}
 	}
 	portErr := validateServerPort(server.Port)
