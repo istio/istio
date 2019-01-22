@@ -30,16 +30,20 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-// State is the in-memory state of Galley.
-type State struct {
+// state is the in-memory state of Galley.
+type state struct {
 	schema *resource.Schema
 
 	config *Config
 
-	// version counter is a nonce that generates unique ids for each updated view of State.
+	strategy *publishingStrategy
+
+	fullSyncReceived bool
+
+	// version counter is a nonce that generates unique ids for each updated view of state.
 	versionCounter int64
 
-	// entries for per-message-type State.
+	// entries for per-message-type state.
 	entriesLock sync.Mutex
 	entries     map[resource.Collection]*resourceTypeState
 
@@ -49,20 +53,21 @@ type State struct {
 	lastIngressVersion int64
 }
 
-// per-resource-type State.
+// per-resource-type state.
 type resourceTypeState struct {
-	// The version number for the current State of the object. Every time entries or versions change,
+	// The version number for the current state of the object. Every time entries or versions change,
 	// the version number also change
 	version  int64
 	entries  map[resource.FullName]*mcp.Resource
 	versions map[resource.FullName]resource.Version
 }
 
-func newState(schema *resource.Schema, cfg *Config) *State {
-	s := &State{
-		schema:  schema,
-		config:  cfg,
-		entries: make(map[resource.Collection]*resourceTypeState),
+func newState(schema *resource.Schema, cfg *Config, strategy *publishingStrategy) *state {
+	s := &state{
+		schema:   schema,
+		config:   cfg,
+		strategy: strategy,
+		entries:  make(map[resource.Collection]*resourceTypeState),
 	}
 
 	// pre-populate state for all known types so that built snapshots
@@ -77,7 +82,25 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 	return s
 }
 
-func (s *State) apply(event resource.Event) bool {
+func (s *state) close() {
+	s.strategy.reset()
+}
+
+func (s *state) apply(event resource.Event) (successful bool) {
+	defer func() {
+		if s.fullSyncReceived && successful {
+			// Indicate that there is new data to publish.
+			scope.Debugf("Processor.process: event: %v, signaling onChange", event)
+			s.strategy.onChange()
+		}
+	}()
+
+	if event.Kind == resource.FullSync {
+		scope.Infof("Synchronization is complete, starting distribution.")
+		s.fullSyncReceived = true
+		return true
+	}
+
 	pks, found := s.getResourceTypeState(event.Entry.ID.Collection)
 	if !found {
 		return false
@@ -121,7 +144,7 @@ func (s *State) apply(event resource.Event) bool {
 	return true
 }
 
-func (s *State) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
+func (s *state) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -129,7 +152,7 @@ func (s *State) getResourceTypeState(name resource.Collection) (*resourceTypeSta
 	return pks, found
 }
 
-func (s *State) buildSnapshot() snapshot.Snapshot {
+func (s *state) buildSnapshot() snapshot.Snapshot {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -150,11 +173,11 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	return b.Build()
 }
 
-func (s *State) buildProjections(b *snapshot.InMemoryBuilder) {
+func (s *state) buildProjections(b *snapshot.InMemoryBuilder) {
 	s.buildIngressProjectionResources(b)
 }
 
-func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
+func (s *state) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	ingressByHost := make(map[string]resource.Entry)
 
 	// Build ingress projections
@@ -258,7 +281,7 @@ func extractMetadata(entry *mcp.Resource) resource.Metadata {
 	}
 }
 
-func (s *State) toResource(e resource.Entry) (*mcp.Resource, bool) {
+func (s *state) toResource(e resource.Entry) (*mcp.Resource, bool) {
 	body, err := types.MarshalAny(e.Item)
 	if err != nil {
 		scope.Errorf("Error serializing proto from source e: %v:", e)
@@ -286,10 +309,10 @@ func (s *State) toResource(e resource.Entry) (*mcp.Resource, bool) {
 }
 
 // String implements fmt.Stringer
-func (s *State) String() string {
+func (s *state) String() string {
 	var b bytes.Buffer
 
-	_, _ = fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
+	_, _ = fmt.Fprintf(&b, "[state @%v]\n", s.versionCounter)
 
 	sn := s.buildSnapshot().(*snapshot.InMemory)
 	_, _ = fmt.Fprintf(&b, "%v", sn)

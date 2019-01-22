@@ -36,28 +36,17 @@ type Processor struct {
 	// distributor interface for publishing config snapshots to.
 	distributor Distributor
 
-	// configuration for the processor
-	config *Config
-
-	// The heuristic publishing strategy
-	strategy *publishingStrategy
-
-	schema *resource.Schema
-
 	// events channel that was obtained from source
 	events chan resource.Event
 
 	// channel that gets closed during Shutdown.
 	done chan struct{}
 
-	// indicates that the State is built-up enough to warrant distribution.
-	distribute bool
-
 	// channel that signals the background process as being stopped.
 	stopped chan struct{}
 
-	// The current in-memory configuration State
-	state *State
+	// The current in-memory configuration state
+	state *state
 
 	// hook that gets called after each event processing. Useful for testing.
 	postProcessHook postProcessHookFn
@@ -76,23 +65,20 @@ type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
 func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
-	return newProcessor(src, distributor, cfg, newPublishingStrategyWithDefaults(), metadata.Types, nil)
+	state := newState(metadata.Types, cfg, newPublishingStrategyWithDefaults())
+	return newProcessor(state, src, distributor, nil)
 }
 
 func newProcessor(
+	state *state,
 	src Source,
 	distributor Distributor,
-	cfg *Config,
-	strategy *publishingStrategy,
-	schema *resource.Schema,
 	postProcessHook postProcessHookFn) *Processor {
 
 	return &Processor{
+		state:            state,
 		source:           src,
 		distributor:      distributor,
-		config:           cfg,
-		strategy:         strategy,
-		schema:           schema,
 		postProcessHook:  postProcessHook,
 		done:             make(chan struct{}),
 		stopped:          make(chan struct{}),
@@ -111,8 +97,6 @@ func (p *Processor) Start() error {
 		return errors.New("already started")
 	}
 
-	p.distribute = false
-
 	events := make(chan resource.Event, 1024)
 	err := p.source.Start(func(e resource.Event) {
 		events <- e
@@ -123,7 +107,6 @@ func (p *Processor) Start() error {
 	}
 
 	p.events = events
-	p.state = newState(p.schema, p.config)
 
 	go p.process()
 
@@ -148,7 +131,6 @@ func (p *Processor) Stop() {
 	p.events = nil
 	p.done = nil
 	p.state = nil
-	p.distribute = false
 }
 
 func (p *Processor) process() {
@@ -160,13 +142,9 @@ loop:
 
 		// Incoming events are received through p.events
 		case e := <-p.events:
-			scope.Debugf("Processor.process: event: %v", e)
-			if p.processEvent(e) {
-				scope.Debugf("Processor.process: event: %v, signaling onChange", e)
-				p.strategy.onChange()
-			}
+			_ = p.processEvent(e)
 
-		case <-p.strategy.publish:
+		case <-p.state.strategy.publish:
 			scope.Debug("Processor.process: publish")
 			p.publish()
 
@@ -181,7 +159,7 @@ loop:
 		}
 	}
 
-	p.strategy.reset()
+	p.state.close()
 	close(p.stopped)
 	scope.Debugf("Process.process: Exiting process loop")
 }
@@ -193,13 +171,7 @@ func (p *Processor) processEvent(e resource.Event) bool {
 	p.lastEventTime = now
 	p.pendingEvents++
 
-	if e.Kind == resource.FullSync {
-		scope.Infof("Synchronization is complete, starting distribution.")
-		p.distribute = true
-		return true
-	}
-
-	return p.state.apply(e) && p.distribute
+	return p.state.apply(e)
 }
 
 func (p *Processor) publish() {

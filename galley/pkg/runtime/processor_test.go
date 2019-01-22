@@ -81,7 +81,7 @@ func TestProcessor_Stop(t *testing.T) {
 	strategy := newPublishingStrategyWithDefaults()
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
+	p := newProcessor(newState(testSchema, cfg, strategy), src, distributor, nil)
 
 	err := p.Start()
 	if err != nil {
@@ -101,7 +101,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	strategy := newPublishingStrategy(time.Hour, time.Hour, time.Millisecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
+	p := newProcessor(newState(testSchema, cfg, strategy), src, distributor, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -127,7 +127,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	strategy := newPublishingStrategy(time.Hour, time.Hour, time.Millisecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(src, distributor, cfg, strategy, testSchema, nil)
+	p := newProcessor(newState(testSchema, cfg, strategy), src, distributor, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -158,7 +158,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	}
 	processCallCount.Add(3) // 1 for add, 1 for sync, 1 for publish trigger
 
-	p := newProcessor(src, distributor, cfg, strategy, testSchema, hookFn)
+	p := newProcessor(newState(testSchema, cfg, strategy), src, distributor, hookFn)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

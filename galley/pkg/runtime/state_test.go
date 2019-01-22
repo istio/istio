@@ -21,9 +21,8 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/galley/pkg/meshconfig"
-
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
 
@@ -60,7 +59,7 @@ func checkCreateTime(e *mcp.Resource, want time.Time) error {
 }
 
 func TestState_DefaultSnapshot(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newState(testSchema, cfg, newPublishingStrategyWithDefaults())
 	sn := s.buildSnapshot()
 
 	for _, collection := range []string{emptyInfo.Collection.String(), structInfo.Collection.String()} {
@@ -106,7 +105,7 @@ func TestState_DefaultSnapshot(t *testing.T) {
 }
 
 func TestState_Apply_Update(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -160,7 +159,7 @@ func TestState_Apply_Update(t *testing.T) {
 }
 
 func TestState_Apply_Update_SameVersion(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -203,7 +202,7 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 }
 
 func TestState_Apply_Delete(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -239,7 +238,7 @@ func TestState_Apply_Delete(t *testing.T) {
 }
 
 func TestState_Apply_UnknownEventKind(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.EventKind(42),
@@ -261,7 +260,7 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 }
 
 func TestState_Apply_BrokenProto(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -283,7 +282,7 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 }
 
 func TestState_String(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -296,4 +295,8 @@ func TestState_String(t *testing.T) {
 
 	// Should not crash
 	_ = s.String()
+}
+
+func newTestState() *state {
+	return newState(testSchema, cfg, newPublishingStrategyWithDefaults())
 }
