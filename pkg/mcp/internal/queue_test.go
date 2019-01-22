@@ -28,7 +28,7 @@ func setup() func() {
 }
 
 func TestUniqueQueue_InitialState(t *testing.T) {
-	defer setup()
+	defer setup()()
 
 	depth := 5
 	q := NewUniqueScheduledQueue(depth)
@@ -48,7 +48,7 @@ func TestUniqueQueue_InitialState(t *testing.T) {
 }
 
 func TestUnique_EnqueueDequeue(t *testing.T) {
-	defer setup()
+	defer setup()()
 
 	depth := int(5)
 	q := NewUniqueScheduledQueue(depth)
@@ -101,7 +101,7 @@ func getScheduledItem(t *testing.T, q *UniqueQueue) interface{} {
 }
 
 func TestUnique_Schedule(t *testing.T) {
-	defer setup()
+	defer setup()()
 
 	q := NewUniqueScheduledQueue(5)
 
@@ -142,7 +142,7 @@ func TestUnique_Schedule(t *testing.T) {
 }
 
 func TestUnique_ScheduleRetry(t *testing.T) {
-	defer setup()
+	defer setup()()
 
 	q := NewUniqueScheduledQueue(5)
 
@@ -174,7 +174,7 @@ func TestUnique_ScheduleRetry(t *testing.T) {
 }
 
 func TestUnique_Done(t *testing.T) {
-	defer setup()
+	defer setup()()
 
 	q := NewUniqueScheduledQueue(5)
 
