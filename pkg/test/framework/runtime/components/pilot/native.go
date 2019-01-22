@@ -106,8 +106,8 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 			Registries: []string{},
 		},
 		// Include all of the default plugins for integration with Mixer, etc.
-		Plugins:          bootstrap.DefaultPlugins,
-		ForceStop:        true,
+		Plugins:   bootstrap.DefaultPlugins,
+		ForceStop: true,
 	}
 
 	// Save the config store.
