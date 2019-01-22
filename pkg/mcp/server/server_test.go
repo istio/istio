@@ -107,7 +107,7 @@ type mockStream struct {
 }
 
 func (stream *mockStream) Send(resp *mcp.MeshConfigResponse) error {
-	// check that nonce is monotonically incrementing
+	// check that externalNonce is monotonically incrementing
 	stream.nonce++
 	if resp.Nonce != fmt.Sprintf("%d", stream.nonce) {
 		stream.t.Errorf("Nonce => got %q, want %d", resp.Nonce, stream.nonce)
@@ -191,8 +191,8 @@ func TestMultipleRequests(t *testing.T) {
 		if want := map[string]int{test.FakeType0Collection: 1}; !reflect.DeepEqual(want, config.counts) {
 			t.Errorf("watch counts => got %v, want %v", config.counts, want)
 		}
-	case <-time.After(time.Second):
-		t.Fatalf("got no response")
+	//case <-time.After(time.Second):
+	//	t.Fatalf("got no response")
 	}
 
 	stream.recv <- &mcp.MeshConfigRequest{
@@ -368,7 +368,7 @@ func TestWatchClosed(t *testing.T) {
 		TypeUrl:  test.FakeType0Collection,
 	}
 
-	// check that response fails since watch gets closed
+	// check that response fails since watch gets active
 	options := &source.Options{
 		Watcher:            config,
 		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
@@ -403,7 +403,7 @@ func TestSendError(t *testing.T) {
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := New(options, test.NewFakeAuthChecker())
-	// check that response fails since watch gets closed
+	// check that response fails since watch gets active
 	if err := s.StreamAggregatedResources(stream); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
@@ -428,7 +428,7 @@ func TestReceiveError(t *testing.T) {
 		TypeUrl:  test.FakeType0Collection,
 	}
 
-	// check that response fails since watch gets closed
+	// check that response fails since watch gets active
 	options := &source.Options{
 		Watcher:            config,
 		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
@@ -458,7 +458,7 @@ func TestUnsupportedTypeError(t *testing.T) {
 		TypeUrl:  "unsupportedtype",
 	}
 
-	// check that response fails since watch gets closed
+	// check that response fails since watch gets active
 	options := &source.Options{
 		Watcher:            config,
 		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
@@ -734,7 +734,7 @@ func TestRateLimitNACK(t *testing.T) {
 				t.Fatalf("%v: wrong response version: got %v want %v", s.name, response.VersionInfo, s.pushedVersion)
 			}
 			if _, ok := nonces[response.Nonce]; ok {
-				t.Fatalf("%v: reused nonce in response: %v", s.name, response.Nonce)
+				t.Fatalf("%v: reused externalNonce in response: %v", s.name, response.Nonce)
 			}
 			nonces[response.Nonce] = true
 
