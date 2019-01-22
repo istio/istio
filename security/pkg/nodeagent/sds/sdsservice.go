@@ -71,7 +71,7 @@ type sdsConnection struct {
 	// The ID of proxy from which the connection comes from.
 	proxyID string
 
-	// The ResourceName of SDS request.
+	// The ResourceName of the SDS request.
 	ResourceName string
 
 	// Sending on this channel results in  push.
@@ -172,7 +172,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			addConn(key, con)
 			defer func() {
 				removeConn(key)
-				// Remove the secret from cache.
+				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
+				// and cause some confusing logs like 'fails to notify because connection isn't found'.
 				s.st.DeleteSecret(con.proxyID, con.ResourceName)
 			}()
 
