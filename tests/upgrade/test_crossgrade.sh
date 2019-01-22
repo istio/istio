@@ -111,7 +111,8 @@ TRAFFIC_RUNTIME_SEC=500
 # Used to signal that background external process is done.
 EXTERNAL_FORTIO_DONE_FILE=${TMP_DIR}/fortio_done_file
 
-echo_and_run() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
+echo_and_run() { echo "RUNNING $*" ; "$@" ; }
+echo_and_run_or_die() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
 
 # withRetries retries the given command ${1} times with ${2} sleep between retries
 # e.g. withRetries 10 60 myFunc param1 param2
@@ -124,11 +125,13 @@ withRetries() {
     shift
     while (( n < max_retries )); do
       echo "RUNNING $*" ; "${@}" && break
+      echo "Failed, sleeping ${sleep_sec} and retrying..."
       ((n++))
       sleep ${sleep_sec}
     done
 
     if (( n == max_retries )); then die "${@} failed after retrying ${max_retries} times."; fi
+    echo "Succeeded after ${n} retries."
 }
 
 # withRetriesMaxTime retries the given command repeatedly with ${2} sleep between retries until ${1} seconds have elapsed.
@@ -142,10 +145,12 @@ withRetriesMaxTime() {
     shift
     while (( SECONDS - start_time <  total_time_max )); do
       echo "RUNNING $*" ; "${@}" && break
+      echo "Failed, sleeping ${sleep_sec} and retrying..."
       sleep ${sleep_sec}
     done
 
     if (( SECONDS - start_time >=  total_time_max )); then die "${@} failed after retrying for ${total_time_max} seconds."; fi
+    echo "Succeeded."
 }
 
 installIstioSystemAtVersionHelmTemplate() {
@@ -223,7 +228,7 @@ restartDataPlane() {
     # Apply label within deployment spec.
     # This is a hack to force a rolling restart without making any material changes to spec.
     writeMsg "Restarting deployment ${1}, patching label to force restart."
-    echo_and_run kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_'"$(date +%s)"'","value":"1"}]}]}}}}'
+    echo_and_run_or_die kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_'"$(date +%s)"'","value":"1"}]}]}}}}'
 }
 
 writeMsg() {
@@ -272,7 +277,6 @@ waitForPodsReady() {
 
 _checkEchosrv() {
     resp=$( curl -o /dev/null -s -w "%{http_code}\\n" -HHost:echosrv.${TEST_NAMESPACE}.svc.cluster.local "http://${INGRESS_ADDR}/echo" || echo $? )
-    echo "${resp}"
     if [[ "${resp}" = *"200"* ]]; then
         echo "Got correct response from echosrv."
         return 0
@@ -391,7 +395,7 @@ waitForPodsReady "${ISTIO_NAMESPACE}"
 
 echo "Test ran for ${SECONDS} seconds."
 if (( SECONDS > TRAFFIC_RUNTIME_SEC )); then
-    writeMsg "WARNING: test duration was ${SECONDS} but traffic only ran for ${TRAFFIC_RUNTIME_SEC}"
+    echo "WARNING: test duration was ${SECONDS} but traffic only ran for ${TRAFFIC_RUNTIME_SEC}"
 fi
 
 cli_pod_name=$(kubectl -n "${TEST_NAMESPACE}" get pods -lapp=cli-fortio -o jsonpath='{.items[0].metadata.name}')
