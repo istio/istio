@@ -826,15 +826,14 @@ ident                         : dest.istio-system
 		expectedCheckResult: adapter.CheckResult{
 			RouteDirective: &v1.RouteDirective{
 				ResponseHeaderOperations: []v1.HeaderOperation{{
-					Name:  "b-header",
-					Value: "test",
+					Name:      "b-header",
+					Value:     "test",
 					Operation: v1.APPEND,
 				}},
 			},
 		},
 		log: ``,
 	},
-
 }
 
 func TestDispatcher(t *testing.T) {
