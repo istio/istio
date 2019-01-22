@@ -20,9 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
-
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/k8s/configmap"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
@@ -54,9 +52,9 @@ func NewCAClient(endpoint, CAProviderName string, tlsFlag bool, tlsRootCert []by
 	case vaultCAName:
 		return vault.NewVaultClient(tlsFlag, tlsRootCert, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
 	case citadelName:
-		cs, err := createClientSet()
+		cs, err := kube.CreateClientset("", "")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not create k8s clientset: %v", err)
 		}
 		controller := configmap.NewController(ns, cs.CoreV1())
 		rootCert, err := getCATLSRootCertFromConfigMap(controller, retryInterval, maxRetries)
@@ -91,17 +89,4 @@ func getCATLSRootCertFromConfigMap(controller configMap, interval time.Duration,
 		return nil, fmt.Errorf("cannot decode the CA TLS root cert: %v", err)
 	}
 	return certDecoded, nil
-}
-
-func createClientSet() (*kubernetes.Clientset, error) {
-	// Get the kubeconfig from the K8s cluster the node agent is running in.
-	kubeconfig, err := restclient.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot load kubeconfig: %v", err)
-	}
-	clientSet, err := kubernetes.NewForConfig(kubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a clientset (error: %v)", err)
-	}
-	return clientSet, nil
 }
