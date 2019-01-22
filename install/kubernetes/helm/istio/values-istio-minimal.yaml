@@ -40,5 +40,7 @@ global:
       enabled: false
       host: # example: statsd-svc
       port: # example: 9125
+  
+  useMCP: false
 
 

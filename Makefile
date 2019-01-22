@@ -450,7 +450,7 @@ test: | $(JUNIT_REPORT)
 	$(MAKE) --keep-going $(TEST_OBJ) \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_UNIT_TEST_XML))
 
-GOTEST_PARALLEL ?= '-test.parallel=2'
+GOTEST_PARALLEL ?= '-test.parallel=1'
 # This is passed to mixer and other tests to limit how many builds are used.
 # In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
 GOTEST_P ?=
@@ -491,7 +491,7 @@ istioctl-test: istioctl
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${GOTEST_P} ${MIXER_TEST_T} ./...)
+	(cd mixer; go test -p 1 ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
 galley-test: depend
@@ -564,7 +564,7 @@ istioctl-racetest: istioctl
 .PHONY: mixer-racetest
 mixer-racetest: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; RACE_TEST=true go test ${T} -race ${GOTEST_PARALLEL} ./...)
+	(cd mixer; RACE_TEST=true go test -p 1 ${T} -race ./...)
 
 .PHONY: galley-racetest
 galley-racetest: depend
