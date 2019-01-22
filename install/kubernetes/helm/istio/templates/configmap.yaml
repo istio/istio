@@ -35,11 +35,11 @@ data:
     # Deprecated: mixer is using EDS
     {{- if or .Values.mixer.policy.enabled .Values.mixer.telemetry.enabled }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
-    mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:15004
-    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:15004
+    mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
     {{- else }}
-    mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.cluster.local:9091
-    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local:9091
+    mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
 
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.

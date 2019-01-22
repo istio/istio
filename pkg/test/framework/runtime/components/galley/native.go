@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	"io"
 	"time"
@@ -125,6 +126,16 @@ func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
 	return
 }
 
+// GetGalleyAddress returns the galley mcp server address
+func (c *nativeComponent) GetGalleyAddress() string {
+	idx := strings.Index(c.client.address, "://")
+	if idx < 0 {
+		return fmt.Sprintf("mcp://%s", c.client.address)
+	}
+	return fmt.Sprintf("mcp://%s", c.client.address[idx+3:])
+
+}
+
 // WaitForSnapshot implements Galley.WaitForSnapshot.
 func (c *nativeComponent) WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error {
 	return c.client.waitForSnapshot(collection, snapshot)
@@ -176,6 +187,8 @@ func (c *nativeComponent) restart() error {
 	a.DisableResourceReadyCheck = true
 	a.ConfigPath = c.configDir
 	a.MeshConfigFile = c.meshConfigFile
+	// To prevent ctrlZ port collision between galley/pilot&mixer
+	a.IntrospectionOptions.Port = 9877
 	s, err := server.New(a)
 	if err != nil {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)
@@ -205,7 +218,7 @@ func (c *nativeComponent) Close() (err error) {
 		c.client = nil
 	}
 	if c.server != nil {
-		err := multierror.Append(c.server.Close()).ErrorOrNil()
+		err := multierror.Append(c.server.ForceClose()).ErrorOrNil()
 		if err != nil {
 			scopes.Framework.Infof("Error while Galley server close during reset: %v", err)
 		}

@@ -13,13 +13,14 @@ The [updateVersion.sh](updateVersion.sh) script is used to update image versions
 * `-p <hub>,<tag>` new pilot image
 * `-x <hub>,<tag>` new mixer image
 * `-c <hub>,<tag>` new citadel image
-* `-a <hub>,<tag>` specifies same hub and tag for pilot, mixer, proxy, and citadel containers
+* `-g <hub>,<tag>` new galley image
+* `-a <hub>,<tag>` specifies same hub and tag for pilot, mixer, proxy, citadel and galley containers
 * `-o <hub>,<tag>` new proxy image
 * `-n <namespace>` namespace in which to install Istio control plane components (defaults to istio-system)
 * `-P` URL to download pilot debian packages
 * `-d <dir>` directory to store updated/generated files (optional, defaults to source code tree)
 
-Default values for the `-p`, `-x`, `-c`, `-o`, and `-a` options are as specified in `istio.VERSION`
+Default values for the `-p`, `-x`, `-c`, `-o`, `-g` and `-a` options are as specified in `istio.VERSION`
 (i.e., they are left unchanged).
 
 ### Examples

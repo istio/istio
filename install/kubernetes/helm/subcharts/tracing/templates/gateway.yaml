@@ -25,7 +25,7 @@ metadata:
   name: tracing
   namespace: {{ .Release.Namespace }}
 spec:
-  host: tracing.{{ .Release.Namespace }}.svc.cluster.local
+  host: tracing.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -45,7 +45,7 @@ spec:
     - port: 15032
     route:
     - destination:
-        host: tracing.{{ .Release.Namespace }}.svc.cluster.local
+        host: tracing.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 80
 ---

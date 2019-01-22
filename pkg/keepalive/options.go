@@ -43,7 +43,7 @@ type Options struct {
 	MaxServerConnectionAge time.Duration // default value is infinity
 	// MaxServerConnectionAgeGrace is an additive period after MaxServerConnectionAge
 	// after which the connection will be forcibly closed by the server.
-	MaxServerConnectionAgeGrace time.Duration // default value is infinity
+	MaxServerConnectionAgeGrace time.Duration // default value 10s
 }
 
 // DefaultOption returns the default keepalive options.
@@ -52,7 +52,7 @@ func DefaultOption() *Options {
 		Time:                        30 * time.Second,
 		Timeout:                     10 * time.Second,
 		MaxServerConnectionAge:      Infinity,
-		MaxServerConnectionAgeGrace: Infinity,
+		MaxServerConnectionAgeGrace: 10 * time.Second,
 	}
 }
 
@@ -68,7 +68,4 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 			"and if no activity is seen even after that the connection is closed.")
 	cmd.PersistentFlags().DurationVar(&o.MaxServerConnectionAge, "keepaliveMaxServerConnectionAge",
 		o.MaxServerConnectionAge, "Maximum duration a connection will be kept open on the server before a graceful close.")
-	cmd.PersistentFlags().DurationVar(&o.MaxServerConnectionAgeGrace, "keepaliveMaxServerConnectionAgeGrace",
-		o.MaxServerConnectionAgeGrace, "Grace duration allowed before a server connection is forcibly closed "+
-			"after MaxServerConnectionAge expires.")
 }
