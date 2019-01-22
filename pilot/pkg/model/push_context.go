@@ -504,6 +504,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
+		// look for dest rules across all namespaces public/private
 		for _, processedDestRulesForNamespace := range ps.namespaceLocalDestRules {
 			if host, ok := MostSpecificHostMatch(service.Hostname, processedDestRulesForNamespace.hosts); ok {
 				return processedDestRulesForNamespace.destRule[host].config
@@ -516,7 +517,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		return nil
 	}
 
-	// take the processed DestinationRule in proxy's namespace first
+	// search through the DestinationRules in proxy's namespace first
 	if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
 		if host, ok := MostSpecificHostMatch(service.Hostname,
 			ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
@@ -788,18 +789,27 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
+		// Store in an index for the config's namespace
+		// a proxy from this namespace will first look here for the destination rule for a given service
+		// This pool consists of both public/private destination rules.
+		// TODO: when exportTo is added to API, only add the rule here if exportTo is '.'
+		// The global exportTo doesn't matter here (its either . or * - both of which are applicable here)
 		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
 				hosts:    make([]Hostname, 0),
 				destRule: map[Hostname]*combinedDestinationRule{},
 			}
 		}
+		// Merge this destination rule with any public/private dest rules for same host in the same namespace
+		// If there are no duplicates, the dest rule will be added to the list
 		namespaceLocalDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
 			namespaceLocalDestRules[configs[i].Namespace].hosts,
 			namespaceLocalDestRules[configs[i].Namespace].destRule,
 			configs[i])
 
 		// This is the default for Istio 1.0 rules - config scope is public
+		// TODO: also check for meshConfig.defaultDestinationRuleExportTo setting
+		// if the rule's exportTo is empty
 		if rule.ConfigScope == networking.ConfigScope_PUBLIC {
 			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
 				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
@@ -807,11 +817,15 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 					destRule: map[Hostname]*combinedDestinationRule{},
 				}
 			}
+			// Merge this destination rule with any public dest rule for the same host in the same namespace
+			// If there are no duplicates, the dest rule will be added to the list
 			namespaceExportedDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
 				namespaceExportedDestRules[configs[i].Namespace].hosts,
 				namespaceExportedDestRules[configs[i].Namespace].destRule,
 				configs[i])
 
+			// Merge this destination rule with any public dest rule for the same host
+			// across all namespaces. If there are no duplicates, the dest rule will be added to the list
 			allExportedDestRules.hosts, _ = ps.combineSingleDestinationRule(
 				allExportedDestRules.hosts, allExportedDestRules.destRule, configs[i])
 		}
