@@ -31,6 +31,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/env"
+	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/source"
 )
@@ -45,15 +46,6 @@ var (
 	// For the purposes of rate limiting new connections, this controls how
 	// frequently new bursts of connections are allowed.
 	newConnectionFreq = env.Duration("NEW_CONNECTION_FREQ", 10*time.Millisecond)
-
-	// Controls the rate limit frequency for re-pushing previously NACK'd pushes
-	// for each type.
-	nackLimitFreq = env.Duration("NACK_LIMIT_FREQ", 1*time.Second)
-
-	// Controls the delay for re-retrying a configuration push if the previous
-	// attempt was not possible, e.g. the lower-level serving layer was busy. This
-	// should typically be set fairly small (order of milliseconds).
-	retryPushDelay = env.Duration("RETRY_PUSH_DELAY", 10*time.Millisecond)
 )
 
 var _ mcp.AggregatedMeshConfigServiceServer = &Server{}
@@ -81,13 +73,6 @@ type AuthChecker interface {
 	Check(authInfo credentials.AuthInfo) error
 }
 
-type newPushResponseState int
-
-const (
-	newPushResponseStateReady newPushResponseState = iota
-	newPushResponseStateClosed
-)
-
 // watch maintains local push state of the most recent watch per-type.
 type watch struct {
 	// only accessed from connection goroutine
@@ -95,79 +80,12 @@ type watch struct {
 	nonce           string // most recent nonce
 	nonceVersionMap map[string]string
 
-	// NOTE: do not hold `mu` when reading/writing to this channel.
-	newPushResponseReadyChan chan newPushResponseState
-
 	mu                      sync.Mutex
 	newPushResponse         *source.WatchResponse
 	mostRecentNackedVersion string
-	timer                   *time.Timer
-	closed                  bool
-}
 
-func (w *watch) delayedPush() {
-	w.mu.Lock()
-	w.timer = nil
-	w.mu.Unlock()
-
-	select {
-	case w.newPushResponseReadyChan <- newPushResponseStateReady:
-	default:
-		time.AfterFunc(retryPushDelay, w.schedulePush)
-	}
-}
-
-// Try to schedule pushing a response to the node. The push may
-// be re-scheduled as needed. Additional care is taken to rate limit
-// re-pushing responses that were previously NACK'd. This avoid flooding
-// the node with responses while also allowing transient NACK'd responses
-// to be retried.
-func (w *watch) schedulePush() {
-	w.mu.Lock()
-
-	// close the watch
-	if w.closed {
-		// unlock before channel write
-		w.mu.Unlock()
-
-		select {
-		case w.newPushResponseReadyChan <- newPushResponseStateClosed:
-		default:
-			time.AfterFunc(retryPushDelay, w.schedulePush)
-		}
-		return
-	}
-
-	// no-op if the response has already be sent
-	if w.newPushResponse == nil {
-		w.mu.Unlock()
-		return
-	}
-
-	// delay re-sending a previously nack'd response
-	if w.newPushResponse.Version == w.mostRecentNackedVersion {
-		if w.timer == nil {
-			w.timer = time.AfterFunc(nackLimitFreq, w.delayedPush)
-		}
-		w.mu.Unlock()
-		return
-	}
-
-	// Otherwise, try to schedule the response to be sent.
-	if w.timer != nil {
-		if !w.timer.Stop() {
-			<-w.timer.C
-		}
-		w.timer = nil
-	}
-	// unlock before channel write
-	w.mu.Unlock()
-	select {
-	case w.newPushResponseReadyChan <- newPushResponseStateReady:
-	default:
-		time.AfterFunc(retryPushDelay, w.schedulePush)
-	}
-
+	queueResponse func(w *watch) bool
+	finished      func()
 }
 
 // Save the pushed response in the newPushResponse and schedule a push. The push
@@ -177,12 +95,14 @@ func (w *watch) schedulePush() {
 func (w *watch) saveResponseAndSchedulePush(response *source.WatchResponse) {
 	w.mu.Lock()
 	w.newPushResponse = response
-	if response == nil {
-		w.closed = true
-	}
 	w.mu.Unlock()
 
-	w.schedulePush()
+	if response == nil {
+		w.finished()
+		return
+	}
+
+	w.queueResponse(w)
 }
 
 // connection maintains per-stream connection state for a
@@ -203,6 +123,8 @@ type connection struct {
 	watcher  source.Watcher
 
 	reporter monitoring.Reporter
+
+	queue *internal.UniqueQueue
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
@@ -245,13 +167,15 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		watcher:  s.watcher,
 		id:       atomic.AddInt64(&s.nextStreamID, 1),
 		reporter: s.reporter,
+		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
 	var types []string
 	for _, collection := range s.collections {
 		w := &watch{
-			newPushResponseReadyChan: make(chan newPushResponseState, 1),
-			nonceVersionMap:          make(map[string]string),
+			nonceVersionMap: make(map[string]string),
+			queueResponse:   func(w *watch) bool { return con.queue.Enqueue(w) },
+			finished:        con.queue.Close,
 		}
 		con.watches[collection.Name] = w
 		types = append(types, collection.Name)
@@ -278,30 +202,12 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	defer s.closeConnection(con)
 	go con.receive()
 
-	// fan-in per-type response channels into single response channel for the select loop below.
-	responseChan := make(chan *watch, 1)
-	for _, w := range con.watches {
-		go func(w *watch) {
-			for state := range w.newPushResponseReadyChan {
-				if state == newPushResponseStateClosed {
-					break
-				}
-				responseChan <- w
-			}
-
-			// Any closed watch can close the overall connection. Use
-			// `nil` value to indicate a closed state to the run loop
-			// below instead of closing the channel to avoid closing
-			// the channel multiple times.
-			responseChan <- nil
-		}(w)
-	}
-
 	for {
 		select {
-		case w, more := <-responseChan:
-			if !more || w == nil {
-				return status.Error(codes.Unavailable, "server canceled watch")
+		case <-con.queue.Ready():
+			w, ok := con.queue.Dequeue().(*watch)
+			if !ok || w == nil {
+				break
 			}
 
 			w.mu.Lock()
@@ -313,6 +219,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 			if resp == nil {
 				break
 			}
+
 			if err := con.pushServerResponse(w, resp); err != nil {
 				return err
 			}
@@ -323,6 +230,8 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 			if err := con.processClientRequest(req); err != nil {
 				return err
 			}
+		case <-con.queue.Done():
+			return status.Error(codes.Unavailable, "server canceled watch")
 		case <-stream.Context().Done():
 			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
 			return stream.Context().Err()
@@ -380,8 +289,12 @@ func (con *connection) receive() {
 			con.reqError = err
 			return
 		}
+
 		select {
 		case con.requestC <- req:
+		case <-con.queue.Done():
+			scope.Debugf("MCP: connection %v: stream done", con)
+			return
 		case <-con.stream.Context().Done():
 			scope.Debugf("MCP: connection %v: stream done, err=%v", con, con.stream.Context().Err())
 			return
