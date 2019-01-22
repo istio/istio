@@ -219,9 +219,6 @@ type XdsConnection struct {
 	// Will keep getting updated with the latest push version.
 	nextPush *model.PushContext
 
-	// doneChannel will be closed when the client is closed.
-	doneChannel chan int
-
 	// TODO: migrate other fields as needed from model.Proxy and replace it
 
 	//HttpConnectionManagers map[string]*http_conn.HttpConnectionManager
@@ -283,7 +280,6 @@ type XdsEvent struct {
 func newXdsConnection(peerAddr string, stream DiscoveryStream) *XdsConnection {
 	return &XdsConnection{
 		pushChannel:  make(chan *XdsEvent, 1),
-		doneChannel:  make(chan int, 1),
 		PeerAddr:     peerAddr,
 		Clusters:     []string{},
 		Connect:      time.Now(),
@@ -306,7 +302,12 @@ func receiveThread(con *XdsConnection, reqChannel chan *xdsapi.DiscoveryRequest,
 			adsLog.Errorf("ADS: %q %s terminated with errors %v", con.PeerAddr, con.ConID, err)
 			return
 		}
-		reqChannel <- req
+		select {
+		case reqChannel <- req:
+		case <-con.stream.Context().Done():
+			adsLog.Errorf("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
+			return
+		}
 	}
 }
 
@@ -347,7 +348,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 	}
 
 	con := newXdsConnection(peerAddr, stream)
-	defer close(con.doneChannel)
 
 	// Do not call: defer close(con.pushChannel) !
 	// the push channel will be garbage collected when the connection is no longer used.
@@ -715,7 +715,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 		}:
 			client.LastPush = time.Now()
 			client.LastPushFailure = timeZero
-		case <-client.doneChannel: // connection was closed
+		case <-client.stream.Context().Done(): // grpc stream was closed
 			adsLog.Infof("Client closed connection %v", client.ConID)
 		case <-to:
 			pushTimeouts.Add(1)
