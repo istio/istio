@@ -27,7 +27,7 @@ import (
 type handler struct{}
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/hello/sunnyvale" {
+	if r.URL.Path != "/hello/sunnyvale" && r.URL.Path != "/" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -58,6 +58,11 @@ func TestNewServer(t *testing.T) {
 		{
 			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},` +
 				`"/app-health/buisness/livez": {"path": "/buisiness/live", "port": 9090}}`,
+		},
+		// A valid input with empty probing path, which happens when HTTPGetAction.Path is not specified.
+		{
+			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},
+"/app-health/buisness/livez": {"port": 9090}}`,
 		},
 	}
 	for _, tc := range testCases {
@@ -92,8 +97,9 @@ func TestAppProbe(t *testing.T) {
 
 	// Starts the pilot agent status server.
 	server, err := NewServer(Config{
-		StatusPort:         0,
-		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v}}`, appPort),
+		StatusPort: 0,
+		KubeAppHTTPProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": %v},
+"/app-health/hello-world/livez": {"port": %v}}`, appPort, appPort),
 	})
 	if err != nil {
 		t.Errorf("failed to create status server %v", err)
@@ -119,6 +125,10 @@ func TestAppProbe(t *testing.T) {
 		},
 		{
 			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath:  fmt.Sprintf(":%v/app-health/hello-world/livez", statusPort),
 			statusCode: http.StatusOK,
 		},
 	}
