@@ -18,6 +18,7 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -291,6 +292,14 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
 
+	key := cache.ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: req.ResourceNames[0],
+	}
+	if _, ok := st.secrets.Load(key); ok != true {
+		t.Errorf("failed to find cached secret")
+	}
+
 	// Test push nil secret(indicates close the streaming connection) to proxy.
 	if err = NotifyProxy(proxyID, req.ResourceNames[0], nil); err != nil {
 		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
@@ -301,6 +310,9 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	if len(sdsClients) != 0 {
 		t.Errorf("sdsClients, got %d, expected 0", len(sdsClients))
+	}
+	if _, ok := st.secrets.Load(key); ok != false {
+		t.Errorf("found cached secret after stream close, expected non-exist")
 	}
 }
 
@@ -416,6 +428,7 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 
 type mockSecretStore struct {
 	checkToken bool
+	secrets    sync.Map
 }
 
 func (ms *mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
@@ -423,11 +436,17 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resource
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
+	key := cache.ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
 	if resourceName == testResourceName {
+		ms.secrets.Store(key, fakeSecret)
 		return fakeSecret, nil
 	}
 
 	if resourceName == cache.RootCertReqResourceName {
+		ms.secrets.Store(key, fakeSecretRootCert)
 		return fakeSecretRootCert, nil
 	}
 
@@ -436,4 +455,12 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resource
 
 func (*mockSecretStore) SecretExist(proxyID, spiffeID, token, version string) bool {
 	return spiffeID == fakeSecret.ResourceName && token == fakeSecret.Token && version == fakeSecret.Version
+}
+
+func (ms *mockSecretStore) DeleteSecret(proxyID, resourceName string) {
+	key := cache.ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
+	ms.secrets.Delete(key)
 }
