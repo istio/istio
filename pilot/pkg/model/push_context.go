@@ -291,6 +291,10 @@ func NewPushContext() *PushContext {
 		privateVirtualServicesByNamespace: map[string][]Config{},
 		namespaceLocalDestRules:           map[string]*processedDestRules{},
 		namespaceExportedDestRules:        map[string]*processedDestRules{},
+		allExportedDestRules: &processedDestRules{
+			hosts: make([]Hostname, 0),
+			destRule: map[Hostname]*combinedDestinationRule{},
+		},
 		sidecarsByNamespace:               map[string][]*SidecarScope{},
 
 		ServiceByHostname: map[Hostname]*Service{},

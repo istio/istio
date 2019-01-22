@@ -424,7 +424,11 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 			weighted = append(weighted, clusterWeight)
 
-			hashPolicy := getHashPolicy(push, node, serviceRegistry[hostname], dst)
+			var configNamespace string
+			if serviceRegistry[hostname] != nil {
+				configNamespace = serviceRegistry[hostname].Attributes.Namespace
+			}
+			hashPolicy := getHashPolicy(push, node, dst, configNamespace)
 			if hashPolicy != nil {
 				action.HashPolicy = append(action.HashPolicy, hashPolicy)
 			}
@@ -743,14 +747,18 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func getHashPolicy(push *model.PushContext, node *model.Proxy, service *model.Service,
-	dst *networking.HTTPRouteDestination) *route.RouteAction_HashPolicy {
+func getHashPolicy(push *model.PushContext, node *model.Proxy, dst *networking.HTTPRouteDestination,
+	configNamespace string) *route.RouteAction_HashPolicy {
 	if push == nil {
 		return nil
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := push.DestinationRule(node, service)
+	destinationRule := push.DestinationRule(node,
+		&model.Service{
+			Hostname: model.Hostname(destination.Host),
+			Attributes: model.ServiceAttributes{Namespace:configNamespace},
+			})
 	if destinationRule == nil {
 		return nil
 	}
