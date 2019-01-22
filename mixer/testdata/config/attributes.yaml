@@ -57,6 +57,8 @@ spec:
         valueType: STRING
       destination.uid:
         valueType: STRING
+      destination.port:
+        valueType: INT64
       connection.event:
         valueType: STRING
       connection.id:
