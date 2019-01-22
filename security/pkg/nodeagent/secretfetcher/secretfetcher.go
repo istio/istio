@@ -21,24 +21,19 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/log"
-
-	ca "istio.io/istio/security/pkg/nodeagent/caclient"
-
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
-
-	"istio.io/istio/security/pkg/nodeagent/model"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
+	ca "istio.io/istio/security/pkg/nodeagent/caclient"
+	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	"istio.io/istio/security/pkg/nodeagent/model"
 )
 
 const (
@@ -88,19 +83,6 @@ func fatalf(template string, args ...interface{}) {
 	os.Exit(-1)
 }
 
-// createClientset creates kubernetes client to watch kubernetes secrets.
-func createClientset() *kubernetes.Clientset {
-	c, err := clientcmd.BuildConfigFromFlags("", KubeConfigFile)
-	if err != nil {
-		fatalf("Failed to create a config for kubernetes client (error: %s)", err)
-	}
-	cs, err := kubernetes.NewForConfig(c)
-	if err != nil {
-		fatalf("Failed to create a clientset (error: %s)", err)
-	}
-	return cs
-}
-
 // NewSecretFetcher returns a pointer to a newly constructed SecretFetcher instance.
 func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string, tlsFlag bool,
 	tlsRootCert []byte, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath string) (*SecretFetcher, error) {
@@ -108,7 +90,10 @@ func NewSecretFetcher(ingressGatewayAgent bool, endpoint, CAProviderName string,
 
 	if ingressGatewayAgent {
 		ret.UseCaClient = false
-		cs := createClientset()
+		cs, err := kube.CreateClientset("", "")
+		if err != nil {
+			fatalf("Could not create k8s clientset: %v", err)
+		}
 		ret.Init(cs.CoreV1())
 	} else {
 		caClient, err := ca.NewCAClient(endpoint, CAProviderName, tlsFlag, tlsRootCert,
