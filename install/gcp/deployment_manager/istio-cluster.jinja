@@ -31,7 +31,7 @@ resources:
   properties:
     parent: $(ref.{{ CLUSTER_NAME }}-config.name)
     waiter: {{ CLUSTER_NAME }}-waiter
-    timeout: 600s
+    timeout: 800s
     success:
       cardinality:
         path: /success
@@ -100,15 +100,15 @@ resources:
           export PATH="$PATH:/root/istio-{{ properties['installIstioRelease'] }}/bin::/root/helm/linux-amd64/"
           cd /root/istio-{{ properties['installIstioRelease'] }}
 
-          kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml
-
-          kubectl apply -f install/kubernetes/helm/subcharts/certmanager/templates/crds.yaml
+          for i in install/kubernetes/helm/istio-init/files/crd*yaml; do kubectl apply -f $i; done
 
           helm init --client-only
           helm repo add istio.io https://storage.googleapis.com/istio-release/releases/{{ properties['installIstioRelease'] }}/charts/
           helm dependency update install/kubernetes/helm/istio
 
           kubectl create ns istio-system
+
+          cat install/kubernetes/namespace.yaml > $HOME/istio.yaml
 
           ISTIO_OPTIONS=" --set global.proxy.image=proxyv2 "
 
@@ -136,7 +136,7 @@ resources:
             ISTIO_OPTIONS=$ISTIO_OPTIONS" --set servicegraph.enabled=true"
           {% endif %}
 
-          helm template install/kubernetes/helm/istio --name istio --namespace istio-system $ISTIO_OPTIONS  > istio.yaml
+          helm template install/kubernetes/helm/istio --name istio --namespace istio-system $ISTIO_OPTIONS  >> istio.yaml
 
           kubectl apply -f istio.yaml
 
@@ -144,11 +144,11 @@ resources:
             kubectl label namespace default istio-injection=enabled
           {% endif %}
 
-          if kubectl rollout status deployment.extensions/istio-pilot -n istio-system --timeout=120s && \
-             kubectl rollout status deployment.extensions/istio-citadel -n istio-system --timeout=120s && \
-             kubectl rollout status deployment.extensions/istio-policy -n istio-system --timeout=120s && \
-             kubectl rollout status deployment.extensions/istio-galley -n istio-system --timeout=120s && \
-             kubectl rollout status deployment.extensions/istio-ingressgateway -n istio-system --timeout=120s ; then
+          if kubectl rollout status deployment.extensions/istio-pilot -n istio-system --timeout=150s && \
+             kubectl rollout status deployment.extensions/istio-citadel -n istio-system --timeout=150s && \
+             kubectl rollout status deployment.extensions/istio-policy -n istio-system --timeout=150s && \
+             kubectl rollout status deployment.extensions/istio-galley -n istio-system --timeout=150s && \
+             kubectl rollout status deployment.extensions/istio-ingressgateway -n istio-system --timeout=150s ; then
 
           {% if  properties['enableKiali'] %}
 
