@@ -16,6 +16,11 @@ package dispatcher
 
 import (
 	"context"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/gogo/googleapis/google/rpc"
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/api/mixer/v1"
@@ -28,10 +33,6 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/pkg/log"
-	"reflect"
-	"strings"
-	"testing"
-	"time"
 )
 
 var gp = pool.NewGoroutinePool(10, true)
