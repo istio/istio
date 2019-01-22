@@ -483,17 +483,20 @@ func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceIns
 				ServiceAccount: realinstance.ServiceAccount,
 			}
 		}
-		//for _, iport := range realinstance.Service.Ports {
-		//if iport.Name == ingressListener.Port.Name {
-		//	instance = &model.ServiceInstance{
-		//		Endpoint:       realinstance.Endpoint,
-		//		Service:        realinstance.Service,
-		//		Labels:         realinstance.Labels,
-		//		ServiceAccount: realinstance.ServiceAccount,
-		//	}
-		//}
-		//}
+
+		// TODO: UDS may not work, we could use the port name
+		for _, iport := range realinstance.Service.Ports {
+			if iport.Name == ingressListener.Port.Name {
+				instance = &model.ServiceInstance{
+					Endpoint:       realinstance.Endpoint,
+					Service:        realinstance.Service,
+					Labels:         realinstance.Labels,
+					ServiceAccount: realinstance.ServiceAccount,
+				}
+			}
+		}
 	}
+
 	return instance
 }
 
