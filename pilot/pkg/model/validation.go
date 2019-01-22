@@ -446,16 +446,7 @@ func validateServer(server *networking.Server) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, host := range server.Hosts {
-			// short name hosts are not allowed in gateways
-			if host != "*" && !strings.Contains(host, ".") {
-				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
-			}
-			if err := ValidateWildcardDomain(host); err != nil {
-				ipAddr := net.ParseIP(host) // Could also be an IP
-				if ipAddr == nil {
-					errs = appendErrors(errs, err)
-				}
-			}
+			errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, true))
 		}
 	}
 	portErr := validateServerPort(server.Port)
@@ -570,6 +561,54 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 	return
 }
 
+// validates that hostname in ns/<hostname> is a valid hostname according to
+// API specs
+func validateSidecarOrGatewayHostnamePart(host string, isGateway bool) (errs error) {
+	// short name hosts are not allowed
+	if host != "*" && !strings.Contains(host, ".") {
+		errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed"))
+	}
+
+	if err := ValidateWildcardDomain(host); err != nil {
+		if !isGateway {
+			errs = appendErrors(errs, err)
+		}
+
+		// Gateway allows IP as the host string, as well
+		ipAddr := net.ParseIP(host)
+		if ipAddr == nil {
+			errs = appendErrors(errs, err)
+		}
+	}
+	return
+}
+
+
+func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs error) {
+	parts := strings.SplitN(host, "/", 2)
+	if len(parts) != 2 {
+		if isGateway {
+			// Old style host in the gateway
+			return validateSidecarOrGatewayHostnamePart(host, true)
+		}
+		errs = appendErrors(errs, fmt.Errorf("host must be of form namespace/dnsName"))
+		return
+	}
+
+	if len(parts[0]) == 0 || len(parts[1]) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("config namespace and dnsName in host entry cannot be empty"))
+	}
+
+	// namespace can be * or . or a valid DNS label
+	if parts[0] != "*" && parts[0] != "." {
+		if !IsDNS1123Label(parts[0]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q", parts[0]))
+		}
+	}
+	errs = appendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
+	return
+}
+
 // ValidateSidecar checks sidecar config supplied by user
 func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 	rule, ok := msg.(*networking.Sidecar)
@@ -680,22 +719,7 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
 		} else {
 			for _, host := range i.Hosts {
-				parts := strings.SplitN(host, "/", 2)
-				if len(parts) != 2 {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: host must be of form namespace/dnsName"))
-					continue
-				}
-
-				if len(parts[0]) == 0 || len(parts[1]) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: config namespace and dnsName in host entry cannot be empty"))
-				}
-
-				// short name hosts are not allowed
-				if parts[1] != "*" && !strings.Contains(parts[1], ".") {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: short names (non FQDN) are not allowed"))
-				}
-
-				errs = appendErrors(errs, ValidateWildcardDomain(parts[1]))
+				errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, false))
 			}
 		}
 	}
@@ -1521,12 +1545,11 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 		appliesToMesh = true
 	}
 
+	errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
 	for _, gateway := range virtualService.Gateways {
-		if err := ValidateFQDN(gateway); err != nil {
-			errs = appendErrors(errs, err)
-		}
 		if gateway == IstioMeshGateway {
 			appliesToMesh = true
+			break
 		}
 	}
 
@@ -1746,9 +1769,27 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 
 func validateGatewayNames(gateways []string) (errs error) {
 	for _, gateway := range gateways {
-		if err := ValidateFQDN(gateway); err != nil {
-			errs = appendErrors(errs, err)
+		parts := strings.SplitN(gateway, "/", 2)
+		if len(parts) != 2 {
+			// Old style spec with FQDN gateway name
+			errs = appendErrors(errs, ValidateFQDN(gateway))
+			return
 		}
+
+		if len(parts[0]) == 0 || len(parts[1]) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("config namespace and gateway name cannot be empty"))
+		}
+
+		// namespace and name must be DNS labels
+		if !IsDNS1123Label(parts[0]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
+		}
+
+		if !IsDNS1123Label(parts[1]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
+		}
+
+		return
 	}
 	return
 }
