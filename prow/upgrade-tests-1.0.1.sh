@@ -22,7 +22,7 @@ set -u
 set -x
 
 # Local run example:
-# HUB=gcr.io/istio-release \
+# UPGRADE_TEST_LOCAL="true" HUB=gcr.io/istio-release \
 #   ISTIO_REL_URL=https://storage.googleapis.com/istio-release-pipeline-data/daily-build/master-20190107-09-15 \
 #   TAG=master-20190107-09-15 \
 #   prow/upgrade-tests-1.0.1.sh

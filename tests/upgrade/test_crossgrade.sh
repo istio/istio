@@ -125,7 +125,7 @@ withRetries() {
     shift
     while (( n < max_retries )); do
       echo "RUNNING $*" ; "${@}" && break
-      echo "Failed, sleeping ${sleep_sec} and retrying..."
+      echo "Failed, sleeping ${sleep_sec} seconds and retrying..."
       ((n++))
       sleep "${sleep_sec}"
     done
@@ -145,7 +145,7 @@ withRetriesMaxTime() {
     shift
     while (( SECONDS - start_time <  total_time_max )); do
       echo "RUNNING $*" ; "${@}" && break
-      echo "Failed, sleeping ${sleep_sec} and retrying..."
+      echo "Failed, sleeping ${sleep_sec} seconds and retrying..."
       sleep ${sleep_sec}
     done
 
@@ -189,9 +189,9 @@ installTest() {
 # completion.
 _sendInternalRequestTraffic() {
     local job_name=cli-fortio
-    kubectl delete job -n "${TEST_NAMESPACE}" "${job_name}"
+    kubectl delete job -n "${TEST_NAMESPACE}" "${job_name}" > /dev/null 2>&1
     start_time=${SECONDS}
-    kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml" || die "kubectl apply fortio-cli.yaml failed"
+    withRetries 10 60 kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml"
     waitForJob "${job_name}"
     # Any timeouts typically occur in the first 20s
     if (( SECONDS - start_time < 100 )); then
@@ -302,21 +302,22 @@ waitForJob() {
 }
 
 _resetNamespacesCheck() {
-    kubectl delete namespace "${ISTIO_NAMESPACE}" "${TEST_NAMESPACE}" || echo "namespaces may already be deleted"
     resp=$( kubectl get namespaces )
     if [[ "${resp}" != *"Terminating"* ]]; then
-        echo "All namespaces deleted."
-        kubectl create namespace "${ISTIO_NAMESPACE}"
-        kubectl create namespace "${TEST_NAMESPACE}"
-        kubectl label namespace "${TEST_NAMESPACE}" istio-injection=enabled
-        return
-    else
-        echo "Waiting for namespaces ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE} to be deleted."
+        echo "All namespaces deleted. Recreating ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE}"
+        echo_and_run_or_die kubectl create namespace "${ISTIO_NAMESPACE}"
+        echo_and_run_or_die kubectl create namespace "${TEST_NAMESPACE}"
+        echo_and_run_or_die kubectl label namespace "${TEST_NAMESPACE}" istio-injection=enabled
+        return 0
     fi
+
+    echo "Waiting for namespaces ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE} to be deleted."
+    return 1
 }
 
-resetNamespaces() {
-    kubectl delete namespace "${ISTIO_NAMESPACE}" "${TEST_NAMESPACE}" || echo "namespaces may already be deleted"
+resetCluster() {
+    echo "Cleaning cluster by removing namespaces ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE}"
+    kubectl delete namespace "${ISTIO_NAMESPACE}" "${TEST_NAMESPACE}" > /dev/null 2>&1
     withRetriesMaxTime 300 10 _resetNamespacesCheck
 }
 
@@ -348,11 +349,12 @@ copy_test_files() {
 
 copy_test_files
 
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)" || echo "clusterrolebinding already created."
+# This should already be done, repeat just in case.
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)" > /dev/null 2>&1
 
 pushd "${ISTIO_ROOT}" || exit 1
 
-resetNamespaces
+resetCluster
 
 installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
 waitForIngress
