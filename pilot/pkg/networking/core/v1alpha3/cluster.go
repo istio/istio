@@ -833,6 +833,7 @@ func applyLocalityLBSetting(
 	}
 }
 
+// set locality loadbalancing weight
 func applyLocalityWeight(
 	proxy *model.Proxy,
 	loadAssignment *apiv2.ClusterLoadAssignment,
@@ -841,8 +842,9 @@ func applyLocalityWeight(
 		return
 	}
 
-	// Support Locality weighted load balancing by providing weights
-	// in LocalityLbEndpoints via load_balancing_weight.
+	// Support Locality weighted load balancing
+	// (https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing/locality_weight.html)
+	// by providing weights in LocalityLbEndpoints via load_balancing_weight.
 	// By setting weights across different localities, it can allow
 	// Envoy to weight assignments across different zones and geographical locations.
 	for _, localityWeightSetting := range distribute {
@@ -884,12 +886,15 @@ func applyLocalityWeight(
 	}
 }
 
+// set locality loadbalancing priority
 func applyLocalityFailover(
 	proxy *model.Proxy,
 	loadAssignment *apiv2.ClusterLoadAssignment,
 	failover []*meshconfig.LocalityLoadBalancerSetting_Failover) {
+	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}
 
+	// 1. calculate the LocalityLbEndpoints.Priority compared with proxy locality
 	for i, localityEndpoint := range loadAssignment.Endpoints {
 		priority := util.LbPriority(&proxy.Locality, localityEndpoint.Locality)
 		// region not match, apply failover settings
@@ -907,15 +912,19 @@ func applyLocalityFailover(
 		priorityMap[priority] = append(priorityMap[priority], i)
 	}
 
-	// sort all priorities
+	// since Priorities should range from 0 (highest) to N (lowest) without skipping.
+	// 2. adjust the priorities in order
+	// 2.1 sort all priorities in increasing order.
 	priorities := []int{}
 	for priority := range priorityMap {
 		priorities = append(priorities, priority)
 	}
 	sort.Ints(priorities)
-	// adjust LocalityLbEndpoints priority
+	// 2.2 adjust LocalityLbEndpoints priority
+	// if the index and value of priorities array is not equal.
 	for i, priority := range priorities {
 		if i != priority {
+			// the LocalityLbEndpoints index in ClusterLoadAssignment.Endpoints
 			for index := range priorityMap[priority] {
 				loadAssignment.Endpoints[index].Priority = uint32(i)
 			}
