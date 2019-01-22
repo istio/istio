@@ -33,6 +33,7 @@ usage() {
     echo "  auth_enable   enable mtls."
     echo "  skip_cleanup  leave install intact after test completes."
     echo "  namespace     namespace to install istio control plane in (default istio-system)."
+    echo "  cloud         cloud provider name"
     echo
     echo "  e.g. ./test_crossgrade.sh \"
     echo "        --from_hub=gcr.io/istio-testing --from_tag=d639408fd --from_path=/tmp/release-d639408fd \"
@@ -79,6 +80,9 @@ while (( "$#" )); do
             ;;
         --to_path)
             TO_PATH=${VALUE}
+            ;;
+        --cloud)
+            CLOUD=${VALUE}
             ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
@@ -304,7 +308,11 @@ copy_test_files() {
 
 copy_test_files
 
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)" || echo "clusterrolebinding already created."
+if [[ $CLOUD == "GKE" ]];then
+  kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)" || echo "clusterrolebinding already created."
+else
+  kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="cluster-admin" || echo "clusterrolebinding already created."
+fi
 
 pushd "${ISTIO_ROOT}" || exit 1
 
