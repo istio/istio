@@ -143,7 +143,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 		rewriteProbe(c.LivenessProbe, &appProberInfo, fmt.Sprintf("/app-health/%v/livez", c.Name), statusPort, portMap)
 	}
 
-	// Finally propogate app prober config to `istio-proxy` through command line flag.
+	// Finally propagate app prober config to `istio-proxy` through command line flag.
 	b, err := json.Marshal(appProberInfo)
 	if err != nil {
 		log.Errorf("failed to serialize the app prober config %v", err)
