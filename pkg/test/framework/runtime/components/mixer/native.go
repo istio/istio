@@ -15,12 +15,10 @@
 package mixer
 
 import (
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
-	"os"
-	"path"
 	"testing"
 	"time"
 
@@ -38,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
@@ -61,7 +60,8 @@ func NewNativeComponent() (api.Component, error) {
 
 type nativeComponent struct {
 	*client
-	scope lifecycle.Scope
+	scope  lifecycle.Scope
+	galley components.Galley
 }
 
 func (c *nativeComponent) Descriptor() component.Descriptor {
@@ -80,13 +80,11 @@ func (c *nativeComponent) Configure(t testing.TB, _ lifecycle.Scope, cfg string)
 		t.Fatalf("Error expanding configuration template: %v", err)
 	}
 
-	file := path.Join(c.workdir, "config.yaml")
-	if err := ioutil.WriteFile(file, []byte(cfg), os.ModePerm); err != nil {
+	if err := c.galley.ApplyConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
 
-	file = path.Join(c.workdir, "attributemanifest.yaml")
-	if err := ioutil.WriteFile(file, []byte(c.attributeManifest), os.ModePerm); err != nil {
+	if err := c.galley.ApplyConfig(c.attributeManifest); err != nil {
 		t.Fatal(err)
 	}
 
@@ -132,7 +130,16 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 	c.client.args = server.DefaultArgs()
 	c.client.args.APIPort = 0
 	c.client.args.MonitoringPort = 0
-	c.client.args.ConfigStoreURL = fmt.Sprintf("fs://%s", c.client.workdir)
+	g := ctx.GetComponent(ids.Galley)
+	if g == nil {
+		return fmt.Errorf("missing dependency: %s", ids.Galley)
+	}
+	galley, ok := g.(components.Galley)
+	if !ok {
+		return errors.New("galley does not support in-process interface")
+	}
+	c.galley = galley
+	c.client.args.ConfigStoreURL = galley.GetGalleyAddress()
 	c.client.args.Templates = generatedTmplRepo.SupportedTmplInfo
 	c.client.args.Adapters = adapter.Inventory()
 
@@ -185,6 +192,9 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 }
 
 func (c *nativeComponent) Close() (err error) {
+	if c.galley != nil {
+		c.galley = nil
+	}
 	if c.client != nil {
 		err = multierror.Append(err, c.client.Close()).ErrorOrNil()
 		c.client = nil
