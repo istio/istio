@@ -539,6 +539,34 @@ spec:
     operation: APPEND
 `
 
+// RuleCheckNoActionsOrHeaderOps has no actions and no responseHeaderOperations. Should be elided.
+var RuleCheckNoActionsOrHeaderOps = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
+  responseHeaderOperations: []
+`
+
+// RuleCheckHeaderOpWithNoActions has a responseHeaderOperation, but no actions. Should not be elided.
+var RuleCheckHeaderOpWithNoActions = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - '"test"'
+    operation: APPEND
+`
+
 // RuleReport1 is a standard testing instance config with name rreport1. It references I1 and H1.
 var RuleReport1 = `
 apiVersion: "config.istio.io/v1alpha2"
