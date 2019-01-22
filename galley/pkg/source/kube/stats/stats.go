@@ -30,6 +30,7 @@ const (
 	group      = "group"
 	kind       = "kind"
 	errorStr   = "error"
+	coreGroup  = "core"
 )
 
 var (
@@ -92,6 +93,10 @@ func RecordConverterResult(success bool, apiVersion, group, kind string) {
 		metric = sourceConversionSuccess
 	} else {
 		metric = sourceConversionFailure
+	}
+	if len(group) == 0 {
+		// For "core" resources, i.e. Pods and Nodes, group is "". Empty tags result in errors during the export to Prometheus.
+		group = coreGroup
 	}
 	key := contextKey{apiVersion, group, kind}
 	ctx, ok := ctxCache.Load(key)
