@@ -36,24 +36,13 @@ import (
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
-	// IstioAppPortHeader is the header name to indicate the app port for health check.
-	IstioAppPortHeader = "istio-app-probe-port"
-	// KubeAppProberCmdFlagName is the name of the command line flag for pilot agent to pass app
-	// prober config.
+	// KubeAppProberCmdFlagName is the name of the command line flag for pilot agent to pass app prober config.
 	KubeAppProberCmdFlagName = "kubeAppProberConfig"
 )
 
 var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^\/]+/(livez|readyz)$`)
 )
-
-// // KubeAppProbers holds the information about a Kubernetes pod prober.
-// type KubeAppProbers struct {
-// 	// Probers is the map from the prober URL path to the Kubernetes Prober config.
-// 	// For example, "/app-health/hello-world/liveness" entry contains livenss prober config for
-// 	// container "hello-world".
-// 	Probers map[string]*corev1.HTTPGetAction `json:"probers"`
-// }
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
 // It's a map from the prober URL path to the Kubernetes Prober config.
@@ -63,9 +52,10 @@ type KubeAppProbers map[string]*corev1.HTTPGetAction
 
 // Config for the status server.
 type Config struct {
-	StatusPort         uint16
-	AdminPort          uint16
-	ApplicationPorts   []uint16
+	StatusPort       uint16
+	AdminPort        uint16
+	ApplicationPorts []uint16
+	// KubeAppHTTPProbers is a json with Kubernetes application HTTP prober config encoded.
 	KubeAppHTTPProbers string
 }
 
@@ -93,9 +83,8 @@ func NewServer(config Config) (*Server, error) {
 	if err := json.Unmarshal([]byte(config.KubeAppHTTPProbers), &s.appKubeProbers); err != nil {
 		return nil, fmt.Errorf("failed to decode app http prober err = %v, json string = %v", err, config.KubeAppHTTPProbers)
 	}
-	// Validate the map key conforms the regex pattern.
+	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
-		// fmt.Println("path is ", path)
 		if !appProberPattern.Match([]byte(path)) {
 			return nil, fmt.Errorf("invalid key, must be in form of /app-health/container-name/ready|live")
 		}
@@ -182,7 +171,6 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		Timeout: 10 * time.Second,
 	}
 	url := fmt.Sprintf("http://127.0.0.1:%v%s", prober.Port.IntValue(), prober.Path)
-	// TODO: should body be restricted?
 	appReq, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("Failed to create request to probe app %v, original url %v", err, path)
