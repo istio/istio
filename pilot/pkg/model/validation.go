@@ -583,7 +583,6 @@ func validateSidecarOrGatewayHostnamePart(host string, isGateway bool) (errs err
 	return
 }
 
-
 func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs error) {
 	parts := strings.SplitN(host, "/", 2)
 	if len(parts) != 2 {
