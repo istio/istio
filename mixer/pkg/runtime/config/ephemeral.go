@@ -735,7 +735,8 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		// If there are no valid actions found for this rule, then elide the rule.
-		if len(actionsStat) == 0 && len(actionsDynamic) == 0 {
+		if len(actionsStat) == 0 && len(actionsDynamic) == 0 &&
+		   len(cfg.RequestHeaderOperations) == 0 && len(cfg.ResponseHeaderOperations) == 0 {
 			appendErr(ctx, errs, fmt.Sprintf("rule=%s", ruleName), monitoring.RuleErrs, "No valid actions found in rule")
 			continue
 		}
