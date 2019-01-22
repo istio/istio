@@ -21,17 +21,26 @@
 package fluentd
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"net"
 	"strconv"
 	"time"
 
 	"github.com/fluent/fluent-logger-golang/fluent"
+	multierror "github.com/hashicorp/go-multierror"
 
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/fluentd/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
+)
+
+const (
+	defaultBufferSize    int64 = 1024
+	defaultMaxBatchBytes int64 = 8 * 1024 * 1024
+	defaultTimeout             = 1 * time.Minute
 )
 
 var (
@@ -44,16 +53,22 @@ type (
 		types  map[string]*logentry.Type
 	}
 	handler struct {
-		logger fluentdLogger
-		types  map[string]*logentry.Type
-		env    adapter.Env
-		intDur bool
+		logger        fluentdLogger
+		types         map[string]*logentry.Type
+		env           adapter.Env
+		intDur        bool
+		dataBuffer    chan []byte
+		stopCh        chan bool
+		maxBatchBytes int64
+		pushInterval  time.Duration
+		pushTimeout   time.Duration
 	}
 )
 
 type fluentdLogger interface {
 	Close() error
-	PostWithTime(string, time.Time, interface{}) error
+	EncodeData(string, time.Time, interface{}) (data []byte, err error)
+	PostRawData(data []byte)
 }
 
 // ensure types implement the requisite interfaces
@@ -64,6 +79,10 @@ var _ logentry.Handler = &handler{}
 
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+	return b.build(ctx, env, fluent.New)
+}
+
+func (b *builder) build(ctx context.Context, env adapter.Env, newFluentd func(fluent.Config) (*fluent.Fluent, error)) (adapter.Handler, error) {
 	h, pStr, err := net.SplitHostPort(b.adpCfg.Address)
 	if err != nil {
 		return nil, err
@@ -72,24 +91,44 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	if err != nil {
 		return nil, err
 	}
-	han := &handler{
-		types:  b.types,
-		env:    env,
-		intDur: b.adpCfg.IntegerDuration,
+
+	bufSize := defaultBufferSize
+	if b.adpCfg.InstanceBufferSize > 0 {
+		bufSize = b.adpCfg.InstanceBufferSize
 	}
-	han.logger, err = fluent.New(fluent.Config{FluentPort: p, FluentHost: h})
+
+	batchBytes := defaultMaxBatchBytes
+	if b.adpCfg.MaxBatchSizeBytes > 0 {
+		batchBytes = b.adpCfg.MaxBatchSizeBytes
+	}
+
+	interval := defaultTimeout
+	if b.adpCfg.PushIntervalDuration > 0 {
+		interval = b.adpCfg.PushIntervalDuration
+	}
+
+	timeout := defaultTimeout
+	if b.adpCfg.PushTimeoutDuration > 0 {
+		timeout = b.adpCfg.PushTimeoutDuration
+	}
+
+	han := &handler{
+		types:         b.types,
+		env:           env,
+		intDur:        b.adpCfg.IntegerDuration,
+		dataBuffer:    make(chan []byte, bufSize),
+		stopCh:        make(chan bool),
+		maxBatchBytes: batchBytes,
+		pushInterval:  interval,
+		pushTimeout:   timeout,
+	}
+	han.logger, err = newFluentd(fluent.Config{FluentPort: p, FluentHost: h, BufferLimit: int(batchBytes), WriteTimeout: timeout})
 	if err != nil {
 		return nil, err
 	}
-	return han, nil
-}
 
-func (b *builder) injectBuild(ctx context.Context, env adapter.Env, l fluentdLogger) (adapter.Handler, error) {
-	han := &handler{
-		logger: l,
-		types:  b.types,
-		env:    env,
-	}
+	env.ScheduleDaemon(han.postData)
+
 	return han, nil
 }
 
@@ -106,6 +145,18 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 	if _, _, err := net.SplitHostPort(b.adpCfg.Address); err != nil {
 		ce = ce.Appendf("address", "Address is malformed: %v", err)
 	}
+	if b.adpCfg.MaxBatchSizeBytes < 0 {
+		ce = ce.Appendf("maxBatchBytes", "Value must be a positive number")
+	}
+	if b.adpCfg.InstanceBufferSize < 0 {
+		ce = ce.Appendf("instanceBufferSize", "Value must be a positive number")
+	}
+	if b.adpCfg.PushIntervalDuration < 0 {
+		ce = ce.Appendf("pushIntervalDuration", "Duration must be positive")
+	}
+	if b.adpCfg.PushTimeoutDuration < 0 {
+		ce = ce.Appendf("pushTimeoutDuration", "Duration must be positive")
+	}
 	return
 }
 
@@ -114,10 +165,39 @@ func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) {
 	b.types = types
 }
 
+func (h *handler) postData() {
+	var sendBuf bytes.Buffer
+	sendBuf.Grow(int(h.maxBatchBytes))
+	tick := time.NewTicker(h.pushInterval)
+	for {
+		select {
+		case <-h.stopCh:
+			tick.Stop()
+			if sendBuf.Len() > 0 {
+				h.logger.PostRawData(sendBuf.Bytes())
+				sendBuf.Reset()
+			}
+			return
+		case data := <-h.dataBuffer:
+			if sendBuf.Len()+len(data) > int(h.maxBatchBytes) && sendBuf.Len() > 0 {
+				h.logger.PostRawData(sendBuf.Bytes())
+				sendBuf.Reset()
+			}
+			sendBuf.Write(data)
+		case <-tick.C:
+			if sendBuf.Len() > 0 {
+				h.logger.PostRawData(sendBuf.Bytes())
+				sendBuf.Reset()
+			}
+		}
+	}
+}
+
 ////////////////// Request-time Methods //////////////////////////
 
 // logentry.Handler#HandleLogEntry
 func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance) error {
+	var handleErr *multierror.Error
 	for _, i := range insts {
 		h.env.Logger().Debugf("Got a new log for fluentd, name %v", i.Name)
 
@@ -144,15 +224,35 @@ func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance
 			delete(i.Variables, "tag")
 		}
 
-		if err := h.logger.PostWithTime(tag.(string), i.Timestamp, i.Variables); err != nil {
-			return err
+		data, err := h.logger.EncodeData(tag.(string), i.Timestamp, i.Variables)
+		if err != nil {
+			handleErr = multierror.Append(handleErr, err)
+			continue
 		}
+		if len(data) > int(h.maxBatchBytes) {
+			handleErr = multierror.Append(handleErr, errors.New("instance data exceeds configured max batch bytes; dropping instance"))
+			continue
+		}
+		select {
+		case h.dataBuffer <- data:
+		default:
+			h.env.Logger().Infof("Fluentd instance buffer full; dropping log entry.")
+			handleErr = multierror.Append(handleErr, errors.New("fluentd instance buffer full; dropping log entry"))
+			continue
+		}
+
 	}
-	return nil
+	return handleErr.ErrorOrNil()
 }
 
 // adapter.Handler#Close
-func (h *handler) Close() error {
+func (h *handler) Close() (err error) {
+	defer func() {
+		if recover() != nil {
+			err = h.env.Logger().Errorf("stop channel already closed; cannot close again.")
+		}
+	}()
+	close(h.stopCh)
 	return h.logger.Close()
 }
 

@@ -27,6 +27,7 @@ syntax = "proto3";
 package adapter.fluentd.config;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
 
 option go_package="config";
 option (gogoproto.goproto_getters_all) = false;
@@ -49,4 +50,29 @@ message Params {
   // logs. Default behaviour is a string representation including
   // unit.
   bool integer_duration = 2;
+
+  // Controls the size of the queue of log entries awaiting processing by the
+  // data push goroutine. This impacts the overall size of the backlog of
+  // log entries that the handler will accept. If the handler falls behind and
+  // the number of outstanding instances exceeds this limit, the handler will
+  // begin to drop log entries.
+  // Defaults to 1024.
+  int64 instance_buffer_size = 3;
+
+  // Controls the number of data bytes that are encoded and buffered by the handler before
+  // they are pushed to the fluentd backend. This impacts the size and frequency of requests
+  // sent to the fluentd backend. Once the buffer exceeds this limit, the handler will attempt to push
+  // data to the backend.
+  // Defaults to 8,388,608 (8 MiB).
+  int64 max_batch_size_bytes = 4;
+
+  // Duration interval for pushing batched data to the fluentd backend. At least once every duration,
+  // the handler will attempt to push data.
+  // Default to 1m.
+  google.protobuf.Duration push_interval_duration = 5 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
+
+  // Timeout duration for pushing batched data to the fluentd backend. If a request takes longer than 
+  // the configured timeout, the request will be cancelled and dropped.
+  // Default to 1m.
+  google.protobuf.Duration push_timeout_duration = 6 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
 }

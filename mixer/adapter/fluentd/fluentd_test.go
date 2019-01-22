@@ -15,13 +15,13 @@
 package fluentd
 
 import (
+	"bytes"
 	"context"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/fluent/fluent-logger-golang/fluent"
-
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/adapter/fluentd/config"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -44,7 +44,7 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := b.injectBuild(context.Background(), test.NewEnv(t), &fluent.Fluent{})
+	handler, err := b.build(context.Background(), test.NewEnv(t), func(fluent.Config) (*fluent.Fluent, error) { return &fluent.Fluent{}, nil })
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -57,6 +57,11 @@ func TestBasic(t *testing.T) {
 
 	if err = handler.Close(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
+		return
+	}
+
+	if err = handler.Close(); err == nil {
+		t.Errorf("Close(): expected error on second attempt; got none")
 	}
 }
 
@@ -105,6 +110,59 @@ func TestBuilder(t *testing.T) {
 			true,
 			true,
 		},
+		{
+			"Overrides",
+			config.Params{
+				Address:              ":0",
+				IntegerDuration:      true,
+				MaxBatchSizeBytes:    40000,
+				InstanceBufferSize:   3,
+				PushIntervalDuration: 3 * time.Minute,
+				PushTimeoutDuration:  10 * time.Second,
+			},
+			true,
+			true,
+		},
+		{
+			"Bad Batch Size",
+			config.Params{
+				Address:           ":0",
+				IntegerDuration:   true,
+				MaxBatchSizeBytes: -14,
+			},
+			false,
+			false,
+		},
+		{
+			"Bad Instance Buffer Size",
+			config.Params{
+				Address:            ":0",
+				IntegerDuration:    true,
+				InstanceBufferSize: -5,
+			},
+			false,
+			false,
+		},
+		{
+			"Bad Push Interval",
+			config.Params{
+				Address:              ":0",
+				IntegerDuration:      true,
+				PushIntervalDuration: -14 * time.Millisecond,
+			},
+			false,
+			false,
+		},
+		{
+			"Bad Push Timeout",
+			config.Params{
+				Address:             ":0",
+				IntegerDuration:     true,
+				PushTimeoutDuration: -18 * time.Millisecond,
+			},
+			false,
+			false,
+		},
 	}
 
 	for _, c := range cases {
@@ -120,10 +178,14 @@ func TestBuilder(t *testing.T) {
 				t.Errorf("Got success, expecting failure")
 			}
 
+			if ce != nil {
+				return
+			}
+
 			var h adapter.Handler
 			var err error
 			if c.inject {
-				h, err = b.injectBuild(context.Background(), env, &fluent.Fluent{})
+				h, err = b.build(context.Background(), test.NewEnv(t), func(fluent.Config) (*fluent.Fluent, error) { return &fluent.Fluent{}, nil })
 			} else {
 				h, err = b.Build(context.Background(), env)
 			}
@@ -137,11 +199,14 @@ func TestBuilder(t *testing.T) {
 			} else if (h != nil) && !c.success {
 				t.Errorf("Got a handler, expecting nil")
 			}
+			if h != nil {
+				h.Close()
+			}
 		})
 	}
 }
 
-func TestLogEntry(t *testing.T) {
+func TestHandleLogEntry(t *testing.T) {
 	types := map[string]*logentry.Type{
 		"Foo": {
 			Variables: map[string]descriptor.ValueType{
@@ -161,21 +226,26 @@ func TestLogEntry(t *testing.T) {
 	mf := &mockFluentd{}
 
 	han := &handler{
-		logger: mf,
-		types:  types,
-		env:    test.NewEnv(t),
-		intDur: false,
+		logger:        mf,
+		types:         types,
+		env:           test.NewEnv(t),
+		intDur:        false,
+		dataBuffer:    make(chan []byte, 5),
+		pushInterval:  1 * time.Nanosecond,
+		maxBatchBytes: defaultMaxBatchBytes,
+		stopCh:        make(chan bool),
 	}
+
+	go han.postData()
 
 	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
 
 	cases := []struct {
-		name         string
-		instances    []*logentry.Instance
-		failWrites   bool
-		expectedTags []string
-		expected     []map[string]interface{}
-		intDur       bool
+		name       string
+		instances  []*logentry.Instance
+		failWrites bool
+		expected   int
+		intDur     bool
 	}{
 		{
 			"Basic Logs",
@@ -196,20 +266,7 @@ func TestLogEntry(t *testing.T) {
 				},
 			},
 			false,
-			[]string{
-				"Foo",
-				"fluent-tag",
-			},
-			[]map[string]interface{}{
-				{
-					"severity": "WARNING",
-					"String":   "a string",
-				},
-				{
-					"name":     "Foo",
-					"severity": "WARNING",
-				},
-			},
+			1,
 			false,
 		},
 
@@ -234,16 +291,7 @@ func TestLogEntry(t *testing.T) {
 				},
 			},
 			false,
-			[]string{
-				"Foo",
-			},
-			[]map[string]interface{}{
-				{
-					"severity": "WARNING",
-					"String":   "a string",
-					"Duration": "1s",
-				},
-			},
+			1,
 			false,
 		},
 		{
@@ -259,16 +307,7 @@ func TestLogEntry(t *testing.T) {
 				},
 			},
 			false,
-			[]string{
-				"Foo",
-			},
-			[]map[string]interface{}{
-				{
-					"severity": "WARNING",
-					"String":   "a string",
-					"Duration": int64(10),
-				},
-			},
+			1,
 			true,
 		},
 	}
@@ -285,20 +324,96 @@ func TestLogEntry(t *testing.T) {
 				t.Errorf("Got success, expected failure")
 			}
 
-			if len(mf.Messages) != len(c.expected) {
-				t.Errorf("Got %d messages, expected %d", len(mf.Messages), len(c.expected))
-			}
+			time.Sleep(100 * time.Millisecond)
 
-			for i, mp := range c.expected {
-				if mf.Messages[i].Tag != c.expectedTags[i] {
-					t.Errorf("Got %v for Tag, expected %v", mf.Messages[i].Tag, c.expectedTags[i])
-				}
-				for k, v := range mp {
-					got := mf.Messages[i].Msg.(map[string]interface{})
-					if got[k] != v {
-						t.Errorf("Got %v for key %v, expected %v", got[k], k, v)
-					}
-				}
+			if got, want := mf.Batches, c.expected; got != want {
+				t.Errorf("Got %d messages; want %d", got, want)
+			}
+		})
+	}
+
+	if err := han.Close(); err != nil {
+		t.Errorf("Got error %v, expecting success", err)
+	}
+}
+
+func TestHandleLogEntry_Errors(t *testing.T) {
+	types := map[string]*logentry.Type{
+		"Foo": {
+			Variables: map[string]descriptor.ValueType{
+				"String":    descriptor.STRING,
+				"Int64":     descriptor.INT64,
+				"Double":    descriptor.DOUBLE,
+				"Bool":      descriptor.BOOL,
+				"Duration":  descriptor.DURATION,
+				"Time":      descriptor.TIMESTAMP,
+				"StringMap": descriptor.STRING_MAP,
+				"IPAddress": descriptor.IP_ADDRESS,
+				"Bytes":     descriptor.VALUE_TYPE_UNSPECIFIED,
+			},
+		},
+	}
+
+	mf := &mockFluentd{}
+
+	han := &handler{
+		logger:        mf,
+		types:         types,
+		env:           test.NewEnv(t),
+		dataBuffer:    make(chan []byte),
+		maxBatchBytes: 3,
+		stopCh:        make(chan bool),
+	}
+
+	cases := []struct {
+		name      string
+		instances []*logentry.Instance
+	}{
+		{
+			"Drop Instances",
+			[]*logentry.Instance{
+				{
+					Name:     "Foo",
+					Severity: "WARNING",
+					Variables: map[string]interface{}{
+						"String": "a string",
+					},
+				},
+				{
+					Name:     "Foo",
+					Severity: "WARNING",
+					Variables: map[string]interface{}{
+						"tag": "fluent-tag",
+					},
+				},
+			},
+		},
+		{
+			"Log Too Large",
+			[]*logentry.Instance{
+				{
+					Name:     "Foo",
+					Severity: "WARNING",
+					Variables: map[string]interface{}{
+						"String":    "a string",
+						"Int64":     int64(123),
+						"Double":    1.23,
+						"Bool":      true,
+						"Duration":  1 * time.Second,
+						"StringMap": map[string]string{"A": "B", "C": "D"},
+						"IPAddress": net.IPv4zero,
+						"Bytes":     []byte{'b'},
+					},
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			mf.Reset()
+			if err := han.HandleLogEntry(context.Background(), c.instances); err == nil {
+				t.Fatalf("HandleLogEntry() did not produce expected error!")
 			}
 		})
 	}
@@ -315,18 +430,24 @@ type message struct {
 }
 
 type mockFluentd struct {
-	Messages []message
+	bytes   bytes.Buffer
+	Batches int
 }
 
 func (l *mockFluentd) Close() error {
 	return nil
 }
 
-func (l *mockFluentd) PostWithTime(tag string, ts time.Time, msg interface{}) error {
-	l.Messages = append(l.Messages, message{Tag: tag, TS: ts, Msg: msg})
-	return nil
+func (l *mockFluentd) EncodeData(tag string, ts time.Time, msg interface{}) ([]byte, error) {
+	return []byte(tag), nil
+}
+
+func (l *mockFluentd) PostRawData(data []byte) {
+	l.bytes.Write(data)
+	l.Batches = l.Batches + 1
 }
 
 func (l *mockFluentd) Reset() {
-	l.Messages = make([]message, 0)
+	l.bytes.Reset()
+	l.Batches = 0
 }
