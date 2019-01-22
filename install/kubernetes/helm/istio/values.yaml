@@ -198,7 +198,7 @@ global:
     envoyStatsd:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
-      host: # example: statsd-svc
+      host: # example: statsd-svc (namespace suffix if necessary)
       port: # example: 9125
 
     # Specify which tracer to use. One of: lightstep, zipkin
