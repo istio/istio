@@ -150,6 +150,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(discReq.Node.Id, resourceName, token, discReq.VersionInfo) {
+				log.Debugf("Received SDS ACK from %q", discReq.Node.Id)
 				continue
 			}
 
@@ -175,12 +176,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			log.Debugf("Received push channel request for %q", con.proxyID)
 
 			if con.secret == nil {
-				// Secret is nil indicates close streaming connection to proxy, so that proxy
+				// Secret is nil indicates close streaming to proxy, so that proxy
 				// could connect again with updated token.
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
 				// from secret cache because cache has auto-evication.
-				log.Debugf("Close connection with %q", con.proxyID)
-				return fmt.Errorf("streaming connection with %q closed", con.proxyID)
+				log.Debugf("Close streaming for proxy %q", con.proxyID)
+				return fmt.Errorf("streaming for proxy %q closed", con.proxyID)
 			}
 
 			if err := pushSDS(con); err != nil {

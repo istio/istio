@@ -86,6 +86,9 @@ type Options struct {
 
 	// authentication provider specific plugins.
 	Plugins []plugin.Plugin
+
+	// set this flag to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -372,6 +375,8 @@ func (sc *SecretCache) rotate() {
 					return
 				}
 
+				log.Debugf("Token for %q is still valid for proxy %q, use it to generate key/cert", e.ResourceName, proxyID)
+
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
@@ -518,6 +523,11 @@ func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 }
 
 func (sc *SecretCache) isTokenExpired() bool {
+	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
+	if sc.configOptions.AlwaysValidTokenFlag {
+		return false
+	}
+
 	if atomic.LoadUint32(&sc.skipTokenExpireCheck) == 1 {
 		return true
 	}
