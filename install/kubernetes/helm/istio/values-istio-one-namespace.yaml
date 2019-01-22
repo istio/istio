@@ -15,6 +15,4 @@ global:
   # Default is 10s second
   refreshInterval: 1s
 
-istiotesting:
-  oneNameSpace: true
-
+  oneNamespace: true
