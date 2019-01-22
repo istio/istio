@@ -45,12 +45,12 @@ download_untar_istio_release "${TARGET_RELEASE_PATH}" "${TARGET_VERSION}"
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
 # for existing resources types
-if [ -z "${UPGRADE_TEST_LOCAL}" ]; then
     export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
     export OWNER='upgrade-tests'
     export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
     export CLEAN_CLUSTERS="${CLEAN_CLUSTERS:-True}"
 
+if [[ "${USE_MASON_RESOURCE}" == "True" ]]; then
     setup_e2e_cluster
 else
     echo "Running against cluster that kubectl is configured for."
