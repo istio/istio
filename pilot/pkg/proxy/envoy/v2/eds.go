@@ -15,8 +15,6 @@
 package v2
 
 import (
-	"context"
-	"errors"
 	"reflect"
 	"strconv"
 	"sync"
@@ -88,24 +86,6 @@ type EdsCluster struct {
 }
 
 // TODO: add prom metrics !
-
-// Endpoints aggregate a DiscoveryResponse for pushing.
-func (s *DiscoveryServer) endpoints(outRes []types.Any) *xdsapi.DiscoveryResponse {
-	out := &xdsapi.DiscoveryResponse{
-		// All resources for EDS ought to be of the type ClusterLoadAssignment
-		TypeUrl: EndpointType,
-
-		// Pilot does not really care for versioning. It always supplies what's currently
-		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
-		// responses. Pilot believes in eventual consistency and that at some point, Envoy
-		// will begin seeing results it deems to be good.
-		VersionInfo: versionInfo(),
-		Nonce:       nonce(),
-		Resources:   outRes,
-	}
-
-	return out
-}
 
 // Return the load assignment. The field can be updated by another routine.
 func loadAssignment(c *EdsCluster) *xdsapi.ClusterLoadAssignment {
@@ -648,7 +628,7 @@ func connectionID(node string) string {
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 	full bool, edsUpdatedServices map[string]*EndpointShards) error {
-	resAny := []types.Any{}
+	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
 
 	emptyClusters := 0
 	endpoints := 0
@@ -697,14 +677,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection,
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
 		}
-
-		// Previously computed load assignments. They are re-computed on cache invalidation or
-		// event, but don't have to be recomputed once for each sidecar.
-		clAssignmentRes, _ := types.MarshalAny(l)
-		resAny = append(resAny, *clAssignmentRes)
+		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := s.endpoints(resAny)
+	response := endpointDiscoveryResponse(loadAssignments)
 	err := con.send(response)
 	if err != nil {
 		adsLog.Warnf("EDS: Send failure %s: %v", con.ConID, err)
@@ -818,12 +794,20 @@ func (s *DiscoveryServer) removeEdsCon(clusterName string, node string, connecti
 	}
 }
 
-// FetchEndpoints implements xdsapi.EndpointDiscoveryServiceServer.FetchEndpoints().
-func (s *DiscoveryServer) FetchEndpoints(ctx context.Context, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	return nil, errors.New("not implemented")
-}
+func endpointDiscoveryResponse(loadAssignments []*xdsapi.ClusterLoadAssignment) *xdsapi.DiscoveryResponse {
+	out := &xdsapi.DiscoveryResponse{
+		TypeUrl: EndpointType,
+		// Pilot does not really care for versioning. It always supplies what's currently
+		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
+		// responses. Pilot believes in eventual consistency and that at some point, Envoy
+		// will begin seeing results it deems to be good.
+		VersionInfo: versionInfo(),
+		Nonce:       nonce(),
+	}
+	for _, loadAssignment := range loadAssignments {
+		resource, _ := types.MarshalAny(loadAssignment)
+		out.Resources = append(out.Resources, *resource)
+	}
 
-// StreamLoadStats implements xdsapi.EndpointDiscoveryServiceServer.StreamLoadStats().
-func (s *DiscoveryServer) StreamLoadStats(xdsapi.EndpointDiscoveryService_StreamEndpointsServer) error {
-	return errors.New("unsupported streaming method")
+	return out
 }
