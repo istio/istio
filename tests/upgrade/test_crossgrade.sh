@@ -113,18 +113,53 @@ EXTERNAL_FORTIO_DONE_FILE=${TMP_DIR}/fortio_done_file
 
 echo_and_run() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
 
+# withRetries retries the given command ${1} times with ${2} sleep between retries
+# e.g. withRetries 10 60 myFunc param1 param2
+#   runs "myFunc param1 param2" up to 10 times with 60 sec sleep in between.
+withRetries() {
+    local max_retries=${1}
+    local sleep_sec=${2}
+    local n=0
+    shift
+    shift
+    while (( n < max_retries )); do
+      echo "RUNNING $*" ; "${@}" && break
+      ((n++))
+      sleep ${sleep_sec}
+    done
+
+    if (( n == max_retries )); then die "${@} failed after retrying ${max_retries} times."; fi
+}
+
+# withRetriesMaxTime retries the given command repeatedly with ${2} sleep between retries until ${1} seconds have elapsed.
+# e.g. withRetries 300 60 myFunc param1 param2
+#   runs "myFunc param1 param2" for up 300 seconds with 60 sec sleep in between.
+withRetriesMaxTime() {
+    local total_time_max=${1}
+    local sleep_sec=${2}
+    local start_time=${SECONDS}
+    shift
+    shift
+    while (( SECONDS - start_time <  total_time_max )); do
+      echo "RUNNING $*" ; "${@}" && break
+      sleep ${sleep_sec}
+    done
+
+    if (( SECONDS - start_time >=  total_time_max )); then die "${@} failed after retrying for ${total_time_max} seconds."; fi
+}
+
 installIstioSystemAtVersionHelmTemplate() {
-    writeMsg "helm installing version ${2} from ${3}."
+    writeMsg "helm template installing version ${2} from ${3}."
     if [ -n "${AUTH_ENABLE}" ]; then
         echo "Auth is enabled, generating manifest with auth."
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
     fi
     release_path="${3}"/install/kubernetes/helm/istio
-    if [[ "${release_path}" == *"1.1"* ]]; then
-        helm init --client-only
-        helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
-        helm dependency update "${release_path}"
+    if [[ "${release_path}" == *"1.1"* || "${release_path}" == *"master"* ]]; then
+        # See https://preliminary.istio.io/docs/setup/kubernetes/helm-install/
+        for i in install/kubernetes/helm/istio-init/files/crd*yaml; do kubectl apply -f $i; done
     fi
+
     helm template "${release_path}" "${auth_opts}" \
     --name istio --namespace "${ISTIO_NAMESPACE}" \
     --set gateways.istio-ingressgateway.replicaCount=4 \
@@ -133,7 +168,7 @@ installIstioSystemAtVersionHelmTemplate() {
     --set global.hub="${1}" \
     --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
 
-   kubectl apply -n "${ISTIO_NAMESPACE}" -f "${ISTIO_ROOT}"/istio.yaml || die "kubectl in installIstioSystemAtVersionHelmTemplate failed"
+    withRetries 10 60 kubectl apply -f "${ISTIO_ROOT}"/istio.yaml
 }
 
 installTest() {
@@ -147,35 +182,27 @@ installTest() {
 # Sends traffic from internal pod (Fortio load command) to Fortio echosrv.
 # Since this may block for some time due to restarts, it should be run in the background. Use waitForJob to check for
 # completion.
+_sendInternalRequestTraffic() {
+    local job_name=cli-fortio
+    kubectl delete job -n "${TEST_NAMESPACE}" "${job_name}"
+    start_time=${SECONDS}
+    kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml" || die "kubectl apply fortio-cli.yaml failed"
+    waitForJob "${job_name}"
+    # Any timeouts typically occur in the first 20s
+    if (( SECONDS - start_time < 100 )); then
+        echo "${job_name} failed"
+        return 1
+    fi
+}
 sendInternalRequestTraffic() {
     writeMsg "Sending internal traffic"
-    local job_name=cli-fortio
-    local n=0
-    while [ $n -lt 10 ]; do
-        kubectl delete job -n "${TEST_NAMESPACE}" "${job_name}"
-        start_time=${SECONDS}
-        kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml" || die "kubectl apply fortio-cli.yaml failed"
-        waitForJob "${job_name}"
-        # Any timeouts typically occur in the first 20s
-        if (( SECONDS - start_time > 100 )); then
-            echo "${job_name} completed successfully"
-            return 0
-        fi
-        echo "${job_name} exited too soon, restarting"
-        ((n++))
-    done
+    withRetries 10 0 _sendInternalRequestTraffic
 }
 
 # Runs traffic from external fortio client, with retries.
 runFortioLoadCommand() {
-    local n=0
-    while [ $n -lt 10 ]; do
-      echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 \
-        -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}" && break
-      echo "fortio load failed, retrying..."
-      ((n++))
-      sleep 10
-    done
+    withRetries 10 10  echo_and_run fortio load -c 32 -t "${TRAFFIC_RUNTIME_SEC}"s -qps 10 \
+        -H "Host:echosrv.test.svc.cluster.local" "http://${1}/echo?size=200" &> "${LOCAL_FORTIO_LOG}"
     echo "done" >> "${EXTERNAL_FORTIO_DONE_FILE}"
 }
 
@@ -203,78 +230,60 @@ writeMsg() {
     printf "\\n\\n****************\\n\\n%s\\n\\n****************\\n\\n" "${1}"
 }
 
+_waitForIngress() {
+    INGRESS_HOST=$(kubectl -n "${ISTIO_NAMESPACE}" get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    INGRESS_PORT=$(kubectl -n "${ISTIO_NAMESPACE}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
+    INGRESS_ADDR=${INGRESS_HOST}:${INGRESS_PORT}
+    if [ -z ${INGRESS_HOST} ]; then return 1; fi
+}
+
 waitForIngress() {
-    sleep_time_sec=10
-    sleep_time_sofar=0
-    INGRESS_HOST=""
-    while [ -z ${INGRESS_HOST} ]; do
-        echo "Waiting for ingress-gateway addr..."
-        INGRESS_HOST=$(kubectl -n "${ISTIO_NAMESPACE}" get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-        INGRESS_PORT=$(kubectl -n "${ISTIO_NAMESPACE}" get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
-        INGRESS_ADDR=${INGRESS_HOST}:${INGRESS_PORT}
-        sleep ${sleep_time_sec}
-        (( sleep_time_sofar += sleep_time_sec ))
-        if (( sleep_time_sofar > 300 )); then
-            echo "Timed out waiting for ingress-gateway address"
-            exit 1
-        fi
-    done
+    echo "Waiting for ingress-gateway addr..."
+    withRetriesMaxTime 300 10 _waitForIngress
     echo "Got ingress-gateway addr: ${INGRESS_ADDR}"
 }
 
 
-waitForPodsReady() {
-    sleep_time_sec=10
-    sleep_time_sofar=0
-    while :; do
-        echo "Waiting for pods to be ready in ${1}..."
-        pods_str=$(kubectl -n "${1}" get pods | tail -n +2 )
-        arr=()
-        while read -r line; do
-           arr+=("$line")
-        done <<< "$pods_str"
+_waitForPodsReady() {
+    pods_str=$(kubectl -n "${1}" get pods | tail -n +2 )
+    arr=()
+    while read -r line; do
+       arr+=("$line")
+    done <<< "$pods_str"
 
-        ready="true"
-        for line in "${arr[@]}"; do
-            if [[ ${line} != *"Running"* && ${line} != *"Completed"* ]]; then
-                ready="false"
-            fi
-        done
-        if [  "${ready}" = "true" ]; then
-            echo "All pods ready."
-            return
-        fi
-
-        sleep ${sleep_time_sec}
-        (( sleep_time_sofar += sleep_time_sec ))
-        if (( sleep_time_sofar > 300 )); then
-            echo "Timed out waiting for pods to be ready."
-            echo "${pods_str}"
-            exit 1
+    ready="true"
+    for line in "${arr[@]}"; do
+        if [[ ${line} != *"Running"* && ${line} != *"Completed"* ]]; then
+            ready="false"
         fi
     done
+    if [  "${ready}" = "true" ]; then
+        return 0
+    fi
+
+    return 1
+}
+
+waitForPodsReady() {
+    echo "Waiting for pods to be ready in ${1}..."
+    withRetriesMaxTime 300 10 _waitForPodsReady ${1}
+    echo "All pods ready."
+}
+
+_checkEchosrv() {
+    resp=$( curl -o /dev/null -s -w "%{http_code}\\n" -HHost:echosrv.${TEST_NAMESPACE}.svc.cluster.local "http://${INGRESS_ADDR}/echo" || echo $? )
+    echo "${resp}"
+    if [[ "${resp}" = *"200"* ]]; then
+        echo "Got correct response from echosrv."
+        return 0
+    fi
+    echo "Got bad echosrv response: ${resp}"
+    return 1
 }
 
 checkEchosrv() {
-    sleep_time_sec=10
-    sleep_time_sofar=0
-    while :; do
-        resp=$( curl -o /dev/null -s -w "%{http_code}\\n" -HHost:echosrv.${TEST_NAMESPACE}.svc.cluster.local "http://${INGRESS_ADDR}/echo" || echo $? )
-        echo "${resp}"
-        if [[ "${resp}" = *"200"* ]]; then
-            echo "Got correct response from echosrv."
-            return
-        else
-            echo "Got bad echosrv response: ${resp}"
-        fi
-
-        sleep ${sleep_time_sec}
-        (( sleep_time_sofar += sleep_time_sec ))
-        if (( sleep_time_sofar > 300 )); then
-            echo "Timed out waiting for 200 from echosrv."
-            exit 1
-        fi
-    done
+    writeMsg "Checking echosrv..."
+    withRetriesMaxTime 300 10 _checkEchosrv
 }
 
 waitForJob() {
@@ -288,29 +297,23 @@ waitForJob() {
     echo "Job ${1} ran for ${run_time} seconds."
 }
 
-resetNamespaces() {
-    sleep_time_sec=10
-    sleep_time_sofar=0
+_resetNamespacesCheck() {
     kubectl delete namespace "${ISTIO_NAMESPACE}" "${TEST_NAMESPACE}" || echo "namespaces may already be deleted"
-    while :; do
-        resp=$( kubectl get namespaces )
-        if [[ "${resp}" != *"Terminating"* ]]; then
-            echo "All namespaces deleted."
-            kubectl create namespace "${ISTIO_NAMESPACE}"
-            kubectl create namespace "${TEST_NAMESPACE}"
-            kubectl label namespace "${TEST_NAMESPACE}" istio-injection=enabled
-            return
-        else
-            echo "Waiting for namespaces ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE} to be deleted."
-        fi
+    resp=$( kubectl get namespaces )
+    if [[ "${resp}" != *"Terminating"* ]]; then
+        echo "All namespaces deleted."
+        kubectl create namespace "${ISTIO_NAMESPACE}"
+        kubectl create namespace "${TEST_NAMESPACE}"
+        kubectl label namespace "${TEST_NAMESPACE}" istio-injection=enabled
+        return
+    else
+        echo "Waiting for namespaces ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE} to be deleted."
+    fi
+}
 
-        sleep ${sleep_time_sec}
-        (( sleep_time_sofar += sleep_time_sec ))
-        if (( sleep_time_sofar > 300 )); then
-            echo "Timed out waiting for 200 from echosrv."
-            exit 1
-        fi
-    done
+resetNamespaces() {
+    kubectl delete namespace "${ISTIO_NAMESPACE}" "${TEST_NAMESPACE}" || echo "namespaces may already be deleted"
+    withRetriesMaxTime 300 10 _resetNamespacesCheck
 }
 
 # Returns 0 if the passed string has form "Code 200 : 6601 (94.6 %)" and the percentage is smaller than ${MIN_200_PCT_FOR_PASS}
