@@ -85,14 +85,6 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		}
 	}()
 
-	g := ctx.GetComponent(ids.Galley)
-	if g == nil {
-		return fmt.Errorf("missing dependency: %s", ids.Galley)
-	}
-	galley, ok := g.(components.Galley)
-	if !ok {
-		return errors.New("galley does not support in-process interface")
-	}
 	// Dynamically assign all ports.
 	options := envoy.DiscoveryServiceOptions{
 		HTTPAddr:       ":0",
@@ -105,7 +97,6 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		Namespace:        env.Namespace,
 		DiscoveryOptions: options,
 		MeshConfig:       env.Mesh,
-		MCPServerAddrs:   []string{galley.GetGalleyAddress()},
 		Config: bootstrap.ConfigArgs{
 			Controller: env.ServiceManager.ConfigStore,
 		},
@@ -117,7 +108,6 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		// Include all of the default plugins for integration with Mixer, etc.
 		Plugins:          bootstrap.DefaultPlugins,
 		ForceStop:        true,
-		KeepaliveOptions: keepalive.DefaultOption(),
 	}
 
 	// Save the config store.
