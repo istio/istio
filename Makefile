@@ -453,7 +453,7 @@ test: | $(JUNIT_REPORT)
 GOTEST_PARALLEL ?= '-test.parallel=1'
 # This is passed to mixer and other tests to limit how many builds are used.
 # In CircleCI, set in "Project Settings" -> "Environment variables" as "-p 2" if you don't have xlarge machines
-GOTEST_P ?= '-p 1'
+GOTEST_P ?=
 GOSTATIC = -ldflags '-extldflags "-static"'
 
 TEST_APP_BINS:=${ISTIO_OUT}/pkg-test-application-echo-server ${ISTIO_OUT}/pkg-test-application-echo-client
@@ -491,7 +491,7 @@ istioctl-test: istioctl
 MIXER_TEST_T ?= ${T} ${GOTEST_PARALLEL}
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test ${GOTEST_P} ${MIXER_TEST_T} ./...)
+	(cd mixer; go test -p 1 ${MIXER_TEST_T} ./...)
 
 .PHONY: galley-test
 galley-test: depend
