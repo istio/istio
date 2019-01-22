@@ -603,6 +603,12 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 			parts := strings.Split(gwname, ".")
 			out = fmt.Sprintf("%s/%s", parts[1], parts[0])
 		}
+	} else {
+		// remove the . from ./gateway and substitute it with the namespace name
+		parts := strings.Split(gwname, "/")
+		if parts[0] == "." {
+			out = fmt.Sprintf("%s/%s", meta.Namespace, parts[1])
+		}
 	}
 	return out
 }

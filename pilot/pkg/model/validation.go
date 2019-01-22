@@ -598,6 +598,8 @@ func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs e
 	parts := strings.SplitN(host, "/", 2)
 	if len(parts) != 2 {
 		if isGateway {
+			// deprecated
+			log.Warn("Gateway host without namespace is deprecated. Use namespace/hostname format")
 			// Old style host in the gateway
 			return validateSidecarOrGatewayHostnamePart(host, true)
 		}
@@ -1781,6 +1783,9 @@ func validateGatewayNames(gateways []string) (errs error) {
 	for _, gateway := range gateways {
 		parts := strings.SplitN(gateway, "/", 2)
 		if len(parts) != 2 {
+			// deprecated
+			log.Warn("Gateway names with FQDN format or short forms are deprecated. " +
+				"Use namespace/name format instead")
 			// Old style spec with FQDN gateway name
 			errs = appendErrors(errs, ValidateFQDN(gateway))
 			return
