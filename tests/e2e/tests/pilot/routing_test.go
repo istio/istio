@@ -655,10 +655,8 @@ func TestHeadersManipulations(t *testing.T) {
 }
 
 func TestDestinationRuleConfigScope(t *testing.T) {
-	samples := 100
-
 	var cfgs []*deployableConfig
-	applyRuleFunc := func(t *testing.T, namesapces, ruleYamls []string) {
+	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
 		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
 		// a delay when we push the new config.
 		for _, cfg := range cfgs {
@@ -671,11 +669,11 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		}
 
 		cfgs = make([]*deployableConfig, 0)
-		for i, ns := range namesapces {
-			// Apply the new rule
+		for ns, rules := range ruleYamls {
+			// Apply the new rules in the namespace
 			cfg := &deployableConfig{
 				Namespace:  ns,
-				YamlFiles:  []string{ruleYamls[i]},
+				YamlFiles:  rules,
 				kubeconfig: tc.Kube.KubeConfig,
 			}
 			if err := cfg.Setup(); err != nil {
@@ -693,51 +691,49 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		}
 	}()
 
+	// Create the namespaces
+	for _, ns := range []string{"ns1", "ns2"} {
+		if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("Unable to create namespace %s: %v", ns, err)
+		}
+		defer func(ns string) {
+			if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
+				t.Errorf("Failed to delete namespace %s", ns)
+			}
+		}(ns)
+	}
+
 	cases := []struct {
 		testName        string
 		description     string
-		configs         []string
-		namespaces      []string
-		scheme          string
+		rules           map[string][]string
 		src             string
 		dst             string
 		expectedSuccess bool
-		operation       string
 		onFailure       func()
 	}{
 		{
 			testName:        "private destination rule in same namespace",
-			description:     "routing all traffic to c-v1",
-			configs:         []string{"destination-rule-c-private.yaml"},
-			namespaces:      []string{tc.Kube.Namespace},
-			scheme:          "http",
+			rules:           map[string][]string{tc.Kube.Namespace: {"destination-rule-c-private.yaml"}},
 			src:             "a",
 			dst:             "c",
 			expectedSuccess: true,
-			operation:       "c.istio-system.svc.cluster.local:80/*",
 		},
 		{
 			testName:        "private destination rule in different namespaces",
-			description:     "can not apply private destination rule",
-			configs:         []string{"destination-rule-c-private.yaml"},
-			namespaces:      []string{"test-another-ns1"},
-			scheme:          "http",
+			rules:         map[string][]string{"ns1": {"destination-rule-c-private.yaml"}},
 			src:             "a",
 			dst:             "c",
 			expectedSuccess: false,
-			operation:       "c.istio-system.svc.cluster.local:80/*",
 		},
-		{
-			testName:        "private rule in a namespace overrides public rule in another namespace",
-			description:     "routing all traffic to c-v1",
-			configs:         []string{"destination-rule-c-private.yaml", "destination-rule-c-non-exist.yaml"},
-			namespaces:      []string{tc.Kube.Namespace, "test-another-ns2"},
-			scheme:          "http",
-			src:             "a",
-			dst:             "c",
-			expectedSuccess: true,
-			operation:       "c.istio-system.svc.cluster.local:80/*",
-		},
+		// TODO: These two cases cannot be tested reliably until the EDS issue with
+		// destination rules is fixed. https://github.com/istio/istio/issues/10817
+		//{
+		//	testName:        "private rule in a namespace overrides public rule in another namespace",
+		//},
+		//{
+		//	testName:        "public rule in service's namespace overrides public rule in another namespace",
+		//},
 	}
 
 	t.Run("v1alpha3", func(t *testing.T) {
@@ -756,28 +752,21 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		for _, c := range cases {
 			// Run each case in a function to scope the configuration's lifecycle.
 			func() {
-				for i, ns := range c.namespaces {
-					if ns != tc.Kube.Namespace {
-						if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
-							t.Errorf("Unable to create namespace %s: %v", ns, err)
-						}
-						defer func(ns string) {
-							if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
-								t.Errorf("Failed to delete namespace %s", ns)
-							}
-						}(ns)
+				for _, yamls := range c.rules {
+					for i, yaml := range yamls {
+						ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", yaml)
+						yamls[i] = maybeAddTLSForDestinationRule(tc, ruleYaml)
 					}
-					ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", c.configs[i])
-					c.configs[i] = maybeAddTLSForDestinationRule(tc, ruleYaml)
 				}
-
-				applyRuleFunc(t, c.namespaces, c.configs)
+				applyRuleFunc(t, c.rules)
+				// Wait a few seconds so that the older proxy listeners get overwritten
+				time.Sleep(10 * time.Second)
 
 				for cluster := range tc.Kube.Clusters {
 					testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
 					runRetriableTest(t, testName, 5, func() error {
-						reqURL := fmt.Sprintf("%s://%s/%s", c.scheme, c.dst, c.src)
-						resp := ClientRequest(cluster, c.src, reqURL, samples, "")
+						reqURL := fmt.Sprintf("http://%s/%s", c.dst, c.src)
+						resp := ClientRequest(cluster, c.src, reqURL, 1, "")
 						if c.expectedSuccess && !resp.IsHTTPOk() {
 							return fmt.Errorf("failed request %s, %v", reqURL, resp.Code)
 						}

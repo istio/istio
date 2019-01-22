@@ -54,9 +54,23 @@ type PushContext struct {
 	privateVirtualServicesByNamespace map[string][]Config
 	publicVirtualServices             []Config
 
+	// List of dest rule hosts from private destination rules
+	// We match with the most specific host first
 	privateDestRuleHostsByNamespace  map[string][]Hostname
+	// Map of dest rule host and the merged private destination rules for that host, in
+	// the namespace.
 	privateDestRuleByHostByNamespace map[string]map[Hostname]*combinedDestinationRule
+	// List of dest rule hosts from public destination rules
+	// indexed by the namespace exporting the public rule
+	publicDestRuleHostsByNamespace   map[string][]Hostname
+	// Map of dest rule host and the merged public destination rules for that host,
+	// in the namespace
+	publicDestRuleByHostByNamespace  map[string]map[Hostname]*combinedDestinationRule
+
+	// List of dest rule hosts from all public destination rules across all namespaces
 	publicDestRuleHosts              []Hostname
+	// Map of dest rule host and the merged public destination rules for that host
+	// across all namespaces
 	publicDestRuleByHost             map[Hostname]*combinedDestinationRule
 
 	// sidecars for each namespace
@@ -481,7 +495,7 @@ func (ps *PushContext) GetAllSidecarScopes() map[string][]*SidecarScope {
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
-func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config {
+func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
 	// TODO: This is a temporary gate until the sidecar implementation is stable. Once its stable, remove the
@@ -489,27 +503,45 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, hostname Hostname) *Config 
 	if proxy != nil && proxy.SidecarScope != nil && proxy.SidecarScope.Config != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
-		return proxy.SidecarScope.DestinationRule(hostname)
+		return proxy.SidecarScope.DestinationRule(service.Hostname)
 	}
 
 	if proxy == nil {
 		for ns, privateDestHosts := range ps.privateDestRuleHostsByNamespace {
-			if host, ok := MostSpecificHostMatch(hostname, privateDestHosts); ok {
+			if host, ok := MostSpecificHostMatch(service.Hostname, privateDestHosts); ok {
 				return ps.privateDestRuleByHostByNamespace[ns][host].config
 			}
 		}
-		if host, ok := MostSpecificHostMatch(hostname, ps.publicDestRuleHosts); ok {
+		if host, ok := MostSpecificHostMatch(service.Hostname, ps.publicDestRuleHosts); ok {
 			return ps.publicDestRuleByHost[host].config
 		}
 		return nil
 	}
-	// take private DestinationRule in same namespace first
-	if host, ok := MostSpecificHostMatch(hostname, ps.privateDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
+
+	// take private DestinationRule in proxy's namespace first
+	if host, ok := MostSpecificHostMatch(service.Hostname,
+		ps.privateDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
 		return ps.privateDestRuleByHostByNamespace[proxy.ConfigNamespace][host].config
 	}
 
-	// if no private rule matched, then match public rule
-	if host, ok := MostSpecificHostMatch(hostname, ps.publicDestRuleHosts); ok {
+	// if no private rule matched, check the public destination rules in proxy's namespace
+	if host, ok := MostSpecificHostMatch(service.Hostname,
+		ps.publicDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
+		return ps.publicDestRuleByHostByNamespace[proxy.ConfigNamespace][host].config
+	}
+
+	// if no private/public rule matched in the calling proxy's namespace,
+	// check the target service's namespace for public rules
+	if service.Attributes.Namespace != "" {
+		if host, ok := MostSpecificHostMatch(service.Hostname,
+			ps.publicDestRuleHostsByNamespace[service.Attributes.Namespace]); ok {
+			return ps.publicDestRuleByHostByNamespace[service.Attributes.Namespace][host].config
+		}
+	}
+
+	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
+	// target service's namespace matched, search for any public destination rule across all namespaces
+	if host, ok := MostSpecificHostMatch(service.Hostname, ps.publicDestRuleHosts); ok {
 		return ps.publicDestRuleByHost[host].config
 	}
 
@@ -525,7 +557,7 @@ func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) Labe
 
 	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
 	// destination rule than the default one. EDS should be computed per sidecar scope
-	config := ps.DestinationRule(nil, hostname)
+	config := ps.DestinationRule(nil, &Service{Hostname:hostname})
 	if config == nil {
 		return nil
 	}
@@ -755,6 +787,8 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	sortConfigByCreationTime(configs)
 	privateHostsByNamespace := make(map[string][]Hostname, 0)
 	privateCombinedDestRuleMap := make(map[string]map[Hostname]*combinedDestinationRule, 0)
+	publicHostsByNamespace := make(map[string][]Hostname, 0)
+	publicCombinedDestRuleMapByNamespace := make(map[string]map[Hostname]*combinedDestinationRule, 0)
 	publicHosts := make([]Hostname, 0)
 	publicCombinedDestRuleMap := make(map[Hostname]*combinedDestinationRule, 0)
 
@@ -770,6 +804,14 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 				configs[i])
 
 		} else {
+			if _, exist := publicCombinedDestRuleMapByNamespace[configs[i].Namespace]; !exist {
+				publicCombinedDestRuleMapByNamespace[configs[i].Namespace] = map[Hostname]*combinedDestinationRule{}
+			}
+			publicHostsByNamespace[configs[i].Namespace], _ = ps.combineSingleDestinationRule(
+				publicHostsByNamespace[configs[i].Namespace],
+				publicCombinedDestRuleMapByNamespace[configs[i].Namespace],
+				configs[i])
+
 			publicHosts, _ = ps.combineSingleDestinationRule(
 				publicHosts,
 				publicCombinedDestRuleMap,
@@ -778,12 +820,19 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	}
 
 	// presort it so that we don't sort it for each DestinationRule call.
+	// sort.Sort for Hostnames will automatically sort from the most specific to least specific
 	for ns := range privateHostsByNamespace {
 		sort.Sort(Hostnames(privateHostsByNamespace[ns]))
 	}
+	for ns := range publicHostsByNamespace {
+		sort.Sort(Hostnames(publicHostsByNamespace[ns]))
+	}
+	sort.Sort(Hostnames(publicHosts))
+
 	ps.privateDestRuleHostsByNamespace = privateHostsByNamespace
 	ps.privateDestRuleByHostByNamespace = privateCombinedDestRuleMap
-	sort.Sort(Hostnames(publicHosts))
+	ps.publicDestRuleHostsByNamespace = publicHostsByNamespace
+	ps.publicDestRuleByHostByNamespace = publicCombinedDestRuleMapByNamespace
 	ps.publicDestRuleHosts = publicHosts
 	ps.publicDestRuleByHost = publicCombinedDestRuleMap
 }

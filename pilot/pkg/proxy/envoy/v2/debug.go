@@ -347,7 +347,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			}
 			info.ServerProtocol = authProtocolToString(serverProtocol)
 
-			destConfig := s.globalPushContext().DestinationRule(nil, ss.Hostname)
+			destConfig := s.globalPushContext().DestinationRule(nil, ss)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
