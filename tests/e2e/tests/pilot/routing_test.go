@@ -692,7 +692,10 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 	}()
 
 	// Create the namespaces
-	for _, ns := range []string{"ns1", "ns2"} {
+	// NOTE: Use different namespaces for each test to avoid
+	// collision. Namespace deletion takes time. If the other test
+	// starts before this namespace is deleted, namespace creation in the other test will fail.
+	for _, ns := range []string{"dns1", "dns2"} {
 		if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
 			t.Errorf("Unable to create namespace %s: %v", ns, err)
 		}
@@ -721,7 +724,7 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		},
 		{
 			testName:        "private destination rule in different namespaces",
-			rules:           map[string][]string{"ns1": {"destination-rule-c-private.yaml"}},
+			rules:           map[string][]string{"dns1": {"destination-rule-c-private.yaml"}},
 			src:             "a",
 			dst:             "c",
 			expectedSuccess: false,
