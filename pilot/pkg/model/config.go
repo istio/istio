@@ -597,7 +597,7 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 	if !strings.Contains(gwname, "/") {
 		if !strings.Contains(gwname, ".") {
 			// we have a short name. Resolve to a gateway in same namespace
-			out = fmt.Sprintf("%s/%s", gwname, meta.Namespace)
+			out = fmt.Sprintf("%s/%s", meta.Namespace, gwname)
 		} else {
 			// parse namespace from FQDN. This is very hacky, but meant for backward compatibility only
 			parts := strings.Split(gwname, ".")
