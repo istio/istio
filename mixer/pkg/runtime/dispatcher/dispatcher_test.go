@@ -16,15 +16,9 @@ package dispatcher
 
 import (
 	"context"
-	"reflect"
-	"strings"
-	"testing"
-	"time"
-
 	"github.com/gogo/googleapis/google/rpc"
-
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
-	v1 "istio.io/api/mixer/v1"
+	"istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -34,6 +28,10 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
 	"istio.io/istio/pkg/log"
+	"reflect"
+	"strings"
+	"testing"
+	"time"
 )
 
 var gp = pool.NewGoroutinePool(10, true)
@@ -801,6 +799,42 @@ ident                         : dest.istio-system
 [tcheck] DispatchCheck <= (PANIC)
 `,
 	},
+
+	{
+		name: "CheckElidedRule",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckNoActionsOrHeaderOps,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: 60000000000,
+			ValidUseCount: 10000,
+		},
+		log: ``,
+	},
+
+	{
+		name: "CheckOnlyHeaderOperationRule",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckHeaderOpWithNoActions,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			RouteDirective: &v1.RouteDirective{
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:  "b-header",
+					Value: "test",
+					Operation: v1.APPEND,
+				}},
+			},
+		},
+		log: ``,
+	},
+
 }
 
 func TestDispatcher(t *testing.T) {
@@ -849,7 +883,7 @@ func TestDispatcher(t *testing.T) {
 
 				if e == nil {
 					if !reflect.DeepEqual(&cres, &tst.expectedCheckResult) {
-						tt.Fatalf("check result mismatch: '%v' != '%v'", cres, tst.expectedCheckResult)
+						tt.Fatalf("check result mismatch: '%#v' != '%#v'", cres, tst.expectedCheckResult)
 					}
 				} else {
 					err = e
