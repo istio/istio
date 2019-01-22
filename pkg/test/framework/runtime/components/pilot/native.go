@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
-	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
