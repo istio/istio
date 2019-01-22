@@ -721,7 +721,7 @@ func TestDestinationRuleConfigScope(t *testing.T) {
 		},
 		{
 			testName:        "private destination rule in different namespaces",
-			rules:         map[string][]string{"ns1": {"destination-rule-c-private.yaml"}},
+			rules:           map[string][]string{"ns1": {"destination-rule-c-private.yaml"}},
 			src:             "a",
 			dst:             "c",
 			expectedSuccess: false,

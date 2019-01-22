@@ -54,24 +54,15 @@ type PushContext struct {
 	privateVirtualServicesByNamespace map[string][]Config
 	publicVirtualServices             []Config
 
-	// List of dest rule hosts from private destination rules
-	// We match with the most specific host first
-	privateDestRuleHostsByNamespace  map[string][]Hostname
-	// Map of dest rule host and the merged private destination rules for that host, in
-	// the namespace.
-	privateDestRuleByHostByNamespace map[string]map[Hostname]*combinedDestinationRule
-	// List of dest rule hosts from public destination rules
-	// indexed by the namespace exporting the public rule
-	publicDestRuleHostsByNamespace   map[string][]Hostname
-	// Map of dest rule host and the merged public destination rules for that host,
-	// in the namespace
-	publicDestRuleByHostByNamespace  map[string]map[Hostname]*combinedDestinationRule
-
-	// List of dest rule hosts from all public destination rules across all namespaces
-	publicDestRuleHosts              []Hostname
-	// Map of dest rule host and the merged public destination rules for that host
-	// across all namespaces
-	publicDestRuleByHost             map[Hostname]*combinedDestinationRule
+	// destination rules are of three types:
+	//  namespaceLocalDestRules: all public/private dest rules pertaining to a service defined in a given namespace
+	//  namespaceExportedDestRules: all public dest rules pertaining to a service defined in a namespace
+	//  allExportedDestRules: all (public) dest rules across all namespaces
+	// We need the allExportedDestRules in addition to namespaceExportedDestRules because we select
+	// the dest rule based on the most specific host match, and not just any destination rule
+	namespaceLocalDestRules    map[string]*processedDestRules
+	namespaceExportedDestRules map[string]*processedDestRules
+	allExportedDestRules       *processedDestRules
 
 	// sidecars for each namespace
 	sidecarsByNamespace map[string][]*SidecarScope
@@ -97,6 +88,13 @@ type PushContext struct {
 	ServicePort2Name map[string]PortList `json:"-"`
 
 	initDone bool
+}
+
+type processedDestRules struct {
+	// List of dest rule hosts. We match with the most specific host first
+	hosts []Hostname
+	// Map of dest rule host and the merged destination rules for that host
+	destRule map[Hostname]*combinedDestinationRule
 }
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
@@ -291,10 +289,8 @@ func NewPushContext() *PushContext {
 		privateServicesByNamespace:        map[string][]*Service{},
 		publicVirtualServices:             []Config{},
 		privateVirtualServicesByNamespace: map[string][]Config{},
-		publicDestRuleByHost:              map[Hostname]*combinedDestinationRule{},
-		publicDestRuleHosts:               []Hostname{},
-		privateDestRuleByHostByNamespace:  map[string]map[Hostname]*combinedDestinationRule{},
-		privateDestRuleHostsByNamespace:   map[string][]Hostname{},
+		namespaceLocalDestRules:           map[string]*processedDestRules{},
+		namespaceExportedDestRules:        map[string]*processedDestRules{},
 		sidecarsByNamespace:               map[string][]*SidecarScope{},
 
 		ServiceByHostname: map[Hostname]*Service{},
@@ -506,43 +502,41 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 		return proxy.SidecarScope.DestinationRule(service.Hostname)
 	}
 
+	// FIXME: this code should be removed once the EDS issue is fixed
 	if proxy == nil {
-		for ns, privateDestHosts := range ps.privateDestRuleHostsByNamespace {
-			if host, ok := MostSpecificHostMatch(service.Hostname, privateDestHosts); ok {
-				return ps.privateDestRuleByHostByNamespace[ns][host].config
+		for _, processedDestRulesForNamespace := range ps.namespaceLocalDestRules {
+			if host, ok := MostSpecificHostMatch(service.Hostname, processedDestRulesForNamespace.hosts); ok {
+				return processedDestRulesForNamespace.destRule[host].config
 			}
 		}
-		if host, ok := MostSpecificHostMatch(service.Hostname, ps.publicDestRuleHosts); ok {
-			return ps.publicDestRuleByHost[host].config
+
+		if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
+			return ps.allExportedDestRules.destRule[host].config
 		}
 		return nil
 	}
 
-	// take private DestinationRule in proxy's namespace first
-	if host, ok := MostSpecificHostMatch(service.Hostname,
-		ps.privateDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
-		return ps.privateDestRuleByHostByNamespace[proxy.ConfigNamespace][host].config
-	}
-
-	// if no private rule matched, check the public destination rules in proxy's namespace
-	if host, ok := MostSpecificHostMatch(service.Hostname,
-		ps.publicDestRuleHostsByNamespace[proxy.ConfigNamespace]); ok {
-		return ps.publicDestRuleByHostByNamespace[proxy.ConfigNamespace][host].config
+	// take the processed DestinationRule in proxy's namespace first
+	if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
+		if host, ok := MostSpecificHostMatch(service.Hostname,
+			ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
+			return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[host].config
+		}
 	}
 
 	// if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for public rules
-	if service.Attributes.Namespace != "" {
+	if service.Attributes.Namespace != "" && ps.namespaceExportedDestRules[service.Attributes.Namespace] != nil {
 		if host, ok := MostSpecificHostMatch(service.Hostname,
-			ps.publicDestRuleHostsByNamespace[service.Attributes.Namespace]); ok {
-			return ps.publicDestRuleByHostByNamespace[service.Attributes.Namespace][host].config
+			ps.namespaceExportedDestRules[service.Attributes.Namespace].hosts); ok {
+			return ps.namespaceExportedDestRules[service.Attributes.Namespace].destRule[host].config
 		}
 	}
 
 	// if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any public destination rule across all namespaces
-	if host, ok := MostSpecificHostMatch(service.Hostname, ps.publicDestRuleHosts); ok {
-		return ps.publicDestRuleByHost[host].config
+	if host, ok := MostSpecificHostMatch(service.Hostname, ps.allExportedDestRules.hosts); ok {
+		return ps.allExportedDestRules.destRule[host].config
 	}
 
 	return nil
@@ -557,7 +551,7 @@ func (ps *PushContext) SubsetToLabels(subsetName string, hostname Hostname) Labe
 
 	// TODO: This code is incorrect as a proxy with sidecarScope could have a different
 	// destination rule than the default one. EDS should be computed per sidecar scope
-	config := ps.DestinationRule(nil, &Service{Hostname:hostname})
+	config := ps.DestinationRule(nil, &Service{Hostname: hostname})
 	if config == nil {
 		return nil
 	}
@@ -785,56 +779,57 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	// Sort by time first. So if two destination rule have top level traffic policies
 	// we take the first one.
 	sortConfigByCreationTime(configs)
-	privateHostsByNamespace := make(map[string][]Hostname, 0)
-	privateCombinedDestRuleMap := make(map[string]map[Hostname]*combinedDestinationRule, 0)
-	publicHostsByNamespace := make(map[string][]Hostname, 0)
-	publicCombinedDestRuleMapByNamespace := make(map[string]map[Hostname]*combinedDestinationRule, 0)
-	publicHosts := make([]Hostname, 0)
-	publicCombinedDestRuleMap := make(map[Hostname]*combinedDestinationRule, 0)
+	namespaceLocalDestRules := make(map[string]*processedDestRules)
+	namespaceExportedDestRules := make(map[string]*processedDestRules)
+	allExportedDestRules := &processedDestRules{
+		hosts:    make([]Hostname, 0),
+		destRule: map[Hostname]*combinedDestinationRule{},
+	}
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-		if rule.ConfigScope == networking.ConfigScope_PRIVATE {
-			if _, exist := privateCombinedDestRuleMap[configs[i].Namespace]; !exist {
-				privateCombinedDestRuleMap[configs[i].Namespace] = map[Hostname]*combinedDestinationRule{}
+		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
+			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
+				hosts:    make([]Hostname, 0),
+				destRule: map[Hostname]*combinedDestinationRule{},
 			}
-			privateHostsByNamespace[configs[i].Namespace], _ = ps.combineSingleDestinationRule(
-				privateHostsByNamespace[configs[i].Namespace],
-				privateCombinedDestRuleMap[configs[i].Namespace],
+		}
+		namespaceLocalDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
+			namespaceLocalDestRules[configs[i].Namespace].hosts,
+			namespaceLocalDestRules[configs[i].Namespace].destRule,
+			configs[i])
+
+		// This is the default for Istio 1.0 rules - config scope is public
+		if rule.ConfigScope == networking.ConfigScope_PUBLIC {
+			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
+				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
+					hosts:    make([]Hostname, 0),
+					destRule: map[Hostname]*combinedDestinationRule{},
+				}
+			}
+			namespaceExportedDestRules[configs[i].Namespace].hosts, _ = ps.combineSingleDestinationRule(
+				namespaceExportedDestRules[configs[i].Namespace].hosts,
+				namespaceExportedDestRules[configs[i].Namespace].destRule,
 				configs[i])
 
-		} else {
-			if _, exist := publicCombinedDestRuleMapByNamespace[configs[i].Namespace]; !exist {
-				publicCombinedDestRuleMapByNamespace[configs[i].Namespace] = map[Hostname]*combinedDestinationRule{}
-			}
-			publicHostsByNamespace[configs[i].Namespace], _ = ps.combineSingleDestinationRule(
-				publicHostsByNamespace[configs[i].Namespace],
-				publicCombinedDestRuleMapByNamespace[configs[i].Namespace],
-				configs[i])
-
-			publicHosts, _ = ps.combineSingleDestinationRule(
-				publicHosts,
-				publicCombinedDestRuleMap,
-				configs[i])
+			allExportedDestRules.hosts, _ = ps.combineSingleDestinationRule(
+				allExportedDestRules.hosts, allExportedDestRules.destRule, configs[i])
 		}
 	}
 
 	// presort it so that we don't sort it for each DestinationRule call.
 	// sort.Sort for Hostnames will automatically sort from the most specific to least specific
-	for ns := range privateHostsByNamespace {
-		sort.Sort(Hostnames(privateHostsByNamespace[ns]))
+	for ns := range namespaceLocalDestRules {
+		sort.Sort(Hostnames(namespaceLocalDestRules[ns].hosts))
 	}
-	for ns := range publicHostsByNamespace {
-		sort.Sort(Hostnames(publicHostsByNamespace[ns]))
+	for ns := range namespaceExportedDestRules {
+		sort.Sort(Hostnames(namespaceExportedDestRules[ns].hosts))
 	}
-	sort.Sort(Hostnames(publicHosts))
+	sort.Sort(Hostnames(allExportedDestRules.hosts))
 
-	ps.privateDestRuleHostsByNamespace = privateHostsByNamespace
-	ps.privateDestRuleByHostByNamespace = privateCombinedDestRuleMap
-	ps.publicDestRuleHostsByNamespace = publicHostsByNamespace
-	ps.publicDestRuleByHostByNamespace = publicCombinedDestRuleMapByNamespace
-	ps.publicDestRuleHosts = publicHosts
-	ps.publicDestRuleByHost = publicCombinedDestRuleMap
+	ps.namespaceLocalDestRules = namespaceLocalDestRules
+	ps.namespaceExportedDestRules = namespaceExportedDestRules
+	ps.allExportedDestRules = allExportedDestRules
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) error {
