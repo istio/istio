@@ -15,7 +15,6 @@
 package pilot
 
 import (
-	"fmt"
 	"io"
 	"net"
 
