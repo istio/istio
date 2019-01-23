@@ -180,7 +180,7 @@ type dump struct {
 	MaxDepth  int                    `json:"max_depth"`
 }
 
-// Dump returns a JSON formatted dump of the internal queue state. This intended
+// Dump returns a JSON formatted dump of the internal queue state. This is intended
 // for debug purposes only.
 func (q *UniqueQueue) Dump() string {
 	q.Lock()

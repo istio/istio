@@ -94,9 +94,7 @@ type watch struct {
 func (w *watch) saveResponseAndSchedulePush(response *source.WatchResponse) {
 	if response == nil {
 		w.finished()
-		// return
 	}
-
 	w.queueResponse(response)
 }
 
@@ -165,7 +163,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
-	var types []string
+	var collections []string
 	for i := range s.collections {
 		collection := s.collections[i]
 		w := &watch{
@@ -176,12 +174,12 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 			finished: con.queue.Close,
 		}
 		con.watches[collection.Name] = w
-		types = append(types, collection.Name)
+		collections = append(collections, collection.Name)
 	}
 
 	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, 1))
 
-	scope.Debugf("MCP: connection %v: NEW, supported types: %#v", con, types)
+	scope.Debugf("MCP: connection %v: NEW, supported collections: %#v", con, collections)
 	return con, nil
 }
 

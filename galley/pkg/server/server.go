@@ -190,7 +190,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
-	s.reporter = p.mcpMetricReporter("galley/")
+	s.reporter = p.mcpMetricReporter("galley/mcp/source")
 
 	options := &source.Options{
 		Watcher:            distributor,
