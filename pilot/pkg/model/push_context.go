@@ -415,7 +415,7 @@ func (ps *PushContext) VirtualServices(proxy *Proxy, gateways map[string]bool) [
 		} else {
 			for _, g := range rule.Gateways {
 				// note: Gateway names do _not_ use wildcard matching, so we do not use Hostname.Matches here
-				if gateways[string(ResolveShortnameToFQDN(g, config.ConfigMeta))] {
+				if gateways[resolveGatewayName(g, config.ConfigMeta)] {
 					out = append(out, config)
 					break
 				} else if g == IstioMeshGateway && gateways[g] {
@@ -676,7 +676,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 		// resolve gateways to bind to
 		for i, g := range rule.Gateways {
 			if g != IstioMeshGateway {
-				rule.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
+				rule.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 			}
 		}
 		// resolve host in http route.destination, route.mirror
@@ -684,7 +684,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
+						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
 			}
@@ -700,7 +700,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			for _, m := range d.Match {
 				for i, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
+						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
 			}
@@ -713,7 +713,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 			for _, m := range tls.Match {
 				for i, g := range m.Gateways {
 					if g != IstioMeshGateway {
-						m.Gateways[i] = string(ResolveShortnameToFQDN(g, r.ConfigMeta))
+						m.Gateways[i] = resolveGatewayName(g, r.ConfigMeta)
 					}
 				}
 			}
