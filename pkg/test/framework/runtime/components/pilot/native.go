@@ -101,11 +101,11 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 	}
 
 	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        env.Namespace,
-		DiscoveryOptions: options,
-		MeshConfig:       env.Mesh,
-		MCPServerAddrs:   []string{galley.GetGalleyAddress()},
-                MCPMaxMessageSize: 1024 * 1024 * 4,
+		Namespace:         env.Namespace,
+		DiscoveryOptions:  options,
+		MeshConfig:        env.Mesh,
+		MCPServerAddrs:    []string{galley.GetGalleyAddress()},
+		MCPMaxMessageSize: 1024 * 1024 * 4,
 		Config: bootstrap.ConfigArgs{
 			Controller: env.ServiceManager.ConfigStore,
 		},
