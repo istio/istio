@@ -24,6 +24,7 @@ import (
 
 const (
 	wildcardNamespace = "*"
+	currentNamespace  = "."
 	wildcardService   = Hostname("*")
 )
 
@@ -145,7 +146,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	for _, s := range out.services {
-		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s.Hostname)
+		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 	}
 
 	return out
@@ -192,7 +193,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 		// that these services need
 		out.destinationRules = make(map[Hostname]*Config)
 		for _, s := range out.services {
-			out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s.Hostname)
+			out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 		}
 	}
 
@@ -216,7 +217,11 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 		// TODO: BUG, this means you can't have 2 explicit imports for same namespace ( override each other )
 		for _, h := range istioListener.Hosts {
 			parts := strings.SplitN(h, "/", 2)
-			out.listenerHosts[parts[0]] = Hostname(parts[1])
+			if parts[0] == currentNamespace {
+				out.listenerHosts[sidecarConfig.Namespace] = Hostname(parts[1])
+			} else {
+				out.listenerHosts[parts[0]] = Hostname(parts[1])
+			}
 		}
 	}
 

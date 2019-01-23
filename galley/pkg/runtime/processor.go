@@ -113,7 +113,10 @@ func (p *Processor) Start() error {
 
 	p.distribute = false
 
-	events, err := p.source.Start()
+	events := make(chan resource.Event, 1024)
+	err := p.source.Start(func(e resource.Event) {
+		events <- e
+	})
 	if err != nil {
 		scope.Warnf("Unable to Start source: %v", err)
 		return err
@@ -140,6 +143,7 @@ func (p *Processor) Stop() {
 
 	close(p.done)
 	<-p.stopped
+	close(p.events)
 
 	p.events = nil
 	p.done = nil

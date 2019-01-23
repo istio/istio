@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -477,7 +478,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					routeNonceSent := con.RouteNonceSent
 					routeVersionInfoSent := con.RouteVersionInfoSent
 					con.mu.RUnlock()
-					if routeNonceSent != discReq.ResponseNonce {
+					if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
 						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%v), sent %s, received %s",
 							peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
 						rdsExpiredNonce.Inc()
@@ -620,7 +621,18 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
-
+	locality := model.GetProxyLocality(discReq.Node)
+	if locality == nil {
+		locality := s.Env.GetProxyLocality(nt)
+		region, zone, subzone := util.SplitLocality(locality)
+		nt.Locality = model.Locality{
+			Region:  region,
+			Zone:    zone,
+			SubZone: subzone,
+		}
+	} else {
+		nt.Locality = *locality
+	}
 	con.mu.Lock()
 	con.modelNode = nt
 	if con.ConID == "" {
@@ -754,9 +766,12 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]*EdsCluster, len(edsClusters))
+	cMap := make(map[string]map[model.Locality]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
-		cMap[k] = v
+		cMap[k] = map[model.Locality]*EdsCluster{}
+		for locality, edsCluster := range v {
+			cMap[k][locality] = edsCluster
+		}
 	}
 	edsClusterMutex.Unlock()
 

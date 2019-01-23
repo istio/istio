@@ -75,6 +75,9 @@ var (
 	disableInternalTelemetry bool
 	loggingOptions           = log.DefaultOptions()
 
+	// pilot agent config
+	kubeAppHTTPProbers string
+
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
 		Short:        "Istio Pilot agent.",
@@ -281,11 +284,15 @@ var (
 					return err
 				}
 
-				statusServer := status.NewServer(status.Config{
-					AdminPort:        proxyAdminPort,
-					StatusPort:       statusPort,
-					ApplicationPorts: parsedPorts,
+				statusServer, err := status.NewServer(status.Config{
+					AdminPort:          proxyAdminPort,
+					StatusPort:         statusPort,
+					ApplicationPorts:   parsedPorts,
+					KubeAppHTTPProbers: kubeAppHTTPProbers,
 				})
+				if err != nil {
+					return err
+				}
 				go statusServer.Run(ctx)
 			}
 
@@ -417,6 +424,11 @@ func init() {
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
+	proxyCmd.PersistentFlags().StringVar(&kubeAppHTTPProbers, status.KubeAppProberCmdFlagName, "",
+		"The json encoded string to pass app HTTP probe information from injector(istioctl or webhook). "+
+			`For example, --kubeAppProberConfig='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}'`+
+			" indicates that httpbin container liveness prober port is 8080 and probing path is /hello. "+
+			"This flag should never be set manually.")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.

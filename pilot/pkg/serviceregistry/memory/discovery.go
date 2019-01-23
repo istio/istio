@@ -241,6 +241,12 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, sd.GetProxyServiceInstancesError
 }
 
+// GetProxyLocality returns the locality where the proxy runs.
+func (sd *ServiceDiscovery) GetProxyLocality(node *model.Proxy) string {
+	// not implemented
+	return ""
+}
+
 // ManagementPorts implements discovery interface
 func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return model.PortList{{

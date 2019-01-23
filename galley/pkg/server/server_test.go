@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"istio.io/istio/galley/pkg/meshconfig"
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
@@ -74,7 +74,7 @@ loop:
 			break loop
 		}
 
-		_, err := newServer(args, p, false)
+		_, err := newServer(args, p)
 		if err == nil {
 			t.Fatalf("Expected error not found for i=%d", i)
 		}
@@ -103,24 +103,19 @@ func TestNewServer(t *testing.T) {
 	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
 
-	typeCount := len(kube_meta.Types.All())
+	typeCount := len(kubeMeta.Types.All())
 	tests := []struct {
-		name              string
-		convertK8SService bool
-		wantListeners     int
+		name          string
+		wantListeners int
 	}{
 		{
 			name:          "Simple",
 			wantListeners: typeCount - 1,
 		},
-		{
-			name:              "ConvertK8SService",
-			convertK8SService: true,
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s, err := newServer(args, p, test.convertK8SService)
+			s, err := newServer(args, p)
 			if err != nil {
 				t.Fatalf("Unexpected error creating service: %v", err)
 			}
@@ -147,7 +142,7 @@ func TestServer_Basic(t *testing.T) {
 	args := DefaultArgs()
 	args.APIAddress = "tcp://0.0.0.0:0"
 	args.Insecure = true
-	s, err := newServer(args, p, false)
+	s, err := newServer(args, p)
 	if err != nil {
 		t.Fatalf("Unexpected error creating service: %v", err)
 	}

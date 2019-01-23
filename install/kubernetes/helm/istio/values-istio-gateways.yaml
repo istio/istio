@@ -19,7 +19,7 @@ global:
     envoyStatsd:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
-      host: # example: statsd-svc
+      host: # example: statsd-svc.istio-system
       port: # example: 9125
 
 
