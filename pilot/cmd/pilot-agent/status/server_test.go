@@ -57,12 +57,12 @@ func TestNewServer(t *testing.T) {
 		// A valid input.
 		{
 			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},` +
-				`"/app-health/buisness/livez": {"path": "/buisiness/live", "port": 9090}}`,
+				`"/app-health/business/livez": {"path": "/buisiness/live", "port": 9090}}`,
 		},
 		// A valid input with empty probing path, which happens when HTTPGetAction.Path is not specified.
 		{
 			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},
-"/app-health/buisness/livez": {"port": 9090}}`,
+"/app-health/business/livez": {"port": 9090}}`,
 		},
 	}
 	for _, tc := range testCases {

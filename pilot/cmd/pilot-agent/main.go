@@ -76,7 +76,7 @@ var (
 	loggingOptions           = log.DefaultOptions()
 
 	// pilot agent config
-	appHTTPProbers string
+	kubeAppHTTPProbers string
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -288,7 +288,7 @@ var (
 					AdminPort:          proxyAdminPort,
 					StatusPort:         statusPort,
 					ApplicationPorts:   parsedPorts,
-					KubeAppHTTPProbers: appHTTPProbers,
+					KubeAppHTTPProbers: kubeAppHTTPProbers,
 				})
 				if err != nil {
 					return err
@@ -424,7 +424,7 @@ func init() {
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
-	proxyCmd.PersistentFlags().StringVar(&appHTTPProbers, status.KubeAppProberCmdFlagName, "",
+	proxyCmd.PersistentFlags().StringVar(&kubeAppHTTPProbers, status.KubeAppProberCmdFlagName, "",
 		"The json encoded string to pass app HTTP probe information from injector(istioctl or webhook). "+
 			"This flag should never be set manually.")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
