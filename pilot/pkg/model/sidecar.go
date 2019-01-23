@@ -24,6 +24,7 @@ import (
 
 const (
 	wildcardNamespace = "*"
+	currentNamespace  = "."
 	wildcardService   = Hostname("*")
 )
 
@@ -215,7 +216,11 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 	if istioListener.Hosts != nil {
 		for _, h := range istioListener.Hosts {
 			parts := strings.SplitN(h, "/", 2)
-			out.listenerHosts[parts[0]] = Hostname(parts[1])
+			if parts[0] == currentNamespace {
+				out.listenerHosts[sidecarConfig.Namespace] = Hostname(parts[1])
+			} else {
+				out.listenerHosts[parts[0]] = Hostname(parts[1])
+			}
 		}
 	}
 
