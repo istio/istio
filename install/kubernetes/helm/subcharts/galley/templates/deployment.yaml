@@ -54,8 +54,12 @@ spec:
 {{- if not $.Values.global.useMCP }}
           - --enable-server=false
 {{- end }}
+{{- if .Values.global.configValidation }}
           - --validation-webhook-config-file
           - /etc/config/validatingwebhookconfiguration.yaml
+{{- else }}
+          - --enable-validation=false
+{{- end }}
           - --monitoringPort={{ .Values.global.monitoringPort }}
           volumeMounts:
           - name: certs
