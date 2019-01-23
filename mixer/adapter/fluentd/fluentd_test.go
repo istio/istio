@@ -225,19 +225,6 @@ func TestHandleLogEntry(t *testing.T) {
 
 	mf := &mockFluentd{}
 
-	han := &handler{
-		logger:        mf,
-		types:         types,
-		env:           test.NewEnv(t),
-		intDur:        false,
-		dataBuffer:    make(chan []byte, 5),
-		pushInterval:  1 * time.Nanosecond,
-		maxBatchBytes: defaultMaxBatchBytes,
-		stopCh:        make(chan bool),
-	}
-
-	go han.postData()
-
 	tm := time.Date(2017, time.August, 21, 10, 4, 00, 0, time.UTC)
 
 	cases := []struct {
@@ -246,6 +233,7 @@ func TestHandleLogEntry(t *testing.T) {
 		failWrites bool
 		expected   int
 		intDur     bool
+		maxBytes   int64
 	}{
 		{
 			"Basic Logs",
@@ -266,10 +254,10 @@ func TestHandleLogEntry(t *testing.T) {
 				},
 			},
 			false,
-			1,
+			2,
 			false,
+			11,
 		},
-
 		{
 			"Complex Log",
 			[]*logentry.Instance{
@@ -293,6 +281,7 @@ func TestHandleLogEntry(t *testing.T) {
 			false,
 			1,
 			false,
+			11,
 		},
 		{
 			"Integer Duration",
@@ -309,31 +298,70 @@ func TestHandleLogEntry(t *testing.T) {
 			false,
 			1,
 			true,
+			11,
+		},
+		{
+			"Too Large Log",
+			[]*logentry.Instance{
+				{
+					Name:      "Foo",
+					Severity:  "WARNING",
+					Timestamp: tm,
+					Variables: map[string]interface{}{
+						"String":      "a string",
+						"OtherString": "too large",
+						"Int64":       int64(123),
+						"Double":      1.23,
+						"Bool":        true,
+						"OtherBool":   true,
+						"Time":        tm,
+						"Duration":    1 * time.Second,
+						"StringMap":   map[string]string{"A": "B", "C": "D"},
+						"IPAddress":   net.IPv6loopback,
+						"Bytes":       []byte{'b', 'a', 'd', 't', 'o', 'o', 'l', 'a', 'r', 'g', 'e'},
+					},
+				},
+			},
+			false,
+			0,
+			false,
+			2,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			han := &handler{
+				logger:        mf,
+				types:         types,
+				env:           test.NewEnv(t),
+				intDur:        false,
+				dataBuffer:    make(chan dataToEncode, 5),
+				pushInterval:  1 * time.Millisecond,
+				maxBatchBytes: c.maxBytes,
+				stopCh:        make(chan bool),
+			}
+			go han.postData()
 			mf.Reset()
 
 			han.intDur = c.intDur
 			err := han.HandleLogEntry(context.Background(), c.instances)
 			if err != nil && !c.failWrites {
-				t.Errorf("Got %v, expecting success", err)
+				t.Errorf("HandleLogEntry(): Got %v, expecting success", err)
 			} else if err == nil && c.failWrites {
-				t.Errorf("Got success, expected failure")
+				t.Errorf("HandleLogEntry(): Got success, expected failure")
 			}
 
 			time.Sleep(100 * time.Millisecond)
 
 			if got, want := mf.Batches, c.expected; got != want {
-				t.Errorf("Got %d messages; want %d", got, want)
+				t.Errorf("Got %d batches; want %d", got, want)
+			}
+
+			if err := han.Close(); err != nil {
+				t.Errorf("Close(): Got error %v, expecting success", err)
 			}
 		})
-	}
-
-	if err := han.Close(); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
 	}
 }
 
@@ -355,15 +383,6 @@ func TestHandleLogEntry_Errors(t *testing.T) {
 	}
 
 	mf := &mockFluentd{}
-
-	han := &handler{
-		logger:        mf,
-		types:         types,
-		env:           test.NewEnv(t),
-		dataBuffer:    make(chan []byte),
-		maxBatchBytes: 3,
-		stopCh:        make(chan bool),
-	}
 
 	cases := []struct {
 		name      string
@@ -388,39 +407,31 @@ func TestHandleLogEntry_Errors(t *testing.T) {
 				},
 			},
 		},
-		{
-			"Log Too Large",
-			[]*logentry.Instance{
-				{
-					Name:     "Foo",
-					Severity: "WARNING",
-					Variables: map[string]interface{}{
-						"String":    "a string",
-						"Int64":     int64(123),
-						"Double":    1.23,
-						"Bool":      true,
-						"Duration":  1 * time.Second,
-						"StringMap": map[string]string{"A": "B", "C": "D"},
-						"IPAddress": net.IPv4zero,
-						"Bytes":     []byte{'b'},
-					},
-				},
-			},
-		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			mf.Reset()
+
+			han := &handler{
+				logger:        mf,
+				types:         types,
+				env:           test.NewEnv(t),
+				dataBuffer:    make(chan dataToEncode, 1),
+				maxBatchBytes: 3,
+				stopCh:        make(chan bool),
+			}
+
 			if err := han.HandleLogEntry(context.Background(), c.instances); err == nil {
 				t.Fatalf("HandleLogEntry() did not produce expected error!")
+			}
+
+			if err := han.Close(); err != nil {
+				t.Errorf("Close(): Got error %v, expecting success", err)
 			}
 		})
 	}
 
-	if err := han.Close(); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
 }
 
 type message struct {

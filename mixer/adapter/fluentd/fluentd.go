@@ -52,24 +52,31 @@ type (
 		adpCfg *config.Params
 		types  map[string]*logentry.Type
 	}
+
 	handler struct {
 		logger        fluentdLogger
 		types         map[string]*logentry.Type
 		env           adapter.Env
 		intDur        bool
-		dataBuffer    chan []byte
+		dataBuffer    chan dataToEncode
 		stopCh        chan bool
 		maxBatchBytes int64
 		pushInterval  time.Duration
 		pushTimeout   time.Duration
 	}
-)
 
-type fluentdLogger interface {
-	Close() error
-	EncodeData(string, time.Time, interface{}) (data []byte, err error)
-	PostRawData(data []byte)
-}
+	fluentdLogger interface {
+		Close() error
+		EncodeData(string, time.Time, interface{}) (data []byte, err error)
+		PostRawData(data []byte)
+	}
+
+	dataToEncode struct {
+		tag       string
+		timestamp time.Time
+		variables map[string]interface{}
+	}
+)
 
 // ensure types implement the requisite interfaces
 var _ logentry.HandlerBuilder = &builder{}
@@ -116,7 +123,7 @@ func (b *builder) build(ctx context.Context, env adapter.Env, newFluentd func(fl
 		types:         b.types,
 		env:           env,
 		intDur:        b.adpCfg.IntegerDuration,
-		dataBuffer:    make(chan []byte, bufSize),
+		dataBuffer:    make(chan dataToEncode, bufSize),
 		stopCh:        make(chan bool),
 		maxBatchBytes: batchBytes,
 		pushInterval:  interval,
@@ -178,7 +185,17 @@ func (h *handler) postData() {
 				sendBuf.Reset()
 			}
 			return
-		case data := <-h.dataBuffer:
+		case toEncode := <-h.dataBuffer:
+			data, err := h.logger.EncodeData(toEncode.tag, toEncode.timestamp, toEncode.variables)
+			if err != nil {
+				h.env.Logger().Warningf("failed to encode data: %v", err)
+				continue
+			}
+			if len(data) > int(h.maxBatchBytes) {
+				// TODO: find way to signal this condition via metrics for monitoring
+				h.env.Logger().Warningf("instance data exceeds (%d) configured max batch bytes (%d); dropping", len(data), h.maxBatchBytes)
+				continue
+			}
 			if sendBuf.Len()+len(data) > int(h.maxBatchBytes) && sendBuf.Len() > 0 {
 				h.logger.PostRawData(sendBuf.Bytes())
 				sendBuf.Reset()
@@ -224,17 +241,8 @@ func (h *handler) HandleLogEntry(ctx context.Context, insts []*logentry.Instance
 			delete(i.Variables, "tag")
 		}
 
-		data, err := h.logger.EncodeData(tag.(string), i.Timestamp, i.Variables)
-		if err != nil {
-			handleErr = multierror.Append(handleErr, err)
-			continue
-		}
-		if len(data) > int(h.maxBatchBytes) {
-			handleErr = multierror.Append(handleErr, errors.New("instance data exceeds configured max batch bytes; dropping instance"))
-			continue
-		}
 		select {
-		case h.dataBuffer <- data:
+		case h.dataBuffer <- dataToEncode{tag.(string), i.Timestamp, i.Variables}:
 		default:
 			h.env.Logger().Infof("Fluentd instance buffer full; dropping log entry.")
 			handleErr = multierror.Append(handleErr, errors.New("fluentd instance buffer full; dropping log entry"))
