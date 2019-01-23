@@ -417,10 +417,12 @@ func (pb *ProtoBag) Reset() {
 	pb.globalDict = make(map[string]int32)
 	pb.globalWordList = nil
 	pb.messageDict = make(map[string]int32)
+	pb.stringMapMutex.Lock()
 	pb.convertedStringMaps = make(map[int32]StringMap)
+	pb.stringMapMutex.Unlock()
+	pb.referencedAttrsMutex.Lock()
 	pb.referencedAttrs = make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, referencedAttrsSize)
-	pb.stringMapMutex = sync.RWMutex{}
-	pb.referencedAttrsMutex = sync.Mutex{}
+	pb.referencedAttrsMutex.Unlock()
 }
 
 // String runs through the named attributes, looks up their values,
