@@ -112,6 +112,7 @@ TRAFFIC_RUNTIME_SEC=500
 EXTERNAL_FORTIO_DONE_FILE=${TMP_DIR}/fortio_done_file
 
 echo_and_run() { echo "RUNNING $*" ; "$@" ; }
+echo_and_run_quiet() { echo "RUNNING(quiet) $*" ; "$@" > /dev/null 2>&1 ; }
 echo_and_run_or_die() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
 
 # withRetries retries the given command ${1} times with ${2} sleep between retries
@@ -130,8 +131,8 @@ withRetries() {
       sleep "${sleep_sec}"
     done
 
-    if (( n == max_retries )); then die "${@} failed after retrying ${max_retries} times."; fi
-    echo "Succeeded after ${n} retries."
+    if (( n == max_retries )); then die "$* failed after retrying ${max_retries} times."; fi
+    echo "Succeeded."
 }
 
 # withRetriesMaxTime retries the given command repeatedly with ${2} sleep between retries until ${1} seconds have elapsed.
@@ -146,11 +147,33 @@ withRetriesMaxTime() {
     while (( SECONDS - start_time <  total_time_max )); do
       echo "RUNNING $*" ; "${@}" && break
       echo "Failed, sleeping ${sleep_sec} seconds and retrying..."
-      sleep ${sleep_sec}
+      sleep "${sleep_sec}"
     done
 
     if (( SECONDS - start_time >=  total_time_max )); then die "$* failed after retrying for ${total_time_max} seconds."; fi
     echo "Succeeded."
+}
+
+# checkIfDeleted checks if a resource has been deleted, returns 1 if it has not.
+# e.g. checkIfDeleted ConfigMap my-config-map istio-system
+#   OR checkIfDeleted namespace istio-system
+checkIfDeleted() {
+    local resp
+    if [ -n "${3}" ]; then
+        resp=$( kubectl get "${1}" -n "${3}" "${2}" 2>&1 )
+    else
+        resp=$( kubectl get "${1}" "${2}" 2>&1 )
+    fi
+    if [[ "${resp}" == *"Error from server (NotFound)"* ]]; then
+        return 0
+    fi
+    return 1
+}
+
+deleteWithWait() {
+    # Don't complain if resource is already deleted.
+    echo_and_run_quiet kubectl delete "${1}" -n "${3}" "${2}"
+    withRetries 10 60 checkIfDeleted "${1}" "${2}" "${3}"
 }
 
 installIstioSystemAtVersionHelmTemplate() {
@@ -162,7 +185,10 @@ installIstioSystemAtVersionHelmTemplate() {
     release_path="${3}"/install/kubernetes/helm/istio
     if [[ "${release_path}" == *"1.1"* || "${release_path}" == *"master"* ]]; then
         # See https://preliminary.istio.io/docs/setup/kubernetes/helm-install/
-        for i in install/kubernetes/helm/istio-init/files/crd*yaml; do kubectl apply -f "${i}"; done
+        for i in install/kubernetes/helm/istio-init/files/crd*yaml; do
+            echo_and_run kubectl apply -f "${i}"
+        done
+        sleep 5 # Per official Istio documentation!
     fi
 
     helm template "${release_path}" "${auth_opts}" \
@@ -189,7 +215,7 @@ installTest() {
 # completion.
 _sendInternalRequestTraffic() {
     local job_name=cli-fortio
-    kubectl delete job -n "${TEST_NAMESPACE}" "${job_name}" > /dev/null 2>&1
+    deleteWithWait job "${job_name}" "${TEST_NAMESPACE}"
     start_time=${SECONDS}
     withRetries 10 60 kubectl apply -n "${TEST_NAMESPACE}" -f "${TMP_DIR}/fortio-cli.yaml"
     waitForJob "${job_name}"
@@ -229,6 +255,11 @@ restartDataPlane() {
     # This is a hack to force a rolling restart without making any material changes to spec.
     writeMsg "Restarting deployment ${1}, patching label to force restart."
     echo_and_run_or_die kubectl patch deployment "${1}" -n "${TEST_NAMESPACE}" -p'{"spec":{"template":{"spec":{"containers":[{"name":"echosrv","env":[{"name":"RESTART_'"$(date +%s)"'","value":"1"}]}]}}}}'
+}
+
+resetConfigMap() {
+    deleteWithWait ConfigMap "${1}" "${ISTIO_NAMESPACE}"
+    kubectl create -n "${ISTIO_NAMESPACE}" -f "${2}"
 }
 
 writeMsg() {
@@ -301,24 +332,15 @@ waitForJob() {
     echo "Job ${1} ran for ${run_time} seconds."
 }
 
-_resetNamespacesCheck() {
-    resp=$( kubectl get namespaces )
-    if [[ "${resp}" != *"Terminating"* ]]; then
-        echo "All namespaces deleted. Recreating ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE}"
-        echo_and_run_or_die kubectl create namespace "${ISTIO_NAMESPACE}"
-        echo_and_run_or_die kubectl create namespace "${TEST_NAMESPACE}"
-        echo_and_run_or_die kubectl label namespace "${TEST_NAMESPACE}" istio-injection=enabled
-        return 0
-    fi
-
-    echo "Waiting for namespaces ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE} to be deleted."
-    return 1
-}
-
 resetCluster() {
     echo "Cleaning cluster by removing namespaces ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE}"
-    kubectl delete namespace "${ISTIO_NAMESPACE}" "${TEST_NAMESPACE}" > /dev/null 2>&1
-    withRetriesMaxTime 300 10 _resetNamespacesCheck
+    deleteWithWait namespace "${ISTIO_NAMESPACE}"
+    deleteWithWait namespace "${TEST_NAMESPACE}"
+    echo "All namespaces deleted. Recreating ${ISTIO_NAMESPACE} and ${TEST_NAMESPACE}"
+
+    echo_and_run_or_die kubectl create namespace "${ISTIO_NAMESPACE}"
+    echo_and_run_or_die kubectl create namespace "${TEST_NAMESPACE}"
+    echo_and_run_or_die kubectl label namespace "${TEST_NAMESPACE}" istio-injection=enabled
 }
 
 # Returns 0 if the passed string has form "Code 200 : 6601 (94.6 %)" and the percentage is smaller than ${MIN_200_PCT_FOR_PASS}
@@ -350,9 +372,9 @@ copy_test_files() {
 copy_test_files
 
 # This should already be done, repeat just in case.
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)" > /dev/null 2>&1
+echo_and_run_quiet kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"
 
-pushd "${ISTIO_ROOT}" || exit 1
+echo_and_run pushd "${ISTIO_ROOT}"
 
 resetCluster
 
@@ -361,7 +383,7 @@ waitForIngress
 waitForPodsReady "${ISTIO_NAMESPACE}"
 
 # Make a copy of the "from" sidecar injector ConfigMap so we can restore the sidecar independently later.
-kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml || die "copy ConfigMap failed"
+echo_and_run kubectl get ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector -o yaml > ${TMP_DIR}/sidecar-injector-configmap.yaml
 
 installTest
 waitForPodsReady "${TEST_NAMESPACE}"
@@ -386,11 +408,10 @@ sleep 140
 
 # Now do a rollback. In a rollback, we update the data plane first.
 writeMsg "Starting rollback - first, rolling back data plane to ${TO_PATH}"
-kubectl delete ConfigMap -n "${ISTIO_NAMESPACE}" istio-sidecar-injector
-sleep 5
-kubectl create -n "${ISTIO_NAMESPACE}" -f "${TMP_DIR}"/sidecar-injector-configmap.yaml
+resetConfigMap istio-sidecar-injector "${TMP_DIR}"/sidecar-injector-configmap.yaml
 restartDataPlane echosrv-deployment-v1
 sleep 140
+
 
 installIstioSystemAtVersionHelmTemplate "${FROM_HUB}" "${FROM_TAG}" "${FROM_PATH}"
 waitForPodsReady "${ISTIO_NAMESPACE}"
@@ -433,7 +454,7 @@ else
     echo "=== Errors found in internal traffic is within ${MIN_200_PCT_FOR_PASS}% threshold ==="
 fi
 
-popd || exit 1
+echo_and_run popd
 
 if [ -n "${failed}" ]; then
     exit 1
