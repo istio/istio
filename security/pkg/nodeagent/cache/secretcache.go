@@ -197,7 +197,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 
 	if sc.rootCert == nil {
 		log.Errorf("Failed to get root cert for proxy %q", proxyID)
-		return nil, errors.New("faied to get root cert")
+		return nil, errors.New("failed to get root cert")
 
 	}
 
