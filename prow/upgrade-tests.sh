@@ -24,6 +24,8 @@ set -x
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
+# Set to any non-empty value to use kubectl configured cluster instead of mason provisioned cluster.
+UPGRADE_TEST_LOCAL="${UPGRADE_TEST_LOCAL:-}"
 
 # This is a script to download release artifacts from monthly or daily release
 # location and kick off upgrade/downgrade tests.
@@ -45,7 +47,7 @@ download_untar_istio_release "${TARGET_RELEASE_PATH}" "${TARGET_VERSION}"
 
 # Check https://github.com/istio/test-infra/blob/master/boskos/configs.yaml
 # for existing resources types
-if [ -z "${UPGRADE_TEST_LOCAL}" ]; then
+if [ "${UPGRADE_TEST_LOCAL}" != "" ]; then
     export RESOURCE_TYPE="${RESOURCE_TYPE:-gke-e2e-test}"
     export OWNER='upgrade-tests'
     export USE_MASON_RESOURCE="${USE_MASON_RESOURCE:-True}"
