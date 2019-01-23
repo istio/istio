@@ -374,16 +374,11 @@ copy_test_files() {
 
 copy_test_files
 
-<<<<<<< HEAD
 if [[ $CLOUD == "GKE" ]];then
   kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)" || echo "clusterrolebinding already created."
 else
   kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="cluster-admin" || echo "clusterrolebinding already created."
 fi
-=======
-# This should already be done, repeat just in case.
-echo_and_run_quiet kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"
->>>>>>> 01790450e171715520b8d681798588acc46d7954
 
 echo_and_run pushd "${ISTIO_ROOT}"
 
