@@ -508,6 +508,18 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	defer s.mutex.Unlock()
 	requireFull := false
 
+	// To prevent memory leak.
+	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
+	if len(istioEndpoints) == 0 {
+		if s.EndpointShardsByService[serviceName] != nil {
+			delete(s.EndpointShardsByService[serviceName].Shards, shard)
+			if len(s.EndpointShardsByService[serviceName].Shards) == 0 {
+				delete(s.EndpointShardsByService, serviceName)
+			}
+		}
+		return
+	}
+
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
 	ep, f := s.EndpointShardsByService[serviceName]
