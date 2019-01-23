@@ -307,6 +307,8 @@ for gid in ${PROXY_GID}; do
   iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner ${gid} -j RETURN
 done
 
+
+
 # Skip redirection for Envoy-aware applications and
 # container-to-container traffic both of which explicitly use
 # localhost.
