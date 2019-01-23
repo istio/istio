@@ -72,5 +72,7 @@ spec:
       - name: kiali-configuration
         configMap:
           name: kiali
+{{- if .Values.nodeaffinityTemplate  }}
       affinity:
       {{- include "nodeaffinity" . | indent 6 }}
+{{- end }}
