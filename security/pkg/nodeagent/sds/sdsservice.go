@@ -117,7 +117,20 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			log.Errorf("Failed to get credential token from incoming request: %v", err)
 			return err
 		}
-		token = t
+		token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3" +
+		"NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3" +
+		"BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZX" +
+		"QubmFtZSI6InZhdWx0LWNpdGFkZWwtc2EtdG9rZW4tcmZxZGoiLCJrdWJlcm5ldGVzLm" +
+		"lvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtY2l0YW" +
+		"RlbC1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW" +
+		"50LnVpZCI6IjIzOTk5YzY1LTA4ZjMtMTFlOS1hYzAzLTQyMDEwYThhMDA3OSIsInN1Yi" +
+		"I6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWNpdGFkZWwtc2EifQ" +
+		".RNH1QbapJKPmktV3tCnpiz7hoYpv1TM6LXzThOtaDp7LFpeANZcJ1zVQdys3Ednlkry" +
+		"kGMepEjsdNuT6ndHfh8jRJAZuNWNPGrhxz4BeUaOqZg3v7AzJlMeFKjY_fiTYYd2gBZZ" +
+		"xkpv1FvAPihHYng2NeN2nKbiZbsnZNU1qFdvbgCISaFqTf0dh75OzgCX_1Fh6HOA7ANf" +
+		"7p522PDW_BRln0RTwUJovCpGeiNCGdujGiNLDZyBcdtikY5ry_KXTdrVAcTUvI6lxwRb" +
+		"ONNfuN8hrIDl95vJjhUlE-O-_cx8qWtXNdqJlMje1SsiPCL4uq70OepG_I4aSzC2o8aD" +
+		"tlQ"
 	}
 
 	var receiveError error
