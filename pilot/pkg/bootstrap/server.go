@@ -410,7 +410,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		}
 	}
 
-	if err = cmd.ValidateMeshConfig(mesh); err != nil {
+	if err = model.ValidateMeshConfig(mesh); err != nil {
 		log.Errorf("invalid mesh configuration: %v", err)
 		return err
 	}

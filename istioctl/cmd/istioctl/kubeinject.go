@@ -254,7 +254,7 @@ istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml --injectConf
 					return err
 				}
 			}
-			err = cmd.ValidateMeshConfig(meshConfig)
+			err = model.ValidateMeshConfig(meshConfig)
 			if err != nil {
 				return err
 			}
