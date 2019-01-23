@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: zipkin
+    namespace: {{ .Release.Namespace }}
+    labels:
+      app: jaeger
+      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+      release: {{ .Release.Name }}
+      heritage: {{ .Release.Service }}
+  spec:
+    type: {{ .Values.service.type }}
+    ports:
+      - port: {{ .Values.service.externalPort }}
+        targetPort: {{ .Values.service.internalPort }}
+        protocol: TCP
+        name: {{ .Values.service.name }}
+    selector:
+      app: jaeger
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: tracing
+    namespace: {{ .Release.Namespace }}
+    annotations:
+      {{- range $key, $val := .Values.service.annotations }}
+      {{ $key }}: {{ $val }}
+      {{- end }}
+    labels:
+      app: jaeger
+      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+      release: {{ .Release.Name }}
+      heritage: {{ .Release.Service }}
+  spec:
+    ports:
+      - name: http-query
+        port: 80
+        protocol: TCP
+        targetPort: {{ .Values.jaeger.ui.port }}
+    selector:
+      app: jaeger

@@ -1,0 +1,83 @@
+info:
+  title: GKE cluster
+  author: Google, Inc.
+  description: |
+    Creates a GKE cluster with a VM initializing istio.io for use within the cluster
+
+required:
+- gkeClusterName
+- zone
+- initialNodeCount
+- instanceType
+
+properties:
+  gkeClusterName:
+    type: string
+    description: GKE Cluster Name
+    default: istio-cluster
+  zone:
+    type: string
+    description: Zone in which the cluster should run.
+    default: us-central1-a
+    x-googleProperty:
+      type: GCE_ZONE
+  initialNodeCount:
+    type: integer
+    description: Initial number of nodes desired in the cluster.
+    default: 4
+    enum:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+  instanceType:
+    type: string
+    description: Node machineType
+    default: n1-standard-1
+    x-googleProperty:
+      type: GCE_MACHINE_TYPE
+      zoneProperty: zone
+
+  installIstioRelease:
+    type: string
+    description: Install Istio Release version.
+    default: 1.0.0
+    enum:
+      - 1.0.0
+
+  enableBookInfoSample:
+    type: boolean
+    description: Add BookInfo Sample Application
+    default: true
+
+  enableAutomaticSidecarInjection:
+    type: boolean
+    description: Enable automatic istio sidecar injection.
+    default: true
+
+  enableMutualTLS:
+    type: boolean
+    description: Enable mutualTLS.
+    default: true
+
+  enablePrometheus:
+    type: boolean
+    description: Enable Prometheus for metrics/logs
+    default: true
+
+  enableGrafana:
+    type: boolean
+    description: Enable Grafana for metrics/logs
+    default: true
+
+  enableTracing:
+    type: boolean
+    description: Enable Tracing
+    default: true
+
+  enableServiceGraph:
+    type: boolean
+    description: Enable ServiceGraph for metrics/logs
+    default: true

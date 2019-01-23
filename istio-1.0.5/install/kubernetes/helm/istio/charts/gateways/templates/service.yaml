@@ -1,0 +1,42 @@
+{{- range $key, $spec := .Values }}
+{{- if and (ne $key "global") (ne $key "enabled") }}
+{{- if $spec.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $key }}
+  namespace: {{ $spec.namespace | default $.Release.Namespace }}
+  annotations:
+    {{- range $key, $val := $spec.serviceAnnotations }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
+  labels:
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}
+    {{- range $key, $val := $spec.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
+spec:
+{{- if $spec.loadBalancerIP }}
+  loadBalancerIP: "{{ $spec.loadBalancerIP }}"
+{{- end }}
+  type: {{ .type }}
+{{- if $spec.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ $spec.externalTrafficPolicy }}
+{{- end }}
+  selector:
+    {{- range $key, $val := $spec.labels }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
+  ports:
+    {{- range $key, $val := $spec.ports }}
+    -
+      {{- range $pkey, $pval := $val }}
+      {{ $pkey}}: {{ $pval }}
+      {{- end }}
+    {{- end }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,28 @@
+{{ $mixers := list "policy" "telemetry" }}
+{{- range $idx, $mname := $mixers }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-{{ $mname }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version | replace "+" "_" }}
+    release: {{ $.Release.Name }}
+    istio: mixer
+spec:
+  ports:
+  - name: grpc-mixer
+    port: 9091
+  - name: grpc-mixer-mtls
+    port: 15004
+  - name: http-monitoring
+    port: 9093
+{{- if eq $mname "telemetry" }}
+  - name: prometheus
+    port: 42422
+{{- end }}
+  selector:
+    istio: mixer
+    istio-mixer-type: {{ $mname }}
+---
+{{- end }}

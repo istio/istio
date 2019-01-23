@@ -1,0 +1,13 @@
+# Create a namespace if it doesn't exist
+# The name of the namespace to create is given in variable ns_name
+
+- name: Check if namespace exists
+  shell: "{{ cmd_path }} get namespace/{{ ns_name }}"
+  ignore_errors: true
+  register: r
+
+- name: Create namespace {{ ns_name }}
+  shell: "{{ cmd_path }} create namespace {{ ns_name }}"
+  when:
+    - r.stderr != ""
+    - r.stderr.find("NotFound") != -1

@@ -115,7 +115,7 @@ TRAFFIC_RUNTIME_SEC=700
 echo_and_run() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
 
 installIstioSystemAtVersionHelmTemplate() {
-    writeMsg "helm installing version ${2} from ${3}."
+    writeMsg "helm templating then installing using version ${2} from ${3}."
     if [ -n "${AUTH_ENABLE}" ]; then
         echo "Auth is enabled, generating manifest with auth."
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
@@ -125,10 +125,15 @@ installIstioSystemAtVersionHelmTemplate() {
         helm init --client-only
         helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts
         helm dependency update "${release_path}"
+
+        # install istio-init as CRDs are handled by istio-init in v1.1
+        for i in install install/kubernetes/helm/istio-init/files/crd*yaml; 
+          do kubectl apply -f $i; 
+        done
     fi
+
     helm template "${release_path}" "${auth_opts}" \
     --name istio --namespace "${ISTIO_NAMESPACE}" \
-    --set gateways.istio-ingressgateway.replicaCount=4 \
     --set gateways.istio-ingressgateway.autoscaleMin=4 \
     --set prometheus.enabled=false \
     --set global.hub="${1}" \

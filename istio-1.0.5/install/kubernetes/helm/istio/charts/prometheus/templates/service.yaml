@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    prometheus.io/scrape: 'true'
+    {{- range $key, $val := .Values.service.annotations }}
+    {{ $key }}: {{ $val }}
+    {{- end }}
+  labels:
+    name: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - name: http-prometheus
+    protocol: TCP
+    port: 9090
+
+{{- if .Values.service.nodePort.enabled }}
+# Using separate ingress for nodeport, to avoid conflict with pilot e2e test configs.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-nodeport
+  namespace: {{ .Release.Namespace }}
+  labels:
+    name: prometheus
+spec:
+  type: NodePort
+  ports:
+  - port: 9090
+    nodePort: {{ .Values.service.nodePort.port }}
+    name: http-prometheus
+  selector:
+    app: prometheus
+{{- end }}
