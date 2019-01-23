@@ -15,6 +15,8 @@
 package pilot
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"net"
 
@@ -27,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
@@ -81,6 +84,14 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		}
 	}()
 
+	g := ctx.GetComponent(ids.Galley)
+	if g == nil {
+		return fmt.Errorf("missing dependency: %s", ids.Galley)
+	}
+	galley, ok := g.(components.Galley)
+	if !ok {
+		return errors.New("galley does not support in-process interface")
+	}
 	// Dynamically assign all ports.
 	options := envoy.DiscoveryServiceOptions{
 		HTTPAddr:       ":0",
@@ -93,6 +104,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		Namespace:        env.Namespace,
 		DiscoveryOptions: options,
 		MeshConfig:       env.Mesh,
+		MCPServerAddrs:   []string{galley.GetGalleyAddress()},
 		Config: bootstrap.ConfigArgs{
 			Controller: env.ServiceManager.ConfigStore,
 		},

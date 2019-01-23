@@ -39,7 +39,6 @@ var (
 		ID:                ids.Pilot,
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
-			&ids.Mixer,
 			&ids.Environment,
 			&ids.Galley,
 		},
