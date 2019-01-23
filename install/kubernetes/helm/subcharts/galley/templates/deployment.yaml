@@ -95,6 +95,7 @@ spec:
       - name: certs
         secret:
           secretName: istio.istio-galley-service-account
+          optional: true
       - name: config
         configMap:
           name: istio-galley-configuration
