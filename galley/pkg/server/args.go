@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/mcp/creds"
 )
@@ -69,6 +70,9 @@ type Args struct {
 	// ConfigPath is the path for Galley specific config files
 	ConfigPath string
 
+	// ExcludedResourceKinds is a list of resource kinds for which no source events will be triggered.
+	ExcludedResourceKinds []string
+
 	// MeshConfigFile is the path for mesh config
 	MeshConfigFile string
 
@@ -96,30 +100,40 @@ func DefaultArgs() *Args {
 		ConfigPath:                "",
 		DomainSuffix:              defaultDomainSuffix,
 		DisableResourceReadyCheck: false,
+		ExcludedResourceKinds:     defaultExcludedResourceKinds(),
 	}
+}
+
+func defaultExcludedResourceKinds() []string {
+	resources := make([]string, 0)
+	for _, spec := range builtin.GetSchema().All() {
+		resources = append(resources, spec.Kind)
+	}
+	return resources
 }
 
 // String produces a stringified version of the arguments for debugging.
 func (a *Args) String() string {
 	buf := &bytes.Buffer{}
 
-	fmt.Fprintf(buf, "KubeConfig: %s\n", a.KubeConfig)
-	fmt.Fprintf(buf, "ResyncPeriod: %v\n", a.ResyncPeriod)
-	fmt.Fprintf(buf, "APIAddress: %s\n", a.APIAddress)
-	fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.EnableGRPCTracing)
-	fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
-	fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
-	fmt.Fprintf(buf, "IntrospectionOptions: %+v\n", *a.IntrospectionOptions)
-	fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
-	fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
-	fmt.Fprintf(buf, "EnableServer: %v\n", a.EnableServer)
-	fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
-	fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
-	fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
-	fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
-	fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
-	fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
-	fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)
+	_, _ = fmt.Fprintf(buf, "KubeConfig: %s\n", a.KubeConfig)
+	_, _ = fmt.Fprintf(buf, "ResyncPeriod: %v\n", a.ResyncPeriod)
+	_, _ = fmt.Fprintf(buf, "APIAddress: %s\n", a.APIAddress)
+	_, _ = fmt.Fprintf(buf, "EnableGrpcTracing: %v\n", a.EnableGRPCTracing)
+	_, _ = fmt.Fprintf(buf, "MaxReceivedMessageSize: %d\n", a.MaxReceivedMessageSize)
+	_, _ = fmt.Fprintf(buf, "MaxConcurrentStreams: %d\n", a.MaxConcurrentStreams)
+	_, _ = fmt.Fprintf(buf, "IntrospectionOptions: %+v\n", *a.IntrospectionOptions)
+	_, _ = fmt.Fprintf(buf, "Insecure: %v\n", a.Insecure)
+	_, _ = fmt.Fprintf(buf, "AccessListFile: %s\n", a.AccessListFile)
+	_, _ = fmt.Fprintf(buf, "EnableServer: %v\n", a.EnableServer)
+	_, _ = fmt.Fprintf(buf, "KeyFile: %s\n", a.CredentialOptions.KeyFile)
+	_, _ = fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
+	_, _ = fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
+	_, _ = fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
+	_, _ = fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
+	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
+	_, _ = fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)
+	_, _ = fmt.Fprintf(buf, "ExcludedResourceKinds: %v\n", a.ExcludedResourceKinds)
 
 	return buf.String()
 }

@@ -23,7 +23,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/meshconfig"
-
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -60,8 +59,8 @@ func TestProcessor_Start(t *testing.T) {
 
 type erroneousSource struct{}
 
-func (e *erroneousSource) Start() (chan resource.Event, error) {
-	return nil, errors.New("cheese not found")
+func (e *erroneousSource) Start(_ resource.EventHandler) error {
+	return errors.New("cheese not found")
 }
 func (e *erroneousSource) Stop() {}
 
