@@ -96,9 +96,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[CanonicalServiceAccountsAnnotation] != "" {
-			for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",") {
-				serviceaccounts = append(serviceaccounts, csa)
-			}
+			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",")...)
 		}
 		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
 			for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
@@ -109,7 +107,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			configScope = networking.ConfigScope_PRIVATE
 		}
 	}
-	sort.Sort(sort.StringSlice(serviceaccounts))
+	sort.Strings(serviceaccounts)
 
 	return &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
