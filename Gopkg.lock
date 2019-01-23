@@ -500,9 +500,10 @@
   revision = "66deaeb636dff1ac7d938ce666d090556056a4b0"
 
 [[projects]]
-  digest = "1:0321890c082a214113d5b96983303f252bf1a42bcd834454c7bb799ba425de32"
+  digest = "1:405606374ac62b99cd51cdc68dc5af599e82b4e6891eaf56e8b756075239ae2f"
   name = "github.com/golang/protobuf"
   packages = [
+    "jsonpb",
     "proto",
     "protoc-gen-go/descriptor",
     "protoc-gen-go/plugin",
@@ -673,6 +674,18 @@
   pruneopts = "NUT"
   revision = "6b7015e65d366bf3f19b2b2a000a831940f0f7e0"
   version = "v1.1"
+
+[[projects]]
+  digest = "1:632671b718dd3005a6bcb311b65485114789cb973f35ee7d171401c322f8bf90"
+  name = "github.com/grpc-ecosystem/grpc-gateway"
+  packages = [
+    "runtime",
+    "runtime/internal",
+    "utilities",
+  ]
+  pruneopts = "NUT"
+  revision = "aeab1d96e0f1368d243e2e5f526aa29d495517bb"
+  version = "v1.5.1"
 
 [[projects]]
   branch = "master"
@@ -1625,7 +1638,7 @@
 
 [[projects]]
   branch = "release-1.1"
-  digest = "1:680e918d2481ea58c31e83fe054aa2e346a091b9d46b6c98f96717f849f6ddca"
+  digest = "1:c1736bb847e6cfe63a7faf4a9bedace28fba0559090a6330a47b4b4d5fda036c"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1641,7 +1654,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "6286ff0e63603c77cf7ec30510c39e5cebae65b2"
+  revision = "0dd68ef13c1e9838fa80e8f7457e4950bd10a009"
 
 [[projects]]
   branch = "release-1.11"
@@ -2064,6 +2077,7 @@
     "github.com/gorilla/websocket",
     "github.com/grpc-ecosystem/go-grpc-middleware",
     "github.com/grpc-ecosystem/go-grpc-prometheus",
+    "github.com/grpc-ecosystem/grpc-gateway/runtime",
     "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc",
     "github.com/hashicorp/consul/api",
     "github.com/hashicorp/go-multierror",

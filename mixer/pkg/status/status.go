@@ -17,6 +17,10 @@ package status
 
 import (
 	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/api/policy/v1beta1"
 )
 
 // OK represents a status with a code of rpc.OK
@@ -133,4 +137,25 @@ func String(status rpc.Status) string {
 		result = result + " (" + status.Message + ")"
 	}
 	return result
+}
+
+// GetDirectHTTPResponse extracts a client-facing error detail for HTTP
+func GetDirectHTTPResponse(status rpc.Status) (bool, *v1beta1.DirectHttpResponse) {
+	for _, detail := range status.Details {
+		response := &v1beta1.DirectHttpResponse{}
+		if !types.Is(detail, response) {
+			continue
+		}
+		if types.UnmarshalAny(detail, response) != nil {
+			continue
+		}
+		return true, response
+	}
+	return false, nil
+}
+
+// PackErrorDetail packs an HTTP response error detail
+func PackErrorDetail(response proto.Message) *types.Any {
+	any, _ := types.MarshalAny(response)
+	return any
 }

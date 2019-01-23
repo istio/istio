@@ -16,9 +16,13 @@ package status
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	rpc "github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/protobuf/types"
+
+	"istio.io/api/policy/v1beta1"
 )
 
 func TestStatus(t *testing.T) {
@@ -142,4 +146,32 @@ func TestStatus(t *testing.T) {
 	if msg == "" {
 		t.Errorf("Expecting valid string, got nothing")
 	}
+}
+
+func TestErrorDetail(t *testing.T) {
+	if gotResponse, _ := GetDirectHTTPResponse(OK); gotResponse {
+		t.Error("GetDirectHTTPResponse(OK) => got true, want false")
+	}
+
+	response := &v1beta1.DirectHttpResponse{
+		Code:    v1beta1.MovedPermanently,
+		Body:    "istio.io/api",
+		Headers: map[string]string{"location": "istio.io/api"},
+	}
+	any := PackErrorDetail(response)
+
+	s := rpc.Status{Code: int32(rpc.UNAUTHENTICATED), Details: []*types.Any{
+		nil,
+		&types.Any{TypeUrl: "types.google.com/istio.policy.v1beta1.DirectHttpResponse", Value: []byte{1}},
+		any,
+	}}
+
+	got, out := GetDirectHTTPResponse(s)
+	if !got {
+		t.Error("GetDirectHTTPResponse => got false, want true")
+	}
+	if !reflect.DeepEqual(out, response) {
+		t.Errorf("GetDirectHTTPResponse => got %#v, want %#v", out, response)
+	}
+
 }

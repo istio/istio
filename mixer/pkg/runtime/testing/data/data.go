@@ -539,6 +539,29 @@ spec:
     operation: APPEND
 `
 
+// RuleCheck1WithInstance1And2Operation has instances icheck1 & icheck2 and a header operation
+var RuleCheck1WithInstance1And2Operation = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+    - icheck2.tcheck.istio-system
+  requestHeaderOperations:
+  - name: a-header
+    values:
+    - '"test"'
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - '"test"'
+`
+
 // RuleReport1 is a standard testing instance config with name rreport1. It references I1 and H1.
 var RuleReport1 = `
 apiVersion: "config.istio.io/v1alpha2"
