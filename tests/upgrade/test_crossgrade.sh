@@ -115,7 +115,7 @@ TRAFFIC_RUNTIME_SEC=700
 echo_and_run() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
 
 installIstioSystemAtVersionHelmTemplate() {
-    writeMsg "helm templating then installing using version ${2} from ${3}."
+    writeMsg "helm templating then applying new yaml using version ${2} from ${3}."
     if [ -n "${AUTH_ENABLE}" ]; then
         echo "Auth is enabled, generating manifest with auth."
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
