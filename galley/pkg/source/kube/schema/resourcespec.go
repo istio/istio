@@ -17,7 +17,7 @@ package schema
 import (
 	"fmt"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sc "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
@@ -54,8 +54,8 @@ type ResourceSpec struct {
 }
 
 // APIResource generated from this type.
-func (i *ResourceSpec) APIResource() *v1.APIResource {
-	return &v1.APIResource{
+func (i *ResourceSpec) APIResource() *metaV1.APIResource {
+	return &metaV1.APIResource{
 		Name:         i.Plural,
 		SingularName: i.Singular,
 		Kind:         i.Kind,

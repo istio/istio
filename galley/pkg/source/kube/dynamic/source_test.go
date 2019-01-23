@@ -12,31 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dynamic
+package dynamic_test
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/meshconfig"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
+	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/source/kube/dynamic"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/testing/events"
 	"istio.io/istio/galley/pkg/testing/mock"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	k8sDynamic "k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
-	dtesting "k8s.io/client-go/testing"
+	k8sTesting "k8s.io/client-go/testing"
 )
 
-var emptyInfo resource.Info
+var (
+	emptyInfo resource.Info
+
+	cfg = converter.Config{
+		Mesh: meshconfig.NewInMemory(),
+	}
+)
 
 func init() {
 	b := resource.NewSchemaBuilder()
@@ -45,54 +54,97 @@ func init() {
 	emptyInfo, _ = s.Lookup("empty")
 }
 
-func schemaWithSpecs(specs []schema.ResourceSpec) *schema.Instance {
-	sb := schema.NewBuilder()
-	for _, s := range specs {
-		sb.Add(s)
-	}
-	return sb.Build()
-}
-
 func TestNewSource(t *testing.T) {
 	k := &mock.Kube{}
 	for i := 0; i < 100; i++ {
-		cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
-		k.AddResponse(cl, nil)
+		_ = fakeClient(k)
 	}
 
-	cfg := converter.Config{
-		Mesh: meshconfig.NewInMemory(),
-	}
-	p, err := New(k, 0, kubeMeta.Types, &cfg)
-	if err != nil {
-		t.Fatalf("Unexpected error found: %v", err)
-	}
+	spec := kubeMeta.Types.All()[0]
 
-	if p == nil {
-		t.Fatal("expected non-nil source")
-	}
+	client, _ := k.DynamicInterface()
+	_ = newOrFail(t, client, spec)
 }
 
-func TestNewSource_Error(t *testing.T) {
-	k := &mock.Kube{}
-	k.AddResponse(nil, errors.New("newDynamicClient error"))
+func TestStartWithNilHandlerShouldError(t *testing.T) {
+	g := NewGomegaWithT(t)
 
-	cfg := converter.Config{
-		Mesh: meshconfig.NewInMemory(),
+	// Create the source
+	_, client := createMocks()
+	spec := schema.ResourceSpec{
+		Kind:      "List",
+		Singular:  "List",
+		Plural:    "foos",
+		Target:    emptyInfo,
+		Converter: converter.Get("identity"),
 	}
-	_, err := New(k, 0, kubeMeta.Types, &cfg)
-	if err == nil || err.Error() != "newDynamicClient error" {
-		t.Fatalf("Expected error not found: %v", err)
-	}
+	s := newOrFail(t, client, spec)
+
+	err := s.Start(nil)
+	g.Expect(err).ToNot(BeNil())
 }
 
-func TestSource_BasicEvents(t *testing.T) {
-	k := &mock.Kube{}
-	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
+func TestStartTwiceShouldError(t *testing.T) {
+	g := NewGomegaWithT(t)
 
-	k.AddResponse(cl, nil)
+	// Create the source
+	_, client := createMocks()
+	spec := schema.ResourceSpec{
+		Kind:      "List",
+		Singular:  "List",
+		Plural:    "foos",
+		Target:    emptyInfo,
+		Converter: converter.Get("identity"),
+	}
+	s := newOrFail(t, client, spec)
 
-	i1 := unstructured.Unstructured{
+	// Start it once.
+	ch := startOrFail(t, s)
+	defer s.Stop()
+
+	// Start again should fail
+	err := s.Start(events.ChannelHandler(ch))
+	g.Expect(err).ToNot(BeNil())
+}
+
+func TestStopTwiceShouldSucceed(t *testing.T) {
+	// Create the source
+	_, client := createMocks()
+	spec := schema.ResourceSpec{
+		Kind:      "List",
+		Singular:  "List",
+		Plural:    "foos",
+		Target:    emptyInfo,
+		Converter: converter.Get("identity"),
+	}
+	s := newOrFail(t, client, spec)
+
+	// Start it once.
+	_ = startOrFail(t, s)
+
+	s.Stop()
+	s.Stop()
+}
+
+func TestEvents(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	w, client := createMocks()
+
+	spec := schema.ResourceSpec{
+		Kind:      "List",
+		Singular:  "List",
+		Plural:    "foos",
+		Target:    emptyInfo,
+		Converter: converter.Get("identity"),
+	}
+
+	// Create and start the source
+	s := newOrFail(t, client, spec)
+	ch := startOrFail(t, s)
+	defer s.Stop()
+
+	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "List",
@@ -105,70 +157,75 @@ func TestSource_BasicEvents(t *testing.T) {
 		},
 	}
 
-	cl.PrependReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{i1}}, nil
-	})
-	w := mock.NewWatch()
-	cl.PrependWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
-		return true, w, nil
-	})
-
-	specs := schemaWithSpecs([]schema.ResourceSpec{
-		{
-			Kind:      "List",
-			Singular:  "List",
-			Plural:    "foos",
-			Target:    emptyInfo,
-			Converter: converter.Get("identity"),
-		},
+	t.Run("Add", func(t *testing.T) {
+		w.Send(watch.Event{Type: watch.Added, Object: obj})
+		expected := resource.Event{
+			Kind:  resource.Added,
+			Entry: toEntry(obj),
+		}
+		actual := events.Expect(t, ch)
+		g.Expect(actual).To(Equal(expected))
 	})
 
-	cfg := converter.Config{
-		Mesh: meshconfig.NewInMemory(),
-	}
-	s, err := New(k, 0, specs, &cfg)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	// The full sync should come immediately after the first event.
+	expectFullSync(t, ch)
 
-	if s == nil {
-		t.Fatal("Expected non nil source")
-	}
+	t.Run("Update", func(t *testing.T) {
+		// Make a copy so we can change it without affecting the original.
+		objCopy := obj.DeepCopy()
+		objCopy.SetResourceVersion("rv2")
 
-	ch, err := s.Start()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+		w.Send(watch.Event{Type: watch.Modified, Object: objCopy})
+		expected := resource.Event{
+			Kind:  resource.Updated,
+			Entry: toEntry(objCopy),
+		}
+		actual := events.Expect(t, ch)
+		g.Expect(actual).To(Equal(expected))
 
-	log := logChannelOutput(ch, 2)
-	expected := strings.TrimSpace(`
-[Event](Added: [VKey](empty:ns/f1 @rv1))
-[Event](FullSync)
-`)
-	if log != expected {
-		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
-	}
+		// Update the original object to the new version.
+		obj = objCopy.DeepCopy()
+	})
 
-	w.Send(watch.Event{Type: watch.Deleted, Object: &i1})
-	log = logChannelOutput(ch, 1)
-	expected = strings.TrimSpace(`
-[Event](Deleted: [VKey](empty:ns/f1 @rv1))
-		`)
-	if log != expected {
-		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
-	}
+	t.Run("UpdateSameVersion", func(t *testing.T) {
+		// Make a copy so we can change it without affecting the original.
+		objCopy := obj.DeepCopy()
+		objCopy.SetResourceVersion("rv2")
 
-	s.Stop()
+		w.Send(watch.Event{Type: watch.Modified, Object: objCopy})
+		events.ExpectNone(t, ch)
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		w.Send(watch.Event{Type: watch.Deleted, Object: obj})
+		expected := resource.Event{
+			Kind: resource.Deleted,
+			Entry: resource.Entry{
+				ID: getID(obj),
+			},
+		}
+		actual := events.Expect(t, ch)
+		g.Expect(actual).To(Equal(expected))
+	})
 }
 
 func TestSource_BasicEvents_NoConversion(t *testing.T) {
+	w, client := createMocks()
 
-	k := &mock.Kube{}
-	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
+	spec := schema.ResourceSpec{
+		Kind:      "List",
+		Singular:  "List",
+		Plural:    "foos",
+		Target:    emptyInfo,
+		Converter: converter.Get("nil"),
+	}
 
-	k.AddResponse(cl, nil)
+	// Create and start the source
+	s := newOrFail(t, client, spec)
+	ch := startOrFail(t, s)
+	defer s.Stop()
 
-	i1 := unstructured.Unstructured{
+	obj := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "v1",
 			"kind":       "List",
@@ -181,57 +238,32 @@ func TestSource_BasicEvents_NoConversion(t *testing.T) {
 		},
 	}
 
-	cl.PrependReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{i1}}, nil
-	})
-	cl.PrependWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
-		return true, mock.NewWatch(), nil
-	})
+	// Trigger an Added event.
+	w.Send(watch.Event{Type: watch.Added, Object: &obj})
 
-	specs := schemaWithSpecs([]schema.ResourceSpec{
-		{
-			Kind:      "List",
-			Singular:  "List",
-			Plural:    "foos",
-			Target:    emptyInfo,
-			Converter: converter.Get("nil"),
-		},
-	})
-
-	cfg := converter.Config{
-		Mesh: meshconfig.NewInMemory(),
-	}
-	s, err := New(k, 0, specs, &cfg)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	if s == nil {
-		t.Fatal("Expected non nil source")
-	}
-
-	ch, err := s.Start()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	log := logChannelOutput(ch, 1)
-	expected := strings.TrimSpace(`
-[Event](FullSync)
-`)
-	if log != expected {
-		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
-	}
-
-	s.Stop()
+	// Expect only the full sync event.
+	expectFullSync(t, ch)
 }
 
 func TestSource_ProtoConversionError(t *testing.T) {
-	k := &mock.Kube{}
-	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
-	k.AddResponse(cl, nil)
+	w, client := createMocks()
 
-	i1 := unstructured.Unstructured{
+	spec := schema.ResourceSpec{
+		Kind:     "foo",
+		Singular: "foo",
+		Plural:   "foos",
+		Target:   emptyInfo,
+		Converter: func(_ *converter.Config, info resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]converter.Entry, error) {
+			return nil, fmt.Errorf("cant convert")
+		},
+	}
+
+	// Create and start the source
+	s := newOrFail(t, client, spec)
+	ch := startOrFail(t, s)
+	defer s.Stop()
+
+	obj := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name":            "f1",
@@ -244,60 +276,39 @@ func TestSource_ProtoConversionError(t *testing.T) {
 		},
 	}
 
-	cl.PrependReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{i1}}, nil
-	})
-	cl.PrependWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
-		return true, mock.NewWatch(), nil
-	})
-
-	specs := schemaWithSpecs([]schema.ResourceSpec{
-		{
-			Kind:     "foo",
-			Singular: "foo",
-			Plural:   "foos",
-			Target:   emptyInfo,
-			Converter: func(_ *converter.Config, info resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]converter.Entry, error) {
-				return nil, fmt.Errorf("cant convert")
-			},
-		},
-	})
-
-	cfg := converter.Config{
-		Mesh: meshconfig.NewInMemory(),
-	}
-	s, err := New(k, 0, specs, &cfg)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	if s == nil {
-		t.Fatal("Expected non nil source")
-	}
-
-	ch, err := s.Start()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	// Trigger an Added event.
+	w.Send(watch.Event{Type: watch.Added, Object: &obj})
 
 	// The add event should not appear.
-	log := logChannelOutput(ch, 1)
-	expected := strings.TrimSpace(`
-[Event](FullSync)
-`)
-	if log != expected {
-		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
-	}
-
-	s.Stop()
+	expectFullSync(t, ch)
 }
 
 func TestSource_MangledNames(t *testing.T) {
-	k := &mock.Kube{}
-	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
-	k.AddResponse(cl, nil)
+	g := NewGomegaWithT(t)
 
-	i1 := unstructured.Unstructured{
+	w, client := createMocks()
+
+	spec := schema.ResourceSpec{
+		Kind:     "foo",
+		Singular: "foo",
+		Plural:   "foos",
+		Target:   emptyInfo,
+		Converter: func(_ *converter.Config, info resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]converter.Entry, error) {
+			e := converter.Entry{
+				Key:      resource.FullNameFromNamespaceAndName("foo", name.String()),
+				Resource: &types.Struct{},
+			}
+
+			return []converter.Entry{e}, nil
+		},
+	}
+
+	// Create and start the source.
+	s := newOrFail(t, client, spec)
+	ch := startOrFail(t, s)
+	defer s.Stop()
+
+	obj := unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"metadata": map[string]interface{}{
 				"name":            "f1",
@@ -310,67 +321,104 @@ func TestSource_MangledNames(t *testing.T) {
 		},
 	}
 
-	cl.PrependReactor("*", "foos", func(action dtesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, &unstructured.UnstructuredList{Items: []unstructured.Unstructured{i1}}, nil
-	})
-	cl.PrependWatchReactor("foos", func(action dtesting.Action) (handled bool, ret watch.Interface, err error) {
-		return true, mock.NewWatch(), nil
-	})
+	// Trigger an Added event.
+	w.Send(watch.Event{Type: watch.Added, Object: &obj})
 
-	specs := schemaWithSpecs([]schema.ResourceSpec{
-		{
-			Kind:     "foo",
-			Singular: "foo",
-			Plural:   "foos",
-			Target:   emptyInfo,
-			Converter: func(_ *converter.Config, info resource.Info, name resource.FullName, kind string, u *unstructured.Unstructured) ([]converter.Entry, error) {
-				e := converter.Entry{
-					Key:      resource.FullNameFromNamespaceAndName("foo", name.String()),
-					Resource: &types.Struct{},
-				}
-
-				return []converter.Entry{e}, nil
+	// Expect an Added event for the resource.
+	expected := resource.Event{
+		Kind: resource.Added,
+		Entry: resource.Entry{
+			ID: resource.VersionedKey{
+				Key: resource.Key{
+					Collection: emptyInfo.Collection,
+					FullName:   resource.FullNameFromNamespaceAndName("foo/"+obj.GetNamespace(), obj.GetName()),
+				},
+				Version: resource.Version(obj.GetResourceVersion()),
 			},
+			Metadata: resource.Metadata{
+				Labels:      obj.GetLabels(),
+				Annotations: obj.GetAnnotations(),
+			},
+			Item: &types.Struct{},
 		},
-	})
-
-	cfg := converter.Config{
-		Mesh: meshconfig.NewInMemory(),
-	}
-	s, err := New(k, 0, specs, &cfg)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	if s == nil {
-		t.Fatal("Expected non nil source")
-	}
-
-	ch, err := s.Start()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	// The mangled name foo/ns/f1 should appear.
-	log := logChannelOutput(ch, 1)
-	expected := strings.TrimSpace(`
-[Event](Added: [VKey](empty:foo/ns/f1 @rv1))
-`)
-	if log != expected {
-		t.Fatalf("Event mismatch:\nActual:\n%s\nExpected:\n%s\n", log, expected)
-	}
+	actual := events.Expect(t, ch)
+	g.Expect(actual).To(Equal(expected))
 
-	s.Stop()
+	// The full sync should come immediately after the first event.
+	expectFullSync(t, ch)
 }
 
-func logChannelOutput(ch chan resource.Event, count int) string {
-	result := ""
-	for i := 0; i < count; i++ {
-		item := <-ch
-		result += fmt.Sprintf("%v\n", item)
+func newOrFail(t *testing.T, dynClient k8sDynamic.Interface, spec schema.ResourceSpec) runtime.Source {
+	t.Helper()
+	s, err := dynamic.New(dynClient, 0, spec, &cfg)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
 	}
+	if s == nil {
+		t.Fatal("Expected non nil source")
+	}
+	return s
+}
 
-	result = strings.TrimSpace(result)
+func startOrFail(t *testing.T, s runtime.Source) chan resource.Event {
+	t.Helper()
+	g := NewGomegaWithT(t)
 
-	return result
+	ch := make(chan resource.Event, 1024)
+	err := s.Start(events.ChannelHandler(ch))
+	g.Expect(err).To(BeNil())
+	return ch
+}
+
+func createMocks() (*mock.Watch, k8sDynamic.Interface) {
+	k := &mock.Kube{}
+	cl := fakeClient(k)
+	w := mockWatch(cl)
+	client, _ := k.DynamicInterface()
+	return w, client
+}
+
+func fakeClient(k *mock.Kube) *fake.FakeDynamicClient {
+	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
+	k.AddResponse(cl, nil)
+	return cl
+}
+
+func mockWatch(cl *fake.FakeDynamicClient) *mock.Watch {
+	w := mock.NewWatch()
+	cl.PrependWatchReactor("foos", func(_ k8sTesting.Action) (handled bool, ret watch.Interface, err error) {
+		return true, w, nil
+	})
+	return w
+}
+
+func expectFullSync(t *testing.T, ch chan resource.Event) {
+	t.Helper()
+	g := NewGomegaWithT(t)
+	actual := events.ExpectOne(t, ch)
+	g.Expect(actual).To(Equal(resource.FullSyncEvent))
+}
+
+func getID(obj *unstructured.Unstructured) resource.VersionedKey {
+	return resource.VersionedKey{
+		Key: resource.Key{
+			Collection: emptyInfo.Collection,
+			FullName:   resource.FullNameFromNamespaceAndName(obj.GetNamespace(), obj.GetName()),
+		},
+		Version: resource.Version(obj.GetResourceVersion()),
+	}
+}
+
+func toEntry(obj *unstructured.Unstructured) resource.Entry {
+	return resource.Entry{
+		ID: getID(obj),
+		Metadata: resource.Metadata{
+			Labels:      obj.GetLabels(),
+			Annotations: obj.GetAnnotations(),
+		},
+		Item: &types.Empty{},
+	}
 }

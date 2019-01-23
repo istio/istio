@@ -29,7 +29,6 @@ istio.io/istio/galley/pkg/testing=100
 # Temporary until integ tests are restored
 istio.io/istio/pilot/pkg/networking/plugin=50
 istio.io/istio/galley/pkg/runtime=30
-istio.io/istio/galley/pkg/kube/converter/legacy/legacymixer.pb.go=10
 istio.io/istio/galley/pkg/meshconfig/cache.go=100
 istio.io/istio/pkg/mcp/server/monitoring.go=50
 istio.io/istio/pilot/pkg/model/authentication.go=20
