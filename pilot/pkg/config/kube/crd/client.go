@@ -17,9 +17,11 @@
 package crd
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/golang/sync/errgroup"
 	multierror "github.com/hashicorp/go-multierror"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -180,13 +182,15 @@ func NewClient(config string, context string, descriptor model.ConfigDescriptor,
 
 // RegisterResources sends a request to create CRDs and waits for them to initialize
 func (cl *Client) RegisterResources() error {
+	g, _ := errgroup.WithContext(context.Background())
 	for k, rc := range cl.clientset {
-		log.Infof("registering for apiVersion %v", k)
-		if err := rc.registerResources(); err != nil {
-			return err
-		}
+		k, rc := k, rc
+		g.Go(func() error {
+			log.Infof("registering for apiVersion %v", k)
+			return rc.registerResources()
+		})
 	}
-	return nil
+	return g.Wait()
 }
 
 func (rc *restClient) registerResources() error {
