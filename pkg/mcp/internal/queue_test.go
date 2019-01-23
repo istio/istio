@@ -15,21 +15,28 @@
 package internal
 
 import (
+	"regexp"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
-func setup() func() {
-	prev := retryPushDelay
-	retryPushDelay = time.Nanosecond
-	return func() {
-		retryPushDelay = prev
+var (
+	items = []struct {
+		key string
+		val int
+	}{
+		{"collection/1", 1},
+		{"collection/2", 2},
+		{"collection/3", 3},
+		{"collection/4", 4},
+		{"collection/5", 5},
+		{"collection/6", 6},
 	}
-}
+)
 
 func TestUniqueQueue_InitialState(t *testing.T) {
-	defer setup()()
-
 	depth := 5
 	q := NewUniqueScheduledQueue(depth)
 
@@ -41,20 +48,18 @@ func TestUniqueQueue_InitialState(t *testing.T) {
 		t.Fatal("initial queue shouldn't be full")
 	}
 
-	a := q.Dequeue()
-	if a != nil {
-		t.Fatal("Dequeue() should return nil")
+	k, v, ok := q.Dequeue()
+	if ok {
+		t.Fatalf("Dequeue() should not return an entry: got key=%q value=%v", k, v)
 	}
 }
 
 func TestUnique_EnqueueDequeue(t *testing.T) {
-	defer setup()()
-
 	depth := int(5)
 	q := NewUniqueScheduledQueue(depth)
 
 	for i := 0; i < depth; i++ {
-		q.Enqueue(i)
+		q.Enqueue(items[i].key, items[i].val)
 	}
 
 	if !q.Full() {
@@ -62,23 +67,36 @@ func TestUnique_EnqueueDequeue(t *testing.T) {
 	}
 
 	// enqueue some duplicates
-	if q.Enqueue(0) != true {
-		t.Fatal("could not enqueue first dup")
-	}
-	if q.Enqueue(1) != true {
-		t.Fatal("could not enqueue second dup")
+	for i := depth - 1; i >= 0; i-- {
+		if q.Enqueue(items[i].key, items[i].val*2) != true {
+			t.Fatalf("could not enqueue dup #%v", i)
+		}
 	}
 
 	if !q.Full() {
 		t.Fatalf("queue should be full")
 	}
 
-	if q.Enqueue(42) == true {
+	if q.Enqueue(items[5].key, items[5].val) == true {
 		t.Fatal("enqueueing new item into full queue should fail")
 	}
 
-	for want := 0; want < depth; want++ {
-		got := q.Dequeue().(int)
+	for i := 0; i < depth; i++ {
+		<-q.Ready()
+
+		want := items[i].val * 2
+		key, v, _ := q.Dequeue()
+		got := v.(int)
+		if got != want {
+			t.Fatalf("wrong Dequeue() value: got %v want %v", got, want)
+		}
+		q.Enqueue(key, got*2)
+	}
+
+	for i := 0; i < depth; i++ {
+		want := items[i].val * 4
+		_, v, _ := q.Dequeue()
+		got := v.(int)
 		if got != want {
 			t.Fatalf("wrong Dequeue() value: got %v want %v", got, want)
 		}
@@ -92,7 +110,11 @@ func getScheduledItem(t *testing.T, q *UniqueQueue) interface{} {
 	case <-q.Done():
 		t.Fatal("unexpected done indication")
 	case <-q.Ready():
-		return q.Dequeue()
+		_, v, ok := q.Dequeue()
+		if !ok {
+			t.Fatal("Dequeue() returned no entries")
+		}
+		return v
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for scheduled response")
 	}
@@ -101,12 +123,10 @@ func getScheduledItem(t *testing.T, q *UniqueQueue) interface{} {
 }
 
 func TestUnique_Schedule(t *testing.T) {
-	defer setup()()
-
 	q := NewUniqueScheduledQueue(5)
 
 	// single enqueue / dequeue
-	q.Enqueue(1)
+	q.Enqueue(items[0].key, items[0].val)
 	got := getScheduledItem(t, q)
 	want := 1
 	if got != want {
@@ -114,10 +134,11 @@ func TestUnique_Schedule(t *testing.T) {
 	}
 
 	// fill the queue and drain it
-	for _, v := range []int{1, 2, 3, 4, 5} {
-		q.Enqueue(v)
+	for _, v := range []int{0, 1, 2, 3, 4} {
+		q.Enqueue(items[v].key, items[v].val)
 	}
-	for _, want := range []int{1, 2, 3, 4, 5} {
+	for _, i := range []int{0, 1, 2, 3, 4} {
+		want := items[i].val
 		got := getScheduledItem(t, q)
 		if got != want {
 			t.Fatalf("got %v want %v", got, want)
@@ -125,83 +146,59 @@ func TestUnique_Schedule(t *testing.T) {
 	}
 
 	// fill the queue and verify unique property
-	for _, v := range []int{2, 3, 4, 5, 1} {
-		q.Enqueue(v)
+	for _, v := range []int{1, 2, 3, 4, 0} {
+		q.Enqueue(items[v].key, items[v].val)
 	}
 	// enqueue dups in a different order
-	for _, v := range []int{5, 1, 2, 3, 4} {
-		q.Enqueue(v)
+	for _, v := range []int{4, 0, 1, 2, 3} {
+		q.Enqueue(items[v].key, items[v].val)
 	}
 
-	for _, want := range []int{2, 3, 4, 5, 1} {
+	for _, i := range []int{1, 2, 3, 4, 0} {
+		want := items[i].val
 		got := getScheduledItem(t, q)
 		if got != want {
 			t.Fatalf("got %v want %v", got, want)
 		}
-	}
-}
-
-func TestUnique_ScheduleRetry(t *testing.T) {
-	defer setup()()
-
-	q := NewUniqueScheduledQueue(5)
-
-	order := []int{1, 2, 3, 4, 5}
-	for _, v := range order {
-		q.Enqueue(v)
-	}
-
-	for i := 0; i < 100; i++ {
-		q.Schedule()
-	}
-
-	for _, want := range order {
-		got := getScheduledItem(t, q)
-		if got != want {
-			t.Fatalf("got %v want %v", got, want)
-		}
-	}
-
-	for i := 0; i < 100; i++ {
-		<-q.Ready()
 	}
 
 	select {
+	case <-q.Done():
+		t.Fatal("unexpected Done()")
 	case <-q.Ready():
-		t.Fatal("unexpected queue Ready()")
-	case <-time.After(time.Second):
+		t.Fatal("unexpected Ready()")
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
 func TestUnique_Done(t *testing.T) {
-	defer setup()()
-
 	q := NewUniqueScheduledQueue(5)
 
-	q.Enqueue(1)
-	q.Enqueue(2)
-	q.Enqueue(3)
+	q.Enqueue(items[0].key, items[0].val)
+	q.Enqueue(items[1].key, items[1].val)
+	q.Enqueue(items[2].key, items[2].val)
 
 	q.Close()
 
-	q.Enqueue(4)
-	q.Enqueue(5) // queue full
-	q.Enqueue(1) // and a dup
+	q.Enqueue(items[4].key, items[4].val)
+	q.Enqueue(items[5].key, items[5].val) // queue full
+	q.Enqueue(items[1].key, items[1].val) // and a dup
 
-	wanted := []int{1, 2, 3, 4, 5}
+	wanted := []int{0, 1, 2, 3, 4}
 
 	for {
 		select {
 		case <-q.Done():
 			return
 		case <-q.Ready():
-			got := q.Dequeue().(int)
+			_, v, _ := q.Dequeue()
 
+			got := v.(int)
 			if len(wanted) == 0 {
 				t.Fatalf("got unexpected item: %v", got)
 			}
 
-			want := wanted[0]
+			want := items[wanted[0]].val
 			wanted = wanted[1:]
 
 			if got != want {
@@ -210,5 +207,42 @@ func TestUnique_Done(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatal("timeout waiting for scheduled response")
 		}
+	}
+}
+
+func TestDump(t *testing.T) {
+	q := NewUniqueScheduledQueue(5)
+	for i := 0; i < 5; i++ {
+		q.Enqueue(items[i].key, items[i].val)
+	}
+
+	want := `{
+   "closed":false,
+   "queued_set":{  
+      "collection/1":1,
+      "collection/2":2,
+      "collection/3":3,
+      "collection/4":4,
+      "collection/5":5
+   },
+   "queue":[  
+      "collection/1",
+      "collection/2",
+      "collection/3",
+      "collection/4",
+      "collection/5",
+      ""
+   ],
+   "head":0,
+   "tail":5,
+   "max_depth":5
+}
+`
+	space := regexp.MustCompile(`\s+`)
+	want = space.ReplaceAllString(want, "")
+	got := q.Dump()
+
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Fatalf("\n got %v \nwant %v\n diff %v", got, want, diff)
 	}
 }

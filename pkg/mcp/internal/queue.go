@@ -15,10 +15,8 @@
 package internal
 
 import (
+	"encoding/json"
 	"sync"
-	"time"
-
-	"istio.io/istio/pkg/mcp/env"
 )
 
 // TODO - this can eventually be moved under pkg/mcp/source once the new stack is
@@ -48,23 +46,30 @@ type UniqueQueue struct {
 	sync.Mutex
 	doneChan       chan struct{}
 	doneChanClosed bool
-	queuedSet      map[interface{}]struct{}
 	// Enqueue at the tail, Dequeue from the head
 	// head == tail   => empty
 	// head == tail+1 => full
-	head     int
-	tail     int
-	queue    []interface{}
-	maxDepth int
+	head int
+	tail int
+
+	// Maintain an ordered set of enqueued items.
+	queue     []entry
+	queuedSet map[string]*entry
+	maxDepth  int
 
 	scheduleChan chan struct{}
+}
+
+type entry struct {
+	key string
+	val interface{}
 }
 
 // NewUniqueScheduledQueue creates a new unique queue specialized for MCP source/server implementations.
 func NewUniqueScheduledQueue(maxDepth int) *UniqueQueue {
 	return &UniqueQueue{
-		queue:        make([]interface{}, maxDepth+1),
-		queuedSet:    make(map[interface{}]struct{}, maxDepth),
+		queue:        make([]entry, maxDepth+1),
+		queuedSet:    make(map[string]*entry, maxDepth),
 		maxDepth:     maxDepth,
 		scheduleChan: make(chan struct{}, maxDepth),
 		doneChan:     make(chan struct{}),
@@ -73,11 +78,7 @@ func NewUniqueScheduledQueue(maxDepth int) *UniqueQueue {
 
 // return the next index accounting for wrap
 func (q *UniqueQueue) inc(idx int) int {
-	idx = idx + 1
-	if idx == q.maxDepth+1 {
-		idx = 0
-	}
-	return idx
+	return (idx + 1) % (q.maxDepth + 1)
 }
 
 // Empty returns true if the queue is empty
@@ -100,18 +101,20 @@ func (q *UniqueQueue) Full() bool {
 	return q.full()
 }
 
-// Enqueue an item in the queue. The same item may be safely enqueued multiple
-// times. Attempts to enqueue an already queued item have no affect on the order
-// of already queued items.
+// Enqueue an item in the queue. Items with the same key may be safely enqueued multiple
+// times. Enqueueing an item with a key that has already queued has no affect on the order
+// of existing queued items.
 //
 // Returns true if the item exists in the queue upon return. Otherwise,
 // returns false if the item could not be queued.
-func (q *UniqueQueue) Enqueue(w interface{}) bool {
+func (q *UniqueQueue) Enqueue(key string, val interface{}) bool {
 	q.Lock()
 	defer q.Unlock()
 
-	// already in the queued set of items
-	if _, ok := q.queuedSet[w]; ok {
+	// Key is already in the queue. Update the set's entry and
+	// return without modifying its place in the queue.
+	if entry, ok := q.queuedSet[key]; ok {
+		entry.val = val
 		return true
 	}
 
@@ -119,26 +122,31 @@ func (q *UniqueQueue) Enqueue(w interface{}) bool {
 		return false
 	}
 
-	q.queuedSet[w] = struct{}{}
-	q.queue[q.tail] = w
+	q.queue[q.tail] = entry{
+		key: key,
+		val: val,
+	}
+	q.queuedSet[key] = &q.queue[q.tail]
 	q.tail = q.inc(q.tail)
 
-	q.Schedule()
+	q.schedule()
 	return true
 }
 
-func (q *UniqueQueue) Dequeue() interface{} {
+// Dequeue removes an item from the queue. This should only be called once
+// for each time Ready() indicates a new event is ready to be processed.
+func (q *UniqueQueue) Dequeue() (string, interface{}, bool) {
 	q.Lock()
 	defer q.Unlock()
 
 	if q.head == q.tail {
-		return nil
+		return "", nil, false
 	}
 
-	w := q.queue[q.head]
+	entry := q.queue[q.head]
 	q.head = q.inc(q.head)
-	delete(q.queuedSet, w)
-	return w
+	delete(q.queuedSet, entry.key)
+	return entry.key, entry.val, true
 }
 
 func (q *UniqueQueue) Ready() <-chan struct{} {
@@ -149,21 +157,10 @@ func (q *UniqueQueue) Done() <-chan struct{} {
 	return q.doneChan
 }
 
-// Controls the delay for re-retrying a configuration push if the previous
-// attempt was not possible, e.g. the lower-level serving layer was busy. This
-// should typically be set fairly small (order of milliseconds).
-var retryPushDelay = env.Duration("RETRY_PUSH_DELAY", 10*time.Millisecond)
-
-func (q *UniqueQueue) Schedule() {
-	select {
-	case q.scheduleChan <- struct{}{}:
-	default:
-		// retry
-		time.AfterFunc(retryPushDelay, q.Schedule)
-	}
+func (q *UniqueQueue) schedule() {
+	q.scheduleChan <- struct{}{}
 }
 
-//
 func (q *UniqueQueue) Close() {
 	q.Lock()
 	defer q.Unlock()
@@ -172,4 +169,42 @@ func (q *UniqueQueue) Close() {
 		q.doneChanClosed = true
 		close(q.doneChan)
 	}
+}
+
+type dump struct {
+	Closed    bool                   `json:"closed"`
+	QueuedSet map[string]interface{} `json:"queued_set"`
+	Queue     []string               `json:"queue"`
+	Head      int                    `json:"head"`
+	Tail      int                    `json:"tail"`
+	MaxDepth  int                    `json:"max_depth"`
+}
+
+// Dump returns a JSON formatted dump of the internal queue state. This intended
+// for debug purposes only.
+func (q *UniqueQueue) Dump() string {
+	q.Lock()
+	defer q.Unlock()
+
+	d := &dump{
+		Closed:    q.doneChanClosed,
+		Head:      q.head,
+		Tail:      q.tail,
+		MaxDepth:  q.maxDepth,
+		Queue:     make([]string, 0, len(q.queue)),
+		QueuedSet: make(map[string]interface{}, len(q.queuedSet)),
+	}
+
+	for _, entry := range q.queue {
+		d.Queue = append(d.Queue, entry.key)
+	}
+	for _, entry := range q.queuedSet {
+		d.QueuedSet[entry.key] = entry.val
+	}
+
+	out, err := json.Marshal(d)
+	if err != nil {
+		return ""
+	}
+	return string(out)
 }

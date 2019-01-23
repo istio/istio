@@ -81,10 +81,9 @@ type watch struct {
 	nonceVersionMap map[string]string
 
 	mu                      sync.Mutex
-	newPushResponse         *source.WatchResponse
 	mostRecentNackedVersion string
 
-	queueResponse func(w *watch) bool
+	queueResponse func(*source.WatchResponse) bool
 	finished      func()
 }
 
@@ -93,16 +92,12 @@ type watch struct {
 // caller. The caller may provide a nil response to indicate that the watch
 // should be closed.
 func (w *watch) saveResponseAndSchedulePush(response *source.WatchResponse) {
-	w.mu.Lock()
-	w.newPushResponse = response
-	w.mu.Unlock()
-
 	if response == nil {
 		w.finished()
-		return
+		// return
 	}
 
-	w.queueResponse(w)
+	w.queueResponse(response)
 }
 
 // connection maintains per-stream connection state for a
@@ -171,11 +166,14 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	}
 
 	var types []string
-	for _, collection := range s.collections {
+	for i := range s.collections {
+		collection := s.collections[i]
 		w := &watch{
 			nonceVersionMap: make(map[string]string),
-			queueResponse:   func(w *watch) bool { return con.queue.Enqueue(w) },
-			finished:        con.queue.Close,
+			queueResponse: func(response *source.WatchResponse) bool {
+				return con.queue.Enqueue(collection.Name, response)
+			},
+			finished: con.queue.Close,
 		}
 		con.watches[collection.Name] = w
 		types = append(types, collection.Name)
@@ -205,19 +203,24 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	for {
 		select {
 		case <-con.queue.Ready():
-			w, ok := con.queue.Dequeue().(*watch)
-			if !ok || w == nil {
+			collection, item, ok := con.queue.Dequeue()
+			if !ok {
 				break
 			}
 
-			w.mu.Lock()
-			resp := w.newPushResponse
-			w.newPushResponse = nil
-			w.mu.Unlock()
+			resp, ok := item.(*source.WatchResponse)
+			if !ok {
+				break // bug?
+			}
 
 			// newPushResponse may have been cleared before we got to it
 			if resp == nil {
 				break
+			}
+
+			w, ok := con.watches[collection]
+			if !ok {
+				break // bug?
 			}
 
 			if err := con.pushServerResponse(w, resp); err != nil {
