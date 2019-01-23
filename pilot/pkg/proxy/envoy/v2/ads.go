@@ -477,7 +477,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 					routeNonceSent := con.RouteNonceSent
 					routeVersionInfoSent := con.RouteVersionInfoSent
 					con.mu.RUnlock()
-					if routeNonceSent != discReq.ResponseNonce {
+					if routeNonceSent != "" && routeNonceSent != discReq.ResponseNonce {
 						adsLog.Debugf("ADS:RDS: Expired nonce received %s %s (%v), sent %s, received %s",
 							peerAddr, con.ConID, con.modelNode, routeNonceSent, discReq.ResponseNonce)
 						rdsExpiredNonce.Inc()
