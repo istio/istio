@@ -46,7 +46,7 @@ var (
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
 // It's a map from the prober URL path to the Kubernetes Prober config.
-// For example, "/app-health/hello-world/liveness" entry contains livenss prober config for
+// For example, "/app-health/hello-world/livez" entry contains livenss prober config for
 // container "hello-world".
 type KubeAppProbers map[string]*corev1.HTTPGetAction
 
@@ -86,7 +86,7 @@ func NewServer(config Config) (*Server, error) {
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
 		if !appProberPattern.Match([]byte(path)) {
-			return nil, fmt.Errorf("invalid key, must be in form of /app-health/container-name/ready|live")
+			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern ^/app-health/[^\/]+/(livez|readyz)$`)
 		}
 		if prober.Port.Type != intstr.Int {
 			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
