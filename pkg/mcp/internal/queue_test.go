@@ -54,7 +54,7 @@ func TestUniqueQueue_InitialState(t *testing.T) {
 	}
 }
 
-func TestUnique_EnqueueDequeue(t *testing.T) {
+func TestUniqueQueue_EnqueueDequeue(t *testing.T) {
 	depth := int(5)
 	q := NewUniqueScheduledQueue(depth)
 
@@ -122,7 +122,7 @@ func getScheduledItem(t *testing.T, q *UniqueQueue) interface{} {
 	return nil
 }
 
-func TestUnique_Schedule(t *testing.T) {
+func TestUniqueQueue_Schedule(t *testing.T) {
 	q := NewUniqueScheduledQueue(5)
 
 	// single enqueue / dequeue
@@ -171,7 +171,7 @@ func TestUnique_Schedule(t *testing.T) {
 	}
 }
 
-func TestDequeueBeforeReady(t *testing.T) {
+func TestUniqueQueue_DequeueBeforeReady(t *testing.T) {
 	q := NewUniqueScheduledQueue(5)
 
 	for _, v := range []int{0, 1, 2, 3, 4} {
@@ -218,7 +218,7 @@ func TestDequeueBeforeReady(t *testing.T) {
 	// test passes if nothing deadlocks
 }
 
-func TestUnique_Done(t *testing.T) {
+func TestUniqueQueue_Done(t *testing.T) {
 	q := NewUniqueScheduledQueue(5)
 
 	q.Enqueue(items[0].key, items[0].val)
@@ -257,7 +257,7 @@ func TestUnique_Done(t *testing.T) {
 	}
 }
 
-func TestDump(t *testing.T) {
+func TestUniqueQueue_Dump(t *testing.T) {
 	q := NewUniqueScheduledQueue(5)
 	for i := 0; i < 5; i++ {
 		q.Enqueue(items[i].key, items[i].val)
