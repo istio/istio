@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import (
 //   Callers can safely update the queued items state while preserving it's place
 //   in the queue.
 //
-// - Enqueuing an item in the queue creates a schedule event. The caller can select
+// - Enqueuing an item in the queue creates a trySchedule event. The caller can select
 //   over the Ready() channel to process this event and remove items from the queue.
 //
 // - The maximum queue depth is fixed.
@@ -43,21 +43,20 @@ import (
 // This is intended to be used by the MCP source/server packages for managing
 // per-type watch state.
 type UniqueQueue struct {
-	sync.Mutex
+	mu             sync.Mutex
 	doneChan       chan struct{}
 	doneChanClosed bool
-	// Enqueue at the tail, Dequeue from the head
+	// Enqueue at the tail, Dequeue from the head.
 	// head == tail   => empty
 	// head == tail+1 => full
 	head int
 	tail int
-
 	// Maintain an ordered set of enqueued items.
 	queue     []entry
 	queuedSet map[string]*entry
 	maxDepth  int
 
-	scheduleChan chan struct{}
+	readyChan chan struct{}
 }
 
 type entry struct {
@@ -68,11 +67,11 @@ type entry struct {
 // NewUniqueScheduledQueue creates a new unique queue specialized for MCP source/server implementations.
 func NewUniqueScheduledQueue(maxDepth int) *UniqueQueue {
 	return &UniqueQueue{
-		queue:        make([]entry, maxDepth+1),
-		queuedSet:    make(map[string]*entry, maxDepth),
-		maxDepth:     maxDepth,
-		scheduleChan: make(chan struct{}, maxDepth),
-		doneChan:     make(chan struct{}),
+		queue:     make([]entry, maxDepth+1),
+		queuedSet: make(map[string]*entry, maxDepth),
+		maxDepth:  maxDepth,
+		readyChan: make(chan struct{}, maxDepth),
+		doneChan:  make(chan struct{}),
 	}
 }
 
@@ -83,8 +82,8 @@ func (q *UniqueQueue) inc(idx int) int {
 
 // Empty returns true if the queue is empty
 func (q *UniqueQueue) Empty() bool {
-	q.Lock()
-	defer q.Unlock()
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	return q.head == q.tail
 }
 
@@ -96,8 +95,8 @@ func (q *UniqueQueue) full() bool {
 
 // Full returns true if the queue is full
 func (q *UniqueQueue) Full() bool {
-	q.Lock()
-	defer q.Unlock()
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	return q.full()
 }
 
@@ -108,8 +107,8 @@ func (q *UniqueQueue) Full() bool {
 // Returns true if the item exists in the queue upon return. Otherwise,
 // returns false if the item could not be queued.
 func (q *UniqueQueue) Enqueue(key string, val interface{}) bool {
-	q.Lock()
-	defer q.Unlock()
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
 	// Key is already in the queue. Update the set's entry and
 	// return without modifying its place in the queue.
@@ -129,15 +128,16 @@ func (q *UniqueQueue) Enqueue(key string, val interface{}) bool {
 	q.queuedSet[key] = &q.queue[q.tail]
 	q.tail = q.inc(q.tail)
 
-	q.schedule()
+	q.trySchedule()
+
 	return true
 }
 
-// Dequeue removes an item from the queue. This should only be called once
-// for each time Ready() indicates a new event is ready to be processed.
+// Dequeue removes an item from the queue. This should only be called once for each
+// time Ready() indicates a new item is ready to be dequeued.
 func (q *UniqueQueue) Dequeue() (string, interface{}, bool) {
-	q.Lock()
-	defer q.Unlock()
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
 	if q.head == q.tail {
 		return "", nil, false
@@ -149,21 +149,24 @@ func (q *UniqueQueue) Dequeue() (string, interface{}, bool) {
 	return entry.key, entry.val, true
 }
 
+func (q *UniqueQueue) trySchedule() {
+	select {
+	case q.readyChan <- struct{}{}:
+	default:
+	}
+}
+
 func (q *UniqueQueue) Ready() <-chan struct{} {
-	return q.scheduleChan
+	return q.readyChan
 }
 
 func (q *UniqueQueue) Done() <-chan struct{} {
 	return q.doneChan
 }
 
-func (q *UniqueQueue) schedule() {
-	q.scheduleChan <- struct{}{}
-}
-
 func (q *UniqueQueue) Close() {
-	q.Lock()
-	defer q.Unlock()
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
 	if !q.doneChanClosed {
 		q.doneChanClosed = true
@@ -183,8 +186,8 @@ type dump struct {
 // Dump returns a JSON formatted dump of the internal queue state. This is intended
 // for debug purposes only.
 func (q *UniqueQueue) Dump() string {
-	q.Lock()
-	defer q.Unlock()
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
 	d := &dump{
 		Closed:    q.doneChanClosed,

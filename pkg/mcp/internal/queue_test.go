@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019  Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -137,8 +137,8 @@ func TestUnique_Schedule(t *testing.T) {
 	for _, v := range []int{0, 1, 2, 3, 4} {
 		q.Enqueue(items[v].key, items[v].val)
 	}
-	for _, i := range []int{0, 1, 2, 3, 4} {
-		want := items[i].val
+	for _, v := range []int{0, 1, 2, 3, 4} {
+		want := items[v].val
 		got := getScheduledItem(t, q)
 		if got != want {
 			t.Fatalf("got %v want %v", got, want)
@@ -169,6 +169,53 @@ func TestUnique_Schedule(t *testing.T) {
 		t.Fatal("unexpected Ready()")
 	case <-time.After(100 * time.Millisecond):
 	}
+}
+
+func TestDequeueBeforeReady(t *testing.T) {
+	q := NewUniqueScheduledQueue(5)
+
+	for _, v := range []int{0, 1, 2, 3, 4} {
+		q.Enqueue(items[v].key, items[v].val)
+	}
+
+	// // re-enqueue the first two dequeued items
+	for range []int{0, 1} {
+		key, item, _ := q.Dequeue()
+
+		q.Enqueue(key, item)
+	}
+
+	for _, v := range []int{2, 3, 4, 0, 1} {
+		want := items[v].val
+		got := getScheduledItem(t, q)
+		if got != want {
+			t.Fatalf("got %v want %v", got, want)
+		}
+	}
+
+	// verify no more Ready() indications
+	select {
+	case <-q.Done():
+		t.Fatal("unexpected Done()")
+	case <-q.Ready():
+		t.Fatal("unexpected Ready()")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// verify close
+
+	q.Close()
+
+	select {
+	case <-q.Done():
+		// pass
+	case <-q.Ready():
+		t.Fatal("unexpected Ready()")
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Done() indication missed")
+	}
+
+	// test passes if nothing deadlocks
 }
 
 func TestUnique_Done(t *testing.T) {
