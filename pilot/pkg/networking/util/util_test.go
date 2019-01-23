@@ -18,7 +18,9 @@ import (
 	"reflect"
 	"testing"
 
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -269,5 +271,155 @@ func TestConvertLocality(t *testing.T) {
 				t.Errorf("Expected locality %#v, but got %#v", tt.want, got)
 			}
 		})
+	}
+}
+
+func TestLocalityMatch(t *testing.T) {
+	tests := []struct {
+		name     string
+		locality *core.Locality
+		rule     string
+		match    bool
+	}{
+		{
+			name: "wildcard matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "*",
+			match: true,
+		},
+		{
+			name: "wildcard matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1/*",
+			match: true,
+		},
+		{
+			name: "wildcard matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1/zone1/*",
+			match: true,
+		},
+		{
+			name: "wildcard not matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1/zone2/*",
+			match: false,
+		},
+		{
+			name: "region matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1",
+			match: true,
+		},
+		{
+			name: "region and zone matching",
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			rule:  "region1/zone1",
+			match: true,
+		},
+		{
+			name: "zubzone wildcard matching",
+			locality: &core.Locality{
+				Region: "region1",
+				Zone:   "zone1",
+			},
+			rule:  "region1/zone1",
+			match: true,
+		},
+		{
+			name: "subzone mismatching",
+			locality: &core.Locality{
+				Region: "region1",
+				Zone:   "zone1",
+			},
+			rule:  "region1/zone1/subzone2",
+			match: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match := LocalityMatch(tt.locality, tt.rule)
+			if match != tt.match {
+				t.Errorf("Expected matching result %v, but got %v", tt.match, match)
+			}
+		})
+	}
+}
+
+func TestCloneCluster(t *testing.T) {
+	cluster := buildFakeCluster()
+	clone := CloneCluster(cluster)
+	cluster.LoadAssignment.Endpoints[0].LoadBalancingWeight.Value = 10
+	cluster.LoadAssignment.Endpoints[0].Priority = 8
+	cluster.LoadAssignment.Endpoints[0].LbEndpoints = nil
+
+	if clone.LoadAssignment.Endpoints[0].LoadBalancingWeight.GetValue() == 10 {
+		t.Errorf("LoadBalancingWeight mutated")
+	}
+	if clone.LoadAssignment.Endpoints[0].Priority == 8 {
+		t.Errorf("Priority mutated")
+	}
+	if clone.LoadAssignment.Endpoints[0].LbEndpoints == nil {
+		t.Errorf("LbEndpoints mutated")
+	}
+}
+
+func buildFakeCluster() *v2.Cluster {
+	return &v2.Cluster{
+		Name: "outbound|8080||test.example.org",
+		LoadAssignment: &v2.ClusterLoadAssignment{
+			ClusterName: "outbound|8080||test.example.org",
+			Endpoints: []endpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone2",
+					},
+					LbEndpoints: []endpoint.LbEndpoint{},
+					LoadBalancingWeight: &types.UInt32Value{
+						Value: 1,
+					},
+					Priority: 0,
+				},
+			},
+		},
 	}
 }

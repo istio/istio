@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: destination-rule-c
+  name: destination-rule-c-private
 spec:
   host: c
   {{if eq .globalMTlsEnable "true"}}
@@ -13,7 +13,4 @@ spec:
     - name: v1
       labels:
         version: v1
-    - name: v2
-      labels:
-        version: v2
   configScope: PRIVATE

@@ -17,6 +17,7 @@ package client
 import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // import GKE cluster authentication plugin
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -27,6 +28,7 @@ import (
 type Interfaces interface {
 	DynamicInterface() (dynamic.Interface, error)
 	APIExtensionsClientset() (clientset.Interface, error)
+	KubeClient() (kubernetes.Interface, error)
 }
 
 type kube struct {
@@ -60,4 +62,9 @@ func (k *kube) DynamicInterface() (dynamic.Interface, error) {
 // APIExtensionsClientset returns a new apiextensions clientset
 func (k *kube) APIExtensionsClientset() (clientset.Interface, error) {
 	return clientset.NewForConfig(k.cfg)
+}
+
+// KubeClient returns a new kubernetes Interface client.
+func (k *kube) KubeClient() (kubernetes.Interface, error) {
+	return kubernetes.NewForConfig(k.cfg)
 }

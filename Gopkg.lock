@@ -1624,8 +1624,8 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:93fde542bfd6fe0662df7fa8cf89460c3fb6d22488c0becaec2cb85681a5a555"
+  branch = "release-1.1"
+  digest = "1:680e918d2481ea58c31e83fe054aa2e346a091b9d46b6c98f96717f849f6ddca"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1641,7 +1641,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "a222b707a5b82f01a6082d88fc44b1892f33dd34"
+  revision = "6286ff0e63603c77cf7ec30510c39e5cebae65b2"
 
 [[projects]]
   branch = "release-1.11"
@@ -2185,6 +2185,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",
+    "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/runtime",
