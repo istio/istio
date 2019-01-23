@@ -54,6 +54,7 @@ var (
 
 	// proxy config flags (named identically)
 	configPath               string
+	controlPlaneBootstrap    bool
 	binaryPath               string
 	serviceCluster           string
 	drainDuration            time.Duration
@@ -238,37 +239,41 @@ var (
 
 			log.Infof("Monitored certs: %#v", certs)
 
-			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-				opts := make(map[string]string)
-				opts["PodName"] = os.Getenv("POD_NAME")
-				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
-				opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
+			if controlPlaneBootstrap {
+				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+					opts := make(map[string]string)
+					opts["PodName"] = os.Getenv("POD_NAME")
+					opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+					opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
 
-				// protobuf encoding of IP_ADDRESS type
-				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+					// protobuf encoding of IP_ADDRESS type
+					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
 
-				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-					opts["ControlPlaneAuth"] = "enable"
+					if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+						opts["ControlPlaneAuth"] = "enable"
+					}
+					if disableInternalTelemetry {
+						opts["DisableReportCalls"] = "true"
+					}
+					tmpl, err := template.ParseFiles(templateFile)
+					if err != nil {
+						return err
+					}
+					var buffer bytes.Buffer
+					err = tmpl.Execute(&buffer, opts)
+					if err != nil {
+						return err
+					}
+					content := buffer.Bytes()
+					log.Infof("Static config:\n%s", string(content))
+					proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
+					err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
+					if err != nil {
+						return err
+					}
 				}
-				if disableInternalTelemetry {
-					opts["DisableReportCalls"] = "true"
-				}
-				tmpl, err := template.ParseFiles(templateFile)
-				if err != nil {
-					return err
-				}
-				var buffer bytes.Buffer
-				err = tmpl.Execute(&buffer, opts)
-				if err != nil {
-					return err
-				}
-				content := buffer.Bytes()
-				log.Infof("Static config:\n%s", string(content))
-				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
-				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
-				if err != nil {
-					return err
-				}
+			} else if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -429,6 +434,8 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
+		"Enable parsing of bootstrap template provided via templateFile for Istio control plane components.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
