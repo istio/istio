@@ -8,7 +8,7 @@ nodeSelector: {}
 
 jaeger:
   hub: docker.io/jaegertracing
-  tag: 1.8
+  tag: 1.9
   memory:
     max_traces: 50000
 

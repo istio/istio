@@ -861,7 +861,7 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	if !*clusterWide {
-		setValue += " --set istiotesting.oneNameSpace=true"
+		setValue += " --set global.oneNamespace=true"
 	}
 
 	// enable helm test for istio
