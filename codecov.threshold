@@ -22,10 +22,13 @@ istio.io/istio/pilot/pkg/model/push_context.go=10
 istio.io/istio/pilot/pkg/proxy/envoy/v2=10
 istio.io/istio/pilot/pkg/serviceregistry/consul/monitor.go=20
 istio.io/istio/pkg/mcp/creds/watcher.go=100
+istio.io/istio/security/pkg/nodeagent=15
+
+# Disable codecov check for testing and proto packages
+istio.io/istio/galley/pkg/testing=100	istio.io/istio/galley/pkg/testing=100
 istio.io/istio/pkg/test=100
 istio.io/istio/security/proto=100
-istio.io/istio/security/pkg/nodeagent=15
-istio.io/istio/galley/pkg/testing=100
+istio.io/istio/tests=100
 
 # Temporary until integ tests are restored
 istio.io/istio/pilot/pkg/networking/plugin=50
