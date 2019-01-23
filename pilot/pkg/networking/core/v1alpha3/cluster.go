@@ -153,7 +153,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 func ApplyLocalityLBSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
-	if config := push.DestinationRule(proxy, hostname); config != nil {
+	// TODO: This code is incorrect as we need to pass the namespace associated with the Service
+	// but EDS code does not have any information regarding the namespace
+	if config := push.DestinationRule(proxy, &model.Service{Hostname: hostname}); config != nil {
 		if port := push.ServicePort(hostname, portNumber); port != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
 			_, outlierDetection, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
