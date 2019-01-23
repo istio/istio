@@ -793,7 +793,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						bind = WildcardAddress
 					}
 				}
-				port := maybeMapPort(node, listenPort.Port, bindToPort)
+				port := listenPort.Port
 				listenerOpts := buildListenerOpts{
 					env:            env,
 					proxy:          node,
@@ -893,33 +893,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	return append(tcpListeners, httpListeners...)
-}
-
-// Base used to remap privileged ports. 15000 is the range used by Istio special ports.
-const privPortRemap = 15200
-
-// maybeMapPort may remap privileged ports. Proxy doesn't run as root, so if bind=true ports <1024 will
-// not be accepted, envoy will reject the full config.
-func maybeMapPort(node *model.Proxy, i int, bindToPort bool) int {
-	if !bindToPort {
-		return i // all good, iptables doesn't care
-	}
-	if i > 1024 {
-		return i
-	}
-	baseRemap := privPortRemap
-	remapBase := node.Metadata[model.NodeMetadataRemapBase]
-	if remapBase != "" {
-		var err error
-		baseRemap, err = strconv.Atoi(remapBase)
-		if err != nil {
-			log.Errorf("Invalid metadata from envoy %s, defaulting to %d", remapBase, privPortRemap)
-			baseRemap = privPortRemap
-		}
-	}
-
-	// TODO: add some setting or override
-	return i + baseRemap
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
