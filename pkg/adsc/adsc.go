@@ -325,7 +325,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 	lh := map[string]*xdsapi.Listener{}
 	lt := map[string]*xdsapi.Listener{}
 
-	clusters := []string{}
 	routes := []string{}
 	ldsSize := 0
 
@@ -337,9 +336,6 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		}
 		if f0.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
-			c := f0.GetConfig().Fields["cluster"].GetStringValue()
-			clusters = append(clusters, c)
-			//log.Printf("TCP: %s -> %s", l.Name, c)
 		} else if f0.Name == "envoy.http_connection_manager" {
 			lh[l.Name] = l
 
@@ -567,7 +563,6 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 	rcount := 0
 	size := 0
 
-	httpClusters := []string{}
 	rds := map[string]*xdsapi.RouteConfiguration{}
 
 	for _, r := range configurations {
@@ -577,7 +572,6 @@ func (a *ADSC) handleRDS(configurations []*xdsapi.RouteConfiguration) {
 				rcount++
 				// Example: match:<prefix:"/" > route:<cluster:"outbound|9154||load-se-154.local" ...
 				log.Println(h.Name, rt.Match.PathSpecifier, rt.GetRoute().GetCluster())
-				httpClusters = append(httpClusters, rt.GetRoute().GetCluster())
 			}
 		}
 		rds[r.Name] = r
