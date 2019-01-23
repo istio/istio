@@ -105,6 +105,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		DiscoveryOptions: options,
 		MeshConfig:       env.Mesh,
 		MCPServerAddrs:   []string{galley.GetGalleyAddress()},
+                MCPMaxMessageSize: 1024 * 1024 * 4,
 		Config: bootstrap.ConfigArgs{
 			Controller: env.ServiceManager.ConfigStore,
 		},
