@@ -41,7 +41,6 @@ var (
 		Requires: []component.Requirement{
 			&ids.Mixer,
 			&ids.Environment,
-			&ids.Galley,
 		},
 	}
 
@@ -51,7 +50,6 @@ var (
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Environment,
-			&ids.Galley,
 		},
 	}
 
