@@ -99,7 +99,9 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",")...)
 		}
 		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
-			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",")...)
+			for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
+				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
+			}
 		}
 		if svc.Labels[ServiceConfigScopeAnnotation] == networking.ConfigScope_name[int32(networking.ConfigScope_PRIVATE)] {
 			configScope = networking.ConfigScope_PRIVATE
