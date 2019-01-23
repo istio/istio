@@ -195,12 +195,12 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		ProxyID:      testProxyID,
 		ResourceName: testResourceName,
 	}
-	if _, found := sc.secrets.Load(key); found != true {
+	if _, found := sc.secrets.Load(key); !found {
 		t.Errorf("Failed to find secret for %+v from cache", key)
 	}
 
 	sc.DeleteSecret(testProxyID, testResourceName)
-	if _, found := sc.secrets.Load(key); found != false {
+	if _, found := sc.secrets.Load(key); found {
 		t.Errorf("Found deleted secret for %+v from cache", key)
 	}
 }

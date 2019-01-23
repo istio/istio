@@ -296,8 +296,8 @@ func TestStreamSecretsPush(t *testing.T) {
 		ProxyID:      proxyID,
 		ResourceName: req.ResourceNames[0],
 	}
-	if _, found := st.secrets.Load(key); found != true {
-		t.Errorf("failed to find cached secret")
+	if _, found := st.secrets.Load(key); !found {
+		t.Errorf("Failed to find cached secret")
 	}
 
 	// Test push nil secret(indicates close the streaming connection) to proxy.
@@ -311,8 +311,8 @@ func TestStreamSecretsPush(t *testing.T) {
 	if len(sdsClients) != 0 {
 		t.Errorf("sdsClients, got %d, expected 0", len(sdsClients))
 	}
-	if _, found := st.secrets.Load(key); found != false {
-		t.Errorf("found cached secret after stream close, expected the secret to not exist")
+	if _, found := st.secrets.Load(key); found {
+		t.Errorf("Found cached secret after stream close, expected the secret to not exist")
 	}
 }
 
