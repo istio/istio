@@ -33,11 +33,11 @@ usage() {
     echo "  auth_enable   enable mtls."
     echo "  skip_cleanup  leave install intact after test completes."
     echo "  namespace     namespace to install istio control plane in (default istio-system)."
-    echo "  cloud         cloud provider name"
+    echo "  cloud         cloud provider name (required)"
     echo
     echo "  e.g. ./test_crossgrade.sh \"
     echo "        --from_hub=gcr.io/istio-testing --from_tag=d639408fd --from_path=/tmp/release-d639408fd \"
-    echo "        --to_hub=gcr.io/istio-release --to_tag=1.0.2 --to_path=/tmp/istio-1.0.2"
+    echo "        --to_hub=gcr.io/istio-release --to_tag=1.0.2 --to_path=/tmp/istio-1.0.2 --cloud=GKE"
     echo
     exit 1
 }
@@ -374,11 +374,13 @@ copy_test_files() {
 
 copy_test_files
 
+# create cluster admin role binding
+user="cluster-admin"
 if [[ $CLOUD == "GKE" ]];then
-  kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)" || echo "clusterrolebinding already created."
-else
-  kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="cluster-admin" || echo "clusterrolebinding already created."
+  user="$(gcloud config get-value core/account)"
 fi
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="${user}" || echo "clusterrolebinding already created."
+
 
 echo_and_run pushd "${ISTIO_ROOT}"
 
