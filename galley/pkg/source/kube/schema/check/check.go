@@ -20,33 +20,33 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	kube_meta "istio.io/istio/galley/pkg/metadata/kube"
+	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
 	"istio.io/istio/galley/pkg/source/kube/log"
-	kubeSchema "istio.io/istio/galley/pkg/source/kube/schema"
+	sourceSchema "istio.io/istio/galley/pkg/source/kube/schema"
 
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
-
-// VerifyResourceTypesPresence verifies that all expected k8s resources types are
-// present in the k8s apiserver.
-func VerifyResourceTypesPresence(k client.Interfaces) error {
-	cs, err := k.APIExtensionsClientset()
-	if err != nil {
-		return err
-	}
-	return verifyResourceTypesPresence(cs, kube_meta.Types.All())
-}
 
 var (
 	pollInterval = time.Second
 	pollTimeout  = time.Minute
 )
 
-func verifyResourceTypesPresence(cs clientset.Interface, specs []kubeSchema.ResourceSpec) error {
-	search := make(map[string]*kubeSchema.ResourceSpec, len(specs))
+// ResourceTypesPresence verifies that all expected k8s resources types are
+// present in the k8s apiserver.
+func ResourceTypesPresence(k client.Interfaces) error {
+	cs, err := k.APIExtensionsClientset()
+	if err != nil {
+		return err
+	}
+	return resourceTypesPresence(cs, kubeMeta.Types.All())
+}
+
+func resourceTypesPresence(cs clientset.Interface, specs []sourceSchema.ResourceSpec) error {
+	search := make(map[string]*sourceSchema.ResourceSpec, len(specs))
 	for i, spec := range specs {
 		search[spec.Plural] = &specs[i]
 	}
@@ -55,7 +55,7 @@ func verifyResourceTypesPresence(cs clientset.Interface, specs []kubeSchema.Reso
 		var errs error
 	nextResource:
 		for plural, spec := range search {
-			gv := runtimeSchema.GroupVersion{Group: spec.Group, Version: spec.Version}.String()
+			gv := schema.GroupVersion{Group: spec.Group, Version: spec.Version}.String()
 			list, err := cs.Discovery().ServerResourcesForGroupVersion(gv)
 			if err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("could not find %v: %v", gv, err))

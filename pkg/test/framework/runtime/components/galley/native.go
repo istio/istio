@@ -189,6 +189,7 @@ func (c *nativeComponent) restart() error {
 	a.MeshConfigFile = c.meshConfigFile
 	// To prevent ctrlZ port collision between galley/pilot&mixer
 	a.IntrospectionOptions.Port = 9877
+	a.ExcludedResourceKinds = make([]string, 0)
 	s, err := server.New(a)
 	if err != nil {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)
