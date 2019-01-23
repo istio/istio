@@ -4,7 +4,7 @@ description: Describes the rules used to configure Mixer's policy and telemetry 
 location: https://istio.io/docs/reference/config/policy-and-telemetry/istio.policy.v1beta1.html
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 23
+number_of_entries: 25
 ---
 <p>Describes the rules used to configure Mixer&rsquo;s policy and telemetry features.</p>
 
@@ -293,6 +293,47 @@ type DNSName</p>
 </tbody>
 </table>
 </section>
+<h2 id="DirectHttpResponse">DirectHttpResponse</h2>
+<section>
+<p>Direct HTTP response for a client-facing error message which can be attached
+to an RPC error.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="DirectHttpResponse-code">
+<td><code>code</code></td>
+<td><code><a href="#HttpStatusCode">HttpStatusCode</a></code></td>
+<td>
+<p>Optional HTTP status code. If not set, RPC error code is used.</p>
+
+</td>
+</tr>
+<tr id="DirectHttpResponse-body">
+<td><code>body</code></td>
+<td><code>string</code></td>
+<td>
+<p>HTTP response body.</p>
+
+</td>
+</tr>
+<tr id="DirectHttpResponse-headers">
+<td><code>headers</code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
+<td>
+<p>Optional HTTP response headers.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="Duration">Duration</h2>
 <section>
 <p>An instance field of type Duration denotes that the expression for the field must evalaute to
@@ -498,6 +539,310 @@ This is used if the adapter is not compiled into Mixer binary and is running as 
 </tbody>
 </table>
 </section>
+<h2 id="HttpStatusCode">HttpStatusCode</h2>
+<section>
+<p>HTTP response codes.
+For more details: http://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="HttpStatusCode-Empty">
+<td><code>Empty</code></td>
+<td>
+<p>Empty - This code not part of the HTTP status code specification, but it is needed for proto
+<code>enum</code> type.</p>
+
+</td>
+</tr>
+<tr id="HttpStatusCode-Continue">
+<td><code>Continue</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-OK">
+<td><code>OK</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-Created">
+<td><code>Created</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-Accepted">
+<td><code>Accepted</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-NonAuthoritativeInformation">
+<td><code>NonAuthoritativeInformation</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-NoContent">
+<td><code>NoContent</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-ResetContent">
+<td><code>ResetContent</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-PartialContent">
+<td><code>PartialContent</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-MultiStatus">
+<td><code>MultiStatus</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-AlreadyReported">
+<td><code>AlreadyReported</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-IMUsed">
+<td><code>IMUsed</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-MultipleChoices">
+<td><code>MultipleChoices</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-MovedPermanently">
+<td><code>MovedPermanently</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-Found">
+<td><code>Found</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-SeeOther">
+<td><code>SeeOther</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-NotModified">
+<td><code>NotModified</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-UseProxy">
+<td><code>UseProxy</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-TemporaryRedirect">
+<td><code>TemporaryRedirect</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-PermanentRedirect">
+<td><code>PermanentRedirect</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-BadRequest">
+<td><code>BadRequest</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-Unauthorized">
+<td><code>Unauthorized</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-PaymentRequired">
+<td><code>PaymentRequired</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-Forbidden">
+<td><code>Forbidden</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-NotFound">
+<td><code>NotFound</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-MethodNotAllowed">
+<td><code>MethodNotAllowed</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-NotAcceptable">
+<td><code>NotAcceptable</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-ProxyAuthenticationRequired">
+<td><code>ProxyAuthenticationRequired</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-RequestTimeout">
+<td><code>RequestTimeout</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-Conflict">
+<td><code>Conflict</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-Gone">
+<td><code>Gone</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-LengthRequired">
+<td><code>LengthRequired</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-PreconditionFailed">
+<td><code>PreconditionFailed</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-PayloadTooLarge">
+<td><code>PayloadTooLarge</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-URITooLong">
+<td><code>URITooLong</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-UnsupportedMediaType">
+<td><code>UnsupportedMediaType</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-RangeNotSatisfiable">
+<td><code>RangeNotSatisfiable</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-ExpectationFailed">
+<td><code>ExpectationFailed</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-MisdirectedRequest">
+<td><code>MisdirectedRequest</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-UnprocessableEntity">
+<td><code>UnprocessableEntity</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-Locked">
+<td><code>Locked</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-FailedDependency">
+<td><code>FailedDependency</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-UpgradeRequired">
+<td><code>UpgradeRequired</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-PreconditionRequired">
+<td><code>PreconditionRequired</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-TooManyRequests">
+<td><code>TooManyRequests</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-RequestHeaderFieldsTooLarge">
+<td><code>RequestHeaderFieldsTooLarge</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-InternalServerError">
+<td><code>InternalServerError</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-NotImplemented">
+<td><code>NotImplemented</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-BadGateway">
+<td><code>BadGateway</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-ServiceUnavailable">
+<td><code>ServiceUnavailable</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-GatewayTimeout">
+<td><code>GatewayTimeout</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-HTTPVersionNotSupported">
+<td><code>HTTPVersionNotSupported</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-VariantAlsoNegotiates">
+<td><code>VariantAlsoNegotiates</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-InsufficientStorage">
+<td><code>InsufficientStorage</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-LoopDetected">
+<td><code>LoopDetected</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-NotExtended">
+<td><code>NotExtended</code></td>
+<td>
+</td>
+</tr>
+<tr id="HttpStatusCode-NetworkAuthenticationRequired">
+<td><code>NetworkAuthenticationRequired</code></td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="IPAddress">IPAddress</h2>
 <section>
 <p>An instance field of type IPAddress denotes that the expression for the field must evalaute to
@@ -544,7 +889,7 @@ Instances produced with this instance can be referenced by <a href="#Action">Act
   params:
     value: 1
     dimensions:
-      source: source.service
+      source: source.name
       destination_ip: destination.ip
 </code></pre>
 
@@ -731,7 +1076,7 @@ selector is <code>true</code></p>
 <p>The following example instructs Mixer to invoke &lsquo;prometheus-handler&rsquo; handler for all services and pass it the
 instance constructed using the &lsquo;RequestCountByService&rsquo; instance.</p>
 
-<pre><code class="language-yaml">- match: destination.service == &quot;*&quot;
+<pre><code class="language-yaml">- match: match(destination.service.host, &quot;*&quot;)
   actions:
   - handler: prometheus-handler
     instances:
@@ -760,7 +1105,7 @@ if the match evaluates to true.</p>
 <ul>
 <li>an empty match evaluates to <code>true</code></li>
 <li><code>true</code>, a boolean literal; a rule with this match will always be executed</li>
-<li><code>destination.service == ratings*</code> selects any request targeting a service whose
+<li><code>match(destination.service.host, &quot;ratings.*)</code> selects any request targeting a service whose
 name starts with &ldquo;ratings&rdquo;</li>
 <li><code>attr1 == &quot;20&quot; &amp;&amp; attr2 == &quot;30&quot;</code> logical AND, OR, and NOT are also available</li>
 </ul>
@@ -780,7 +1125,7 @@ name starts with &ldquo;ratings&rdquo;</li>
 <td><code><a href="#Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate[]</a></code></td>
 <td>
 <p>Optional. Templatized operations on the request headers using values produced by the
-rule actions.</p>
+rule actions. Require the check action result to be OK.</p>
 
 </td>
 </tr>
@@ -789,7 +1134,7 @@ rule actions.</p>
 <td><code><a href="#Rule-HeaderOperationTemplate">Rule.HeaderOperationTemplate[]</a></code></td>
 <td>
 <p>Optional. Templatized operations on the response headers using values produced by the
-rule actions.</p>
+rule actions. Require the check action result to be OK.</p>
 
 </td>
 </tr>
