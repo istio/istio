@@ -168,7 +168,8 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, "jwtToken1")
+	testProxyID := "proxy1-id"
+	_, err := sc.GenerateSecret(context.Background(), testProxyID, testResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -188,6 +189,19 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	}
 	if retries == 5 {
 		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
+	}
+
+	key := ConnKey{
+		ProxyID:      testProxyID,
+		ResourceName: testResourceName,
+	}
+	if _, found := sc.secrets.Load(key); !found {
+		t.Errorf("Failed to find secret for %+v from cache", key)
+	}
+
+	sc.DeleteSecret(testProxyID, testResourceName)
+	if _, found := sc.secrets.Load(key); found {
+		t.Errorf("Found deleted secret for %+v from cache", key)
 	}
 }
 
