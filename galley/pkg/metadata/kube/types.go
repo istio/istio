@@ -612,6 +612,17 @@ func init() {
 	})
 
 	b.Add(schema.ResourceSpec{
+		Kind:      "Endpoints",
+		ListKind:  "EndpointsList",
+		Singular:  "endpoints",
+		Plural:    "endpoints",
+		Version:   "v1",
+		Group:     "",
+		Target:    metadata.Types.Get("k8s/core/v1/endpoints"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
 		Kind:      "Node",
 		ListKind:  "NodeList",
 		Singular:  "node",

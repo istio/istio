@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	extensions "k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -109,16 +109,15 @@ func TestIdentity(t *testing.T) {
 		t.Fatalf("Keys mismatch. Wanted=%s, Got=%s", key, entries[0].Key)
 	}
 
-	if !entries[0].CreationTime.Equal(fakeCreateTime) {
+	if !entries[0].Metadata.CreateTime.Equal(fakeCreateTime) {
 		t.Fatalf("createTime mismatch: got %q want %q",
-			entries[0].CreationTime, fakeCreateTime)
+			entries[0].Metadata.CreateTime, fakeCreateTime)
 	}
 
 	actual := entries[0]
 
 	expected := Entry{
-		Key:          key,
-		CreationTime: fakeCreateTime.Local(),
+		Key: key,
 		Metadata: resource.Metadata{
 			Annotations: map[string]string{
 				"a1_key": "a1_value",
@@ -128,6 +127,7 @@ func TestIdentity(t *testing.T) {
 				"l1_key": "l1_value",
 				"l2_key": "l2_value",
 			},
+			CreateTime: fakeCreateTime.Local(),
 		},
 		Resource: &types.Struct{
 			Fields: map[string]*types.Value{
@@ -240,8 +240,7 @@ func TestAuthPolicyResource(t *testing.T) {
 				},
 			},
 			want: Entry{
-				Key:          resource.FullNameFromNamespaceAndName("default", "foo"),
-				CreationTime: fakeCreateTime.Local(),
+				Key: resource.FullNameFromNamespaceAndName("default", "foo"),
 				Metadata: resource.Metadata{
 					Annotations: map[string]string{
 						"a1_key": "a1_value",
@@ -251,6 +250,7 @@ func TestAuthPolicyResource(t *testing.T) {
 						"l1_key": "l1_value",
 						"l2_key": "l2_value",
 					},
+					CreateTime: fakeCreateTime.Local(),
 				},
 				Resource: &authn.Policy{
 					Targets: []*authn.TargetSelector{{
@@ -295,8 +295,7 @@ func TestAuthPolicyResource(t *testing.T) {
 				},
 			},
 			want: Entry{
-				Key:          resource.FullNameFromNamespaceAndName("default", "foo"),
-				CreationTime: fakeCreateTime.Local(),
+				Key: resource.FullNameFromNamespaceAndName("default", "foo"),
 				Metadata: resource.Metadata{
 					Annotations: map[string]string{
 						"a1_key": "a1_value",
@@ -306,6 +305,7 @@ func TestAuthPolicyResource(t *testing.T) {
 						"l1_key": "l1_value",
 						"l2_key": "l2_value",
 					},
+					CreateTime: fakeCreateTime.Local(),
 				},
 				Resource: &authn.Policy{
 					Targets: []*authn.TargetSelector{{
@@ -413,8 +413,7 @@ func TestKubeIngressResource(t *testing.T) {
 			},
 
 			want: Entry{
-				Key:          resource.FullNameFromNamespaceAndName("default", "foo"),
-				CreationTime: fakeCreateTime.Local(),
+				Key: resource.FullNameFromNamespaceAndName("default", "foo"),
 				Metadata: resource.Metadata{
 					Annotations: map[string]string{
 						"a1_key": "a1_value",
@@ -424,6 +423,7 @@ func TestKubeIngressResource(t *testing.T) {
 						"l1_key": "l1_value",
 						"l2_key": "l2_value",
 					},
+					CreateTime: fakeCreateTime.Local(),
 				},
 				Resource: nil,
 			},
@@ -459,8 +459,7 @@ func TestKubeIngressResource(t *testing.T) {
 			},
 
 			want: Entry{
-				Key:          resource.FullNameFromNamespaceAndName("default", "foo"),
-				CreationTime: fakeCreateTime.Local(),
+				Key: resource.FullNameFromNamespaceAndName("default", "foo"),
 				Metadata: resource.Metadata{
 					Annotations: map[string]string{
 						"kubernetes.io/ingress.class": "cls",
@@ -469,6 +468,7 @@ func TestKubeIngressResource(t *testing.T) {
 						"l1_key": "l1_value",
 						"l2_key": "l2_value",
 					},
+					CreateTime: fakeCreateTime.Local(),
 				},
 				Resource: &extensions.IngressSpec{
 					Backend: &extensions.IngressBackend{
@@ -543,7 +543,7 @@ func TestShouldProcessIngress(t *testing.T) {
 
 	for _, c := range cases {
 		ing := v1beta1.Ingress{
-			ObjectMeta: meta_v1.ObjectMeta{
+			ObjectMeta: metaV1.ObjectMeta{
 				Name:        "test-ingress",
 				Namespace:   "default",
 				Annotations: make(map[string]string),
@@ -582,10 +582,10 @@ func TestKubeServiceResource(t *testing.T) {
 		{
 			name: "Simple",
 			from: corev1.Service{
-				ObjectMeta: meta_v1.ObjectMeta{
+				ObjectMeta: metaV1.ObjectMeta{
 					Name:              "reviews",
 					Namespace:         "default",
-					CreationTimestamp: meta_v1.Time{Time: fakeCreateTime},
+					CreationTimestamp: metaV1.Time{Time: fakeCreateTime},
 					Annotations: map[string]string{
 						"a1_key": "a1_value",
 						"a2_key": "a2_value",
@@ -620,8 +620,7 @@ func TestKubeServiceResource(t *testing.T) {
 				},
 			},
 			want: Entry{
-				Key:          resource.FullNameFromNamespaceAndName("default", "reviews"),
-				CreationTime: fakeCreateTime.Local(),
+				Key: resource.FullNameFromNamespaceAndName("default", "reviews"),
 				Metadata: resource.Metadata{
 					Annotations: map[string]string{
 						"a1_key": "a1_value",
@@ -631,6 +630,7 @@ func TestKubeServiceResource(t *testing.T) {
 						"l1_key": "l1_value",
 						"l2_key": "l2_value",
 					},
+					CreateTime: fakeCreateTime.Local(),
 				},
 				Resource: &networking.ServiceEntry{
 					Hosts:      []string{"reviews.default.svc.cluster.local"},

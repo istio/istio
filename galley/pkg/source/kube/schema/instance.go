@@ -14,9 +14,34 @@
 
 package schema
 
-// Instance represents a set of known Kubernetes resource types.
+import (
+	"sort"
+	"strings"
+)
+
+// Instance represents a schema for a set of known Kubernetes resource types.
 type Instance struct {
-	entries []ResourceSpec
+	specs []ResourceSpec
+}
+
+// All returns information about all known types.
+func (s *Instance) All() []ResourceSpec {
+	return s.specs
+}
+
+// Get returns the schema for the given kind, or nil if not found.
+func (s *Instance) Get(kind string) *ResourceSpec {
+	for _, v := range s.All() {
+		if v.Kind == kind {
+			return &v
+		}
+	}
+	return nil
+}
+
+// New is a simplified Instance factory method when all specs can be provided as arguments.
+func New(spec ...ResourceSpec) *Instance {
+	return NewBuilder().Add(spec...).Build()
 }
 
 // Builder is a builder for schema.
@@ -32,21 +57,22 @@ func NewBuilder() *Builder {
 }
 
 // Add a new ResourceSpec to the schema.
-func (b *Builder) Add(entry ResourceSpec) {
-	b.schema.entries = append(b.schema.entries, entry)
+func (b *Builder) Add(spec ...ResourceSpec) *Builder {
+	b.schema.specs = append(b.schema.specs, spec...)
+	return b
 }
 
-// Build a new instance of schema.
+// Build a new instance of schema. The specs will be sorted by resource name.
 func (b *Builder) Build() *Instance {
 	s := b.schema
 
 	// Avoid modify after Build.
 	b.schema = nil
 
-	return s
-}
+	// Sort the specs by their resource names.
+	sort.Slice(s.specs, func(i, j int) bool {
+		return strings.Compare(s.specs[i].CanonicalResourceName(), s.specs[j].CanonicalResourceName()) < 0
+	})
 
-// All returns information about all known types.
-func (e *Instance) All() []ResourceSpec {
-	return e.entries
+	return s
 }
