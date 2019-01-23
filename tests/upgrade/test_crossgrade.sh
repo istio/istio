@@ -167,6 +167,7 @@ checkIfDeleted() {
     if [[ "${resp}" == *"Error from server (NotFound)"* ]]; then
         return 0
     fi
+    echo "Response from server for kubectl get: ${resp}"
     return 1
 }
 
