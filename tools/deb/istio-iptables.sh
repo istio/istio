@@ -291,9 +291,13 @@ iptables -t nat -N ISTIO_OUTPUT
 # Jump to the ISTIO_OUTPUT chain from OUTPUT chain for all tcp traffic.
 iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 
-# Redirect app calls to back itself via Envoy when using the service VIP or endpoint
-# address, e.g. appN => Envoy (client) => Envoy (server) => appN.
-iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_REDIRECT
+if [ -z ${ISTIO_PROXY_DOES_NOT_REDIRECT_LOOPBACK_TO_LOCALHOST-} ]; then
+  # Redirect app calls to back itself via Envoy when using the service VIP or endpoint
+  # address, e.g. appN => Envoy (client) => Envoy (server) => appN.
+  # If Envoy is not configured to map the endpoint to 127.0.0.1, the following rule
+  # would cause crash loop on Envoy.
+  iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -j ISTIO_REDIRECT
+fi
 
 for uid in ${PROXY_UID}; do
   # Avoid infinite loops. Don't redirect Envoy traffic directly back to
