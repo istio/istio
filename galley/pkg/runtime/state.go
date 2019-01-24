@@ -20,19 +20,28 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/conversions"
+	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
+var _ processing.Handler = &State{}
+
 // State is the in-memory state of Galley.
 type State struct {
+	name   string
 	schema *resource.Schema
+
+	distribute  bool
+	strategy    *publishingStrategy
+	distributor Distributor
 
 	config *Config
 
@@ -47,6 +56,12 @@ type State struct {
 	ingressGWVersion   int64
 	ingressVSVersion   int64
 	lastIngressVersion int64
+
+	// pendingEvents counts the number of events awaiting publishing.
+	pendingEvents int64
+
+	// lastSnapshotTime records the last time a snapshot was published.
+	lastSnapshotTime time.Time
 }
 
 // per-resource-type State.
@@ -58,11 +73,18 @@ type resourceTypeState struct {
 	versions map[resource.FullName]resource.Version
 }
 
-func newState(schema *resource.Schema, cfg *Config) *State {
+func newState(name string, schema *resource.Schema, cfg *Config, strategy *publishingStrategy,
+	distributor Distributor) *State {
+
+	now := time.Now()
 	s := &State{
-		schema:  schema,
-		config:  cfg,
-		entries: make(map[resource.Collection]*resourceTypeState),
+		name:             name,
+		schema:           schema,
+		strategy:         strategy,
+		distributor:      distributor,
+		config:           cfg,
+		entries:          make(map[resource.Collection]*resourceTypeState),
+		lastSnapshotTime: now,
 	}
 
 	// pre-populate state for all known types so that built snapshots
@@ -77,10 +99,30 @@ func newState(schema *resource.Schema, cfg *Config) *State {
 	return s
 }
 
-func (s *State) apply(event resource.Event) bool {
+func (s *State) close() {
+	s.strategy.reset()
+}
+
+func (s *State) publish() {
+	now := time.Now()
+	recordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
+	s.lastSnapshotTime = now
+	sn := s.buildSnapshot()
+
+	s.distributor.SetSnapshot(s.name, sn)
+	s.pendingEvents = 0
+}
+
+func (s *State) onFullSync() {
+	s.distribute = true
+	s.strategy.onChange()
+}
+
+// Handle implements the processing.Handler interface.
+func (s *State) Handle(event resource.Event) {
 	pks, found := s.getResourceTypeState(event.Entry.ID.Collection)
 	if !found {
-		return false
+		return
 	}
 
 	switch event.Kind {
@@ -89,14 +131,14 @@ func (s *State) apply(event resource.Event) bool {
 		// Check to see if the version has changed.
 		if curVersion := pks.versions[event.Entry.ID.FullName]; curVersion == event.Entry.ID.Version {
 			scope.Debugf("Received event for the current, known version: %v", event)
-			return false
+			return
 		}
 
 		// TODO: Check for content-wise equality
 
 		entry, ok := s.toResource(event.Entry)
 		if !ok {
-			return false
+			return
 		}
 
 		pks.entries[event.Entry.ID.FullName] = entry
@@ -110,15 +152,17 @@ func (s *State) apply(event resource.Event) bool {
 
 	default:
 		scope.Errorf("Unknown event kind: %v", event.Kind)
-		return false
+		return
 	}
 
 	s.versionCounter++
 	pks.version = s.versionCounter
 
 	scope.Debugf("In-memory state has changed:\n%v\n", s)
-
-	return true
+	s.pendingEvents++
+	if s.distribute {
+		s.strategy.onChange()
+	}
 }
 
 func (s *State) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
