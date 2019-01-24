@@ -793,14 +793,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						bind = WildcardAddress
 					}
 				}
-				port := maybeMapPort(node, listenPort.Port, bindToPort)
 				listenerOpts := buildListenerOpts{
 					env:            env,
 					proxy:          node,
 					proxyInstances: proxyInstances,
 					proxyLabels:    proxyLabels,
 					bind:           bind,
-					port:           port,
+					port:           listenPort.Port,
 					bindToPort:     bindToPort,
 				}
 
@@ -848,12 +847,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 				for _, service := range services {
 					for _, servicePort := range service.Ports {
+						port := maybeMapPort(node, servicePort.Port, bindToPort)
 						listenerOpts := buildListenerOpts{
 							env:            env,
 							proxy:          node,
 							proxyInstances: proxyInstances,
 							proxyLabels:    proxyLabels,
-							port:           servicePort.Port,
+							port:           port,
 							bind:           bind,
 							bindToPort:     bindToPort,
 						}
