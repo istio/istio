@@ -596,7 +596,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 
 			err := s.pushConnection(con, pushEv)
 			if err != nil {
-				return nil
+				return err
 			}
 
 		}
@@ -810,6 +810,10 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 	pendingPush := int32(len(pending))
 
 	tstart := time.Now()
+	edsOnly := edsUpdates
+	if full {
+		edsOnly = nil
+	}
 	// Will keep trying to push to sidecars until another push starts.
 	wg := sync.WaitGroup{}
 	for {
@@ -828,11 +832,6 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				<-s.concurrentPushLimit
 				wg.Done()
 			}()
-
-			edsOnly := edsUpdates
-			if full {
-				edsOnly = nil
-			}
 
 		Retry:
 			currentVersion := versionInfo()
@@ -853,6 +852,7 @@ func (s *DiscoveryServer) startPush(version string, push *model.PushContext, ful
 				client.LastPushFailure = timeZero
 			case <-client.stream.Context().Done(): // grpc stream was closed
 				adsLog.Infof("Client closed connection %v", client.ConID)
+				return
 			case <-time.After(PushTimeout):
 				// This may happen to some clients if the other side is in a bad state and can't receive.
 				// The tests were catching this - one of the client was not reading.
