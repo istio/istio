@@ -381,8 +381,12 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 	}
 
 	if enableSds {
+		sdsName := server.Hosts[0]
+		if server.Tls.SdsName != "" {
+			sdsName = server.Tls.SdsName
+		}
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(server.Hosts[0], model.IngressGatewaySdsUdsPath),
+			model.ConstructSdsSecretConfigForGatewayListener(sdsName, model.IngressGatewaySdsUdsPath),
 		}
 	} else {
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
