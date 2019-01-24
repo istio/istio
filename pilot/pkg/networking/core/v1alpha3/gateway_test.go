@@ -167,7 +167,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						},
 					},
 				},
-				RequireClientCertificate: proto.BoolFalse,
+				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
 		{
