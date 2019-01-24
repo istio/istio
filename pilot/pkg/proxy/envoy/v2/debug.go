@@ -159,7 +159,9 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
+	s.mutex.RLock()
 	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
+	s.mutex.RUnlock()
 	w.Write(out)
 }
 

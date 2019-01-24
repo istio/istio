@@ -200,8 +200,10 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
 
+	s.mutex.RLock()
 	// The service was never updated - do the full update
 	se, f := s.EndpointShardsByService[string(hostname)]
+	s.mutex.RUnlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsCluster)
 	}
@@ -512,8 +514,11 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
 	if len(istioEndpoints) == 0 {
 		if s.EndpointShardsByService[serviceName] != nil {
+			s.EndpointShardsByService[serviceName].mutex.Lock()
 			delete(s.EndpointShardsByService[serviceName].Shards, shard)
-			if len(s.EndpointShardsByService[serviceName].Shards) == 0 {
+			svcShards := len(s.EndpointShardsByService[serviceName].Shards)
+			s.EndpointShardsByService[serviceName].mutex.Unlock()
+			if svcShards == 0 {
 				delete(s.EndpointShardsByService, serviceName)
 			}
 		}
