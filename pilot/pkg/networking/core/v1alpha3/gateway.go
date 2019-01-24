@@ -380,7 +380,8 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		},
 	}
 
-	if enableSds {
+	// If gateway controller has enabled SDS and TLSmode is SIMPLE, generate SDS config for gateway controller.
+	if enableSds && server.Tls.GetMode() == networking.Server_TLSOptions_SIMPLE {
 		sdsName := server.Hosts[0]
 		if server.Tls.SdsName != "" {
 			sdsName = server.Tls.SdsName
