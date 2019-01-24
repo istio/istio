@@ -64,5 +64,5 @@ go get fortio.org/fortio
 
 
 # Kick off tests
-"${ROOT}/tests/upgrade/test_crossgrade.sh" --from_hub="${HUB}" --from_tag="${SOURCE_VERSION}" --from_path="istio-${SOURCE_VERSION}" --to_hub="${HUB}" --to_tag="${TARGET_VERSION}" --to_path="istio-${TARGET_VERSION}"
+"${ROOT}/tests/upgrade/test_crossgrade.sh" --from_hub="${HUB}" --from_tag="${SOURCE_VERSION}" --from_path="istio-${SOURCE_VERSION}" --to_hub="${HUB}" --to_tag="${TARGET_VERSION}" --to_path="istio-${TARGET_VERSION}" --cloud="GKE"
 

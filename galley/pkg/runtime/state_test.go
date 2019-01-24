@@ -21,10 +21,10 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/istio/galley/pkg/meshconfig"
-
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/pkg/mcp/snapshot"
 )
 
 var (
@@ -59,8 +59,16 @@ func checkCreateTime(e *mcp.Resource, want time.Time) error {
 	return nil
 }
 
+func TestStateName(t *testing.T) {
+	name := "testName"
+	s := newState(name, testSchema, cfg, newPublishingStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
+	if s.name != name {
+		t.Fatalf("incorrect name: expected %s, found %s", name, s.name)
+	}
+}
+
 func TestState_DefaultSnapshot(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 	sn := s.buildSnapshot()
 
 	for _, collection := range []string{emptyInfo.Collection.String(), structInfo.Collection.String()} {
@@ -86,8 +94,8 @@ func TestState_DefaultSnapshot(t *testing.T) {
 		},
 	}
 
-	changed := s.apply(e)
-	if !changed {
+	s.Handle(e)
+	if s.pendingEvents != 1 {
 		t.Fatal("calling apply should have changed state.")
 	}
 
@@ -106,7 +114,7 @@ func TestState_DefaultSnapshot(t *testing.T) {
 }
 
 func TestState_Apply_Update(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -122,8 +130,8 @@ func TestState_Apply_Update(t *testing.T) {
 		},
 	}
 
-	changed := s.apply(e)
-	if !changed {
+	s.Handle(e)
+	if s.pendingEvents != 1 {
 		t.Fatal("calling apply should have changed state.")
 	}
 
@@ -140,8 +148,8 @@ func TestState_Apply_Update(t *testing.T) {
 			Item: &types.Any{},
 		},
 	}
-	changed = s.apply(e)
-	if !changed {
+	s.Handle(e)
+	if s.pendingEvents != 2 {
 		t.Fatal("calling apply should have changed state.")
 	}
 
@@ -160,7 +168,7 @@ func TestState_Apply_Update(t *testing.T) {
 }
 
 func TestState_Apply_Update_SameVersion(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -176,8 +184,8 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 		},
 	}
 
-	changed := s.apply(e)
-	if !changed {
+	s.Handle(e)
+	if s.pendingEvents != 1 {
 		t.Fatal("calling apply should have changed state.")
 	}
 
@@ -194,16 +202,16 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 			Item: &types.Any{},
 		},
 	}
-	s.apply(e)
+	s.Handle(e)
 
-	changed = s.apply(e)
-	if changed {
+	s.Handle(e)
+	if s.pendingEvents != 1 {
 		t.Fatal("calling apply should not have changed state.")
 	}
 }
 
 func TestState_Apply_Delete(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -213,8 +221,8 @@ func TestState_Apply_Delete(t *testing.T) {
 		},
 	}
 
-	changed := s.apply(e)
-	if !changed {
+	s.Handle(e)
+	if s.pendingEvents != 1 {
 		t.Fatal("calling apply should have changed state.")
 	}
 
@@ -224,10 +232,10 @@ func TestState_Apply_Delete(t *testing.T) {
 			ID: resource.VersionedKey{Version: "v2", Key: resource.Key{Collection: emptyInfo.Collection, FullName: fn}},
 		},
 	}
-	s.apply(e)
+	s.Handle(e)
 
-	changed = s.apply(e)
-	if !changed {
+	s.Handle(e)
+	if s.pendingEvents != 3 {
 		t.Fatal("calling apply should have changed state.")
 	}
 
@@ -239,7 +247,7 @@ func TestState_Apply_Delete(t *testing.T) {
 }
 
 func TestState_Apply_UnknownEventKind(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.EventKind(42),
@@ -248,8 +256,8 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 			Item: &types.Any{},
 		},
 	}
-	changed := s.apply(e)
-	if changed {
+	s.Handle(e)
+	if s.pendingEvents > 0 {
 		t.Fatal("calling apply should not have changed state.")
 	}
 
@@ -261,7 +269,7 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 }
 
 func TestState_Apply_BrokenProto(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -270,8 +278,8 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 			Item: nil,
 		},
 	}
-	changed := s.apply(e)
-	if changed {
+	s.Handle(e)
+	if s.pendingEvents > 0 {
 		t.Fatal("calling apply should not have changed state.")
 	}
 
@@ -283,7 +291,7 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 }
 
 func TestState_String(t *testing.T) {
-	s := newState(testSchema, cfg)
+	s := newTestState()
 
 	e := resource.Event{
 		Kind: resource.Added,
@@ -292,8 +300,12 @@ func TestState_String(t *testing.T) {
 			Item: nil,
 		},
 	}
-	_ = s.apply(e)
+	s.Handle(e)
 
 	// Should not crash
 	_ = s.String()
+}
+
+func newTestState() *State {
+	return newState(snapshot.DefaultGroup, testSchema, cfg, newPublishingStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
 }
