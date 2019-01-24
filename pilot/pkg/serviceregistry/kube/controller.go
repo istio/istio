@@ -322,8 +322,8 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) string {
 		return ""
 	}
 
-	region, _ := node.(*v1.Node).Labels[NodeRegionLabel]
-	zone, _ := node.(*v1.Node).Labels[NodeZoneLabel]
+	region := node.(*v1.Node).Labels[NodeRegionLabel]
+	zone := node.(*v1.Node).Labels[NodeZoneLabel]
 	if region == "" && zone == "" {
 		return ""
 	}
