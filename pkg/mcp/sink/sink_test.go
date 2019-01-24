@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -646,5 +647,65 @@ func TestInMemoryUpdater(t *testing.T) {
 
 	if o[0].Metadata.Name != "bar" {
 		t.Fatalf("expected name not found on object: %v", o)
+	}
+}
+
+func TestSink_MetadataID(t *testing.T) {
+	options := &Options{
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Updater:           NewInMemoryUpdater(),
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	sink := New(options)
+
+	gotID := sink.ID()
+	if gotID != test.NodeID {
+		t.Errorf("wrong ID: got %v want %v", gotID, test.NodeID)
+	}
+
+	gotMetadata := sink.Metadata()
+	if diff := cmp.Diff(gotMetadata, test.NodeMetadata); diff != "" {
+		t.Errorf("wrong Metadata: got %v want %v", gotMetadata, test.NodeMetadata)
+	}
+}
+
+func TestCreateInitialRequests(t *testing.T) {
+	options := &Options{
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Updater:           NewInMemoryUpdater(),
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	sink := New(options)
+
+	want := []*mcp.RequestResources{
+		test.MakeRequest(test.FakeType0Collection, "", codes.OK),
+		test.MakeRequest(test.FakeType1Collection, "", codes.OK),
+		test.MakeRequest(test.FakeType2Collection, "", codes.OK),
+	}
+	got := sink.createInitialRequests()
+	sort.Slice(got, func(i, j int) bool { return got[i].Collection < got[j].Collection })
+
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("wrong requests with incremental disabled: \n got %v \nwant %v diff %v", got, want, diff)
+	}
+
+	for i := 0; i < len(test.SupportedCollections); i++ {
+		want[i].Incremental = true
+		want[i].InitialResourceVersions = map[string]string{"foo": "v1"}
+	}
+	for _, state := range sink.state {
+		state.incrementalEnabled = true
+		state.versions["foo"] = "v1"
+	}
+
+	got = sink.createInitialRequests()
+	sort.Slice(got, func(i, j int) bool { return got[i].Collection < got[j].Collection })
+
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("wrong requests with incemental enabled: \n got %v \nwant %v diff %v", got, want, diff)
 	}
 }

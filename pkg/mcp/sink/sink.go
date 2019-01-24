@@ -40,6 +40,9 @@ type perCollectionState struct {
 	incrementalEnabled bool
 }
 
+// Incremental MCP is disabled by default
+const incrementalEnabledDefault = false
+
 // Sink implements the resource sink message exchange for MCP. It can be instantiated by client and server
 // sink implementations to manage the MCP message exchange.
 type Sink struct {
@@ -64,7 +67,7 @@ func New(options *Options) *Sink { // nolint: lll
 	for _, collection := range options.CollectionOptions {
 		state[collection.Name] = &perCollectionState{
 			versions:           make(map[string]string),
-			incrementalEnabled: false,
+			incrementalEnabled: incrementalEnabledDefault,
 		}
 	}
 
@@ -137,6 +140,7 @@ func (sink *Sink) handleResponse(resources *mcp.Resources) *mcp.RequestResources
 	// update version tracking if change is successfully applied
 	sink.mu.Lock()
 	internal.UpdateResourceVersionTracking(state.versions, resources)
+	useIncremental := state.incrementalEnabled
 	sink.mu.Unlock()
 
 	// ACK
@@ -145,6 +149,7 @@ func (sink *Sink) handleResponse(resources *mcp.Resources) *mcp.RequestResources
 		SinkNode:      sink.nodeInfo,
 		Collection:    resources.Collection,
 		ResponseNonce: resources.Nonce,
+		Incremental:   useIncremental,
 	}
 	return req
 }
@@ -167,6 +172,7 @@ func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
 			SinkNode:                sink.nodeInfo,
 			Collection:              collection,
 			InitialResourceVersions: initialResourceVersions,
+			Incremental:             state.incrementalEnabled,
 		}
 		initialRequests = append(initialRequests, req)
 	}

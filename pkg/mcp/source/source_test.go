@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -525,4 +526,116 @@ func TestSourceConcurrentRequestsForMultipleTypes(t *testing.T) {
 
 	h.setRecvError(io.EOF)
 	wg.Wait()
+}
+
+func TestCalculateDelta(t *testing.T) {
+	var (
+		r0         = test.Type0A[0].Resource
+		r0_updated = test.Type0A[1].Resource
+		r1         = test.Type0B[0].Resource
+		r2         = test.Type0C[0].Resource
+	)
+
+	cases := []struct {
+		name        string
+		current     []*mcp.Resource
+		acked       map[string]string
+		wantAdded   []mcp.Resource
+		wantRemoved []string
+	}{
+		{
+			name:      "empty acked set",
+			current:   []*mcp.Resource{r0, r1, r2},
+			acked:     map[string]string{},
+			wantAdded: []mcp.Resource{*r0, *r1, *r2},
+		},
+		{
+			name:    "incremental add",
+			current: []*mcp.Resource{r0, r1, r2},
+			acked: map[string]string{
+				r0.Metadata.Name: r0.Metadata.Version,
+			},
+			wantAdded: []mcp.Resource{*r1, *r2},
+		},
+		{
+			name:    "no-op push",
+			current: []*mcp.Resource{r0, r1, r2},
+			acked: map[string]string{
+				r0.Metadata.Name: r0.Metadata.Version,
+				r1.Metadata.Name: r1.Metadata.Version,
+				r2.Metadata.Name: r2.Metadata.Version,
+			},
+			wantAdded: []mcp.Resource{},
+		},
+		{
+			name:    "update existing",
+			current: []*mcp.Resource{r0_updated, r1, r2},
+			acked: map[string]string{
+				r0.Metadata.Name: r0.Metadata.Version,
+				r1.Metadata.Name: r1.Metadata.Version,
+				r2.Metadata.Name: r2.Metadata.Version,
+			},
+			wantAdded: []mcp.Resource{*r0_updated},
+		},
+		{
+			name:    "delete one",
+			current: []*mcp.Resource{r1, r2},
+			acked: map[string]string{
+				r0.Metadata.Name: r0.Metadata.Version,
+				r1.Metadata.Name: r1.Metadata.Version,
+				r2.Metadata.Name: r2.Metadata.Version,
+			},
+			wantAdded:   []mcp.Resource{},
+			wantRemoved: []string{r0.Metadata.Name},
+		},
+		{
+			name:    "delete all",
+			current: []*mcp.Resource{},
+			acked: map[string]string{
+				r0.Metadata.Name: r0.Metadata.Version,
+				r1.Metadata.Name: r1.Metadata.Version,
+				r2.Metadata.Name: r2.Metadata.Version,
+			},
+			wantAdded:   []mcp.Resource{},
+			wantRemoved: []string{r0.Metadata.Name, r1.Metadata.Name, r2.Metadata.Name},
+		},
+		{
+			name:    "add, update, and delete in the same push",
+			current: []*mcp.Resource{r0_updated, r2},
+			acked: map[string]string{
+				r0.Metadata.Name: r0.Metadata.Version, // update
+				r1.Metadata.Name: r1.Metadata.Version, // remove
+			},
+			wantAdded:   []mcp.Resource{*r0_updated, *r2},
+			wantRemoved: []string{r1.Metadata.Name},
+		},
+	}
+
+	sortAdded := cmp.Transformer("SortAdded", func(in []mcp.Resource) []mcp.Resource {
+		out := append([]mcp.Resource(nil), in...) // copy
+		sort.Slice(out, func(i, j int) bool { return out[i].Metadata.Name < out[j].Metadata.Name })
+		return out
+	})
+
+	sortRemoved := cmp.Transformer("SortRemoved", func(in []string) []string {
+		out := append([]string(nil), in...) // copy
+		sort.Strings(out)
+		return out
+	})
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(tt *testing.T) {
+			gotAdded, gotRemoved := calculateDelta(c.current, c.acked)
+
+			if diff := cmp.Diff(gotAdded, c.wantAdded, sortAdded); diff != "" {
+				t.Errorf("wrong set of added resources: \n got %v \nwant %v\ndiff %v",
+					gotAdded, c.wantAdded, diff)
+			}
+
+			if diff := cmp.Diff(gotRemoved, c.wantRemoved, sortRemoved); diff != "" {
+				t.Errorf("wrong set of removed resources: \n got %v \nwant %v\ndiff %v",
+					gotRemoved, c.wantRemoved, diff)
+			}
+		})
+	}
 }

@@ -133,7 +133,6 @@ type watch struct {
 	cancel          func()
 	ackedVersionMap map[string]string // resources that exist at the sink; by name and version
 	pending         *mcp.Resources
-	retryPushDelay  time.Duration
 	incremental     bool
 }
 
@@ -151,7 +150,7 @@ type connection struct {
 
 	requestC chan *mcp.RequestResources // a channel for receiving incoming requests
 	reqError error                      // holds error if request channel is closed
-	watches  map[string]*watch          // per-type watches
+	watches  map[string]*watch          // per-type watch state
 	watcher  Watcher
 
 	reporter monitoring.Reporter
