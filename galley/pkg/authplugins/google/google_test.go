@@ -15,7 +15,10 @@
 package google
 
 import (
+	"context"
 	"testing"
+
+	"golang.org/x/oauth2/google"
 )
 
 func TestInfo(t *testing.T) {
@@ -28,7 +31,12 @@ func TestInfo(t *testing.T) {
 	}
 }
 
+func mockDC(ctx context.Context, scopes ...string) (*google.Credentials, error) {
+	return &google.Credentials{}, nil
+}
+
 func TestAuth(t *testing.T) {
+	findDC = mockDC
 	opts, err := returnAuth(nil)
 	if err != nil {
 		t.Errorf("Error with auth: %v", err)
