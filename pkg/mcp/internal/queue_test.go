@@ -252,8 +252,60 @@ func TestUniqueQueue_Done(t *testing.T) {
 				t.Fatalf("got %v want %v", got, want)
 			}
 		case <-time.After(time.Second):
+			t.Fatal("timeout waiting for Done()")
+		}
+	}
+}
+
+func TestUniqueQueue_EnqueueAfterClose(t *testing.T) {
+	q := NewUniqueScheduledQueue(5)
+
+	for _, v := range []int{0, 1, 2, 3, 4} {
+		q.Enqueue(items[v].key, items[v].val)
+	}
+
+	for _, v := range []int{0, 1, 2} {
+		want := items[v].val
+		got := getScheduledItem(t, q)
+		if got != want {
+			t.Fatalf("got %v want %v", got, want)
+		}
+	}
+
+	q.Close()
+
+	for _, v := range []int{3, 4} {
+		want := items[v].val
+
+		select {
+		case <-q.Ready():
+			_, got, ok := q.Dequeue()
+			if !ok {
+				t.Fatal("Dequeue() returned no entries")
+			}
+			if got != want {
+				t.Fatalf("got %v want %v", got, want)
+			}
+		case <-time.After(time.Second):
 			t.Fatal("timeout waiting for scheduled response")
 		}
+	}
+
+	if q.Enqueue(items[0].key, items[0].val) != false {
+		t.Fatal("Enqueue() after close should fail")
+	}
+
+	select {
+	case <-q.Ready():
+		k, v, ok := q.Dequeue()
+		t.Fatalf("unexpected Dequeue() after close: got key=%v value=%v ok=%v", k, v, ok)
+	case <-time.After(time.Second):
+	}
+
+	select {
+	case <-q.Done():
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for Done()")
 	}
 }
 

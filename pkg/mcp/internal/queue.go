@@ -17,7 +17,11 @@ package internal
 import (
 	"encoding/json"
 	"sync"
+
+	"istio.io/istio/pkg/log"
 )
+
+var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 // TODO - this can eventually be moved under pkg/mcp/source once the new stack is
 // introduced. The code is temporarily added under pkg/mcp/internal so
@@ -47,8 +51,8 @@ type UniqueQueue struct {
 	doneChan       chan struct{}
 	doneChanClosed bool
 	// Enqueue at the tail, Dequeue from the head.
-	// head == tail   => empty
-	// head == tail+1 => full
+	// head == tail   -> empty
+	// head == tail+1 -> full
 	head int
 	tail int
 	// Maintain an ordered set of enqueued items.
@@ -67,7 +71,13 @@ type entry struct {
 // NewUniqueScheduledQueue creates a new unique queue specialized for MCP source/server implementations.
 func NewUniqueScheduledQueue(maxDepth int) *UniqueQueue {
 	return &UniqueQueue{
-		queue:     make([]entry, maxDepth+1),
+		// Max queue size is one larger than the max depth so that
+		// we can differentiate empty vs. full conditions.
+		//
+		// 	head == tail   -> empty
+		// 	head == tail+1 -> full
+		queue: make([]entry, maxDepth+1),
+
 		queuedSet: make(map[string]*entry, maxDepth),
 		maxDepth:  maxDepth,
 		readyChan: make(chan struct{}, maxDepth),
@@ -84,12 +94,15 @@ func (q *UniqueQueue) inc(idx int) int {
 func (q *UniqueQueue) Empty() bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
+	// 	head == tail -> empty
 	return q.head == q.tail
 }
 
 // internal version of full() that can be called
 // with the lock held.
 func (q *UniqueQueue) full() bool {
+	// 	head == tail+1 -> full
 	return q.head == q.inc(q.tail)
 }
 
@@ -109,6 +122,10 @@ func (q *UniqueQueue) Full() bool {
 func (q *UniqueQueue) Enqueue(key string, val interface{}) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
+	if q.doneChanClosed {
+		return false
+	}
 
 	// Key is already in the queue. Update the set's entry and
 	// return without modifying its place in the queue.
@@ -153,6 +170,10 @@ func (q *UniqueQueue) trySchedule() {
 	select {
 	case q.readyChan <- struct{}{}:
 	default:
+		q.mu.Lock()
+		scope.Warnf("enqueued item could not be scheduled (head=%v tail=%v depth=%v)",
+			q.head, q.tail, q.maxDepth)
+		q.mu.Unlock()
 	}
 }
 

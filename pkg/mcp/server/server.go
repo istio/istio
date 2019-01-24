@@ -17,6 +17,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -83,8 +84,11 @@ type watch struct {
 	mu                      sync.Mutex
 	mostRecentNackedVersion string
 
+	// lambda to queue responses to be sent to the connected sink.
 	queueResponse func(*source.WatchResponse) bool
-	finished      func()
+
+	// lambda to signal the watch is finished (i.e. closed) to the common connection handler.
+	finished func()
 }
 
 // Save the pushed response in the newPushResponse and schedule a push. The push
@@ -208,17 +212,19 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 
 			resp, ok := item.(*source.WatchResponse)
 			if !ok {
+				scope.Errorf("dequeued response was wrong type: %v", reflect.TypeOf(item))
+				break // bug?
+			}
+
+			w, ok := con.watches[collection]
+			if !ok {
+				scope.Errorf("unknown collection in dequeued watch response: %v", collection)
 				break // bug?
 			}
 
 			// newPushResponse may have been cleared before we got to it
 			if resp == nil {
 				break
-			}
-
-			w, ok := con.watches[collection]
-			if !ok {
-				break // bug?
 			}
 
 			if err := con.pushServerResponse(w, resp); err != nil {
