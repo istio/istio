@@ -135,23 +135,6 @@ type watch struct {
 	pending         *mcp.Resources
 	retryPushDelay  time.Duration
 	incremental     bool
-
-	// lambda to queue responses to be sent to the connected sink.
-	queueResponse func(*WatchResponse) bool
-
-	// lambda to signal the watch is finished (i.e. closed) to the common connection handler.
-	finished func()
-}
-
-// Save the pushed response in the newPushResponse and schedule a push. The push
-// may be re-schedule as necessary but this should be transparent to the
-// caller. The caller may provide a nil response to indicate that the watch
-// should be closed.
-func (w *watch) saveResponseAndSchedulePush(response *WatchResponse) {
-	if response == nil {
-		w.finished()
-	}
-	w.queueResponse(response)
 }
 
 // connection maintains per-stream connection state for a
@@ -216,10 +199,6 @@ func (s *Source) newConnection(stream Stream) *connection {
 		w := &watch{
 			ackedVersionMap: make(map[string]string),
 			incremental:     false,
-			queueResponse: func(response *WatchResponse) bool {
-				return con.queue.Enqueue(collection.Name, response)
-			},
-			finished: con.queue.Close,
 		}
 		con.watches[collection.Name] = w
 		collections = append(collections, collection.Name)
@@ -254,7 +233,7 @@ func (s *Source) processStream(stream Stream) error {
 				break // bug?
 			}
 
-			// newPushResponse may have been cleared before we got to it
+			// the response may have been cleared before we got to it
 			if resp != nil {
 				if err := con.pushServerResponse(w, resp); err != nil {
 					return err
@@ -284,6 +263,16 @@ func (s *Source) closeConnection(con *connection) {
 // String implements Stringer.String.
 func (con *connection) String() string {
 	return fmt.Sprintf("{addr=%v id=%v}", con.peerAddr, con.id)
+}
+
+// Queue the response for sending in the dispatch loop. The caller may provide
+// a nil response to indicate that the watch should be closed.
+func (con *connection) queueResponse(resp *WatchResponse) {
+	if resp == nil {
+		con.queue.Close()
+	} else {
+		con.queue.Enqueue(resp.Collection, resp)
+	}
 }
 
 func calculateDelta(current []*mcp.Resource, acked map[string]string) (added []mcp.Resource, removed []string) {
@@ -347,7 +336,6 @@ func (con *connection) pushServerResponse(w *watch, resp *WatchResponse) error {
 	msg.Nonce = strconv.FormatInt(con.streamNonce, 10)
 	if err := con.stream.Send(msg); err != nil {
 		con.reporter.RecordSendError(err, status.Code(err))
-
 		return err
 	}
 	scope.Debugf("MCP: connection %v: SEND collection=%v version=%v nonce=%v",
@@ -439,7 +427,7 @@ func (con *connection) processClientRequest(req *mcp.RequestResources) error {
 			VersionInfo: versionInfo,
 			incremental: req.Incremental,
 		}
-		w.cancel = con.watcher.Watch(sr, w.saveResponseAndSchedulePush)
+		w.cancel = con.watcher.Watch(sr, con.queueResponse)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce. These could be dup requests or out-of-order
