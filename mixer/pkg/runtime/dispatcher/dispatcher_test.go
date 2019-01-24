@@ -22,9 +22,8 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
-
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
-	v1 "istio.io/api/mixer/v1"
+	"istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -811,8 +810,8 @@ ident                         : dest.istio-system
 		},
 		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
 		expectedCheckResult: adapter.CheckResult{
-			ValidDuration: 60000000000,
-			ValidUseCount: 10000,
+			ValidDuration: defaultValidDuration,
+			ValidUseCount: defaultValidUseCount,
 		},
 		log: ``,
 	},
@@ -826,6 +825,8 @@ ident                         : dest.istio-system
 		},
 		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
 		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: defaultValidDuration,
+			ValidUseCount: defaultValidUseCount,
 			RouteDirective: &v1.RouteDirective{
 				ResponseHeaderOperations: []v1.HeaderOperation{{
 					Name:      "b-header",
