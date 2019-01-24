@@ -483,7 +483,7 @@ func (s *DiscoveryServer) edsIncremental(version string, push *model.PushContext
 }
 
 // WorkloadUpdate is called when workload labels/annotations are updated.
-func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, annotations map[string]string) {
+func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, _ map[string]string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -497,8 +497,7 @@ func (s *DiscoveryServer) WorkloadUpdate(id string, labels map[string]string, an
 		// First time this workload has been seen. Likely never connected, no need to
 		// push
 		s.WorkloadsByID[id] = &Workload{
-			Labels:      labels,
-			Annotations: annotations,
+			Labels: labels,
 		}
 		return
 	}

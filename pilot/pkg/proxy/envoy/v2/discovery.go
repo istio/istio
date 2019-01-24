@@ -173,9 +173,6 @@ type EndpointShards struct {
 type Workload struct {
 	// Labels
 	Labels map[string]string
-
-	// Annotations
-	Annotations map[string]string
 }
 
 func intEnv(envVal string, def int) int {
