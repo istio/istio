@@ -30,7 +30,7 @@ import (
 func returnAuth(config map[string]string) ([]grpc.DialOption, error) {
 	_ = config
 	ctx := context.Background()
-	creds, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/<SCOPE>")
+	creds, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		return nil, err
 	}
