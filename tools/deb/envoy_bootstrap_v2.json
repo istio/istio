@@ -114,7 +114,7 @@
             "socket_address": {
               "protocol": "TCP",
               "address": "127.0.0.1",
-              "port_value": 15000
+              "port_value": {{ .config.ProxyAdminPort }}
             }
           }
         ]
