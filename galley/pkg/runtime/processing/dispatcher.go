@@ -39,8 +39,6 @@ func (d *Dispatcher) Handle(e resource.Event) {
 	for _, h := range handlers {
 		h.Handle(e)
 	}
-
-	return
 }
 
 // DispatcherBuilder builds Dispatchers
