@@ -391,7 +391,9 @@ func (s *Server) initMesh(args *PilotArgs) error {
 					//TODO Need to re-create or reload initConfigController()
 				}
 				s.mesh = mesh
-				s.EnvoyXdsServer.ConfigUpdate(true)
+				if s.EnvoyXdsServer != nil {
+					s.EnvoyXdsServer.ConfigUpdate(true)
+				}
 			}
 		})
 	}
