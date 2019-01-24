@@ -150,6 +150,16 @@ func (q *UniqueQueue) Enqueue(key string, val interface{}) bool {
 	return true
 }
 
+// must be called with lock held
+func (q *UniqueQueue) trySchedule() {
+	select {
+	case q.readyChan <- struct{}{}:
+	default:
+		scope.Warnf("queue could not be scheduled (head=%v tail=%v depth=%v)",
+			q.head, q.tail, q.maxDepth)
+	}
+}
+
 // Dequeue removes an item from the queue. This should only be called once for each
 // time Ready() indicates a new item is ready to be dequeued.
 func (q *UniqueQueue) Dequeue() (string, interface{}, bool) {
@@ -164,17 +174,6 @@ func (q *UniqueQueue) Dequeue() (string, interface{}, bool) {
 	q.head = q.inc(q.head)
 	delete(q.queuedSet, entry.key)
 	return entry.key, entry.val, true
-}
-
-func (q *UniqueQueue) trySchedule() {
-	select {
-	case q.readyChan <- struct{}{}:
-	default:
-		q.mu.Lock()
-		scope.Warnf("enqueued item could not be scheduled (head=%v tail=%v depth=%v)",
-			q.head, q.tail, q.maxDepth)
-		q.mu.Unlock()
-	}
 }
 
 func (q *UniqueQueue) Ready() <-chan struct{} {

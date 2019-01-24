@@ -181,7 +181,6 @@ func TestUniqueQueue_DequeueBeforeReady(t *testing.T) {
 	// // re-enqueue the first two dequeued items
 	for range []int{0, 1} {
 		key, item, _ := q.Dequeue()
-
 		q.Enqueue(key, item)
 	}
 
