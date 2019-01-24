@@ -27,10 +27,18 @@ import (
 	"istio.io/istio/galley/pkg/authplugin"
 )
 
+type dcFn func(context.Context, ...string) (*google.Credentials, error)
+
+var findDC dcFn
+
+func init() {
+	findDC = google.FindDefaultCredentials
+}
+
 func returnAuth(config map[string]string) ([]grpc.DialOption, error) {
 	_ = config
 	ctx := context.Background()
-	creds, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	creds, err := findDC(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		return nil, err
 	}
