@@ -15,12 +15,13 @@
 package v1alpha3
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/proto"
-	"reflect"
-	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
