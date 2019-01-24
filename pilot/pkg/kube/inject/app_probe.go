@@ -15,11 +15,13 @@
 package inject
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -43,77 +45,91 @@ var (
 	statusPortPattern = regexp.MustCompile(fmt.Sprintf(`^-{1,2}%s(=(?P<port>\d+))?$`, StatusPortCmdFlagName))
 )
 
+// extractStatusPort accepts the sidecar container spec and returns its port for healthiness probing.
+func extractStatusPort(sidecar *corev1.Container) int {
+	for i, arg := range sidecar.Args {
+		// Skip for unrelated args.
+		match := statusPortPattern.FindAllStringSubmatch(strings.TrimSpace(arg), -1)
+		if len(match) != 1 {
+			continue
+		}
+		groups := statusPortPattern.SubexpNames()
+		portStr := ""
+		for ind, s := range match[0] {
+			if groups[ind] == "port" {
+				portStr = s
+				break
+			}
+		}
+		// Port not found from current arg, extract from next arg.
+		if portStr == "" {
+			// Matches the regex pattern, but without actual values provided.
+			if len(sidecar.Args) <= i+1 {
+				log.Errorf("No statusPort value provided, skip app probe rewriting")
+				return -1
+			}
+			portStr = sidecar.Args[i+1]
+		}
+		p, err := strconv.Atoi(portStr)
+		if err != nil {
+			log.Errorf("Failed to convert statusPort to int %v, err %v", portStr, err)
+			return -1
+		}
+		return p
+	}
+	return -1
+}
+
+// rewriteProbe changes application containers' probe to point to sidecar's status port.
+func rewriteProbe(probe *corev1.Probe, appProbers *status.KubeAppProbers,
+	newURL string, statusPort int, portMap map[string]int32) {
+	if probe == nil || probe.HTTPGet == nil {
+		return
+	}
+	httpGet := probe.HTTPGet
+
+	// Save app probe config to pass to pilot agent later.
+	savedProbe := proto.Clone(probe.HTTPGet).(*corev1.HTTPGetAction)
+	(*appProbers)[newURL] = savedProbe
+	// A named port, resolve by looking at port map.
+	if httpGet.Port.Type == intstr.String {
+		port, exists := portMap[httpGet.Port.StrVal]
+		if !exists {
+			log.Errorf("named port not found in the map skip rewriting probing %v", *probe)
+			return
+		}
+		savedProbe.Port = intstr.FromInt(int(port))
+	}
+	// Change the application csince ontainer prober config.
+	httpGet.Port = intstr.FromInt(statusPort)
+	httpGet.Path = newURL
+}
+
 func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
-	statusPort := -1
 	if spec == nil || podSpec == nil {
 		return
 	}
 	if !spec.RewriteAppHTTPProbe {
 		return
 	}
-	for _, c := range spec.Containers {
-		if c.Name != istioProxyContainerName {
-			continue
-		}
-		for i, arg := range c.Args {
-			// Skip for unrelated args.
-			match := statusPortPattern.FindAllStringSubmatch(strings.TrimSpace(arg), -1)
-			if len(match) != 1 {
-				continue
-			}
-			groups := statusPortPattern.SubexpNames()
-			portStr := ""
-			for ind, s := range match[0] {
-				if groups[ind] == "port" {
-					portStr = s
-					break
-				}
-			}
-			// Port not found from current arg, extract from next arg.
-			if portStr == "" {
-				// Matches the regex pattern, but without actual values provided.
-				if len(c.Args) <= i+1 {
-					log.Errorf("No statusPort value provided, skip app probe rewriting")
-					return
-				}
-				portStr = c.Args[i+1]
-			}
-			p, err := strconv.Atoi(portStr)
-			if err != nil {
-				log.Errorf("Failed to convert statusPort to int %v, err %v", portStr, err)
-				return
-			}
-			statusPort = p
+	var sidecar *corev1.Container
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name == istioProxyContainerName {
+			sidecar = &podSpec.Containers[i]
 			break
 		}
 	}
+	if sidecar == nil {
+		return
+	}
+
+	statusPort := extractStatusPort(sidecar)
 	// Pilot agent statusPort is not defined, skip changing application http probe.
 	if statusPort == -1 {
 		return
 	}
 
-	// Change the application containers' probe to point to sidecar's status port.
-	rewriteProbe := func(probe *corev1.Probe, portMap map[string]int32) {
-		if probe == nil || probe.HTTPGet == nil {
-			return
-		}
-		httpGet := probe.HTTPGet
-		header := corev1.HTTPHeader{
-			Name:  status.IstioAppPortHeader,
-			Value: httpGet.Port.String(),
-		}
-		// A named port, resolve by looking at port map.
-		if httpGet.Port.Type == intstr.String {
-			port, exists := portMap[httpGet.Port.StrVal]
-			if !exists {
-				log.Errorf("named port not found in the map skip rewriting probing %v", *probe)
-				return
-			}
-			header.Value = strconv.Itoa(int(port))
-		}
-		httpGet.HTTPHeaders = append(httpGet.HTTPHeaders, header)
-		httpGet.Port = intstr.FromInt(statusPort)
-	}
+	appProberInfo := status.KubeAppProbers{}
 	for _, c := range podSpec.Containers {
 		// Skip sidecar container.
 		if c.Name == istioProxyContainerName {
@@ -123,7 +139,16 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 		for _, p := range c.Ports {
 			portMap[p.Name] = p.ContainerPort
 		}
-		rewriteProbe(c.ReadinessProbe, portMap)
-		rewriteProbe(c.LivenessProbe, portMap)
+		rewriteProbe(c.ReadinessProbe, &appProberInfo, fmt.Sprintf("/app-health/%v/readyz", c.Name), statusPort, portMap)
+		rewriteProbe(c.LivenessProbe, &appProberInfo, fmt.Sprintf("/app-health/%v/livez", c.Name), statusPort, portMap)
 	}
+
+	// Finally propagate app prober config to `istio-proxy` through command line flag.
+	b, err := json.Marshal(appProberInfo)
+	if err != nil {
+		log.Errorf("failed to serialize the app prober config %v", err)
+		return
+	}
+	// We don't have to escape json encoding here when using golang libraries.
+	sidecar.Args = append(sidecar.Args, []string{fmt.Sprintf("--%v", status.KubeAppProberCmdFlagName), string(b)}...)
 }

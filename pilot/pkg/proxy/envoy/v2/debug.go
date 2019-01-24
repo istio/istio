@@ -347,7 +347,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			}
 			info.ServerProtocol = authProtocolToString(serverProtocol)
 
-			destConfig := s.globalPushContext().DestinationRule(nil, ss.Hostname)
+			destConfig := s.globalPushContext().DestinationRule(nil, ss)
 			info.DestinationRuleName = configName(destConfig)
 			if destConfig != nil {
 				rule := destConfig.Spec.(*networking.DestinationRule)
@@ -494,15 +494,17 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if len(edsClusters) > 0 {
 		fmt.Fprintln(w, "[")
 		for _, eds := range edsClusters {
-			if comma {
-				fmt.Fprint(w, ",\n")
-			} else {
-				comma = true
-			}
-			jsonm := &jsonpb.Marshaler{Indent: "  "}
-			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
-			if _, err := w.Write([]byte(dbgString)); err != nil {
-				return
+			for _, eds := range eds {
+				if comma {
+					fmt.Fprint(w, ",\n")
+				} else {
+					comma = true
+				}
+				jsonm := &jsonpb.Marshaler{Indent: "  "}
+				dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+				if _, err := w.Write([]byte(dbgString)); err != nil {
+					return
+				}
 			}
 		}
 		fmt.Fprintln(w, "]")

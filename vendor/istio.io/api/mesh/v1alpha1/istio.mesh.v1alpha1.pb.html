@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 16
+number_of_entries: 19
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -78,6 +78,140 @@ Use fs:/// to specify a file-based backend with absolute path to the directory.<
 <p>Use the tls<em>settings to specify the tls mode to use. If the MCP server
 uses Istio MTLS and shares the root CA with Pilot, specify the TLS
 mode as ISTIO</em>MUTUAL.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</h2>
+<section>
+<p>The following example sets up locality weight for mesh wide service
+Assume a service resides in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;,
+and originating clusters also reside in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;.
+This example specifies when clusters from &ldquo;region1/zone1/<em>&rdquo; accessing the service, 80% of the traffic
+is shipped to &ldquo;region1/zone1/</em>&rdquo; ratings service endpoints, and the rest 20% to &ldquo;region1/zone2/*&rdquo;.</p>
+
+<pre><code class="language-yaml">  distribute:
+    - from: region1/zone1/*
+      to:
+        &quot;region1/zone1/*&quot;: 80
+        &quot;region1/zone2/*&quot;: 20
+    - from: region1/zone2/*
+      to:
+        &quot;region1/zone1/*&quot;: 20
+        &quot;region1/zone2/*&quot;: 80
+</code></pre>
+
+<p>The following example sets up locality failover policy for the ratings service
+Assume a service resides in &ldquo;region1&rdquo; &ldquo;region2&rdquo; and &ldquo;region3&rdquo;,
+This example specifies when clusters from &ldquo;region1/zone1&rdquo; accessing the service,
+if endpoints in &ldquo;region1&rdquo; becomes unhealthy, traffic will begin to trickle to &ldquo;region2&rdquo;.</p>
+
+<pre><code class="language-yaml"> failover:
+   - from: region1
+     to: region2
+</code></pre>
+
+<p>Locality load balancing settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-distribute">
+<td><code>distribute</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting-Distribute">LocalityLoadBalancerSetting.Distribute[]</a></code></td>
+<td>
+<p>Optional: only distribute or failover can be set.
+Explicitly specify loadbalancing weight across different zones and geographical locations.
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing">Locality weighted load balancing</a>
+If empty, the locality weight is set according to the endpoints number within it.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-failover">
+<td><code>failover</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting-Failover">LocalityLoadBalancerSetting.Failover[]</a></code></td>
+<td>
+<p>Optional: only failover or distribute can be set.
+Explicitly specify the region traffic will land on when endpoints in local region becomes unhealthy.
+Should be used together with OutlierDetection to detect unhealthy endpoints.
+Note: if no OutlierDetection specified, this will not take effect.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LocalityLoadBalancerSetting-Distribute">LocalityLoadBalancerSetting.Distribute</h2>
+<section>
+<p>Originating -&gt; upstream cluster locality weight set, support wildcard matching &lsquo;<em>&rsquo;
+&lsquo;</em>&rsquo; matches all localities
+&lsquo;region1/*&rsquo; matches all zones in region1</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-Distribute-from">
+<td><code>from</code></td>
+<td><code>string</code></td>
+<td>
+<p>Originating locality, &lsquo;/&rsquo; separated, e.g. &lsquo;region/zone/sub_zone&rsquo;.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-Distribute-to">
+<td><code>to</code></td>
+<td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
+<td>
+<p>Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
+Should assign load balancing weight for all localities, otherwise the traffic are not routed
+following the percentage of weight.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LocalityLoadBalancerSetting-Failover">LocalityLoadBalancerSetting.Failover</h2>
+<section>
+<p>Specify the traffic failover policy.
+As zone and sub_zone failover is supported by default, only region can be specified here.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-Failover-from">
+<td><code>from</code></td>
+<td><code>string</code></td>
+<td>
+<p>Originating region.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-Failover-to">
+<td><code>to</code></td>
+<td><code>string</code></td>
+<td>
+<p>Destination region the traffic will fail over to when endpoints in local region becomes unhealthy.</p>
 
 </td>
 </tr>
@@ -303,6 +437,14 @@ Use secret-mount files instead of SDS if set to empty.</p>
 <p>ConfigSource describes a source of configuration data for networking
 rules, and other Istio configuration artifacts. Multiple data sources
 can be configured for a single control plane.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-locality_lb_setting">
+<td><code>localityLbSetting</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</a></code></td>
+<td>
+<p>Locality based load balancing distribution or failover settings.</p>
 
 </td>
 </tr>
