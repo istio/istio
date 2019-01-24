@@ -33,7 +33,10 @@ func TestAuth(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error with auth: %v", err)
 	}
-	if opts != nil {
-		t.Error("None auth should be nil")
+	if opts == nil {
+		t.Error("No auth options returned")
+	}
+	if len(opts) != 1 {
+		t.Error("Should have 1 options")
 	}
 }

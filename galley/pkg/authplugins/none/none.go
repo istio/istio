@@ -23,7 +23,7 @@ import (
 )
 
 func returnAuth(config map[string]string) ([]grpc.DialOption, error) { // nolint: unparam
-	return nil, nil
+	return []grpc.DialOption{grpc.WithInsecure()}, nil
 }
 
 func GetInfo() authplugin.Info {

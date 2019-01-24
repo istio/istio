@@ -16,8 +16,11 @@ package source
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
+
+	"google.golang.org/grpc/codes"
 
 	"github.com/gogo/status"
 
@@ -51,6 +54,32 @@ func NewClient(client mcp.ResourceSinkClient, options *Options) *Client {
 
 var reconnectTestProbe = func() {}
 
+func (c *Client) sendDummyResponse(stream Stream) error {
+	dummy := &mcp.Resources{
+		Collection: "", // unimplemented collection
+	}
+
+	if err := stream.Send(dummy); err != nil {
+		return fmt.Errorf("could not send dummy request %v", err)
+	}
+
+	msg, err := stream.Recv()
+	if err != nil {
+		return fmt.Errorf("could not receive expected nack response: %v", err)
+	}
+
+	if msg.ErrorDetail == nil {
+		return fmt.Errorf("server should have nacked, did not get an error")
+	}
+	errCode := codes.Code(msg.ErrorDetail.Code)
+	if errCode != codes.Unimplemented {
+		return fmt.Errorf("server should have nacked with code=%v: got %v",
+			codes.Unimplemented, errCode)
+	}
+
+	return nil
+}
+
 func (c *Client) Run(ctx context.Context) {
 	// The first attempt is immediate.
 	retryDelay := time.Nanosecond
@@ -74,14 +103,22 @@ func (c *Client) Run(ctx context.Context) {
 				reconnectTestProbe()
 			}
 
-			if err == nil {
-				c.reporter.RecordStreamCreateSuccess()
-				scope.Info("New MCP source stream created")
-				c.stream = stream
-				break
+			if err != nil {
+				scope.Errorf("Failed to create a new MCP source stream: %v", err)
+				continue
+			}
+			c.reporter.RecordStreamCreateSuccess()
+			scope.Info("New MCP source stream created")
+
+			// Some scenarios requires the client to send the first message in a bi-directional stream to establish
+			// the stream on the server. Send a dummy response which we expect the server to NACK.
+			if err := c.sendDummyResponse(stream); err != nil {
+				scope.Errorf("Failed to send fake response: %v", err)
+				continue
 			}
 
-			scope.Errorf("Failed to create a new MCP source stream: %v", err)
+			c.stream = stream
+			break
 		}
 
 		err := c.source.processStream(c.stream)

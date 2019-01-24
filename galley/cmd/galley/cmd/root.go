@@ -150,6 +150,10 @@ func GetRootCmd(args []string) *cobra.Command {
 		"Disable resource readiness checks. This allows Galley to start if not all resource types are supported")
 	rootCmd.PersistentFlags().StringSliceVar(&serverArgs.ExcludedResourceKinds, "excludedResourceKinds",
 		serverArgs.ExcludedResourceKinds, "Comma-separated list of resource kinds that should not generate source events")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.CalloutAddress, "callout-address",
+		serverArgs.CalloutAddress, "Address of MCP Resource Sink for Galley to connect to. Ex: 'foo.com:1234'")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.CalloutAuth, "callout-auth",
+		serverArgs.CalloutAuth, "Name of authentication plugin to use for callout")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 

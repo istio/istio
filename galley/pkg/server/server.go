@@ -58,6 +58,7 @@ type Server struct {
 	listener   net.Listener
 	controlZ   *ctrlz.Server
 	stopCh     chan struct{}
+	callOut    *callout
 }
 
 type patchTable struct {
@@ -169,6 +170,14 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
 	}
 
+	if a.CalloutAddress != "" {
+		s.callOut, err = newCallout(a, options)
+		if err != nil {
+			s.callOut = nil
+			scope.Fatalf("Callout could not be initialized: %v", err)
+		}
+	}
+
 	s.mcp = server.New(options, checker)
 
 	// get the network stuff setup
@@ -229,6 +238,9 @@ func (s *Server) Run() {
 			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
 		}
 	}()
+	if s.callOut != nil {
+		go s.callOut.Run()
+	}
 }
 
 // Close cleans up resources used by the server.
@@ -257,6 +269,10 @@ func (s *Server) Close() error {
 
 	if s.reporter != nil {
 		_ = s.reporter.Close()
+	}
+
+	if s.callOut != nil {
+		s.callOut.Close()
 	}
 
 	// final attempt to purge buffered logs

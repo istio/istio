@@ -83,6 +83,15 @@ type Args struct {
 	// allows Galley to start when not all supported CRD are
 	// registered with the kube-apiserver.
 	DisableResourceReadyCheck bool
+
+	// CalloutAddress should be set to the address of a MCP Resource
+	// Sink service that Galley will dial out to. Leaving empty disables
+	// callout.
+	CalloutAddress string
+
+	// CalloutAuth should be set to a name of an authentication plugin,
+	// see the istio.io/istio/galley/pkg/autplugins package.
+	CalloutAuth string
 }
 
 // DefaultArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -134,6 +143,8 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
 	_, _ = fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)
 	_, _ = fmt.Fprintf(buf, "ExcludedResourceKinds: %v\n", a.ExcludedResourceKinds)
+	_, _ = fmt.Fprintf(buf, "CalloutAddress: %v\n", a.CalloutAddress)
+	_, _ = fmt.Fprintf(buf, "CalloutAuth: %v\n", a.CalloutAuth)
 
 	return buf.String()
 }
