@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/env"
+	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/source"
 )
@@ -45,15 +45,6 @@ var (
 	// For the purposes of rate limiting new connections, this controls how
 	// frequently new bursts of connections are allowed.
 	newConnectionFreq = env.Duration("NEW_CONNECTION_FREQ", 10*time.Millisecond)
-
-	// Controls the rate limit frequency for re-pushing previously NACK'd pushes
-	// for each type.
-	nackLimitFreq = env.Duration("NACK_LIMIT_FREQ", 1*time.Second)
-
-	// Controls the delay for re-retrying a configuration push if the previous
-	// attempt was not possible, e.g. the lower-level serving layer was busy. This
-	// should typically be set fairly small (order of milliseconds).
-	retryPushDelay = env.Duration("RETRY_PUSH_DELAY", 10*time.Millisecond)
 )
 
 var _ mcp.AggregatedMeshConfigServiceServer = &Server{}
@@ -81,93 +72,17 @@ type AuthChecker interface {
 	Check(authInfo credentials.AuthInfo) error
 }
 
-type newPushResponseState int
-
-const (
-	newPushResponseStateReady newPushResponseState = iota
-	newPushResponseStateClosed
-)
-
 // watch maintains local push state of the most recent watch per-type.
 type watch struct {
 	// only accessed from connection goroutine
-	cancel          func()
-	nonce           string // most recent nonce
-	nonceVersionMap map[string]string
+	cancel func()
+	nonce  string // most recent nonce
 
-	// NOTE: do not hold `mu` when reading/writing to this channel.
-	newPushResponseReadyChan chan newPushResponseState
+	// lambda to queue responses to be sent to the connected sink.
+	queueResponse func(*source.WatchResponse) bool
 
-	mu                      sync.Mutex
-	newPushResponse         *source.WatchResponse
-	mostRecentNackedVersion string
-	timer                   *time.Timer
-	closed                  bool
-}
-
-func (w *watch) delayedPush() {
-	w.mu.Lock()
-	w.timer = nil
-	w.mu.Unlock()
-
-	select {
-	case w.newPushResponseReadyChan <- newPushResponseStateReady:
-	default:
-		time.AfterFunc(retryPushDelay, w.schedulePush)
-	}
-}
-
-// Try to schedule pushing a response to the node. The push may
-// be re-scheduled as needed. Additional care is taken to rate limit
-// re-pushing responses that were previously NACK'd. This avoid flooding
-// the node with responses while also allowing transient NACK'd responses
-// to be retried.
-func (w *watch) schedulePush() {
-	w.mu.Lock()
-
-	// close the watch
-	if w.closed {
-		// unlock before channel write
-		w.mu.Unlock()
-
-		select {
-		case w.newPushResponseReadyChan <- newPushResponseStateClosed:
-		default:
-			time.AfterFunc(retryPushDelay, w.schedulePush)
-		}
-		return
-	}
-
-	// no-op if the response has already be sent
-	if w.newPushResponse == nil {
-		w.mu.Unlock()
-		return
-	}
-
-	// delay re-sending a previously nack'd response
-	if w.newPushResponse.Version == w.mostRecentNackedVersion {
-		if w.timer == nil {
-			w.timer = time.AfterFunc(nackLimitFreq, w.delayedPush)
-		}
-		w.mu.Unlock()
-		return
-	}
-
-	// Otherwise, try to schedule the response to be sent.
-	if w.timer != nil {
-		if !w.timer.Stop() {
-			<-w.timer.C
-		}
-		w.timer = nil
-	}
-	// unlock before channel write
-	w.mu.Unlock()
-	select {
-	case w.newPushResponseReadyChan <- newPushResponseStateReady:
-	default:
-		time.AfterFunc(retryPushDelay, w.schedulePush)
-	}
-
+	// lambda to signal the watch is finished (i.e. closed) to the common connection handler.
+	finished func()
 }
 
 // Save the pushed response in the newPushResponse and schedule a push. The push
@@ -175,14 +90,10 @@ func (w *watch) schedulePush() {
 // caller. The caller may provide a nil response to indicate that the watch
 // should be closed.
 func (w *watch) saveResponseAndSchedulePush(response *source.WatchResponse) {
-	w.mu.Lock()
-	w.newPushResponse = response
 	if response == nil {
-		w.closed = true
+		w.finished()
 	}
-	w.mu.Unlock()
-
-	w.schedulePush()
+	w.queueResponse(response)
 }
 
 // connection maintains per-stream connection state for a
@@ -203,6 +114,8 @@ type connection struct {
 	watcher  source.Watcher
 
 	reporter monitoring.Reporter
+
+	queue *internal.UniqueQueue
 }
 
 // New creates a new gRPC server that implements the Mesh Configuration Protocol (MCP).
@@ -219,18 +132,13 @@ func New(options *source.Options, authChecker AuthChecker) *Server {
 
 func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) (*connection, error) {
 	peerAddr := "0.0.0.0"
+	var authInfo credentials.AuthInfo
 
-	peerInfo, ok := peer.FromContext(stream.Context())
-	if ok {
+	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
 		peerAddr = peerInfo.Addr.String()
+		authInfo = peerInfo.AuthInfo
 	} else {
 		scope.Warnf("No peer info found on the incoming stream.")
-		peerInfo = nil
-	}
-
-	var authInfo credentials.AuthInfo
-	if peerInfo != nil {
-		authInfo = peerInfo.AuthInfo
 	}
 
 	if err := s.authCheck.Check(authInfo); err != nil {
@@ -245,21 +153,25 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 		watcher:  s.watcher,
 		id:       atomic.AddInt64(&s.nextStreamID, 1),
 		reporter: s.reporter,
+		queue:    internal.NewUniqueScheduledQueue(len(s.collections)),
 	}
 
-	var types []string
-	for _, collection := range s.collections {
+	var collections []string
+	for i := range s.collections {
+		collection := s.collections[i]
 		w := &watch{
-			newPushResponseReadyChan: make(chan newPushResponseState, 1),
-			nonceVersionMap:          make(map[string]string),
+			queueResponse: func(response *source.WatchResponse) bool {
+				return con.queue.Enqueue(collection.Name, response)
+			},
+			finished: con.queue.Close,
 		}
 		con.watches[collection.Name] = w
-		types = append(types, collection.Name)
+		collections = append(collections, collection.Name)
 	}
 
 	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, 1))
 
-	scope.Debugf("MCP: connection %v: NEW, supported types: %#v", con, types)
+	scope.Debugf("MCP: connection %v: NEW, supported collections: %#v", con, collections)
 	return con, nil
 }
 
@@ -278,43 +190,27 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 	defer s.closeConnection(con)
 	go con.receive()
 
-	// fan-in per-type response channels into single response channel for the select loop below.
-	responseChan := make(chan *watch, 1)
-	for _, w := range con.watches {
-		go func(w *watch) {
-			for state := range w.newPushResponseReadyChan {
-				if state == newPushResponseStateClosed {
-					break
-				}
-				responseChan <- w
-			}
-
-			// Any closed watch can close the overall connection. Use
-			// `nil` value to indicate a closed state to the run loop
-			// below instead of closing the channel to avoid closing
-			// the channel multiple times.
-			responseChan <- nil
-		}(w)
-	}
-
 	for {
 		select {
-		case w, more := <-responseChan:
-			if !more || w == nil {
-				return status.Error(codes.Unavailable, "server canceled watch")
-			}
-
-			w.mu.Lock()
-			resp := w.newPushResponse
-			w.newPushResponse = nil
-			w.mu.Unlock()
-
-			// newPushResponse may have been cleared before we got to it
-			if resp == nil {
+		case <-con.queue.Ready():
+			collection, item, ok := con.queue.Dequeue()
+			if !ok {
 				break
 			}
-			if err := con.pushServerResponse(w, resp); err != nil {
-				return err
+
+			resp := item.(*source.WatchResponse)
+
+			w, ok := con.watches[collection]
+			if !ok {
+				scope.Errorf("unknown collection in dequeued watch response: %v", collection)
+				break // bug?
+			}
+
+			// newPushResponse may have been cleared before we got to it
+			if resp != nil {
+				if err := con.pushServerResponse(w, resp); err != nil {
+					return err
+				}
 			}
 		case req, more := <-con.requestC:
 			if !more {
@@ -323,6 +219,8 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 			if err := con.processClientRequest(req); err != nil {
 				return err
 			}
+		case <-con.queue.Done():
+			return status.Error(codes.Unavailable, "server canceled watch")
 		case <-stream.Context().Done():
 			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
 			return stream.Context().Err()
@@ -380,8 +278,12 @@ func (con *connection) receive() {
 			con.reqError = err
 			return
 		}
+
 		select {
 		case con.requestC <- req:
+		case <-con.queue.Done():
+			scope.Debugf("MCP: connection %v: stream done", con)
+			return
 		case <-con.stream.Context().Done():
 			scope.Debugf("MCP: connection %v: stream done, err=%v", con, con.stream.Context().Err())
 			return
@@ -409,10 +311,6 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		return status.Errorf(codes.InvalidArgument, "unsupported collection %q", collection)
 	}
 
-	// Reset on every request. Only the most recent NACK request (per
-	// nonce) is tracked.
-	w.mostRecentNackedVersion = ""
-
 	// nonces can be reused across streams; we verify nonce only if nonce is not initialized
 	if w.nonce == "" || w.nonce == req.ResponseNonce {
 		if w.nonce == "" {
@@ -423,12 +321,6 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 					con, collection, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
 
 				con.reporter.RecordRequestNack(collection, con.id, codes.Code(req.ErrorDetail.Code))
-
-				if version, ok := w.nonceVersionMap[req.ResponseNonce]; ok {
-					w.mu.Lock()
-					w.mostRecentNackedVersion = version
-					w.mu.Unlock()
-				}
 			} else {
 				scope.Debugf("MCP: connection %v ACK collection=%q version=%q with nonce=%q",
 					con, collection, req.VersionInfo, req.ResponseNonce)
@@ -461,8 +353,6 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		}
 	}
 
-	delete(w.nonceVersionMap, req.ResponseNonce)
-
 	return nil
 }
 
@@ -472,6 +362,5 @@ func (con *connection) pushServerResponse(w *watch, resp *source.WatchResponse) 
 		return err
 	}
 	w.nonce = nonce
-	w.nonceVersionMap[nonce] = resp.Version
 	return nil
 }
