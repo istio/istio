@@ -72,7 +72,8 @@ spec:
       - name: kiali-configuration
         configMap:
           name: kiali
-{{- if .Values.nodeaffinityTemplate  }}
+{{- $nodeAffinity := or (include "nodeaffinity" .) "" -}}
+{{- if ne $nodeAffinity "" }}
       affinity:
-      {{- include "nodeaffinity" . | indent 6 }}
+      {{- printf "%s" $nodeAffinity | indent 6 }}
 {{- end }}
