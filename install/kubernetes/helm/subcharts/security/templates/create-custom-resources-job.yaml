@@ -29,7 +29,7 @@ rules:
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["validatingwebhookconfigurations"]
   verbs: ["get"]
-- apiGroups: ["extensions"]
+- apiGroups: ["extensions","apps"]
   resources: ["deployments", "replicasets"]
   verbs: ["get", "list", "watch"]
 ---
