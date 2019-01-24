@@ -30,7 +30,8 @@ func GetSAN(ns string, identity string) string {
 
 	if ns != "" {
 		return spiffe.MustGenSpiffeURI(ns, identity)
+	} else {
+		return spiffe.GenCustomSpiffe(identity)
 	}
 
-	return spiffe.GenCustomSpiffe(identity)
 }

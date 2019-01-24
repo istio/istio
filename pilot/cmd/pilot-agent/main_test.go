@@ -15,6 +15,7 @@
 package main
 
 import (
+	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"os"
 	"testing"
 

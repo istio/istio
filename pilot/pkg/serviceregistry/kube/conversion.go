@@ -165,9 +165,10 @@ func secureNamingSAN(pod *v1.Pod) string {
 	//use the identity annotation
 	if identity, exist := pod.Annotations[IdentityPodAnnotation]; exist {
 		return spiffe.GenCustomSpiffe(identity)
+	} else {
+		return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
 	}
 
-	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or
