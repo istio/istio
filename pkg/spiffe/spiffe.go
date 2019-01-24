@@ -56,3 +56,16 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 	}
 	return uri
 }
+
+// GenCustomSpiffe returns the  spiffe string that can have a custom structure
+func GenCustomSpiffe(identity string) string {
+
+	if identity == "" {
+		log.Error("spiffe identity can't be empty")
+		return ""
+	}
+
+	// replace specifial character in spiffe
+	trustDomain = strings.Replace(trustDomain, "@", ".", -1)
+	return fmt.Sprintf(Scheme+"://%s/%s", trustDomain, identity)
+}

@@ -243,9 +243,6 @@ func NewServer(args PilotArgs) (*Server, error) {
 	if err := s.initMeshNetworks(&args); err != nil {
 		return nil, fmt.Errorf("mesh networks: %v", err)
 	}
-	if err := s.initMixerSan(&args); err != nil {
-		return nil, fmt.Errorf("mixer san: %v", err)
-	}
 	if err := s.initConfigController(&args); err != nil {
 		return nil, fmt.Errorf("config controller: %v", err)
 	}
@@ -463,17 +460,6 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error { //nolint: unparam
 		}
 	})
 
-	return nil
-}
-
-// initMixerSan configures the mixerSAN configuration item. The mesh must already have been configured.
-func (s *Server) initMixerSan(args *PilotArgs) error {
-	if s.mesh == nil {
-		return fmt.Errorf("the mesh has not been configured before configuring mixer spiffe")
-	}
-	if s.mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-		s.mixerSAN = []string{envoy.GetMixerSAN(args.Namespace)}
-	}
 	return nil
 }
 
@@ -985,7 +971,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MeshNetworks:     s.meshNetworks,
 		IstioConfigStore: s.istioConfigStore,
 		ServiceDiscovery: s.ServiceController,
-		MixerSAN:         s.mixerSAN,
 	}
 
 	// Set up discovery service

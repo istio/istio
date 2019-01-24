@@ -81,3 +81,40 @@ func TestMustGenSpiffeURI(t *testing.T) {
 		t.Errorf("Unexpected spiffe URI for empty namespace and service account: %s", nonsense)
 	}
 }
+
+func TestGenCustomSpiffe(t *testing.T) {
+	oldTrustDomain := GetTrustDomain()
+	defer SetTrustDomain(oldTrustDomain)
+
+	testCases := []struct {
+		trustDomain string
+		identity    string
+		expectedURI string
+	}{
+		{
+			identity:    "foo",
+			trustDomain: "mesh.com",
+			expectedURI: "spiffe://mesh.com/foo",
+		},
+		{
+
+			//identity is empty
+			trustDomain: "mesh.com",
+			expectedURI: "",
+		},
+	}
+	for id, tc := range testCases {
+		if tc.trustDomain == "" {
+			SetTrustDomain(defaultTrustDomain)
+		} else {
+			SetTrustDomain(tc.trustDomain)
+		}
+
+		got := GenCustomSpiffe(tc.identity)
+
+		if got != tc.expectedURI {
+			t.Errorf("Test id: %v , unexpected subject name, want %v, got %v", id, tc.expectedURI, got)
+		}
+
+	}
+}
