@@ -313,7 +313,7 @@ _waitForPodsReady() {
 
 waitForPodsReady() {
     echo "Waiting for pods to be ready in ${1}..."
-    withRetriesMaxTime 300 10 _waitForPodsReady "${1}"
+    withRetriesMaxTime 600 10 _waitForPodsReady "${1}"
     echo "All pods ready."
 }
 
