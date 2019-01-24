@@ -70,7 +70,7 @@ $(BINDIR)/test-linux: vendor
 	@echo "--> building Linux test binary"
 	@env GOOS=linux GOARCH=amd64 go build -race -o $@ pkg/test/main/main.go
 
-docker: $(BINDIR)/test-linux
+docker: vendor
 	@echo "--> building test docker image"
 	@docker build -t test .
 
