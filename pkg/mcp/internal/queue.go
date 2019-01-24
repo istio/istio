@@ -17,11 +17,7 @@ package internal
 import (
 	"encoding/json"
 	"sync"
-
-	"istio.io/istio/pkg/log"
 )
-
-var scope = log.RegisterScope("mcp", "mcp debugging", 0)
 
 // TODO - this can eventually be moved under pkg/mcp/source once the new stack is
 // introduced. The code is temporarily added under pkg/mcp/internal so
