@@ -104,6 +104,7 @@ ISTIO_ROOT=${GOPATH}/src/istio.io/istio
 TMP_DIR=/tmp/istio_upgrade_test
 LOCAL_FORTIO_LOG=${TMP_DIR}/fortio_local.log
 POD_FORTIO_LOG=${TMP_DIR}/fortio_pod.log
+ERROR_TMP_LOG=${TMP_DIR}/error_temp.log
 
 # Make sure to change templates/*.yaml with the correct address if this changes.
 TEST_NAMESPACE="test"
@@ -129,13 +130,14 @@ withRetries() {
     shift
     shift
     while (( n < max_retries )); do
-      echo "RUNNING $*" ; "${@}" && break
+      echo "RUNNING $*" ; "${@}" > "${ERROR_TMP_LOG}" 2>&1 && break
       echo "Failed, sleeping ${sleep_sec} seconds and retrying..."
+      cat "${ERROR_TMP_LOG}"
       ((n++))
       sleep "${sleep_sec}"
     done
 
-    if (( n == max_retries )); then die "$* failed after retrying ${max_retries} times."; fi
+    if (( n == max_retries )); then cat "${ERROR_TMP_LOG}"; die "$* failed after retrying ${max_retries} times."; fi
     echo "Succeeded."
 }
 
@@ -149,12 +151,13 @@ withRetriesMaxTime() {
     shift
     shift
     while (( SECONDS - start_time <  total_time_max )); do
-      echo "RUNNING $*" ; "${@}" && break
+      echo "RUNNING $*" ; "${@}" > "${ERROR_TMP_LOG}" 2>&1 && break
       echo "Failed, sleeping ${sleep_sec} seconds and retrying..."
+      cat "${ERROR_TMP_LOG}"
       sleep "${sleep_sec}"
     done
 
-    if (( SECONDS - start_time >=  total_time_max )); then die "$* failed after retrying for ${total_time_max} seconds."; fi
+    if (( SECONDS - start_time >=  total_time_max )); then cat "${ERROR_TMP_LOG}"; die "$* failed after retrying for ${total_time_max} seconds."; fi
     echo "Succeeded."
 }
 
@@ -304,12 +307,13 @@ _waitForPodsReady() {
         return 0
     fi
 
+    echo "${pods_str}"
     return 1
 }
 
 waitForPodsReady() {
     echo "Waiting for pods to be ready in ${1}..."
-    withRetriesMaxTime 300 10 _waitForPodsReady "${1}"
+    withRetriesMaxTime 600 10 _waitForPodsReady "${1}"
     echo "All pods ready."
 }
 
