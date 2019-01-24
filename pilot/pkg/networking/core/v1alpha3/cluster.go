@@ -539,6 +539,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceInstance,
 	ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
 	var instance *model.ServiceInstance
+	// Search by port
 	for _, realinstance := range instances {
 		if realinstance.Endpoint.Port == int(ingressListener.Port.Number) {
 			instance = &model.ServiceInstance{
@@ -547,8 +548,12 @@ func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceIns
 				Labels:         realinstance.Labels,
 				ServiceAccount: realinstance.ServiceAccount,
 			}
+			return instance
 		}
+	}
 
+	// search by name
+	for _, realinstance := range instances {
 		// TODO: UDS may not work, we could use the port name
 		for _, iport := range realinstance.Service.Ports {
 			if iport.Name == ingressListener.Port.Name {
@@ -558,6 +563,7 @@ func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceIns
 					Labels:         realinstance.Labels,
 					ServiceAccount: realinstance.ServiceAccount,
 				}
+				return instance
 			}
 		}
 	}
