@@ -488,6 +488,11 @@ const (
 	// NodeConfigNamespace is the name of the metadata variable that carries info about
 	// the config namespace associated with the proxy
 	NodeConfigNamespace = "CONFIG_NAMESPACE"
+
+	// NodeMetadataRemapBase defines a base port to be added in 'NONE' mode to ports <1024.
+	// It can be set to "0" if envoy is running as root or NET_ADMIN and can bind to low ports.
+	// Default value is 15200-16224 (may be replaced by a global mesh config if needed)
+	NodeMetadataRemapBase = "PRIV_PORT_REMAP_BASE"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

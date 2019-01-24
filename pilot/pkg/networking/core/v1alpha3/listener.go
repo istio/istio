@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +31,7 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/type"
+	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 	google_protobuf "github.com/gogo/protobuf/types"
 	"github.com/prometheus/client_golang/prometheus"
@@ -792,7 +793,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 						bind = WildcardAddress
 					}
 				}
-				port := listenPort.Port
+				port := maybeMapPort(node, listenPort.Port, bindToPort)
 				listenerOpts := buildListenerOpts{
 					env:            env,
 					proxy:          node,
@@ -892,6 +893,35 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	return append(tcpListeners, httpListeners...)
+}
+
+// TEMPORARY FIX TO UNBLOCK TESTING - CURRENTLY THERE IS NO WAY TO IMPORT INDIVIDUAL SERVICES FROM istio-system
+// Once the bug is fixed - we can remove remapping. ( may need API change to allow egress ports to override ports)
+// Base used to remap privileged ports. 15000 is the range used by Istio special ports.
+const privPortRemap = 15200
+
+// maybeMapPort may remap privileged ports. Proxy doesn't run as root, so if bind=true ports <1024 will
+// not be accepted, envoy will reject the full config.
+func maybeMapPort(node *model.Proxy, i int, bindToPort bool) int {
+	if !bindToPort {
+		return i // all good, iptables doesn't care
+	}
+	if i > 1024 {
+		return i
+	}
+	baseRemap := privPortRemap
+	remapBase := node.Metadata[model.NodeMetadataRemapBase]
+	if remapBase != "" {
+		var err error
+		baseRemap, err = strconv.Atoi(remapBase)
+		if err != nil {
+			log.Errorf("Invalid metadata from envoy %s, defaulting to %d", remapBase, privPortRemap)
+			baseRemap = privPortRemap
+		}
+	}
+
+	// TODO: add some setting or override
+	return i + baseRemap
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
