@@ -115,9 +115,9 @@ TRAFFIC_RUNTIME_SEC=500
 # Used to signal that background external process is done.
 EXTERNAL_FORTIO_DONE_FILE=${TMP_DIR}/fortio_done_file
 
-echo_and_run() { echo "RUNNING $*" ; "$@" ; }
-echo_and_run_quiet() { echo "RUNNING(quiet) $*" ; "$@" > /dev/null 2>&1 ; }
-echo_and_run_or_die() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
+echo_and_run() { echo "# RUNNING $*" ; "$@" ; }
+echo_and_run_quiet() { echo "# RUNNING(quiet) $*" ; "$@" > /dev/null 2>&1 ; }
+echo_and_run_or_die() { echo "# RUNNING $*" ; "$@" || die "failed!" ; }
 
 # withRetries retries the given command ${1} times with ${2} sleep between retries
 # e.g. withRetries 10 60 myFunc param1 param2
