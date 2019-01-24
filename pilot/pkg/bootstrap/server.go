@@ -450,8 +450,11 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
-			s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
-			s.EnvoyXdsServer.ConfigUpdate(true)
+			s.kubeRegistry.InitNetworkLookup(meshNetworks)
+			if s.EnvoyXdsServer != nil {
+				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
+				s.EnvoyXdsServer.ConfigUpdate(true)
+			}
 		}
 	})
 
