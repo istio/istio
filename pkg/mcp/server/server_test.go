@@ -53,6 +53,7 @@ func (config *mockConfigWatcher) Watch(req *source.Request, pushResponse source.
 	config.counts[req.Collection]++
 
 	if rsp, ok := config.responses[req.Collection]; ok {
+		delete(config.responses, req.Collection)
 		rsp.Collection = req.Collection
 		pushResponse(rsp)
 		return nil
@@ -201,6 +202,12 @@ func TestMultipleRequests(t *testing.T) {
 		ResponseNonce: rsp.Nonce,
 	}
 
+	config.setResponse(&source.WatchResponse{
+		Collection: test.FakeType0Collection,
+		Version:    "2",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
+	})
+
 	// check a response
 	select {
 	case <-stream.sent:
@@ -302,6 +309,12 @@ func TestAuthCheck_Success(t *testing.T) {
 		VersionInfo:   rsp.VersionInfo,
 		ResponseNonce: rsp.Nonce,
 	}
+
+	config.setResponse(&source.WatchResponse{
+		Collection: test.FakeType0Collection,
+		Version:    "2",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
+	})
 
 	// check a response
 	select {
@@ -610,4 +623,103 @@ func TestAggregateRequestType(t *testing.T) {
 		t.Error("StreamAggregatedResources() => got nil, want an error")
 	}
 	close(stream.recv)
+}
+
+func TestIncrementalAggregatedResources(t *testing.T) {
+	var s Server
+	got := s.IncrementalAggregatedResources(nil)
+	if status.Code(got) != codes.Unimplemented {
+		t.Fatalf("IncrementalAggregatedResources() should return an unimplemented error code: got %v", status.Code(got))
+	}
+}
+
+func TestNACK(t *testing.T) {
+
+	config := makeMockConfigWatcher()
+	options := &source.Options{
+		Watcher:            config,
+		CollectionsOptions: source.CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+	}
+	s := New(options, test.NewFakeAuthChecker())
+
+	stream := makeMockStream(t)
+	go func() {
+		if err := s.StreamAggregatedResources(stream); err != nil {
+			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
+		}
+	}()
+
+	sendRequest := func(typeURL, nonce, version string, err error) {
+		req := &mcp.MeshConfigRequest{
+			SinkNode:      test.Node,
+			TypeUrl:       typeURL,
+			ResponseNonce: nonce,
+			VersionInfo:   version,
+		}
+		if err != nil {
+			errorDetails, _ := status.FromError(err)
+			req.ErrorDetail = errorDetails.Proto()
+		}
+		stream.recv <- req
+	}
+
+	// initial watch request
+	sendRequest(test.FakeType0Collection, "", "", nil)
+
+	nonces := make(map[string]bool)
+	var prevNonce string
+	pushedVersion := "1"
+	numResponses := 0
+	first := true
+	finish := time.Now().Add(1 * time.Second)
+	for i := 0; ; i++ {
+		var response *mcp.MeshConfigResponse
+
+		if first {
+			first = false
+			config.setResponse(&source.WatchResponse{
+				Collection: test.FakeType0Collection,
+				Version:    pushedVersion,
+				Resources:  []*mcp.Resource{test.Type0A[0].Resource},
+			})
+			select {
+			case response = <-stream.sent:
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for initial response")
+			}
+
+			if response.VersionInfo != pushedVersion {
+				t.Fatalf(" wrong response version: got %v want %v", response.VersionInfo, pushedVersion)
+			}
+			if _, ok := nonces[response.Nonce]; ok {
+				t.Fatalf(" reused nonce in response: %v", response.Nonce)
+			}
+			nonces[response.Nonce] = true
+
+			prevNonce = response.Nonce
+		} else {
+			select {
+			case response = <-stream.sent:
+				t.Fatal("received unexpected response after NACK")
+			case <-time.After(50 * time.Millisecond):
+			}
+		}
+
+		nonce := prevNonce
+		if i%2 == 1 {
+			nonce = "stale"
+		}
+
+		sendRequest(test.FakeType0Collection, nonce, pushedVersion, errors.New("nack"))
+
+		if time.Now().After(finish) {
+			break
+		}
+	}
+	wantResponses := 0
+	if numResponses != wantResponses {
+		t.Fatalf("wrong number of responses: got %v want %v",
+			numResponses, wantResponses)
+	}
 }

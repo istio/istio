@@ -17,7 +17,6 @@ package server
 import (
 	"fmt"
 	"io"
-	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -77,12 +76,9 @@ type AuthChecker interface {
 // watch maintains local push state of the most recent watch per-type.
 type watch struct {
 	// only accessed from connection goroutine
-	cancel          func()
-	nonce           string // most recent nonce
-	nonceVersionMap map[string]string
-
-	mu                      sync.Mutex
-	mostRecentNackedVersion string
+	cancel func()
+	nonce  string // most recent nonce
+	mu     sync.Mutex
 
 	// lambda to queue responses to be sent to the connected sink.
 	queueResponse func(*source.WatchResponse) bool
@@ -138,18 +134,13 @@ func New(options *source.Options, authChecker AuthChecker) *Server {
 
 func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggregatedResourcesServer) (*connection, error) {
 	peerAddr := "0.0.0.0"
+	var authInfo credentials.AuthInfo
 
-	peerInfo, ok := peer.FromContext(stream.Context())
-	if ok {
+	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
 		peerAddr = peerInfo.Addr.String()
+		authInfo = peerInfo.AuthInfo
 	} else {
 		scope.Warnf("No peer info found on the incoming stream.")
-		peerInfo = nil
-	}
-
-	var authInfo credentials.AuthInfo
-	if peerInfo != nil {
-		authInfo = peerInfo.AuthInfo
 	}
 
 	if err := s.authCheck.Check(authInfo); err != nil {
@@ -171,7 +162,6 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	for i := range s.collections {
 		collection := s.collections[i]
 		w := &watch{
-			nonceVersionMap: make(map[string]string),
 			queueResponse: func(response *source.WatchResponse) bool {
 				return con.queue.Enqueue(collection.Name, response)
 			},
@@ -210,11 +200,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 				break
 			}
 
-			resp, ok := item.(*source.WatchResponse)
-			if !ok {
-				scope.Errorf("dequeued response was wrong type: %v", reflect.TypeOf(item))
-				break // bug?
-			}
+			resp := item.(*source.WatchResponse)
 
 			w, ok := con.watches[collection]
 			if !ok {
@@ -223,12 +209,10 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 			}
 
 			// newPushResponse may have been cleared before we got to it
-			if resp == nil {
-				break
-			}
-
-			if err := con.pushServerResponse(w, resp); err != nil {
-				return err
+			if resp != nil {
+				if err := con.pushServerResponse(w, resp); err != nil {
+					return err
+				}
 			}
 		case req, more := <-con.requestC:
 			if !more {
@@ -329,10 +313,6 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		return status.Errorf(codes.InvalidArgument, "unsupported collection %q", collection)
 	}
 
-	// Reset on every request. Only the most recent NACK request (per
-	// nonce) is tracked.
-	w.mostRecentNackedVersion = ""
-
 	// nonces can be reused across streams; we verify nonce only if nonce is not initialized
 	if w.nonce == "" || w.nonce == req.ResponseNonce {
 		if w.nonce == "" {
@@ -343,12 +323,6 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 					con, collection, req.VersionInfo, req.ResponseNonce, w.nonce, req.ErrorDetail)
 
 				con.reporter.RecordRequestNack(collection, con.id, codes.Code(req.ErrorDetail.Code))
-
-				if version, ok := w.nonceVersionMap[req.ResponseNonce]; ok {
-					w.mu.Lock()
-					w.mostRecentNackedVersion = version
-					w.mu.Unlock()
-				}
 			} else {
 				scope.Debugf("MCP: connection %v ACK collection=%q version=%q with nonce=%q",
 					con, collection, req.VersionInfo, req.ResponseNonce)
@@ -381,8 +355,6 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 		}
 	}
 
-	delete(w.nonceVersionMap, req.ResponseNonce)
-
 	return nil
 }
 
@@ -392,6 +364,5 @@ func (con *connection) pushServerResponse(w *watch, resp *source.WatchResponse) 
 		return err
 	}
 	w.nonce = nonce
-	w.nonceVersionMap[nonce] = resp.Version
 	return nil
 }
