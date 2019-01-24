@@ -189,6 +189,9 @@ installIstioSystemAtVersionHelmTemplate() {
     release_path="${3}"/install/kubernetes/helm/istio
     if [[ "${release_path}" == *"1.1"* || "${release_path}" == *"master"* ]]; then
         # See https://preliminary.istio.io/docs/setup/kubernetes/helm-install/
+        helm init --client-only
+        helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts	
+        helm dependency update "${release_path}"
         for i in install/kubernetes/helm/istio-init/files/crd*yaml; do
             echo_and_run kubectl apply -f "${i}"
         done
