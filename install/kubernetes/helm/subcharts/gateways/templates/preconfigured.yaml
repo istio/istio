@@ -90,7 +90,7 @@ spec:
       name: tcp-citadel
     hosts:
     - "*"
----
+--- 
 {{- end }}
 {{- end }}
 
