@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -78,7 +77,6 @@ type watch struct {
 	// only accessed from connection goroutine
 	cancel func()
 	nonce  string // most recent nonce
-	mu     sync.Mutex
 
 	// lambda to queue responses to be sent to the connected sink.
 	queueResponse func(*source.WatchResponse) bool
