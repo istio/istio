@@ -905,7 +905,7 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 	if i > 1024 {
 		return true
 	}
-	remapBase := node.Metadata[model.NodeMetadataRemapBase]
+	remapBase := node.Metadata[model.NodeMetadataUID]
 	if remapBase == "0" {
 		return true
 	}

@@ -105,13 +105,16 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: costinm/fortio:latest
         imagePullPolicy: Always
         ports:
          - containerPort: 18080
          - containerPort: 18079
         args:
           - server
+          - -static-dir
+          - "/usr/share/fortio/"
+          - --stdclient
           - -http-port
           #- 127.0.0.1:28080 # This is the port from Sidecar. Normally should be localhost
           - :28080 # bound to 0.0.0.0 to allow additional perf testing.
@@ -147,10 +150,11 @@ spec:
     spec:
       containers:
       - name: echosrv
-        image: istio/fortio:latest
+        image: costinm/fortio:latest
         imagePullPolicy: Always
         args:
           - load
+          - --stdclient
           - -t
           - "0"
           - -c
