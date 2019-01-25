@@ -147,6 +147,12 @@ func TestServer_Basic(t *testing.T) {
 		t.Fatalf("Unexpected error creating service: %v", err)
 	}
 
+	// ensure that it does not crash
+	addr := s.Address()
+	if addr == nil {
+		t.Fatalf("expected address not found")
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 
@@ -157,4 +163,14 @@ func TestServer_Basic(t *testing.T) {
 
 	wg.Wait()
 	_ = s.Close()
+
+	// ensure that it does not crash
+	addr = s.Address()
+	if addr != nil {
+		t.Fatalf("unexpected address found")
+	}
+}
+
+func TestServer_Address(t *testing.T) {
+
 }

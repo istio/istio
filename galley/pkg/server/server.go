@@ -236,6 +236,14 @@ func (s *Server) Run() {
 	}()
 }
 
+// Address returns the Address of the MCP service.
+func (s *Server) Address() net.Addr {
+	if s.listener == nil {
+		return nil
+	}
+	return s.listener.Addr()
+}
+
 // Close cleans up resources used by the server.
 func (s *Server) Close() error {
 	if s.stopCh != nil {
@@ -258,6 +266,7 @@ func (s *Server) Close() error {
 
 	if s.listener != nil {
 		_ = s.listener.Close()
+		s.listener = nil
 	}
 
 	if s.reporter != nil {
