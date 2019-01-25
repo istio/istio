@@ -496,6 +496,9 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
+	// GetProxyLocality returns the locality where the proxy runs.
+	GetProxyLocality(*Proxy) string
+
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
 	// tasks such as health checks, etc. In a scenario where the proxy functions in the
@@ -535,12 +538,12 @@ func (h Hostname) Matches(o Hostname) bool {
 		return true
 	}
 
-	hWildcard := string(h[0]) == "*"
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
 	if hWildcard && len(o) == 0 {
 		return true
 	}
 
-	oWildcard := string(o[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 	if !hWildcard && !oWildcard {
 		// both are non-wildcards, so do normal string comparison
 		return h == o
@@ -574,8 +577,8 @@ func (h Hostname) SubsetOf(o Hostname) bool {
 		return true
 	}
 
-	hWildcard := string(h[0]) == "*"
-	oWildcard := string(o[0]) == "*"
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 	if !oWildcard {
 		if hWildcard {
 			return false
