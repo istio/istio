@@ -801,6 +801,43 @@ ident                         : dest.istio-system
 [tcheck] DispatchCheck <= (PANIC)
 `,
 	},
+
+	{
+		name: "CheckElidedRule",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckNoActionsOrHeaderOps,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: defaultValidDuration,
+			ValidUseCount: defaultValidUseCount,
+		},
+		log: ``,
+	},
+
+	{
+		name: "CheckOnlyHeaderOperationRule",
+		config: []string{
+			data.HandlerACheckOutput1,
+			data.InstanceCheckOutput1,
+			data.RuleCheckHeaderOpWithNoActions,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK_WITH_OUTPUT,
+		expectedCheckResult: adapter.CheckResult{
+			ValidDuration: defaultValidDuration,
+			ValidUseCount: defaultValidUseCount,
+			RouteDirective: &v1.RouteDirective{
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:      "b-header",
+					Value:     "test",
+					Operation: v1.APPEND,
+				}},
+			},
+		},
+		log: ``,
+	},
 }
 
 func TestDispatcher(t *testing.T) {
@@ -849,7 +886,7 @@ func TestDispatcher(t *testing.T) {
 
 				if e == nil {
 					if !reflect.DeepEqual(&cres, &tst.expectedCheckResult) {
-						tt.Fatalf("check result mismatch: '%v' != '%v'", cres, tst.expectedCheckResult)
+						tt.Fatalf("check result mismatch: '%#v' != '%#v'", cres, tst.expectedCheckResult)
 					}
 				} else {
 					err = e

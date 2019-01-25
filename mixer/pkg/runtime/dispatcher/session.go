@@ -238,6 +238,14 @@ func (s *session) dispatch() error {
 					}
 				}
 
+				// default response if RouteDirective is only action
+				if s.checkResult.IsDefault() {
+					s.checkResult = adapter.CheckResult{
+						ValidUseCount: defaultValidUseCount,
+						ValidDuration: defaultValidDuration,
+					}
+				}
+
 				if s.checkResult.RouteDirective == nil {
 					s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
 				}
