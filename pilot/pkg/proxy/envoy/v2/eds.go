@@ -200,8 +200,10 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		return s.updateCluster(push, clusterName, edsClusters)
 	}
 
+	s.mutex.RLock()
 	// The service was never updated - do the full update
 	se, f := s.EndpointShardsByService[string(hostname)]
+	s.mutex.RUnlock()
 	if !f {
 		return s.updateCluster(push, clusterName, edsClusters)
 	}
@@ -538,6 +540,21 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	requireFull := false
+
+	// To prevent memory leak.
+	// Should delete the service EndpointShards, when endpoints deleted or service deleted.
+	if len(istioEndpoints) == 0 {
+		if s.EndpointShardsByService[serviceName] != nil {
+			s.EndpointShardsByService[serviceName].mutex.Lock()
+			delete(s.EndpointShardsByService[serviceName].Shards, shard)
+			svcShards := len(s.EndpointShardsByService[serviceName].Shards)
+			s.EndpointShardsByService[serviceName].mutex.Unlock()
+			if svcShards == 0 {
+				delete(s.EndpointShardsByService, serviceName)
+			}
+		}
+		return
+	}
 
 	// Update the data structures for the service.
 	// 1. Find the 'per service' data
