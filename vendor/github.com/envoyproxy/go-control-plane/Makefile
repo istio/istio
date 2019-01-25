@@ -89,6 +89,9 @@ integration.docker: docker
 	docker run -it -e "XDS=ads" test -debug
 	docker run -it -e "XDS=xds" test -debug
 	docker run -it -e "XDS=rest" test -debug
+	docker run -it -e "XDS=ads" test -debug -tls
+	docker run -it -e "XDS=xds" test -debug -tls
+	docker run -it -e "XDS=rest" test -debug -tls
 
 #-----------------
 #-- code generaion
