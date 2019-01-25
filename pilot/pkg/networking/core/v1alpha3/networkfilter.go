@@ -139,12 +139,13 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, config model.ConfigMeta) []listener.Filter {
 
-	if len(routes) == 1 {
+	if util.IsProxyVersionGE11(node) && len(routes) > 1 {
+		return buildOutboundNetworkFiltersWithWeightedClusters(env, node, routes, push, port, config)
+	} else {
 		service := push.ServiceByHostname[model.Hostname(routes[0].Destination.Host)]
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)
 	}
-	return buildOutboundNetworkFiltersWithWeightedClusters(env, node, routes, push, port, config)
 }
 
 // buildOutboundMongoFilter builds an outbound Envoy MongoProxy filter.
