@@ -348,7 +348,7 @@ func (s *session) waitForDispatched() {
 
 				// update the direct response matching the error status
 				if s.variety == tpb.TEMPLATE_VARIETY_CHECK {
-					if got, response := status.GetDirectHTTPResponse(st); got {
+					if response := status.GetDirectHTTPResponse(st); response != nil {
 						if s.checkResult.RouteDirective == nil {
 							s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
 						}

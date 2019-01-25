@@ -149,8 +149,8 @@ func TestStatus(t *testing.T) {
 }
 
 func TestErrorDetail(t *testing.T) {
-	if gotResponse, _ := GetDirectHTTPResponse(OK); gotResponse {
-		t.Error("GetDirectHTTPResponse(OK) => got true, want false")
+	if response := GetDirectHTTPResponse(OK); response != nil {
+		t.Errorf("GetDirectHTTPResponse(OK) => got %#v, want nil", response)
 	}
 
 	response := &v1beta1.DirectHttpResponse{
@@ -166,12 +166,8 @@ func TestErrorDetail(t *testing.T) {
 		any,
 	}}
 
-	got, out := GetDirectHTTPResponse(s)
-	if !got {
-		t.Error("GetDirectHTTPResponse => got false, want true")
-	}
-	if !reflect.DeepEqual(out, response) {
-		t.Errorf("GetDirectHTTPResponse => got %#v, want %#v", out, response)
+	if got := GetDirectHTTPResponse(s); !reflect.DeepEqual(got, response) {
+		t.Errorf("GetDirectHTTPResponse => got %#v, want %#v", got, response)
 	}
 
 }

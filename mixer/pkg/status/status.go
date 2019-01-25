@@ -139,8 +139,9 @@ func String(status rpc.Status) string {
 	return result
 }
 
-// GetDirectHTTPResponse extracts a client-facing error detail for HTTP
-func GetDirectHTTPResponse(status rpc.Status) (bool, *v1beta1.DirectHttpResponse) {
+// GetDirectHTTPResponse extracts a client-facing error detail for HTTP or returns nil
+// if it is not present.
+func GetDirectHTTPResponse(status rpc.Status) *v1beta1.DirectHttpResponse {
 	for _, detail := range status.Details {
 		response := &v1beta1.DirectHttpResponse{}
 		if !types.Is(detail, response) {
@@ -149,9 +150,9 @@ func GetDirectHTTPResponse(status rpc.Status) (bool, *v1beta1.DirectHttpResponse
 		if types.UnmarshalAny(detail, response) != nil {
 			continue
 		}
-		return true, response
+		return response
 	}
-	return false, nil
+	return nil
 }
 
 // PackErrorDetail packs an HTTP response error detail
