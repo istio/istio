@@ -240,7 +240,7 @@ func (h *Handler) Close() error {
 }
 
 func (h *Handler) tryFlush() {
-	h.exporters.Range(func(key, value interface{}) bool {
+	h.exporters.Range(func(_, value interface{}) bool {
 		if flusher, ok := value.(flusher); ok {
 			flusher.Flush()
 		}
