@@ -77,23 +77,6 @@ type watch struct {
 	// only accessed from connection goroutine
 	cancel func()
 	nonce  string // most recent nonce
-
-	// lambda to queue responses to be sent to the connected sink.
-	queueResponse func(*source.WatchResponse) bool
-
-	// lambda to signal the watch is finished (i.e. closed) to the common connection handler.
-	finished func()
-}
-
-// Save the pushed response in the newPushResponse and schedule a push. The push
-// may be re-schedule as necessary but this should be transparent to the
-// caller. The caller may provide a nil response to indicate that the watch
-// should be closed.
-func (w *watch) saveResponseAndSchedulePush(response *source.WatchResponse) {
-	if response == nil {
-		w.finished()
-	}
-	w.queueResponse(response)
 }
 
 // connection maintains per-stream connection state for a
@@ -159,12 +142,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 	var collections []string
 	for i := range s.collections {
 		collection := s.collections[i]
-		w := &watch{
-			queueResponse: func(response *source.WatchResponse) bool {
-				return con.queue.Enqueue(collection.Name, response)
-			},
-			finished: con.queue.Close,
-		}
+		w := &watch{}
 		con.watches[collection.Name] = w
 		collections = append(collections, collection.Name)
 	}
@@ -206,7 +184,7 @@ func (s *Server) StreamAggregatedResources(stream mcp.AggregatedMeshConfigServic
 				break // bug?
 			}
 
-			// newPushResponse may have been cleared before we got to it
+			// the response may have been cleared before we got to it
 			if resp != nil {
 				if err := con.pushServerResponse(w, resp); err != nil {
 					return err
@@ -236,6 +214,16 @@ func (s *Server) closeConnection(con *connection) {
 // String implements Stringer.String.
 func (con *connection) String() string {
 	return fmt.Sprintf("{addr=%v id=%v}", con.peerAddr, con.id)
+}
+
+// Queue the response for sending in the dispatch loop. The caller may provide
+// a nil response to indicate that the watch should be closed.
+func (con *connection) queueResponse(resp *source.WatchResponse) {
+	if resp == nil {
+		con.queue.Close()
+	} else {
+		con.queue.Enqueue(resp.Collection, resp)
+	}
 }
 
 func (con *connection) send(resp *source.WatchResponse) (string, error) {
@@ -337,7 +325,7 @@ func (con *connection) processClientRequest(req *mcp.MeshConfigRequest) error {
 			Collection:  collection,
 			VersionInfo: req.VersionInfo,
 		}
-		w.cancel = con.watcher.Watch(sr, w.saveResponseAndSchedulePush)
+		w.cancel = con.watcher.Watch(sr, con.queueResponse)
 	} else {
 		// This error path should not happen! Skip any requests that don't match the
 		// latest watch's nonce value. These could be dup requests or out-of-order

@@ -188,14 +188,19 @@ func (c *Client) Run(ctx context.Context) {
 		})
 	}
 
+	// The first attempt is immediate.
+	retryDelay := time.Nanosecond
+
 	for {
-		retry := time.After(time.Nanosecond)
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-retry:
+			case <-time.After(retryDelay):
 			}
+
+			// slow subsequent reconnection attempts down
+			retryDelay = reestablishStreamDelay
 
 			scope.Info("(re)trying to establish new MCP stream")
 			var err error
@@ -206,7 +211,6 @@ func (c *Client) Run(ctx context.Context) {
 			}
 
 			scope.Errorf("Failed to create a new MCP stream: %v", err)
-			retry = time.After(reestablishStreamDelay)
 		}
 
 		var nextInitRequest int
