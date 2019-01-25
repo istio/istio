@@ -491,7 +491,7 @@ const (
 
 	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
 	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
-	NodeMetadataSidecarUID = "UID"
+	NodeMetadataSidecarUID = "SIDECAR_UID"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
