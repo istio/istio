@@ -777,7 +777,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				if bindToPort {
 					bind = LocalhostAddress
 				} else {
-					bind := egressListener.IstioListener.Bind
+					bind = egressListener.IstioListener.Bind
 					if len(bind) == 0 {
 						bind = WildcardAddress
 					}
