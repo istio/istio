@@ -20,8 +20,11 @@ import (
 	"github.com/pkg/errors"
 
 	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
+	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/runtime/states/defaultstate"
 	"istio.io/istio/pkg/log"
 	sn "istio.io/istio/pkg/mcp/snapshot"
 )
@@ -47,7 +50,7 @@ type Processor struct {
 	stopped chan struct{}
 
 	// The current in-memory configuration State
-	state *State
+	state *defaultstate.State
 
 	// hook that gets called after each event processing. Useful for testing.
 	postProcessHook postProcessHookFn
@@ -59,13 +62,13 @@ type Processor struct {
 type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
-func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
-	state := newState(sn.DefaultGroup, metadata.Types, cfg, newPublishingStrategyWithDefaults(), distributor)
+func NewProcessor(src Source, distributor publish.Distributor, cfg *Config) *Processor {
+	state := defaultstate.New(sn.DefaultGroup, cfg.DomainSuffix, metadata.Types, publish.NewStrategyWithDefaults(), distributor)
 	return newProcessor(state, src, nil)
 }
 
 func newProcessor(
-	state *State,
+	state *defaultstate.State,
 	src Source,
 	postProcessHook postProcessHookFn) *Processor {
 
@@ -137,9 +140,9 @@ loop:
 		case e := <-p.events:
 			p.processEvent(e)
 
-		case <-p.state.strategy.publish:
+		case <-p.state.PublishChan():
 			scope.Debug("Processor.process: publish")
-			p.state.publish()
+			p.state.Publish()
 
 		// p.done signals the graceful Shutdown of the processor.
 		case <-p.done:
@@ -152,7 +155,7 @@ loop:
 		}
 	}
 
-	p.state.close()
+	p.state.Close()
 	close(p.stopped)
 	scope.Debugf("Process.process: Exiting process loop")
 }
@@ -163,7 +166,7 @@ func (p *Processor) processEvent(e resource.Event) {
 
 	if e.Kind == resource.FullSync {
 		scope.Infof("Synchronization is complete, starting distribution.")
-		p.state.onFullSync()
+		p.state.OnFullSync()
 		return
 	}
 
@@ -172,15 +175,20 @@ func (p *Processor) processEvent(e resource.Event) {
 
 func (p *Processor) recordEvent() {
 	now := time.Now()
-	recordProcessorEventProcessed(now.Sub(p.lastEventTime))
+	monitoring.RecordProcessorEventProcessed(now.Sub(p.lastEventTime))
 	p.lastEventTime = now
 }
 
-func buildDispatcher(states ...*State) *processing.Dispatcher {
+type schemaBasedHandler interface {
+	processing.Handler
+	GetSchema() *resource.Schema
+}
+
+func buildDispatcher(handlers ...schemaBasedHandler) *processing.Dispatcher {
 	b := processing.NewDispatcherBuilder()
-	for _, state := range states {
-		for _, spec := range state.schema.All() {
-			b.Add(spec.Collection, state)
+	for _, h := range handlers {
+		for _, spec := range h.GetSchema().All() {
+			b.Add(spec.Collection, h)
 		}
 	}
 	return b.Build()
