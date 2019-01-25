@@ -17,8 +17,8 @@ data:
       rewriteAppHTTPProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
-{{- if not .Values.istio_cni.enabled }}
       {{ "[[ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"NONE\" ]]" }}
+{{- if not .Values.istio_cni.enabled }}
       - name: istio-init
 {{- if contains "/" .Values.global.proxy_init.image }}
         image: "{{ .Values.global.proxy_init.image }}"
@@ -56,8 +56,8 @@ data:
           privileged: true
           {{- end }}
         restartPolicy: Always
-        {{ "[[ end -]]" }}
 {{- end }}
+      {{ "[[ end -]]" }}
       {{- if eq .Values.global.proxy.enableCoreDump true }}
       - name: enable-core-dump
         args:
@@ -197,7 +197,6 @@ data:
           {{- if ne .Values.global.proxy.enableCoreDump true }}
           readOnlyRootFilesystem: true
           {{- end }}
-          {{ "[[ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"NONE\" -]]" }}
           {{ "[[ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) \"TPROXY\" -]]" }}
           capabilities:
             add:
@@ -208,7 +207,6 @@ data:
           runAsGroup: 1337
           {{- end }}
           runAsUser: 1337
-          {{ "[[- end ]]" }}
           {{ "[[- end ]]" }}
         resources:
           {{ "[[ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -]]" }}
