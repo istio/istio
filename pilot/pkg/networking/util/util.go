@@ -225,10 +225,7 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 // IsProxyVersionGE11 checks whether the given Proxy version is greater than or equals 1.1.
 func IsProxyVersionGE11(node *model.Proxy) bool {
 	ver, _ := node.GetProxyVersion()
-	if ver >= "1.1" {
-		return true
-	}
-	return false
+	return ver >= "1.1"
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all

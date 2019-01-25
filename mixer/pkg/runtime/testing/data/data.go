@@ -539,27 +539,32 @@ spec:
     operation: APPEND
 `
 
-// RuleCheck1WithInstance1And2Operation has instances icheck1 & icheck2 and a header operation
-var RuleCheck1WithInstance1And2Operation = `
-apiVersion: "config.istio.io/v1alpha2"
+// RuleCheckNoActionsOrHeaderOps has no actions and no responseHeaderOperations. Should be elided.
+var RuleCheckNoActionsOrHeaderOps = `
+apiVersion: config.istio.io/v1alpha2
 kind: rule
 metadata:
-  name: rcheck1
+  name: noactions
   namespace: istio-system
 spec:
-  actions:
-  - handler: hcheck1.acheck
-    instances:
-    - icheck1.tcheck.istio-system
-    - icheck2.tcheck.istio-system
-  requestHeaderOperations:
-  - name: a-header
-    values:
-    - '"test"'
+  actions: []
+  responseHeaderOperations: []
+`
+
+// RuleCheckHeaderOpWithNoActions has a responseHeaderOperation, but no actions. Should not be elided.
+var RuleCheckHeaderOpWithNoActions = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
   responseHeaderOperations:
   - name: b-header
     values:
     - '"test"'
+    operation: APPEND
 `
 
 // RuleReport1 is a standard testing instance config with name rreport1. It references I1 and H1.

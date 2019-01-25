@@ -139,7 +139,7 @@ func buildOutboundNetworkFilters(env *model.Environment, node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, config model.ConfigMeta) []listener.Filter {
 
-	if len(routes) == 1 {
+	if !util.IsProxyVersionGE11(node) || len(routes) == 1 {
 		service := push.ServiceByHostname[model.Hostname(routes[0].Destination.Host)]
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		return buildOutboundNetworkFiltersWithSingleDestination(env, node, clusterName, port)

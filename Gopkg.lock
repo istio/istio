@@ -323,7 +323,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:0eccf960582d063e2835e55697536a14d479a4e7c4c785504021d56b938c22a9"
+  digest = "1:cd72afc3a00653fbd8b3e64169e4e444641dc1e0077df43aa41a5986f46ec0f6"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -361,8 +361,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "8a91fb26f4e6553d2e21fa76e07d33b93a4f66e7"
-  version = "v0.6.6"
+  revision = "eb553e72ac8724721a99ed85fcb116467c7a2bac"
+  version = "v0.6.7"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -544,10 +544,11 @@
   revision = "4030bb1f1f0c35b30ca7009e9ebd06849dd45306"
 
 [[projects]]
-  digest = "1:2e3c336fc7fde5c984d2841455a658a6d626450b1754a854b3b32e7a8f49a07a"
+  digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
   name = "github.com/google/go-cmp"
   packages = [
     "cmp",
+    "cmp/cmpopts",
     "cmp/internal/diff",
     "cmp/internal/function",
     "cmp/internal/value",
@@ -2070,6 +2071,7 @@
     "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/golang/sync/errgroup",
     "github.com/google/go-cmp/cmp",
+    "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/go-github/github",
     "github.com/google/uuid",
     "github.com/googleapis/gax-go",
