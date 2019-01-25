@@ -671,7 +671,7 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
-	// TODO(sdake): need a better syncronization
+	// TODO(sdake): need a better synchronization
 	time.Sleep(20 * time.Second)
 
 	// Apply main manifest
