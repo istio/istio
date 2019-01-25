@@ -15,13 +15,236 @@
 package sink
 
 import (
+	"io"
+	"sort"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/gogo/status"
+	"google.golang.org/grpc/codes"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/mcp/internal"
 	"istio.io/istio/pkg/mcp/monitoring"
 )
+
+var scope = log.RegisterScope("mcp", "mcp debugging", 0)
+
+type perCollectionState struct {
+	// tracks resource versions that we've successfully ACK'd
+	versions map[string]string
+
+	// determines when incremental delivery is enabled for this collection
+	incrementalEnabled bool
+}
+
+// Incremental MCP is disabled by default
+const incrementalEnabledDefault = false
+
+// Sink implements the resource sink message exchange for MCP. It can be instantiated by client and server
+// sink implementations to manage the MCP message exchange.
+type Sink struct {
+	mu    sync.Mutex
+	state map[string]*perCollectionState
+
+	nodeInfo *mcp.SinkNode
+	updater  Updater
+	journal  *RecentRequestsJournal
+	metadata map[string]string
+	reporter monitoring.Reporter
+}
+
+// New creates a new resource sink.
+func New(options *Options) *Sink { // nolint: lll
+	nodeInfo := &mcp.SinkNode{
+		Id:          options.ID,
+		Annotations: options.Metadata,
+	}
+
+	state := make(map[string]*perCollectionState)
+	for _, collection := range options.CollectionOptions {
+		state[collection.Name] = &perCollectionState{
+			versions:           make(map[string]string),
+			incrementalEnabled: incrementalEnabledDefault,
+		}
+	}
+
+	return &Sink{
+		state:    state,
+		nodeInfo: nodeInfo,
+		updater:  options.Updater,
+		metadata: options.Metadata,
+		reporter: options.Reporter,
+		journal:  NewRequestJournal(),
+	}
+}
+
+// Probe point for test code to determine when the node is finished processing responses.
+var handleResponseDoneProbe = func() {}
+
+func (sink *Sink) sendNACKRequest(response *mcp.Resources, err error) *mcp.RequestResources {
+	errorDetails, _ := status.FromError(err)
+
+	scope.Errorf("MCP: sending NACK for nonce=%v: error=%q", response.Nonce, err)
+	sink.reporter.RecordRequestNack(response.Collection, 0, errorDetails.Code())
+
+	req := &mcp.RequestResources{
+		SinkNode:      sink.nodeInfo,
+		Collection:    response.Collection,
+		ResponseNonce: response.Nonce,
+		ErrorDetail:   errorDetails.Proto(),
+	}
+	return req
+}
+
+func (sink *Sink) handleResponse(resources *mcp.Resources) *mcp.RequestResources {
+	if handleResponseDoneProbe != nil {
+		defer handleResponseDoneProbe()
+	}
+
+	state, ok := sink.state[resources.Collection]
+	if !ok {
+		errDetails := status.Errorf(codes.Unimplemented, "unsupported collection %v", resources.Collection)
+		return sink.sendNACKRequest(resources, errDetails)
+	}
+
+	change := &Change{
+		Collection:  resources.Collection,
+		Objects:     make([]*Object, 0, len(resources.Resources)),
+		Removed:     resources.RemovedResources,
+		Incremental: resources.Incremental,
+	}
+
+	for _, resource := range resources.Resources {
+		var dynamicAny types.DynamicAny
+		if err := types.UnmarshalAny(resource.Body, &dynamicAny); err != nil {
+			return sink.sendNACKRequest(resources, err)
+		}
+
+		// TODO - use galley metadata to verify collection and type_url match?
+		object := &Object{
+			TypeURL:  resource.Body.TypeUrl,
+			Metadata: resource.Metadata,
+			Body:     dynamicAny.Message,
+		}
+		change.Objects = append(change.Objects, object)
+	}
+
+	if err := sink.updater.Apply(change); err != nil {
+		errDetails := status.Error(codes.InvalidArgument, err.Error())
+		return sink.sendNACKRequest(resources, errDetails)
+	}
+
+	// update version tracking if change is successfully applied
+	sink.mu.Lock()
+	internal.UpdateResourceVersionTracking(state.versions, resources)
+	useIncremental := state.incrementalEnabled
+	sink.mu.Unlock()
+
+	// ACK
+	sink.reporter.RecordRequestAck(resources.Collection, 0)
+	req := &mcp.RequestResources{
+		SinkNode:      sink.nodeInfo,
+		Collection:    resources.Collection,
+		ResponseNonce: resources.Nonce,
+		Incremental:   useIncremental,
+	}
+	return req
+}
+
+func (sink *Sink) createInitialRequests() []*mcp.RequestResources {
+	sink.mu.Lock()
+
+	initialRequests := make([]*mcp.RequestResources, 0, len(sink.state))
+	for collection, state := range sink.state {
+		var initialResourceVersions map[string]string
+
+		if state.incrementalEnabled {
+			initialResourceVersions = make(map[string]string, len(state.versions))
+			for name, version := range state.versions {
+				initialResourceVersions[name] = version
+			}
+		}
+
+		req := &mcp.RequestResources{
+			SinkNode:                sink.nodeInfo,
+			Collection:              collection,
+			InitialResourceVersions: initialResourceVersions,
+			Incremental:             state.incrementalEnabled,
+		}
+		initialRequests = append(initialRequests, req)
+	}
+	sink.mu.Unlock()
+
+	return initialRequests
+}
+
+// processStream implements the MCP message exchange for the resource sink. It accepts the sink
+// stream interface and returns when a send or receive error occurs. The caller is responsible for handling gRPC
+// client/server specific error handling.
+func (sink *Sink) processStream(stream Stream) error {
+	// send initial requests for each supported type
+	initialRequests := sink.createInitialRequests()
+	for {
+		var req *mcp.RequestResources
+
+		if len(initialRequests) > 0 {
+			req = initialRequests[0]
+			initialRequests = initialRequests[1:]
+		} else {
+			resources, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					sink.reporter.RecordRecvError(err, status.Code(err))
+					scope.Errorf("Error receiving MCP resource: %v", err)
+				}
+				return err
+			}
+			req = sink.handleResponse(resources)
+		}
+
+		sink.journal.RecordRequestResources(req)
+
+		if err := stream.Send(req); err != nil {
+			sink.reporter.RecordSendError(err, status.Code(err))
+			scope.Errorf("Error sending MCP request: %v", err)
+			return err
+		}
+	}
+}
+
+// SnapshotRequestInfo returns a snapshot of the last known set of request results.
+func (sink *Sink) SnapshotRequestInfo() []RecentRequestInfo {
+	return sink.journal.Snapshot()
+}
+
+// Metadata that is originally supplied when creating this sink.
+func (sink *Sink) Metadata() map[string]string {
+	r := make(map[string]string, len(sink.metadata))
+	for k, v := range sink.metadata {
+		r[k] = v
+	}
+	return r
+}
+
+// ID is the node id for this sink.
+func (sink *Sink) ID() string {
+	return sink.nodeInfo.Id
+}
+
+// Collections returns the resource collections that this sink requests.
+func (sink *Sink) Collections() []string {
+	result := make([]string, 0, len(sink.state))
+
+	for k := range sink.state {
+		result = append(result, k)
+	}
+	sort.Strings(result)
+
+	return result
+}
 
 // Object contains a decoded versioned object with metadata received from the server.
 type Object struct {
@@ -37,7 +260,7 @@ type Change struct {
 	// List of resources to add/update. The interpretation of this field depends
 	// on the value of Incremental.
 	//
-	// When Incremental=True, the list only includes new/updated resources.
+	// When Incremental=True, the list only includes new/updateReceivedForStream resources.
 	//
 	// When Incremental=False, the list includes the full list of resources.
 	// Any previously received resources not in this list should be deleted.
@@ -49,7 +272,7 @@ type Change struct {
 	// Ignore when Incremental=false.
 	Removed []string
 
-	// When true, the set of changes represents an incremental resource update. The
+	// When true, the set of changes represents an incrementalEnabled resource update. The
 	// `Objects` is a list of added/update resources and `Removed` is a list of delete
 	// resources.
 	//
@@ -103,7 +326,7 @@ type CollectionOptions struct {
 	Name string
 }
 
-// CollectionsOptionsFromSlice returns a slice of collection options from
+// CollectionOptionsFromSlice returns a slice of collection options from
 // a slice of collection names.
 func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 	options := make([]CollectionOptions, 0, len(names))
@@ -122,4 +345,10 @@ type Options struct {
 	ID                string
 	Metadata          map[string]string
 	Reporter          monitoring.Reporter
+}
+
+// Stream is for sending RequestResources messages and receiving Resource messages.
+type Stream interface {
+	Send(*mcp.RequestResources) error
+	Recv() (*mcp.Resources, error)
 }
