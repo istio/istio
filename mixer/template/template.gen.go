@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
-	adapter_template_kubernetes "istio.io/istio/mixer/adapter/kubernetesenv/template"
+	"istio.io/istio/mixer/adapter/kubernetesenv/template"
 
 	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 
@@ -5062,7 +5062,7 @@ func (b *builder_tracespan_Template) build(
 			return nil, template.NewErrorPath("SourceIp", err)
 		}
 
-		r.SourceIp = vIface.(net.IP)
+		r.SourceIp = net.IP(vIface.([]byte))
 
 	}
 
@@ -5082,7 +5082,7 @@ func (b *builder_tracespan_Template) build(
 			return nil, template.NewErrorPath("DestinationIp", err)
 		}
 
-		r.DestinationIp = vIface.(net.IP)
+		r.DestinationIp = net.IP(vIface.([]byte))
 
 	}
 
