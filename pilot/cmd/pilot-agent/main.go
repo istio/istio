@@ -241,7 +241,8 @@ var (
 			}
 
 			log.Infof("Monitored certs: %#v", certs)
-
+			
+			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
 			if controlPlaneBootstrap {
 				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 					opts := make(map[string]string)
