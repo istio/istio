@@ -19,13 +19,14 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	multierror "github.com/hashicorp/go-multierror"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 // FileWatcher is an interface that watches a set of files,
