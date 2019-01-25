@@ -75,16 +75,38 @@ func NewWatcher(
 }
 
 func (w *watcher) Run(ctx context.Context) {
-	// kick start the proxy with partial state (in case there are no notifications coming)
-	w.SendConfig()
-
-	// monitor certificates
-	certDirs := make([]string, 0, len(w.certs))
-	for _, cert := range w.certs {
-		certDirs = append(certDirs, cert.Directory)
+	fw, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Warnf("failed to create a watcher for certificate files: %v", err)
+		return
 	}
+	defer func() {
+		if err := fw.Close(); err != nil {
+			log.Warnf("closing watcher encounters an error %v", err)
+		}
+	}()
 
-	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.SendConfig)
+	// watch all directories
+	for _, cert := range w.certs {
+		if err := fw.Watch(cert.Directory); err != nil {
+			log.Warnf("watching %s encounters an error %v", cert.Directory, err)
+			return
+		}
+	}
+	go watchFileEvents(ctx, fw.Event, defaultMinDelay, w.SendConfig)
+
+  // kick start only if there is chance that files were created before starting watch
+  shouldKickStart := false
+	for _, cert := range w.certs {
+	  for _, filename := range cert.Files {
+      if _, err := os.Stat(path.Join(cert.Directory, filename)); err == nil  || !os.IsNotExist(err) {
+        shouldKickStart = true
+      }
+    }
+	}
+	if shouldKickStart {
+    w.SendConfig()
+	}
 
 	<-ctx.Done()
 }
@@ -133,33 +155,6 @@ func watchFileEvents(ctx context.Context, wch <-chan *fsnotify.FileEvent, minDel
 			return
 		}
 	}
-}
-
-// watchCerts watches all certificate directories and calls the provided
-// `updateFunc` method when changes are detected. This method is blocking
-// so it should be run as a goroutine.
-// updateFunc will not be called more than one time per minDelay.
-func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watchFileEventsFn,
-	minDelay time.Duration, updateFunc func()) {
-	fw, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Warnf("failed to create a watcher for certificate files: %v", err)
-		return
-	}
-	defer func() {
-		if err := fw.Close(); err != nil {
-			log.Warnf("closing watcher encounters an error %v", err)
-		}
-	}()
-
-	// watch all directories
-	for _, d := range certsDirs {
-		if err := fw.Watch(d); err != nil {
-			log.Warnf("watching %s encounters an error %v", d, err)
-			return
-		}
-	}
-	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
 }
 
 func generateCertHash(h hash.Hash, certsDir string, files []string) {
