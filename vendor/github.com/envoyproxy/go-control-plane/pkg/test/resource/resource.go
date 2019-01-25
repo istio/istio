@@ -59,14 +59,16 @@ func MakeEndpoint(clusterName string, port uint32) *v2.ClusterLoadAssignment {
 		ClusterName: clusterName,
 		Endpoints: []endpoint.LocalityLbEndpoints{{
 			LbEndpoints: []endpoint.LbEndpoint{{
-				Endpoint: &endpoint.Endpoint{
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
-								Protocol: core.TCP,
-								Address:  localhost,
-								PortSpecifier: &core.SocketAddress_PortValue{
-									PortValue: port,
+				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+					Endpoint: &endpoint.Endpoint{
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									Protocol: core.TCP,
+									Address:  localhost,
+									PortSpecifier: &core.SocketAddress_PortValue{
+										PortValue: port,
+									},
 								},
 							},
 						},
