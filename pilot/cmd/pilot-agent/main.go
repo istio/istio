@@ -183,8 +183,8 @@ var (
 					}
 				}
 			}
-			role.DNSDomain = getDNSDomain(role.DNSDomain)
-			pilotSAN = getPilotSAN(role.DNSDomain, ns)
+			role.DNSDomains[0] = getDNSDomain(role.DNSDomains)
+			pilotSAN = getPilotSAN(role.DNSDomains[0], ns)
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -346,17 +346,18 @@ func getPilotSAN(domain string, ns string) []string {
 	return pilotSAN
 }
 
-func getDNSDomain(domain string) string {
-	if len(domain) == 0 {
+func getDNSDomain(domain []string) string {
+	out := domain[0]
+	if len(out) == 0 {
 		if registry == serviceregistry.KubernetesRegistry {
-			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+			out = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 		} else if registry == serviceregistry.ConsulRegistry {
-			domain = "service.consul"
+			out = "service.consul"
 		} else {
-			domain = ""
+			out = ""
 		}
 	}
-	return domain
+	return out
 }
 
 func parseApplicationPorts() ([]uint16, error) {
@@ -383,6 +384,8 @@ func timeDuration(dur *types.Duration) time.Duration {
 }
 
 func init() {
+	var DNSDomain string
+
 	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
 		string(serviceregistry.KubernetesRegistry),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
@@ -391,8 +394,9 @@ func init() {
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
-	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
+	proxyCmd.PersistentFlags().StringVar(&DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
+	role.DNSDomains = append(role.DNSDomains, DNSDomain)
 	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
 		"The domain to use for identities")
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
