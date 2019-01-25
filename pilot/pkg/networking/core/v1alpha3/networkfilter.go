@@ -22,6 +22,7 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	mongo_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2"
+	mysql_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1"
 	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
@@ -127,6 +128,8 @@ func buildOutboundNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filt
 		filterstack = append(filterstack, buildOutboundMongoFilter(statPrefix))
 	case model.ProtocolRedis:
 		filterstack = append(filterstack, buildOutboundRedisFilter(statPrefix, clusterName))
+	case model.ProtocolMySQL:
+		filterstack = append(filterstack, buildOutboundMySQLFilter(statPrefix))
 	}
 	filterstack = append(filterstack, *tcpFilter)
 	return filterstack
@@ -192,6 +195,18 @@ func buildOutboundRedisFilter(statPrefix, clusterName string) listener.Filter {
 
 	return listener.Filter{
 		Name:       xdsutil.RedisProxy,
+		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+	}
+}
+
+// buildOutboundMySQLFilter builds an outbound Envoy MySQLProxy filter.
+func buildOutboundMySQLFilter(statPrefix string) listener.Filter {
+	config := &mysql_proxy.MySQLProxy{
+		StatPrefix: statPrefix, // MySQL stats are prefixed with mysql.<statPrefix> by Envoy.
+	}
+
+	return listener.Filter{
+		Name:       xdsutil.MySQLProxy,
 		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
 	}
 }
