@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 
@@ -70,6 +73,10 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 		sc.Close()
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
+
+	if got, want := opt.AlwaysValidTokenFlag, false; got != want {
+		t.Errorf("opt.AlwaysValidTokenFlag default: got: %v, want: %v", got, want)
+	}
 
 	proxyID := "proxy1-id"
 	ctx := context.Background()
@@ -161,7 +168,8 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		atomic.StoreUint32(&sc.skipTokenExpireCheck, 1)
 	}()
 
-	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, "jwtToken1")
+	testProxyID := "proxy1-id"
+	_, err := sc.GenerateSecret(context.Background(), testProxyID, testResourceName, "jwtToken1")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -181,6 +189,19 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	}
 	if retries == 5 {
 		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
+	}
+
+	key := ConnKey{
+		ProxyID:      testProxyID,
+		ResourceName: testResourceName,
+	}
+	if _, found := sc.secrets.Load(key); !found {
+		t.Errorf("Failed to find secret for %+v from cache", key)
+	}
+
+	sc.DeleteSecret(testProxyID, testResourceName)
+	if _, found := sc.secrets.Load(key); found {
+		t.Errorf("Found deleted secret for %+v from cache", key)
 	}
 }
 
@@ -381,6 +402,49 @@ func TestConstructCSRHostName(t *testing.T) {
 	}
 }
 
+func TestSetAlwaysValidTokenFlag(t *testing.T) {
+	fakeCACli := newMockCAClient()
+	opt := Options{
+		SecretTTL:            200 * time.Microsecond,
+		RotationInterval:     200 * time.Microsecond,
+		EvictionDuration:     10 * time.Second,
+		AlwaysValidTokenFlag: true,
+	}
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: true,
+		CaClient:    fakeCACli,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	defer func() {
+		sc.Close()
+	}()
+
+	if got, want := sc.isTokenExpired(), false; got != want {
+		t.Errorf("isTokenExpired: got: %v, want: %v", got, want)
+	}
+	_, err := sc.GenerateSecret(context.Background(), "proxy1-id", testResourceName, "jwtToken1")
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+
+	// Wait until key rotation job run to update cached secret.
+	wait := 200 * time.Millisecond
+	retries := 0
+	for ; retries < 5; retries++ {
+		time.Sleep(wait)
+		if atomic.LoadUint64(&sc.secretChangedCount) == uint64(0) {
+			// Retry after some sleep.
+			wait *= 2
+			continue
+		}
+
+		break
+	}
+	if retries == 5 {
+		t.Errorf("Cached secret failed to get refreshed, %d", atomic.LoadUint64(&sc.secretChangedCount))
+	}
+}
+
 func verifySecret(gotSecret *model.SecretItem) error {
 	if k8sSecretName != gotSecret.ResourceName {
 		return fmt.Errorf("resource name verification error: expected %s but got %s", k8sSecretName, gotSecret.ResourceName)
@@ -410,9 +474,13 @@ func newMockCAClient() *mockCAClient {
 
 func (c *mockCAClient) CSRSign(ctx context.Context, csrPEM []byte, subjectID string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
-	atomic.AddUint64(&c.signInvokeCount, 1)
+	if atomic.LoadUint64(&c.signInvokeCount) == 0 {
+		atomic.AddUint64(&c.signInvokeCount, 1)
+		return nil, status.Error(codes.Internal, "some internal error")
+	}
 
 	if atomic.LoadUint64(&c.signInvokeCount) == 1 {
+		atomic.AddUint64(&c.signInvokeCount, 1)
 		return mockCertChain1st, nil
 	}
 

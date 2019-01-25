@@ -502,6 +502,9 @@ spec:
   - name: user
     values:
     - sample.output.value
+  - name: empty-header
+    values:
+    - '""'
 `
 
 // RuleCheckOutput2 is a testing rule for check output template with multiple outputs
@@ -533,6 +536,34 @@ spec:
     values:
     - b.output.value
     - prefix.generated.string
+    operation: APPEND
+`
+
+// RuleCheckNoActionsOrHeaderOps has no actions and no responseHeaderOperations. Should be elided.
+var RuleCheckNoActionsOrHeaderOps = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
+  responseHeaderOperations: []
+`
+
+// RuleCheckHeaderOpWithNoActions has a responseHeaderOperation, but no actions. Should not be elided.
+var RuleCheckHeaderOpWithNoActions = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - '"test"'
     operation: APPEND
 `
 

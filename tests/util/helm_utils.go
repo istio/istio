@@ -14,6 +14,13 @@
 
 package util
 
+import (
+	"context"
+	"time"
+
+	"istio.io/istio/pkg/log"
+)
+
 // HelmInit init helm with a service account
 func HelmInit(serviceAccount string) error {
 	_, err := Shell("helm init --upgrade --service-account %s", serviceAccount)
@@ -73,4 +80,32 @@ func HelmParams(chartDir, chartName, valueFile, namespace, setValue string) stri
 	}
 
 	return helmCmd
+}
+
+// Obtain the version of Helm client and server with a timeout of 10s or return an error
+func helmVersion() (string, error) {
+	version, err := Shell("helm version")
+	return version, err
+}
+
+// HelmTillerRunning will block for up to 120 seconds waiting for Tiller readiness
+func HelmTillerRunning() error {
+	retry := Retrier{
+		BaseDelay: 10 * time.Second,
+		MaxDelay:  10 * time.Second,
+		Retries:   12,
+	}
+
+	retryFn := func(_ context.Context, i int) error {
+		_, err := helmVersion()
+		return err
+	}
+	ctx := context.Background()
+	_, err := retry.Retry(ctx, retryFn)
+	if err != nil {
+		log.Errorf("Tiller failed to start")
+		return err
+	}
+	log.Infof("Tiller is running")
+	return nil
 }

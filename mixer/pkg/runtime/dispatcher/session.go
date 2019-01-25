@@ -233,6 +233,17 @@ func (s *session) dispatch() error {
 						log.Warnf("Failed to evaluate header value: %v", verr)
 						continue
 					}
+					if hop.Value == "" {
+						continue
+					}
+				}
+
+				// default response if RouteDirective is only action
+				if s.checkResult.IsDefault() {
+					s.checkResult = adapter.CheckResult{
+						ValidUseCount: defaultValidUseCount,
+						ValidDuration: defaultValidDuration,
+					}
 				}
 
 				if s.checkResult.RouteDirective == nil {

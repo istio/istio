@@ -87,7 +87,14 @@ func (c *nativeComponent) Scope() lifecycle.Scope {
 
 // SetMeshConfig applies the given mesh config yaml file via Galley.
 func (c *nativeComponent) SetMeshConfig(yamlText string) error {
-	return ioutil.WriteFile(c.meshConfigFile, []byte(yamlText), os.ModePerm)
+	if err := ioutil.WriteFile(c.meshConfigFile, []byte(yamlText), os.ModePerm); err != nil {
+		return err
+	}
+	if err := c.Close(); err != nil {
+		return err
+	}
+
+	return c.restart()
 }
 
 // ClearConfig implements Galley.ClearConfig.
@@ -119,8 +126,8 @@ func (c *nativeComponent) ApplyConfig(yamlText string) (err error) {
 }
 
 // WaitForSnapshot implements Galley.WaitForSnapshot.
-func (c *nativeComponent) WaitForSnapshot(typeURL string, snapshot ...map[string]interface{}) error {
-	return c.client.waitForSnapshot(typeURL, snapshot)
+func (c *nativeComponent) WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error {
+	return c.client.waitForSnapshot(collection, snapshot)
 }
 
 // Start implements Component.Start.
@@ -159,12 +166,17 @@ func (c *nativeComponent) Reset() error {
 		return err
 	}
 
+	return c.restart()
+}
+
+func (c *nativeComponent) restart() error {
 	a := server.DefaultArgs()
 	a.Insecure = true
 	a.EnableServer = true
 	a.DisableResourceReadyCheck = true
 	a.ConfigPath = c.configDir
 	a.MeshConfigFile = c.meshConfigFile
+	a.ExcludedResourceKinds = make([]string, 0)
 	s, err := server.New(a)
 	if err != nil {
 		scopes.Framework.Errorf("Error starting Galley: %v", err)

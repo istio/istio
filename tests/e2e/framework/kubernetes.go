@@ -30,10 +30,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/util"
 )
 
@@ -42,6 +41,7 @@ const (
 	istioInstallDir                = "install/kubernetes"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
+	authSdsInstallFile             = "istio-auth-sds.yaml"
 	nonAuthWithoutMCPInstallFile   = "istio-mcp.yaml"
 	authWithoutMCPInstallFile      = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
@@ -96,6 +96,7 @@ var (
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
+	authSdsEnable      = flag.Bool("auth_sds_enable", false, "Enable auth using key/cert distributed through SDS")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster       = flag.Bool("use_local_cluster", false,
 		"If true any LoadBalancer type services will be converted to a NodePort service during testing. If running on minikube, this should be set to true")
@@ -157,6 +158,7 @@ type KubeInfo struct {
 	localCluster     bool
 	namespaceCreated bool
 	AuthEnabled      bool
+	AuthSdsEnabled   bool
 	RBACEnabled      bool
 
 	// Istioctl installation
@@ -172,19 +174,23 @@ type KubeInfo struct {
 	appPods  map[string]*appPodsInfo
 	Clusters map[string]string
 
-	KubeConfig       string
-	KubeClient       kubernetes.Interface
-	RemoteKubeConfig string
-	RemoteKubeClient kubernetes.Interface
-	RemoteAppManager *AppManager
-	RemoteIstioctl   *Istioctl
+	KubeConfig         string
+	KubeAccessor       *testKube.Accessor
+	RemoteKubeConfig   string
+	RemoteKubeAccessor *testKube.Accessor
+	RemoteAppManager   *AppManager
+	RemoteIstioctl     *Istioctl
 }
 
 func getClusterWideInstallFile() string {
 	var istioYaml string
 	if *authEnable {
 		if *useMCP {
-			istioYaml = authInstallFile
+			if *authSdsEnable {
+				istioYaml = authSdsInstallFile
+			} else {
+				istioYaml = authInstallFile
+			}
 		} else {
 			istioYaml = authWithoutMCPInstallFile
 		}
@@ -234,7 +240,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	// environment's kubeconfig if an empty string is provided.  Therefore in the
 	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
-	var kubeClient, remoteKubeClient kubernetes.Interface
+	var remoteKubeAccessor *testKube.Accessor
 	var aRemote *AppManager
 	var remoteI *Istioctl
 	if *multiClusterDir != "" {
@@ -253,10 +259,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
 		}
-		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
-			return nil, err
-		}
-		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+		if remoteKubeAccessor, err = testKube.NewAccessor(remoteKubeConfig, tmpDir); err != nil {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
@@ -273,6 +276,11 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 
+	kubeAccessor, err := testKube.NewAccessor(kubeConfig, tmpDir)
+	if err != nil {
+		return nil, err
+	}
+
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)
 	clusters[PrimaryCluster] = kubeConfig
@@ -284,25 +292,26 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
-		Namespace:        *namespace,
-		namespaceCreated: false,
-		TmpDir:           tmpDir,
-		yamlDir:          yamlDir,
-		localCluster:     *localCluster,
-		Istioctl:         i,
-		RemoteIstioctl:   remoteI,
-		AppManager:       a,
-		RemoteAppManager: aRemote,
-		AuthEnabled:      *authEnable,
-		RBACEnabled:      *rbacEnable,
-		ReleaseDir:       releaseDir,
-		BaseVersion:      baseVersion,
-		KubeConfig:       kubeConfig,
-		KubeClient:       kubeClient,
-		RemoteKubeConfig: remoteKubeConfig,
-		RemoteKubeClient: remoteKubeClient,
-		appPods:          appPods,
-		Clusters:         clusters,
+		Namespace:          *namespace,
+		namespaceCreated:   false,
+		TmpDir:             tmpDir,
+		yamlDir:            yamlDir,
+		localCluster:       *localCluster,
+		Istioctl:           i,
+		RemoteIstioctl:     remoteI,
+		AppManager:         a,
+		RemoteAppManager:   aRemote,
+		AuthEnabled:        *authEnable,
+		AuthSdsEnabled:     *authSdsEnable,
+		RBACEnabled:        *rbacEnable,
+		ReleaseDir:         releaseDir,
+		BaseVersion:        baseVersion,
+		KubeConfig:         kubeConfig,
+		KubeAccessor:       kubeAccessor,
+		RemoteKubeConfig:   remoteKubeConfig,
+		RemoteKubeAccessor: remoteKubeAccessor,
+		appPods:            appPods,
+		Clusters:           clusters,
 	}, nil
 }
 
@@ -746,11 +755,12 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 
 	// deploy tiller, helm cli is already available
 	if err := util.HelmInit("tiller"); err != nil {
-		log.Errorf("Failed to init helm tiller ")
+		log.Errorf("Failed to init helm tiller")
 		return err
 	}
-	// wait till tiller reaches running
-	return util.CheckPodRunning("kube-system", "name=tiller", k.KubeConfig)
+
+	// Wait until Helm's Tiller is running
+	return util.HelmTillerRunning()
 }
 
 var (
@@ -851,11 +861,8 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	if !*clusterWide {
-		setValue += " --set istiotesting.oneNameSpace=true"
+		setValue += " --set global.oneNamespace=true"
 	}
-
-	// CRDs installed ahead of time with 2.9.x
-	setValue += " --set global.crds=false"
 
 	// enable helm test for istio
 	setValue += " --set global.enableHelmTest=true"

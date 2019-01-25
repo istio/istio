@@ -261,6 +261,8 @@ func (m *HostHealthStatus) Validate() error {
 
 	// no validation rules for FailedOutlierCheck
 
+	// no validation rules for FailedActiveDegradedCheck
+
 	// no validation rules for EdsHealthStatus
 
 	return nil

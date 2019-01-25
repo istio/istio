@@ -19,9 +19,9 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -87,6 +87,9 @@ type Proxy struct {
 	// namespace.
 	ID string
 
+	// Locality is the location of where Envoy proxy runs.
+	Locality Locality
+
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
 	DNSDomain string
@@ -102,24 +105,15 @@ type Proxy struct {
 	// Metadata key-value pairs extending the Node identifier
 	Metadata map[string]string
 
-	// mutex control access to mutable fields in the Proxy. On-demand will modify the
-	// list of services based on calls from envoy.
-	mutex sync.RWMutex
-
-	// serviceDependencies, if set, controls the list of outbound listeners and routes
-	// for which the proxy will receive configurations. If nil, the proxy will get config
-	// for all visible services.
-	// The list will be populated either from explicit declarations or using 'on-demand'
-	// feature, before generation takes place. Each node may have a different list, based on
-	// the requests handled by envoy.
-	serviceDependencies []*Service
+	// the sidecarScope associated with the proxy
+	SidecarScope *SidecarScope
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 
 const (
-	// Sidecar type is used for sidecar proxies in the application containers
+	// SidecarProxy type is used for sidecar proxies in the application containers
 	SidecarProxy NodeType = "sidecar"
 
 	// Ingress type is used for cluster ingress proxies
@@ -277,11 +271,32 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
-	if configNamespace, found := proxy.Metadata["CONFIG_NAMESPACE"]; found {
+	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
+	if configNamespace, found := proxy.Metadata[NodeConfigNamespace]; found {
 		return configNamespace
 	}
 
+	// if not found, for backward compatibility, extract the namespace from
+	// the proxy domain. this is a k8s specific hack and should be enabled
+	parts := strings.Split(proxy.DNSDomain, ".")
+	if len(parts) > 1 { // k8s will have namespace.<domain>
+		return parts[0]
+	}
+
 	return ""
+}
+
+// GetProxyLocality returns the locality where Envoy proxy is running.
+func GetProxyLocality(proxy *core.Node) *Locality {
+	if proxy == nil || proxy.Locality == nil {
+		return nil
+	}
+
+	return &Locality{
+		Region:  proxy.Locality.Region,
+		Zone:    proxy.Locality.Zone,
+		SubZone: proxy.Locality.SubZone,
+	}
 }
 
 const (
@@ -354,21 +369,23 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
-		MixerCheckServer:      "",
-		MixerReportServer:     "",
-		DisablePolicyChecks:   false,
-		PolicyCheckFailOpen:   false,
-		ProxyListenPort:       15001,
-		ConnectTimeout:        types.DurationProto(1 * time.Second),
-		IngressClass:          "istio",
-		IngressControllerMode: meshconfig.MeshConfig_STRICT,
-		EnableTracing:         true,
-		AccessLogFile:         "/dev/stdout",
-		AccessLogEncoding:     meshconfig.MeshConfig_TEXT,
-		DefaultConfig:         &config,
-		SdsUdsPath:            "",
-		EnableSdsTokenMount:   false,
-		TrustDomain:           "",
+		MixerCheckServer:                  "",
+		MixerReportServer:                 "",
+		DisablePolicyChecks:               false,
+		PolicyCheckFailOpen:               false,
+		SidecarToTelemetrySessionAffinity: false,
+		ProxyListenPort:                   15001,
+		ConnectTimeout:                    types.DurationProto(1 * time.Second),
+		IngressClass:                      "istio",
+		IngressControllerMode:             meshconfig.MeshConfig_STRICT,
+		EnableTracing:                     true,
+		AccessLogFile:                     "/dev/stdout",
+		AccessLogEncoding:                 meshconfig.MeshConfig_TEXT,
+		DefaultConfig:                     &config,
+		SdsUdsPath:                        "",
+		EnableSdsTokenMount:               false,
+		TrustDomain:                       "",
+		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY},
 	}
 }
 
@@ -454,4 +471,62 @@ func parseIPAddresses(s string) ([]string, error) {
 // Tell whether the given IP address is valid or not
 func isValidIPAddress(ip string) bool {
 	return net.ParseIP(ip) != nil
+}
+
+// Pile all node metadata constants here
+const (
+
+	// NodeMetadataNetwork defines the network the node belongs to. It is an optional metadata,
+	// set at injection time. When set, the Endpoints returned to a note and not on same network
+	// will be replaced with the gateway defined in the settings.
+	NodeMetadataNetwork = "NETWORK"
+
+	// NodeMetadataInterceptionMode is the name of the metadata variable that carries info about
+	// traffic interception mode at the proxy
+	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
+
+	// NodeConfigNamespace is the name of the metadata variable that carries info about
+	// the config namespace associated with the proxy
+	NodeConfigNamespace = "CONFIG_NAMESPACE"
+
+	// NodeMetadataUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
+	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
+	NodeMetadataUID = "UID"
+)
+
+// TrafficInterceptionMode indicates how traffic to/from the workload is captured and
+// sent to Envoy. This should not be confused with the CaptureMode in the API that indicates
+// how the user wants traffic to be intercepted for the listener. TrafficInterceptionMode is
+// always derived from the Proxy metadata
+type TrafficInterceptionMode string
+
+const (
+	// InterceptionNone indicates that the workload is not using IPtables for traffic interception
+	InterceptionNone TrafficInterceptionMode = "NONE"
+
+	// InterceptionTproxy implies traffic intercepted by IPtables with TPROXY mode
+	InterceptionTproxy TrafficInterceptionMode = "TPROXY"
+
+	// InterceptionRedirect implies traffic intercepted by IPtables with REDIRECT mode
+	// This is our default mode
+	InterceptionRedirect TrafficInterceptionMode = "REDIRECT"
+)
+
+// GetInterceptionMode extracts the interception mode associated with the proxy
+// from the proxy metadata
+func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
+	if node == nil {
+		return InterceptionRedirect
+	}
+
+	switch node.Metadata[NodeMetadataInterceptionMode] {
+	case "TPROXY":
+		return InterceptionTproxy
+	case "REDIRECT":
+		return InterceptionRedirect
+	case "NONE":
+		return InterceptionNone
+	}
+
+	return InterceptionRedirect
 }

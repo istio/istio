@@ -64,6 +64,8 @@ func (m *ClusterLoadAssignment) Validate() error {
 
 	}
 
+	// no validation rules for NamedEndpoints
+
 	if v, ok := interface{}(m.GetPolicy()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return ClusterLoadAssignmentValidationError{

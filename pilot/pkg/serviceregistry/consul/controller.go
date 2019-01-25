@@ -17,6 +17,8 @@ package consul
 import (
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -177,6 +179,12 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	return out, nil
 }
 
+// GetProxyLocality returns the locality where the proxy runs.
+func (c *Controller) GetProxyLocality(node *model.Proxy) string {
+	// not implemented
+	return ""
+}
+
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	c.monitor.Start(stop)
@@ -209,6 +217,6 @@ func (c *Controller) GetIstioServiceAccounts(hostname model.Hostname, ports []in
 	// Follow - https://goo.gl/Dt11Ct
 
 	return []string{
-		"spiffe://cluster.local/ns/default/sa/default",
+		spiffe.MustGenSpiffeURI("default", "default"),
 	}
 }

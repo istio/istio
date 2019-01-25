@@ -207,6 +207,16 @@
                 "type": "PortSelector",
                 "is_repeated": true
               }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
             ]
           },
           {
@@ -581,6 +591,11 @@
                 "id": 5,
                 "name": "error_detail",
                 "type": "google.rpc.Status"
+              },
+              {
+                "id": 6,
+                "name": "incremental",
+                "type": "bool"
               }
             ],
             "maps": [
@@ -623,6 +638,11 @@
                 "id": 5,
                 "name": "nonce",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "incremental",
+                "type": "bool"
               }
             ]
           }
@@ -939,6 +959,11 @@
                 "is_repeated": true
               },
               {
+                "id": 31,
+                "name": "locality_lb_setting",
+                "type": "LocalityLoadBalancerSetting"
+              },
+              {
                 "id": 23,
                 "name": "enable_sds_token_mount",
                 "type": "bool"
@@ -983,6 +1008,60 @@
                 "id": 2,
                 "name": "tls_settings",
                 "type": "istio.networking.v1alpha3.TLSSettings"
+              }
+            ]
+          },
+          {
+            "name": "LocalityLoadBalancerSetting",
+            "fields": [
+              {
+                "id": 1,
+                "name": "distribute",
+                "type": "Distribute",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "failover",
+                "type": "Failover",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "Distribute",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  }
+                ],
+                "maps": [
+                  {
+                    "key_type": "string",
+                    "field": {
+                      "id": 2,
+                      "name": "to",
+                      "type": "uint32"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Failover",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  },
+                  {
+                    "id": 2,
+                    "name": "to",
+                    "type": "string"
+                  }
+                ]
               }
             ]
           }
@@ -2681,12 +2760,6 @@
                 "id": 2,
                 "name": "consistent_hash",
                 "type": "ConsistentHashLB"
-              },
-              {
-                "id": 3,
-                "name": "locality_weight_settings",
-                "type": "LocalityWeightSetting",
-                "is_repeated": true
               }
             ],
             "messages": [
@@ -2734,26 +2807,6 @@
                         "type": "google.protobuf.Duration"
                       }
                     ]
-                  }
-                ]
-              },
-              {
-                "name": "LocalityWeightSetting",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "from",
-                    "type": "string"
-                  }
-                ],
-                "maps": [
-                  {
-                    "key_type": "string",
-                    "field": {
-                      "id": 2,
-                      "name": "to",
-                      "type": "uint32"
-                    }
                   }
                 ]
               }
@@ -4832,6 +4885,35 @@
         ],
         "messages": [
           {
+            "name": "WorkloadSelector",
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 1,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "AuthorizationPolicy",
+            "fields": [
+              {
+                "id": 1,
+                "name": "workload_selector",
+                "type": "WorkloadSelector"
+              },
+              {
+                "id": 2,
+                "name": "allow",
+                "type": "ServiceRoleBinding",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "ServiceRole",
             "fields": [
               {
@@ -4852,8 +4934,26 @@
                 "is_repeated": true
               },
               {
+                "id": 5,
+                "name": "hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 6,
+                "name": "not_hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "paths",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_paths",
                 "type": "string",
                 "is_repeated": true
               },
@@ -4861,6 +4961,24 @@
                 "id": 3,
                 "name": "methods",
                 "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "not_methods",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "ports",
+                "type": "int32",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "not_ports",
+                "type": "int32",
                 "is_repeated": true
               },
               {
@@ -4919,9 +5037,57 @@
                 "type": "string"
               },
               {
+                "id": 4,
+                "name": "principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "not_principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "group",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "not_namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "ips",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 11,
+                "name": "not_ips",
+                "type": "string",
+                "is_repeated": true
               }
             ],
             "maps": [
@@ -4982,6 +5148,12 @@
                     "id": 1,
                     "name": "services",
                     "type": "string",
+                    "is_repeated": true
+                  },
+                  {
+                    "id": 3,
+                    "name": "workload_selectors",
+                    "type": "WorkloadSelector",
                     "is_repeated": true
                   },
                   {

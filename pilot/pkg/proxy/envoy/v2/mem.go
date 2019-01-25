@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"sync"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -55,7 +57,7 @@ func (c *MemServiceController) Run(<-chan struct{}) {}
 // MemServiceDiscovery is a mock discovery interface
 type MemServiceDiscovery struct {
 	services map[model.Hostname]*model.Service
-	// EndpointShardsByService table. Key is the fqdn of the service, ':', port
+	// EndpointShards table. Key is the fqdn of the service, ':', port
 	instancesByPortNum  map[string][]*model.ServiceInstance
 	instancesByPortName map[string][]*model.ServiceInstance
 
@@ -318,6 +320,12 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 	return out, sd.GetProxyServiceInstancesError
 }
 
+// GetProxyLocality returns the locality where the proxy runs.
+func (sd *MemServiceDiscovery) GetProxyLocality(node *model.Proxy) string {
+	// not implemented
+	return ""
+}
+
 // ManagementPorts implements discovery interface
 func (sd *MemServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	sd.mutex.Lock()
@@ -344,8 +352,8 @@ func (sd *MemServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, 
 	defer sd.mutex.Unlock()
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
-			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)

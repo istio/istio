@@ -310,9 +310,6 @@ func TestErrors(t *testing.T) {
 				s.Close()
 				t.Errorf("Got success, expecting error")
 			}
-
-			// cleanup
-			configStore.Stop()
 		})
 	}
 }

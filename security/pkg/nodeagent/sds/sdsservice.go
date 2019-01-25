@@ -71,6 +71,9 @@ type sdsConnection struct {
 	// The ID of proxy from which the connection comes from.
 	proxyID string
 
+	// The ResourceName of the SDS request.
+	ResourceName string
+
 	// Sending on this channel results in  push.
 	pushChannel chan *sdsEvent
 
@@ -139,17 +142,19 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 			log.Debugf("Received discovery request from %q", discReq.Node.Id)
 
-			con.proxyID = discReq.Node.Id
 			resourceName, err := parseDiscoveryRequest(discReq)
 			if err != nil {
 				log.Errorf("Failed to parse discovery request: %v", err)
 				return err
 			}
+			con.proxyID = discReq.Node.Id
+			con.ResourceName = resourceName
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(discReq.Node.Id, resourceName, token, discReq.VersionInfo) {
+				log.Debugf("Received SDS ACK from %q", discReq.Node.Id)
 				continue
 			}
 
@@ -165,7 +170,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				ResourceName: resourceName,
 			}
 			addConn(key, con)
-			defer removeConn(key)
+			defer func() {
+				removeConn(key)
+				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
+				// and cause some confusing logs like 'fails to notify because connection isn't found'.
+				s.st.DeleteSecret(con.proxyID, con.ResourceName)
+			}()
 
 			if err := pushSDS(con); err != nil {
 				log.Errorf("SDS failed to push key/cert to proxy %q: %v", con.proxyID, err)
@@ -175,12 +185,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			log.Debugf("Received push channel request for %q", con.proxyID)
 
 			if con.secret == nil {
-				// Secret is nil indicates close streaming connection to proxy, so that proxy
+				// Secret is nil indicates close streaming to proxy, so that proxy
 				// could connect again with updated token.
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
 				// from secret cache because cache has auto-evication.
-				log.Debugf("Close connection with %q", con.proxyID)
-				return fmt.Errorf("streaming connection with %q closed", con.proxyID)
+				log.Debugf("Close streaming for proxy %q", con.proxyID)
+				return fmt.Errorf("streaming for proxy %q closed", con.proxyID)
 			}
 
 			if err := pushSDS(con); err != nil {

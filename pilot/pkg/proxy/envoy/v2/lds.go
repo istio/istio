@@ -35,17 +35,9 @@ func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, _
 		con.LDSListeners = rawListeners
 	}
 	response := ldsDiscoveryResponse(rawListeners, version)
-	if version != versionInfo() {
-		// Just report for now - after debugging we can suppress the push.
-		// Change1 -> push1
-		// Change2 (after few seconds ) -> push2
-		// push1 may take 10 seconds and be slower - and a sidecar may get
-		// LDS from push2 first, followed by push1 - which will be out of date.
-		adsLog.Warnf("LDS: overlap %s %s %s", con.ConID, version, versionInfo())
-	}
 	err = con.send(response)
 	if err != nil {
-		adsLog.Warnf("LDS: Send failure, closing grpc %v", err)
+		adsLog.Warnf("LDS: Send failure %s: %v", con.ConID, err)
 		pushes.With(prometheus.Labels{"type": "lds_senderr"}).Add(1)
 		return err
 	}

@@ -22,6 +22,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	e "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
@@ -142,7 +143,33 @@ func (mixerplugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.Mut
 
 // OnOutboundCluster implements the Plugin interface method.
 func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
-	// do nothing
+	if !in.Env.Mesh.SidecarToTelemetrySessionAffinity {
+		// if session affinity is not enabled, do nothing
+		return
+	}
+	withoutPort := strings.Split(in.Env.Mesh.MixerReportServer, ":")
+	if strings.Contains(cluster.Name, withoutPort[0]) {
+		// config telemetry service discovery to be strict_dns for session affinity.
+		// To enable session affinity, DNS needs to provide only one and the same telemetry instance IP
+		// (e.g. in k8s, telemetry service spec needs to have SessionAffinity: ClientIP)
+		cluster.Type = xdsapi.Cluster_STRICT_DNS
+		addr := util.BuildAddress(in.Service.Address, uint32(in.Port.Port))
+		cluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
+			ClusterName: cluster.Name,
+			Endpoints: []e.LocalityLbEndpoints{
+				{
+					LbEndpoints: []e.LbEndpoint{
+						{
+							HostIdentifier: &e.LbEndpoint_Endpoint{
+								Endpoint: &e.Endpoint{Address: &addr},
+							},
+						},
+					},
+				},
+			},
+		}
+		cluster.EdsClusterConfig = nil
+	}
 }
 
 // OnInboundCluster implements the Plugin interface method.

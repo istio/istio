@@ -52,16 +52,17 @@ func NewInMemoryBuilder() *InMemoryBuilder {
 	}
 }
 
-// Set the values for a given type. If Set is called after a call to Freeze, then this method panics.
-func (b *InMemoryBuilder) Set(typeURL string, version string, resources []*mcp.Resource) {
-	b.snapshot.resources[typeURL] = resources
-	b.snapshot.versions[typeURL] = version
+// Set the values for a given collection. If Set is called after a call to Freeze, then this method panics.
+func (b *InMemoryBuilder) Set(collection, version string, resources []*mcp.Resource) {
+	b.snapshot.resources[collection] = resources
+	b.snapshot.versions[collection] = version
 }
 
 // SetEntry sets a single entry. Note that this is a slow operation, as update requires scanning
 // through existing entries.
-func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime time.Time, m proto.Message) error {
-	contents, err := proto.Marshal(m)
+func (b *InMemoryBuilder) SetEntry(collection, name, version string, createTime time.Time, labels,
+	annotations map[string]string, m proto.Message) error {
+	body, err := types.MarshalAny(m)
 	if err != nil {
 		return err
 	}
@@ -73,17 +74,16 @@ func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime tim
 
 	e := &mcp.Resource{
 		Metadata: &mcp.Metadata{
-			Name:       name,
-			CreateTime: createTimeProto,
-			Version:    version,
+			Name:        name,
+			CreateTime:  createTimeProto,
+			Labels:      labels,
+			Annotations: annotations,
+			Version:     version,
 		},
-		Body: &types.Any{
-			Value:   contents,
-			TypeUrl: typeURL,
-		},
+		Body: body,
 	}
 
-	entries := b.snapshot.resources[typeURL]
+	entries := b.snapshot.resources[collection]
 
 	for i, prev := range entries {
 		if prev.Metadata.Name == e.Metadata.Name {
@@ -93,14 +93,14 @@ func (b *InMemoryBuilder) SetEntry(typeURL, name, version string, createTime tim
 	}
 
 	entries = append(entries, e)
-	b.snapshot.resources[typeURL] = entries
+	b.snapshot.resources[collection] = entries
 	return nil
 }
 
-// DeleteEntry deletes the entry with the given typeuRL, name
-func (b *InMemoryBuilder) DeleteEntry(typeURL string, name string) {
+// DeleteEntry deletes the named entry within the given collection.
+func (b *InMemoryBuilder) DeleteEntry(collection string, name string) {
 
-	entries, found := b.snapshot.resources[typeURL]
+	entries, found := b.snapshot.resources[collection]
 	if !found {
 		return
 	}
@@ -108,22 +108,22 @@ func (b *InMemoryBuilder) DeleteEntry(typeURL string, name string) {
 	for i, e := range entries {
 		if e.Metadata.Name == name {
 			if len(entries) == 1 {
-				delete(b.snapshot.resources, typeURL)
-				delete(b.snapshot.versions, typeURL)
+				delete(b.snapshot.resources, collection)
+				delete(b.snapshot.versions, collection)
 				return
 			}
 
 			entries = append(entries[:i], entries[i+1:]...)
-			b.snapshot.resources[typeURL] = entries
+			b.snapshot.resources[collection] = entries
 
 			return
 		}
 	}
 }
 
-// SetVersion sets the version for the given type URL.
-func (b *InMemoryBuilder) SetVersion(typeURL string, version string) {
-	b.snapshot.versions[typeURL] = version
+// SetVersion sets the version for the given collection
+func (b *InMemoryBuilder) SetVersion(collection string, version string) {
+	b.snapshot.versions[collection] = version
 }
 
 // Build the snapshot and return.
@@ -137,13 +137,13 @@ func (b *InMemoryBuilder) Build() *InMemory {
 }
 
 // Resources is an implementation of Snapshot.Resources
-func (s *InMemory) Resources(typeURL string) []*mcp.Resource {
-	return s.resources[typeURL]
+func (s *InMemory) Resources(collection string) []*mcp.Resource {
+	return s.resources[collection]
 }
 
 // Version is an implementation of Snapshot.Version
-func (s *InMemory) Version(typeURL string) string {
-	return s.versions[typeURL]
+func (s *InMemory) Version(collection string) string {
+	return s.versions[collection]
 }
 
 // Clone this snapshot.
@@ -187,7 +187,7 @@ func (s *InMemory) String() string {
 	sort.Strings(messages)
 
 	for i, n := range messages {
-		fmt.Fprintf(&b, "[%d] (%s @%s)\n", i, n, s.versions[n])
+		_, _ = fmt.Fprintf(&b, "[%d] (%s @%s)\n", i, n, s.versions[n])
 
 		envs := s.resources[n]
 
@@ -199,7 +199,7 @@ func (s *InMemory) String() string {
 		})
 
 		for j, entry := range entries {
-			fmt.Fprintf(&b, "  [%d] (%s)\n", j, entry.Metadata.Name)
+			_, _ = fmt.Fprintf(&b, "  [%d] (%s)\n", j, entry.Metadata.Name)
 		}
 	}
 

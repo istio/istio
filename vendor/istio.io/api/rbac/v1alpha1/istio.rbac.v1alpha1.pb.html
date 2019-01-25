@@ -106,11 +106,10 @@ If set to [&ldquo;*&rdquo;], it refers to all services in the namespace.</p>
 <p>Optional. A list of HTTP paths or gRPC methods.
 gRPC methods must be presented as fully-qualified name in the form of
 &ldquo;/packageName.serviceName/methodName&rdquo; and are case sensitive.
-Exact match, prefix match, and suffix match are supported for paths.
-For example, the path &ldquo;/books/review&rdquo; matches
-&ldquo;/books/review&rdquo; (exact match), or &ldquo;/books/<em>&rdquo; (prefix match),
-or &ldquo;</em>/review&rdquo; (suffix match).
-If not specified, it applies to any path.</p>
+Exact match, prefix match, and suffix match are supported. For example,
+the path &ldquo;/books/review&rdquo; matches &ldquo;/books/review&rdquo; (exact match),
+or &ldquo;/books/<em>&rdquo; (prefix match), or &ldquo;</em>/review&rdquo; (suffix match).
+If not specified, it matches to any path.</p>
 
 </td>
 </tr>
@@ -120,7 +119,7 @@ If not specified, it applies to any path.</p>
 <td>
 <p>Optional. A list of HTTP methods (e.g., &ldquo;GET&rdquo;, &ldquo;POST&rdquo;).
 It is ignored in gRPC case because the value is always &ldquo;POST&rdquo;.
-If set to [&ldquo;*&rdquo;] or not specified, it applies to any method.</p>
+If not specified, it matches to any methods.</p>
 
 </td>
 </tr>
@@ -128,8 +127,7 @@ If set to [&ldquo;*&rdquo;] or not specified, it applies to any method.</p>
 <td><code>constraints</code></td>
 <td><code><a href="#AccessRule-Constraint">AccessRule.Constraint[]</a></code></td>
 <td>
-<p>Optional. Extra constraints in the ServiceRole specification.
-The above ServiceRole example shows an example of constraint &ldquo;version&rdquo;.</p>
+<p>Optional. Extra constraints in the ServiceRole specification.</p>
 
 </td>
 </tr>
@@ -162,10 +160,9 @@ The above ServiceRole example shows an example of constraint &ldquo;version&rdqu
 <td><code>string[]</code></td>
 <td>
 <p>List of valid values for the constraint.
-Exact match, prefix match, and suffix match are supported for constraint values.
-For example, the value &ldquo;v1alpha2&rdquo; matches
-&ldquo;v1alpha2&rdquo; (exact match), or &ldquo;v1<em>&rdquo; (prefix match),
-or &ldquo;</em>alpha2&rdquo; (suffix match).</p>
+Exact match, prefix match, and suffix match are supported.
+For example, the value &ldquo;v1alpha2&rdquo; matches &ldquo;v1alpha2&rdquo; (exact match),
+or &ldquo;v1<em>&rdquo; (prefix match), or &ldquo;</em>alpha2&rdquo; (suffix match).</p>
 
 </td>
 </tr>
@@ -335,8 +332,7 @@ Currently, &ldquo;ServiceRole&rdquo; is the only supported value for &ldquo;kind
 <td><code>string</code></td>
 <td>
 <p>Required. The name of the ServiceRole object being referenced.
-The ServiceRole object must be in the same namespace as the ServiceRoleBinding
-object.</p>
+The ServiceRole object must be in the same namespace as the ServiceRoleBinding object.</p>
 
 </td>
 </tr>
@@ -345,9 +341,7 @@ object.</p>
 </section>
 <h2 id="ServiceRole">ServiceRole</h2>
 <section>
-<p>ServiceRole specification contains a list of access rules (permissions).
-This represent the &ldquo;Spec&rdquo; part of the ServiceRole object. The name and namespace
-of the ServiceRole is specified in &ldquo;metadata&rdquo; section of the ServiceRole object.</p>
+<p>ServiceRole specification contains a list of access rules (permissions).</p>
 
 <table class="message-fields">
 <thead>
@@ -371,10 +365,7 @@ of the ServiceRole is specified in &ldquo;metadata&rdquo; section of the Service
 </section>
 <h2 id="ServiceRoleBinding">ServiceRoleBinding</h2>
 <section>
-<p>ServiceRoleBinding assigns a ServiceRole to a list of subjects.
-This represents the &ldquo;Spec&rdquo; part of the ServiceRoleBinding object. The name and namespace
-of the ServiceRoleBinding is specified in &ldquo;metadata&rdquo; section of the ServiceRoleBinding
-object.</p>
+<p>ServiceRoleBinding assigns a ServiceRole to a list of subjects.</p>
 
 <table class="message-fields">
 <thead>
@@ -430,8 +421,7 @@ The supported keys in <code>properties</code> are listed in &ldquo;constraint an
 <td><code>properties</code></td>
 <td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
-<p>Optional. The set of properties that identify the subject.
-The above ServiceRoleBinding example shows an example of property &ldquo;source.namespace&rdquo;.</p>
+<p>Optional. The set of properties that identify the subject.</p>
 
 </td>
 </tr>

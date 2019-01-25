@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
-	iamclient "istio.io/istio/security/pkg/nodeagent/plugin/providers/google"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 )
 
@@ -77,6 +76,9 @@ type Options struct {
 
 	// The Vault TLS root certificate.
 	VaultTLSRootCert string
+
+	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
 }
 
 // Server is the gPRC server that exposes SDS through UDS.
@@ -140,7 +142,6 @@ func (s *Server) Stop() {
 // NewPlugins returns a slice of default Plugins.
 func NewPlugins(in []string) []plugin.Plugin {
 	var availablePlugins = map[string]plugin.Plugin{
-		plugin.GoogleIAM:           iamclient.NewPlugin(),
 		plugin.GoogleTokenExchange: stsclient.NewPlugin(),
 	}
 	var plugins []plugin.Plugin
@@ -163,11 +164,17 @@ func (s *Server) initWorkloadSdsService(options *Options) error {
 	}
 
 	go func() {
-		if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
-			log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+		for {
+			// Retry if Serve() fails
+			log.Info("Start SDS grpc server")
+			if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
+				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+			}
+			s.grpcWorkloadListener, err = setUpUds(options.WorkloadUDSPath)
+			if err != nil {
+				log.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
+			}
 		}
-
-		log.Info("SDS grpc server for workload proxies started")
 	}()
 
 	return nil
@@ -185,11 +192,17 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	}
 
 	go func() {
-		if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
-			log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+		for {
+			// Retry if Serve() fails
+			log.Info("Start SDS grpc server for ingress gateway proxy")
+			if err = s.grpcGatewayServer.Serve(s.grpcGatewayListener); err != nil {
+				log.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
+			}
+			s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
+			if err != nil {
+				log.Errorf("SDS grpc server for ingress gateway proxy failed to set up UDS: %v", err)
+			}
 		}
-
-		log.Info("SDS grpc server for ingress gateway proxy started")
 	}()
 
 	return nil

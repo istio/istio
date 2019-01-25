@@ -10,7 +10,9 @@ metadata:
     release: {{ .Release.Name }}
     istio: ingress
 spec:
+{{- if not .Values.autoscaleMin }}
   replicas: {{ .Values.replicaCount }}
+{{- end }}
   template:
     metadata:
       labels:
@@ -37,10 +39,8 @@ spec:
           args:
           - proxy
           - ingress
-{{- if $.Values.global.proxy.proxyDomain }}
           - --domain
-          - {{ $.Values.global.proxy.proxyDomain }}
-{{- end }}
+          - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
           - --log_output_level
           - 'info'
           - --drainDuration
