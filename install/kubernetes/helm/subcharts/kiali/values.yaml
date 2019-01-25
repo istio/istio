@@ -33,3 +33,6 @@ dashboard:
   # Override the automatically detected Jaeger URL, useful when Jaeger service has no ExternalIPs
   # jaegerURL:
 prometheusAddr: http://prometheus:9090
+
+# When true, a secret will be created with a default username and password. Useful for demos.
+createDemoSecret: false
