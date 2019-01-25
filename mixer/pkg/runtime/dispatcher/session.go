@@ -356,7 +356,7 @@ func (s *session) waitForDispatched() {
 						if response.Code != 0 {
 							directive.DirectResponseCode = uint32(response.Code)
 						} else {
-							directive.DirectResponseCode = uint32(gatewayruntime.HTTPStatusFromCode(codes.Code(response.Code)))
+							directive.DirectResponseCode = uint32(gatewayruntime.HTTPStatusFromCode(codes.Code(st.Code)))
 						}
 						directive.DirectResponseBody = response.Body
 						for header, value := range response.Headers {
