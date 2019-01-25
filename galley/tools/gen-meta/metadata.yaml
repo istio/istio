@@ -335,15 +335,6 @@ resources:
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/redisquotas"
 
-  - kind:        "servicecontrol"
-    singular:    "servicecontrol"
-    plural:      "servicecontrols"
-    group:       "config.istio.io"
-    version:     "v1alpha2"
-    proto:       "type.googleapis.com/google.protobuf.Struct"
-    protoPackage: "github.com/gogo/protobuf/types"
-    collection:  "istio/config/v1alpha2/legacy/servicecontrols"
-
   - kind:        "signalfx"
     group:       "config.istio.io"
     plural:      "signalfxs"
@@ -469,15 +460,6 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/reportnothings"
-
-  - kind:        "servicecontrolreport"
-    singular:    "servicecontrolreport"
-    plural:      "servicecontrolreports"
-    group:       "config.istio.io"
-    version:     "v1alpha2"
-    proto:       "type.googleapis.com/google.protobuf.Struct"
-    protoPackage: "github.com/gogo/protobuf/types"
-    collection:  "istio/config/v1alpha2/legacy/servicecontrolreports"
 
   - kind:        "tracespan"
     singular:    "tracespan"

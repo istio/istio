@@ -127,12 +127,6 @@ var (
 	// Reportnothing metadata
 	Reportnothing resource.Info
 
-	// Servicecontrolreport metadata
-	Servicecontrolreport resource.Info
-
-	// Servicecontrol metadata
-	Servicecontrol resource.Info
-
 	// Signalfx metadata
 	Signalfx resource.Info
 
@@ -307,12 +301,6 @@ func init() {
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Reportnothing = b.Register(
 		"istio/config/v1alpha2/legacy/reportnothings",
-		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
-	Servicecontrolreport = b.Register(
-		"istio/config/v1alpha2/legacy/servicecontrolreports",
-		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
-	Servicecontrol = b.Register(
-		"istio/config/v1alpha2/legacy/servicecontrols",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Signalfx = b.Register(
 		"istio/config/v1alpha2/legacy/signalfxs",

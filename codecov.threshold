@@ -24,10 +24,11 @@ istio.io/istio/pkg/mcp/creds/watcher.go=100
 istio.io/istio/pkg/mcp/source/source.go=90
 istio.io/istio/security/pkg/nodeagent=15
 # Disable codecov check for testing and proto packages
-istio.io/istio/galley/pkg/testing=100	istio.io/istio/galley/pkg/testing=100
+istio.io/istio/galley/pkg/testing=100
 istio.io/istio/pkg/test=100
 istio.io/istio/security/proto=100
 istio.io/istio/tests=100
+istio.io/istio/mixer/pkg/adapter/test=100
 
 # Temporary until integ tests are restored
 istio.io/istio/pilot/pkg/networking/plugin=50
