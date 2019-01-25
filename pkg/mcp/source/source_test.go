@@ -530,10 +530,10 @@ func TestSourceConcurrentRequestsForMultipleTypes(t *testing.T) {
 
 func TestCalculateDelta(t *testing.T) {
 	var (
-		r0         = test.Type0A[0].Resource
-		r0_updated = test.Type0A[1].Resource
-		r1         = test.Type0B[0].Resource
-		r2         = test.Type0C[0].Resource
+		r0        = test.Type0A[0].Resource
+		r0Updated = test.Type0A[1].Resource
+		r1        = test.Type0B[0].Resource
+		r2        = test.Type0C[0].Resource
 	)
 
 	cases := []struct {
@@ -569,13 +569,13 @@ func TestCalculateDelta(t *testing.T) {
 		},
 		{
 			name:    "update existing",
-			current: []*mcp.Resource{r0_updated, r1, r2},
+			current: []*mcp.Resource{r0Updated, r1, r2},
 			acked: map[string]string{
 				r0.Metadata.Name: r0.Metadata.Version,
 				r1.Metadata.Name: r1.Metadata.Version,
 				r2.Metadata.Name: r2.Metadata.Version,
 			},
-			wantAdded: []mcp.Resource{*r0_updated},
+			wantAdded: []mcp.Resource{*r0Updated},
 		},
 		{
 			name:    "delete one",
@@ -601,12 +601,12 @@ func TestCalculateDelta(t *testing.T) {
 		},
 		{
 			name:    "add, update, and delete in the same push",
-			current: []*mcp.Resource{r0_updated, r2},
+			current: []*mcp.Resource{r0Updated, r2},
 			acked: map[string]string{
 				r0.Metadata.Name: r0.Metadata.Version, // update
 				r1.Metadata.Name: r1.Metadata.Version, // remove
 			},
-			wantAdded:   []mcp.Resource{*r0_updated, *r2},
+			wantAdded:   []mcp.Resource{*r0Updated, *r2},
 			wantRemoved: []string{r1.Metadata.Name},
 		},
 	}
