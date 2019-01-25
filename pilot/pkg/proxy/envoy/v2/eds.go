@@ -113,7 +113,7 @@ func buildEnvoyLbEndpoint(UID string, family model.AddressFamily, address string
 	}
 
 	ep := &endpoint.LbEndpoint{
-		HostIdentifier: &endpoint.LbEndpoint_Endpoint {
+		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: &addr,
 			},
@@ -135,7 +135,7 @@ func networkEndpointToEnvoyEndpoint(e *model.NetworkEndpoint) (*endpoint.LbEndpo
 	}
 	addr := util.GetNetworkEndpointAddress(e)
 	ep := &endpoint.LbEndpoint{
-		HostIdentifier: &endpoint.LbEndpoint_Endpoint {
+		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: &addr,
 			},

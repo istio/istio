@@ -99,7 +99,7 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
 					addr := util.BuildAddress(gw.GetAddress(), gw.Port)
 					gwEp = &endpoint.LbEndpoint{
-						HostIdentifier: &endpoint.LbEndpoint_Endpoint {
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 							Endpoint: &endpoint.Endpoint{
 								Address: &addr,
 							},

@@ -262,7 +262,7 @@ func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
 	lbEndpoints := make([]endpoint.LbEndpoint, len(lbEpsInfo))
 	for j, lbEpInfo := range lbEpsInfo {
 		lbEp := endpoint.LbEndpoint{
-			HostIdentifier: &endpoint.LbEndpoint_Endpoint {
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
 					Address: &core.Address{
 						Address: &core.Address_SocketAddress{

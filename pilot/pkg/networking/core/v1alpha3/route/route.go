@@ -574,8 +574,8 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	out := route.CorsPolicy{
 		AllowOrigin: in.AllowOrigin,
-		EnabledSpecifier: &route.CorsPolicy_Enabled {
-			Enabled:     proto.BoolTrue,
+		EnabledSpecifier: &route.CorsPolicy_Enabled{
+			Enabled: proto.BoolTrue,
 		},
 	}
 	out.AllowCredentials = in.AllowCredentials

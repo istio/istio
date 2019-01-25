@@ -199,7 +199,7 @@ func TestDynamicAttribute(t *testing.T) {
 								},
 							},
 						},
-						HostIdentifier: &endpoint.LbEndpoint_Endpoint {
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 							Endpoint: &endpoint.Endpoint{
 								Address: &core.Address{Address: &core.Address_SocketAddress{
 									SocketAddress: &core.SocketAddress{
