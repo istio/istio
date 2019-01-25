@@ -89,7 +89,27 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		sidecarScope := proxy.SidecarScope
 		recomputeOutboundClusters := true
 		if configgen.CanUsePrecomputedCDS(proxy) {
-			if sidecarScope != nil && sidecarScope.XDSOutboundClusters != nil {
+			// if there is no sidecar scope use the one from the gateway
+			// This is a gross hack and can get corrupted quickly as gateways have
+			// different sets of imports. Should be removed. Instead use a default
+			// auto generated sidecar, and use the cache from the sidecar
+			if sidecarScope == nil {
+				if configgen.CanUsePrecomputedCDS(proxy) {
+					if configgen.PrecomputedOutboundClustersForGateways != nil &&
+						configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
+						clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace]...)
+						// For locality loadbalancing
+						for i, cluster := range clusters {
+							if cluster.LoadAssignment != nil {
+								clone := util.CloneCluster(cluster)
+								ApplyLocalityLBSetting(proxy, clone, push)
+								clusters[i] = clone
+							}
+						}
+						recomputeOutboundClusters = false
+					}
+				}
+			} else if sidecarScope.XDSOutboundClusters != nil {
 				clusters = append(clusters, sidecarScope.XDSOutboundClusters...)
 				// For locality loadbalancing
 				for i, cluster := range clusters {
