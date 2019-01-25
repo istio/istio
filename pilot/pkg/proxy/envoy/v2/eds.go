@@ -217,6 +217,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 	cnt := 0
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
+	se.Mutex.RLock()
 	// The shards are updated independently, now need to filter and merge
 	// for this cluster
 	for _, es := range se.Shards {
@@ -248,6 +249,8 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, *el.EnvoyEndpoint)
 		}
 	}
+	se.Mutex.RUnlock()
+
 	locEps := make([]endpoint.LocalityLbEndpoints, 0, len(localityEpMap))
 	for _, locLbEps := range localityEpMap {
 		locEps = append(locEps, *locLbEps)
@@ -405,8 +408,6 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]uint32, rports map[uint32]string) {
 	pc := s.globalPushContext()
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	// In 1.0 Services and configs are only from the 'primary' K8S cluster.
 	if cluster == string(serviceregistry.KubernetesRegistry) {
 		pl := model.PortList{}
@@ -416,7 +417,9 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, ports map[string]u
 				Name: k,
 			})
 		}
+		pc.Mutex.Lock()
 		pc.ServicePort2Name[hostname] = pl
+		pc.Mutex.Unlock()
 	}
 	// TODO: for updates from other clusters, warn if they don't match primary.
 }
@@ -568,8 +571,11 @@ func (s *DiscoveryServer) edsUpdate(shard, serviceName string,
 			}
 		}
 	}
-	s.mutex.Lock()
+	ep.Mutex.Lock()
 	ep.Shards[shard] = ce
+	ep.Mutex.Unlock()
+
+	s.mutex.Lock()
 	s.edsUpdates[serviceName] = ep
 	s.mutex.Unlock()
 

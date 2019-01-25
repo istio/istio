@@ -178,6 +178,8 @@ type IstioEndpoint struct {
 // individual shards incrementally. The shards are aggregated and split into
 // clusters when a push for the specific cluster is needed.
 type EndpointShardsByService struct {
+	// Mutex protecting below map.
+	Mutex sync.RWMutex
 
 	// Shards is used to track the shards. EDS updates are grouped by shard.
 	// Current implementation uses the registry name as key - in multicluster this is the
