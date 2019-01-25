@@ -169,5 +169,17 @@ func TestErrorDetail(t *testing.T) {
 	if got := GetDirectHTTPResponse(s); !reflect.DeepEqual(got, response) {
 		t.Errorf("GetDirectHTTPResponse => got %#v, want %#v", got, response)
 	}
+}
 
+func TestStatusCode(t *testing.T) {
+	for code := range rpc.Code_name {
+		httpCode := HTTPStatusFromCode(rpc.Code(code))
+		if httpCode < 200 || httpCode > 600 {
+			t.Errorf("unexpected HTTP code after translation: %d", httpCode)
+		}
+	}
+
+	if code := HTTPStatusFromCode(rpc.Code(-1)); code != 500 {
+		t.Errorf("unexpected undefined HTTP code: %d", code)
+	}
 }
