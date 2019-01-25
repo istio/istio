@@ -391,7 +391,10 @@ func (s *Server) initMesh(args *PilotArgs) error {
 					//TODO Need to re-create or reload initConfigController()
 				}
 				s.mesh = mesh
-				s.EnvoyXdsServer.ConfigUpdate(true)
+				if s.EnvoyXdsServer != nil {
+					s.EnvoyXdsServer.Env.Mesh = mesh
+					s.EnvoyXdsServer.ConfigUpdate(true)
+				}
 			}
 		})
 	}
@@ -450,7 +453,13 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
-			s.EnvoyXdsServer.ConfigUpdate(true)
+			if s.kubeRegistry != nil {
+				s.kubeRegistry.InitNetworkLookup(meshNetworks)
+			}
+			if s.EnvoyXdsServer != nil {
+				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
+				s.EnvoyXdsServer.ConfigUpdate(true)
+			}
 		}
 	})
 
