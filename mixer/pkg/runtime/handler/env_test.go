@@ -32,8 +32,8 @@ func TestEnv(t *testing.T) {
 		o := log.DefaultOptions()
 		_ = log.Configure(o)
 
-		env := NewEnv(0, "Foo", gp)
-		log := env.Logger()
+		e := NewEnv(0, "Foo", gp)
+		log := e.Logger()
 		log.Infof("Test%s", "ing")
 		log.Warningf("Test%s", "ing")
 		err := log.Errorf("Test%s", "ing")
@@ -57,27 +57,37 @@ func TestEnv(t *testing.T) {
 
 		wg := sync.WaitGroup{}
 		wg.Add(1)
-		env.ScheduleWork(func() {
+		e.ScheduleWork(func() {
 			wg.Done()
 		})
 
 		wg.Add(1)
-		env.ScheduleDaemon(func() {
+		e.ScheduleDaemon(func() {
 			wg.Done()
 		})
 
-		env.ScheduleWork(func() {
+		e.ScheduleWork(func() {
 			panic("bye!")
 		})
 
-		env.ScheduleDaemon(func() {
+		e.ScheduleDaemon(func() {
 			panic("bye!")
 		})
+
+		if got, want := e.(env).hasStrayWorkers(), true; got != want {
+			t.Errorf("hasStrayWorkers() => %t; wanted %t", got, want)
+		}
+
+		e.(env).reportStrayWorkers()
 
 		wg.Wait()
 
 		// hack to give time for the panic to 'take hold' if it doesn't get recovered properly
 		time.Sleep(200 * time.Millisecond)
+
+		if got, want := e.(env).hasStrayWorkers(), false; got != want {
+			t.Errorf("hasStrayWorkers() => %t; wanted %t", got, want)
+		}
 
 		_ = gp.Close()
 	}
