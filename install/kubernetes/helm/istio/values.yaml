@@ -55,6 +55,12 @@ ingress:
   enabled: false
 
 #
+# certmanager configuration
+#
+certmanager:
+  enabled: false
+
+#
 # addon grafana configuration
 #
 grafana:

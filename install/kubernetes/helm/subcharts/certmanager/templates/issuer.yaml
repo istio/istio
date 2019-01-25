@@ -12,7 +12,9 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
+{{- if .Values.email }}
     email: {{ .Values.email }}
+{{- end }}
     # Name of a secret used to store the ACME account private key
     privateKeySecretRef:
       name: letsencrypt-staging
@@ -31,7 +33,9 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
+{{- if .Values.email }}
     email: {{ .Values.email }}
+{{- end }}
     privateKeySecretRef:
       name: letsencrypt
     http01: {}
