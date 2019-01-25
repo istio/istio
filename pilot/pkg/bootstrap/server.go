@@ -94,6 +94,7 @@ const (
 	// URL types supported by the config store
 	// example fs:///tmp/configroot
 	fsScheme = "fs"
+	mcpScheme = "mcp"
 )
 
 var (
@@ -547,6 +548,10 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 			configStores = append(configStores, configController)
 			continue
+		}
+
+		if url.Scheme == mcpScheme{
+			configSource.Address = url.Host
 		}
 
 		securityOption := grpc.WithInsecure()
