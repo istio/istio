@@ -366,7 +366,3 @@ ignored = [
 [[constraint]]
   name = "github.com/google/go-cmp"
   version = "0.2.0"
-
-[[constraint]]
-  name = "github.com/grpc-ecosystem/grpc-gateway"
-  version = "1.5.1"

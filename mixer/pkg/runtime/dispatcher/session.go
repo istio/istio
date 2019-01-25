@@ -20,10 +20,8 @@ import (
 	"strings"
 
 	"github.com/gogo/googleapis/google/rpc"
-	gatewayruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	multierror "github.com/hashicorp/go-multierror"
 	"go.opencensus.io/stats"
-	"google.golang.org/grpc/codes"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	mixerpb "istio.io/api/mixer/v1"
@@ -356,7 +354,7 @@ func (s *session) waitForDispatched() {
 						if response.Code != 0 {
 							directive.DirectResponseCode = uint32(response.Code)
 						} else {
-							directive.DirectResponseCode = uint32(gatewayruntime.HTTPStatusFromCode(codes.Code(st.Code)))
+							directive.DirectResponseCode = uint32(status.HTTPStatusFromCode(rpc.Code(st.Code)))
 						}
 						directive.DirectResponseBody = response.Body
 						for header, value := range response.Headers {
