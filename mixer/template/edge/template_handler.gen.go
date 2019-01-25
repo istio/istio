@@ -58,6 +58,8 @@ const TemplateName = "edge"
 //   destinationOwner: destination.owner | "Unknown"
 //   destinationWorkloadName: destination.workload.name | "Unknown"
 //   destinationWorkloadNamespace: destination.workload.namespace | "Unknown"
+//   destinationServiceName: destination.service.name | "Unknown"
+//   destinationServiceNamespace: destination.service.namespace | "Unknown"
 //   apiProtocol: api.protocol | "Unknown"
 //   contextProtocol: context.protocol | "Unknown"
 // ```
@@ -91,6 +93,12 @@ type Instance struct {
 
 	// UID of the destination workload
 	DestinationUid string
+
+	// Namespace of the destination Service
+	DestinationServiceNamespace string
+
+	// Name of the destination Service
+	DestinationServiceName string
 
 	// Protocol used for communication (http, tcp)
 	ContextProtocol string

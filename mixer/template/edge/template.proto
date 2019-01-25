@@ -87,7 +87,11 @@ message Template {
 
   // UID of the destination workload
   string destination_uid = 23;
+
+  // Namespace of the destination Service
   string destination_service_namespace = 24;
+
+  // Name of the destination Service
   string destination_service_name = 25;
 
   // Protocol used for communication (http, tcp)
