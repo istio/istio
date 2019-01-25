@@ -31,11 +31,19 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	defaultRetryDuration = 1 * time.Second
+	defaultRetryChecks   = 10
+)
+
 // Table contains a set of instantiated and configured adapter handlers.
 type Table struct {
 	entries map[string]Entry
 
 	monitoringCtx context.Context
+
+	strayWorkersRetryDuration time.Duration
+	strayWorkersCheckRetries  int
 }
 
 // Entry in the handler table.
@@ -70,8 +78,10 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	}
 
 	t := &Table{
-		entries:       make(map[string]Entry, len(instancesByHandler)+len(instancesByHandlerDynamic)),
-		monitoringCtx: ctx,
+		entries:                   make(map[string]Entry, len(instancesByHandler)+len(instancesByHandlerDynamic)),
+		monitoringCtx:             ctx,
+		strayWorkersCheckRetries:  defaultRetryChecks,
+		strayWorkersRetryDuration: defaultRetryDuration,
 	}
 
 	for handler, instances := range instancesByHandler {
@@ -173,9 +183,9 @@ func (t *Table) Cleanup(current *Table) {
 
 		go func(adapterEnv env, name string) {
 			strayWorkersFound := adapterEnv.hasStrayWorkers()
-			for i := 0; i < 10 && strayWorkersFound; i++ {
-				adapterEnv.Logger().Debugf("Found stray workers for adapter: %s; will check again in 10s.", name)
-				time.Sleep(1 * time.Second)
+			for i := 0; i < t.strayWorkersCheckRetries && strayWorkersFound; i++ {
+				adapterEnv.Logger().Debugf("Found stray workers for adapter: %s; will check again in %s", name, t.strayWorkersRetryDuration)
+				time.Sleep(t.strayWorkersRetryDuration)
 				strayWorkersFound = adapterEnv.hasStrayWorkers()
 			}
 
