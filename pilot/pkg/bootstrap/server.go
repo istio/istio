@@ -196,7 +196,7 @@ type Server struct {
 	mesh             *meshconfig.MeshConfig
 	meshNetworks     *meshconfig.MeshNetworks
 	configController model.ConfigStoreCache
-	mixerSAN         []string
+
 	kubeClient       kubernetes.Interface
 	startFuncs       []startFunc
 	multicluster     *clusterregistry.Multicluster
