@@ -628,12 +628,12 @@ func TestCalculateDelta(t *testing.T) {
 			gotAdded, gotRemoved := calculateDelta(c.current, c.acked)
 
 			if diff := cmp.Diff(gotAdded, c.wantAdded, sortAdded); diff != "" {
-				t.Errorf("wrong set of added resources: \n got %v \nwant %v\ndiff %v",
+				tt.Errorf("wrong set of added resources: \n got %v \nwant %v\ndiff %v",
 					gotAdded, c.wantAdded, diff)
 			}
 
 			if diff := cmp.Diff(gotRemoved, c.wantRemoved, sortRemoved); diff != "" {
-				t.Errorf("wrong set of removed resources: \n got %v \nwant %v\ndiff %v",
+				tt.Errorf("wrong set of removed resources: \n got %v \nwant %v\ndiff %v",
 					gotRemoved, c.wantRemoved, diff)
 			}
 		})

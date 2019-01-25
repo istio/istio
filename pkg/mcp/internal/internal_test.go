@@ -30,9 +30,9 @@ func TestUpdateResourceVersionTracking(t *testing.T) {
 		r1 = test.Type0B[0].Resource
 		r2 = test.Type0C[0].Resource
 
-		r0_updated = test.Type0A[1].Resource
-		r1_updated = test.Type0B[1].Resource
-		r2_updated = test.Type0C[1].Resource
+		r0Updated = test.Type0A[1].Resource
+		r1Updated = test.Type0B[1].Resource
+		r2Updated = test.Type0C[1].Resource
 	)
 
 	cases := []struct {
@@ -69,11 +69,11 @@ func TestUpdateResourceVersionTracking(t *testing.T) {
 				r2.Metadata.Name: r2.Metadata.Version,
 			},
 			want: map[string]string{
-				r0_updated.Metadata.Name: r0_updated.Metadata.Version,
-				r1_updated.Metadata.Name: r1_updated.Metadata.Version,
-				r2_updated.Metadata.Name: r2_updated.Metadata.Version,
+				r0Updated.Metadata.Name: r0Updated.Metadata.Version,
+				r1Updated.Metadata.Name: r1Updated.Metadata.Version,
+				r2Updated.Metadata.Name: r2Updated.Metadata.Version,
 			},
-			resources: &mcp.Resources{Resources: []mcp.Resource{*r0_updated, *r1_updated, *r2_updated}},
+			resources: &mcp.Resources{Resources: []mcp.Resource{*r0Updated, *r1Updated, *r2Updated}},
 		},
 		{
 			name:    "add incrementally",
@@ -96,13 +96,13 @@ func TestUpdateResourceVersionTracking(t *testing.T) {
 				r2.Metadata.Name: r2.Metadata.Version,
 			},
 			want: map[string]string{
-				r0_updated.Metadata.Name: r0_updated.Metadata.Version,
-				r1.Metadata.Name:         r1.Metadata.Version,
-				r2.Metadata.Name:         r2.Metadata.Version,
+				r0Updated.Metadata.Name: r0Updated.Metadata.Version,
+				r1.Metadata.Name:        r1.Metadata.Version,
+				r2.Metadata.Name:        r2.Metadata.Version,
 			},
 			resources: &mcp.Resources{
 				Incremental: true,
-				Resources:   []mcp.Resource{*r0_updated},
+				Resources:   []mcp.Resource{*r0Updated},
 			},
 		},
 		{
@@ -119,7 +119,7 @@ func TestUpdateResourceVersionTracking(t *testing.T) {
 			resources: &mcp.Resources{
 				Incremental:      true,
 				Resources:        []mcp.Resource{},
-				RemovedResources: []string{r0_updated.Metadata.Name},
+				RemovedResources: []string{r0Updated.Metadata.Name},
 			},
 		},
 		{
@@ -129,13 +129,13 @@ func TestUpdateResourceVersionTracking(t *testing.T) {
 				r1.Metadata.Name: r1.Metadata.Version,
 			},
 			want: map[string]string{
-				r1_updated.Metadata.Name: r1_updated.Metadata.Version,
-				r2.Metadata.Name:         r2.Metadata.Version,
+				r1Updated.Metadata.Name: r1Updated.Metadata.Version,
+				r2.Metadata.Name:        r2.Metadata.Version,
 			},
 			resources: &mcp.Resources{
 				Incremental:      true,
-				Resources:        []mcp.Resource{*r1_updated, *r2},
-				RemovedResources: []string{r0_updated.Metadata.Name},
+				Resources:        []mcp.Resource{*r1Updated, *r2},
+				RemovedResources: []string{r0Updated.Metadata.Name},
 			},
 		},
 	}
