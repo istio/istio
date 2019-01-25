@@ -48,11 +48,13 @@ spec:
             secretKeyRef:
               name: {{ .Values.dashboard.secretName }}
               key: {{ .Values.dashboard.usernameKey }}
+              optional: true
         - name: SERVER_CREDENTIALS_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.dashboard.secretName }}
               key: {{ .Values.dashboard.passphraseKey }}
+              optional: true
         - name: PROMETHEUS_SERVICE_URL
           value: {{ .Values.prometheusAddr }}
 {{- if .Values.contextPath }}
