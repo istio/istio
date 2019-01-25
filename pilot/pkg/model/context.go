@@ -320,7 +320,7 @@ func getProxyMetadataDNSDomains(proxy *Proxy) []string {
 	}
 
 	// Return a slice of ISTIO_META_DNS_DOMAINS. The ISTIO_META_DNS_DOMAINS field is
-	// comma seperated.
+	// comma separated.
 	if nodeMetadataDNSDomains, found := proxy.Metadata[NodeMetadataDNSDomains]; found {
 		return strings.Split(nodeMetadataDNSDomains, ",")
 	}
