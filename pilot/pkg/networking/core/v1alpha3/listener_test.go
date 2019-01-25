@@ -188,7 +188,7 @@ func testInboundListenerConfigWithSidecar(t *testing.T, services ...*model.Servi
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
-						Number:   80,
+						Number:   8080,
 						Protocol: "HTTP",
 						Name:     "uds",
 					},
@@ -411,6 +411,7 @@ func buildService(hostname string, ip string, protocol model.Protocol, creationT
 func buildEndpoint(service *model.Service) model.NetworkEndpoint {
 	return model.NetworkEndpoint{
 		ServicePort: service.Ports[0],
+		Port:        8080,
 	}
 }
 

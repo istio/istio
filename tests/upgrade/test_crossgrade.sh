@@ -33,10 +33,11 @@ usage() {
     echo "  auth_enable   enable mtls."
     echo "  skip_cleanup  leave install intact after test completes."
     echo "  namespace     namespace to install istio control plane in (default istio-system)."
+    echo "  cloud         cloud provider name (required)"
     echo
     echo "  e.g. ./test_crossgrade.sh \"
     echo "        --from_hub=gcr.io/istio-testing --from_tag=d639408fd --from_path=/tmp/release-d639408fd \"
-    echo "        --to_hub=gcr.io/istio-release --to_tag=1.0.2 --to_path=/tmp/istio-1.0.2"
+    echo "        --to_hub=gcr.io/istio-release --to_tag=1.0.2 --to_path=/tmp/istio-1.0.2 --cloud=GKE"
     echo
     exit 1
 }
@@ -80,6 +81,9 @@ while (( "$#" )); do
         --to_path)
             TO_PATH=${VALUE}
             ;;
+        --cloud)
+            CLOUD=${VALUE}
+            ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
             usage
@@ -100,6 +104,7 @@ ISTIO_ROOT=${GOPATH}/src/istio.io/istio
 TMP_DIR=/tmp/istio_upgrade_test
 LOCAL_FORTIO_LOG=${TMP_DIR}/fortio_local.log
 POD_FORTIO_LOG=${TMP_DIR}/fortio_pod.log
+ERROR_TMP_LOG=${TMP_DIR}/error_temp.log
 
 # Make sure to change templates/*.yaml with the correct address if this changes.
 TEST_NAMESPACE="test"
@@ -111,9 +116,9 @@ TRAFFIC_RUNTIME_SEC=500
 # Used to signal that background external process is done.
 EXTERNAL_FORTIO_DONE_FILE=${TMP_DIR}/fortio_done_file
 
-echo_and_run() { echo "RUNNING $*" ; "$@" ; }
-echo_and_run_quiet() { echo "RUNNING(quiet) $*" ; "$@" > /dev/null 2>&1 ; }
-echo_and_run_or_die() { echo "RUNNING $*" ; "$@" || die "failed!" ; }
+echo_and_run() { echo "# RUNNING $*" ; "$@" ; }
+echo_and_run_quiet() { echo "# RUNNING(quiet) $*" ; "$@" > /dev/null 2>&1 ; }
+echo_and_run_or_die() { echo "# RUNNING $*" ; "$@" || die "failed!" ; }
 
 # withRetries retries the given command ${1} times with ${2} sleep between retries
 # e.g. withRetries 10 60 myFunc param1 param2
@@ -125,13 +130,14 @@ withRetries() {
     shift
     shift
     while (( n < max_retries )); do
-      echo "RUNNING $*" ; "${@}" && break
+      echo "RUNNING $*" ; "${@}" > "${ERROR_TMP_LOG}" 2>&1 && break
       echo "Failed, sleeping ${sleep_sec} seconds and retrying..."
+      cat "${ERROR_TMP_LOG}"
       ((n++))
       sleep "${sleep_sec}"
     done
 
-    if (( n == max_retries )); then die "$* failed after retrying ${max_retries} times."; fi
+    if (( n == max_retries )); then cat "${ERROR_TMP_LOG}"; die "$* failed after retrying ${max_retries} times."; fi
     echo "Succeeded."
 }
 
@@ -145,12 +151,13 @@ withRetriesMaxTime() {
     shift
     shift
     while (( SECONDS - start_time <  total_time_max )); do
-      echo "RUNNING $*" ; "${@}" && break
+      echo "RUNNING $*" ; "${@}" > "${ERROR_TMP_LOG}" 2>&1 && break
       echo "Failed, sleeping ${sleep_sec} seconds and retrying..."
+      cat "${ERROR_TMP_LOG}"
       sleep "${sleep_sec}"
     done
 
-    if (( SECONDS - start_time >=  total_time_max )); then die "$* failed after retrying for ${total_time_max} seconds."; fi
+    if (( SECONDS - start_time >=  total_time_max )); then cat "${ERROR_TMP_LOG}"; die "$* failed after retrying for ${total_time_max} seconds."; fi
     echo "Succeeded."
 }
 
@@ -178,7 +185,7 @@ deleteWithWait() {
 }
 
 installIstioSystemAtVersionHelmTemplate() {
-    writeMsg "helm template installing version ${2} from ${3}."
+    writeMsg "helm templating then applying new yaml using version ${2} from ${3}."
     if [ -n "${AUTH_ENABLE}" ]; then
         echo "Auth is enabled, generating manifest with auth."
         auth_opts="--set global.mtls.enabled=true --set global.controlPlaneSecurityEnabled=true "
@@ -186,6 +193,9 @@ installIstioSystemAtVersionHelmTemplate() {
     release_path="${3}"/install/kubernetes/helm/istio
     if [[ "${release_path}" == *"1.1"* || "${release_path}" == *"master"* ]]; then
         # See https://preliminary.istio.io/docs/setup/kubernetes/helm-install/
+        helm init --client-only
+        helm repo add istio.io https://storage.googleapis.com/istio-prerelease/daily-build/release-1.1-latest-daily/charts	
+        helm dependency update "${release_path}"
         for i in install/kubernetes/helm/istio-init/files/crd*yaml; do
             echo_and_run kubectl apply -f "${i}"
         done
@@ -194,7 +204,6 @@ installIstioSystemAtVersionHelmTemplate() {
 
     helm template "${release_path}" "${auth_opts}" \
     --name istio --namespace "${ISTIO_NAMESPACE}" \
-    --set gateways.istio-ingressgateway.replicaCount=4 \
     --set gateways.istio-ingressgateway.autoscaleMin=4 \
     --set prometheus.enabled=false \
     --set global.hub="${1}" \
@@ -298,12 +307,13 @@ _waitForPodsReady() {
         return 0
     fi
 
+    echo "${pods_str}"
     return 1
 }
 
 waitForPodsReady() {
     echo "Waiting for pods to be ready in ${1}..."
-    withRetriesMaxTime 300 10 _waitForPodsReady "${1}"
+    withRetriesMaxTime 600 10 _waitForPodsReady "${1}"
     echo "All pods ready."
 }
 
@@ -372,8 +382,13 @@ copy_test_files() {
 
 copy_test_files
 
-# This should already be done, repeat just in case.
-echo_and_run_quiet kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="$(gcloud config get-value core/account)"
+# create cluster admin role binding
+user="cluster-admin"
+if [[ $CLOUD == "GKE" ]];then
+  user="$(gcloud config get-value core/account)"
+fi
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user="${user}" || echo "clusterrolebinding already created."
+
 
 echo_and_run pushd "${ISTIO_ROOT}"
 

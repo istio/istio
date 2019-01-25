@@ -161,7 +161,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
-	s.reporter = p.mcpMetricReporter("galley/")
+	s.reporter = p.mcpMetricReporter("galley/mcp/source")
 
 	options := &source.Options{
 		Watcher:            distributor,
@@ -231,21 +231,17 @@ func (s *Server) Run() {
 	}()
 }
 
-// ForceClose cleans up resources used by the server.
-// ForceClose should be used only in testing to make the server stop quickly
-func (s *Server) ForceClose() error {
+// Close cleans up resources used by the server.
+func (s *Server) Close() error {
 	if s.stopCh != nil {
 		close(s.stopCh)
 		s.stopCh = nil
 	}
+
 	if s.grpcServer != nil {
-		s.grpcServer.Stop()
+		s.grpcServer.GracefulStop()
 		s.serveWG.Wait()
 	}
-	return s.closeResources()
-}
-
-func (s *Server) closeResources() error {
 
 	if s.controlZ != nil {
 		s.controlZ.Close()
@@ -267,19 +263,6 @@ func (s *Server) closeResources() error {
 	_ = log.Sync()
 
 	return nil
-}
-
-// Close cleans up resources used by the server.
-func (s *Server) Close() error {
-	if s.stopCh != nil {
-		close(s.stopCh)
-		s.stopCh = nil
-	}
-	if s.grpcServer != nil {
-		s.grpcServer.GracefulStop()
-		s.serveWG.Wait()
-	}
-	return s.closeResources()
 }
 
 //RunServer start Galley Server mode
