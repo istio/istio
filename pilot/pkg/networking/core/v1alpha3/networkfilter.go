@@ -85,7 +85,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(env *model.Environment, no
 		// TODO: Need to set other fields such as Idle timeouts
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, config)
-	return buildOutboundNetworkFiltersStack(port, tcpFilter, clusterName, clusterName)
+	return buildOutboundNetworkFiltersStack(node, port, tcpFilter, clusterName, clusterName)
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
@@ -116,21 +116,29 @@ func buildOutboundNetworkFiltersWithWeightedClusters(env *model.Environment, nod
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	tcpFilter := setAccessLogAndBuildTCPFilter(env, node, proxyConfig)
-	return buildOutboundNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
+	return buildOutboundNetworkFiltersStack(node, port, tcpFilter, statPrefix, clusterName)
 }
 
 // buildOutboundNetworkFiltersStack builds a slice of network filters based on
 // the protocol in use and the given TCP filter instance.
-func buildOutboundNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, statPrefix, clusterName string) []listener.Filter {
+func buildOutboundNetworkFiltersStack(node *model.Proxy, port *model.Port, tcpFilter *listener.Filter, statPrefix,
+	clusterName string) []listener.Filter {
+
 	filterstack := make([]listener.Filter, 0)
 	switch port.Protocol {
 	case model.ProtocolMongo:
 		filterstack = append(filterstack, buildOutboundMongoFilter(statPrefix))
-	case model.ProtocolRedis:
-		filterstack = append(filterstack, buildOutboundRedisFilter(statPrefix, clusterName))
-	case model.ProtocolMySQL:
-		filterstack = append(filterstack, buildOutboundMySQLFilter(statPrefix))
 	}
+
+	if util.IsProxyVersionGE11(node) {
+		switch port.Protocol {
+		case model.ProtocolRedis:
+			filterstack = append(filterstack, buildOutboundRedisFilter(statPrefix, clusterName))
+		case model.ProtocolMySQL:
+			filterstack = append(filterstack, buildOutboundMySQLFilter(statPrefix))
+		}
+	}
+
 	filterstack = append(filterstack, *tcpFilter)
 	return filterstack
 }
