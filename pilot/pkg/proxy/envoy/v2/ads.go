@@ -20,6 +20,7 @@ import (
 	"io"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -560,8 +561,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream ads.AggregatedDiscove
 				}
 				validClusters := []string{}
 				for _, cn := range clusters {
-					_, _, hostname, _ := model.ParseSubsetKey(cn)
-					if len(hostname) > 0 {
+					direction, _, hostname, _ := model.ParseSubsetKey(cn)
+					if strings.HasPrefix(string(direction), string(model.TrafficDirectionOutbound)) && len(hostname) > 0 {
 						validClusters = append(validClusters, cn)
 					}
 				}
