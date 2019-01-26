@@ -7,7 +7,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: jaeger
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -17,7 +17,7 @@ spec:
     metadata:
       labels:
         app: jaeger
-        {{- if .values.global.enableTillerLabels }}
+        {{- if .Values.global.enableTillerLabels }}
         chart: {{ template "tracing.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}

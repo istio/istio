@@ -7,7 +7,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -49,7 +49,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -78,7 +78,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

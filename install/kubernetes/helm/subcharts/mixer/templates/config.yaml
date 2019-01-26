@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -135,7 +135,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -203,7 +203,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -220,7 +220,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -278,7 +278,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -321,7 +321,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -340,7 +340,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -361,7 +361,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -397,7 +397,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -433,7 +433,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -469,7 +469,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -505,7 +505,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -537,7 +537,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -619,7 +619,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -819,7 +819,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -841,7 +841,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -887,7 +887,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -910,7 +910,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -928,7 +928,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -947,7 +947,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -995,7 +995,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -1024,7 +1024,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

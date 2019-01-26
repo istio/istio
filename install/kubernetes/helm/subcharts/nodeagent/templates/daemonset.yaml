@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "nodeagent.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "nodeagent.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -16,7 +16,7 @@ spec:
     metadata:
       labels:
         app: {{ template "nodeagent.name" . }}
-        {{- if .values.global.enableTillerLabels }}
+        {{- if .Values.global.enableTillerLabels }}
         chart: {{ template "nodeagent.chart" . }}
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}

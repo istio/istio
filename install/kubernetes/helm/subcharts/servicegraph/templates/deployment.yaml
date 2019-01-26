@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: servicegraph
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "servicegraph.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -16,7 +16,7 @@ spec:
     metadata:
       labels:
         app: servicegraph
-        {{- if .values.global.enableTillerLabels }}
+        {{- if .Values.global.enableTillerLabels }}
         chart: {{ template "servicegraph.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}

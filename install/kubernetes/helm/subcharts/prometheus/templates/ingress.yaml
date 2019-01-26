@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

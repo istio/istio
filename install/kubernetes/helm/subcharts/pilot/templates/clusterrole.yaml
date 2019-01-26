@@ -4,7 +4,7 @@ metadata:
   name: istio-pilot-{{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

@@ -4,7 +4,7 @@ metadata:
   name: istio-istiocoredns-role-binding-{{ .Release.Namespace }}
   labels:
     app: {{ template "istiocoredns.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "istiocoredns.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

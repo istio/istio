@@ -6,7 +6,7 @@ metadata:
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: {{ template "pilot.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -26,7 +26,7 @@ spec:
     metadata:
       labels:
         app: {{ template "pilot.name" . }}
-        {{- if .values.global.enableTillerLabels }}
+        {{- if .Values.global.enableTillerLabels }}
         chart: {{ template "pilot.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}

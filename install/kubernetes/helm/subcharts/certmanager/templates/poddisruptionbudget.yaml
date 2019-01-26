@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: certmanager
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "certmanager.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -24,7 +24,7 @@ spec:
   selector:
     matchLabels:
       app: certmanager
-      {{- if .values.global.enableTillerLabels }}
+      {{- if .Values.global.enableTillerLabels }}
       release: {{ .Release.Name }}
       {{- end }}
 {{- end }}

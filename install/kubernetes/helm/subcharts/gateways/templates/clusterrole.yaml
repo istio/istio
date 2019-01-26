@@ -7,7 +7,7 @@ metadata:
   name: {{ $key }}-{{ $.Release.Namespace }}
   labels:
     app: {{ $spec.labels.istio }}
-    {{- if $.values.global.enableTillerLabels }}
+    {{- if $.Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}

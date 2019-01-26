@@ -4,7 +4,7 @@ metadata:
   name: istio-kiali-admin-role-binding-{{ .Release.Namespace }}
   labels:
     app: {{ template "kiali.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

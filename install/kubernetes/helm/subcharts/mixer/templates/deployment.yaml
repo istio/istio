@@ -282,7 +282,7 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: istio-mixer
-    {{- if $.values.global.enableTillerLabels }}
+    {{- if $.Values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
@@ -300,7 +300,7 @@ spec:
   selector:
     matchLabels:
       app: {{ $key }}
-      {{- if $.values.global.enableTillerLabels }}
+      {{- if $.Values.global.enableTillerLabels }}
       chart: {{ template "mixer.chart" $ }}
       heritage: {{ $.Release.Service }}
       release: {{ $.Release.Name }}
@@ -312,7 +312,7 @@ spec:
     metadata:
       labels:
         app: {{ $key }}
-        {{- if $.values.global.enableTillerLabels }}
+        {{- if $.Values.global.enableTillerLabels }}
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}

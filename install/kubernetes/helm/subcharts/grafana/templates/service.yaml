@@ -9,7 +9,7 @@ metadata:
     {{- end }}
   labels:
     app: {{ template "grafana.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

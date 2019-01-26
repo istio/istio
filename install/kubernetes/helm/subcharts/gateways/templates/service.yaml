@@ -11,7 +11,7 @@ metadata:
     {{ $key }}: {{ $val | quote }}
     {{- end }}
   labels:
-    {{- if $.values.global.enableTillerLabels }}
+    {{- if $.Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}

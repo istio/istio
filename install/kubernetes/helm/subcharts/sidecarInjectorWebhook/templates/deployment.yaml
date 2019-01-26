@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "sidecar-injector.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -21,7 +21,7 @@ spec:
     metadata:
       labels:
         app: {{ template "sidecar-injector.name" . }}
-        {{- if .values.global.enableTillerLabels }}
+        {{- if .Values.global.enableTillerLabels }}
         chart: {{ template "sidecar-injector.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}

@@ -4,7 +4,7 @@ metadata:
   name: istio-galley-admin-role-binding-{{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

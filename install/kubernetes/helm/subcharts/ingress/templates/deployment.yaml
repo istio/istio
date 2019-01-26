@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "ingress.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "ingress.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -19,7 +19,7 @@ spec:
     metadata:
       labels:
         app: {{ template "ingress.name" . }}
-        {{- if .values.global.enableTillerLabels }}
+        {{- if .Values.global.enableTillerLabels }}
         chart: {{ template "ingress.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}

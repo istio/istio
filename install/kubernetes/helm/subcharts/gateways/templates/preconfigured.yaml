@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -45,7 +45,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -75,7 +75,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -108,7 +108,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -133,7 +133,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -158,7 +158,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -187,7 +187,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}

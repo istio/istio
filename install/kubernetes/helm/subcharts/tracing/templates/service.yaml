@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Values.provider }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -18,7 +18,7 @@ items:
     namespace: {{ .Release.Namespace }}
     labels:
       app: {{ .Values.provider }}
-      {{- if .values.global.enableTillerLabels }}
+      {{- if .Values.global.enableTillerLabels }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
@@ -43,7 +43,7 @@ items:
       {{- end }}
     labels:
       app: {{ .Values.provider }}
-      {{- if .values.global.enableTillerLabels }}
+      {{- if .Values.global.enableTillerLabels }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}

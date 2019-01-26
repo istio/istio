@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
-    {{- if .values.global.enableTillerLabels }}
+    {{- if .Values.global.enableTillerLabels }}
     chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
@@ -21,7 +21,7 @@ spec:
   selector:
     matchLabels:
       app: {{ template "galley.name" . }}
-      {{- if .values.global.enableTillerLabels }}
+      {{- if .Values.global.enableTillerLabels }}
       release: {{ .Release.Name }}
       {{- end }}
       istio: galley
