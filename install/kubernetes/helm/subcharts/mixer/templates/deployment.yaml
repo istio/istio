@@ -285,7 +285,6 @@ metadata:
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
-    version: {{ $.Chart.Version }}
     istio: mixer
 spec:
 {{- if not $spec.autoscaleEnabled }}
@@ -305,7 +304,6 @@ spec:
       chart: {{ template "mixer.chart" $ }}
       heritage: {{ $.Release.Service }}
       release: {{ $.Release.Name }}
-      version: {{ $.Chart.Version }}
       istio: mixer
       istio-mixer-type: {{ $key }}
   template:
@@ -315,7 +313,6 @@ spec:
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}
-        version: {{ $.Chart.Version }}
         istio: mixer
         istio-mixer-type: {{ $key }}
       annotations:
