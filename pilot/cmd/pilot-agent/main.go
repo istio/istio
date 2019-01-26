@@ -317,6 +317,10 @@ var (
 			stop := make(chan struct{})
 			cmd.WaitSignal(stop)
 			<-stop
+			requestCmd.SetArgs([]string{"POST", "/healthcheck/fail"})
+			requestCmd.Execute()
+			// TODO: support global configuration (get value from Kube where possible)
+			time.Sleep(30 * time.Second)
 			return nil
 		},
 	}

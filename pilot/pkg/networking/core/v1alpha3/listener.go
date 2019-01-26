@@ -28,6 +28,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
+	hcfilter "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/health_check/v2"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
 	envoy_type "github.com/envoyproxy/go-control-plane/envoy/type"
@@ -527,6 +528,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 				},
 				ServerName: EnvoyServerName,
 			},
+			addInboundHealthCheckFilter: true,
 		}
 		// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 		if pluginParams.ServiceInstance.Endpoint.ServicePort.Protocol.IsHTTP2() {
@@ -1313,6 +1315,10 @@ type httpListenerOpts struct {
 	// addGRPCWebFilter specifies whether the envoy.grpc_web HTTP filter
 	// should be added.
 	addGRPCWebFilter bool
+	// addHealthCheckFilter specifies whether the envoy.health_check HTTP filter
+	// should be added. This filter returns 503s to ALL http requests on this listener
+	// after the `healthcheck/fail` Admin API endpoint is called.
+	addInboundHealthCheckFilter bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1348,6 +1354,15 @@ func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpO
 
 	if httpOpts.addGRPCWebFilter {
 		filters = append(filters, &http_conn.HttpFilter{Name: xdsutil.GRPCWeb})
+	}
+
+	if httpOpts.addInboundHealthCheckFilter {
+		filters = append(filters, &http_conn.HttpFilter{
+			Name: xdsutil.HealthCheck,
+			ConfigType: &http_conn.HttpFilter_Config{
+				Config: util.MessageToStruct(&hcfilter.HealthCheck{PassThroughMode: proto.BoolTrue}),
+			},
+		})
 	}
 
 	filters = append(filters,
