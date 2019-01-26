@@ -94,6 +94,14 @@ const (
 	// URL types supported by the config store
 	// example fs:///tmp/configroot
 	fsScheme = "fs"
+
+	// mcpScheme when use MCP as config source
+	// example mcp://0.0.0.0:9901
+	mcpScheme = "mcp"
+
+	// mcpsScheme when use MCP with security enabled as config source
+	// example mcps://0.0.0.0:9901
+	mcpsScheme = "mcps"
 )
 
 var (
@@ -556,6 +564,13 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			}
 			configStores = append(configStores, configController)
 			continue
+		}
+                if url.Scheme == mcpScheme || url.Scheme == mcpsScheme {
+			if url.Host == "" {
+				cancel()
+				return fmt.Errorf("invalid mcp server address %s", configSource.Address)
+			}
+			configSource.Address = url.Host
 		}
 
 		securityOption := grpc.WithInsecure()
