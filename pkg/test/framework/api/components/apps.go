@@ -79,5 +79,5 @@ type AppEndpoint interface {
 
 // GetApps from the repository
 func GetApps(e component.Repository, t testing.TB) Apps {
-	return e.GetComponentOrFail("", ids.Apps, t).(Apps)
+	return e.GetComponentOrFail(ids.Apps, t).(Apps)
 }

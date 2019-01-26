@@ -116,7 +116,7 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		return err
 	}
 
-	p := ctx.GetComponent("", ids.Pilot)
+	p := ctx.GetComponent(ids.Pilot)
 	if p == nil {
 		return fmt.Errorf("missing dependency: %s", ids.Pilot)
 	}

@@ -29,7 +29,10 @@ type creationProcessor struct {
 	mgr   *Manager
 
 	// The entries that need to be processed.
-	required map[namedID]*reqEntry
+	required map[component.Key]*reqEntry
+
+	// The IDs that are being provided by the required entries. This is used when processing variants.
+	provided map[component.ID]component.Key
 }
 
 // newCreationProcessor creates a new creation processor for the Manager.
@@ -37,33 +40,38 @@ func newCreationProcessor(mgr *Manager, scope lifecycle.Scope) *creationProcesso
 	return &creationProcessor{
 		scope:    scope,
 		mgr:      mgr,
-		required: make(map[namedID]*reqEntry),
+		required: make(map[component.Key]*reqEntry),
+		provided: make(map[component.ID]component.Key),
 	}
 }
 
-// A struct representing a named ID. This is used as the key to what requirements need to be
-// created, as the Variant is not important, just the ID and Name.
-type namedID struct {
-	Name string
-	ID   component.ID
+// A struct representing a single requirement that needs to be created.
+type reqEntry struct {
+	key  component.Key
+	desc *component.Descriptor
+
+	// Child entries that still need to be processed before this entry can be created.
+	children map[component.Key]bool
 }
 
-// A struct representing a single parsed requirement.
-type reqEntry struct {
-	id     namedID
-	desc   *component.Descriptor
-	config component.Configuration
+func (e reqEntry) String() string {
+	result := "Entry{\n"
 
-	// Child entries that need to be processed before this entry can be created.
-	children map[namedID]bool
+	result += fmt.Sprintf("Key:          %v\n", e.key)
+	if e.desc != nil {
+		result += fmt.Sprintf("Descriptor:   %v\n", e.desc)
+	}
+	if len(e.children) > 0 {
+		result += fmt.Sprintf("Children:     %v\n", e.children)
+	}
+	result += "}\n"
+
+	return result
 }
 
 func (p *creationProcessor) ProcessRequirements(reqs []component.Requirement) component.RequirementError {
 	for _, req := range reqs {
-		entry, err := parseRequirement(req)
-		if err != nil {
-			return err
-		}
+		entry := createEntry(req)
 		if err := p.addRequirement(entry); err != nil {
 			return err
 		}
@@ -71,34 +79,17 @@ func (p *creationProcessor) ProcessRequirements(reqs []component.Requirement) co
 	return nil
 }
 
-// Parses a requirement into a requirement entry. This takes care of unwrapping the requirement
-// envelope into a single flat type that we don't need to reflect over.
-func parseRequirement(req component.Requirement) (r *reqEntry, err component.RequirementError) {
-	if c, ok := req.(*component.ConfiguredRequirement); ok {
-		if r, err = parseRequirement(c.GetRequirement()); err != nil {
-			return
-		}
-		r.id.Name = c.GetName()
-		r.config = c.GetConfiguration()
-		return
-	}
-	if id, ok := req.(*component.ID); ok {
-		r = &reqEntry{
-			id:       namedID{"", *id},
-			children: make(map[namedID]bool),
-		}
-		return
+// CreateEntry wraps the requirement in an entry object that can track the state of child
+// dependencies that need to be resolved.
+func createEntry(req component.Requirement) *reqEntry {
+	r := &reqEntry{
+		key:      req.GetKey(),
+		children: make(map[component.Key]bool),
 	}
 	if d, ok := req.(*component.Descriptor); ok {
-		r = &reqEntry{
-			id:       namedID{"", d.ID},
-			desc:     d,
-			children: make(map[namedID]bool),
-		}
-		return
+		r.desc = d
 	}
-	err = resolutionError(fmt.Errorf("unsupported requirement type: %v", req))
-	return
+	return r
 }
 
 // Adds a requirement to our map of requirements. This verifies the requirement is not overwriting
@@ -110,7 +101,7 @@ func (p *creationProcessor) addRequirement(entry *reqEntry) component.Requiremen
 	}
 
 	// Now check if there is an existing entry, and if so compare them.
-	if oldEntry, ok := p.required[entry.id]; ok {
+	if oldEntry, ok := p.required[entry.key]; ok {
 		override, err := compareEntries(oldEntry, entry)
 		if err != nil {
 			return err
@@ -119,7 +110,21 @@ func (p *creationProcessor) addRequirement(entry *reqEntry) component.Requiremen
 			return nil
 		}
 	}
-	p.required[entry.id] = entry
+
+	// If this entry was from an ID and not a descriptor, check if there is an existing descriptor
+	// providing this ID and if so we can just return.
+	_, ok := p.provided[entry.key.ID]
+	if entry.desc == nil && ok {
+		return nil
+	}
+
+	// If this entry was a descriptor and there is not already a provider for the ID, register it as the provider.
+	// TODO(sven): If there are multiple descriptors for an ID a random one will become default, fix that.
+	if entry.desc != nil && !ok {
+		p.provided[entry.key.ID] = entry.key
+	}
+
+	p.required[entry.key] = entry
 
 	// If the entry has a descriptor, process all of the child requirements.
 	if entry.desc != nil {
@@ -128,7 +133,8 @@ func (p *creationProcessor) addRequirement(entry *reqEntry) component.Requiremen
 	return nil
 }
 
-// Compare two entries, returning true if the new entry should override the old one.
+// CompareEntries compares two request entries, returning true if the new entry should override the old one,
+// or an error if they are incompatible.
 func compareEntries(oldEntry *reqEntry, entry *reqEntry) (override bool, err component.RequirementError) {
 	override = false
 	if reflect.DeepEqual(oldEntry, entry) {
@@ -143,34 +149,43 @@ func compareEntries(oldEntry *reqEntry, entry *reqEntry) (override bool, err com
 	} else if entry.desc == nil {
 		entry.desc = oldEntry.desc
 	} else if !reflect.DeepEqual(oldEntry.desc, entry.desc) {
-		err = resolutionError(fmt.Errorf("required mismatched descriptors for %v: %v, %v", entry.id, oldEntry.desc, entry.desc))
-		return
+		return compareDescriptors(oldEntry.desc, entry.desc)
 	}
+	return
+}
 
-	// Next compare config, and do the same check, do we need to merge or override.
-	if oldEntry.config == nil {
-		if entry.config != nil {
+func compareDescriptors(oldDesc *component.Descriptor, desc *component.Descriptor) (override bool, err component.RequirementError) {
+	if oldDesc.Configuration == nil {
+		if desc.Configuration != nil {
 			override = true
 		}
-	} else if entry.config == nil {
-		entry.config = oldEntry.config
-	} else if !reflect.DeepEqual(oldEntry.config, entry.config) {
-		err = resolutionError(fmt.Errorf("required mismatched configuration for %v: %v, %v", entry.id, oldEntry, entry))
+	} else if desc.Configuration == nil {
+		desc.Configuration = oldDesc.Configuration
+	} else if !reflect.DeepEqual(oldDesc.Configuration, desc.Configuration) {
+		err = resolutionError(fmt.Errorf("required mismatched descriptors for %v: %v, %v", desc.Key, oldDesc, desc))
+	}
+
+	if len(oldDesc.Requires) == 0 {
+		if len(desc.Requires) > 0 {
+			override = true
+		}
+	} else if len(desc.Requires) == 0 {
+		desc.Requires = oldDesc.Requires
+	} else if !reflect.DeepEqual(oldDesc.Requires, desc.Requires) {
+		err = resolutionError(fmt.Errorf("required mismatched descriptors for %v: %v, %v", desc.Key, oldDesc, desc))
 	}
 
 	return
 }
 
+// LoadChildren loads up the given entry's children set with all the required child keys.
 func (p *creationProcessor) loadChildren(entry *reqEntry) component.RequirementError {
 	if entry.desc == nil {
 		return nil
 	}
 	for _, childReq := range entry.desc.Requires {
-		child, err := parseRequirement(childReq)
-		if err != nil {
-			return err
-		}
-		entry.children[child.id] = true
+		child := createEntry(childReq)
+		entry.children[child.key] = true
 	}
 	return nil
 }
@@ -181,14 +196,27 @@ func (p *creationProcessor) loadChildren(entry *reqEntry) component.RequirementE
 func (p *creationProcessor) ApplyDefaults() component.RequirementError {
 	done := false
 	var toProcess []component.Requirement
+	var toRemove []component.Key
 	for !done {
 		for _, entry := range p.required {
 			if entry.desc == nil {
-				desc, err := p.mgr.GetDefaultDescriptor(entry.id.ID)
+				// First check if we have a descriptor providing this ID, if so just use that.
+				if _, ok := p.provided[entry.key.ID]; ok {
+					toRemove = append(toRemove, entry.key)
+					continue
+				}
+				// No descriptor for the ID, lookup the default.
+				desc, err := p.mgr.GetDefaultDescriptor(entry.key.ID)
 				if err != nil {
 					return resolutionError(err)
 				}
-				toProcess = append(toProcess, component.NewNamedRequirement(entry.id.Name, &desc))
+				toProcess = append(toProcess, &desc)
+			}
+		}
+		// Remove any items marked for removal.
+		if len(toRemove) > 0 {
+			for _, k := range toRemove {
+				delete(p.required, k)
 			}
 		}
 		done = len(toProcess) == 0
@@ -211,7 +239,7 @@ func (p *creationProcessor) CreateComponents() component.RequirementError {
 		for _, entry := range p.required {
 			// Remove requirements for any components that have been created.
 			for childID := range entry.children {
-				if p.mgr.GetComponent(childID.Name, childID.ID) != nil {
+				if p.mgr.getComponentByKey(childID) != nil {
 					delete(entry.children, childID)
 				}
 			}
@@ -221,10 +249,10 @@ func (p *creationProcessor) CreateComponents() component.RequirementError {
 				progress = true
 
 				// Mark this requirement as satisfied.
-				delete(p.required, entry.id)
+				delete(p.required, entry.key)
 
 				// Create the component.
-				if _, err := p.mgr.requireComponent(entry.id.Name, *entry.desc, p.scope); err != nil {
+				if _, err := p.mgr.requireComponent(entry, p.scope); err != nil {
 					return err
 				}
 			}

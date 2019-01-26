@@ -15,13 +15,17 @@
 package components
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/ids"
+)
+
+var (
+	_ component.Configuration = &EchoConfig{}
 )
 
 // EchoProtocol enumerates the protocol options for calling an EchoEndpoint endpoint.
@@ -40,11 +44,32 @@ const (
 type Echo interface {
 	component.Instance
 
-	Name() string
+	// Config returns the configuration of the Echo instance.
+	Config() EchoConfig
+
+	// Endpoints returns the endpoints that are available for calling the Echo instance.
 	Endpoints() []EchoEndpoint
+
+	// EndpointsForProtocol return the endpoints filtered for a specific protocol (e.g. GRPC)
 	EndpointsForProtocol(protocol model.Protocol) []EchoEndpoint
+
+	// Call makes a call from this Echo instance to an EchoEndpoint from another instance.
 	Call(e EchoEndpoint, opts EchoCallOptions) ([]*echo.ParsedResponse, error)
 	CallOrFail(e EchoEndpoint, opts EchoCallOptions, t testing.TB) []*echo.ParsedResponse
+}
+
+// EchoConfig defines the options for creating an Echo component.
+type EchoConfig struct {
+	// Service indicates the service name of the Echo application.
+	Service string
+
+	// Version indicates the version path for calls to the Echo application.
+	Version string
+}
+
+// String implements the Configuration interface (which implements fmt.Stringer)
+func (ec EchoConfig) String() string {
+	return fmt.Sprint("{service: ", ec.Service, ", version: ", ec.Version, "}")
 }
 
 // EchoCallOptions defines options for calling a EchoEndpoint.
@@ -73,6 +98,6 @@ type EchoEndpoint interface {
 }
 
 // Get an echo instance from the repository.
-func GetEcho(name string, e component.Repository, t testing.TB) Echo {
-	return e.GetComponentOrFail(name, ids.Echo, t).(Echo)
+func GetEcho(req component.Requirement, e component.Repository, t testing.TB) Echo {
+	return e.GetComponentOrFail(req, t).(Echo)
 }
