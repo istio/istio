@@ -5,18 +5,22 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "nodeagent.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "nodeagent.chart" . }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+    {{- end }}
     istio: nodeagent
 spec:
   template:
     metadata:
       labels:
         app: {{ template "nodeagent.name" . }}
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "nodeagent.chart" . }}
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
+        {{- end }}
         istio: nodeagent
     spec:
       serviceAccountName: istio-nodeagent-service-account

@@ -7,9 +7,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   hosts:
   - istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
@@ -47,9 +49,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   hosts:
   - istio-pilot.{{ $.Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
@@ -74,9 +78,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   host: istio-pilot.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:

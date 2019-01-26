@@ -6,9 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "kiali.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

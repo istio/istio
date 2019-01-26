@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: certmanager
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "certmanager.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   replicas: 1
   selector:
@@ -17,9 +19,11 @@ spec:
     metadata:
       labels:
         app: certmanager
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "certmanager.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}        
+        release: {{ .Release.Name }}   
+        {{- end }}     
         {{- if .Values.podLabels }}
 {{ toYaml .Values.podLabels | indent 8 }}
         {{- end }}

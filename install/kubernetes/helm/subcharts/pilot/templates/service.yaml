@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
     istio: pilot
 spec:
   ports:

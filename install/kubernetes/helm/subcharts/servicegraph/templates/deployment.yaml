@@ -5,18 +5,22 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: servicegraph
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "servicegraph.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
     metadata:
       labels:
         app: servicegraph
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "servicegraph.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

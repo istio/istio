@@ -9,10 +9,12 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $key }}
+    {{- if $.values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
     version: {{ $.Chart.Version }}
+    {{- end }}
     istio: mixer
     istio-mixer-type: {{ $key }}
 spec:
@@ -24,7 +26,9 @@ spec:
   selector:
     matchLabels:
       app: {{ $key }}
+      {{- if $.values.global.enableTillerLabels }}
       release: {{ $.Release.Name }}
+      {{- end }}
       istio: mixer
       istio-mixer-type: {{ $key }}
 ---

@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "kiali.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -18,9 +20,11 @@ spec:
       name: kiali
       labels:
         app: kiali
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "kiali.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

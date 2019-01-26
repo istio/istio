@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
     istio: galley
 spec:
   replicas: {{ .Values.replicaCount }}
@@ -19,9 +21,11 @@ spec:
     metadata:
       labels:
         app: {{ template "galley.name" . }}
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "galley.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}      
+        release: {{ .Release.Name }}
+        {{- end }}  
         istio: galley
       annotations:
         sidecar.istio.io/inject: "false"

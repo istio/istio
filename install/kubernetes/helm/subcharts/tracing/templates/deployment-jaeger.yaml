@@ -7,17 +7,21 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: jaeger
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   template:
     metadata:
       labels:
         app: jaeger
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "tracing.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

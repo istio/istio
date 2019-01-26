@@ -4,9 +4,11 @@ metadata:
   name: istiocoredns
   labels:
     app: {{ template "istiocoredns.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "istiocoredns.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 rules:
 - apiGroups: ["networking.istio.io"]
   resources: ["*"]

@@ -6,10 +6,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "istio.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "istio.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
     istio: sidecar-injector
+    {{- end }}
 data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}

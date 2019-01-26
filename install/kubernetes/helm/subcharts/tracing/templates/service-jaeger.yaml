@@ -7,9 +7,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: jaeger
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 items:
 - apiVersion: v1
   kind: Service
@@ -23,9 +25,11 @@ items:
     labels:
       app: jaeger
       jaeger-infra: jaeger-service
+      {{- if .values.global.enableTillerLabels }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      {{- end }}
   spec:
     ports:
       - name: query-http
@@ -42,9 +46,11 @@ items:
     labels:
       app: jaeger
       jaeger-infra: collector-service
+      {{- if .values.global.enableTillerLabels }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      {{- end }}
   spec:
     ports:
     - name: jaeger-collector-tchannel
@@ -66,9 +72,11 @@ items:
     labels:
       app: jaeger
       jaeger-infra: agent-service
+      {{- if .values.global.enableTillerLabels }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      {{- end }}
   spec:
     ports:
     - name: agent-zipkin-thrift

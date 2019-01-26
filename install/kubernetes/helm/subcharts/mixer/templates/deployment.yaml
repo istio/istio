@@ -282,10 +282,12 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: istio-mixer
+    {{- if $.values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
     version: {{ $.Chart.Version }}
+    {{- end }}
     istio: mixer
 spec:
 {{- if not $spec.autoscaleEnabled }}
@@ -298,20 +300,24 @@ spec:
   selector:
     matchLabels:
       app: {{ $key }}
+      {{- if $.values.global.enableTillerLabels }}
       chart: {{ template "mixer.chart" $ }}
       heritage: {{ $.Release.Service }}
       release: {{ $.Release.Name }}
       version: {{ $.Chart.Version }}
+      {{- end }}
       istio: mixer
       istio-mixer-type: {{ $key }}
   template:
     metadata:
       labels:
         app: {{ $key }}
+        {{- if $.values.global.enableTillerLabels }}
         chart: {{ template "mixer.chart" $ }}
         heritage: {{ $.Release.Service }}
         release: {{ $.Release.Name }}
         version: {{ $.Chart.Version }}
+        {{- end }}
         istio: mixer
         istio-mixer-type: {{ $key }}
       annotations:

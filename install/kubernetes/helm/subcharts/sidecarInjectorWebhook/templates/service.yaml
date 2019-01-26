@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "sidecar-injector.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "sidecar-injector.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
     istio: sidecar-injector
 spec:
   ports:

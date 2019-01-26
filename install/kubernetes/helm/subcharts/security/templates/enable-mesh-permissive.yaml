@@ -6,9 +6,11 @@ metadata:
   name: "default"
   labels:
     app: {{ template "security.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   peers:
   - mtls:

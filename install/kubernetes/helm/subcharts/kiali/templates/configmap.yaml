@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "kiali.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 data:
   config.yaml: |
     istio_namespace: {{ .Release.Namespace }}

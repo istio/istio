@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "istiocoredns.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "istiocoredns.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
   template:
@@ -15,9 +17,11 @@ spec:
       name: istiocoredns
       labels:
         app: istiocoredns
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "istiocoredns.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

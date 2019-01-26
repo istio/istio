@@ -6,9 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   attributes:
     origin.ip:
@@ -133,9 +135,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   attributes:
     source.ip:
@@ -199,9 +203,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   compiledAdapter: stdio
   params:
@@ -214,9 +220,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   severity: '"Info"'
   timestamp: request.time
@@ -270,9 +278,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   severity: '"Info"'
   timestamp: context.time | timestamp("2017-01-01T00:00:00Z")
@@ -311,9 +321,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   match: context.protocol == "http" || context.protocol == "grpc"
   actions:
@@ -328,9 +340,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -347,9 +361,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   value: "1"
   dimensions:
@@ -381,9 +397,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -415,9 +433,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   value: request.size | 0
   dimensions:
@@ -449,9 +469,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   value: response.size | 0
   dimensions:
@@ -483,9 +505,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -513,9 +537,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -593,9 +619,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   compiledAdapter: prometheus
   params:
@@ -791,9 +819,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false)
   actions:
@@ -811,9 +841,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -855,9 +887,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   compiledAdapter: kubernetesenv
   params:
@@ -876,9 +910,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   actions:
   - handler: kubernetesenv
@@ -892,9 +928,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   match: context.protocol == "tcp"
   actions:
@@ -909,9 +947,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   # Pass the required attribute data to the adapter
   source_uid: source.uid | ""
@@ -955,9 +995,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   host: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
@@ -982,9 +1024,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   host: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:

@@ -6,9 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -18,9 +20,11 @@ spec:
     metadata:
       labels:
         app: prometheus
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "prometheus.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        {{- end }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""

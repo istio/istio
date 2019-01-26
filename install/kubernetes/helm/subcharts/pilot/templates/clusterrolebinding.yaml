@@ -4,9 +4,11 @@ metadata:
   name: istio-pilot-{{ .Release.Namespace }}
   labels:
     app: {{ template "pilot.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

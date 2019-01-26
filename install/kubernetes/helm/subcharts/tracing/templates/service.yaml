@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Values.provider }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 items:
 - apiVersion: v1
   kind: Service
@@ -16,9 +18,11 @@ items:
     namespace: {{ .Release.Namespace }}
     labels:
       app: {{ .Values.provider }}
+      {{- if .values.global.enableTillerLabels }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      {{- end }}
   spec:
     type: {{ .Values.service.type }}
     ports:
@@ -39,9 +43,11 @@ items:
       {{- end }}
     labels:
       app: {{ .Values.provider }}
+      {{- if .values.global.enableTillerLabels }}
       chart: {{ template "tracing.chart" . }}
       heritage: {{ .Release.Service }}
       release: {{ .Release.Name }}
+      {{- end }}
   spec:
     ports:
       - name: http-query

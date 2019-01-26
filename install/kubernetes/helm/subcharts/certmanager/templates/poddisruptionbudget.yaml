@@ -6,10 +6,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: certmanager
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "certmanager.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
     version: {{ .Chart.Version }}
+    {{- end }}
     {{- if .Values.podLabels }}
 {{ toYaml .Values.podLabels | indent 4 }}
     {{- end }}
@@ -22,5 +24,7 @@ spec:
   selector:
     matchLabels:
       app: certmanager
+      {{- if .values.global.enableTillerLabels }}
       release: {{ .Release.Name }}
+      {{- end }}
 {{- end }}

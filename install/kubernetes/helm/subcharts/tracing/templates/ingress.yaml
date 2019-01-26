@@ -6,9 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Values.provider }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "tracing.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
   annotations:
     {{- range $key, $value := .Values.ingress.annotations }}
       {{ $key }}: {{ $value | quote }}

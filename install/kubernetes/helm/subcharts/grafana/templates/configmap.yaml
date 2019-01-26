@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "grafana.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
     istio: grafana
 data:
 {{- if .Values.datasources }}

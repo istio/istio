@@ -8,9 +8,11 @@ metadata:
   name: {{ $key }}
   namespace: {{ $spec.namespace | default $.Release.Namespace }}
   labels:
+    {{- if $.values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" $ }}
     heritage: {{ $.Release.Service }}
     release: {{ $.Release.Name }}
+    {{- end }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}
@@ -22,7 +24,9 @@ spec:
 {{- end }}
   selector:
     matchLabels:
+      {{- if $.values.global.enableTillerLabels }}
       release: {{ $.Release.Name }}
+      {{- end }}
       {{- range $key, $val := $spec.labels }}
       {{ $key }}: {{ $val }}
       {{- end }}

@@ -6,9 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   selector:
     istio: {{ .Values.global.k8sIngress.gatewayName }}
@@ -43,9 +45,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   selector:
     istio: ilbgateway
@@ -71,9 +75,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   selector:
     istio: ingressgateway
@@ -102,9 +108,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   selector:
     istio: egressgateway
@@ -125,9 +133,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   selector:
     istio: ingressgateway
@@ -148,9 +158,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
    workloadLabels:
      istio: ingressgateway
@@ -175,9 +187,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "gateway.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "gateway.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   host: "*.global"
   trafficPolicy:

@@ -6,9 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: certmanager
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "certmanager.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
@@ -25,9 +27,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: certmanager
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "certmanager.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory

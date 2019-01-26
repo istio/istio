@@ -7,15 +7,19 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: zipkin
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
+    {{- end }}
 spec:
   template:
     metadata:
       labels:
         app: zipkin
+        {{- if .values.global.enableTillerLabels }}
         release: {{ .Release.Name }}
+        {{- end }}
     spec:
       containers:
         - name: {{ .Chart.Name }}

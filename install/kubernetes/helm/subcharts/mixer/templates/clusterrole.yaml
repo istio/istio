@@ -5,9 +5,11 @@ metadata:
   name: istio-mixer-{{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 rules:
 - apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]

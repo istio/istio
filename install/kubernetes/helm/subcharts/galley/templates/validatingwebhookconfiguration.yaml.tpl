@@ -6,9 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "galley.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "galley.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
     istio: galley
 webhooks:
 {{- if .Values.global.configValidation }}

@@ -4,9 +4,11 @@ metadata:
   name: istio-citadel-{{ .Release.Namespace }}
   labels:
     app: {{ template "security.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "security.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

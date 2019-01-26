@@ -5,9 +5,11 @@ metadata:
   name: istio-mixer-admin-role-binding-{{ .Release.Namespace }}
   labels:
     app: {{ template "mixer.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "mixer.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

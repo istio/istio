@@ -4,9 +4,11 @@ metadata:
   name: istio-kiali-admin-role-binding-{{ .Release.Namespace }}
   labels:
     app: {{ template "kiali.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "kiali.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

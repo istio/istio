@@ -396,3 +396,10 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
+
+  # Specifies whether the tiller related labels are generated or not.
+  # This field is set to 'true' by default, so 'helm upgrade ...' will 
+  # generate all the labels that are required for smooth chart upgrade.
+  # In case of generating yaml file via 'helm template ...', the tiller 
+  # related labels are not necessary, the value should be set to 'false'.
+  enableTillerLabels: true

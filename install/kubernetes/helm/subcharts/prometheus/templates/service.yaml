@@ -10,9 +10,11 @@ metadata:
     {{- end }}
   labels:
     app: prometheus
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   selector:
     app: prometheus
@@ -31,9 +33,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: prometheus
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   type: NodePort
   ports:

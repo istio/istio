@@ -5,9 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "grafana.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -15,9 +17,11 @@ metadata:
   name: istio-grafana-post-install-{{ .Release.Namespace }}
   labels:
     app: {{ template "grafana.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 rules:
 - apiGroups: ["authentication.istio.io"] # needed to create default authn policy
   resources: ["*"]
@@ -29,9 +33,11 @@ metadata:
   name: istio-grafana-post-install-role-binding-{{ .Release.Namespace }}
   labels:
     app: {{ template "grafana.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -51,18 +57,22 @@ metadata:
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
     app: {{ template "grafana.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   template:
     metadata:
       name: istio-grafana-post-install
       labels:
         app: istio-grafana
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "grafana.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        {{- end }}
     spec:
       serviceAccountName: istio-grafana-post-install-account
       containers:

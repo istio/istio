@@ -6,9 +6,11 @@ metadata:
   # TODO: default template doesn't have this, which one is right ?
   labels:
     app: {{ template "pilot.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "pilot.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
     istio: pilot
   annotations:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
@@ -24,9 +26,11 @@ spec:
     metadata:
       labels:
         app: {{ template "pilot.name" . }}
+        {{- if .values.global.enableTillerLabels }}
         chart: {{ template "pilot.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
+        {{- end }}
         istio: pilot
       annotations:
         sidecar.istio.io/inject: "false"

@@ -5,9 +5,11 @@ metadata:
   name: istio-grafana-pvc
   labels:
     app: {{ template "grafana.name" . }}
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "grafana.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 spec:
   storageClassName: {{ .Values.storageClassName }}
   accessModes:

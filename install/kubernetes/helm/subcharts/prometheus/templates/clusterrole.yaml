@@ -4,9 +4,11 @@ metadata:
   name: prometheus-{{ .Release.Namespace }}
   labels:
     app: prometheus
+    {{- if .values.global.enableTillerLabels }}
     chart: {{ template "prometheus.chart" . }}
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
+    {{- end }}
 rules:
 - apiGroups: [""]
   resources:
