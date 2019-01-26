@@ -151,6 +151,9 @@ var (
 	// Tracespan metadata
 	Tracespan resource.Info
 
+	// Zipkin metadata
+	Zipkin resource.Info
+
 	// Template metadata
 	Template resource.Info
 
@@ -328,6 +331,9 @@ func init() {
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Tracespan = b.Register(
 		"istio/config/v1alpha2/legacy/tracespans",
+		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
+	Zipkin = b.Register(
+		"istio/config/v1alpha2/legacy/zipkins",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Template = b.Register(
 		"istio/config/v1alpha2/templates",

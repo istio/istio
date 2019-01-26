@@ -515,3 +515,12 @@ resources:
     proto:       "type.googleapis.com/google.protobuf.Struct"
     protoPackage: "github.com/gogo/protobuf/types"
     collection:  "istio/config/v1alpha2/legacy/edges"
+
+  - kind:        "zipkin"
+    singular:    "zipkin"
+    plural:      "zipkins"
+    group:       "config.istio.io"
+    version:     "v1alpha2"
+    proto:       "type.googleapis.com/google.protobuf.Struct"
+    protoPackage: "github.com/gogo/protobuf/types"
+    collection:  "istio/config/v1alpha2/legacy/zipkins"
