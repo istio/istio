@@ -565,7 +565,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			configStores = append(configStores, configController)
 			continue
 		}
-                if url.Scheme == mcpScheme || url.Scheme == mcpsScheme {
+		if url.Scheme == mcpScheme || url.Scheme == mcpsScheme {
 			if url.Host == "" {
 				cancel()
 				return fmt.Errorf("invalid mcp server address %s", configSource.Address)
