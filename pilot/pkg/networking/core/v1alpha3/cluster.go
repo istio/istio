@@ -951,7 +951,8 @@ func buildDefaultCluster(env *model.Environment, name string, discoveryType apiv
 	return cluster
 }
 
-func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Cluster_DiscoveryType, direction model.TrafficDirection, port *model.Port) *networking.TrafficPolicy {
+func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Cluster_DiscoveryType,
+	direction model.TrafficDirection, port *model.Port) *networking.TrafficPolicy {
 	lbPolicy := DefaultLbType
 	if discoveryType == apiv2.Cluster_ORIGINAL_DST {
 		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
