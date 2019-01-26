@@ -16,6 +16,7 @@ package registries
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/runtime/components/zipkin"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
@@ -51,6 +52,7 @@ func init() {
 	Native.Register(descriptors.Mixer, true, mixer.NewNativeComponent)
 	Native.Register(descriptors.Pilot, true, pilot.NewNativeComponent)
 	Native.Register(descriptors.PolicyBackend, true, policybackend.NewNativeComponent)
+	Native.Register(descriptors.Zipkin, true, zipkin.NewNativeComponent)
 
 	// Register kubernetes components.
 	Kube.Register(descriptors.Apps, true, apps.NewKubeComponent)
@@ -61,6 +63,7 @@ func init() {
 	Kube.Register(descriptors.Pilot, true, pilot.NewKubeComponent)
 	Kube.Register(descriptors.PolicyBackend, true, policybackend.NewKubeComponent)
 	Kube.Register(descriptors.Prometheus, true, prometheus.NewKubeComponent)
+	Kube.Register(descriptors.Zipkin, true, zipkin.NewKubeComponent)
 }
 
 // ForEnvironment returns the registry for the given environment

@@ -12,43 +12,30 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package ids
+package components
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/ids"
 )
 
-var (
-	// Environment component
-	Environment = component.ID("environment")
+// Zipkin represents a deployed Zipkin instance.
+type Zipkin interface {
+	component.Instance
 
-	// Apps component
-	Apps = component.ID("apps")
+	// Returns the address the zipkin server is running on.
+	GetAddress() string
 
-	// BookInfo component
-	BookInfo = component.ID("bookinfo")
+	// Returns a list of all service names associated with span endpoints.
+	ListServices() ([]string, error)
 
-	// Citadel component
-	Citadel = component.ID("citadel")
+	// Returns a list of traces matching the given trace id.
+	GetTracesById(traceid string) ([][]map[string]interface{}, error)
+}
 
-	// Ingress component
-	Ingress = component.ID("ingress")
-
-	// Mixer component
-	Mixer = component.ID("mixer")
-
-	// Galley component
-	Galley = component.ID("galley")
-
-	// Pilot component
-	Pilot = component.ID("pilot")
-
-	// PolicyBackend component
-	PolicyBackend = component.ID("policybackend")
-
-	// Prometheus component
-	Prometheus = component.ID("prometheus")
-
-	// Zipkin component
-	Zipkin = component.ID("zipkin")
-)
+// GetZipkin from the repository
+func GetZipkin(e component.Repository, t testing.TB) Zipkin {
+	return e.GetComponentOrFail(ids.Zipkin, t).(Zipkin)
+}

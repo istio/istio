@@ -91,6 +91,15 @@ var (
 		},
 	}
 
+	// Zipkin component that runs a real zipkin in a local subprocess.
+	Zipkin = component.Descriptor{
+		ID:                ids.Zipkin,
+		IsSystemComponent: true,
+		Requires: []component.Requirement{
+			&ids.Environment,
+		},
+	}
+
 	// PolicyBackend component
 	PolicyBackend = component.Descriptor{
 		ID:                ids.PolicyBackend,
