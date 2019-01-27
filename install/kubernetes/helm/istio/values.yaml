@@ -325,6 +325,8 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # Specifies pod budget that reacts to disruptions with a PodDisruptionBudget(PDB).
+  # You can specify only one of maxUnavailable and minAvailable in a single PodDisruptionBudget.
   defaultPodDisruptionBudget:
     minAvailable: 1
     # maxUnavailable: 1
