@@ -1,4 +1,4 @@
-{{- if .Values.pilot.enabled }}
+{{- if or .Values.pilot.enabled .Values.global.istioRemote }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -31,6 +31,24 @@ data:
     # Set accessLogEncoding to JSON or TEXT to configure sidecar access log
     accessLogEncoding: '{{ .Values.global.proxy.accessLogEncoding }}'
 
+    {{- if and .Values.global.istioRemote }}
+    
+    {{- if .Values.global.remotePolicyAddress }}
+    {{- if .Values.global.createRemoteSvcEndpoints }}
+    mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
+    {{- else }}
+    mixerCheckServer: {{ .Values.global.remotePolicyAddress }}:15004
+    {{- end }}
+    {{- end }}
+    {{- if .Values.global.remoteTelemetryAddress }}
+    {{- if .Values.global.createRemoteSvcEndpoints }}
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
+    {{- else }}
+    mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
+    {{- end }}
+    {{- end }}
+    
+    {{- else }}
     #
     # Deprecated: mixer is using EDS
     {{- if or .Values.mixer.policy.enabled .Values.mixer.telemetry.enabled }}
@@ -41,7 +59,11 @@ data:
     mixerCheckServer: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     mixerReportServer: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
     {{- end }}
+    {{- end }}
+    
+    {{- end }}
 
+    {{- if or .Values.mixer.policy.enabled (and .Values.global.istioRemote .Values.global.remotePolicyAddress) }}
     # policyCheckFailOpen allows traffic in cases when the mixer policy service cannot be reached.
     # Default is false which means the traffic is denied when the client is unable to connect to Mixer.
     policyCheckFailOpen: {{ .Values.global.policyCheckFailOpen }}
@@ -143,6 +165,8 @@ data:
           # Address of the Zipkin collector
         {{- if .Values.global.tracer.zipkin.address }}
           address: {{ .Values.global.tracer.zipkin.address }}
+        {{- else if .Values.global.remoteZipkinAddress }}
+          address: {{ .Values.global.remoteZipkinAddress }}:9411
         {{- else }}
           address: zipkin.{{ .Release.Namespace }}:9411
         {{- end }}
@@ -154,20 +178,30 @@ data:
       statsdUdpAddress: {{ .Values.global.proxy.envoyStatsd.host }}:{{ .Values.global.proxy.envoyStatsd.port }}
     {{- end }}
 
+    {{- $defPilotHostname := printf "istio-pilot.%s" .Release.Namespace }}
+    {{- $pilotAddress := .Values.global.remotePilotAddress | default $defPilotHostname }}
     {{- if .Values.global.controlPlaneSecurityEnabled }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: MUTUAL_TLS
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15011
+      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+      discoveryAddress: {{ $defPilotHostname }}:15011
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15011
+      {{- end }}
     {{- else }}
       #
       # Mutual TLS authentication between sidecars and istio control plane.
       controlPlaneAuthPolicy: NONE
       #
       # Address where istio Pilot service is running
-      discoveryAddress: istio-pilot.{{ .Release.Namespace }}:15010
+      {{- if or .Values.global.remotePilotCreateSvcEndpoint .Values.global.createRemoteSvcEndpoints }}
+      discoveryAddress: {{ $defPilotHostname }}:15010
+      {{- else }}
+      discoveryAddress: {{ $pilotAddress }}:15010
+      {{- end }}
     {{- end }}
   
   # Configuration file for the mesh networks to be used by the Split Horizon EDS.

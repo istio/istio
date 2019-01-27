@@ -35,7 +35,6 @@ popd
 # Charts to extract from repos
 CHARTS=(
   "${WORK_DIR}/istio/install/kubernetes/helm/istio"
-  "${WORK_DIR}/istio/install/kubernetes/helm/istio-remote"
   "${WORK_DIR}/cni/deployments/kubernetes/install/helm/istio-cni"
 )
 

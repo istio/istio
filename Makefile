@@ -635,13 +635,14 @@ helm-repo-add:
 istio-remote.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
-	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio-remote
+	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	$(HELM) template --name=istio --namespace=istio-system \
+		--values install/kubernetes/helm/istio/values-istio-remote.yaml \
 		--set istio_cni.enabled=${ENABLE_ISTIO_CNI} \
 		${EXTRA_HELM_SETTINGS} \
-		install/kubernetes/helm/istio-remote >> install/kubernetes/$@
+		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-# create istio-remote.yaml
+# create istio-init.yaml
 istio-init.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 	cat install/kubernetes/namespace.yaml > install/kubernetes/$@
 	cat install/kubernetes/helm/istio-init/files/crd-* >> install/kubernetes/$@
