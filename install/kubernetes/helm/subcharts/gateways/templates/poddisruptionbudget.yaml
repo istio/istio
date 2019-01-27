@@ -24,9 +24,6 @@ spec:
 {{- end }}
   selector:
     matchLabels:
-      {{- if $.Values.global.enableTillerLabels }}
-      release: {{ $.Release.Name }}
-      {{- end }}
       {{- range $key, $val := $spec.labels }}
       {{ $key }}: {{ $val }}
       {{- end }}

@@ -26,9 +26,6 @@ spec:
   selector:
     matchLabels:
       app: {{ $key }}
-      {{- if $.Values.global.enableTillerLabels }}
-      release: {{ $.Release.Name }}
-      {{- end }}
       istio: mixer
       istio-mixer-type: {{ $key }}
 ---

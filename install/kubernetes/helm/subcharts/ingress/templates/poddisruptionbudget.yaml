@@ -21,8 +21,5 @@ spec:
   selector:
     matchLabels:
       app: {{ template "ingress.name" . }}
-      {{- if .Values.global.enableTillerLabels }}
-      release: {{ .Release.Name }}
-      {{- end }}
       istio: ingress
 {{- end }}

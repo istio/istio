@@ -21,8 +21,5 @@ spec:
   selector:
     matchLabels:
       app: {{ template "galley.name" . }}
-      {{- if .Values.global.enableTillerLabels }}
-      release: {{ .Release.Name }}
-      {{- end }}
       istio: galley
 {{- end }}

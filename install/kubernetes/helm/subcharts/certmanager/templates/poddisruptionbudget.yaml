@@ -24,7 +24,4 @@ spec:
   selector:
     matchLabels:
       app: certmanager
-      {{- if .Values.global.enableTillerLabels }}
-      release: {{ .Release.Name }}
-      {{- end }}
 {{- end }}
