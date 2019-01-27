@@ -171,14 +171,15 @@ checkIfDeleted() {
     if [[ "${resp}" == *"Error from server (NotFound)"* ]]; then
         return 0
     fi
-    echo "Response from server for kubectl get: ${resp}"
+    echo "Response from server for kubectl get: "
+    echo "${resp}"
     return 1
 }
 
 deleteWithWait() {
     # Don't complain if resource is already deleted.
     echo_and_run_quiet kubectl delete "${1}" -n "${3}" "${2}"
-    withRetries 10 60 checkIfDeleted "${1}" "${2}" "${3}"
+    withRetries 60 10 checkIfDeleted "${1}" "${2}" "${3}"
 }
 
 installIstioSystemAtVersionHelmTemplate() {
@@ -206,7 +207,7 @@ installIstioSystemAtVersionHelmTemplate() {
     --set global.hub="${1}" \
     --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
 
-    withRetries 10 60 kubectl apply -f "${ISTIO_ROOT}"/istio.yaml
+    withRetries 3 60 kubectl apply -f "${ISTIO_ROOT}"/istio.yaml
 }
 
 installTest() {
@@ -304,12 +305,13 @@ _waitForPodsReady() {
         return 0
     fi
 
+    echo "${pods_str}"
     return 1
 }
 
 waitForPodsReady() {
     echo "Waiting for pods to be ready in ${1}..."
-    withRetriesMaxTime 300 10 _waitForPodsReady "${1}"
+    withRetriesMaxTime 600 10 _waitForPodsReady "${1}"
     echo "All pods ready."
 }
 
