@@ -52,11 +52,10 @@ func NewMonitor(name string, delegateStore model.ConfigStore, checkInterval time
 // and updates the controller. It then kicks off an asynchronous event loop that
 // periodically polls the getSnapshotFunc for changes until a close event is sent.
 func (m *Monitor) Start(stop <-chan struct{}) {
-	m.checkAndUpdate()
-	tick := time.NewTicker(m.checkDuration)
-
 	// Run the close loop asynchronously.
 	go func() {
+		m.checkAndUpdate()
+		tick := time.NewTicker(m.checkDuration)
 		for {
 			select {
 			case <-stop:

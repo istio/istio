@@ -211,8 +211,8 @@ func (s *fsStore) Init(kinds []string) error {
 	for _, k := range kinds {
 		s.kinds[k] = true
 	}
-	s.checkAndUpdate()
 	go func() {
+		s.checkAndUpdate()
 		tick := time.NewTicker(s.checkDuration)
 		for {
 			select {
