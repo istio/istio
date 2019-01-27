@@ -491,7 +491,7 @@ func validateServerPort(port *networking.Port) (errs error) {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
 	if ParseProtocol(port.Protocol) == ProtocolUnsupported {
-		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, TCP", port.Protocol))
+		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, MYSQL, TCP", port.Protocol))
 	}
 	if port.Number > 0 {
 		errs = appendErrors(errs, ValidatePort(int(port.Number)))
@@ -2089,8 +2089,8 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
 	for _, host := range serviceEntry.Hosts {
-		// Full wildcard or short names are not allowed in the service entry.
-		if host == "*" || !strings.Contains(host, ".") {
+		// Full wildcard is not allowed in the service entry.
+		if host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
 		} else {
 			errs = appendErrors(errs, ValidateWildcardDomain(host))

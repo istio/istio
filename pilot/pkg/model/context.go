@@ -488,6 +488,10 @@ const (
 	// NodeConfigNamespace is the name of the metadata variable that carries info about
 	// the config namespace associated with the proxy
 	NodeConfigNamespace = "CONFIG_NAMESPACE"
+
+	// NodeMetadataUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
+	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
+	NodeMetadataUID = "UID"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and
