@@ -182,6 +182,7 @@ func (c *nativeComponent) Reset() error {
 
 func (c *nativeComponent) restart() error {
 	a := server.DefaultArgs()
+	a.APIAddress = "tcp://0.0.0.0:0"
 	a.Insecure = true
 	a.EnableServer = true
 	a.DisableResourceReadyCheck = true
