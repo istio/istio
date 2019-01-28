@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package defaultstate
+package runtime
 
 import (
 	"bytes"
@@ -72,8 +72,7 @@ type resourceTypeState struct {
 	versions map[resource.FullName]resource.Version
 }
 
-// New creates a new State
-func New(name string, domainSuffix string, schema *resource.Schema, strategy *publish.Strategy,
+func newState(name string, domainSuffix string, schema *resource.Schema, strategy *publish.Strategy,
 	distributor publish.Distributor) *State {
 
 	now := time.Now()
@@ -99,23 +98,11 @@ func New(name string, domainSuffix string, schema *resource.Schema, strategy *pu
 	return s
 }
 
-// GetSchema returns the schema of types handled by this processor.
-func (s *State) GetSchema() *resource.Schema {
-	return s.schema
-}
-
-// Close this State.
-func (s *State) Close() {
+func (s *State) close() {
 	s.strategy.Reset()
 }
 
-// PublishChan returns the channel for observing publish events for this processor.
-func (s *State) PublishChan() chan struct{} {
-	return s.strategy.Publish
-}
-
-// Publish the snapshot
-func (s *State) Publish() {
+func (s *State) publish() {
 	now := time.Now()
 	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
 	s.lastSnapshotTime = now
@@ -125,8 +112,7 @@ func (s *State) Publish() {
 	s.pendingEvents = 0
 }
 
-// OnFullSync event handler indicating that the source has been fully synced.
-func (s *State) OnFullSync() {
+func (s *State) onFullSync() {
 	s.distribute = true
 	s.strategy.OnChange()
 }

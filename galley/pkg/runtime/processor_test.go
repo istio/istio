@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/galley/pkg/runtime/states/defaultstate"
 	"istio.io/istio/galley/pkg/testing/resources"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
@@ -72,7 +71,7 @@ func TestProcessor_Stop(t *testing.T) {
 	strategy := publish.NewStrategyWithDefaults()
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(defaultstate.New(snapshot.DefaultGroup, cfg.DomainSuffix, resources.TestSchema, strategy, distributor), src, nil)
+	p := newProcessor(newState(snapshot.DefaultGroup, cfg.DomainSuffix, resources.TestSchema, strategy, distributor), src, nil)
 
 	err := p.Start()
 	if err != nil {
@@ -92,7 +91,7 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	strategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(defaultstate.New(snapshot.DefaultGroup, cfg.DomainSuffix, resources.TestSchema, strategy, distributor), src, nil)
+	p := newProcessor(newState(snapshot.DefaultGroup, cfg.DomainSuffix, resources.TestSchema, strategy, distributor), src, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -118,7 +117,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	strategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(defaultstate.New(snapshot.DefaultGroup, cfg.DomainSuffix, resources.TestSchema, strategy, distributor), src, nil)
+	p := newProcessor(newState(snapshot.DefaultGroup, cfg.DomainSuffix, resources.TestSchema, strategy, distributor), src, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -149,7 +148,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	}
 	processCallCount.Add(3) // 1 for add, 1 for sync, 1 for publish trigger
 
-	p := newProcessor(defaultstate.New(snapshot.DefaultGroup, cfg.DomainSuffix, resources.TestSchema, strategy, distributor), src, hookFn)
+	p := newProcessor(newState(snapshot.DefaultGroup, cfg.DomainSuffix, resources.TestSchema, strategy, distributor), src, hookFn)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

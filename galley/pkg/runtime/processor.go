@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"istio.io/istio/galley/pkg/runtime/states/defaultstate"
 	"istio.io/istio/pkg/log"
 	sn "istio.io/istio/pkg/mcp/snapshot"
 )
@@ -50,7 +49,7 @@ type Processor struct {
 	stopped chan struct{}
 
 	// The current in-memory configuration State
-	state *defaultstate.State
+	state *State
 
 	// hook that gets called after each event processing. Useful for testing.
 	postProcessHook postProcessHookFn
@@ -63,12 +62,12 @@ type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
 func NewProcessor(src Source, distributor publish.Distributor, cfg *Config) *Processor {
-	state := defaultstate.New(sn.DefaultGroup, cfg.DomainSuffix, metadata.Types, publish.NewStrategyWithDefaults(), distributor)
+	state := newState(sn.DefaultGroup, cfg.DomainSuffix, metadata.Types, publish.NewStrategyWithDefaults(), distributor)
 	return newProcessor(state, src, nil)
 }
 
 func newProcessor(
-	state *defaultstate.State,
+	state *State,
 	src Source,
 	postProcessHook postProcessHookFn) *Processor {
 
@@ -140,9 +139,9 @@ loop:
 		case e := <-p.events:
 			p.processEvent(e)
 
-		case <-p.state.PublishChan():
+		case <-p.state.strategy.Publish:
 			scope.Debug("Processor.process: publish")
-			p.state.Publish()
+			p.state.publish()
 
 		// p.done signals the graceful Shutdown of the processor.
 		case <-p.done:
@@ -155,7 +154,7 @@ loop:
 		}
 	}
 
-	p.state.Close()
+	p.state.close()
 	close(p.stopped)
 	scope.Debugf("Process.process: Exiting process loop")
 }
@@ -166,7 +165,7 @@ func (p *Processor) processEvent(e resource.Event) {
 
 	if e.Kind == resource.FullSync {
 		scope.Infof("Synchronization is complete, starting distribution.")
-		p.state.OnFullSync()
+		p.state.onFullSync()
 		return
 	}
 
@@ -179,16 +178,11 @@ func (p *Processor) recordEvent() {
 	p.lastEventTime = now
 }
 
-type schemaBasedHandler interface {
-	processing.Handler
-	GetSchema() *resource.Schema
-}
-
-func buildDispatcher(handlers ...schemaBasedHandler) *processing.Dispatcher {
+func buildDispatcher(states ...*State) *processing.Dispatcher {
 	b := processing.NewDispatcherBuilder()
-	for _, h := range handlers {
-		for _, spec := range h.GetSchema().All() {
-			b.Add(spec.Collection, h)
+	for _, state := range states {
+		for _, spec := range state.schema.All() {
+			b.Add(spec.Collection, state)
 		}
 	}
 	return b.Build()

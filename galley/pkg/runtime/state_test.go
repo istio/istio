@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package defaultstate
+package runtime
 
 import (
 	"fmt"
@@ -61,7 +61,7 @@ func checkCreateTime(e *mcp.Resource, want time.Time) error {
 
 func TestStateName(t *testing.T) {
 	name := "testName"
-	s := New(name, domainSuffix, resources.TestSchema, publish.NewStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
+	s := newState(name, domainSuffix, resources.TestSchema, publish.NewStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
 	if s.name != name {
 		t.Fatalf("incorrect name: expected %s, found %s", name, s.name)
 	}
@@ -307,5 +307,5 @@ func TestState_String(t *testing.T) {
 }
 
 func newTestState() *State {
-	return New(snapshot.DefaultGroup, domainSuffix, resources.TestSchema, publish.NewStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
+	return newState(snapshot.DefaultGroup, domainSuffix, resources.TestSchema, publish.NewStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
 }
