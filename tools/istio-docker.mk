@@ -78,6 +78,10 @@ $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_BIN), \
 
 docker.proxy_init: pilot/docker/Dockerfile.proxy_init
 docker.proxy_init: $(ISTIO_DOCKER)/istio-iptables.sh
+	# Ensure ubuntu:xenial, the base image for proxy_init, is present so build doesn't fail on network hiccup
+	if [[ "$(docker images -q ubuntu:xenial 2> /dev/null)" == "" ]]; then \
+		docker pull ubuntu:xenial || (sleep 15 ; docker pull ubuntu:xenial) || (sleep 45 ; docker pull ubuntu:xenial) \
+	fi
 	$(DOCKER_RULE)
 
 docker.sidecar_injector: pilot/docker/Dockerfile.sidecar_injector
