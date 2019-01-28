@@ -20,63 +20,170 @@ import (
 	"testing"
 )
 
+func testOptions() *Options {
+	o := DefaultOptions()
+	o.testonlyExit = func() {
+		panic("os.Exit would have been called")
+	}
+	return o
+}
+
 func TestDefault(t *testing.T) {
 	cases := []struct {
 		f          func()
 		pat        string
 		json       bool
 		caller     bool
+		wantExit   bool
 		stackLevel Level
 	}{
-		{func() { Debug("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
-		{func() { Debugf("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
-		{func() { Debugf("%s", "Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
-		{func() { Debuga("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
+		{
+			f:   func() { Debug("Hello") },
+			pat: timePattern + "\tdebug\tHello",
+		},
+		{
+			f:   func() { Debugf("Hello") },
+			pat: timePattern + "\tdebug\tHello",
+		},
+		{
+			f:   func() { Debugf("%s", "Hello") },
+			pat: timePattern + "\tdebug\tHello",
+		},
+		{
+			f:   func() { Debuga("Hello") },
+			pat: timePattern + "\tdebug\tHello",
+		},
 
-		{func() { Info("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
-		{func() { Infof("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
-		{func() { Infof("%s", "Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
-		{func() { Infoa("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
+		{
+			f:   func() { Info("Hello") },
+			pat: timePattern + "\tinfo\tHello",
+		},
+		{
+			f:   func() { Infof("Hello") },
+			pat: timePattern + "\tinfo\tHello",
+		},
+		{
+			f:   func() { Infof("%s", "Hello") },
+			pat: timePattern + "\tinfo\tHello",
+		},
+		{
+			f:   func() { Infoa("Hello") },
+			pat: timePattern + "\tinfo\tHello",
+		},
 
-		{func() { Warn("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
-		{func() { Warnf("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
-		{func() { Warnf("%s", "Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
-		{func() { Warna("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
+		{
+			f:   func() { Warn("Hello") },
+			pat: timePattern + "\twarn\tHello",
+		},
+		{
+			f:   func() { Warnf("Hello") },
+			pat: timePattern + "\twarn\tHello",
+		},
+		{
+			f:   func() { Warnf("%s", "Hello") },
+			pat: timePattern + "\twarn\tHello",
+		},
+		{
+			f:   func() { Warna("Hello") },
+			pat: timePattern + "\twarn\tHello",
+		},
 
-		{func() { Error("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
-		{func() { Errorf("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
-		{func() { Errorf("%s", "Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
-		{func() { Errora("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
+		{
+			f:   func() { Error("Hello") },
+			pat: timePattern + "\terror\tHello",
+		},
+		{
+			f:   func() { Errorf("Hello") },
+			pat: timePattern + "\terror\tHello",
+		},
+		{
+			f:   func() { Errorf("%s", "Hello") },
+			pat: timePattern + "\terror\tHello",
+		},
+		{
+			f:   func() { Errora("Hello") },
+			pat: timePattern + "\terror\tHello",
+		},
 
-		{func() { Fatal("Hello") }, timePattern + "\tfatal\tHello", false, false, NoneLevel},
-		{func() { Fatalf("Hello") }, timePattern + "\tfatal\tHello", false, false, NoneLevel},
-		{func() { Fatalf("%s", "Hello") }, timePattern + "\tfatal\tHello", false, false, NoneLevel},
-		{func() { Fatala("Hello") }, timePattern + "\tfatal\tHello", false, false, NoneLevel},
+		{
+			f:        func() { Fatal("Hello") },
+			pat:      timePattern + "\tfatal\tHello",
+			wantExit: true,
+		},
+		{
+			f:        func() { Fatalf("Hello") },
+			pat:      timePattern + "\tfatal\tHello",
+			wantExit: true,
+		},
+		{
+			f:        func() { Fatalf("%s", "Hello") },
+			pat:      timePattern + "\tfatal\tHello",
+			wantExit: true,
+		},
+		{
+			f:        func() { Fatala("Hello") },
+			pat:      timePattern + "\tfatal\tHello",
+			wantExit: true,
+		},
 
-		{func() { Debug("Hello") }, timePattern + "\tdebug\tlog/default_test.go:.*\tHello", false, true, NoneLevel},
+		{
+			f:      func() { Debug("Hello") },
+			pat:    timePattern + "\tdebug\tlog/default_test.go:.*\tHello",
+			caller: true,
+		},
 
-		{func() { Debug("Hello") }, "{\"level\":\"debug\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
-		{func() { Info("Hello") }, "{\"level\":\"info\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
-		{func() { Warn("Hello") }, "{\"level\":\"warn\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
-		{func() { Error("Hello") }, "{\"level\":\"error\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
-		{func() { Fatal("Hello") }, "{\"level\":\"fatal\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
-			"\"stack\":\".*\"}",
-			true, true, DebugLevel},
+		{
+			f: func() { Debug("Hello") },
+			pat: "{\"level\":\"debug\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
+				"\"stack\":\".*\"}",
+			json:       true,
+			caller:     true,
+			stackLevel: DebugLevel,
+		},
+		{
+			f: func() { Info("Hello") },
+			pat: "{\"level\":\"info\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
+				"\"stack\":\".*\"}",
+			json:       true,
+			caller:     true,
+			stackLevel: DebugLevel,
+		},
+		{
+			f: func() { Warn("Hello") },
+			pat: "{\"level\":\"warn\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
+				"\"stack\":\".*\"}",
+			json:       true,
+			caller:     true,
+			stackLevel: DebugLevel,
+		},
+		{
+			f: func() { Error("Hello") },
+			pat: "{\"level\":\"error\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
+				"\"stack\":\".*\"}",
+			json:       true,
+			caller:     true,
+			stackLevel: DebugLevel,
+		},
+		{
+			f: func() { Fatal("Hello") },
+			pat: "{\"level\":\"fatal\",\"time\":\"" + timePattern + "\",\"caller\":\"log/default_test.go:.*\",\"msg\":\"Hello\"," +
+				"\"stack\":\".*\"}",
+			json:       true,
+			caller:     true,
+			wantExit:   true,
+			stackLevel: DebugLevel,
+		},
 	}
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			var exitCalled bool
 			lines, err := captureStdout(func() {
-				o := DefaultOptions()
+				o := testOptions()
 				o.JSONEncoding = c.json
+				o.testonlyExit = func() {
+					exitCalled = true
+				}
 
 				if err := Configure(o); err != nil {
 					t.Errorf("Got err '%v', expecting success", err)
@@ -89,6 +196,14 @@ func TestDefault(t *testing.T) {
 				c.f()
 				_ = Sync()
 			})
+
+			if exitCalled != c.wantExit {
+				var verb string
+				if c.wantExit {
+					verb = " never"
+				}
+				t.Errorf("os.Exit%s called", verb)
+			}
 
 			if err != nil {
 				t.Errorf("Got error '%v', expected success", err)
@@ -120,8 +235,9 @@ func TestEnabled(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			o := DefaultOptions()
+			o := testOptions()
 			o.SetOutputLevel(DefaultScopeName, c.level)
+			o.testonlyExit = func() {}
 			_ = Configure(o)
 
 			if c.debugEnabled != DebugEnabled() {
