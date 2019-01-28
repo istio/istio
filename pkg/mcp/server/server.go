@@ -149,7 +149,7 @@ func (s *Server) newConnection(stream mcp.AggregatedMeshConfigService_StreamAggr
 
 	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, 1))
 
-	scope.Debugf("MCP: connection %v: NEW, supported collections: %#v", con, collections)
+	scope.Infof("MCP: connection %v: NEW (AggregatedMeshConfigService) supported collections: %#v", con, collections)
 	return con, nil
 }
 

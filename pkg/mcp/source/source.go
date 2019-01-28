@@ -205,7 +205,7 @@ func (s *Source) newConnection(stream Stream) *connection {
 
 	s.reporter.SetStreamCount(atomic.AddInt64(&s.connections, 1))
 
-	scope.Debugf("MCP: connection %v: NEW, supported collections: %#v", con, collections)
+	scope.Infof("MCP: connection %v: NEW (ResourceSource), supported collections: %#v", con, collections)
 
 	return con
 }
@@ -246,6 +246,7 @@ func (s *Source) processStream(stream Stream) error {
 				return err
 			}
 		case <-con.queue.Done():
+			scope.Debugf("MCP: connection %v: stream done", con)
 			return status.Error(codes.Unavailable, "server canceled watch")
 		case <-stream.Context().Done():
 			scope.Debugf("MCP: connection %v: stream done, err=%v", con, stream.Context().Err())
