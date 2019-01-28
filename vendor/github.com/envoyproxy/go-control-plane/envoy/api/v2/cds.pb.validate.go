@@ -721,6 +721,13 @@ func (m *Cluster_RingHashLbConfig) Validate() error {
 		}
 	}
 
+	if _, ok := Cluster_RingHashLbConfig_HashFunction_name[int32(m.GetHashFunction())]; !ok {
+		return Cluster_RingHashLbConfigValidationError{
+			Field:  "HashFunction",
+			Reason: "value must be one of the defined enum values",
+		}
+	}
+
 	return nil
 }
 
