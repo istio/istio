@@ -18,8 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-
-	"github.com/alecthomas/template"
+	"text/template"
 
 	istio_networking_api "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
