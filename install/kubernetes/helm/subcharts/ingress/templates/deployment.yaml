@@ -10,7 +10,9 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     istio: ingress
 spec:
+{{- if not .Values.autoscaleMin }}
   replicas: {{ .Values.replicaCount }}
+{{- end }}
   template:
     metadata:
       labels:

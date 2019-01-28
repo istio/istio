@@ -54,7 +54,7 @@ spec:
   hosts:
   - "*"
   gateways:
-  - istio-kiali-gateway
+  - {{ .Release.Namespace }}/istio-kiali-gateway
   http:
   - match:
     - port: 15029

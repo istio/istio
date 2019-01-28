@@ -24,13 +24,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 	"istio.io/istio/pkg/version"
@@ -291,7 +289,10 @@ func runCA() {
 		}
 	}
 
-	cs := createClientset()
+	cs, err := kubelib.CreateClientset(opts.kubeConfigFile, "")
+	if err != nil {
+		fatalf("Could not create k8s clientset: %v", err)
+	}
 	ca := createCA(cs.CoreV1())
 	// For workloads in K8s, we apply the configured workload cert TTL.
 	sc, err := controller.NewSecretController(ca,
@@ -388,15 +389,6 @@ func runCA() {
 	}
 }
 
-func createClientset() *kubernetes.Clientset {
-	c := generateConfig()
-	cs, err := kubernetes.NewForConfig(c)
-	if err != nil {
-		fatalf("Failed to create a clientset (error: %s)", err)
-	}
-	return cs
-}
-
 func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 	var caOpts *ca.IstioCAOptions
 	var err error
@@ -439,14 +431,6 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 	}
 
 	return istioCA
-}
-
-func generateConfig() *rest.Config {
-	c, err := clientcmd.BuildConfigFromFlags("", opts.kubeConfigFile)
-	if err != nil {
-		fatalf("Failed to create a config (error: %s)", err)
-	}
-	return c
 }
 
 func verifyCommandLineOptions() {

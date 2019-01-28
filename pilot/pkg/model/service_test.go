@@ -205,6 +205,10 @@ func TestParseProtocol(t *testing.T) {
 		{"Redis", ProtocolRedis},
 		{"redis", ProtocolRedis},
 		{"REDIS", ProtocolRedis},
+		{"Mysql", ProtocolMySQL},
+		{"mysql", ProtocolMySQL},
+		{"MYSQL", ProtocolMySQL},
+		{"MySQL", ProtocolMySQL},
 		{"", ProtocolUnsupported},
 		{"SMTP", ProtocolUnsupported},
 	}
@@ -224,6 +228,8 @@ func TestHostnameMatches(t *testing.T) {
 		out  bool
 	}{
 		{"empty", "", "", true},
+		{"first empty", "", "foo.com", false},
+		{"second empty", "foo.com", "", false},
 
 		{"non-wildcard domain",
 			"foo.com", "foo.com", true},

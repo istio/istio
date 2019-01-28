@@ -21,12 +21,14 @@ import (
 	"testing"
 	"time"
 
+	rpc "github.com/gogo/googleapis/google/rpc"
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	policy_v1beta1 "istio.io/api/policy/v1beta1"
 	adapter_integration "istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/pkg/status"
 	sampleapa "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	checkproducer "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
 )
@@ -255,6 +257,7 @@ func TestNoSessionBackend(t *testing.T) {
 	testdata := []struct {
 		name   string
 		calls  []adapter_integration.Call
+		status rpc.Status
 		config []string
 		want   string
 	}{
@@ -600,6 +603,59 @@ func TestNoSessionBackend(t *testing.T) {
 					`,
 		},
 		{
+			name: "check custom error",
+			calls: []adapter_integration.Call{
+				{
+					CallKind: adapter_integration.CHECK,
+					Attrs:    map[string]interface{}{},
+				},
+			},
+			status: rpc.Status{
+				Code: int32(rpc.DATA_LOSS),
+				Details: []*types.Any{status.PackErrorDetail(&policy_v1beta1.DirectHttpResponse{
+					Code: policy_v1beta1.Unauthorized,
+					Body: "nope",
+				})},
+			},
+			want: `
+{
+    "AdapterState": [
+        {
+            "dedup_id": "stripped_for_test",
+            "instance": {
+                "name": "i3list.instance.istio-system",
+                "value": {
+                    "Value": {
+                        "StringValue": "defaultstr"
+                    }
+                }
+            }
+        }
+    ],
+    "Returns": [
+        {
+            "Check": {
+                "RouteDirective": {
+                    "direct_response_body": "nope",
+                    "direct_response_code": 401,
+                    "request_header_operations": null,
+                    "response_header_operations": null
+                },
+                "Status": {
+                    "code": 15,
+                    "message": "h1.handler.istio-system:"
+                },
+                "ValidDuration": 0,
+                "ValidUseCount": 31
+            },
+            "Error": null,
+            "Quota": null
+        }
+    ]
+}
+					`,
+		},
+		{
 			name: "single quota call with attributes",
 			calls: []adapter_integration.Call{{
 				CallKind: adapter_integration.CHECK,
@@ -838,7 +894,10 @@ func TestNoSessionBackend(t *testing.T) {
 					Setup: func() (interface{}, error) {
 						args := DefaultArgs()
 						args.Behavior.HandleMetricResult = &v1beta1.ReportResult{}
-						args.Behavior.HandleListEntryResult = &v1beta1.CheckResult{ValidUseCount: 31}
+						args.Behavior.HandleListEntryResult = &v1beta1.CheckResult{
+							Status:        td.status,
+							ValidUseCount: 31,
+						}
 						args.Behavior.HandleQuotaResult = &v1beta1.QuotaResult{
 							Quotas: map[string]v1beta1.QuotaResult_Result{"requestQuota.instance.istio-system": {GrantedAmount: 32}}}
 						// populate the APA output with all values

@@ -311,11 +311,14 @@ func testPorts(base int) []*model.Port {
 			Name:     "mongo",
 			Port:     base + 100,
 			Protocol: model.ProtocolMongo,
-		},
-		{
+		}, {
 			Name:     "redis",
 			Port:     base + 110,
 			Protocol: model.ProtocolRedis,
+		}, {
+			Name:     "mysql",
+			Port:     base + 120,
+			Protocol: model.ProtocolMySQL,
 		}, {
 			Name:     "h2port",
 			Port:     base + 66,

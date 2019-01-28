@@ -1,10 +1,10 @@
 ---
-apiVersion: apps/v1beta1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: cli-fortio
 spec:
-  replicas: 1
+  backoffLimit: 5
   template:
     metadata:
       labels:
@@ -12,6 +12,7 @@ spec:
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
+      restartPolicy: "OnFailure"
       containers:
       - name: echosrv
         image: istio/fortio:latest
@@ -21,7 +22,7 @@ spec:
           - -c
           - "32"
           - -t
-          - "700s"
+          - "500s"
           - -qps
           - "10"
           - http://echosrv.test.svc.cluster.local:8080/echo?size=200

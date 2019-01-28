@@ -587,6 +587,32 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
 	return Hostname(out)
 }
 
+// resolveGatewayName uses metadata information to resolve a reference
+// to shortname of the gateway to FQDN
+func resolveGatewayName(gwname string, meta ConfigMeta) string {
+	out := gwname
+
+	// New way of binding to a gateway in remote namespace
+	// is ns/name. Old way is either FQDN or short name
+	if !strings.Contains(gwname, "/") {
+		if !strings.Contains(gwname, ".") {
+			// we have a short name. Resolve to a gateway in same namespace
+			out = fmt.Sprintf("%s/%s", meta.Namespace, gwname)
+		} else {
+			// parse namespace from FQDN. This is very hacky, but meant for backward compatibility only
+			parts := strings.Split(gwname, ".")
+			out = fmt.Sprintf("%s/%s", parts[1], parts[0])
+		}
+	} else {
+		// remove the . from ./gateway and substitute it with the namespace name
+		parts := strings.Split(gwname, "/")
+		if parts[0] == "." {
+			out = fmt.Sprintf("%s/%s", meta.Namespace, parts[1])
+		}
+	}
+	return out
+}
+
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element
 // matching the needle, or false if no element in the stack matches the needle.
 func MostSpecificHostMatch(needle Hostname, stack []Hostname) (Hostname, bool) {

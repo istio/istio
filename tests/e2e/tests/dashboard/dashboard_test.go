@@ -322,7 +322,7 @@ func galleyQueryFilterFn(queries []string) []string {
 		if strings.Contains(query, "validation_http_error") {
 			continue
 		}
-		if strings.Contains(query, "handle_event_error_total") {
+		if strings.Contains(query, "event_error_total") {
 			continue
 		}
 		if strings.Contains(query, "converter_failure_total") {

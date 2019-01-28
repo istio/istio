@@ -139,16 +139,16 @@ type PortList []*Port
 type Protocol string
 
 const (
-	// ProtocolGRPC declares that the port carries gRPC traffic
+	// ProtocolGRPC declares that the port carries gRPC traffic.
 	ProtocolGRPC Protocol = "GRPC"
-	// ProtocolGRPCWeb declares that the port carries gRPC traffic
+	// ProtocolGRPCWeb declares that the port carries gRPC traffic.
 	ProtocolGRPCWeb Protocol = "GRPC-Web"
 	// ProtocolHTTP declares that the port carries HTTP/1.1 traffic.
 	// Note that HTTP/1.0 or earlier may not be supported by the proxy.
 	ProtocolHTTP Protocol = "HTTP"
-	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic
+	// ProtocolHTTP2 declares that the port carries HTTP/2 traffic.
 	ProtocolHTTP2 Protocol = "HTTP2"
-	// ProtocolHTTPS declares that the port carries HTTPS traffic
+	// ProtocolHTTPS declares that the port carries HTTPS traffic.
 	ProtocolHTTPS Protocol = "HTTPS"
 	// ProtocolTCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
@@ -159,11 +159,13 @@ const (
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
-	// ProtocolMongo declares that the port carries mongoDB traffic
+	// ProtocolMongo declares that the port carries MongoDB traffic.
 	ProtocolMongo Protocol = "Mongo"
-	// ProtocolRedis declares that the port carries redis traffic
+	// ProtocolRedis declares that the port carries Redis traffic.
 	ProtocolRedis Protocol = "Redis"
-	// ProtocolUnsupported - value to signify that the protocol is unsupported
+	// ProtocolMySQL declares that the port carries MySQL traffic.
+	ProtocolMySQL Protocol = "MySQL"
+	// ProtocolUnsupported - value to signify that the protocol is unsupported.
 	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
 
@@ -223,6 +225,8 @@ func ParseProtocol(s string) Protocol {
 		return ProtocolMongo
 	case "redis":
 		return ProtocolRedis
+	case "mysql":
+		return ProtocolMySQL
 	}
 
 	return ProtocolUnsupported
@@ -251,7 +255,7 @@ func (p Protocol) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (p Protocol) IsTCP() bool {
 	switch p {
-	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis:
+	case ProtocolTCP, ProtocolHTTPS, ProtocolTLS, ProtocolMongo, ProtocolRedis, ProtocolMySQL:
 		return true
 	default:
 		return false
@@ -496,6 +500,9 @@ type ServiceDiscovery interface {
 	// determine the intended destination of a connection without a Host header on the request.
 	GetProxyServiceInstances(*Proxy) ([]*ServiceInstance, error)
 
+	// GetProxyLocality returns the locality where the proxy runs.
+	GetProxyLocality(*Proxy) string
+
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management
 	// tasks such as health checks, etc. In a scenario where the proxy functions in the
@@ -535,12 +542,12 @@ func (h Hostname) Matches(o Hostname) bool {
 		return true
 	}
 
-	hWildcard := string(h[0]) == "*"
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
 	if hWildcard && len(o) == 0 {
 		return true
 	}
 
-	oWildcard := string(o[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 	if !hWildcard && !oWildcard {
 		// both are non-wildcards, so do normal string comparison
 		return h == o
@@ -574,8 +581,8 @@ func (h Hostname) SubsetOf(o Hostname) bool {
 		return true
 	}
 
-	hWildcard := string(h[0]) == "*"
-	oWildcard := string(o[0]) == "*"
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 	if !oWildcard {
 		if hWildcard {
 			return false

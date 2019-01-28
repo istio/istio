@@ -264,12 +264,13 @@ func (h *handler) purgeList() {
 	h.lock.Unlock()
 }
 
-func (h *handler) hasData() bool {
+func (h *handler) hasData() (bool, error) {
 	h.lock.Lock()
 	result := h.list != nil
+	err := h.lastFetchError
 	h.lock.Unlock()
 
-	return result
+	return result, err
 }
 
 func getCheckResult(config config.Params, code rpc.Code, msg string) adapter.CheckResult {

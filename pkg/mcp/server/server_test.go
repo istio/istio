@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"net"
 	"reflect"
 	"sync"
@@ -54,6 +53,7 @@ func (config *mockConfigWatcher) Watch(req *source.Request, pushResponse source.
 	config.counts[req.Collection]++
 
 	if rsp, ok := config.responses[req.Collection]; ok {
+		delete(config.responses, req.Collection)
 		rsp.Collection = req.Collection
 		pushResponse(rsp)
 		return nil
@@ -202,6 +202,12 @@ func TestMultipleRequests(t *testing.T) {
 		ResponseNonce: rsp.Nonce,
 	}
 
+	config.setResponse(&source.WatchResponse{
+		Collection: test.FakeType0Collection,
+		Version:    "2",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
+	})
+
 	// check a response
 	select {
 	case <-stream.sent:
@@ -303,6 +309,12 @@ func TestAuthCheck_Success(t *testing.T) {
 		VersionInfo:   rsp.VersionInfo,
 		ResponseNonce: rsp.Nonce,
 	}
+
+	config.setResponse(&source.WatchResponse{
+		Collection: test.FakeType0Collection,
+		Version:    "2",
+		Resources:  []*mcp.Resource{test.Type0A[0].Resource},
+	})
 
 	// check a response
 	select {
@@ -613,12 +625,15 @@ func TestAggregateRequestType(t *testing.T) {
 	close(stream.recv)
 }
 
-func TestRateLimitNACK(t *testing.T) {
-	origNackLimitFreq := nackLimitFreq
-	nackLimitFreq = 1 * time.Millisecond
-	defer func() {
-		nackLimitFreq = origNackLimitFreq
-	}()
+func TestIncrementalAggregatedResources(t *testing.T) {
+	var s Server
+	got := s.IncrementalAggregatedResources(nil)
+	if status.Code(got) != codes.Unimplemented {
+		t.Fatalf("IncrementalAggregatedResources() should return an unimplemented error code: got %v", status.Code(got))
+	}
+}
+
+func TestNACK(t *testing.T) {
 
 	config := makeMockConfigWatcher()
 	options := &source.Options{
@@ -634,58 +649,6 @@ func TestRateLimitNACK(t *testing.T) {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 	}()
-
-	var (
-		nackFloodRepeatDuration   = time.Millisecond * 500
-		nackFloodMaxWantResponses = int(nackFloodRepeatDuration/nackLimitFreq) + 1
-		nackFloodMinWantResponses = nackFloodMaxWantResponses / 2
-
-		ackFloodRepeatDuration   = time.Millisecond * 500
-		ackFloodMaxWantResponses = math.MaxInt64
-		ackFloodMinWantResponses = int(ackFloodRepeatDuration/nackLimitFreq) + 1
-	)
-
-	steps := []struct {
-		name           string
-		pushedVersion  string
-		ackedVersion   string
-		minResponses   int
-		maxResponses   int
-		repeatDuration time.Duration
-		errDetails     error
-	}{
-		{
-			name:          "initial push",
-			pushedVersion: "1",
-			ackedVersion:  "1",
-			minResponses:  1,
-			maxResponses:  1,
-		},
-		{
-			name:          "first ack",
-			pushedVersion: "2",
-			ackedVersion:  "2",
-			minResponses:  1,
-			maxResponses:  1,
-		},
-		{
-			name:           "verify nack flood is rate limited",
-			pushedVersion:  "3",
-			ackedVersion:   "2",
-			errDetails:     errors.New("nack"),
-			minResponses:   nackFloodMinWantResponses,
-			maxResponses:   nackFloodMaxWantResponses,
-			repeatDuration: nackFloodRepeatDuration,
-		},
-		{
-			name:           "verify back-to-back ack is not rate limited",
-			pushedVersion:  "4",
-			ackedVersion:   "4", // resuse version to simplify test code below
-			minResponses:   ackFloodMinWantResponses,
-			maxResponses:   ackFloodMaxWantResponses,
-			repeatDuration: ackFloodRepeatDuration,
-		},
-	}
 
 	sendRequest := func(typeURL, nonce, version string, err error) {
 		req := &mcp.MeshConfigRequest{
@@ -706,49 +669,57 @@ func TestRateLimitNACK(t *testing.T) {
 
 	nonces := make(map[string]bool)
 	var prevNonce string
+	pushedVersion := "1"
+	numResponses := 0
+	first := true
+	finish := time.Now().Add(1 * time.Second)
+	for i := 0; ; i++ {
+		var response *mcp.MeshConfigResponse
 
-	for _, s := range steps {
-		numResponses := 0
-		finish := time.Now().Add(s.repeatDuration)
-		first := true
-		for {
-			if first {
-				first = false
-
-				config.setResponse(&source.WatchResponse{
-					Collection: test.FakeType0Collection,
-					Version:    s.pushedVersion,
-					Resources:  []*mcp.Resource{test.Type0A[0].Resource},
-				})
-			}
-
-			var response *mcp.MeshConfigResponse
+		if first {
+			first = false
+			config.setResponse(&source.WatchResponse{
+				Collection: test.FakeType0Collection,
+				Version:    pushedVersion,
+				Resources:  []*mcp.Resource{test.Type0A[0].Resource},
+			})
 			select {
 			case response = <-stream.sent:
-				numResponses++
 			case <-time.After(time.Second):
-				t.Fatalf("%v: timed out waiting for response", s.name)
+				t.Fatal("timed out waiting for initial response")
 			}
 
-			if response.VersionInfo != s.pushedVersion {
-				t.Fatalf("%v: wrong response version: got %v want %v", s.name, response.VersionInfo, s.pushedVersion)
+			if response.VersionInfo != pushedVersion {
+				t.Fatalf(" wrong response version: got %v want %v", response.VersionInfo, pushedVersion)
 			}
 			if _, ok := nonces[response.Nonce]; ok {
-				t.Fatalf("%v: reused nonce in response: %v", s.name, response.Nonce)
+				t.Fatalf(" reused nonce in response: %v", response.Nonce)
 			}
 			nonces[response.Nonce] = true
 
 			prevNonce = response.Nonce
-
-			sendRequest(test.FakeType0Collection, prevNonce, s.ackedVersion, s.errDetails)
-
-			if time.Now().After(finish) {
-				break
+		} else {
+			select {
+			case response = <-stream.sent:
+				t.Fatal("received unexpected response after NACK")
+			case <-time.After(50 * time.Millisecond):
 			}
 		}
-		if numResponses < s.minResponses || numResponses > s.maxResponses {
-			t.Fatalf("%v: wrong number of responses: got %v want[%v,%v]",
-				s.name, numResponses, s.minResponses, s.maxResponses)
+
+		nonce := prevNonce
+		if i%2 == 1 {
+			nonce = "stale"
 		}
+
+		sendRequest(test.FakeType0Collection, nonce, pushedVersion, errors.New("nack"))
+
+		if time.Now().After(finish) {
+			break
+		}
+	}
+	wantResponses := 0
+	if numResponses != wantResponses {
+		t.Fatalf("wrong number of responses: got %v want %v",
+			numResponses, wantResponses)
 	}
 }

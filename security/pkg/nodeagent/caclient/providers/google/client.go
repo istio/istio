@@ -88,7 +88,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, csrPEM []byte, token stri
 	}
 
 	// If the token doesn't have "Bearer " prefix, add it.
-	if !strings.HasSuffix(token, bearerTokenPrefix) {
+	if !strings.HasPrefix(token, bearerTokenPrefix) {
 		token = bearerTokenPrefix + token
 	}
 

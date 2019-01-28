@@ -18,9 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,9 +30,9 @@ import (
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
 	"istio.io/istio/galley/pkg/source/fs"
+	kubeSource "istio.io/istio/galley/pkg/source/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
-	"istio.io/istio/galley/pkg/source/kube/dynamic"
-	kubeConverter "istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/source/kube/schema/check"
 	"istio.io/istio/pkg/ctrlz"
@@ -66,18 +63,18 @@ type Server struct {
 type patchTable struct {
 	newKubeFromConfigFile       func(string) (client.Interfaces, error)
 	verifyResourceTypesPresence func(client.Interfaces) error
-	newSource                   func(client.Interfaces, time.Duration, *schema.Instance, *kubeConverter.Config) (runtime.Source, error)
+	newSource                   func(client.Interfaces, time.Duration, *schema.Instance, *converter.Config) (runtime.Source, error)
 	netListen                   func(network, address string) (net.Listener, error)
 	newMeshConfigCache          func(path string) (meshconfig.Cache, error)
 	mcpMetricReporter           func(string) monitoring.Reporter
-	fsNew                       func(string, *schema.Instance, *kubeConverter.Config) (runtime.Source, error)
+	fsNew                       func(string, *schema.Instance, *converter.Config) (runtime.Source, error)
 }
 
 func defaultPatchTable() patchTable {
 	return patchTable{
 		newKubeFromConfigFile:       client.NewKubeFromConfigFile,
-		verifyResourceTypesPresence: check.VerifyResourceTypesPresence,
-		newSource:                   dynamic.New,
+		verifyResourceTypesPresence: check.ResourceTypesPresence,
+		newSource:                   kubeSource.New,
 		netListen:                   net.Listen,
 		mcpMetricReporter:           func(prefix string) monitoring.Reporter { return monitoring.NewStatsContext(prefix) },
 		newMeshConfigCache:          func(path string) (meshconfig.Cache, error) { return meshconfig.NewCacheFromFile(path) },
@@ -87,18 +84,10 @@ func defaultPatchTable() patchTable {
 
 // New returns a new instance of a Server.
 func New(a *Args) (*Server, error) {
-	var convertK8SService bool
-	if s := os.Getenv("ISTIO_CONVERT_K8S_SERVICE"); s != "" {
-		b, err := strconv.ParseBool(s)
-		if err != nil {
-			return nil, err
-		}
-		convertK8SService = b
-	}
-	return newServer(a, defaultPatchTable(), convertK8SService)
+	return newServer(a, defaultPatchTable())
 }
 
-func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
+func newServer(a *Args, p patchTable) (*Server, error) {
 	var err error
 	s := &Server{}
 
@@ -113,34 +102,16 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	converterCfg := &kubeConverter.Config{
+	converterCfg := &converter.Config{
 		Mesh:         mesh,
 		DomainSuffix: a.DomainSuffix,
 	}
-	specs := kubeMeta.Types.All()
-	if !convertK8SService {
-		var filtered []schema.ResourceSpec
-		for _, t := range specs {
-			// TODO(nmittler): Temporarily filter Node and Pod until custom sources land.
-			// Pod yaml cannot be parsed currently. See: https://github.com/istio/istio/issues/10891
-			if t.Kind != "Service" && t.Kind != "Node" && t.Kind != "Pod" {
-				filtered = append(filtered, t)
-			}
-		}
-		specs = filtered
-	}
-	sort.Slice(specs, func(i, j int) bool {
-		return strings.Compare(specs[i].CanonicalResourceName(), specs[j].CanonicalResourceName()) < 0
-	})
-	sb := schema.NewBuilder()
-	for _, s := range specs {
-		sb.Add(s)
-	}
-	kubeSchema := sb.Build()
+
+	sourceSchema := getSourceSchema(a)
 
 	var src runtime.Source
 	if a.ConfigPath != "" {
-		src, err = p.fsNew(a.ConfigPath, kubeSchema, converterCfg)
+		src, err = p.fsNew(a.ConfigPath, sourceSchema, converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +125,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 				return nil, err
 			}
 		}
-		src, err = p.newSource(k, a.ResyncPeriod, kubeSchema, converterCfg)
+		src, err = p.newSource(k, a.ResyncPeriod, sourceSchema, converterCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -190,7 +161,7 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 
-	s.reporter = p.mcpMetricReporter("galley/")
+	s.reporter = p.mcpMetricReporter("galley/mcp/source")
 
 	options := &source.Options{
 		Watcher:            distributor,
@@ -220,6 +191,25 @@ func newServer(a *Args, p patchTable, convertK8SService bool) (*Server, error) {
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
 	return s, nil
+}
+
+func getSourceSchema(a *Args) *schema.Instance {
+	b := schema.NewBuilder()
+	for _, spec := range kubeMeta.Types.All() {
+		if !isKindExcluded(a, spec.Kind) {
+			b.Add(spec)
+		}
+	}
+	return b.Build()
+}
+
+func isKindExcluded(a *Args, kind string) bool {
+	for _, excludedKind := range a.ExcludedResourceKinds {
+		if kind == excludedKind {
+			return true
+		}
+	}
+	return false
 }
 
 // Run enables Galley to start receiving gRPC requests on its main API port.

@@ -288,7 +288,9 @@ metadata:
     app.kubernetes.io/version: {{ $.Chart.Version }}
     istio: mixer
 spec:
+{{- if not $spec.autoscaleEnabled }}
   replicas: {{ $spec.replicaCount }}
+{{- end }}
   strategy:
     rollingUpdate:
       maxSurge: 1

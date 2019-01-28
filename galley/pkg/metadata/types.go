@@ -202,6 +202,9 @@ var (
 	// ServiceRole metadata
 	ServiceRole resource.Info
 
+	// Endpoints metadata
+	Endpoints resource.Info
+
 	// Node metadata
 	Node resource.Info
 
@@ -380,6 +383,9 @@ func init() {
 	ServiceRole = b.Register(
 		"istio/rbac/v1alpha1/serviceroles",
 		"type.googleapis.com/istio.rbac.v1alpha1.ServiceRole")
+	Endpoints = b.Register(
+		"k8s/core/v1/endpoints",
+		"type.googleapis.com/k8s.io.api.core.v1.Endpoints")
 	Node = b.Register(
 		"k8s/core/v1/nodes",
 		"type.googleapis.com/k8s.io.api.core.v1.NodeSpec")

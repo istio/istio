@@ -959,6 +959,11 @@
                 "is_repeated": true
               },
               {
+                "id": 31,
+                "name": "locality_lb_setting",
+                "type": "LocalityLoadBalancerSetting"
+              },
+              {
                 "id": 23,
                 "name": "enable_sds_token_mount",
                 "type": "bool"
@@ -1003,6 +1008,60 @@
                 "id": 2,
                 "name": "tls_settings",
                 "type": "istio.networking.v1alpha3.TLSSettings"
+              }
+            ]
+          },
+          {
+            "name": "LocalityLoadBalancerSetting",
+            "fields": [
+              {
+                "id": 1,
+                "name": "distribute",
+                "type": "Distribute",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "failover",
+                "type": "Failover",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "Distribute",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  }
+                ],
+                "maps": [
+                  {
+                    "key_type": "string",
+                    "field": {
+                      "id": 2,
+                      "name": "to",
+                      "type": "uint32"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Failover",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  },
+                  {
+                    "id": 2,
+                    "name": "to",
+                    "type": "string"
+                  }
+                ]
               }
             ]
           }
@@ -2701,12 +2760,6 @@
                 "id": 2,
                 "name": "consistent_hash",
                 "type": "ConsistentHashLB"
-              },
-              {
-                "id": 3,
-                "name": "locality_weight_settings",
-                "type": "LocalityWeightSetting",
-                "is_repeated": true
               }
             ],
             "messages": [
@@ -2754,26 +2807,6 @@
                         "type": "google.protobuf.Duration"
                       }
                     ]
-                  }
-                ]
-              },
-              {
-                "name": "LocalityWeightSetting",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "from",
-                    "type": "string"
-                  }
-                ],
-                "maps": [
-                  {
-                    "key_type": "string",
-                    "field": {
-                      "id": 2,
-                      "name": "to",
-                      "type": "uint32"
-                    }
                   }
                 ]
               }
@@ -4623,6 +4656,273 @@
                 "id": 3,
                 "name": "ca_certificates",
                 "type": "string"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "policy:/:v1beta1:/:http_response.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "HttpStatusCode",
+            "enum_fields": [
+              {
+                "name": "Empty",
+                "integer": 0
+              },
+              {
+                "name": "Continue",
+                "integer": 100
+              },
+              {
+                "name": "OK",
+                "integer": 200
+              },
+              {
+                "name": "Created",
+                "integer": 201
+              },
+              {
+                "name": "Accepted",
+                "integer": 202
+              },
+              {
+                "name": "NonAuthoritativeInformation",
+                "integer": 203
+              },
+              {
+                "name": "NoContent",
+                "integer": 204
+              },
+              {
+                "name": "ResetContent",
+                "integer": 205
+              },
+              {
+                "name": "PartialContent",
+                "integer": 206
+              },
+              {
+                "name": "MultiStatus",
+                "integer": 207
+              },
+              {
+                "name": "AlreadyReported",
+                "integer": 208
+              },
+              {
+                "name": "IMUsed",
+                "integer": 226
+              },
+              {
+                "name": "MultipleChoices",
+                "integer": 300
+              },
+              {
+                "name": "MovedPermanently",
+                "integer": 301
+              },
+              {
+                "name": "Found",
+                "integer": 302
+              },
+              {
+                "name": "SeeOther",
+                "integer": 303
+              },
+              {
+                "name": "NotModified",
+                "integer": 304
+              },
+              {
+                "name": "UseProxy",
+                "integer": 305
+              },
+              {
+                "name": "TemporaryRedirect",
+                "integer": 307
+              },
+              {
+                "name": "PermanentRedirect",
+                "integer": 308
+              },
+              {
+                "name": "BadRequest",
+                "integer": 400
+              },
+              {
+                "name": "Unauthorized",
+                "integer": 401
+              },
+              {
+                "name": "PaymentRequired",
+                "integer": 402
+              },
+              {
+                "name": "Forbidden",
+                "integer": 403
+              },
+              {
+                "name": "NotFound",
+                "integer": 404
+              },
+              {
+                "name": "MethodNotAllowed",
+                "integer": 405
+              },
+              {
+                "name": "NotAcceptable",
+                "integer": 406
+              },
+              {
+                "name": "ProxyAuthenticationRequired",
+                "integer": 407
+              },
+              {
+                "name": "RequestTimeout",
+                "integer": 408
+              },
+              {
+                "name": "Conflict",
+                "integer": 409
+              },
+              {
+                "name": "Gone",
+                "integer": 410
+              },
+              {
+                "name": "LengthRequired",
+                "integer": 411
+              },
+              {
+                "name": "PreconditionFailed",
+                "integer": 412
+              },
+              {
+                "name": "PayloadTooLarge",
+                "integer": 413
+              },
+              {
+                "name": "URITooLong",
+                "integer": 414
+              },
+              {
+                "name": "UnsupportedMediaType",
+                "integer": 415
+              },
+              {
+                "name": "RangeNotSatisfiable",
+                "integer": 416
+              },
+              {
+                "name": "ExpectationFailed",
+                "integer": 417
+              },
+              {
+                "name": "MisdirectedRequest",
+                "integer": 421
+              },
+              {
+                "name": "UnprocessableEntity",
+                "integer": 422
+              },
+              {
+                "name": "Locked",
+                "integer": 423
+              },
+              {
+                "name": "FailedDependency",
+                "integer": 424
+              },
+              {
+                "name": "UpgradeRequired",
+                "integer": 426
+              },
+              {
+                "name": "PreconditionRequired",
+                "integer": 428
+              },
+              {
+                "name": "TooManyRequests",
+                "integer": 429
+              },
+              {
+                "name": "RequestHeaderFieldsTooLarge",
+                "integer": 431
+              },
+              {
+                "name": "InternalServerError",
+                "integer": 500
+              },
+              {
+                "name": "NotImplemented",
+                "integer": 501
+              },
+              {
+                "name": "BadGateway",
+                "integer": 502
+              },
+              {
+                "name": "ServiceUnavailable",
+                "integer": 503
+              },
+              {
+                "name": "GatewayTimeout",
+                "integer": 504
+              },
+              {
+                "name": "HTTPVersionNotSupported",
+                "integer": 505
+              },
+              {
+                "name": "VariantAlsoNegotiates",
+                "integer": 506
+              },
+              {
+                "name": "InsufficientStorage",
+                "integer": 507
+              },
+              {
+                "name": "LoopDetected",
+                "integer": 508
+              },
+              {
+                "name": "NotExtended",
+                "integer": 510
+              },
+              {
+                "name": "NetworkAuthenticationRequired",
+                "integer": 511
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "DirectHttpResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "code",
+                "type": "HttpStatusCode"
+              },
+              {
+                "id": 2,
+                "name": "body",
+                "type": "string"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "headers",
+                  "type": "string"
+                }
               }
             ]
           }
