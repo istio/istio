@@ -134,7 +134,7 @@ global:
     resources:
       requests:
         cpu: 10m
-      #  memory: 128Mi
+        memory: 128Mi
       # limits:
       #   cpu: 100m
       #   memory: 128Mi
@@ -313,14 +313,14 @@ global:
     # have a shared root CA for this model to work.
     enabled: false
 
-  # A minimal set of requested resources to applied to all deployments so that
-  # Horizontal Pod Autoscaler will be able to function (if set).
+  # A minimal set of requested resources to applied to all control plane deployments 
+  # so that Horizontal Pod Autoscaler will be able to function (if set).
   # Each component can overwrite these default values by adding its own resources
   # block in the relevant section below and setting the desired resources values.
   defaultResources:
     requests:
-      cpu: 10m
-    #   memory: 128Mi
+      cpu: 50m
+      memory: 128Mi
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
