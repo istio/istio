@@ -33,7 +33,7 @@ resources:
     singular:    "pod"
     plural:      "pods"
     version:     "v1"
-    proto:       "k8s.io.api.core.v1.PodSpec"
+    proto:       "k8s.io.api.core.v1.Pod"
     protoPackage: "k8s.io/api/core/v1"
     collection:   "k8s/core/v1/pods"
 
