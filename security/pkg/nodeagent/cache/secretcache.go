@@ -98,6 +98,9 @@ type SecretManager interface {
 
 	// SecretExist checks if secret already existed.
 	SecretExist(proxyID, resourceName, token, version string) bool
+
+	// DeleteSecret deletes a secret by its key from cache.
+	DeleteSecret(proxyID, resourceName string)
 }
 
 // ConnKey is the key of one SDS connection.
@@ -197,7 +200,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 
 	if sc.rootCert == nil {
 		log.Errorf("Failed to get root cert for proxy %q", proxyID)
-		return nil, errors.New("faied to get root cert")
+		return nil, errors.New("failed to get root cert")
 
 	}
 
@@ -211,6 +214,15 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	}
 	sc.secrets.Store(key, *ns)
 	return ns, nil
+}
+
+// DeleteSecret deletes a secret by its key from cache.
+func (sc *SecretCache) DeleteSecret(proxyID, resourceName string) {
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
+	sc.secrets.Delete(key)
 }
 
 // DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret

@@ -22,11 +22,13 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/testing/events"
 )
 
 func TestInMemory_Start_Empty(t *testing.T) {
 	i := NewInMemorySource()
-	ch, err := i.Start()
+	ch := make(chan resource.Event, 1024)
+	err := i.Start(events.ChannelHandler(ch))
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -45,8 +47,8 @@ func TestInMemory_Start_WithItem(t *testing.T) {
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
 	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
 
-	ch, err := i.Start()
-	if err != nil {
+	ch := make(chan resource.Event, 1024)
+	if err := i.Start(events.ChannelHandler(ch)); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
@@ -62,16 +64,17 @@ func TestInMemory_Start_WithItem(t *testing.T) {
 
 func TestInMemory_Start_DoubleStart(t *testing.T) {
 	i := NewInMemorySource()
-	_, _ = i.Start()
-	_, err := i.Start()
-	if err == nil {
+	ch := make(chan resource.Event, 1024)
+	_ = i.Start(events.ChannelHandler(ch))
+	if err := i.Start(events.ChannelHandler(ch)); err == nil {
 		t.Fatal("should have returned error")
 	}
 }
 
 func TestInMemory_Start_DoubleStop(t *testing.T) {
 	i := NewInMemorySource()
-	_, _ = i.Start()
+	ch := make(chan resource.Event, 1024)
+	_ = i.Start(events.ChannelHandler(ch))
 	i.Stop()
 	// should not panic
 	i.Stop()
@@ -79,8 +82,8 @@ func TestInMemory_Start_DoubleStop(t *testing.T) {
 
 func TestInMemory_Set(t *testing.T) {
 	i := NewInMemorySource()
-	ch, err := i.Start()
-	if err != nil {
+	ch := make(chan resource.Event, 1024)
+	if err := i.Start(events.ChannelHandler(ch)); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
@@ -102,8 +105,8 @@ func TestInMemory_Set(t *testing.T) {
 
 func TestInMemory_Delete(t *testing.T) {
 	i := NewInMemorySource()
-	ch, err := i.Start()
-	if err != nil {
+	ch := make(chan resource.Event, 1024)
+	if err := i.Start(events.ChannelHandler(ch)); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 

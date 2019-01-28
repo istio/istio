@@ -18,7 +18,7 @@ imports=(
   "${root}/vendor/github.com/gogo/protobuf/protobuf"
   "${root}/vendor/istio.io/gogo-genproto/prometheus"
   "${root}/vendor/istio.io/gogo-genproto/googleapis"
-  "${root}/vendor/istio.io/gogo-genproto/opencensus/proto/trace"
+  "${root}/vendor/istio.io/gogo-genproto/opencensus/proto/trace/v1"
 )
 
 protocarg=""
@@ -40,7 +40,7 @@ mappings=(
   "google/protobuf/timestamp.proto=github.com/gogo/protobuf/types"
   "google/protobuf/wrappers.proto=github.com/gogo/protobuf/types"
   "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto"
-  "trace.proto=istio.io/gogo-genproto/opencensus/proto/trace"
+  "trace.proto=istio.io/gogo-genproto/opencensus/proto/trace/v1"
   "metrics.proto=istio.io/gogo-genproto/prometheus"
 )
 

@@ -17,12 +17,8 @@ package converter
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
-	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -30,6 +26,10 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+
+	corev1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var scope = log.RegisterScope("kube-converter", "Kubernetes conversion related packages", 0)
@@ -39,10 +39,9 @@ type Fn func(cfg *Config, destination resource.Info, name resource.FullName, kin
 
 // Entry is a single converted entry.
 type Entry struct {
-	Key          resource.FullName
-	Metadata     resource.Metadata
-	CreationTime time.Time
-	Resource     proto.Message
+	Key      resource.FullName
+	Metadata resource.Metadata
+	Resource proto.Message
 }
 
 var converters = func() map[string]Fn {
@@ -81,23 +80,21 @@ func convertJSON(from, to interface{}) error {
 
 func identity(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	var p proto.Message
-	creationTime := time.Time{}
 	var metadata resource.Metadata
 	if u != nil {
 		var err error
 		if p, err = toProto(destination, u.Object["spec"]); err != nil {
 			return nil, err
 		}
-		creationTime = u.GetCreationTimestamp().Time
+		metadata.CreateTime = u.GetCreationTimestamp().Time
 		metadata.Labels = u.GetLabels()
 		metadata.Annotations = u.GetAnnotations()
 	}
 
 	e := Entry{
-		Key:          name,
-		CreationTime: creationTime,
-		Metadata:     metadata,
-		Resource:     p,
+		Key:      name,
+		Metadata: metadata,
+		Resource: p,
 	}
 
 	return []Entry{e}, nil
@@ -109,20 +106,19 @@ func nilConverter(_ *Config, _ resource.Info, _ resource.FullName, _ string, _ *
 
 func authPolicyResource(_ *Config, destination resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
 	var p proto.Message
-	creationTime := time.Time{}
 	var metadata resource.Metadata
 	if u != nil {
 		var err error
 		if p, err = toProto(destination, u.Object["spec"]); err != nil {
 			return nil, err
 		}
-		creationTime = u.GetCreationTimestamp().Time
 		metadata.Labels = u.GetLabels()
 		metadata.Annotations = u.GetAnnotations()
+		metadata.CreateTime = u.GetCreationTimestamp().Time
 
 		policy, ok := p.(*authn.Policy)
 		if !ok {
-			return nil, fmt.Errorf("object is not of type %v", destination.Collection)
+			return nil, fmt.Errorf("object is not of type %v", destination.TypeURL)
 		}
 
 		// The pilot authentication plugin's config handling allows the mtls
@@ -159,18 +155,16 @@ func authPolicyResource(_ *Config, destination resource.Info, name resource.Full
 	}
 
 	e := Entry{
-		Key:          name,
-		CreationTime: creationTime,
-		Metadata:     metadata,
-		Resource:     p,
+		Key:      name,
+		Metadata: metadata,
+		Resource: p,
 	}
 
 	return []Entry{e}, nil
 }
 
 func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _ string, u *unstructured.Unstructured) ([]Entry, error) {
-	creationTime := time.Time{}
-	var metadata resource.Metadata
+	metadata := resource.Metadata{}
 	var p *extensions.IngressSpec
 	if u != nil {
 		ing := &extensions.Ingress{}
@@ -178,9 +172,9 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 			return nil, err
 		}
 
-		creationTime = u.GetCreationTimestamp().Time
 		metadata.Labels = u.GetLabels()
 		metadata.Annotations = u.GetAnnotations()
+		metadata.CreateTime = u.GetCreationTimestamp().Time
 
 		if !shouldProcessIngress(cfg, ing) {
 			return nil, nil
@@ -190,10 +184,9 @@ func kubeIngressResource(cfg *Config, _ resource.Info, name resource.FullName, _
 	}
 
 	e := Entry{
-		Key:          name,
-		CreationTime: creationTime,
-		Metadata:     metadata,
-		Resource:     p,
+		Key:      name,
+		Metadata: metadata,
+		Resource: p,
 	}
 
 	return []Entry{e}, nil
@@ -218,11 +211,11 @@ func kubeServiceResource(cfg *Config, _ resource.Info, name resource.FullName, _
 		})
 	}
 	return []Entry{{
-		Key:          name,
-		CreationTime: service.CreationTimestamp.Time,
+		Key: name,
 		Metadata: resource.Metadata{
 			Labels:      service.Labels,
 			Annotations: service.Annotations,
+			CreateTime:  service.CreationTimestamp.Time,
 		},
 		Resource: &se,
 	}}, nil

@@ -68,18 +68,16 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
-						Args: []string{"--foo", "--statusPort", "15020"},
+						Args: []string{"--foo", "--statusPort", "15020",
+							"--kubeAppProberConfig", `{"/app-health/app/readyz":{"path":"/ready","port":8000}}`},
 					},
 					{
 						Name: "app",
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/ready",
+									Path: "/app-health/app/readyz",
 									Port: intstr.FromInt(15020),
-									HTTPHeaders: []corev1.HTTPHeader{
-										{Name: "istio-app-probe-port", Value: "8000"},
-									},
 								},
 							},
 						},
@@ -129,29 +127,24 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
-						Args: []string{"--foo", "--statusPort", "15020"},
+						Args: []string{"--foo", "--statusPort", "15020",
+							"--kubeAppProberConfig", `{"/app-health/app/livez":{"path":"/live","port":8000},"/app-health/app/readyz":{"path":"/ready","port":8000}}`},
 					},
 					{
 						Name: "app",
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/ready",
+									Path: "/app-health/app/readyz",
 									Port: intstr.FromInt(15020),
-									HTTPHeaders: []corev1.HTTPHeader{
-										{Name: "istio-app-probe-port", Value: "8000"},
-									},
 								},
 							},
 						},
 						LivenessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/live",
+									Path: "/app-health/app/livez",
 									Port: intstr.FromInt(15020),
-									HTTPHeaders: []corev1.HTTPHeader{
-										{Name: "istio-app-probe-port", Value: "8000"},
-									},
 								},
 							},
 						},
@@ -243,18 +236,16 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
-						Args: []string{"--foo", "-statusPort=15020"},
+						Args: []string{"--foo", "-statusPort=15020",
+							"--kubeAppProberConfig", `{"/app-health/app/readyz":{"path":"/ready","port":8000}}`},
 					},
 					{
 						Name: "app",
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/ready",
+									Path: "/app-health/app/readyz",
 									Port: intstr.FromInt(15020),
-									HTTPHeaders: []corev1.HTTPHeader{
-										{Name: "istio-app-probe-port", Value: "8000"},
-									},
 								},
 							},
 						},
@@ -296,18 +287,16 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
-						Args: []string{"--foo", "--statusPort=15020"},
+						Args: []string{"--foo", "--statusPort=15020",
+							"--kubeAppProberConfig", `{"/app-health/app/readyz":{"path":"/ready","port":8000}}`},
 					},
 					{
 						Name: "app",
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/ready",
+									Path: "/app-health/app/readyz",
 									Port: intstr.FromInt(15020),
-									HTTPHeaders: []corev1.HTTPHeader{
-										{Name: "istio-app-probe-port", Value: "8000"},
-									},
 								},
 							},
 						},
@@ -360,18 +349,16 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: "istio-proxy",
-						Args: []string{"--foo", "--statusPort", "15020"},
+						Args: []string{"--foo", "--statusPort", "15020",
+							"--kubeAppProberConfig", `{"/app-health/app1/readyz":{"path":"/ready","port":8000},"/app-health/app2/readyz":{"path":"/ready","port":9000}}`},
 					},
 					{
 						Name: "app1",
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/ready",
+									Path: "/app-health/app1/readyz",
 									Port: intstr.FromInt(15020),
-									HTTPHeaders: []corev1.HTTPHeader{
-										{Name: "istio-app-probe-port", Value: "8000"},
-									},
 								},
 							},
 						},
@@ -381,11 +368,8 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 						ReadinessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/ready",
+									Path: "/app-health/app2/readyz",
 									Port: intstr.FromInt(15020),
-									HTTPHeaders: []corev1.HTTPHeader{
-										{Name: "istio-app-probe-port", Value: "9000"},
-									},
 								},
 							},
 						},
