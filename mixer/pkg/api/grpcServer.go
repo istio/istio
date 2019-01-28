@@ -163,9 +163,12 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 
 	resp := &mixerpb.CheckResponse{
 		Precondition: mixerpb.CheckResponse_PreconditionResult{
-			ValidDuration:        cr.ValidDuration,
-			ValidUseCount:        cr.ValidUseCount,
-			Status:               cr.Status,
+			ValidDuration: cr.ValidDuration,
+			ValidUseCount: cr.ValidUseCount,
+			Status: rpc.Status{
+				Code:    cr.Status.Code,
+				Message: cr.Status.Message,
+			},
 			ReferencedAttributes: protoBag.GetReferencedAttributes(s.globalDict, globalWordCount),
 			RouteDirective:       cr.RouteDirective,
 		},

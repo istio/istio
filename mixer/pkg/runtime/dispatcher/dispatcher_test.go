@@ -22,9 +22,11 @@ import (
 	"time"
 
 	"github.com/gogo/googleapis/google/rpc"
+	"github.com/gogo/protobuf/types"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	v1 "istio.io/api/mixer/v1"
+	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -33,6 +35,7 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/handler"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/runtime/testing/data"
+	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/pkg/log"
 )
 
@@ -204,6 +207,147 @@ ident                         : dest.istio-system
 			},
 			ValidUseCount: 10,
 			ValidDuration: time.Millisecond,
+		},
+		log: `
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheck] DispatchCheck <= (SUCCESS)
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheck] DispatchCheck <= (SUCCESS)
+`,
+	},
+
+	{
+		name: "CheckResultCustomError",
+		templates: []data.FakeTemplateSettings{{
+			Name: "tcheck",
+			CheckResults: []adapter.CheckResult{
+				{
+					Status: rpc.Status{
+						Code:    int32(rpc.DATA_LOSS),
+						Message: "data loss details",
+						Details: []*types.Any{status.PackErrorDetail(&v1beta1.DirectHttpResponse{
+							Code:    403,
+							Body:    "nope",
+							Headers: map[string]string{"istio-test": "istio-value"},
+						})},
+					},
+					ValidUseCount: 10,
+					ValidDuration: time.Second,
+				},
+				{
+					Status: rpc.Status{
+						Code:    int32(rpc.DEADLINE_EXCEEDED),
+						Message: "deadline",
+					},
+					ValidUseCount: 20,
+					ValidDuration: time.Second,
+				},
+			},
+		}},
+		config: []string{
+			data.HandlerACheck1,
+			data.InstanceCheck1,
+			data.InstanceCheck2,
+			data.RuleCheck1WithInstance1And2Operation,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK,
+		expectedCheckResult: adapter.CheckResult{
+			Status: rpc.Status{
+				Code:    int32(rpc.DATA_LOSS),
+				Message: "hcheck1.acheck.istio-system:data loss details, hcheck1.acheck.istio-system:deadline",
+			},
+			ValidUseCount: 10,
+			ValidDuration: time.Second,
+			// note no header operation in case of an error
+			RouteDirective: &v1.RouteDirective{
+				DirectResponseCode: 403,
+				DirectResponseBody: "nope",
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:  "istio-test",
+					Value: "istio-value",
+				}},
+			},
+		},
+		log: `
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheck] DispatchCheck <= (SUCCESS)
+[tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---
+ident                         : dest.istio-system
+'
+[tcheck] InstanceBuilderFn() <= (SUCCESS)
+[tcheck] DispatchCheck => context exists: 'true'
+[tcheck] DispatchCheck => handler exists: 'true'
+[tcheck] DispatchCheck => instance:       '&Struct{Fields:map[string]*Value{},XXX_unrecognized:[],}'
+[tcheck] DispatchCheck <= (SUCCESS)
+`,
+	},
+
+	{
+		name: "CheckResultCustomErrorNoCode",
+		templates: []data.FakeTemplateSettings{{
+			Name: "tcheck",
+			CheckResults: []adapter.CheckResult{
+				{
+					Status: rpc.Status{
+						Code:    int32(rpc.DATA_LOSS),
+						Message: "data loss details",
+						Details: []*types.Any{status.PackErrorDetail(&v1beta1.DirectHttpResponse{
+							Headers: map[string]string{"istio-test": "istio-value"},
+						})},
+					},
+					ValidUseCount: 10,
+					ValidDuration: time.Second,
+				},
+				{
+					Status: rpc.Status{
+						Code:    int32(rpc.DEADLINE_EXCEEDED),
+						Message: "deadline",
+					},
+					ValidUseCount: 20,
+					ValidDuration: time.Second,
+				},
+			},
+		}},
+		config: []string{
+			data.HandlerACheck1,
+			data.InstanceCheck1,
+			data.InstanceCheck2,
+			data.RuleCheck1WithInstance1And2Operation,
+		},
+		variety: tpb.TEMPLATE_VARIETY_CHECK,
+		expectedCheckResult: adapter.CheckResult{
+			Status: rpc.Status{
+				Code:    int32(rpc.DATA_LOSS),
+				Message: "hcheck1.acheck.istio-system:data loss details, hcheck1.acheck.istio-system:deadline",
+			},
+			ValidUseCount: 10,
+			ValidDuration: time.Second,
+			// note no header operation in case of an error
+			RouteDirective: &v1.RouteDirective{
+				DirectResponseCode: 500,
+				ResponseHeaderOperations: []v1.HeaderOperation{{
+					Name:  "istio-test",
+					Value: "istio-value",
+				}},
+			},
 		},
 		log: `
 [tcheck] InstanceBuilderFn() => name: 'tcheck', bag: '---

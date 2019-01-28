@@ -262,7 +262,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
-	if len(instances) != 5 {
+	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
@@ -276,7 +276,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetProxyServiceInstances() encountered unexpected error: %v", err)
 	}
-	if len(instances) != 5 {
+	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
@@ -306,7 +306,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	if err != nil {
 		t.Fatal("Aggregate controller should not return error if instances are found")
 	}
-	if len(instances) != 5 {
+	if len(instances) != 6 {
 		t.Fatalf("Returned GetProxyServiceInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {

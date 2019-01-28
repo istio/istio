@@ -127,12 +127,6 @@ var (
 	// Reportnothing metadata
 	Reportnothing resource.Info
 
-	// Servicecontrolreport metadata
-	Servicecontrolreport resource.Info
-
-	// Servicecontrol metadata
-	Servicecontrol resource.Info
-
 	// Signalfx metadata
 	Signalfx resource.Info
 
@@ -308,12 +302,6 @@ func init() {
 	Reportnothing = b.Register(
 		"istio/config/v1alpha2/legacy/reportnothings",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
-	Servicecontrolreport = b.Register(
-		"istio/config/v1alpha2/legacy/servicecontrolreports",
-		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
-	Servicecontrol = b.Register(
-		"istio/config/v1alpha2/legacy/servicecontrols",
-		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	Signalfx = b.Register(
 		"istio/config/v1alpha2/legacy/signalfxs",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
@@ -391,7 +379,7 @@ func init() {
 		"type.googleapis.com/k8s.io.api.core.v1.NodeSpec")
 	Pod = b.Register(
 		"k8s/core/v1/pods",
-		"type.googleapis.com/k8s.io.api.core.v1.PodSpec")
+		"type.googleapis.com/k8s.io.api.core.v1.Pod")
 	Service = b.Register(
 		"k8s/core/v1/services",
 		"type.googleapis.com/k8s.io.api.core.v1.ServiceSpec")

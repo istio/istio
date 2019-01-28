@@ -39,6 +39,7 @@ import (
 const (
 	yamlSuffix                     = ".yaml"
 	istioInstallDir                = "install/kubernetes"
+	initInstallFile                = "istio-init.yaml"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
 	authSdsInstallFile             = "istio-auth-sds.yaml"
@@ -57,7 +58,7 @@ const (
 	istioEgressGatewayServiceName  = "istio-egressgateway"
 	defaultSidecarInjectorFile     = "istio-sidecar-injector.yaml"
 	ingressCertsName               = "istio-ingress-certs"
-	maxDeploymentRolloutTime       = 480 * time.Second
+	maxDeploymentRolloutTime       = 960 * time.Second
 	maxValidationReadyCheckTime    = 30 * time.Second
 	helmServiceAccountFile         = "helm-service-account.yaml"
 	istioHelmInstallDir            = istioInstallDir + "/helm/istio"
@@ -651,17 +652,35 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
-	yamlDir := filepath.Join(istioInstallDir, istioYaml)
+	// Create istio-system namespace
+	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
+		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+		return err
+	}
+	// Apply istio-init
+	yamlDir := filepath.Join(istioInstallDir, initInstallFile)
 	baseIstioYaml := filepath.Join(k.ReleaseDir, yamlDir)
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
-		log.Errorf("Generating yaml %s failed", testIstioYaml)
+		log.Errorf("Generating istio-init.yaml")
 		return err
 	}
 
-	if err := util.CreateNamespace(k.Namespace, k.KubeConfig); err != nil {
-		log.Errorf("Unable to create namespace %s: %s", k.Namespace, err.Error())
+	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
+		log.Errorf("istio-init.yaml  %s deployment failed", testIstioYaml)
+		return err
+	}
+
+	// TODO(sdake): need a better synchronization
+	time.Sleep(20 * time.Second)
+
+	// Apply main manifest
+	yamlDir = filepath.Join(istioInstallDir, istioYaml)
+	baseIstioYaml = filepath.Join(k.ReleaseDir, yamlDir)
+	testIstioYaml = filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
+		log.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
 	}
 
