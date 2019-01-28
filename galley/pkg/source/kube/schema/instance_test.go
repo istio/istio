@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package schema
+package schema_test
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/source/kube/schema"
 )
 
 func TestSchemaBuilder(t *testing.T) {
-	spec := ResourceSpec{
+	g := gomega.NewGomegaWithT(t)
+	spec := schema.ResourceSpec{
 		Kind:     "kind",
 		Version:  "version",
 		ListKind: "listkind",
@@ -29,15 +33,44 @@ func TestSchemaBuilder(t *testing.T) {
 		Group:    "groupd",
 	}
 
-	b := NewBuilder()
-	b.Add(spec)
-	s := b.Build()
-
+	s := schema.NewBuilder().Add(spec).Build()
 	actual := s.All()
+	expected := []schema.ResourceSpec{spec}
 
-	expected := []ResourceSpec{spec}
+	g.Expect(actual).To(gomega.Equal(expected))
+}
 
-	if !reflect.DeepEqual(actual, expected) {
-		t.Fatalf("Mismatch:\nGot:\n%v\nWanted:\n%v\n", actual, expected)
+func TestGet(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	spec := schema.ResourceSpec{
+		Kind:     "kind",
+		Version:  "version",
+		ListKind: "listkind",
+		Plural:   "plural",
+		Singular: "singular",
+		Group:    "groupd",
 	}
+	s := schema.New(spec)
+
+	actual := s.Get("kind")
+	g.Expect(actual).ToNot(gomega.BeNil())
+	g.Expect(*actual).To(gomega.Equal(spec))
+}
+
+func TestGetNotFound(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	spec := schema.ResourceSpec{
+		Kind:     "kind",
+		Version:  "version",
+		ListKind: "listkind",
+		Plural:   "plural",
+		Singular: "singular",
+		Group:    "groupd",
+	}
+	s := schema.New(spec)
+
+	actual := s.Get("someotherkind")
+	g.Expect(actual).To(gomega.BeNil())
 }

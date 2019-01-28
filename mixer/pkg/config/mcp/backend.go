@@ -192,7 +192,7 @@ func (b *backend) Init(kinds []string) error {
 	}
 
 	cl := mcp.NewAggregatedMeshConfigServiceClient(conn)
-	b.mcpReporter = monitoring.NewStatsContext("mixer")
+	b.mcpReporter = monitoring.NewStatsContext("mixer/mcp/sink")
 	options := &sink.Options{
 		CollectionOptions: sink.CollectionOptionsFromSlice(collections),
 		Updater:           b,

@@ -55,7 +55,7 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	}
 	defer cancel()
 
-	err = sendEDSReqReconnect([]string{"service3.default.svc.cluster.local|http"}, edsstr, res)
+	err = sendEDSReqReconnect([]string{"outbound|1080||service3.default.svc.cluster.local"}, edsstr, res)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,8 +224,8 @@ func TestAdsUpdate(t *testing.T) {
 	if len(lbe) == 0 {
 		t.Fatal("No lb endpoints")
 	}
-	if "10.2.0.1" != lbe[0].Endpoint.Address.GetSocketAddress().Address {
-		t.Error("Expecting 10.2.0.1 got ", lbe[0].Endpoint.Address.GetSocketAddress().Address)
+	if "10.2.0.1" != lbe[0].GetEndpoint().Address.GetSocketAddress().Address {
+		t.Error("Expecting 10.2.0.1 got ", lbe[0].GetEndpoint().Address.GetSocketAddress().Address)
 	}
 	strResponse, _ := model.ToJSONWithIndent(res1, " ")
 	_ = ioutil.WriteFile(env.IstioOut+"/edsv2_sidecar.json", []byte(strResponse), 0644)

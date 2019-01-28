@@ -337,28 +337,6 @@ func init() {
 	})
 
 	b.Add(schema.ResourceSpec{
-		Kind:      "servicecontrolreport",
-		ListKind:  "servicecontrolreportList",
-		Singular:  "servicecontrolreport",
-		Plural:    "servicecontrolreports",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/servicecontrolreports"),
-		Converter: converter.Get("identity"),
-	})
-
-	b.Add(schema.ResourceSpec{
-		Kind:      "servicecontrol",
-		ListKind:  "servicecontrolList",
-		Singular:  "servicecontrol",
-		Plural:    "servicecontrols",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/servicecontrols"),
-		Converter: converter.Get("identity"),
-	})
-
-	b.Add(schema.ResourceSpec{
 		Kind:      "signalfx",
 		ListKind:  "signalfxList",
 		Singular:  "signalfx",
@@ -608,6 +586,17 @@ func init() {
 		Version:   "v1alpha1",
 		Group:     "rbac.istio.io",
 		Target:    metadata.Types.Get("istio/rbac/v1alpha1/serviceroles"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
+		Kind:      "Endpoints",
+		ListKind:  "EndpointsList",
+		Singular:  "endpoints",
+		Plural:    "endpoints",
+		Version:   "v1",
+		Group:     "",
+		Target:    metadata.Types.Get("k8s/core/v1/endpoints"),
 		Converter: converter.Get("identity"),
 	})
 
