@@ -50,6 +50,10 @@ data:
         {{ "[[ else -]]" }}
         - "{{ .Values.global.proxy.excludeInboundPorts }}"
         {{ "[[ end -]]" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/internalInterfaces\") -]]" }}
+        - "-r"
+        {{ "- \"[[ index .ObjectMeta.Annotations \"traffic.sidecar.istio.io/internalInterfaces\" ]]\"" }}
+        {{ "[[ end -]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         securityContext:
           capabilities:

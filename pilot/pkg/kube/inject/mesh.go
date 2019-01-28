@@ -31,6 +31,7 @@ const (
 [[- $excludeOutboundIPRangesKey     := "traffic.sidecar.istio.io/excludeOutboundIPRanges" -]]
 [[- $includeInboundPortsKey         := "traffic.sidecar.istio.io/includeInboundPorts" -]]
 [[- $excludeInboundPortsKey         := "traffic.sidecar.istio.io/excludeInboundPorts" -]]
+[[- $internalInterfacesKey          := "traffic.sidecar.istio.io/internalInterfaces" -]]
 [[- $statusPortValue                := (annotation .ObjectMeta $statusPortKey {{ .StatusPort }}) -]]
 [[- $readinessInitialDelayValue     := (annotation .ObjectMeta $readinessInitialDelayKey "{{ .ReadinessInitialDelaySeconds }}") -]]
 [[- $readinessPeriodValue           := (annotation .ObjectMeta $readinessPeriodKey "{{ .ReadinessPeriodSeconds }}") ]]
@@ -55,6 +56,10 @@ initContainers:
   - "[[ annotation .ObjectMeta $includeInboundPortsKey (includeInboundPorts .Spec.Containers) ]]"
   - "-d"
   - "[[ excludeInboundPort $statusPortValue (annotation .ObjectMeta $excludeInboundPortsKey "{{ .ExcludeInboundPorts }}") ]]"
+  {{ "[[ if (isset .ObjectMeta.Annotations \"traffic.sidecar.istio.io/internalInterfaces\") -]]" }}
+  - "-r"
+  - "[[ annotation .ObjectMeta $internalInterfacesKey "{{ .InternalInterfaces }}" ]]"
+  {{ "[[ end -]]" }}
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}

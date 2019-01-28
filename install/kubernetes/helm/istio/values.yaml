@@ -180,6 +180,9 @@ global:
     includeIPRanges: "*"
     excludeIPRanges: ""
 
+    # pod internal interfaces
+    internalInterfaces: ""
+
     # istio ingress capture whitelist
     # examples:
     #     Redirect no inbound traffic to Envoy:    --includeInboundPorts=""

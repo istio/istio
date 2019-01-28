@@ -46,6 +46,8 @@ function usage() {
   echo '  -x: Comma separated list of IP ranges in CIDR form to be excluded from redirection. Only applies when all '
   # shellcheck disable=SC2016
   echo '      outbound traffic (i.e. "*") is being redirected (default to $ISTIO_SERVICE_EXCLUDE_CIDR).'
+  echo '  -r: Comma separated list of internal interfaces to be included for redirection. (optional)'
+  # shellcheck disable=SC2016
   echo ''
   # shellcheck disable=SC2016
   echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
@@ -88,8 +90,9 @@ INBOUND_PORTS_INCLUDE=${ISTIO_INBOUND_PORTS-}
 INBOUND_PORTS_EXCLUDE=${ISTIO_LOCAL_EXCLUDE_PORTS-}
 OUTBOUND_IP_RANGES_INCLUDE=${ISTIO_SERVICE_CIDR-}
 OUTBOUND_IP_RANGES_EXCLUDE=${ISTIO_SERVICE_EXCLUDE_CIDR-}
+REDIRECT_INTERNAL_INTERFACE=
 
-while getopts ":p:u:g:m:b:d:i:x:h" opt; do
+while getopts ":p:u:g:m:b:d:i:x:r:h" opt; do
   case ${opt} in
     p)
       PROXY_PORT=${OPTARG}
@@ -114,6 +117,9 @@ while getopts ":p:u:g:m:b:d:i:x:h" opt; do
       ;;
     x)
       OUTBOUND_IP_RANGES_EXCLUDE=${OPTARG}
+      ;;
+    r)
+      REDIRECT_INTERNAL_INTERFACE=${OPTARG}
       ;;
     h)
       usage
@@ -195,6 +201,7 @@ echo "INBOUND_PORTS_INCLUDE=${INBOUND_PORTS_INCLUDE}"
 echo "INBOUND_PORTS_EXCLUDE=${INBOUND_PORTS_EXCLUDE}"
 echo "OUTBOUND_IP_RANGES_INCLUDE=${OUTBOUND_IP_RANGES_INCLUDE}"
 echo "OUTBOUND_IP_RANGES_EXCLUDE=${OUTBOUND_IP_RANGES_EXCLUDE}"
+echo "REDIRECT_INTERNAL_INTERFACE=${REDIRECT_INTERNAL_INTERFACE}"
 echo
 
 INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-$PROXY_PORT}
@@ -319,13 +326,24 @@ if [ -n "${OUTBOUND_IP_RANGES_EXCLUDE}" ]; then
   done
 fi
 
+for internalInterface in ${REDIRECT_INTERNAL_INTERFACE}; do
+    iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -j RETURN
+done
+
 # Apply outbound IP inclusions.
 if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
   # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
   iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
+  for internalInterface in ${REDIRECT_INTERNAL_INTERFACE}; do
+    iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -j ISTIO_REDIRECT
+  done
+
 elif [ -n "${OUTBOUND_IP_RANGES_INCLUDE}" ]; then
   # User has specified a non-empty list of cidrs to be redirected to Envoy.
   for cidr in ${OUTBOUND_IP_RANGES_INCLUDE}; do
+    for internalInterface in ${REDIRECT_INTERNAL_INTERFACE}; do
+        iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
+    done
     iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j ISTIO_REDIRECT
   done
   # All other traffic is not redirected.

@@ -39,6 +39,10 @@ data:
         - {{ "\"[[ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` (includeInboundPorts .Spec.Containers) ]]\"" }}
         - "-d"
         - {{ "\"[[ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` " }} {{ .Values.global.proxy.statusPort }} {{ ") (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` " }} "{{ .Values.global.proxy.excludeInboundPorts }}" {{ ") ]]\"" }}
+        {{ "[[ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/internalInterfaces`) -]]" }}
+        - "-r"
+        {{ "- \"[[ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/internalInterfaces` ]]\"" }}
+        {{ "[[ end -]]" }}
         imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         resources:
           requests:

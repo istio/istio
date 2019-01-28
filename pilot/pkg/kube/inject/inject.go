@@ -65,6 +65,7 @@ var (
 		{"traffic.sidecar.istio.io/excludeOutboundIPRanges", ValidateExcludeIPRanges},
 		{"traffic.sidecar.istio.io/includeInboundPorts", ValidateIncludeInboundPorts},
 		{"traffic.sidecar.istio.io/excludeInboundPorts", ValidateExcludeInboundPorts},
+		{"traffic.sidecar.istio.io/internalInterfaces", alwaysValidFunc},
 	}
 
 	annotationPolicy = annotationRegistry[0]
@@ -135,6 +136,7 @@ const (
 	DefaultReadinessFailureThreshold    = 30
 	DefaultIncludeIPRanges              = "*"
 	DefaultIncludeInboundPorts          = "*"
+	DefaultInternalInterfaces           = ""
 )
 
 const (
@@ -213,6 +215,9 @@ type Params struct {
 	// Comma separated list of inbound ports. If set, inbound traffic will not be redirected for those ports.
 	// Exclusions are only applied if configured to redirect all inbound traffic. By default, no ports are excluded.
 	ExcludeInboundPorts string `json:"excludeInboundPorts"`
+	// Comma separated list of internal interfacess. If set, inbound traffic on the interfaces will be redirected as outgoing.
+	// By default, no interfaces are configured.
+	InternalInterfaces string `json:"internalInterfaces"`
 }
 
 // Validate validates the parameters and returns an error if there is configuration issue.
@@ -507,6 +512,7 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		"isset":               isset,
 		"excludeInboundPort":  excludeInboundPort,
 		"includeInboundPorts": includeInboundPorts,
+		"internalInterfaces":  internalInterfaces,
 		"applicationPorts":    applicationPorts,
 		"annotation":          annotation,
 		"valueOrDefault":      valueOrDefault,
@@ -758,6 +764,10 @@ func applicationPorts(containers []corev1.Container) string {
 func includeInboundPorts(containers []corev1.Container) string {
 	// Include the ports from all containers in the deployment.
 	return getContainerPorts(containers, func(corev1.Container) bool { return true })
+}
+
+func internalInterfaces(s string) string {
+	return s
 }
 
 func toJSON(m map[string]string) string {
