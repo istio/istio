@@ -249,8 +249,11 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	expectedErr := "secret waiting thread is terminated"
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
-	caopts, err := NewSelfSignedIstioCAOptions(ctx0, caCertTTL, certTTL, maxCertTTL,
+	_, err := NewSelfSignedIstioCAOptions(ctx0, caCertTTL, certTTL, maxCertTTL,
 		org, dualUse, caNamespace, time.Millisecond*10, client.CoreV1())
+	if err == nil {
+		t.Errorf("Expected error, but succeeded.")
+	}
 	if err.Error() != expectedErr {
 		t.Errorf("Unexpected error message: %s VS (expected) %s", err.Error(), expectedErr)
 		return
@@ -263,9 +266,9 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 		t.Errorf("Failed to create secret (error: %s)", err)
 	}
 
-	ctx1, cancel1 := context.WithTimeout(context.Background(), time.Millisecond*30)
+	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
-	caopts, err = NewSelfSignedIstioCAOptions(ctx1, caCertTTL, certTTL, maxCertTTL,
+	caopts, err := NewSelfSignedIstioCAOptions(ctx1, caCertTTL, certTTL, maxCertTTL,
 		org, dualUse, caNamespace, time.Millisecond*10, client.CoreV1())
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

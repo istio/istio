@@ -109,10 +109,10 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 	if scrtErr != nil && readCertRetryInterval > 0 {
 		log.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
 		ticker := time.NewTicker(readCertRetryInterval)
-		for {
+		for scrtErr != nil {
 			select {
 			case <-ticker.C:
-				if caSecret, scrtErr = client.Secrets(namespace).Get(CASecret, metav1.GetOptions{}); err == nil {
+				if caSecret, scrtErr = client.Secrets(namespace).Get(CASecret, metav1.GetOptions{}); scrtErr == nil {
 					log.Infof("Citadel successfully loaded the secret.")
 					break
 				}

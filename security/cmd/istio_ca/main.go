@@ -148,11 +148,13 @@ func init() {
 			cmd.ListenedNamespaceKey+"} environment variable. If neither is set, Citadel listens to all namespaces.")
 	flags.StringVar(&opts.istioCaStorageNamespace, "citadel-storage-namespace", "istio-system", "Namespace where "+
 		"the Citadel pod is running. Will not be used if explicit file or other storage mechanism is specified.")
+
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
-	flags.BoolVar(&opts.readSigningCertOnly, "readSigningCertOnly", false, "When set, Citadel only reads the self-signed signing "+
-		"key and cert without generating one. This flag avoids racing condition between multiple Citadels generating self-signed "+
-		"key and cert. Please make sure one and only one Citadel instance has this flag set to false.")
+	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed signing "+
+		"key and cert from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
+		"multiple Citadels generating self-signed key and cert. Please make sure one and only one Citadel instance has this flag set "+
+		"to false.")
 
 	// Configuration if Citadel accepts key/cert configured through arguments.
 	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Path to the certificate chain file")
