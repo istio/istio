@@ -391,7 +391,7 @@ func init() {
 		"type.googleapis.com/k8s.io.api.core.v1.NodeSpec")
 	Pod = b.Register(
 		"k8s/core/v1/pods",
-		"type.googleapis.com/k8s.io.api.core.v1.PodSpec")
+		"type.googleapis.com/k8s.io.api.core.v1.Pod")
 	Service = b.Register(
 		"k8s/core/v1/services",
 		"type.googleapis.com/k8s.io.api.core.v1.ServiceSpec")
