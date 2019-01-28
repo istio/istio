@@ -17,6 +17,7 @@ package handler
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
@@ -30,11 +31,19 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+const (
+	defaultRetryDuration = 1 * time.Second
+	defaultRetryChecks   = 10
+)
+
 // Table contains a set of instantiated and configured adapter handlers.
 type Table struct {
 	entries map[string]Entry
 
 	monitoringCtx context.Context
+
+	strayWorkersRetryDuration time.Duration
+	strayWorkersCheckRetries  int
 }
 
 // Entry in the handler table.
@@ -69,8 +78,10 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 	}
 
 	t := &Table{
-		entries:       make(map[string]Entry, len(instancesByHandler)+len(instancesByHandlerDynamic)),
-		monitoringCtx: ctx,
+		entries:                   make(map[string]Entry, len(instancesByHandler)+len(instancesByHandlerDynamic)),
+		monitoringCtx:             ctx,
+		strayWorkersCheckRetries:  defaultRetryChecks,
+		strayWorkersRetryDuration: defaultRetryDuration,
 	}
 
 	for handler, instances := range instancesByHandler {
@@ -170,10 +181,20 @@ func (t *Table) Cleanup(current *Table) {
 			err = panicErr
 		}
 
-		if reportErr := entry.env.reportStrayWorkers(); reportErr != nil {
-			log.Warnf("unable to report if there are any stray go routines scheduled by the adapter '%s': %v",
-				entry.Name, reportErr)
-		}
+		go func(adapterEnv env, name string) {
+			strayWorkersFound := adapterEnv.hasStrayWorkers()
+			for i := 0; i < t.strayWorkersCheckRetries && strayWorkersFound; i++ {
+				adapterEnv.Logger().Debugf("Found stray workers for adapter: %s; will check again in %s", name, t.strayWorkersRetryDuration)
+				time.Sleep(t.strayWorkersRetryDuration)
+				strayWorkersFound = adapterEnv.hasStrayWorkers()
+			}
+
+			if strayWorkersFound {
+				adapterEnv.reportStrayWorkers()
+			} else {
+				adapterEnv.Logger().Infof("adapter closed all scheduled daemons and workers")
+			}
+		}(entry.env, entry.Name)
 
 		if err != nil {
 			stats.Record(t.monitoringCtx, monitoring.CloseFailuresTotal.M(1))
