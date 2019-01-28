@@ -62,7 +62,7 @@ type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
 func NewProcessor(src Source, distributor publish.Distributor, cfg *Config) *Processor {
-	state := newState(sn.DefaultGroup, cfg.DomainSuffix, metadata.Types, publish.NewStrategyWithDefaults(), distributor)
+	state := newState(sn.DefaultGroup, metadata.Types, cfg, publish.NewStrategyWithDefaults(), distributor)
 	return newProcessor(state, src, nil)
 }
 

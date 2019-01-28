@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
@@ -32,8 +33,8 @@ var (
 	fakeCreateTime0 time.Time
 	fakeCreateTime1 time.Time
 
-	fn           = resource.FullNameFromNamespaceAndName("", "fn")
-	domainSuffix = ""
+	cfg = &Config{Mesh: meshconfig.NewInMemory()}
+	fn  = resource.FullNameFromNamespaceAndName("", "fn")
 )
 
 func init() {
@@ -61,7 +62,7 @@ func checkCreateTime(e *mcp.Resource, want time.Time) error {
 
 func TestStateName(t *testing.T) {
 	name := "testName"
-	s := newState(name, domainSuffix, resources.TestSchema, publish.NewStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
+	s := newState(name, resources.TestSchema, cfg, publish.NewStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
 	if s.name != name {
 		t.Fatalf("incorrect name: expected %s, found %s", name, s.name)
 	}
@@ -307,5 +308,5 @@ func TestState_String(t *testing.T) {
 }
 
 func newTestState() *State {
-	return newState(snapshot.DefaultGroup, domainSuffix, resources.TestSchema, publish.NewStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
+	return newState(snapshot.DefaultGroup, resources.TestSchema, cfg, publish.NewStrategyWithDefaults(), snapshot.New(snapshot.DefaultGroupIndex))
 }

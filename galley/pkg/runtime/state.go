@@ -29,20 +29,24 @@ import (
 	"istio.io/istio/galley/pkg/runtime/conversions"
 	"istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
+	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-// State is the in-memory State of Galley.
+var _ processing.Handler = &State{}
+
+// State is the in-memory state of Galley.
 type State struct {
-	name         string
-	domainSuffix string
-	schema       *resource.Schema
+	name   string
+	schema *resource.Schema
 
 	distribute  bool
 	strategy    *publish.Strategy
 	distributor publish.Distributor
+
+	config *Config
 
 	// version counter is a nonce that generates unique ids for each updated view of State.
 	versionCounter int64
@@ -72,21 +76,21 @@ type resourceTypeState struct {
 	versions map[resource.FullName]resource.Version
 }
 
-func newState(name string, domainSuffix string, schema *resource.Schema, strategy *publish.Strategy,
+func newState(name string, schema *resource.Schema, cfg *Config, strategy *publish.Strategy,
 	distributor publish.Distributor) *State {
 
 	now := time.Now()
 	s := &State{
 		name:             name,
-		domainSuffix:     domainSuffix,
 		schema:           schema,
 		strategy:         strategy,
 		distributor:      distributor,
+		config:           cfg,
 		entries:          make(map[resource.Collection]*resourceTypeState),
 		lastSnapshotTime: now,
 	}
 
-	// pre-populate State for all known types so that built snapshots
+	// pre-populate state for all known types so that built snapshots
 	// includes valid default version for empty resource collections.
 	for _, info := range schema.All() {
 		s.entries[info.Collection] = &resourceTypeState{
@@ -245,7 +249,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 		key := extractKey(name, state.versions[name])
 		meta := extractMetadata(entry)
 
-		conversions.IngressToVirtualService(key, meta, ingress, s.domainSuffix, ingressByHost)
+		conversions.IngressToVirtualService(key, meta, ingress, s.config.DomainSuffix, ingressByHost)
 
 		gw := conversions.IngressToGateway(key, meta, ingress)
 
