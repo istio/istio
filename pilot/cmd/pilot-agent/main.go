@@ -184,6 +184,15 @@ var (
 					}
 				}
 			}
+
+			// Parse the DNSDomain based upon service registry type into a registry specific domain.
+			DNSDomain = getDNSDomain(DNSDomain)
+
+			// role.ServiceNode() returns a string based upon this META which isn't set in the proxy-init.
+			role.DNSDomains = make([]string, 1)
+			role.DNSDomains[0] = DNSDomain
+
+			// Obtain the SAN to later create a Envoy proxy.
 			pilotSAN = getPilotSAN(DNSDomain, ns)
 
 			// resolve statsd address
@@ -454,9 +463,6 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
-
-	// Parse the DNSDomain based upon service registry type into a registry specific domain.
-	DNSDomain = getDNSDomain(DNSDomain)
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
