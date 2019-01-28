@@ -187,7 +187,6 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 		wantWorkerStrayRoutine int64
 		wantDaemonStrayRoutine int64
 	}{
-
 		{
 			SpawnWorker:            true,
 			SpawnDaemon:            true,
@@ -227,6 +226,7 @@ func TestCleanup_WorkerNotClosed(t *testing.T) {
 			s.ID = int64(idx * 2)
 
 			oldTable := NewTable(Empty(), s, pool.NewGoroutinePool(5, false))
+			oldTable.strayWorkersRetryDuration = 5 * time.Millisecond
 
 			s = config.Empty()
 			// Every iteration of this test is working with two different config snapshot (old and new). We need to
