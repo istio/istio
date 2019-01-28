@@ -150,7 +150,9 @@ func (mixerplugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Clu
 				{
 					LbEndpoints: []e.LbEndpoint{
 						{
-							Endpoint: &e.Endpoint{Address: &addr},
+							HostIdentifier: &e.LbEndpoint_Endpoint{
+								Endpoint: &e.Endpoint{Address: &addr},
+							},
 						},
 					},
 				},

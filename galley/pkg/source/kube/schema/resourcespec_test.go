@@ -12,18 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package schema
+package schema_test
 
 import (
 	"reflect"
 	"testing"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"istio.io/istio/galley/pkg/source/kube/schema"
+
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sc "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestInfo_APIResource(t *testing.T) {
-	i := ResourceSpec{
+	i := schema.ResourceSpec{
 		Version:  "version",
 		Kind:     "kind",
 		Group:    "group",
@@ -33,7 +35,7 @@ func TestInfo_APIResource(t *testing.T) {
 	}
 	r := i.APIResource()
 
-	expected := &v1.APIResource{
+	expected := &metaV1.APIResource{
 		Group:        "group",
 		Kind:         "kind",
 		Version:      "version",
@@ -48,7 +50,7 @@ func TestInfo_APIResource(t *testing.T) {
 }
 
 func TestInfo_GroupVersion(t *testing.T) {
-	i := ResourceSpec{
+	i := schema.ResourceSpec{
 		Version:  "version",
 		Kind:     "kind",
 		Group:    "group",
@@ -69,7 +71,7 @@ func TestInfo_GroupVersion(t *testing.T) {
 }
 
 func TestInfo_CanonicalResourceName(t *testing.T) {
-	i := ResourceSpec{
+	i := schema.ResourceSpec{
 		Version:  "version",
 		Kind:     "kind",
 		Group:    "group",

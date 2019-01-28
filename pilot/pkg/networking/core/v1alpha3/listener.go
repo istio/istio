@@ -395,7 +395,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 
 	} else {
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-
 		for _, ingressListener := range rule.Ingress {
 			// determine the bindToPort setting for listeners
 			bindToPort := false
@@ -420,6 +419,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				Name:     ingressListener.Port.Name,
 			}
 
+			// if app doesn't have a declared ServicePort, but a sidecar ingress is defined - we can't generate a listener
+			// for that port since we don't know what policies or configs apply to it ( many are based on service matching).
+			// Sidecar doesn't include all the info needed to configure a port.
+			instance := configgen.findServiceInstanceForIngressListener(proxyInstances, ingressListener)
+
+			if instance == nil {
+				// We didn't find a matching service instance. Skip this ingress listener
+				continue
+			}
+
 			bind := ingressListener.Bind
 			// if bindToPort is true, we set the bind address if empty to 0.0.0.0 - this is an inbound port.
 			if len(bind) == 0 && bindToPort {
@@ -428,7 +437,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				// auto infer the IP from the proxyInstances
 				// We assume all endpoints in the proxy instances have the same IP
 				// as they should all be pointing to the same network endpoint
-				bind = proxyInstances[0].Endpoint.Address
+				bind = instance.Endpoint.Address
 			}
 
 			listenerOpts := buildListenerOpts{
@@ -439,21 +448,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(env *model.En
 				bind:           bind,
 				port:           listenPort.Port,
 				bindToPort:     bindToPort,
-			}
-
-			// Construct a dummy service instance for this port so that the rest of the code doesn't freak out
-			// due to a missing instance. Technically this instance is not a service instance as it corresponds to
-			// some workload listener. But given that we force all workloads to be part of atleast one service,
-			// lets create a service instance for this workload based on the first service associated with the workload.
-			// TODO: We are arbitrarily using the first proxyInstance. When a workload has multiple services bound to it,
-			// what happens? We could run the loop for every instance but we would have the same listeners.
-
-			// First create a copy of a service instance
-			instance := &model.ServiceInstance{
-				Endpoint:       proxyInstances[0].Endpoint,
-				Service:        proxyInstances[0].Service,
-				Labels:         proxyInstances[0].Labels,
-				ServiceAccount: proxyInstances[0].ServiceAccount,
 			}
 
 			// Update the values here so that the plugins use the right ports
@@ -690,23 +684,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 		meshGateway := map[string]bool{model.IstioMeshGateway: true}
 		virtualServices := push.VirtualServices(node, meshGateway)
 
-		// determine the bindToPort setting for listeners
-		bindToPort := false
-		if noneMode {
-			bindToPort = true
-		}
-
-		bind := ""
-		if bindToPort {
-			bind = LocalhostAddress
-		}
 		for _, service := range services {
 			for _, servicePort := range service.Ports {
-				// if the workload has NONE mode interception, then we generate TCP ports only
-				// Skip generating HTTP listeners, as we will generate a single HTTP proxy
-				if bindToPort && servicePort.Protocol.IsHTTP() {
-					continue
-				}
 
 				listenerOpts := buildListenerOpts{
 					env:            env,
@@ -714,8 +693,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					proxyInstances: proxyInstances,
 					proxyLabels:    proxyLabels,
 					port:           servicePort.Port,
-					bind:           bind,
-					bindToPort:     bindToPort,
+					bind:           "",
+					bindToPort:     false,
 				}
 
 				pluginParams := &plugin.InputParams{
@@ -725,7 +704,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Node:             node,
 					ProxyInstances:   proxyInstances,
 					Push:             push,
-					Bind:             bind,
+					Bind:             "",
 					Port:             servicePort,
 					Service:          service,
 				}
@@ -754,7 +733,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 
 			// determine the bindToPort setting for listeners
 			bindToPort := false
-			if node.GetInterceptionMode() == model.InterceptionNone {
+			if noneMode {
 				// dont care what the listener's capture mode setting is. The proxy does not use iptables
 				bindToPort = true
 			} else {
@@ -786,19 +765,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 					Name:     egressListener.IstioListener.Port.Name,
 				}
 
-				// user can specify a Port without a bind address. If IPtables capture mode
-				// (i.e bind to port is false) we bind to 0.0.0.0. Else, for NONE mode we bind to 127.0.0.1
+				// If capture mode is NONE i.e. bindToPort is true, we will only bind to
+				// loopback IP. If captureMode is not NONE, i.e. bindToPort is false, then
+				// we will bind to user specified IP (if any) or to 0.0.0.0
 				// We cannot auto infer bind IPs here from the imported services as the user could specify
 				// some random port and import 100s of multi-port services. Our behavior for HTTP is that
 				// when the user explicitly specifies a port, we establish a HTTP proxy on that port for
 				// the imported services. For TCP, the user would have to specify a virtualService for the
 				// imported Service, mapping from the listenPort to some specific service port
-				bind := egressListener.IstioListener.Bind
-				// if bindToPort is true, we set the bind address if empty to 127.0.0.1
-				if len(bind) == 0 {
-					if bindToPort {
-						bind = LocalhostAddress
-					} else {
+				bind := ""
+				if bindToPort {
+					bind = LocalhostAddress
+				} else {
+					bind = egressListener.IstioListener.Bind
+					if len(bind) == 0 {
 						bind = WildcardAddress
 					}
 				}
@@ -857,6 +837,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 				}
 				for _, service := range services {
 					for _, servicePort := range service.Ports {
+						// check if this node is capable of starting a listener on this service port
+						// if bindToPort is true. Else Envoy will crash
+						if !validatePort(node, servicePort.Port, bindToPort) {
+							continue
+						}
+
 						listenerOpts := buildListenerOpts{
 							env:            env,
 							proxy:          node,
@@ -902,6 +888,26 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(env *model.E
 	}
 
 	return append(tcpListeners, httpListeners...)
+}
+
+// validatePort checks if the sidecar proxy is capable of listening on a
+// given port in a particular bind mode for a given UID. Sidecars not running
+// as root wont be able to listen on ports <1024 when using bindToPort = true
+func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
+	if !bindToPort {
+		return true // all good, iptables doesn't care
+	}
+
+	if i > 1024 {
+		return true
+	}
+
+	proxyProcessUID := node.Metadata[model.NodeMetadataSidecarUID]
+	if proxyProcessUID == "0" {
+		return true
+	}
+
+	return false
 }
 
 // buildSidecarOutboundListenerForPortOrUDS builds a single listener and
@@ -1244,7 +1250,7 @@ func buildSidecarInboundMgmtListeners(node *model.Proxy, env *model.Environment,
 	for _, mPort := range managementPorts {
 		switch mPort.Protocol {
 		case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC, model.ProtocolGRPCWeb, model.ProtocolTCP,
-			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis:
+			model.ProtocolHTTPS, model.ProtocolTLS, model.ProtocolMongo, model.ProtocolRedis, model.ProtocolMySQL:
 
 			instance := &model.ServiceInstance{
 				Endpoint: model.NetworkEndpoint{

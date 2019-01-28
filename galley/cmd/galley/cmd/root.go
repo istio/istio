@@ -148,6 +148,8 @@ func GetRootCmd(args []string) *cobra.Command {
 		"DNS domain suffix")
 	rootCmd.PersistentFlags().BoolVar(&serverArgs.DisableResourceReadyCheck, "disableResourceReadyCheck", serverArgs.DisableResourceReadyCheck,
 		"Disable resource readiness checks. This allows Galley to start if not all resource types are supported")
+	rootCmd.PersistentFlags().StringSliceVar(&serverArgs.ExcludedResourceKinds, "excludedResourceKinds",
+		serverArgs.ExcludedResourceKinds, "Comma-separated list of resource kinds that should not generate source events")
 
 	serverArgs.IntrospectionOptions.AttachCobraFlags(rootCmd)
 
