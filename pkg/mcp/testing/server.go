@@ -60,7 +60,10 @@ func NewServer(port int, collections []source.CollectionOptions) (*Server, error
 		CollectionsOptions: collections,
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
-	s := server.New(options, server.NewAllowAllChecker())
+
+	checker := server.NewAllowAllChecker()
+	s := server.New(options, checker)
+	srcServer := source.NewServer(options, &source.ServerOptions{AuthChecker: checker})
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	l, err := net.Listen("tcp", addr)
@@ -79,6 +82,7 @@ func NewServer(port int, collections []source.CollectionOptions) (*Server, error
 	gs := grpc.NewServer()
 
 	mcp.RegisterAggregatedMeshConfigServiceServer(gs, s)
+	mcp.RegisterResourceSourceServer(gs, srcServer)
 	go func() { _ = gs.Serve(l) }()
 
 	return &Server{
