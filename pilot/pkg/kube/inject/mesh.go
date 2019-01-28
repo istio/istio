@@ -36,8 +36,6 @@ const (
 [[- $readinessPeriodValue           := (annotation .ObjectMeta $readinessPeriodKey "{{ .ReadinessPeriodSeconds }}") ]]
 [[- $readinessFailureThresholdValue := (annotation .ObjectMeta $readinessFailureThresholdKey {{ .ReadinessFailureThreshold }}) -]]
 [[- $readinessApplicationPortsValue := (annotation .ObjectMeta $readinessApplicationPortsKey (applicationPorts .Spec.Containers)) -]]
-[[- $policyCheckKey                 := "policy.sidecar.istio.io/check" -]]
-[[- $policyCheckValue               := (annotation .ObjectMeta $policyCheckKey "") -]]
 rewriteAppHTTPProbe: {{ .RewriteAppHTTPProbe }}
 initContainers:
 - name: istio-init
@@ -166,10 +164,6 @@ containers:
         fieldPath: metadata.name
   - name: ISTIO_META_INTERCEPTION_MODE
     value: [[ annotation .ObjectMeta $interceptionModeKey .ProxyConfig.InterceptionMode ]]
-  [[ if (not (eq $policyCheckValue "")) -]]
-  - name: ISTIO_META_POLICY_CHECK
-    value: [[ $policyCheckValue ]]
-  [[ end -]]
   {{ if eq .ImagePullPolicy "" -}}
   imagePullPolicy: IfNotPresent
   {{ else -}}
