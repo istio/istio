@@ -80,7 +80,7 @@ func TestPilotSanIfAuthenticationMutualTrustDomain(t *testing.T) {
 	registry = serviceregistry.KubernetesRegistry
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS.String()
 
-	pilotSAN := getPilotSAN(Domain, "anything")
+	pilotSAN := getPilotSAN(DNSDomain, "anything")
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"}))
 }
