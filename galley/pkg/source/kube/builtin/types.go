@@ -102,7 +102,7 @@ var (
 			},
 			extractResource: func(o interface{}) proto.Message {
 				if obj, ok := o.(*v1.Pod); ok {
-					return &obj.Spec
+					return obj
 				}
 				return nil
 			},
