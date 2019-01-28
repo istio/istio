@@ -317,7 +317,7 @@ func runCA() {
 		}
 		sc.Run(stopCh)
 	} else {
-		log.Infof("Citadel is running in server only mode, certificates will not be propagated via secret.")
+		log.Info("Citadel is running in server only mode, certificates will not be propagated via secret.")
 		if opts.grpcPort <= 0 {
 			fatalf("The gRPC port must be set in server-only model.")
 		}
