@@ -52,27 +52,6 @@ func (m *Buffer) Validate() error {
 
 	}
 
-	if m.GetMaxRequestTime() == nil {
-		return BufferValidationError{
-			Field:  "MaxRequestTime",
-			Reason: "value is required",
-		}
-	}
-
-	if d := m.GetMaxRequestTime(); d != nil {
-		dur := *d
-
-		gt := time.Duration(0*time.Second + 0*time.Nanosecond)
-
-		if dur <= gt {
-			return BufferValidationError{
-				Field:  "MaxRequestTime",
-				Reason: "value must be greater than 0s",
-			}
-		}
-
-	}
-
 	return nil
 }
 

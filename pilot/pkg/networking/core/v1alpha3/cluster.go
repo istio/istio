@@ -153,7 +153,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 func ApplyLocalityLBSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
-	if config := push.DestinationRule(proxy, hostname); config != nil {
+	// TODO: This code is incorrect as we need to pass the namespace associated with the Service
+	// but EDS code does not have any information regarding the namespace
+	if config := push.DestinationRule(proxy, &model.Service{Hostname: hostname}); config != nil {
 		if port := push.ServicePort(hostname, portNumber); port != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
 			_, outlierDetection, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
@@ -202,7 +204,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 	networkView := model.GetNetworkView(proxy)
 
 	for _, service := range push.Services(proxy) {
-		config := push.DestinationRule(proxy, service.Hostname)
+		config := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
 				continue
@@ -279,7 +281,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 	networkView := model.GetNetworkView(proxy)
 
 	for _, service := range push.Services(proxy) {
-		config := push.DestinationRule(proxy, service.Hostname)
+		config := push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
 			if port.Protocol == model.ProtocolUDP {
 				continue
@@ -371,8 +373,10 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 		}
 		host := util.BuildAddress(instance.Endpoint.Address, uint32(instance.Endpoint.Port))
 		ep := endpoint.LbEndpoint{
-			Endpoint: &endpoint.Endpoint{
-				Address: &host,
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+				Endpoint: &endpoint.Endpoint{
+					Address: &host,
+				},
 			},
 			LoadBalancingWeight: &types.UInt32Value{
 				Value: 1,
@@ -400,8 +404,10 @@ func buildLocalityLbEndpoints(env *model.Environment, proxyNetworkView map[strin
 func buildInboundLocalityLbEndpoints(bind string, port int) []endpoint.LocalityLbEndpoints {
 	address := util.BuildAddress(bind, uint32(port))
 	lbEndpoint := endpoint.LbEndpoint{
-		Endpoint: &endpoint.Endpoint{
-			Address: &address,
+		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+			Endpoint: &endpoint.Endpoint{
+				Address: &address,
+			},
 		},
 	}
 	return []endpoint.LocalityLbEndpoints{
@@ -422,6 +428,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	// If the node has no sidecarScope and has interception mode set to NONE, then we should skip the inbound
 	// clusters, because there would be no corresponding inbound listeners
 	sidecarScope := proxy.SidecarScope
+	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
 	if sidecarScope == nil || !sidecarScope.HasCustomIngressListeners {
 		// No user supplied sidecar scope or the user supplied one has no ingress listeners
@@ -429,7 +436,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 		// We should not create inbound listeners in NONE mode based on the service instances
 		// Doing so will prevent the workloads from starting as they would be listening on the same port
 		// Users are required to provide the sidecar config to define the inbound listeners
-		if proxy.GetInterceptionMode() == model.InterceptionNone {
+		if noneMode {
 			return nil
 		}
 
@@ -457,7 +464,12 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			clusters = append(clusters, mgmtCluster)
 		}
 	} else {
+		if instances == nil || len(instances) == 0 {
+			return clusters
+		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
+		// Will generate inbound listeners based on ingress listed ports.
+		// TODO: verify that Ingress contains the ports defined by app ( no need to duplicate )
 		for _, ingressListener := range rule.Ingress {
 			// LDS would have setup the inbound clusters
 			// as inbound|portNumber|portName|Hostname
@@ -484,13 +496,24 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 				}
 			}
 
-			// First create a copy of a service instance
-			instance := &model.ServiceInstance{
-				Endpoint:       instances[0].Endpoint,
-				Service:        instances[0].Service,
-				Labels:         instances[0].Labels,
-				ServiceAccount: instances[0].ServiceAccount,
+			// TODO: Sidecar config has port number and name - but the port number is the targetPort.
+			// Right now we don't track the targetPort in the ServiceInstance - only the service port.
+			// For now we'll match on name ( and require the name of the port to be unique inside a namespace )
+			// Proper fix is to track targetPort, or use service port number in Sidecar
+			instance := configgen.findInstance(instances, ingressListener)
+
+			if instance == nil {
+				// We didn't find a matching port
+				continue
 			}
+			//// TODO: this can't be correct, what happens with the other instances ? Likely works for test with single svc only
+			//// First create a copy of a service instance
+			//instance := &model.ServiceInstance{
+			//	Endpoint:       instances[0].Endpoint,
+			//	Service:        instances[0].Service,
+			//	Labels:         instances[0].Labels,
+			//	ServiceAccount: instances[0].ServiceAccount,
+			//}
 
 			// Update the values here so that the plugins use the right ports
 			// uds values
@@ -504,7 +527,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			pluginParams := &plugin.InputParams{
 				Env:             env,
 				Node:            proxy,
-				ServiceInstance: instances[0],
+				ServiceInstance: instance,
 				Port:            listenPort,
 				Push:            push,
 				Bind:            bind,
@@ -515,6 +538,41 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	}
 
 	return clusters
+}
+
+func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceInstance,
+	ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
+	var instance *model.ServiceInstance
+	// Search by port
+	for _, realinstance := range instances {
+		if realinstance.Endpoint.Port == int(ingressListener.Port.Number) {
+			instance = &model.ServiceInstance{
+				Endpoint:       realinstance.Endpoint,
+				Service:        realinstance.Service,
+				Labels:         realinstance.Labels,
+				ServiceAccount: realinstance.ServiceAccount,
+			}
+			return instance
+		}
+	}
+
+	// search by name
+	for _, realinstance := range instances {
+		// TODO: UDS may not work, we could use the port name
+		for _, iport := range realinstance.Service.Ports {
+			if iport.Name == ingressListener.Port.Name {
+				instance = &model.ServiceInstance{
+					Endpoint:       realinstance.Endpoint,
+					Service:        realinstance.Service,
+					Labels:         realinstance.Labels,
+					ServiceAccount: realinstance.ServiceAccount,
+				}
+				return instance
+			}
+		}
+	}
+
+	return instance
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams) *apiv2.Cluster {
@@ -535,7 +593,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	// (not the defaults) to handle the increased traffic volume
 	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
 	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	config := pluginParams.Push.DestinationRule(pluginParams.Node, instance.Service.Hostname)
+	config := pluginParams.Push.DestinationRule(pluginParams.Node, instance.Service)
 	if config != nil {
 		destinationRule := config.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {

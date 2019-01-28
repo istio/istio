@@ -112,6 +112,7 @@ func RunManagementServer(ctx context.Context, server xds.Server, port uint) {
 	v2.RegisterClusterDiscoveryServiceServer(grpcServer, server)
 	v2.RegisterRouteDiscoveryServiceServer(grpcServer, server)
 	v2.RegisterListenerDiscoveryServiceServer(grpcServer, server)
+	discovery.RegisterSecretDiscoveryServiceServer(grpcServer, server)
 
 	log.WithFields(log.Fields{"port": port}).Info("management server listening")
 	go func() {
