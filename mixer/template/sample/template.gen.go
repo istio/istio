@@ -33,13 +33,13 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
-	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
+	"istio.io/istio/mixer/template/sample/apa"
 
-	istio_mixer_adapter_sample_check "istio.io/istio/mixer/template/sample/check"
+	"istio.io/istio/mixer/template/sample/check"
 
-	istio_mixer_adapter_sample_quota "istio.io/istio/mixer/template/sample/quota"
+	"istio.io/istio/mixer/template/sample/quota"
 
-	istio_mixer_adapter_sample_report "istio.io/istio/mixer/template/sample/report"
+	"istio.io/istio/mixer/template/sample/report"
 
 	"time"
 )
