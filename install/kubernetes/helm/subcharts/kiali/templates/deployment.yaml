@@ -73,7 +73,9 @@ spec:
         configMap:
           name: kiali
 {{- $nodeAffinity := or (include "nodeaffinity" .) "" -}}
-{{- if ne $nodeAffinity "" }}
+{{- $nodeAffinityPreferredDuringScheduling := or (include "nodeAffinityPreferredDuringScheduling" .) "" -}}
+{{- $nodeAffinityRequiredDuringScheduling := or (include "nodeAffinityRequiredDuringScheduling" .) "" -}}
+{{- if and (ne $nodeAffinityPreferredDuringScheduling "") (ne $nodeAffinityRequiredDuringScheduling "") }}
       affinity:
       {{- printf "%s" $nodeAffinity | indent 6 }}
 {{- end }}
