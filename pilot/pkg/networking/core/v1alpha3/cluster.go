@@ -960,7 +960,7 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 
 	// Set default circuit breaking for Envoy graceful shutdown
 	var outlierDetectionPolicy *networking.OutlierDetection
-	if direction == model.TrafficDirectionOutbound && (port.Protocol.IsHTTP2() || port.Protocol.IsHTTP()) {
+	if direction == model.TrafficDirectionOutbound && port.Protocol.IsHTTP() {
 		outlierDetectionPolicy = &networking.OutlierDetection{
 			ConsecutiveErrors:  5,
 			Interval:           &types.Duration{Seconds: 10}, // Explicit default
