@@ -339,5 +339,6 @@ if [ -z "${ENABLE_INBOUND_IPV6}" ]; then
   # TODO: support receiving IPv6 traffic in the same way as IPv4.
   ip6tables -F INPUT || true
   ip6tables -A INPUT -m state --state ESTABLISHED -j ACCEPT || true
+  ip6tables -A INPUT -i lo -d ::1 -j ACCEPT || true
   ip6tables -A INPUT -j REJECT || true
 fi
