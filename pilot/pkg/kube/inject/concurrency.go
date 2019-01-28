@@ -83,20 +83,22 @@ func applyConcurrency(containers []corev1.Container) {
 			}
 
 			// firstly use cpu limits
-			limitCPUsFloat := float64(c.Resources.Limits.Cpu().MilliValue()) / 1000
-			concurrency = int(math.Ceil(limitCPUsFloat))
-			if concurrency > 0 {
-				containers[i].Args = append(containers[i].Args, []string{fmt.Sprintf("--%s", concurrencyCmdFlagName), strconv.Itoa(concurrency)}...)
-				return
-			}
-
-			// secondly use cpu requests
-			requestCPUsFloat := float64(c.Resources.Requests.Cpu().MilliValue()) / 1000
-			concurrency = int(math.Ceil(requestCPUsFloat))
-			if concurrency > 0 {
-				containers[i].Args = append(containers[i].Args, []string{fmt.Sprintf("--%s", concurrencyCmdFlagName), strconv.Itoa(concurrency)}...)
+			if !updateConcurrency(&containers[i], c.Resources.Limits.Cpu().MilliValue()) {
+				// secondly use cpu requests
+				updateConcurrency(&containers[i], c.Resources.Requests.Cpu().MilliValue())
 			}
 			return
 		}
 	}
+}
+
+func updateConcurrency(container *corev1.Container, cpumillis int64) bool {
+	cpu := float64(cpumillis) / 1000
+	concurrency := int(math.Ceil(cpu))
+	if concurrency > 0 {
+		container.Args = append(container.Args, []string{fmt.Sprintf("--%s", concurrencyCmdFlagName), strconv.Itoa(concurrency)}...)
+		return true
+	}
+
+	return false
 }
