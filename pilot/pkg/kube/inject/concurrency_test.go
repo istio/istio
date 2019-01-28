@@ -14,9 +14,10 @@
 package inject
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -30,6 +31,49 @@ func TestApplyConcurrency(t *testing.T) {
 		want []corev1.Container
 	}{
 		{
+			name: "apply concurrency with resource limit",
+			original: []corev1.Container{
+				{
+					Name: "istio-proxy",
+					Args: []string{"--foo"},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2G"),
+							corev1.ResourceCPU:    resource.MustParse("1500m"),
+						},
+					},
+				},
+				{
+					Name: "app",
+					Args: []string{"--foo", "--bar"},
+				},
+			},
+			want: []corev1.Container{
+				{
+					Name: "istio-proxy",
+					Args: []string{"--foo", "--concurrency", "2"},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2G"),
+							corev1.ResourceCPU:    resource.MustParse("1500m"),
+						},
+					},
+				},
+				{
+					Name: "app",
+					Args: []string{"--foo", "--bar"},
+				},
+			},
+		},
+		{
 			name: "apply concurrency with resource request",
 			original: []corev1.Container{
 				{
@@ -37,8 +81,8 @@ func TestApplyConcurrency(t *testing.T) {
 					Args: []string{"--foo"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
 						},
 					},
 				},
@@ -53,8 +97,8 @@ func TestApplyConcurrency(t *testing.T) {
 					Args: []string{"--foo", "--concurrency", "1"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
 						},
 					},
 				},
@@ -65,17 +109,11 @@ func TestApplyConcurrency(t *testing.T) {
 			},
 		},
 		{
-			name: "apply no concurrency without resource request",
+			name: "no concurrency without cpu resource request/limit",
 			original: []corev1.Container{
-
 				{
 					Name: "istio-proxy",
 					Args: []string{"--foo"},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-						},
-					},
 				},
 				{
 					Name: "app",
@@ -86,11 +124,6 @@ func TestApplyConcurrency(t *testing.T) {
 				{
 					Name: "istio-proxy",
 					Args: []string{"--foo"},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-						},
-					},
 				},
 				{
 					Name: "app",
@@ -99,15 +132,19 @@ func TestApplyConcurrency(t *testing.T) {
 			},
 		},
 		{
-			name: "--concurrency 2 already set",
+			name: "--concurrency 4 already set",
 			original: []corev1.Container{
 				{
 					Name: "istio-proxy",
-					Args: []string{"--foo", "--concurrency", "2"},
+					Args: []string{"--foo", "--concurrency", "4"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2G"),
+							corev1.ResourceCPU:    resource.MustParse("1500m"),
 						},
 					},
 				},
@@ -119,11 +156,15 @@ func TestApplyConcurrency(t *testing.T) {
 			want: []corev1.Container{
 				{
 					Name: "istio-proxy",
-					Args: []string{"--foo", "--concurrency", "2"},
+					Args: []string{"--foo", "--concurrency", "4"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2G"),
+							corev1.ResourceCPU:    resource.MustParse("1500m"),
 						},
 					},
 				},
@@ -134,16 +175,19 @@ func TestApplyConcurrency(t *testing.T) {
 			},
 		},
 		{
-			name: "--concurrency=2 already set",
+			name: "--concurrency=4 already set",
 			original: []corev1.Container{
-
 				{
 					Name: "istio-proxy",
-					Args: []string{"--foo", "--concurrency=2"},
+					Args: []string{"--foo", "--concurrency=4"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2G"),
+							corev1.ResourceCPU:    resource.MustParse("1500m"),
 						},
 					},
 				},
@@ -155,11 +199,15 @@ func TestApplyConcurrency(t *testing.T) {
 			want: []corev1.Container{
 				{
 					Name: "istio-proxy",
-					Args: []string{"--foo", "--concurrency=2"},
+					Args: []string{"--foo", "--concurrency=4"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2G"),
+							corev1.ResourceCPU:    resource.MustParse("1500m"),
 						},
 					},
 				},
@@ -170,16 +218,19 @@ func TestApplyConcurrency(t *testing.T) {
 			},
 		},
 		{
-			name: "-concurrency=2 already set",
+			name: "-concurrency=4 already set",
 			original: []corev1.Container{
-
 				{
 					Name: "istio-proxy",
-					Args: []string{"--foo", "-concurrency=2"},
+					Args: []string{"--foo", "-concurrency=4"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2G"),
+							corev1.ResourceCPU:    resource.MustParse("1500m"),
 						},
 					},
 				},
@@ -191,11 +242,15 @@ func TestApplyConcurrency(t *testing.T) {
 			want: []corev1.Container{
 				{
 					Name: "istio-proxy",
-					Args: []string{"--foo", "-concurrency=2"},
+					Args: []string{"--foo", "-concurrency=4"},
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("10Mi"),
-							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("1G"),
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("2G"),
+							corev1.ResourceCPU:    resource.MustParse("1500m"),
 						},
 					},
 				},

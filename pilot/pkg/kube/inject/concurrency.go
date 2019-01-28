@@ -21,8 +21,9 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pkg/log"
 	corev1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -71,7 +72,7 @@ func extractConcurrency(sidecar *corev1.Container) int {
 }
 
 // applyConcurrency changes sidecar containers' concurrency to equals the cpu cores of the container
-// if not set. It is inferred from the container's resource request.
+// if not set. It is inferred from the container's resource limit or request.
 func applyConcurrency(containers []corev1.Container) {
 	for i, c := range containers {
 		if c.Name == ProxyContainerName {
@@ -81,6 +82,15 @@ func applyConcurrency(containers []corev1.Container) {
 				return
 			}
 
+			// firstly use cpu limits
+			limitCPUsFloat := float64(c.Resources.Limits.Cpu().MilliValue()) / 1000
+			concurrency = int(math.Ceil(limitCPUsFloat))
+			if concurrency > 0 {
+				containers[i].Args = append(containers[i].Args, []string{fmt.Sprintf("--%s", concurrencyCmdFlagName), strconv.Itoa(concurrency)}...)
+				return
+			}
+
+			// secondly use cpu requests
 			requestCPUsFloat := float64(c.Resources.Requests.Cpu().MilliValue()) / 1000
 			concurrency = int(math.Ceil(requestCPUsFloat))
 			if concurrency > 0 {
