@@ -325,8 +325,12 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # enable pod distruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
-    minAvailable: 1
+    enabled: true
+    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # minAvailable: 1
     # maxUnavailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and

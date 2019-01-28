@@ -1,8 +1,4 @@
 {{- define "podDisruptionBudget.spec" }}
-{{- if .minAvailable }}
-  minAvailable: {{ .minAvailable }}
-{{- end }}
-{{- if .maxUnavailable }}
-  maxUnavailable: {{ .maxUnavailable }}
-{{- end }}
+  minAvailable: 1
+  maxUnavailable: 1
 {{- end }}
