@@ -51,6 +51,7 @@ var (
 	registry         serviceregistry.ServiceRegistry
 	statusPort       uint16
 	applicationPorts []string
+	DNSDomain        string
 
 	// proxy config flags (named identically)
 	configPath               string
@@ -183,8 +184,7 @@ var (
 					}
 				}
 			}
-			role.DNSDomains[0] = getDNSDomain(role.DNSDomains)
-			pilotSAN = getPilotSAN(role.DNSDomains[0], ns)
+			pilotSAN = getPilotSAN(DNSDomain, ns)
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -346,18 +346,17 @@ func getPilotSAN(domain string, ns string) []string {
 	return pilotSAN
 }
 
-func getDNSDomain(domain []string) string {
-	out := domain[0]
-	if len(out) == 0 {
+func getDNSDomain(domain string) string {
+	if len(domain) == 0 {
 		if registry == serviceregistry.KubernetesRegistry {
-			out = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 		} else if registry == serviceregistry.ConsulRegistry {
-			out = "service.consul"
+			domain = "service.consul"
 		} else {
-			out = ""
+			domain = ""
 		}
 	}
-	return out
+	return domain
 }
 
 func parseApplicationPorts() ([]uint16, error) {
@@ -384,8 +383,6 @@ func timeDuration(dur *types.Duration) time.Duration {
 }
 
 func init() {
-	var DNSDomain string
-
 	proxyCmd.PersistentFlags().StringVar((*string)(&registry), "serviceregistry",
 		string(serviceregistry.KubernetesRegistry),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
@@ -396,7 +393,6 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	role.DNSDomains = []string{DNSDomain}
 	proxyCmd.PersistentFlags().StringVar(&role.TrustDomain, "trust-domain", "",
 		"The domain to use for identities")
 	proxyCmd.PersistentFlags().Uint16Var(&statusPort, "statusPort", 0,
@@ -458,6 +454,9 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
+
+	// Parse the DNSDomain based upon service registry type into a registry specific domain.
+	DNSDomain = getDNSDomain(DNSDomain)
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
