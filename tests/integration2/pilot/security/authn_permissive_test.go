@@ -19,22 +19,25 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	lis "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	proto "github.com/gogo/protobuf/types"
 
-	authnv1alpha "istio.io/api/authentication/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	appst "istio.io/istio/pkg/test/framework/runtime/components/apps"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
+)
+
+const (
+	timeout       = 10 * time.Second
+	retryInterval = 500 * time.Millisecond
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
@@ -87,55 +90,46 @@ func verifyListener(listener *xdsapi.Listener, t *testing.T) bool {
 // TestAuthnPermissive checks when authentication policy is permissive, Pilot generates expected
 // listener configuration.
 func TestAuthnPermissive(t *testing.T) {
+	config := `
+apiVersion: "authentication.istio.io/v1alpha1"
+kind: "Policy"
+metadata:
+  name: "default"
+  namespace: "istio-system"
+spec:
+  peers:
+    - mtls:
+        mode: PERMISSIVE
+`
 	ctx := framework.GetContext(t)
 	// TODO(incfly): make test able to run both on k8s and native when galley is ready.
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment, &ids.Apps)
-	env := native.GetEnvironmentOrFail(ctx, t)
-	_, err := env.ServiceManager.ConfigStore.Create(
-		model.Config{
-			ConfigMeta: model.ConfigMeta{
-				Type:      model.AuthenticationPolicy.Type,
-				Name:      "default",
-				Namespace: "istio-system",
-			},
-			Spec: &authnv1alpha.Policy{
-				// TODO: make policy work just applied to service a.
-				// Targets: []*authn.TargetSelector{
-				// 	{
-				// 		Name: "a.istio-system.svc.local",
-				// 	},
-				// },
-				Peers: []*authnv1alpha.PeerAuthenticationMethod{{
-					Params: &authnv1alpha.PeerAuthenticationMethod_Mtls{
-						Mtls: &authnv1alpha.MutualTls{
-							Mode: authnv1alpha.MutualTls_PERMISSIVE,
-						},
-					},
-				}},
-			},
-		},
-	)
-	if err != nil {
-		t.Error(err)
-	}
+	galley := components.GetGalley(ctx, t)
+	galley.ApplyConfig(config)
+	galley.WaitForSnapshot("istio/authentication/v1alpha1/policies")
 	apps := components.GetApps(ctx, t)
 	a := apps.GetAppOrFail("a", t)
 	pilot := components.GetPilot(ctx, t)
-	req := appst.ConstructDiscoveryRequest(a, "type.googleapis.com/envoy.api.v2.Listener")
-	resp, err := pilot.CallDiscovery(req)
-	if err != nil {
-		t.Errorf("failed to call discovery %v", err)
-	}
-	for _, r := range resp.Resources {
-		foo := &xdsapi.Listener{}
-		if err := proto.UnmarshalAny(&r, foo); err != nil {
-			t.Errorf("failed to unmarshal %v", err)
+	endTime := time.Now().Add(timeout)
+	for {
+		req := appst.ConstructDiscoveryRequest(a, "type.googleapis.com/envoy.api.v2.Listener")
+		resp, err := pilot.CallDiscovery(req)
+		if err != nil {
+			t.Errorf("failed to call discovery %v", err)
 		}
-		if verifyListener(foo, t) {
-			return
+		for _, r := range resp.Resources {
+			foo := &xdsapi.Listener{}
+			err := proto.UnmarshalAny(&r, foo)
+			result := verifyListener(foo, t)
+			if err == nil && result {
+				return
+			}
 		}
+		if time.Now().After(endTime) {
+			t.Fatalf("failed to find any listeners having multiplexing filter chain")
+		}
+		time.Sleep(retryInterval)
 	}
-	t.Errorf("failed to find any listeners having multiplexing filter chain")
 }
 
 // TestAuthentictionPermissiveE2E these cases are covered end to end

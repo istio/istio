@@ -15,18 +15,20 @@
 package pilot
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"net"
 
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
+	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
@@ -40,7 +42,6 @@ var _ io.Closer = &nativeComponent{}
 // Native is the interface for an native pilot server.
 type Native interface {
 	components.Pilot
-	model.ConfigStore
 	GetDiscoveryAddress() *net.TCPAddr
 }
 
@@ -53,7 +54,6 @@ func NewNativeComponent() (api.Component, error) {
 
 type nativeComponent struct {
 	*client
-	model.ConfigStoreCache
 	server   *bootstrap.Server
 	stopChan chan struct{}
 	scope    lifecycle.Scope
@@ -88,14 +88,25 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		GrpcAddr:       ":0",
 		SecureGrpcAddr: "",
 	}
-
+	g := ctx.GetComponent(ids.Galley)
+	if g == nil {
+		return fmt.Errorf("missing dependency: %s", ids.Galley)
+	}
+	galley, ok := g.(components.Galley)
+	if !ok {
+		return errors.New("galley does not support in-process interface")
+	}
+	//configSource := &mesh.ConfigSource{
+	//	Address: galley.GetGalleyAddress()[6:],
+	//}
+	//env.Mesh.ConfigSources = append(env.Mesh.ConfigSources, configSource)
+	env.ServiceManager.Galley = galley
 	bootstrapArgs := bootstrap.PilotArgs{
-		Namespace:        env.Namespace,
-		DiscoveryOptions: options,
-		MeshConfig:       env.Mesh,
-		Config: bootstrap.ConfigArgs{
-			Controller: env.ServiceManager.ConfigStore,
-		},
+		Namespace:         env.Namespace,
+		DiscoveryOptions:  options,
+		MeshConfig:        env.Mesh,
+		MCPMaxMessageSize: 1024 * 1024 * 4,
+		MCPServerAddrs:    []string{galley.GetGalleyAddress()},
 		// Use the config store for service entries as well.
 		Service: bootstrap.ServiceArgs{
 			// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
@@ -105,9 +116,6 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		Plugins:   bootstrap.DefaultPlugins,
 		ForceStop: true,
 	}
-
-	// Save the config store.
-	c.ConfigStoreCache = env.ServiceManager.ConfigStore
 
 	// Create the server for the discovery service.
 	c.server, err = bootstrap.NewServer(bootstrapArgs)

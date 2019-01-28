@@ -36,6 +36,9 @@ type Galley interface {
 
 	// WaitForSnapshot waits until the given snapshot is observed for the given type URL.
 	WaitForSnapshot(collection string, snapshot ...map[string]interface{}) error
+
+	// GetGalleyAddress returns the galley mcp server address
+	GetGalleyAddress() string
 }
 
 // GetGalley from the repository

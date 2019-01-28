@@ -15,11 +15,17 @@
 package service
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+
+	"github.com/alecthomas/template"
 
 	istio_networking_api "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/framework/api/components"
 )
 
 const (
@@ -31,17 +37,55 @@ const (
 	LocalIPAddress = "127.0.0.1"
 	// LocalCIDR for connections to localhost
 	LocalCIDR = "127.0.0.1/32"
+
+	serviceEntryYamlTemplateStr = `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: {{ .Name }}
+  domain: {{ .Domain }}
+  namespace: {{ .Namespace }}
+  labels:
+    app: {{ .App }}
+    version: {{ .Version }}
+spec:
+  hosts: 
+  - "{{ .Hosts }}"
+  ports:
+  {{range $i, $p := .Ports}}
+  - number: {{$p.Number}}
+    name: {{$p.Name}}
+    protocol: {{$p.Protocol}}
+  {{end}}
+  addresses:
+  - "127.0.0.1/32"
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: "127.0.0.1"
+`
 )
 
 var (
 	// FullyQualifiedDomainName for local services
 	FullyQualifiedDomainName = fmt.Sprintf("%s.%s", Namespace, Domain)
+
+	// The Template object parsed from the template string
+	serviceEntryYamlTemplate = getServiceEntryYamlTemplate()
 )
 
 // Manager is a wrapper around a model.ConfigStoreCache that simplifies service creation for the local environment.
 type Manager struct {
 	// ConfigStore for all deployments.
 	ConfigStore model.ConfigStoreCache
+	// Galley for configurations
+	Galley components.Galley
+}
+
+type Port struct {
+	Number   uint32
+	Name     string
+	Protocol string
 }
 
 // NewManager creates a new manager with an in-memory ConfigStore.
@@ -49,6 +93,15 @@ func NewManager() *Manager {
 	return &Manager{
 		ConfigStore: memory.NewController(memory.Make(model.IstioConfigTypes)),
 	}
+}
+
+func getServiceEntryYamlTemplate() *template.Template {
+	tmpl := template.New("istio_service_entry_config")
+	_, err := tmpl.Parse(serviceEntryYamlTemplateStr)
+	if err != nil {
+		log.Warn("unable to parse Service Entry bootstrap config")
+	}
+	return tmpl
 }
 
 // Create a new ServiceEntry for the given service and adds it to the ConfigStore.
@@ -90,7 +143,36 @@ func (e *Manager) Create(serviceName, version string, ports model.PortList) (cfg
 			Ports: cfgPorts,
 		},
 	}
-
-	_, err = e.ConfigStore.Create(cfg)
+	//used for pilot-agent unit test
+	if e.Galley == nil {
+		_, err = e.ConfigStore.Create(cfg)
+		return
+	}
+	// Using Galley as Config Input
+	cfgPortsforYaml := make([]*Port, len(ports))
+	for i, p := range ports {
+		cfgPortsforYaml[i] = &Port{
+			Name:     p.Name,
+			Protocol: string(p.Protocol),
+			Number:   uint32(p.Port),
+		}
+	}
+	var filled bytes.Buffer
+	w := bufio.NewWriter(&filled)
+	if err = serviceEntryYamlTemplate.Execute(w, map[string]interface{}{
+		"Name":      serviceName,
+		"Namespace": Namespace,
+		"Domain":    Domain,
+		"App":       serviceName,
+		"Version":   version,
+		"Ports":     cfgPortsforYaml,
+		"Hosts":     fmt.Sprintf("%s.%s", serviceName, FullyQualifiedDomainName),
+	}); err != nil {
+		return
+	}
+	if err = w.Flush(); err != nil {
+		return
+	}
+	e.Galley.ApplyConfig(string(filled.Bytes()))
 	return
 }

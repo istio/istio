@@ -56,6 +56,7 @@ func init() {
 	Kube.Register(descriptors.Apps, true, apps.NewKubeComponent)
 	Kube.Register(descriptors.BookInfo, true, bookinfo.NewKubeComponent)
 	Kube.Register(descriptors.Citadel, true, citadel.NewKubeComponent)
+	Kube.Register(descriptors.Galley, true, galley.NewKubeComponent)
 	Kube.Register(descriptors.Ingress, true, ingress.NewKubeComponent)
 	Kube.Register(descriptors.Mixer, true, mixer.NewKubeComponent)
 	Kube.Register(descriptors.Pilot, true, pilot.NewKubeComponent)
