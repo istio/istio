@@ -15,6 +15,7 @@
 package ca
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
@@ -48,6 +49,8 @@ const (
 	RootCertID = "root-cert.pem"
 	// ServiceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
+	// ReadSigningCertCheckInterval specifies the time to wait between retries on reading the signing key and cert.
+	ReadSigningCertCheckInterval = time.Second * 5
 
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
@@ -97,11 +100,30 @@ type IstioCA struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
-	namespace string, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
-	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
-	// CASecret. For subsequent restart, CA will reads key/cert from CASecret.
+func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
+	namespace string, readCertRetryInterval time.Duration, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
+	// For the first time the CA is up, if readSigningCertOnly is unset,
+	// it generates a self-signed key/cert pair and write it to CASecret.
+	// For subsequent restart, CA will reads key/cert from CASecret.
 	caSecret, scrtErr := client.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
+	if scrtErr != nil && readCertRetryInterval > 0 {
+		// Wait to get ready.
+		log.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
+		ticker := time.NewTicker(readCertRetryInterval)
+		for {
+			select {
+			case <-ticker.C:
+				if caSecret, scrtErr = client.Secrets(namespace).Get(CASecret, metav1.GetOptions{}); err == nil {
+					log.Infof("Citadel successfully loaded the secret.")
+					break
+				}
+			case <-ctx.Done():
+				log.Errorf("Secret waiting thread is terminated.")
+				return nil, fmt.Errorf("secret waiting thread is terminated")
+			}
+		}
+	}
+
 	caOpts = &IstioCAOptions{
 		CAType:     selfSignedCA,
 		CertTTL:    certTTL,
@@ -133,6 +155,7 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, o
 			log.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
 		}
 	} else {
+		log.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
 		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[caCertID],
 			caSecret.Data[caPrivateKeyID], nil, caSecret.Data[caCertID]); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)

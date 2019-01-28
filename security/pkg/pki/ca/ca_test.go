@@ -16,6 +16,7 @@ package ca
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"io/ioutil"
@@ -93,8 +94,8 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	caNamespace := "default"
 	client := fake.NewSimpleClientset()
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, defaultCertTTL, maxCertTTL,
-		org, dualUse, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), caCertTTL, defaultCertTTL, maxCertTTL,
+		org, dualUse, caNamespace, -1, client.CoreV1())
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -180,8 +181,8 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	caNamespace := "default"
 	dualUse := false
 
-	caopts, err := NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL,
-		org, dualUse, caNamespace, client.CoreV1())
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(), caCertTTL, certTTL, maxCertTTL,
+		org, dualUse, caNamespace, -1, client.CoreV1())
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -226,6 +227,85 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	}
 	if !bytes.Equal(cert, certFromConfigMap) {
 		t.Errorf("The cert in configmap is not equal to the CA signing cert: %v VS (expected) %v", certFromConfigMap, cert)
+	}
+}
+
+func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
+	rootCertPem := cert1Pem
+	// Use the same signing cert and root cert for self-signed CA.
+	signingCertPem := []byte(cert1Pem)
+	signingKeyPem := []byte(key1Pem)
+
+	caCertTTL := time.Hour
+	certTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+	org := "test.ca.org"
+	caNamespace := "default"
+	dualUse := false
+
+	client := fake.NewSimpleClientset()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+	defer cancel()
+	doneCh := make(chan *IstioCAOptions)
+
+	// Start the SelfSignedIstioCAOptions process in a thread. The thread should be blocked until the
+	// secret is set.
+	go func(doneCh chan<- *IstioCAOptions) {
+		caopts, err := NewSelfSignedIstioCAOptions(ctx, caCertTTL, certTTL, maxCertTTL,
+			org, dualUse, caNamespace, time.Millisecond*50, client.CoreV1())
+		if err != nil {
+			doneCh <- nil
+			return
+		}
+		doneCh <- caopts
+	}(doneCh)
+
+	secret := BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	_, err := client.CoreV1().Secrets("default").Create(secret)
+	if err != nil {
+		t.Errorf("Failed to create secret (error: %s)", err)
+	}
+
+	var caopts *IstioCAOptions
+	timer := time.NewTimer(time.Millisecond * 300)
+	timeChan := timer.C
+	select {
+	case caopts = <-doneCh:
+		break
+	case <-timeChan:
+		ctx.Done()
+		t.Errorf("Citadel failed to load the key and cert in time.")
+	}
+
+	if caopts == nil {
+		t.Errorf("Could not create valid CAOptions.")
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Errorf("Got error while createing self-signed CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("Failed to create a self-signed CA.")
+	}
+
+	signingCert, err := util.ParsePemEncodedCertificate(signingCertPem)
+	if err != nil {
+		t.Errorf("Failed to parse cert (error: %s)", err)
+	}
+
+	signingCertFromCA, _, certChainBytesFromCA, rootCertBytesFromCA := ca.GetCAKeyCertBundle().GetAll()
+
+	if !signingCert.Equal(signingCertFromCA) {
+		t.Error("Signing cert does not match")
+	}
+
+	if !bytes.Equal(rootCertBytesFromCA, []byte(rootCertPem)) {
+		t.Error("Root cert does not match")
+	}
+
+	if len(certChainBytesFromCA) != 0 {
+		t.Errorf("Cert chain should be empty")
 	}
 }
 
