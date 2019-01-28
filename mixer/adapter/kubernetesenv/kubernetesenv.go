@@ -80,6 +80,8 @@ type (
 		k8sCache map[string]cacheController
 		env      adapter.Env
 		params   *config.Params
+
+		builder *builder
 	}
 
 	// used strictly for testing purposes
@@ -153,6 +155,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		env:      env,
 		k8sCache: controllers,
 		params:   paramsProto,
+		builder:  b,
 	}
 
 	b.kubeHandler = &kubeHandler
@@ -221,6 +224,13 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 }
 
 func (h *handler) Close() error {
+	for clusterID := range h.builder.controllers {
+		h.builder.deleteCacheController(clusterID)
+	}
+	h.builder.Lock()
+	h.builder.kubeHandler = nil
+	h.builder.Unlock()
+
 	return nil
 }
 
