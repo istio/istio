@@ -31,7 +31,7 @@ import (
 // which depends on google.golang.org/grpc/internal/channelz,
 // which is not available for OSX.  The build tag on line 1
 // ensures this is only built on Linux.
- 
+
 var (
 	gitTagKey       tag.Key
 	componentTagKey tag.Key
