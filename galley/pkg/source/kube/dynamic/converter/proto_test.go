@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	gogo_types "github.com/gogo/protobuf/types"
+	gogoTypes "github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
 )
@@ -36,7 +36,7 @@ func TestToProto_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var expected = &gogo_types.Empty{}
+	var expected = &gogoTypes.Empty{}
 	if !reflect.DeepEqual(p, expected) {
 		t.Fatalf("Mismatch\nExpected:\n%+v\nActual:\n%+v\n", expected, p)
 	}

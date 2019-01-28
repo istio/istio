@@ -66,6 +66,8 @@ const (
 	ThriftProxy = "envoy.filters.network.thrift_proxy"
 	// RedisProxy network filter
 	RedisProxy = "envoy.redis_proxy"
+	// MySQLProxy network filter
+	MySQLProxy = "envoy.filters.network.mysql_proxy"
 	// ExternalAuthorization network filter
 	ExternalAuthorization = "envoy.ext_authz"
 )
