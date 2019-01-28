@@ -204,7 +204,7 @@ func (s *session) dispatch() error {
 		log.Warnf("Requested quota '%s' is not configured", s.quotaArgs.Quota)
 	}
 
-	// aggregate directive after filtering by attribute conditions
+	// aggregate header operations after filtering by attribute conditions
 	if s.variety == tpb.TEMPLATE_VARIETY_CHECK && status.IsOK(s.checkResult.Status) {
 		for _, directiveGroup := range destinations.Directives() {
 			if directiveGroup.Condition != nil {
@@ -341,7 +341,31 @@ func (s *session) waitForDispatched() {
 			if buf == nil {
 				buf = pool.GetBuffer()
 				// the first failure result's code becomes the result code for the output
+				// `buf` variable guards the first failure since it is set the first time
 				code = rpc.Code(st.Code)
+
+				// update the direct response matching the error status
+				if s.variety == tpb.TEMPLATE_VARIETY_CHECK {
+					if response := status.GetDirectHTTPResponse(st); response != nil {
+						if s.checkResult.RouteDirective == nil {
+							s.checkResult.RouteDirective = &mixerpb.RouteDirective{}
+						}
+						directive := s.checkResult.RouteDirective
+						if response.Code != 0 {
+							directive.DirectResponseCode = uint32(response.Code)
+						} else {
+							directive.DirectResponseCode = uint32(status.HTTPStatusFromCode(rpc.Code(st.Code)))
+						}
+						directive.DirectResponseBody = response.Body
+						for header, value := range response.Headers {
+							directive.ResponseHeaderOperations = append(directive.ResponseHeaderOperations,
+								mixerpb.HeaderOperation{
+									Name:  header,
+									Value: value,
+								})
+						}
+					}
+				}
 			} else {
 				buf.WriteString(", ")
 			}

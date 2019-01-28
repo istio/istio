@@ -39,7 +39,7 @@ var (
 		IPAddresses:     []string{"1.1.1.1"},
 		ID:              "v0.default",
 		DNSDomain:       "default.example.org",
-		Metadata:        map[string]string{model.NodeConfigNamespace: "not-default"},
+		Metadata:        map[string]string{model.NodeMetadataConfigNamespace: "not-default"},
 		ConfigNamespace: "not-default",
 	}
 	proxyInstances = []*model.ServiceInstance{

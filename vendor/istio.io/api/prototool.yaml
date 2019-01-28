@@ -13,6 +13,7 @@ lint:
     - id: ENUM_FIELD_NAMES_UPPER_SNAKE_CASE
       files:
         - networking/v1alpha3/gateway.proto
+        - policy/v1beta1/http_response.proto
     - id: REQUEST_RESPONSE_TYPES_UNIQUE
       files:
         - mcp/v1alpha1/mcp.proto

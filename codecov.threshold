@@ -1,5 +1,6 @@
 # This overrides the default threshold used by the circle codecov job to prevent
-# unexpected drop of code coverage.
+# unexpected drop of code coverage. And this supplements the packages specified
+# in codecov.skip.
 #
 # This is useful to temporarily whitelist the packages that have either non
 # deterministic code path. (E.g. test may retry on failure. Some paths may not
