@@ -240,7 +240,8 @@
       "config": {
         "collector_cluster": "zipkin",
         "collector_endpoint": "/api/v1/spans",
-        "trace_id_128bit":"true"
+        "trace_id_128bit":"true",
+        "shared_span_context": "false"
       }
     }
   }
