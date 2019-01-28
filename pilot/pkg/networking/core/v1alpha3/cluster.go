@@ -468,8 +468,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			return clusters
 		}
 		rule := sidecarScope.Config.Spec.(*networking.Sidecar)
-		// Will generate inbound listeners based on ingress listed ports.
-		// TODO: verify that Ingress contains the ports defined by app ( no need to duplicate )
 		for _, ingressListener := range rule.Ingress {
 			// LDS would have setup the inbound clusters
 			// as inbound|portNumber|portName|Hostname
@@ -482,12 +480,12 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 			// When building an inbound cluster for the ingress listener, we take the defaultEndpoint specified
 			// by the user and parse it into host:port or a unix domain socket
 			// The default endpoint can be 127.0.0.1:port or :port or unix domain socket
-			bind := LocalhostAddress
+			endpointAddress := LocalhostAddress
 			port := 0
 			var err error
 			if strings.HasPrefix(ingressListener.DefaultEndpoint, model.UnixAddressPrefix) {
 				// this is a UDS endpoint. assign it as is
-				bind = ingressListener.DefaultEndpoint
+				endpointAddress = ingressListener.DefaultEndpoint
 			} else {
 				// parse the ip, port. Validation guarantees presence of :
 				parts := strings.Split(ingressListener.DefaultEndpoint, ":")
@@ -496,31 +494,21 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 				}
 			}
 
-			// TODO: Sidecar config has port number and name - but the port number is the targetPort.
-			// Right now we don't track the targetPort in the ServiceInstance - only the service port.
-			// For now we'll match on name ( and require the name of the port to be unique inside a namespace )
-			// Proper fix is to track targetPort, or use service port number in Sidecar
-			instance := configgen.findInstance(instances, ingressListener)
+			// Find the service instance that corresponds to this ingress listener by looking
+			// for a service instance that either matches this ingress port or one that has
+			// a port with same name as this ingress port
+			instance := configgen.findServiceInstanceForIngressListener(instances, ingressListener)
 
 			if instance == nil {
-				// We didn't find a matching port
+				// We didn't find a matching instance
 				continue
 			}
-			//// TODO: this can't be correct, what happens with the other instances ? Likely works for test with single svc only
-			//// First create a copy of a service instance
-			//instance := &model.ServiceInstance{
-			//	Endpoint:       instances[0].Endpoint,
-			//	Service:        instances[0].Service,
-			//	Labels:         instances[0].Labels,
-			//	ServiceAccount: instances[0].ServiceAccount,
-			//}
 
 			// Update the values here so that the plugins use the right ports
 			// uds values
 			// TODO: all plugins need to be updated to account for the fact that
 			// the port may be 0 but bind may have a UDS value
-			// Inboundroute will be different for
-			instance.Endpoint.Address = bind
+			instance.Endpoint.Address = endpointAddress
 			instance.Endpoint.ServicePort = listenPort
 			instance.Endpoint.Port = port
 
@@ -530,7 +518,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 				ServiceInstance: instance,
 				Port:            listenPort,
 				Push:            push,
-				Bind:            bind,
+				Bind:            endpointAddress,
 			}
 			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
 			clusters = append(clusters, localCluster)
@@ -540,32 +528,32 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(env *model.Environmen
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) findInstance(instances []*model.ServiceInstance,
+func (configgen *ConfigGeneratorImpl) findServiceInstanceForIngressListener(instances []*model.ServiceInstance,
 	ingressListener *networking.IstioIngressListener) *model.ServiceInstance {
 	var instance *model.ServiceInstance
 	// Search by port
-	for _, realinstance := range instances {
-		if realinstance.Endpoint.Port == int(ingressListener.Port.Number) {
+	for _, realInstance := range instances {
+		if realInstance.Endpoint.Port == int(ingressListener.Port.Number) {
 			instance = &model.ServiceInstance{
-				Endpoint:       realinstance.Endpoint,
-				Service:        realinstance.Service,
-				Labels:         realinstance.Labels,
-				ServiceAccount: realinstance.ServiceAccount,
+				Endpoint:       realInstance.Endpoint,
+				Service:        realInstance.Service,
+				Labels:         realInstance.Labels,
+				ServiceAccount: realInstance.ServiceAccount,
 			}
 			return instance
 		}
 	}
 
-	// search by name
-	for _, realinstance := range instances {
-		// TODO: UDS may not work, we could use the port name
-		for _, iport := range realinstance.Service.Ports {
+	// If the port number does not match, the user might have specified a
+	// UDS socket with port number 0. So search by name
+	for _, realInstance := range instances {
+		for _, iport := range realInstance.Service.Ports {
 			if iport.Name == ingressListener.Port.Name {
 				instance = &model.ServiceInstance{
-					Endpoint:       realinstance.Endpoint,
-					Service:        realinstance.Service,
-					Labels:         realinstance.Labels,
-					ServiceAccount: realinstance.ServiceAccount,
+					Endpoint:       realInstance.Endpoint,
+					Service:        realInstance.Service,
+					Labels:         realInstance.Labels,
+					ServiceAccount: realInstance.ServiceAccount,
 				}
 				return instance
 			}
