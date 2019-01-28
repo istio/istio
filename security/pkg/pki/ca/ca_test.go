@@ -244,41 +244,31 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	dualUse := false
 
 	client := fake.NewSimpleClientset()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
-	defer cancel()
-	doneCh := make(chan *IstioCAOptions)
 
-	// Start the SelfSignedIstioCAOptions process in a thread. The thread should be blocked until the
-	// secret is set.
-	go func(doneCh chan<- *IstioCAOptions) {
-		caopts, err := NewSelfSignedIstioCAOptions(ctx, caCertTTL, certTTL, maxCertTTL,
-			org, dualUse, caNamespace, time.Millisecond*50, client.CoreV1())
-		if err != nil {
-			doneCh <- nil
-			return
-		}
-		doneCh <- caopts
-	}(doneCh)
+	// Should abort with timeout.
+	expectedErr := "secret waiting thread is terminated"
+	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
+	defer cancel0()
+	caopts, err := NewSelfSignedIstioCAOptions(ctx0, caCertTTL, certTTL, maxCertTTL,
+		org, dualUse, caNamespace, time.Millisecond*10, client.CoreV1())
+	if err.Error() != expectedErr {
+		t.Errorf("Unexpected error message: %s VS (expected) %s", err.Error(), expectedErr)
+		return
+	}
 
+	// Should succeed once secret is ready.
 	secret := BuildSecret("", CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
-	_, err := client.CoreV1().Secrets("default").Create(secret)
+	_, err = client.CoreV1().Secrets("default").Create(secret)
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
 	}
 
-	var caopts *IstioCAOptions
-	timer := time.NewTimer(time.Millisecond * 300)
-	timeChan := timer.C
-	select {
-	case caopts = <-doneCh:
-		break
-	case <-timeChan:
-		ctx.Done()
-		t.Errorf("Citadel failed to load the key and cert in time.")
-	}
-
-	if caopts == nil {
-		t.Errorf("Could not create valid CAOptions.")
+	ctx1, cancel1 := context.WithTimeout(context.Background(), time.Millisecond*30)
+	defer cancel1()
+	caopts, err = NewSelfSignedIstioCAOptions(ctx1, caCertTTL, certTTL, maxCertTTL,
+		org, dualUse, caNamespace, time.Millisecond*10, client.CoreV1())
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
 	}
 
 	ca, err := NewIstioCA(caopts)

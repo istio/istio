@@ -168,7 +168,6 @@ func init() {
 		"The TTL of self-signed CA root certificate")
 	flags.StringVar(&opts.trustDomain, "trust-domain", "",
 		"The domain serves to identify the system with spiffe ")
-
 	// Upstream CA configuration if Citadel interacts with upstream CA.
 	flags.StringVar(&opts.cAClientConfig.CAAddress, "upstream-ca-address", "", "The IP:port address of the upstream "+
 		"CA. When set, the CA will rely on the upstream Citadel to provision its own certificate.")
@@ -305,6 +304,7 @@ func runCA() {
 
 	stopCh := make(chan struct{})
 	if !opts.serverOnly {
+		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
 		// For workloads in K8s, we apply the configured workload cert TTL.
 		sc, err := controller.NewSecretController(ca,
 			opts.workloadCertTTL,
@@ -411,7 +411,8 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, "", len(opts.kubeConfigFile) != 0))
-		ctx, cancel := context.WithCancel(context.Background())
+		// Abort after 20 minutes.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
 		defer cancel()
 		var checkInterval time.Duration
 		if opts.readSigningCertOnly {

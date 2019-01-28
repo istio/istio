@@ -107,7 +107,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context, caCertTTL, certTTL, maxCer
 	// For subsequent restart, CA will reads key/cert from CASecret.
 	caSecret, scrtErr := client.Secrets(namespace).Get(CASecret, metav1.GetOptions{})
 	if scrtErr != nil && readCertRetryInterval > 0 {
-		// Wait to get ready.
 		log.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
 		ticker := time.NewTicker(readCertRetryInterval)
 		for {
