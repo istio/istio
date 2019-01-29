@@ -288,9 +288,9 @@ metadata:
     version: {{ $.Chart.Version }}
     istio: mixer
 spec:
-{{- if not .Values.autoscaleEnabled }}
-{{- if .Values.replicaCount }}
-  replicas: {{ .Values.replicaCount }}
+{{- if not $spec.autoscaleEnabled }}
+{{- if $spec.replicaCount }}
+  replicas: {{ $spec.replicaCount }}
 {{- else }}
   replicas: 1
 {{- end }}
