@@ -347,7 +347,7 @@ func buildInboundRouteConfig(push *model.PushContext, in *plugin.InputParams, in
 
 	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service.Hostname)
 	out := &mccpb.ServiceConfig{
-		DisableCheckCalls: in.Env.Mesh.DisablePolicyChecks,
+		DisableCheckCalls: disablePolicyChecks(inbound, in.Env.Mesh, in.Node),
 		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 	}
 
