@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package publish
 
 import (
 	"sync"
@@ -79,6 +79,11 @@ func (d *InMemoryDistributor) GetSnapshot(name string) sn.Snapshot {
 		return s
 	}
 	return nil
+}
+
+// NumSnapshots returns the current number of snapshots.
+func (d *InMemoryDistributor) NumSnapshots() int {
+	return len(d.snapshots)
 }
 
 // ListenChanges registered listener and start listening snapshot changes in the distributor
