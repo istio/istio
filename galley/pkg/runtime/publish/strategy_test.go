@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package publish
 
 import (
 	"testing"
 	"time"
 )
 
-func TestPublishingStrategy_OnChange(t *testing.T) {
-	s := newPublishingStrategyWithDefaults()
+func TestStrategy_OnChange(t *testing.T) {
+	s := NewStrategyWithDefaults()
 
 	t0 := time.Now()
 	t1 := t0.Add(time.Second)
@@ -33,21 +33,21 @@ func TestPublishingStrategy_OnChange(t *testing.T) {
 		return time.AfterFunc(d, func() {})
 	}
 
-	s.onChange()
+	s.OnChange()
 	if s.firstEvent != t0 || s.latestEvent != t0 || s.timer == nil {
 		t.Fatalf("Unexpected internal state: %+v", s)
 	}
 
 	// Call change again to see that firstEvent is not changed.
 	now = t1
-	s.onChange()
+	s.OnChange()
 	if s.firstEvent != t0 || s.latestEvent != t1 || s.timer == nil {
 		t.Fatalf("Unexpected internal state: %+v", s)
 	}
 }
 
-func TestPublishingStrategy_OnTimer(t *testing.T) {
-	s := newPublishingStrategyWithDefaults()
+func TestStrategy_OnTimer(t *testing.T) {
+	s := NewStrategyWithDefaults()
 
 	// Capture t0, as a constant time.
 	t0 := time.Now()
@@ -63,7 +63,7 @@ func TestPublishingStrategy_OnTimer(t *testing.T) {
 		return time.AfterFunc(d, func() {})
 	}
 
-	s.onChange()
+	s.OnChange()
 
 	// Simulate call of onTimer w/o quiesce or max timeout
 	now = t1
@@ -71,7 +71,7 @@ func TestPublishingStrategy_OnTimer(t *testing.T) {
 
 	published := false
 	select {
-	case <-s.publish:
+	case <-s.Publish:
 		published = true
 	default:
 	}
@@ -80,8 +80,8 @@ func TestPublishingStrategy_OnTimer(t *testing.T) {
 	}
 }
 
-func TestPublishingStrategy_OnTimer_Quiesce(t *testing.T) {
-	s := newPublishingStrategyWithDefaults()
+func TestStrategy_OnTimer_Quiesce(t *testing.T) {
+	s := NewStrategyWithDefaults()
 
 	// Capture t0, as a constant time.
 	t0 := time.Now()
@@ -95,7 +95,7 @@ func TestPublishingStrategy_OnTimer_Quiesce(t *testing.T) {
 		return time.AfterFunc(d, func() {})
 	}
 
-	s.onChange()
+	s.OnChange()
 
 	// Simulate quiesce
 	now = t0.Add(defaultQuiesceDuration).Add(time.Nanosecond)
@@ -103,7 +103,7 @@ func TestPublishingStrategy_OnTimer_Quiesce(t *testing.T) {
 
 	published := false
 	select {
-	case <-s.publish:
+	case <-s.Publish:
 		published = true
 	default:
 	}
@@ -112,8 +112,8 @@ func TestPublishingStrategy_OnTimer_Quiesce(t *testing.T) {
 	}
 }
 
-func TestPublishingStrategy_OnTimer_MaxTimeout(t *testing.T) {
-	s := newPublishingStrategyWithDefaults()
+func TestStrategy_OnTimer_MaxTimeout(t *testing.T) {
+	s := NewStrategyWithDefaults()
 
 	// Capture t0, as a constant time.
 	t0 := time.Now()
@@ -125,17 +125,17 @@ func TestPublishingStrategy_OnTimer_MaxTimeout(t *testing.T) {
 		return time.AfterFunc(d, func() {})
 	}
 
-	s.onChange()
+	s.OnChange()
 
 	tEnd := now.Add(defaultMaxWaitDuration)
 	// Imitate incoming events & timer fires upto the point of max wait time timeout.
 	for ; now.Add(defaultTimerFrequency).Before(tEnd); now = now.Add(defaultTimerFrequency) {
-		s.onChange()
+		s.OnChange()
 		s.onTimer()
 
 		published := false
 		select {
-		case <-s.publish:
+		case <-s.Publish:
 			published = true
 		default:
 		}
@@ -151,7 +151,7 @@ func TestPublishingStrategy_OnTimer_MaxTimeout(t *testing.T) {
 	// There should be a publish now
 	published := false
 	select {
-	case <-s.publish:
+	case <-s.Publish:
 		published = true
 	default:
 	}
@@ -160,8 +160,8 @@ func TestPublishingStrategy_OnTimer_MaxTimeout(t *testing.T) {
 	}
 }
 
-func TestPublishingStrategy_Reset(t *testing.T) {
-	s := newPublishingStrategyWithDefaults()
+func TestStrategy_Reset(t *testing.T) {
+	s := NewStrategyWithDefaults()
 
 	// Capture t0, as a constant time.
 	t0 := time.Now()
@@ -173,18 +173,18 @@ func TestPublishingStrategy_Reset(t *testing.T) {
 		return time.AfterFunc(d, func() {})
 	}
 
-	s.onChange()
+	s.OnChange()
 
-	s.reset()
+	s.Reset()
 	if s.timer != nil {
 		t.Fatal("timer should have been stopped")
 	}
 	// Should not crash.
-	s.reset()
+	s.Reset()
 }
 
-func TestPublishingStrategy_DeadlockAvoidance(t *testing.T) {
-	s := newPublishingStrategyWithDefaults()
+func TestStrategy_DeadlockAvoidance(t *testing.T) {
+	s := NewStrategyWithDefaults()
 
 	// Capture t0, as a constant time.
 	t0 := time.Now()
@@ -196,18 +196,18 @@ func TestPublishingStrategy_DeadlockAvoidance(t *testing.T) {
 		return time.AfterFunc(d, func() {})
 	}
 
-	s.onChange()
+	s.OnChange()
 
 	now = now.Add(defaultMaxWaitDuration)
 	s.onTimer()
 
 	// Do not drain the publish channel
 
-	s.onChange()
+	s.OnChange()
 
 	now = now.Add(defaultMaxWaitDuration)
 	s.onTimer()
 
 	// Go through a locking operation
-	s.onChange()
+	s.OnChange()
 }

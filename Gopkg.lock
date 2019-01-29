@@ -1452,7 +1452,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6cd4b1649695991e9b76b0db6bc3fb3f97b951992b16da2fa53991070be11410"
+  digest = "1:95537015f7ca5a9c4be766141b18bd9bf262ea0c247f47f58a8b7bb1bc368d46"
   name = "google.golang.org/api"
   packages = [
     "cloudtrace/v1",
@@ -1464,7 +1464,6 @@
     "iterator",
     "monitoring/v3",
     "option",
-    "servicecontrol/v1",
     "support/bundler",
     "transport",
     "transport/grpc",
@@ -2084,7 +2083,6 @@
     "github.com/opentracing/opentracing-go/ext",
     "github.com/opentracing/opentracing-go/log",
     "github.com/opentracing/opentracing-go/mocktracer",
-    "github.com/pborman/uuid",
     "github.com/pkg/errors",
     "github.com/pmezard/go-difflib/difflib",
     "github.com/prometheus/client_golang/api",
@@ -2126,16 +2124,13 @@
     "golang.org/x/net/context/ctxhttp",
     "golang.org/x/net/idna",
     "golang.org/x/net/publicsuffix",
-    "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/time/rate",
     "golang.org/x/tools/imports",
     "google.golang.org/api/cloudtrace/v1",
-    "google.golang.org/api/googleapi",
     "google.golang.org/api/iterator",
     "google.golang.org/api/monitoring/v3",
     "google.golang.org/api/option",
-    "google.golang.org/api/servicecontrol/v1",
     "google.golang.org/genproto/googleapis/api/distribution",
     "google.golang.org/genproto/googleapis/api/label",
     "google.golang.org/genproto/googleapis/api/metric",
@@ -2225,6 +2220,7 @@
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/transport/spdy",
+    "k8s.io/client-go/util/jsonpath",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/helm/pkg/chartutil",
     "k8s.io/helm/pkg/engine",

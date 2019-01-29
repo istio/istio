@@ -33,15 +33,15 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
-	sampleapa "istio.io/istio/mixer/test/spyAdapter/template/apa"
+	"istio.io/istio/mixer/test/spyAdapter/template/apa"
 
-	samplecheck "istio.io/istio/mixer/test/spyAdapter/template/check"
+	"istio.io/istio/mixer/test/spyAdapter/template/check"
 
-	checkproducer "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
+	"istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
 
-	samplequota "istio.io/istio/mixer/test/spyAdapter/template/quota"
+	"istio.io/istio/mixer/test/spyAdapter/template/quota"
 
-	samplereport "istio.io/istio/mixer/test/spyAdapter/template/report"
+	"istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 // Add void usages for some imports so that go linter does not complain in case the imports does not get used in the

@@ -346,12 +346,6 @@ func (fake *ServiceDiscovery) GetProxyServiceInstances(arg1 *model.Proxy) ([]*mo
 	return fake.getProxyServiceInstancesReturns.result1, fake.getProxyServiceInstancesReturns.result2
 }
 
-// GetProxyLocality returns the locality where the proxy runs.
-func (fake *ServiceDiscovery) GetProxyLocality(node *model.Proxy) string {
-	// not implemented
-	return ""
-}
-
 func (fake *ServiceDiscovery) GetProxyServiceInstancesCallCount() int {
 	fake.getProxyServiceInstancesMutex.RLock()
 	defer fake.getProxyServiceInstancesMutex.RUnlock()
