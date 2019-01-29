@@ -46,7 +46,7 @@ const (
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
-	istioMetadataKey = "istio"
+	IstioMetadataKey = "istio"
 	// The range of LoadBalancingWeight is [1, 128]
 	maxLoadBalancingWeight = 128
 )
@@ -284,11 +284,12 @@ func ConvertLocality(locality string) *core.Locality {
 func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 	return &core.Metadata{
 		FilterMetadata: map[string]*types.Struct{
-			istioMetadataKey: {
+			IstioMetadataKey: {
 				Fields: map[string]*types.Value{
 					config.Type: {
 						Kind: &types.Value_StringValue{
 							StringValue: config.Name + "." + config.Namespace + "." + config.Domain,
+							//							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace, config.Type, config.Name),
 						},
 					},
 				},

@@ -18,10 +18,9 @@ import (
 	"reflect"
 	"testing"
 
-	"gopkg.in/d4l3k/messagediff.v1"
-
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
+	"gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -285,7 +284,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 			model.ConfigMeta{Name: "svcA", Namespace: "default", Domain: "svc.cluster.local", Type: "route-rule"},
 			&core.Metadata{
 				FilterMetadata: map[string]*types.Struct{
-					istioMetadataKey: {
+					IstioMetadataKey: {
 						Fields: map[string]*types.Value{
 							"route-rule": {
 								Kind: &types.Value_StringValue{
@@ -302,7 +301,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 			model.ConfigMeta{Name: "svcA", Domain: "svc.cluster.local", Type: "route-rule"},
 			&core.Metadata{
 				FilterMetadata: map[string]*types.Struct{
-					istioMetadataKey: {
+					IstioMetadataKey: {
 						Fields: map[string]*types.Value{
 							"route-rule": {
 								Kind: &types.Value_StringValue{
@@ -319,7 +318,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 			model.ConfigMeta{Name: "svcA", Namespace: "istio-system", Type: "unknown-type"},
 			&core.Metadata{
 				FilterMetadata: map[string]*types.Struct{
-					istioMetadataKey: {
+					IstioMetadataKey: {
 						Fields: map[string]*types.Value{
 							"unknown-type": {
 								Kind: &types.Value_StringValue{
@@ -336,7 +335,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 			model.ConfigMeta{Name: "svcA", Namespace: "istio-system", Domain: "istio.io"},
 			&core.Metadata{
 				FilterMetadata: map[string]*types.Struct{
-					istioMetadataKey: {
+					IstioMetadataKey: {
 						Fields: map[string]*types.Value{
 							"": { // is this OK?
 								Kind: &types.Value_StringValue{

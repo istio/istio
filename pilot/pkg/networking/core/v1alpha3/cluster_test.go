@@ -16,6 +16,7 @@ package v1alpha3_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -424,7 +425,7 @@ func TestClusterMetadata(t *testing.T) {
 
 	for _, cluster := range clusters {
 		if strings.HasPrefix(cluster.Name, "outbound") || strings.HasPrefix(cluster.Name, "inbound") {
-			clustersWithMetadata
+			clustersWithMetadata++
 			g.Expect(cluster.Metadata).NotTo(BeNil())
 			md := cluster.Metadata
 			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
@@ -437,7 +438,7 @@ func TestClusterMetadata(t *testing.T) {
 		}
 	}
 
-	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets)  2)) // outbound  outbound subsets  inbound
+	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 2)) // outbound  outbound subsets  inbound
 
 	sniClusters, err := buildSniDnatTestClusters("test-sni")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -456,4 +457,3 @@ func TestClusterMetadata(t *testing.T) {
 		}
 	}
 }
-
