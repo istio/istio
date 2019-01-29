@@ -34,7 +34,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 
 	authn "istio.io/api/authentication/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
 )
 
 // Hostname describes a (possibly wildcarded) hostname
@@ -200,6 +199,18 @@ const (
 	TrafficDirectionInbound TrafficDirection = "inbound"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
+)
+
+// Visibility defines whether a given config or service is exported to local namespace, all namespaces or none
+type Visibility string
+
+const (
+	// VisibilityPrivate implies namespace local config
+	VisibilityPrivate Visibility = "."
+	// VisibilityPublic implies config is visible to all
+	VisibilityPublic Visibility = "*"
+	// VisibilityNone implies config is visible to none
+	VisibilityNone Visibility = "~"
 )
 
 // ParseProtocol from string ignoring case
@@ -443,9 +454,9 @@ type ServiceAttributes struct {
 	Namespace string
 	// UID is "destination.service.uid" attribute
 	UID string
-	// ConfigScope defines the visibility of Service in
+	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
-	ConfigScope networking.ConfigScope
+	ExportTo map[Visibility]bool
 }
 
 // ServiceDiscovery enumerates Istio service instances.

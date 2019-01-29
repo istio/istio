@@ -20,7 +20,10 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 )
 
-// combineSingleDestinationRule concatenates the destRuleConfig with the existing combinedDestinationRuleMap
+// This function merges one or more destination rules for a given host string
+// into a single destination rule. Note that it does not perform inheritance style merging.
+// IOW, given three dest rules (*.foo.com, *.foo.com, *.com), calling this function for
+// each config will result in a final dest rule set (*.foo.com, and *.com).
 func (ps *PushContext) combineSingleDestinationRule(
 	combinedDestRuleHosts []Hostname,
 	combinedDestRuleMap map[Hostname]*combinedDestinationRule,

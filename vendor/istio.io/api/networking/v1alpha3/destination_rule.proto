@@ -15,7 +15,6 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 import "networking/v1alpha3/virtual_service.proto";
-import "networking/v1alpha3/sidecar.proto";
 import "gogoproto/gogo.proto";
 
 package istio.networking.v1alpha3;
@@ -119,11 +118,11 @@ message DestinationRule {
   // service. Traffic policies can be overridden at subset level.
   repeated Subset subsets = 3;
 
-  // The visibility setting associated with this DestinationRule. Set to
-  // PRIVATE if this destination rule should not be exported, i.e. restrict
-  // the applicability of this destination rule to only workloads in the same
-  // namespace as the destination rule.
-  ConfigScope config_scope = 4;
+  // $hide_from_docs
+  // The resolution of a DestinationRule to apply to a service occurs in the
+  // context of a hierarchy of namespaces. This rule controls whether those
+  // namespaces are allowed to select this rule.
+  repeated string export_to = 4;
 }
 
 // Traffic policies to apply for a specific destination, across all

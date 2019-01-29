@@ -153,7 +153,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 }
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
-func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope {
+func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespace string) *SidecarScope {
 	r := sidecarConfig.Spec.(*networking.Sidecar)
 
 	var out *SidecarScope
@@ -161,13 +161,14 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 	// If there are no egress listeners but only ingress listeners, then infer from
 	// environment. This is same as the default egress listener setup above
 	if r.Egress == nil || len(r.Egress) == 0 {
-		out = DefaultSidecarScopeForNamespace(ps, sidecarConfig.Namespace)
+		out = DefaultSidecarScopeForNamespace(ps, configNamespace)
 	} else {
 		out = &SidecarScope{}
 
 		out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 		for _, e := range r.Egress {
-			out.EgressListeners = append(out.EgressListeners, convertIstioListenerToWrapper(ps, sidecarConfig, e))
+			out.EgressListeners = append(out.EgressListeners,
+				convertIstioListenerToWrapper(ps, configNamespace, e))
 		}
 
 		// Now collect all the imported services across all egress listeners in
@@ -175,7 +176,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 		out.services = make([]*Service, 0)
 		servicesAdded := make(map[string]struct{})
 		dummyNode := Proxy{
-			ConfigNamespace: sidecarConfig.Namespace,
+			ConfigNamespace: configNamespace,
 		}
 
 		for _, listener := range out.EgressListeners {
@@ -205,7 +206,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config) *SidecarScope
 	return out
 }
 
-func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
+func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	istioListener *networking.IstioEgressListener) *IstioEgressListenerWrapper {
 
 	out := &IstioEgressListenerWrapper{
@@ -218,7 +219,7 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 		for _, h := range istioListener.Hosts {
 			parts := strings.SplitN(h, "/", 2)
 			if parts[0] == currentNamespace {
-				out.listenerHosts[sidecarConfig.Namespace] = Hostname(parts[1])
+				out.listenerHosts[configNamespace] = Hostname(parts[1])
 			} else {
 				out.listenerHosts[parts[0]] = Hostname(parts[1])
 			}
@@ -226,7 +227,7 @@ func convertIstioListenerToWrapper(ps *PushContext, sidecarConfig *Config,
 	}
 
 	dummyNode := Proxy{
-		ConfigNamespace: sidecarConfig.Namespace,
+		ConfigNamespace: configNamespace,
 	}
 
 	out.services = out.selectServices(ps.Services(&dummyNode))

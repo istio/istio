@@ -51,6 +51,14 @@ func convertServices(config model.Config) []*model.Service {
 		svcPorts = append(svcPorts, convertPort(port))
 	}
 
+	var exportTo map[model.Visibility]bool
+	if len(serviceEntry.ExportTo) > 0 {
+		exportTo = make(map[model.Visibility]bool)
+		for _, e := range serviceEntry.ExportTo {
+			exportTo[model.Visibility(e)] = true
+		}
+	}
+
 	for _, host := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
 			for _, address := range serviceEntry.Addresses {
@@ -71,7 +79,7 @@ func convertServices(config model.Config) []*model.Service {
 						Attributes: model.ServiceAttributes{
 							Name:        host,
 							Namespace:   config.Namespace,
-							ConfigScope: serviceEntry.ConfigScope,
+							ExportTo: exportTo,
 						},
 					})
 				} else if net.ParseIP(address) != nil {
@@ -83,9 +91,9 @@ func convertServices(config model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							Name:        host,
-							Namespace:   config.Namespace,
-							ConfigScope: serviceEntry.ConfigScope,
+							Name:      host,
+							Namespace: config.Namespace,
+							ExportTo:  exportTo,
 						},
 					})
 				}
@@ -99,9 +107,9 @@ func convertServices(config model.Config) []*model.Service {
 				Ports:        svcPorts,
 				Resolution:   resolution,
 				Attributes: model.ServiceAttributes{
-					Name:        host,
-					Namespace:   config.Namespace,
-					ConfigScope: serviceEntry.ConfigScope,
+					Name:      host,
+					Namespace: config.Namespace,
+					ExportTo:  exportTo,
 				},
 			})
 		}

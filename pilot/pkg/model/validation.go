@@ -534,6 +534,23 @@ func ValidateDestinationRule(name, namespace string, msg proto.Message) (errs er
 		errs = appendErrors(errs, validateSubset(subset))
 	}
 
+	errs = appendErrors(errs, validateExportTo(rule.ExportTo))
+	return
+}
+
+func validateExportTo(exportTo []string) (errs error) {
+	if len(exportTo) > 0 {
+		if len(exportTo) > 1 {
+			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
+		} else {
+			switch Visibility(exportTo[0]) {
+			case VisibilityPrivate,VisibilityPublic:
+			default:
+				errs = appendErrors(errs, fmt.Errorf("only . or * is allowed in the exportTo in the current release"))
+			}
+		}
+	}
+
 	return
 }
 
@@ -634,7 +651,6 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		}
 	}
 
-	// TODO: pending discussion on API default behavior.
 	if len(rule.Ingress) == 0 && len(rule.Egress) == 0 {
 		return fmt.Errorf("sidecar: missing ingress/egress")
 	}
@@ -689,8 +705,6 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		}
 	}
 
-	// TODO: complete bind address+port or UDS uniqueness across ingress and egress
-	// after the whole listener implementation is complete
 	portMap = make(map[uint32]struct{})
 	udsMap = make(map[string]struct{})
 	catchAllEgressListenerFound := false
@@ -1614,6 +1628,7 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 		errs = appendErrors(errs, validateTCPRoute(tcpRoute))
 	}
 
+	errs = appendErrors(errs, validateExportTo(virtualService.ExportTo))
 	return
 }
 
@@ -2220,6 +2235,7 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 			ValidatePort(int(port.Number)))
 	}
 
+	errs = appendErrors(errs, validateExportTo(serviceEntry.ExportTo))
 	return
 }
 

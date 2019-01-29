@@ -195,20 +195,6 @@ message IstioEgressListener {
   repeated string hosts = 4;
 }
 
-// ConfigScope defines the visibility of an Istio configuration artifact in
-// a namespace when the namespace is imported.  By default all
-// configuration artifacts are public. Configurations with private scope
-// will not be imported when the namespace containing the configuration is
-// imported in a Sidecar.
-enum ConfigScope {
-  // Config with this scope are visible to all workloads in the mesh
-  PUBLIC = 0;
-
-  // Configs with this scope are visible to only workloads in the same
-  // namespace as the configuration resource.
-  PRIVATE = 1;
-}
-
 // WorkloadSelector specifies the criteria used to determine if the Gateway
 // or Sidecar resource can be applied to a proxy. The matching criteria
 // includes the metadata associated with a proxy, workload info such as

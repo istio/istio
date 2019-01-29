@@ -46,6 +46,11 @@ type PushContext struct {
 	// data should not be changed by plugins.
 	Mutex sync.Mutex `json:"-"`
 
+	// Synthesized from env.Mesh
+	defaultServiceExportTo         map[Visibility]bool
+	defaultVirtualServiceExportTo  map[Visibility]bool
+	defaultDestinationRuleExportTo map[Visibility]bool
+
 	// privateServices are reachable within the same namespace.
 	privateServicesByNamespace map[string][]*Service
 	// publicServices are services reachable within the mesh.
@@ -611,13 +616,13 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
+	ps.InitDefaultExportMaps()
+
 	// Must be initialized in the end
 	if err = ps.InitSidecarScopes(env); err != nil {
 		return err
 	}
 
-	// TODO: everything else that is used in config generation - the generation
-	// should not have any deps on config store.
 	ps.initDone = true
 	return nil
 }
@@ -633,11 +638,18 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
 		ns := s.Attributes.Namespace
-		switch s.Attributes.ConfigScope {
-		case networking.ConfigScope_PRIVATE:
-			ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
-		default:
-			ps.publicServices = append(ps.publicServices, s)
+		if len(s.Attributes.ExportTo) == 0 {
+			if ps.defaultServiceExportTo[VisibilityPrivate] {
+				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
+			} else if ps.defaultServiceExportTo[VisibilityPublic] {
+				ps.publicServices = append(ps.publicServices, s)
+			}
+		} else {
+			if s.Attributes.ExportTo[VisibilityPrivate] {
+				ps.privateServicesByNamespace[ns] = append(ps.privateServicesByNamespace[ns], s)
+			} else {
+				ps.publicServices = append(ps.publicServices, s)
+			}
 		}
 		ps.ServiceByHostname[s.Hostname] = s
 		ps.ServicePort2Name[string(s.Hostname)] = s.Ports
@@ -726,15 +738,60 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
-		switch rule.ConfigScope {
-		case networking.ConfigScope_PRIVATE:
-			ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
-		default:
-			ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+		if len(rule.ExportTo) == 0 {
+			// No exportTo in virtualService. Use the global default
+			// TODO: We currently only honor ., * and ~
+			if ps.defaultVirtualServiceExportTo[VisibilityPrivate] {
+				// add to local namespace only
+				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+			} else if ps.defaultVirtualServiceExportTo[VisibilityPublic] {
+				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+			}
+		} else {
+			// TODO: we currently only process the first element in the array
+			// and currently only consider . or * which maps to public/private
+			if Visibility(rule.ExportTo[0]) == VisibilityPrivate {
+				// add to local namespace only
+				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
+			} else {
+				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
+				// and we currenly only allow . or *. So treat this as public export
+				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
+			}
 		}
 	}
 
 	return nil
+}
+
+func (ps *PushContext) InitDefaultExportMaps() {
+	ps.defaultDestinationRuleExportTo = make(map[Visibility]bool)
+	if ps.Env.Mesh.DefaultDestinationRuleExportTo != nil {
+		for _, e := range ps.Env.Mesh.DefaultDestinationRuleExportTo {
+			ps.defaultDestinationRuleExportTo[Visibility(e)] = true
+		}
+	} else {
+		// default to *
+		ps.defaultDestinationRuleExportTo[VisibilityPublic] = true
+	}
+
+	ps.defaultServiceExportTo = make(map[Visibility]bool)
+	if ps.Env.Mesh.DefaultServiceExportTo != nil {
+		for _, e := range ps.Env.Mesh.DefaultServiceExportTo {
+			ps.defaultServiceExportTo[Visibility(e)] = true
+		}
+	} else {
+		ps.defaultServiceExportTo[VisibilityPublic] = true
+	}
+
+	ps.defaultVirtualServiceExportTo = make(map[Visibility]bool)
+	if ps.Env.Mesh.DefaultVirtualServiceExportTo != nil {
+		for _, e := range ps.Env.Mesh.DefaultVirtualServiceExportTo {
+			ps.defaultVirtualServiceExportTo[Visibility(e)] = true
+		}
+	} else {
+		ps.defaultVirtualServiceExportTo[VisibilityPublic] = true
+	}
 }
 
 // InitSidecarScopes synthesizes Sidecar CRDs into objects called
@@ -762,16 +819,34 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 		// TODO: add entries with workloadSelectors first before adding namespace-wide entries
 		sidecarConfig := sidecarConfig
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig))
+			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
 	}
 
-	// prebuild default sidecar scopes for other namespaces that dont have a sidecar CRD object.
-	// Workloads in these namespaces can reach any service in the mesh - the default istio behavior
-	// The DefaultSidecarScopeForNamespace function represents this behavior.
+	// Hold reference root namespace's sidecar config
+	// Root namespace can have only one sidecar config object
+	// Currently we expect that it has no workloadSelectors
+	var rootNSConfig Config
+	if env.Mesh.RootNamespace != "" {
+		for _, sidecarConfig := range sidecarConfigs {
+			if sidecarConfig.Namespace == env.Mesh.RootNamespace {
+				rootNSConfig = sidecarConfig
+				break
+			}
+		}
+	}
+
+	// build sidecar scopes for other namespaces that dont have a sidecar CRD object.
+	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
+	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
 	for _, s := range ps.ServiceByHostname {
 		ns := s.Attributes.Namespace
 		if len(ps.sidecarsByNamespace[ns]) == 0 {
-			ps.sidecarsByNamespace[ns] = []*SidecarScope{DefaultSidecarScopeForNamespace(ps, ns)}
+			if env.Mesh.RootNamespace != "" {
+				// use the contents from the root namespace
+				ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, &rootNSConfig, ns)}
+			} else {
+				ps.sidecarsByNamespace[ns] = []*SidecarScope{DefaultSidecarScopeForNamespace(ps, ns)}
+			}
 		}
 	}
 
@@ -807,7 +882,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 		// Store in an index for the config's namespace
 		// a proxy from this namespace will first look here for the destination rule for a given service
 		// This pool consists of both public/private destination rules.
-		// TODO: when exportTo is added to API, only add the rule here if exportTo is '.'
+		// TODO: when exportTo is fully supported, only add the rule here if exportTo is '.'
 		// The global exportTo doesn't matter here (its either . or * - both of which are applicable here)
 		if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
 			namespaceLocalDestRules[configs[i].Namespace] = &processedDestRules{
@@ -822,10 +897,24 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			namespaceLocalDestRules[configs[i].Namespace].destRule,
 			configs[i])
 
-		// This is the default for Istio 1.0 rules - config scope is public
-		// TODO: also check for meshConfig.defaultDestinationRuleExportTo setting
-		// if the rule's exportTo is empty
-		if rule.ConfigScope == networking.ConfigScope_PUBLIC {
+		isPubliclyExported := false
+		if len(rule.ExportTo) == 0 {
+			// No exportTo in destinationRule. Use the global default
+			// TODO: We currently only honor ., * and ~
+			if ps.defaultDestinationRuleExportTo[VisibilityPublic] {
+				isPubliclyExported = true
+			}
+		} else {
+			// TODO: we currently only process the first element in the array
+			// and currently only consider . or * which maps to public/private
+			if Visibility(rule.ExportTo[0]) != VisibilityPrivate {
+				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
+				// and we currenly only allow . or *. So treat this as public export
+				isPubliclyExported = true
+			}
+		}
+
+		if isPubliclyExported {
 			if _, exist := namespaceExportedDestRules[configs[i].Namespace]; !exist {
 				namespaceExportedDestRules[configs[i].Namespace] = &processedDestRules{
 					hosts:    make([]Hostname, 0),

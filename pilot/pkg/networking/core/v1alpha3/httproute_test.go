@@ -85,10 +85,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 
 func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	services := []*model.Service{
-		buildHTTPService("bookinfo.com", networking.ConfigScope_PUBLIC, wildcardIP, "default", 9999, 70),
-		buildHTTPService("private.com", networking.ConfigScope_PRIVATE, wildcardIP, "default", 9999, 80),
-		buildHTTPService("test.com", networking.ConfigScope_PUBLIC, "8.8.8.8", "not-default", 8080),
-		buildHTTPService("test-private.com", networking.ConfigScope_PRIVATE, "9.9.9.9", "not-default", 80, 70),
+		buildHTTPService("bookinfo.com", model.VisibilityPublic, wildcardIP, "default", 9999, 70),
+		buildHTTPService("private.com", model.VisibilityPrivate, wildcardIP, "default", 9999, 80),
+		buildHTTPService("test.com", model.VisibilityPublic, "8.8.8.8", "not-default", 8080),
+		buildHTTPService("test-private.com", model.VisibilityPrivate, "9.9.9.9", "not-default", 80, 70),
 	}
 
 	sidecarConfig := &model.Config{
@@ -293,7 +293,7 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 	}
 }
 
-func buildHTTPService(hostname string, scope networking.ConfigScope, ip, namespace string, ports ...int) *model.Service {
+func buildHTTPService(hostname string, visibility model.Visibility, ip, namespace string, ports ...int) *model.Service {
 	service := &model.Service{
 		CreationTime: tnow,
 		Hostname:     model.Hostname(hostname),
@@ -301,8 +301,8 @@ func buildHTTPService(hostname string, scope networking.ConfigScope, ip, namespa
 		ClusterVIPs:  make(map[string]string),
 		Resolution:   model.Passthrough,
 		Attributes: model.ServiceAttributes{
-			Namespace:   namespace,
-			ConfigScope: scope,
+			Namespace: namespace,
+			ExportTo:  map[model.Visibility]bool{visibility: true},
 		},
 	}
 
