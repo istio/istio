@@ -157,10 +157,12 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 
 // ConvertToSidecarScope converts from Sidecar config to SidecarScope object
 func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespace string) *SidecarScope {
-	r := sidecarConfig.Spec.(*networking.Sidecar)
+	if sidecarConfig == nil {
+		return DefaultSidecarScopeForNamespace(ps, configNamespace)
+	}
 
 	var out *SidecarScope
-
+	r := sidecarConfig.Spec.(*networking.Sidecar)
 	// If there are no egress listeners but only ingress listeners, then infer from
 	// environment. This is same as the default egress listener setup above
 	if r.Egress == nil || len(r.Egress) == 0 {

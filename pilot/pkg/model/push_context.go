@@ -814,11 +814,11 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 	// Hold reference root namespace's sidecar config
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
-	var rootNSConfig Config
+	var rootNSConfig *Config
 	if env.Mesh.RootNamespace != "" {
 		for _, sidecarConfig := range sidecarConfigs {
 			if sidecarConfig.Namespace == env.Mesh.RootNamespace {
-				rootNSConfig = sidecarConfig
+				rootNSConfig = &sidecarConfig
 				break
 			}
 		}
@@ -830,12 +830,8 @@ func (ps *PushContext) InitSidecarScopes(env *Environment) error {
 	for _, s := range ps.ServiceByHostname {
 		ns := s.Attributes.Namespace
 		if len(ps.sidecarsByNamespace[ns]) == 0 {
-			if env.Mesh.RootNamespace != "" {
-				// use the contents from the root namespace
-				ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, &rootNSConfig, ns)}
-			} else {
-				ps.sidecarsByNamespace[ns] = []*SidecarScope{DefaultSidecarScopeForNamespace(ps, ns)}
-			}
+			// use the contents from the root namespace or the default if there is no root namespace
+			ps.sidecarsByNamespace[ns] = []*SidecarScope{ConvertToSidecarScope(ps, rootNSConfig, ns)}
 		}
 	}
 
