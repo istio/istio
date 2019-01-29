@@ -159,19 +159,21 @@ func ApplyLocalityLBSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *mo
 		if port := push.ServicePort(hostname, portNumber); port != nil {
 			destinationRule := config.Spec.(*networking.DestinationRule)
 			_, outlierDetection, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
-			setLocalityPriority := false
+			applyLocalityLB := false
 			if outlierDetection != nil {
-				setLocalityPriority = true
+				applyLocalityLB = true
 			}
 			for _, subset := range destinationRule.Subsets {
 				if subset.Name == subsetName {
 					_, outlierDetection, _, _ := SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
 					if outlierDetection != nil {
-						setLocalityPriority = true
+						applyLocalityLB = true
 					}
 				}
 			}
-			applyLocalityLBSetting(proxy, cluster.LoadAssignment, push.Env.Mesh.LocalityLbSetting, setLocalityPriority)
+			if applyLocalityLB {
+				applyLocalityLBSetting(proxy, cluster.LoadAssignment, push.Env.Mesh.LocalityLbSetting)
+			}
 		}
 	}
 }
@@ -229,11 +231,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 				defaultSni := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, serviceAccounts,
 					defaultSni, DefaultClusterMode, model.TrafficDirectionOutbound)
-				setLocalityPriority := false
 				if defaultCluster.OutlierDetection != nil {
-					setLocalityPriority = true
+					applyLocalityLBSetting(proxy, defaultCluster.LoadAssignment, env.Mesh.LocalityLbSetting)
 				}
-				applyLocalityLBSetting(proxy, defaultCluster.LoadAssignment, env.Mesh.LocalityLbSetting, setLocalityPriority)
 				for _, subset := range destinationRule.Subsets {
 					inputParams.Subset = subset.Name
 					subsetClusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
@@ -251,11 +251,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(env *model.Environme
 						DefaultClusterMode, model.TrafficDirectionOutbound)
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, serviceAccounts, defaultSni,
 						DefaultClusterMode, model.TrafficDirectionOutbound)
-					setLocalityPriority = false
 					if subsetCluster.OutlierDetection != nil {
-						setLocalityPriority = true
+						applyLocalityLBSetting(proxy, subsetCluster.LoadAssignment, env.Mesh.LocalityLbSetting)
 					}
-					applyLocalityLBSetting(proxy, subsetCluster.LoadAssignment, env.Mesh.LocalityLbSetting, setLocalityPriority)
 					// call plugins
 					for _, p := range configgen.Plugins {
 						p.OnOutboundCluster(inputParams, subsetCluster)
@@ -301,11 +299,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 				destinationRule := config.Spec.(*networking.DestinationRule)
 				applyTrafficPolicy(env, defaultCluster, destinationRule.TrafficPolicy, port, nil, "",
 					SniDnatClusterMode, model.TrafficDirectionOutbound)
-				setLocalityPriority := false
 				if defaultCluster.OutlierDetection != nil {
-					setLocalityPriority = true
+					applyLocalityLBSetting(proxy, defaultCluster.LoadAssignment, env.Mesh.LocalityLbSetting)
 				}
-				applyLocalityLBSetting(proxy, defaultCluster.LoadAssignment, env.Mesh.LocalityLbSetting, setLocalityPriority)
 
 				for _, subset := range destinationRule.Subsets {
 					subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
@@ -321,11 +317,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(env *model.En
 						SniDnatClusterMode, model.TrafficDirectionOutbound)
 					applyTrafficPolicy(env, subsetCluster, subset.TrafficPolicy, port, nil, "",
 						SniDnatClusterMode, model.TrafficDirectionOutbound)
-					setLocalityPriority = false
 					if subsetCluster.OutlierDetection != nil {
-						setLocalityPriority = true
+						applyLocalityLBSetting(proxy, subsetCluster.LoadAssignment, env.Mesh.LocalityLbSetting)
 					}
-					applyLocalityLBSetting(proxy, subsetCluster.LoadAssignment, env.Mesh.LocalityLbSetting, setLocalityPriority)
 					clusters = append(clusters, subsetCluster)
 				}
 			}
@@ -866,7 +860,7 @@ func applyLocalityLBSetting(
 	proxy *model.Proxy,
 	loadAssignment *apiv2.ClusterLoadAssignment,
 	localityLB *meshconfig.LocalityLoadBalancerSetting,
-	localityPriority bool) {
+) {
 	if proxy == nil || loadAssignment == nil {
 		return
 	}
@@ -874,7 +868,7 @@ func applyLocalityLBSetting(
 	// one of Distribute or Failover settings can be applied.
 	if localityLB.GetDistribute() != nil {
 		applyLocalityWeight(proxy, loadAssignment, localityLB.GetDistribute())
-	} else if localityPriority {
+	} else if localityLB.GetFailover() != nil {
 		applyLocalityFailover(proxy, loadAssignment, localityLB.GetFailover())
 	}
 }

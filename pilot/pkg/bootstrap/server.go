@@ -384,6 +384,10 @@ func (s *Server) initMesh(args *PilotArgs) error {
 				log.Warnf("failed to read mesh configuration, using default: %v", err)
 				return
 			}
+			if err = model.ValidateMeshConfig(mesh); err != nil {
+				log.Warnf("failed to reload invalid mesh configuration: %v", err)
+				return
+			}
 			if !reflect.DeepEqual(mesh, s.mesh) {
 				log.Infof("mesh configurtion file updated to: %s", spew.Sdump(mesh))
 				if !reflect.DeepEqual(mesh.ConfigSources, s.mesh.ConfigSources) {

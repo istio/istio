@@ -623,8 +623,13 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
 	locality := model.GetProxyLocality(discReq.Node)
 	if locality == nil {
+		// Get the locality info where the proxy is running.
+		// TODO: Currently only kubernetes registry is supported
+		// For kubernetes the locality info is from node labels
+		// `failure-domain.beta.kubernetes.io/region` and `failure-domain.beta.kubernetes.io/zone`
 		locality := s.Env.GetProxyLocality(nt)
 		region, zone, subzone := util.SplitLocality(locality)
+		// If no locality info exist, the default Region/Zone/SubZone are all ""
 		nt.Locality = model.Locality{
 			Region:  region,
 			Zone:    zone,

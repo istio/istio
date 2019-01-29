@@ -554,6 +554,9 @@ func (c *Controller) GetProxyLocality(proxy *model.Proxy) string {
 	if pod != nil {
 		locality = c.GetPodLocality(pod)
 	}
+	if locality == "" {
+		locality = pod.Labels[model.AZLabel]
+	}
 	return locality
 }
 

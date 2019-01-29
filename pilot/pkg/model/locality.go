@@ -14,6 +14,8 @@
 
 package model
 
+// LocalityInterface is wrapper for both Locality and Envoy core.Locality.
+// It is used by LocalityMatch to support the two Localities simultaneously.
 type LocalityInterface interface {
 	GetRegion() string
 	GetZone() string

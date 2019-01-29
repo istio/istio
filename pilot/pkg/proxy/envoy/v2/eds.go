@@ -268,8 +268,6 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		// better to accept the extra computations.
 		// We still lock the access to the LoadAssignments.
 		edsCluster.mutex.Lock()
-		defer edsCluster.mutex.Unlock()
-
 		edsCluster.LoadAssignment = &xdsapi.ClusterLoadAssignment{
 			ClusterName: clusterName,
 			Endpoints:   clonedLocEps,
@@ -285,6 +283,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 			Locality: locality,
 		}
 		networking_core.ApplyLocalityLBSetting(dummyNode, dummyCluster, push)
+		edsCluster.mutex.Unlock()
 	}
 
 	return nil
