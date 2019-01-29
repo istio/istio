@@ -16,6 +16,7 @@ package model
 
 import (
 	"strings"
+	"sync"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
@@ -77,9 +78,13 @@ type SidecarScope struct {
 	// destination rule.
 	destinationRules map[Hostname]*Config
 
-	// XDSOutboundClusters is the CDS output for sidecars that map to this
-	// sidecarScope object. Contains the outbound clusters only
-	XDSOutboundClusters []*xdsapi.Cluster
+	// CDSMutex protects the xdsOutboundClusters map from concurrent writes
+	CDSMutex sync.RWMutex
+
+	// CDSOutboundClusters is the CDS output for sidecars that map to this
+	// sidecarScope object. Contains the outbound clusters only, indexed
+	// by localities
+	CDSOutboundClusters map[string][]*xdsapi.Cluster
 }
 
 // IstioEgressListenerWrapper is a wrapper for

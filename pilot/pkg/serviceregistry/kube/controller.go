@@ -312,8 +312,8 @@ func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	return item.(*v1.Service), true
 }
 
-// GetPodAZ retrieves the AZ for a pod.
-func (c *Controller) GetPodAZ(pod *v1.Pod) string {
+// GetPodLocality retrieves the locality for a pod.
+func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
@@ -452,7 +452,7 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					pod := c.pods.getPodByIP(ea.IP)
 					az, sa, uid := "", "", ""
 					if pod != nil {
-						az = c.GetPodAZ(pod)
+						az = c.GetPodLocality(pod)
 						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
@@ -588,7 +588,7 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 	pod := c.pods.getPodByIP(ip)
 	az, sa := "", ""
 	if pod != nil {
-		az = c.GetPodAZ(pod)
+		az = c.GetPodLocality(pod)
 		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
 	}
 	return &model.ServiceInstance{

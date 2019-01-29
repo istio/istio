@@ -110,9 +110,9 @@ const (
 	// IstioDefaultConfigNamespace constant for default namespace
 	IstioDefaultConfigNamespace = "default"
 
-	// AZLabel indicates the region/zone of an instance. It is used if the native
+	// LocalityLabel indicates the region/zone/subzone of an instance. It is used if the native
 	// registry doesn't provide one.
-	AZLabel = "istio-az"
+	LocalityLabel = "istio-locality"
 )
 
 // Port represents a network port where a service is listening for
@@ -377,7 +377,7 @@ func (si *ServiceInstance) GetLocality() string {
 	if si.Endpoint.Locality != "" {
 		return si.Endpoint.Locality
 	}
-	return si.Labels[AZLabel]
+	return si.Labels[LocalityLabel]
 }
 
 // IstioEndpoint has the information about a single address+port for a specific
@@ -539,12 +539,12 @@ func (h Hostname) Matches(o Hostname) bool {
 		return true
 	}
 
-	hWildcard := string(h[0]) == "*"
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
 	if hWildcard && len(o) == 0 {
 		return true
 	}
 
-	oWildcard := string(o[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 	if !hWildcard && !oWildcard {
 		// both are non-wildcards, so do normal string comparison
 		return h == o
@@ -578,8 +578,8 @@ func (h Hostname) SubsetOf(o Hostname) bool {
 		return true
 	}
 
-	hWildcard := string(h[0]) == "*"
-	oWildcard := string(o[0]) == "*"
+	hWildcard := len(h) > 0 && string(h[0]) == "*"
+	oWildcard := len(o) > 0 && string(o[0]) == "*"
 	if !oWildcard {
 		if hWildcard {
 			return false

@@ -620,6 +620,7 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	// Update the config namespace associated with this proxy
 	nt.ConfigNamespace = model.GetProxyConfigNamespace(nt)
+	nt.Locality = discReq.Node.Locality
 
 	con.mu.Lock()
 	con.modelNode = nt
