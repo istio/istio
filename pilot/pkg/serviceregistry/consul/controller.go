@@ -179,12 +179,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	return out, nil
 }
 
-// GetProxyLocality returns the locality where the proxy runs.
-func (c *Controller) GetProxyLocality(node *model.Proxy) string {
-	// not implemented
-	return ""
-}
-
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	c.monitor.Start(stop)
