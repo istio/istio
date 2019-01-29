@@ -44,7 +44,9 @@ const (
 	PassthroughCluster = "PassthroughCluster"
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
-
+	// IstioMetadataKey is the key under which metadata is added to a route or cluster
+	// regarding the virtual service or destination rule used for each
+	istioMetadataKey = "istio"
 	// The range of LoadBalancingWeight is [1, 128]
 	maxLoadBalancingWeight = 128
 )
@@ -273,5 +275,24 @@ func ConvertLocality(locality string) *core.Locality {
 			Zone:    items[1],
 			SubZone: items[2],
 		}
+	}
+}
+
+// BuildConfigInfoMetadata builds core.Metadata struct containing the
+// name.namespace of the config, the type, etc. Used by Mixer client
+// to generate attributes for policy and telemetry.
+func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
+	return &core.Metadata{
+		FilterMetadata: map[string]*types.Struct{
+			istioMetadataKey: {
+				Fields: map[string]*types.Value{
+					config.Type: {
+						Kind: &types.Value_StringValue{
+							StringValue: config.Name + "." + config.Namespace + "." + config.Domain,
+						},
+					},
+				},
+			},
+		},
 	}
 }

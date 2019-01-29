@@ -18,6 +18,12 @@ import (
 	"reflect"
 	"testing"
 
+<<<<<<< HEAD
+=======
+	"gopkg.in/d4l3k/messagediff.v1"
+
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+>>>>>>> [pilot] Export virtual service and destination rule metadata
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
@@ -267,6 +273,92 @@ func TestConvertLocality(t *testing.T) {
 			got := ConvertLocality(tt.locality)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected locality %#v, but got %#v", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestBuildConfigInfoMetadata(t *testing.T) {
+	cases := []struct {
+		name string
+		in   model.ConfigMeta
+		want *core.Metadata
+	}{
+		{
+			"route-rule",
+			model.ConfigMeta{Name: "svcA", Namespace: "default", Domain: "svc.cluster.local", Type: "route-rule"},
+			&core.Metadata{
+				FilterMetadata: map[string]*types.Struct{
+					istioMetadataKey: {
+						Fields: map[string]*types.Value{
+							"route-rule": {
+								Kind: &types.Value_StringValue{
+									StringValue: "svcA.default.svc.cluster.local",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"missing namespace",
+			model.ConfigMeta{Name: "svcA", Domain: "svc.cluster.local", Type: "route-rule"},
+			&core.Metadata{
+				FilterMetadata: map[string]*types.Struct{
+					istioMetadataKey: {
+						Fields: map[string]*types.Value{
+							"route-rule": {
+								Kind: &types.Value_StringValue{
+									StringValue: "svcA..svc.cluster.local",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"missing domain",
+			model.ConfigMeta{Name: "svcA", Namespace: "istio-system", Type: "unknown-type"},
+			&core.Metadata{
+				FilterMetadata: map[string]*types.Struct{
+					istioMetadataKey: {
+						Fields: map[string]*types.Value{
+							"unknown-type": {
+								Kind: &types.Value_StringValue{
+									StringValue: "svcA.istio-system.", // is this OK?
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"no-type",
+			model.ConfigMeta{Name: "svcA", Namespace: "istio-system", Domain: "istio.io"},
+			&core.Metadata{
+				FilterMetadata: map[string]*types.Struct{
+					istioMetadataKey: {
+						Fields: map[string]*types.Value{
+							"": { // is this OK?
+								Kind: &types.Value_StringValue{
+									StringValue: "svcA.istio-system.istio.io",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			got := BuildConfigInfoMetadata(v.in)
+			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+				t.Errorf("BuildConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
 			}
 		})
 	}
