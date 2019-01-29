@@ -18,12 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-<<<<<<< HEAD
-=======
 	"gopkg.in/d4l3k/messagediff.v1"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
->>>>>>> [pilot] Export virtual service and destination rule metadata
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 
@@ -358,7 +354,7 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 		t.Run(v.name, func(tt *testing.T) {
 			got := BuildConfigInfoMetadata(v.in)
 			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
-				t.Errorf("BuildConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
+				tt.Errorf("BuildConfigInfoMetadata(%v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, got, v.want, diff)
 			}
 		})
 	}
