@@ -152,6 +152,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 }
 
 func ApplyLocalityLBSetting(proxy *model.Proxy, cluster *apiv2.Cluster, push *model.PushContext) {
+	// Not set locality LB for proxies with no locality info provided
+	if proxy.Locality.Region == "" && proxy.Locality.Zone == "" && proxy.Locality.SubZone == "" {
+		return
+	}
 	_, subsetName, hostname, portNumber := model.ParseSubsetKey(cluster.Name)
 	// TODO: This code is incorrect as we need to pass the namespace associated with the Service
 	// but EDS code does not have any information regarding the namespace
@@ -862,6 +866,10 @@ func applyLocalityLBSetting(
 	localityLB *meshconfig.LocalityLoadBalancerSetting,
 ) {
 	if proxy == nil || loadAssignment == nil {
+		return
+	}
+	// Not set locality LB for proxies with no locality info provided
+	if proxy.Locality.Region == "" && proxy.Locality.Zone == "" && proxy.Locality.SubZone == "" {
 		return
 	}
 
