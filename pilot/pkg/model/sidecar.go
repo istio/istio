@@ -221,7 +221,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		for _, h := range istioListener.Hosts {
 			parts := strings.SplitN(h, "/", 2)
 			if parts[0] == currentNamespace {
-				parts[0] = sidecarConfig.Namespace
+				parts[0] = configNamespace
 			}
 			if _, exists := out.listenerHosts[parts[0]]; !exists {
 				out.listenerHosts[parts[0]] = make([]Hostname, 0)
