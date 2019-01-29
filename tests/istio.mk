@@ -198,6 +198,7 @@ test/local/auth/e2e_sds_pilotv2: out_dir generate_e2e_test_yaml
 	set -o pipefail; go test -v -timeout ${E2E_TIMEOUT}m ./tests/e2e/tests/controller ${CAPTURE_LOG}
 
 test/local/cloudfoundry/e2e_pilotv2: out_dir
+	ps -ef
 	sudo apt update
 	sudo apt install -y iptables
 	sudo iptables -t nat -A OUTPUT -d 127.1.1.1/32 -p tcp -j REDIRECT --to-port 15001
