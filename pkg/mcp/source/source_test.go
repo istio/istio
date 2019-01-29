@@ -27,6 +27,7 @@ import (
 
 	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
@@ -235,6 +236,36 @@ func verifySentResources(t *testing.T, h *sourceTestHarness, want *mcp.Resources
 	}
 }
 
+func verifySentResourcesMultipleTypes(t *testing.T, h *sourceTestHarness, wantResources map[string]*mcp.Resources) map[string]*mcp.Resources {
+	t.Helper()
+
+	gotResources := make(map[string]*mcp.Resources)
+	for {
+		select {
+		case got := <-h.resourcesChan:
+			if _, ok := gotResources[got.Collection]; ok {
+				t.Fatalf("gotResources duplicate response for type %v: %v", got.Collection, got)
+			}
+			gotResources[got.Collection] = got
+
+			want, ok := wantResources[got.Collection]
+			if !ok {
+				t.Fatalf("gotResources unexpected response for type %v: %v", got.Collection, got)
+			}
+
+			if diff := cmp.Diff(*got, *want, cmpopts.IgnoreFields(mcp.Resources{}, "Nonce")); diff != "" {
+				t.Fatalf("wrong responses for %v: \n got %+v \nwant %+v \n diff %v", got.Collection, got, want, diff)
+			}
+
+			if len(gotResources) == len(wantResources) {
+				return gotResources
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timeout waiting for all responses: gotResources %v", gotResources)
+		}
+	}
+}
+
 func makeWatchResponse(collection string, version string, incremental bool, fakes ...*test.Fake) *WatchResponse { // nolint: unparam
 	r := &WatchResponse{
 		Collection: collection,
@@ -274,7 +305,7 @@ func TestSourceACKAddUpdateDelete(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -358,7 +389,7 @@ func TestSourceWatchBeforeResponsesAvailable(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -389,7 +420,7 @@ func TestSourceWatchClosed(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want watch failed")
 	}
 }
@@ -468,7 +499,7 @@ func TestSourceSendError(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -493,7 +524,7 @@ func TestSourceReceiveError(t *testing.T) {
 	}
 	// check that response fails since watch gets closed
 	s := New(options)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -511,7 +542,7 @@ func TestSourceUnsupportedTypeError(t *testing.T) {
 
 	// check that response fails since watch gets closed
 	s := makeSourceUnderTest(h)
-	if err := s.processStream(h); err == nil {
+	if err := s.ProcessStream(h); err == nil {
 		t.Error("Stream() => got no error, want send error")
 	}
 }
@@ -523,7 +554,7 @@ func TestSourceStaleNonce(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		wg.Done()
@@ -568,7 +599,7 @@ func TestSourceConcurrentRequestsForMultipleTypes(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("StreamAggregatedResources() => got %v, want no error", err)
 		}
 		wg.Done()
