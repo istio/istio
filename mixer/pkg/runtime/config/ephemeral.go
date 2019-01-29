@@ -43,10 +43,10 @@ import (
 	"istio.io/istio/mixer/pkg/config/storetest"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
-	"istio.io/istio/mixer/pkg/lang/compiled"
 	"istio.io/istio/mixer/pkg/protobuf/yaml"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -400,7 +400,7 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 
 		template := tmpl.(*Template)
 		// validate if the param is valid
-		compiler := compiled.NewBuilder(attributes)
+		compiler := lang.NewBuilder(attributes)
 		resolver := yaml.NewResolver(template.FileDescSet)
 		b := dynamic.NewEncoderBuilder(
 			resolver,

@@ -61,9 +61,9 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
-	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/handler"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -74,7 +74,7 @@ type builder struct {
 	// table that is being built.
 	table                  *Table
 	handlers               *handler.Table
-	expb                   *compiled.ExpressionBuilder
+	expb                   lang.Compiler
 	defaultConfigNamespace string
 
 	// id counter for assigning ids to various items in the hierarchy. These reference into the debug
@@ -104,7 +104,7 @@ type builder struct {
 func BuildTable(
 	handlers *handler.Table,
 	config *config.Snapshot,
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	defaultConfigNamespace string,
 	debugInfo bool) *Table {
 
@@ -556,7 +556,7 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 		mapper = b.mappers[instance.Name]
 		if mapper == nil {
 			chained := ast.NewChainedFinder(finder, instance.Template.AttributeManifest)
-			expb := compiled.NewBuilder(chained)
+			expb := lang.NewBuilder(chained)
 
 			expressions := make(map[string]compiled.Expression)
 			for attrName, outExpr := range instance.AttributeBindings {
@@ -586,7 +586,7 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 
 // buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
 // with template output attributes prefixed by the action names added to the global attribute manifests.
-func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) *compiled.ExpressionBuilder {
+func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *config.Rule) lang.Compiler {
 	// templates include the output template attributes in their manifests
 	attributeDescriptor := make(map[string]*descriptor.AttributeManifest_AttributeInfo)
 
@@ -625,11 +625,11 @@ func (b *builder) buildRuleCompiler(parent ast.AttributeDescriptorFinder, rule *
 		}
 	}
 
-	return compiled.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor))
+	return lang.NewBuilder(ast.NewChainedFinder(parent, attributeDescriptor))
 }
 
 // buildRuleOperations creates an intermediate symbolic form for the route directive header operations
-func (b *builder) buildRuleOperations(compiler dynamic.Compiler, rule *config.Rule) ([]*HeaderOperation, error) {
+func (b *builder) buildRuleOperations(compiler lang.Compiler, rule *config.Rule) ([]*HeaderOperation, error) {
 	reqOps, err := b.compileRuleOperationTemplates(rule.Name, compiler, RequestHeaderOperation, rule.RequestHeaderOperations)
 	if err != nil {
 		return nil, err
@@ -645,7 +645,7 @@ func (b *builder) buildRuleOperations(compiler dynamic.Compiler, rule *config.Ru
 
 func (b *builder) compileRuleOperationTemplates(
 	location string,
-	compiler dynamic.Compiler,
+	compiler lang.Compiler,
 	typ HeaderOperationType,
 	ops []*descriptor.Rule_HeaderOperationTemplate) ([]*HeaderOperation, error) {
 

@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
@@ -324,7 +325,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -359,7 +360,7 @@ var (
 			CreateOutputExpressions: func(
 				instanceParam proto.Message,
 				finder ast.AttributeDescriptorFinder,
-				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+				expb lang.Compiler) (map[string]compiled.Expression, error) {
 				var err error
 				var expType istio_policy_v1beta1.ValueType
 
@@ -472,7 +473,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -623,7 +624,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -733,7 +734,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -855,7 +856,7 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
 
 				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
 				if param == nil {
@@ -911,7 +912,7 @@ type builder_sampleapa_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_sampleapa_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *sampleapa.InstanceParam) (*builder_sampleapa_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -1071,7 +1072,7 @@ type builder_samplecheck_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_samplecheck_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *samplecheck.InstanceParam) (*builder_samplecheck_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -1156,7 +1157,7 @@ type builder_checkproducer_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_checkproducer_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *checkproducer.InstanceParam) (*builder_checkproducer_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -1241,7 +1242,7 @@ type builder_samplequota_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_samplequota_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *samplequota.InstanceParam) (*builder_samplequota_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
@@ -1327,7 +1328,7 @@ type builder_samplereport_Template struct {
 
 // Instantiates and returns a new builder for Template, based on the provided instance parameter.
 func newBuilder_samplereport_Template(
-	expb *compiled.ExpressionBuilder,
+	expb lang.Compiler,
 	param *samplereport.InstanceParam) (*builder_samplereport_Template, template.ErrorPath) {
 
 	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
