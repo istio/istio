@@ -3302,6 +3302,11 @@
                     "name": "cipher_suites",
                     "type": "string",
                     "is_repeated": true
+                  },
+                  {
+                    "id": 10,
+                    "name": "sds_name",
+                    "type": "string"
                   }
                 ]
               }
