@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 
 	"istio.io/istio/pkg/test/env"
 
@@ -64,6 +64,7 @@ var (
 		DeployTimeout:   DefaultDeployTimeout,
 		UndeployTimeout: DefaultUndeployTimeout,
 		ChartDir:        env.IstioChartDir,
+		CrdsFilesDir:    env.CrdsFilesDir,
 		ValuesFile:      DefaultValuesFile,
 	}
 
@@ -111,6 +112,9 @@ type settings struct {
 	// The top-level Helm chart dir.
 	ChartDir string
 
+	// The top-level Helm Crds files dir.
+	CrdsFilesDir string
+
 	// The Helm values file to be used.
 	ValuesFile string
 
@@ -134,6 +138,10 @@ func newSettings() (*settings, error) {
 	}
 
 	if err := checkFileExists(filepath.Join(s.ChartDir, s.ValuesFile)); err != nil {
+		return nil, err
+	}
+
+	if err := normalizeFile(&s.CrdsFilesDir); err != nil {
 		return nil, err
 	}
 

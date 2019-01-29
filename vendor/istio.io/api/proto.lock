@@ -207,6 +207,16 @@
                 "type": "PortSelector",
                 "is_repeated": true
               }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
             ]
           },
           {
@@ -418,43 +428,26 @@
       }
     },
     {
-      "protopath": "mcp:/:v1alpha1:/:envelope.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "Envelope",
-            "fields": [
-              {
-                "id": 1,
-                "name": "metadata",
-                "type": "istio.mcp.v1alpha1.Metadata"
-              },
-              {
-                "id": 2,
-                "name": "resource",
-                "type": "google.protobuf.Any"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "protopath": "mcp:/:v1alpha1:/:mcp.proto",
       "def": {
         "messages": [
           {
-            "name": "Client",
+            "name": "SinkNode",
             "fields": [
               {
                 "id": 1,
                 "name": "id",
                 "type": "string"
-              },
+              }
+            ],
+            "maps": [
               {
-                "id": 2,
-                "name": "metadata",
-                "type": "google.protobuf.Struct"
+                "key_type": "string",
+                "field": {
+                  "id": 2,
+                  "name": "annotations",
+                  "type": "string"
+                }
               }
             ]
           },
@@ -468,8 +461,8 @@
               },
               {
                 "id": 2,
-                "name": "client",
-                "type": "Client"
+                "name": "sink_node",
+                "type": "SinkNode"
               },
               {
                 "id": 3,
@@ -498,8 +491,8 @@
               },
               {
                 "id": 2,
-                "name": "envelopes",
-                "type": "Envelope",
+                "name": "resources",
+                "type": "Resource",
                 "is_repeated": true
               },
               {
@@ -519,8 +512,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "client",
-                "type": "Client"
+                "name": "sink_node",
+                "type": "SinkNode"
               },
               {
                 "id": 2,
@@ -559,8 +552,8 @@
               },
               {
                 "id": 2,
-                "name": "envelopes",
-                "type": "Envelope",
+                "name": "resources",
+                "type": "Resource",
                 "is_repeated": true
               },
               {
@@ -573,6 +566,83 @@
                 "id": 4,
                 "name": "nonce",
                 "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "RequestResources",
+            "fields": [
+              {
+                "id": 1,
+                "name": "sink_node",
+                "type": "SinkNode"
+              },
+              {
+                "id": 2,
+                "name": "collection",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "response_nonce",
+                "type": "string"
+              },
+              {
+                "id": 5,
+                "name": "error_detail",
+                "type": "google.rpc.Status"
+              },
+              {
+                "id": 6,
+                "name": "incremental",
+                "type": "bool"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "initial_resource_versions",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Resources",
+            "fields": [
+              {
+                "id": 1,
+                "name": "system_version_info",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "collection",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "resources",
+                "type": "Resource",
+                "is_repeated": true
+              },
+              {
+                "id": 4,
+                "name": "removed_resources",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "nonce",
+                "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "incremental",
+                "type": "bool"
               }
             ]
           }
@@ -592,6 +662,30 @@
                 "name": "IncrementalAggregatedResources",
                 "in_type": "IncrementalMeshConfigRequest",
                 "out_type": "IncrementalMeshConfigResponse",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          },
+          {
+            "name": "ResourceSource",
+            "rpcs": [
+              {
+                "name": "EstablishResourceStream",
+                "in_type": "RequestResources",
+                "out_type": "Resources",
+                "in_streamed": true,
+                "out_streamed": true
+              }
+            ]
+          },
+          {
+            "name": "ResourceSink",
+            "rpcs": [
+              {
+                "name": "EstablishResourceStream",
+                "in_type": "Resources",
+                "out_type": "RequestResources",
                 "in_streamed": true,
                 "out_streamed": true
               }
@@ -621,6 +715,46 @@
                 "id": 3,
                 "name": "version",
                 "type": "string"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 4,
+                  "name": "labels",
+                  "type": "string"
+                }
+              },
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 5,
+                  "name": "annotations",
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "mcp:/:v1alpha1:/:resource.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Resource",
+            "fields": [
+              {
+                "id": 1,
+                "name": "metadata",
+                "type": "istio.mcp.v1alpha1.Metadata"
+              },
+              {
+                "id": 2,
+                "name": "body",
+                "type": "google.protobuf.Any"
               }
             ]
           }
@@ -684,24 +818,13 @@
               {
                 "name": "ALLOW_ANY",
                 "integer": 1
-              },
-              {
-                "name": "VIRTUAL_SERVICE_ONLY",
-                "integer": 2
               }
-            ]
-          },
-          {
-            "name": "DefaultServiceDependency.Mode",
-            "enum_fields": [
-              {
-                "name": "ALL_NAMESPACES",
-                "integer": 0
-              },
-              {
-                "name": "SAME_NAMESPACE",
-                "integer": 1
-              }
+            ],
+            "reserved_ids": [
+              2
+            ],
+            "reserved_names": [
+              "VIRTUAL_SERVICE_ONLY"
             ]
           }
         ],
@@ -727,6 +850,11 @@
               {
                 "id": 25,
                 "name": "policy_check_fail_open",
+                "type": "bool"
+              },
+              {
+                "id": 30,
+                "name": "sidecar_to_telemetry_session_affinity",
                 "type": "bool"
               },
               {
@@ -831,19 +959,24 @@
                 "is_repeated": true
               },
               {
+                "id": 31,
+                "name": "locality_lb_setting",
+                "type": "LocalityLoadBalancerSetting"
+              },
+              {
                 "id": 23,
                 "name": "enable_sds_token_mount",
+                "type": "bool"
+              },
+              {
+                "id": 29,
+                "name": "sds_use_k8s_sa_jwt",
                 "type": "bool"
               },
               {
                 "id": 26,
                 "name": "trust_domain",
                 "type": "string"
-              },
-              {
-                "id": 29,
-                "name": "default_service_dependency",
-                "type": "DefaultServiceDependency"
               }
             ],
             "reserved_ids": [
@@ -858,22 +991,6 @@
                     "id": 1,
                     "name": "mode",
                     "type": "Mode"
-                  }
-                ]
-              },
-              {
-                "name": "DefaultServiceDependency",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "import_mode",
-                    "type": "Mode"
-                  },
-                  {
-                    "id": 2,
-                    "name": "import_namespaces",
-                    "type": "string",
-                    "is_repeated": true
                   }
                 ]
               }
@@ -891,6 +1008,60 @@
                 "id": 2,
                 "name": "tls_settings",
                 "type": "istio.networking.v1alpha3.TLSSettings"
+              }
+            ]
+          },
+          {
+            "name": "LocalityLoadBalancerSetting",
+            "fields": [
+              {
+                "id": 1,
+                "name": "distribute",
+                "type": "Distribute",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "failover",
+                "type": "Failover",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "Distribute",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  }
+                ],
+                "maps": [
+                  {
+                    "key_type": "string",
+                    "field": {
+                      "id": 2,
+                      "name": "to",
+                      "type": "uint32"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Failover",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "from",
+                    "type": "string"
+                  },
+                  {
+                    "id": 2,
+                    "name": "to",
+                    "type": "string"
+                  }
+                ]
               }
             ]
           }
@@ -3060,6 +3231,11 @@
                 "type": "Port"
               },
               {
+                "id": 4,
+                "name": "bind",
+                "type": "string"
+              },
+              {
                 "id": 2,
                 "name": "hosts",
                 "type": "string",
@@ -3069,6 +3245,11 @@
                 "id": 3,
                 "name": "tls",
                 "type": "TLSOptions"
+              },
+              {
+                "id": 5,
+                "name": "default_endpoint",
+                "type": "string"
               }
             ],
             "messages": [
@@ -3143,77 +3324,6 @@
                 "id": 3,
                 "name": "name",
                 "type": "string"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "networking:/:v1alpha3:/:service_dependency.proto",
-      "def": {
-        "enums": [
-          {
-            "name": "ConfigScope",
-            "enum_fields": [
-              {
-                "name": "PUBLIC",
-                "integer": 0
-              },
-              {
-                "name": "PRIVATE",
-                "integer": 1
-              }
-            ]
-          }
-        ],
-        "messages": [
-          {
-            "name": "ServiceDependency",
-            "fields": [
-              {
-                "id": 1,
-                "name": "dependencies",
-                "type": "Dependency",
-                "is_repeated": true
-              }
-            ],
-            "messages": [
-              {
-                "name": "Import",
-                "fields": [
-                  {
-                    "id": 1,
-                    "name": "namespace",
-                    "type": "string"
-                  },
-                  {
-                    "id": 2,
-                    "name": "host",
-                    "type": "string"
-                  }
-                ]
-              },
-              {
-                "name": "Dependency",
-                "fields": [
-                  {
-                    "id": 2,
-                    "name": "imports",
-                    "type": "Import",
-                    "is_repeated": true
-                  }
-                ],
-                "maps": [
-                  {
-                    "key_type": "string",
-                    "field": {
-                      "id": 1,
-                      "name": "source_workload_labels",
-                      "type": "string"
-                    }
-                  }
-                ]
               }
             ]
           }
@@ -3342,6 +3452,131 @@
                     }
                   }
                 ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "networking:/:v1alpha3:/:sidecar.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "ConfigScope",
+            "enum_fields": [
+              {
+                "name": "PUBLIC",
+                "integer": 0
+              },
+              {
+                "name": "PRIVATE",
+                "integer": 1
+              }
+            ]
+          },
+          {
+            "name": "CaptureMode",
+            "enum_fields": [
+              {
+                "name": "DEFAULT",
+                "integer": 0
+              },
+              {
+                "name": "IPTABLES",
+                "integer": 1
+              },
+              {
+                "name": "NONE",
+                "integer": 2
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "Sidecar",
+            "fields": [
+              {
+                "id": 1,
+                "name": "workload_selector",
+                "type": "WorkloadSelector"
+              },
+              {
+                "id": 2,
+                "name": "ingress",
+                "type": "IstioIngressListener",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "egress",
+                "type": "IstioEgressListener",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "IstioIngressListener",
+            "fields": [
+              {
+                "id": 1,
+                "name": "port",
+                "type": "Port"
+              },
+              {
+                "id": 2,
+                "name": "bind",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "capture_mode",
+                "type": "CaptureMode"
+              },
+              {
+                "id": 4,
+                "name": "default_endpoint",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "IstioEgressListener",
+            "fields": [
+              {
+                "id": 1,
+                "name": "port",
+                "type": "Port"
+              },
+              {
+                "id": 2,
+                "name": "bind",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "capture_mode",
+                "type": "CaptureMode"
+              },
+              {
+                "id": 4,
+                "name": "hosts",
+                "type": "string",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "WorkloadSelector",
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 1,
+                  "name": "labels",
+                  "type": "string"
+                }
               }
             ]
           }
@@ -4033,6 +4268,19 @@
                 "integer": 1
               }
             ]
+          },
+          {
+            "name": "Tls.AuthHeader",
+            "enum_fields": [
+              {
+                "name": "PLAIN",
+                "integer": 0
+              },
+              {
+                "name": "BEARER",
+                "integer": 1
+              }
+            ]
           }
         ],
         "messages": [
@@ -4232,6 +4480,11 @@
                 "id": 3,
                 "name": "timeout",
                 "type": "google.protobuf.Duration"
+              },
+              {
+                "id": 4,
+                "name": "authentication",
+                "type": "Authentication"
               }
             ]
           },
@@ -4302,6 +4555,374 @@
                 "id": 2,
                 "name": "denominator",
                 "type": "DenominatorType"
+              }
+            ]
+          },
+          {
+            "name": "Authentication",
+            "fields": [
+              {
+                "id": 1,
+                "name": "tls",
+                "type": "Tls"
+              },
+              {
+                "id": 2,
+                "name": "mutual",
+                "type": "Mutual"
+              }
+            ]
+          },
+          {
+            "name": "Tls",
+            "fields": [
+              {
+                "id": 1,
+                "name": "ca_certificates",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "token_path",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "oauth",
+                "type": "OAuth"
+              },
+              {
+                "id": 4,
+                "name": "auth_header",
+                "type": "AuthHeader"
+              },
+              {
+                "id": 5,
+                "name": "custom_header",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "OAuth",
+            "fields": [
+              {
+                "id": 1,
+                "name": "client_id",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "client_secret",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "token_url",
+                "type": "string"
+              },
+              {
+                "id": 4,
+                "name": "scopes",
+                "type": "string",
+                "is_repeated": true
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 5,
+                  "name": "endpoint_params",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "Mutual",
+            "fields": [
+              {
+                "id": 1,
+                "name": "private_key",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "client_certificate",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "ca_certificates",
+                "type": "string"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "policy:/:v1beta1:/:http_response.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "HttpStatusCode",
+            "enum_fields": [
+              {
+                "name": "Empty",
+                "integer": 0
+              },
+              {
+                "name": "Continue",
+                "integer": 100
+              },
+              {
+                "name": "OK",
+                "integer": 200
+              },
+              {
+                "name": "Created",
+                "integer": 201
+              },
+              {
+                "name": "Accepted",
+                "integer": 202
+              },
+              {
+                "name": "NonAuthoritativeInformation",
+                "integer": 203
+              },
+              {
+                "name": "NoContent",
+                "integer": 204
+              },
+              {
+                "name": "ResetContent",
+                "integer": 205
+              },
+              {
+                "name": "PartialContent",
+                "integer": 206
+              },
+              {
+                "name": "MultiStatus",
+                "integer": 207
+              },
+              {
+                "name": "AlreadyReported",
+                "integer": 208
+              },
+              {
+                "name": "IMUsed",
+                "integer": 226
+              },
+              {
+                "name": "MultipleChoices",
+                "integer": 300
+              },
+              {
+                "name": "MovedPermanently",
+                "integer": 301
+              },
+              {
+                "name": "Found",
+                "integer": 302
+              },
+              {
+                "name": "SeeOther",
+                "integer": 303
+              },
+              {
+                "name": "NotModified",
+                "integer": 304
+              },
+              {
+                "name": "UseProxy",
+                "integer": 305
+              },
+              {
+                "name": "TemporaryRedirect",
+                "integer": 307
+              },
+              {
+                "name": "PermanentRedirect",
+                "integer": 308
+              },
+              {
+                "name": "BadRequest",
+                "integer": 400
+              },
+              {
+                "name": "Unauthorized",
+                "integer": 401
+              },
+              {
+                "name": "PaymentRequired",
+                "integer": 402
+              },
+              {
+                "name": "Forbidden",
+                "integer": 403
+              },
+              {
+                "name": "NotFound",
+                "integer": 404
+              },
+              {
+                "name": "MethodNotAllowed",
+                "integer": 405
+              },
+              {
+                "name": "NotAcceptable",
+                "integer": 406
+              },
+              {
+                "name": "ProxyAuthenticationRequired",
+                "integer": 407
+              },
+              {
+                "name": "RequestTimeout",
+                "integer": 408
+              },
+              {
+                "name": "Conflict",
+                "integer": 409
+              },
+              {
+                "name": "Gone",
+                "integer": 410
+              },
+              {
+                "name": "LengthRequired",
+                "integer": 411
+              },
+              {
+                "name": "PreconditionFailed",
+                "integer": 412
+              },
+              {
+                "name": "PayloadTooLarge",
+                "integer": 413
+              },
+              {
+                "name": "URITooLong",
+                "integer": 414
+              },
+              {
+                "name": "UnsupportedMediaType",
+                "integer": 415
+              },
+              {
+                "name": "RangeNotSatisfiable",
+                "integer": 416
+              },
+              {
+                "name": "ExpectationFailed",
+                "integer": 417
+              },
+              {
+                "name": "MisdirectedRequest",
+                "integer": 421
+              },
+              {
+                "name": "UnprocessableEntity",
+                "integer": 422
+              },
+              {
+                "name": "Locked",
+                "integer": 423
+              },
+              {
+                "name": "FailedDependency",
+                "integer": 424
+              },
+              {
+                "name": "UpgradeRequired",
+                "integer": 426
+              },
+              {
+                "name": "PreconditionRequired",
+                "integer": 428
+              },
+              {
+                "name": "TooManyRequests",
+                "integer": 429
+              },
+              {
+                "name": "RequestHeaderFieldsTooLarge",
+                "integer": 431
+              },
+              {
+                "name": "InternalServerError",
+                "integer": 500
+              },
+              {
+                "name": "NotImplemented",
+                "integer": 501
+              },
+              {
+                "name": "BadGateway",
+                "integer": 502
+              },
+              {
+                "name": "ServiceUnavailable",
+                "integer": 503
+              },
+              {
+                "name": "GatewayTimeout",
+                "integer": 504
+              },
+              {
+                "name": "HTTPVersionNotSupported",
+                "integer": 505
+              },
+              {
+                "name": "VariantAlsoNegotiates",
+                "integer": 506
+              },
+              {
+                "name": "InsufficientStorage",
+                "integer": 507
+              },
+              {
+                "name": "LoopDetected",
+                "integer": 508
+              },
+              {
+                "name": "NotExtended",
+                "integer": 510
+              },
+              {
+                "name": "NetworkAuthenticationRequired",
+                "integer": 511
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "DirectHttpResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "code",
+                "type": "HttpStatusCode"
+              },
+              {
+                "id": 2,
+                "name": "body",
+                "type": "string"
+              }
+            ],
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 3,
+                  "name": "headers",
+                  "type": "string"
+                }
               }
             ]
           }
@@ -4531,6 +5152,35 @@
         ],
         "messages": [
           {
+            "name": "WorkloadSelector",
+            "maps": [
+              {
+                "key_type": "string",
+                "field": {
+                  "id": 1,
+                  "name": "labels",
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          {
+            "name": "AuthorizationPolicy",
+            "fields": [
+              {
+                "id": 1,
+                "name": "workload_selector",
+                "type": "WorkloadSelector"
+              },
+              {
+                "id": 2,
+                "name": "allow",
+                "type": "ServiceRoleBinding",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "ServiceRole",
             "fields": [
               {
@@ -4551,8 +5201,26 @@
                 "is_repeated": true
               },
               {
+                "id": 5,
+                "name": "hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 6,
+                "name": "not_hosts",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "paths",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_paths",
                 "type": "string",
                 "is_repeated": true
               },
@@ -4560,6 +5228,24 @@
                 "id": 3,
                 "name": "methods",
                 "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "not_methods",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "ports",
+                "type": "int32",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "not_ports",
+                "type": "int32",
                 "is_repeated": true
               },
               {
@@ -4618,9 +5304,57 @@
                 "type": "string"
               },
               {
+                "id": 4,
+                "name": "principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 5,
+                "name": "not_principals",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
                 "id": 2,
                 "name": "group",
                 "type": "string"
+              },
+              {
+                "id": 6,
+                "name": "groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "not_groups",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 8,
+                "name": "namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 9,
+                "name": "not_namespaces",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 10,
+                "name": "ips",
+                "type": "string",
+                "is_repeated": true
+              },
+              {
+                "id": 11,
+                "name": "not_ips",
+                "type": "string",
+                "is_repeated": true
               }
             ],
             "maps": [
@@ -4681,6 +5415,12 @@
                     "id": 1,
                     "name": "services",
                     "type": "string",
+                    "is_repeated": true
+                  },
+                  {
+                    "id": 3,
+                    "name": "workload_selectors",
+                    "type": "WorkloadSelector",
                     "is_repeated": true
                   },
                   {

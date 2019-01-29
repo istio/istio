@@ -89,6 +89,7 @@ items:
           resources:
             requests:
               cpu: 10m
+              memory: 30Mi
           securityContext:
             readOnlyRootFilesystem: true
           volumeMounts:
@@ -219,6 +220,7 @@ items:
           resources:
             requests:
               cpu: 10m
+              memory: 30Mi
           securityContext:
             readOnlyRootFilesystem: true
           volumeMounts:

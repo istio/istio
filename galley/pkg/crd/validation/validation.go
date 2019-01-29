@@ -23,9 +23,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/galley/cmd/shared"
 	"istio.io/istio/mixer/adapter"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/probe"
 )
 
@@ -46,6 +46,11 @@ const (
 )
 
 var dns1123LabelRegexp = regexp.MustCompile("^" + dns1123LabelFmt + "$")
+
+// This is for lint fix
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
 // createMixerValidator creates a mixer backend validator.
 // TODO(https://github.com/istio/istio/issues/4887) - refactor mixer
@@ -62,19 +67,10 @@ func createMixerValidator() store.BackendValidator {
 	return store.NewValidator(nil, runtimeConfig.KindMap(adapters, templates))
 }
 
-func webhookHTTPSHandlerReady(vc *WebhookParameters) error {
-	client := &http.Client{
-		Timeout: time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
-
+func webhookHTTPSHandlerReady(client httpClient, vc *WebhookParameters) error {
 	readinessURL := &url.URL{
 		Scheme: "https",
-		Host:   fmt.Sprintf("localhost:%v", vc.Port),
+		Host:   fmt.Sprintf("127.0.0.1:%v", vc.Port),
 		Path:   httpsHandlerReadyPath,
 	}
 
@@ -87,6 +83,7 @@ func webhookHTTPSHandlerReady(vc *WebhookParameters) error {
 	if err != nil {
 		return fmt.Errorf("HTTP request to %v failed: %v", readinessURL, err)
 	}
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %v returned non-200 status=%v",
 			readinessURL, response.StatusCode)
@@ -95,19 +92,20 @@ func webhookHTTPSHandlerReady(vc *WebhookParameters) error {
 }
 
 //RunValidation start running Galley validation mode
-func RunValidation(vc *WebhookParameters, printf, fatalf shared.FormatFn, kubeConfig string,
+func RunValidation(vc *WebhookParameters, kubeConfig string,
 	livenessProbeController, readinessProbeController probe.Controller) {
+	log.Infof("Galley validation started with\n%s", vc)
 	mixerValidator := createMixerValidator()
 	clientset, err := kube.CreateClientset(kubeConfig, "")
 	if err != nil {
-		fatalf("could not create k8s clientset: %v", err)
+		log.Fatalf("could not create k8s clientset: %v", err)
 	}
 	vc.MixerValidator = mixerValidator
 	vc.PilotDescriptor = model.IstioConfigTypes
 	vc.Clientset = clientset
 	wh, err := NewWebhook(*vc)
 	if err != nil {
-		fatalf("cannot create validation webhook service: %v", err)
+		log.Fatalf("cannot create validation webhook service: %v", err)
 	}
 	if livenessProbeController != nil {
 		validationLivenessProbe := probe.NewProbe()
@@ -126,8 +124,17 @@ func RunValidation(vc *WebhookParameters, printf, fatalf shared.FormatFn, kubeCo
 
 		go func() {
 			ready := false
+			client := &http.Client{
+				Timeout: time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				},
+			}
+
 			for {
-				if err := webhookHTTPSHandlerReady(vc); err != nil {
+				if err := webhookHTTPSHandlerReady(client, vc); err != nil {
 					validationReadinessProbe.SetAvailable(errors.New("not ready"))
 					scope.Infof("https handler for validation webhook is not ready: %v", err)
 					ready = false
@@ -152,21 +159,6 @@ func RunValidation(vc *WebhookParameters, printf, fatalf shared.FormatFn, kubeCo
 
 	go wh.Run(stop)
 	cmd.WaitSignal(stop)
-}
-
-// DefaultArgs allocates an WebhookParameters struct initialized with Webhook's default configuration.
-func DefaultArgs() *WebhookParameters {
-	return &WebhookParameters{
-		Port:                          443,
-		CertFile:                      "/etc/istio/certs/cert-chain.pem",
-		KeyFile:                       "/etc/istio/certs/key.pem",
-		CACertFile:                    "/etc/istio/certs/root-cert.pem",
-		DeploymentAndServiceNamespace: "istio-system",
-		DeploymentName:                "istio-galley",
-		ServiceName:                   "istio-galley",
-		WebhookName:                   "istio-galley",
-		EnableValidation:              true,
-	}
 }
 
 // isDNS1123Label tests for a string that conforms to the definition of a label in

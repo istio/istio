@@ -4,7 +4,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/service-mesh.html
-number_of_entries: 18
+number_of_entries: 19
 ---
 <h2 id="AuthenticationPolicy">AuthenticationPolicy</h2>
 <section>
@@ -84,6 +84,140 @@ mode as ISTIO</em>MUTUAL.</p>
 </tbody>
 </table>
 </section>
+<h2 id="LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</h2>
+<section>
+<p>The following example sets up locality weight for mesh wide service
+Assume a service resides in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;,
+and originating clusters also reside in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;.
+This example specifies when clusters from &ldquo;region1/zone1/<em>&rdquo; accessing the service, 80% of the traffic
+is shipped to &ldquo;region1/zone1/</em>&rdquo; ratings service endpoints, and the rest 20% to &ldquo;region1/zone2/*&rdquo;.</p>
+
+<pre><code class="language-yaml">  distribute:
+    - from: region1/zone1/*
+      to:
+        &quot;region1/zone1/*&quot;: 80
+        &quot;region1/zone2/*&quot;: 20
+    - from: region1/zone2/*
+      to:
+        &quot;region1/zone1/*&quot;: 20
+        &quot;region1/zone2/*&quot;: 80
+</code></pre>
+
+<p>The following example sets up locality failover policy for the ratings service
+Assume a service resides in &ldquo;region1&rdquo; &ldquo;region2&rdquo; and &ldquo;region3&rdquo;,
+This example specifies when clusters from &ldquo;region1/zone1&rdquo; accessing the service,
+if endpoints in &ldquo;region1&rdquo; becomes unhealthy, traffic will begin to trickle to &ldquo;region2&rdquo;.</p>
+
+<pre><code class="language-yaml"> failover:
+   - from: region1
+     to: region2
+</code></pre>
+
+<p>Locality load balancing settings.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-distribute">
+<td><code>distribute</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting-Distribute">LocalityLoadBalancerSetting.Distribute[]</a></code></td>
+<td>
+<p>Optional: only distribute or failover can be set.
+Explicitly specify loadbalancing weight across different zones and geographical locations.
+Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing">Locality weighted load balancing</a>
+If empty, the locality weight is set according to the endpoints number within it.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-failover">
+<td><code>failover</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting-Failover">LocalityLoadBalancerSetting.Failover[]</a></code></td>
+<td>
+<p>Optional: only failover or distribute can be set.
+Explicitly specify the region traffic will land on when endpoints in local region becomes unhealthy.
+Should be used together with OutlierDetection to detect unhealthy endpoints.
+Note: if no OutlierDetection specified, this will not take effect.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LocalityLoadBalancerSetting-Distribute">LocalityLoadBalancerSetting.Distribute</h2>
+<section>
+<p>Originating -&gt; upstream cluster locality weight set, support wildcard matching &lsquo;<em>&rsquo;
+&lsquo;</em>&rsquo; matches all localities
+&lsquo;region1/*&rsquo; matches all zones in region1</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-Distribute-from">
+<td><code>from</code></td>
+<td><code>string</code></td>
+<td>
+<p>Originating locality, &lsquo;/&rsquo; separated, e.g. &lsquo;region/zone/sub_zone&rsquo;.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-Distribute-to">
+<td><code>to</code></td>
+<td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
+<td>
+<p>Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
+Should assign load balancing weight for all localities, otherwise the traffic are not routed
+following the percentage of weight.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="LocalityLoadBalancerSetting-Failover">LocalityLoadBalancerSetting.Failover</h2>
+<section>
+<p>Specify the traffic failover policy.
+As zone and sub_zone failover is supported by default, only region can be specified here.</p>
+
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="LocalityLoadBalancerSetting-Failover-from">
+<td><code>from</code></td>
+<td><code>string</code></td>
+<td>
+<p>Originating region.</p>
+
+</td>
+</tr>
+<tr id="LocalityLoadBalancerSetting-Failover-to">
+<td><code>to</code></td>
+<td><code>string</code></td>
+<td>
+<p>Destination region the traffic will fail over to when endpoints in local region becomes unhealthy.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="MeshConfig">MeshConfig</h2>
 <section>
 <p>MeshConfig defines mesh-wide variables shared by all Envoy instances in the
@@ -145,6 +279,15 @@ is false, i.e. mixer policy check is enabled by default.</p>
 <p>Allow all traffic in cases when the mixer policy service cannot be reached.
 Default is false which means the traffic is denied when the client is unable
 to connect to Mixer.</p>
+
+</td>
+</tr>
+<tr id="MeshConfig-sidecar_to_telemetry_session_affinity">
+<td><code>sidecarToTelemetrySessionAffinity</code></td>
+<td><code>bool</code></td>
+<td>
+<p>Enable session affinity for envoy mixer reports so that calls from a proxy will
+always target the same mixer instance.</p>
 
 </td>
 </tr>
@@ -255,16 +398,18 @@ at runtime and config gets distributed dynamically.</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-outbound_traffic_policy" class="deprecated ">
+<tr id="MeshConfig-outbound_traffic_policy">
 <td><code>outboundTrafficPolicy</code></td>
 <td><code><a href="#MeshConfig-OutboundTrafficPolicy">MeshConfig.OutboundTrafficPolicy</a></code></td>
 <td>
-<p>Set the default behavior of the sidecar for handling outbound traffic from the application.
-While the default mode should work out of the box, if your application uses one or more external services that
-are not known apriori, setting the policy to ALLOW<em>ANY will cause the sidecars to route traffic to the any
-requested destination.
-Users are strongly encouraged to use ServiceEntries to explicitly declare any external dependencies,
-instead of using allow</em>any.</p>
+<p>Set the default behavior of the sidecar for handling outbound traffic
+from the application.  If your application uses one or more external
+services that are not known apriori, setting the policy to ALLOW<em>ANY
+will cause the sidecars to route any unknown traffic originating from
+the application to its requested destination.  Users are strongly
+encouraged to use ServiceEntries to explicitly declare any external
+dependencies, instead of using allow</em>any, so that traffic to these
+services can be monitored.</p>
 
 </td>
 </tr>
@@ -295,6 +440,14 @@ can be configured for a single control plane.</p>
 
 </td>
 </tr>
+<tr id="MeshConfig-locality_lb_setting">
+<td><code>localityLbSetting</code></td>
+<td><code><a href="#LocalityLoadBalancerSetting">LocalityLoadBalancerSetting</a></code></td>
+<td>
+<p>Locality based load balancing distribution or failover settings.</p>
+
+</td>
+</tr>
 <tr id="MeshConfig-trust_domain">
 <td><code>trustDomain</code></td>
 <td><code>string</code></td>
@@ -302,18 +455,6 @@ can be configured for a single control plane.</p>
 <p>The trust domain corresponds to the trust root of a system.
 Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 Fallback to old identity format(without trust domain) if not set.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-default_service_dependency">
-<td><code>defaultServiceDependency</code></td>
-<td><code><a href="#MeshConfig-DefaultServiceDependency">MeshConfig.DefaultServiceDependency</a></code></td>
-<td>
-<p>The default service dependency setting associated with every workload
-in the mesh.  Pilot will program the routes in the sidecars and
-gateways accordingly. If omitted, sidecars will be configured to reach
-every service in the mesh. The default scope can be overriden by
-supplying a ServiceDependency resource per namespace.</p>
 
 </td>
 </tr>
@@ -338,74 +479,6 @@ supplying a ServiceDependency resource per namespace.</p>
 <tr id="MeshConfig-AccessLogEncoding-JSON">
 <td><code>JSON</code></td>
 <td>
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-DefaultServiceDependency">MeshConfig.DefaultServiceDependency</h2>
-<section>
-<p>Default service dependency settings for each workload in the
-mesh. ServiceDependencycontrols the reachability of workloads to other
-services in the mesh.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-DefaultServiceDependency-import_mode">
-<td><code>importMode</code></td>
-<td><code><a href="#MeshConfig-DefaultServiceDependency-Mode">MeshConfig.DefaultServiceDependency.Mode</a></code></td>
-<td>
-<p>REQUIRED: The default import setting for every workload in the mesh.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-DefaultServiceDependency-import_namespaces">
-<td><code>importNamespaces</code></td>
-<td><code>string[]</code></td>
-<td>
-<p>Specifies one or more namespaces that should be imported by default
-in all user defined ServiceDependency resources in addition to the
-namespaces explicitly specified by the end user. Use this setting to
-automatically import services/resources from namespaces such as
-istio-system that all workloads in the mesh depend upon.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="MeshConfig-DefaultServiceDependency-Mode">MeshConfig.DefaultServiceDependency.Mode</h2>
-<section>
-<table class="enum-values">
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="MeshConfig-DefaultServiceDependency-Mode-ALL_NAMESPACES">
-<td><code>ALL_NAMESPACES</code></td>
-<td>
-<p>Configure routes to services in all namespaces, i.e. import
-services from all namespaces.</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-DefaultServiceDependency-Mode-SAME_NAMESPACE">
-<td><code>SAME_NAMESPACE</code></td>
-<td>
-<p>Only configure routes to services that are in the same namespace
-as the workload as well as services in namespaces specified in
-importNamespaces.</p>
-
 </td>
 </tr>
 </tbody>
@@ -464,7 +537,7 @@ cloud-provided ingress controller).</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig-OutboundTrafficPolicy-mode" class="deprecated ">
+<tr id="MeshConfig-OutboundTrafficPolicy-mode">
 <td><code>mode</code></td>
 <td><code><a href="#MeshConfig-OutboundTrafficPolicy-Mode">MeshConfig.OutboundTrafficPolicy.Mode</a></code></td>
 <td>
@@ -483,25 +556,19 @@ cloud-provided ingress controller).</p>
 </tr>
 </thead>
 <tbody>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-REGISTRY_ONLY" class="deprecated ">
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-REGISTRY_ONLY">
 <td><code>REGISTRY_ONLY</code></td>
 <td>
-<p>outbound traffic will be restricted to services defined in the service registry as well as those defined
-through ServiceEntries</p>
+<p>outbound traffic will be restricted to services defined in the
+service registry as well as those defined through ServiceEntries</p>
 
 </td>
 </tr>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-ALLOW_ANY" class="deprecated ">
+<tr id="MeshConfig-OutboundTrafficPolicy-Mode-ALLOW_ANY">
 <td><code>ALLOW_ANY</code></td>
 <td>
-<p>outbound traffic to unknown destinations will be allowed</p>
-
-</td>
-</tr>
-<tr id="MeshConfig-OutboundTrafficPolicy-Mode-VIRTUAL_SERVICE_ONLY" class="deprecated ">
-<td><code>VIRTUAL_SERVICE_ONLY</code></td>
-<td>
-<p>not implemented. outbound traffic will be restricted to destinations defined in VirtualServices only</p>
+<p>outbound traffic to unknown destinations will be allowed, in case
+there are no services or ServiceEntries for the destination port</p>
 
 </td>
 </tr>
@@ -656,7 +723,7 @@ adding ISTIO<em>META</em>NETWORK environment variable to the sidecar.</p></li>
 </ol>
 
 <p>a. By matching the registry name with one of the &ldquo;from<em>registries&rdquo;
-   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assinged to a
+   in the mesh config. A &ldquo;from</em>registry&rdquo; can only be assigned to a
    single network.</p>
 
 <p>b. By matching the IP against one of the CIDR ranges in a mesh

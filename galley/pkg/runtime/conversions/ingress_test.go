@@ -80,8 +80,8 @@ func TestIngressConversion(t *testing.T) {
 	}
 	key := resource.VersionedKey{
 		Key: resource.Key{
-			TypeURL:  metadata.IngressSpec.TypeURL,
-			FullName: resource.FullNameFromNamespaceAndName("mock", "i1"),
+			Collection: metadata.Ingress.Collection,
+			FullName:   resource.FullNameFromNamespaceAndName("mock", "i1"),
 		},
 	}
 
@@ -107,14 +107,14 @@ func TestIngressConversion(t *testing.T) {
 	}
 	key2 := resource.VersionedKey{
 		Key: resource.Key{
-			TypeURL:  metadata.IngressSpec.TypeURL,
-			FullName: resource.FullNameFromNamespaceAndName("mock", "i1"),
+			Collection: metadata.Ingress.Collection,
+			FullName:   resource.FullNameFromNamespaceAndName("mock", "i1"),
 		},
 	}
 
 	cfgs := map[string]resource.Entry{}
-	IngressToVirtualService(key, &ingress, "mydomain", cfgs)
-	IngressToVirtualService(key2, &ingress2, "mydomain", cfgs)
+	IngressToVirtualService(key, resource.Metadata{}, &ingress, "mydomain", cfgs)
+	IngressToVirtualService(key2, resource.Metadata{}, &ingress2, "mydomain", cfgs)
 
 	if len(cfgs) != 3 {
 		t.Error("VirtualServices, expected 3 got ", len(cfgs))

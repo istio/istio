@@ -15,9 +15,10 @@
 package components
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
-	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 )

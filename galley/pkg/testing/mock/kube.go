@@ -17,24 +17,33 @@ package mock
 import (
 	"errors"
 
+	"istio.io/istio/galley/pkg/source/kube/client"
+
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 )
+
+var _ client.Interfaces = &Kube{}
 
 // Kube is a mock implementation of galley/pkg/common/Kube
 type Kube struct {
 	response1 []interface{}
 	response2 []error
+
+	Client *fake.Clientset
 }
 
 // NewKube returns a new instance of mock Kube.
 func NewKube() *Kube {
-	return &Kube{}
+	return &Kube{
+		Client: fake.NewSimpleClientset(),
+	}
 }
 
 // DynamicInterface implementation.
-func (k *Kube) DynamicInterface(gv schema.GroupVersion, kind string, listKind string) (dynamic.Interface, error) {
+func (k *Kube) DynamicInterface() (dynamic.Interface, error) {
 	if len(k.response1) == 0 {
 		panic("No more responses left")
 	}
@@ -60,4 +69,8 @@ func (k *Kube) AddResponse(r1 interface{}, r2 error) {
 // APIExtensionsClientset returns a new apiextensions clientset
 func (k *Kube) APIExtensionsClientset() (clientset.Interface, error) {
 	return nil, errors.New("not supported")
+}
+
+func (k *Kube) KubeClient() (kubernetes.Interface, error) {
+	return k.Client, nil
 }

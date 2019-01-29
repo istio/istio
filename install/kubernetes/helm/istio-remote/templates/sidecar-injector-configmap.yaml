@@ -13,6 +13,7 @@ metadata:
 data:
   config: |-
     policy: {{ .Values.global.proxy.autoInject }}
+    rewriteAppHTTPProbe: {{ .Values.sidecarInjectorWebhook.rewriteAppHTTPProbe }}
     template: |-
 {{- if or (not .Values.istio_cni.enabled) .Values.global.proxy.enableCoreDump }}
       initContainers:
@@ -83,10 +84,8 @@ data:
         args:
         - proxy
         - sidecar
-{{- if .Values.global.proxy.proxyDomain }}
         - --domain
-        - {{ .Values.global.proxy.proxyDomain }}
-{{- end }}
+        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
         - --configPath
         - {{ "[[ .ProxyConfig.ConfigPath ]]" }}
         - --binaryPath
@@ -170,6 +169,9 @@ data:
             - NET_ADMIN
           runAsGroup: 1337
           {{ "[[ else -]]" }}
+          {{ if and .Values.global.sds.enabled .Values.global.sds.useTrustworthyJwt }}
+          runAsGroup: 1337
+          {{- end }}
           runAsUser: 1337
           {{ "[[- end ]]" }}
         resources:
@@ -185,23 +187,28 @@ data:
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+        {{- if ne .Values.global.sds.enabled true }}
         - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
+        {{- end }}
         {{- if .Values.global.sds.enabled }}
         - mountPath: /var/run/sds
           name: sds-uds-path
-        {{- if .Values.global.sds.enableTokenMount }}
+        {{- if .Values.global.sds.useTrustworthyJwt }}
         - mountPath: /var/run/secrets/tokens
           name: istio-token
         {{- end }}
         {{- end }}
       volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
       {{- if .Values.global.sds.enabled }}
       - name: sds-uds-path
         hostPath:
           path: /var/run/sds
-      {{- if .Values.global.sds.enableTokenMount }}
+      {{- if .Values.global.sds.useTrustworthyJwt }}
       - name: istio-token
         projected:
           sources:
@@ -210,10 +217,7 @@ data:
               expirationSeconds: 43200
               audience: {{ .Values.global.trustDomain }}
       {{- end }}
-      {{- end }}
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
+      {{- else }}
       - name: istio-certs
         secret:
           optional: true
@@ -222,4 +226,5 @@ data:
           {{ "[[ else -]]" }}
           secretName: {{ "[[ printf \"istio.%s\" .Spec.ServiceAccountName ]]"  }}
           {{ "[[ end -]]" }}
+      {{- end }}
 {{- end }}

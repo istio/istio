@@ -30,10 +30,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/log"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/util"
 )
 
@@ -42,8 +41,9 @@ const (
 	istioInstallDir                = "install/kubernetes"
 	nonAuthInstallFile             = "istio.yaml"
 	authInstallFile                = "istio-auth.yaml"
-	nonAuthWithMCPInstallFile      = "istio-mcp.yaml"
-	authWithMCPInstallFile         = "istio-auth-mcp.yaml"
+	authSdsInstallFile             = "istio-auth-sds.yaml"
+	nonAuthWithoutMCPInstallFile   = "istio-mcp.yaml"
+	authWithoutMCPInstallFile      = "istio-auth-mcp.yaml"
 	nonAuthInstallFileNamespace    = "istio-one-namespace.yaml"
 	authInstallFileNamespace       = "istio-one-namespace-auth.yaml"
 	mcNonAuthInstallFileNamespace  = "istio-multicluster.yaml"
@@ -66,6 +66,12 @@ const (
 	rootCertFileName               = "samples/certs/root-cert.pem"
 	certChainFileName              = "samples/certs/cert-chain.pem"
 	helmInstallerName              = "helm"
+	// CRD files that should be installed during testing
+	// NB: these files come from the directory install/kubernetes/helm/istio-init/files/*crd*
+	//     and contain all CRDs used by Istio during runtime
+	zeroCRDInstallFile = "crd-10.yaml"
+	oneCRDInstallFile  = "crd-11.yaml"
+	twoCRDInstallFile  = "crd-certmanager-10.yaml"
 	// PrimaryCluster identifies the primary cluster
 	PrimaryCluster = "primary"
 	// RemoteCluster identifies the remote cluster
@@ -90,6 +96,7 @@ var (
 	sidecarInjectorHub = flag.String("sidecar_injector_hub", os.Getenv("HUB"), "Sidecar injector hub")
 	sidecarInjectorTag = flag.String("sidecar_injector_tag", os.Getenv("TAG"), "Sidecar injector tag")
 	authEnable         = flag.Bool("auth_enable", false, "Enable auth")
+	authSdsEnable      = flag.Bool("auth_sds_enable", false, "Enable auth using key/cert distributed through SDS")
 	rbacEnable         = flag.Bool("rbac_enable", true, "Enable rbac")
 	localCluster       = flag.Bool("use_local_cluster", false,
 		"If true any LoadBalancer type services will be converted to a NodePort service during testing. If running on minikube, this should be set to true")
@@ -104,9 +111,28 @@ var (
 	useMCP                   = flag.Bool("use_mcp", true, "use MCP for configuring Istio components")
 	kubeInjectCM             = flag.String("kube_inject_configmap", "",
 		"Configmap to use by the istioctl kube-inject command.")
-	valueFile = flag.String("valueFile", "", "Istio value yaml file when helm is used")
-	values    = flag.String("values", "", "Helm set values when helm is used")
+	valueFile     = flag.String("valueFile", "", "Istio value yaml file when helm is used")
+	helmSetValues helmSetValueList
 )
+
+// Support for multiple values for helm installation
+type helmSetValueList []string
+
+func (h *helmSetValueList) String() string {
+	return fmt.Sprintf("%v", *h)
+}
+func (h *helmSetValueList) Set(value string) error {
+	if len(*h) > 0 {
+		return errors.New("helmSetValueList flag already set")
+	}
+	for _, v := range strings.Split(value, ",") {
+		*h = append(*h, v)
+	}
+	return nil
+}
+func init() {
+	flag.Var(&helmSetValues, "helmSetValueList", "Additional helm values parsed, eg: galley.enabled=true,global.useMCP=true")
+}
 
 type appPodsInfo struct {
 	// A map of app label values to the pods for that app
@@ -132,6 +158,7 @@ type KubeInfo struct {
 	localCluster     bool
 	namespaceCreated bool
 	AuthEnabled      bool
+	AuthSdsEnabled   bool
 	RBACEnabled      bool
 
 	// Istioctl installation
@@ -147,27 +174,31 @@ type KubeInfo struct {
 	appPods  map[string]*appPodsInfo
 	Clusters map[string]string
 
-	KubeConfig       string
-	KubeClient       kubernetes.Interface
-	RemoteKubeConfig string
-	RemoteKubeClient kubernetes.Interface
-	RemoteAppManager *AppManager
-	RemoteIstioctl   *Istioctl
+	KubeConfig         string
+	KubeAccessor       *testKube.Accessor
+	RemoteKubeConfig   string
+	RemoteKubeAccessor *testKube.Accessor
+	RemoteAppManager   *AppManager
+	RemoteIstioctl     *Istioctl
 }
 
 func getClusterWideInstallFile() string {
 	var istioYaml string
 	if *authEnable {
 		if *useMCP {
-			istioYaml = authWithMCPInstallFile
+			if *authSdsEnable {
+				istioYaml = authSdsInstallFile
+			} else {
+				istioYaml = authInstallFile
+			}
 		} else {
-			istioYaml = authInstallFile
+			istioYaml = authWithoutMCPInstallFile
 		}
 	} else {
 		if *useMCP {
-			istioYaml = nonAuthWithMCPInstallFile
-		} else {
 			istioYaml = nonAuthInstallFile
+		} else {
+			istioYaml = nonAuthWithoutMCPInstallFile
 		}
 	}
 	return istioYaml
@@ -209,7 +240,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 	// environment's kubeconfig if an empty string is provided.  Therefore in the
 	// default case kubeConfig will not be set.
 	var kubeConfig, remoteKubeConfig string
-	var kubeClient, remoteKubeClient kubernetes.Interface
+	var remoteKubeAccessor *testKube.Accessor
 	var aRemote *AppManager
 	var remoteI *Istioctl
 	if *multiClusterDir != "" {
@@ -228,10 +259,7 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 			// TODO could change this to continue tests if only a single cluster is in play
 			return nil, err
 		}
-		if kubeClient, err = kube.CreateInterface(kubeConfig); err != nil {
-			return nil, err
-		}
-		if remoteKubeClient, err = kube.CreateInterface(remoteKubeConfig); err != nil {
+		if remoteKubeAccessor, err = testKube.NewAccessor(remoteKubeConfig, tmpDir); err != nil {
 			return nil, err
 		}
 		// Create Istioctl for remote using injectConfigMap on remote (not the same as master cluster's)
@@ -248,6 +276,11 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	a := NewAppManager(tmpDir, *namespace, i, kubeConfig)
 
+	kubeAccessor, err := testKube.NewAccessor(kubeConfig, tmpDir)
+	if err != nil {
+		return nil, err
+	}
+
 	clusters := make(map[string]string)
 	appPods := make(map[string]*appPodsInfo)
 	clusters[PrimaryCluster] = kubeConfig
@@ -259,25 +292,26 @@ func newKubeInfo(tmpDir, runID, baseVersion string) (*KubeInfo, error) {
 
 	log.Infof("Using release dir: %s", releaseDir)
 	return &KubeInfo{
-		Namespace:        *namespace,
-		namespaceCreated: false,
-		TmpDir:           tmpDir,
-		yamlDir:          yamlDir,
-		localCluster:     *localCluster,
-		Istioctl:         i,
-		RemoteIstioctl:   remoteI,
-		AppManager:       a,
-		RemoteAppManager: aRemote,
-		AuthEnabled:      *authEnable,
-		RBACEnabled:      *rbacEnable,
-		ReleaseDir:       releaseDir,
-		BaseVersion:      baseVersion,
-		KubeConfig:       kubeConfig,
-		KubeClient:       kubeClient,
-		RemoteKubeConfig: remoteKubeConfig,
-		RemoteKubeClient: remoteKubeClient,
-		appPods:          appPods,
-		Clusters:         clusters,
+		Namespace:          *namespace,
+		namespaceCreated:   false,
+		TmpDir:             tmpDir,
+		yamlDir:            yamlDir,
+		localCluster:       *localCluster,
+		Istioctl:           i,
+		RemoteIstioctl:     remoteI,
+		AppManager:         a,
+		RemoteAppManager:   aRemote,
+		AuthEnabled:        *authEnable,
+		AuthSdsEnabled:     *authSdsEnable,
+		RBACEnabled:        *rbacEnable,
+		ReleaseDir:         releaseDir,
+		BaseVersion:        baseVersion,
+		KubeConfig:         kubeConfig,
+		KubeAccessor:       kubeAccessor,
+		RemoteKubeConfig:   remoteKubeConfig,
+		RemoteKubeAccessor: remoteKubeAccessor,
+		appPods:            appPods,
+		Clusters:           clusters,
 	}, nil
 }
 
@@ -330,6 +364,12 @@ func (k *KubeInfo) Setup() error {
 			// install istio using helm
 			if err = k.deployIstioWithHelm(); err != nil {
 				log.Error("Failed to deploy Istio with helm.")
+				return err
+			}
+
+			// execute helm test for istio
+			if err = k.executeHelmTest(); err != nil {
+				log.Error("Failed to execute Istio helm tests.")
 				return err
 			}
 		} else {
@@ -715,11 +755,12 @@ func (k *KubeInfo) deployTiller(yamlFileName string) error {
 
 	// deploy tiller, helm cli is already available
 	if err := util.HelmInit("tiller"); err != nil {
-		log.Errorf("Failed to init helm tiller ")
+		log.Errorf("Failed to init helm tiller")
 		return err
 	}
-	// wait till tiller reaches running
-	return util.CheckPodRunning("kube-system", "name=tiller", k.KubeConfig)
+
+	// Wait until Helm's Tiller is running
+	return util.HelmTillerRunning()
 }
 
 var (
@@ -768,14 +809,26 @@ EOF`, k.KubeConfig, dummyValidationRule)
 	return nil
 }
 
-func (k *KubeInfo) deployIstioWithHelm() error {
-	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio", "templates", "crds.yaml")
+func (k *KubeInfo) deployCRDs(kubernetesCRD string) error {
+	yamlFileName := filepath.Join(istioInstallDir, helmInstallerName, "istio-init", "files", kubernetesCRD)
 	yamlFileName = filepath.Join(k.ReleaseDir, yamlFileName)
 
 	// deploy CRDs first
 	if err := util.KubeApply("kube-system", yamlFileName, k.KubeConfig); err != nil {
-		log.Errorf("Failed to apply %s", yamlFileName)
 		return err
+	}
+	return nil
+}
+
+func (k *KubeInfo) deployIstioWithHelm() error {
+	// Note: When adding a CRD to the install, a new CRDFile* constant is needed
+	// This slice contains the list of CRD files installed during testing
+	istioCRDFileNames := []string{zeroCRDInstallFile, oneCRDInstallFile, twoCRDInstallFile}
+	// deploy all CRDs in Istio first
+	for _, yamlFileName := range istioCRDFileNames {
+		if err := k.deployCRDs(yamlFileName); err != nil {
+			return fmt.Errorf("failed to apply all Istio CRDs from file: %s with error: %v", yamlFileName, err)
+		}
 	}
 
 	// install istio helm chart, which includes addon
@@ -808,17 +861,16 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 	}
 
 	if !*clusterWide {
-		setValue += " --set istiotesting.oneNameSpace=true"
+		setValue += " --set global.oneNamespace=true"
 	}
 
-	// CRDs installed ahead of time with 2.9.x
-	setValue += " --set global.crds=false"
+	// enable helm test for istio
+	setValue += " --set global.enableHelmTest=true"
 
 	// add additional values passed from test
-	if *values != "" {
-		setValue += " --set " + *values
+	for _, v := range helmSetValues {
+		setValue += " --set " + v
 	}
-
 	err := util.HelmClientInit()
 	if err != nil {
 		// helm client init
@@ -861,6 +913,18 @@ func (k *KubeInfo) deployIstioWithHelm() error {
 		if err := k.waitForValdiationWebhook(); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (k *KubeInfo) executeHelmTest() error {
+	if !util.CheckPodsRunning(k.Namespace, k.KubeConfig) {
+		return fmt.Errorf("can't get all pods running")
+	}
+
+	if err := util.HelmTest("istio"); err != nil {
+		return fmt.Errorf("helm test istio failed")
 	}
 
 	return nil

@@ -1,10 +1,10 @@
+istio.io/istio/galley/pkg/testing
 istio.io/istio/mixer/pkg/adapter/test
 istio.io/istio/mixer/pkg/config/storetest
 istio.io/istio/mixer/pkg/mockapi
 istio.io/istio/mixer/pkg/perf
 istio.io/istio/mixer/pkg/runtime/testing
 istio.io/istio/mixer/template/sample
-istio.io/istio/mixer/test
 istio.io/istio/mixer/tools/codegen
 istio.io/istio/pilot/test
 istio.io/istio/pkg/mcp/testing
@@ -15,6 +15,7 @@ istio.io/istio/tests/codecov
 istio.io/istio/tests/e2e
 istio.io/istio/tests/integration2/examples
 istio.io/istio/tests/integration2/qualification
+istio.io/istio/tests/integration2
 istio.io/istio/tests/integration_old
 istio.io/istio/tests/local
 istio.io/istio/tests/util

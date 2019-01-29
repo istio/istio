@@ -152,8 +152,6 @@ spec:
       valueType: STRING
     source.owner:
       valueType: STRING
-    source.service:  # DEPRECATED
-      valueType: STRING
     source.serviceAccount:
       valueType: STRING
     source.services:
@@ -177,8 +175,6 @@ spec:
     destination.container.name:
       valueType: STRING
     destination.namespace:
-      valueType: STRING
-    destination.service: # DEPRECATED
       valueType: STRING
     destination.service.uid:
       valueType: STRING
@@ -815,7 +811,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  match: context.protocol == "http" || context.protocol == "grpc"
+  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false)
   actions:
   - handler: prometheus
     instances:
@@ -866,8 +862,9 @@ spec:
   - handler: prometheus
     instances:
     - tcpconnectionsclosed.metric
+{{- end }}
 ---
-
+{{- if and .Values.adapters.kubernetesenv.enabled (or .Values.policy.enabled .Values.telemetry.enabled) }}
 apiVersion: "config.istio.io/v1alpha2"
 kind: handler
 metadata:
@@ -979,7 +976,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  host: istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-policy.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:
@@ -1006,7 +1003,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  host: istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+  host: istio-telemetry.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     {{- if .Values.global.controlPlaneSecurityEnabled }}
     portLevelSettings:

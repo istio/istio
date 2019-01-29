@@ -156,7 +156,7 @@
   version = "0.10.0"
 
 [[projects]]
-  digest = "1:791e15db2252f9b5a4fb18b3b77ea0cd9c9cf2978cbec0c4183fceb191945fc3"
+  digest = "1:07f4e60d8a08ca0759227bc0a7a12867bb3461f2c4ed376b5160153552199b4f"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -180,12 +180,16 @@
     "internal/sdkrand",
     "internal/shareddefaults",
     "private/protocol",
+    "private/protocol/json/jsonutil",
+    "private/protocol/jsonrpc",
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
     "private/protocol/xml/xmlutil",
     "service/cloudwatch",
     "service/cloudwatch/cloudwatchiface",
+    "service/cloudwatchlogs",
+    "service/cloudwatchlogs/cloudwatchlogsiface",
     "service/sts",
   ]
   pruneopts = "NUT"
@@ -319,7 +323,7 @@
   version = "v2.6.0"
 
 [[projects]]
-  digest = "1:6ebcd4b4ebb45e3685b600892166337f7820a69efb7b0d489b1f31eae11766c3"
+  digest = "1:cd72afc3a00653fbd8b3e64169e4e444641dc1e0077df43aa41a5986f46ec0f6"
   name = "github.com/envoyproxy/go-control-plane"
   packages = [
     "envoy/admin/v2alpha",
@@ -339,6 +343,7 @@
     "envoy/config/filter/http/rbac/v2",
     "envoy/config/filter/network/http_connection_manager/v2",
     "envoy/config/filter/network/mongo_proxy/v2",
+    "envoy/config/filter/network/mysql_proxy/v1alpha1",
     "envoy/config/filter/network/rbac/v2",
     "envoy/config/filter/network/redis_proxy/v2",
     "envoy/config/filter/network/tcp_proxy/v2",
@@ -357,8 +362,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "7b403cf5db9547db2db5562a65454f9ae0dd4f4a"
-  version = "v0.6.3"
+  revision = "eb553e72ac8724721a99ed85fcb116467c7a2bac"
+  version = "v0.6.7"
 
 [[projects]]
   digest = "1:ad32dc29f37281bacb5dcedff17c9461dc1739dc8a5f63a71ab491c6e92edf8d"
@@ -537,6 +542,20 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "4030bb1f1f0c35b30ca7009e9ebd06849dd45306"
+
+[[projects]]
+  digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
+  name = "github.com/google/go-cmp"
+  packages = [
+    "cmp",
+    "cmp/cmpopts",
+    "cmp/internal/diff",
+    "cmp/internal/function",
+    "cmp/internal/value",
+  ]
+  pruneopts = "NUT"
+  revision = "3af367b6b30c263d47e8895973edcca9a49cf029"
+  version = "v0.2.0"
 
 [[projects]]
   digest = "1:51bee9f1987dcdb9f9a1b4c20745d78f6bf6f5f14ad4e64ca883eb64df4c0045"
@@ -883,13 +902,11 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:c1c74479c219daed94a374e5ba7cdab754a279532e76c00df29cc616ebc0ce59"
+  digest = "1:feed851b93f9debbe8180092067c4e29a51c06dbb5fe2f643ec9feea039670a3"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
     "format",
-    "gbytes",
-    "gexec",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -932,12 +949,13 @@
   revision = "dca24d1902afee9d2be02425a2d7c9f910063631"
 
 [[projects]]
-  digest = "1:7da29c22bcc5c2ffb308324377dc00b5084650348c2799e573ed226d8cc9faf0"
+  digest = "1:6e36c3eab25478d363e7eb669f253d9f9a620e640b0e1d86d3e909cbb1a56ab6"
   name = "github.com/opentracing/opentracing-go"
   packages = [
     ".",
     "ext",
     "log",
+    "mocktracer",
   ]
   pruneopts = "NUT"
   revision = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38"
@@ -1003,7 +1021,7 @@
   revision = "525d0eb5f91d30e3b1548de401b7ef9ea6898520"
 
 [[projects]]
-  digest = "1:b57b560027ec66232c769a7f4c65bac5ab6c1975f0bdecc0a44d160274fd4347"
+  digest = "1:e411054f54a332ecadd5fe5a4a68d092f36583e554037587da86da298cffc72d"
   name = "github.com/prometheus/client_golang"
   packages = [
     "api",
@@ -1013,8 +1031,8 @@
     "prometheus/promhttp",
   ]
   pruneopts = "NUT"
-  revision = "1cafe34db7fdec6022e17e00e1c1ea501022f3e4"
-  version = "v0.9.0"
+  revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
+  version = "v0.9.2"
 
 [[projects]]
   branch = "master"
@@ -1609,7 +1627,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ab7a25c17b16a4ac42bc221c3833f4163ceb8b071abb2814eef7fccb49802645"
+  digest = "1:b390629410b2cf04b4efc484f24edd872b7ba73bd02b77a44321abb695263321"
   name = "istio.io/api"
   packages = [
     "authentication/v1alpha1",
@@ -1625,7 +1643,7 @@
     "rbac/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "a4f4a1ff6ffaa99cef7118745f4d65807978a835"
+  revision = "d0444f6849c3e442b5b1e818b29bd2c9dec8ca27"
 
 [[projects]]
   branch = "release-1.11"
@@ -1980,6 +1998,8 @@
     "github.com/aws/aws-sdk-go/awstesting/unit",
     "github.com/aws/aws-sdk-go/service/cloudwatch",
     "github.com/aws/aws-sdk-go/service/cloudwatch/cloudwatchiface",
+    "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
+    "github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface",
     "github.com/cactus/go-statsd-client/statsd",
     "github.com/cactus/go-statsd-client/statsd/statsdtest",
     "github.com/cenkalti/backoff",
@@ -2006,6 +2026,7 @@
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mongo_proxy/v2",
+    "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/mysql_proxy/v1alpha1",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2",
     "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2",
@@ -2038,6 +2059,8 @@
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/golang/protobuf/ptypes/wrappers",
     "github.com/golang/sync/errgroup",
+    "github.com/google/go-cmp/cmp",
+    "github.com/google/go-cmp/cmp/cmpopts",
     "github.com/google/go-github/github",
     "github.com/google/uuid",
     "github.com/googleapis/gax-go",
@@ -2054,14 +2077,13 @@
     "github.com/mitchellh/go-homedir",
     "github.com/natefinch/lumberjack",
     "github.com/onsi/gomega",
-    "github.com/onsi/gomega/gbytes",
-    "github.com/onsi/gomega/gexec",
     "github.com/open-policy-agent/opa/ast",
     "github.com/open-policy-agent/opa/rego",
     "github.com/openshift/api/apps/v1",
     "github.com/opentracing/opentracing-go",
     "github.com/opentracing/opentracing-go/ext",
     "github.com/opentracing/opentracing-go/log",
+    "github.com/opentracing/opentracing-go/mocktracer",
     "github.com/pborman/uuid",
     "github.com/pkg/errors",
     "github.com/pmezard/go-difflib/difflib",
@@ -2127,6 +2149,7 @@
     "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/encoding/gzip",
     "google.golang.org/grpc/grpclog",
+    "google.golang.org/grpc/keepalive",
     "google.golang.org/grpc/metadata",
     "google.golang.org/grpc/peer",
     "google.golang.org/grpc/reflection",
@@ -2149,6 +2172,7 @@
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/apps/v1beta1",
+    "k8s.io/api/authentication/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v2alpha1",
     "k8s.io/api/core/v1",
@@ -2165,6 +2189,7 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",
+    "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
     "k8s.io/apimachinery/pkg/util/runtime",

@@ -26,7 +26,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yl2chen/cidranger"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -82,6 +82,9 @@ type ControllerOptions struct {
 	// XDSUpdater will push changes to the xDS server.
 	XDSUpdater model.XDSUpdater
 
+	// TrustDomain used in SPIFFE identity
+	TrustDomain string
+
 	stop chan struct{}
 }
 
@@ -125,7 +128,6 @@ type Controller struct {
 
 type cacheHandler struct {
 	informer cache.SharedIndexInformer
-	lister   cache.GenericLister
 	handler  *ChainHandler
 }
 
@@ -310,8 +312,8 @@ func (c *Controller) serviceByKey(name, namespace string) (*v1.Service, bool) {
 	return item.(*v1.Service), true
 }
 
-// GetPodAZ retrieves the AZ for a pod.
-func (c *Controller) GetPodAZ(pod *v1.Pod) string {
+// GetPodLocality retrieves the locality for a pod.
+func (c *Controller) GetPodLocality(pod *v1.Pod) string {
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
 	node, exists, err := c.nodes.informer.GetStore().GetByKey(pod.Spec.NodeName)
@@ -320,8 +322,8 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) string {
 		return ""
 	}
 
-	region, _ := node.(*v1.Node).Labels[NodeRegionLabel]
-	zone, _ := node.(*v1.Node).Labels[NodeZoneLabel]
+	region := node.(*v1.Node).Labels[NodeRegionLabel]
+	zone := node.(*v1.Node).Labels[NodeZoneLabel]
 	if region == "" && zone == "" {
 		return ""
 	}
@@ -450,8 +452,8 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 					pod := c.pods.getPodByIP(ea.IP)
 					az, sa, uid := "", "", ""
 					if pod != nil {
-						az = c.GetPodAZ(pod)
-						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+						az = c.GetPodLocality(pod)
+						sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
 						uid = fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 					}
 
@@ -486,7 +488,9 @@ func (c *Controller) InstancesByPort(hostname model.Hostname, reqSvcPort int,
 // GetProxyServiceInstances returns service instances co-located with a given proxy
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
 	out := make([]*model.ServiceInstance, 0)
-	proxyIP := proxy.IPAddress
+
+	// There is only one IP for kube registry
+	proxyIP := proxy.IPAddresses[0]
 	proxyNamespace := ""
 
 	pod := c.pods.getPodByIP(proxyIP)
@@ -542,6 +546,17 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
+// GetProxyLocality returns the locality where the proxy runs.
+func (c *Controller) GetProxyLocality(proxy *model.Proxy) string {
+	proxyIP := proxy.IPAddresses[0]
+	locality := ""
+	pod := c.pods.getPodByIP(proxyIP)
+	if pod != nil {
+		locality = c.GetPodLocality(pod)
+	}
+	return locality
+}
+
 func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
@@ -558,12 +573,15 @@ func (c *Controller) getProxyServiceInstancesByEndpoint(endpoints v1.Endpoints, 
 					continue
 				}
 
-				if hasProxyIP(ss.Addresses, proxy.IPAddress) {
-					out = append(out, getEndpoints(proxy.IPAddress, c, port, svcPort, svc))
+				// There is only one IP for kube registry
+				proxyIP := proxy.IPAddresses[0]
+
+				if hasProxyIP(ss.Addresses, proxyIP) {
+					out = append(out, getEndpoints(proxyIP, c, port, svcPort, svc))
 				}
 
-				if hasProxyIP(ss.NotReadyAddresses, proxy.IPAddress) {
-					nrEP := getEndpoints(proxy.IPAddress, c, port, svcPort, svc)
+				if hasProxyIP(ss.NotReadyAddresses, proxyIP) {
+					nrEP := getEndpoints(proxyIP, c, port, svcPort, svc)
 					out = append(out, nrEP)
 					if c.Env != nil {
 						c.Env.PushContext.Add(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
@@ -581,8 +599,8 @@ func getEndpoints(ip string, c *Controller, port v1.EndpointPort, svcPort *model
 	pod := c.pods.getPodByIP(ip)
 	az, sa := "", ""
 	if pod != nil {
-		az = c.GetPodAZ(pod)
-		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+		az = c.GetPodLocality(pod)
+		sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace())
 	}
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -680,8 +698,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			ports[port.Name] = uint32(port.Port)
 			portsByNum[uint32(port.Port)] = port.Name
 		}
-		// EDS needs the port mapping.
-		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		svcConv := convertService(*svc, c.domainSuffix)
 		instances := externalNameServiceInstances(*svc, svcConv)
@@ -701,6 +717,8 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 			}
 			c.Unlock()
 		}
+		// EDS needs the port mapping.
+		c.XDSUpdater.SvcUpdate(c.ClusterID, hostname, ports, portsByNum)
 
 		f(svcConv, event)
 
@@ -733,45 +751,48 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 		if ep.Namespace == meta_v1.NamespaceSystem {
 			return nil
 		}
-		c.updateEDS(ep)
+		c.updateEDS(ep, event)
+
 		return nil
 	})
 
 	return nil
 }
 
-func (c *Controller) updateEDS(ep *v1.Endpoints) {
+func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	hostname := serviceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
 	endpoints := []*model.IstioEndpoint{}
-	for _, ss := range ep.Subsets {
-		for _, ea := range ss.Addresses {
-			pod := c.pods.getPodByIP(ea.IP)
-			if pod == nil {
-				log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
-				if c.Env != nil {
-					c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+	if event != model.EventDelete {
+		for _, ss := range ep.Subsets {
+			for _, ea := range ss.Addresses {
+				pod := c.pods.getPodByIP(ea.IP)
+				if pod == nil {
+					log.Warnf("Endpoint without pod %s %v", ea.IP, ep)
+					if c.Env != nil {
+						c.Env.PushContext.Add(model.EndpointNoPod, string(hostname), nil, ea.IP)
+					}
+					// TODO: keep them in a list, and check when pod events happen !
+					continue
 				}
-				// TODO: keep them in a list, and check when pod events happen !
-				continue
-			}
 
-			labels := map[string]string(convertLabels(pod.ObjectMeta))
+				labels := map[string]string(convertLabels(pod.ObjectMeta))
 
-			uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
+				uid := fmt.Sprintf("kubernetes://%s.%s", pod.Name, pod.Namespace)
 
-			// EDS and ServiceEntry use name for service port - ADS will need to
-			// map to numbers.
-			for _, port := range ss.Ports {
-				endpoints = append(endpoints, &model.IstioEndpoint{
-					Address:         ea.IP,
-					EndpointPort:    uint32(port.Port),
-					ServicePortName: port.Name,
-					Labels:          labels,
-					UID:             uid,
-					ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix),
-					Network:         c.endpointNetwork(ea.IP),
-				})
+				// EDS and ServiceEntry use name for service port - ADS will need to
+				// map to numbers.
+				for _, port := range ss.Ports {
+					endpoints = append(endpoints, &model.IstioEndpoint{
+						Address:         ea.IP,
+						EndpointPort:    uint32(port.Port),
+						ServicePortName: port.Name,
+						Labels:          labels,
+						UID:             uid,
+						ServiceAccount:  kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace()),
+						Network:         c.endpointNetwork(ea.IP),
+					})
+				}
 			}
 		}
 	}

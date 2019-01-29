@@ -36,7 +36,7 @@ The test framework currently supports two environments:
 When running tests, only one environment can be specified:
 
 ```console
-$ go test ./... -istio.test.env local
+$ go test ./... -istio.test.env native
 $ go test ./... -istio.test.env kubernetes
 ```
 

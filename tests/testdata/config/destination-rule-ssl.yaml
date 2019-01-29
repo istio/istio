@@ -3,6 +3,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: ssl-simple
+  namespace: testns
 spec:
   host: ssl1.webinf.info
   trafficPolicy:
@@ -17,17 +18,9 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: drprefix
+  namespace: testns
 spec:
-  host: "ssl.webinf.info"
+  host: "random.webinf.info"
   trafficPolicy:
     loadBalancer:
       simple: RANDOM
-    tls:
-      mode: MUTUAL
-      clientCertificate: myCertFile.pem
-      privateKey: myPrivateKey.pem
-      # If omitted, no verification !!! ( can still be verified by receiver ??)
-      caCertificates: myCA.pem
-      sni: my.sni.com
-      subjectAltNames:
-      - foo.alt.name

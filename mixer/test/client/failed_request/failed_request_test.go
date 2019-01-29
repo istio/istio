@@ -84,6 +84,7 @@ const reportAttributesMixerFail = `
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
   "destination.uid": "",
+  "istio.mixer": "stringmap[status:UNAUTHENTICATED:Unauthenticated by mixer.]",
   "destination.namespace": "",
   "target.name": "target-name",
   "target.user": "target-user",

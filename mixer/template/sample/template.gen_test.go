@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/checker"
-	"istio.io/istio/mixer/template/sample/apa"
+	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
 	sample_report "istio.io/istio/mixer/template/sample/report"

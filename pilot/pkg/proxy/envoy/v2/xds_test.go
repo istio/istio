@@ -60,7 +60,7 @@ var (
 	// service1 and service2 are used by mixer tests. Use 'service3' and 'app3' for pilot
 	// local tests.
 
-	localIp = "10.3.0.3"
+	localIP = "10.3.0.3"
 )
 
 const (
@@ -99,10 +99,14 @@ func startEnvoy(t *testing.T) {
 		t.Fatal("Can't read bootstrap template", err)
 	}
 	testEnv.EnvoyTemplate = string(tmplB)
-	nodeId := sidecarId(app3Ip, "app3")
-	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeId}
+	testEnv.Dir = env.IstioSrc
+	nodeID := sidecarID(app3Ip, "app3")
+	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeID}
 	testEnv.EnvoyConfigOpt = map[string]interface{}{
-		"NodeID": nodeId,
+		"NodeID":  nodeID,
+		"BaseDir": env.IstioSrc + "/tests/testdata/local",
+		// Same value used in the real template
+		"meta_json_str": fmt.Sprintf(`"BASE": "%s"`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
 	// Mixer will push stats every 1 sec
@@ -113,15 +117,15 @@ func startEnvoy(t *testing.T) {
 	envoyStarted = true
 }
 
-func sidecarId(ip, deployment string) string {
+func sidecarID(ip, deployment string) string {
 	return fmt.Sprintf("sidecar~%s~%s-644fc65469-96dza.testns~testns.svc.cluster.local", ip, deployment)
 }
 
-func gatewayId(ip string) string {
+func gatewayID(ip string) string {
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }
 
-func ingressId(ip string) string {
+func ingressID(ip string) string {
 	return fmt.Sprintf("ingress~%s~istio-ingress-7cd767fcb4-kl6gt.pilot-noauth-system~pilot-noauth-system.svc.cluster.local", ip)
 }
 
@@ -134,14 +138,16 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	initMutex.Lock()
 	defer initMutex.Unlock()
 
-	server, tearDown := util.EnsureTestServer()
+	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+		args.Plugins = bootstrap.DefaultPlugins
+	})
 	testEnv = testenv.NewTestSetup(testenv.XDSTest, t)
 	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	localIp = getLocalIP()
+	localIP = getLocalIP()
 
 	// Service and endpoints for hello.default - used in v1 pilot tests
 	hostname := model.Hostname("hello.default.svc.cluster.local")
@@ -177,7 +183,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	})
 	server.EnvoyXdsServer.MemRegistry.AddInstance("local.default.svc.cluster.local", &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
-			Address: localIp,
+			Address: localIP,
 			Port:    int(testEnv.Ports().BackendPort),
 			ServicePort: &model.Port{
 				Name:     "http",
@@ -286,6 +292,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	return server, tearDown
 }
 
+// nolint: unparam
 func testPorts(base int) []*model.Port {
 	return []*model.Port{
 		{
@@ -304,11 +311,14 @@ func testPorts(base int) []*model.Port {
 			Name:     "mongo",
 			Port:     base + 100,
 			Protocol: model.ProtocolMongo,
-		},
-		{
+		}, {
 			Name:     "redis",
 			Port:     base + 110,
 			Protocol: model.ProtocolRedis,
+		}, {
+			Name:     "mysql",
+			Port:     base + 120,
+			Protocol: model.ProtocolMySQL,
 		}, {
 			Name:     "h2port",
 			Port:     base + 66,
@@ -374,9 +384,9 @@ func envoyInit(t *testing.T) {
 // Example of using a local test connecting to the in-process test service, using Envoy http proxy
 // mode. This is also a test for http proxy (finally).
 func testService(t *testing.T) {
-	proxyUrl, _ := url.Parse("http://localhost:17002")
+	proxyURL, _ := url.Parse("http://localhost:17002")
 
-	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyUrl)}}
+	client := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)}}
 
 	res, err := client.Get("http://local.default.svc.cluster.local")
 	if err != nil {
@@ -427,6 +437,7 @@ func getLocalIP() string {
 
 // newEndpointWithAccount is a helper for IstioEndpoint creation. Creates endpoints with
 // port name "http", with the given IP, service account and a 'version' label.
+// nolint: unparam
 func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint {
 	return []*model.IstioEndpoint{
 		&model.IstioEndpoint{

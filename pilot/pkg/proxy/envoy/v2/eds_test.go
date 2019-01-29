@@ -30,7 +30,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
@@ -83,14 +83,14 @@ func TestEds(t *testing.T) {
 			t.Error("No clusters in ADS response")
 		}
 		strResponse, _ := json.MarshalIndent(adsc.Clusters, " ", " ")
-		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", []byte(strResponse), 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
 
 	})
 }
 
 func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 	adsc, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-		IP: testIp(uint32(ip)),
+		IP: testIP(uint32(ip)),
 	})
 	if err != nil {
 		t.Fatal("Error connecting ", err)
@@ -118,7 +118,7 @@ func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
 	for _, lbe := range lbe.Endpoints {
 		for _, e := range lbe.LbEndpoints {
 			total++
-			if expected == e.Endpoint.Address.GetSocketAddress().Address {
+			if expected == e.GetEndpoint().Address.GetSocketAddress().Address {
 				return
 			}
 		}
@@ -130,7 +130,7 @@ func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
 }
 
 // Verify server sends UDS endpoints
-func testUdsEndpoints(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
+func testUdsEndpoints(_ *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 	// Check the UDS endpoint ( used to be separate test - but using old unused GRPC method)
 	// The new test also verifies CDS is pusing the UDS cluster, since adsc.EDS is
 	// populated using CDS response
@@ -221,6 +221,8 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 		t.Fatal("Expecting full push after service account update", err, upd)
 	}
 	adsc.Wait("rds", 5*time.Second)
+	// LDS also asks for an update
+	adsc.Wait("rds", 5*time.Second)
 	testTCPEndpoints("127.0.0.3", adsc, t)
 
 	// Update the endpoint again, no SA change - expect incremental
@@ -251,7 +253,7 @@ func edsUpdateInc(server *bootstrap.Server, adsc *adsc.ADSC, t *testing.T) {
 // This test includes a 'bad client' regression test, which fails to read on the
 // stream.
 func multipleRequest(server *bootstrap.Server, inc bool, nclients,
-	nPushes int, to time.Duration, meta map[string]string, t *testing.T) {
+	nPushes int, to time.Duration, _ map[string]string, t *testing.T) {
 	wgConnect := &sync.WaitGroup{}
 	wg := &sync.WaitGroup{}
 	errChan := make(chan error, nclients)
@@ -263,7 +265,7 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = sendCDSReq(sidecarId(testIp(0x0a120001), "app3"), ads)
+	err = sendCDSReq(sidecarID(testIP(0x0a120001), "app3"), ads)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,24 +282,24 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			defer wg.Done()
 			// Connect and get initial response
 			adsc, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-				IP: testIp(uint32(0x0a100000 + id)),
+				IP: testIP(uint32(0x0a100000 + id)),
 			})
 			if err != nil {
-				errChan <- errors.New("Failed to connect" + err.Error())
+				errChan <- errors.New("failed to connect" + err.Error())
 				wgConnect.Done()
 				return
 			}
 			defer adsc.Close()
 			adsc.Watch()
-			_, err = adsc.Wait("rds", 10*time.Second)
+			_, err = adsc.Wait("rds", 5*time.Second)
 			if err != nil {
-				errChan <- errors.New("Failed to get initial rds" + err.Error())
+				errChan <- errors.New("failed to get initial rds" + err.Error())
 				wgConnect.Done()
 				return
 			}
 
 			if len(adsc.EDS) == 0 {
-				errChan <- errors.New("No endpoints")
+				errChan <- errors.New("no endpoints")
 				wgConnect.Done()
 				return
 			}
@@ -313,8 +315,8 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 				atomic.AddInt32(&rcvPush, 1)
 				if err != nil {
 					log.Println("Recv failed", err, id, j)
-					errChan <- errors.New(fmt.Sprintf("Failed to receive a response in 15 s %v %v %v",
-						err, id, j))
+					errChan <- fmt.Errorf("failed to receive a response in 15 s %v %v %v",
+						err, id, j)
 					return
 				}
 			}
@@ -336,8 +338,8 @@ func multipleRequest(server *bootstrap.Server, inc bool, nclients,
 			// This will be throttled - we want to trigger a single push
 			//server.EnvoyXdsServer.MemRegistry.SetEndpoints(edsIncSvc,
 			//	newEndpointWithAccount("127.0.0.2", "hello-sa", "v1"))
-			updates := map[string]*v2.EndpointShardsByService{
-				edsIncSvc: &v2.EndpointShardsByService{},
+			updates := map[string]*v2.EndpointShards{
+				edsIncSvc: &v2.EndpointShards{},
 			}
 			server.EnvoyXdsServer.AdsPushAll(strconv.Itoa(j), server.EnvoyXdsServer.Env.PushContext, false, updates)
 		} else {

@@ -33,7 +33,7 @@ type EndpointsFilterFunc func(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *XdsConnection, env *model.Environment) []endpoint.LocalityLbEndpoints {
 	// If the sidecar does not specify a network, ignore Split Horizon EDS and return all
-	network, found := conn.modelNode.Metadata["NETWORK"]
+	network, found := conn.modelNode.Metadata[model.NodeMetadataNetwork]
 	if !found {
 		// Couldn't find the sidecar network, using default/local
 		network = ""
@@ -99,11 +99,13 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
 					addr := util.BuildAddress(gw.GetAddress(), gw.Port)
 					gwEp = &endpoint.LbEndpoint{
-						Endpoint: &endpoint.Endpoint{
-							Address: &addr,
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+							Endpoint: &endpoint.Endpoint{
+								Address: &addr,
+							},
 						},
 						LoadBalancingWeight: &types.UInt32Value{
-							Value: uint32(w),
+							Value: w,
 						},
 					}
 				}
@@ -122,6 +124,11 @@ func EndpointsByNetworkFilter(endpoints []endpoint.LocalityLbEndpoints, conn *Xd
 
 	return filtered
 }
+
+// TODO: remove this, filtering should be done before generating the config, and
+// network metadata should not be included in output. A node only receives endpoints
+// in the same network as itself - so passing an network meta, with exactly
+// same value that the node itself had, on each endpoint is a bit absurd.
 
 // Checks whether there is an istio metadata string value for the provided key
 // within the endpoint metadata. If exists, it will return the value.

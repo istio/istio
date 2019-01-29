@@ -26,6 +26,7 @@ import (
 	authn "istio.io/api/authentication/v1alpha1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/pilot/pkg/model/test"
 )
 
@@ -217,6 +218,9 @@ type ProtoSchema struct {
 	// Validate configuration as a protobuf message assuming the object is an
 	// instance of the expected message type
 	Validate func(name, namespace string, config proto.Message) error
+
+	// MCP collection for this configuration resource schema
+	Collection string
 }
 
 // Types lists all known types in the config schema
@@ -337,6 +341,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.VirtualService",
 		Validate:    ValidateVirtualService,
+		Collection:  metadata.VirtualService.Collection.String(),
 	}
 
 	// Gateway describes a gateway (how a proxy is exposed on the network)
@@ -347,6 +352,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.Gateway",
 		Validate:    ValidateGateway,
+		Collection:  metadata.Gateway.Collection.String(),
 	}
 
 	// ServiceEntry describes service entries
@@ -357,6 +363,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.ServiceEntry",
 		Validate:    ValidateServiceEntry,
+		Collection:  metadata.ServiceEntry.Collection.String(),
 	}
 
 	// DestinationRule describes destination rules
@@ -367,6 +374,7 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.DestinationRule",
 		Validate:    ValidateDestinationRule,
+		Collection:  metadata.DestinationRule.Collection.String(),
 	}
 
 	// EnvoyFilter describes additional envoy filters to be inserted by Pilot
@@ -377,6 +385,18 @@ var (
 		Version:     "v1alpha3",
 		MessageName: "istio.networking.v1alpha3.EnvoyFilter",
 		Validate:    ValidateEnvoyFilter,
+		Collection:  metadata.EnvoyFilter.Collection.String(),
+	}
+
+	// Sidecar describes the listeners associated with sidecars in a namespace
+	Sidecar = ProtoSchema{
+		Type:        "sidecar",
+		Plural:      "sidecars",
+		Group:       "networking",
+		Version:     "v1alpha3",
+		MessageName: "istio.networking.v1alpha3.Sidecar",
+		Validate:    ValidateSidecar,
+		Collection:  metadata.Sidecar.Collection.String(),
 	}
 
 	// HTTPAPISpec describes an HTTP API specification.
@@ -387,6 +407,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
 		Validate:    ValidateHTTPAPISpec,
+		Collection:  metadata.HTTPAPISpec.Collection.String(),
 	}
 
 	// HTTPAPISpecBinding describes an HTTP API specification binding.
@@ -397,6 +418,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
 		Validate:    ValidateHTTPAPISpecBinding,
+		Collection:  metadata.HTTPAPISpecBinding.Collection.String(),
 	}
 
 	// QuotaSpec describes an Quota specification.
@@ -407,6 +429,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
 		Validate:    ValidateQuotaSpec,
+		Collection:  metadata.QuotaSpec.Collection.String(),
 	}
 
 	// QuotaSpecBinding describes an Quota specification binding.
@@ -417,6 +440,7 @@ var (
 		Version:     istioAPIVersion,
 		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
 		Validate:    ValidateQuotaSpecBinding,
+		Collection:  metadata.QuotaSpecBinding.Collection.String(),
 	}
 
 	// AuthenticationPolicy describes an authentication policy.
@@ -427,6 +451,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.authentication.v1alpha1.Policy",
 		Validate:    ValidateAuthenticationPolicy,
+		Collection:  metadata.Policy.Collection.String(),
 	}
 
 	// AuthenticationMeshPolicy describes an authentication policy at mesh level.
@@ -438,6 +463,7 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.authentication.v1alpha1.Policy",
 		Validate:      ValidateAuthenticationPolicy,
+		Collection:    metadata.MeshPolicy.Collection.String(),
 	}
 
 	// ServiceRole describes an RBAC service role.
@@ -448,6 +474,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.ServiceRole",
 		Validate:    ValidateServiceRole,
+		Collection:  metadata.ServiceRole.Collection.String(),
 	}
 
 	// ServiceRoleBinding describes an RBAC service role.
@@ -459,6 +486,7 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.ServiceRoleBinding",
 		Validate:      ValidateServiceRoleBinding,
+		Collection:    metadata.ServiceRoleBinding.Collection.String(),
 	}
 
 	// RbacConfig describes the mesh level RBAC config.
@@ -471,6 +499,7 @@ var (
 		Version:     "v1alpha1",
 		MessageName: "istio.rbac.v1alpha1.RbacConfig",
 		Validate:    ValidateRbacConfig,
+		Collection:  metadata.RbacConfig.Collection.String(),
 	}
 
 	// ClusterRbacConfig describes the cluster level RBAC config.
@@ -482,6 +511,7 @@ var (
 		Version:       "v1alpha1",
 		MessageName:   "istio.rbac.v1alpha1.RbacConfig",
 		Validate:      ValidateClusterRbacConfig,
+		Collection:    metadata.ClusterRbacConfig.Collection.String(),
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
@@ -491,6 +521,7 @@ var (
 		ServiceEntry,
 		DestinationRule,
 		EnvoyFilter,
+		Sidecar,
 		HTTPAPISpec,
 		HTTPAPISpecBinding,
 		QuotaSpec,
@@ -554,6 +585,32 @@ func ResolveShortnameToFQDN(host string, meta ConfigMeta) Hostname {
 	}
 
 	return Hostname(out)
+}
+
+// resolveGatewayName uses metadata information to resolve a reference
+// to shortname of the gateway to FQDN
+func resolveGatewayName(gwname string, meta ConfigMeta) string {
+	out := gwname
+
+	// New way of binding to a gateway in remote namespace
+	// is ns/name. Old way is either FQDN or short name
+	if !strings.Contains(gwname, "/") {
+		if !strings.Contains(gwname, ".") {
+			// we have a short name. Resolve to a gateway in same namespace
+			out = fmt.Sprintf("%s/%s", meta.Namespace, gwname)
+		} else {
+			// parse namespace from FQDN. This is very hacky, but meant for backward compatibility only
+			parts := strings.Split(gwname, ".")
+			out = fmt.Sprintf("%s/%s", parts[1], parts[0])
+		}
+	} else {
+		// remove the . from ./gateway and substitute it with the namespace name
+		parts := strings.Split(gwname, "/")
+		if parts[0] == "." {
+			out = fmt.Sprintf("%s/%s", meta.Namespace, parts[1])
+		}
+	}
+	return out
 }
 
 // MostSpecificHostMatch compares the elements of the stack to the needle, and returns the longest stack element

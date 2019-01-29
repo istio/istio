@@ -22,106 +22,72 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/galley/pkg/kube"
+	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/runtime/config/constant"
 )
 
-// Well-known non-legacy Mixer types.
-var mixerKinds = map[string]struct{}{
-	constant.AdapterKind:           {},
-	constant.AttributeManifestKind: {},
-	constant.InstanceKind:          {},
-	constant.HandlerKind:           {},
-	constant.RulesKind:             {},
-	constant.TemplateKind:          {},
-}
-
-const (
-	// MessageName, TypeURL for the LegacyMixerResource wrapper type.
-	legacyMixerResourceMessageName = "istio.mcp.v1alpha1.extensions.LegacyMixerResource"
-	legacyMixerResourceTypeURL     = "type.googleapis.com/" + legacyMixerResourceMessageName
-)
-
-// mapping between Proto Type Urls and and CRD Kinds.
+// mapping between MCP collections and and CRD Kinds.
 type mapping struct {
-	// The set of legacy Mixer resource kinds.
-	legacyKinds map[string]struct{}
-
-	// Bidirectional mapping of type URL & kinds for non-legacy resources.
-	kindsToTypeURLs map[string]string
-	typeURLsToKinds map[string]string
+	// Bidirectional mapping of collections & kinds for non-legacy resources.
+	kindsToCollections map[string]string
+	collectionsToKinds map[string]string
 }
 
-// construct a mapping of kinds and TypeURLs. allKinds is the kind set that was passed
+// construct a mapping of kinds and collections. allKinds is the kind set that was passed
 // as part of backend creation.
-func constructMapping(allKinds []string, schema *kube.Schema) (*mapping, error) {
-
-	// Calculate the legacy kinds.
-	legacyKinds := make(map[string]struct{})
-	for _, k := range allKinds {
-		if _, ok := mixerKinds[k]; !ok {
-			legacyKinds[k] = struct{}{}
-		}
-	}
-
+func constructMapping(allKinds []string, schema *schema.Instance) (*mapping, error) {
 	// The mapping is constructed from the common metadata we have for the Kubernetes.
-	// Go through Mixer's well-known kinds, and map them to Type URLs.
+	// Go through Mixer's well-known kinds, and map them to collections.
 
-	// Create a mapping of kind <=> TypeURL for known non-legacy Mixer kinds.
-	kindToURL := make(map[string]string)
-	urlToKind := make(map[string]string)
+	mixerKindMap := make(map[string]struct{})
+	for _, k := range allKinds {
+		mixerKindMap[k] = struct{}{}
+	}
+
+	// Create a mapping of kind <=> collection for known non-legacy Mixer kinds.
+	kindToCollection := make(map[string]string)
+	collectionToKind := make(map[string]string)
 	for _, spec := range schema.All() {
-		if _, ok := mixerKinds[spec.Kind]; ok {
-			kindToURL[spec.Kind] = spec.Target.TypeURL.String()
-			urlToKind[spec.Target.TypeURL.String()] = spec.Kind
+		if _, ok := mixerKindMap[spec.Kind]; ok {
+			kindToCollection[spec.Kind] = spec.Target.Collection.String()
+			collectionToKind[spec.Target.Collection.String()] = spec.Kind
 		}
 	}
 
-	if len(mixerKinds) != len(kindToURL) {
-		// We couldn't find metadata for some of the well-known Mixer kinds. This shouldn't happen
-		// and is a fatal error.
-		var problemKinds []string
-		for mk := range mixerKinds {
-			if _, ok := kindToURL[mk]; !ok {
-				problemKinds = append(problemKinds, mk)
-			}
+	var missingKinds []string
+	for _, mk := range allKinds {
+		if _, ok := kindToCollection[mk]; !ok {
+			missingKinds = append(missingKinds, mk)
 		}
-
-		return nil, fmt.Errorf("unable to map some Mixer kinds to TypeURLs: %q",
-			strings.Join(problemKinds, ","))
+	}
+	// We couldn't find metadata for some of the well-known Mixer kinds. This shouldn't happen
+	// and is a fatal error.
+	if len(missingKinds) > 0 {
+		return nil, fmt.Errorf("unable to map some Mixer kinds to collections: %q",
+			strings.Join(missingKinds, ","))
 	}
 
 	return &mapping{
-		legacyKinds:     legacyKinds,
-		kindsToTypeURLs: kindToURL,
-		typeURLsToKinds: urlToKind,
+		kindsToCollections: kindToCollection,
+		collectionsToKinds: collectionToKind,
 	}, nil
 }
 
-// typeURLs returns all TypeURLs that should be requested from the MCP server.
-func (m *mapping) typeURLs() []string {
-	result := make([]string, 0, len(m.typeURLsToKinds)+1)
-	for u := range m.typeURLsToKinds {
+// collections returns all collections that should be requested from the MCP server.
+func (m *mapping) collections() []string {
+	result := make([]string, 0, len(m.collectionsToKinds)+1)
+	for u := range m.collectionsToKinds {
 		result = append(result, u)
 	}
-	result = append(result, legacyMixerResourceTypeURL)
-
 	return result
 }
 
-func (m *mapping) kind(typeURL string) string {
-	return m.typeURLsToKinds[typeURL]
-}
-
-func isLegacyTypeURL(url string) bool {
-	return url == legacyMixerResourceTypeURL
+func (m *mapping) kind(collection string) string {
+	return m.collectionsToKinds[collection]
 }
 
 func toKey(kind string, resourceName string) store.Key {
-	// TODO: This is a dependency on the name format. For the short term, we will parse the resource name,
-	// assuming it is in the ns/name format. For the long term, we should update the code to stop it from
-	// depending on namespaces.
 	ns := ""
 	localName := resourceName
 	if idx := strings.LastIndex(resourceName, "/"); idx != -1 {
@@ -136,7 +102,9 @@ func toKey(kind string, resourceName string) store.Key {
 	}
 }
 
-func toBackendResource(key store.Key, resource proto.Message, version string) (*store.BackEndResource, error) {
+func toBackendResource(key store.Key, labels resource.Labels, annotations resource.Annotations, resource proto.Message,
+	version string) (*store.BackEndResource, error) {
+
 	marshaller := jsonpb.Marshaler{}
 	jsonData, err := marshaller.MarshalToString(resource)
 	if err != nil {
@@ -151,9 +119,11 @@ func toBackendResource(key store.Key, resource proto.Message, version string) (*
 	return &store.BackEndResource{
 		Kind: key.Kind,
 		Metadata: store.ResourceMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-			Revision:  version,
+			Name:        key.Name,
+			Namespace:   key.Namespace,
+			Revision:    version,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: spec,
 	}, nil

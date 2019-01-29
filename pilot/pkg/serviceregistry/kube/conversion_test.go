@@ -19,11 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/spiffe"
 )
 
 var (
@@ -51,6 +52,8 @@ var (
 		{"mongo-test", v1.ProtocolTCP, model.ProtocolMongo},
 		{"redis", v1.ProtocolTCP, model.ProtocolRedis},
 		{"redis-test", v1.ProtocolTCP, model.ProtocolRedis},
+		{"mysql", v1.ProtocolTCP, model.ProtocolMySQL},
+		{"mysql-test", v1.ProtocolTCP, model.ProtocolMySQL},
 	}
 )
 
@@ -70,6 +73,10 @@ func TestServiceConversion(t *testing.T) {
 	saB := "serviceaccountB"
 	saC := "spiffe://accounts.google.com/serviceaccountC@cloudservices.gserviceaccount.com"
 	saD := "spiffe://accounts.google.com/serviceaccountD@developer.gserviceaccount.com"
+
+	oldTrustDomain := spiffe.GetTrustDomain()
+	spiffe.SetTrustDomain(domainSuffix)
+	defer spiffe.SetTrustDomain(oldTrustDomain)
 
 	ip := "10.0.0.1"
 

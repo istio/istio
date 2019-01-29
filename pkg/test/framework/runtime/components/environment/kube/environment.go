@@ -17,9 +17,17 @@ package kube
 import (
 	"bytes"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hashicorp/go-multierror"
 	"io"
+	"path/filepath"
+	"strings"
+	"testing"
+	"text/template"
+
+	"github.com/google/uuid"
+	multierror "github.com/hashicorp/go-multierror"
+	yaml2 "gopkg.in/yaml.v2"
+
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -29,9 +37,6 @@ import (
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"strings"
-	"testing"
-	"text/template"
 )
 
 const (
@@ -88,6 +93,34 @@ func GetEnvironmentOrFail(r component.Repository, t testing.TB) *Environment {
 // Scope for this component.
 func (e *Environment) Scope() lifecycle.Scope {
 	return e.scope
+}
+
+// Is mtls enabled. Check in Values flag and Values file.
+func (e *Environment) IsMtlsEnabled() bool {
+	if e.s.Values["global.mtls.enabled"] == "true" {
+		return true
+	}
+
+	data, err := test.ReadConfigFile(filepath.Join(e.s.ChartDir, e.s.ValuesFile))
+	if err != nil {
+		return false
+	}
+	m := make(map[interface{}]interface{})
+	err = yaml2.Unmarshal([]byte(data), &m)
+	if err != nil {
+		return false
+	}
+	if m["global"] != nil {
+		switch globalVal := m["global"].(type) {
+		case map[interface{}]interface{}:
+			switch mtlsVal := globalVal["mtls"].(type) {
+			case map[interface{}]interface{}:
+				return mtlsVal["enabled"].(bool)
+			}
+		}
+	}
+
+	return false
 }
 
 // Descriptor for this component
@@ -177,7 +210,7 @@ func (e *Environment) Start(ctx context.Instance, scope lifecycle.Scope) error {
 		name:             e.s.TestNamespace,
 		annotation:       "istio-test",
 		accessor:         e.Accessor,
-		injectionEnabled: false,
+		injectionEnabled: true,
 	}
 
 	if err := e.systemNamespace.allocate(); err != nil {
@@ -211,12 +244,13 @@ func (e *Environment) deployIstio() (err error) {
 	}()
 
 	e.deployment, err = deployment.NewHelmDeployment(deployment.HelmConfig{
-		Accessor:   e.Accessor,
-		Namespace:  e.systemNamespace.allocatedName,
-		WorkDir:    e.ctx.WorkDir(),
-		ChartDir:   e.s.ChartDir,
-		ValuesFile: e.s.ValuesFile,
-		Values:     e.s.Values,
+		Accessor:     e.Accessor,
+		Namespace:    e.systemNamespace.allocatedName,
+		WorkDir:      e.ctx.WorkDir(),
+		ChartDir:     e.s.ChartDir,
+		CrdsFilesDir: e.s.CrdsFilesDir,
+		ValuesFile:   e.s.ValuesFile,
+		Values:       e.s.Values,
 	})
 	if err == nil {
 		err = e.deployment.Deploy(e.Accessor, true, retry.Timeout(e.s.DeployTimeout))

@@ -17,17 +17,18 @@ package apps
 import (
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/test/deployment"
 	"net"
 	"net/url"
 	"strconv"
 	"testing"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
+	"istio.io/istio/pkg/test/deployment"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	testKube "istio.io/istio/pkg/test/kube"
+
 	kubeApiCore "k8s.io/api/core/v1"
 )
 

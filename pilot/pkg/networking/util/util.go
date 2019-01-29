@@ -86,12 +86,22 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
-// BuildAddress returns a SocketAddress with the given ip and port.
-func BuildAddress(ip string, port uint32) core.Address {
+// BuildAddress returns a SocketAddress with the given ip and port or uds.
+func BuildAddress(bind string, port uint32) core.Address {
+	if len(bind) > 0 && strings.HasPrefix(bind, model.UnixAddressPrefix) {
+		return core.Address{
+			Address: &core.Address_Pipe{
+				Pipe: &core.Pipe{
+					Path: bind,
+				},
+			},
+		}
+	}
+
 	return core.Address{
 		Address: &core.Address_SocketAddress{
 			SocketAddress: &core.SocketAddress{
-				Address: ip,
+				Address: bind,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: port,
 				},
@@ -212,20 +222,10 @@ func SortVirtualHosts(hosts []route.VirtualHost) {
 	})
 }
 
-// isProxyVersion checks whether the given Proxy version matches the supplied prefix.
-func isProxyVersion(node *model.Proxy, prefix string) bool {
-	ver, found := node.GetProxyVersion()
-	return found && strings.HasPrefix(ver, prefix)
-}
-
-// Is1xProxy checks whether the given Proxy version is 1.x.
-func Is1xProxy(node *model.Proxy) bool {
-	return isProxyVersion(node, "1.")
-}
-
-// Is11Proxy checks whether the given Proxy version is 1.1.
-func Is11Proxy(node *model.Proxy) bool {
-	return isProxyVersion(node, "1.1")
+// IsProxyVersionGE11 checks whether the given Proxy version is greater than or equals 1.1.
+func IsProxyVersionGE11(node *model.Proxy) bool {
+	ver, _ := node.GetProxyVersion()
+	return ver >= "1.1"
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all
@@ -256,22 +256,77 @@ func ConvertLocality(locality string) *core.Locality {
 		return nil
 	}
 
+	region, zone, subzone := SplitLocality(locality)
+	return &core.Locality{
+		Region:  region,
+		Zone:    zone,
+		SubZone: subzone,
+	}
+}
+
+func LocalityMatch(proxyLocality model.LocalityInterface, ruleLocality string) bool {
+	ruleRegion, ruleZone, ruleSubzone := SplitLocality(ruleLocality)
+	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
+	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
+	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
+
+	if regionMatch && zoneMatch && subzoneMatch {
+		return true
+	}
+	return false
+}
+
+func SplitLocality(locality string) (region, zone, subzone string) {
 	items := strings.Split(locality, "/")
 	switch len(items) {
 	case 1:
-		return &core.Locality{
-			Region: items[0],
-		}
+		return items[0], "", ""
 	case 2:
-		return &core.Locality{
-			Region: items[0],
-			Zone:   items[1],
-		}
+		return items[0], items[1], ""
 	default:
-		return &core.Locality{
-			Region:  items[0],
-			Zone:    items[1],
-			SubZone: items[2],
-		}
+		return items[0], items[1], items[2]
 	}
+}
+
+func LbPriority(proxyLocality, endpointsLocality model.LocalityInterface) int {
+	if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
+		if proxyLocality.GetZone() == endpointsLocality.GetZone() {
+			if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
+				return 0
+			}
+			return 1
+		}
+		return 2
+	}
+	return 3
+}
+
+// return a shallow copy cluster
+func CloneCluster(cluster *xdsapi.Cluster) *xdsapi.Cluster {
+	if cluster == nil {
+		return nil
+	}
+
+	out := *cluster
+	loadAssignment := *cluster.LoadAssignment
+	out.LoadAssignment = &loadAssignment
+	clonedLocEps := CloneLocalityLbEndpoints(loadAssignment.Endpoints)
+	out.LoadAssignment.Endpoints = clonedLocEps
+
+	return &out
+}
+
+// return a shallow copy LocalityLbEndpoints
+func CloneLocalityLbEndpoints(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
+	out := make([]endpoint.LocalityLbEndpoints, 0, len(endpoints))
+	for _, ep := range endpoints {
+		clone := ep
+		if ep.LoadBalancingWeight != nil {
+			clone.LoadBalancingWeight = &types.UInt32Value{
+				Value: ep.GetLoadBalancingWeight().GetValue(),
+			}
+		}
+		out = append(out, clone)
+	}
+	return out
 }

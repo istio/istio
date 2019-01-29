@@ -29,7 +29,8 @@ import (
 type LbEpInfo struct {
 	network string
 	address string
-	weight  uint32
+	// nolint: structcheck
+	weight uint32
 }
 
 type LocLbEpInfo struct {
@@ -143,8 +144,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			}
 
 			sort.Slice(filtered, func(i, j int) bool {
-				addrI := filtered[i].LbEndpoints[0].Endpoint.Address.GetSocketAddress().Address
-				addrJ := filtered[j].LbEndpoints[0].Endpoint.Address.GetSocketAddress().Address
+				addrI := filtered[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+				addrJ := filtered[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
 				return addrI < addrJ
 			})
 
@@ -158,7 +159,7 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 				}
 
 				for _, lbEp := range ep.LbEndpoints {
-					addr := lbEp.Endpoint.Address.GetSocketAddress().Address
+					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 					found := false
 					for _, wantLbEp := range tt.want[i].lbEps {
 						if addr == wantLbEp.address {
@@ -261,11 +262,13 @@ func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
 	lbEndpoints := make([]endpoint.LbEndpoint, len(lbEpsInfo))
 	for j, lbEpInfo := range lbEpsInfo {
 		lbEp := endpoint.LbEndpoint{
-			Endpoint: &endpoint.Endpoint{
-				Address: &core.Address{
-					Address: &core.Address_SocketAddress{
-						SocketAddress: &core.SocketAddress{
-							Address: lbEpInfo.address,
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+				Endpoint: &endpoint.Endpoint{
+					Address: &core.Address{
+						Address: &core.Address_SocketAddress{
+							SocketAddress: &core.SocketAddress{
+								Address: lbEpInfo.address,
+							},
 						},
 					},
 				},

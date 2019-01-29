@@ -57,18 +57,34 @@ func TestParseThreshold(t *testing.T) {
 	if err := ioutil.WriteFile(outFile, []byte(example), 0644); err != nil {
 		t.Errorf("Failed to write example file, %v", err)
 	}
+	example2 :=
+		"#Some comments\n" +
+			"  # more comments\n" +
+			"istio.io/istio/mixer/pkg\n" +
+			" istio.io/istio/pilot/test\n" +
+			"\n"
+	outFile2 := filepath.Join(tmpDir, "outFile2")
+	if err := ioutil.WriteFile(outFile2, []byte(example2), 0644); err != nil {
+		t.Errorf("Failed to write example file, %v", err)
+	}
 
-	thresholds, err := parseThreshold(outFile)
+	thresholds, err := parseThreshold(outFile + "," + outFile2)
 	if err != nil {
 		t.Errorf("Failed to parse outFile, %v", err)
 	} else {
-		if len(thresholds) != 2 {
+		if len(thresholds) != 4 {
 			t.Error("Wrong result count from parseThresholds()")
 		}
 		if thresholds["istio.io/istio/galley/pkg/crd"] != 10.5 {
 			t.Error("Wrong result from parseThreshold()")
 		}
 		if thresholds["istio.io/istio/pilot"] != 20.2 {
+			t.Error("Wrong result from parseThreshold()")
+		}
+		if thresholds["istio.io/istio/mixer/pkg"] != 100 {
+			t.Error("Wrong result from parseThreshold()")
+		}
+		if thresholds["istio.io/istio/pilot/test"] != 100 {
 			t.Error("Wrong result from parseThreshold()")
 		}
 	}
@@ -151,7 +167,7 @@ func TestCheckDeltaError(t *testing.T) {
 		map[string]float64{
 			// Default threshold
 			"P": 5,
-		})
+		}, false)
 	if len(result) == 0 {
 		t.Error("Expecting error")
 	}
@@ -183,7 +199,7 @@ func TestCheckDeltaGood(t *testing.T) {
 		map[string]float64{
 			// Default threshold
 			"P": 5,
-		})
+		}, false)
 	if len(result) > 0 {
 		t.Errorf("Expecting success")
 	}
@@ -191,13 +207,19 @@ func TestCheckDeltaGood(t *testing.T) {
 
 // Actual codecov diff test
 func TestCheckCoverage(t *testing.T) {
-	if len(*reportFile) == 0 || len(*baselineFile) == 0 || len(*thresholdFile) == 0 {
+	if len(*reportFile) == 0 || len(*baselineFile) == 0 || len(*thresholdFiles) == 0 {
 		t.Skip("Test files are not provided.")
 	}
-	err := checkCoverage(*reportFile, *baselineFile, *thresholdFile)
+	err := checkCoverage(*reportFile, *baselineFile, *thresholdFiles, *skipDeleted)
 
 	if err != nil {
 		t.Errorf("%v", err)
+	}
+}
+
+func TestGoPath(t *testing.T) {
+	if len(os.Getenv("GOPATH")) == 0 {
+		t.Error("${GOPATH} is not set")
 	}
 }
 

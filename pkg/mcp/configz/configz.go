@@ -20,29 +20,37 @@ import (
 
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/ctrlz/fw"
-	"istio.io/istio/pkg/mcp/client"
+	"istio.io/istio/pkg/mcp/sink"
 )
 
-// configzTopic topic is a Topic fw.implementation that exposes the state info about an MCP client.
+// configzTopic topic is a Topic fw.implementation that exposes the state info about an MCP sink.
 type configzTopic struct {
 	tmpl *template.Template
 
-	cl *client.Client
+	topic SinkTopic
 }
 
 var _ fw.Topic = &configzTopic{}
 
-// Register the Configz topic for the given client.
+// SinkTopic defines the expected interface for producing configz data from an MCP sink.
+type SinkTopic interface {
+	SnapshotRequestInfo() []sink.RecentRequestInfo
+	Metadata() map[string]string
+	ID() string
+	Collections() []string
+}
+
+// Register the Configz topic for the given sink.
 // TODO: Multi-client registration is currently not supported. We should update the topic, so that we can
 // show output from multiple clients.
-func Register(c *client.Client) {
-	ctrlz.RegisterTopic(CreateTopic(c))
+func Register(topic SinkTopic) {
+	ctrlz.RegisterTopic(CreateTopic(topic))
 }
 
 // CreateTopic creates and returns a configz topic from the given MCP client. It does not do any registration.
-func CreateTopic(c *client.Client) fw.Topic {
+func CreateTopic(topic SinkTopic) fw.Topic {
 	return &configzTopic{
-		cl: c,
+		topic: topic,
 	}
 }
 
@@ -57,11 +65,11 @@ func (c *configzTopic) Prefix() string {
 }
 
 type data struct {
-	ID                string
-	Metadata          map[string]string
-	SupportedTypeURLs []string
+	ID          string
+	Metadata    map[string]string
+	Collections []string
 
-	LatestRequests []client.RecentRequestInfo
+	LatestRequests []sink.RecentRequestInfo
 }
 
 // Activate is implementation of Topic.Activate.
@@ -82,9 +90,9 @@ func (c *configzTopic) Activate(context fw.TopicContext) {
 
 func (c *configzTopic) collectData() *data {
 	return &data{
-		ID:                c.cl.ID(),
-		Metadata:          c.cl.Metadata(),
-		SupportedTypeURLs: c.cl.SupportedTypeURLs(),
-		LatestRequests:    c.cl.SnapshotRequestInfo(),
+		ID:             c.topic.ID(),
+		Metadata:       c.topic.Metadata(),
+		Collections:    c.topic.Collections(),
+		LatestRequests: c.topic.SnapshotRequestInfo(),
 	}
 }

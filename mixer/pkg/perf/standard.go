@@ -36,13 +36,13 @@ var MinimalSetup = Setup{
 
 			BuildBasicReport(map[string]interface{}{
 				"foo": "bar",
-				"baz": 42,
+				"baz": int64(42),
 			}),
 
 			BuildBasicCheck(
 				map[string]interface{}{
 					"bar": "baz",
-					"foo": 23,
+					"foo": int64(23),
 				},
 				map[string]istio_mixer_v1.CheckRequest_QuotaParams{
 					"q1": {

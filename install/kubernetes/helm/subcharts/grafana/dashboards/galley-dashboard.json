@@ -1,34 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "__requires": [
-    {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "5.2.3"
-    },
-    {
-      "type": "panel",
-      "id": "graph",
-      "name": "Graph",
-      "version": "5.0.0"
-    },
-    {
-      "type": "datasource",
-      "id": "prometheus",
-      "name": "Prometheus",
-      "version": "5.0.0"
-    }
-  ],
   "annotations": {
     "list": [
       {
@@ -42,19 +12,103 @@
       }
     ]
   },
-  "editable": true,
+  "editable": false,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": null,
   "links": [],
   "panels": [
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fill": 1,
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 46,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(istio_build{component=\"galley\"}) by (tag)",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ tag }}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Galley Versions",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
     {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 5
       },
       "id": 40,
       "panels": [],
@@ -72,7 +126,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 1
+        "y": 6
       },
       "id": 36,
       "legend": {
@@ -156,6 +210,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Memory",
       "tooltip": {
@@ -205,7 +260,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 1
+        "y": 6
       },
       "id": 38,
       "legend": {
@@ -254,6 +309,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "CPU",
       "tooltip": {
@@ -303,7 +359,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 1
+        "y": 6
       },
       "id": 42,
       "legend": {
@@ -345,6 +401,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Disk",
       "tooltip": {
@@ -394,7 +451,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 1
+        "y": 6
       },
       "id": 44,
       "legend": {
@@ -423,11 +480,27 @@
           "expr": "go_goroutines{job=\"galley\"}",
           "format": "time_series",
           "intervalFactor": 2,
+          "legendFormat": "goroutines_total",
           "refId": "A"
+        },
+        {
+          "expr": "galley_mcp_source_clients_total",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "clients_total",
+          "refId": "B"
+        },
+        {
+          "expr": "go_goroutines{job=\"galley\"}/galley_mcp_source_clients_total",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "avg_goroutines_per_client",
+          "refId": "C"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Goroutines",
       "tooltip": {
@@ -472,7 +545,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 14
       },
       "id": 10,
       "panels": [],
@@ -490,7 +563,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 10
+        "y": 15
       },
       "id": 2,
       "legend": {
@@ -539,6 +612,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Event Rates",
       "tooltip": {
@@ -588,7 +662,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 10
+        "y": 15
       },
       "id": 4,
       "legend": {
@@ -637,6 +711,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Timer Rates",
       "tooltip": {
@@ -686,7 +761,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 10
+        "y": 15
       },
       "id": 8,
       "legend": {
@@ -742,6 +817,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Events Per Snapshot",
       "tooltip": {
@@ -791,7 +867,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 16
+        "y": 21
       },
       "id": 6,
       "legend": {
@@ -826,6 +902,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "State Type Instances",
       "tooltip": {
@@ -870,7 +947,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 27
       },
       "id": 34,
       "panels": [],
@@ -888,7 +965,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 23
+        "y": 28
       },
       "id": 28,
       "legend": {
@@ -930,6 +1007,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Validation Webhook Certificate",
       "tooltip": {
@@ -979,7 +1057,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 23
+        "y": 28
       },
       "id": 30,
       "legend": {
@@ -1021,6 +1099,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Resource Validation",
       "tooltip": {
@@ -1070,7 +1149,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 23
+        "y": 28
       },
       "id": 32,
       "legend": {
@@ -1105,6 +1184,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Validation HTTP Errors",
       "tooltip": {
@@ -1149,7 +1229,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 34
       },
       "id": 12,
       "panels": [],
@@ -1167,7 +1247,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 30
+        "y": 35
       },
       "id": 14,
       "legend": {
@@ -1193,14 +1273,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_kube_source_listener_handle_event_success_total[1m]) * 60",
+          "expr": "rate(galley_source_kube_event_success_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Success",
           "refId": "A"
         },
         {
-          "expr": "rate(galley_kube_source_listener_handle_event_error_total[1m]) * 60",
+          "expr": "rate(galley_source_kube_event_error_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Error",
@@ -1209,6 +1289,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Source Event Rate",
       "tooltip": {
@@ -1258,7 +1339,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 30
+        "y": 35
       },
       "id": 16,
       "legend": {
@@ -1284,7 +1365,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_kube_source_source_converter_success_total[1m]) * 60",
+          "expr": "rate(galley_source_kube_dynamic_converter_success_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{apiVersion=\"{{apiVersion}}\",group=\"{{group}}\",kind=\"{{kind}}\"}",
@@ -1293,6 +1374,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Kubernetes Object Conversion Successes",
       "tooltip": {
@@ -1342,7 +1424,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 30
+        "y": 35
       },
       "id": 24,
       "legend": {
@@ -1368,7 +1450,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_kube_source_source_converter_failure_total[1m]) * 60",
+          "expr": "rate(galley_source_kube_dynamic_converter_failure_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Error",
@@ -1377,6 +1459,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Kubernetes Object Conversion Failures",
       "tooltip": {
@@ -1421,7 +1504,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 41
       },
       "id": 18,
       "panels": [],
@@ -1439,7 +1522,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 37
+        "y": 42
       },
       "id": 20,
       "legend": {
@@ -1465,7 +1548,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(galley_mcp_server_clients_total)",
+          "expr": "sum(galley_mcp_source_clients_total)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Clients",
@@ -1474,6 +1557,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Connected Clients",
       "tooltip": {
@@ -1523,7 +1607,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 37
+        "y": 42
       },
       "id": 22,
       "legend": {
@@ -1549,7 +1633,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_mcp_server_request_acks_total[1m]) * 60",
+          "expr": "sum by(collection)(irate(galley_mcp_source_request_acks_total[1m]) * 60)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "",
@@ -1558,6 +1642,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Request ACKs",
       "tooltip": {
@@ -1607,7 +1692,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 37
+        "y": 42
       },
       "id": 26,
       "legend": {
@@ -1633,7 +1718,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(galley_mcp_server_request_nacks_total[1m]) * 60",
+          "expr": "rate(galley_mcp_source_request_nacks_total[1m]) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -1641,6 +1726,7 @@
       ],
       "thresholds": [],
       "timeFrom": null,
+      "timeRegions": [],
       "timeShift": null,
       "title": "Request NACKs",
       "tooltip": {
@@ -1680,7 +1766,7 @@
       }
     }
   ],
-  "refresh": "5s",
+  "refresh": false,
   "schemaVersion": 16,
   "style": "dark",
   "tags": [],
@@ -1688,8 +1774,8 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
-    "to": "now"
+    "from": "2019-01-23T20:37:30.445Z",
+    "to": "2019-01-23T20:47:30.445Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -1718,6 +1804,6 @@
   },
   "timezone": "",
   "title": "Istio Galley Dashboard",
-  "uid": "DMXUJ6dmz",
-  "version": 2
+  "uid": "TSEY6jLmk",
+  "version": 1
 }

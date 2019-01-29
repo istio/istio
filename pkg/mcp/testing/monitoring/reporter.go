@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcptestmon
+package monitoring
 
 import (
 	"sync"
@@ -30,28 +30,35 @@ type requestKey struct {
 	connectionID int64
 }
 
-// InMemoryServerStatsContext enables MCP server metric collection which is
-// stored in memory for testing purposes.
-type InMemoryServerStatsContext struct {
-	mutex             sync.Mutex
-	ClientsTotal      int64
-	RequestSizesBytes map[requestKey][]int64
-	RequestAcksTotal  map[requestKey]int64
-	RequestNacksTotal map[requestKey]int64
-	SendFailuresTotal map[errorCodeKey]int64
-	RecvFailuresTotal map[errorCodeKey]int64
+type nackKey struct {
+	typeURL      string
+	connectionID int64
+	code         codes.Code
 }
 
-// SetClientsTotal updates the current client count to the given argument.
-func (s *InMemoryServerStatsContext) SetClientsTotal(clients int64) {
+// InMemoryStatsContext enables MCP server metric collection which is
+// stored in memory for testing purposes.
+type InMemoryStatsContext struct {
+	mutex                    sync.Mutex
+	StreamTotal              int64
+	RequestSizesBytes        map[requestKey][]int64
+	RequestAcksTotal         map[requestKey]int64
+	RequestNacksTotal        map[nackKey]int64
+	SendFailuresTotal        map[errorCodeKey]int64
+	RecvFailuresTotal        map[errorCodeKey]int64
+	StreamCreateSuccessTotal int64
+}
+
+// SetStreamCount updates the current stream count to the given argument.
+func (s *InMemoryStatsContext) SetStreamCount(clients int64) {
 	s.mutex.Lock()
-	s.ClientsTotal = clients
+	s.StreamTotal = clients
 	s.mutex.Unlock()
 }
 
 // RecordSendError records an error during a network send with its error
 // string and code.
-func (s *InMemoryServerStatsContext) RecordSendError(err error, code codes.Code) {
+func (s *InMemoryStatsContext) RecordSendError(err error, code codes.Code) {
 	s.mutex.Lock()
 	s.SendFailuresTotal[errorCodeKey{err.Error(), code}]++
 	s.mutex.Unlock()
@@ -59,14 +66,14 @@ func (s *InMemoryServerStatsContext) RecordSendError(err error, code codes.Code)
 
 // RecordRecvError records an error during a network recv with its error
 // string and code.
-func (s *InMemoryServerStatsContext) RecordRecvError(err error, code codes.Code) {
+func (s *InMemoryStatsContext) RecordRecvError(err error, code codes.Code) {
 	s.mutex.Lock()
 	s.RecvFailuresTotal[errorCodeKey{err.Error(), code}]++
 	s.mutex.Unlock()
 }
 
 // RecordRequestSize records the size of a request from a connection for a specific type URL.
-func (s *InMemoryServerStatsContext) RecordRequestSize(typeURL string, connectionID int64, size int) {
+func (s *InMemoryStatsContext) RecordRequestSize(typeURL string, connectionID int64, size int) {
 	key := requestKey{typeURL, connectionID}
 	s.mutex.Lock()
 	s.RequestSizesBytes[key] = append(s.RequestSizesBytes[key], int64(size))
@@ -74,89 +81,37 @@ func (s *InMemoryServerStatsContext) RecordRequestSize(typeURL string, connectio
 }
 
 // RecordRequestAck records an ACK message for a type URL on a connection.
-func (s *InMemoryServerStatsContext) RecordRequestAck(typeURL string, connectionID int64) {
+func (s *InMemoryStatsContext) RecordRequestAck(typeURL string, connectionID int64) {
 	s.mutex.Lock()
 	s.RequestAcksTotal[requestKey{typeURL, connectionID}]++
 	s.mutex.Unlock()
 }
 
 // RecordRequestNack records a NACK message for a type URL on a connection.
-func (s *InMemoryServerStatsContext) RecordRequestNack(typeURL string, connectionID int64) {
+func (s *InMemoryStatsContext) RecordRequestNack(typeURL string, connectionID int64, code codes.Code) {
 	s.mutex.Lock()
-	s.RequestNacksTotal[requestKey{typeURL, connectionID}]++
-	s.mutex.Unlock()
-}
-
-// NewInMemoryServerStatsContext creates a new context for tracking metrics
-// in memory.
-func NewInMemoryServerStatsContext() *InMemoryServerStatsContext {
-	return &InMemoryServerStatsContext{
-		RequestSizesBytes: make(map[requestKey][]int64),
-		RequestAcksTotal:  make(map[requestKey]int64),
-		RequestNacksTotal: make(map[requestKey]int64),
-		SendFailuresTotal: make(map[errorCodeKey]int64),
-		RecvFailuresTotal: make(map[errorCodeKey]int64),
-	}
-}
-
-type nackKey struct {
-	error   string
-	typeURL string
-}
-
-// InMemoryClientStatsContext enables MCP client metric collection which is
-// stored in memory for testing purposes.
-type InMemoryClientStatsContext struct {
-	mutex                    sync.Mutex
-	RequestAcksTotal         map[string]int64
-	RequestNacksTotal        map[nackKey]int64
-	SendFailuresTotal        map[errorCodeKey]int64
-	RecvFailuresTotal        map[errorCodeKey]int64
-	StreamCreateSuccessTotal int64
-}
-
-// RecordSendError records an error during a network send with its error
-// string and code.
-func (s *InMemoryClientStatsContext) RecordSendError(err error, code codes.Code) {
-	s.mutex.Lock()
-	s.RecvFailuresTotal[errorCodeKey{err.Error(), code}]++
-	s.mutex.Unlock()
-}
-
-// RecordRecvError records an error during a network recv with its error
-// string and code.
-func (s *InMemoryClientStatsContext) RecordRecvError(err error, code codes.Code) {
-	s.mutex.Lock()
-	s.RecvFailuresTotal[errorCodeKey{err.Error(), code}]++
-	s.mutex.Unlock()
-}
-
-// RecordRequestAck records an ACK message for a type URL on a connection.
-func (s *InMemoryClientStatsContext) RecordRequestAck(typeURL string) {
-	s.mutex.Lock()
-	s.RequestAcksTotal[typeURL]++
-	s.mutex.Unlock()
-}
-
-// RecordRequestNack records a NACK message for a type URL on a connection.
-func (s *InMemoryClientStatsContext) RecordRequestNack(typeURL string, err error) {
-	s.mutex.Lock()
-	s.RequestNacksTotal[nackKey{err.Error(), typeURL}]++
+	s.RequestNacksTotal[nackKey{typeURL, connectionID, code}]++
 	s.mutex.Unlock()
 }
 
 // RecordStreamCreateSuccess records a successful stream connection.
-func (s *InMemoryClientStatsContext) RecordStreamCreateSuccess() {
+func (s *InMemoryStatsContext) RecordStreamCreateSuccess() {
 	s.mutex.Lock()
 	s.StreamCreateSuccessTotal++
 	s.mutex.Unlock()
 }
 
-// NewInMemoryClientStatsContext creates a new context for tracking metrics
+// Close implements io.Closer.
+func (s *InMemoryStatsContext) Close() error {
+	return nil
+}
+
+// NewInMemoryStatsContext creates a new context for tracking metrics
 // in memory.
-func NewInMemoryClientStatsContext() *InMemoryClientStatsContext {
-	return &InMemoryClientStatsContext{
-		RequestAcksTotal:  make(map[string]int64),
+func NewInMemoryStatsContext() *InMemoryStatsContext {
+	return &InMemoryStatsContext{
+		RequestSizesBytes: make(map[requestKey][]int64),
+		RequestAcksTotal:  make(map[requestKey]int64),
 		RequestNacksTotal: make(map[nackKey]int64),
 		SendFailuresTotal: make(map[errorCodeKey]int64),
 		RecvFailuresTotal: make(map[errorCodeKey]int64),

@@ -24,7 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -112,6 +112,7 @@ func RunManagementServer(ctx context.Context, server xds.Server, port uint) {
 	v2.RegisterClusterDiscoveryServiceServer(grpcServer, server)
 	v2.RegisterRouteDiscoveryServiceServer(grpcServer, server)
 	v2.RegisterListenerDiscoveryServiceServer(grpcServer, server)
+	discovery.RegisterSecretDiscoveryServiceServer(grpcServer, server)
 
 	log.WithFields(log.Fields{"port": port}).Info("management server listening")
 	go func() {

@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -44,6 +46,7 @@ var (
 
 	fakeCredentialToken = "faketoken"
 	testResourceName    = "default"
+	extraResourceName   = "extra resource name"
 
 	fakeSecret = &model.SecretItem{
 		CertificateChain: fakeCertificateChain,
@@ -59,33 +62,139 @@ var (
 	}
 )
 
-func TestStreamSecrets(t *testing.T) {
-	socket := fmt.Sprintf("/tmp/gotest%q.sock", string(uuid.NewUUID()))
-	testHelper(t, socket, sdsRequestStream)
+func TestStreamSecretsForWorkloadSds(t *testing.T) {
+	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   "",
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestStream, false)
 }
 
-func TestFetchSecrets(t *testing.T) {
-	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
-	testHelper(t, socket, sdsRequestFetch)
+func TestStreamSecretsForGatewaySds(t *testing.T) {
+	arg := Options{
+		EnableIngressGatewaySDS: true,
+		EnableWorkloadSDS:       false,
+		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:         "",
+	}
+	testHelper(t, arg, sdsRequestStream, false)
+}
+
+func TestStreamSecretsForBothSds(t *testing.T) {
+	arg := Options{
+		EnableIngressGatewaySDS: true,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestStream, false)
+}
+
+func TestFetchSecretsForWorkloadSds(t *testing.T) {
+	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   "",
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestFetch, false)
+}
+
+func TestFetchSecretsForGatewaySds(t *testing.T) {
+	arg := Options{
+		EnableIngressGatewaySDS: true,
+		EnableWorkloadSDS:       false,
+		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:         "",
+	}
+	testHelper(t, arg, sdsRequestFetch, false)
+}
+
+func TestFetchSecretsForBothSds(t *testing.T) {
+	arg := Options{
+		EnableIngressGatewaySDS: true,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestFetch, false)
+}
+
+func TestStreamSecretsInvalidResourceName(t *testing.T) {
+	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   "",
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+	}
+	testHelper(t, arg, sdsRequestStream, true)
 }
 
 type secretCallback func(string, *api.DiscoveryRequest) (*api.DiscoveryResponse, error)
 
-func testHelper(t *testing.T, testSocket string, cb secretCallback) {
-	arg := Options{
-		UDSPath: testSocket,
+func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourceNames bool) {
+	var wst, gst cache.SecretManager
+	if arg.EnableWorkloadSDS {
+		wst = &mockSecretStore{
+			checkToken: true,
+		}
+	} else {
+		wst = nil
 	}
-	st := &mockSecretStore{}
-	server, err := NewServer(arg, st)
+	if arg.EnableIngressGatewaySDS {
+		gst = &mockSecretStore{
+			checkToken: false,
+		}
+	} else {
+		gst = nil
+	}
+	server, err := NewServer(arg, wst, gst)
 	defer server.Stop()
-
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
 
 	proxyID := "sidecar~127.0.0.1~id1~local"
+	if testInvalidResourceNames && arg.EnableWorkloadSDS {
+		sendRequestAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID, testInvalidResourceNames)
+		return
+	}
+
+	if arg.EnableWorkloadSDS {
+		sendRequestAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID, testInvalidResourceNames)
+
+		// Request for root certificate.
+		sendRequestForRootCertAndVerifyResponse(t, cb, arg.WorkloadUDSPath, proxyID)
+	}
+	if arg.EnableIngressGatewaySDS {
+		sendRequestAndVerifyResponse(t, cb, arg.IngressGatewayUDSPath, proxyID, testInvalidResourceNames)
+	}
+}
+
+func sendRequestForRootCertAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string) {
+	rootCertReq := &api.DiscoveryRequest{
+		ResourceNames: []string{"ROOTCA"},
+		Node: &core.Node{
+			Id: proxyID,
+		},
+	}
+	resp, err := cb(socket, rootCertReq)
+	if err != nil {
+		t.Fatalf("failed to get root cert through SDS")
+	}
+	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
+}
+
+func sendRequestAndVerifyResponse(t *testing.T, cb secretCallback, socket, proxyID string, testInvalidResourceNames bool) {
+	rn := []string{testResourceName}
+	// Only one resource name is allowed, add extra name to create an error.
+	if testInvalidResourceNames {
+		rn = append(rn, extraResourceName)
+	}
 	req := &api.DiscoveryRequest{
-		ResourceNames: []string{testResourceName},
+		ResourceNames: rn,
 		Node: &core.Node{
 			Id: proxyID,
 		},
@@ -96,41 +205,42 @@ func testHelper(t *testing.T, testSocket string, cb secretCallback) {
 	for ; retry < 5; retry++ {
 		time.Sleep(wait)
 		// Try to call the server
-		resp, err := cb(testSocket, req)
-		if err == nil {
-			//Verify secret.
-			verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
-			return
+		resp, err := cb(socket, req)
+		if testInvalidResourceNames {
+			if ok := verifyResponseForInvalidResourceNames(err); ok {
+				return
+			}
+		} else {
+			if err == nil {
+				//Verify secret.
+				verifySDSSResponse(t, resp, fakePrivateKey, fakeCertificateChain)
+				return
+			}
 		}
-
 		wait *= 2
 	}
 
 	if retry == 5 {
-		t.Fatalf("failed to start grpc server for SDS")
+		t.Fatal("failed to start grpc server for SDS")
 	}
+}
 
-	// Request for root certificate.
-	rootCertReq := &api.DiscoveryRequest{
-		ResourceNames: []string{"ROOTCA", "sub1"},
-		Node: &core.Node{
-			Id: proxyID,
-		},
-	}
-	resp, err := cb(testSocket, rootCertReq)
-	if err != nil {
-		t.Fatalf("failed to get root cert through SDS")
-	}
-	verifySDSSResponseForRootCert(t, resp, fakeRootCert)
+func verifyResponseForInvalidResourceNames(err error) bool {
+	s := fmt.Sprintf("has invalid resourceNames [%s %s]", testResourceName, extraResourceName)
+	return strings.Contains(err.Error(), s)
 }
 
 func TestStreamSecretsPush(t *testing.T) {
 	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 	arg := Options{
-		UDSPath: socket,
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS:       true,
+		WorkloadUDSPath:         socket,
 	}
-	st := &mockSecretStore{}
-	server, err := NewServer(arg, st)
+	st := &mockSecretStore{
+		checkToken: true,
+	}
+	server, err := NewServer(arg, st, nil)
 	defer server.Stop()
 
 	if err != nil {
@@ -182,6 +292,14 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	verifySDSSResponse(t, resp, fakePushPrivateKey, fakePushCertificateChain)
 
+	key := cache.ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: req.ResourceNames[0],
+	}
+	if _, found := st.secrets.Load(key); !found {
+		t.Errorf("Failed to find cached secret")
+	}
+
 	// Test push nil secret(indicates close the streaming connection) to proxy.
 	if err = NotifyProxy(proxyID, req.ResourceNames[0], nil); err != nil {
 		t.Errorf("failed to send push notificiation to proxy %q", proxyID)
@@ -192,6 +310,9 @@ func TestStreamSecretsPush(t *testing.T) {
 
 	if len(sdsClients) != 0 {
 		t.Errorf("sdsClients, got %d, expected 0", len(sdsClients))
+	}
+	if _, found := st.secrets.Load(key); found {
+		t.Errorf("Found cached secret after stream close, expected the secret to not exist")
 	}
 }
 
@@ -238,7 +359,6 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *api.DiscoveryResponse, ex
 						InlineBytes: expectedRootCert,
 					},
 				},
-				VerifySubjectAltName: []string{"sub1"},
 			},
 		},
 	}
@@ -307,18 +427,26 @@ func setupConnection(socket string) (*grpc.ClientConn, error) {
 }
 
 type mockSecretStore struct {
+	checkToken bool
+	secrets    sync.Map
 }
 
-func (*mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
-	if token != fakeCredentialToken {
+func (ms *mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceName, token string) (*model.SecretItem, error) {
+	if ms.checkToken && token != fakeCredentialToken {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
 
+	key := cache.ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
 	if resourceName == testResourceName {
+		ms.secrets.Store(key, fakeSecret)
 		return fakeSecret, nil
 	}
 
 	if resourceName == cache.RootCertReqResourceName {
+		ms.secrets.Store(key, fakeSecretRootCert)
 		return fakeSecretRootCert, nil
 	}
 
@@ -327,4 +455,12 @@ func (*mockSecretStore) GenerateSecret(ctx context.Context, proxyID, resourceNam
 
 func (*mockSecretStore) SecretExist(proxyID, spiffeID, token, version string) bool {
 	return spiffeID == fakeSecret.ResourceName && token == fakeSecret.Token && version == fakeSecret.Version
+}
+
+func (ms *mockSecretStore) DeleteSecret(proxyID, resourceName string) {
+	key := cache.ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
+	ms.secrets.Delete(key)
 }

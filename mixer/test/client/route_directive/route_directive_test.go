@@ -20,19 +20,25 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"istio.io/api/mixer/v1"
+	"github.com/gogo/googleapis/google/rpc"
+
+	v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/test/client/env"
 )
 
 // signifies a certain map has to be empty
 const mustBeEmpty = "MUST_BE_EMPTY"
 
+// request body
+const requestBody = "HELLO WORLD"
+
 var expectedStats = map[string]int{
-	"http_mixer_filter.total_check_calls":        12,
-	"http_mixer_filter.total_remote_check_calls": 6,
+	"http_mixer_filter.total_check_calls":        16,
+	"http_mixer_filter.total_remote_check_calls": 8,
 }
 
 func TestRouteDirective(t *testing.T) {
@@ -42,6 +48,8 @@ func TestRouteDirective(t *testing.T) {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 	defer s.TearDown()
+
+	// must use request path as cache key
 	s.SetMixerCheckReferenced(&v1.ReferencedAttributes{
 		Words: []string{"request.path"},
 		AttributeMatches: []v1.ReferencedAttributes_AttributeMatch{{
@@ -56,12 +64,14 @@ func TestRouteDirective(t *testing.T) {
 		desc      string
 		path      string
 		method    string
+		status    rpc.Status
 		directive *v1.RouteDirective
 
 		// expectations
 		request  http.Header // headers as received by backend
 		response http.Header // headers as received by client
 		body     string      // body as received by client
+		code     int         // HTTP code as received by client
 	}{{
 		desc:   "override HTTP pseudo headers",
 		path:   "/",
@@ -85,8 +95,10 @@ func TestRouteDirective(t *testing.T) {
 		},
 		response: http.Header{
 			"Server":         []string{"envoy"},
-			"Content-Length": []string{"0"},
+			"Content-Length": []string{fmt.Sprintf("%d", len(requestBody))},
 		},
+		body: requestBody,
+		code: 200,
 	}, {
 		desc:   "request header operations",
 		path:   "/request",
@@ -111,6 +123,8 @@ func TestRouteDirective(t *testing.T) {
 		response: http.Header{
 			"X-Istio-Request": nil,
 		},
+		body: requestBody,
+		code: 200,
 	}, {
 		desc:   "response header operations",
 		path:   "/response",
@@ -135,6 +149,8 @@ func TestRouteDirective(t *testing.T) {
 			"X-Istio-Response": []string{"value", "value2"},
 			"Content-Length":   nil,
 		},
+		body: requestBody,
+		code: 200,
 	}, {
 		desc:   "combine operations",
 		path:   "/combine",
@@ -145,6 +161,8 @@ func TestRouteDirective(t *testing.T) {
 		},
 		request:  http.Header{"Istio-Request": []string{"test"}},
 		response: http.Header{"Istio-Response": []string{"case"}},
+		body:     requestBody,
+		code:     200,
 	}, {
 		desc:   "direct response",
 		path:   "/direct",
@@ -155,6 +173,29 @@ func TestRouteDirective(t *testing.T) {
 			ResponseHeaderOperations: []v1.HeaderOperation{{Name: "istio-response", Value: "case"}},
 		},
 		body:     "hello!",
+		code:     200,
+		request:  http.Header{mustBeEmpty: nil},
+		response: http.Header{"Istio-Response": []string{"case"}},
+	}, {
+		desc:    "error",
+		path:    "/error",
+		method:  "GET",
+		status:  rpc.Status{Code: int32(rpc.PERMISSION_DENIED), Message: "shish"},
+		body:    "PERMISSION_DENIED:shish",
+		code:    403,
+		request: http.Header{mustBeEmpty: nil},
+	}, {
+		desc:   "direct error response",
+		path:   "/custom_error",
+		method: "GET",
+		status: rpc.Status{Code: int32(rpc.PERMISSION_DENIED), Message: "shish"},
+		directive: &v1.RouteDirective{
+			DirectResponseBody:       "nothing to see here",
+			DirectResponseCode:       503,
+			ResponseHeaderOperations: []v1.HeaderOperation{{Name: "istio-response", Value: "case"}},
+		},
+		body:     "nothing to see here",
+		code:     503,
 		request:  http.Header{mustBeEmpty: nil},
 		response: http.Header{"Istio-Response": []string{"case"}},
 	}, {
@@ -172,36 +213,37 @@ func TestRouteDirective(t *testing.T) {
 		request: http.Header{
 			"Referer": []string{fmt.Sprintf("http://localhost:%d/redirect", s.Ports().ServerProxyPort)},
 		},
+		code: 200,
 	}}
 
-	for _, cs := range testCases {
-		t.Run(cs.desc, func(t *testing.T) {
-			s.SetMixerRouteDirective(cs.directive)
-			req, err := http.NewRequest(cs.method, fmt.Sprintf("http://localhost:%d%s", s.Ports().ServerProxyPort, cs.path), nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			resp, err := client.Do(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				t.Error(err)
-			}
-			if string(body) != cs.body {
-				t.Errorf("response body: got %q, want %q", string(body), cs.body)
-			}
-			compareHeaders(t, s.LastRequestHeaders(), cs.request)
-			compareHeaders(t, resp.Header, cs.response)
-		})
-	}
-
-	// run the queries again to exercise caching
-	for _, cs := range testCases {
-		s.SetMixerRouteDirective(cs.directive)
-		req, _ := http.NewRequest(cs.method, fmt.Sprintf("http://localhost:%d%s", s.Ports().ServerProxyPort, cs.path), nil)
-		_, _ = client.Do(req)
+	// run the queries twice to exercise caching
+	for i := 0; i < 2; i++ {
+		for _, cs := range testCases {
+			t.Run(cs.desc, func(t *testing.T) {
+				s.SetMixerCheckStatus(cs.status)
+				s.SetMixerRouteDirective(cs.directive)
+				req, err := http.NewRequest(cs.method, fmt.Sprintf("http://localhost:%d%s", s.Ports().ServerProxyPort, cs.path), strings.NewReader(requestBody))
+				if err != nil {
+					t.Fatal(err)
+				}
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					t.Error(err)
+				}
+				if string(body) != cs.body {
+					t.Errorf("response body: got %q, want %q", string(body), cs.body)
+				}
+				if resp.StatusCode != cs.code {
+					t.Errorf("response code: got %d, want %d", resp.StatusCode, cs.code)
+				}
+				compareHeaders(t, s.LastRequestHeaders(), cs.request)
+				compareHeaders(t, resp.Header, cs.response)
+			})
+		}
 	}
 
 	s.VerifyStats(expectedStats)

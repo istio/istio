@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
@@ -454,17 +454,37 @@ func TestHeadersManipulations(t *testing.T) {
 	defer cfgs.Teardown()
 
 	// deprecated
-	deprecatedReqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
+	deprecatedHeaderRegexp := regexp.MustCompile("(?i)istio-custom-header=user-defined-value")
+	deprecatedReqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-req-header=user-defined-value")
+	deprecatedReqHeaderRemoveRegexp := regexp.MustCompile("(?i)istio-custom-req-header-remove=to-be-removed")
+	deprecatedRespHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-resp-header:user-defined-value")
+	deprecatedRespHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-resp-header-remove:to-be-removed")
+	deprecatedDestReqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-dest-req-header=user-defined-value")
+	deprecatedDestReqHeaderRemoveRegexp := regexp.MustCompile("(?i)istio-custom-dest-req-header-remove=to-be-removed")
+	deprecatedDestRespHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header:user-defined-value")
+	deprecatedDestRespHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header-remove:to-be-removed")
 
-	reqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-req-header=user-defined-value")
-	reqHeaderRemoveRegexp := regexp.MustCompile("(?i)istio-custom-req-header-remove=to-be-removed")
-	respHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-resp-header:user-defined-value")
-	respHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-resp-header-remove:to-be-removed")
-
-	destReqHeaderRegexp := regexp.MustCompile("(?i)istio-custom-dest-req-header=user-defined-value")
-	destReqHeaderRemoveRegexp := regexp.MustCompile("(?i)istio-custom-dest-req-header-remove=to-be-removed")
-	destRespHeaderRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header:user-defined-value")
-	destRespHeaderRemoveRegexp := regexp.MustCompile("(?i)ResponseHeader=istio-custom-dest-resp-header-remove:to-be-removed")
+	// the response body contains the request and response headers.
+	// appended headers will appear as separate headers with same name
+	// examples from body:
+	// [1] ResponseHeader=Res-Append:sent-by-server
+	// [1 body] Res-Append:sent-by-server
+	reqAppendRegexp1 := regexp.MustCompile("(?i) req-append=sent-by-client")
+	reqAppendRegexp2 := regexp.MustCompile("(?i) req-append=added-in-request")
+	reqSetRegexp := regexp.MustCompile("(?i) req-replace=new-value")
+	reqRemoveRegexp := regexp.MustCompile("(?i) req-remove=to-be-removed")
+	resAppendRegexp1 := regexp.MustCompile("(?i)=res-append:sent-by-server")
+	resAppendRegexp2 := regexp.MustCompile("(?i)=res-append:added-in-response")
+	resSetRegexp := regexp.MustCompile("(?i)=res-replace:new-value")
+	resRemoveRegexp := regexp.MustCompile("(?i)=res-remove:to-be-removed")
+	dstReqAppendRegexp1 := regexp.MustCompile("(?i) dst-req-append=sent-by-client")
+	dstReqAppendRegexp2 := regexp.MustCompile("(?i) dst-req-append=added-in-request")
+	dstReqSetRegexp := regexp.MustCompile("(?i) dst-req-replace=new-value")
+	dstReqRemoveRegexp := regexp.MustCompile("(?i) dst-req-remove=to-be-removed")
+	dstResAppendRegexp1 := regexp.MustCompile("(?i)=dst-res-append:sent-by-server")
+	dstResAppendRegexp2 := regexp.MustCompile("(?i)=dst-res-append:added-in-response")
+	dstResSetRegexp := regexp.MustCompile("(?i)=dst-res-replace:new-value")
+	dstResRemoveRegexp := regexp.MustCompile("(?i)=dst-res-remove:to-be-removed")
 
 	epsilon := 10
 	numRequests := 100
@@ -491,10 +511,24 @@ func TestHeadersManipulations(t *testing.T) {
 	// b) or adding a bunch more parsing to the request function, so we have access to headers per request.
 	for cluster := range tc.Kube.Clusters {
 		runRetriableTest(t, "v1alpha3", 5, func() error {
-			reqURL := "http://c/a?headers=istio-custom-resp-header-remove:to-be-removed,istio-custom-dest-resp-header-remove:to-be-removed"
+			reqURL := "http://c/a?headers=" +
+				"istio-custom-resp-header-remove:to-be-removed," +
+				"istio-custom-dest-resp-header-remove:to-be-removed," +
+				"res-append:sent-by-server," +
+				"res-replace:to-be-replaced," +
+				"res-remove:to-be-removed," +
+				"dst-res-append:sent-by-server," +
+				"dst-res-replace:to-be-replaced," +
+				"dst-res-remove:to-be-removed"
 
 			extra := "-headers istio-custom-req-header-remove:to-be-removed," +
-				"istio-custom-dest-req-header-remove:to-be-removed"
+				"istio-custom-dest-req-header-remove:to-be-removed," +
+				"req-append:sent-by-client," +
+				"req-replace:to-be-replaced," +
+				"req-remove:to-be-removed," +
+				"dst-req-append:sent-by-client," +
+				"dst-req-replace:to-be-replaced," +
+				"dst-req-remove:to-be-removed"
 			resp := ClientRequest(cluster, "a", reqURL, numRequests, extra)
 
 			// ensure version distribution
@@ -510,51 +544,372 @@ func TestHeadersManipulations(t *testing.T) {
 			}
 
 			// ensure the route-wide deprecated request header add works, regardless of service version
-			if err := verifyCount(deprecatedReqHeaderRegexp, resp.Body, numRequests); err != nil {
+			if err := verifyCount(deprecatedHeaderRegexp, resp.Body, numRequests); err != nil {
 				return multierror.Prefix(err, "route deprecated request header count does not have expected distribution")
 			}
 
 			// ensure the route-wide request header add works, regardless of service version
-			if err := verifyCount(reqHeaderRegexp, resp.Body, numRequests); err != nil {
+			if err := verifyCount(deprecatedReqHeaderRegexp, resp.Body, numRequests); err != nil {
 				return multierror.Prefix(err, "route request header count does not have expected distribution")
 			}
 
 			// ensure the route-wide request header remove works, regardless of service version
-			if err := verifyCount(reqHeaderRemoveRegexp, resp.Body, numNoRequests); err != nil {
+			if err := verifyCount(deprecatedReqHeaderRemoveRegexp, resp.Body, numNoRequests); err != nil {
 				return multierror.Prefix(err, "route to remove request header count does not have expected distribution")
 			}
 
 			// ensure the route-wide response header add works, regardless of service version
-			if err := verifyCount(respHeaderRegexp, resp.Body, numRequests); err != nil {
+			if err := verifyCount(deprecatedRespHeaderRegexp, resp.Body, numRequests); err != nil {
 				return multierror.Prefix(err, "route response header count does not have expected distribution")
 			}
 
 			// ensure the route-wide response header remove works, regardless of service version
-			if err := verifyCount(respHeaderRemoveRegexp, resp.Body, numNoRequests); err != nil {
+			if err := verifyCount(deprecatedRespHeaderRemoveRegexp, resp.Body, numNoRequests); err != nil {
 				return multierror.Prefix(err, "route to remove response header count does not have expected distribution")
 			}
 
 			// verify request header add count
-			if err := verifyCount(destReqHeaderRegexp, resp.Body, numV1); err != nil {
+			if err := verifyCount(deprecatedDestReqHeaderRegexp, resp.Body, numV1); err != nil {
 				return multierror.Prefix(err, "destination request header count does not have expected distribution")
 			}
 
 			// verify request header remove count
-			if err := verifyCount(destReqHeaderRemoveRegexp, resp.Body, numV2); err != nil {
+			if err := verifyCount(deprecatedDestReqHeaderRemoveRegexp, resp.Body, numV2); err != nil {
 				return multierror.Prefix(err, "destination to remove request header count does not have expected distribution")
 			}
 
 			// verify response header add count
-			if err := verifyCount(destRespHeaderRegexp, resp.Body, numV1); err != nil {
+			if err := verifyCount(deprecatedDestRespHeaderRegexp, resp.Body, numV1); err != nil {
 				return multierror.Prefix(err, "destination response header count does not have expected distribution")
 			}
 
 			// verify response header remove count
-			if err := verifyCount(destRespHeaderRemoveRegexp, resp.Body, numV2); err != nil {
+			if err := verifyCount(deprecatedDestRespHeaderRemoveRegexp, resp.Body, numV2); err != nil {
 				return multierror.Prefix(err, "destination to remove response header count does not have expected distribution")
+			}
+
+			// begin verify header manipulations
+			if err1 := verifyCount(reqAppendRegexp1, resp.Body, numRequests); err1 != nil {
+				if err2 := verifyCount(reqAppendRegexp2, resp.Body, numRequests); err2 != nil {
+					err := multierror.Append(err1, err2)
+					return multierror.Prefix(err, "route level append request headers count does not have expected distribution")
+				}
+			}
+
+			if err := verifyCount(reqSetRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "route level set request headers count does not have expected distribution")
+			}
+
+			if err := verifyCount(reqRemoveRegexp, resp.Body, numNoRequests); err != nil {
+				return multierror.Prefix(err, "route level remove request request headers count does not have expected distribution")
+			}
+
+			if err1 := verifyCount(resAppendRegexp1, resp.Body, numRequests); err1 != nil {
+				if err2 := verifyCount(resAppendRegexp2, resp.Body, numRequests); err2 != nil {
+					err := multierror.Append(err1, err2)
+					return multierror.Prefix(err, "route level append response headers count does not have expected distribution")
+				}
+			}
+
+			if err := verifyCount(resSetRegexp, resp.Body, numRequests); err != nil {
+				return multierror.Prefix(err, "route level set response headers count does not have expected distribution")
+			}
+
+			if err := verifyCount(resRemoveRegexp, resp.Body, numNoRequests); err != nil {
+				return multierror.Prefix(err, "route level remove response headers count does not have expected distribution")
+			}
+
+			if err1 := verifyCount(dstReqAppendRegexp1, resp.Body, numV1); err1 != nil {
+				if err2 := verifyCount(dstReqAppendRegexp2, resp.Body, numV1); err2 != nil {
+					err := multierror.Append(err1, err2)
+					return multierror.Prefix(err, "destination level append request headers count does not have expected distribution")
+				}
+			}
+
+			if err := verifyCount(dstReqSetRegexp, resp.Body, numV1); err != nil {
+				return multierror.Prefix(err, "destination level set request headers count does not have expected distribution")
+			}
+
+			if err := verifyCount(dstReqRemoveRegexp, resp.Body, numV2); err != nil {
+				return multierror.Prefix(err, "destination level remove request headers count does not have expected distribution")
+			}
+
+			if err1 := verifyCount(dstResAppendRegexp1, resp.Body, numV1); err1 != nil {
+				if err2 := verifyCount(dstResAppendRegexp2, resp.Body, numV1); err2 != nil {
+					err := multierror.Append(err1, err2)
+					return multierror.Prefix(err, "destination level append response headers count does not have expected distribution")
+				}
+			}
+
+			if err := verifyCount(dstResSetRegexp, resp.Body, numV1); err != nil {
+				return multierror.Prefix(err, "destination level set response headers count does not have expected distribution")
+			}
+
+			if err := verifyCount(dstResRemoveRegexp, resp.Body, numV2); err != nil {
+				return multierror.Prefix(err, "destination level remove response headers count does not have expected distribution")
 			}
 
 			return nil
 		})
 	}
+}
+
+func TestDestinationRuleConfigScope(t *testing.T) {
+	var cfgs []*deployableConfig
+	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
+		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
+		// a delay when we push the new config.
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				if err := cfg.TeardownNoDelay(); err != nil {
+					t.Fatal(err)
+				}
+				cfg = nil
+			}
+		}
+
+		cfgs = make([]*deployableConfig, 0)
+		for ns, rules := range ruleYamls {
+			// Apply the new rules in the namespace
+			cfg := &deployableConfig{
+				Namespace:  ns,
+				YamlFiles:  rules,
+				kubeconfig: tc.Kube.KubeConfig,
+			}
+			if err := cfg.Setup(); err != nil {
+				t.Fatal(err)
+			}
+			cfgs = append(cfgs, cfg)
+		}
+	}
+	// Upon function exit, delete the active rule.
+	defer func() {
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				_ = cfg.Teardown()
+			}
+		}
+	}()
+
+	// Create the namespaces
+	// NOTE: Use different namespaces for each test to avoid
+	// collision. Namespace deletion takes time. If the other test
+	// starts before this namespace is deleted, namespace creation in the other test will fail.
+	for _, ns := range []string{"dns1", "dns2"} {
+		if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("Unable to create namespace %s: %v", ns, err)
+		}
+		defer func(ns string) {
+			if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
+				t.Errorf("Failed to delete namespace %s", ns)
+			}
+		}(ns)
+	}
+
+	cases := []struct {
+		testName        string
+		description     string
+		rules           map[string][]string
+		src             string
+		dst             string
+		expectedSuccess bool
+		onFailure       func()
+	}{
+		{
+			testName:        "private destination rule in same namespace",
+			rules:           map[string][]string{tc.Kube.Namespace: {"destination-rule-c-private.yaml"}},
+			src:             "a",
+			dst:             "c",
+			expectedSuccess: true,
+		},
+		{
+			testName:        "private destination rule in different namespaces",
+			rules:           map[string][]string{"dns1": {"destination-rule-c-private.yaml"}},
+			src:             "a",
+			dst:             "c",
+			expectedSuccess: false,
+		},
+		// TODO: These two cases cannot be tested reliably until the EDS issue with
+		// destination rules is fixed. https://github.com/istio/istio/issues/10817
+		//{
+		//	testName:        "private rule in a namespace overrides public rule in another namespace",
+		//},
+		//{
+		//	testName:        "public rule in service's namespace overrides public rule in another namespace",
+		//},
+	}
+
+	t.Run("v1alpha3", func(t *testing.T) {
+		cfgs := &deployableConfig{
+			Namespace:  tc.Kube.Namespace,
+			YamlFiles:  []string{"testdata/networking/v1alpha3/rule-default-route.yaml"},
+			kubeconfig: tc.Kube.KubeConfig,
+		}
+		if err := cfgs.Setup(); err != nil {
+			t.Fatal(err)
+		}
+		// Teardown after, but no need to wait, since a delay will be applied by either the next rule's
+		// Setup() or the Teardown() for the final rule.
+		defer cfgs.TeardownNoDelay()
+
+		for _, c := range cases {
+			// Run each case in a function to scope the configuration's lifecycle.
+			func() {
+				for _, yamls := range c.rules {
+					for i, yaml := range yamls {
+						ruleYaml := fmt.Sprintf("testdata/networking/v1alpha3/%s", yaml)
+						yamls[i] = maybeAddTLSForDestinationRule(tc, ruleYaml)
+					}
+				}
+				applyRuleFunc(t, c.rules)
+				// Wait a few seconds so that the older proxy listeners get overwritten
+				time.Sleep(10 * time.Second)
+
+				for cluster := range tc.Kube.Clusters {
+					testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
+					runRetriableTest(t, testName, 5, func() error {
+						reqURL := fmt.Sprintf("http://%s/%s", c.dst, c.src)
+						resp := ClientRequest(cluster, c.src, reqURL, 1, "")
+						if c.expectedSuccess && !resp.IsHTTPOk() {
+							return fmt.Errorf("failed request %s, %v", reqURL, resp.Code)
+						}
+						if !c.expectedSuccess && resp.IsHTTPOk() {
+							return fmt.Errorf("expect failed request %s, but got success", reqURL)
+						}
+						return nil
+					}, c.onFailure)
+				}
+			}()
+		}
+	})
+}
+
+func TestSidecarScope(t *testing.T) {
+	var cfgs []*deployableConfig
+	applyRuleFunc := func(t *testing.T, ruleYamls map[string][]string) {
+		// Delete the previous rule if there was one. No delay on the teardown, since we're going to apply
+		// a delay when we push the new config.
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				if err := cfg.TeardownNoDelay(); err != nil {
+					t.Fatal(err)
+				}
+				cfg = nil
+			}
+		}
+
+		cfgs = make([]*deployableConfig, 0)
+		for ns, rules := range ruleYamls {
+			// Apply the new rules in the namespace
+			cfg := &deployableConfig{
+				Namespace:  ns,
+				YamlFiles:  rules,
+				kubeconfig: tc.Kube.KubeConfig,
+			}
+			if err := cfg.Setup(); err != nil {
+				t.Fatal(err)
+			}
+			cfgs = append(cfgs, cfg)
+		}
+	}
+	// Upon function exit, delete the active rule.
+	defer func() {
+		for _, cfg := range cfgs {
+			if cfg != nil {
+				_ = cfg.Teardown()
+			}
+		}
+	}()
+
+	rules := make(map[string][]string)
+	rules[tc.Kube.Namespace] = []string{"testdata/networking/v1alpha3/sidecar-scope-ns1-ns2.yaml"}
+	rules["ns1"] = []string{
+		"testdata/networking/v1alpha3/service-entry-http-scope-public.yaml",
+		"testdata/networking/v1alpha3/service-entry-http-scope-private.yaml",
+		"testdata/networking/v1alpha3/virtualservice-http-scope-public.yaml",
+		"testdata/networking/v1alpha3/virtualservice-http-scope-private.yaml",
+	}
+	rules["ns2"] = []string{"testdata/networking/v1alpha3/service-entry-tcp-scope-public.yaml"}
+
+	// Create the namespaces and install the rules in each namespace
+	for _, ns := range []string{"ns1", "ns2"} {
+		if err := util.CreateNamespace(ns, tc.Kube.KubeConfig); err != nil {
+			t.Errorf("Unable to create namespace %s: %v", ns, err)
+		}
+		defer func(ns string) {
+			if err := util.DeleteNamespace(ns, tc.Kube.KubeConfig); err != nil {
+				t.Errorf("Failed to delete namespace %s", ns)
+			}
+		}(ns)
+	}
+	applyRuleFunc(t, rules)
+	// Wait a few seconds so that the older proxy listeners get overwritten
+	time.Sleep(10 * time.Second)
+
+	cases := []struct {
+		testName    string
+		reqURL      string
+		host        string
+		expectedHdr *regexp.Regexp
+		reachable   bool
+		onFailure   func()
+	}{
+		{
+			testName:  "cannot reach services if not imported",
+			reqURL:    "http://c/a",
+			host:      "c",
+			reachable: false,
+		},
+		{
+			testName:    "ns1: http://bookinfo.com:9999 reachable",
+			reqURL:      "http://127.255.0.1:9999/a",
+			host:        "bookinfo.com:9999",
+			expectedHdr: regexp.MustCompile("(?i) scope=public"),
+			reachable:   true,
+		},
+		{
+			testName:  "ns1: http://private.com:9999 not reachable",
+			reqURL:    "http://127.255.0.1:9999/a",
+			host:      "private.com:9999",
+			reachable: false,
+		},
+		{
+			testName:  "ns2: service.tcp.com:8888 reachable",
+			reqURL:    "http://127.255.255.11:8888/a",
+			host:      "tcp.com",
+			reachable: true,
+		},
+		{
+			testName:  "ns1: bookinfo.com:9999 reachable via egress TCP listener 7.7.7.7:23145",
+			reqURL:    "http://7.7.7.7:23145/a",
+			host:      "bookinfo.com:9999",
+			reachable: true,
+		},
+	}
+
+	t.Run("v1alpha3", func(t *testing.T) {
+		for _, c := range cases {
+			for cluster := range tc.Kube.Clusters {
+				testName := fmt.Sprintf("%s from %s cluster", c.testName, cluster)
+				runRetriableTest(t, testName, 5, func() error {
+					resp := ClientRequest(cluster, "a", c.reqURL, 1, fmt.Sprintf("-key Host -val %s", c.host))
+					if c.reachable && !resp.IsHTTPOk() {
+						return fmt.Errorf("cannot reach %s, %v", c.reqURL, resp.Code)
+					}
+
+					if !c.reachable && resp.IsHTTPOk() {
+						return fmt.Errorf("expected request %s to fail, but got success", c.reqURL)
+					}
+
+					if c.reachable && c.expectedHdr != nil {
+						found := len(c.expectedHdr.FindAllStringSubmatch(resp.Body, -1))
+						if found != 1 {
+							return fmt.Errorf("public virtualService for %s is not in effect", c.reqURL)
+						}
+					}
+					return nil
+				}, c.onFailure)
+			}
+		}
+	})
 }

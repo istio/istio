@@ -21,11 +21,14 @@ import (
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
-	"k8s.io/api/core/v1"
+
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/spiffe"
+
+	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 const (
@@ -41,8 +44,10 @@ const (
 	// are allowed to run this service.
 	CanonicalServiceAccountsAnnotation = "alpha.istio.io/canonical-serviceaccounts"
 
-	// istioURIPrefix is the URI prefix in the Istio service account scheme
-	istioURIPrefix = "spiffe"
+	// ServiceConfigScopeAnnotation configs the scope the service visible to.
+	//   "PUBLIC" which is the default, indicates it is reachable within the mesh
+	//   "PRIVATE" indicates it is reachable within its namespace
+	ServiceConfigScopeAnnotation = "networking.istio.io/configScope"
 
 	managementPortPrefix = "mgmt-"
 )
@@ -87,20 +92,22 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		ports = append(ports, convertPort(port))
 	}
 
+	configScope := networking.ConfigScope_PUBLIC
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[CanonicalServiceAccountsAnnotation] != "" {
-			for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",") {
-				serviceaccounts = append(serviceaccounts, csa)
-			}
+			serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[CanonicalServiceAccountsAnnotation], ",")...)
 		}
 		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
 			for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
-				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, domainSuffix))
+				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
 			}
 		}
+		if svc.Labels[ServiceConfigScopeAnnotation] == networking.ConfigScope_name[int32(networking.ConfigScope_PRIVATE)] {
+			configScope = networking.ConfigScope_PRIVATE
+		}
 	}
-	sort.Sort(sort.StringSlice(serviceaccounts))
+	sort.Strings(serviceaccounts)
 
 	return &model.Service{
 		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
@@ -111,9 +118,10 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		Attributes: model.ServiceAttributes{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-			UID:       fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			Name:        svc.Name,
+			Namespace:   svc.Namespace,
+			UID:         fmt.Sprintf("istio://%s/services/%s", svc.Namespace, svc.Name),
+			ConfigScope: configScope,
 		},
 	}
 }
@@ -143,8 +151,8 @@ func serviceHostname(name, namespace, domainSuffix string) model.Hostname {
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
-func kubeToIstioServiceAccount(saname string, ns string, domain string) string {
-	return fmt.Sprintf("%v://%v/ns/%v/sa/%v", istioURIPrefix, domain, ns, saname)
+func kubeToIstioServiceAccount(saname string, ns string) string {
+	return spiffe.MustGenSpiffeURI(ns, saname)
 }
 
 // KeyFunc is the internal API key function that returns "namespace"/"name" or

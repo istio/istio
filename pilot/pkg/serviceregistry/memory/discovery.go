@@ -19,6 +19,8 @@ import (
 	"net"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -58,12 +60,16 @@ func MakeService(hostname model.Hostname, address string) *model.Service {
 				Name:     "mongo",
 				Port:     100, // target port 1100
 				Protocol: model.ProtocolMongo,
-			},
-			{
+			}, {
 				Name:     "redis",
 				Port:     110, // target port 1110
 				Protocol: model.ProtocolRedis,
-			}},
+			}, {
+				Name:     "mysql",
+				Port:     120, // target port 1120
+				Protocol: model.ProtocolMySQL,
+			},
+		},
 	}
 }
 
@@ -226,15 +232,23 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	for _, service := range sd.services {
 		if !service.External() {
 			for v := 0; v < sd.versions; v++ {
-				if node.IPAddress == MakeIP(service, v) {
+				// Only one IP for memory discovery?
+				if node.IPAddresses[0] == MakeIP(service, v) {
 					for _, port := range service.Ports {
 						out = append(out, MakeInstance(service, port, v, "zone/region"))
 					}
 				}
 			}
+
 		}
 	}
 	return out, sd.GetProxyServiceInstancesError
+}
+
+// GetProxyLocality returns the locality where the proxy runs.
+func (sd *ServiceDiscovery) GetProxyLocality(node *model.Proxy) string {
+	// not implemented
+	return ""
 }
 
 // ManagementPorts implements discovery interface
@@ -259,8 +273,8 @@ func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	if hostname == "world.default.svc.cluster.local" {
 		return []string{
-			"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-			"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)

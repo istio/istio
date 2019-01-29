@@ -72,7 +72,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/log"
 )
 
@@ -239,6 +239,7 @@ func resolveKubeConfigPath(kubeConfig string) string {
 	return ret
 }
 
+// nolint: golint
 func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) {
 	if pilotURL != "" {
 		// No need to port-forward, url is already provided.

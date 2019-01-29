@@ -28,22 +28,82 @@ const (
 	ServerInfo_LIVE ServerInfo_State = 0
 	// Server is draining listeners in response to external health checks failing.
 	ServerInfo_DRAINING ServerInfo_State = 1
+	// Server has not yet completed cluster manager initialization.
+	ServerInfo_PRE_INITIALIZING ServerInfo_State = 2
+	// Server is running the cluster manager initialization callbacks (e.g., RDS).
+	ServerInfo_INITIALIZING ServerInfo_State = 3
 )
 
 var ServerInfo_State_name = map[int32]string{
 	0: "LIVE",
 	1: "DRAINING",
+	2: "PRE_INITIALIZING",
+	3: "INITIALIZING",
 }
 var ServerInfo_State_value = map[string]int32{
-	"LIVE":     0,
-	"DRAINING": 1,
+	"LIVE":             0,
+	"DRAINING":         1,
+	"PRE_INITIALIZING": 2,
+	"INITIALIZING":     3,
 }
 
 func (x ServerInfo_State) String() string {
 	return proto.EnumName(ServerInfo_State_name, int32(x))
 }
 func (ServerInfo_State) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_server_info_e6d2e8866450ad27, []int{0, 0}
+	return fileDescriptor_server_info_462b0d871c917bb3, []int{0, 0}
+}
+
+type CommandLineOptions_IpVersion int32
+
+const (
+	CommandLineOptions_v4 CommandLineOptions_IpVersion = 0
+	CommandLineOptions_v6 CommandLineOptions_IpVersion = 1
+)
+
+var CommandLineOptions_IpVersion_name = map[int32]string{
+	0: "v4",
+	1: "v6",
+}
+var CommandLineOptions_IpVersion_value = map[string]int32{
+	"v4": 0,
+	"v6": 1,
+}
+
+func (x CommandLineOptions_IpVersion) String() string {
+	return proto.EnumName(CommandLineOptions_IpVersion_name, int32(x))
+}
+func (CommandLineOptions_IpVersion) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_server_info_462b0d871c917bb3, []int{1, 0}
+}
+
+type CommandLineOptions_Mode int32
+
+const (
+	// Validate configs and then serve traffic normally.
+	CommandLineOptions_Serve CommandLineOptions_Mode = 0
+	// Validate configs and exit.
+	CommandLineOptions_Validate CommandLineOptions_Mode = 1
+	// Completely load and initialize the config, and then exit without running the listener loop.
+	CommandLineOptions_InitOnly CommandLineOptions_Mode = 2
+)
+
+var CommandLineOptions_Mode_name = map[int32]string{
+	0: "Serve",
+	1: "Validate",
+	2: "InitOnly",
+}
+var CommandLineOptions_Mode_value = map[string]int32{
+	"Serve":    0,
+	"Validate": 1,
+	"InitOnly": 2,
+}
+
+func (x CommandLineOptions_Mode) String() string {
+	return proto.EnumName(CommandLineOptions_Mode_name, int32(x))
+}
+func (CommandLineOptions_Mode) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_server_info_462b0d871c917bb3, []int{1, 1}
 }
 
 // Proto representation of the value returned by /server_info, containing
@@ -54,21 +114,21 @@ type ServerInfo struct {
 	// State of the server.
 	State ServerInfo_State `protobuf:"varint,2,opt,name=state,proto3,enum=envoy.admin.v2alpha.ServerInfo_State" json:"state,omitempty"`
 	// Uptime since current epoch was started.
-	UptimeCurrentEpoch *types.Duration `protobuf:"bytes,3,opt,name=uptime_current_epoch,json=uptimeCurrentEpoch" json:"uptime_current_epoch,omitempty"`
+	UptimeCurrentEpoch *types.Duration `protobuf:"bytes,3,opt,name=uptime_current_epoch,json=uptimeCurrentEpoch,proto3" json:"uptime_current_epoch,omitempty"`
 	// Uptime since the start of the first epoch.
-	UptimeAllEpochs *types.Duration `protobuf:"bytes,4,opt,name=uptime_all_epochs,json=uptimeAllEpochs" json:"uptime_all_epochs,omitempty"`
-	// Which restart epoch the server is currently in.
-	Epoch                uint32   `protobuf:"varint,5,opt,name=epoch,proto3" json:"epoch,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	UptimeAllEpochs *types.Duration `protobuf:"bytes,4,opt,name=uptime_all_epochs,json=uptimeAllEpochs,proto3" json:"uptime_all_epochs,omitempty"`
+	// Command line options the server is currently running with.
+	CommandLineOptions   *CommandLineOptions `protobuf:"bytes,6,opt,name=command_line_options,json=commandLineOptions,proto3" json:"command_line_options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
 }
 
 func (m *ServerInfo) Reset()         { *m = ServerInfo{} }
 func (m *ServerInfo) String() string { return proto.CompactTextString(m) }
 func (*ServerInfo) ProtoMessage()    {}
 func (*ServerInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_server_info_e6d2e8866450ad27, []int{0}
+	return fileDescriptor_server_info_462b0d871c917bb3, []int{0}
 }
 func (m *ServerInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -125,16 +185,274 @@ func (m *ServerInfo) GetUptimeAllEpochs() *types.Duration {
 	return nil
 }
 
-func (m *ServerInfo) GetEpoch() uint32 {
+func (m *ServerInfo) GetCommandLineOptions() *CommandLineOptions {
 	if m != nil {
-		return m.Epoch
+		return m.CommandLineOptions
+	}
+	return nil
+}
+
+type CommandLineOptions struct {
+	// See :option:`--base-id` for details.
+	BaseId uint64 `protobuf:"varint,1,opt,name=base_id,json=baseId,proto3" json:"base_id,omitempty"`
+	// See :option:`--concurrency` for details.
+	Concurrency uint32 `protobuf:"varint,2,opt,name=concurrency,proto3" json:"concurrency,omitempty"`
+	// See :option:`--config-path` for details.
+	ConfigPath string `protobuf:"bytes,3,opt,name=config_path,json=configPath,proto3" json:"config_path,omitempty"`
+	// See :option:`--config-yaml` for details.
+	ConfigYaml string `protobuf:"bytes,4,opt,name=config_yaml,json=configYaml,proto3" json:"config_yaml,omitempty"`
+	// See :option:`--allow-unknown-fields` for details.
+	AllowUnknownFields bool `protobuf:"varint,5,opt,name=allow_unknown_fields,json=allowUnknownFields,proto3" json:"allow_unknown_fields,omitempty"`
+	// See :option:`--admin-address-path` for details.
+	AdminAddressPath string `protobuf:"bytes,6,opt,name=admin_address_path,json=adminAddressPath,proto3" json:"admin_address_path,omitempty"`
+	// See :option:`--local-address-ip-version` for details.
+	LocalAddressIpVersion CommandLineOptions_IpVersion `protobuf:"varint,7,opt,name=local_address_ip_version,json=localAddressIpVersion,proto3,enum=envoy.admin.v2alpha.CommandLineOptions_IpVersion" json:"local_address_ip_version,omitempty"`
+	// See :option:`--log-level` for details.
+	LogLevel string `protobuf:"bytes,8,opt,name=log_level,json=logLevel,proto3" json:"log_level,omitempty"`
+	// See :option:`--component-log-level` for details.
+	ComponentLogLevel string `protobuf:"bytes,9,opt,name=component_log_level,json=componentLogLevel,proto3" json:"component_log_level,omitempty"`
+	// See :option:`--log-format` for details.
+	LogFormat string `protobuf:"bytes,10,opt,name=log_format,json=logFormat,proto3" json:"log_format,omitempty"`
+	// See :option:`--log-path` for details.
+	LogPath string `protobuf:"bytes,11,opt,name=log_path,json=logPath,proto3" json:"log_path,omitempty"`
+	// See :option:`--hot-restart-version` for details.
+	HotRestartVersion bool `protobuf:"varint,12,opt,name=hot_restart_version,json=hotRestartVersion,proto3" json:"hot_restart_version,omitempty"`
+	// See :option:`--service-cluster` for details.
+	ServiceCluster string `protobuf:"bytes,13,opt,name=service_cluster,json=serviceCluster,proto3" json:"service_cluster,omitempty"`
+	// See :option:`--service-node` for details.
+	ServiceNode string `protobuf:"bytes,14,opt,name=service_node,json=serviceNode,proto3" json:"service_node,omitempty"`
+	// See :option:`--service-zone` for details.
+	ServiceZone string `protobuf:"bytes,15,opt,name=service_zone,json=serviceZone,proto3" json:"service_zone,omitempty"`
+	// See :option:`--file-flush-interval-msec` for details.
+	FileFlushInterval *types.Duration `protobuf:"bytes,16,opt,name=file_flush_interval,json=fileFlushInterval,proto3" json:"file_flush_interval,omitempty"`
+	// See :option:`--drain-time-s` for details.
+	DrainTime *types.Duration `protobuf:"bytes,17,opt,name=drain_time,json=drainTime,proto3" json:"drain_time,omitempty"`
+	// See :option:`--parent-shutdown-time-s` for details.
+	ParentShutdownTime *types.Duration `protobuf:"bytes,18,opt,name=parent_shutdown_time,json=parentShutdownTime,proto3" json:"parent_shutdown_time,omitempty"`
+	// See :option:`--mode` for details.
+	Mode CommandLineOptions_Mode `protobuf:"varint,19,opt,name=mode,proto3,enum=envoy.admin.v2alpha.CommandLineOptions_Mode" json:"mode,omitempty"`
+	// See :option:`--max-stats` for details.
+	MaxStats uint64 `protobuf:"varint,20,opt,name=max_stats,json=maxStats,proto3" json:"max_stats,omitempty"`
+	// See :option:`--max-obj-name-len` for details.
+	MaxObjNameLen uint64 `protobuf:"varint,21,opt,name=max_obj_name_len,json=maxObjNameLen,proto3" json:"max_obj_name_len,omitempty"`
+	// See :option:`--disable-hot-restart` for details.
+	DisableHotRestart bool `protobuf:"varint,22,opt,name=disable_hot_restart,json=disableHotRestart,proto3" json:"disable_hot_restart,omitempty"`
+	// See :option:`--enable-mutex-tracing` for details.
+	EnableMutexTracing bool `protobuf:"varint,23,opt,name=enable_mutex_tracing,json=enableMutexTracing,proto3" json:"enable_mutex_tracing,omitempty"`
+	// See :option:`--restart-epoch` for details.
+	RestartEpoch         uint32   `protobuf:"varint,24,opt,name=restart_epoch,json=restartEpoch,proto3" json:"restart_epoch,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CommandLineOptions) Reset()         { *m = CommandLineOptions{} }
+func (m *CommandLineOptions) String() string { return proto.CompactTextString(m) }
+func (*CommandLineOptions) ProtoMessage()    {}
+func (*CommandLineOptions) Descriptor() ([]byte, []int) {
+	return fileDescriptor_server_info_462b0d871c917bb3, []int{1}
+}
+func (m *CommandLineOptions) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CommandLineOptions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CommandLineOptions.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *CommandLineOptions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CommandLineOptions.Merge(dst, src)
+}
+func (m *CommandLineOptions) XXX_Size() int {
+	return m.Size()
+}
+func (m *CommandLineOptions) XXX_DiscardUnknown() {
+	xxx_messageInfo_CommandLineOptions.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CommandLineOptions proto.InternalMessageInfo
+
+func (m *CommandLineOptions) GetBaseId() uint64 {
+	if m != nil {
+		return m.BaseId
+	}
+	return 0
+}
+
+func (m *CommandLineOptions) GetConcurrency() uint32 {
+	if m != nil {
+		return m.Concurrency
+	}
+	return 0
+}
+
+func (m *CommandLineOptions) GetConfigPath() string {
+	if m != nil {
+		return m.ConfigPath
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetConfigYaml() string {
+	if m != nil {
+		return m.ConfigYaml
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetAllowUnknownFields() bool {
+	if m != nil {
+		return m.AllowUnknownFields
+	}
+	return false
+}
+
+func (m *CommandLineOptions) GetAdminAddressPath() string {
+	if m != nil {
+		return m.AdminAddressPath
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetLocalAddressIpVersion() CommandLineOptions_IpVersion {
+	if m != nil {
+		return m.LocalAddressIpVersion
+	}
+	return CommandLineOptions_v4
+}
+
+func (m *CommandLineOptions) GetLogLevel() string {
+	if m != nil {
+		return m.LogLevel
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetComponentLogLevel() string {
+	if m != nil {
+		return m.ComponentLogLevel
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetLogFormat() string {
+	if m != nil {
+		return m.LogFormat
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetLogPath() string {
+	if m != nil {
+		return m.LogPath
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetHotRestartVersion() bool {
+	if m != nil {
+		return m.HotRestartVersion
+	}
+	return false
+}
+
+func (m *CommandLineOptions) GetServiceCluster() string {
+	if m != nil {
+		return m.ServiceCluster
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetServiceNode() string {
+	if m != nil {
+		return m.ServiceNode
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetServiceZone() string {
+	if m != nil {
+		return m.ServiceZone
+	}
+	return ""
+}
+
+func (m *CommandLineOptions) GetFileFlushInterval() *types.Duration {
+	if m != nil {
+		return m.FileFlushInterval
+	}
+	return nil
+}
+
+func (m *CommandLineOptions) GetDrainTime() *types.Duration {
+	if m != nil {
+		return m.DrainTime
+	}
+	return nil
+}
+
+func (m *CommandLineOptions) GetParentShutdownTime() *types.Duration {
+	if m != nil {
+		return m.ParentShutdownTime
+	}
+	return nil
+}
+
+func (m *CommandLineOptions) GetMode() CommandLineOptions_Mode {
+	if m != nil {
+		return m.Mode
+	}
+	return CommandLineOptions_Serve
+}
+
+func (m *CommandLineOptions) GetMaxStats() uint64 {
+	if m != nil {
+		return m.MaxStats
+	}
+	return 0
+}
+
+func (m *CommandLineOptions) GetMaxObjNameLen() uint64 {
+	if m != nil {
+		return m.MaxObjNameLen
+	}
+	return 0
+}
+
+func (m *CommandLineOptions) GetDisableHotRestart() bool {
+	if m != nil {
+		return m.DisableHotRestart
+	}
+	return false
+}
+
+func (m *CommandLineOptions) GetEnableMutexTracing() bool {
+	if m != nil {
+		return m.EnableMutexTracing
+	}
+	return false
+}
+
+func (m *CommandLineOptions) GetRestartEpoch() uint32 {
+	if m != nil {
+		return m.RestartEpoch
 	}
 	return 0
 }
 
 func init() {
 	proto.RegisterType((*ServerInfo)(nil), "envoy.admin.v2alpha.ServerInfo")
+	proto.RegisterType((*CommandLineOptions)(nil), "envoy.admin.v2alpha.CommandLineOptions")
 	proto.RegisterEnum("envoy.admin.v2alpha.ServerInfo_State", ServerInfo_State_name, ServerInfo_State_value)
+	proto.RegisterEnum("envoy.admin.v2alpha.CommandLineOptions_IpVersion", CommandLineOptions_IpVersion_name, CommandLineOptions_IpVersion_value)
+	proto.RegisterEnum("envoy.admin.v2alpha.CommandLineOptions_Mode", CommandLineOptions_Mode_name, CommandLineOptions_Mode_value)
 }
 func (m *ServerInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -182,10 +500,219 @@ func (m *ServerInfo) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i += n2
 	}
-	if m.Epoch != 0 {
+	if m.CommandLineOptions != nil {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.CommandLineOptions.Size()))
+		n3, err := m.CommandLineOptions.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *CommandLineOptions) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CommandLineOptions) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.BaseId != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.BaseId))
+	}
+	if m.Concurrency != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.Concurrency))
+	}
+	if len(m.ConfigPath) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.ConfigPath)))
+		i += copy(dAtA[i:], m.ConfigPath)
+	}
+	if len(m.ConfigYaml) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.ConfigYaml)))
+		i += copy(dAtA[i:], m.ConfigYaml)
+	}
+	if m.AllowUnknownFields {
 		dAtA[i] = 0x28
 		i++
-		i = encodeVarintServerInfo(dAtA, i, uint64(m.Epoch))
+		if m.AllowUnknownFields {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.AdminAddressPath) > 0 {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.AdminAddressPath)))
+		i += copy(dAtA[i:], m.AdminAddressPath)
+	}
+	if m.LocalAddressIpVersion != 0 {
+		dAtA[i] = 0x38
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.LocalAddressIpVersion))
+	}
+	if len(m.LogLevel) > 0 {
+		dAtA[i] = 0x42
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.LogLevel)))
+		i += copy(dAtA[i:], m.LogLevel)
+	}
+	if len(m.ComponentLogLevel) > 0 {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.ComponentLogLevel)))
+		i += copy(dAtA[i:], m.ComponentLogLevel)
+	}
+	if len(m.LogFormat) > 0 {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.LogFormat)))
+		i += copy(dAtA[i:], m.LogFormat)
+	}
+	if len(m.LogPath) > 0 {
+		dAtA[i] = 0x5a
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.LogPath)))
+		i += copy(dAtA[i:], m.LogPath)
+	}
+	if m.HotRestartVersion {
+		dAtA[i] = 0x60
+		i++
+		if m.HotRestartVersion {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.ServiceCluster) > 0 {
+		dAtA[i] = 0x6a
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.ServiceCluster)))
+		i += copy(dAtA[i:], m.ServiceCluster)
+	}
+	if len(m.ServiceNode) > 0 {
+		dAtA[i] = 0x72
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.ServiceNode)))
+		i += copy(dAtA[i:], m.ServiceNode)
+	}
+	if len(m.ServiceZone) > 0 {
+		dAtA[i] = 0x7a
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(len(m.ServiceZone)))
+		i += copy(dAtA[i:], m.ServiceZone)
+	}
+	if m.FileFlushInterval != nil {
+		dAtA[i] = 0x82
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.FileFlushInterval.Size()))
+		n4, err := m.FileFlushInterval.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	if m.DrainTime != nil {
+		dAtA[i] = 0x8a
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.DrainTime.Size()))
+		n5, err := m.DrainTime.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	if m.ParentShutdownTime != nil {
+		dAtA[i] = 0x92
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.ParentShutdownTime.Size()))
+		n6, err := m.ParentShutdownTime.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	if m.Mode != 0 {
+		dAtA[i] = 0x98
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.Mode))
+	}
+	if m.MaxStats != 0 {
+		dAtA[i] = 0xa0
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.MaxStats))
+	}
+	if m.MaxObjNameLen != 0 {
+		dAtA[i] = 0xa8
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.MaxObjNameLen))
+	}
+	if m.DisableHotRestart {
+		dAtA[i] = 0xb0
+		i++
+		dAtA[i] = 0x1
+		i++
+		if m.DisableHotRestart {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.EnableMutexTracing {
+		dAtA[i] = 0xb8
+		i++
+		dAtA[i] = 0x1
+		i++
+		if m.EnableMutexTracing {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.RestartEpoch != 0 {
+		dAtA[i] = 0xc0
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintServerInfo(dAtA, i, uint64(m.RestartEpoch))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -203,6 +730,9 @@ func encodeVarintServerInfo(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ServerInfo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Version)
@@ -220,8 +750,106 @@ func (m *ServerInfo) Size() (n int) {
 		l = m.UptimeAllEpochs.Size()
 		n += 1 + l + sovServerInfo(uint64(l))
 	}
-	if m.Epoch != 0 {
-		n += 1 + sovServerInfo(uint64(m.Epoch))
+	if m.CommandLineOptions != nil {
+		l = m.CommandLineOptions.Size()
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *CommandLineOptions) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.BaseId != 0 {
+		n += 1 + sovServerInfo(uint64(m.BaseId))
+	}
+	if m.Concurrency != 0 {
+		n += 1 + sovServerInfo(uint64(m.Concurrency))
+	}
+	l = len(m.ConfigPath)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	l = len(m.ConfigYaml)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	if m.AllowUnknownFields {
+		n += 2
+	}
+	l = len(m.AdminAddressPath)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	if m.LocalAddressIpVersion != 0 {
+		n += 1 + sovServerInfo(uint64(m.LocalAddressIpVersion))
+	}
+	l = len(m.LogLevel)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	l = len(m.ComponentLogLevel)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	l = len(m.LogFormat)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	l = len(m.LogPath)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	if m.HotRestartVersion {
+		n += 2
+	}
+	l = len(m.ServiceCluster)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	l = len(m.ServiceNode)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	l = len(m.ServiceZone)
+	if l > 0 {
+		n += 1 + l + sovServerInfo(uint64(l))
+	}
+	if m.FileFlushInterval != nil {
+		l = m.FileFlushInterval.Size()
+		n += 2 + l + sovServerInfo(uint64(l))
+	}
+	if m.DrainTime != nil {
+		l = m.DrainTime.Size()
+		n += 2 + l + sovServerInfo(uint64(l))
+	}
+	if m.ParentShutdownTime != nil {
+		l = m.ParentShutdownTime.Size()
+		n += 2 + l + sovServerInfo(uint64(l))
+	}
+	if m.Mode != 0 {
+		n += 2 + sovServerInfo(uint64(m.Mode))
+	}
+	if m.MaxStats != 0 {
+		n += 2 + sovServerInfo(uint64(m.MaxStats))
+	}
+	if m.MaxObjNameLen != 0 {
+		n += 2 + sovServerInfo(uint64(m.MaxObjNameLen))
+	}
+	if m.DisableHotRestart {
+		n += 3
+	}
+	if m.EnableMutexTracing {
+		n += 3
+	}
+	if m.RestartEpoch != 0 {
+		n += 2 + sovServerInfo(uint64(m.RestartEpoch))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -385,11 +1013,11 @@ func (m *ServerInfo) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Epoch", wireType)
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CommandLineOptions", wireType)
 			}
-			m.Epoch = 0
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowServerInfo
@@ -399,7 +1027,674 @@ func (m *ServerInfo) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Epoch |= (uint32(b) & 0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.CommandLineOptions == nil {
+				m.CommandLineOptions = &CommandLineOptions{}
+			}
+			if err := m.CommandLineOptions.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipServerInfo(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CommandLineOptions) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowServerInfo
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CommandLineOptions: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CommandLineOptions: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BaseId", wireType)
+			}
+			m.BaseId = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.BaseId |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Concurrency", wireType)
+			}
+			m.Concurrency = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Concurrency |= (uint32(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ConfigPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ConfigPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ConfigYaml", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ConfigYaml = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AllowUnknownFields", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.AllowUnknownFields = bool(v != 0)
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AdminAddressPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AdminAddressPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LocalAddressIpVersion", wireType)
+			}
+			m.LocalAddressIpVersion = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.LocalAddressIpVersion |= (CommandLineOptions_IpVersion(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LogLevel", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LogLevel = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ComponentLogLevel", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ComponentLogLevel = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LogFormat", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LogFormat = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LogPath", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.LogPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 12:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HotRestartVersion", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.HotRestartVersion = bool(v != 0)
+		case 13:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceCluster", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServiceCluster = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 14:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceNode", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServiceNode = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 15:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceZone", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServiceZone = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 16:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FileFlushInterval", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.FileFlushInterval == nil {
+				m.FileFlushInterval = &types.Duration{}
+			}
+			if err := m.FileFlushInterval.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 17:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DrainTime", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DrainTime == nil {
+				m.DrainTime = &types.Duration{}
+			}
+			if err := m.DrainTime.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 18:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ParentShutdownTime", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthServerInfo
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ParentShutdownTime == nil {
+				m.ParentShutdownTime = &types.Duration{}
+			}
+			if err := m.ParentShutdownTime.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 19:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Mode", wireType)
+			}
+			m.Mode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Mode |= (CommandLineOptions_Mode(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 20:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxStats", wireType)
+			}
+			m.MaxStats = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MaxStats |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 21:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxObjNameLen", wireType)
+			}
+			m.MaxObjNameLen = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MaxObjNameLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 22:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DisableHotRestart", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DisableHotRestart = bool(v != 0)
+		case 23:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EnableMutexTracing", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.EnableMutexTracing = bool(v != 0)
+		case 24:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RestartEpoch", wireType)
+			}
+			m.RestartEpoch = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowServerInfo
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.RestartEpoch |= (uint32(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -532,28 +1827,66 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/admin/v2alpha/server_info.proto", fileDescriptor_server_info_e6d2e8866450ad27)
+	proto.RegisterFile("envoy/admin/v2alpha/server_info.proto", fileDescriptor_server_info_462b0d871c917bb3)
 }
 
-var fileDescriptor_server_info_e6d2e8866450ad27 = []byte{
-	// 297 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x8e, 0xc1, 0x4a, 0xf3, 0x40,
-	0x14, 0x46, 0xff, 0xe9, 0xdf, 0x68, 0xbd, 0x56, 0xad, 0x63, 0x17, 0xd1, 0x45, 0x0c, 0x85, 0x42,
-	0x56, 0x13, 0xa8, 0x4b, 0x57, 0xd5, 0x06, 0x09, 0x4a, 0x17, 0x29, 0xb8, 0x0d, 0xd3, 0x76, 0xd2,
-	0x06, 0xa6, 0x33, 0x61, 0x32, 0x09, 0xf8, 0x52, 0x3e, 0x87, 0x4b, 0x1f, 0x41, 0xf2, 0x24, 0xd2,
-	0x99, 0x14, 0x37, 0x82, 0xcb, 0x0b, 0xdf, 0x39, 0xf7, 0xc0, 0x98, 0x89, 0x5a, 0xbe, 0x85, 0x74,
-	0xbd, 0xcb, 0x45, 0x58, 0x4f, 0x28, 0x2f, 0xb6, 0x34, 0x2c, 0x99, 0xaa, 0x99, 0x4a, 0x73, 0x91,
-	0x49, 0x52, 0x28, 0xa9, 0x25, 0xbe, 0x32, 0x33, 0x62, 0x66, 0xa4, 0x9d, 0xdd, 0x78, 0x1b, 0x29,
-	0x37, 0x9c, 0x85, 0x66, 0xb2, 0xac, 0xb2, 0x70, 0x5d, 0x29, 0xaa, 0x73, 0x29, 0x2c, 0x34, 0x7a,
-	0xef, 0x00, 0x2c, 0x8c, 0x2a, 0x16, 0x99, 0xc4, 0x2e, 0x1c, 0xd7, 0x4c, 0x95, 0xb9, 0x14, 0x2e,
-	0xf2, 0x51, 0x70, 0x92, 0x1c, 0x4e, 0x7c, 0x0f, 0x4e, 0xa9, 0xa9, 0x66, 0x6e, 0xc7, 0x47, 0xc1,
-	0xf9, 0x64, 0x4c, 0x7e, 0xf9, 0x46, 0x7e, 0x4c, 0x64, 0xb1, 0x1f, 0x27, 0x96, 0xc1, 0xcf, 0x30,
-	0xac, 0x0a, 0x9d, 0xef, 0x58, 0xba, 0xaa, 0x94, 0x62, 0x42, 0xa7, 0xac, 0x90, 0xab, 0xad, 0xfb,
-	0xdf, 0x47, 0xc1, 0xe9, 0xe4, 0x9a, 0xd8, 0x48, 0x72, 0x88, 0x24, 0xb3, 0x36, 0x32, 0xc1, 0x16,
-	0x7b, 0xb4, 0x54, 0xb4, 0x87, 0x70, 0x04, 0x97, 0xad, 0x8c, 0x72, 0x6e, 0x45, 0xa5, 0xdb, 0xfd,
-	0xcb, 0x74, 0x61, 0x99, 0x29, 0xe7, 0xc6, 0x52, 0xe2, 0x21, 0x38, 0x36, 0xc2, 0xf1, 0x51, 0x70,
-	0x96, 0xd8, 0x63, 0x74, 0x0b, 0x8e, 0x29, 0xc7, 0x3d, 0xe8, 0xbe, 0xc4, 0xaf, 0xd1, 0xe0, 0x1f,
-	0xee, 0x43, 0x6f, 0x96, 0x4c, 0xe3, 0x79, 0x3c, 0x7f, 0x1a, 0xa0, 0x87, 0xfe, 0x47, 0xe3, 0xa1,
-	0xcf, 0xc6, 0x43, 0x5f, 0x8d, 0x87, 0x96, 0x47, 0xe6, 0xd1, 0xdd, 0x77, 0x00, 0x00, 0x00, 0xff,
-	0xff, 0x09, 0xb3, 0xc9, 0xb9, 0xa3, 0x01, 0x00, 0x00,
+var fileDescriptor_server_info_462b0d871c917bb3 = []byte{
+	// 902 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xdb, 0x6e, 0xdb, 0xb6,
+	0x1b, 0xaf, 0x72, 0xb4, 0xbf, 0x9c, 0x14, 0x26, 0xfd, 0x97, 0xfd, 0x17, 0xcb, 0xd2, 0x0c, 0x45,
+	0x72, 0xd1, 0xc9, 0x6b, 0x36, 0x0c, 0x03, 0x76, 0xb3, 0x2c, 0x4d, 0x3a, 0x61, 0xae, 0x13, 0x28,
+	0x59, 0x80, 0xf6, 0x86, 0xa0, 0x25, 0xda, 0x66, 0x46, 0x91, 0x82, 0x44, 0xbb, 0xf6, 0x5e, 0x65,
+	0x2f, 0xb1, 0xc7, 0xd8, 0xe5, 0x1e, 0x61, 0xc8, 0x93, 0x0c, 0xfc, 0x28, 0x3b, 0x29, 0x1a, 0x20,
+	0xbd, 0x12, 0xf4, 0xfd, 0x0e, 0x24, 0xbf, 0x13, 0xbc, 0x10, 0x7a, 0x64, 0x26, 0x2d, 0x9e, 0xe5,
+	0x52, 0xb7, 0x46, 0x87, 0x5c, 0x15, 0x03, 0xde, 0xaa, 0x44, 0x39, 0x12, 0x25, 0x93, 0xba, 0x67,
+	0xa2, 0xa2, 0x34, 0xd6, 0x90, 0x2d, 0xa4, 0x45, 0x48, 0x8b, 0x6a, 0xda, 0xff, 0x77, 0xfa, 0xc6,
+	0xf4, 0x95, 0x68, 0x21, 0xa5, 0x3b, 0xec, 0xb5, 0xb2, 0x61, 0xc9, 0xad, 0x34, 0xda, 0x8b, 0xf6,
+	0xfe, 0x9c, 0x07, 0xb8, 0x40, 0xab, 0x58, 0xf7, 0x0c, 0xa1, 0xb0, 0x3c, 0x12, 0x65, 0x25, 0x8d,
+	0xa6, 0xc1, 0x6e, 0x70, 0xd0, 0x4c, 0xa6, 0xbf, 0xe4, 0x47, 0x58, 0xac, 0x2c, 0xb7, 0x82, 0xce,
+	0xed, 0x06, 0x07, 0xeb, 0x87, 0x2f, 0xa2, 0x7b, 0x4e, 0x8b, 0x6e, 0x9d, 0xa2, 0x0b, 0x47, 0x4e,
+	0xbc, 0x86, 0xfc, 0x0a, 0xdb, 0xc3, 0xc2, 0xca, 0x5c, 0xb0, 0x74, 0x58, 0x96, 0x42, 0x5b, 0x26,
+	0x0a, 0x93, 0x0e, 0xe8, 0xfc, 0x6e, 0x70, 0xb0, 0x72, 0xf8, 0x34, 0xf2, 0x97, 0x8c, 0xa6, 0x97,
+	0x8c, 0x5e, 0xd7, 0x97, 0x4c, 0x88, 0x97, 0x1d, 0x7b, 0xd5, 0x89, 0x13, 0x91, 0x13, 0xd8, 0xac,
+	0xcd, 0xb8, 0x52, 0xde, 0xa8, 0xa2, 0x0b, 0x0f, 0x39, 0x6d, 0x78, 0xcd, 0x91, 0x52, 0xe8, 0x52,
+	0x91, 0x77, 0xb0, 0x9d, 0x9a, 0x3c, 0xe7, 0x3a, 0x63, 0x4a, 0x6a, 0xc1, 0x4c, 0xe1, 0x78, 0x15,
+	0x5d, 0x42, 0xa7, 0xfd, 0x7b, 0xdf, 0x77, 0xec, 0x05, 0x6d, 0xa9, 0xc5, 0x99, 0xa7, 0x27, 0x24,
+	0xfd, 0x24, 0xb6, 0xf7, 0x06, 0x16, 0xf1, 0xf9, 0xa4, 0x01, 0x0b, 0xed, 0xf8, 0xea, 0x24, 0x7c,
+	0x44, 0x56, 0xa1, 0xf1, 0x3a, 0x39, 0x8a, 0x3b, 0x71, 0xe7, 0x4d, 0x18, 0x90, 0x6d, 0x08, 0xcf,
+	0x93, 0x13, 0x16, 0x77, 0xe2, 0xcb, 0xf8, 0xa8, 0x1d, 0xbf, 0x77, 0xd1, 0x39, 0x12, 0xc2, 0xea,
+	0x47, 0x91, 0xf9, 0xbd, 0xbf, 0x9a, 0x40, 0x3e, 0x3d, 0x93, 0x3c, 0x81, 0xe5, 0x2e, 0xaf, 0x04,
+	0x93, 0x19, 0x56, 0x69, 0x21, 0x59, 0x72, 0xbf, 0x71, 0x46, 0x76, 0x61, 0x25, 0x35, 0xda, 0xe7,
+	0x38, 0x9d, 0x60, 0xa9, 0xd6, 0x92, 0xbb, 0x21, 0xf2, 0x25, 0x32, 0x7a, 0xb2, 0xcf, 0x0a, 0x6e,
+	0x7d, 0x01, 0x9a, 0x09, 0xf8, 0xd0, 0x39, 0xb7, 0x83, 0x3b, 0x84, 0x09, 0xcf, 0x15, 0xe6, 0x75,
+	0x46, 0x78, 0xc7, 0x73, 0x45, 0xbe, 0x81, 0x6d, 0xae, 0x94, 0xf9, 0xc0, 0x86, 0xfa, 0x77, 0x6d,
+	0x3e, 0x68, 0xd6, 0x93, 0x42, 0x65, 0x15, 0x5d, 0xdc, 0x0d, 0x0e, 0x1a, 0x09, 0x41, 0xec, 0x37,
+	0x0f, 0x9d, 0x22, 0x42, 0x5e, 0x02, 0xc1, 0x34, 0x32, 0x9e, 0x65, 0xa5, 0xa8, 0x2a, 0x7f, 0xf4,
+	0x12, 0x3a, 0x87, 0x88, 0x1c, 0x79, 0x00, 0x2f, 0x70, 0x0d, 0x54, 0x99, 0x94, 0xab, 0x19, 0x5b,
+	0x16, 0x6c, 0xda, 0x93, 0xcb, 0xd8, 0x7b, 0xaf, 0x3e, 0xb3, 0x36, 0x51, 0x5c, 0x5c, 0x79, 0x61,
+	0xf2, 0x18, 0x2d, 0xeb, 0x63, 0x66, 0x61, 0xf2, 0x0c, 0x9a, 0xca, 0xf4, 0x99, 0x12, 0x23, 0xa1,
+	0x68, 0x03, 0x2f, 0xd4, 0x50, 0xa6, 0xdf, 0x76, 0xff, 0x24, 0x82, 0xad, 0xd4, 0xe4, 0x85, 0xd1,
+	0xae, 0x5f, 0x6f, 0x69, 0x4d, 0xa4, 0x6d, 0xce, 0xa0, 0xf6, 0x94, 0xff, 0x05, 0x80, 0x63, 0xf5,
+	0x4c, 0x99, 0x73, 0x4b, 0x01, 0x69, 0xce, 0xfe, 0x14, 0x03, 0xe4, 0x29, 0x38, 0x6b, 0xff, 0xf6,
+	0x15, 0x3f, 0x5b, 0xca, 0xf8, 0x9c, 0x47, 0xb0, 0x35, 0x30, 0x96, 0x95, 0xa2, 0xb2, 0xbc, 0xb4,
+	0xb3, 0xd7, 0xae, 0x62, 0x46, 0x37, 0x07, 0xc6, 0x26, 0x1e, 0x99, 0x5e, 0x7b, 0x1f, 0x36, 0xdc,
+	0xf8, 0xcb, 0x54, 0xb0, 0x54, 0x0d, 0x2b, 0x2b, 0x4a, 0xba, 0x86, 0x8e, 0xeb, 0x75, 0xf8, 0xd8,
+	0x47, 0xc9, 0x73, 0x58, 0x9d, 0x12, 0xb5, 0xc9, 0x04, 0x5d, 0x47, 0xd6, 0x4a, 0x1d, 0xeb, 0x98,
+	0x4c, 0xdc, 0xa5, 0xfc, 0x61, 0xb4, 0xa0, 0x1b, 0x1f, 0x51, 0xde, 0x1b, 0x2d, 0x48, 0x0c, 0x5b,
+	0x3d, 0xa9, 0x04, 0xeb, 0xa9, 0x61, 0x35, 0x60, 0x52, 0x5b, 0x51, 0x8e, 0xb8, 0xa2, 0xe1, 0x43,
+	0x23, 0xb7, 0xe9, 0x54, 0xa7, 0x4e, 0x14, 0xd7, 0x1a, 0xf2, 0x03, 0x40, 0x56, 0x72, 0xa9, 0x99,
+	0x9b, 0x45, 0xba, 0xf9, 0x90, 0x43, 0x13, 0xc9, 0x97, 0x32, 0xc7, 0x15, 0x52, 0x70, 0x5c, 0x1d,
+	0xd5, 0x60, 0x68, 0x33, 0xd7, 0x78, 0xe8, 0x41, 0x1e, 0x5c, 0x21, 0x5e, 0x76, 0x51, 0xab, 0xd0,
+	0xec, 0x27, 0x58, 0xc8, 0x5d, 0x3e, 0xb6, 0xb0, 0x9f, 0x5e, 0x7e, 0x6e, 0x3f, 0xbd, 0x35, 0x99,
+	0x48, 0x50, 0xe9, 0x3a, 0x27, 0xe7, 0x63, 0xe6, 0xd6, 0x5b, 0x45, 0xb7, 0x71, 0x08, 0x1b, 0x39,
+	0x1f, 0xbb, 0xb1, 0xaf, 0xc8, 0x3e, 0x84, 0x0e, 0x34, 0xdd, 0x6b, 0xa6, 0x79, 0x2e, 0x98, 0x12,
+	0x9a, 0x3e, 0x46, 0xce, 0x5a, 0xce, 0xc7, 0x67, 0xdd, 0xeb, 0x0e, 0xcf, 0x45, 0x5b, 0x68, 0x57,
+	0xf8, 0x4c, 0x56, 0xbc, 0xab, 0x04, 0xbb, 0xd3, 0x00, 0xf4, 0x7f, 0xbe, 0xf0, 0x35, 0xf4, 0xcb,
+	0xac, 0xfe, 0x6e, 0xf6, 0x84, 0x46, 0x7a, 0x3e, 0xb4, 0x62, 0xcc, 0x6c, 0xc9, 0x53, 0xa9, 0xfb,
+	0xf4, 0x89, 0x9f, 0x3d, 0x8f, 0xbd, 0x75, 0xd0, 0xa5, 0x47, 0xc8, 0x57, 0xb0, 0x36, 0x6d, 0x2b,
+	0xbf, 0x72, 0x29, 0xee, 0x84, 0xd5, 0x3a, 0x88, 0xbb, 0x70, 0xef, 0x19, 0x34, 0x6f, 0x67, 0x62,
+	0x09, 0xe6, 0x46, 0xdf, 0x85, 0x8f, 0xf0, 0xfb, 0x7d, 0x18, 0xec, 0x7d, 0x0d, 0x0b, 0xee, 0xdd,
+	0xa4, 0x09, 0x8b, 0xb8, 0xde, 0xfd, 0x32, 0xbb, 0xe2, 0x4a, 0x66, 0xdc, 0x8a, 0x30, 0x70, 0x7f,
+	0xb1, 0x96, 0xf6, 0x4c, 0xab, 0x49, 0x38, 0xf7, 0xf3, 0xab, 0xbf, 0x6f, 0x76, 0x82, 0x7f, 0x6e,
+	0x76, 0x82, 0x7f, 0x6f, 0x76, 0x02, 0x78, 0x2e, 0x8d, 0x4f, 0x6e, 0x51, 0x9a, 0xf1, 0xe4, 0xbe,
+	0x3c, 0x9f, 0x07, 0xdd, 0x25, 0x2c, 0xda, 0xb7, 0xff, 0x05, 0x00, 0x00, 0xff, 0xff, 0x23, 0x6e,
+	0x8c, 0x70, 0xe8, 0x06, 0x00, 0x00,
 }

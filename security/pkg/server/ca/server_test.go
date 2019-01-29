@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -85,19 +87,19 @@ func (ca *mockCA) GetCertChain() []byte {
 }
 
 type mockAuthenticator struct {
-	authSource authSource
+	authSource authenticate.AuthSource
 	identities []string
 	errMsg     string
 }
 
-func (authn *mockAuthenticator) authenticate(ctx context.Context) (*caller, error) {
+func (authn *mockAuthenticator) Authenticate(ctx context.Context) (*authenticate.Caller, error) {
 	if len(authn.errMsg) > 0 {
 		return nil, fmt.Errorf("%v", authn.errMsg)
 	}
 
-	return &caller{
-		authSource: authn.authSource,
-		identities: authn.identities,
+	return &authenticate.Caller{
+		AuthSource: authn.authSource,
+		Identities: authn.identities,
 	}, nil
 }
 
@@ -106,7 +108,7 @@ type mockAuthorizer struct {
 }
 
 // nolint: unparam
-func (authz *mockAuthorizer) authorize(requester *caller, requestedIds []string) error {
+func (authz *mockAuthorizer) authorize(requester *authenticate.Caller, requestedIds []string) error {
 	if len(authz.errMsg) > 0 {
 		return fmt.Errorf("%v", authz.errMsg)
 	}
@@ -332,6 +334,12 @@ func TestShouldRefresh(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
+	k8sEnv := false
+	if _, err := os.Stat(caCertPath); !os.IsNotExist(err) {
+		if _, err := os.Stat(jwtPath); !os.IsNotExist(err) {
+			k8sEnv = true
+		}
+	}
 	testCases := map[string]struct {
 		ca                          *mockca.FakeCA
 		hostname                    []string
@@ -380,7 +388,11 @@ func TestRun(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port)
+		if k8sEnv {
+			// K8s JWT authenticator is added in k8s env.
+			tc.expectedAuthenticatorsLen = tc.expectedAuthenticatorsLen + 1
+		}
+		server, err := New(tc.ca, time.Hour, false, tc.hostname, tc.port, "testdomain.com")
 		if err == nil {
 			err = server.Run()
 		}

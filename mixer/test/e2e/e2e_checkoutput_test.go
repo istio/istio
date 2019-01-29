@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"istio.io/api/mixer/adapter/model/v1beta1"
-	"istio.io/api/mixer/v1"
+	v1 "istio.io/api/mixer/v1"
 	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
 	checkProducerTmpl "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
@@ -96,6 +96,73 @@ spec:
 					},
 				},
 			},
+			expectDirective: &v1.RouteDirective{
+				RequestHeaderOperations: []v1.HeaderOperation{
+					{
+						Name:      "x-istio",
+						Value:     "value1",
+						Operation: v1.APPEND,
+					},
+					{
+						Name:      "x-istio",
+						Value:     "string0",
+						Operation: v1.APPEND,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.run(t, v1beta1.TEMPLATE_VARIETY_CHECK, "")
+		})
+	}
+}
+
+func TestCheckElided(t *testing.T) {
+	tests := []testData{
+
+		{
+			name: "BasicCheckOutput",
+			cfg: `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: example
+  namespace: istio-system
+spec:
+  actions: []
+  requestHeaderOperations:
+  - name: x-istio
+    values:
+    - '"value1"'
+    - '"string0"'
+    operation: APPEND
+---
+`,
+			attrs: map[string]interface{}{},
+			behaviors: []spyadapter.AdapterBehavior{
+				{
+					Name: "fakehandler",
+					Handler: spyadapter.HandlerBehavior{
+						HandleCheckProducerOutput: &checkProducerTmpl.Output{
+							StringPrimitive: "string0",
+							StringMap: map[string]string{
+								"key1": "value1",
+							},
+						},
+					},
+				},
+			},
+			templates: e2eTmpl.SupportedTmplInfo,
+			expectAttrRefs: []expectedAttrRef{{
+				name:      "destination.namespace",
+				condition: v1.ABSENCE,
+			}, {
+				name:      "context.reporter.kind",
+				condition: v1.ABSENCE,
+			}},
 			expectDirective: &v1.RouteDirective{
 				RequestHeaderOperations: []v1.HeaderOperation{
 					{

@@ -30,6 +30,8 @@ spec:
       - args:
         - proxy
         - sidecar
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
         - --configPath
         - /etc/istio/proxy
         - --binaryPath
@@ -94,6 +96,7 @@ spec:
         resources:
           requests:
             cpu: 10m
+            memory: 30Mi
         securityContext:
           readOnlyRootFilesystem: true
           runAsUser: 1337

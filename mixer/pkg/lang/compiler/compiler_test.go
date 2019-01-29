@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
@@ -225,7 +226,7 @@ func TestCompile(t *testing.T) {
 				tt.Fatalf("expected error not received: '%v'", test.Err)
 			}
 
-			if !ilt.AreEqual(test.R, v.AsInterface()) {
+			if !attribute.Equal(test.R, v.AsInterface()) {
 				tt.Fatalf("Result match failed: %+v == %+v", test.R, v.AsInterface())
 			}
 		})

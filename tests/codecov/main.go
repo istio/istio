@@ -27,9 +27,10 @@ import (
 )
 
 var (
-	reportFile    = flag.String("report_file", "", "Code coverage report file")
-	baselineFile  = flag.String("baseline_file", "", "Code coverage baseline file")
-	thresholdFile = flag.String("threshold_file", "", "File containing package to threshold mappings, as overrides")
+	reportFile     = flag.String("report_file", "", "Code coverage report file")
+	baselineFile   = flag.String("baseline_file", "", "Code coverage baseline file")
+	thresholdFiles = flag.String("threshold_files", "", "File containing package to threshold mappings, as overrides")
+	skipDeleted    = flag.Bool("skip_deleted", true, "Whehter deleted files should be skipped")
 )
 
 func parseReportLine(line string) (string, float64, error) {
@@ -67,39 +68,48 @@ func parseReport(filename string) (map[string]float64, error) {
 	return coverage, scanner.Err()
 }
 
-func parseThreshold(thresholdFile string) (map[string]float64, error) {
-	f, err := os.Open(thresholdFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open threshold file, %s, %v", thresholdFile, err)
-	}
-	defer func() {
-		if err = f.Close(); err != nil {
-			glog.Errorf("failed to close file %s, %v", thresholdFile, err)
-		}
-	}()
-
-	scanner := bufio.NewScanner(f)
-	reg := regexp.MustCompile(`(.*)=(.*)`)
-
+func parseThreshold(thresholdFiles string) (map[string]float64, error) {
+	files := strings.Split(thresholdFiles, ",")
 	thresholds := make(map[string]float64)
 
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "#") {
-			// Skip comments
-			continue
+	for _, thresholdFile := range files {
+		f, err := os.Open(thresholdFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open threshold file, %s, %v", thresholdFile, err)
 		}
-		m := reg.FindStringSubmatch(line)
-		if len(m) == 3 {
-			threshold, err := strconv.ParseFloat(strings.TrimSpace(m[2]), 64)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse threshold to float64 for package %s: %s, %v",
-					m[1], m[2], err)
+		defer func() {
+			if err = f.Close(); err != nil {
+				glog.Errorf("failed to close file %s, %v", thresholdFile, err)
 			}
-			thresholds[strings.TrimSpace(m[1])] = threshold
+		}()
+
+		scanner := bufio.NewScanner(f)
+		reg := regexp.MustCompile(`(.*)=(.*)`)
+
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if strings.HasPrefix(line, "#") {
+				// Skip comments
+				continue
+			}
+			m := reg.FindStringSubmatch(line)
+			if len(m) == 3 {
+				threshold, err := strconv.ParseFloat(strings.TrimSpace(m[2]), 64)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse threshold to float64 for package %s: %s, %v",
+						m[1], m[2], err)
+				}
+				thresholds[strings.TrimSpace(m[1])] = threshold
+			} else if len(line) > 0 {
+				// The line is the package being ignored.
+				thresholds[strings.TrimSpace(line)] = 100
+			}
+			if scanner.Err() != nil {
+				return thresholds, scanner.Err()
+			}
 		}
 	}
-	return thresholds, scanner.Err()
+	return thresholds, nil
 }
 
 func findDelta(report, baseline map[string]float64) map[string]float64 {
@@ -117,10 +127,16 @@ func findDelta(report, baseline map[string]float64) map[string]float64 {
 	return deltas
 }
 
-func checkDelta(deltas, report, baseline, thresholds map[string]float64) []string {
+func checkDelta(deltas, report, baseline, thresholds map[string]float64, skipDeleted bool) []string {
 	dropMsgs := []string{}
 	for pkg, delta := range deltas {
 		if delta+getThreshold(thresholds, pkg) < 0 {
+			if skipDeleted {
+				if _, err := os.Stat(os.Getenv("GOPATH") + "/src/" + pkg); os.IsNotExist(err) {
+					// Don't report if the file has been deleted
+					continue
+				}
+			}
 			dropMsg := fmt.Sprintf("%s:%f%% (%f%% to %f%%)", pkg, delta, baseline[pkg], report[pkg])
 			dropMsgs = append(dropMsgs, dropMsg)
 		}
@@ -141,7 +157,7 @@ func getThreshold(thresholds map[string]float64, path string) float64 {
 	return matchedThreshold
 }
 
-func checkCoverage(reportFile, baselineFile, thresholdFile string) error {
+func checkCoverage(reportFile, baselineFile, thresholdFile string, skipMissingFile bool) error {
 	report, err := parseReport(reportFile)
 	if err != nil {
 		return fmt.Errorf("cannot open or parse report file: %s, %v", reportFile, err)
@@ -157,7 +173,7 @@ func checkCoverage(reportFile, baselineFile, thresholdFile string) error {
 	deltas := findDelta(report, baseline)
 
 	// Then generate errors for reduced coverage.
-	dropMsgs := checkDelta(deltas, report, baseline, thresholds)
+	dropMsgs := checkDelta(deltas, report, baseline, thresholds, skipMissingFile)
 	if len(dropMsgs) > 0 {
 		errMsgs := []string{"Coverage dropped:"}
 		errMsgs = append(errMsgs, dropMsgs...)
@@ -170,7 +186,7 @@ func checkCoverage(reportFile, baselineFile, thresholdFile string) error {
 // code coverage has dropped above the given threshold.
 func main() {
 	flag.Parse()
-	err := checkCoverage(*reportFile, *baselineFile, *thresholdFile)
+	err := checkCoverage(*reportFile, *baselineFile, *thresholdFiles, *skipDeleted)
 	if err != nil {
 		glog.Error(err)
 		os.Exit(1)

@@ -22,7 +22,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -548,10 +548,10 @@ func TestValidateMeshConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 6 {
+			if len(err.Errors) < 6 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -576,7 +576,7 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
-		clone := proto.Clone(valid).(*meshconfig.ProxyConfig)
+		clone := proto.Clone(config).(*meshconfig.ProxyConfig)
 		fieldSetter(clone)
 		return clone
 	}
@@ -844,10 +844,10 @@ func TestValidateProxyConfig(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) != 11 {
+			if len(err.Errors) != 11 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1341,6 +1341,37 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
+		{"happy ip",
+			&networking.Server{
+				Hosts: []string{"1.1.1.1"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		// TODO: ADD ONCE ns/name format is supported for gateway
+		//{"happy ns/name",
+		//	&networking.Server{
+		//		Hosts: []string{"ns1/foo.bar.com"},
+		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+		//	},
+		//	""},
+		//{"happy */name",
+		//	&networking.Server{
+		//		Hosts: []string{"*/foo.bar.com"},
+		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+		//	},
+		//	""},
+		//{"happy ./name",
+		//	&networking.Server{
+		//		Hosts: []string{"./foo.bar.com"},
+		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+		//	},
+		//	""},
+		//{"invalid domain ns/name format",
+		//	&networking.Server{
+		//		Hosts: []string{"ns1/foo.*.bar.com"},
+		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+		//	},
+		//	"domain"},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
@@ -1474,9 +1505,9 @@ func TestValidateTlsOptions(t *testing.T) {
 			""},
 		{"simple no server cert",
 			&networking.Server_TLSOptions{
-				Mode:              networking.Server_TLSOptions_SIMPLE,
-				ServerCertificate: ""},
-			"server certificate"},
+				Mode: networking.Server_TLSOptions_SIMPLE,
+			},
+			""},
 		{"mutual",
 			&networking.Server_TLSOptions{
 				Mode:              networking.Server_TLSOptions_MUTUAL,
@@ -1735,7 +1766,12 @@ func TestValidateHTTPRetry(t *testing.T) {
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
-		{name: "bad attempts", in: &networking.HTTPRetry{
+		{name: "valid http status retryOn", in: &networking.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "503,connect-failure",
+		}, valid: true},
+		{name: "invalid attempts", in: &networking.HTTPRetry{
 			Attempts:      -1,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 		}, valid: false},
@@ -1747,10 +1783,15 @@ func TestValidateHTTPRetry(t *testing.T) {
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Nanos: 999},
 		}, valid: false},
-		{name: "non supported retryOn", in: &networking.HTTPRetry{
+		{name: "invalid policy retryOn", in: &networking.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "5xx,invalid policy",
+		}, valid: false},
+		{name: "invalid http status retryOn", in: &networking.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "600,connect-failure",
 		}, valid: false},
 	}
 
@@ -2023,6 +2064,107 @@ func TestValidateHTTPRoute(t *testing.T) {
 				"": "value",
 			},
 		}, valid: false},
+		{name: "valid headers", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "",
+						},
+						Set: map[string]string{
+							"name": "",
+						},
+						Remove: []string{
+							"name",
+						},
+					},
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "",
+						},
+						Set: map[string]string{
+							"name": "",
+						},
+						Remove: []string{
+							"name",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "empty header name - request add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - request set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - request remove", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Remove: []string{
+							"",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"": "value",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "empty header name - response remove", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Remove: []string{
+							"",
+						},
+					},
+				},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -2053,12 +2195,12 @@ func TestValidateRouteDestination(t *testing.T) {
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      75,
 		}}, valid: true},
-		{name: "zero weight", routes: []*networking.RouteDestination{&networking.RouteDestination{
+		{name: "weight < 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      5,
 		}, &networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz.east"},
-			Weight:      0,
+			Weight:      -1,
 		}}, valid: false},
 		{name: "total weight > 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
@@ -2066,14 +2208,32 @@ func TestValidateRouteDestination(t *testing.T) {
 		}, &networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
-		}}, valid: true},
+		}}, valid: false},
 		{name: "total weight < 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz.south"},
 			Weight:      49,
 		}, &networking.RouteDestination{
 			Destination: &networking.Destination{Host: "foo.baz.east"},
 			Weight:      50,
+		}}, valid: false},
+		{name: "total weight = 100", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      100,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      0,
 		}}, valid: true},
+		{name: "weight = 0", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      0,
+		}}, valid: true},
+		{name: "total weight = 0 with multi RouteDestination", routes: []*networking.RouteDestination{&networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.south"},
+			Weight:      0,
+		}, &networking.RouteDestination{
+			Destination: &networking.Destination{Host: "foo.baz.east"},
+			Weight:      0,
+		}}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -2145,6 +2305,33 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "namespace/name for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/gateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "namespace/* for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/*"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "*/name for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"*/gateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
 			Hosts: []string{"*"},
 			Http: []*networking.HTTPRoute{{
@@ -2505,7 +2692,7 @@ func TestValidateConnectionPool(t *testing.T) {
 }
 
 func TestValidateLoadBalancer(t *testing.T) {
-	duration := time.Duration(time.Hour)
+	duration := time.Hour
 	cases := []struct {
 		name  string
 		in    networking.LoadBalancerSettings
@@ -2773,11 +2960,11 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
-			valid: false},
+			valid: true},
 		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
@@ -3585,4 +3772,474 @@ func TestValidateMixerService(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateSidecar(t *testing.T) {
+	tests := []struct {
+		name  string
+		in    *networking.Sidecar
+		valid bool
+	}{
+		{"empty ingress and egress", &networking.Sidecar{}, false},
+		{"default", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, true},
+		{"import local namespace with wildcard", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"./*"},
+				},
+			},
+		}, true},
+		{"import local namespace with fqdn", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"./foo.com"},
+				},
+			},
+		}, true},
+		{"bad egress host 1", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*"},
+				},
+			},
+		}, false},
+		{"bad egress host 2", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"/"},
+				},
+			},
+		}, false},
+		{"bad egress host 3", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"~/foo.com"},
+				},
+			},
+		}, false},
+		{"empty egress host", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{},
+				},
+			},
+		}, false},
+		{"multiple wildcard egress", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/foo.com",
+					},
+				},
+				{
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"wildcard egress not in end", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/foo.com",
+					},
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   8080,
+						Name:     "h8080",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"invalid Port", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http1",
+						Number:   1000000,
+						Name:     "",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"UDS bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+			},
+		}, true},
+		{"UDS bind 2", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///foo/bar/com",
+				},
+			},
+		}, true},
+		{"invalid bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "foobar:///@foo/bar/com",
+				},
+			},
+		}, false},
+		{"invalid capture mode with uds bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind:        "unix:///@foo/bar/com",
+					CaptureMode: networking.CaptureMode_IPTABLES,
+				},
+			},
+		}, false},
+		{"duplicate UDS bind", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   0,
+						Name:     "uds",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+					Bind: "unix:///@foo/bar/com",
+				},
+			},
+		}, false},
+		{"duplicate ports", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					Hosts: []string{
+						"ns1/bar.com",
+					},
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "tcp",
+					},
+					Hosts: []string{
+						"ns2/bar.com",
+					},
+				},
+			},
+		}, false},
+		{"ingress without port", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+			},
+		}, false},
+		{"ingress with duplicate ports", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+				{
+					Port: &networking.Port{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "bar",
+					},
+					DefaultEndpoint: "127.0.0.1:110",
+				},
+			},
+		}, false},
+		{"ingress without default endpoint", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint IP", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "1.1.1.1:90",
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint uds", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "unix:///",
+				},
+			},
+		}, false},
+		{"ingress with invalid default endpoint port", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.Port{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:hi",
+				},
+			},
+		}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSidecar("foo", "bar", tt.in)
+			if err == nil && !tt.valid {
+				t.Fatalf("ValidateSidecar(%v) = true, wanted false", tt.in)
+			} else if err != nil && tt.valid {
+				t.Fatalf("ValidateSidecar(%v) = %v, wanted true", tt.in, err)
+			}
+		})
+	}
+}
+
+func TestValidateLocalityLbSetting(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    *meshconfig.LocalityLoadBalancerSetting
+		valid bool
+	}{
+		{
+			name:  "valid mesh config without LocalityLoadBalancerSetting",
+			in:    nil,
+			valid: true,
+		},
+
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  25,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  15,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 0,
+							"a/b1":  100,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  20,
+						},
+					},
+				},
+				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid failover src and dst have same region",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region1",
+					},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		if got := validateLocalityLbSetting(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateLocalityLbSetting failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateLocalities(t *testing.T) {
+	cases := []struct {
+		name       string
+		localities []string
+		valid      bool
+	}{
+		{
+			name:       "multi wildcard locality",
+			localities: []string{"*/zone/*"},
+			valid:      false,
+		},
+		{
+			name:       "wildcard not in suffix",
+			localities: []string{"*/zone"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard region overlap",
+			localities: []string{"*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard region overlap",
+			localities: []string{"a", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard zone overlap",
+			localities: []string{"a/*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard zone overlap",
+			localities: []string{"a/b", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard subzone overlap",
+			localities: []string{"a/b/*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard subzone overlap",
+			localities: []string{"a/b", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "valid localities",
+			localities: []string{"a1/*", "a2/*", "a3/b3/c3", "a4/b4", "a5/b5/*"},
+			valid:      true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateLocalities(c.localities)
+			if !c.valid && err == nil {
+				t.Errorf("expect invalid localities")
+			}
+
+			if c.valid && err != nil {
+				t.Errorf("expect valid localities. but got err %v", err)
+			}
+		})
+	}
+
 }

@@ -27,7 +27,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -396,10 +396,16 @@ func ValidateUnixAddress(addr string) error {
 	if len(addr) == 0 {
 		return errors.New("unix address must not be empty")
 	}
+
+	// Allow unix abstract domain sockets whose names start with @
+	if strings.HasPrefix(addr, "@") {
+		return nil
+	}
+
 	// Note that we use path, not path/filepath even though a domain socket path is a file path.  We don't want the
 	// Pilot output to depend on which OS Pilot is run on, so we always use Unix-style forward slashes.
-	if !path.IsAbs(addr) {
-		return fmt.Errorf("%s is not an absolute path", addr)
+	if !path.IsAbs(addr) || strings.HasSuffix(addr, "/") {
+		return fmt.Errorf("%s is not an absolute path to a file", addr)
 	}
 	return nil
 }
@@ -450,6 +456,8 @@ func validateServer(server *networking.Server) (errs error) {
 					errs = appendErrors(errs, err)
 				}
 			}
+			// TODO: switch to this code once ns/name format support is added to gateway
+			//errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, true))
 		}
 	}
 	portErr := validateServerPort(server.Port)
@@ -483,7 +491,7 @@ func validateServerPort(port *networking.Port) (errs error) {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
 	if ParseProtocol(port.Protocol) == ProtocolUnsupported {
-		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, TCP", port.Protocol))
+		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, MYSQL, TCP", port.Protocol))
 	}
 	if port.Number > 0 {
 		errs = appendErrors(errs, ValidatePort(int(port.Number)))
@@ -500,11 +508,7 @@ func validateTLSOptions(tls *networking.Server_TLSOptions) (errs error) {
 		// no tls config at all is valid
 		return
 	}
-	if tls.Mode == networking.Server_TLSOptions_SIMPLE {
-		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
-		}
-	} else if tls.Mode == networking.Server_TLSOptions_MUTUAL {
+	if tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
@@ -562,6 +566,206 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 
 		if f.FilterConfig == nil {
 			errs = appendErrors(errs, fmt.Errorf("envoy filter: missing filter config"))
+		}
+	}
+
+	return
+}
+
+// validates that hostname in ns/<hostname> is a valid hostname according to
+// API specs
+func validateSidecarOrGatewayHostnamePart(host string, isGateway bool) (errs error) {
+	// short name hosts are not allowed
+	if host != "*" && !strings.Contains(host, ".") {
+		errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed"))
+	}
+
+	if err := ValidateWildcardDomain(host); err != nil {
+		if !isGateway {
+			errs = appendErrors(errs, err)
+		}
+
+		// Gateway allows IP as the host string, as well
+		ipAddr := net.ParseIP(host)
+		if ipAddr == nil {
+			errs = appendErrors(errs, err)
+		}
+	}
+	return
+}
+
+func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs error) {
+	parts := strings.SplitN(host, "/", 2)
+	if len(parts) != 2 {
+		if isGateway {
+			// deprecated
+			log.Warn("Gateway host without namespace is deprecated. Use namespace/hostname format")
+			// Old style host in the gateway
+			return validateSidecarOrGatewayHostnamePart(host, true)
+		}
+		errs = appendErrors(errs, fmt.Errorf("host must be of form namespace/dnsName"))
+		return
+	}
+
+	if len(parts[0]) == 0 || len(parts[1]) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("config namespace and dnsName in host entry cannot be empty"))
+	}
+
+	// namespace can be * or . or a valid DNS label
+	if parts[0] != "*" && parts[0] != "." {
+		if !IsDNS1123Label(parts[0]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q", parts[0]))
+		}
+	}
+	errs = appendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
+	return
+}
+
+// ValidateSidecar checks sidecar config supplied by user
+func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
+	rule, ok := msg.(*networking.Sidecar)
+	if !ok {
+		return fmt.Errorf("cannot cast to Sidecar")
+	}
+
+	if rule.WorkloadSelector != nil {
+		if rule.WorkloadSelector.GetLabels() == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: workloadSelector cannot have empty labels"))
+		}
+	}
+
+	// TODO: pending discussion on API default behavior.
+	if len(rule.Ingress) == 0 && len(rule.Egress) == 0 {
+		return fmt.Errorf("sidecar: missing ingress/egress")
+	}
+
+	portMap := make(map[uint32]struct{})
+	udsMap := make(map[string]struct{})
+	for _, i := range rule.Ingress {
+		if i.Port == nil {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
+			continue
+		}
+
+		bind := i.GetBind()
+		captureMode := i.GetCaptureMode()
+		errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+
+		if i.Port.Number == 0 {
+			if _, found := udsMap[bind]; found {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
+			}
+			udsMap[bind] = struct{}{}
+		} else {
+			if _, found := portMap[i.Port.Number]; found {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+			}
+			portMap[i.Port.Number] = struct{}{}
+		}
+
+		if len(i.DefaultEndpoint) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: default endpoint must be set for all ingress listeners"))
+		} else {
+			if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
+				errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+			} else {
+				// format should be 127.0.0.1:port or :port
+				parts := strings.Split(i.DefaultEndpoint, ":")
+				if len(parts) < 2 {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>"))
+				} else {
+					if len(parts[0]) > 0 && parts[0] != "127.0.0.1" {
+						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>"))
+					}
+
+					port, err := strconv.Atoi(parts[1])
+					if err != nil {
+						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
+					} else {
+						errs = appendErrors(errs, ValidatePort(port))
+					}
+				}
+			}
+		}
+	}
+
+	// TODO: complete bind address+port or UDS uniqueness across ingress and egress
+	// after the whole listener implementation is complete
+	portMap = make(map[uint32]struct{})
+	udsMap = make(map[string]struct{})
+	catchAllEgressListenerFound := false
+	for index, i := range rule.Egress {
+		// there can be only one catch all egress listener with empty port, and it should be the last listener.
+		if i.Port == nil {
+			if !catchAllEgressListenerFound {
+				if index == len(rule.Egress)-1 {
+					catchAllEgressListenerFound = true
+				} else {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
+				}
+			} else {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
+				continue
+			}
+		} else {
+			bind := i.GetBind()
+			captureMode := i.GetCaptureMode()
+			errs = appendErrors(errs, validateSidecarPortBindAndCaptureMode(i.Port, bind, captureMode))
+
+			if i.Port.Number == 0 {
+				if _, found := udsMap[bind]; found {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
+				}
+				udsMap[bind] = struct{}{}
+			} else {
+				if _, found := portMap[i.Port.Number]; found {
+					errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+				}
+				portMap[i.Port.Number] = struct{}{}
+			}
+		}
+
+		// validate that the hosts field is a slash separated value
+		// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
+		if len(i.Hosts) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
+		} else {
+			for _, host := range i.Hosts {
+				errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, false))
+			}
+		}
+	}
+
+	return
+}
+
+func validateSidecarPortBindAndCaptureMode(port *networking.Port, bind string,
+	captureMode networking.CaptureMode) (errs error) {
+
+	// Handle Unix domain sockets
+	if port.Number == 0 {
+		// require bind to be a unix domain socket
+		errs = appendErrors(errs,
+			validatePortName(port.Name),
+			validateProtocol(port.Protocol))
+
+		if !strings.HasPrefix(bind, UnixAddressPrefix) {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: ports with 0 value must have a unix domain socket bind address"))
+		} else {
+			errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
+		}
+
+		if captureMode != networking.CaptureMode_DEFAULT && captureMode != networking.CaptureMode_NONE {
+			errs = appendErrors(errs, fmt.Errorf("sidecar: captureMode must be DEFAULT/NONE for unix domain socket listeners"))
+		}
+	} else {
+		errs = appendErrors(errs,
+			validatePortName(port.Name),
+			validateProtocol(port.Protocol),
+			ValidatePort(int(port.Number)))
+
+		if len(bind) != 0 {
+			errs = appendErrors(errs, ValidateIPv4Address(bind))
 		}
 	}
 
@@ -656,7 +860,6 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings) (errs error
 			}
 		}
 	}
-
 	return
 }
 
@@ -873,6 +1076,10 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if mesh.DefaultConfig == nil {
 		errs = multierror.Append(errs, errors.New("missing default config"))
 	} else if err := ValidateProxyConfig(mesh.DefaultConfig); err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	if err := validateLocalityLbSetting(mesh.LocalityLbSetting); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
@@ -1353,12 +1560,11 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 		appliesToMesh = true
 	}
 
+	errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
 	for _, gateway := range virtualService.Gateways {
-		if err := ValidateFQDN(gateway); err != nil {
-			errs = appendErrors(errs, err)
-		}
 		if gateway == IstioMeshGateway {
 			appliesToMesh = true
+			break
 		}
 	}
 
@@ -1513,6 +1719,7 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 		errs = appendErrors(errs, errors.New("HTTP route or redirect is required"))
 	}
 
+	// deprecated
 	for name := range http.AppendHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
@@ -1528,6 +1735,27 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	for _, name := range http.RemoveResponseHeaders {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
+
+	// header manipulation
+	for name := range http.Headers.GetRequest().GetAdd() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for name := range http.Headers.GetRequest().GetSet() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for _, name := range http.Headers.GetRequest().GetRemove() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for name := range http.Headers.GetResponse().GetAdd() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for name := range http.Headers.GetResponse().GetSet() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	for _, name := range http.Headers.GetResponse().GetRemove() {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+
 	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
 	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
@@ -1556,9 +1784,30 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 
 func validateGatewayNames(gateways []string) (errs error) {
 	for _, gateway := range gateways {
-		if err := ValidateFQDN(gateway); err != nil {
-			errs = appendErrors(errs, err)
+		parts := strings.SplitN(gateway, "/", 2)
+		if len(parts) != 2 {
+			// deprecated
+			log.Warn("Gateway names with FQDN format or short forms are deprecated. " +
+				"Use namespace/name format instead")
+			// Old style spec with FQDN gateway name
+			errs = appendErrors(errs, ValidateFQDN(gateway))
+			return
 		}
+
+		if len(parts[0]) == 0 || len(parts[1]) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("config namespace and gateway name cannot be empty"))
+		}
+
+		// namespace and name must be DNS labels
+		if !IsDNS1123Label(parts[0]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
+		}
+
+		if !IsDNS1123Label(parts[1]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
+		}
+
+		return
 	}
 	return
 }
@@ -1569,6 +1818,8 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
+
+		// deprecated
 		for name := range weight.AppendRequestHeaders {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
@@ -1581,6 +1832,27 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		for _, name := range weight.RemoveResponseHeaders {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
+
+		// header manipulations
+		for name := range weight.Headers.GetRequest().GetAdd() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.Headers.GetRequest().GetSet() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.Headers.GetRequest().GetRemove() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.Headers.GetResponse().GetAdd() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for name := range weight.Headers.GetResponse().GetSet() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		for _, name := range weight.Headers.GetResponse().GetRemove() {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
 		totalWeight += weight.Weight
@@ -1599,10 +1871,10 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 		}
 		errs = appendErrors(errs, validateDestination(weight.Destination))
 		errs = appendErrors(errs, ValidatePercent(weight.Weight))
-		if len(weights) > 1 && weight.Weight < 1 {
-			errs = multierror.Append(errs, errors.New("positive weight is required"))
-		}
 		totalWeight += weight.Weight
+	}
+	if len(weights) > 1 && totalWeight != 100 {
+		errs = appendErrors(errs, fmt.Errorf("total destination weight %v != 100", totalWeight))
 	}
 	return
 }
@@ -1780,7 +2052,10 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	if retries.RetryOn != "" {
 		retryOnPolicies := strings.Split(retries.RetryOn, ",")
 		for _, policy := range retryOnPolicies {
-			if !supportedRetryOnPolicies[policy] {
+			// Try converting it to an integer to see if it's a valid HTTP status code.
+			i, _ := strconv.Atoi(policy)
+
+			if http.StatusText(i) == "" && !supportedRetryOnPolicies[policy] {
 				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
 			}
 		}
@@ -1814,8 +2089,8 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
 	for _, host := range serviceEntry.Hosts {
-		// Full wildcard or short names are not allowed in the service entry.
-		if host == "*" || !strings.Contains(host, ".") {
+		// Full wildcard is not allowed in the service entry.
+		if host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
 		} else {
 			errs = appendErrors(errs, ValidateWildcardDomain(host))
@@ -1996,5 +2271,113 @@ func ValidateNetworkEndpointAddress(n *NetworkEndpoint) error {
 	default:
 		panic(fmt.Sprintf("unhandled Family %v", n.Family))
 	}
+	return nil
+}
+
+// validateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
+func validateLocalityLbSetting(lb *meshconfig.LocalityLoadBalancerSetting) error {
+	if lb == nil {
+		return nil
+	}
+
+	if len(lb.GetDistribute()) > 0 && len(lb.GetFailover()) > 0 {
+		return fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'")
+	}
+
+	srcLocalities := []string{}
+	for _, locality := range lb.GetDistribute() {
+		srcLocalities = append(srcLocalities, locality.From)
+		var totalWeight uint32
+		destLocalities := []string{}
+		for loc, weight := range locality.To {
+			destLocalities = append(destLocalities, loc)
+			if weight == 0 {
+				return fmt.Errorf("locality weight must not be in range [1, 100]")
+			}
+			totalWeight += weight
+		}
+		if totalWeight != 100 {
+			return fmt.Errorf("total locality weight %v != 100", totalWeight)
+		}
+		if err := validateLocalities(destLocalities); err != nil {
+			return err
+		}
+	}
+
+	if err := validateLocalities(srcLocalities); err != nil {
+		return err
+	}
+
+	for _, failover := range lb.GetFailover() {
+		if failover.From == failover.To {
+			return fmt.Errorf("locality lb failover settings must specify different regions")
+		}
+		if strings.Contains(failover.To, "*") {
+			return fmt.Errorf("locality lb failover region should not contain '*' wildcard")
+		}
+	}
+
+	return nil
+}
+
+func validateLocalities(localities []string) error {
+	regionZoneSubZoneMap := map[string]map[string]map[string]bool{}
+
+	for _, locality := range localities {
+		if n := strings.Count(locality, "*"); n > 0 {
+			if n > 1 || !strings.HasSuffix(locality, "*") {
+				return fmt.Errorf("locality %s wildcard '*' number can not exceed 1 and must be in the end", locality)
+			}
+		}
+
+		items := strings.SplitN(locality, "/", 3)
+		for _, item := range items {
+			if item == "" {
+				return fmt.Errorf("locality %s must not contain empty region/zone/subzone info", locality)
+			}
+		}
+		if _, ok := regionZoneSubZoneMap["*"]; ok {
+			return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+		}
+		switch len(items) {
+		case 1:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+			}
+			regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{"*": {"*": true}}
+		case 2:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				}
+				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				}
+				regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{"*": true}
+			} else {
+				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {"*": true}}
+			}
+		case 3:
+			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+				}
+				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
+					if regionZoneSubZoneMap[items[0]][items[1]]["*"] {
+						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+					}
+					if regionZoneSubZoneMap[items[0]][items[1]][items[2]] {
+						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
+					}
+					regionZoneSubZoneMap[items[0]][items[1]][items[2]] = true
+				} else {
+					regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{items[2]: true}
+				}
+			} else {
+				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {items[2]: true}}
+			}
+		}
+	}
+
 	return nil
 }

@@ -52,7 +52,7 @@ func checkErrors(t *testing.T, gotError error, wantError error) {
 }
 
 func TestValueTypeEncoder_Errors(t *testing.T) {
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 
 	for _, tst := range []struct {
 		input        interface{}
@@ -139,21 +139,21 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 			input:        "test.uri",
 			encoderError: errors.New("error converting value"),
 			bag: map[string]interface{}{
-				"test.uri": 5,
+				"test.uri": int64(5),
 			},
 		},
 		{
 			input:        "test.dns_name",
 			encoderError: errors.New("error converting value"),
 			bag: map[string]interface{}{
-				"test.dns_name": 5,
+				"test.dns_name": int64(5),
 			},
 		},
 		{
 			input:        "test.email_address",
 			encoderError: errors.New("error converting value"),
 			bag: map[string]interface{}{
-				"test.email_address": 5,
+				"test.email_address": int64(5),
 			},
 		},
 	} {
@@ -180,7 +180,7 @@ func TestValueTypeEncoder_Errors(t *testing.T) {
 }
 
 func TestValueTypeEncoder(t *testing.T) {
-	compiler := compiled.NewBuilder(StatdardVocabulary())
+	compiler := compiled.NewBuilder(StandardVocabulary())
 	now := time.Now()
 	ts, err := types.TimestampProto(now)
 	if err != nil {
@@ -298,7 +298,7 @@ func TestValueTypeEncoder(t *testing.T) {
 			bag := attribute.GetMutableBagForTesting(tst.bag)
 			var ba []byte
 			if ba, err = enc.Encode(bag, ba); err != nil {
-				t.Fatalf("unexpected encoder  error: %v", err)
+				t.Fatalf("unexpected encoder error: %v", err)
 			}
 
 			bout, _ := tst.output.Marshal()

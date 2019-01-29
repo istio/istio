@@ -19,7 +19,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -199,13 +199,15 @@ func TestDynamicAttribute(t *testing.T) {
 								},
 							},
 						},
-						Endpoint: &endpoint.Endpoint{
-							Address: &core.Address{Address: &core.Address_SocketAddress{
-								SocketAddress: &core.SocketAddress{
-									Address:       "127.0.0.1",
-									PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(s.Ports().BackendPort)},
-								},
-							}},
+						HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+							Endpoint: &endpoint.Endpoint{
+								Address: &core.Address{Address: &core.Address_SocketAddress{
+									SocketAddress: &core.SocketAddress{
+										Address:       "127.0.0.1",
+										PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(s.Ports().BackendPort)},
+									},
+								}},
+							},
 						},
 					}},
 				}},
