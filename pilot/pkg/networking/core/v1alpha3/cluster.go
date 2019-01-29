@@ -959,13 +959,14 @@ func buildDefaultTrafficPolicy(env *model.Environment, discoveryType apiv2.Clust
 	}
 
 	// Set default circuit breaking for Envoy graceful shutdown
+	// Values derived from Envoy docs https://www.envoyproxy.io/docs/envoy/latest/faq/transient_failures#outlier-detection
 	var outlierDetectionPolicy *networking.OutlierDetection
 	if direction == model.TrafficDirectionOutbound && port.Protocol.IsHTTP() {
 		outlierDetectionPolicy = &networking.OutlierDetection{
 			ConsecutiveErrors:  5,
 			Interval:           &types.Duration{Seconds: 10}, // Explicit default
 			BaseEjectionTime:   &types.Duration{Seconds: 30}, // Explicit default
-			MaxEjectionPercent: 10,                           // Explicit default
+			MaxEjectionPercent: 50,
 		}
 	}
 
