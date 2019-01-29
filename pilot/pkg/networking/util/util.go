@@ -302,22 +302,34 @@ func LbPriority(proxyLocality, endpointsLocality model.LocalityInterface) int {
 }
 
 // return a shallow copy cluster
-func CloneCluster(cluster *xdsapi.Cluster) *xdsapi.Cluster {
+func CloneCluster(cluster *xdsapi.Cluster) xdsapi.Cluster {
+	out := xdsapi.Cluster{}
 	if cluster == nil {
-		return nil
+		return out
 	}
 
-	out := *cluster
-	loadAssignment := *cluster.LoadAssignment
+	out = *cluster
+	loadAssignment := CloneClusterLoadAssignment(cluster.LoadAssignment)
 	out.LoadAssignment = &loadAssignment
-	clonedLocEps := CloneLocalityLbEndpoints(loadAssignment.Endpoints)
-	out.LoadAssignment.Endpoints = clonedLocEps
 
-	return &out
+	return out
+}
+
+// return a shallow copy ClusterLoadAssignment
+func CloneClusterLoadAssignment(endpoint *xdsapi.ClusterLoadAssignment) xdsapi.ClusterLoadAssignment {
+	out := xdsapi.ClusterLoadAssignment{}
+	if endpoint == nil {
+		return out
+	}
+
+	out = *endpoint
+	out.Endpoints = cloneLocalityLbEndpoints(out.Endpoints)
+
+	return out
 }
 
 // return a shallow copy LocalityLbEndpoints
-func CloneLocalityLbEndpoints(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
+func cloneLocalityLbEndpoints(endpoints []endpoint.LocalityLbEndpoints) []endpoint.LocalityLbEndpoints {
 	out := make([]endpoint.LocalityLbEndpoints, 0, len(endpoints))
 	for _, ep := range endpoints {
 		clone := ep

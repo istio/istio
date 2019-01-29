@@ -97,8 +97,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 						// TODO: cache per locality
 						// Currently make a shallow copy of cluster which is fast
 						clone := util.CloneCluster(cluster)
-						ApplyLocalityLBSetting(proxy, cluster, push)
-						clusters[i] = clone
+						ApplyLocalityLBSetting(proxy, &clone, push)
+						clusters[i] = &clone
 					}
 				}
 				recomputeOutboundClusters = false
@@ -127,8 +127,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 				for i, cluster := range clusters {
 					if cluster.LoadAssignment != nil {
 						clone := util.CloneCluster(cluster)
-						ApplyLocalityLBSetting(proxy, clone, push)
-						clusters[i] = clone
+						ApplyLocalityLBSetting(proxy, &clone, push)
+						clusters[i] = &clone
 					}
 				}
 				recomputeOutboundClusters = false
