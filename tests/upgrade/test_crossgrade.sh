@@ -198,14 +198,29 @@ installIstioSystemAtVersionHelmTemplate() {
             echo_and_run kubectl apply -f "${i}"
         done
         sleep 5 # Per official Istio documentation!
+
+        helm template "${release_path}" "${auth_opts}" \
+        --name istio --namespace "${ISTIO_NAMESPACE}" \
+        --set gateways.istio-ingressgateway.autoscaleMin=4 \
+        --set pilot.autoscaleMin=2 \
+        --set mixer.telemetry.autoscaleMin=2 \
+        --set mixer.policy.autoscaleMin=2 \
+        --set prometheus.enabled=false \
+        --set global.hub="${1}" \
+        --set global.tag="${2}" \
+        --set global.defaultPodDisruptionBudget.enabled = true > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
+    else
+        helm template "${release_path}" "${auth_opts}" \
+        --name istio --namespace "${ISTIO_NAMESPACE}" \
+        --set gateways.istio-ingressgateway.autoscaleMin=4 \
+        --set pilot.autoscaleMin=2 \
+        --set mixer.istio-telemetry.autoscaleMin=2 \
+        --set mixer.istio-policy.autoscaleMin=2 \
+        --set prometheus.enabled=false \
+        --set global.hub="${1}" \
+        --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
     fi
 
-    helm template "${release_path}" "${auth_opts}" \
-    --name istio --namespace "${ISTIO_NAMESPACE}" \
-    --set gateways.istio-ingressgateway.autoscaleMin=4 \
-    --set prometheus.enabled=false \
-    --set global.hub="${1}" \
-    --set global.tag="${2}" > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
 
     withRetries 3 60 kubectl apply -f "${ISTIO_ROOT}"/istio.yaml
 }
