@@ -72,17 +72,8 @@ type EdsCluster struct {
 
 	LoadAssignment *xdsapi.ClusterLoadAssignment
 
-	// FirstUse is the time the cluster was first used, for debugging
-	FirstUse time.Time
-
 	// EdsClients keeps track of all nodes monitoring the cluster.
 	EdsClients map[string]*XdsConnection `json:"-"`
-
-	// NonEmptyTime is the time the cluster first had a non-empty set of endpoints
-	NonEmptyTime time.Time
-
-	// The discovery service this cluster is associated with.
-	discovery *DiscoveryServer
 }
 
 // TODO: add prom metrics !
@@ -269,9 +260,7 @@ func (s *DiscoveryServer) updateClusterInc(push *model.PushContext, clusterName 
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
-	}
+
 	return nil
 }
 
@@ -395,9 +384,7 @@ func (s *DiscoveryServer) updateCluster(push *model.PushContext, clusterName str
 		ClusterName: clusterName,
 		Endpoints:   locEps,
 	}
-	if len(locEps) > 0 && edsCluster.NonEmptyTime.IsZero() {
-		edsCluster.NonEmptyTime = time.Now()
-	}
+
 	return nil
 }
 
@@ -708,9 +695,8 @@ func (s *DiscoveryServer) getOrAddEdsCluster(proxy *model.Proxy, clusterName str
 
 	c := edsClusters[clusterName]
 	if c == nil {
-		c = &EdsCluster{discovery: s,
+		c = &EdsCluster{
 			EdsClients: map[string]*XdsConnection{},
-			FirstUse:   time.Now(),
 		}
 		edsClusters[clusterName] = c
 	}
