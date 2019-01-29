@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package publish
 
 import (
 	"sync"
 	"time"
+
+	"istio.io/istio/galley/pkg/runtime/log"
+	"istio.io/istio/galley/pkg/runtime/monitoring"
 )
 
 const (
@@ -31,9 +34,9 @@ const (
 	defaultTimerFrequency = 500 * time.Millisecond
 )
 
-// publishingStrategy is a heuristic model for deciding when to publish snapshots. It tries to detect
+// Strategy is a heuristic model for deciding when to publish snapshots. It tries to detect
 // quiesce points for events with a total bounded wait time.
-type publishingStrategy struct {
+type Strategy struct {
 	maxWaitDuration time.Duration
 	quiesceDuration time.Duration
 	timerFrequency  time.Duration
@@ -41,8 +44,8 @@ type publishingStrategy struct {
 	// stateLock protects the internal state of the publishing strategy.
 	stateLock sync.Mutex
 
-	// publish channel is used to trigger the publication of snapshots.
-	publish chan struct{}
+	// Publish channel is used to trigger the publication of snapshots.
+	Publish chan struct{}
 
 	// the time of first event that is received.
 	firstEvent time.Time
@@ -60,28 +63,30 @@ type publishingStrategy struct {
 	afterFuncFn func(time.Duration, func()) *time.Timer
 }
 
-func newPublishingStrategyWithDefaults() *publishingStrategy {
-	return newPublishingStrategy(defaultMaxWaitDuration, defaultQuiesceDuration, defaultTimerFrequency)
+// NewStrategyWithDefaults creates a new strategy with default values.
+func NewStrategyWithDefaults() *Strategy {
+	return NewStrategy(defaultMaxWaitDuration, defaultQuiesceDuration, defaultTimerFrequency)
 }
 
-func newPublishingStrategy(
+// NewStrategy creates a new strategy with the given values.
+func NewStrategy(
 	maxWaitDuration time.Duration,
 	quiesceDuration time.Duration,
-	timerFrequency time.Duration) *publishingStrategy {
+	timerFrequency time.Duration) *Strategy {
 
-	return &publishingStrategy{
+	return &Strategy{
 		maxWaitDuration: maxWaitDuration,
 		quiesceDuration: quiesceDuration,
 		timerFrequency:  timerFrequency,
-		publish:         make(chan struct{}, 1),
+		Publish:         make(chan struct{}, 1),
 		nowFn:           time.Now,
 		afterFuncFn:     time.AfterFunc,
 	}
 }
 
-func (s *publishingStrategy) onChange() {
+func (s *Strategy) OnChange() {
 	s.stateLock.Lock()
-	recordStrategyOnChange()
+	monitoring.RecordStrategyOnChange()
 	defer s.stateLock.Unlock()
 
 	// Capture the latest event time.
@@ -94,7 +99,7 @@ func (s *publishingStrategy) onChange() {
 	}
 }
 
-func (s *publishingStrategy) onTimer() {
+func (s *Strategy) onTimer() {
 	s.stateLock.Lock()
 	defer s.stateLock.Unlock()
 
@@ -111,16 +116,16 @@ func (s *publishingStrategy) onTimer() {
 	if maxTimeReached || quiesceTimeReached {
 		// Try to send to the channel
 		select {
-		case s.publish <- struct{}{}:
+		case s.Publish <- struct{}{}:
 			published = true
 		default:
 			// If the calling code is not draining the publish channel, then we can potentially cause
 			// a deadlock here. Avoid the deadlock by going through the timer loop again.
-			scope.Warnf("Unable to publish to the channel, resetting the timer again to avoid deadlock")
+			log.Scope.Warnf("Unable to publish to the channel, resetting the timer again to avoid deadlock")
 		}
 	}
 
-	recordOnTimer(maxTimeReached, quiesceTimeReached, !published)
+	monitoring.RecordOnTimer(maxTimeReached, quiesceTimeReached, !published)
 	if published {
 		s.timer = nil
 	} else {
@@ -128,7 +133,7 @@ func (s *publishingStrategy) onTimer() {
 	}
 }
 
-func (s *publishingStrategy) reset() {
+func (s *Strategy) Reset() {
 	s.stateLock.Lock()
 	defer s.stateLock.Unlock()
 
