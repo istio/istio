@@ -1806,8 +1806,6 @@ func validateGatewayNames(gateways []string) (errs error) {
 		if !IsDNS1123Label(parts[1]) {
 			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
 		}
-
-		return
 	}
 	return
 }
