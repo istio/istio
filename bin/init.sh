@@ -160,4 +160,10 @@ else
     cp "${ISTIO_ENVOY_DEBUG_PATH}" "${ISTIO_BIN}/envoy"
 fi
 
+# Download istio.deps from the istio/proxy repository so it can be referenced, if needed
+ISTIO_PROXY_DEPS_URL="https://raw.githubusercontent.com/istio/proxy/${PROXY_REPO_SHA}/istio.deps"
+ISTIO_PROXY_DEPS_FILE="${ISTIO_OUT}/istio_proxy.deps"
+echo "Downloading istio.deps from ${ISTIO_PROXY_DEPS_URL} to ${ISTIO_PROXY_DEPS_FILE}"
+${DOWNLOAD_COMMAND} "${ISTIO_PROXY_DEPS_URL}" > "${ISTIO_PROXY_DEPS_FILE}"
+
 "${ROOTDIR}/bin/init_helm.sh"

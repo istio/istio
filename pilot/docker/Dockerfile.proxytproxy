@@ -24,6 +24,7 @@ ENV ISTIO_META_INTERCEPTION_MODE TPROXY
 # and dynamic iptable config
 
 ADD envoy /usr/local/bin/envoy
+ADD istio_proxy.deps /etc/istio/proxy/istio_proxy.deps
 
 ADD pilot-agent /usr/local/bin/pilot-agent
 
