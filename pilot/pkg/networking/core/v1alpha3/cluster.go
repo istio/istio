@@ -80,12 +80,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 
 	switch proxy.Type {
 	case model.SidecarProxy:
-		instances, err := env.GetProxyServiceInstances(proxy)
-		if err != nil {
-			log.Errorf("failed to get service proxy service instances: %v", err)
-			return nil, err
-		}
-
+		instances := proxy.ServiceInstances
 		sidecarScope := proxy.SidecarScope
 		recomputeOutboundClusters := true
 		if configgen.CanUsePrecomputedCDS(proxy) {

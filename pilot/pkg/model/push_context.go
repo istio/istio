@@ -338,27 +338,6 @@ func (ps *PushContext) UpdateMetrics() {
 	}
 }
 
-// SetSidecarScope identifies the sidecar scope object associated with this
-// proxy and updates the proxy Node. This is a convenience hack so that
-// callers can simply call push.Services(node) while the implementation of
-// push.Services can return the set of services from the proxyNode's
-// sidecar scope or from the push context's set of global services. Similar
-// logic applies to push.VirtualServices and push.DestinationRule. The
-// short cut here is useful only for CDS and parts of RDS generation code.
-//
-// Listener generation code will still use the SidecarScope object directly
-// as it needs the set of services for each listener port.
-func (ps *PushContext) SetSidecarScope(proxy *Proxy) {
-	instances, err := ps.Env.GetProxyServiceInstances(proxy)
-	if err != nil {
-		log.Errorf("failed to get service proxy service instances: %v", err)
-		// TODO: fallback to node metadata labels
-		return
-	}
-
-	proxy.SidecarScope = ps.getSidecarScope(proxy, instances)
-}
-
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
