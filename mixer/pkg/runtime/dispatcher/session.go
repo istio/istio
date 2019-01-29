@@ -269,6 +269,10 @@ func (s *session) dispatchBufferedReports() {
 
 	// dispatch the buffered dispatchStates we've got
 	for k, v := range s.reportStates {
+		if len(v.instances) == 0 {
+			// do not dispatch to handler if nothing is buffered
+			continue
+		}
 		s.dispatchToHandler(v)
 		delete(s.reportStates, k)
 	}
