@@ -268,7 +268,7 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 
 	// First look for ISTIO_META_CONFIG_NAMESPACE
 	// All newer proxies (from Istio 1.1 onwards) are supposed to supply this
-	if configNamespace, found := proxy.Metadata[NodeConfigNamespace]; found {
+	if configNamespace, found := proxy.Metadata[NodeMetadataConfigNamespace]; found {
 		return configNamespace
 	}
 
@@ -352,22 +352,23 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 func DefaultMeshConfig() meshconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return meshconfig.MeshConfig{
-		MixerCheckServer:      "",
-		MixerReportServer:     "",
-		DisablePolicyChecks:   false,
-		PolicyCheckFailOpen:   false,
-		ProxyListenPort:       15001,
-		ConnectTimeout:        types.DurationProto(1 * time.Second),
-		IngressClass:          "istio",
-		IngressControllerMode: meshconfig.MeshConfig_STRICT,
-		EnableTracing:         true,
-		AccessLogFile:         "/dev/stdout",
-		AccessLogEncoding:     meshconfig.MeshConfig_TEXT,
-		DefaultConfig:         &config,
-		SdsUdsPath:            "",
-		EnableSdsTokenMount:   false,
-		TrustDomain:           "",
-		OutboundTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY},
+		MixerCheckServer:                  "",
+		MixerReportServer:                 "",
+		DisablePolicyChecks:               false,
+		PolicyCheckFailOpen:               false,
+		SidecarToTelemetrySessionAffinity: false,
+		ProxyListenPort:                   15001,
+		ConnectTimeout:                    types.DurationProto(1 * time.Second),
+		IngressClass:                      "istio",
+		IngressControllerMode:             meshconfig.MeshConfig_STRICT,
+		EnableTracing:                     true,
+		AccessLogFile:                     "/dev/stdout",
+		AccessLogEncoding:                 meshconfig.MeshConfig_TEXT,
+		DefaultConfig:                     &config,
+		SdsUdsPath:                        "",
+		EnableSdsTokenMount:               false,
+		TrustDomain:                       "",
+		OutboundTrafficPolicy:             &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY},
 	}
 }
 
@@ -467,9 +468,13 @@ const (
 	// traffic interception mode at the proxy
 	NodeMetadataInterceptionMode = "INTERCEPTION_MODE"
 
-	// NodeConfigNamespace is the name of the metadata variable that carries info about
+	// NodeMetadataConfigNamespace is the name of the metadata variable that carries info about
 	// the config namespace associated with the proxy
-	NodeConfigNamespace = "CONFIG_NAMESPACE"
+	NodeMetadataConfigNamespace = "CONFIG_NAMESPACE"
+
+	// NodeMetadataSidecarUID is the user ID running envoy. Pilot can check if envoy runs as root, and may generate
+	// different configuration. If not set, the default istio-proxy UID (1337) is assumed.
+	NodeMetadataSidecarUID = "SIDECAR_UID"
 )
 
 // TrafficInterceptionMode indicates how traffic to/from the workload is captured and

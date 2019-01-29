@@ -54,6 +54,7 @@ var (
 
 	// proxy config flags (named identically)
 	configPath               string
+	controlPlaneBootstrap    bool
 	binaryPath               string
 	serviceCluster           string
 	drainDuration            time.Duration
@@ -74,6 +75,9 @@ var (
 	templateFile             string
 	disableInternalTelemetry bool
 	loggingOptions           = log.DefaultOptions()
+
+	// pilot agent config
+	kubeAppHTTPProbers string
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -107,8 +111,6 @@ var (
 				envIP := os.Getenv("INSTANCE_IP")
 				if len(envIP) > 0 {
 					role.IPAddresses = append(role.IPAddresses, envIP)
-				} else {
-					role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 				}
 			}
 
@@ -116,6 +118,11 @@ var (
 			if ipAddr, ok := proxy.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddr)
 				role.IPAddresses = append(role.IPAddresses, ipAddr...)
+			}
+
+			// No IP addresses provided, append 127.0.0.1
+			if len(role.IPAddresses) == 0 {
+				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 			}
 
 			if len(role.ID) == 0 {
@@ -238,37 +245,42 @@ var (
 
 			log.Infof("Monitored certs: %#v", certs)
 
-			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-				opts := make(map[string]string)
-				opts["PodName"] = os.Getenv("POD_NAME")
-				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
-				opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
+			// TODO: change Mixer and Pilot to use standard template and deprecate this custom bootstrap parser
+			if controlPlaneBootstrap {
+				if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+					opts := make(map[string]string)
+					opts["PodName"] = os.Getenv("POD_NAME")
+					opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+					opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
 
-				// protobuf encoding of IP_ADDRESS type
-				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
+					// protobuf encoding of IP_ADDRESS type
+					opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
 
-				if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-					opts["ControlPlaneAuth"] = "enable"
+					if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+						opts["ControlPlaneAuth"] = "enable"
+					}
+					if disableInternalTelemetry {
+						opts["DisableReportCalls"] = "true"
+					}
+					tmpl, err := template.ParseFiles(templateFile)
+					if err != nil {
+						return err
+					}
+					var buffer bytes.Buffer
+					err = tmpl.Execute(&buffer, opts)
+					if err != nil {
+						return err
+					}
+					content := buffer.Bytes()
+					log.Infof("Static config:\n%s", string(content))
+					proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
+					err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
+					if err != nil {
+						return err
+					}
 				}
-				if disableInternalTelemetry {
-					opts["DisableReportCalls"] = "true"
-				}
-				tmpl, err := template.ParseFiles(templateFile)
-				if err != nil {
-					return err
-				}
-				var buffer bytes.Buffer
-				err = tmpl.Execute(&buffer, opts)
-				if err != nil {
-					return err
-				}
-				content := buffer.Bytes()
-				log.Infof("Static config:\n%s", string(content))
-				proxyConfig.CustomConfigFile = proxyConfig.ConfigPath + "/envoy.yaml"
-				err = ioutil.WriteFile(proxyConfig.CustomConfigFile, content, 0644)
-				if err != nil {
-					return err
-				}
+			} else if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -281,11 +293,15 @@ var (
 					return err
 				}
 
-				statusServer := status.NewServer(status.Config{
-					AdminPort:        proxyAdminPort,
-					StatusPort:       statusPort,
-					ApplicationPorts: parsedPorts,
+				statusServer, err := status.NewServer(status.Config{
+					AdminPort:          proxyAdminPort,
+					StatusPort:         statusPort,
+					ApplicationPorts:   parsedPorts,
+					KubeAppHTTPProbers: kubeAppHTTPProbers,
 				})
+				if err != nil {
+					return err
+				}
 				go statusServer.Run(ctx)
 			}
 
@@ -417,6 +433,11 @@ func init() {
 		"Port on which Envoy should listen for administrative commands")
 	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
+	proxyCmd.PersistentFlags().StringVar(&kubeAppHTTPProbers, status.KubeAppProberCmdFlagName, "",
+		"The json encoded string to pass app HTTP probe information from injector(istioctl or webhook). "+
+			`For example, --kubeAppProberConfig='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}'`+
+			" indicates that httpbin container liveness prober port is 8080 and probing path is /hello. "+
+			"This flag should never be set manually.")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the custom configuration file")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
@@ -429,6 +450,8 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
 		"Disable internal telemetry")
+	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
+		"Process bootstrap provided via templateFile to be used by control plane components.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

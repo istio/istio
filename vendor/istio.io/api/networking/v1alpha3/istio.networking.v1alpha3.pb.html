@@ -6,7 +6,7 @@ layout: protoc-gen-docs
 generator: protoc-gen-docs
 aliases:
   - /docs/reference/config/istio.routing.v1alpha1/
-number_of_entries: 62
+number_of_entries: 61
 ---
 <p>Configuration affecting traffic routing. Here are a few terms useful to define
 in the context of traffic routing.</p>
@@ -2417,31 +2417,6 @@ the User cookie as the hash key.</p>
            ttl: 0s
 </code></pre>
 
-<p>The following example sets up locality weight for the ratings service
-Assume ratings service resides in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;,
-and originating clusters also reside in &ldquo;region1/zone1/<em>&rdquo; and &ldquo;region1/zone2/</em>&rdquo;.
-This example specifies when clusters from &ldquo;region1/zone1/<em>&rdquo; accessing ratings service, 80% of the traffic
-is shipped to &ldquo;region1/zone1/</em>&rdquo; ratings service endpoints, and the rest 20% to &ldquo;region1/zone2/*&rdquo;.</p>
-
-<pre><code class="language-yaml"> apiVersion: networking.istio.io/v1alpha3
- kind: DestinationRule
- metadata:
-   name: bookinfo-ratings
- spec:
-   host: ratings.prod.svc.cluster.local
-   trafficPolicy:
-     loadBalancer:
-       localityWeightSettings:
-         - from: region1/zone1/*
-           to:
-             &quot;region1/zone1/*&quot;: 80
-             &quot;region1/zone2/*&quot;: 20
-         - from: region1/zone2/*
-           to:
-             &quot;region1/zone1/*&quot;: 20
-             &quot;region1/zone2/*&quot;: 80
-</code></pre>
-
 <table class="message-fields">
 <thead>
 <tr>
@@ -2461,17 +2436,6 @@ is shipped to &ldquo;region1/zone1/</em>&rdquo; ratings service endpoints, and t
 <td><code>consistentHash</code></td>
 <td><code><a href="#LoadBalancerSettings-ConsistentHashLB">LoadBalancerSettings.ConsistentHashLB (oneof)</a></code></td>
 <td>
-</td>
-</tr>
-<tr id="LoadBalancerSettings-locality_weight_settings">
-<td><code>localityWeightSettings</code></td>
-<td><code><a href="#LoadBalancerSettings-LocalityWeightSetting">LoadBalancerSettings.LocalityWeightSetting[]</a></code></td>
-<td>
-<p>Explicitly assign loadbalancing weight across different zones and geographical locations.
-Refer to <a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing">Locality weighted load balancing</a>
-If empty, the locality weight is set according to the endpoints number within it.
-If duplicated settings are present, then the first one will take effect.</p>
-
 </td>
 </tr>
 </tbody>
@@ -2570,42 +2534,6 @@ be generated.</p>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#duration">google.protobuf.Duration</a></code></td>
 <td>
 <p>REQUIRED. Lifetime of the cookie.</p>
-
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="LoadBalancerSettings-LocalityWeightSetting">LoadBalancerSettings.LocalityWeightSetting</h2>
-<section>
-<p>Originating -&gt; upstream cluster locality weight set, support wildcard matching &lsquo;<em>&rsquo;
-&lsquo;</em>&rsquo; matches all localities
-&lsquo;region1/*&rsquo; matches all zones in region1</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr id="LoadBalancerSettings-LocalityWeightSetting-from">
-<td><code>from</code></td>
-<td><code>string</code></td>
-<td>
-<p>Originating locality, &lsquo;/&rsquo; separated, e.g. &lsquo;region/zone/sub_zone&rsquo;.</p>
-
-</td>
-</tr>
-<tr id="LoadBalancerSettings-LocalityWeightSetting-to">
-<td><code>to</code></td>
-<td><code>map&lt;string,&nbsp;uint32&gt;</code></td>
-<td>
-<p>Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
-Should assign loadbalancing weight for all localities, otherwise the traffic are not routed
-following the percentage of weight.</p>
 
 </td>
 </tr>
@@ -3104,6 +3032,18 @@ certificate presented by the client.</p>
 <td>
 <p>Optional: If specified, only support the specified cipher list.
 Otherwise default to the default cipher list supported by Envoy.</p>
+
+</td>
+</tr>
+<tr id="Server-TLSOptions-sds_name">
+<td><code>sdsName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional: If specified, the gateway controllers (with SDS enabled)
+use the specified name as the SDS secret config name to call the SDS
+server, to retrieve the key and certificates. Otherwise, the gateway
+controllers (with SDS enabled) use the first value in the hosts as
+the SDS secret config name to call the SDS server.</p>
 
 </td>
 </tr>

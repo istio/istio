@@ -39,7 +39,7 @@ var (
 		IPAddresses:     []string{"1.1.1.1"},
 		ID:              "v0.default",
 		DNSDomain:       "default.example.org",
-		Metadata:        map[string]string{model.NodeConfigNamespace: "not-default"},
+		Metadata:        map[string]string{model.NodeMetadataConfigNamespace: "not-default"},
 		ConfigNamespace: "not-default",
 	}
 	proxyInstances = []*model.ServiceInstance{
@@ -188,7 +188,7 @@ func testInboundListenerConfigWithSidecar(t *testing.T, services ...*model.Servi
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.Port{
-						Number:   80,
+						Number:   8080,
 						Protocol: "HTTP",
 						Name:     "uds",
 					},
@@ -411,6 +411,7 @@ func buildService(hostname string, ip string, protocol model.Protocol, creationT
 func buildEndpoint(service *model.Service) model.NetworkEndpoint {
 	return model.NetworkEndpoint{
 		ServicePort: service.Ports[0],
+		Port:        8080,
 	}
 }
 

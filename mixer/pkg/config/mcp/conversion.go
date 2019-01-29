@@ -22,8 +22,8 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/galley/pkg/kube"
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/mixer/pkg/config/store"
 )
 
@@ -36,7 +36,7 @@ type mapping struct {
 
 // construct a mapping of kinds and collections. allKinds is the kind set that was passed
 // as part of backend creation.
-func constructMapping(allKinds []string, schema *kube.Schema) (*mapping, error) {
+func constructMapping(allKinds []string, schema *schema.Instance) (*mapping, error) {
 	// The mapping is constructed from the common metadata we have for the Kubernetes.
 	// Go through Mixer's well-known kinds, and map them to collections.
 

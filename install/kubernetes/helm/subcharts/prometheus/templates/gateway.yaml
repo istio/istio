@@ -35,7 +35,7 @@ metadata:
     heritage: {{ .Release.Service }}
     release: {{ .Release.Name }}
 spec:
-  host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
+  host: prometheus.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
   trafficPolicy:
     tls:
       mode: DISABLE
@@ -54,13 +54,13 @@ spec:
   hosts:
   - "*"
   gateways:
-  - istio-prometheus-gateway
+  - {{ .Release.Namespace }}/istio-prometheus-gateway
   http:
   - match:
     - port: 15030
     route:
     - destination:
-        host: prometheus.{{ .Release.Namespace }}.svc.cluster.local
+        host: prometheus.{{ .Release.Namespace }}.svc.{{ .Values.global.proxy.clusterDomain }}
         port:
           number: 9090
 {{- end }}

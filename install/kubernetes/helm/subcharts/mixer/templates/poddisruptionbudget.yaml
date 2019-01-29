@@ -1,7 +1,7 @@
 {{- range $key, $spec := .Values }}
 {{- if or (eq $key "policy") (eq $key "telemetry") }}
 {{- if $spec.enabled }}
-{{- if or $spec.podDisruptionBudget $.Values.global.defaultPodDisruptionBudget }}
+{{- if $.Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
@@ -16,9 +16,7 @@ metadata:
     istio: mixer
     istio-mixer-type: {{ $key }}
 spec:
-{{- if $spec.podDisruptionBudget }}
-{{ include "podDisruptionBudget.spec" $spec.podDisruptionBudget }}
-{{- else if $.Values.global.defaultPodDisruptionBudget }}
+{{- if $.Values.global.defaultPodDisruptionBudget.enabled }}
 {{ include "podDisruptionBudget.spec" $.Values.global.defaultPodDisruptionBudget }}
 {{- end }}
   selector:

@@ -127,11 +127,8 @@ global:
   proxy:
     image: proxyv2
 
-    # DNS domain suffix for pilot proxy agent. Default value is "${POD_NAMESPACE}.svc.cluster.local".
-    proxyDomain: ""
-
-    # DNS domain suffix for pilot proxy discovery. Default value is "cluster.local".
-    discoveryDomain: ""
+    # cluster domain. Default value is "cluster.local".
+    clusterDomain: "cluster.local"
 
     # Resources for the sidecar.
     resources:
@@ -201,7 +198,7 @@ global:
     envoyStatsd:
       # If enabled is set to true, host and port must also be provided. Istio no longer provides a statsd collector.
       enabled: false
-      host: # example: statsd-svc
+      host: # example: statsd-svc.istio-system
       port: # example: 9125
 
     # Specify which tracer to use. One of: lightstep, zipkin
@@ -328,9 +325,12 @@ global:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # enable pod distruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
   defaultPodDisruptionBudget:
-    minAvailable: 1
-    # maxUnavailable: 1
+    enabled: true
+    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # minAvailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods

@@ -355,6 +355,8 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 			// ignore for now
 		} else if f0.Name == "envoy.redis_proxy" {
 			// ignore for now
+		} else if f0.Name == "envoy.filters.network.mysql_proxy" {
+			// ignore for now
 		} else {
 			tm := &jsonpb.Marshaler{Indent: "  "}
 			log.Println(tm.MarshalToString(l))

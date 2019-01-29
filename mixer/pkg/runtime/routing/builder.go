@@ -690,6 +690,23 @@ func (b *builder) addRuleOperations(
 	namespace string,
 	condition compiled.Expression,
 	operations []*HeaderOperation) {
+
+	// ensure struct population for rules with routeDirectives and no actions
+	if b.table.entries == nil {
+		b.table.entries = map[tpb.TemplateVariety]*varietyTable{}
+	}
+	if b.table.entries[tpb.TEMPLATE_VARIETY_CHECK] == nil {
+		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK] = &varietyTable{}
+	}
+	if b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries == nil {
+		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries = map[string]*NamespaceTable{
+			namespace: {
+				entries:    []*Destination{},
+				directives: []*DirectiveGroup{},
+			},
+		}
+	}
+
 	byNamespace := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace]
 
 	var group *DirectiveGroup

@@ -22,11 +22,14 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/galley/pkg/runtime/resource"
+	"istio.io/istio/galley/pkg/testing/events"
+	"istio.io/istio/galley/pkg/testing/resources"
 )
 
 func TestInMemory_Start_Empty(t *testing.T) {
 	i := NewInMemorySource()
-	ch, err := i.Start()
+	ch := make(chan resource.Event, 1024)
+	err := i.Start(events.ChannelHandler(ch))
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -43,10 +46,10 @@ func TestInMemory_Start_Empty(t *testing.T) {
 func TestInMemory_Start_WithItem(t *testing.T) {
 	i := NewInMemorySource()
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
+	i.Set(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
 
-	ch, err := i.Start()
-	if err != nil {
+	ch := make(chan resource.Event, 1024)
+	if err := i.Start(events.ChannelHandler(ch)); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
@@ -62,16 +65,17 @@ func TestInMemory_Start_WithItem(t *testing.T) {
 
 func TestInMemory_Start_DoubleStart(t *testing.T) {
 	i := NewInMemorySource()
-	_, _ = i.Start()
-	_, err := i.Start()
-	if err == nil {
+	ch := make(chan resource.Event, 1024)
+	_ = i.Start(events.ChannelHandler(ch))
+	if err := i.Start(events.ChannelHandler(ch)); err == nil {
 		t.Fatal("should have returned error")
 	}
 }
 
 func TestInMemory_Start_DoubleStop(t *testing.T) {
 	i := NewInMemorySource()
-	_, _ = i.Start()
+	ch := make(chan resource.Event, 1024)
+	_ = i.Start(events.ChannelHandler(ch))
 	i.Stop()
 	// should not panic
 	i.Stop()
@@ -79,15 +83,15 @@ func TestInMemory_Start_DoubleStop(t *testing.T) {
 
 func TestInMemory_Set(t *testing.T) {
 	i := NewInMemorySource()
-	ch, err := i.Start()
-	if err != nil {
+	ch := make(chan resource.Event, 1024)
+	if err := i.Start(events.ChannelHandler(ch)); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	// One Register one update
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
+	i.Set(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
+	i.Set(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
 
 	actual := captureChannelOutput(t, ch, 3)
 	expected := strings.TrimSpace(`
@@ -102,16 +106,16 @@ func TestInMemory_Set(t *testing.T) {
 
 func TestInMemory_Delete(t *testing.T) {
 	i := NewInMemorySource()
-	ch, err := i.Start()
-	if err != nil {
+	ch := make(chan resource.Event, 1024)
+	if err := i.Start(events.ChannelHandler(ch)); err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
+	i.Set(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
 	// Two deletes
-	i.Delete(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
-	i.Delete(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
+	i.Delete(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn})
+	i.Delete(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn})
 
 	actual := captureChannelOutput(t, ch, 3)
 	expected := strings.TrimSpace(`
@@ -128,14 +132,15 @@ func TestInMemory_Get(t *testing.T) {
 	fn := resource.FullNameFromNamespaceAndName("n1", "f1")
 
 	i := NewInMemorySource()
-	i.Set(resource.Key{Collection: emptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
+	i.Set(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn}, resource.Metadata{}, &types.Empty{})
 
-	r, _ := i.Get(resource.Key{Collection: emptyInfo.Collection, FullName: fn})
+	r, _ := i.Get(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn})
 	if r.IsEmpty() {
 		t.Fatal("Get should have been non empty")
 	}
 
-	r, _ = i.Get(resource.Key{Collection: emptyInfo.Collection, FullName: fn2})
+	fn2 := resource.FullNameFromNamespaceAndName("", "fn2")
+	r, _ = i.Get(resource.Key{Collection: resources.EmptyInfo.Collection, FullName: fn2})
 	if !r.IsEmpty() {
 		t.Fatalf("Get should have been empty: %v", r)
 	}
