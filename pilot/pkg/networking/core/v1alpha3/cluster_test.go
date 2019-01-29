@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha3_test
+package v1alpha3
 
 import (
 	"fmt"
@@ -24,10 +24,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	"istio.io/api/mesh/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	core "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
@@ -101,7 +101,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 				if s == nil {
 					// Assume the correct defaults for this direction.
-					g.Expect(thresholds).To(Equal(core.GetDefaultCircuitBreakerThresholds(directionInfo.direction)))
+					g.Expect(thresholds).To(Equal(GetDefaultCircuitBreakerThresholds(directionInfo.direction)))
 				} else {
 					// Verify that the values were set correctly.
 					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
@@ -120,7 +120,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 func buildTestClusters(serviceHostname string, nodeType model.NodeType, mesh meshconfig.MeshConfig,
 	destRule proto.Message) ([]*apiv2.Cluster, error) {
-	configgen := core.NewConfigGenerator([]plugin.Plugin{})
+	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	serviceDiscovery := &fakes.ServiceDiscovery{}
 
@@ -380,4 +380,109 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 				},
 			},
 		})
+}
+
+func TestBuildDefaultTrafficPolicy(t *testing.T) {
+	defaultEnv := &model.Environment{Mesh: &v1alpha1.MeshConfig{ConnectTimeout: &types.Duration{Seconds: 1, Nanos: 1}}}
+	var tests = []struct {
+		name          string
+		discoveryType apiv2.Cluster_DiscoveryType
+		direction     model.TrafficDirection
+		protocol      model.Protocol
+		wantOutDet    bool
+		wantLBPolicy  networking.LoadBalancerSettings_SimpleLB
+	}{
+		{
+			name:      "Inbound HTTP Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionInbound,
+			protocol:  model.ProtocolHTTP,
+		},
+		{
+			name:      "Inbound HTTP2 Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionInbound,
+			protocol:  model.ProtocolHTTP2,
+		},
+		{
+			name:      "Inbound HTTPS Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionInbound,
+			protocol:  model.ProtocolHTTPS,
+		},
+		{
+			name:      "Inbound TCP Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionInbound,
+			protocol:  model.ProtocolTCP,
+		},
+		{
+			name:      "Inbound UDP Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionInbound,
+			protocol:  model.ProtocolUDP,
+		},
+		{
+			name:       "Outbound HTTP Traffic Policy has OutlierDetection",
+			direction:  model.TrafficDirectionOutbound,
+			protocol:   model.ProtocolHTTP,
+			wantOutDet: true,
+		},
+		{
+			name:       "Outbound HTTP2 Traffic Policy has OutlierDetection",
+			direction:  model.TrafficDirectionOutbound,
+			protocol:   model.ProtocolHTTP2,
+			wantOutDet: true,
+		},
+		{
+			name:      "Outbound HTTPS Traffic Policy has OutlierDetection",
+			direction: model.TrafficDirectionOutbound,
+			protocol:  model.ProtocolHTTPS,
+		},
+		{
+			name:      "Outbound TCP Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionOutbound,
+			protocol:  model.ProtocolTCP,
+		},
+		{
+			name:      "Outbound UDP Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionOutbound,
+			protocol:  model.ProtocolUDP,
+		},
+		// TODO: Work out whether GRPC and GRPC should be set or not
+		{
+			name:          "Static Cluster Discovery uses round robin LB",
+			discoveryType: apiv2.Cluster_STATIC,
+			wantLBPolicy:  networking.LoadBalancerSettings_ROUND_ROBIN,
+		},
+		{
+			name:          "Strict DNS Cluster Discovery uses round robin LB",
+			discoveryType: apiv2.Cluster_STRICT_DNS,
+			wantLBPolicy:  networking.LoadBalancerSettings_ROUND_ROBIN,
+		},
+		{
+			name:          "Logical DNS Cluster Discovery uses round robin LB",
+			discoveryType: apiv2.Cluster_LOGICAL_DNS,
+			wantLBPolicy:  networking.LoadBalancerSettings_ROUND_ROBIN,
+		},
+		{
+			name:          "EDS Cluster Discovery uses round robin LB",
+			discoveryType: apiv2.Cluster_EDS,
+			wantLBPolicy:  networking.LoadBalancerSettings_ROUND_ROBIN,
+		},
+		{
+			name:          "Original DST Cluster Discovery uses passthrough LB",
+			discoveryType: apiv2.Cluster_ORIGINAL_DST,
+			wantLBPolicy:  networking.LoadBalancerSettings_PASSTHROUGH,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			got := buildDefaultTrafficPolicy(defaultEnv, tt.discoveryType, tt.direction, &model.Port{Protocol: tt.protocol})
+			if tt.wantOutDet {
+				g.Expect(got.OutlierDetection).To(Not(BeNil()))
+			} else {
+				g.Expect(got.OutlierDetection).To(BeNil())
+			}
+			g.Expect(got.LoadBalancer.LbPolicy).To(Equal(&networking.LoadBalancerSettings_Simple{Simple: tt.wantLBPolicy}))
+			g.Expect(got.ConnectionPool.Tcp.ConnectTimeout).To(Equal(defaultEnv.Mesh.ConnectTimeout))
+		})
+	}
+
 }
