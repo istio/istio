@@ -496,17 +496,15 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if len(edsClusters) > 0 {
 		fmt.Fprintln(w, "[")
 		for _, eds := range edsClusters {
-			for _, eds := range eds {
-				if comma {
-					fmt.Fprint(w, ",\n")
-				} else {
-					comma = true
-				}
-				jsonm := &jsonpb.Marshaler{Indent: "  "}
-				dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
-				if _, err := w.Write([]byte(dbgString)); err != nil {
-					return
-				}
+			if comma {
+				fmt.Fprint(w, ",\n")
+			} else {
+				comma = true
+			}
+			jsonm := &jsonpb.Marshaler{Indent: "  "}
+			dbgString, _ := jsonm.MarshalToString(eds.LoadAssignment)
+			if _, err := w.Write([]byte(dbgString)); err != nil {
+				return
 			}
 		}
 		fmt.Fprintln(w, "]")
