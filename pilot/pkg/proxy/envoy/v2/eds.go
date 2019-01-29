@@ -661,8 +661,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 
 // addEdsCon will track the eds connection with clusters, for optimized event-based push and debug
 func (s *DiscoveryServer) addEdsCon(clusterName string, node string, connection *XdsConnection) {
-
-	c := s.getOrAddEdsCluster(connection.modelNode, clusterName)
+	c := s.getOrAddEdsCluster(clusterName)
 	// TODO: left the code here so we can skip sending the already-sent clusters.
 	// See comments in ads - envoy keeps adding one cluster to the list (this seems new
 	// previous version sent all the clusters from CDS in bulk).
@@ -689,7 +688,7 @@ func (s *DiscoveryServer) getEdsCluster(clusterName string) *EdsCluster {
 	return edsClusters[clusterName]
 }
 
-func (s *DiscoveryServer) getOrAddEdsCluster(proxy *model.Proxy, clusterName string) *EdsCluster {
+func (s *DiscoveryServer) getOrAddEdsCluster(clusterName string) *EdsCluster {
 	edsClusterMutex.Lock()
 	defer edsClusterMutex.Unlock()
 
