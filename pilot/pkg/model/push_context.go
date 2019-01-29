@@ -744,7 +744,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 				ps.privateVirtualServicesByNamespace[ns] = append(ps.privateVirtualServicesByNamespace[ns], virtualService)
 			} else {
 				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
-				// and we currenly only allow . or *. So treat this as public export
+				// and we currently only allow . or *. So treat this as public export
 				ps.publicVirtualServices = append(ps.publicVirtualServices, virtualService)
 			}
 		}
@@ -898,7 +898,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			// and currently only consider . or * which maps to public/private
 			if Visibility(rule.ExportTo[0]) != VisibilityPrivate {
 				// ~ is not valid in the exportTo fields in virtualServices, services, destination rules
-				// and we currenly only allow . or *. So treat this as public export
+				// and we currently only allow . or *. So treat this as public export
 				isPubliclyExported = true
 			}
 		}
