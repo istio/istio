@@ -20,6 +20,8 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -171,6 +173,7 @@ func testInboundListenerConfig(t *testing.T, services ...*model.Service) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	verifyInboundHTTPListenerServerName(t, listeners[0])
+	verifyInboundListenerHealthCheck(t, listeners[0])
 	if isHTTPListener(listeners[0]) {
 		verifyInboundHTTPListenerCertDetails(t, listeners[0])
 	}
@@ -202,7 +205,7 @@ func testInboundListenerConfigWithSidecar(t *testing.T, services ...*model.Servi
 	if len(listeners) != 1 {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
-
+	verifyInboundListenerHealthCheck(t, listeners[0])
 	if !isHTTPListener(listeners[0]) {
 		t.Fatal("expected HTTP listener, found TCP")
 	}
@@ -237,12 +240,14 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	if len(listeners) != 2 {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 	}
-
 	if isHTTPListener(listeners[0]) {
 		t.Fatal("expected TCP listener on port 8080, found HTTP")
 	}
 	if !isHTTPListener(listeners[1]) {
 		t.Fatal("expected HTTP listener on port 9000, found TCP")
+	}
+	for _, listener := range listeners {
+		verifyOutboundListenerHealthCheck(t, listener)
 	}
 }
 
@@ -263,6 +268,24 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostnam
 	}
 }
 
+func verifyOutboundListenerHealthCheck(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 1 {
+		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	httpFilters := f.GetConfig().Fields["http_filters"].GetListValue().GetValues()
+	if isHTTPListener(l) {
+		if hasHealthCheckFilter(httpFilters, false) {
+			t.Fatalf("unexpected healthcheck filter in outbound http listener")
+		}
+	}
+}
+
 func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	t.Helper()
 	if len(l.FilterChains) != 1 {
@@ -278,6 +301,38 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	if serverName != expectedServerName {
 		t.Fatalf("expected listener to contain server_name %s, found %s", expectedServerName, serverName)
 	}
+}
+
+func verifyInboundListenerHealthCheck(t *testing.T, l *xdsapi.Listener) {
+	t.Helper()
+	if len(l.FilterChains) != 1 {
+		t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+	}
+	fc := l.FilterChains[0]
+	if len(fc.Filters) != 1 {
+		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
+	}
+	f := fc.Filters[0]
+	if isHTTPListener(l) {
+		if !hasHealthCheckFilter(f.GetConfig().Fields["http_filters"].GetListValue().GetValues(), true) {
+			t.Fatalf("expected a passthrough healthcheck filter in inbound http listener")
+		}
+	}
+}
+
+func hasHealthCheckFilter(filters []*types.Value, isPassthrough bool) bool {
+	for _, val := range filters {
+		if val.GetStructValue().Fields["name"].GetStringValue() == xdsutil.HealthCheck {
+			if isPassthrough {
+				if val.GetStructValue().Fields["config"].GetStructValue().Fields["pass_through_mode"].GetBoolValue() {
+					return true
+				}
+			} else {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
