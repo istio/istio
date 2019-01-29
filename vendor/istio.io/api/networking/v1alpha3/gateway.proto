@@ -335,6 +335,13 @@ message Server {
     // Optional: If specified, only support the specified cipher list.
     // Otherwise default to the default cipher list supported by Envoy.
     repeated string cipher_suites = 9;
+
+    // Optional: If specified, the gateway controllers (with SDS enabled)
+    // use the specified name as the SDS secret config name to call the SDS
+    // server, to retrieve the key and certificates. Otherwise, the gateway
+    // controllers (with SDS enabled) use the first value in the hosts as
+    // the SDS secret config name to call the SDS server.
+    string sds_name = 10;
   }
 
   // Set of TLS related options that govern the server's behavior. Use

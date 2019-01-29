@@ -17,7 +17,9 @@ spec:
     bind: 7.7.7.7
     hosts:
     - "*/bookinfo.com"
+    - "*/private.com"
     # bookinfo.com is on port 9999.
+    # private.com wont get imported
   - hosts:
     - "ns1/*"
     - "*/*.tcp.com"

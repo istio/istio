@@ -380,12 +380,18 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		},
 	}
 
-	// TODO: This code is potentially broken as server.Hosts could be a format like
-	// ns/*, ns/hostname, etc. Or could be *. Two different servers in different
-	// namespaces could have *. How does the SDS server differentiate the right secret to retrieve ?
-	if enableSds {
+	// TODO: BUG. Server.Hosts could be a format like ns/*, ns/hostname, *,
+	// etc. Two different servers on different ports could have the same
+	// host.  How does the SDS server differentiate the right secret to
+	// retrieve ?  If gateway controller has enabled SDS and TLSmode is
+	// SIMPLE, generate SDS config for gateway controller.
+	if enableSds && server.Tls.GetMode() == networking.Server_TLSOptions_SIMPLE {
+		sdsName := server.Hosts[0]
+		if server.Tls.SdsName != "" {
+			sdsName = server.Tls.SdsName
+		}
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(server.Hosts[0], model.IngressGatewaySdsUdsPath),
+			model.ConstructSdsSecretConfigForGatewayListener(sdsName, model.IngressGatewaySdsUdsPath),
 		}
 	} else {
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
