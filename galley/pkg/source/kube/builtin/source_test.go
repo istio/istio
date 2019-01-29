@@ -26,8 +26,10 @@ import (
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/kube/builtin"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	kubeLog "istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/events"
+	"istio.io/istio/pkg/log"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,6 +62,10 @@ var (
 )
 
 func TestNewWithUnknownSpecShouldError(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client := fake.NewSimpleClientset()
 	informerFactory := informers.NewSharedInformerFactory(client, 0)
 
@@ -79,6 +85,10 @@ func TestNewWithUnknownSpecShouldError(t *testing.T) {
 }
 
 func TestStartWithNilHandlerShouldError(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	g := NewGomegaWithT(t)
 
 	// Create the source
@@ -91,6 +101,10 @@ func TestStartWithNilHandlerShouldError(t *testing.T) {
 }
 
 func TestStartTwiceShouldError(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	g := NewGomegaWithT(t)
 
 	// Start the source.
@@ -107,6 +121,10 @@ func TestStartTwiceShouldError(t *testing.T) {
 }
 
 func TestStopTwiceShouldSucceed(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	// Start the source.
 	_, informerFactory := kubeResources()
 	spec := builtin.GetType("Node").GetSpec()
@@ -119,6 +137,10 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 }
 
 func TestUnknownResourceShouldNotCreateEvent(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 	spec := builtin.GetType("Node").GetSpec()
 
@@ -149,6 +171,10 @@ func TestUnknownResourceShouldNotCreateEvent(t *testing.T) {
 }
 
 func TestNodes(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 	spec := builtin.GetType("Node").GetSpec()
 
@@ -206,13 +232,17 @@ func TestNodes(t *testing.T) {
 		if err := client.CoreV1().Nodes().Delete(node.Name, nil); err != nil {
 			t.Fatalf("failed deleting node: %v", err)
 		}
-		expected := toEvent(resource.Deleted, spec, node, nil)
+		expected := toEvent(resource.Deleted, spec, node, &node.Spec)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
 }
 
 func TestPods(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 
 	spec := builtin.GetType("Pod").GetSpec()
@@ -283,13 +313,17 @@ func TestPods(t *testing.T) {
 		if err := client.CoreV1().Pods(namespace).Delete(pod.Name, nil); err != nil {
 			t.Fatalf("failed deleting pod: %v", err)
 		}
-		expected := toEvent(resource.Deleted, spec, pod, nil)
+		expected := toEvent(resource.Deleted, spec, pod, pod)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
 }
 
 func TestServices(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 
 	spec := builtin.GetType("Service").GetSpec()
@@ -354,13 +388,17 @@ func TestServices(t *testing.T) {
 		if err := client.CoreV1().Services(namespace).Delete(svc.Name, nil); err != nil {
 			t.Fatalf("failed deleting service: %v", err)
 		}
-		expected := toEvent(resource.Deleted, spec, svc, nil)
+		expected := toEvent(resource.Deleted, spec, svc, &svc.Spec)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
 }
 
 func TestEndpoints(t *testing.T) {
+	// Set the log level to debug for codecov.
+	prevLevel := setDebugLogLevel()
+	defer restoreLogLevel(prevLevel)
+
 	client, informerFactory := kubeResources()
 
 	spec := builtin.GetType("Endpoints").GetSpec()
@@ -434,7 +472,7 @@ func TestEndpoints(t *testing.T) {
 		if err := client.CoreV1().Endpoints(namespace).Delete(eps.Name, nil); err != nil {
 			t.Fatalf("failed deleting endpoints: %v", err)
 		}
-		expected := toEvent(resource.Deleted, spec, eps, nil)
+		expected := toEvent(resource.Deleted, spec, eps, eps)
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
@@ -499,4 +537,14 @@ func toEvent(kind resource.EventKind, spec *schema.ResourceSpec, objectMeta meta
 	}
 
 	return event
+}
+
+func setDebugLogLevel() log.Level {
+	prev := kubeLog.Scope.GetOutputLevel()
+	kubeLog.Scope.SetOutputLevel(log.DebugLevel)
+	return prev
+}
+
+func restoreLogLevel(level log.Level) {
+	kubeLog.Scope.SetOutputLevel(level)
 }

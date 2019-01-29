@@ -1,0 +1,75 @@
+{
+  "istio/networking/v1alpha3/synthetic/serviceentries": [
+    {
+      "TypeURL": "type.googleapis.com/istio.networking.v1alpha3.ServiceEntry",
+      "Metadata": {
+        "name": "kube-dns",
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{},\"labels\":{\"addonmanager.kubernetes.io/mode\":\"Reconcile\",\"k8s-app\":\"kube-dns\",\"kubernetes.io/cluster-service\":\"true\",\"kubernetes.io/name\":\"KubeDNS\"},\"name\":\"kube-dns\",\"namespace\":\"kube-system\"},\"spec\":{\"clusterIP\":\"10.43.240.10\",\"ports\":[{\"name\":\"dns\",\"port\":53,\"protocol\":\"UDP\"},{\"name\":\"dns-tcp\",\"port\":53,\"protocol\":\"TCP\"}],\"selector\":{\"k8s-app\":\"kube-dns\"}}}\n",
+          "networking.istio.io/syntheticResource": "true"
+        },
+        "labels": {
+          "addonmanager.kubernetes.io/mode": "Reconcile",
+          "k8s-app": "kube-dns",
+          "kubernetes.io/cluster-service": "true",
+          "kubernetes.io/name": "KubeDNS"
+        }
+      },
+      "Body": {
+        "addresses": [
+          "10.43.240.10"
+        ],
+        "endpoints": [
+          {
+            "address": "10.40.0.5",
+            "labels": {
+              "addonmanager.kubernetes.io/mode": "Reconcile",
+              "k8s-app": "kube-dns",
+              "kubernetes.io/cluster-service": "true",
+              "kubernetes.io/name": "KubeDNS"
+            },
+            "locality": "us-central1/us-central1-a",
+            "ports": {
+              "dns": 53,
+              "dns-tcp": 53
+            }
+          },
+          {
+            "address": "10.40.1.4",
+            "labels": {
+              "addonmanager.kubernetes.io/mode": "Reconcile",
+              "k8s-app": "kube-dns",
+              "kubernetes.io/cluster-service": "true",
+              "kubernetes.io/name": "KubeDNS"
+            },
+            "locality": "us-central1/us-central1-a",
+            "ports": {
+              "dns": 53,
+              "dns-tcp": 53
+            }
+          }
+        ],
+        "hosts": [
+          "kube-dns.default.svc.cluster.local"
+        ],
+        "location": 1,
+        "ports": [
+          {
+            "name": "dns",
+            "number": 53,
+            "protocol": "UDP"
+          },
+          {
+            "name": "dns-tcp",
+            "number": 53,
+            "protocol": "TCP"
+          }
+        ],
+        "resolution": 1,
+        "subject_alt_names": [
+          "spiffe://cluster.local/ns//sa/kube-dns"
+        ]
+      }
+    }
+  ]
+}

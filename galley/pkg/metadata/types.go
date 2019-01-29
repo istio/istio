@@ -172,6 +172,9 @@ var (
 	// istio/networking/v1alpha3/sidecars metadata
 	IstioNetworkingV1alpha3Sidecars resource.Info
 
+	// istio/networking/v1alpha3/synthetic/serviceentries metadata
+	IstioNetworkingV1alpha3SyntheticServiceentries resource.Info
+
 	// istio/networking/v1alpha3/virtualservices metadata
 	IstioNetworkingV1alpha3Virtualservices resource.Info
 
@@ -350,6 +353,9 @@ func init() {
 	IstioNetworkingV1alpha3Sidecars = b.Register(
 		"istio/networking/v1alpha3/sidecars",
 		"type.googleapis.com/istio.networking.v1alpha3.Sidecar")
+	IstioNetworkingV1alpha3SyntheticServiceentries = b.Register(
+		"istio/networking/v1alpha3/synthetic/serviceentries",
+		"type.googleapis.com/istio.networking.v1alpha3.ServiceEntry")
 	IstioNetworkingV1alpha3Virtualservices = b.Register(
 		"istio/networking/v1alpha3/virtualservices",
 		"type.googleapis.com/istio.networking.v1alpha3.VirtualService")

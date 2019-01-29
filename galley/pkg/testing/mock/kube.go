@@ -22,7 +22,6 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 )
 
 var _ client.Interfaces = &Kube{}
@@ -32,13 +31,13 @@ type Kube struct {
 	response1 []interface{}
 	response2 []error
 
-	Client *fake.Clientset
+	client kubernetes.Interface
 }
 
 // NewKube returns a new instance of mock Kube.
 func NewKube() *Kube {
 	return &Kube{
-		Client: fake.NewSimpleClientset(),
+		client: NewKubeClient(),
 	}
 }
 
@@ -72,5 +71,5 @@ func (k *Kube) APIExtensionsClientset() (clientset.Interface, error) {
 }
 
 func (k *Kube) KubeClient() (kubernetes.Interface, error) {
-	return k.Client, nil
+	return k.client, nil
 }

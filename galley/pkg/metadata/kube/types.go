@@ -641,7 +641,7 @@ func init() {
 		Version:   "v1",
 		Group:     "",
 		Target:    metadata.Types.Get("k8s/core/v1/services"),
-		Converter: converter.Get("kube-service-resource"),
+		Converter: converter.Get("identity"),
 	})
 
 	b.Add(schema.ResourceSpec{

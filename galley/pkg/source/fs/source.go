@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/log"
 	"istio.io/istio/galley/pkg/source/kube/schema"
+	"istio.io/istio/galley/pkg/util"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -59,8 +60,6 @@ type source struct {
 	// Config File Path
 	root string
 
-	donec chan struct{}
-
 	mu sync.RWMutex
 
 	// map to store namespace/name : shas
@@ -78,6 +77,8 @@ type source struct {
 	version int64
 
 	watcher *fsnotify.Watcher
+
+	worker *util.Worker
 }
 
 func (s *source) readFiles(root string) map[fileResourceKey]*fileResource {
@@ -228,8 +229,9 @@ func (s *source) initialCheck() {
 
 // Stop implements runtime.Source
 func (s *source) Stop() {
-	close(s.donec)
-	_ = s.watcher.Close()
+	s.worker.Stop(func() {
+		_ = s.watcher.Close()
+	}, nil)
 }
 
 func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *fileResource) {
@@ -274,63 +276,67 @@ func (s *source) process(eventKind resource.EventKind, key fileResourceKey, r *f
 
 // Start implements runtime.Source
 func (s *source) Start(handler resource.EventHandler) error {
-	s.handler = handler
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	s.watcher = watcher
-	_ = s.watcher.Watch(s.root)
-	s.initialCheck()
-	go func() {
-		for {
-			select {
-			// watch for events
-			case ev, more := <-s.watcher.Event:
-				if !more {
-					break
-				}
-				if ev.IsDelete() {
-					s.processDelete(ev.Name)
-				} else if ev.IsCreate() {
-					fi, err := os.Stat(ev.Name)
-					if err != nil {
-						log.Scope.Warnf("error occurs for watching %s", ev.Name)
-					} else {
-						if fi.Mode().IsDir() {
-							log.Scope.Debugf("add watcher for new folder %s", ev.Name)
-							_ = s.watcher.Watch(ev.Name)
-						} else {
-							newData := s.readFile(ev.Name, fi, true)
-							if newData != nil && len(newData) != 0 {
-								s.processAddOrUpdate(ev.Name, newData)
-							}
-						}
-					}
-				} else if ev.IsModify() {
-					fi, err := os.Stat(ev.Name)
-					if err != nil {
-						log.Scope.Warnf("error occurs for watching %s", ev.Name)
-					} else {
-						if fi.Mode().IsDir() {
-							_ = s.watcher.RemoveWatch(ev.Name)
-						} else {
-							newData := s.readFile(ev.Name, fi, false)
-							if newData != nil && len(newData) != 0 {
-								s.processPartialDelete(ev.Name, newData)
-								s.processAddOrUpdate(ev.Name, newData)
-							} else {
-								s.processDelete(ev.Name)
-							}
-						}
-					}
-				}
-			case <-s.donec:
-				return
-			}
+	return s.worker.Start(func(stopCh chan struct{}, stoppedCh chan struct{}) error {
+		s.handler = handler
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return err
 		}
-	}()
-	return nil
+		s.watcher = watcher
+		_ = s.watcher.Watch(s.root)
+		s.initialCheck()
+		go func() {
+			for {
+				select {
+				case <-stopCh:
+					// The user requested to stop ... indicate that the source thread has exited.
+					close(stoppedCh)
+					return
+				// watch for events
+				case ev, more := <-s.watcher.Event:
+					if !more {
+						break
+					}
+					if ev.IsDelete() {
+						s.processDelete(ev.Name)
+					} else if ev.IsCreate() {
+						fi, err := os.Stat(ev.Name)
+						if err != nil {
+							log.Scope.Warnf("error occurs for watching %s", ev.Name)
+						} else {
+							if fi.Mode().IsDir() {
+								log.Scope.Debugf("add watcher for new folder %s", ev.Name)
+								_ = s.watcher.Watch(ev.Name)
+							} else {
+								newData := s.readFile(ev.Name, fi, true)
+								if newData != nil && len(newData) != 0 {
+									s.processAddOrUpdate(ev.Name, newData)
+								}
+							}
+						}
+					} else if ev.IsModify() {
+						fi, err := os.Stat(ev.Name)
+						if err != nil {
+							log.Scope.Warnf("error occurs for watching %s", ev.Name)
+						} else {
+							if fi.Mode().IsDir() {
+								_ = s.watcher.RemoveWatch(ev.Name)
+							} else {
+								newData := s.readFile(ev.Name, fi, false)
+								if newData != nil && len(newData) != 0 {
+									s.processPartialDelete(ev.Name, newData)
+									s.processAddOrUpdate(ev.Name, newData)
+								} else {
+									s.processDelete(ev.Name)
+								}
+							}
+						}
+					}
+				}
+			}
+		}()
+		return nil
+	})
 }
 
 // New returns a File System implementation of runtime.Source.
@@ -340,7 +346,7 @@ func New(root string, schema *schema.Instance, config *converter.Config) (runtim
 		root:             root,
 		kinds:            map[string]bool{},
 		fileResourceKeys: map[string][]*fileResourceKey{},
-		donec:            make(chan struct{}),
+		worker:           util.NewWorker("fs source", log.Scope),
 		shas:             map[fileResourceKey][sha1.Size]byte{},
 		version:          0,
 	}
