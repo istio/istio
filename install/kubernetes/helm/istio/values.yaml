@@ -331,7 +331,6 @@ global:
     enabled: true
     # The values aren't mutable due to a current PodDisruptionBudget limitation
     # minAvailable: 1
-    # maxUnavailable: 1
 
   # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
   # system-node-critical, it is better to configure this in order to make sure your Istio pods
