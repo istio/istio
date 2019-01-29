@@ -30,6 +30,7 @@ const (
 	group      = "group"
 	kind       = "kind"
 	errorStr   = "error"
+	coreGroup  = "core"
 )
 
 var (
@@ -44,39 +45,38 @@ var (
 )
 
 var (
-	listenerHandleEventError = stats.Int64(
-		"galley/kube/source/listener_handle_event_error_total",
-		"The number of times the listener's handleEvent has errored",
+	sourceEventError = stats.Int64(
+		"galley/source/kube/event_error_total",
+		"The number of times a kubernetes source encountered errored while handling an event",
 		stats.UnitDimensionless)
-
-	listenerHandleEventSuccess = stats.Int64(
-		"galley/kube/source/listener_handle_event_success_total",
-		"The number of times the listener's handleEvent has succeeded",
+	sourceEventSuccess = stats.Int64(
+		"galley/source/kube/event_success_total",
+		"The number of times a kubernetes source successfully handled an event",
 		stats.UnitDimensionless)
 
 	sourceConversionSuccess = stats.Int64(
-		"galley/kube/source/source_converter_success_total",
-		"The number of times resource conversion in the source's ProcessEvent has succeeded",
+		"galley/source/kube/dynamic/converter_success_total",
+		"The number of times a dynamic kubernetes source successfully converted a resource",
 		stats.UnitDimensionless)
 	sourceConversionFailure = stats.Int64(
-		"galley/kube/source/source_converter_failure_total",
-		"The number of times resource conversion in the source's ProcessEvent has failed",
+		"galley/source/kube/dynamic/converter_failure_total",
+		"The number of times a dynamnic kubernetes source failed converting a resources",
 		stats.UnitDimensionless)
 )
 
-// RecordHandleEventError records an error handling a kube event.
-func RecordHandleEventError(msg string) {
+// RecordEventError records an error handling a kube event.
+func RecordEventError(msg string) {
 	ctx, ctxErr := tag.New(context.Background(), tag.Insert(ErrorTag, msg))
 	if ctxErr != nil {
 		log.Scope.Errorf("error creating context to record handleEvent error")
 	} else {
-		stats.Record(ctx, listenerHandleEventError.M(1))
+		stats.Record(ctx, sourceEventError.M(1))
 	}
 }
 
-// RecordHandleEventSuccess records successfully handling a kube event.
-func RecordHandleEventSuccess() {
-	stats.Record(context.Background(), listenerHandleEventSuccess.M(1))
+// RecordEventSuccess records successfully handling a kube event.
+func RecordEventSuccess() {
+	stats.Record(context.Background(), sourceEventSuccess.M(1))
 }
 
 type contextKey struct {
@@ -92,6 +92,10 @@ func RecordConverterResult(success bool, apiVersion, group, kind string) {
 		metric = sourceConversionSuccess
 	} else {
 		metric = sourceConversionFailure
+	}
+	if len(group) == 0 {
+		// For "core" resources, i.e. Pods and Nodes, group is "". Empty tags result in errors during the export to Prometheus.
+		group = coreGroup
 	}
 	key := contextKey{apiVersion, group, kind}
 	ctx, ok := ctxCache.Load(key)
@@ -137,8 +141,8 @@ func init() {
 	var noKeys []tag.Key
 
 	err := view.Register(
-		newView(listenerHandleEventError, errorKey, view.Count()),
-		newView(listenerHandleEventSuccess, noKeys, view.Count()),
+		newView(sourceEventError, errorKey, view.Count()),
+		newView(sourceEventSuccess, noKeys, view.Count()),
 		newView(sourceConversionSuccess, conversionKeys, view.Count()),
 		newView(sourceConversionFailure, conversionKeys, view.Count()),
 	)

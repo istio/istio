@@ -1341,6 +1341,37 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
+		{"happy ip",
+			&networking.Server{
+				Hosts: []string{"1.1.1.1"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		// TODO: ADD ONCE ns/name format is supported for gateway
+		//{"happy ns/name",
+		//	&networking.Server{
+		//		Hosts: []string{"ns1/foo.bar.com"},
+		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+		//	},
+		//	""},
+		//{"happy */name",
+		//	&networking.Server{
+		//		Hosts: []string{"*/foo.bar.com"},
+		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+		//	},
+		//	""},
+		//{"happy ./name",
+		//	&networking.Server{
+		//		Hosts: []string{"./foo.bar.com"},
+		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+		//	},
+		//	""},
+		//{"invalid domain ns/name format",
+		//	&networking.Server{
+		//		Hosts: []string{"ns1/foo.*.bar.com"},
+		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+		//	},
+		//	"domain"},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
@@ -2274,6 +2305,33 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "namespace/name for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/gateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "namespace/* for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/*"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "*/name for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"*/gateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
 			Hosts: []string{"*"},
 			Http: []*networking.HTTPRoute{{
@@ -2902,11 +2960,11 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
-			valid: false},
+			valid: true},
 		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
@@ -3730,6 +3788,20 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
+		{"import local namespace with wildcard", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"./*"},
+				},
+			},
+		}, true},
+		{"import local namespace with fqdn", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"./foo.com"},
+				},
+			},
+		}, true},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -3741,6 +3813,13 @@ func TestValidateSidecar(t *testing.T) {
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"/"},
+				},
+			},
+		}, false},
+		{"bad egress host 3", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"~/foo.com"},
 				},
 			},
 		}, false},
@@ -3995,4 +4074,172 @@ func TestValidateSidecar(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateLocalityLbSetting(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    *meshconfig.LocalityLoadBalancerSetting
+		valid bool
+	}{
+		{
+			name:  "valid mesh config without LocalityLoadBalancerSetting",
+			in:    nil,
+			valid: true,
+		},
+
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  25,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute total weight < 100",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  15,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute weight = 0",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 0,
+							"a/b1":  100,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting specify both distribute and failover",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Distribute: []*meshconfig.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  20,
+						},
+					},
+				},
+				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid failover src and dst have same region",
+			in: &meshconfig.LocalityLoadBalancerSetting{
+				Failover: []*meshconfig.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region1",
+					},
+				},
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		if got := validateLocalityLbSetting(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateLocalityLbSetting failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateLocalities(t *testing.T) {
+	cases := []struct {
+		name       string
+		localities []string
+		valid      bool
+	}{
+		{
+			name:       "multi wildcard locality",
+			localities: []string{"*/zone/*"},
+			valid:      false,
+		},
+		{
+			name:       "wildcard not in suffix",
+			localities: []string{"*/zone"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard region overlap",
+			localities: []string{"*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard region overlap",
+			localities: []string{"a", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard zone overlap",
+			localities: []string{"a/*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard zone overlap",
+			localities: []string{"a/b", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "explicit wildcard subzone overlap",
+			localities: []string{"a/b/*", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "implicit wildcard subzone overlap",
+			localities: []string{"a/b", "a/b/c"},
+			valid:      false,
+		},
+		{
+			name:       "valid localities",
+			localities: []string{"a1/*", "a2/*", "a3/b3/c3", "a4/b4", "a5/b5/*"},
+			valid:      true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := validateLocalities(c.localities)
+			if !c.valid && err == nil {
+				t.Errorf("expect invalid localities")
+			}
+
+			if c.valid && err != nil {
+				t.Errorf("expect valid localities. but got err %v", err)
+			}
+		})
+	}
+
 }

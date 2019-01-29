@@ -235,10 +235,7 @@ func (sd *MemServiceDiscovery) Services() ([]*model.Service, error) {
 	}
 	out := make([]*model.Service, 0, len(sd.services))
 	for _, service := range sd.services {
-		// Make a new service out of the existing one
-		// nolint: govet
-		newSvc := *service
-		out = append(out, &newSvc)
+		out = append(out, service)
 	}
 	return out, sd.ServicesError
 }
@@ -255,10 +252,7 @@ func (sd *MemServiceDiscovery) GetService(hostname model.Hostname) (*model.Servi
 	if val == nil {
 		return nil, errors.New("missing service")
 	}
-	// Make a new service out of the existing one
-	// nolint: govet
-	newSvc := *val
-	return &newSvc, sd.GetServiceError
+	return val, sd.GetServiceError
 }
 
 // Instances filters the service instances by labels. This assumes single port, as is
@@ -318,6 +312,12 @@ func (sd *MemServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) ([]*m
 		}
 	}
 	return out, sd.GetProxyServiceInstancesError
+}
+
+// GetProxyLocality returns the locality where the proxy runs.
+func (sd *MemServiceDiscovery) GetProxyLocality(node *model.Proxy) string {
+	// not implemented
+	return ""
 }
 
 // ManagementPorts implements discovery interface

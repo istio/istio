@@ -118,7 +118,7 @@ func testTCPEndpoints(expected string, adsc *adsc.ADSC, t *testing.T) {
 	for _, lbe := range lbe.Endpoints {
 		for _, e := range lbe.LbEndpoints {
 			total++
-			if expected == e.Endpoint.Address.GetSocketAddress().Address {
+			if expected == e.GetEndpoint().Address.GetSocketAddress().Address {
 				return
 			}
 		}
