@@ -101,7 +101,6 @@ func TestGoogleCAClient(t *testing.T) {
 		// The goroutine starting the server may not be ready, results in flakiness.
 		time.Sleep(1 * time.Second)
 
-		//usePodDefaultFlag = tc.usePodIdentity
 		cli, err := NewGoogleCAClient(lis.Addr().String(), false)
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
