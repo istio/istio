@@ -96,6 +96,13 @@ func NewServer(config Config) (*Server, error) {
 	return s, nil
 }
 
+// FormatProberURL returns a pair of HTTP URLs that pilot agent will serve to take over Kubernetes
+// app probers.
+func FormatProberURL(container string) (string, string) {
+	return fmt.Sprintf("/app-health/%v/readyz", container),
+		fmt.Sprintf("/app-health/%v/livez", container)
+}
+
 // Run opens a the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d\n", s.statusPort)

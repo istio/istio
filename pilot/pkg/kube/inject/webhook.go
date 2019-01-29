@@ -36,6 +36,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/log"
 )
 
@@ -430,6 +431,25 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
 	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
+	rewrite := ShouldRewriteAppProbers(sic)
+	addAppProberCmd := func() {
+		if !rewrite {
+			return
+		}
+		sidecar := FindSidecar(sic.Containers)
+		if sidecar == nil {
+			log.Errorf("sidecar not found in the template, skip addAppProberCmd")
+			return
+		}
+		if prober := DumpAppProbers(&pod.Spec); prober != "" {
+			sidecar.Args = append(sidecar.Args,
+				[]string{fmt.Sprintf("--%v", status.KubeAppProberCmdFlagName), prober}...)
+		}
+		// TODO: here see if the sic is used again and again... might need to make a copy if so...
+		// We don't have to escape json encoding here when using golang libraries.
+	}
+	addAppProberCmd()
+
 	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
 	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
@@ -440,6 +460,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 	}
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
+
+	if rewrite {
+		patch = append(patch, createProbeRewritePatch(&pod.Spec, sic)...)
+	}
 
 	return json.Marshal(patch)
 }
@@ -524,7 +548,6 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		}
 	}
 
-	// TODO(incfly): plumbing wh.sidecarConfig.RewriteHTTPPRobe to the injectionData.
 	spec, status, err := injectionData(wh.sidecarConfig.Template, wh.sidecarTemplateVersion, &pod.ObjectMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig.DefaultConfig, wh.meshConfig) // nolint: lll
 	if err != nil {
 		log.Infof("Injection data: err=%v spec=%v\n", err, status)

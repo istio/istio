@@ -380,9 +380,34 @@ func TestRewriteAppHTTPProbe(t *testing.T) {
 	}
 	for _, tc := range tests {
 		pod := proto.Clone(tc.original).(*corev1.PodSpec)
-		rewriteAppHTTPProbe(tc.sidecar, pod)
+		rewriteAppHTTPProbe(pod, tc.sidecar)
 		if !reflect.DeepEqual(pod, tc.want) {
 			t.Errorf("[%v] failed, want %+v, got %+v", tc.name, tc.want, pod)
+		}
+	}
+}
+
+func TestFindSidecar(t *testing.T) {
+	proxy := corev1.Container{Name: "istio-proxy"}
+	app := corev1.Container{Name: "app"}
+	for _, tc := range []struct {
+		name       string
+		containers []corev1.Container
+		index      int
+	}{
+		{"only-sidecar", []corev1.Container{proxy}, 0},
+		{"app-and-sidecar", []corev1.Container{app, proxy}, 1},
+		{"no-sidecar", []corev1.Container{app}, -1},
+	} {
+		got := FindSidecar(tc.containers)
+		var want *corev1.Container
+		if tc.index == -1 {
+			want = nil
+		} else {
+			want = &tc.containers[tc.index]
+		}
+		if got != want {
+			t.Errorf("[%v] failed, want %v, got %v", tc.name, want, got)
 		}
 	}
 }

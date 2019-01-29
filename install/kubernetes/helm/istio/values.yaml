@@ -11,6 +11,9 @@ gateways:
 #
 sidecarInjectorWebhook:
   enabled: true
+  # If true, webhook or istioctl injector will rewrite PodSpec for liveness
+  # health check to redirect request to sidecar. This makes liveness check work
+  # even when mTLS is enabled.
   rewriteAppHTTPProbe: false
 
 #

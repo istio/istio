@@ -513,10 +513,11 @@ func TestInjectRequired(t *testing.T) {
 	}
 }
 
-func TestInject(t *testing.T) {
+func TestWebhookInject(t *testing.T) {
 	cases := []struct {
-		inputFile string
-		wantFile  string
+		inputFile    string
+		wantFile     string
+		templateFile string
 	}{
 		{
 			inputFile: "TestWebhookInject.yaml",
@@ -594,13 +595,30 @@ func TestInject(t *testing.T) {
 			inputFile: "TestWebhookInject_replace_backwards_compat.yaml",
 			wantFile:  "TestWebhookInject_replace_backwards_compat.patch",
 		},
+		{
+			inputFile:    "TestWebhookInject_http_probe_rewrite.yaml",
+			wantFile:     "TestWebhookInject_http_probe_rewrite.patch",
+			templateFile: "TestWebhookInject_http_probe_rewrite_template.yaml",
+		},
+		{
+			inputFile:    "TestWebhookInject_http_probe_nosidecar_rewrite.yaml",
+			wantFile:     "TestWebhookInject_http_probe_nosidecar_rewrite.patch",
+			templateFile: "TestWebhookInject_http_probe_nosidecar_rewrite_template.yaml",
+		},
 	}
 
 	for i, c := range cases {
+		if c.inputFile != "TestWebhookInject_http_probe_nosidecar_rewrite.yaml" {
+			continue
+		}
 		input := filepath.Join("testdata/webhook", c.inputFile)
 		want := filepath.Join("testdata/webhook", c.wantFile)
+		templateFile := "TestWebhookInject_template.yaml"
+		if c.templateFile != "" {
+			templateFile = c.templateFile
+		}
 		t.Run(fmt.Sprintf("[%d] %s", i, c.inputFile), func(t *testing.T) {
-			wh := createTestWebhookFromFile("testdata/webhook/TestWebhookInject_template.yaml", t)
+			wh := createTestWebhookFromFile(filepath.Join("testdata/webhook", templateFile), t)
 			podYAML := util.ReadFile(input, t)
 			podJSON, err := yaml.YAMLToJSON(podYAML)
 			if err != nil {
@@ -759,7 +777,6 @@ func TestHelmInject(t *testing.T) {
 					// Apply the generated patch to the template.
 					patch := prettyJSON(got.Patch, t)
 					patchedTemplateJSON := applyJSONPatch(templateJSON, patch, t)
-
 					// Create the patched deployment. It's just a copy of the original, but with a patched template
 					// applied.
 					patchedDeployment := inputDeployment.DeepCopy()

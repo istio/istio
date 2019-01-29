@@ -31,10 +31,11 @@ type RequirementError interface {
 
 // Resolver for component requirements. It controls creation of the dependency tree for each required component.
 type Resolver interface {
-	// Require the given components to be available with the given lifecycle scope. The components may be specified
-	// via ID or specifically by descriptor. If a component requires others, each of its required components are
-	// implicitly required with the same scope. If a component already exists with the requested scope (or higher),
-	// the existing component is used.
+	// Require the given components to be available with the given lifecycle scope.
+	// The components may be specified via ID or specifically by descriptor.
+	// If a component already exists with the requested scope (or higher), the existing component is used.
+	// If not, testing framework will create one along with its dependency components.
+	// A component's dependency components are implicitly required with the same scope.
 	Require(scope lifecycle.Scope, reqs ...Requirement) RequirementError
 
 	// RequireOrFail calls Require and fails the test if any error occurs.

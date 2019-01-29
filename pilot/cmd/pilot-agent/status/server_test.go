@@ -64,6 +64,10 @@ func TestNewServer(t *testing.T) {
 			httpProbe: `{"/app-health/hello-world/readyz": {"path": "/hello/sunnyvale", "port": 8080},
 "/app-health/business/livez": {"port": 9090}}`,
 		},
+		// A valid input without any prober info.
+		{
+			httpProbe: `{}`,
+		},
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Config{
