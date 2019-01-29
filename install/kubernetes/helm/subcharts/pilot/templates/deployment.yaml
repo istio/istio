@@ -13,8 +13,12 @@ metadata:
   annotations:
     checksum/config-volume: {{ template "istio.configmap.checksum" . }}
 spec:
-{{- if not .Values.autoscaleMin }}
-  replicas: {{ .Values.replicaCount }}
+{{- if not $spec.autoscaleEnabled }}
+{{- if $spec.replicaCount }}
+  replicas: {{ $spec.replicaCount }}
+{{- else }}
+  replicas: 1
+{{- end }}
 {{- end }}
   strategy:
     rollingUpdate:
