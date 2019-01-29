@@ -544,7 +544,7 @@ func validateExportTo(exportTo []string) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
 		} else {
 			switch Visibility(exportTo[0]) {
-			case VisibilityPrivate,VisibilityPublic:
+			case VisibilityPrivate, VisibilityPublic:
 			default:
 				errs = appendErrors(errs, fmt.Errorf("only . or * is allowed in the exportTo in the current release"))
 			}

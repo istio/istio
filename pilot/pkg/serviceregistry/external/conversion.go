@@ -77,9 +77,9 @@ func convertServices(config model.Config) []*model.Service {
 						Ports:        svcPorts,
 						Resolution:   resolution,
 						Attributes: model.ServiceAttributes{
-							Name:        host,
-							Namespace:   config.Namespace,
-							ExportTo: exportTo,
+							Name:      host,
+							Namespace: config.Namespace,
+							ExportTo:  exportTo,
 						},
 					})
 				} else if net.ParseIP(address) != nil {

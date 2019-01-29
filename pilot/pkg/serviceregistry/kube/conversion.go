@@ -104,7 +104,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
 			}
 		}
-		if svc.Annotations[ServiceExportAnnotation] != ""  {
+		if svc.Annotations[ServiceExportAnnotation] != "" {
 			exportTo = make(map[model.Visibility]bool)
 			for _, e := range strings.Split(svc.Annotations[ServiceExportAnnotation], ",") {
 				exportTo[model.Visibility(e)] = true
