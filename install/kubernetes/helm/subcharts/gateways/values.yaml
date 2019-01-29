@@ -35,9 +35,6 @@ istio-ingressgateway:
     #  memory: 256Mi
   cpu:
     targetAverageUtilization: 80
-  podDisruptionBudget: {}
-    # minAvailable: 1
-    # maxUnavailable: 1
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
   externalIPs: []
@@ -121,9 +118,6 @@ istio-egressgateway:
   # replicaCount: 1
   cpu:
     targetAverageUtilization: 80
-  podDisruptionBudget: {}
-    # minAvailable: 1
-    # maxUnavailable: 1
   serviceAnnotations: {}
   podAnnotations: {}
   type: ClusterIP #change to NodePort or LoadBalancer if need be
@@ -174,9 +168,6 @@ istio-ilbgateway:
   # replicaCount: 1
   cpu:
     targetAverageUtilization: 80
-  podDisruptionBudget: {}
-    # minAvailable: 1
-    # maxUnavailable: 1
   resources:
     requests:
       cpu: 800m
