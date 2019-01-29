@@ -439,7 +439,18 @@ func TestBuildDefaultTrafficPolicy(t *testing.T) {
 			protocol:   model.ProtocolHTTP2,
 			wantOutDet: true,
 		},
-		// TODO: Work out whether GRPC and GRPC should be set or not
+		{
+			name:       "Outbound GRPC Traffic Policy has OutlierDetection",
+			direction:  model.TrafficDirectionOutbound,
+			protocol:   model.ProtocolGRPC,
+			wantOutDet: true,
+		},
+		{
+			name:       "Outbound GRPCWeb Traffic Policy has OutlierDetection",
+			direction:  model.TrafficDirectionOutbound,
+			protocol:   model.ProtocolGRPCWeb,
+			wantOutDet: true,
+		},
 		{
 			name:      "Outbound HTTPS Traffic Policy has OutlierDetection",
 			direction: model.TrafficDirectionOutbound,
