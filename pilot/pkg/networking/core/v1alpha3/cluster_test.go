@@ -418,6 +418,16 @@ func TestBuildDefaultTrafficPolicy(t *testing.T) {
 			protocol:  model.ProtocolUDP,
 		},
 		{
+			name:      "Inbound GRPC Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionInbound,
+			protocol:  model.ProtocolGRPC,
+		},
+		{
+			name:      "Inbound GRPCWeb Traffic Policy has no OutlierDetection",
+			direction: model.TrafficDirectionInbound,
+			protocol:  model.ProtocolGRPCWeb,
+		},
+		{
 			name:       "Outbound HTTP Traffic Policy has OutlierDetection",
 			direction:  model.TrafficDirectionOutbound,
 			protocol:   model.ProtocolHTTP,
@@ -429,6 +439,7 @@ func TestBuildDefaultTrafficPolicy(t *testing.T) {
 			protocol:   model.ProtocolHTTP2,
 			wantOutDet: true,
 		},
+		// TODO: Work out whether GRPC and GRPC should be set or not
 		{
 			name:      "Outbound HTTPS Traffic Policy has OutlierDetection",
 			direction: model.TrafficDirectionOutbound,
@@ -444,7 +455,6 @@ func TestBuildDefaultTrafficPolicy(t *testing.T) {
 			direction: model.TrafficDirectionOutbound,
 			protocol:  model.ProtocolUDP,
 		},
-		// TODO: Work out whether GRPC and GRPC should be set or not
 		{
 			name:          "Static Cluster Discovery uses round robin LB",
 			discoveryType: apiv2.Cluster_STATIC,
