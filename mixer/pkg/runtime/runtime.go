@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/runtime/handler"
-	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/routing"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -157,9 +156,8 @@ func (c *Runtime) processNewConfig() {
 
 	newHandlers := handler.NewTable(oldHandlers, newSnapshot, c.handlerPool)
 
-	builder := lang.NewBuilder(newSnapshot.Attributes)
 	newRoutes := routing.BuildTable(
-		newHandlers, newSnapshot, builder, c.defaultConfigNamespace, log.DebugEnabled())
+		newHandlers, newSnapshot, c.defaultConfigNamespace, log.DebugEnabled())
 
 	oldContext := c.dispatcher.ChangeRoute(newRoutes)
 

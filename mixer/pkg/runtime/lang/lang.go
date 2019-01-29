@@ -16,8 +16,6 @@
 package lang
 
 import (
-	"os"
-
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -29,14 +27,44 @@ type (
 		// Compile creates a compiled expression from a string expression
 		Compile(expr string) (compiled.Expression, v1beta1.ValueType, error)
 	}
+
+	// LanguageRuntime enumerates the expression languages supported by istio
+	LanguageRuntime int
 )
 
-var (
-	// languageMode selects the evaluation engine for Mixer expressions
-	languageMode = os.Getenv("MIXER_LANG_MODE")
+const (
+	// CEXL is legacy istio expression language
+	CEXL LanguageRuntime = iota
+
+	// LanguageRuntimeAnnotation on config resources to select a language runtime
+	LanguageRuntimeAnnotation = "policy.istio.io/lang"
 )
+
+// GetLanguageRuntime reads an override from a resource annotation
+func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
+	switch annotations[LanguageRuntimeAnnotation] {
+	case "CEXL":
+		fallthrough
+	default:
+		return CEXL
+	}
+}
 
 // NewBuilder returns an expression builder
-func NewBuilder(finder ast.AttributeDescriptorFinder) Compiler {
-	return compiled.NewBuilder(finder)
+func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Compiler {
+	switch mode {
+	case CEXL:
+		fallthrough
+	default:
+		return compiled.NewBuilder(finder)
+	}
+}
+
+func (mode LanguageRuntime) String() string {
+	switch mode {
+	case CEXL:
+		return "CEXL"
+	default:
+		return ""
+	}
 }
