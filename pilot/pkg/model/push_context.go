@@ -616,7 +616,7 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		return err
 	}
 
-	ps.InitDefaultExportMaps()
+	ps.initDefaultExportMaps()
 
 	// Must be initialized in the end
 	if err = ps.InitSidecarScopes(env); err != nil {
@@ -764,7 +764,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 	return nil
 }
 
-func (ps *PushContext) InitDefaultExportMaps() {
+func (ps *PushContext) initDefaultExportMaps() {
 	ps.defaultDestinationRuleExportTo = make(map[Visibility]bool)
 	if ps.Env.Mesh.DefaultDestinationRuleExportTo != nil {
 		for _, e := range ps.Env.Mesh.DefaultDestinationRuleExportTo {
