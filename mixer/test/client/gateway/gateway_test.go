@@ -89,8 +89,6 @@ static_resources:
         port_value: {{.Ports.MixerPort}}
 `
 
-	// TODO(mandarjog): source.uid below should be in-mesh-app
-
 	checkAttributesOkOutbound = `
 {
   "connection.mtls": false,
@@ -102,7 +100,7 @@ static_resources:
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
   "destination.service.uid": "istio://ns3/services/svc",
-  "source.uid": "kubernetes://pod.ns",
+  "source.uid": "%s",
   "source.namespace": "ns",
   "request.headers": {
      ":method": "GET",
@@ -134,7 +132,7 @@ static_resources:
   "destination.service.name": "svc",
   "destination.service.namespace": "ns3",
   "destination.service.uid": "istio://ns3/services/svc",
-  "source.uid": "kubernetes://pod.ns",
+  "source.uid": "%s",
   "source.namespace": "ns",
   "check.cache_hit": false,
   "quota.cache_hit": false,
@@ -196,6 +194,15 @@ func TestGateway(t *testing.T) {
 
 	s.WaitEnvoyReady()
 
+	// verify that bootstrap source.uid is present
+	if _, _, err := env.HTTPGet(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort)); err != nil {
+		t.Errorf("Failed in request: %v", err)
+	}
+
+	source_uid := "kubernetes://pod.ns"
+	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, source_uid))
+	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, source_uid))
+
 	// Issues a GET echo request with 0 size body, forward some random source.uid
 	attrs := mixerpb.Attributes{
 		Attributes: map[string]*mixerpb.Attributes_AttributeValue{
@@ -211,8 +218,9 @@ func TestGateway(t *testing.T) {
 	if _, _, err := env.HTTPGetWithHeaders(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort), headers); err != nil {
 		t.Errorf("Failed in request: %v", err)
 	}
-	s.VerifyCheck("http-outbound", checkAttributesOkOutbound)
-	s.VerifyReport("http", reportAttributesOkOutbound)
+	source_uid = "in-mesh-app"
+	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, source_uid))
+	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, source_uid))
 }
 
 type mock struct{}
