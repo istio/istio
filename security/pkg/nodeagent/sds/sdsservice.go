@@ -150,11 +150,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.proxyID = discReq.Node.Id
 			con.ResourceName = resourceName
 
+			log.Debugf("Received SDS request from %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, resourceName, discReq.VersionInfo)
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(discReq.Node.Id, resourceName, token, discReq.VersionInfo) {
-				log.Debugf("Received SDS ACK from %q", discReq.Node.Id)
+				log.Debugf("Received SDS ACK from %q, resourceName %q, versionInfo %q\n", discReq.Node.Id, resourceName, discReq.VersionInfo)
 				continue
 			}
 
@@ -294,7 +295,11 @@ func removeConn(k cache.ConnKey) {
 }
 
 func pushSDS(con *sdsConnection) error {
-	log.Infof("SDS: push from node agent to proxy:%q", con.proxyID)
+	if con.secret.RootCert != nil {
+		log.Infof("SDS: push root cert from node agent to proxy:%q", con.proxyID)
+	} else {
+		log.Infof("SDS: push key/cert pair from node agent to proxy:%q", con.proxyID)
+	}
 
 	response, err := sdsDiscoveryResponse(con.secret, con.proxyID)
 	if err != nil {
