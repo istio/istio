@@ -2,9 +2,11 @@
 # pilot configuration
 #
 enabled: true
-replicaCount: 1
+autoscaleEnabled: true
 autoscaleMin: 1
 autoscaleMax: 5
+# specify replicaCount when autoscaleEnabled: false
+# replicaCount: 1
 image: pilot
 sidecar: true
 traceSampling: 100.0
