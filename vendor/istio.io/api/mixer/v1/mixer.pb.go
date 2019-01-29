@@ -230,7 +230,7 @@ func (*HeaderOperation) ProtoMessage()               {}
 func (*HeaderOperation) Descriptor() ([]byte, []int) { return fileDescriptorMixer, []int{3} }
 
 // Expresses the routing manipulation actions to be performed on behalf of
-// Mixer in response to a successful precondition check.
+// Mixer in response to a precondition check.
 type RouteDirective struct {
 	// Operations on the request headers.
 	RequestHeaderOperations []HeaderOperation `protobuf:"bytes,1,rep,name=request_header_operations,json=requestHeaderOperations" json:"request_header_operations"`
