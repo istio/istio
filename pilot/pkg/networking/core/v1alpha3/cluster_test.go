@@ -398,3 +398,62 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*apiv2.Cluster,
 			},
 		})
 }
+
+func TestClusterMetadata(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: "*.example.org",
+		Subsets: []*networking.Subset{
+			&networking.Subset{Name: "Subset 1"},
+			&networking.Subset{Name: "Subset 2"},
+		},
+		TrafficPolicy: &networking.TrafficPolicy{
+			ConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 1,
+				},
+			},
+		},
+	}
+
+	clusters, err := buildTestClusters("*.example.org", model.SidecarProxy, testMesh, destRule)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	clustersWithMetadata := 0
+
+	for _, cluster := range clusters {
+		if strings.HasPrefix(cluster.Name, "outbound") || strings.HasPrefix(cluster.Name, "inbound") {
+			clustersWithMetadata
+			g.Expect(cluster.Metadata).NotTo(BeNil())
+			md := cluster.Metadata
+			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
+			istio := md.FilterMetadata["istio"]
+			g.Expect(istio.Fields["destination-rule"]).NotTo(BeNil())
+			dr := istio.Fields["destination-rule"]
+			g.Expect(dr.GetStringValue()).To(Equal("acme.."))
+		} else {
+			g.Expect(cluster.Metadata).To(BeNil())
+		}
+	}
+
+	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets)  2)) // outbound  outbound subsets  inbound
+
+	sniClusters, err := buildSniDnatTestClusters("test-sni")
+	g.Expect(err).NotTo(HaveOccurred())
+
+	for _, cluster := range sniClusters {
+		if strings.HasPrefix(cluster.Name, "outbound") {
+			g.Expect(cluster.Metadata).NotTo(BeNil())
+			md := cluster.Metadata
+			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
+			istio := md.FilterMetadata["istio"]
+			g.Expect(istio.Fields["destination-rule"]).NotTo(BeNil())
+			dr := istio.Fields["destination-rule"]
+			g.Expect(dr.GetStringValue()).To(Equal("acme.."))
+		} else {
+			g.Expect(cluster.Metadata).To(BeNil())
+		}
+	}
+}
+
