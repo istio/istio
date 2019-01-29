@@ -16,17 +16,22 @@ package log
 
 import (
 	"fmt"
+	"os"
 
 	"go.uber.org/zap/zapcore"
 )
 
 var defaultScope = RegisterScope(DefaultScopeName, "Unscoped logging messages.", 0)
 
+// use os.Exit via a function pointer so we can temporarily disable for unit tests
+var osExit = os.Exit
+
 // Fatal outputs a message at fatal level.
 func Fatal(msg string, fields ...zapcore.Field) {
 	if defaultScope.GetOutputLevel() >= FatalLevel {
 		defaultScope.emit(zapcore.FatalLevel, defaultScope.GetStackTraceLevel() >= FatalLevel, msg, fields)
 	}
+	osExit(255)
 }
 
 // Fatala uses fmt.Sprint to construct and log a message at fatal level.
@@ -34,6 +39,7 @@ func Fatala(args ...interface{}) {
 	if defaultScope.GetOutputLevel() >= FatalLevel {
 		defaultScope.emit(zapcore.FatalLevel, defaultScope.GetStackTraceLevel() >= FatalLevel, fmt.Sprint(args...), nil)
 	}
+	osExit(255)
 }
 
 // Fatalf uses fmt.Sprintf to construct and log a message at fatal level.
@@ -45,6 +51,7 @@ func Fatalf(template string, args ...interface{}) {
 		}
 		defaultScope.emit(zapcore.FatalLevel, defaultScope.GetStackTraceLevel() >= FatalLevel, msg, nil)
 	}
+	osExit(255)
 }
 
 // FatalEnabled returns whether output of messages using this scope is currently enabled for fatal-level output.

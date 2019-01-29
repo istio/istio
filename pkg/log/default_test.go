@@ -15,12 +15,16 @@
 package log
 
 import (
+	"os"
 	"regexp"
 	"strconv"
 	"testing"
 )
 
 func TestDefault(t *testing.T) {
+	osExit = func(int) {}
+	defer func() { osExit = os.Exit }()
+
 	cases := []struct {
 		f          func()
 		pat        string
