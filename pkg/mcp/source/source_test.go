@@ -441,7 +441,7 @@ func TestConnRateLimit(t *testing.T) {
 	s := makeSourceUnderTest(h)
 	s.requestLimiter = fakeLimiter
 
-	go s.processStream(h)
+	go s.ProcessStream(h)
 
 	<-fakeLimiter.CreateCh
 	c := <-fakeLimiter.WaitCh
@@ -473,7 +473,7 @@ func TestConnRateLimitError(t *testing.T) {
 
 	errC := make(chan error)
 	go func() {
-		errC <- s.processStream(h)
+		errC <- s.ProcessStream(h)
 	}()
 
 	expectedErr := "rate limiting went wrong"
@@ -786,7 +786,7 @@ func TestSourceACKAddUpdateDelete_Incremental(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		if err := s.processStream(h); err != nil {
+		if err := s.ProcessStream(h); err != nil {
 			t.Errorf("Stream() => got %v, want no error", err)
 		}
 		wg.Done()
