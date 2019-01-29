@@ -771,12 +771,9 @@ func (s *DiscoveryServer) AdsPushAll(version string, push *model.PushContext,
 	// instead of once per endpoint.
 	edsClusterMutex.Lock()
 	// Create a temp map to avoid locking the add/remove
-	cMap := make(map[string]map[model.Locality]*EdsCluster, len(edsClusters))
+	cMap := make(map[string]*EdsCluster, len(edsClusters))
 	for k, v := range edsClusters {
-		cMap[k] = map[model.Locality]*EdsCluster{}
-		for locality, edsCluster := range v {
-			cMap[k][locality] = edsCluster
-		}
+		cMap[k] = v
 	}
 	edsClusterMutex.Unlock()
 
