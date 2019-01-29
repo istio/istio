@@ -85,6 +85,24 @@ data:
     outboundTrafficPolicy:
       mode: {{ .Values.global.outboundTrafficPolicy.mode }}
 
+    {{- if .Values.global.configRootNamespace }}
+    # The namespace to treat as the administrative root namespace for istio
+    # configuration. Set this field to a dedicated namespace if you want to
+    # all sidecars to be able to communicate with services in their
+    # namespace alone. This dedicated namespace should have a default
+    # Sidecar config
+    rootNamespace: {{ .Values.global.configRootNamespace }}
+    {{- end }}
+
+    {{- if .Values.global.defaultConfigExportSetting }}
+    defaultServiceExportTo:
+    - '{{ .Values.global.defaultConfigExportSetting }}'
+    defaultVirtualServiceExportTo:
+    - '{{ .Values.global.defaultConfigExportSetting }}'
+    defaultDestinationRuleExportTo:
+    - '{{ .Values.global.defaultConfigExportSetting }}'
+    {{- end }}
+
     defaultConfig:
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
