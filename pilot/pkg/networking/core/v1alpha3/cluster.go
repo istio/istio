@@ -90,54 +90,29 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		}
 	}
 
-	// Used as key to lookup in the cache
-	localityAsString := util.NoProxyLocality
-	if locality != nil {
-		localityAsString = fmt.Sprintf("%s/%s/%s", locality.Region, locality.Zone, locality.SubZone)
-	}
-
 	switch proxy.Type {
 	case model.SidecarProxy:
 		sidecarScope := proxy.SidecarScope
 		recomputeOutboundClusters := true
 		if configgen.CanUsePrecomputedCDS(proxy) {
 			if sidecarScope != nil && sidecarScope.CDSOutboundClusters != nil {
-				sidecarScope.CDSMutex.RLock()
-				if sidecarScope.CDSOutboundClusters[localityAsString] != nil {
-					clusters = append(clusters, sidecarScope.CDSOutboundClusters[localityAsString]...)
-					recomputeOutboundClusters = false
-				} else {
-					// Take the default output. We will modify this for the locality and cache later
-					clusters = append(clusters, sidecarScope.CDSOutboundClusters[util.NoProxyLocality]...)
-				}
-				sidecarScope.CDSMutex.RUnlock()
+				// NOTE: We currently only cache & update the CDS output for NoProxyLocality
+				clusters = append(clusters, sidecarScope.CDSOutboundClusters[util.NoProxyLocality]...)
+				recomputeOutboundClusters = false
 
-				// If there was a cache miss, then create a locality specific cds output
-				// based on the noproxylocality output.
-				if recomputeOutboundClusters && locality != nil {
-					// NOTE: the lock should be taken before the cloning to avoid
-					// multiple threads creating N copies of outputs for same locality
-					// This does mean that during heavy contention, several threads may
-					// be waiting on this lock to update the locality cache
-					sidecarScope.CDSMutex.Lock()
-
-					// Check if during the period we waited to acquire the lock
-					// another thread built the set of clusters. If it did, then dont bother
-					// to recompute
-					if sidecarScope.CDSOutboundClusters[localityAsString] == nil {
-						for i, cluster := range clusters {
-							// update the locality settings only if the cluster has
-							// outlier detection settings
-							if cluster.LoadAssignment != nil && cluster.OutlierDetection != nil {
-								clone := util.CloneCluster(cluster)
-								ApplyLocalityLBSetting(locality, clone.LoadAssignment, env.Mesh.LocalityLbSetting)
-								clusters[i] = &clone
-							}
+				if locality != nil {
+					// TODO: there is a complicated lock dance involved. But it improves perf when
+					// locality LB is being used. For now, we sacrifice memory and create clones of
+					// clusters for every proxy that asks for locality specific clusters
+					for i, cluster := range clusters {
+						// update the locality settings only if the cluster has
+						// outlier detection settings
+						if cluster.LoadAssignment != nil && cluster.OutlierDetection != nil {
+							clone := util.CloneCluster(cluster)
+							ApplyLocalityLBSetting(locality, clone.LoadAssignment, env.Mesh.LocalityLbSetting)
+							clusters[i] = &clone
 						}
-						// cache the output
-						sidecarScope.CDSOutboundClusters[localityAsString] = clusters
 					}
-					sidecarScope.CDSMutex.Unlock()
 				}
 			}
 		}
@@ -158,28 +133,11 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 		recomputeOutboundClusters := true
 		if configgen.CanUsePrecomputedCDS(proxy) {
 			if configgen.PrecomputedOutboundClustersForGateways != nil {
-				configgen.gatewayCDSMutex.RLock()
 				if configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace] != nil {
-					if configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][localityAsString] != nil {
-						clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][localityAsString]...)
-						recomputeOutboundClusters = false
-					} else {
-						clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][localityAsString]...)
-					}
-				}
-				configgen.gatewayCDSMutex.RUnlock()
+					clusters = append(clusters, configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][util.NoProxyLocality]...)
+					recomputeOutboundClusters = false
 
-				if recomputeOutboundClusters && locality != nil {
-					// NOTE: the lock should be taken before the cloning to avoid
-					// multiple threads creating N copies of outputs for same locality
-					// This does mean that during heavy contention, several threads may
-					// be waiting on this lock to update the locality cache
-					configgen.gatewayCDSMutex.Lock()
-
-					// Check if during the period we waited to acquire the lock
-					// another thread built the set of clusters. If it did, then dont bother
-					// to recompute
-					if configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][localityAsString] == nil {
+					if locality != nil {
 						for i, cluster := range clusters {
 							// update the locality settings only if the cluster has
 							// outlier detection settings
@@ -189,10 +147,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(env *model.Environment, prox
 								clusters[i] = &clone
 							}
 						}
-						// cache the output
-						configgen.PrecomputedOutboundClustersForGateways[proxy.ConfigNamespace][localityAsString] = clusters
 					}
-					configgen.gatewayCDSMutex.Unlock()
 				}
 			}
 		}

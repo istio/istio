@@ -16,7 +16,6 @@ package model
 
 import (
 	"strings"
-	"sync"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 
@@ -77,9 +76,6 @@ type SidecarScope struct {
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
 	destinationRules map[Hostname]*Config
-
-	// CDSMutex protects the xdsOutboundClusters map from concurrent writes
-	CDSMutex sync.RWMutex
 
 	// CDSOutboundClusters is the CDS output for sidecars that map to this
 	// sidecarScope object. Contains the outbound clusters only, indexed
