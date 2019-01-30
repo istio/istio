@@ -902,7 +902,7 @@ func validatePort(node *model.Proxy, i int, bindToPort bool) bool {
 	if !bindToPort {
 		return true // all good, iptables doesn't care
 	}
-	if i > 1024 {
+	if i >= 1024 {
 		return true
 	}
 	remapBase := node.Metadata[model.NodeMetadataUID]
