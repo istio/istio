@@ -1347,31 +1347,30 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
-		// TODO: ADD ONCE ns/name format is supported for gateway
-		//{"happy ns/name",
-		//	&networking.Server{
-		//		Hosts: []string{"ns1/foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"happy */name",
-		//	&networking.Server{
-		//		Hosts: []string{"*/foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"happy ./name",
-		//	&networking.Server{
-		//		Hosts: []string{"./foo.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	""},
-		//{"invalid domain ns/name format",
-		//	&networking.Server{
-		//		Hosts: []string{"ns1/foo.*.bar.com"},
-		//		Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
-		//	},
-		//	"domain"},
+		{"happy ns/name",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy */name",
+			&networking.Server{
+				Hosts: []string{"*/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy ./name",
+			&networking.Server{
+				Hosts: []string{"./foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"invalid domain ns/name format",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.*.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"domain"},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
