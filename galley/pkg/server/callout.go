@@ -17,7 +17,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"google.golang.org/grpc"
 
@@ -57,16 +56,16 @@ func defaultCalloutPT() calloutPT {
 	}
 }
 
-func newCallout(sa *Args, so *source.Options) (*callout, error) {
-	return newCalloutPT(sa, so, defaultCalloutPT())
+func newCallout(address, auth string, so *source.Options) (*callout, error) {
+	return newCalloutPT(address, auth, so, defaultCalloutPT())
 }
 
-func newCalloutPT(sa *Args, so *source.Options, pt calloutPT) (*callout, error) {
+func newCalloutPT(address, auth string, so *source.Options, pt calloutPT) (*callout, error) {
 	auths := authplugins.AuthMap()
 
-	f, ok := auths[sa.SinkAuthMode]
+	f, ok := auths[auth]
 	if !ok {
-		return nil, fmt.Errorf("auth plugin %v not found", sa.SinkAuthMode)
+		return nil, fmt.Errorf("auth plugin %v not found", auth)
 	}
 
 	opts, err := f(nil)
@@ -75,15 +74,14 @@ func newCalloutPT(sa *Args, so *source.Options, pt calloutPT) (*callout, error) 
 	}
 
 	return &callout{
-		address: sa.SinkAddress,
+		address: address,
 		so:      so,
 		do:      opts,
 		pt:      pt,
 	}, nil
 }
 
-func (c *callout) Run(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (c *callout) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 

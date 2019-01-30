@@ -16,7 +16,6 @@ package server
 
 import (
 	"context"
-	"sync"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -26,11 +25,7 @@ import (
 )
 
 func TestCallout(t *testing.T) {
-	sa := &Args{
-		SinkAuthMode: "NONE",
-		SinkAddress:  "foo",
-	}
-	co, err := newCallout(sa, &source.Options{})
+	co, err := newCallout("foo", "NONE", &source.Options{})
 	if err != nil {
 		t.Errorf("Callout creation failed: %v", err)
 	}
@@ -68,9 +63,7 @@ func TestCalloutRun(t *testing.T) {
 			connClose:       connClose,
 		},
 	}
-	var wg sync.WaitGroup
-	wg.Add(1)
-	co.Run(&wg)
+	co.Run()
 
 	if dialAddr != "foo" {
 		t.Error("Callout run did not dial address")
