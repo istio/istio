@@ -34,9 +34,6 @@ const (
 	// We reuse it for taking over application's readiness probing as well.
 	// TODO: replace the hardcoded statusPort elsewhere by this variable as much as possible.
 	StatusPortCmdFlagName = "statusPort"
-
-	// TODO: any constant refers to this container's name?
-	istioProxyContainerName = "istio-proxy"
 )
 
 var (
@@ -114,7 +111,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	}
 	var sidecar *corev1.Container
 	for i := range podSpec.Containers {
-		if podSpec.Containers[i].Name == istioProxyContainerName {
+		if podSpec.Containers[i].Name == ProxyContainerName {
 			sidecar = &podSpec.Containers[i]
 			break
 		}
@@ -132,7 +129,7 @@ func rewriteAppHTTPProbe(spec *SidecarInjectionSpec, podSpec *corev1.PodSpec) {
 	appProberInfo := status.KubeAppProbers{}
 	for _, c := range podSpec.Containers {
 		// Skip sidecar container.
-		if c.Name == istioProxyContainerName {
+		if c.Name == ProxyContainerName {
 			continue
 		}
 		portMap := map[string]int32{}
