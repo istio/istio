@@ -24,41 +24,35 @@ import (
 	"istio.io/istio/pkg/test/framework/api/ids"
 )
 
-// AppProtocol enumerates the protocol options for calling an DeployedAppEndpoint endpoint.
-type AppProtocol string
+// EchoProtocol enumerates the protocol options for calling an EchoEndpoint endpoint.
+type EchoProtocol string
 
 const (
-	// AppProtocolHTTP calls the app with HTTP
-	AppProtocolHTTP = "http"
-	// AppProtocolGRPC calls the app with GRPC
-	AppProtocolGRPC = "grpc"
-	// AppProtocolWebSocket calls the app with WebSocket
-	AppProtocolWebSocket = "ws"
+	// EchoProtocolHTTP calls echo with HTTP
+	EchoProtocolHTTP = "http"
+	// EchoProtocolGRPC calls echo with GRPC
+	EchoProtocolGRPC = "grpc"
+	// EchoProtocolWebSocket calls echo with WebSocket
+	EchoProtocolWebSocket = "ws"
 )
 
-// Apps is a component that provides access to all deployed test services.
-type Apps interface {
+// Echo is a component that provides access to a deployed test service.
+type Echo interface {
 	component.Instance
-	GetApp(name string) (App, error)
-	GetAppOrFail(name string, t testing.TB) App
+
+	Endpoints() []EchoEndpoint
+	EndpointsForProtocol(protocol model.Protocol) []EchoEndpoint
+	Call(e EchoEndpoint, opts EchoCallOptions) ([]*echo.ParsedResponse, error)
+	CallOrFail(e EchoEndpoint, opts EchoCallOptions, t testing.TB) []*echo.ParsedResponse
 }
 
-// App represents a deployed fake App within the mesh.
-type App interface {
-	Name() string
-	Endpoints() []AppEndpoint
-	EndpointsForProtocol(protocol model.Protocol) []AppEndpoint
-	Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
-	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
-}
-
-// AppCallOptions defines options for calling a DeployedAppEndpoint.
-type AppCallOptions struct {
+// EchoCallOptions defines options for calling a EchoEndpoint.
+type EchoCallOptions struct {
 	// Secure indicates whether a secure connection should be established to the endpoint.
 	Secure bool
 
 	// Protocol indicates the protocol to be used.
-	Protocol AppProtocol
+	Protocol EchoProtocol
 
 	// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
 	UseShortHostname bool
@@ -70,14 +64,13 @@ type AppCallOptions struct {
 	Headers http.Header
 }
 
-// AppEndpoint represents a single endpoint in a DeployedApp.
-type AppEndpoint interface {
+// EchoEndpoint represents a single endpoint in an Echo instance.
+type EchoEndpoint interface {
 	Name() string
-	Owner() App
+	Owner() Echo
 	Protocol() model.Protocol
 }
 
-// GetApps from the repository
-func GetApps(e component.Repository, t testing.TB) Apps {
-	return e.GetComponentOrFail("", ids.Apps, t).(Apps)
+func GetEcho(name string, e component.Repository, t testing.TB) Echo {
+	return e.GetComponentOrFail(name, ids.Echo, t).(Echo)
 }

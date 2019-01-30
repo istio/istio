@@ -146,6 +146,38 @@ static_resources:
             config: {}
           - name: envoy.router
             config: {}
+          {{- if $.MixerPort }}
+          - name: mixer
+            config:
+              default_destination_service: default
+              mixer_attributes:
+                attributes:
+                  context.reporter.kind:
+                    string_value: "inbound"
+                  context.reporter.uid:
+                    string_value: "{{$serviceName}}_{{$p.ProxyPort}}"
+                  destination.ip:
+                    bytes_value: "AAAAAAAAAAAAAP//fwAAAQ=="
+                  destination.namespace:
+                    string_value: "{{$.Namespace}}"
+                  destination.port:
+                    int64_value: {{$p.ProxyPort}}
+                  destination.uid:
+                    string_value: "{{$serviceName}}_{{$p.ProxyPort}}"
+                  destination.service.host:
+                    string_value: "service_{{$serviceName}}"
+                  destination.service.namespace:
+                    string_value: "{{$.Namespace}}"
+                  destination.service.name:
+                     string_value: "service_{{$serviceName}}"
+              service_configs:
+                default: {}
+              transport:
+                check_cluster: mixer
+                report_cluster: mixer
+                network_fail_policy:
+                  policy: FAIL_CLOSE
+          {{- end }}
       {{- else }}
       - name: envoy.tcp_proxy
         config:
@@ -584,6 +616,8 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 		Nonce:       resp.Nonce,
 	}
 
+	fmt.Println("Filtering discovery response of type: ", resp.TypeUrl)
+
 	for _, any := range resp.Resources {
 		switch any.TypeUrl {
 		case listenerType:
@@ -611,6 +645,8 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 				// This is due to the fact that it uses IP address alone to map the instances. This results in Pilot
 				// incorrectly generating inbound listeners for other services. These listeners shouldn't cause any
 				// problems, but filtering them out here for correctness and clarity of the Envoy config.
+
+				// fmt.Println("**** Skipping inbound listener: ", pb2Json(l))
 				continue
 			}
 
@@ -625,12 +661,20 @@ func (a *pilotAgent) filterDiscoveryResponse(resp *xdsapi.DiscoveryResponse) (*x
 				}
 			}
 
+		case routeType:
+			r := &xdsapi.RouteConfiguration{}
+			if err := r.Unmarshal(any.Value); err != nil {
+				return nil, err
+			}
+			fmt.Println("Route configuration: ", pb2Json(r))
+
 		case clusterType:
 			// Remove any management clusters.
 			c := &xdsapi.Cluster{}
 			if err := c.Unmarshal(any.Value); err != nil {
 				return nil, err
 			}
+			fmt.Println("Cluster configuration: ", pb2Json(c))
 			switch {
 			case strings.Contains(c.Name, "mgmtCluster"):
 				continue

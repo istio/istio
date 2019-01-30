@@ -41,5 +41,5 @@ type Galley interface {
 // GetGalley from the repository
 func GetGalley(e component.Repository, t testing.TB) Galley {
 	t.Helper()
-	return e.GetComponentOrFail(ids.Galley, t).(Galley)
+	return e.GetComponentOrFail("", ids.Galley, t).(Galley)
 }

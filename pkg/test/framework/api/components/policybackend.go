@@ -46,5 +46,5 @@ type PolicyBackend interface {
 
 // GetPolicyBackend from the repository
 func GetPolicyBackend(e component.Repository, t testing.TB) PolicyBackend {
-	return e.GetComponentOrFail(ids.PolicyBackend, t).(PolicyBackend)
+	return e.GetComponentOrFail("", ids.PolicyBackend, t).(PolicyBackend)
 }

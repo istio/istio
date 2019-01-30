@@ -32,5 +32,5 @@ type Citadel interface {
 
 // GetCitadel from the repository
 func GetCitadel(e component.Repository, t testing.TB) Citadel {
-	return e.GetComponentOrFail(ids.Citadel, t).(Citadel)
+	return e.GetComponentOrFail("", ids.Citadel, t).(Citadel)
 }

@@ -19,9 +19,10 @@ import "fmt"
 var _ Requirement = &Descriptor{}
 
 // Variant allows an environment to support multiple components with the same ID. For example, an environment might
-// support to Widget components: "fake widget" and "real widget".
+// support two Widget components: "fake widget" and "real widget".
 type Variant string
 
+// TODO(sven): Remove Variant in favor of support for configuration and names.
 // Descriptor describes a component of the testing framework.
 type Descriptor struct {
 	ID

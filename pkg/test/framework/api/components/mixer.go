@@ -28,6 +28,7 @@ import (
 // Mixer represents a deployed Mixer instance.
 type Mixer interface {
 	component.Instance
+
 	// Report is called directly with the given attributes.
 	Report(t testing.TB, attributes map[string]interface{})
 	Check(t testing.TB, attributes map[string]interface{}) CheckResponse
@@ -48,5 +49,5 @@ func (c *CheckResponse) Succeeded() bool {
 
 // GetMixer from the repository
 func GetMixer(e component.Repository, t testing.TB) Mixer {
-	return e.GetComponentOrFail(ids.Mixer, t).(Mixer)
+	return e.GetComponentOrFail("", ids.Mixer, t).(Mixer)
 }

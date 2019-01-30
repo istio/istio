@@ -45,7 +45,7 @@ func (r *Instance) Register(desc component.Descriptor, isDefault bool, factory a
 		panic("attempting to register framework component without an ID")
 	}
 
-	k := key.For(desc)
+	k := key.For("", desc)
 	if r.factories[k] != nil {
 		panic(fmt.Sprintf("duplicate components registered `%s`", desc.FriendlyName()))
 	}
@@ -61,7 +61,7 @@ func (r *Instance) Register(desc component.Descriptor, isDefault bool, factory a
 
 // GetFactory for a component
 func (r *Instance) GetFactory(desc component.Descriptor) (api.ComponentFactory, error) {
-	k := key.For(desc)
+	k := key.For("", desc)
 	f := r.factories[k]
 	if f == nil {
 		return nil, fmt.Errorf("unknown component `%s`", desc.FriendlyName())

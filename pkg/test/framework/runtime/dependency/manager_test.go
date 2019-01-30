@@ -310,13 +310,13 @@ func newManager(t *testing.T) *manager {
 
 func (m *manager) registerDefault(cid component.ID, reqs ...component.Requirement) component.Descriptor {
 	desc := descriptor(cid, "", reqs...)
-	m.reg.Register(desc, true, newFactory(desc).newComponent)
+	m.reg.Register("", desc, true, newFactory(desc).newComponent)
 	return desc
 }
 
 func (m *manager) registerVariant(cid component.ID, variant component.Variant, reqs ...component.Requirement) component.Descriptor {
 	desc := descriptor(cid, variant, reqs...)
-	m.reg.Register(desc, false, newFactory(desc).newComponent)
+	m.reg.Register("", desc, false, newFactory(desc).newComponent)
 	return desc
 }
 
@@ -328,7 +328,7 @@ func (m *manager) assertCount(expected int) {
 }
 
 func (m *manager) assertDescriptor(desc component.Descriptor, scope lifecycle.Scope) {
-	c := m.GetComponentForDescriptor(desc)
+	c := m.GetComponentForDescriptor("", desc)
 	if c == nil {
 		m.t.Fatalf("component not found for descriptor: %v", desc)
 	}
@@ -336,12 +336,22 @@ func (m *manager) assertDescriptor(desc component.Descriptor, scope lifecycle.Sc
 }
 
 type comp struct {
-	desc  component.Descriptor
-	scope lifecycle.Scope
+	name   string
+	desc   component.Descriptor
+	config component.Configuration
+	scope  lifecycle.Scope
+}
+
+func (c *comp) Name() string {
+	return c.name
 }
 
 func (c *comp) Descriptor() component.Descriptor {
 	return c.desc
+}
+
+func (c *comp) Configuration() component.Configuration {
+	return c.config
 }
 
 func (c *comp) Scope() lifecycle.Scope {
@@ -390,20 +400,20 @@ func (c *mockContext) Evaluate(t testing.TB, tmpl string) string {
 	return ""
 }
 
-func (c *mockContext) GetComponent(id component.ID) component.Instance {
+func (c *mockContext) GetComponent(name string, id component.ID) component.Instance {
 	return nil
 }
 
-func (c *mockContext) GetComponentOrFail(id component.ID, t testing.TB) component.Instance {
+func (c *mockContext) GetComponentOrFail(name string, id component.ID, t testing.TB) component.Instance {
 	t.Fatalf("unsupported")
 	return nil
 }
 
-func (c *mockContext) GetComponentForDescriptor(d component.Descriptor) component.Instance {
+func (c *mockContext) GetComponentForDescriptor(name string, d component.Descriptor) component.Instance {
 	return nil
 }
 
-func (c *mockContext) GetComponentForDescriptorOrFail(d component.Descriptor, t testing.TB) component.Instance {
+func (c *mockContext) GetComponentForDescriptorOrFail(name string, d component.Descriptor, t testing.TB) component.Instance {
 	t.Fatalf("unsupported")
 	return nil
 }
@@ -412,10 +422,11 @@ func (c *mockContext) GetAllComponents() []component.Instance {
 	return nil
 }
 
-func (c *mockContext) NewComponent(d component.Descriptor, scope lifecycle.Scope) (component.Instance, error) {
+func (c *mockContext) NewComponent(name string, d component.Descriptor, scope lifecycle.Scope) (component.Instance, error) {
 	return nil, fmt.Errorf("unsupported")
 }
-func (c *mockContext) NewComponentOrFail(d component.Descriptor, scope lifecycle.Scope, t testing.TB) component.Instance {
+
+func (c *mockContext) NewComponentOrFail(name string, d component.Descriptor, scope lifecycle.Scope, t testing.TB) component.Instance {
 	t.Fatalf("unsupported")
 	return nil
 }
@@ -465,6 +476,7 @@ func newFactory(desc component.Descriptor) *factory {
 // Factory function for components.
 func (f *factory) newComponent() (api.Component, error) { // nolint: unparam
 	return &comp{
+		name: "",
 		desc: f.desc,
 	}, nil
 }

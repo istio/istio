@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package apps
+package echo
 
 import (
 	"errors"
@@ -51,7 +51,7 @@ const (
 )
 
 var (
-	_ components.Apps = &nativeComponent{}
+	_ components.Echo = &nativeComponent{}
 	_ api.Component   = &nativeComponent{}
 	_ io.Closer       = &nativeComponent{}
 
@@ -91,32 +91,25 @@ func NewNativeComponent() (api.Component, error) {
 }
 
 type nativeComponent struct {
-	scope lifecycle.Scope
+	component.InstanceImpl
+
 	//tlsCKey          string
 	//tlsCert          string
 	discoveryAddress *net.TCPAddr
 	serviceManager   *service.Manager
-	apps             []components.App
-}
-
-func (c *nativeComponent) Descriptor() component.Descriptor {
-	return descriptors.Apps
-}
-
-func (c *nativeComponent) Scope() lifecycle.Scope {
-	return c.scope
+	echo             components.Echo
 }
 
 // Start implements the api.Component interface
 func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err error) {
-	c.scope = scope
+	c.Scope = scope
 
 	env, err := native.GetEnvironment(ctx)
 	if err != nil {
 		return err
 	}
 
-	p := ctx.GetComponent("", ids.Pilot)
+	p := ctx.GetComponent(ids.Pilot)
 	if p == nil {
 		return fmt.Errorf("missing dependency: %s", ids.Pilot)
 	}
@@ -149,6 +142,15 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 	c.discoveryAddress = nativePilot.GetDiscoveryAddress()
 	c.serviceManager = env.ServiceManager
 
+	zipkinAddress := ""
+	z := ctx.GetComponent(ids.Zipkin)
+	if z != nil {
+		zc, ok := z.(components.Zipkin)
+		if ok {
+			zipkinAddress = zc.GetAddress()
+		}
+	}
+
 	defer func() {
 		if err != nil {
 			c.Close()
@@ -160,6 +162,9 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		//cfg.tlsCert = c.tlsCert
 		cfg.discoveryAddress = c.discoveryAddress
 		cfg.serviceManager = c.serviceManager
+		cfg.namespace = env.Namespace
+		cfg.zipkinAddress = zipkinAddress
+		cfg.mixerAddress = env.Mesh.GetMixerReportServer()
 
 		app, err := newNativeApp(cfg)
 		if err != nil {
@@ -258,6 +263,9 @@ type appConfig struct {
 	tlsCert          string
 	discoveryAddress *net.TCPAddr
 	serviceManager   *service.Manager
+	namespace        string
+	zipkinAddress    string
+	mixerAddress     string
 }
 
 func newNativeApp(cfg appConfig) (a components.App, err error) {
@@ -280,6 +288,8 @@ func newNativeApp(cfg appConfig) (a components.App, err error) {
 	agentFactory := (&agent.PilotAgentFactory{
 		Namespace:        cfg.namespace,
 		DiscoveryAddress: cfg.discoveryAddress,
+		ZipkinAddress:    cfg.zipkinAddress,
+		MixerAddress:     cfg.mixerAddress,
 	}).NewAgent
 
 	// Create and start the agent.
@@ -375,16 +385,21 @@ func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOption
 	// Forward a request from 'this' service to the destination service.
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
-	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   dstURL.String(),
-		Count: int32(opts.Count),
-		Headers: []*proto.Header{
-			{
-				Key:   "Host",
-				Value: dstServiceName,
-			},
-		},
-	})
+
+	headers := []*proto.Header{}
+	headers = append(headers, &proto.Header{Key: "Host", Value: dstServiceName})
+	for key, values := range opts.Headers {
+		for _, value := range values {
+			headers = append(headers, &proto.Header{Key: key, Value: value})
+		}
+	}
+	request := &proto.ForwardEchoRequest{
+		Url:     dstURL.String(),
+		Count:   int32(opts.Count),
+		Headers: headers,
+	}
+	resp, err := a.client.ForwardEcho(request)
+
 	if err != nil {
 		return nil, err
 	}
