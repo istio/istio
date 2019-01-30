@@ -35,12 +35,12 @@ import (
 	"github.com/gogo/protobuf/types"
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -883,6 +883,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		switch serviceRegistry {
 		case serviceregistry.MockRegistry:
 			s.initMemoryRegistry(serviceControllers)
+			addMockService(serviceControllers)
 		case serviceregistry.KubernetesRegistry:
 			if err := s.createK8sServiceControllers(serviceControllers, args); err != nil {
 				return err
@@ -1221,4 +1222,29 @@ func (s *Server) addFileWatcher(file string, callback func()) {
 			}
 		}
 	}()
+}
+
+func addMockService(serviceControllers *aggregate.Controller) {
+	for i, reg := range serviceControllers.GetRegistries() {
+		hostname := model.Hostname("mock-service-" + strconv.Itoa(i))
+		ports := make([]*model.Port, 2)
+		ports[0] = &model.Port{
+			Protocol: model.ProtocolHTTP,
+			Port:     8080,
+			Name:     "mock-service-" + strconv.Itoa(i) + "-port",
+		}
+		ports[1] = &model.Port{
+			Protocol: model.ProtocolHTTPS,
+			Port:     443,
+			Name:     "mock-service-" + strconv.Itoa(i) + "-secure-port",
+		}
+		switch m := reg.ServiceDiscovery.(type) {
+		case *srmemory.ServiceDiscovery:
+			m.AddService(hostname, &model.Service{
+				Hostname: hostname,
+				Address:  "8.8.8.8",
+				Ports:    ports,
+			})
+		}
+	}
 }
