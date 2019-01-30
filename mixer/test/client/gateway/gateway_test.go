@@ -199,9 +199,9 @@ func TestGateway(t *testing.T) {
 		t.Errorf("Failed in request: %v", err)
 	}
 
-	source_uid := "kubernetes://pod.ns"
-	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, source_uid))
-	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, source_uid))
+	sourceUID := "kubernetes://pod.ns"
+	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, sourceUID))
+	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, sourceUID))
 
 	// Issues a GET echo request with 0 size body, forward some random source.uid
 	attrs := mixerpb.Attributes{
@@ -218,8 +218,8 @@ func TestGateway(t *testing.T) {
 	if _, _, err := env.HTTPGetWithHeaders(fmt.Sprintf("http://localhost:%d/echo", s.Ports().ClientProxyPort), headers); err != nil {
 		t.Errorf("Failed in request: %v", err)
 	}
-	source_uid = "in-mesh-app"
-	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, source_uid))
+	sourceUID = "in-mesh-app"
+	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, sourceUID))
 	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, source_uid))
 }
 
