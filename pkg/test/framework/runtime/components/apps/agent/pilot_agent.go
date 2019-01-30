@@ -89,15 +89,6 @@ dynamic_resources:
     grpc_services:
     - envoy_grpc:
         cluster_name: xds-grpc
-{{- if .ZipkinPort }}
-tracing:
-  http:
-    name: envoy.zipkin
-    config:
-      collector_cluster: zipkin
-      collector_endpoint: "/api/v1/spans"
-      trace_id_128bit: true
-{{ end -}}
 static_resources:
   clusters:
   - name: xds-grpc
@@ -109,16 +100,6 @@ static_resources:
     - socket_address:
         address: {{.DiscoveryIPAddress}}
         port_value: {{.DiscoveryPort}}
-  {{- if .ZipkinPort }}
-  - name: zipkin
-    type: STRICT_DNS
-    connect_timeout: 1s
-    lb_policy: ROUND_ROBIN
-    hosts:
-    - socket_address:
-        address: "localhost"
-        port_value: {{ .ZipkinPort }}
-  {{ end -}}
   {{ range $i, $p := .Ports -}}
   - name: service_{{$serviceName}}_{{$p.ApplicationPort}}
     connect_timeout: 0.25s
@@ -141,11 +122,6 @@ static_resources:
       {{- if $p.Protocol.IsHTTP }}
       - name: envoy.http_connection_manager
         config:
-          {{- if $.ZipkinPort }}
-          generate_request_id: true
-          tracing:
-            operation_name: egress
-          {{ end -}}
           codec_type: auto
           {{- if $p.Protocol.IsHTTP2 }}
           http2_protocol_options:
@@ -200,7 +176,6 @@ type PilotAgentFactory struct {
 	DiscoveryAddress *net.TCPAddr
 	TmpDir           string
 	EnvoyLogLevel    envoy.LogLevel
-	ZipkinAddress    string
 }
 
 // NewAgent is an agent.Factory function that creates new agent.Agent instances which use Pilot for configuration
@@ -475,7 +450,7 @@ func (a *pilotAgent) createYamlFile(serviceName, nodeID string, f *PilotAgentFac
 	// Apply the template with the current configuration
 	var filled bytes.Buffer
 	w := bufio.NewWriter(&filled)
-	params := map[string]interface{}{
+	if err := envoyYamlTemplate.Execute(w, map[string]interface{}{
 		"ServiceName":        serviceName,
 		"NodeID":             nodeID,
 		"Cluster":            serviceCluster,
@@ -483,13 +458,7 @@ func (a *pilotAgent) createYamlFile(serviceName, nodeID string, f *PilotAgentFac
 		"Ports":              a.ports,
 		"DiscoveryIPAddress": service.LocalIPAddress,
 		"DiscoveryPort":      a.getDiscoveryPort(),
-	}
-	if len(f.ZipkinAddress) > 0 {
-		parts := strings.Split(f.ZipkinAddress, ":")
-		params["ZipkinPort"] = parts[len(parts)-1]
-	}
-
-	if err := envoyYamlTemplate.Execute(w, params); err != nil {
+	}); err != nil {
 		return err
 	}
 	if err := w.Flush(); err != nil {

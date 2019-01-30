@@ -48,7 +48,4 @@ var (
 
 	// Prometheus component
 	Prometheus = component.ID("prometheus")
-
-	// Zipkin component
-	Zipkin = component.ID("zipkin")
 )

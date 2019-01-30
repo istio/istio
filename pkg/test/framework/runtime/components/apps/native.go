@@ -149,15 +149,6 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 	c.discoveryAddress = nativePilot.GetDiscoveryAddress()
 	c.serviceManager = env.ServiceManager
 
-	zipkinAddress := ""
-	z := ctx.GetComponent(ids.Zipkin)
-	if z != nil {
-		zc, ok := z.(components.Zipkin)
-		if ok {
-			zipkinAddress = zc.GetAddress()
-		}
-	}
-
 	defer func() {
 		if err != nil {
 			c.Close()
@@ -169,7 +160,6 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 		//cfg.tlsCert = c.tlsCert
 		cfg.discoveryAddress = c.discoveryAddress
 		cfg.serviceManager = c.serviceManager
-		cfg.zipkinAddress = zipkinAddress
 
 		app, err := newNativeApp(cfg)
 		if err != nil {
@@ -268,7 +258,6 @@ type appConfig struct {
 	tlsCert          string
 	discoveryAddress *net.TCPAddr
 	serviceManager   *service.Manager
-	zipkinAddress    string
 }
 
 func newNativeApp(cfg appConfig) (a components.App, err error) {
@@ -290,7 +279,6 @@ func newNativeApp(cfg appConfig) (a components.App, err error) {
 
 	agentFactory := (&agent.PilotAgentFactory{
 		DiscoveryAddress: cfg.discoveryAddress,
-		ZipkinAddress:    cfg.zipkinAddress,
 	}).NewAgent
 
 	// Create and start the agent.
@@ -386,21 +374,16 @@ func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOption
 	// Forward a request from 'this' service to the destination service.
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
-
-	headers := []*proto.Header{}
-	headers = append(headers, &proto.Header{Key: "Host", Value: dstServiceName})
-	for key, values := range opts.Headers {
-		for _, value := range values {
-			headers = append(headers, &proto.Header{Key: key, Value: value})
-		}
-	}
-	request := &proto.ForwardEchoRequest{
-		Url:     dstURL.String(),
-		Count:   int32(opts.Count),
-		Headers: headers,
-	}
-	resp, err := a.client.ForwardEcho(request)
-
+	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
+		Url:   dstURL.String(),
+		Count: int32(opts.Count),
+		Headers: []*proto.Header{
+			{
+				Key:   "Host",
+				Value: dstServiceName,
+			},
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
