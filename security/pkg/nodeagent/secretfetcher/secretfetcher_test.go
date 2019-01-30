@@ -72,7 +72,7 @@ var (
 
 	k8sKeyD           = []byte("fake private k8sKeyD")
 	k8sCertChainD     = []byte("fake cert chain D")
-	k8sTestTlsSecretD = &v1.Secret{
+	k8sTestTLSSecretD = &v1.Secret{
 		Data: map[string][]byte{
 			TLSScrtCert: k8sCertChainD,
 			TLSScrtKey:  k8sKeyD,
@@ -195,7 +195,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		PrivateKey:       k8sKeyD,
 	}
 	var newSecretVersion string
-	testUpdateSecret(t, gSecretFetcher, k8sTestTLSSecretC, k8sTestTlsSecretD, expectedUpdateSecret, &newSecretVersion)
+	testUpdateSecret(t, gSecretFetcher, k8sTestTLSSecretC, k8sTestTLSSecretD, expectedUpdateSecret, &newSecretVersion)
 	if secretVersion == newSecretVersion {
 		t.Errorf("updated secret should have different version")
 	}
