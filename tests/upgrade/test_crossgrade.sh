@@ -208,7 +208,7 @@ installIstioSystemAtVersionHelmTemplate() {
         --set prometheus.enabled=false \
         --set global.hub="${1}" \
         --set global.tag="${2}" \
-        --set global.defaultPodDisruptionBudget.enabled = true > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
+        --set global.defaultPodDisruptionBudget.enabled=true > "${ISTIO_ROOT}/istio.yaml" || die "helm template failed"
     else
         helm template "${release_path}" "${auth_opts}" \
         --name istio --namespace "${ISTIO_NAMESPACE}" \
