@@ -71,7 +71,9 @@ spec:
         - --statusPort
         - "15020"
         - --applicationPorts
-        - 80,90
+        - "80,90"
+        - --concurrency
+        - "1"
         env:
         - name: POD_NAME
           valueFrom:
