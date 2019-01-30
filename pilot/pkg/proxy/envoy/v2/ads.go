@@ -629,9 +629,12 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	con.mu.Unlock()
 
+	if err := con.modelNode.SetServiceInstances(s.Env); err != nil {
+		return err
+	}
 	// Set the sidecarScope associated with this proxy if its a sidecar.
 	if con.modelNode.Type == model.SidecarProxy {
-		s.globalPushContext().SetSidecarScope(con.modelNode)
+		con.modelNode.SetSidecarScope(s.globalPushContext())
 	}
 
 	return nil
@@ -658,10 +661,13 @@ func (s *DiscoveryServer) pushConnection(con *XdsConnection, pushEv *XdsEvent) e
 		return nil
 	}
 
+	if err := con.modelNode.SetServiceInstances(pushEv.push.Env); err != nil {
+		return err
+	}
 	// Precompute the sidecar scope associated with this proxy if its a sidecar type.
 	// Saves compute cycles in networking code
 	if con.modelNode.Type == model.SidecarProxy {
-		pushEv.push.SetSidecarScope(con.modelNode)
+		con.modelNode.SetSidecarScope(pushEv.push)
 	}
 
 	adsLog.Infof("Pushing %v", con.ConID)
