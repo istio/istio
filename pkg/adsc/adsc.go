@@ -338,7 +338,10 @@ func (a *ADSC) handleLDS(ll []*xdsapi.Listener) {
 		}
 		if f0.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
-			config, _ := xdsutil.MessageToStruct(f0.GetTypedConfig())
+			config := f0.GetConfig()
+			if config == nil {
+				config, _ = xdsutil.MessageToStruct(f0.GetTypedConfig())
+			}
 			c := config.Fields["cluster"].GetStringValue()
 			clusters = append(clusters, c)
 			//log.Printf("TCP: %s -> %s", l.Name, c)

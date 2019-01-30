@@ -202,7 +202,7 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 
 	for _, c := range cases {
 		var filterChain plugin.FilterChain
-		buildHealthCheckFilters(&filterChain, c.probes, c.endpoint)
+		buildHealthCheckFilters(&filterChain, c.probes, c.endpoint, true)
 		if !reflect.DeepEqual(c.expected, filterChain) {
 			t.Errorf("buildHealthCheckFilters(%#v on endpoint %#v), got:\n%#v\nwanted:\n%#v\n", c.probes, c.endpoint, filterChain, c.expected)
 		}

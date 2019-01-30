@@ -486,7 +486,10 @@ func isVirtualListener(l *xdsapi.Listener) bool {
 
 func getTCPProxyClusterName(filter *xdsapiListener.Filter) (string, error) {
 	// First, check if it's using the deprecated v1 format.
-	config, _ := envoyUtil.MessageToStruct(filter.GetTypedConfig())
+	config := filter.GetConfig()
+	if config == nil {
+		config, _ = envoyUtil.MessageToStruct(filter.GetTypedConfig())
+	}
 	fields := config.Fields
 	deprecatedV1, ok := fields["deprecated_v1"]
 	if ok && deprecatedV1.GetBoolValue() {
@@ -513,7 +516,12 @@ func getTCPProxyClusterName(filter *xdsapiListener.Filter) (string, error) {
 	}
 
 	cfg := &envoyFilterTcp.TcpProxy{}
-	err := cfg.Unmarshal(filter.GetTypedConfig().GetValue())
+	var err error
+	if filter.GetConfig() != nil {
+		err = envoyUtil.StructToMessage(filter.GetConfig(), cfg)
+	} else {
+		err = cfg.Unmarshal(filter.GetTypedConfig().GetValue())
+	}
 	if err != nil {
 		return "", err
 	}
@@ -529,7 +537,12 @@ func isInboundListener(l *xdsapi.Listener) (bool, error) {
 		switch filter.Name {
 		case envoyUtil.HTTPConnectionManager:
 			cfg := &envoyFilterHttp.HttpConnectionManager{}
-			err := cfg.Unmarshal(filter.GetTypedConfig().GetValue())
+			var err error
+			if filter.GetConfig() != nil {
+				err = envoyUtil.StructToMessage(filter.GetConfig(), cfg)
+			} else {
+				err = cfg.Unmarshal(filter.GetTypedConfig().GetValue())
+			}
 			if err != nil {
 				return false, err
 			}

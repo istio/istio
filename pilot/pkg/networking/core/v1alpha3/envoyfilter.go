@@ -64,7 +64,7 @@ func insertUserFilters(in *plugin.InputParams, listener *xdsapi.Listener,
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP && f.FilterType == networking.EnvoyFilter_Filter_HTTP {
 			// Insert into http connection manager
 			for cnum := range listener.FilterChains {
-				insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f)
+				insertHTTPFilter(listener.Name, &listener.FilterChains[cnum], httpConnectionManagers[cnum], f, util.IsProxyVersionGE11(in.Node))
 			}
 		} else {
 			// tcp listener with some opaque filter or http listener with some opaque filter
@@ -203,7 +203,7 @@ func listenerMatch(in *plugin.InputParams, listenerIP net.IP,
 }
 
 func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hcm *http_conn.HttpConnectionManager,
-	envoyFilter *networking.EnvoyFilter_Filter) {
+	envoyFilter *networking.EnvoyFilter_Filter, is11 bool) {
 	filter := &http_conn.HttpFilter{
 		Name:       envoyFilter.FilterName,
 		ConfigType: &http_conn.HttpFilter_Config{Config: envoyFilter.FilterConfig},
@@ -244,10 +244,15 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 
 	// Rebuild the HTTP connection manager in the network filter chain
 	// Its the last filter in the filter chain
-	filterChain.Filters[len(filterChain.Filters)-1] = listener.Filter{
-		Name:       xdsutil.HTTPConnectionManager,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
+	filterStruct := listener.Filter{
+		Name: xdsutil.HTTPConnectionManager,
 	}
+	if is11 {
+		filterStruct.ConfigType = &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)}
+	} else {
+		filterStruct.ConfigType = &listener.Filter_Config{Config: util.MessageToStruct(hcm)}
+	}
+	filterChain.Filters[len(filterChain.Filters)-1] = filterStruct
 	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))
 }

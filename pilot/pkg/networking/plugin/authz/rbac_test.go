@@ -212,7 +212,7 @@ func TestBuildTCPFilter(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		filter := buildTCPFilter(tc.Service, tc.Option)
+		filter := buildTCPFilter(tc.Service, tc.Option, true)
 		if fn := "envoy.filters.network.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}
@@ -301,7 +301,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		filter := buildHTTPFilter(tc.Service, tc.Option)
+		filter := buildHTTPFilter(tc.Service, tc.Option, true)
 		if fn := "envoy.filters.http.rbac"; filter.Name != fn {
 			t.Errorf("%s: expecting filter name %s, but got %s", tc.Name, fn, filter.Name)
 		}

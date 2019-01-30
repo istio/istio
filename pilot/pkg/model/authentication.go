@@ -213,6 +213,7 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 	}, useSSL, nil
 }
 
+// this function is used to construct SDS config which is only available from 1.1
 func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
 	// If k8s sa jwt token file exists, envoy only handles plugin credentials.
 	config := &v2alpha.FileBasedMetadataConfig{
