@@ -54,14 +54,14 @@ var (
 		},
 		Type: "test-generic-secret",
 	}
-	k8sTlsSecretName = "test-tls-scrt"
+	k8sTLSSecretName = "test-tls-scrt"
 	k8sTestTlsSecret = &v1.Secret{
 		Data: map[string][]byte{
 			"tls.crt": k8sCertChain,
 			"tls.key": k8sKey,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      k8sTlsSecretName,
+			Name:      k8sTLSSecretName,
 			Namespace: "test-namespace",
 		},
 		Type: "test-tls-secret",
@@ -278,25 +278,25 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 	// Add a Tls secret and verify that secret can be read and cached.
 	fetcher.AddSecret(k8sTestTlsSecret)
 	proxyID = "proxy2-id"
-	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sTlsSecretName, "")
+	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sTLSSecretName, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	expectedTlsSecret := &model.SecretItem{
-		ResourceName:     k8sTlsSecretName,
+	expectedTLSSecret := &model.SecretItem{
+		ResourceName:     k8sTLSSecretName,
 		CertificateChain: k8sCertChain,
 		PrivateKey:       k8sKey,
 	}
-	if err := verifySecret(gotSecret, expectedTlsSecret); err != nil {
+	if err := verifySecret(gotSecret, expectedTLSSecret); err != nil {
 		t.Errorf("Secret verification failed: %v", err)
 	}
 
-	if got, want := sc.SecretExist(proxyID, k8sTlsSecretName, "", gotSecret.Version), true; got != want {
+	if got, want := sc.SecretExist(proxyID, k8sTLSSecretName, "", gotSecret.Version), true; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 	key = ConnKey{
 		ProxyID:      proxyID,
-		ResourceName: k8sTlsSecretName,
+		ResourceName: k8sTLSSecretName,
 	}
 	cachedSecret, found = sc.secrets.Load(key)
 	if !found {
@@ -360,20 +360,20 @@ func TestGatewayAgentDeleteSecret(t *testing.T) {
 	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName, "", gotSecret.Version), true; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
-	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sTlsSecretName, "")
+	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sTLSSecretName, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
-	if got, want := sc.SecretExist(proxyID, k8sTlsSecretName, "", gotSecret.Version), true; got != want {
+	if got, want := sc.SecretExist(proxyID, k8sTLSSecretName, "", gotSecret.Version), true; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 
 	sc.DeleteK8sSecret(k8sGenericSecretName)
-	sc.DeleteK8sSecret(k8sTlsSecretName)
+	sc.DeleteK8sSecret(k8sTLSSecretName)
 	if got, want := sc.SecretExist(proxyID, k8sGenericSecretName, "", gotSecret.Version), false; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
-	if got, want := sc.SecretExist(proxyID, k8sTlsSecretName, "", gotSecret.Version), false; got != want {
+	if got, want := sc.SecretExist(proxyID, k8sTLSSecretName, "", gotSecret.Version), false; got != want {
 		t.Errorf("SecretExist: got: %v, want: %v", got, want)
 	}
 }
