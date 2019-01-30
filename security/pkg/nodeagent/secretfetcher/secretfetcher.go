@@ -39,13 +39,6 @@ import (
 const (
 	secretResyncPeriod = 15 * time.Second
 
-	// IngressSecretType the type of kubernetes secrets for ingress gateway.
-	IngressSecretType = "istio.io/ingress-key-cert"
-
-	// KubeConfigFile the config file name for kubernetes client.
-	// Specifies empty file name to use InClusterConfig.
-	KubeConfigFile = ""
-
 	// The ID/name for the certificate chain in kubernetes secret.
 	ScrtCert = "cert"
 	// The ID/name for the k8sKey in kubernetes secret.
@@ -118,7 +111,7 @@ func (sf *SecretFetcher) Run(ch chan struct{}) {
 // Init initializes SecretFetcher to watch kubernetes secrets.
 func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interfacer
 	namespace := os.Getenv(ingressSecretNameSpace)
-	istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IngressSecretType}).String()
+	istioSecretSelector := fields.SelectorFromSet(nil).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = istioSecretSelector
