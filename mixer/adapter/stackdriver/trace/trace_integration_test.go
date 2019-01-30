@@ -128,7 +128,7 @@ func TestReport(t *testing.T) {
 						"source.service":      "srcsvc",
 						"destination.service": "destsvc",
 						"source.labels":       map[string]string{"version": "v1"},
-						"source.ip":           "10.0.0.1",
+						"source.ip":           []uint8{10, 0, 0, 1},
 						"api.protocol":        "http",
 						"request.method":      "POST",
 						"response.code":       int64(200),
@@ -158,7 +158,7 @@ func TestReport(t *testing.T) {
         "protocol": "http",
         "request.size": 128,
         "response.size": 512,
-        "source.ip": "10.0.0.1",
+        "source.ip": "[10 0 0 1]",
         "source.service": "srcsvc",
         "source.version": "v1"
       },
