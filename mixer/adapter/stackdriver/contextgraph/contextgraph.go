@@ -155,12 +155,19 @@ func (h *handler) HandleEdge(ctx context.Context, insts []*edgepb.Instance) erro
 			i.DestinationWorkloadName,
 			i.DestinationWorkloadNamespace,
 		}
+		destinationService := service{
+			meshUID:      h.meshUID,
+			namespace:    i.DestinationServiceNamespace,
+			name:         i.DestinationServiceName,
+			istioProject: h.projectID,
+		}
 		h.traffics <- trafficAssertion{
-			source,
-			destination,
-			i.ContextProtocol,
-			i.ApiProtocol,
-			i.Timestamp,
+			source:             source,
+			destination:        destination,
+			contextProtocol:    i.ContextProtocol,
+			apiProtocol:        i.ApiProtocol,
+			destinationService: destinationService,
+			timestamp:          i.Timestamp,
 		}
 	}
 	return nil

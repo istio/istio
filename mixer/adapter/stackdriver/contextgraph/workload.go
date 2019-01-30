@@ -35,6 +35,13 @@ type workloadInstance struct {
 	workloadName, workloadNamespace              string
 }
 
+type service struct {
+	meshUID      string
+	namespace    string
+	name         string
+	istioProject string
+}
+
 // Reify turns wi into a set of Context API entities and edges.
 func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 	gcpContainer := fmt.Sprintf("//cloudresourcemanager.googleapis.com/projects/%s", wi.istioProject)
@@ -151,24 +158,60 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 	return []entity{wiEntity, owner, workload}, edges
 }
 
+func (s service) Reify() entity {
+	return entity{
+		containerFullName: fmt.Sprintf("//cloudresourcemanager.googleapis.com/projects/%s",
+			s.istioProject),
+		typeName: "io.istio.Service",
+		fullName: fmt.Sprintf("//istio.io/projects/%s/meshes/%s/services/%s/%s",
+			s.istioProject,
+			url.QueryEscape(s.meshUID),
+			url.QueryEscape(s.namespace),
+			url.QueryEscape(s.name)),
+		location: "global",
+		shortNames: [4]string{
+			url.QueryEscape(s.meshUID),
+			url.QueryEscape(s.namespace),
+			url.QueryEscape(s.name),
+			"",
+		},
+	}
+}
+
 type trafficAssertion struct {
 	source, destination          workloadInstance
 	contextProtocol, apiProtocol string
+	destinationService           service
 	timestamp                    time.Time
 }
 
 func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
 	var sourceFullNames, destinationFullNames []string
+	var srcInst, srcOwn, dstInst, dstOwn string
 	entities, edges := t.source.Reify(logger)
 	for _, entity := range entities {
 		sourceFullNames = append(sourceFullNames, entity.fullName)
+		switch entity.typeName {
+		case "io.istio.WorkloadInstance":
+			srcInst = entity.fullName
+		case "io.istio.Owner":
+			srcOwn = entity.fullName
+		}
 	}
 	destEntities, destEdges := t.destination.Reify(logger)
 	for _, entity := range destEntities {
 		entities = append(entities, entity)
 		destinationFullNames = append(destinationFullNames, entity.fullName)
+		switch entity.typeName {
+		case "io.istio.WorkloadInstance":
+			dstInst = entity.fullName
+		case "io.istio.Owner":
+			dstOwn = entity.fullName
+		}
 	}
 	edges = append(edges, destEdges...)
+	serviceEntity := t.destinationService.Reify()
+	entities = append(entities, serviceEntity)
 
 	var typeName string
 	var protocol string
@@ -197,6 +240,10 @@ func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
 				edges = append(edges, edge{s, d, typeName})
 			}
 		}
+		edges = append(edges, edge{srcInst, serviceEntity.fullName, typeName})
+		edges = append(edges, edge{srcOwn, serviceEntity.fullName, typeName})
+		edges = append(edges, edge{serviceEntity.fullName, dstInst, typeName})
+		edges = append(edges, edge{serviceEntity.fullName, dstOwn, typeName})
 	}
 	return entities, edges
 }
