@@ -47,6 +47,8 @@ spec:
             - "15000"
             - --controlPlaneAuthPolicy
             - NONE
+            - --concurrency
+            - "1"
             env:
             - name: POD_NAME
               valueFrom:
