@@ -73,6 +73,10 @@ spec:
         - "15020"
         - --applicationPorts
         - 80,90
+        - --concurrency
+        - "1"
+        - --kubeAppProberConfig
+        - '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
         env:
         - name: POD_NAME
           valueFrom:

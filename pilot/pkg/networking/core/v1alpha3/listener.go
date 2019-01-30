@@ -177,11 +177,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(env *model.Environme
 
 	mesh := env.Mesh
 
-	proxyInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		return nil, err
-	}
-
+	proxyInstances := node.ServiceInstances
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
 	listeners := make([]*xdsapi.Listener, 0)
 

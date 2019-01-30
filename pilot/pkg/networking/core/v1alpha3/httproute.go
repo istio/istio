@@ -33,11 +33,7 @@ import (
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
-	proxyInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		return nil, err
-	}
-
+	proxyInstances := node.ServiceInstances
 	switch node.Type {
 	case model.SidecarProxy:
 		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
