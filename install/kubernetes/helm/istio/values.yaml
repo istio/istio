@@ -396,3 +396,12 @@ global:
   # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
+
+  # Provide options to allow user to configure JWT related fields.
+  # More context here: https://github.com/istio/istio/issues/9520
+  # Values below are in time.Duration type. For more info, see:
+  # /istio/pilot/pkg/model/jwks_resolver.go
+  jwtOptions:
+    jwksURICacheExpiration: 24h
+    jwtPubKeyExpireDuration: 1h
+    jwtPubKeyRefreshInterval: 20m

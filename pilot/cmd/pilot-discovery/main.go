@@ -70,6 +70,7 @@ var (
 
 			// Create the server for the discovery service.
 			discoveryServer, err := bootstrap.NewServer(serverArgs)
+			log.Info("Starting a new Discovery Service from pilot-discovery")
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
@@ -155,6 +156,15 @@ func init() {
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discoveryCache", true,
 		"Enable caching discovery service responses")
+
+	// Flags for JWT options
+	// https://github.com/istio/istio/issues/9520
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSOptions.JWKSURICacheExpiration, "jwksURICacheExpiration", time.Hour * 24,
+		"JwksURI cache expiration time duration")
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSOptions.JWTPubKeyExpireDuration, "jwtPubKeyExpireDuration", time.Hour,
+		"The expire duration for JWT public key in the cache")
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSOptions.JWTPubKeyRefreshInterval, "jwtPubKeyRefreshInterval", time.Minute * 20,
+		"The running interval of JWT pubKey refresh job")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

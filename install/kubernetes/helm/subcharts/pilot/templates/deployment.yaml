@@ -72,6 +72,9 @@ spec:
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
+          - --jwksURICacheExpiration={{ .Values.global.jwtOptions.jwksURICacheExpiration }}
+          - --jwtPubKeyExpireDuration={{ .Values.global.jwtOptions.jwtPubKeyExpireDuration }}
+          - --jwtPubKeyRefreshInterval={{ .Values.global.jwtOptions.jwtPubKeyRefreshInterval }}
           ports:
           - containerPort: 8080
           - containerPort: 15010

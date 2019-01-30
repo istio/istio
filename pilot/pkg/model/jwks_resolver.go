@@ -107,10 +107,15 @@ type jwksResolver struct {
 	keyChangedCount uint64
 }
 
-// newJwksResolver creates new instance of jwksResolver.
-func newJwksResolver(expireDuration, evictionDuration, refreshInterval time.Duration) *jwksResolver {
+// NewJwksResolver creates new instance of jwksResolver.
+func NewJwksResolver(expireDuration, evictionDuration, refreshInterval,
+	uriCacheExpiration time.Duration) *jwksResolver {
+	log.Info("JwtPubKeyExpireDuration " + expireDuration.String())
+	log.Info("JwtPubKeyEvictionDuration " + evictionDuration.String())
+	log.Info("JwtPubKeyRefreshInterval " + refreshInterval.String())
+	log.Info("jwksURICacheExpiration " + uriCacheExpiration.String())
 	ret := &jwksResolver{
-		JwksURICache:     cache.NewTTL(jwksURICacheExpiration, jwksURICacheEviction),
+		JwksURICache:     cache.NewTTL(uriCacheExpiration, jwksURICacheEviction),
 		expireDuration:   expireDuration,
 		evictionDuration: evictionDuration,
 		refreshInterval:  refreshInterval,

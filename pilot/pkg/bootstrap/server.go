@@ -163,6 +163,14 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
+// JWKSOptions allows the user to provide expiration duration/refresh interval for JWT.
+// See more at https://github.com/istio/istio/issues/9520.
+type JWKSOptions struct {
+	JWKSURICacheExpiration 		time.Duration
+	JWTPubKeyExpireDuration 	time.Duration
+	JWTPubKeyRefreshInterval 	time.Duration
+}
+
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions     envoy.DiscoveryServiceOptions
@@ -178,6 +186,7 @@ type PilotArgs struct {
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
 	KeepaliveOptions     *istiokeepalive.Options
+	JWKSOptions					 JWKSOptions
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -955,9 +964,15 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	}
 	s.mux = discovery.RestContainer.ServeMux
 
+	if model.JwtKeyResolver == nil {
+		log.Info("Creating a JwtKeyResolver for the first time")
+		model.JwtKeyResolver = model.NewJwksResolver(args.JWKSOptions.JWTPubKeyExpireDuration,
+			model.JwtPubKeyEvictionDuration, args.JWKSOptions.JWTPubKeyRefreshInterval,
+			args.JWKSOptions.JWKSURICacheExpiration)
+	}
+
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,
-		istio_networking.NewConfigGenerator(args.Plugins),
-		s.ServiceController, s.configController)
+		istio_networking.NewConfigGenerator(args.Plugins), s.ServiceController, s.configController)
 	s.EnvoyXdsServer.InitDebug(s.mux, s.ServiceController)
 
 	if s.kubeRegistry != nil {
