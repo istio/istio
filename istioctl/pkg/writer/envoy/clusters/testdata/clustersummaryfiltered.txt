@@ -1,2 +1,2 @@
-ENDPOINT             STATUS        CLUSTER
+ENDPOINT              STATUS        CLUSTER
 172.17.0.14:15014     UNHEALTHY     outbound|15014||istio-policy.istio-system.svc.cluster.local
