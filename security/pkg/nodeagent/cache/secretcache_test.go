@@ -57,8 +57,8 @@ var (
 	k8sTlsSecretName = "test-tls-scrt"
 	k8sTestTlsSecret = &v1.Secret{
 		Data: map[string][]byte{
-			"tls.crt":  k8sCertChain,
-			"tls.key":  k8sKey,
+			"tls.crt": k8sCertChain,
+			"tls.key": k8sKey,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sTlsSecretName,
