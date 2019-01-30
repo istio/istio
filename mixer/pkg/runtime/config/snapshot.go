@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/protobuf/yaml/dynamic"
+	"istio.io/istio/mixer/pkg/runtime/lang"
 	"istio.io/istio/mixer/pkg/runtime/monitoring"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
@@ -102,6 +103,9 @@ type (
 
 		// AttributeBindings used to map the adapter output back into attributes
 		AttributeBindings map[string]string
+
+		// Language runtime to use for output expressions
+		Language lang.LanguageRuntime
 	}
 
 	// InstanceStatic configuration for compiled templates. Fully resolved.
@@ -117,6 +121,9 @@ type (
 
 		// inferred type for the instance.
 		InferredType proto.Message
+
+		// Language runtime to use for output expressions
+		Language lang.LanguageRuntime
 	}
 
 	// Rule configuration. Fully resolved.
@@ -137,6 +144,9 @@ type (
 		RequestHeaderOperations []*v1beta1.Rule_HeaderOperationTemplate
 
 		ResponseHeaderOperations []*v1beta1.Rule_HeaderOperationTemplate
+
+		// Language runtime to use for expressions
+		Language lang.LanguageRuntime
 	}
 
 	// ActionDynamic configuration. Fully resolved.
