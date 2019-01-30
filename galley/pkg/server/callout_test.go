@@ -49,19 +49,24 @@ func (m *mockMcpClient) Run(ctx context.Context) {
 
 func TestCalloutRun(t *testing.T) {
 	dialAddr := ""
-	grpcDial = func(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	grpcDial := func(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 		dialAddr = addr
 		return &grpc.ClientConn{}, nil
 	}
 
 	m := &mockMcpClient{RunCalled: false}
-	sourceNewClient = func(c mcp.ResourceSinkClient, o *source.Options) mcpClient { return m }
+	sourceNewClient := func(c mcp.ResourceSinkClient, o *source.Options) mcpClient { return m }
 
 	connClosed := false
-	connClose = func(c *grpc.ClientConn) { connClosed = true }
+	connClose := func(c *grpc.ClientConn) { connClosed = true }
 
 	co := &callout{
 		address: "foo",
+		pt: calloutPT{
+			grpcDial:        grpcDial,
+			sourceNewClient: sourceNewClient,
+			connClose:       connClose,
+		},
 	}
 	var wg sync.WaitGroup
 	wg.Add(1)

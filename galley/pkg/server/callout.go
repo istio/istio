@@ -31,6 +31,7 @@ type callout struct {
 	so      *source.Options
 	do      []grpc.DialOption
 	cancel  context.CancelFunc
+	pt      calloutPT
 }
 
 // Test override types
@@ -41,21 +42,26 @@ type mcpClient interface {
 type newClientFn func(mcp.ResourceSinkClient, *source.Options) mcpClient
 type closeFn func(*grpc.ClientConn)
 
-// Test override variables
-var (
+type calloutPT struct {
 	connClose       closeFn
 	grpcDial        dialFn
 	sourceNewClient newClientFn
-)
+}
 
-func init() {
-	// Setup non-test defaults
-	grpcDial = grpc.Dial
-	sourceNewClient = func(c mcp.ResourceSinkClient, o *source.Options) mcpClient { return source.NewClient(c, o) }
-	connClose = func(c *grpc.ClientConn) { c.Close() }
+func defaultCalloutPT() calloutPT {
+	// non-test defaults
+	return calloutPT{
+		grpcDial:        grpc.Dial,
+		sourceNewClient: func(c mcp.ResourceSinkClient, o *source.Options) mcpClient { return source.NewClient(c, o) },
+		connClose:       func(c *grpc.ClientConn) { c.Close() },
+	}
 }
 
 func newCallout(sa *Args, so *source.Options) (*callout, error) {
+	return newCalloutPT(sa, so, defaultCalloutPT())
+}
+
+func newCalloutPT(sa *Args, so *source.Options, pt calloutPT) (*callout, error) {
 	auths := authplugins.AuthMap()
 
 	f, ok := auths[sa.CalloutAuth]
@@ -72,6 +78,7 @@ func newCallout(sa *Args, so *source.Options) (*callout, error) {
 		address: sa.CalloutAddress,
 		so:      so,
 		do:      opts,
+		pt:      pt,
 	}, nil
 }
 
@@ -80,16 +87,16 @@ func (c *callout) Run(wg *sync.WaitGroup) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 
-	conn, err := grpcDial(c.address, c.do...)
+	conn, err := c.pt.grpcDial(c.address, c.do...)
 	if err != nil {
 		scope.Fatalf("Failed to connect to server: %v", err)
 		return
 	}
-	defer connClose(conn)
+	defer c.pt.connClose(conn)
 
 	client := mcp.NewResourceSinkClient(conn)
 
-	mcpClient := sourceNewClient(client, c.so)
+	mcpClient := c.pt.sourceNewClient(client, c.so)
 	scope.Infof("Starting MCP Source Client connection to: %v", c.address)
 	mcpClient.Run(ctx)
 }
