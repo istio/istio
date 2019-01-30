@@ -20,7 +20,7 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
-	"gopkg.in/d4l3k/messagediff.v1"
+	messagediff "gopkg.in/d4l3k/messagediff.v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
