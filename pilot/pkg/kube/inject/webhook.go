@@ -441,12 +441,10 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, annotation
 			log.Errorf("sidecar not found in the template, skip addAppProberCmd")
 			return
 		}
-		if prober := DumpAppProbers(&pod.Spec); prober != "" {
-			sidecar.Args = append(sidecar.Args,
-				[]string{fmt.Sprintf("--%v", status.KubeAppProberCmdFlagName), prober}...)
-		}
-		// TODO: here see if the sic is used again and again... might need to make a copy if so...
 		// We don't have to escape json encoding here when using golang libraries.
+		if prober := DumpAppProbers(&pod.Spec); prober != "" {
+			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
+		}
 	}
 	addAppProberCmd()
 

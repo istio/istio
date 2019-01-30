@@ -174,8 +174,7 @@ func rewriteAppHTTPProbe(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec) {
 	}
 	if prober := DumpAppProbers(podSpec); prober != "" {
 		// We don't have to escape json encoding here when using golang libraries.
-		sidecar.Args = append(sidecar.Args,
-			[]string{fmt.Sprintf("--%v", status.KubeAppProberCmdFlagName), prober}...)
+		sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 	}
 	// Now modify the container probers.
 	for _, c := range podSpec.Containers {
@@ -210,7 +209,7 @@ func createProbeRewritePatch(podSpec *corev1.PodSpec, spec *SidecarInjectionSpec
 	}
 	for i, c := range podSpec.Containers {
 		// Skip sidecar container.
-		if c.Name == istioProxyContainerName {
+		if c.Name == ProxyContainerName {
 			continue
 		}
 		portMap := map[string]int32{}

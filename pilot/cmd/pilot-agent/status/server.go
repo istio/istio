@@ -37,8 +37,12 @@ import (
 const (
 	// readyPath is for the pilot agent readiness itself.
 	readyPath = "/healthz/ready"
-	// KubeAppProberCmdFlagName is the name of the command line flag for pilot agent to pass app prober config.
-	KubeAppProberCmdFlagName = "kubeAppProberConfig"
+	// KubeAppProberEnvName is the name of the command line flag for pilot agent to pass app prober config.
+	// The json encoded string to pass app HTTP probe information from injector(istioctl or webhook).
+	// For example, --ISTIO_KUBE_APP_PROBERS='{"/app-health/httpbin/livez":{"path": "/hello", "port": 8080}.
+	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
+	// This environment variable should never be set manually.
+	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 )
 
 var (

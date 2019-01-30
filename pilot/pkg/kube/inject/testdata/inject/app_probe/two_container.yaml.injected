@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"44e1081a36a5d985f23e2e697d388aadd76db06c5d63c9ef777c122ebe91784d","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-certs"],"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
@@ -25,6 +25,16 @@ spec:
         readinessProbe:
           httpGet:
             path: /app-health/hello/readyz
+            port: 15020
+        resources: {}
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: world
+        ports:
+        - containerPort: 90
+          name: http
+        readinessProbe:
+          httpGet:
+            path: /app-health/world/readyz
             port: 15020
         resources: {}
       - args:
@@ -53,9 +63,7 @@ spec:
         - --statusPort
         - "15020"
         - --applicationPorts
-        - "80"
-        - --ISTIO_KUBE_APP_PROBERS
-        - '{"/app-health/hello/readyz":{"path":"/ip","port":8000}}'
+        - 80,90
         env:
         - name: POD_NAME
           valueFrom:
@@ -75,6 +83,8 @@ spec:
               fieldPath: metadata.name
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
+        - name: ISTIO_KUBE_APP_PROBERS
+          value: '{"/app-health/hello/readyz":{"path":"/ip","port":8000},"/app-health/world/readyz":{"path":"/ipv6","port":9000}}'
         image: docker.io/istio/proxyv2:unittest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
@@ -87,8 +97,8 @@ spec:
           httpGet:
             path: /healthz/ready
             port: 15020
-          initialDelaySeconds: 1
-          periodSeconds: 2
+          initialDelaySeconds: 2
+          periodSeconds: 30
         resources:
           requests:
             cpu: 10m
@@ -109,11 +119,11 @@ spec:
         - -m
         - REDIRECT
         - -i
-        - '*'
+        - ""
         - -x
         - ""
         - -b
-        - "80"
+        - 80,90
         - -d
         - "15020"
         image: docker.io/istio/proxy_init:unittest

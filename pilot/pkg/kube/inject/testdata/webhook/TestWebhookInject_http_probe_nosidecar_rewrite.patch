@@ -20,9 +20,13 @@
       "image": "example.com/proxy:latest",
       "args": [
         "--statusPort",
-        "15020",
-        "--kubeAppProberConfig",
-        "{\"/app-health/hello/livez\":{\"path\":\"/live\",\"port\":80},\"/app-health/hello/readyz\":{\"path\":\"/ready\",\"port\":3333},\"/app-health/second/livez\":{\"port\":9000}}"
+        "15020"
+      ],
+      "env": [
+        {
+          "name": "ISTIO_KUBE_APP_PROBERS",
+          "value": "{\"/app-health/hello/livez\":{\"path\":\"/live\",\"port\":80},\"/app-health/hello/readyz\":{\"path\":\"/ready\",\"port\":3333},\"/app-health/second/livez\":{\"port\":9000}}"
+        }
       ],
       "resources": {}
     }
