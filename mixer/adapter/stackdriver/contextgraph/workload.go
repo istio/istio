@@ -89,13 +89,7 @@ func (wi workloadInstance) Reify(logger adapter.Logger) ([]entity, []edge) {
 		"global",
 		[4]string{meshUID, workloadNamespace, workloadName, ""},
 	}
-	// TODO: Figure out what the container is for non-GCE clusters.
-	clusterLocationType := "locations"
-	if strings.Count(clusterLocation, "-") == 2 {
-		clusterLocationType = "zones"
-	}
-	clusterContainer := fmt.Sprintf("//container.googleapis.com/projects/%s/%s/%s/clusters/%s",
-		wi.clusterProject, clusterLocationType, wi.clusterLocation, wi.clusterName)
+	clusterContainer := clusterContainer(wi.clusterProject, wi.clusterLocation, wi.clusterName)
 
 	var ownerK8sFullName string
 	t := strings.Split(wi.owner, "/")
@@ -187,13 +181,16 @@ type trafficAssertion struct {
 
 func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
 	var sourceFullNames, destinationFullNames []string
-	var srcInst, srcOwn, dstInst, dstOwn string
+	var srcInst, srcOwn, dstInst, dstOwn, dstCluster, dstProject, dstLoc string
 	entities, edges := t.source.Reify(logger)
 	for _, entity := range entities {
 		sourceFullNames = append(sourceFullNames, entity.fullName)
 		switch entity.typeName {
 		case "io.istio.WorkloadInstance":
 			srcInst = entity.fullName
+			dstLoc = entity.location
+			dstCluster = entity.shortNames[2] // todo: make this less fragile
+			dstProject = entity.shortNames[1]
 		case "io.istio.Owner":
 			srcOwn = entity.fullName
 		}
@@ -244,8 +241,26 @@ func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
 		edges = append(edges, edge{srcOwn, serviceEntity.fullName, typeName})
 		edges = append(edges, edge{serviceEntity.fullName, dstInst, typeName})
 		edges = append(edges, edge{serviceEntity.fullName, dstOwn, typeName})
+
+		k8sSvc := k8sSvcFullname(dstProject, dstLoc, dstCluster, t.destinationService.namespace, t.destinationService.name)
+		edges = append(edges, edge{serviceEntity.fullName, k8sSvc, membershipTypeName})
 	}
+
 	return entities, edges
+}
+
+// example: //container.googleapis.com/projects/<project>/locations/us-central1-a/clusters/<cluster>/k8s/namespaces/default/services/<service>
+func k8sSvcFullname(project, location, cluster, namespace, name string) string {
+	return fmt.Sprintf("%s/k8s/namespaces/%s/services/%s", clusterContainer(project, location, cluster), namespace, name)
+}
+
+func clusterContainer(project, location, cluster string) string {
+	// TODO: Figure out what the container is for non-GCE clusters.
+	locType := "locations"
+	if strings.Count(location, "-") == 2 {
+		locType = "zones"
+	}
+	return fmt.Sprintf("//container.googleapis.com/projects/%s/%s/%s/clusters/%s", project, locType, location, cluster)
 }
 
 type entity struct {
