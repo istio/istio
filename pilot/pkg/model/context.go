@@ -192,10 +192,9 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	node.SidecarScope = ps.getSidecarScope(node, instances)
 }
 
-func (node *Proxy) SetServiceInstances(ps *PushContext) error {
-	instances, err := ps.Env.GetProxyServiceInstances(node)
+func (node *Proxy) SetServiceInstances(env *Environment) error {
+	instances, err := env.GetProxyServiceInstances(node)
 	if err != nil {
-		node.ServiceInstances = nil
 		log.Errorf("failed to get service proxy service instances: %v", err)
 		return err
 	}
