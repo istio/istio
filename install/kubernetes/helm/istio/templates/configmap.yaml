@@ -143,10 +143,8 @@ data:
           # Address of the Zipkin collector
         {{- if .Values.global.tracer.zipkin.address }}
           address: {{ .Values.global.tracer.zipkin.address }}
-        {{- else if .Values.global.istioNamespace }}
-          address: zipkin.{{ .Values.global.istioNamespace }}:9411
         {{- else }}
-          address: zipkin:9411
+          address: zipkin.{{ .Release.Namespace }}:9411
         {{- end }}
       {{- end }}
 

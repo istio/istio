@@ -45,10 +45,8 @@
           {{- end }}
           {{- if $.Values.global.tracer.zipkin.address }}
           - --trace_zipkin_url=http://{{- $.Values.global.tracer.zipkin.address }}/api/v1/spans
-          {{- else if $.Values.global.istioNamespace }}
-          - --trace_zipkin_url=http://zipkin.{{- $.Values.global.istioNamespace }}:9411/api/v1/spans
           {{- else }}
-          - --trace_zipkin_url=http://zipkin:9411/api/v1/spans
+          - --trace_zipkin_url=http://zipkin.{{ $.Release.Namespace }}:9411/api/v1/spans
           {{- end }}
         {{- if .Values.env }}
         env:
