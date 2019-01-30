@@ -58,10 +58,10 @@ var (
 	k8sKeyC           = []byte("fake private k8sKeyC")
 	k8sCertChainC     = []byte("fake cert chain C")
 	k8sSecretNameC    = "test-scrtC"
-	k8sTestTlsSecretC = &v1.Secret{
+	k8sTestTLSSecretC = &v1.Secret{
 		Data: map[string][]byte{
-			TlsScrtCert: k8sCertChainC,
-			TlsScrtKey:  k8sKeyC,
+			TLSScrtCert: k8sCertChainC,
+			TLSScrtKey:  k8sKeyC,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameC,
@@ -72,11 +72,10 @@ var (
 
 	k8sKeyD           = []byte("fake private k8sKeyD")
 	k8sCertChainD     = []byte("fake cert chain D")
-	k8sSecretNameD    = "test-scrtD"
 	k8sTestTlsSecretD = &v1.Secret{
 		Data: map[string][]byte{
-			TlsScrtCert: k8sCertChainD,
-			TlsScrtKey:  k8sKeyD,
+			TLSScrtCert: k8sCertChainD,
+			TLSScrtKey:  k8sKeyD,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameC,
@@ -173,13 +172,13 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		PrivateKey:       k8sKeyC,
 	}
 	var secretVersion string
-	testAddSecret(t, gSecretFetcher, k8sTestTlsSecretC, expectedAddedSecret, &secretVersion)
+	testAddSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedAddedSecret, &secretVersion)
 
 	// Delete test secret and verify that key/cert pair in secret is removed from local store.
 	expectedDeletedSecret := &model.SecretItem{
 		ResourceName: k8sSecretNameC,
 	}
-	testDeleteSecret(t, gSecretFetcher, k8sTestTlsSecretC, expectedDeletedSecret)
+	testDeleteSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedDeletedSecret)
 
 	// Add test secret again and verify that key/cert pair is stored and version number is different.
 	expectedSecret := &model.SecretItem{
@@ -187,7 +186,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		CertificateChain: k8sCertChainC,
 		PrivateKey:       k8sKeyC,
 	}
-	testAddSecret(t, gSecretFetcher, k8sTestTlsSecretC, expectedSecret, &secretVersion)
+	testAddSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedSecret, &secretVersion)
 
 	// Update test secret and verify that key/cert pair is changed and version number is different.
 	expectedUpdateSecret := &model.SecretItem{
@@ -196,7 +195,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		PrivateKey:       k8sKeyD,
 	}
 	var newSecretVersion string
-	testUpdateSecret(t, gSecretFetcher, k8sTestTlsSecretC, k8sTestTlsSecretD, expectedUpdateSecret, &newSecretVersion)
+	testUpdateSecret(t, gSecretFetcher, k8sTestTLSSecretC, k8sTestTlsSecretD, expectedUpdateSecret, &newSecretVersion)
 	if secretVersion == newSecretVersion {
 		t.Errorf("updated secret should have different version")
 	}
