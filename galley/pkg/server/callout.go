@@ -87,7 +87,7 @@ func (c *callout) Run() {
 
 	conn, err := c.pt.grpcDial(c.address, c.do...)
 	if err != nil {
-		scope.Fatalf("Failed to connect to server: %v", err)
+		scope.Errorf("Failed to connect to server: %v", err)
 		return
 	}
 	defer c.pt.connClose(conn)
