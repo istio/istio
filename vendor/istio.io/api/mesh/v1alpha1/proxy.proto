@@ -164,4 +164,9 @@ message ProxyConfig {
 
   // Tracing configuration to be used by the proxy.
   Tracing tracing = 19;
+
+  // Defines whether Google gRPC client configuration in Envoy should be used to
+  // connect to Pilot.
+  // If false Envoy gRPC client implementation is used by default.
+  bool google_grpc_xds_client = 20;
 }

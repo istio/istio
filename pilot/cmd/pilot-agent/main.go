@@ -75,6 +75,7 @@ var (
 	templateFile             string
 	disableInternalTelemetry bool
 	loggingOptions           = log.DefaultOptions()
+	googleGrpcXdsClient      bool
 
 	// pilot agent config
 	kubeAppHTTPProbers string
@@ -151,6 +152,7 @@ var (
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
+			proxyConfig.GoogleGrpcXdsClient = googleGrpcXdsClient
 
 			var pilotSAN []string
 			ns := ""
@@ -452,6 +454,8 @@ func init() {
 		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().BoolVar(&controlPlaneBootstrap, "controlPlaneBootstrap", true,
 		"Process bootstrap provided via templateFile to be used by control plane components.")
+	proxyCmd.PersistentFlags().BoolVar(&googleGrpcXdsClient, "googleGrpcXdsClient", false,
+		"Use Google gRPC client implementation to connect to Pilot, instead of Envoy gPRC client.")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

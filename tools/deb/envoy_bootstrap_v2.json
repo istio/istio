@@ -71,6 +71,12 @@
           {
             "prefix": "cluster.xds-grpc"
           }
+          {{ if eq .config.GoogleGrpcXdsClient true }}
+          ,
+          {
+            "prefix": "googlegrpcxds"
+          }
+          {{ end }}
         ]
       }
     }
@@ -95,9 +101,26 @@
       "api_type": "GRPC",
       "grpc_services": [
         {
+          {{ if eq .config.GoogleGrpcXdsClient true }}
+          "google_grpc": {
+            "target_uri": "{{ .discovery_address }}",
+            "stat_prefix": "googlegrpcxds",
+            "channel_credentials": {
+              "ssl_credentials": {
+                "root_certs": {
+                  "filename": "/etc/ssl/certs/ca-certificates.crt"
+                }
+              }
+            },
+            "call_credentials": {
+              "google_compute_engine": {}
+            }
+          }
+          {{ else }}
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
+          {{ end }}
         }
       ]
     }
@@ -118,7 +141,9 @@
             }
           }
         ]
-      },
+      }
+      {{ if eq .config.GoogleGrpcXdsClient false }}
+      ,
       {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
@@ -181,6 +206,7 @@
         },
         "http2_protocol_options": { }
       }
+      {{ end }}
       {{ if .zipkin }}
       ,
       {
@@ -272,6 +298,32 @@
       }
     ]
   }
+  {{ if eq .config.GoogleGrpcXdsClient true }}
+  ,
+  "cluster_manager": {
+    "load_stats_config": {
+      "api_type": "GRPC",
+      "grpc_services": [
+        {
+          "google_grpc": {
+            "target_uri": "{{ .discovery_address }}",
+            "stat_prefix": "googlegrpcxds",
+            "channel_credentials": {
+              "ssl_credentials": {
+                "root_certs": {
+                  "filename": "/etc/ssl/certs/ca-certificates.crt"
+                }
+              }
+            },
+            "call_credentials": {
+              "google_compute_engine": {}
+            }
+          }
+        }
+      ]
+    }
+  }
+  {{ end }}
   {{ if .zipkin }}
   ,
   "tracing": {

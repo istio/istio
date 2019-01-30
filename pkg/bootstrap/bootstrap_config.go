@@ -251,6 +251,9 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	}
 	StoreHostPort(h, p, "pilot_grpc_address", opts)
 
+	// Pass unmodified DiscoveryAddress for Google gRPC Envoy client target_uri parameter
+	opts["discovery_address"] = config.DiscoveryAddress
+
 	if config.Tracing != nil {
 		switch tracer := config.Tracing.Tracer.(type) {
 		case *meshconfig.Tracing_Zipkin_:
