@@ -86,6 +86,7 @@ spec:
         resources:
           requests:
             cpu: 10m
+            memory: 30Mi
         securityContext:
           readOnlyRootFilesystem: true
         volumeMounts:
