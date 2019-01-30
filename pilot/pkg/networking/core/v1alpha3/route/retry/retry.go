@@ -27,12 +27,12 @@ import (
 )
 
 // DefaultPolicy gets a copy of the default retry policy.
-func DefaultPolicy() *route.RouteAction_RetryPolicy {
-	policy := route.RouteAction_RetryPolicy{
+func DefaultPolicy() *route.RetryPolicy {
+	policy := route.RetryPolicy{
 		NumRetries:           &types.UInt32Value{Value: 10},
 		RetryOn:              "connect-failure,refused-stream,unavailable,cancelled,resource-exhausted",
 		RetriableStatusCodes: []uint32{http.StatusServiceUnavailable},
-		RetryHostPredicate: []*route.RouteAction_RetryPolicy_RetryHostPredicate{
+		RetryHostPredicate: []*route.RetryPolicy_RetryHostPredicate{
 			{
 				// to configure retries to prefer hosts that haven’t been attempted already,
 				// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
@@ -58,7 +58,7 @@ func DefaultPolicy() *route.RouteAction_RetryPolicy {
 // is appended when encountering parts that are valid HTTP status codes.
 //
 // - PerTryTimeout: set from in.PerTryTimeout (if specified)
-func ConvertPolicy(in *networking.HTTPRetry) *route.RouteAction_RetryPolicy {
+func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 	if in == nil {
 		// No policy was set, use a default.
 		return DefaultPolicy()

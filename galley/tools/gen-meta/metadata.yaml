@@ -37,6 +37,14 @@ resources:
     protoPackage: "k8s.io/api/core/v1"
     collection:   "k8s/core/v1/pods"
 
+  - kind:        "Endpoints"
+    singular:    "endpoints"
+    plural:      "endpoints"
+    version:     "v1"
+    proto:       "k8s.io.api.core.v1.Endpoints"
+    protoPackage: "k8s.io/api/core/v1"
+    collection:   "k8s/core/v1/endpoints"
+
   - kind:        "VirtualService"
     singular:    "virtualservice"
     plural:      "virtualservices"

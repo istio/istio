@@ -337,6 +337,29 @@ spec:
     - icheck2.tcheck.istio-system
 `
 
+// RuleCheck1WithInstance1And2Operation has instances icheck1 & icheck2 and a header operation
+var RuleCheck1WithInstance1And2Operation = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rcheck1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: hcheck1.acheck
+    instances:
+    - icheck1.tcheck.istio-system
+    - icheck2.tcheck.istio-system
+  requestHeaderOperations:
+  - name: a-header
+    values:
+    - '"test"'
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - '"test"'
+`
+
 // RuleCheck1WithMatchClause is Rule Check1 with a conditional.
 var RuleCheck1WithMatchClause = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -536,6 +559,34 @@ spec:
     values:
     - b.output.value
     - prefix.generated.string
+    operation: APPEND
+`
+
+// RuleCheckNoActionsOrHeaderOps has no actions and no responseHeaderOperations. Should be elided.
+var RuleCheckNoActionsOrHeaderOps = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
+  responseHeaderOperations: []
+`
+
+// RuleCheckHeaderOpWithNoActions has a responseHeaderOperation, but no actions. Should not be elided.
+var RuleCheckHeaderOpWithNoActions = `
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: noactions
+  namespace: istio-system
+spec:
+  actions: []
+  responseHeaderOperations:
+  - name: b-header
+    values:
+    - '"test"'
     operation: APPEND
 `
 

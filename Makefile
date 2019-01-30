@@ -233,7 +233,7 @@ ${ISTIO_BIN}/have_go_$(GO_VERSION_REQUIRED):
 # Ensure expected GOPATH setup
 .PHONY: check-tree
 check-tree:
-	@if [ "$(ISTIO_GO)" != "$(GO_TOP)/src/istio.io/istio" ]; then \
+	@if [ ! "$(ISTIO_GO)" -ef "$(GO_TOP)/src/istio.io/istio" ]; then \
 		echo Not building in expected path \'$(GOPATH)/src/istio.io/istio\'. Make sure to clone Istio into that path. Istio root=$(ISTIO_GO), GO_TOP=$(GO_TOP) ; \
 		exit 1; fi
 
@@ -667,7 +667,7 @@ isti%.yaml: $(HELM) $(HOME)/.helm helm-repo-add
 		--values install/kubernetes/helm/istio/values-$@ \
 		install/kubernetes/helm/istio >> install/kubernetes/$@
 
-generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add
+generate_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml
@@ -703,7 +703,7 @@ generate_yaml_coredump:
 # TODO(sdake) All this copy and paste needs to go.  This is easy to wrap up in
 #             isti%.yaml macro with value files per test scenario.  Will handle
 #             as a followup PR.
-generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add
+generate_e2e_test_yaml: $(HELM) $(HOME)/.helm helm-repo-add istio-init.yaml
 	$(HELM) dep update --skip-refresh install/kubernetes/helm/istio
 	./install/updateVersion.sh -a ${HUB},${TAG} >/dev/null 2>&1
 	cat install/kubernetes/namespace.yaml > install/kubernetes/istio.yaml

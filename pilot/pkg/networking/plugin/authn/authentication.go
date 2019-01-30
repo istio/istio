@@ -139,13 +139,6 @@ func setupFilterChains(authnPolicy *authn.Policy, sdsUdsPath string, sdsUseTrust
 				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt),
 			},
 		}
-
-		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
-				ValidationContextSdsSecretConfig: model.ConstructSdsSecretConfig(model.SDSRootResourceName, sdsUdsPath, sdsUseTrustworthyJwt, sdsUseNormalJwt),
-			},
-		}
 	}
 	mtls := GetMutualTLS(authnPolicy)
 	if mtls == nil {

@@ -22,6 +22,7 @@ nodeagent:
     # of a testing Vault server.
     CA_ADDR: "https://35.233.249.249:8200"
     CA_PROVIDER: "VaultCA"
+    VALID_TOKEN: true
     # https://35.233.249.249:8200 is the IP address and the port number
     # of a testing Vault server.
     VAULT_ADDR: "https://35.233.249.249:8200"

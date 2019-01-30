@@ -47,6 +47,7 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
 
   go get -u istio.io/test-infra/toolbox/githubctl
   BASE_SHA=$("${GOPATH}"/bin/githubctl --token_file="${TMP_GITHUB_TOKEN}" --op=getBaseSHA --repo=istio --pr_num="${CIRCLE_PR_NUMBER}")
+  git reset HEAD --hard
   git clean -f -d
   git checkout "${BASE_SHA}"
 
@@ -56,6 +57,7 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   OUT_DIR="${BASELINE_PATH}" MAXPROCS="${MAXPROCS:-}" CODECOV_SKIP="${CODECOV_SKIP:-}" ./bin/codecov.sh
 
   # Get back to the PR head
+  git reset HEAD --hard
   git clean -f -d
   git checkout "${CIRCLE_SHA1}"
 
@@ -63,7 +65,7 @@ if [[ -n "${CIRCLE_PR_NUMBER:-}" ]]; then
   go test -v istio.io/istio/tests/codecov/... \
     --report_file="${REPORT_PATH}/coverage.html" \
     --baseline_file="${BASELINE_PATH}/coverage.html" \
-    --threshold_file="${THRESHOLD_FILE}" \
+    --threshold_files="${THRESHOLD_FILE},${CODECOV_SKIP}" \
     | tee "${GOPATH}"/out/codecov/out.log \
     | tee >(go-junit-report > "${GOPATH}"/out/tests/junit.xml)
 else

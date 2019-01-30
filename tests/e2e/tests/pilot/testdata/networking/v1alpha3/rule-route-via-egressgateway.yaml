@@ -9,7 +9,7 @@ spec:
     - www.bing.com
   gateways:
   # Pinned to both the sidecars (mesh) and egress gateway
-  - istio-egressgateway
+  - istio-system/istio-egressgateway
   - mesh
   http:
     - match:
