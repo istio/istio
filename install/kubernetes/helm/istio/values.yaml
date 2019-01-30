@@ -259,7 +259,7 @@ global:
   # to use for pulling any images in pods that reference this ServiceAccount.
   # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
   # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
-  # Must be set for any clustser configured with private docker registry.
+  # Must be set for any cluster configured with private docker registry.
   imagePullSecrets:
     # - private-registry-key
 
