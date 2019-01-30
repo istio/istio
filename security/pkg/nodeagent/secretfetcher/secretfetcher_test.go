@@ -55,9 +55,9 @@ var (
 		Type: "test-secret",
 	}
 
-	k8sKeyC               = []byte("fake private k8sKeyC")
-	k8sCertChainC         = []byte("fake cert chain C")
-	k8sSecretNameC        = "test-scrtC"
+	k8sKeyC           = []byte("fake private k8sKeyC")
+	k8sCertChainC     = []byte("fake cert chain C")
+	k8sSecretNameC    = "test-scrtC"
 	k8sTestTlsSecretC = &v1.Secret{
 		Data: map[string][]byte{
 			TlsScrtCert: k8sCertChainC,
@@ -70,9 +70,9 @@ var (
 		Type: "test-tls-secret",
 	}
 
-	k8sKeyD               = []byte("fake private k8sKeyD")
-	k8sCertChainD         = []byte("fake cert chain D")
-	k8sSecretNameD        = "test-scrtD"
+	k8sKeyD           = []byte("fake private k8sKeyD")
+	k8sCertChainD     = []byte("fake cert chain D")
+	k8sSecretNameD    = "test-scrtD"
 	k8sTestTlsSecretD = &v1.Secret{
 		Data: map[string][]byte{
 			TlsScrtCert: k8sCertChainD,
