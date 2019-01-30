@@ -50,8 +50,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 				HTTP: []*http_conn.HttpFilter{
 					{
 						Name: "envoy.health_check",
-						ConfigType: &http_conn.HttpFilter_Config{
-							util.MessageToStruct(&hcfilter.HealthCheck{
+						ConfigType: &http_conn.HttpFilter_TypedConfig{
+							TypedConfig: util.MessageToAny(&hcfilter.HealthCheck{
 								PassThroughMode: proto.BoolTrue,
 								Headers: []*envoy_api_v2_route.HeaderMatcher{
 									{
@@ -79,8 +79,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 				HTTP: []*http_conn.HttpFilter{
 					{
 						Name: "envoy.health_check",
-						ConfigType: &http_conn.HttpFilter_Config{
-							util.MessageToStruct(&hcfilter.HealthCheck{
+						ConfigType: &http_conn.HttpFilter_TypedConfig{
+							TypedConfig: util.MessageToAny(&hcfilter.HealthCheck{
 								PassThroughMode: proto.BoolTrue,
 								Headers: []*envoy_api_v2_route.HeaderMatcher{
 									{
@@ -116,8 +116,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 				HTTP: []*http_conn.HttpFilter{
 					{
 						Name: "envoy.health_check",
-						ConfigType: &http_conn.HttpFilter_Config{
-							util.MessageToStruct(&hcfilter.HealthCheck{
+						ConfigType: &http_conn.HttpFilter_TypedConfig{
+							TypedConfig: util.MessageToAny(&hcfilter.HealthCheck{
 								PassThroughMode: proto.BoolTrue,
 								Headers: []*envoy_api_v2_route.HeaderMatcher{
 									{
@@ -130,8 +130,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 					},
 					{
 						Name: "envoy.health_check",
-						ConfigType: &http_conn.HttpFilter_Config{
-							util.MessageToStruct(&hcfilter.HealthCheck{
+						ConfigType: &http_conn.HttpFilter_TypedConfig{
+							TypedConfig: util.MessageToAny(&hcfilter.HealthCheck{
 								PassThroughMode: proto.BoolTrue,
 								Headers: []*envoy_api_v2_route.HeaderMatcher{
 									{
@@ -168,8 +168,8 @@ func TestBuildHealthCheckFilters(t *testing.T) {
 				HTTP: []*http_conn.HttpFilter{
 					{
 						Name: "envoy.health_check",
-						ConfigType: &http_conn.HttpFilter_Config{
-							util.MessageToStruct(&hcfilter.HealthCheck{
+						ConfigType: &http_conn.HttpFilter_TypedConfig{
+							TypedConfig: util.MessageToAny(&hcfilter.HealthCheck{
 								PassThroughMode: proto.BoolTrue,
 								Headers: []*envoy_api_v2_route.HeaderMatcher{
 									{

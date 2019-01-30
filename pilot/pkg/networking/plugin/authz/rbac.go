@@ -423,8 +423,8 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption) *listener.Filte
 	config := convertRbacRulesToFilterConfig(service, option)
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
-		ConfigType: &listener.Filter_Config{
-			Config: util.MessageToStruct(&network_config.RBAC{
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: util.MessageToAny(&network_config.RBAC{
 				Rules:       config.Rules,
 				ShadowRules: config.ShadowRules,
 				StatPrefix:  rbacTCPFilterStatPrefix,
@@ -443,7 +443,7 @@ func buildHTTPFilter(service *serviceMetadata, option rbacOption) *http_conn.Htt
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	return &http_conn.HttpFilter{
 		Name:       rbacHTTPFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)},
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
 }
 

@@ -22,8 +22,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
 	authn "istio.io/api/authentication/v1alpha1"
@@ -215,15 +213,6 @@ func ParseJwksURI(jwksURI string) (string, *Port, bool, error) {
 	}, useSSL, nil
 }
 
-func protoToStruct(msg proto.Message) *types.Struct {
-	s, err := util.MessageToStruct(msg)
-	if err != nil {
-		log.Error(err.Error())
-		return &types.Struct{}
-	}
-	return s
-}
-
 func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
 	// If k8s sa jwt token file exists, envoy only handles plugin credentials.
 	config := &v2alpha.FileBasedMetadataConfig{
@@ -234,13 +223,14 @@ func constructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcS
 		},
 		HeaderKey: headerKey,
 	}
+	any, _ := types.MarshalAny(config)
 	return []*core.GrpcService_GoogleGrpc_CallCredentials{
 		&core.GrpcService_GoogleGrpc_CallCredentials{
 			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
 				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
 					Name: fileBasedMetadataPlugName,
-					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_Config{
-						Config: protoToStruct(config)},
+					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
+						TypedConfig: any},
 				},
 			},
 		},

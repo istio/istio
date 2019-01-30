@@ -61,7 +61,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 
 		config.AccessLog = []*accesslog.AccessLog{
 			{
-				ConfigType: &accesslog.AccessLog_Config{Config: util.MessageToStruct(fl)},
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 				Name:       xdsutil.FileAccessLog,
 			},
 		}
@@ -69,7 +69,7 @@ func setAccessLogAndBuildTCPFilter(env *model.Environment, node *model.Proxy, co
 
 	tcpFilter := &listener.Filter{
 		Name:       xdsutil.TCPProxy,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
 	return tcpFilter
 }
@@ -170,7 +170,7 @@ func buildOutboundMongoFilter(statPrefix string) listener.Filter {
 
 	return listener.Filter{
 		Name:       xdsutil.MongoProxy,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
 }
 
@@ -203,7 +203,7 @@ func buildOutboundRedisFilter(statPrefix, clusterName string) listener.Filter {
 
 	return listener.Filter{
 		Name:       xdsutil.RedisProxy,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
 }
 
@@ -215,6 +215,6 @@ func buildOutboundMySQLFilter(statPrefix string) listener.Filter {
 
 	return listener.Filter{
 		Name:       xdsutil.MySQLProxy,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(config)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
 }

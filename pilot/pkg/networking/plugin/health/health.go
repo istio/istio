@@ -42,8 +42,8 @@ func NewPlugin() plugin.Plugin {
 func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: xdsutil.HealthCheck,
-		ConfigType: &http_conn.HttpFilter_Config{
-			Config: util.MessageToStruct(&hcfilter.HealthCheck{
+		ConfigType: &http_conn.HttpFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&hcfilter.HealthCheck{
 				PassThroughMode: proto.BoolTrue,
 				Headers: []*envoy_api_v2_route.HeaderMatcher{
 					{

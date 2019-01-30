@@ -27,7 +27,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 
@@ -188,12 +187,12 @@ func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
-// MessageToStruct converts from proto message to proto Struct
-func MessageToStruct(msg proto.Message) *types.Struct {
-	s, err := util.MessageToStruct(msg)
+// MessageToAny converts from proto message to proto Any
+func MessageToAny(msg proto.Message) *types.Any {
+	s, err := types.MarshalAny(msg)
 	if err != nil {
 		log.Error(err.Error())
-		return &types.Struct{}
+		return nil
 	}
 	return s
 }

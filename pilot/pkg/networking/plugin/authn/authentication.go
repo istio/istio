@@ -305,7 +305,7 @@ func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
 	}
 	return &http_conn.HttpFilter{
 		Name:       JwtFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)},
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
 }
 
@@ -317,7 +317,7 @@ func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType) *http_conn
 	}
 	return &http_conn.HttpFilter{
 		Name:       AuthnFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)},
+		ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)},
 	}
 }
 

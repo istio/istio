@@ -212,7 +212,7 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 			host := routeConfiguration.VirtualHosts[i]
 			for j := 0; j < len(host.Routes); j++ {
 				route := host.Routes[j]
-				route.PerFilterConfig = addServiceConfig(route.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+				route.TypedPerFilterConfig = addServiceConfig(route.TypedPerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
 				host.Routes[j] = route
 			}
 			routeConfiguration.VirtualHosts[i] = host
@@ -269,8 +269,8 @@ func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mccpb.Trans
 func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: mixer,
-		ConfigType: &http_conn.HttpFilter_Config{
-			Config: util.MessageToStruct(&mccpb.HttpClientConfig{
+		ConfigType: &http_conn.HttpFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&mccpb.HttpClientConfig{
 				DefaultDestinationService: defaultConfig,
 				ServiceConfigs: map[string]*mccpb.ServiceConfig{
 					defaultConfig: {
@@ -290,8 +290,8 @@ func buildOutboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node
 func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: mixer,
-		ConfigType: &http_conn.HttpFilter_Config{
-			Config: util.MessageToStruct(&mccpb.HttpClientConfig{
+		ConfigType: &http_conn.HttpFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&mccpb.HttpClientConfig{
 				DefaultDestinationService: defaultConfig,
 				ServiceConfigs: map[string]*mccpb.ServiceConfig{
 					defaultConfig: {
@@ -307,7 +307,7 @@ func buildInboundHTTPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node 
 
 func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, httpRoute route.Route) route.Route {
 	// default config, to be overridden by per-weighted cluster
-	httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+	httpRoute.TypedPerFilterConfig = addServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
 		DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 	})
 	switch action := httpRoute.Action.(type) {
@@ -316,7 +316,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
 			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
-			httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
+			httpRoute.TypedPerFilterConfig = addServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
 				DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
@@ -325,7 +325,7 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
 				attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
-				weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
+				weighted.TypedPerFilterConfig = addServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
 					DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
@@ -376,8 +376,8 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 	}
 	return listener.Filter{
 		Name: mixer,
-		ConfigType: &listener.Filter_Config{
-			Config: util.MessageToStruct(&mccpb.TcpClientConfig{
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: util.MessageToAny(&mccpb.TcpClientConfig{
 				DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 				Transport:         buildTransport(mesh, node),
@@ -389,8 +389,8 @@ func buildOutboundTCPFilter(mesh *meshconfig.MeshConfig, attrsIn attributes, nod
 func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *model.Proxy) listener.Filter {
 	return listener.Filter{
 		Name: mixer,
-		ConfigType: &listener.Filter_Config{
-			Config: util.MessageToStruct(&mccpb.TcpClientConfig{
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: util.MessageToAny(&mccpb.TcpClientConfig{
 				DisableCheckCalls: disablePolicyChecks(outbound, mesh, node),
 				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 				Transport:         buildTransport(mesh, node),
@@ -399,11 +399,11 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	}
 }
 
-func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
+func addServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.ServiceConfig) map[string]*types.Any {
 	if filterConfigs == nil {
-		filterConfigs = make(map[string]*types.Struct)
+		filterConfigs = make(map[string]*types.Any)
 	}
-	filterConfigs[mixer] = util.MessageToStruct(config)
+	filterConfigs[mixer] = util.MessageToAny(config)
 	return filterConfigs
 }
 

@@ -246,7 +246,7 @@ func insertHTTPFilter(listenerName string, filterChain *listener.FilterChain, hc
 	// Its the last filter in the filter chain
 	filterChain.Filters[len(filterChain.Filters)-1] = listener.Filter{
 		Name:       xdsutil.HTTPConnectionManager,
-		ConfigType: &listener.Filter_Config{Config: util.MessageToStruct(hcm)},
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(hcm)},
 	}
 	log.Infof("EnvoyFilters: Rebuilt HTTP Connection Manager %s (from %d filters to %d filters)",
 		listenerName, oldLen, len(hcm.HttpFilters))

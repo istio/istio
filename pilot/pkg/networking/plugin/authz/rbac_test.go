@@ -24,7 +24,6 @@ import (
 	network_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
 	policy "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2alpha"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
-	"github.com/envoyproxy/go-control-plane/pkg/util"
 	"github.com/gogo/protobuf/types"
 
 	rbacproto "istio.io/api/rbac/v1alpha1"
@@ -221,7 +220,7 @@ func TestBuildTCPFilter(t *testing.T) {
 			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
 			rbacConfig := &network_config.RBAC{}
-			if err := util.StructToMessage(filter.GetConfig(), rbacConfig); err != nil {
+			if err := rbacConfig.Unmarshal(filter.GetTypedConfig().GetValue()); err != nil {
 				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
 			} else {
 				if rbacConfig.StatPrefix != "tcp." {
@@ -310,7 +309,7 @@ func TestBuildHTTPFilter(t *testing.T) {
 			t.Errorf("%s: expecting valid config, but got nil", tc.Name)
 		} else {
 			rbacConfig := &http_config.RBAC{}
-			if err := util.StructToMessage(filter.GetConfig(), rbacConfig); err != nil {
+			if err := rbacConfig.Unmarshal(filter.GetTypedConfig().GetValue()); err != nil {
 				t.Errorf("%s: bad rbac config: %v", tc.Name, err)
 			} else {
 				rbac := rbacConfig.Rules
