@@ -185,7 +185,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	expectedSecret := &model.SecretItem{
 		ResourceName:     k8sSecretNameC,
 		CertificateChain: k8sCertChainC,
-		PrivateKey:       k8sKeyD,
+		PrivateKey:       k8sKeyC,
 	}
 	testAddSecret(t, gSecretFetcher, k8sTestTlsSecretC, expectedSecret, &secretVersion)
 
