@@ -38,7 +38,7 @@ var (
 			Name:      k8sSecretNameA,
 			Namespace: "test-namespace",
 		},
-		Type: IngressSecretType,
+		Type: "test-secret",
 	}
 
 	k8sKeyB        = []byte("k8sKeyB private fake")
@@ -52,7 +52,7 @@ var (
 			Name:      k8sSecretNameA,
 			Namespace: "test-namespace",
 		},
-		Type: IngressSecretType,
+		Type: "test-secret",
 	}
 )
 
