@@ -237,7 +237,7 @@ func (e *Environment) deployIstio() (err error) {
 	scopes.CI.Info("=== BEGIN: Deploy Istio (via Helm Template) ===")
 	defer func() {
 		if err != nil {
-			scopes.CI.Infof("=== FAILED: Deploy Istiov ===\nerror: %v", err)
+			scopes.CI.Infof("=== FAILED: Deploy Istio ===")
 		} else {
 			scopes.CI.Infof("=== SUCCEEDED: Deploy Istio ===")
 		}

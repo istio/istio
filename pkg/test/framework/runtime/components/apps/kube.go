@@ -86,7 +86,7 @@ spec:
     name: http2-example
   - port: 7070
     targetPort: {{ .port6 }}
-		name: grpc
+    name: grpc
   selector:
     app: {{ .service }}
 ---
