@@ -271,7 +271,7 @@ func testSidecarRDSVHosts(t *testing.T, testName string, services []*model.Servi
 	if sidecarConfig == nil {
 		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	} else {
-		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig)
+		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 
 	route := configgen.buildSidecarOutboundHTTPRouteConfig(&env, &proxy, env.PushContext, proxyInstances, routeName)
