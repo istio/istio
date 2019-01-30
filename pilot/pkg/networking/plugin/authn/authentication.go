@@ -237,6 +237,11 @@ func ConvertPolicyToJwtConfig(policy *authn.Policy) *jwtfilter.JwtAuthentication
 		}
 		jwt.FromParams = policyJwt.JwtParams
 
+		if model.JwtKeyResolver == nil {
+			model.JwtKeyResolver = model.NewJwksResolver(model.JwtPubKeyExpireDuration,
+				model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
+				model.JwksURICacheExpiration)
+		}
 		jwtPubKey, err := model.JwtKeyResolver.GetPublicKey(policyJwt.JwksUri)
 		if err != nil {
 			log.Warnf("Failed to fetch jwt public key from %q", policyJwt.JwksUri)

@@ -25,7 +25,7 @@ import (
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval,
-		jwksURICacheExpiration)
+		JwksURICacheExpiration)
 	ms, err := test.StartNewServer()
 	defer ms.Stop()
 	if err != nil {
@@ -71,7 +71,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 
 func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval,
-		jwksURICacheExpiration)
+		JwksURICacheExpiration)
 
 	ms, err := test.StartNewServer()
 	defer ms.Stop()
@@ -149,7 +149,7 @@ func TestSetAuthenticationPolicyJwksURIs(t *testing.T) {
 
 func TestGetPublicKey(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval,
-		jwksURICacheExpiration)
+		JwksURICacheExpiration)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()
@@ -190,8 +190,8 @@ func TestGetPublicKey(t *testing.T) {
 }
 
 func TestJwtPubKeyRefresh(t *testing.T) {
-	r := NewJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond /*EvictionDuration*/,
-		2*time.Millisecond /*RefreshInterval*/, jwksURICacheExpiration)
+	r := NewJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond, /*EvictionDuration*/
+		2*time.Millisecond /*RefreshInterval*/, JwksURICacheExpiration)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()

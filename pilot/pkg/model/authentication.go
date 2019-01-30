@@ -57,7 +57,8 @@ const (
 )
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
-var JwtKeyResolver *jwksResolver
+// This is first initialized when Pilot's initializing its discovery service.
+var JwtKeyResolver *JWKSResolver
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
