@@ -30,7 +30,7 @@ type callout struct {
 	so      *source.Options
 	do      []grpc.DialOption
 	cancel  context.CancelFunc
-	pt      calloutPT
+	pt      calloutPatchTable
 }
 
 // Test override types
@@ -41,15 +41,15 @@ type mcpClient interface {
 type newClientFn func(mcp.ResourceSinkClient, *source.Options) mcpClient
 type closeFn func(*grpc.ClientConn)
 
-type calloutPT struct {
+type calloutPatchTable struct {
 	connClose       closeFn
 	grpcDial        dialFn
 	sourceNewClient newClientFn
 }
 
-func defaultCalloutPT() calloutPT {
+func defaultCalloutPT() calloutPatchTable {
 	// non-test defaults
-	return calloutPT{
+	return calloutPatchTable{
 		grpcDial:        grpc.Dial,
 		sourceNewClient: func(c mcp.ResourceSinkClient, o *source.Options) mcpClient { return source.NewClient(c, o) },
 		connClose:       func(c *grpc.ClientConn) { c.Close() },
@@ -60,7 +60,7 @@ func newCallout(address, auth string, so *source.Options) (*callout, error) {
 	return newCalloutPT(address, auth, so, defaultCalloutPT())
 }
 
-func newCalloutPT(address, auth string, so *source.Options, pt calloutPT) (*callout, error) {
+func newCalloutPT(address, auth string, so *source.Options, pt calloutPatchTable) (*callout, error) {
 	auths := authplugins.AuthMap()
 
 	f, ok := auths[auth]

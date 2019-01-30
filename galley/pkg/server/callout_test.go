@@ -57,7 +57,7 @@ func TestCalloutRun(t *testing.T) {
 
 	co := &callout{
 		address: "foo",
-		pt: calloutPT{
+		pt: calloutPatchTable{
 			grpcDial:        grpcDial,
 			sourceNewClient: sourceNewClient,
 			connClose:       connClose,
