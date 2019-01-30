@@ -39,10 +39,15 @@ import (
 const (
 	secretResyncPeriod = 15 * time.Second
 
-	// The ID/name for the certificate chain in kubernetes secret.
-	ScrtCert = "cert"
-	// The ID/name for the k8sKey in kubernetes secret.
-	ScrtKey = "key"
+	// The ID/name for the certificate chain in kubernetes generic secret.
+	genericScrtCert = "cert"
+	// The ID/name for the k8sKey in kubernetes generic secret.
+	genericScrtKey = "key"
+
+	// The ID/name for the certificate chain in kubernetes tls secret.
+	tlsScrtCert = "tls.crt"
+	// The ID/name for the k8sKey in kubernetes tls secret.
+	tlsScrtKey = "tls.key"
 
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
 	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
@@ -130,6 +135,17 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 		})
 }
 
+func extractCertAndKey(scrt *v1.Secret) (cert, key []byte) {
+	if len(scrt.Data[genericScrtCert]) > 0 {
+		cert = scrt.Data[genericScrtCert]
+		key = scrt.Data[genericScrtKey]
+	} else {
+		cert = scrt.Data[tlsScrtCert]
+		key = scrt.Data[tlsScrtKey]
+	}
+	return cert, key
+}
+
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
@@ -139,12 +155,13 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	t := time.Now()
 	resourceName := scrt.GetName()
+	newCert, newKey := extractCertAndKey(scrt)
 	// If there is secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
-		CertificateChain: scrt.Data[ScrtCert],
-		PrivateKey:       scrt.Data[ScrtKey],
+		CertificateChain: newCert,
+		PrivateKey:       newKey,
 		CreatedTime:      t,
 		Version:          t.String(),
 	}
@@ -180,30 +197,32 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	okey := oscrt.GetName()
-	nkey := nscrt.GetName()
-	if okey != nkey {
-		log.Warnf("Failed to update secret: name does not match (%s vs %s).", okey, nkey)
+	oldScrtName := oscrt.GetName()
+	newScrtName := nscrt.GetName()
+	if oldScrtName != newScrtName {
+		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
 		return
 	}
-	if bytes.Equal(oscrt.Data[ScrtCert], nscrt.Data[ScrtCert]) && bytes.Equal(oscrt.Data[ScrtKey], nscrt.Data[ScrtKey]) {
-		log.Debugf("secret %s does not change, skip update", okey)
+	oldCert, oldKey := extractCertAndKey(oscrt)
+	newCert, newKey := extractCertAndKey(nscrt)
+	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) {
+		log.Debugf("secret %s does not change, skip update", oldScrtName)
 		return
 	}
-	sf.secrets.Delete(okey)
+	sf.secrets.Delete(oldScrtName)
 
 	t := time.Now()
 	ns := &model.SecretItem{
-		ResourceName:     nkey,
-		CertificateChain: nscrt.Data[ScrtCert],
-		PrivateKey:       nscrt.Data[ScrtKey],
+		ResourceName:     newScrtName,
+		CertificateChain: newCert,
+		PrivateKey:       newKey,
 		CreatedTime:      t,
 		Version:          t.String(),
 	}
-	sf.secrets.Store(nkey, *ns)
+	sf.secrets.Store(newScrtName, *ns)
 	log.Debugf("secret %s is updated", nscrt.GetName())
 	if sf.UpdateCache != nil {
-		sf.UpdateCache(nkey, *ns)
+		sf.UpdateCache(newScrtName, *ns)
 	}
 }
 
