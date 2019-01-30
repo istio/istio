@@ -88,7 +88,7 @@ func (c *FsCache) reload() {
 		return
 	}
 
-	js, err := yaml.YAMLToJSON([]byte(by))
+	js, err := yaml.YAMLToJSON(by)
 	if err != nil {
 		scope.Errorf("Error converting mesh config Yaml to JSON: %v", err)
 		return
@@ -103,6 +103,7 @@ func (c *FsCache) reload() {
 	c.cachedMutex.Lock()
 	defer c.cachedMutex.Unlock()
 	c.cached = cfg
+	scope.Infof("Reloaded mesh config: \n%s\n", string(by))
 }
 
 // Close closes this cache.

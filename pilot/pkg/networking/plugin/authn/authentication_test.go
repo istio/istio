@@ -445,7 +445,7 @@ func TestConvertPolicyToAuthNFilterConfig(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.Sidecar); !reflect.DeepEqual(c.expected, got) {
+		if got := ConvertPolicyToAuthNFilterConfig(c.in, model.SidecarProxy); !reflect.DeepEqual(c.expected, got) {
 			t.Errorf("Test case %s: expected\n%#v\n, got\n%#v", c.name, c.expected.String(), got.String())
 		}
 	}
@@ -497,7 +497,7 @@ func TestBuildAuthNFilter(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := BuildAuthNFilter(c.in, model.Sidecar)
+		got := BuildAuthNFilter(c.in, model.SidecarProxy)
 		if got == nil {
 			if c.expectedFilterConfig != nil {
 				t.Errorf("BuildAuthNFilter(%#v), got: nil, wanted filter with config %s", c.in, c.expectedFilterConfig.String())
@@ -551,10 +551,12 @@ func TestOnInboundFilterChains(t *testing.T) {
 		RequireClientCertificate: proto.BoolTrue,
 	}
 	cases := []struct {
-		name       string
-		in         *authn.Policy
-		sdsUdsPath string
-		expected   []plugin.FilterChain
+		name              string
+		in                *authn.Policy
+		sdsUdsPath        string
+		useTrustworthyJwt bool
+		useNormalJwt      bool
+		expected          []plugin.FilterChain
 	}{
 		{
 			name: "NoAuthnPolicy",
@@ -632,7 +634,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio"},
 					},
-					RequiredListenerFilters: []listener.ListenerFilter{
+					ListenerFilters: []listener.ListenerFilter{
 						{
 							Name:       "envoy.listener.tls_inspector",
 							ConfigType: &listener.ListenerFilter_Config{&types.Struct{}},
@@ -661,8 +663,11 @@ func TestOnInboundFilterChains(t *testing.T) {
 							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 								constructSDSConfig(model.SDSDefaultResourceName, "/tmp/sdsuds.sock"),
 							},
-							ValidationContextType: &auth.CommonTlsContext_ValidationContextSdsSecretConfig{
-								ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+									DefaultValidationContext:         &auth.CertificateValidationContext{VerifySubjectAltName: []string{} /*subjectAltNames*/},
+									ValidationContextSdsSecretConfig: constructSDSConfig(model.SDSRootResourceName, "/tmp/sdsuds.sock"),
+								},
 							},
 							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
@@ -673,7 +678,7 @@ func TestOnInboundFilterChains(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := setupFilterChains(c.in, c.sdsUdsPath, false); !reflect.DeepEqual(got, c.expected) {
+		if got := setupFilterChains(c.in, c.sdsUdsPath, c.useTrustworthyJwt, c.useNormalJwt, map[string]string{}); !reflect.DeepEqual(got, c.expected) {
 			t.Errorf("[%v] unexpected filter chains, got %v, want %v", c.name, got, c.expected)
 		}
 	}

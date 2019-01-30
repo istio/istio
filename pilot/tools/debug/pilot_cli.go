@@ -72,7 +72,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
 	"istio.io/istio/pkg/log"
 )
 
@@ -239,6 +239,7 @@ func resolveKubeConfigPath(kubeConfig string) string {
 	return ret
 }
 
+// nolint: golint
 func portForwardPilot(kubeConfig, pilotURL string) (error, *os.Process, string) {
 	if pilotURL != "" {
 		// No need to port-forward, url is already provided.
@@ -291,6 +292,7 @@ func main() {
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
 	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
+	// nolint: lll
 	resources := flag.String("res", "", "Resource(s) to get config for. Should be pod name or app label or istio label for lds and cds type. For eds, it is comma separated list of cluster name.")
 	outputFile := flag.String("out", "", "output file. Leave blank to go to stdout")
 	flag.Parse()

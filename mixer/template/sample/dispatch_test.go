@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/lang/compiled"
@@ -188,8 +189,8 @@ func TestDispatchGenAttrs_Success(t *testing.T) {
 		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, defaultApaAttributes["ai"])
 	}
 
-	if ai, ok := outBag.Get("generated.ip"); !ok || !bytes.Equal(ai.([]byte), []byte{0x2, 0x3, 0x4, 0x5}) {
-		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, []byte{0x2, 0x3, 0x4, 0x5})
+	if ai, ok := outBag.Get("generated.ip"); !ok || !bytes.Equal(ai.([]byte), []byte(net.ParseIP("2.3.4.5"))) {
+		t.Fatalf("Expected attribute not found or different than expected: %v != %v", ai, "2.3.4.5")
 	}
 }
 

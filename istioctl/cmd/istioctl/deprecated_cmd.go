@@ -29,9 +29,9 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -866,7 +866,7 @@ func renderTimestamp(ts time.Time) string {
 	} else if hours < 365*24 {
 		return fmt.Sprintf("%dd", hours/24)
 	}
-	return fmt.Sprintf("%dy", int((hours/24)/365))
+	return fmt.Sprintf("%dy", hours/24/365)
 }
 
 func init() {

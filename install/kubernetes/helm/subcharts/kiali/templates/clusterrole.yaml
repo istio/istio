@@ -11,65 +11,68 @@ rules:
 - apiGroups: ["", "apps", "autoscaling", "batch"]
   resources:
   - configmaps
+  - cronjobs
+  - deployments
+  - endpoints
+  - horizontalpodautoscalers
+  - jobs
   - namespaces
   - nodes
   - pods
   - projects
   - services
-  - endpoints
-  - deployments
-  - horizontalpodautoscalers
-  - replicasets
   - statefulsets
+  - replicasets
   - replicationcontrollers
-  - jobs
-  - cronjobs
   verbs:
   - get
   - list
   - watch
 - apiGroups: ["config.istio.io"]
   resources:
-  - rules
-  - circonuses
-  - deniers
-  - fluentds
-  - kubernetesenvs
-  - listcheckers
-  - memquotas
-  - opas
-  - prometheuses
-  - rbacs
-  - servicecontrols
-  - solarwindses
-  - stackdrivers
-  - cloudwatches
-  - dogstatsds
-  - statsds
-  - stdios
   - apikeys
   - authorizations
   - checknothings
+  - circonuses
+  - deniers
+  - fluentds
+  - handlers
+  - kubernetesenvs
   - kuberneteses
+  - listcheckers
   - listentries
   - logentries
+  - memquotas
   - metrics
+  - opas
+  - prometheuses
   - quotas
-  - reportnothings
-  - servicecontrolreports
-  - quotaspecs
   - quotaspecbindings
+  - quotaspecs
+  - rbacs
+  - reportnothings
+  - rules
+  - servicecontrolreports
+  - servicecontrols
+  - solarwindses
+  - stackdrivers
+  - statsds
+  - stdios
   verbs:
+  - delete
   - get
   - list
+  - patch
   - watch
 - apiGroups: ["networking.istio.io"]
   resources:
-  - virtualservices
   - destinationrules
-  - serviceentries
   - gateways
+  - serviceentries
+  - virtualservices
   verbs:
+  - delete
   - get
   - list
+  - patch
   - watch

@@ -19,7 +19,7 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
@@ -37,7 +37,7 @@ var (
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
 		Long:  `A group of commands used to retrieve information about proxy configuration from the Envoy config dump`,
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
-  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap> <pod-name>`,
+  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap> <pod-name[.namespace]>`,
 		Aliases: []string{"pc"},
 	}
 
@@ -45,17 +45,17 @@ var (
 	port                    int
 
 	clusterConfigCmd = &cobra.Command{
-		Use:   "cluster <pod-name>",
+		Use:   "cluster <pod-name[.namespace]>",
 		Short: "Retrieves cluster configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about cluster configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about cluster configuration for a given pod from Envoy.
-  istioctl proxy-config clusters <pod-name>
+  istioctl proxy-config clusters <pod-name[.namespace]>
 
   # Retrieve cluster summary for clusters with port 9080.
-  istioctl proxy-config clusters <pod-name> --port 9080
+  istioctl proxy-config clusters <pod-name[.namespace]> --port 9080
 
   # Retrieve full cluster dump for clusters that are inbound with a FQDN of details.default.svc.cluster.local.
-  istioctl proxy-config clusters <pod-name> --fqdn details.default.svc.cluster.local --direction inbound -o json
+  istioctl proxy-config clusters <pod-name[.namespace]> --fqdn details.default.svc.cluster.local --direction inbound -o json
 `,
 		Aliases: []string{"clusters", "c"},
 		Args:    cobra.ExactArgs(1),
@@ -85,17 +85,17 @@ var (
 	address, listenerType string
 
 	listenerConfigCmd = &cobra.Command{
-		Use:   "listener <pod-name>",
+		Use:   "listener <pod-name[.namespace]>",
 		Short: "Retrieves listener configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about listener configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about listener configuration for a given pod from Envoy.
-  istioctl proxy-config listeners <pod-name>
+  istioctl proxy-config listeners <pod-name[.namespace]>
 
   # Retrieve listener summary for listeners with port 9080.
-  istioctl proxy-config listeners <pod-name> --port 9080
+  istioctl proxy-config listeners <pod-name[.namespace]> --port 9080
 
   # Retrieve full listener dump for HTTP listeners with a wildcard address (0.0.0.0).
-  istioctl proxy-config listeners <pod-name> --type HTTP --address 0.0.0.0 -o json
+  istioctl proxy-config listeners <pod-name[.namespace]> --type HTTP --address 0.0.0.0 -o json
 `,
 		Aliases: []string{"listeners", "l"},
 		Args:    cobra.ExactArgs(1),
@@ -125,17 +125,17 @@ var (
 	routeName string
 
 	routeConfigCmd = &cobra.Command{
-		Use:   "route <pod-name>",
+		Use:   "route <pod-name[.namespace]>",
 		Short: "Retrieves route configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about route configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about route configuration for a given pod from Envoy.
-  istioctl proxy-config routes <pod-name>
+  istioctl proxy-config routes <pod-name[.namespace]>
 
   # Retrieve route summary for route 9080.
-  istioctl proxy-config route <pod-name> --name 9080
+  istioctl proxy-config route <pod-name[.namespace]> --name 9080
 
   # Retrieve full route dump for route 9080
-  istioctl proxy-config route <pod-name> --name 9080 -o json
+  istioctl proxy-config route <pod-name[.namespace]> --name 9080 -o json
 `,
 		Aliases: []string{"routes", "r"},
 		Args:    cobra.ExactArgs(1),
@@ -160,11 +160,11 @@ var (
 	}
 
 	bootstrapConfigCmd = &cobra.Command{
-		Use:   "bootstrap <pod-name>",
+		Use:   "bootstrap <pod-name[.namespace]>",
 		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about bootstrap configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full bootstrap configuration for a given pod from Envoy.
-  istioctl proxy-config bootstrap <pod-name>
+  istioctl proxy-config bootstrap <pod-name[.namespace]>
 `,
 		Aliases: []string{"b"},
 		Args:    cobra.ExactArgs(1),
@@ -180,22 +180,22 @@ var (
 
 	clusterName, status string
 	endpointConfigCmd   = &cobra.Command{
-		Use:   "endpoint <pod-name>",
+		Use:   "endpoint <pod-name[.namespace]>",
 		Short: "Retrieves endpoint configuration for the Envoy in the specified pod",
 		Long:  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
-  istioctl proxy-config endpoint <pod-name>
+  istioctl proxy-config endpoint <pod-name[.namespace]>
 
   # Retrieve endpoint summary for endpoint with port 9080.
-  istioctl proxy-config endpoint <pod-name> --port 9080
+  istioctl proxy-config endpoint <pod-name[.namespace]> --port 9080
 
   # Retrieve full endpoint with a address (172.17.0.2).
-  istioctl proxy-config endpoint <pod-name> --address 172.17.0.2 -o json
+  istioctl proxy-config endpoint <pod-name[.namespace]> --address 172.17.0.2 -o json
 
   # Retrieve full endpoint with a cluster name (outbound|9411||zipkin.istio-system.svc.cluster.local).
-  istioctl proxy-config endpoint <pod-name> --cluster "outbound|9411||zipkin.istio-system.svc.cluster.local" -o json
+  istioctl proxy-config endpoint <pod-name[.namespace]> --cluster "outbound|9411||zipkin.istio-system.svc.cluster.local" -o json
   # Retrieve full endpoint with the status (healthy).
-  istioctl proxy-config endpoint <pod-name> --status healthy -ojson
+  istioctl proxy-config endpoint <pod-name[.namespace]> --status healthy -ojson
 `,
 		Aliases: []string{"endpoints", "ep"},
 		Args:    cobra.ExactArgs(1),

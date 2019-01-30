@@ -24,7 +24,7 @@ import (
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/perf"
-	"istio.io/istio/mixer/test/spyAdapter"
+	spyadapter "istio.io/istio/mixer/test/spyAdapter"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 	"istio.io/istio/mixer/test/spybackend"
 )
@@ -117,7 +117,7 @@ func validateOOPReportBehavior(s spybackend.Server, b *testing.B) {
 	b.Errorf("got spy adapter calls %v; want calls HandleSampleReport:1", cc)
 }
 
-func validateInprocReportBehavior(spyAdapter *spyAdapter.Adapter, b *testing.B) {
+func validateInprocReportBehavior(spyAdapter *spyadapter.Adapter, b *testing.B) {
 	for _, cc := range spyAdapter.HandlerData.CapturedCalls {
 		if cc.Name == "HandleSampleReport" && len(cc.Instances) == 1 {
 			return

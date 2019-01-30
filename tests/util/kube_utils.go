@@ -97,7 +97,7 @@ func CreateAndFill(outDir, templateFile string, values interface{}) (string, err
 		return "", err
 	}
 	if err := Fill(outFile, templateFile, values); err != nil {
-		log.Errorf("Failed to generate yaml for template %s", templateFile)
+		log.Errorf("Failed to generate yaml for template %s: %v", templateFile, err)
 		return "", err
 	}
 	return outFile, nil
@@ -116,8 +116,13 @@ func CreateNamespace(n string, kubeconfig string) error {
 
 // DeleteNamespace delete a kubernetes namespace
 func DeleteNamespace(n string, kubeconfig string) error {
-	_, err := Shell("kubectl delete namespace %s --kubeconfig=%s", n, kubeconfig)
-	return err
+	if _, err := Shell("kubectl delete namespace %s --kubeconfig=%s", n, kubeconfig); err != nil {
+		if !strings.Contains(err.Error(), "not found") {
+			return err
+		}
+	}
+	log.Infof("namespace %s deleted\n", n)
+	return nil
 }
 
 // DeleteDeployment deletes deployment from the specified namespace
@@ -135,10 +140,10 @@ func NamespaceDeleted(n string, kubeconfig string) (bool, error) {
 	return false, err
 }
 
-// ValidatingWebhookConfigurationDeleted check if a kubernetes ValidatingWebhookConfiguration is deleted
-func ValidatingWebhookConfigurationDeleted(name string, kubeconfig string) bool {
+// ValidatingWebhookConfigurationExists check if a kubernetes ValidatingWebhookConfiguration is deleted
+func ValidatingWebhookConfigurationExists(name string, kubeconfig string) bool {
 	output, _ := ShellSilent("kubectl get validatingwebhookconfiguration %s -o name --kubeconfig=%s", name, kubeconfig)
-	return strings.Contains(output, "NotFound")
+	return !strings.Contains(output, "NotFound")
 }
 
 // KubeApplyContents kubectl apply from contents

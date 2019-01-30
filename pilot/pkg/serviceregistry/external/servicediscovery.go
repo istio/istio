@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -34,12 +33,6 @@ type ServiceEntryStore struct {
 	serviceHandlers  []serviceHandler
 	instanceHandlers []instanceHandler
 	store            model.IstioConfigStore
-
-	// storeCache has callbacks. Some tests use mock store.
-	// Pilot 0.8 implementation only invalidates the v1 cache.
-	// Post 0.8 we want to remove the v1 cache and directly interface with ads, to
-	// simplify and optimize the code, this abstraction is not helping.
-	callbacks model.ConfigStoreCache
 
 	storeMutex sync.RWMutex
 
@@ -58,29 +51,26 @@ func NewServiceDiscovery(callbacks model.ConfigStoreCache, store model.IstioConf
 		serviceHandlers:  make([]serviceHandler, 0),
 		instanceHandlers: make([]instanceHandler, 0),
 		store:            store,
-		callbacks:        callbacks,
 		ip2instance:      map[string][]*model.ServiceInstance{},
 		instances:        map[string][]*model.ServiceInstance{},
 		updateNeeded:     true,
 	}
 	if callbacks != nil {
 		callbacks.RegisterEventHandler(model.ServiceEntry.Type, func(config model.Config, event model.Event) {
-			serviceEntry := config.Spec.(*networking.ServiceEntry)
-
 			// Recomputing the index here is too expensive.
 			c.changeMutex.Lock()
 			c.lastChange = time.Now()
 			c.updateNeeded = true
 			c.changeMutex.Unlock()
 
-			services := convertServices(serviceEntry, config.CreationTimestamp)
+			services := convertServices(config)
 			for _, handler := range c.serviceHandlers {
 				for _, service := range services {
 					go handler(service, event)
 				}
 			}
 
-			instances := convertInstances(serviceEntry, config.CreationTimestamp)
+			instances := convertInstances(config)
 			for _, handler := range c.instanceHandlers {
 				for _, instance := range instances {
 					go handler(instance, event)
@@ -115,8 +105,7 @@ func (d *ServiceEntryStore) Run(stop <-chan struct{}) {}
 func (d *ServiceEntryStore) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry, config.CreationTimestamp)...)
+		services = append(services, convertServices(config)...)
 	}
 
 	return services, nil
@@ -138,8 +127,7 @@ func (d *ServiceEntryStore) GetService(hostname model.Hostname) (*model.Service,
 func (d *ServiceEntryStore) getServices() []*model.Service {
 	services := make([]*model.Service, 0)
 	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		services = append(services, convertServices(serviceEntry, config.CreationTimestamp)...)
+		services = append(services, convertServices(config)...)
 	}
 	return services
 }
@@ -196,8 +184,7 @@ func (d *ServiceEntryStore) update() {
 	dip := map[string][]*model.ServiceInstance{}
 
 	for _, config := range d.store.ServiceEntries() {
-		serviceEntry := config.Spec.(*networking.ServiceEntry)
-		for _, instance := range convertInstances(serviceEntry, config.CreationTimestamp) {
+		for _, instance := range convertInstances(config) {
 			key := string(instance.Service.Hostname)
 			out, found := di[key]
 			if !found {
@@ -240,11 +227,21 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	d.storeMutex.RLock()
 	defer d.storeMutex.RUnlock()
 
-	instances, found := d.ip2instance[node.IPAddress]
-	if found {
-		return instances, nil
+	out := make([]*model.ServiceInstance, 0)
+
+	for _, ip := range node.IPAddresses {
+		instances, found := d.ip2instance[ip]
+		if found {
+			out = append(out, instances...)
+		}
 	}
-	return []*model.ServiceInstance{}, nil
+	return out, nil
+}
+
+// GetProxyLocality returns the locality where the proxy runs.
+func (d *ServiceEntryStore) GetProxyLocality(node *model.Proxy) string {
+	// not supported
+	return ""
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg

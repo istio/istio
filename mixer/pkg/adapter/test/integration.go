@@ -29,7 +29,10 @@ import (
 	"sync"
 	"testing"
 
+	spb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
+
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -117,7 +120,7 @@ type (
 		// Quota is the response from a check call to Mixer
 		Quota map[string]adapter.QuotaResult `json:"Quota"`
 		// Error is the error from call to Mixer
-		Error error `json:"Error"`
+		Error spb.Status `json:"Error"`
 	}
 )
 
@@ -230,8 +233,8 @@ func RunTest(
 	wg.Wait()
 
 	// get adapter state. NOTE: We are doing marshal and then unmarshal it back into generic interface{}.
-	// This is done to make getState output into generic json map or array; which is exactly what we get when un-marshalling
-	// the baseline json. Without this, deep equality on un-marshalled baseline AdapterState would defer
+	// This is done to make getState output into generic json map or array; which is exactly what we get when un-marshaling
+	// the baseline json. Without this, deep equality on un-marshaled baseline AdapterState would defer
 	// from the rich object returned by getState function.
 	if scenario.GetState != nil {
 		var adptState interface{}
@@ -293,7 +296,7 @@ func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int,
 
 		result, resultErr := client.Check(context.Background(), &req)
 		result.Precondition.ReferencedAttributes = &istio_mixer_v1.ReferencedAttributes{}
-		ret.Error = resultErr
+		ret.Error = errToStatus(resultErr)
 		ret.Check.RouteDirective = result.Precondition.RouteDirective
 		if len(c.Quotas) > 0 {
 			ret.Quota = make(map[string]adapter.QuotaResult)
@@ -314,7 +317,7 @@ func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int,
 				getAttrBag(c.Attrs)},
 		}
 		_, responseErr := client.Report(context.Background(), &req)
-		ret.Error = responseErr
+		ret.Error = errToStatus(responseErr)
 	}
 	returns[i] = ret
 	wg.Done()
@@ -343,18 +346,24 @@ func getServerArgs(
 	_, filename, _, _ := runtime.Caller(0)
 	additionalCrs := []string{
 		"../../../testdata/config/attributes.yaml",
+		"../../../template/apikey/template.yaml",
+		"../../../template/authorization/template.yaml",
+		"../../../template/checknothing/template.yaml",
+		"../../../template/listentry/template.yaml",
+		"../../../template/logentry/template.yaml",
 		"../../../template/metric/template.yaml",
 		"../../../template/quota/template.yaml",
-		"../../../template/listentry/template.yaml",
+		"../../../template/reportnothing/template.yaml",
+		"../../../template/tracespan/tracespan.yaml",
 		"../../../test/spyAdapter/template/apa/tmpl.yaml",
 		"../../../test/spyAdapter/template/checkoutput/tmpl.yaml",
 	}
 
 	for _, fileRelativePath := range additionalCrs {
 		if f, err := filepath.Abs(path.Join(path.Dir(filename), fileRelativePath)); err != nil {
-			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
+			return nil, fmt.Errorf("cannot load %v: %v", fileRelativePath, err)
 		} else if f, err := ioutil.ReadFile(f); err != nil {
-			return nil, fmt.Errorf("cannot load attributes.yaml: %v", err)
+			return nil, fmt.Errorf("cannot load %v: %v", fileRelativePath, err)
 		} else {
 			data = append(data, string(f))
 		}
@@ -372,14 +381,16 @@ func getServerArgs(
 func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
 	for k, v := range attrs {
-		switch v.(type) {
+		switch v := v.(type) {
+		case map[string]string:
+			requestBag.Set(k, attribute.WrapStringMap(v))
 		case map[string]interface{}:
-			mapCast := make(map[string]string, len(v.(map[string]interface{})))
+			mapCast := make(map[string]string, len(v))
 
-			for k1, v1 := range v.(map[string]interface{}) {
+			for k1, v1 := range v {
 				mapCast[k1] = v1.(string)
 			}
-			requestBag.Set(k, mapCast)
+			requestBag.Set(k, attribute.WrapStringMap(mapCast))
 		default:
 			requestBag.Set(k, v)
 		}
@@ -388,4 +399,12 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 	var attrProto istio_mixer_v1.CompressedAttributes
 	requestBag.ToProto(&attrProto, nil, 0)
 	return attrProto
+}
+
+func errToStatus(err error) spb.Status {
+	var statusResp spb.Status
+	if s, ok := status.FromError(err); ok {
+		statusResp = *s.Proto()
+	}
+	return statusResp
 }

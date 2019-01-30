@@ -21,7 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/api/core/v1"
+	"istio.io/istio/pkg/spiffe"
+
+	v1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -48,9 +51,6 @@ const (
 	RootCertID = "root-cert.pem"
 	// The key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
-
-	// The default SPIFFE URL value for trust domain
-	DefaultTrustDomain = "cluster.local"
 
 	secretNamePrefix   = "istio."
 	secretResyncPeriod = time.Minute
@@ -84,7 +84,6 @@ type DNSNameEntry struct {
 type SecretController struct {
 	ca             ca.CertificateAuthority
 	certTTL        time.Duration
-	trustDomain    string
 	core           corev1.CoreV1Interface
 	minGracePeriod time.Duration
 	// Length of the grace period for the certificate rotation.
@@ -111,7 +110,7 @@ type SecretController struct {
 }
 
 // NewSecretController returns a pointer to a newly constructed SecretController instance.
-func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, trustDomain string,
+func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration,
 	gracePeriodRatio float32, minGracePeriod time.Duration, dualUse bool,
 	core corev1.CoreV1Interface, forCA bool, namespace string, dnsNames map[string]DNSNameEntry) (*SecretController, error) {
 
@@ -123,14 +122,9 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, trus
 			gracePeriodRatio, recommendedMinGracePeriodRatio, recommendedMaxGracePeriodRatio)
 	}
 
-	if trustDomain == "" {
-		trustDomain = DefaultTrustDomain
-	}
-
 	c := &SecretController{
 		ca:               ca,
 		certTTL:          certTTL,
-		trustDomain:      trustDomain,
 		gracePeriodRatio: gracePeriodRatio,
 		minGracePeriod:   minGracePeriod,
 		dualUse:          dualUse,
@@ -178,6 +172,11 @@ func NewSecretController(ca ca.CertificateAuthority, certTTL time.Duration, trus
 // Run starts the SecretController until a value is sent to stopCh.
 func (sc *SecretController) Run(stopCh chan struct{}) {
 	go sc.scrtController.Run(stopCh)
+
+	// saAdded calls upsertSecret to update and insert secret
+	// it throws error if the secret cache is not synchronized, but the secret exists in the system
+	cache.WaitForCacheSync(stopCh, sc.scrtController.HasSynced)
+
 	go sc.saController.Run(stopCh)
 }
 
@@ -255,7 +254,10 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	// We retry several times when create secret to mitigate transient network failures.
 	for i := 0; i < secretCreationRetry; i++ {
 		_, err = sc.core.Secrets(saNamespace).Create(secret)
-		if err == nil {
+		if err == nil || errors.IsAlreadyExists(err) {
+			if errors.IsAlreadyExists(err) {
+				log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" already exists", saName, saNamespace)
+			}
 			break
 		} else {
 			log.Errorf("Failed to create secret in attempt %v/%v, (error: %s)", i+1, secretCreationRetry, err)
@@ -263,7 +265,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 		time.Sleep(time.Second)
 	}
 
-	if err != nil {
+	if err != nil && !errors.IsAlreadyExists(err) {
 		log.Errorf("Failed to create secret for service account \"%s\"  (error: %s), retries %v times",
 			saName, err, secretCreationRetry)
 		return
@@ -300,7 +302,7 @@ func (sc *SecretController) scrtDeleted(obj interface{}) {
 }
 
 func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string) ([]byte, []byte, error) {
-	id := fmt.Sprintf("%s://%s/ns/%s/sa/%s", util.URIScheme, sc.trustDomain, saNamespace, saName)
+	id := spiffe.MustGenSpiffeURI(saNamespace, saName)
 	if sc.dnsNames != nil {
 		// Control plane components in same namespace.
 		if e, ok := sc.dnsNames[saName]; ok {

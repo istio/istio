@@ -11,6 +11,9 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: prometheus
   template:
     metadata:
       labels:
@@ -18,7 +21,6 @@ spec:
         chart: {{ template "prometheus.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
       annotations:
         sidecar.istio.io/inject: "false"
         scheduler.alpha.kubernetes.io/critical-pod: ""
@@ -26,6 +28,16 @@ spec:
       serviceAccountName: prometheus
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- if .Values.security.enabled }}
+      initContainers:
+      - name: prom-init
+        image: "busybox"
+        command: ['sh', '-c', 'counter=0; until [ "$counter" -ge 30 ]; do if [ -d /etc/istio-certs ]; then exit 0; else echo waiting for istio certs && sleep 1 && counter=$((counter+1)); fi; done; exit 1;']
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+        volumeMounts:
+          - mountPath: /etc/istio-certs
+            name: istio-certs
 {{- end }}
       containers:
         - name: prometheus

@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/test/client/env"
-	"istio.io/istio/mixer/test/client/test_data"
+	client_test "istio.io/istio/mixer/test/client/test_data"
 )
 
 // The Istio authn envoy config
@@ -117,6 +117,8 @@ var reportAttributesOkGet = `
   "istio_authn": "*",
   "jwt-auth": "*",
   "destination.namespace": "",
+  "istio_authn": "*",
+  "jwt-auth": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",

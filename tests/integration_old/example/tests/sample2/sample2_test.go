@@ -23,7 +23,7 @@ import (
 
 	"istio.io/istio/tests/integration_old/component/mixer"
 	"istio.io/istio/tests/integration_old/component/proxy"
-	"istio.io/istio/tests/integration_old/example/environment/mixerEnvoyEnv"
+	mixerenvoyenv "istio.io/istio/tests/integration_old/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration_old/framework"
 )
 
@@ -92,7 +92,7 @@ func TestMetrics(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	testEM = framework.NewTestEnvManager(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
+	testEM = framework.NewTestEnvManager(mixerenvoyenv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
 	res := testEM.RunTest(m)
 	log.Printf("Test result %d in env %s", res, mixerEnvoyEnvName)
 	os.Exit(res)

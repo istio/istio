@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 	"time"
 
@@ -63,9 +62,7 @@ type discoveryStream interface {
 }
 
 // sdsEvent represents a secret event that results in a push.
-type sdsEvent struct {
-	endStream bool
-}
+type sdsEvent struct{}
 
 type sdsConnection struct {
 	// Time of connection, for debugging.
@@ -73,6 +70,9 @@ type sdsConnection struct {
 
 	// The ID of proxy from which the connection comes from.
 	proxyID string
+
+	// The ResourceName of the SDS request.
+	ResourceName string
 
 	// Sending on this channel results in  push.
 	pushChannel chan *sdsEvent
@@ -82,21 +82,23 @@ type sdsConnection struct {
 
 	// The secret associated with the proxy.
 	secret *model.SecretItem
-
-	// Full resource Name from incoming discovery request.
-	// "default" for normal key/cert rquest.
-	// "ROOTCA,VerifySubjectAltName1,VerifySubjectAltName2.." for root cert request.
-	fullResourceName string
 }
 
 type sdsservice struct {
 	st cache.SecretManager
+	// skipToken indicates whether token is required.
+	skipToken bool
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification bool) *sdsservice {
+	if st == nil {
+		return nil
+	}
+
 	return &sdsservice{
-		st: st,
+		st:        st,
+		skipToken: skipTokenVerification,
 	}
 }
 
@@ -106,11 +108,16 @@ func (s *sdsservice) register(rpcs *grpc.Server) {
 }
 
 func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	ctx := stream.Context()
-	token, err := getCredentialToken(ctx)
-	if err != nil {
-		log.Errorf("Failed to get credential token from incoming request: %v", err)
-		return err
+	token := ""
+	var ctx context.Context
+	if !s.skipToken {
+		ctx = stream.Context()
+		t, err := getCredentialToken(ctx)
+		if err != nil {
+			log.Errorf("Failed to get credential token from incoming request: %v", err)
+			return err
+		}
+		token = t
 	}
 
 	var receiveError error
@@ -135,18 +142,19 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 			log.Debugf("Received discovery request from %q", discReq.Node.Id)
 
-			con.proxyID = discReq.Node.Id
 			resourceName, err := parseDiscoveryRequest(discReq)
 			if err != nil {
 				log.Errorf("Failed to parse discovery request: %v", err)
-				continue
+				return err
 			}
-			con.fullResourceName = discReq.ResourceNames[0]
+			con.proxyID = discReq.Node.Id
+			con.ResourceName = resourceName
 
 			// When nodeagent receives StreamSecrets request, if there is cached secret which matches
 			// request's <token, resourceName, Version>, then this request is a confirmation request.
 			// nodeagent stops sending response to envoy in this case.
 			if discReq.VersionInfo != "" && s.st.SecretExist(discReq.Node.Id, resourceName, token, discReq.VersionInfo) {
+				log.Debugf("Received SDS ACK from %q", discReq.Node.Id)
 				continue
 			}
 
@@ -162,7 +170,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				ResourceName: resourceName,
 			}
 			addConn(key, con)
-			defer removeConn(key)
+			defer func() {
+				removeConn(key)
+				// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
+				// and cause some confusing logs like 'fails to notify because connection isn't found'.
+				s.st.DeleteSecret(con.proxyID, con.ResourceName)
+			}()
 
 			if err := pushSDS(con); err != nil {
 				log.Errorf("SDS failed to push key/cert to proxy %q: %v", con.proxyID, err)
@@ -172,12 +185,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			log.Debugf("Received push channel request for %q", con.proxyID)
 
 			if con.secret == nil {
-				// Secret is nil indicates close streaming connection to proxy, so that proxy
+				// Secret is nil indicates close streaming to proxy, so that proxy
 				// could connect again with updated token.
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
 				// from secret cache because cache has auto-evication.
-				log.Debugf("Close connection with %q", con.proxyID)
-				return fmt.Errorf("streaming connection with %q closed", con.proxyID)
+				log.Debugf("Close streaming for proxy %q", con.proxyID)
+				return fmt.Errorf("streaming for proxy %q closed", con.proxyID)
 			}
 
 			if err := pushSDS(con); err != nil {
@@ -189,10 +202,14 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 }
 
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
-	token, err := getCredentialToken(ctx)
-	if err != nil {
-		log.Errorf("Failed to get credential token: %v", err)
-		return nil, err
+	token := ""
+	if !s.skipToken {
+		t, err := getCredentialToken(ctx)
+		if err != nil {
+			log.Errorf("Failed to get credential token: %v", err)
+			return nil, err
+		}
+		token = t
 	}
 
 	resourceName, err := parseDiscoveryRequest(discReq)
@@ -206,11 +223,11 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *xdsapi.Discovery
 		log.Errorf("Failed to get secret for proxy %q from secret cache: %v", discReq.Node.Id, err)
 		return nil, err
 	}
-	return sdsDiscoveryResponse(secret, discReq.ResourceNames[0], discReq.Node.Id)
+	return sdsDiscoveryResponse(secret, discReq.Node.Id)
 }
 
 // NotifyProxy send notification to proxy about secret update,
-// SDS will close streaming connection is secret is nil.
+// SDS will close streaming connection if secret is nil.
 func NotifyProxy(proxyID, resourceName string, secret *model.SecretItem) error {
 	key := cache.ConnKey{
 		ProxyID:      proxyID,
@@ -233,8 +250,7 @@ func parseDiscoveryRequest(discReq *xdsapi.DiscoveryRequest) (string /*resourceN
 	}
 
 	if len(discReq.ResourceNames) == 1 {
-		ss := strings.Split(discReq.ResourceNames[0], ",")
-		return ss[0], nil
+		return discReq.ResourceNames[0], nil
 	}
 
 	return "", fmt.Errorf("discovery request %+v has invalid resourceNames %+v", discReq, discReq.ResourceNames)
@@ -280,7 +296,7 @@ func removeConn(k cache.ConnKey) {
 func pushSDS(con *sdsConnection) error {
 	log.Infof("SDS: push from node agent to proxy:%q", con.proxyID)
 
-	response, err := sdsDiscoveryResponse(con.secret, con.fullResourceName, con.proxyID)
+	response, err := sdsDiscoveryResponse(con.secret, con.proxyID)
 	if err != nil {
 		log.Errorf("SDS: Failed to construct response %v", err)
 		return err
@@ -294,7 +310,7 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *model.SecretItem, fullResourceName, proxyID string) (*xdsapi.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *model.SecretItem, proxyID string) (*xdsapi.DiscoveryResponse, error) {
 	resp := &xdsapi.DiscoveryResponse{
 		TypeUrl:     SecretType,
 		VersionInfo: s.Version,
@@ -307,15 +323,9 @@ func sdsDiscoveryResponse(s *model.SecretItem, fullResourceName, proxyID string)
 	}
 
 	secret := &authapi.Secret{
-		Name: fullResourceName,
+		Name: s.ResourceName,
 	}
 	if s.RootCert != nil {
-		ss := strings.Split(fullResourceName, ",")
-		sans := []string{}
-		if len(ss) > 1 {
-			sans = append(sans, ss[1:len(ss)]...)
-		}
-
 		secret.Type = &authapi.Secret_ValidationContext{
 			ValidationContext: &authapi.CertificateValidationContext{
 				TrustedCa: &core.DataSource{
@@ -323,7 +333,6 @@ func sdsDiscoveryResponse(s *model.SecretItem, fullResourceName, proxyID string)
 						InlineBytes: s.RootCert,
 					},
 				},
-				VerifySubjectAltName: sans,
 			},
 		}
 	} else {

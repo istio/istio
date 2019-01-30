@@ -43,7 +43,7 @@ func buildHealthCheckFilter(probe *model.Probe) *http_conn.HttpFilter {
 	return &http_conn.HttpFilter{
 		Name: xdsutil.HealthCheck,
 		ConfigType: &http_conn.HttpFilter_Config{
-			util.MessageToStruct(&hcfilter.HealthCheck{
+			Config: util.MessageToStruct(&hcfilter.HealthCheck{
 				PassThroughMode: proto.BoolTrue,
 				Headers: []*envoy_api_v2_route.HeaderMatcher{
 					{
@@ -96,7 +96,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 		return nil
 	}
 
-	if in.Node.Type != model.Sidecar {
+	if in.Node.Type != model.SidecarProxy {
 		// Only care about sidecar.
 		return nil
 	}
@@ -111,8 +111,10 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableO
 
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
-			buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(in.Node.IPAddress),
-				&in.ServiceInstance.Endpoint)
+			for _, ip := range in.Node.IPAddresses {
+				buildHealthCheckFilters(&mutable.FilterChains[i], in.Env.WorkloadHealthCheckInfo(ip),
+					&in.ServiceInstance.Endpoint)
+			}
 		}
 	}
 

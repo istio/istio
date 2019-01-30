@@ -15,14 +15,14 @@
 package mixer
 
 import (
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/ids"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/api/components"
+	"istio.io/istio/pkg/test/framework/api/ids"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
 )
 
 func TestCheck_Allow(t *testing.T) {
@@ -95,12 +95,14 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: checknothing1
+  namespace: {{.TestNamespace}}
 spec:
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: rule1
+  namespace: {{.TestNamespace}}
 spec:
   actions:
   - handler: handler1.bypass

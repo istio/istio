@@ -16,6 +16,7 @@ package spybackend
 
 import (
 	"sync"
+	"time"
 
 	adptModel "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/template/listentry"
@@ -29,7 +30,7 @@ import (
 )
 
 type (
-	// Args specify captured requests and programmed behaviour
+	// Args specify captured requests and programmed behavior
 	Args struct {
 		// manipulate the behavior of the backend.
 		Behavior *Behavior
@@ -38,7 +39,7 @@ type (
 		Requests *Requests
 	}
 
-	// Behavior specifies programmed behaviour
+	// Behavior specifies programmed behavior
 	Behavior struct {
 		ValidateResponse *adptModel.ValidateResponse
 		ValidateError    error
@@ -52,31 +53,38 @@ type (
 		// report metric IBP
 		HandleMetricResult *adptModel.ReportResult
 		HandleMetricError  error
+		HandleMetricSleep  time.Duration
 
 		// check listEntry IBP
 		HandleListEntryResult *adptModel.CheckResult
 		HandleListEntryError  error
+		HandleListEntrySleep  time.Duration
 
 		// quota IBP
 		HandleQuotaResult *adptModel.QuotaResult
 		HandleQuotaError  error
+		HandleQuotaSleep  time.Duration
 
 		// sample quota IBP
 		HandleSampleQuotaResult *adptModel.QuotaResult
 		HandleSampleQuotaError  error
+		HandleSampleQuotaSleep  time.Duration
 
 		// sample check IBP
 		HandleSampleCheckResult *adptModel.CheckResult
 		HandleSampleCheckError  error
 		HandleCheckOutput       *checkoutputTmpl.OutputMsg
+		HandleSampleCheckSleep  time.Duration
 
 		// sample report IBP
 		HandleSampleReportResult *adptModel.ReportResult
 		HandleSampleReportError  error
+		HandleSampleReportSleep  time.Duration
 
 		// sample APA IBP
 		HandleSampleApaResult *apaTmpl.OutputMsg
 		HandleSampleApaError  error
+		HandleSampleApaSleep  time.Duration
 	}
 
 	// Requests record captured requests by the spy
@@ -96,16 +104,12 @@ type (
 		quotaLock          sync.RWMutex
 		HandleQuotaRequest []*quota.HandleQuotaRequest
 
-		samplecheckLock          sync.RWMutex
 		HandleSampleCheckRequest []*checkTmpl.HandleSampleCheckRequest
 
-		samplequotaLock          sync.RWMutex
 		HandleSampleQuotaRequest []*quotaTmpl.HandleSampleQuotaRequest
 
-		samplereportLock          sync.RWMutex
 		HandleSampleReportRequest []*reportTmpl.HandleSampleReportRequest
 
-		sampleapaLock          sync.RWMutex
 		HandleSampleApaRequest []*apaTmpl.HandleSampleApaRequest
 	}
 )

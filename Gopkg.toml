@@ -111,7 +111,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/envoyproxy/go-control-plane"
-  version = "^0.6.3"
+  version = "^0.6.7"
 
 [[constraint]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -219,7 +219,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/prometheus/client_golang"
-  version = "0.9.0"
+  version = "0.9.2"
 
 [[constraint]]
   branch = "master"
@@ -362,3 +362,7 @@ ignored = [
 [[override]]
   name = "github.com/imdario/mergo"
   revision = "6633656539c1639d9d78127b7d47c622b5d7b6dc"
+
+[[constraint]]
+  name = "github.com/google/go-cmp"
+  version = "0.2.0"

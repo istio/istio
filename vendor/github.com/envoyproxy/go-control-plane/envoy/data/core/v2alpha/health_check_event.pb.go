@@ -54,7 +54,7 @@ func (x HealthCheckFailureType) String() string {
 	return proto.EnumName(HealthCheckFailureType_name, int32(x))
 }
 func (HealthCheckFailureType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_cdcab2729bb5e815, []int{0}
+	return fileDescriptor_health_check_event_84ee3363a7e1b25a, []int{0}
 }
 
 type HealthCheckerType int32
@@ -83,19 +83,22 @@ func (x HealthCheckerType) String() string {
 	return proto.EnumName(HealthCheckerType_name, int32(x))
 }
 func (HealthCheckerType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_cdcab2729bb5e815, []int{1}
+	return fileDescriptor_health_check_event_84ee3363a7e1b25a, []int{1}
 }
 
 type HealthCheckEvent struct {
 	HealthCheckerType HealthCheckerType `protobuf:"varint,1,opt,name=health_checker_type,json=healthCheckerType,proto3,enum=envoy.data.core.v2alpha.HealthCheckerType" json:"health_checker_type,omitempty"`
-	Host              *core.Address     `protobuf:"bytes,2,opt,name=host" json:"host,omitempty"`
+	Host              *core.Address     `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
 	ClusterName       string            `protobuf:"bytes,3,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
 	// Types that are valid to be assigned to Event:
 	//	*HealthCheckEvent_EjectUnhealthyEvent
 	//	*HealthCheckEvent_AddHealthyEvent
+	//	*HealthCheckEvent_HealthCheckFailureEvent
+	//	*HealthCheckEvent_DegradedHealthyHost
+	//	*HealthCheckEvent_NoLongerDegradedHost
 	Event isHealthCheckEvent_Event `protobuf_oneof:"event"`
 	// Timestamp for event.
-	Timestamp            *time.Time `protobuf:"bytes,6,opt,name=timestamp,stdtime" json:"timestamp,omitempty"`
+	Timestamp            *time.Time `protobuf:"bytes,6,opt,name=timestamp,proto3,stdtime" json:"timestamp,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -105,7 +108,7 @@ func (m *HealthCheckEvent) Reset()         { *m = HealthCheckEvent{} }
 func (m *HealthCheckEvent) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckEvent) ProtoMessage()    {}
 func (*HealthCheckEvent) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_cdcab2729bb5e815, []int{0}
+	return fileDescriptor_health_check_event_84ee3363a7e1b25a, []int{0}
 }
 func (m *HealthCheckEvent) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -142,14 +145,26 @@ type isHealthCheckEvent_Event interface {
 }
 
 type HealthCheckEvent_EjectUnhealthyEvent struct {
-	EjectUnhealthyEvent *HealthCheckEjectUnhealthy `protobuf:"bytes,4,opt,name=eject_unhealthy_event,json=ejectUnhealthyEvent,oneof"`
+	EjectUnhealthyEvent *HealthCheckEjectUnhealthy `protobuf:"bytes,4,opt,name=eject_unhealthy_event,json=ejectUnhealthyEvent,proto3,oneof"`
 }
 type HealthCheckEvent_AddHealthyEvent struct {
-	AddHealthyEvent *HealthCheckAddHealthy `protobuf:"bytes,5,opt,name=add_healthy_event,json=addHealthyEvent,oneof"`
+	AddHealthyEvent *HealthCheckAddHealthy `protobuf:"bytes,5,opt,name=add_healthy_event,json=addHealthyEvent,proto3,oneof"`
+}
+type HealthCheckEvent_HealthCheckFailureEvent struct {
+	HealthCheckFailureEvent *HealthCheckFailure `protobuf:"bytes,7,opt,name=health_check_failure_event,json=healthCheckFailureEvent,proto3,oneof"`
+}
+type HealthCheckEvent_DegradedHealthyHost struct {
+	DegradedHealthyHost *DegradedHealthyHost `protobuf:"bytes,8,opt,name=degraded_healthy_host,json=degradedHealthyHost,proto3,oneof"`
+}
+type HealthCheckEvent_NoLongerDegradedHost struct {
+	NoLongerDegradedHost *NoLongerDegradedHost `protobuf:"bytes,9,opt,name=no_longer_degraded_host,json=noLongerDegradedHost,proto3,oneof"`
 }
 
-func (*HealthCheckEvent_EjectUnhealthyEvent) isHealthCheckEvent_Event() {}
-func (*HealthCheckEvent_AddHealthyEvent) isHealthCheckEvent_Event()     {}
+func (*HealthCheckEvent_EjectUnhealthyEvent) isHealthCheckEvent_Event()     {}
+func (*HealthCheckEvent_AddHealthyEvent) isHealthCheckEvent_Event()         {}
+func (*HealthCheckEvent_HealthCheckFailureEvent) isHealthCheckEvent_Event() {}
+func (*HealthCheckEvent_DegradedHealthyHost) isHealthCheckEvent_Event()     {}
+func (*HealthCheckEvent_NoLongerDegradedHost) isHealthCheckEvent_Event()    {}
 
 func (m *HealthCheckEvent) GetEvent() isHealthCheckEvent_Event {
 	if m != nil {
@@ -193,6 +208,27 @@ func (m *HealthCheckEvent) GetAddHealthyEvent() *HealthCheckAddHealthy {
 	return nil
 }
 
+func (m *HealthCheckEvent) GetHealthCheckFailureEvent() *HealthCheckFailure {
+	if x, ok := m.GetEvent().(*HealthCheckEvent_HealthCheckFailureEvent); ok {
+		return x.HealthCheckFailureEvent
+	}
+	return nil
+}
+
+func (m *HealthCheckEvent) GetDegradedHealthyHost() *DegradedHealthyHost {
+	if x, ok := m.GetEvent().(*HealthCheckEvent_DegradedHealthyHost); ok {
+		return x.DegradedHealthyHost
+	}
+	return nil
+}
+
+func (m *HealthCheckEvent) GetNoLongerDegradedHost() *NoLongerDegradedHost {
+	if x, ok := m.GetEvent().(*HealthCheckEvent_NoLongerDegradedHost); ok {
+		return x.NoLongerDegradedHost
+	}
+	return nil
+}
+
 func (m *HealthCheckEvent) GetTimestamp() *time.Time {
 	if m != nil {
 		return m.Timestamp
@@ -205,6 +241,9 @@ func (*HealthCheckEvent) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buff
 	return _HealthCheckEvent_OneofMarshaler, _HealthCheckEvent_OneofUnmarshaler, _HealthCheckEvent_OneofSizer, []interface{}{
 		(*HealthCheckEvent_EjectUnhealthyEvent)(nil),
 		(*HealthCheckEvent_AddHealthyEvent)(nil),
+		(*HealthCheckEvent_HealthCheckFailureEvent)(nil),
+		(*HealthCheckEvent_DegradedHealthyHost)(nil),
+		(*HealthCheckEvent_NoLongerDegradedHost)(nil),
 	}
 }
 
@@ -220,6 +259,21 @@ func _HealthCheckEvent_OneofMarshaler(msg proto.Message, b *proto.Buffer) error 
 	case *HealthCheckEvent_AddHealthyEvent:
 		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.AddHealthyEvent); err != nil {
+			return err
+		}
+	case *HealthCheckEvent_HealthCheckFailureEvent:
+		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.HealthCheckFailureEvent); err != nil {
+			return err
+		}
+	case *HealthCheckEvent_DegradedHealthyHost:
+		_ = b.EncodeVarint(8<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.DegradedHealthyHost); err != nil {
+			return err
+		}
+	case *HealthCheckEvent_NoLongerDegradedHost:
+		_ = b.EncodeVarint(9<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.NoLongerDegradedHost); err != nil {
 			return err
 		}
 	case nil:
@@ -248,6 +302,30 @@ func _HealthCheckEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *pro
 		err := b.DecodeMessage(msg)
 		m.Event = &HealthCheckEvent_AddHealthyEvent{msg}
 		return true, err
+	case 7: // event.health_check_failure_event
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(HealthCheckFailure)
+		err := b.DecodeMessage(msg)
+		m.Event = &HealthCheckEvent_HealthCheckFailureEvent{msg}
+		return true, err
+	case 8: // event.degraded_healthy_host
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(DegradedHealthyHost)
+		err := b.DecodeMessage(msg)
+		m.Event = &HealthCheckEvent_DegradedHealthyHost{msg}
+		return true, err
+	case 9: // event.no_longer_degraded_host
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(NoLongerDegradedHost)
+		err := b.DecodeMessage(msg)
+		m.Event = &HealthCheckEvent_NoLongerDegradedHost{msg}
+		return true, err
 	default:
 		return false, nil
 	}
@@ -264,6 +342,21 @@ func _HealthCheckEvent_OneofSizer(msg proto.Message) (n int) {
 		n += s
 	case *HealthCheckEvent_AddHealthyEvent:
 		s := proto.Size(x.AddHealthyEvent)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *HealthCheckEvent_HealthCheckFailureEvent:
+		s := proto.Size(x.HealthCheckFailureEvent)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *HealthCheckEvent_DegradedHealthyHost:
+		s := proto.Size(x.DegradedHealthyHost)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *HealthCheckEvent_NoLongerDegradedHost:
+		s := proto.Size(x.NoLongerDegradedHost)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -286,7 +379,7 @@ func (m *HealthCheckEjectUnhealthy) Reset()         { *m = HealthCheckEjectUnhea
 func (m *HealthCheckEjectUnhealthy) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckEjectUnhealthy) ProtoMessage()    {}
 func (*HealthCheckEjectUnhealthy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_cdcab2729bb5e815, []int{1}
+	return fileDescriptor_health_check_event_84ee3363a7e1b25a, []int{1}
 }
 func (m *HealthCheckEjectUnhealthy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -336,7 +429,7 @@ func (m *HealthCheckAddHealthy) Reset()         { *m = HealthCheckAddHealthy{} }
 func (m *HealthCheckAddHealthy) String() string { return proto.CompactTextString(m) }
 func (*HealthCheckAddHealthy) ProtoMessage()    {}
 func (*HealthCheckAddHealthy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_health_check_event_cdcab2729bb5e815, []int{2}
+	return fileDescriptor_health_check_event_84ee3363a7e1b25a, []int{2}
 }
 func (m *HealthCheckAddHealthy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -372,10 +465,148 @@ func (m *HealthCheckAddHealthy) GetFirstCheck() bool {
 	return false
 }
 
+type HealthCheckFailure struct {
+	// The type of failure that caused this event.
+	FailureType HealthCheckFailureType `protobuf:"varint,1,opt,name=failure_type,json=failureType,proto3,enum=envoy.data.core.v2alpha.HealthCheckFailureType" json:"failure_type,omitempty"`
+	// Whether this event is the result of the first ever health check on a host.
+	FirstCheck           bool     `protobuf:"varint,2,opt,name=first_check,json=firstCheck,proto3" json:"first_check,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HealthCheckFailure) Reset()         { *m = HealthCheckFailure{} }
+func (m *HealthCheckFailure) String() string { return proto.CompactTextString(m) }
+func (*HealthCheckFailure) ProtoMessage()    {}
+func (*HealthCheckFailure) Descriptor() ([]byte, []int) {
+	return fileDescriptor_health_check_event_84ee3363a7e1b25a, []int{3}
+}
+func (m *HealthCheckFailure) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HealthCheckFailure) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HealthCheckFailure.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *HealthCheckFailure) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HealthCheckFailure.Merge(dst, src)
+}
+func (m *HealthCheckFailure) XXX_Size() int {
+	return m.Size()
+}
+func (m *HealthCheckFailure) XXX_DiscardUnknown() {
+	xxx_messageInfo_HealthCheckFailure.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HealthCheckFailure proto.InternalMessageInfo
+
+func (m *HealthCheckFailure) GetFailureType() HealthCheckFailureType {
+	if m != nil {
+		return m.FailureType
+	}
+	return HealthCheckFailureType_ACTIVE
+}
+
+func (m *HealthCheckFailure) GetFirstCheck() bool {
+	if m != nil {
+		return m.FirstCheck
+	}
+	return false
+}
+
+type DegradedHealthyHost struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DegradedHealthyHost) Reset()         { *m = DegradedHealthyHost{} }
+func (m *DegradedHealthyHost) String() string { return proto.CompactTextString(m) }
+func (*DegradedHealthyHost) ProtoMessage()    {}
+func (*DegradedHealthyHost) Descriptor() ([]byte, []int) {
+	return fileDescriptor_health_check_event_84ee3363a7e1b25a, []int{4}
+}
+func (m *DegradedHealthyHost) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DegradedHealthyHost) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DegradedHealthyHost.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *DegradedHealthyHost) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DegradedHealthyHost.Merge(dst, src)
+}
+func (m *DegradedHealthyHost) XXX_Size() int {
+	return m.Size()
+}
+func (m *DegradedHealthyHost) XXX_DiscardUnknown() {
+	xxx_messageInfo_DegradedHealthyHost.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DegradedHealthyHost proto.InternalMessageInfo
+
+type NoLongerDegradedHost struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *NoLongerDegradedHost) Reset()         { *m = NoLongerDegradedHost{} }
+func (m *NoLongerDegradedHost) String() string { return proto.CompactTextString(m) }
+func (*NoLongerDegradedHost) ProtoMessage()    {}
+func (*NoLongerDegradedHost) Descriptor() ([]byte, []int) {
+	return fileDescriptor_health_check_event_84ee3363a7e1b25a, []int{5}
+}
+func (m *NoLongerDegradedHost) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *NoLongerDegradedHost) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_NoLongerDegradedHost.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *NoLongerDegradedHost) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NoLongerDegradedHost.Merge(dst, src)
+}
+func (m *NoLongerDegradedHost) XXX_Size() int {
+	return m.Size()
+}
+func (m *NoLongerDegradedHost) XXX_DiscardUnknown() {
+	xxx_messageInfo_NoLongerDegradedHost.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_NoLongerDegradedHost proto.InternalMessageInfo
+
 func init() {
 	proto.RegisterType((*HealthCheckEvent)(nil), "envoy.data.core.v2alpha.HealthCheckEvent")
 	proto.RegisterType((*HealthCheckEjectUnhealthy)(nil), "envoy.data.core.v2alpha.HealthCheckEjectUnhealthy")
 	proto.RegisterType((*HealthCheckAddHealthy)(nil), "envoy.data.core.v2alpha.HealthCheckAddHealthy")
+	proto.RegisterType((*HealthCheckFailure)(nil), "envoy.data.core.v2alpha.HealthCheckFailure")
+	proto.RegisterType((*DegradedHealthyHost)(nil), "envoy.data.core.v2alpha.DegradedHealthyHost")
+	proto.RegisterType((*NoLongerDegradedHost)(nil), "envoy.data.core.v2alpha.NoLongerDegradedHost")
 	proto.RegisterEnum("envoy.data.core.v2alpha.HealthCheckFailureType", HealthCheckFailureType_name, HealthCheckFailureType_value)
 	proto.RegisterEnum("envoy.data.core.v2alpha.HealthCheckerType", HealthCheckerType_name, HealthCheckerType_value)
 }
@@ -476,6 +707,78 @@ func (this *HealthCheckEvent_AddHealthyEvent) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *HealthCheckEvent_HealthCheckFailureEvent) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HealthCheckEvent_HealthCheckFailureEvent)
+	if !ok {
+		that2, ok := that.(HealthCheckEvent_HealthCheckFailureEvent)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.HealthCheckFailureEvent.Equal(that1.HealthCheckFailureEvent) {
+		return false
+	}
+	return true
+}
+func (this *HealthCheckEvent_DegradedHealthyHost) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HealthCheckEvent_DegradedHealthyHost)
+	if !ok {
+		that2, ok := that.(HealthCheckEvent_DegradedHealthyHost)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.DegradedHealthyHost.Equal(that1.DegradedHealthyHost) {
+		return false
+	}
+	return true
+}
+func (this *HealthCheckEvent_NoLongerDegradedHost) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HealthCheckEvent_NoLongerDegradedHost)
+	if !ok {
+		that2, ok := that.(HealthCheckEvent_NoLongerDegradedHost)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.NoLongerDegradedHost.Equal(that1.NoLongerDegradedHost) {
+		return false
+	}
+	return true
+}
 func (this *HealthCheckEjectUnhealthy) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -523,6 +826,84 @@ func (this *HealthCheckAddHealthy) Equal(that interface{}) bool {
 		return false
 	}
 	if this.FirstCheck != that1.FirstCheck {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *HealthCheckFailure) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HealthCheckFailure)
+	if !ok {
+		that2, ok := that.(HealthCheckFailure)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.FailureType != that1.FailureType {
+		return false
+	}
+	if this.FirstCheck != that1.FirstCheck {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *DegradedHealthyHost) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*DegradedHealthyHost)
+	if !ok {
+		that2, ok := that.(DegradedHealthyHost)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *NoLongerDegradedHost) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*NoLongerDegradedHost)
+	if !ok {
+		that2, ok := that.(NoLongerDegradedHost)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
 		return false
 	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
@@ -617,6 +998,48 @@ func (m *HealthCheckEvent_AddHealthyEvent) MarshalTo(dAtA []byte) (int, error) {
 	}
 	return i, nil
 }
+func (m *HealthCheckEvent_HealthCheckFailureEvent) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.HealthCheckFailureEvent != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintHealthCheckEvent(dAtA, i, uint64(m.HealthCheckFailureEvent.Size()))
+		n6, err := m.HealthCheckFailureEvent.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
+	}
+	return i, nil
+}
+func (m *HealthCheckEvent_DegradedHealthyHost) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.DegradedHealthyHost != nil {
+		dAtA[i] = 0x42
+		i++
+		i = encodeVarintHealthCheckEvent(dAtA, i, uint64(m.DegradedHealthyHost.Size()))
+		n7, err := m.DegradedHealthyHost.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n7
+	}
+	return i, nil
+}
+func (m *HealthCheckEvent_NoLongerDegradedHost) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.NoLongerDegradedHost != nil {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintHealthCheckEvent(dAtA, i, uint64(m.NoLongerDegradedHost.Size()))
+		n8, err := m.NoLongerDegradedHost.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n8
+	}
+	return i, nil
+}
 func (m *HealthCheckEjectUnhealthy) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -674,6 +1097,84 @@ func (m *HealthCheckAddHealthy) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *HealthCheckFailure) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HealthCheckFailure) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.FailureType != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintHealthCheckEvent(dAtA, i, uint64(m.FailureType))
+	}
+	if m.FirstCheck {
+		dAtA[i] = 0x10
+		i++
+		if m.FirstCheck {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *DegradedHealthyHost) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DegradedHealthyHost) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *NoLongerDegradedHost) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *NoLongerDegradedHost) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintHealthCheckEvent(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -684,6 +1185,9 @@ func encodeVarintHealthCheckEvent(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *HealthCheckEvent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.HealthCheckerType != 0 {
@@ -711,6 +1215,9 @@ func (m *HealthCheckEvent) Size() (n int) {
 }
 
 func (m *HealthCheckEvent_EjectUnhealthyEvent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.EjectUnhealthyEvent != nil {
@@ -720,6 +1227,9 @@ func (m *HealthCheckEvent_EjectUnhealthyEvent) Size() (n int) {
 	return n
 }
 func (m *HealthCheckEvent_AddHealthyEvent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.AddHealthyEvent != nil {
@@ -728,7 +1238,46 @@ func (m *HealthCheckEvent_AddHealthyEvent) Size() (n int) {
 	}
 	return n
 }
+func (m *HealthCheckEvent_HealthCheckFailureEvent) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.HealthCheckFailureEvent != nil {
+		l = m.HealthCheckFailureEvent.Size()
+		n += 1 + l + sovHealthCheckEvent(uint64(l))
+	}
+	return n
+}
+func (m *HealthCheckEvent_DegradedHealthyHost) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.DegradedHealthyHost != nil {
+		l = m.DegradedHealthyHost.Size()
+		n += 1 + l + sovHealthCheckEvent(uint64(l))
+	}
+	return n
+}
+func (m *HealthCheckEvent_NoLongerDegradedHost) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.NoLongerDegradedHost != nil {
+		l = m.NoLongerDegradedHost.Size()
+		n += 1 + l + sovHealthCheckEvent(uint64(l))
+	}
+	return n
+}
 func (m *HealthCheckEjectUnhealthy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.FailureType != 0 {
@@ -741,11 +1290,56 @@ func (m *HealthCheckEjectUnhealthy) Size() (n int) {
 }
 
 func (m *HealthCheckAddHealthy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.FirstCheck {
 		n += 2
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *HealthCheckFailure) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.FailureType != 0 {
+		n += 1 + sovHealthCheckEvent(uint64(m.FailureType))
+	}
+	if m.FirstCheck {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *DegradedHealthyHost) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *NoLongerDegradedHost) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -972,6 +1566,102 @@ func (m *HealthCheckEvent) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HealthCheckFailureEvent", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHealthCheckEvent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthHealthCheckEvent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &HealthCheckFailure{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Event = &HealthCheckEvent_HealthCheckFailureEvent{v}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DegradedHealthyHost", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHealthCheckEvent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthHealthCheckEvent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &DegradedHealthyHost{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Event = &HealthCheckEvent_DegradedHealthyHost{v}
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NoLongerDegradedHost", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHealthCheckEvent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthHealthCheckEvent
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &NoLongerDegradedHost{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Event = &HealthCheckEvent_NoLongerDegradedHost{v}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipHealthCheckEvent(dAtA[iNdEx:])
@@ -1135,6 +1825,198 @@ func (m *HealthCheckAddHealthy) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *HealthCheckFailure) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHealthCheckEvent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HealthCheckFailure: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HealthCheckFailure: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FailureType", wireType)
+			}
+			m.FailureType = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHealthCheckEvent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.FailureType |= (HealthCheckFailureType(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FirstCheck", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowHealthCheckEvent
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.FirstCheck = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHealthCheckEvent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHealthCheckEvent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DegradedHealthyHost) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHealthCheckEvent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DegradedHealthyHost: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DegradedHealthyHost: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHealthCheckEvent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHealthCheckEvent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *NoLongerDegradedHost) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowHealthCheckEvent
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: NoLongerDegradedHost: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: NoLongerDegradedHost: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipHealthCheckEvent(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthHealthCheckEvent
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipHealthCheckEvent(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1241,44 +2123,52 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/data/core/v2alpha/health_check_event.proto", fileDescriptor_health_check_event_cdcab2729bb5e815)
+	proto.RegisterFile("envoy/data/core/v2alpha/health_check_event.proto", fileDescriptor_health_check_event_84ee3363a7e1b25a)
 }
 
-var fileDescriptor_health_check_event_cdcab2729bb5e815 = []byte{
-	// 551 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0xcf, 0x6e, 0x12, 0x41,
-	0x18, 0xef, 0xb0, 0x40, 0xcb, 0x47, 0x53, 0x97, 0xa9, 0xb5, 0xc8, 0x01, 0x08, 0x27, 0x42, 0xcc,
-	0xac, 0x59, 0x2f, 0x26, 0x26, 0x4d, 0x00, 0x51, 0x1a, 0x93, 0x4a, 0x96, 0x55, 0x2f, 0xc6, 0xcd,
-	0x94, 0x1d, 0xd8, 0xd5, 0x85, 0xdd, 0xec, 0x0e, 0x9b, 0x10, 0x6f, 0x3e, 0x81, 0x8f, 0xe1, 0x23,
-	0x18, 0x4f, 0x3d, 0x7a, 0xf4, 0x0d, 0x34, 0xdc, 0x7a, 0xf3, 0x11, 0xcc, 0xce, 0x2c, 0x94, 0xda,
-	0x36, 0xe1, 0x36, 0xdf, 0x9f, 0xdf, 0x9f, 0x6f, 0xbe, 0x0f, 0x1e, 0xb3, 0x59, 0xec, 0x2f, 0x34,
-	0x9b, 0x72, 0xaa, 0x8d, 0xfc, 0x90, 0x69, 0xb1, 0x4e, 0xbd, 0xc0, 0xa1, 0x9a, 0xc3, 0xa8, 0xc7,
-	0x1d, 0x6b, 0xe4, 0xb0, 0xd1, 0x27, 0x8b, 0xc5, 0x6c, 0xc6, 0x49, 0x10, 0xfa, 0xdc, 0xc7, 0xc7,
-	0x02, 0x41, 0x12, 0x04, 0x49, 0x10, 0x24, 0x45, 0x54, 0x6a, 0x92, 0x8a, 0x06, 0xae, 0x16, 0xeb,
-	0x92, 0x8c, 0xda, 0x76, 0xc8, 0xa2, 0x48, 0x22, 0x2b, 0xb5, 0x89, 0xef, 0x4f, 0x3c, 0xa6, 0x89,
-	0xe8, 0x7c, 0x3e, 0xd6, 0xb8, 0x3b, 0x65, 0x11, 0xa7, 0xd3, 0x20, 0x6d, 0x38, 0x8e, 0xa9, 0xe7,
-	0xda, 0x94, 0x33, 0x6d, 0xf5, 0x48, 0x0b, 0xf7, 0x27, 0xfe, 0xc4, 0x17, 0x4f, 0x2d, 0x79, 0xc9,
-	0x6c, 0xe3, 0xaf, 0x02, 0x6a, 0x5f, 0xd8, 0xec, 0x26, 0x2e, 0x7b, 0x89, 0x49, 0x3c, 0x86, 0xc3,
-	0x4d, 0xeb, 0x2c, 0xb4, 0xf8, 0x22, 0x60, 0x65, 0x54, 0x47, 0xcd, 0x03, 0xbd, 0x45, 0xee, 0x30,
-	0x4f, 0x36, 0x78, 0x58, 0x68, 0x2e, 0x02, 0xd6, 0x81, 0x1f, 0x97, 0x17, 0x4a, 0xee, 0x0b, 0xca,
-	0xa8, 0xc8, 0x28, 0x39, 0xff, 0x97, 0x31, 0x81, 0xac, 0xe3, 0x47, 0xbc, 0x9c, 0xa9, 0xa3, 0x66,
-	0x51, 0xaf, 0xa4, 0xc4, 0x34, 0x70, 0x49, 0xac, 0x4b, 0xea, 0xb6, 0x1c, 0xde, 0x10, 0x7d, 0xf8,
-	0x11, 0xec, 0x8f, 0xbc, 0x79, 0xc4, 0x59, 0x68, 0xcd, 0xe8, 0x94, 0x95, 0x95, 0x3a, 0x6a, 0x16,
-	0x3a, 0x85, 0x44, 0x24, 0x1b, 0x66, 0xea, 0xc8, 0x28, 0xa6, 0xe5, 0x33, 0x3a, 0x65, 0xd8, 0x81,
-	0x23, 0xf6, 0x91, 0x8d, 0xb8, 0x35, 0x9f, 0x49, 0xe9, 0x85, 0xdc, 0x41, 0x39, 0x2b, 0xe4, 0xf4,
-	0x6d, 0xe6, 0xe8, 0x25, 0x04, 0x6f, 0x56, 0xf8, 0xfe, 0x8e, 0x71, 0xc8, 0xae, 0x65, 0xe4, 0x7f,
-	0xbd, 0x87, 0x12, 0xb5, 0x6d, 0xeb, 0xba, 0x4a, 0x4e, 0xa8, 0x90, 0x6d, 0x54, 0xda, 0xb6, 0xdd,
-	0x5f, 0x2b, 0xdc, 0xa3, 0xeb, 0x48, 0xb2, 0x9f, 0x40, 0x61, 0xbd, 0xe4, 0x72, 0x3e, 0xfd, 0x2a,
-	0x79, 0x06, 0x64, 0x75, 0x06, 0xc4, 0x5c, 0x75, 0x74, 0xb2, 0x5f, 0x7f, 0xd7, 0x90, 0x71, 0x05,
-	0xe9, 0x1c, 0x40, 0x4e, 0x38, 0xc2, 0xb9, 0xef, 0x97, 0x17, 0x0a, 0x6a, 0x7c, 0x86, 0x87, 0x77,
-	0x4e, 0x88, 0x3f, 0xc0, 0xfe, 0x98, 0xba, 0xde, 0x3c, 0x64, 0x9b, 0x3b, 0xd7, 0xb6, 0x99, 0xe2,
-	0x85, 0xc4, 0xdd, 0x58, 0x7c, 0x71, 0x7c, 0x55, 0x68, 0x3c, 0x85, 0xa3, 0x5b, 0x07, 0xc7, 0x35,
-	0x28, 0x8e, 0xdd, 0x30, 0xe2, 0xf2, 0xe4, 0x84, 0xee, 0x9e, 0x01, 0x22, 0x25, 0x5a, 0x5b, 0x27,
-	0xf0, 0xe0, 0x76, 0x31, 0x0c, 0x90, 0x6f, 0x77, 0xcd, 0xd3, 0xb7, 0x3d, 0x75, 0x07, 0x17, 0x61,
-	0x77, 0xd0, 0x1e, 0x0e, 0x93, 0x00, 0x25, 0xc1, 0x59, 0xcf, 0x7c, 0xf7, 0xda, 0x78, 0xa5, 0x66,
-	0x5a, 0xcf, 0xa0, 0x74, 0xe3, 0x40, 0xf1, 0x1e, 0x64, 0xfb, 0xa6, 0x39, 0x50, 0x77, 0xf0, 0x2e,
-	0x28, 0x66, 0x77, 0xa0, 0xa2, 0x24, 0xf5, 0xd2, 0x18, 0x74, 0xd5, 0x0c, 0x2e, 0x40, 0xce, 0xe8,
-	0x3d, 0x3f, 0x1d, 0xaa, 0x4a, 0x47, 0xfd, 0xb6, 0xac, 0xa2, 0x9f, 0xcb, 0x2a, 0xfa, 0xb5, 0xac,
-	0xa2, 0x3f, 0xcb, 0x2a, 0x3a, 0xcf, 0x8b, 0xaf, 0x7f, 0xf2, 0x2f, 0x00, 0x00, 0xff, 0xff, 0xb0,
-	0x6c, 0x58, 0x7e, 0xfd, 0x03, 0x00, 0x00,
+var fileDescriptor_health_check_event_84ee3363a7e1b25a = []byte{
+	// 684 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x54, 0xcb, 0x6e, 0xd3, 0x4c,
+	0x14, 0xce, 0xe4, 0xd6, 0xe6, 0xa4, 0xea, 0xef, 0x4e, 0x9b, 0x26, 0x7f, 0x16, 0x49, 0x14, 0x09,
+	0xa9, 0x2a, 0xc5, 0x46, 0x61, 0x03, 0x42, 0xaa, 0x94, 0xa4, 0x81, 0x54, 0xa0, 0x12, 0xb9, 0x06,
+	0x36, 0x08, 0x6b, 0x1a, 0x4f, 0x62, 0x17, 0xc7, 0x63, 0xd9, 0x4e, 0x44, 0xc4, 0x8e, 0x27, 0x60,
+	0xc3, 0x3b, 0xf4, 0x11, 0x10, 0xab, 0x2e, 0x59, 0xf2, 0x06, 0xa0, 0xec, 0xfa, 0x16, 0xc8, 0x33,
+	0x4e, 0xd2, 0x36, 0x89, 0x54, 0x16, 0xec, 0x66, 0xce, 0xcc, 0x77, 0xf1, 0x77, 0xce, 0x18, 0x1e,
+	0x52, 0x67, 0xc4, 0xc6, 0x8a, 0x41, 0x02, 0xa2, 0x74, 0x99, 0x47, 0x95, 0x51, 0x8d, 0xd8, 0xae,
+	0x49, 0x14, 0x93, 0x12, 0x3b, 0x30, 0xf5, 0xae, 0x49, 0xbb, 0x1f, 0x74, 0x3a, 0xa2, 0x4e, 0x20,
+	0xbb, 0x1e, 0x0b, 0x18, 0xce, 0x73, 0x84, 0x1c, 0x22, 0xe4, 0x10, 0x21, 0x47, 0x88, 0x62, 0x59,
+	0x50, 0x11, 0xd7, 0x52, 0x46, 0x35, 0x41, 0x46, 0x0c, 0xc3, 0xa3, 0xbe, 0x2f, 0x90, 0xc5, 0x72,
+	0x9f, 0xb1, 0xbe, 0x4d, 0x15, 0xbe, 0x3b, 0x1b, 0xf6, 0x94, 0xc0, 0x1a, 0x50, 0x3f, 0x20, 0x03,
+	0x37, 0xba, 0x90, 0x1f, 0x11, 0xdb, 0x32, 0x48, 0x40, 0x95, 0xe9, 0x22, 0x3a, 0xd8, 0xe9, 0xb3,
+	0x3e, 0xe3, 0x4b, 0x25, 0x5c, 0x89, 0x6a, 0xf5, 0x22, 0x0d, 0x52, 0x9b, 0xdb, 0x6c, 0x86, 0x2e,
+	0x5b, 0xa1, 0x49, 0xdc, 0x83, 0xed, 0xeb, 0xd6, 0xa9, 0xa7, 0x07, 0x63, 0x97, 0x16, 0x50, 0x05,
+	0xed, 0x6d, 0xd6, 0xf6, 0xe5, 0x15, 0xe6, 0xe5, 0x6b, 0x3c, 0xd4, 0xd3, 0xc6, 0x2e, 0x6d, 0xc0,
+	0xf7, 0xab, 0xcb, 0x44, 0xea, 0x33, 0x8a, 0x4b, 0x48, 0xdd, 0x32, 0x6f, 0x1f, 0x63, 0x19, 0x92,
+	0x26, 0xf3, 0x83, 0x42, 0xbc, 0x82, 0xf6, 0xb2, 0xb5, 0x62, 0x44, 0x4c, 0x5c, 0x4b, 0x1e, 0xd5,
+	0x04, 0x75, 0x5d, 0x7c, 0xbc, 0xca, 0xef, 0xe1, 0x03, 0xd8, 0xe8, 0xda, 0x43, 0x3f, 0xa0, 0x9e,
+	0xee, 0x90, 0x01, 0x2d, 0x24, 0x2a, 0x68, 0x2f, 0xd3, 0xc8, 0x84, 0x22, 0x49, 0x2f, 0x5e, 0x41,
+	0x6a, 0x36, 0x3a, 0x3e, 0x21, 0x03, 0x8a, 0x4d, 0xc8, 0xd1, 0x73, 0xda, 0x0d, 0xf4, 0xa1, 0x23,
+	0xa4, 0xc7, 0xa2, 0x07, 0x85, 0x24, 0x97, 0xab, 0xdd, 0xe5, 0x3b, 0x5a, 0x21, 0xc1, 0xeb, 0x29,
+	0xbe, 0x1d, 0x53, 0xb7, 0xe9, 0x8d, 0x8a, 0xc8, 0xeb, 0x1d, 0x6c, 0x11, 0xc3, 0xd0, 0x6f, 0xaa,
+	0xa4, 0xb8, 0x8a, 0x7c, 0x17, 0x95, 0xba, 0x61, 0xb4, 0x67, 0x0a, 0xff, 0x91, 0xd9, 0x4e, 0xb0,
+	0x1f, 0x42, 0x66, 0xd6, 0xe4, 0x42, 0x3a, 0x8a, 0x4a, 0x8c, 0x81, 0x3c, 0x1d, 0x03, 0x59, 0x9b,
+	0xde, 0x68, 0x24, 0xbf, 0xfc, 0x2a, 0x23, 0x75, 0x0e, 0xc1, 0xe7, 0x50, 0xbc, 0x31, 0x88, 0x3d,
+	0x62, 0xd9, 0x43, 0x8f, 0x46, 0x36, 0xd7, 0x38, 0xe1, 0xfd, 0xbb, 0xd8, 0x7c, 0x26, 0x80, 0xed,
+	0x98, 0x9a, 0x37, 0x17, 0xaa, 0xc2, 0xeb, 0x19, 0xe4, 0x0c, 0xda, 0xf7, 0x88, 0x41, 0xe7, 0x71,
+	0xf0, 0x16, 0xaf, 0x73, 0x99, 0x83, 0x95, 0x32, 0x47, 0x11, 0x6a, 0x9a, 0x03, 0xf3, 0x83, 0x30,
+	0x6d, 0x63, 0xb1, 0x8c, 0x7b, 0x90, 0x77, 0x98, 0x6e, 0x33, 0xa7, 0x4f, 0x3d, 0x7d, 0xae, 0x16,
+	0xaa, 0x64, 0xb8, 0xca, 0x83, 0x95, 0x2a, 0x27, 0xec, 0x25, 0x87, 0xcd, 0xd4, 0x84, 0xcc, 0x8e,
+	0xb3, 0xa4, 0xde, 0xd8, 0x84, 0x14, 0x8f, 0x08, 0xa7, 0xbe, 0x5d, 0x5d, 0x26, 0x50, 0xf5, 0x13,
+	0xfc, 0xbf, 0x72, 0x32, 0xf0, 0x7b, 0xd8, 0x98, 0xe6, 0x7a, 0xed, 0xad, 0x28, 0x7f, 0x11, 0xeb,
+	0xc2, 0x83, 0xc9, 0xf6, 0xe6, 0x07, 0xd5, 0xc7, 0x90, 0x5b, 0x3a, 0x30, 0xb8, 0x0c, 0xd9, 0x9e,
+	0xe5, 0xf9, 0x81, 0x68, 0x2e, 0xd7, 0x5d, 0x57, 0x81, 0x97, 0xf8, 0xd5, 0xea, 0x57, 0x04, 0x78,
+	0x51, 0xed, 0x5f, 0x1b, 0xbe, 0xed, 0x2b, 0xbe, 0xe0, 0x2b, 0x07, 0xdb, 0x4b, 0x9a, 0x5e, 0xdd,
+	0x85, 0x9d, 0x65, 0x5d, 0xda, 0x3f, 0x84, 0xdd, 0xe5, 0x16, 0x30, 0x40, 0xba, 0xde, 0xd4, 0x8e,
+	0xdf, 0xb4, 0xa4, 0x18, 0xce, 0xc2, 0x5a, 0xa7, 0x7e, 0x7a, 0x1a, 0x6e, 0x50, 0xb8, 0x39, 0x69,
+	0x69, 0x6f, 0x5f, 0xa9, 0x2f, 0xa4, 0xf8, 0xfe, 0x53, 0xd8, 0x5a, 0xf8, 0x3f, 0xe1, 0x75, 0x48,
+	0xb6, 0x35, 0xad, 0x23, 0xc5, 0xf0, 0x1a, 0x24, 0xb4, 0x66, 0x47, 0x42, 0x61, 0xe9, 0xb9, 0xda,
+	0x69, 0x4a, 0x71, 0x9c, 0x81, 0x94, 0xda, 0x3a, 0x3a, 0x3e, 0x95, 0x12, 0x8d, 0x27, 0x17, 0x93,
+	0x12, 0xfa, 0x31, 0x29, 0xa1, 0x9f, 0x93, 0x12, 0xfa, 0x3d, 0x29, 0x21, 0xb8, 0x67, 0x31, 0x11,
+	0x95, 0xeb, 0xb1, 0x8f, 0xe3, 0x55, 0xa9, 0x75, 0xd0, 0x59, 0x9a, 0x3f, 0xd1, 0x47, 0x7f, 0x02,
+	0x00, 0x00, 0xff, 0xff, 0x97, 0x2b, 0x47, 0x30, 0x25, 0x06, 0x00, 0x00,
 }

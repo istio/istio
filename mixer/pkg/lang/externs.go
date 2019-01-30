@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/idna"
 
 	config "istio.io/api/policy/v1beta1"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/lang/ast"
 )
@@ -37,6 +38,10 @@ var Externs = map[string]interpreter.Extern{
 	"ip_equal":          interpreter.ExternFromFn("ip_equal", externIPEqual),
 	"timestamp":         interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal":   interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
+	"timestamp_lt":      interpreter.ExternFromFn("timestamp_lt", externTimestampLt),
+	"timestamp_le":      interpreter.ExternFromFn("timestamp_le", externTimestampLe),
+	"timestamp_gt":      interpreter.ExternFromFn("timestamp_gt", externTimestampGt),
+	"timestamp_ge":      interpreter.ExternFromFn("timestamp_ge", externTimestampGe),
 	"dnsName":           interpreter.ExternFromFn("dnsName", externDNSName),
 	"dnsName_equal":     interpreter.ExternFromFn("dnsName_equal", externDNSNameEqual),
 	"email":             interpreter.ExternFromFn("email", externEmail),
@@ -49,6 +54,7 @@ var Externs = map[string]interpreter.Extern{
 	"endsWith":          interpreter.ExternFromFn("endsWith", externEndsWith),
 	"emptyStringMap":    interpreter.ExternFromFn("emptyStringMap", externEmptyStringMap),
 	"conditionalString": interpreter.ExternFromFn("conditionalString", externConditionalString),
+	"toLower":           interpreter.ExternFromFn("toLower", externToLower),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -114,6 +120,11 @@ var ExternFunctionMetadata = []ast.FunctionMetadata{
 		ReturnType:    config.STRING,
 		ArgumentTypes: []config.ValueType{config.BOOL, config.STRING, config.STRING},
 	},
+	{
+		Name:          "toLower",
+		ReturnType:    config.STRING,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
 }
 
 func externIP(in string) ([]byte, error) {
@@ -141,6 +152,22 @@ func externTimestamp(in string) (time.Time, error) {
 
 func externTimestampEqual(t1 time.Time, t2 time.Time) bool {
 	return t1.Equal(t2)
+}
+
+func externTimestampLt(t1 time.Time, t2 time.Time) bool {
+	return t1.Before(t2)
+}
+
+func externTimestampLe(t1 time.Time, t2 time.Time) bool {
+	return t1 == t2 || t1.Before(t2)
+}
+
+func externTimestampGt(t1 time.Time, t2 time.Time) bool {
+	return t2.Before(t1)
+}
+
+func externTimestampGe(t1 time.Time, t2 time.Time) bool {
+	return t1 == t2 || t2.Before(t1)
 }
 
 // This IDNA profile is for performing validations, but does not otherwise modify the string.
@@ -324,8 +351,8 @@ func externEndsWith(str string, suffix string) bool {
 	return strings.HasSuffix(str, suffix)
 }
 
-func externEmptyStringMap() map[string]string {
-	return map[string]string{}
+func externEmptyStringMap() attribute.StringMap {
+	return attribute.WrapStringMap(nil)
 }
 
 func externConditionalString(condition bool, trueStr, falseStr string) string {
@@ -333,4 +360,8 @@ func externConditionalString(condition bool, trueStr, falseStr string) string {
 		return trueStr
 	}
 	return falseStr
+}
+
+func externToLower(str string) string {
+	return strings.ToLower(str)
 }

@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-extsvc
+  namespace: testns
 spec:
    hosts:
    - external.extsvc.com
@@ -17,6 +18,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
  name: external-service-1
+ namespace: testns
 spec:
  host: external.extsvc.com
 # BUG: crash envoy
@@ -30,6 +32,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-ports
+  namespace: testns
 spec:
    hosts:
    - ports.extsvc.com
@@ -50,6 +53,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-dst
+  namespace: testns
 spec:
    hosts:
    - dst.extsvc.com
@@ -67,6 +71,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-svc-ep
+  namespace: testns
 spec:
    hosts:
    - ep.extsvc.com

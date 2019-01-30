@@ -2,8 +2,8 @@
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
-    
-    "metadata": {"istio":"sidecar"}
+    "locality": {},
+    "metadata": {"ISTIO_META_INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","istio":"sidecar"}
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -35,8 +35,35 @@
       {
         "tag_name": "listener_address",
         "regex": "^listener\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {
+        "tag_name": "mongo_prefix",
+        "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
       }
-    ]
+    ],
+    "stats_matcher": {
+      "inclusion_list": {
+        "patterns": [{
+            "prefix": "cluster_manager"
+          },
+          {
+            "prefix": "listener_manager"
+          },
+          {
+            "prefix": "http_mixer_filter"
+          },
+          {
+            "prefix": "tcp_mixer_filter"
+          },
+          {
+            "prefix": "server"
+          },
+          {
+            "prefix": "cluster.xds-grpc"
+          }
+        ]
+      }
+    }
   },
   "admin": {
     "access_log_path": "/dev/null",
@@ -212,7 +239,8 @@
       "name": "envoy.zipkin",
       "config": {
         "collector_cluster": "zipkin",
-        "collector_endpoint": "/api/v1/spans"
+        "collector_endpoint": "/api/v1/spans",
+        "trace_id_128bit":"true"
       }
     }
   }

@@ -17,21 +17,36 @@ package server
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
+
 	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/mcp/env"
 	"istio.io/istio/pkg/mcp/server"
 )
 
 type accessList struct {
-	Allowed []string
+	IsBlackList bool
+	Allowed     []string
 }
 
 var (
 	newFileWatcher         = filewatcher.NewWatcher
 	readFile               = ioutil.ReadFile
 	watchEventHandledProbe func()
+)
+
+var (
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// many authz failures are logs as a burst every AUTHZ_FAILURE_LOG_FREQ.
+	authzFailureLogBurstSize = env.Integer("AUTHZ_FAILURE_LOG_BURST_SIZE", 1)
+
+	// For the purposes of logging rate limiting authz failures, this controls how
+	// frequently bursts of authz failures are logged.
+	authzFailureLogFreq = env.Duration("AUTHZ_FAILURE_LOG_FREQ", time.Minute)
 )
 
 func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.ListAuthChecker, error) {
@@ -41,7 +56,15 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 		return nil, err
 	}
 
-	checker := server.NewListAuthChecker()
+	options := server.DefaultListAuthCheckerOptions()
+	options.AuthzFailureLogBurstSize = authzFailureLogBurstSize
+	options.AuthzFailureLogFreq = authzFailureLogFreq
+	if list.IsBlackList {
+		options.AuthMode = server.AuthBlackList
+	} else {
+		options.AuthMode = server.AuthWhiteList
+	}
+	checker := server.NewListAuthChecker(options)
 	checker.Set(list.Allowed...)
 
 	watcher := newFileWatcher()
@@ -58,8 +81,16 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 					if list, err = readAccessList(accessListFile); err != nil {
 						scope.Errorf("Error reading access list %q: %v", accessListFile, err)
 					} else {
+						if list.IsBlackList {
+							checker.SetMode(server.AuthBlackList)
+						} else {
+							checker.SetMode(server.AuthWhiteList)
+						}
 						checker.Set(list.Allowed...)
 					}
+				} else if e.Op&fsnotify.Remove == fsnotify.Remove {
+					checker.SetMode(server.AuthBlackList)
+					checker.Set()
 				}
 				if watchEventHandledProbe != nil {
 					watchEventHandledProbe()
@@ -79,6 +110,11 @@ func watchAccessList(stopCh <-chan struct{}, accessListFile string) (*server.Lis
 func readAccessList(accessListFile string) (accessList, error) {
 	b, err := readFile(accessListFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Treat a non-existent access list file as default open
+			return accessList{IsBlackList: true}, nil
+		}
+
 		return accessList{}, fmt.Errorf("unable to read access list file %q: %v", accessListFile, err)
 	}
 

@@ -15,12 +15,14 @@
 package citadel
 
 import (
+	"os"
+	"testing"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"testing"
 )
 
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,
@@ -34,7 +36,7 @@ func TestSecretCreationKubernetes(t *testing.T) {
 	// Test the existence of istio.default secret.
 	s, err := c.WaitForSecretToExist()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	t.Log(`checking secret "istio.default" is correctly created`)
@@ -60,5 +62,6 @@ func TestSecretCreationKubernetes(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.Run("citadel_test", m)
+	rt, _ := framework.Run("citadel_test", m)
+	os.Exit(rt)
 }

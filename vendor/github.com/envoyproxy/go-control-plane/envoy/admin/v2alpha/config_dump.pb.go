@@ -37,7 +37,7 @@ type ConfigDump struct {
 	// * *clusters*: :ref:`ClustersConfigDump <envoy_api_msg_admin.v2alpha.ClustersConfigDump>`
 	// * *listeners*: :ref:`ListenersConfigDump <envoy_api_msg_admin.v2alpha.ListenersConfigDump>`
 	// * *routes*:  :ref:`RoutesConfigDump <envoy_api_msg_admin.v2alpha.RoutesConfigDump>`
-	Configs              []types.Any `protobuf:"bytes,1,rep,name=configs" json:"configs"`
+	Configs              []types.Any `protobuf:"bytes,1,rep,name=configs,proto3" json:"configs"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -47,7 +47,7 @@ func (m *ConfigDump) Reset()         { *m = ConfigDump{} }
 func (m *ConfigDump) String() string { return proto.CompactTextString(m) }
 func (*ConfigDump) ProtoMessage()    {}
 func (*ConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{0}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{0}
 }
 func (m *ConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -88,9 +88,9 @@ func (m *ConfigDump) GetConfigs() []types.Any {
 // the static portions of an Envoy configuration by reusing the output as the bootstrap
 // configuration for another Envoy.
 type BootstrapConfigDump struct {
-	Bootstrap v2.Bootstrap `protobuf:"bytes,1,opt,name=bootstrap" json:"bootstrap"`
+	Bootstrap v2.Bootstrap `protobuf:"bytes,1,opt,name=bootstrap,proto3" json:"bootstrap"`
 	// The timestamp when the BootstrapConfig was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -100,7 +100,7 @@ func (m *BootstrapConfigDump) Reset()         { *m = BootstrapConfigDump{} }
 func (m *BootstrapConfigDump) String() string { return proto.CompactTextString(m) }
 func (*BootstrapConfigDump) ProtoMessage()    {}
 func (*BootstrapConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{1}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{1}
 }
 func (m *BootstrapConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -152,20 +152,20 @@ type ListenersConfigDump struct {
 	// will be "".
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The statically loaded listener configs.
-	StaticListeners []ListenersConfigDump_StaticListener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners" json:"static_listeners"`
+	StaticListeners []ListenersConfigDump_StaticListener `protobuf:"bytes,2,rep,name=static_listeners,json=staticListeners,proto3" json:"static_listeners"`
 	// The dynamically loaded active listeners. These are listeners that are available to service
 	// data plane traffic.
-	DynamicActiveListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners" json:"dynamic_active_listeners"`
+	DynamicActiveListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,3,rep,name=dynamic_active_listeners,json=dynamicActiveListeners,proto3" json:"dynamic_active_listeners"`
 	// The dynamically loaded warming listeners. These are listeners that are currently undergoing
 	// warming in preparation to service data plane traffic. Note that if attempting to recreate an
 	// Envoy configuration from a configuration dump, the warming listeners should generally be
 	// discarded.
-	DynamicWarmingListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,4,rep,name=dynamic_warming_listeners,json=dynamicWarmingListeners" json:"dynamic_warming_listeners"`
+	DynamicWarmingListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,4,rep,name=dynamic_warming_listeners,json=dynamicWarmingListeners,proto3" json:"dynamic_warming_listeners"`
 	// The dynamically loaded draining listeners. These are listeners that are currently undergoing
 	// draining in preparation to stop servicing data plane traffic. Note that if attempting to
 	// recreate an Envoy configuration from a configuration dump, the draining listeners should
 	// generally be discarded.
-	DynamicDrainingListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,5,rep,name=dynamic_draining_listeners,json=dynamicDrainingListeners" json:"dynamic_draining_listeners"`
+	DynamicDrainingListeners []ListenersConfigDump_DynamicListener `protobuf:"bytes,5,rep,name=dynamic_draining_listeners,json=dynamicDrainingListeners,proto3" json:"dynamic_draining_listeners"`
 	XXX_NoUnkeyedLiteral     struct{}                              `json:"-"`
 	XXX_unrecognized         []byte                                `json:"-"`
 	XXX_sizecache            int32                                 `json:"-"`
@@ -175,7 +175,7 @@ func (m *ListenersConfigDump) Reset()         { *m = ListenersConfigDump{} }
 func (m *ListenersConfigDump) String() string { return proto.CompactTextString(m) }
 func (*ListenersConfigDump) ProtoMessage()    {}
 func (*ListenersConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{2}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{2}
 }
 func (m *ListenersConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -242,9 +242,9 @@ func (m *ListenersConfigDump) GetDynamicDrainingListeners() []ListenersConfigDum
 // Describes a statically loaded cluster.
 type ListenersConfigDump_StaticListener struct {
 	// The listener config.
-	Listener *v21.Listener `protobuf:"bytes,1,opt,name=listener" json:"listener,omitempty"`
+	Listener *v21.Listener `protobuf:"bytes,1,opt,name=listener,proto3" json:"listener,omitempty"`
 	// The timestamp when the Listener was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -254,7 +254,7 @@ func (m *ListenersConfigDump_StaticListener) Reset()         { *m = ListenersCon
 func (m *ListenersConfigDump_StaticListener) String() string { return proto.CompactTextString(m) }
 func (*ListenersConfigDump_StaticListener) ProtoMessage()    {}
 func (*ListenersConfigDump_StaticListener) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{2, 0}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{2, 0}
 }
 func (m *ListenersConfigDump_StaticListener) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -305,9 +305,9 @@ type ListenersConfigDump_DynamicListener struct {
 	// by the API.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The listener config.
-	Listener *v21.Listener `protobuf:"bytes,2,opt,name=listener" json:"listener,omitempty"`
+	Listener *v21.Listener `protobuf:"bytes,2,opt,name=listener,proto3" json:"listener,omitempty"`
 	// The timestamp when the Listener was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -317,7 +317,7 @@ func (m *ListenersConfigDump_DynamicListener) Reset()         { *m = ListenersCo
 func (m *ListenersConfigDump_DynamicListener) String() string { return proto.CompactTextString(m) }
 func (*ListenersConfigDump_DynamicListener) ProtoMessage()    {}
 func (*ListenersConfigDump_DynamicListener) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{2, 1}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{2, 1}
 }
 func (m *ListenersConfigDump_DynamicListener) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -376,15 +376,15 @@ type ClustersConfigDump struct {
 	// will be "".
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The statically loaded cluster configs.
-	StaticClusters []ClustersConfigDump_StaticCluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters" json:"static_clusters"`
+	StaticClusters []ClustersConfigDump_StaticCluster `protobuf:"bytes,2,rep,name=static_clusters,json=staticClusters,proto3" json:"static_clusters"`
 	// The dynamically loaded active clusters. These are clusters that are available to service
 	// data plane traffic.
-	DynamicActiveClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters" json:"dynamic_active_clusters"`
+	DynamicActiveClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,3,rep,name=dynamic_active_clusters,json=dynamicActiveClusters,proto3" json:"dynamic_active_clusters"`
 	// The dynamically loaded warming clusters. These are clusters that are currently undergoing
 	// warming in preparation to service data plane traffic. Note that if attempting to recreate an
 	// Envoy configuration from a configuration dump, the warming clusters should generally be
 	// discarded.
-	DynamicWarmingClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,4,rep,name=dynamic_warming_clusters,json=dynamicWarmingClusters" json:"dynamic_warming_clusters"`
+	DynamicWarmingClusters []ClustersConfigDump_DynamicCluster `protobuf:"bytes,4,rep,name=dynamic_warming_clusters,json=dynamicWarmingClusters,proto3" json:"dynamic_warming_clusters"`
 	XXX_NoUnkeyedLiteral   struct{}                            `json:"-"`
 	XXX_unrecognized       []byte                              `json:"-"`
 	XXX_sizecache          int32                               `json:"-"`
@@ -394,7 +394,7 @@ func (m *ClustersConfigDump) Reset()         { *m = ClustersConfigDump{} }
 func (m *ClustersConfigDump) String() string { return proto.CompactTextString(m) }
 func (*ClustersConfigDump) ProtoMessage()    {}
 func (*ClustersConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{3}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{3}
 }
 func (m *ClustersConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -454,9 +454,9 @@ func (m *ClustersConfigDump) GetDynamicWarmingClusters() []ClustersConfigDump_Dy
 // Describes a statically loaded cluster.
 type ClustersConfigDump_StaticCluster struct {
 	// The cluster config.
-	Cluster *v21.Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster *v21.Cluster `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// The timestamp when the Cluster was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -466,7 +466,7 @@ func (m *ClustersConfigDump_StaticCluster) Reset()         { *m = ClustersConfig
 func (m *ClustersConfigDump_StaticCluster) String() string { return proto.CompactTextString(m) }
 func (*ClustersConfigDump_StaticCluster) ProtoMessage()    {}
 func (*ClustersConfigDump_StaticCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{3, 0}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{3, 0}
 }
 func (m *ClustersConfigDump_StaticCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -517,9 +517,9 @@ type ClustersConfigDump_DynamicCluster struct {
 	// the API.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The cluster config.
-	Cluster *v21.Cluster `protobuf:"bytes,2,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster *v21.Cluster `protobuf:"bytes,2,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	// The timestamp when the Cluster was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -529,7 +529,7 @@ func (m *ClustersConfigDump_DynamicCluster) Reset()         { *m = ClustersConfi
 func (m *ClustersConfigDump_DynamicCluster) String() string { return proto.CompactTextString(m) }
 func (*ClustersConfigDump_DynamicCluster) ProtoMessage()    {}
 func (*ClustersConfigDump_DynamicCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{3, 1}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{3, 1}
 }
 func (m *ClustersConfigDump_DynamicCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -586,9 +586,9 @@ func (m *ClustersConfigDump_DynamicCluster) GetLastUpdated() *types.Timestamp {
 // in RDS responses.
 type RoutesConfigDump struct {
 	// The statically loaded route configs.
-	StaticRouteConfigs []RoutesConfigDump_StaticRouteConfig `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs" json:"static_route_configs"`
+	StaticRouteConfigs []RoutesConfigDump_StaticRouteConfig `protobuf:"bytes,2,rep,name=static_route_configs,json=staticRouteConfigs,proto3" json:"static_route_configs"`
 	// The dynamically loaded route configs.
-	DynamicRouteConfigs  []RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs" json:"dynamic_route_configs"`
+	DynamicRouteConfigs  []RoutesConfigDump_DynamicRouteConfig `protobuf:"bytes,3,rep,name=dynamic_route_configs,json=dynamicRouteConfigs,proto3" json:"dynamic_route_configs"`
 	XXX_NoUnkeyedLiteral struct{}                              `json:"-"`
 	XXX_unrecognized     []byte                                `json:"-"`
 	XXX_sizecache        int32                                 `json:"-"`
@@ -598,7 +598,7 @@ func (m *RoutesConfigDump) Reset()         { *m = RoutesConfigDump{} }
 func (m *RoutesConfigDump) String() string { return proto.CompactTextString(m) }
 func (*RoutesConfigDump) ProtoMessage()    {}
 func (*RoutesConfigDump) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{4}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{4}
 }
 func (m *RoutesConfigDump) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -643,9 +643,9 @@ func (m *RoutesConfigDump) GetDynamicRouteConfigs() []RoutesConfigDump_DynamicRo
 
 type RoutesConfigDump_StaticRouteConfig struct {
 	// The route config.
-	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,1,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,1,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
 	// The timestamp when the Route was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,2,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -655,7 +655,7 @@ func (m *RoutesConfigDump_StaticRouteConfig) Reset()         { *m = RoutesConfig
 func (m *RoutesConfigDump_StaticRouteConfig) String() string { return proto.CompactTextString(m) }
 func (*RoutesConfigDump_StaticRouteConfig) ProtoMessage()    {}
 func (*RoutesConfigDump_StaticRouteConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{4, 0}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{4, 0}
 }
 func (m *RoutesConfigDump_StaticRouteConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -704,9 +704,9 @@ type RoutesConfigDump_DynamicRouteConfig struct {
 	// the route configuration was loaded.
 	VersionInfo string `protobuf:"bytes,1,opt,name=version_info,json=versionInfo,proto3" json:"version_info,omitempty"`
 	// The route config.
-	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig" json:"route_config,omitempty"`
+	RouteConfig *v21.RouteConfiguration `protobuf:"bytes,2,opt,name=route_config,json=routeConfig,proto3" json:"route_config,omitempty"`
 	// The timestamp when the Route was last updated.
-	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated" json:"last_updated,omitempty"`
+	LastUpdated          *types.Timestamp `protobuf:"bytes,3,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -716,7 +716,7 @@ func (m *RoutesConfigDump_DynamicRouteConfig) Reset()         { *m = RoutesConfi
 func (m *RoutesConfigDump_DynamicRouteConfig) String() string { return proto.CompactTextString(m) }
 func (*RoutesConfigDump_DynamicRouteConfig) ProtoMessage()    {}
 func (*RoutesConfigDump_DynamicRouteConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_dump_e747bab984ff2f76, []int{4, 1}
+	return fileDescriptor_config_dump_d4c206baa717acbb, []int{4, 1}
 }
 func (m *RoutesConfigDump_DynamicRouteConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1308,6 +1308,9 @@ func encodeVarintConfigDump(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *ConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Configs) > 0 {
@@ -1323,6 +1326,9 @@ func (m *ConfigDump) Size() (n int) {
 }
 
 func (m *BootstrapConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = m.Bootstrap.Size()
@@ -1338,6 +1344,9 @@ func (m *BootstrapConfigDump) Size() (n int) {
 }
 
 func (m *ListenersConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1375,6 +1384,9 @@ func (m *ListenersConfigDump) Size() (n int) {
 }
 
 func (m *ListenersConfigDump_StaticListener) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Listener != nil {
@@ -1392,6 +1404,9 @@ func (m *ListenersConfigDump_StaticListener) Size() (n int) {
 }
 
 func (m *ListenersConfigDump_DynamicListener) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1413,6 +1428,9 @@ func (m *ListenersConfigDump_DynamicListener) Size() (n int) {
 }
 
 func (m *ClustersConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1444,6 +1462,9 @@ func (m *ClustersConfigDump) Size() (n int) {
 }
 
 func (m *ClustersConfigDump_StaticCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Cluster != nil {
@@ -1461,6 +1482,9 @@ func (m *ClustersConfigDump_StaticCluster) Size() (n int) {
 }
 
 func (m *ClustersConfigDump_DynamicCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -1482,6 +1506,9 @@ func (m *ClustersConfigDump_DynamicCluster) Size() (n int) {
 }
 
 func (m *RoutesConfigDump) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.StaticRouteConfigs) > 0 {
@@ -1503,6 +1530,9 @@ func (m *RoutesConfigDump) Size() (n int) {
 }
 
 func (m *RoutesConfigDump_StaticRouteConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RouteConfig != nil {
@@ -1520,6 +1550,9 @@ func (m *RoutesConfigDump_StaticRouteConfig) Size() (n int) {
 }
 
 func (m *RoutesConfigDump_DynamicRouteConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.VersionInfo)
@@ -3134,55 +3167,56 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/admin/v2alpha/config_dump.proto", fileDescriptor_config_dump_e747bab984ff2f76)
+	proto.RegisterFile("envoy/admin/v2alpha/config_dump.proto", fileDescriptor_config_dump_d4c206baa717acbb)
 }
 
-var fileDescriptor_config_dump_e747bab984ff2f76 = []byte{
-	// 728 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x95, 0x3f, 0x6f, 0xd3, 0x4e,
-	0x18, 0xc7, 0x7f, 0x4e, 0xd3, 0xf6, 0xd7, 0x27, 0xa1, 0x2d, 0x4e, 0x9b, 0xa6, 0x1e, 0xda, 0x52,
-	0x81, 0x54, 0x16, 0x5b, 0x0a, 0x7f, 0x17, 0x86, 0xa6, 0x1d, 0x40, 0x62, 0x32, 0x20, 0x46, 0xeb,
-	0x1a, 0x3b, 0xe9, 0x49, 0x89, 0xcf, 0xf2, 0x9d, 0x0d, 0x41, 0x48, 0x0c, 0xbc, 0x08, 0x36, 0x16,
-	0x06, 0x76, 0x56, 0x76, 0xd4, 0x0d, 0x5e, 0x01, 0x42, 0x7d, 0x25, 0x28, 0xbe, 0xe7, 0x1c, 0xff,
-	0x29, 0x55, 0xd2, 0x66, 0x4b, 0x9e, 0x7b, 0xee, 0xfb, 0xf9, 0xde, 0xdd, 0xf7, 0x49, 0xe0, 0x8e,
-	0xe7, 0xc7, 0x6c, 0x64, 0x11, 0x77, 0x48, 0x7d, 0x2b, 0x6e, 0x93, 0x41, 0x70, 0x4a, 0xac, 0x2e,
-	0xf3, 0x7b, 0xb4, 0xef, 0xb8, 0xd1, 0x30, 0x30, 0x83, 0x90, 0x09, 0xa6, 0x37, 0x92, 0x36, 0x33,
-	0x69, 0x33, 0xb1, 0xcd, 0x68, 0xe2, 0xde, 0x80, 0x5a, 0x71, 0xdb, 0xea, 0xba, 0x5c, 0x36, 0x17,
-	0xea, 0x83, 0x7f, 0xd4, 0xc3, 0xb4, 0x7e, 0x57, 0xd6, 0x25, 0xd5, 0x3a, 0x61, 0x4c, 0x70, 0x11,
-	0x92, 0x60, 0xdc, 0x94, 0x7e, 0xc1, 0xd6, 0xed, 0x3e, 0x63, 0xfd, 0x81, 0x67, 0x25, 0xdf, 0x4e,
-	0xa2, 0x9e, 0x45, 0xfc, 0x11, 0x2e, 0xed, 0x16, 0x97, 0x04, 0x1d, 0x7a, 0x5c, 0x10, 0x75, 0x06,
-	0x63, 0xa3, 0xcf, 0xfa, 0x2c, 0xf9, 0x68, 0x8d, 0x3f, 0xc9, 0xea, 0x7e, 0x07, 0xe0, 0x28, 0x01,
-	0x1f, 0x47, 0xc3, 0x40, 0xbf, 0x0f, 0xcb, 0xd2, 0x06, 0x6f, 0x69, 0x7b, 0x0b, 0x07, 0xb5, 0xf6,
-	0x86, 0x29, 0x65, 0x4d, 0x25, 0x6b, 0x1e, 0xfa, 0xa3, 0x4e, 0xf5, 0xec, 0xf7, 0xee, 0x7f, 0xb6,
-	0x6a, 0xdd, 0xff, 0xac, 0x41, 0xa3, 0xa3, 0x9c, 0x66, 0xd4, 0x9e, 0xc2, 0x4a, 0x7a, 0x80, 0x96,
-	0xb6, 0xa7, 0x1d, 0xd4, 0xda, 0xb7, 0x4d, 0x79, 0x93, 0x72, 0xab, 0x39, 0x39, 0x5f, 0xdc, 0x36,
-	0x53, 0x09, 0xd4, 0x9f, 0x6c, 0xd6, 0x9f, 0x40, 0x7d, 0x40, 0xb8, 0x70, 0xa2, 0xc0, 0x25, 0xc2,
-	0x73, 0x5b, 0x95, 0x44, 0xcc, 0x28, 0x99, 0x7b, 0xa9, 0xce, 0x6c, 0xd7, 0xc6, 0xfd, 0xaf, 0x64,
-	0xfb, 0xfe, 0x8f, 0x25, 0x68, 0x3c, 0xa7, 0x5c, 0x78, 0xbe, 0x17, 0xf2, 0x8c, 0xc1, 0x5b, 0x50,
-	0x8f, 0xbd, 0x90, 0x53, 0xe6, 0x3b, 0xd4, 0xef, 0xb1, 0xc4, 0xe3, 0x8a, 0x5d, 0xc3, 0xda, 0x33,
-	0xbf, 0xc7, 0xf4, 0x53, 0x58, 0xe7, 0x82, 0x08, 0xda, 0x75, 0x06, 0x4a, 0xa0, 0x55, 0x49, 0xae,
-	0xe6, 0x91, 0x79, 0x41, 0x28, 0xcc, 0x0b, 0x30, 0xe6, 0x8b, 0x44, 0x40, 0xad, 0xe0, 0xe9, 0xd6,
-	0x78, 0xae, 0xca, 0xf5, 0xb7, 0xd0, 0x72, 0x47, 0x3e, 0x19, 0xd2, 0xae, 0x43, 0xba, 0x82, 0xc6,
-	0x5e, 0x86, 0xb8, 0x90, 0x10, 0x1f, 0x4f, 0x4d, 0x3c, 0x96, 0x42, 0x05, 0x64, 0x13, 0xf5, 0x0f,
-	0x13, 0xf9, 0x09, 0xf9, 0x1d, 0x6c, 0x2b, 0xf2, 0x1b, 0x12, 0x0e, 0xa9, 0xdf, 0xcf, 0xa0, 0xab,
-	0x73, 0x41, 0x6f, 0x21, 0xe0, 0xb5, 0xd4, 0x9f, 0xb0, 0xdf, 0x83, 0xa1, 0xd8, 0x6e, 0x48, 0xa8,
-	0x9f, 0x87, 0x2f, 0xce, 0x05, 0xae, 0xee, 0xf5, 0x18, 0x01, 0xe9, 0x4e, 0xe3, 0xa3, 0x06, 0xab,
-	0xf9, 0xd7, 0xd1, 0xdb, 0xf0, 0xbf, 0xe2, 0x63, 0x66, 0x9b, 0x0a, 0x1f, 0xd0, 0x71, 0x4c, 0x55,
-	0xa7, 0x9d, 0xf6, 0x5d, 0x33, 0x9e, 0xc6, 0x57, 0x0d, 0xd6, 0x0a, 0xce, 0xa7, 0x89, 0x66, 0xd6,
-	0x69, 0xe5, 0x8a, 0x4e, 0x17, 0x66, 0x1b, 0xa4, 0x6f, 0x8b, 0xa0, 0x1f, 0x0d, 0x22, 0x2e, 0x66,
-	0x9e, 0x23, 0x17, 0x30, 0xf0, 0x4e, 0x17, 0xf7, 0xe3, 0x18, 0x3d, 0xb8, 0xf0, 0x71, 0xcb, 0x10,
-	0x9c, 0x22, 0x5c, 0xc0, 0x97, 0x5d, 0xe5, 0xd9, 0x22, 0xd7, 0x05, 0x6c, 0x15, 0x66, 0x28, 0xa5,
-	0xc9, 0x11, 0x7a, 0x38, 0x2d, 0x0d, 0xdf, 0x23, 0x8f, 0xdb, 0xcc, 0x0d, 0x50, 0x4a, 0x8d, 0x27,
-	0x93, 0xab, 0xe6, 0x27, 0xc5, 0x56, 0xe7, 0x80, 0x6d, 0xe6, 0x87, 0x47, 0x6d, 0x33, 0x3e, 0xc0,
-	0x8d, 0xdc, 0xa5, 0xe8, 0x16, 0x2c, 0x23, 0x18, 0xa3, 0xbb, 0x99, 0x0f, 0x04, 0xf6, 0xd9, 0xaa,
-	0xeb, 0xba, 0xc1, 0xfd, 0xa2, 0xc1, 0x6a, 0xde, 0xf1, 0x34, 0x51, 0xc8, 0xb8, 0xac, 0x5c, 0xc9,
-	0xe5, 0x8c, 0xa1, 0xfd, 0x59, 0x85, 0x75, 0x9b, 0x45, 0xc2, 0xcb, 0x46, 0x96, 0xc1, 0x06, 0xe6,
-	0x31, 0x1c, 0x2f, 0x39, 0xea, 0x6f, 0xef, 0xb2, 0xdf, 0xf6, 0xa2, 0x08, 0x46, 0x32, 0x29, 0xcb,
-	0x2a, 0x3e, 0x98, 0xce, 0x8b, 0x0b, 0x5c, 0x0f, 0x41, 0xa5, 0xa7, 0x40, 0xbc, 0xec, 0xb7, 0xbd,
-	0x44, 0xc4, 0xdb, 0x2e, 0x23, 0x1b, 0x6e, 0x69, 0x85, 0x1b, 0x9f, 0x34, 0xb8, 0x59, 0xf2, 0xa8,
-	0x1f, 0x41, 0x3d, 0xeb, 0x00, 0xa3, 0xb2, 0x97, 0x7f, 0x84, 0xcc, 0x86, 0x28, 0x24, 0x82, 0x32,
-	0xdf, 0xae, 0x85, 0x19, 0x91, 0x6b, 0x26, 0xe7, 0xbb, 0x06, 0x7a, 0xf9, 0x2c, 0xd3, 0xa4, 0xa7,
-	0xe8, 0xbe, 0x32, 0x0f, 0xf7, 0xb3, 0x25, 0xaa, 0x53, 0x3f, 0x3b, 0xdf, 0xd1, 0x7e, 0x9d, 0xef,
-	0x68, 0x7f, 0xce, 0x77, 0xb4, 0x93, 0xa5, 0xa4, 0xfd, 0xde, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff,
-	0x9f, 0x77, 0x00, 0x62, 0x4c, 0x0a, 0x00, 0x00,
+var fileDescriptor_config_dump_d4c206baa717acbb = []byte{
+	// 742 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x95, 0xbb, 0x6e, 0x13, 0x4f,
+	0x14, 0xc6, 0xff, 0xeb, 0x38, 0xc9, 0x3f, 0xc7, 0x21, 0x09, 0xeb, 0xc4, 0x71, 0xb6, 0xc8, 0x4d,
+	0x20, 0x85, 0x66, 0x57, 0x98, 0x6b, 0x43, 0x11, 0x27, 0x05, 0x48, 0x14, 0xc8, 0x80, 0x28, 0x57,
+	0x13, 0xef, 0xda, 0x19, 0xc9, 0xde, 0x59, 0xed, 0xcc, 0x2e, 0x31, 0x42, 0xa2, 0xe0, 0x21, 0xe8,
+	0x68, 0x28, 0xe8, 0x69, 0xe9, 0x51, 0x3a, 0x78, 0x02, 0x84, 0xf2, 0x24, 0xc8, 0x3b, 0x67, 0xd6,
+	0x7b, 0x31, 0x91, 0x9d, 0xb8, 0xb3, 0xcf, 0x9c, 0xf9, 0x7e, 0xdf, 0xcc, 0x7c, 0xc7, 0x86, 0xdb,
+	0xae, 0x17, 0xb1, 0x81, 0x45, 0x9c, 0x3e, 0xf5, 0xac, 0xa8, 0x41, 0x7a, 0xfe, 0x29, 0xb1, 0xda,
+	0xcc, 0xeb, 0xd0, 0xae, 0xed, 0x84, 0x7d, 0xdf, 0xf4, 0x03, 0x26, 0x98, 0x5e, 0x8d, 0xdb, 0xcc,
+	0xb8, 0xcd, 0xc4, 0x36, 0xa3, 0x86, 0x7b, 0x7d, 0x6a, 0x45, 0x0d, 0xab, 0xed, 0x70, 0xd9, 0x9c,
+	0xab, 0xf7, 0xfe, 0x51, 0x0f, 0x92, 0xfa, 0x1d, 0x59, 0x97, 0x54, 0xeb, 0x84, 0x31, 0xc1, 0x45,
+	0x40, 0xfc, 0x61, 0x53, 0xf2, 0x05, 0x5b, 0xb7, 0xba, 0x8c, 0x75, 0x7b, 0xae, 0x15, 0x7f, 0x3b,
+	0x09, 0x3b, 0x16, 0xf1, 0x06, 0xb8, 0xb4, 0x93, 0x5f, 0x12, 0xb4, 0xef, 0x72, 0x41, 0xd4, 0x19,
+	0x8c, 0xf5, 0x2e, 0xeb, 0xb2, 0xf8, 0xa3, 0x35, 0xfc, 0x24, 0xab, 0xfb, 0x4d, 0x80, 0xa3, 0x18,
+	0x7c, 0x1c, 0xf6, 0x7d, 0xfd, 0x3e, 0x2c, 0x4a, 0x1b, 0xbc, 0xae, 0xed, 0xce, 0x1d, 0x54, 0x1a,
+	0xeb, 0xa6, 0x94, 0x35, 0x95, 0xac, 0x79, 0xe8, 0x0d, 0x9a, 0xe5, 0xf3, 0xdf, 0x3b, 0xff, 0xb5,
+	0x54, 0xeb, 0xfe, 0x67, 0x0d, 0xaa, 0x4d, 0xe5, 0x34, 0xa5, 0xf6, 0x14, 0x96, 0x92, 0x03, 0xd4,
+	0xb5, 0x5d, 0xed, 0xa0, 0xd2, 0xb8, 0x65, 0xca, 0x9b, 0x94, 0x5b, 0xcd, 0xd1, 0xf9, 0xa2, 0x86,
+	0x99, 0x48, 0xa0, 0xfe, 0x68, 0xb3, 0xfe, 0x04, 0x96, 0x7b, 0x84, 0x0b, 0x3b, 0xf4, 0x1d, 0x22,
+	0x5c, 0xa7, 0x5e, 0x8a, 0xc5, 0x8c, 0x82, 0xb9, 0x57, 0xea, 0xcc, 0xad, 0xca, 0xb0, 0xff, 0xb5,
+	0x6c, 0xdf, 0xff, 0xb1, 0x00, 0xd5, 0xe7, 0x94, 0x0b, 0xd7, 0x73, 0x03, 0x9e, 0x32, 0xb8, 0x07,
+	0xcb, 0x91, 0x1b, 0x70, 0xca, 0x3c, 0x9b, 0x7a, 0x1d, 0x16, 0x7b, 0x5c, 0x6a, 0x55, 0xb0, 0xf6,
+	0xcc, 0xeb, 0x30, 0xfd, 0x14, 0xd6, 0xb8, 0x20, 0x82, 0xb6, 0xed, 0x9e, 0x12, 0xa8, 0x97, 0xe2,
+	0xab, 0x79, 0x64, 0x8e, 0x09, 0x85, 0x39, 0x06, 0x63, 0xbe, 0x8c, 0x05, 0xd4, 0x0a, 0x9e, 0x6e,
+	0x95, 0x67, 0xaa, 0x5c, 0x3f, 0x83, 0xba, 0x33, 0xf0, 0x48, 0x9f, 0xb6, 0x6d, 0xd2, 0x16, 0x34,
+	0x72, 0x53, 0xc4, 0xb9, 0x98, 0xf8, 0x78, 0x62, 0xe2, 0xb1, 0x14, 0xca, 0x21, 0x6b, 0xa8, 0x7f,
+	0x18, 0xcb, 0x8f, 0xc8, 0xef, 0x60, 0x4b, 0x91, 0xdf, 0x92, 0xa0, 0x4f, 0xbd, 0x6e, 0x0a, 0x5d,
+	0x9e, 0x09, 0x7a, 0x13, 0x01, 0x6f, 0xa4, 0xfe, 0x88, 0xfd, 0x1e, 0x0c, 0xc5, 0x76, 0x02, 0x42,
+	0xbd, 0x2c, 0x7c, 0x7e, 0x26, 0x70, 0x75, 0xaf, 0xc7, 0x08, 0x48, 0x76, 0x1a, 0x1f, 0x35, 0x58,
+	0xc9, 0xbe, 0x8e, 0xde, 0x80, 0xff, 0x15, 0x1f, 0x33, 0x5b, 0x53, 0x78, 0x9f, 0x0e, 0x63, 0xaa,
+	0x3a, 0x5b, 0x49, 0xdf, 0x35, 0xe3, 0x69, 0x7c, 0xd5, 0x60, 0x35, 0xe7, 0x7c, 0x92, 0x68, 0xa6,
+	0x9d, 0x96, 0xae, 0xe8, 0x74, 0x6e, 0xba, 0x41, 0xfa, 0x36, 0x0f, 0xfa, 0x51, 0x2f, 0xe4, 0x62,
+	0xea, 0x39, 0x72, 0x00, 0x03, 0x6f, 0xb7, 0x71, 0x3f, 0x8e, 0xd1, 0x83, 0xb1, 0x8f, 0x5b, 0x84,
+	0xe0, 0x14, 0xe1, 0x02, 0xbe, 0xec, 0x0a, 0x4f, 0x17, 0xb9, 0x2e, 0x60, 0x33, 0x37, 0x43, 0x09,
+	0x4d, 0x8e, 0xd0, 0xc3, 0x49, 0x69, 0xf8, 0x1e, 0x59, 0xdc, 0x46, 0x66, 0x80, 0x12, 0x6a, 0x34,
+	0x9a, 0x5c, 0x35, 0x3f, 0x09, 0xb6, 0x3c, 0x03, 0x6c, 0x2d, 0x3b, 0x3c, 0x6a, 0x9b, 0xf1, 0x01,
+	0x6e, 0x64, 0x2e, 0x45, 0xb7, 0x60, 0x11, 0xc1, 0x18, 0xdd, 0x8d, 0x6c, 0x20, 0xb0, 0xaf, 0xa5,
+	0xba, 0xae, 0x1b, 0xdc, 0x2f, 0x1a, 0xac, 0x64, 0x1d, 0x4f, 0x12, 0x85, 0x94, 0xcb, 0xd2, 0x95,
+	0x5c, 0x4e, 0x19, 0xda, 0x9f, 0x65, 0x58, 0x6b, 0xb1, 0x50, 0xb8, 0xe9, 0xc8, 0x32, 0x58, 0xc7,
+	0x3c, 0x06, 0xc3, 0x25, 0x5b, 0xfd, 0xed, 0x5d, 0xf6, 0xdb, 0x9e, 0x17, 0xc1, 0x48, 0xc6, 0x65,
+	0x59, 0xc5, 0x07, 0xd3, 0x79, 0x7e, 0x81, 0xeb, 0x01, 0xa8, 0xf4, 0xe4, 0x88, 0x97, 0xfd, 0xb6,
+	0x17, 0x88, 0x78, 0xdb, 0x45, 0x64, 0xd5, 0x29, 0xac, 0x70, 0xe3, 0x93, 0x06, 0x37, 0x0b, 0x1e,
+	0xf5, 0x23, 0x58, 0x4e, 0x3b, 0xc0, 0xa8, 0xec, 0x66, 0x1f, 0x21, 0xb5, 0x21, 0x0c, 0x88, 0xa0,
+	0xcc, 0x6b, 0x55, 0x82, 0x94, 0xc8, 0x35, 0x93, 0xf3, 0x5d, 0x03, 0xbd, 0x78, 0x96, 0x49, 0xd2,
+	0x93, 0x77, 0x5f, 0x9a, 0x85, 0xfb, 0xe9, 0x12, 0xd5, 0xbc, 0x7b, 0x7e, 0xb1, 0xad, 0xfd, 0xba,
+	0xd8, 0xd6, 0xfe, 0x5c, 0x6c, 0x6b, 0xb0, 0x47, 0x99, 0xa4, 0xfb, 0x01, 0x3b, 0x1b, 0x8c, 0x7b,
+	0xc7, 0x17, 0xda, 0xc9, 0x42, 0xac, 0x79, 0xef, 0x6f, 0x00, 0x00, 0x00, 0xff, 0xff, 0x73, 0x2f,
+	0xb1, 0xf5, 0x71, 0x0a, 0x00, 0x00,
 }

@@ -86,10 +86,13 @@ function install_gometalinter() {
     echo 'Gometalinter installed successfully'
 }
 
+function install_golangcilint() {
+  GOLANGCI_VERSION="v1.12.4"
+  curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b "$GOPATH"/bin "$GOLANGCI_VERSION"
+  golangci-lint --version
+}
+
 function run_gometalinter() {
-    echo 'Running gometalinter ....'
-    $gometalinter --config=./lintconfig_base.json ./...
-    echo 'gometalinter OK'
     echo 'Running gometalinter on adapters ....'
     pushd mixer/tools/adapterlinter
     go install .
@@ -104,6 +107,11 @@ function run_gometalinter() {
     popd
     $gometalinter --config=./tests/util/checker/testlinter/testlinter.json ./...
     echo 'testlinter OK'
+}
+
+function run_golangcilint() {
+    echo 'Running golangci-lint ...'
+    golangci-lint run ./...
 }
 
 function run_helm_lint() {
@@ -128,8 +136,9 @@ ensure_pilot_types
 format
 check_licenses
 check_spelling
+install_golangcilint
+run_golangcilint
 install_gometalinter
 run_gometalinter
 run_helm_lint
 check_grafana_dashboards
-check_licenses

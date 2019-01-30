@@ -27,6 +27,8 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/pkg/spiffe"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_config "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
@@ -81,7 +83,7 @@ const (
 	methodHeader = ":method"
 	pathHeader   = ":path"
 
-	spiffePrefix = "spiffe://"
+	spiffePrefix = spiffe.Scheme + "://"
 )
 
 // serviceMetadata is a collection of different kind of information about a service.
@@ -258,7 +260,7 @@ func createStringMatcher(v string, forceRegexPattern, forTCPFilter bool) *metada
 }
 
 // createDynamicMetadataMatcher creates a MetadataMatcher for the given key, value pair.
-func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
+func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.MetadataMatcher {
 	filterName := authn.AuthnFilterName
 	if k == attrSrcNamespace {
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
@@ -279,7 +281,11 @@ func createDynamicMetadataMatcher(k, v string) *metadata.MetadataMatcher {
 	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */)
 	if !attributesFromAuthN(k) {
 		rbacLog.Debugf("generated dynamic metadata matcher for custom property: %s", k)
-		filterName = rbacHTTPFilterName
+		if forTCPFilter {
+			filterName = rbacTCPFilterName
+		} else {
+			filterName = rbacHTTPFilterName
+		}
 	}
 	return generateMetadataStringMatcher(k, stringMatcher, filterName)
 }
@@ -308,7 +314,7 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	// Only supports sidecar proxy for now.
-	if in.Node.Type != model.Sidecar {
+	if in.Node.Type != model.SidecarProxy {
 		return nil
 	}
 
@@ -418,7 +424,7 @@ func buildTCPFilter(service *serviceMetadata, option rbacOption) *listener.Filte
 	tcpConfig := listener.Filter{
 		Name: rbacTCPFilterName,
 		ConfigType: &listener.Filter_Config{
-			util.MessageToStruct(&network_config.RBAC{
+			Config: util.MessageToStruct(&network_config.RBAC{
 				Rules:       config.Rules,
 				ShadowRules: config.ShadowRules,
 				StatPrefix:  rbacTCPFilterStatPrefix,
@@ -437,7 +443,7 @@ func buildHTTPFilter(service *serviceMetadata, option rbacOption) *http_conn.Htt
 	rbacLog.Debugf("generated http filter config: %v", *config)
 	return &http_conn.HttpFilter{
 		Name:       rbacHTTPFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{util.MessageToStruct(config)},
+		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(config)},
 	}
 }
 
@@ -798,7 +804,7 @@ func principalForKeyValue(key, value string, forTCPFilter bool) *policyproto.Pri
 			},
 		}
 	default:
-		if matcher := createDynamicMetadataMatcher(key, value); matcher != nil {
+		if matcher := createDynamicMetadataMatcher(key, value, forTCPFilter); matcher != nil {
 			return &policyproto.Principal{
 				Identifier: &policyproto.Principal_Metadata{
 					Metadata: matcher,

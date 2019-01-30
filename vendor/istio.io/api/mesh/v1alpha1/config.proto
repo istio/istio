@@ -61,6 +61,10 @@ message MeshConfig {
   // to connect to Mixer.
   bool policy_check_fail_open = 25;
 
+  // Enable session affinity for envoy mixer reports so that calls from a proxy will
+  // always target the same mixer instance.
+  bool sidecar_to_telemetry_session_affinity = 30;
+
   // Port on which Envoy should listen for incoming connections from
   // other services.
   int32 proxy_listen_port = 4;
@@ -70,6 +74,9 @@ message MeshConfig {
 
   // Connection timeout used by Envoy. (MUST BE >=1ms)
   google.protobuf.Duration connect_timeout = 6;
+
+  // If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.
+  istio.networking.v1alpha3.ConnectionPoolSettings.TCPSettings.TcpKeepalive tcp_keepalive = 28;
 
   // Class of ingress resources to be processed by Istio ingress
   // controller.  This corresponds to the value of
@@ -110,7 +117,8 @@ message MeshConfig {
   // $hide_from_docs
   AuthPolicy auth_policy = 10 [deprecated=true];
 
-  reserved 11;
+  // $hide_from_docs
+  google.protobuf.Duration rds_refresh_delay = 11 [deprecated=true];
 
   // Flag to control generation of trace spans and request IDs.
   // Requires a trace span collector defined in the proxy configuration.
@@ -119,10 +127,19 @@ message MeshConfig {
   // File address for the proxy access log (e.g. /dev/stdout).
   // Empty value disables access logging.
   string access_log_file = 13;
-  
-  // Format for the proxy access log (text or json).
-  // Default value is text.
+
+  // Format for the proxy access log
+  // Empty value results in proxy's default access log format
   string access_log_format = 24;
+
+  enum AccessLogEncoding {
+    TEXT = 0;
+    JSON = 1;
+  }
+
+  // Encoding for the proxy access log (text or json).
+  // Default value is text.
+  AccessLogEncoding access_log_encoding = 27;
 
   // Default proxy config used by the proxy injection mechanism operating in the mesh
   // (e.g. Kubernetes admission controller)
@@ -132,8 +149,35 @@ message MeshConfig {
   ProxyConfig default_config = 14;
 
   reserved 15;
-  reserved 16;
-  reserved 17;
+
+  // $hide_from_docs
+  string mixer_address = 16 [deprecated=true];
+
+  message OutboundTrafficPolicy {
+    enum Mode {
+      // outbound traffic will be restricted to services defined in the
+      // service registry as well as those defined through ServiceEntries
+      REGISTRY_ONLY = 0;
+      // outbound traffic to unknown destinations will be allowed, in case
+      // there are no services or ServiceEntries for the destination port
+      ALLOW_ANY = 1;
+
+      reserved 2;
+      reserved "VIRTUAL_SERVICE_ONLY";
+    }
+    Mode mode = 1;
+  }
+
+  // Set the default behavior of the sidecar for handling outbound traffic
+  // from the application.  If your application uses one or more external
+  // services that are not known apriori, setting the policy to ALLOW_ANY
+  // will cause the sidecars to route any unknown traffic originating from
+  // the application to its requested destination.  Users are strongly
+  // encouraged to use ServiceEntries to explicitly declare any external
+  // dependencies, instead of using allow_any, so that traffic to these
+  // services can be monitored.
+  OutboundTrafficPolicy outbound_traffic_policy = 17;
+
   reserved 18;
 
   // Enables clide side policy checks.
@@ -142,20 +186,34 @@ message MeshConfig {
   // Unix Domain Socket through which envoy communicates with NodeAgent SDS to get key/cert for mTLS.
   // Use secret-mount files instead of SDS if set to empty.
   string sds_uds_path = 20;
-  
-  reserved 21;
+
+  // $hide_from_docs
+  google.protobuf.Duration sds_refresh_delay = 21 [deprecated=true];
 
   // ConfigSource describes a source of configuration data for networking
   // rules, and other Istio configuration artifacts. Multiple data sources
   // can be configured for a single control plane.
   repeated ConfigSource config_sources = 22;
 
+  // Locality based load balancing distribution or failover settings.
+  LocalityLoadBalancerSetting locality_lb_setting = 31;
+
   // $hide_from_docs
-  // This flag is used by secret discovery service(SDS). 
-  // If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount 
-  // for k8s service account JWT, so that K8s API server mounts k8s service account JWT to envoy container, which 
-  // will be used to generate key/cert eventually. This isn't supported for non-k8s case.
+  // This flag is used by secret discovery service(SDS).
+  // If set to true(prerequisite: https://kubernetes.io/docs/concepts/storage/volumes/#projected), Istio will inject volumes mount
+  // for k8s service account trustworthy JWT(which is avaialbe for k8s 1.12 or higher), so that K8s API server
+  // mounts k8s service account trustworthy JWT to envoy container, which will be used to request key/cert eventually.
+  // This isn't supported for non-k8s case.
   bool enable_sds_token_mount = 23;
+
+  // $hide_from_docs
+  // This flag is used by secret discovery service(SDS).
+  // If set to true, envoy will fetch normal k8s service account JWT from '/var/run/secrets/kubernetes.io/serviceaccount/token'
+  // (https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/#accessing-the-api-from-a-pod)
+  // and pass to sds server, which will be used to request key/cert eventually.
+  // If both enable_sds_token_mount and sds_use_k8s_sa_jwt are set to true, enable_sds_token_mount(trustworthy jwt) takes precedence.
+  // This isn't supported for non-k8s case.
+  bool sds_use_k8s_sa_jwt = 29;
 
   // The trust domain corresponds to the trust root of a system.
   // Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
@@ -163,7 +221,7 @@ message MeshConfig {
   string trust_domain = 26;
 
   // $hide_from_docs
-  // Next available field number: 27
+  // Next available field number: 32
 }
 
 // ConfigSource describes information about a configuration store inside a
@@ -172,11 +230,78 @@ message MeshConfig {
 message ConfigSource {
   // Address of the server implementing the Istio Mesh Configuration
   // protocol (MCP). Can be IP address or a fully qualified DNS name.
-  // Use file:/// to specify a file-based backend with absolute path to the directory.
+  // Use fs:/// to specify a file-based backend with absolute path to the directory.
   string address = 1;
 
   // Use the tls_settings to specify the tls mode to use. If the MCP server
   // uses Istio MTLS and shares the root CA with Pilot, specify the TLS
   // mode as ISTIO_MUTUAL.
   istio.networking.v1alpha3.TLSSettings tls_settings = 2;
+}
+
+
+// The following example sets up locality weight for mesh wide service
+// Assume a service resides in "region1/zone1/*" and "region1/zone2/*",
+// and originating clusters also reside in "region1/zone1/*" and "region1/zone2/*".
+// This example specifies when clusters from "region1/zone1/*" accessing the service, 80% of the traffic
+// is shipped to "region1/zone1/*" ratings service endpoints, and the rest 20% to "region1/zone2/*".
+//
+// ```yaml
+//   distribute:
+//     - from: region1/zone1/*
+//       to:
+//         "region1/zone1/*": 80
+//         "region1/zone2/*": 20
+//     - from: region1/zone2/*
+//       to:
+//         "region1/zone1/*": 20
+//         "region1/zone2/*": 80
+// ```
+//
+// The following example sets up locality failover policy for the ratings service
+// Assume a service resides in "region1" "region2" and "region3",
+// This example specifies when clusters from "region1/zone1" accessing the service,
+// if endpoints in "region1" becomes unhealthy, traffic will begin to trickle to "region2".
+//
+// ```yaml
+//  failover:
+//    - from: region1
+//      to: region2
+// ```
+// Locality load balancing settings.
+message LocalityLoadBalancerSetting{
+  // Originating -> upstream cluster locality weight set, support wildcard matching '*'
+  // '*' matches all localities
+  // 'region1/*' matches all zones in region1
+  message Distribute{
+      // Originating locality, '/' separated, e.g. 'region/zone/sub_zone'.
+      string from = 1;
+
+      // Upstream locality to loadbalancing weight map. The sum of all weights should be == 100.
+      // Should assign load balancing weight for all localities, otherwise the traffic are not routed
+      // following the percentage of weight.
+      map<string, uint32> to = 2;
+  };
+
+  // Specify the traffic failover policy.
+  // As zone and sub_zone failover is supported by default, only region can be specified here.
+  message Failover{
+      // Originating region.
+      string from = 1;
+
+      // Destination region the traffic will fail over to when endpoints in local region becomes unhealthy.
+      string to = 2;
+  };
+
+  // Optional: only distribute or failover can be set.
+  // Explicitly specify loadbalancing weight across different zones and geographical locations.
+  // Refer to [Locality weighted load balancing](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing.html?highlight=load_balancing_weight#locality-weighted-load-balancing)
+  // If empty, the locality weight is set according to the endpoints number within it.
+  repeated Distribute distribute = 1;
+
+  // Optional: only failover or distribute can be set.
+  // Explicitly specify the region traffic will land on when endpoints in local region becomes unhealthy.
+  // Should be used together with OutlierDetection to detect unhealthy endpoints.
+  // Note: if no OutlierDetection specified, this will not take effect.
+  repeated Failover failover = 2;
 }

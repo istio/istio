@@ -44,6 +44,21 @@ func newWatchFile(t *testing.T) (string, func()) {
 	return watchFile, cleanup
 }
 
+func newWatchFileThatDoesNotExist(t *testing.T) (string, func()) {
+	g := NewGomegaWithT(t)
+
+	watchDir, err := ioutil.TempDir("", "")
+	g.Expect(err).NotTo(HaveOccurred())
+
+	watchFile := path.Join(watchDir, "test.conf")
+
+	cleanup := func() {
+		os.RemoveAll(watchDir)
+	}
+
+	return watchFile, cleanup
+}
+
 // newTwoWatchFile returns with two watch files that exist in the same base dir.
 func newTwoWatchFile(t *testing.T) (string, string, func()) {
 	g := NewGomegaWithT(t)
@@ -168,6 +183,32 @@ func TestWatchFile(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 
 		// Wait its event to be received.
+		wg.Wait()
+	})
+
+	t.Run("file added later", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		// Given a file being watched
+		watchFile, cleanup := newWatchFileThatDoesNotExist(t)
+		defer cleanup()
+
+		w := NewWatcher()
+		w.Add(watchFile)
+		events := w.Events(watchFile)
+
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+			select {
+			case <-events:
+				wg.Done()
+			}
+		}()
+
+		// Overwriting the file and waiting its event to be received.
+		err := ioutil.WriteFile(watchFile, []byte("foo: baz\n"), 0640)
+		g.Expect(err).NotTo(HaveOccurred())
 		wg.Wait()
 	})
 }

@@ -16,16 +16,19 @@
 package basic
 
 import (
+	"os"
+	"testing"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"testing"
 )
 
 // To opt-in to the test framework, implement a TestMain, and call test.Run.
 func TestMain(m *testing.M) {
-	framework.Run("basic_test", m)
+	rt, _ := framework.Run("basic_test", m)
+	os.Exit(rt)
 }
 
 func TestBasic(t *testing.T) {

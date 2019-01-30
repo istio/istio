@@ -19,7 +19,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -312,6 +312,9 @@ func (mock) ID(*core.Node) string {
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
+func (mock) GetProxyLocality(_ *model.Proxy) string {
+	return ""
+}
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	return nil, nil
@@ -351,10 +354,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod1.ns2",
-			Type: model.Sidecar,
-			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.1",
-			},
+			Type: model.SidecarProxy,
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -364,10 +364,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod2.ns2",
-			Type: model.Sidecar,
-			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.1",
-			},
+			Type: model.SidecarProxy,
 		},
 		Service: &svc,
 		Push:    &pushContext,

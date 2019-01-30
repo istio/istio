@@ -19,11 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/spiffe"
 )
 
 var (
@@ -45,10 +46,14 @@ var (
 		{"http2-test", v1.ProtocolTCP, model.ProtocolHTTP2},
 		{"grpc", v1.ProtocolTCP, model.ProtocolGRPC},
 		{"grpc-test", v1.ProtocolTCP, model.ProtocolGRPC},
+		{"grpc-web", v1.ProtocolTCP, model.ProtocolGRPCWeb},
+		{"grpc-web-test", v1.ProtocolTCP, model.ProtocolGRPCWeb},
 		{"mongo", v1.ProtocolTCP, model.ProtocolMongo},
 		{"mongo-test", v1.ProtocolTCP, model.ProtocolMongo},
 		{"redis", v1.ProtocolTCP, model.ProtocolRedis},
 		{"redis-test", v1.ProtocolTCP, model.ProtocolRedis},
+		{"mysql", v1.ProtocolTCP, model.ProtocolMySQL},
+		{"mysql-test", v1.ProtocolTCP, model.ProtocolMySQL},
 	}
 )
 
@@ -68,6 +73,10 @@ func TestServiceConversion(t *testing.T) {
 	saB := "serviceaccountB"
 	saC := "spiffe://accounts.google.com/serviceaccountC@cloudservices.gserviceaccount.com"
 	saD := "spiffe://accounts.google.com/serviceaccountD@developer.gserviceaccount.com"
+
+	oldTrustDomain := spiffe.GetTrustDomain()
+	spiffe.SetTrustDomain(domainSuffix)
+	defer spiffe.SetTrustDomain(oldTrustDomain)
 
 	ip := "10.0.0.1"
 
@@ -219,7 +228,51 @@ func TestExternalServiceConversion(t *testing.T) {
 
 	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
 		t.Errorf("service hostname incorrect => %q, want %q",
-			service.Hostname, extSvc.Spec.ExternalName)
+			service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
+	}
+}
+
+func TestExternalClusterLocalServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	extSvc := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+			Type:         v1.ServiceTypeExternalName,
+			ExternalName: "some.test.svc.cluster.local",
+		},
+	}
+
+	domainSuffix := "cluster.local"
+
+	service := convertService(extSvc, domainSuffix)
+	if service == nil {
+		t.Errorf("could not convert external service")
+	}
+
+	if len(service.Ports) != len(extSvc.Spec.Ports) {
+		t.Errorf("incorrect number of ports => %v, want %v",
+			len(service.Ports), len(extSvc.Spec.Ports))
+	}
+
+	if !service.External() {
+		t.Error("ExternalName service (even if .cluster.local) should be external")
+	}
+
+	if service.Hostname != serviceHostname(serviceName, namespace, domainSuffix) {
+		t.Errorf("service hostname incorrect => %q, want %q",
+			service.Hostname, serviceHostname(serviceName, namespace, domainSuffix))
 	}
 }
 

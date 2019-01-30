@@ -33,7 +33,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8s "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
 	"k8s.io/client-go/tools/cache"
@@ -199,21 +199,21 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 
 	if inst.DestinationUid != "" {
 		if p, found := h.findPod(inst.DestinationUid); found {
-			h.fillDestinationAttrs(p, inst.DestinationPort, out, h.params)
+			h.fillDestinationAttrs(p, inst.DestinationPort, out)
 		}
 	} else if inst.DestinationIp != nil && !inst.DestinationIp.IsUnspecified() {
 		if p, found := h.findPod(inst.DestinationIp.String()); found {
-			h.fillDestinationAttrs(p, inst.DestinationPort, out, h.params)
+			h.fillDestinationAttrs(p, inst.DestinationPort, out)
 		}
 	}
 
 	if inst.SourceUid != "" {
 		if p, found := h.findPod(inst.SourceUid); found {
-			h.fillSourceAttrs(p, out, h.params)
+			h.fillSourceAttrs(p, out)
 		}
 	} else if inst.SourceIp != nil && !inst.SourceIp.IsUnspecified() {
 		if p, found := h.findPod(inst.SourceIp.String()); found {
-			h.fillSourceAttrs(p, out, h.params)
+			h.fillSourceAttrs(p, out)
 		}
 	}
 
@@ -272,7 +272,7 @@ func findContainer(p *v1.Pod, port int64) string {
 	return ""
 }
 
-func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output, params *config.Params) {
+func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output) {
 	if len(p.Labels) > 0 {
 		o.SetDestinationLabels(p.Labels)
 	}
@@ -313,7 +313,7 @@ func (h *handler) fillDestinationAttrs(p *v1.Pod, port int64, o *ktmpl.Output, p
 	}
 }
 
-func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
+func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output) {
 	if len(p.Labels) > 0 {
 		o.SetSourceLabels(p.Labels)
 	}

@@ -15,46 +15,78 @@
 package caclient
 
 import (
-	"crypto/x509"
-	"errors"
+	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/security/pkg/k8s/configmap"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
 )
 
-const googleCA = "GoogleCA"
+const (
+	googleCAName = "GoogleCA"
+	citadelName  = "Citadel"
+	vaultCAName  = "VaultCA"
+	ns           = "istio-system"
+
+	retryInterval = time.Second * 2
+	maxRetries    = 100
+)
+
+type configMap interface {
+	GetCATLSRootCert() (string, error)
+}
 
 // NewCAClient create an CA client.
-func NewCAClient(endpoint, CAProviderName string, tlsFlag bool) (caClientInterface.Client, error) {
-	var opts grpc.DialOption
-	if tlsFlag {
-		pool, err := x509.SystemCertPool()
-		if err != nil {
-			log.Errorf("could not get SystemCertPool: %v", err)
-			return nil, errors.New("could not get SystemCertPool")
-		}
-		creds := credentials.NewClientTLSFromCert(pool, "")
-		opts = grpc.WithTransportCredentials(creds)
-	} else {
-		opts = grpc.WithInsecure()
-	}
-
-	conn, err := grpc.Dial(endpoint, opts)
-	if err != nil {
-		log.Errorf("Failed to connect to endpoint %q: %v", endpoint, err)
-		return nil, fmt.Errorf("failed to connect to endpoint %q", endpoint)
-	}
-
+func NewCAClient(endpoint, CAProviderName string, tlsFlag bool, tlsRootCert []byte, vaultAddr, vaultRole,
+	vaultAuthPath, vaultSignCsrPath string) (caClientInterface.Client, error) {
 	switch CAProviderName {
-	case googleCA:
-		return gca.NewGoogleCAClient(conn), nil
+	case googleCAName:
+		return gca.NewGoogleCAClient(endpoint, tlsFlag)
+	case vaultCAName:
+		return vault.NewVaultClient(tlsFlag, tlsRootCert, vaultAddr, vaultRole, vaultAuthPath, vaultSignCsrPath)
+	case citadelName:
+		cs, err := kube.CreateClientset("", "")
+		if err != nil {
+			return nil, fmt.Errorf("could not create k8s clientset: %v", err)
+		}
+		controller := configmap.NewController(ns, cs.CoreV1())
+		rootCert, err := getCATLSRootCertFromConfigMap(controller, retryInterval, maxRetries)
+		if err != nil {
+			return nil, err
+		}
+		return citadel.NewCitadelClient(endpoint, tlsFlag, rootCert)
 	default:
-		return nil, fmt.Errorf("CA provider %q isn't supported. Currently Istio only supports %q", CAProviderName, strings.Join([]string{googleCA}, ","))
+		return nil, fmt.Errorf(
+			"CA provider %q isn't supported. Currently Istio supports %q", CAProviderName, strings.Join([]string{googleCAName, citadelName, vaultCAName}, ","))
 	}
+}
+
+func getCATLSRootCertFromConfigMap(controller configMap, interval time.Duration, max int) ([]byte, error) {
+	cert := ""
+	var err error
+	// Keep retrying until the root cert is fetched or the number of retries is exhausted.
+	for i := 0; i < max+1; i++ {
+		cert, err = controller.GetCATLSRootCert()
+		if err == nil {
+			break
+		}
+		time.Sleep(retryInterval)
+		log.Infof("unalbe to fetch CA TLS root cert: %v, retry in %v", err, interval)
+	}
+	if cert == "" {
+		return nil, fmt.Errorf("exhausted all the retries (%d) to fetch the CA TLS root cert", max)
+	}
+
+	certDecoded, err := base64.StdEncoding.DecodeString(cert)
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode the CA TLS root cert: %v", err)
+	}
+	return certDecoded, nil
 }

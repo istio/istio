@@ -22,34 +22,34 @@ import (
 )
 
 var validServiceKeys = map[string]struct {
-	service Service
+	service *Service
 	labels  LabelsCollection
 }{
 	"example-service1.default|grpc,http|a=b,c=d;e=f": {
-		service: Service{
+		service: &Service{
 			Hostname: "example-service1.default",
 			Ports:    []*Port{{Name: "http", Port: 80}, {Name: "grpc", Port: 90}}},
 		labels: LabelsCollection{{"e": "f"}, {"c": "d", "a": "b"}}},
 	"my-service": {
-		service: Service{
+		service: &Service{
 			Hostname: "my-service",
 			Ports:    []*Port{{Name: "", Port: 80}}}},
 	"svc.ns": {
-		service: Service{
+		service: &Service{
 			Hostname: "svc.ns",
 			Ports:    []*Port{{Name: "", Port: 80}}}},
 	"svc||istio.io/my_tag-v1.test=my_value-v2.value": {
-		service: Service{
+		service: &Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: "", Port: 80}}},
 		labels: LabelsCollection{{"istio.io/my_tag-v1.test": "my_value-v2.value"}}},
 	"svc|test|prod": {
-		service: Service{
+		service: &Service{
 			Hostname: "svc",
 			Ports:    []*Port{{Name: "test", Port: 80}}},
 		labels: LabelsCollection{{"prod": ""}}},
 	"svc.default.svc.cluster.local|http-test": {
-		service: Service{
+		service: &Service{
 			Hostname: "svc.default.svc.cluster.local",
 			Ports:    []*Port{{Name: "http-test", Port: 80}}}},
 }
@@ -195,6 +195,9 @@ func TestParseProtocol(t *testing.T) {
 		{"https", ProtocolHTTPS},
 		{"http2", ProtocolHTTP2},
 		{"grpc", ProtocolGRPC},
+		{"grpc-web", ProtocolGRPCWeb},
+		{"gRPC-Web", ProtocolGRPCWeb},
+		{"grpc-Web", ProtocolGRPCWeb},
 		{"udp", ProtocolUDP},
 		{"Mongo", ProtocolMongo},
 		{"mongo", ProtocolMongo},
@@ -202,6 +205,10 @@ func TestParseProtocol(t *testing.T) {
 		{"Redis", ProtocolRedis},
 		{"redis", ProtocolRedis},
 		{"REDIS", ProtocolRedis},
+		{"Mysql", ProtocolMySQL},
+		{"mysql", ProtocolMySQL},
+		{"MYSQL", ProtocolMySQL},
+		{"MySQL", ProtocolMySQL},
 		{"", ProtocolUnsupported},
 		{"SMTP", ProtocolUnsupported},
 	}
@@ -221,6 +228,8 @@ func TestHostnameMatches(t *testing.T) {
 		out  bool
 	}{
 		{"empty", "", "", true},
+		{"first empty", "", "foo.com", false},
+		{"second empty", "foo.com", "", false},
 
 		{"non-wildcard domain",
 			"foo.com", "foo.com", true},

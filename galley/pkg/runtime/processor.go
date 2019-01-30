@@ -15,14 +15,15 @@
 package runtime
 
 import (
-	"github.com/pkg/errors"
-
 	"time"
 
+	"github.com/pkg/errors"
+
 	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/runtime/processing"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/mcp/snapshot"
+	sn "istio.io/istio/pkg/mcp/snapshot"
 )
 
 var scope = log.RegisterScope("runtime", "Galley runtime", 0)
@@ -33,25 +34,14 @@ type Processor struct {
 	// source interface for retrieving the events from.
 	source Source
 
-	// distributor interface for publishing config snapshots to.
-	distributor Distributor
-
-	// configuration for the processor
-	config *Config
-
-	// The heuristic publishing strategy
-	strategy *publishingStrategy
-
-	schema *resource.Schema
-
 	// events channel that was obtained from source
 	events chan resource.Event
 
+	// handler for events.
+	handler processing.Handler
+
 	// channel that gets closed during Shutdown.
 	done chan struct{}
-
-	// indicates that the State is built-up enough to warrant distribution.
-	distribute bool
 
 	// channel that signals the background process as being stopped.
 	stopped chan struct{}
@@ -62,38 +52,32 @@ type Processor struct {
 	// hook that gets called after each event processing. Useful for testing.
 	postProcessHook postProcessHookFn
 
-	// pendingEvents counts the number of events awaiting publishing.
-	pendingEvents int64
-
 	// lastEventTime records the last time an event was received.
 	lastEventTime time.Time
-
-	// lastSnapshotTime records the last time a snapshot was published.
-	lastSnapshotTime time.Time
 }
 
 type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
 func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
-	return newProcessor(src, distributor, cfg, newPublishingStrategyWithDefaults(), metadata.Types, nil)
+	state := newState(sn.DefaultGroup, metadata.Types, cfg, newPublishingStrategyWithDefaults(), distributor)
+	return newProcessor(state, src, nil)
 }
 
 func newProcessor(
+	state *State,
 	src Source,
-	distributor Distributor,
-	cfg *Config,
-	strategy *publishingStrategy,
-	schema *resource.Schema,
 	postProcessHook postProcessHookFn) *Processor {
 
+	now := time.Now()
 	return &Processor{
+		handler:         buildDispatcher(state),
+		state:           state,
 		source:          src,
-		distributor:     distributor,
-		config:          cfg,
-		strategy:        strategy,
-		schema:          schema,
 		postProcessHook: postProcessHook,
+		done:            make(chan struct{}),
+		stopped:         make(chan struct{}),
+		lastEventTime:   now,
 	}
 }
 
@@ -107,21 +91,17 @@ func (p *Processor) Start() error {
 		return errors.New("already started")
 	}
 
-	p.distribute = false
-
-	events, err := p.source.Start()
+	events := make(chan resource.Event, 1024)
+	err := p.source.Start(func(e resource.Event) {
+		events <- e
+	})
 	if err != nil {
 		scope.Warnf("Unable to Start source: %v", err)
 		return err
 	}
 
 	p.events = events
-	p.state = newState(p.schema, p.config)
 
-	p.done = make(chan struct{})
-	p.stopped = make(chan struct{})
-	p.lastEventTime = time.Now()
-	p.lastSnapshotTime = time.Now()
 	go p.process()
 
 	return nil
@@ -140,11 +120,10 @@ func (p *Processor) Stop() {
 
 	close(p.done)
 	<-p.stopped
+	close(p.events)
 
 	p.events = nil
 	p.done = nil
-	p.state = nil
-	p.distribute = false
 }
 
 func (p *Processor) process() {
@@ -156,15 +135,11 @@ loop:
 
 		// Incoming events are received through p.events
 		case e := <-p.events:
-			scope.Debugf("Processor.process: event: %v", e)
-			if p.processEvent(e) {
-				scope.Debugf("Processor.process: event: %v, signaling onChange", e)
-				p.strategy.onChange()
-			}
+			p.processEvent(e)
 
-		case <-p.strategy.publish:
+		case <-p.state.strategy.publish:
 			scope.Debug("Processor.process: publish")
-			p.publish()
+			p.state.publish()
 
 		// p.done signals the graceful Shutdown of the processor.
 		case <-p.done:
@@ -177,33 +152,36 @@ loop:
 		}
 	}
 
-	p.strategy.reset()
+	p.state.close()
 	close(p.stopped)
 	scope.Debugf("Process.process: Exiting process loop")
 }
 
-func (p *Processor) processEvent(e resource.Event) bool {
+func (p *Processor) processEvent(e resource.Event) {
 	scope.Debugf("Incoming source event: %v", e)
-	now := time.Now()
-	recordProcessorEventProcessed(now.Sub(p.lastEventTime))
-	p.lastEventTime = now
-	p.pendingEvents++
+	p.recordEvent()
 
 	if e.Kind == resource.FullSync {
 		scope.Infof("Synchronization is complete, starting distribution.")
-		p.distribute = true
-		return true
+		p.state.onFullSync()
+		return
 	}
 
-	return p.state.apply(e) && p.distribute
+	p.handler.Handle(e)
 }
 
-func (p *Processor) publish() {
+func (p *Processor) recordEvent() {
 	now := time.Now()
-	recordProcessorSnapshotPublished(p.pendingEvents, now.Sub(p.lastSnapshotTime))
-	p.lastSnapshotTime = now
-	sn := p.state.buildSnapshot()
+	recordProcessorEventProcessed(now.Sub(p.lastEventTime))
+	p.lastEventTime = now
+}
 
-	p.distributor.SetSnapshot(snapshot.DefaultGroup, sn)
-	p.pendingEvents = 0
+func buildDispatcher(states ...*State) *processing.Dispatcher {
+	b := processing.NewDispatcherBuilder()
+	for _, state := range states {
+		for _, spec := range state.schema.All() {
+			b.Add(spec.Collection, state)
+		}
+	}
+	return b.Build()
 }

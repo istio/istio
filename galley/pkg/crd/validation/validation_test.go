@@ -21,7 +21,6 @@ import (
 
 // scenario is a common struct used by many tests in this context.
 type scenario struct {
-	name          string
 	wrapFunc      func(*WebhookParameters)
 	expectedError string
 }

@@ -60,7 +60,7 @@ func (x VirtualHost_TlsRequirementType) String() string {
 	return proto.EnumName(VirtualHost_TlsRequirementType_name, int32(x))
 }
 func (VirtualHost_TlsRequirementType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{0, 0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{0, 0}
 }
 
 type RouteAction_ClusterNotFoundResponseCode int32
@@ -85,7 +85,31 @@ func (x RouteAction_ClusterNotFoundResponseCode) String() string {
 	return proto.EnumName(RouteAction_ClusterNotFoundResponseCode_name, int32(x))
 }
 func (RouteAction_ClusterNotFoundResponseCode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 0}
+}
+
+// Configures :ref:`internal redirect <arch_overview_internal_redirects>` behavior.
+type RouteAction_InternalRedirectAction int32
+
+const (
+	RouteAction_PASS_THROUGH_INTERNAL_REDIRECT RouteAction_InternalRedirectAction = 0
+	RouteAction_HANDLE_INTERNAL_REDIRECT       RouteAction_InternalRedirectAction = 1
+)
+
+var RouteAction_InternalRedirectAction_name = map[int32]string{
+	0: "PASS_THROUGH_INTERNAL_REDIRECT",
+	1: "HANDLE_INTERNAL_REDIRECT",
+}
+var RouteAction_InternalRedirectAction_value = map[string]int32{
+	"PASS_THROUGH_INTERNAL_REDIRECT": 0,
+	"HANDLE_INTERNAL_REDIRECT":       1,
+}
+
+func (x RouteAction_InternalRedirectAction) String() string {
+	return proto.EnumName(RouteAction_InternalRedirectAction_name, int32(x))
+}
+func (RouteAction_InternalRedirectAction) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1}
 }
 
 type RedirectAction_RedirectResponseCode int32
@@ -122,7 +146,7 @@ func (x RedirectAction_RedirectResponseCode) String() string {
 	return proto.EnumName(RedirectAction_RedirectResponseCode_name, int32(x))
 }
 func (RedirectAction_RedirectResponseCode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{6, 0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{7, 0}
 }
 
 // The top level element in the routing configuration is a virtual host. Each virtual host has
@@ -130,7 +154,7 @@ func (RedirectAction_RedirectResponseCode) EnumDescriptor() ([]byte, []int) {
 // host header. This allows a single listener to service multiple top level domain path trees. Once
 // a virtual host is selected based on the domain, the routes are processed in order to see which
 // upstream cluster to route to or whether to perform a redirect.
-// [#comment:next free field: 16]
+// [#comment:next free field: 17]
 type VirtualHost struct {
 	// The logical name of the virtual host. This is used when emitting certain
 	// statistics but is not relevant for routing.
@@ -147,54 +171,53 @@ type VirtualHost struct {
 	//   host/authority header. Only a single virtual host in the entire route
 	//   configuration can match on ``*``. A domain must be unique across all virtual
 	//   hosts or the config will fail to load.
-	Domains []string `protobuf:"bytes,2,rep,name=domains" json:"domains,omitempty"`
+	Domains []string `protobuf:"bytes,2,rep,name=domains,proto3" json:"domains,omitempty"`
 	// The list of routes that will be matched, in order, for incoming requests.
 	// The first route that matches will be used.
-	Routes []Route `protobuf:"bytes,3,rep,name=routes" json:"routes"`
+	Routes []Route `protobuf:"bytes,3,rep,name=routes,proto3" json:"routes"`
 	// Specifies the type of TLS enforcement the virtual host expects. If this option is not
 	// specified, there is no TLS requirement for the virtual host.
 	RequireTls VirtualHost_TlsRequirementType `protobuf:"varint,4,opt,name=require_tls,json=requireTls,proto3,enum=envoy.api.v2.route.VirtualHost_TlsRequirementType" json:"require_tls,omitempty"`
 	// A list of virtual clusters defined for this virtual host. Virtual clusters
 	// are used for additional statistics gathering.
-	VirtualClusters []*VirtualCluster `protobuf:"bytes,5,rep,name=virtual_clusters,json=virtualClusters" json:"virtual_clusters,omitempty"`
+	VirtualClusters []*VirtualCluster `protobuf:"bytes,5,rep,name=virtual_clusters,json=virtualClusters,proto3" json:"virtual_clusters,omitempty"`
 	// Specifies a set of rate limit configurations that will be applied to the
 	// virtual host.
-	RateLimits []*RateLimit `protobuf:"bytes,6,rep,name=rate_limits,json=rateLimits" json:"rate_limits,omitempty"`
+	RateLimits []*RateLimit `protobuf:"bytes,6,rep,name=rate_limits,json=rateLimits,proto3" json:"rate_limits,omitempty"`
 	// Specifies a list of HTTP headers that should be added to each request
 	// handled by this virtual host. Headers specified at this level are applied
 	// after headers from enclosed :ref:`envoy_api_msg_route.Route` and before headers from the
 	// enclosing :ref:`envoy_api_msg_RouteConfiguration`. For more information, including
 	// details on header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,7,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
+	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,7,rep,name=request_headers_to_add,json=requestHeadersToAdd,proto3" json:"request_headers_to_add,omitempty"`
 	// Specifies a list of HTTP headers that should be removed from each request
 	// handled by this virtual host.
-	RequestHeadersToRemove []string `protobuf:"bytes,13,rep,name=request_headers_to_remove,json=requestHeadersToRemove" json:"request_headers_to_remove,omitempty"`
+	RequestHeadersToRemove []string `protobuf:"bytes,13,rep,name=request_headers_to_remove,json=requestHeadersToRemove,proto3" json:"request_headers_to_remove,omitempty"`
 	// Specifies a list of HTTP headers that should be added to each response
 	// handled by this virtual host. Headers specified at this level are applied
 	// after headers from enclosed :ref:`envoy_api_msg_route.Route` and before headers from the
 	// enclosing :ref:`envoy_api_msg_RouteConfiguration`. For more information, including
 	// details on header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,10,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
+	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,10,rep,name=response_headers_to_add,json=responseHeadersToAdd,proto3" json:"response_headers_to_add,omitempty"`
 	// Specifies a list of HTTP headers that should be removed from each response
 	// handled by this virtual host.
-	ResponseHeadersToRemove []string `protobuf:"bytes,11,rep,name=response_headers_to_remove,json=responseHeadersToRemove" json:"response_headers_to_remove,omitempty"`
+	ResponseHeadersToRemove []string `protobuf:"bytes,11,rep,name=response_headers_to_remove,json=responseHeadersToRemove,proto3" json:"response_headers_to_remove,omitempty"`
 	// Indicates that the virtual host has a CORS policy.
-	Cors *CorsPolicy `protobuf:"bytes,8,opt,name=cors" json:"cors,omitempty"`
+	Cors *CorsPolicy `protobuf:"bytes,8,opt,name=cors,proto3" json:"cors,omitempty"`
 	// The per_filter_config field can be used to provide virtual host-specific
 	// configurations for filters. The key should match the filter name, such as
 	// *envoy.buffer* for the HTTP buffer filter. Use of this field is filter
 	// specific; see the :ref:`HTTP filter documentation <config_http_filters>`
 	// for if and how it is utilized.
-	PerFilterConfig map[string]*types.Struct `protobuf:"bytes,12,rep,name=per_filter_config,json=perFilterConfig" json:"per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
-	// [#not-implemented-hide:]
+	PerFilterConfig map[string]*types.Struct `protobuf:"bytes,12,rep,name=per_filter_config,json=perFilterConfig,proto3" json:"per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // Deprecated: Do not use.
 	// The per_filter_config field can be used to provide virtual host-specific
 	// configurations for filters. The key should match the filter name, such as
 	// *envoy.buffer* for the HTTP buffer filter. Use of this field is filter
 	// specific; see the :ref:`HTTP filter documentation <config_http_filters>`
 	// for if and how it is utilized.
-	TypedPerFilterConfig map[string]*types.Any `protobuf:"bytes,15,rep,name=typed_per_filter_config,json=typedPerFilterConfig" json:"typed_per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	TypedPerFilterConfig map[string]*types.Any `protobuf:"bytes,15,rep,name=typed_per_filter_config,json=typedPerFilterConfig,proto3" json:"typed_per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Decides whether the :ref:`x-envoy-attempt-count
 	// <config_http_filters_router_x-envoy-attempt-count>` header should be included
 	// in the upstream request. Setting this option will cause it to override any existing header
@@ -203,17 +226,21 @@ type VirtualHost struct {
 	// This header is unaffected by the
 	// :ref:`suppress_envoy_headers
 	// <envoy_api_field_config.filter.http.router.v2.Router.suppress_envoy_headers>` flag.
-	IncludeRequestAttemptCount bool     `protobuf:"varint,14,opt,name=include_request_attempt_count,json=includeRequestAttemptCount,proto3" json:"include_request_attempt_count,omitempty"`
-	XXX_NoUnkeyedLiteral       struct{} `json:"-"`
-	XXX_unrecognized           []byte   `json:"-"`
-	XXX_sizecache              int32    `json:"-"`
+	IncludeRequestAttemptCount bool `protobuf:"varint,14,opt,name=include_request_attempt_count,json=includeRequestAttemptCount,proto3" json:"include_request_attempt_count,omitempty"`
+	// Indicates the retry policy for all routes in this virtual host. Note that setting a
+	// route level entry will take precedence over this config and it'll be treated
+	// independently (e.g.: values are not inherited).
+	RetryPolicy          *RetryPolicy `protobuf:"bytes,16,opt,name=retry_policy,json=retryPolicy,proto3" json:"retry_policy,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
 }
 
 func (m *VirtualHost) Reset()         { *m = VirtualHost{} }
 func (m *VirtualHost) String() string { return proto.CompactTextString(m) }
 func (*VirtualHost) ProtoMessage()    {}
 func (*VirtualHost) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{0}
 }
 func (m *VirtualHost) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -319,6 +346,7 @@ func (m *VirtualHost) GetCors() *CorsPolicy {
 	return nil
 }
 
+// Deprecated: Do not use.
 func (m *VirtualHost) GetPerFilterConfig() map[string]*types.Struct {
 	if m != nil {
 		return m.PerFilterConfig
@@ -340,6 +368,13 @@ func (m *VirtualHost) GetIncludeRequestAttemptCount() bool {
 	return false
 }
 
+func (m *VirtualHost) GetRetryPolicy() *RetryPolicy {
+	if m != nil {
+		return m.RetryPolicy
+	}
+	return nil
+}
+
 // A route is both a specification of how to match a request as well as an indication of what to do
 // next (e.g., redirect, forward, rewrite, etc.).
 //
@@ -350,7 +385,7 @@ func (m *VirtualHost) GetIncludeRequestAttemptCount() bool {
 // [#comment:next free field: 14]
 type Route struct {
 	// Route matching parameters.
-	Match RouteMatch `protobuf:"bytes,1,opt,name=match" json:"match"`
+	Match RouteMatch `protobuf:"bytes,1,opt,name=match,proto3" json:"match"`
 	// Types that are valid to be assigned to Action:
 	//	*Route_Route
 	//	*Route_Redirect
@@ -361,42 +396,41 @@ type Route struct {
 	// The metadata should go under the filter namespace that will need it.
 	// For instance, if the metadata is intended for the Router filter,
 	// the filter name should be specified as *envoy.router*.
-	Metadata *core.Metadata `protobuf:"bytes,4,opt,name=metadata" json:"metadata,omitempty"`
+	Metadata *core.Metadata `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	// Decorator for the matched route.
-	Decorator *Decorator `protobuf:"bytes,5,opt,name=decorator" json:"decorator,omitempty"`
+	Decorator *Decorator `protobuf:"bytes,5,opt,name=decorator,proto3" json:"decorator,omitempty"`
 	// The per_filter_config field can be used to provide route-specific
 	// configurations for filters. The key should match the filter name, such as
 	// *envoy.buffer* for the HTTP buffer filter. Use of this field is filter
 	// specific; see the :ref:`HTTP filter documentation <config_http_filters>` for
 	// if and how it is utilized.
-	PerFilterConfig map[string]*types.Struct `protobuf:"bytes,8,rep,name=per_filter_config,json=perFilterConfig" json:"per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
-	// [#not-implemented-hide:]
+	PerFilterConfig map[string]*types.Struct `protobuf:"bytes,8,rep,name=per_filter_config,json=perFilterConfig,proto3" json:"per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // Deprecated: Do not use.
 	// The per_filter_config field can be used to provide route-specific
 	// configurations for filters. The key should match the filter name, such as
 	// *envoy.buffer* for the HTTP buffer filter. Use of this field is filter
 	// specific; see the :ref:`HTTP filter documentation <config_http_filters>` for
 	// if and how it is utilized.
-	TypedPerFilterConfig map[string]*types.Any `protobuf:"bytes,13,rep,name=typed_per_filter_config,json=typedPerFilterConfig" json:"typed_per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	TypedPerFilterConfig map[string]*types.Any `protobuf:"bytes,13,rep,name=typed_per_filter_config,json=typedPerFilterConfig,proto3" json:"typed_per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Specifies a set of headers that will be added to requests matching this
 	// route. Headers specified at this level are applied before headers from the
 	// enclosing :ref:`envoy_api_msg_route.VirtualHost` and
 	// :ref:`envoy_api_msg_RouteConfiguration`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,9,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
+	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,9,rep,name=request_headers_to_add,json=requestHeadersToAdd,proto3" json:"request_headers_to_add,omitempty"`
 	// Specifies a list of HTTP headers that should be removed from each request
 	// matching this route.
-	RequestHeadersToRemove []string `protobuf:"bytes,12,rep,name=request_headers_to_remove,json=requestHeadersToRemove" json:"request_headers_to_remove,omitempty"`
+	RequestHeadersToRemove []string `protobuf:"bytes,12,rep,name=request_headers_to_remove,json=requestHeadersToRemove,proto3" json:"request_headers_to_remove,omitempty"`
 	// Specifies a set of headers that will be added to responses to requests
 	// matching this route. Headers specified at this level are applied before
 	// headers from the enclosing :ref:`envoy_api_msg_route.VirtualHost` and
 	// :ref:`envoy_api_msg_RouteConfiguration`. For more information, including
 	// details on header value syntax, see the documentation on
 	// :ref:`custom request headers <config_http_conn_man_headers_custom_request_headers>`.
-	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,10,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
+	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,10,rep,name=response_headers_to_add,json=responseHeadersToAdd,proto3" json:"response_headers_to_add,omitempty"`
 	// Specifies a list of HTTP headers that should be removed from each response
 	// to requests matching this route.
-	ResponseHeadersToRemove []string `protobuf:"bytes,11,rep,name=response_headers_to_remove,json=responseHeadersToRemove" json:"response_headers_to_remove,omitempty"`
+	ResponseHeadersToRemove []string `protobuf:"bytes,11,rep,name=response_headers_to_remove,json=responseHeadersToRemove,proto3" json:"response_headers_to_remove,omitempty"`
 	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
 	XXX_unrecognized        []byte   `json:"-"`
 	XXX_sizecache           int32    `json:"-"`
@@ -406,7 +440,7 @@ func (m *Route) Reset()         { *m = Route{} }
 func (m *Route) String() string { return proto.CompactTextString(m) }
 func (*Route) ProtoMessage()    {}
 func (*Route) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{1}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{1}
 }
 func (m *Route) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -443,13 +477,13 @@ type isRoute_Action interface {
 }
 
 type Route_Route struct {
-	Route *RouteAction `protobuf:"bytes,2,opt,name=route,oneof"`
+	Route *RouteAction `protobuf:"bytes,2,opt,name=route,proto3,oneof"`
 }
 type Route_Redirect struct {
-	Redirect *RedirectAction `protobuf:"bytes,3,opt,name=redirect,oneof"`
+	Redirect *RedirectAction `protobuf:"bytes,3,opt,name=redirect,proto3,oneof"`
 }
 type Route_DirectResponse struct {
-	DirectResponse *DirectResponseAction `protobuf:"bytes,7,opt,name=direct_response,json=directResponse,oneof"`
+	DirectResponse *DirectResponseAction `protobuf:"bytes,7,opt,name=direct_response,json=directResponse,proto3,oneof"`
 }
 
 func (*Route_Route) isRoute_Action()          {}
@@ -505,6 +539,7 @@ func (m *Route) GetDecorator() *Decorator {
 	return nil
 }
 
+// Deprecated: Do not use.
 func (m *Route) GetPerFilterConfig() map[string]*types.Struct {
 	if m != nil {
 		return m.PerFilterConfig
@@ -649,10 +684,10 @@ func _Route_OneofSizer(msg proto.Message) (n int) {
 // [#comment:next free field: 11]
 type WeightedCluster struct {
 	// Specifies one or more upstream clusters associated with the route.
-	Clusters []*WeightedCluster_ClusterWeight `protobuf:"bytes,1,rep,name=clusters" json:"clusters,omitempty"`
+	Clusters []*WeightedCluster_ClusterWeight `protobuf:"bytes,1,rep,name=clusters,proto3" json:"clusters,omitempty"`
 	// Specifies the total weight across all clusters. The sum of all cluster weights must equal this
 	// value, which must be greater than 0. Defaults to 100.
-	TotalWeight *types.UInt32Value `protobuf:"bytes,3,opt,name=total_weight,json=totalWeight" json:"total_weight,omitempty"`
+	TotalWeight *types.UInt32Value `protobuf:"bytes,3,opt,name=total_weight,json=totalWeight,proto3" json:"total_weight,omitempty"`
 	// Specifies the runtime key prefix that should be used to construct the
 	// runtime keys associated with each cluster. When the *runtime_key_prefix* is
 	// specified, the router will look for weights associated with each upstream
@@ -671,7 +706,7 @@ func (m *WeightedCluster) Reset()         { *m = WeightedCluster{} }
 func (m *WeightedCluster) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster) ProtoMessage()    {}
 func (*WeightedCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{2}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{2}
 }
 func (m *WeightedCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -729,13 +764,13 @@ type WeightedCluster_ClusterWeight struct {
 	// <envoy_api_field_route.WeightedCluster.total_weight>`. When a request matches the route,
 	// the choice of an upstream cluster is determined by its weight. The sum of weights across all
 	// entries in the clusters array must add up to the total_weight, which defaults to 100.
-	Weight *types.UInt32Value `protobuf:"bytes,2,opt,name=weight" json:"weight,omitempty"`
+	Weight *types.UInt32Value `protobuf:"bytes,2,opt,name=weight,proto3" json:"weight,omitempty"`
 	// Optional endpoint metadata match criteria used by the subset load balancer. Only endpoints in
 	// the upstream cluster with metadata matching what is set in this field will be considered for
 	// load balancing. Note that this will be merged with what's provided in :ref:
 	// `RouteAction.MetadataMatch <envoy_api_field_route.RouteAction.metadata_match>`, with values
 	// here taking precedence. The filter name should be specified as *envoy.lb*.
-	MetadataMatch *core.Metadata `protobuf:"bytes,3,opt,name=metadata_match,json=metadataMatch" json:"metadata_match,omitempty"`
+	MetadataMatch *core.Metadata `protobuf:"bytes,3,opt,name=metadata_match,json=metadataMatch,proto3" json:"metadata_match,omitempty"`
 	// Specifies a list of headers to be added to requests when this cluster is selected
 	// through the enclosing :ref:`envoy_api_msg_route.RouteAction`.
 	// Headers specified at this level are applied before headers from the enclosing
@@ -743,10 +778,10 @@ type WeightedCluster_ClusterWeight struct {
 	// :ref:`envoy_api_msg_RouteConfiguration`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,4,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"`
+	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,4,rep,name=request_headers_to_add,json=requestHeadersToAdd,proto3" json:"request_headers_to_add,omitempty"`
 	// Specifies a list of HTTP headers that should be removed from each request when
 	// this cluster is selected through the enclosing :ref:`envoy_api_msg_route.RouteAction`.
-	RequestHeadersToRemove []string `protobuf:"bytes,9,rep,name=request_headers_to_remove,json=requestHeadersToRemove" json:"request_headers_to_remove,omitempty"`
+	RequestHeadersToRemove []string `protobuf:"bytes,9,rep,name=request_headers_to_remove,json=requestHeadersToRemove,proto3" json:"request_headers_to_remove,omitempty"`
 	// Specifies a list of headers to be added to responses when this cluster is selected
 	// through the enclosing :ref:`envoy_api_msg_route.RouteAction`.
 	// Headers specified at this level are applied before headers from the enclosing
@@ -754,23 +789,22 @@ type WeightedCluster_ClusterWeight struct {
 	// :ref:`envoy_api_msg_RouteConfiguration`. For more information, including details on
 	// header value syntax, see the documentation on :ref:`custom request headers
 	// <config_http_conn_man_headers_custom_request_headers>`.
-	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,5,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"`
+	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,5,rep,name=response_headers_to_add,json=responseHeadersToAdd,proto3" json:"response_headers_to_add,omitempty"`
 	// Specifies a list of headers to be removed from responses when this cluster is selected
 	// through the enclosing :ref:`envoy_api_msg_route.RouteAction`.
-	ResponseHeadersToRemove []string `protobuf:"bytes,6,rep,name=response_headers_to_remove,json=responseHeadersToRemove" json:"response_headers_to_remove,omitempty"`
+	ResponseHeadersToRemove []string `protobuf:"bytes,6,rep,name=response_headers_to_remove,json=responseHeadersToRemove,proto3" json:"response_headers_to_remove,omitempty"`
 	// The per_filter_config field can be used to provide weighted cluster-specific
 	// configurations for filters. The key should match the filter name, such as
 	// *envoy.buffer* for the HTTP buffer filter. Use of this field is filter
 	// specific; see the :ref:`HTTP filter documentation <config_http_filters>`
 	// for if and how it is utilized.
-	PerFilterConfig map[string]*types.Struct `protobuf:"bytes,8,rep,name=per_filter_config,json=perFilterConfig" json:"per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
-	// [#not-implemented-hide:]
+	PerFilterConfig map[string]*types.Struct `protobuf:"bytes,8,rep,name=per_filter_config,json=perFilterConfig,proto3" json:"per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // Deprecated: Do not use.
 	// The per_filter_config field can be used to provide weighted cluster-specific
 	// configurations for filters. The key should match the filter name, such as
 	// *envoy.buffer* for the HTTP buffer filter. Use of this field is filter
 	// specific; see the :ref:`HTTP filter documentation <config_http_filters>`
 	// for if and how it is utilized.
-	TypedPerFilterConfig map[string]*types.Any `protobuf:"bytes,10,rep,name=typed_per_filter_config,json=typedPerFilterConfig" json:"typed_per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	TypedPerFilterConfig map[string]*types.Any `protobuf:"bytes,10,rep,name=typed_per_filter_config,json=typedPerFilterConfig,proto3" json:"typed_per_filter_config,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -780,7 +814,7 @@ func (m *WeightedCluster_ClusterWeight) Reset()         { *m = WeightedCluster_C
 func (m *WeightedCluster_ClusterWeight) String() string { return proto.CompactTextString(m) }
 func (*WeightedCluster_ClusterWeight) ProtoMessage()    {}
 func (*WeightedCluster_ClusterWeight) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{2, 0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{2, 0}
 }
 func (m *WeightedCluster_ClusterWeight) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -858,6 +892,7 @@ func (m *WeightedCluster_ClusterWeight) GetResponseHeadersToRemove() []string {
 	return nil
 }
 
+// Deprecated: Do not use.
 func (m *WeightedCluster_ClusterWeight) GetPerFilterConfig() map[string]*types.Struct {
 	if m != nil {
 		return m.PerFilterConfig
@@ -880,7 +915,7 @@ type RouteMatch struct {
 	PathSpecifier isRouteMatch_PathSpecifier `protobuf_oneof:"path_specifier"`
 	// Indicates that prefix/path matching should be case insensitive. The default
 	// is true.
-	CaseSensitive *types.BoolValue `protobuf:"bytes,4,opt,name=case_sensitive,json=caseSensitive" json:"case_sensitive,omitempty"`
+	CaseSensitive *types.BoolValue `protobuf:"bytes,4,opt,name=case_sensitive,json=caseSensitive,proto3" json:"case_sensitive,omitempty"`
 	// Indicates that the route should additionally match on a runtime key. Every time the route
 	// is considered for a match, it must also fall under the percentage of matches indicated by
 	// this field. For some fraction N/D, a random number in the range [0,D) is selected. If the
@@ -893,27 +928,27 @@ type RouteMatch struct {
 	// .. note::
 	//
 	//    Parsing this field is implemented such that the runtime key's data may be represented
-	//    as a FractionalPercent proto represented as JSON/YAM and may also be represented as an
+	//    as a FractionalPercent proto represented as JSON/YAML and may also be represented as an
 	//    integer with the assumption that the value is an integral percentage out of 100. For
 	//    instance, a runtime key lookup returning the value "42" would parse as a FractionalPercent
 	//    whose numerator is 42 and denominator is HUNDRED. This preserves legacy semantics.
-	RuntimeFraction *core.RuntimeFractionalPercent `protobuf:"bytes,9,opt,name=runtime_fraction,json=runtimeFraction" json:"runtime_fraction,omitempty"`
+	RuntimeFraction *core.RuntimeFractionalPercent `protobuf:"bytes,9,opt,name=runtime_fraction,json=runtimeFraction,proto3" json:"runtime_fraction,omitempty"`
 	// Specifies a set of headers that the route should match on. The router will
 	// check the request’s headers against all the specified headers in the route
 	// config. A match will happen if all the headers in the route are present in
 	// the request with the same values (or based on presence if the value field
 	// is not in the config).
-	Headers []*HeaderMatcher `protobuf:"bytes,6,rep,name=headers" json:"headers,omitempty"`
+	Headers []*HeaderMatcher `protobuf:"bytes,6,rep,name=headers,proto3" json:"headers,omitempty"`
 	// Specifies a set of URL query parameters on which the route should
 	// match. The router will check the query string from the *path* header
 	// against all the specified query parameters. If the number of specified
 	// query parameters is nonzero, they all must match the *path* header's
 	// query string for a match to occur.
-	QueryParameters []*QueryParameterMatcher `protobuf:"bytes,7,rep,name=query_parameters,json=queryParameters" json:"query_parameters,omitempty"`
+	QueryParameters []*QueryParameterMatcher `protobuf:"bytes,7,rep,name=query_parameters,json=queryParameters,proto3" json:"query_parameters,omitempty"`
 	// If specified, only gRPC requests will be matched. The router will check
 	// that the content-type header has a application/grpc or one of the various
 	// application/grpc+ values.
-	Grpc                 *RouteMatch_GrpcRouteMatchOptions `protobuf:"bytes,8,opt,name=grpc" json:"grpc,omitempty"`
+	Grpc                 *RouteMatch_GrpcRouteMatchOptions `protobuf:"bytes,8,opt,name=grpc,proto3" json:"grpc,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                          `json:"-"`
 	XXX_unrecognized     []byte                            `json:"-"`
 	XXX_sizecache        int32                             `json:"-"`
@@ -923,7 +958,7 @@ func (m *RouteMatch) Reset()         { *m = RouteMatch{} }
 func (m *RouteMatch) String() string { return proto.CompactTextString(m) }
 func (*RouteMatch) ProtoMessage()    {}
 func (*RouteMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{3}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{3}
 }
 func (m *RouteMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1127,7 +1162,7 @@ func (m *RouteMatch_GrpcRouteMatchOptions) Reset()         { *m = RouteMatch_Grp
 func (m *RouteMatch_GrpcRouteMatchOptions) String() string { return proto.CompactTextString(m) }
 func (*RouteMatch_GrpcRouteMatchOptions) ProtoMessage()    {}
 func (*RouteMatch_GrpcRouteMatchOptions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{3, 0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{3, 0}
 }
 func (m *RouteMatch_GrpcRouteMatchOptions) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1156,16 +1191,16 @@ func (m *RouteMatch_GrpcRouteMatchOptions) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_RouteMatch_GrpcRouteMatchOptions proto.InternalMessageInfo
 
-// [#comment:next free field: 9]
+// [#comment:next free field: 11]
 type CorsPolicy struct {
 	// Specifies the origins that will be allowed to do CORS requests.
 	//
 	// An origin is allowed if either allow_origin or allow_origin_regex match.
-	AllowOrigin []string `protobuf:"bytes,1,rep,name=allow_origin,json=allowOrigin" json:"allow_origin,omitempty"`
+	AllowOrigin []string `protobuf:"bytes,1,rep,name=allow_origin,json=allowOrigin,proto3" json:"allow_origin,omitempty"`
 	// Specifies regex patterns that match allowed origins.
 	//
 	// An origin is allowed if either allow_origin or allow_origin_regex match.
-	AllowOriginRegex []string `protobuf:"bytes,8,rep,name=allow_origin_regex,json=allowOriginRegex" json:"allow_origin_regex,omitempty"`
+	AllowOriginRegex []string `protobuf:"bytes,8,rep,name=allow_origin_regex,json=allowOriginRegex,proto3" json:"allow_origin_regex,omitempty"`
 	// Specifies the content for the *access-control-allow-methods* header.
 	AllowMethods string `protobuf:"bytes,2,opt,name=allow_methods,json=allowMethods,proto3" json:"allow_methods,omitempty"`
 	// Specifies the content for the *access-control-allow-headers* header.
@@ -1175,19 +1210,32 @@ type CorsPolicy struct {
 	// Specifies the content for the *access-control-max-age* header.
 	MaxAge string `protobuf:"bytes,5,opt,name=max_age,json=maxAge,proto3" json:"max_age,omitempty"`
 	// Specifies whether the resource allows credentials.
-	AllowCredentials *types.BoolValue `protobuf:"bytes,6,opt,name=allow_credentials,json=allowCredentials" json:"allow_credentials,omitempty"`
-	// Specifies if CORS is enabled. Defaults to true. Only effective on route.
-	Enabled              *types.BoolValue `protobuf:"bytes,7,opt,name=enabled" json:"enabled,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+	AllowCredentials *types.BoolValue `protobuf:"bytes,6,opt,name=allow_credentials,json=allowCredentials,proto3" json:"allow_credentials,omitempty"`
+	// Types that are valid to be assigned to EnabledSpecifier:
+	//	*CorsPolicy_Enabled
+	//	*CorsPolicy_FilterEnabled
+	EnabledSpecifier isCorsPolicy_EnabledSpecifier `protobuf_oneof:"enabled_specifier"`
+	// Specifies if CORS policies are evaluated and tracked when filter is off but
+	// does not enforce any policies.
+	//
+	// More information on how this can be controlled via runtime can be found
+	// :ref:`here <cors-runtime>`.
+	//
+	// .. note::
+	//
+	//   This field defaults to 100/:ref:`HUNDRED
+	//   <envoy_api_enum_type.FractionalPercent.DenominatorType>`.
+	ShadowEnabled        *core.RuntimeFractionalPercent `protobuf:"bytes,10,opt,name=shadow_enabled,json=shadowEnabled,proto3" json:"shadow_enabled,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                       `json:"-"`
+	XXX_unrecognized     []byte                         `json:"-"`
+	XXX_sizecache        int32                          `json:"-"`
 }
 
 func (m *CorsPolicy) Reset()         { *m = CorsPolicy{} }
 func (m *CorsPolicy) String() string { return proto.CompactTextString(m) }
 func (*CorsPolicy) ProtoMessage()    {}
 func (*CorsPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{4}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{4}
 }
 func (m *CorsPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1215,6 +1263,30 @@ func (m *CorsPolicy) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_CorsPolicy proto.InternalMessageInfo
+
+type isCorsPolicy_EnabledSpecifier interface {
+	isCorsPolicy_EnabledSpecifier()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type CorsPolicy_Enabled struct {
+	Enabled *types.BoolValue `protobuf:"bytes,7,opt,name=enabled,proto3,oneof"`
+}
+type CorsPolicy_FilterEnabled struct {
+	FilterEnabled *core.RuntimeFractionalPercent `protobuf:"bytes,9,opt,name=filter_enabled,json=filterEnabled,proto3,oneof"`
+}
+
+func (*CorsPolicy_Enabled) isCorsPolicy_EnabledSpecifier()       {}
+func (*CorsPolicy_FilterEnabled) isCorsPolicy_EnabledSpecifier() {}
+
+func (m *CorsPolicy) GetEnabledSpecifier() isCorsPolicy_EnabledSpecifier {
+	if m != nil {
+		return m.EnabledSpecifier
+	}
+	return nil
+}
 
 func (m *CorsPolicy) GetAllowOrigin() []string {
 	if m != nil {
@@ -1266,13 +1338,101 @@ func (m *CorsPolicy) GetAllowCredentials() *types.BoolValue {
 }
 
 func (m *CorsPolicy) GetEnabled() *types.BoolValue {
-	if m != nil {
-		return m.Enabled
+	if x, ok := m.GetEnabledSpecifier().(*CorsPolicy_Enabled); ok {
+		return x.Enabled
 	}
 	return nil
 }
 
-// [#comment:next free field: 25]
+func (m *CorsPolicy) GetFilterEnabled() *core.RuntimeFractionalPercent {
+	if x, ok := m.GetEnabledSpecifier().(*CorsPolicy_FilterEnabled); ok {
+		return x.FilterEnabled
+	}
+	return nil
+}
+
+func (m *CorsPolicy) GetShadowEnabled() *core.RuntimeFractionalPercent {
+	if m != nil {
+		return m.ShadowEnabled
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*CorsPolicy) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _CorsPolicy_OneofMarshaler, _CorsPolicy_OneofUnmarshaler, _CorsPolicy_OneofSizer, []interface{}{
+		(*CorsPolicy_Enabled)(nil),
+		(*CorsPolicy_FilterEnabled)(nil),
+	}
+}
+
+func _CorsPolicy_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*CorsPolicy)
+	// enabled_specifier
+	switch x := m.EnabledSpecifier.(type) {
+	case *CorsPolicy_Enabled:
+		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Enabled); err != nil {
+			return err
+		}
+	case *CorsPolicy_FilterEnabled:
+		_ = b.EncodeVarint(9<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.FilterEnabled); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("CorsPolicy.EnabledSpecifier has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _CorsPolicy_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*CorsPolicy)
+	switch tag {
+	case 7: // enabled_specifier.enabled
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.BoolValue)
+		err := b.DecodeMessage(msg)
+		m.EnabledSpecifier = &CorsPolicy_Enabled{msg}
+		return true, err
+	case 9: // enabled_specifier.filter_enabled
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(core.RuntimeFractionalPercent)
+		err := b.DecodeMessage(msg)
+		m.EnabledSpecifier = &CorsPolicy_FilterEnabled{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _CorsPolicy_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*CorsPolicy)
+	// enabled_specifier
+	switch x := m.EnabledSpecifier.(type) {
+	case *CorsPolicy_Enabled:
+		s := proto.Size(x.Enabled)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *CorsPolicy_FilterEnabled:
+		s := proto.Size(x.FilterEnabled)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+// [#comment:next free field: 27]
 type RouteAction struct {
 	// Types that are valid to be assigned to ClusterSpecifier:
 	//	*RouteAction_Cluster
@@ -1287,7 +1447,7 @@ type RouteAction struct {
 	// for load balancing. If using :ref:`weighted_clusters
 	// <envoy_api_field_route.RouteAction.weighted_clusters>`, metadata will be merged, with values
 	// provided there taking precedence. The filter name should be specified as *envoy.lb*.
-	MetadataMatch *core.Metadata `protobuf:"bytes,4,opt,name=metadata_match,json=metadataMatch" json:"metadata_match,omitempty"`
+	MetadataMatch *core.Metadata `protobuf:"bytes,4,opt,name=metadata_match,json=metadataMatch,proto3" json:"metadata_match,omitempty"`
 	// Indicates that during forwarding, the matched prefix (or path) should be
 	// swapped with this value. This option allows application URLs to be rooted
 	// at a different path from those exposed at the reverse proxy layer. The router filter will
@@ -1330,7 +1490,7 @@ type RouteAction struct {
 	//   :ref:`config_http_filters_router_x-envoy-upstream-rq-timeout-ms`,
 	//   :ref:`config_http_filters_router_x-envoy-upstream-rq-per-try-timeout-ms`, and the
 	//   :ref:`retry overview <arch_overview_http_routing_retry>`.
-	Timeout *time.Duration `protobuf:"bytes,8,opt,name=timeout,stdduration" json:"timeout,omitempty"`
+	Timeout *time.Duration `protobuf:"bytes,8,opt,name=timeout,proto3,stdduration" json:"timeout,omitempty"`
 	// Specifies the idle timeout for the route. If not specified, there is no per-route idle timeout,
 	// although the connection manager wide :ref:`stream_idle_timeout
 	// <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.stream_idle_timeout>`
@@ -1349,29 +1509,31 @@ type RouteAction struct {
 	// fires, the stream is terminated with a 408 Request Timeout error code if no
 	// upstream response header has been received, otherwise a stream reset
 	// occurs.
-	IdleTimeout *time.Duration `protobuf:"bytes,24,opt,name=idle_timeout,json=idleTimeout,stdduration" json:"idle_timeout,omitempty"`
-	// Indicates that the route has a retry policy.
-	RetryPolicy *RouteAction_RetryPolicy `protobuf:"bytes,9,opt,name=retry_policy,json=retryPolicy" json:"retry_policy,omitempty"`
+	IdleTimeout *time.Duration `protobuf:"bytes,24,opt,name=idle_timeout,json=idleTimeout,proto3,stdduration" json:"idle_timeout,omitempty"`
+	// Indicates that the route has a retry policy. Note that if this is set,
+	// it'll take precedence over the virtual host level retry policy entirely
+	// (e.g.: policies are not merged, most internal one becomes the enforced policy).
+	RetryPolicy *RetryPolicy `protobuf:"bytes,9,opt,name=retry_policy,json=retryPolicy,proto3" json:"retry_policy,omitempty"`
 	// Indicates that the route has a request mirroring policy.
-	RequestMirrorPolicy *RouteAction_RequestMirrorPolicy `protobuf:"bytes,10,opt,name=request_mirror_policy,json=requestMirrorPolicy" json:"request_mirror_policy,omitempty"`
+	RequestMirrorPolicy *RouteAction_RequestMirrorPolicy `protobuf:"bytes,10,opt,name=request_mirror_policy,json=requestMirrorPolicy,proto3" json:"request_mirror_policy,omitempty"`
 	// Optionally specifies the :ref:`routing priority <arch_overview_http_routing_priority>`.
 	// [#comment:TODO(htuch): add (validate.rules).enum.defined_only = true once
 	// https://github.com/lyft/protoc-gen-validate/issues/42 is resolved.]
 	Priority core.RoutingPriority `protobuf:"varint,11,opt,name=priority,proto3,enum=envoy.api.v2.core.RoutingPriority" json:"priority,omitempty"`
 	// [#not-implemented-hide:]
-	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,12,rep,name=request_headers_to_add,json=requestHeadersToAdd" json:"request_headers_to_add,omitempty"` // Deprecated: Do not use.
+	RequestHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,12,rep,name=request_headers_to_add,json=requestHeadersToAdd,proto3" json:"request_headers_to_add,omitempty"` // Deprecated: Do not use.
 	// [#not-implemented-hide:]
-	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,18,rep,name=response_headers_to_add,json=responseHeadersToAdd" json:"response_headers_to_add,omitempty"` // Deprecated: Do not use.
+	ResponseHeadersToAdd []*core.HeaderValueOption `protobuf:"bytes,18,rep,name=response_headers_to_add,json=responseHeadersToAdd,proto3" json:"response_headers_to_add,omitempty"` // Deprecated: Do not use.
 	// [#not-implemented-hide:]
-	ResponseHeadersToRemove []string `protobuf:"bytes,19,rep,name=response_headers_to_remove,json=responseHeadersToRemove" json:"response_headers_to_remove,omitempty"` // Deprecated: Do not use.
+	ResponseHeadersToRemove []string `protobuf:"bytes,19,rep,name=response_headers_to_remove,json=responseHeadersToRemove,proto3" json:"response_headers_to_remove,omitempty"` // Deprecated: Do not use.
 	// Specifies a set of rate limit configurations that could be applied to the
 	// route.
-	RateLimits []*RateLimit `protobuf:"bytes,13,rep,name=rate_limits,json=rateLimits" json:"rate_limits,omitempty"`
+	RateLimits []*RateLimit `protobuf:"bytes,13,rep,name=rate_limits,json=rateLimits,proto3" json:"rate_limits,omitempty"`
 	// Specifies if the rate limit filter should include the virtual host rate
 	// limits. By default, if the route configured rate limits, the virtual host
 	// :ref:`rate_limits <envoy_api_field_route.VirtualHost.rate_limits>` are not applied to the
 	// request.
-	IncludeVhRateLimits *types.BoolValue `protobuf:"bytes,14,opt,name=include_vh_rate_limits,json=includeVhRateLimits" json:"include_vh_rate_limits,omitempty"`
+	IncludeVhRateLimits *types.BoolValue `protobuf:"bytes,14,opt,name=include_vh_rate_limits,json=includeVhRateLimits,proto3" json:"include_vh_rate_limits,omitempty"`
 	// Specifies a list of hash policies to use for ring hash load balancing. Each
 	// hash policy is evaluated individually and the combined result is used to
 	// route the request. The method of combination is deterministic such that
@@ -1384,9 +1546,9 @@ type RouteAction struct {
 	// backend). If a hash policy has the "terminal" attribute set to true, and
 	// there is already a hash generated, the hash is returned immediately,
 	// ignoring the rest of the hash policy list.
-	HashPolicy []*RouteAction_HashPolicy `protobuf:"bytes,15,rep,name=hash_policy,json=hashPolicy" json:"hash_policy,omitempty"`
+	HashPolicy []*RouteAction_HashPolicy `protobuf:"bytes,15,rep,name=hash_policy,json=hashPolicy,proto3" json:"hash_policy,omitempty"`
 	// Indicates that the route has a CORS policy.
-	Cors *CorsPolicy `protobuf:"bytes,17,opt,name=cors" json:"cors,omitempty"`
+	Cors *CorsPolicy `protobuf:"bytes,17,opt,name=cors,proto3" json:"cors,omitempty"`
 	// If present, and the request is a gRPC request, use the
 	// `grpc-timeout header <https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md>`_,
 	// or its default value (infinity) instead of
@@ -1397,17 +1559,19 @@ type RouteAction struct {
 	// :ref:`timeout <envoy_api_field_route.RouteAction.timeout>` or its default.
 	// This can be used to prevent unexpected upstream request timeouts due to potentially long
 	// time gaps between gRPC request and response in gRPC streaming mode.
-	MaxGrpcTimeout       *time.Duration `protobuf:"bytes,23,opt,name=max_grpc_timeout,json=maxGrpcTimeout,stdduration" json:"max_grpc_timeout,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
+	MaxGrpcTimeout         *time.Duration                     `protobuf:"bytes,23,opt,name=max_grpc_timeout,json=maxGrpcTimeout,proto3,stdduration" json:"max_grpc_timeout,omitempty"`
+	UpgradeConfigs         []*RouteAction_UpgradeConfig       `protobuf:"bytes,25,rep,name=upgrade_configs,json=upgradeConfigs,proto3" json:"upgrade_configs,omitempty"`
+	InternalRedirectAction RouteAction_InternalRedirectAction `protobuf:"varint,26,opt,name=internal_redirect_action,json=internalRedirectAction,proto3,enum=envoy.api.v2.route.RouteAction_InternalRedirectAction" json:"internal_redirect_action,omitempty"`
+	XXX_NoUnkeyedLiteral   struct{}                           `json:"-"`
+	XXX_unrecognized       []byte                             `json:"-"`
+	XXX_sizecache          int32                              `json:"-"`
 }
 
 func (m *RouteAction) Reset()         { *m = RouteAction{} }
 func (m *RouteAction) String() string { return proto.CompactTextString(m) }
 func (*RouteAction) ProtoMessage()    {}
 func (*RouteAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5}
 }
 func (m *RouteAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1456,13 +1620,13 @@ type RouteAction_ClusterHeader struct {
 	ClusterHeader string `protobuf:"bytes,2,opt,name=cluster_header,json=clusterHeader,proto3,oneof"`
 }
 type RouteAction_WeightedClusters struct {
-	WeightedClusters *WeightedCluster `protobuf:"bytes,3,opt,name=weighted_clusters,json=weightedClusters,oneof"`
+	WeightedClusters *WeightedCluster `protobuf:"bytes,3,opt,name=weighted_clusters,json=weightedClusters,proto3,oneof"`
 }
 type RouteAction_HostRewrite struct {
 	HostRewrite string `protobuf:"bytes,6,opt,name=host_rewrite,json=hostRewrite,proto3,oneof"`
 }
 type RouteAction_AutoHostRewrite struct {
-	AutoHostRewrite *types.BoolValue `protobuf:"bytes,7,opt,name=auto_host_rewrite,json=autoHostRewrite,oneof"`
+	AutoHostRewrite *types.BoolValue `protobuf:"bytes,7,opt,name=auto_host_rewrite,json=autoHostRewrite,proto3,oneof"`
 }
 
 func (*RouteAction_Cluster) isRouteAction_ClusterSpecifier()             {}
@@ -1554,7 +1718,7 @@ func (m *RouteAction) GetIdleTimeout() *time.Duration {
 	return nil
 }
 
-func (m *RouteAction) GetRetryPolicy() *RouteAction_RetryPolicy {
+func (m *RouteAction) GetRetryPolicy() *RetryPolicy {
 	if m != nil {
 		return m.RetryPolicy
 	}
@@ -1632,6 +1796,20 @@ func (m *RouteAction) GetMaxGrpcTimeout() *time.Duration {
 		return m.MaxGrpcTimeout
 	}
 	return nil
+}
+
+func (m *RouteAction) GetUpgradeConfigs() []*RouteAction_UpgradeConfig {
+	if m != nil {
+		return m.UpgradeConfigs
+	}
+	return nil
+}
+
+func (m *RouteAction) GetInternalRedirectAction() RouteAction_InternalRedirectAction {
+	if m != nil {
+		return m.InternalRedirectAction
+	}
+	return RouteAction_PASS_THROUGH_INTERNAL_REDIRECT
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
@@ -1765,464 +1943,6 @@ func _RouteAction_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-// HTTP retry :ref:`architecture overview <arch_overview_http_routing_retry>`.
-type RouteAction_RetryPolicy struct {
-	// Specifies the conditions under which retry takes place. These are the same
-	// conditions documented for :ref:`config_http_filters_router_x-envoy-retry-on` and
-	// :ref:`config_http_filters_router_x-envoy-retry-grpc-on`.
-	RetryOn string `protobuf:"bytes,1,opt,name=retry_on,json=retryOn,proto3" json:"retry_on,omitempty"`
-	// Specifies the allowed number of retries. This parameter is optional and
-	// defaults to 1. These are the same conditions documented for
-	// :ref:`config_http_filters_router_x-envoy-max-retries`.
-	NumRetries *types.UInt32Value `protobuf:"bytes,2,opt,name=num_retries,json=numRetries" json:"num_retries,omitempty"`
-	// Specifies a non-zero upstream timeout per retry attempt. This parameter is optional. The
-	// same conditions documented for
-	// :ref:`config_http_filters_router_x-envoy-upstream-rq-per-try-timeout-ms` apply.
-	//
-	// .. note::
-	//
-	//   If left unspecified, Envoy will use the global
-	//   :ref:`route timeout <envoy_api_field_route.RouteAction.timeout>` for the request.
-	//   Consequently, when using a :ref:`5xx <config_http_filters_router_x-envoy-retry-on>` based
-	//   retry policy, a request that times out will not be retried as the total timeout budget
-	//   would have been exhausted.
-	PerTryTimeout *time.Duration `protobuf:"bytes,3,opt,name=per_try_timeout,json=perTryTimeout,stdduration" json:"per_try_timeout,omitempty"`
-	// Specifies an implementation of a RetryPriority which is used to determine the
-	// distribution of load across priorities used for retries. Refer to
-	// :ref:`retry plugin configuration <arch_overview_http_retry_plugins>` for more details.
-	RetryPriority *RouteAction_RetryPolicy_RetryPriority `protobuf:"bytes,4,opt,name=retry_priority,json=retryPriority" json:"retry_priority,omitempty"`
-	// Specifies a collection of RetryHostPredicates that will be consulted when selecting a host
-	// for retries. If any of the predicates reject the host, host selection will be reattempted.
-	// Refer to :ref:`retry plugin configuration <arch_overview_http_retry_plugins>` for more
-	// details.
-	RetryHostPredicate []*RouteAction_RetryPolicy_RetryHostPredicate `protobuf:"bytes,5,rep,name=retry_host_predicate,json=retryHostPredicate" json:"retry_host_predicate,omitempty"`
-	// The maximum number of times host selection will be reattempted before giving up, at which
-	// point the host that was last selected will be routed to. If unspecified, this will default to
-	// retrying once.
-	HostSelectionRetryMaxAttempts int64 `protobuf:"varint,6,opt,name=host_selection_retry_max_attempts,json=hostSelectionRetryMaxAttempts,proto3" json:"host_selection_retry_max_attempts,omitempty"`
-	// HTTP status codes that should trigger a retry in addition to those specified by retry_on.
-	RetriableStatusCodes []uint32 `protobuf:"varint,7,rep,packed,name=retriable_status_codes,json=retriableStatusCodes" json:"retriable_status_codes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *RouteAction_RetryPolicy) Reset()         { *m = RouteAction_RetryPolicy{} }
-func (m *RouteAction_RetryPolicy) String() string { return proto.CompactTextString(m) }
-func (*RouteAction_RetryPolicy) ProtoMessage()    {}
-func (*RouteAction_RetryPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 0}
-}
-func (m *RouteAction_RetryPolicy) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *RouteAction_RetryPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_RetryPolicy.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *RouteAction_RetryPolicy) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_RetryPolicy.Merge(dst, src)
-}
-func (m *RouteAction_RetryPolicy) XXX_Size() int {
-	return m.Size()
-}
-func (m *RouteAction_RetryPolicy) XXX_DiscardUnknown() {
-	xxx_messageInfo_RouteAction_RetryPolicy.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RouteAction_RetryPolicy proto.InternalMessageInfo
-
-func (m *RouteAction_RetryPolicy) GetRetryOn() string {
-	if m != nil {
-		return m.RetryOn
-	}
-	return ""
-}
-
-func (m *RouteAction_RetryPolicy) GetNumRetries() *types.UInt32Value {
-	if m != nil {
-		return m.NumRetries
-	}
-	return nil
-}
-
-func (m *RouteAction_RetryPolicy) GetPerTryTimeout() *time.Duration {
-	if m != nil {
-		return m.PerTryTimeout
-	}
-	return nil
-}
-
-func (m *RouteAction_RetryPolicy) GetRetryPriority() *RouteAction_RetryPolicy_RetryPriority {
-	if m != nil {
-		return m.RetryPriority
-	}
-	return nil
-}
-
-func (m *RouteAction_RetryPolicy) GetRetryHostPredicate() []*RouteAction_RetryPolicy_RetryHostPredicate {
-	if m != nil {
-		return m.RetryHostPredicate
-	}
-	return nil
-}
-
-func (m *RouteAction_RetryPolicy) GetHostSelectionRetryMaxAttempts() int64 {
-	if m != nil {
-		return m.HostSelectionRetryMaxAttempts
-	}
-	return 0
-}
-
-func (m *RouteAction_RetryPolicy) GetRetriableStatusCodes() []uint32 {
-	if m != nil {
-		return m.RetriableStatusCodes
-	}
-	return nil
-}
-
-type RouteAction_RetryPolicy_RetryPriority struct {
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Types that are valid to be assigned to ConfigType:
-	//	*RouteAction_RetryPolicy_RetryPriority_Config
-	//	*RouteAction_RetryPolicy_RetryPriority_TypedConfig
-	ConfigType           isRouteAction_RetryPolicy_RetryPriority_ConfigType `protobuf_oneof:"config_type"`
-	XXX_NoUnkeyedLiteral struct{}                                           `json:"-"`
-	XXX_unrecognized     []byte                                             `json:"-"`
-	XXX_sizecache        int32                                              `json:"-"`
-}
-
-func (m *RouteAction_RetryPolicy_RetryPriority) Reset()         { *m = RouteAction_RetryPolicy_RetryPriority{} }
-func (m *RouteAction_RetryPolicy_RetryPriority) String() string { return proto.CompactTextString(m) }
-func (*RouteAction_RetryPolicy_RetryPriority) ProtoMessage()    {}
-func (*RouteAction_RetryPolicy_RetryPriority) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 0, 0}
-}
-func (m *RouteAction_RetryPolicy_RetryPriority) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *RouteAction_RetryPolicy_RetryPriority) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_RetryPolicy_RetryPriority.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *RouteAction_RetryPolicy_RetryPriority) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_RetryPolicy_RetryPriority.Merge(dst, src)
-}
-func (m *RouteAction_RetryPolicy_RetryPriority) XXX_Size() int {
-	return m.Size()
-}
-func (m *RouteAction_RetryPolicy_RetryPriority) XXX_DiscardUnknown() {
-	xxx_messageInfo_RouteAction_RetryPolicy_RetryPriority.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RouteAction_RetryPolicy_RetryPriority proto.InternalMessageInfo
-
-type isRouteAction_RetryPolicy_RetryPriority_ConfigType interface {
-	isRouteAction_RetryPolicy_RetryPriority_ConfigType()
-	Equal(interface{}) bool
-	MarshalTo([]byte) (int, error)
-	Size() int
-}
-
-type RouteAction_RetryPolicy_RetryPriority_Config struct {
-	Config *types.Struct `protobuf:"bytes,2,opt,name=config,oneof"`
-}
-type RouteAction_RetryPolicy_RetryPriority_TypedConfig struct {
-	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,oneof"`
-}
-
-func (*RouteAction_RetryPolicy_RetryPriority_Config) isRouteAction_RetryPolicy_RetryPriority_ConfigType() {
-}
-func (*RouteAction_RetryPolicy_RetryPriority_TypedConfig) isRouteAction_RetryPolicy_RetryPriority_ConfigType() {
-}
-
-func (m *RouteAction_RetryPolicy_RetryPriority) GetConfigType() isRouteAction_RetryPolicy_RetryPriority_ConfigType {
-	if m != nil {
-		return m.ConfigType
-	}
-	return nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryPriority) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *RouteAction_RetryPolicy_RetryPriority) GetConfig() *types.Struct {
-	if x, ok := m.GetConfigType().(*RouteAction_RetryPolicy_RetryPriority_Config); ok {
-		return x.Config
-	}
-	return nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryPriority) GetTypedConfig() *types.Any {
-	if x, ok := m.GetConfigType().(*RouteAction_RetryPolicy_RetryPriority_TypedConfig); ok {
-		return x.TypedConfig
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*RouteAction_RetryPolicy_RetryPriority) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RouteAction_RetryPolicy_RetryPriority_OneofMarshaler, _RouteAction_RetryPolicy_RetryPriority_OneofUnmarshaler, _RouteAction_RetryPolicy_RetryPriority_OneofSizer, []interface{}{
-		(*RouteAction_RetryPolicy_RetryPriority_Config)(nil),
-		(*RouteAction_RetryPolicy_RetryPriority_TypedConfig)(nil),
-	}
-}
-
-func _RouteAction_RetryPolicy_RetryPriority_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RouteAction_RetryPolicy_RetryPriority)
-	// config_type
-	switch x := m.ConfigType.(type) {
-	case *RouteAction_RetryPolicy_RetryPriority_Config:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Config); err != nil {
-			return err
-		}
-	case *RouteAction_RetryPolicy_RetryPriority_TypedConfig:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.TypedConfig); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("RouteAction_RetryPolicy_RetryPriority.ConfigType has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _RouteAction_RetryPolicy_RetryPriority_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RouteAction_RetryPolicy_RetryPriority)
-	switch tag {
-	case 2: // config_type.config
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(types.Struct)
-		err := b.DecodeMessage(msg)
-		m.ConfigType = &RouteAction_RetryPolicy_RetryPriority_Config{msg}
-		return true, err
-	case 3: // config_type.typed_config
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(types.Any)
-		err := b.DecodeMessage(msg)
-		m.ConfigType = &RouteAction_RetryPolicy_RetryPriority_TypedConfig{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _RouteAction_RetryPolicy_RetryPriority_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RouteAction_RetryPolicy_RetryPriority)
-	// config_type
-	switch x := m.ConfigType.(type) {
-	case *RouteAction_RetryPolicy_RetryPriority_Config:
-		s := proto.Size(x.Config)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RouteAction_RetryPolicy_RetryPriority_TypedConfig:
-		s := proto.Size(x.TypedConfig)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
-}
-
-type RouteAction_RetryPolicy_RetryHostPredicate struct {
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Types that are valid to be assigned to ConfigType:
-	//	*RouteAction_RetryPolicy_RetryHostPredicate_Config
-	//	*RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig
-	ConfigType           isRouteAction_RetryPolicy_RetryHostPredicate_ConfigType `protobuf_oneof:"config_type"`
-	XXX_NoUnkeyedLiteral struct{}                                                `json:"-"`
-	XXX_unrecognized     []byte                                                  `json:"-"`
-	XXX_sizecache        int32                                                   `json:"-"`
-}
-
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) Reset() {
-	*m = RouteAction_RetryPolicy_RetryHostPredicate{}
-}
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) String() string {
-	return proto.CompactTextString(m)
-}
-func (*RouteAction_RetryPolicy_RetryHostPredicate) ProtoMessage() {}
-func (*RouteAction_RetryPolicy_RetryHostPredicate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 0, 1}
-}
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_RouteAction_RetryPolicy_RetryHostPredicate.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (dst *RouteAction_RetryPolicy_RetryHostPredicate) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RouteAction_RetryPolicy_RetryHostPredicate.Merge(dst, src)
-}
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) XXX_Size() int {
-	return m.Size()
-}
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) XXX_DiscardUnknown() {
-	xxx_messageInfo_RouteAction_RetryPolicy_RetryHostPredicate.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RouteAction_RetryPolicy_RetryHostPredicate proto.InternalMessageInfo
-
-type isRouteAction_RetryPolicy_RetryHostPredicate_ConfigType interface {
-	isRouteAction_RetryPolicy_RetryHostPredicate_ConfigType()
-	Equal(interface{}) bool
-	MarshalTo([]byte) (int, error)
-	Size() int
-}
-
-type RouteAction_RetryPolicy_RetryHostPredicate_Config struct {
-	Config *types.Struct `protobuf:"bytes,2,opt,name=config,oneof"`
-}
-type RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig struct {
-	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,oneof"`
-}
-
-func (*RouteAction_RetryPolicy_RetryHostPredicate_Config) isRouteAction_RetryPolicy_RetryHostPredicate_ConfigType() {
-}
-func (*RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig) isRouteAction_RetryPolicy_RetryHostPredicate_ConfigType() {
-}
-
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) GetConfigType() isRouteAction_RetryPolicy_RetryHostPredicate_ConfigType {
-	if m != nil {
-		return m.ConfigType
-	}
-	return nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) GetConfig() *types.Struct {
-	if x, ok := m.GetConfigType().(*RouteAction_RetryPolicy_RetryHostPredicate_Config); ok {
-		return x.Config
-	}
-	return nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) GetTypedConfig() *types.Any {
-	if x, ok := m.GetConfigType().(*RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig); ok {
-		return x.TypedConfig
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*RouteAction_RetryPolicy_RetryHostPredicate) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RouteAction_RetryPolicy_RetryHostPredicate_OneofMarshaler, _RouteAction_RetryPolicy_RetryHostPredicate_OneofUnmarshaler, _RouteAction_RetryPolicy_RetryHostPredicate_OneofSizer, []interface{}{
-		(*RouteAction_RetryPolicy_RetryHostPredicate_Config)(nil),
-		(*RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig)(nil),
-	}
-}
-
-func _RouteAction_RetryPolicy_RetryHostPredicate_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RouteAction_RetryPolicy_RetryHostPredicate)
-	// config_type
-	switch x := m.ConfigType.(type) {
-	case *RouteAction_RetryPolicy_RetryHostPredicate_Config:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Config); err != nil {
-			return err
-		}
-	case *RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.TypedConfig); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("RouteAction_RetryPolicy_RetryHostPredicate.ConfigType has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _RouteAction_RetryPolicy_RetryHostPredicate_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RouteAction_RetryPolicy_RetryHostPredicate)
-	switch tag {
-	case 2: // config_type.config
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(types.Struct)
-		err := b.DecodeMessage(msg)
-		m.ConfigType = &RouteAction_RetryPolicy_RetryHostPredicate_Config{msg}
-		return true, err
-	case 3: // config_type.typed_config
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(types.Any)
-		err := b.DecodeMessage(msg)
-		m.ConfigType = &RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _RouteAction_RetryPolicy_RetryHostPredicate_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RouteAction_RetryPolicy_RetryHostPredicate)
-	// config_type
-	switch x := m.ConfigType.(type) {
-	case *RouteAction_RetryPolicy_RetryHostPredicate_Config:
-		s := proto.Size(x.Config)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig:
-		s := proto.Size(x.TypedConfig)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
-}
-
 // The router is capable of shadowing traffic from one cluster to another. The current
 // implementation is "fire and forget," meaning Envoy will not wait for the shadow cluster to
 // respond before returning the response from the primary cluster. All normal statistics are
@@ -2240,17 +1960,44 @@ type RouteAction_RequestMirrorPolicy struct {
 	// 0.01% of requests to be mirrored. If the runtime key is specified in the
 	// configuration but not present in runtime, 0 is the default and thus 0% of
 	// requests will be mirrored.
-	RuntimeKey           string   `protobuf:"bytes,2,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	//
+	// .. attention::
+	//
+	//   **This field is deprecated**. Set the
+	//   :ref:`runtime_fraction
+	//   <envoy_api_field_route.RouteAction.RequestMirrorPolicy.runtime_fraction>` field instead.
+	RuntimeKey string `protobuf:"bytes,2,opt,name=runtime_key,json=runtimeKey,proto3" json:"runtime_key,omitempty"` // Deprecated: Do not use.
+	// If both :ref:`runtime_key
+	// <envoy_api_field_route.RouteAction.RequestMirrorPolicy.runtime_key>` and this field are not
+	// specified, all requests to the target cluster will be mirrored.
+	//
+	// If specified, this field takes precedence over the `runtime_key` field and requests must also
+	// fall under the percentage of matches indicated by this field.
+	//
+	// For some fraction N/D, a random number in the range [0,D) is selected. If the
+	// number is <= the value of the numberator N, or if the key is not present, the default
+	// value, the request will be mirrored.
+	//
+	// .. note::
+	//
+	//   Parsing this field is implemented such that the runtime key's data may be represented
+	//   as a :ref:`FractionalPercent <envoy_api_msg_type.FractionalPercent>` proto represented
+	//   as JSON/YAML and may also be represented as an integer with the assumption that the value
+	//   is an integral percentage out of 100. For instance, a runtime key lookup returning the
+	//   value "42" would parse as a `FractionalPercent` whose numerator is 42 and denominator is
+	//   HUNDRED. This is behaviour is different to that of the deprecated `runtime_key` field,
+	//   where the implicit denominator is 10000.
+	RuntimeFraction      *core.RuntimeFractionalPercent `protobuf:"bytes,3,opt,name=runtime_fraction,json=runtimeFraction,proto3" json:"runtime_fraction,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                       `json:"-"`
+	XXX_unrecognized     []byte                         `json:"-"`
+	XXX_sizecache        int32                          `json:"-"`
 }
 
 func (m *RouteAction_RequestMirrorPolicy) Reset()         { *m = RouteAction_RequestMirrorPolicy{} }
 func (m *RouteAction_RequestMirrorPolicy) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_RequestMirrorPolicy) ProtoMessage()    {}
 func (*RouteAction_RequestMirrorPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 1}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 0}
 }
 func (m *RouteAction_RequestMirrorPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2286,11 +2033,19 @@ func (m *RouteAction_RequestMirrorPolicy) GetCluster() string {
 	return ""
 }
 
+// Deprecated: Do not use.
 func (m *RouteAction_RequestMirrorPolicy) GetRuntimeKey() string {
 	if m != nil {
 		return m.RuntimeKey
 	}
 	return ""
+}
+
+func (m *RouteAction_RequestMirrorPolicy) GetRuntimeFraction() *core.RuntimeFractionalPercent {
+	if m != nil {
+		return m.RuntimeFraction
+	}
+	return nil
 }
 
 // Specifies the route's hashing policy if the upstream cluster uses a hashing :ref:`load balancer
@@ -2330,7 +2085,7 @@ func (m *RouteAction_HashPolicy) Reset()         { *m = RouteAction_HashPolicy{}
 func (m *RouteAction_HashPolicy) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy) ProtoMessage()    {}
 func (*RouteAction_HashPolicy) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 2}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1}
 }
 func (m *RouteAction_HashPolicy) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2367,13 +2122,13 @@ type isRouteAction_HashPolicy_PolicySpecifier interface {
 }
 
 type RouteAction_HashPolicy_Header_ struct {
-	Header *RouteAction_HashPolicy_Header `protobuf:"bytes,1,opt,name=header,oneof"`
+	Header *RouteAction_HashPolicy_Header `protobuf:"bytes,1,opt,name=header,proto3,oneof"`
 }
 type RouteAction_HashPolicy_Cookie_ struct {
-	Cookie *RouteAction_HashPolicy_Cookie `protobuf:"bytes,2,opt,name=cookie,oneof"`
+	Cookie *RouteAction_HashPolicy_Cookie `protobuf:"bytes,2,opt,name=cookie,proto3,oneof"`
 }
 type RouteAction_HashPolicy_ConnectionProperties_ struct {
-	ConnectionProperties *RouteAction_HashPolicy_ConnectionProperties `protobuf:"bytes,3,opt,name=connection_properties,json=connectionProperties,oneof"`
+	ConnectionProperties *RouteAction_HashPolicy_ConnectionProperties `protobuf:"bytes,3,opt,name=connection_properties,json=connectionProperties,proto3,oneof"`
 }
 
 func (*RouteAction_HashPolicy_Header_) isRouteAction_HashPolicy_PolicySpecifier()               {}
@@ -2521,7 +2276,7 @@ func (m *RouteAction_HashPolicy_Header) Reset()         { *m = RouteAction_HashP
 func (m *RouteAction_HashPolicy_Header) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy_Header) ProtoMessage()    {}
 func (*RouteAction_HashPolicy_Header) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 2, 0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1, 0}
 }
 func (m *RouteAction_HashPolicy_Header) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2579,7 +2334,7 @@ type RouteAction_HashPolicy_Cookie struct {
 	// If specified, a cookie with the TTL will be generated if the cookie is
 	// not present. If the TTL is present and zero, the generated cookie will
 	// be a session cookie.
-	Ttl *time.Duration `protobuf:"bytes,2,opt,name=ttl,stdduration" json:"ttl,omitempty"`
+	Ttl *time.Duration `protobuf:"bytes,2,opt,name=ttl,proto3,stdduration" json:"ttl,omitempty"`
 	// The name of the path for the cookie. If no path is specified here, no path
 	// will be set for the cookie.
 	Path                 string   `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
@@ -2592,7 +2347,7 @@ func (m *RouteAction_HashPolicy_Cookie) Reset()         { *m = RouteAction_HashP
 func (m *RouteAction_HashPolicy_Cookie) String() string { return proto.CompactTextString(m) }
 func (*RouteAction_HashPolicy_Cookie) ProtoMessage()    {}
 func (*RouteAction_HashPolicy_Cookie) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 2, 1}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1, 1}
 }
 func (m *RouteAction_HashPolicy_Cookie) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2658,7 +2413,7 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) String() string {
 }
 func (*RouteAction_HashPolicy_ConnectionProperties) ProtoMessage() {}
 func (*RouteAction_HashPolicy_ConnectionProperties) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{5, 2, 2}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 1, 2}
 }
 func (m *RouteAction_HashPolicy_ConnectionProperties) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2692,6 +2447,521 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) GetSourceIp() bool {
 		return m.SourceIp
 	}
 	return false
+}
+
+// Allows enabling and disabling upgrades on a per-route basis.
+// This overrides any enabled/disabled upgrade filter chain specified in the
+// HttpConnectionManager
+// :ref:upgrade_configs`
+// <envoy_api_field_config.filter.network.http_connection_manager.v2.HttpConnectionManager.upgrade_configs>`
+// but does not affect any custom filter chain specified there.
+type RouteAction_UpgradeConfig struct {
+	// The case-insensitive name of this upgrade, e.g. "websocket".
+	// For each upgrade type present in upgrade_configs, requests with
+	// Upgrade: [upgrade_type] will be proxied upstream.
+	UpgradeType string `protobuf:"bytes,1,opt,name=upgrade_type,json=upgradeType,proto3" json:"upgrade_type,omitempty"`
+	// Determines if upgrades are available on this route. Defaults to true.
+	Enabled              *types.BoolValue `protobuf:"bytes,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *RouteAction_UpgradeConfig) Reset()         { *m = RouteAction_UpgradeConfig{} }
+func (m *RouteAction_UpgradeConfig) String() string { return proto.CompactTextString(m) }
+func (*RouteAction_UpgradeConfig) ProtoMessage()    {}
+func (*RouteAction_UpgradeConfig) Descriptor() ([]byte, []int) {
+	return fileDescriptor_route_ee11921c49fa9e35, []int{5, 2}
+}
+func (m *RouteAction_UpgradeConfig) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RouteAction_UpgradeConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RouteAction_UpgradeConfig.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *RouteAction_UpgradeConfig) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteAction_UpgradeConfig.Merge(dst, src)
+}
+func (m *RouteAction_UpgradeConfig) XXX_Size() int {
+	return m.Size()
+}
+func (m *RouteAction_UpgradeConfig) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteAction_UpgradeConfig.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteAction_UpgradeConfig proto.InternalMessageInfo
+
+func (m *RouteAction_UpgradeConfig) GetUpgradeType() string {
+	if m != nil {
+		return m.UpgradeType
+	}
+	return ""
+}
+
+func (m *RouteAction_UpgradeConfig) GetEnabled() *types.BoolValue {
+	if m != nil {
+		return m.Enabled
+	}
+	return nil
+}
+
+// HTTP retry :ref:`architecture overview <arch_overview_http_routing_retry>`.
+type RetryPolicy struct {
+	// Specifies the conditions under which retry takes place. These are the same
+	// conditions documented for :ref:`config_http_filters_router_x-envoy-retry-on` and
+	// :ref:`config_http_filters_router_x-envoy-retry-grpc-on`.
+	RetryOn string `protobuf:"bytes,1,opt,name=retry_on,json=retryOn,proto3" json:"retry_on,omitempty"`
+	// Specifies the allowed number of retries. This parameter is optional and
+	// defaults to 1. These are the same conditions documented for
+	// :ref:`config_http_filters_router_x-envoy-max-retries`.
+	NumRetries *types.UInt32Value `protobuf:"bytes,2,opt,name=num_retries,json=numRetries,proto3" json:"num_retries,omitempty"`
+	// Specifies a non-zero upstream timeout per retry attempt. This parameter is optional. The
+	// same conditions documented for
+	// :ref:`config_http_filters_router_x-envoy-upstream-rq-per-try-timeout-ms` apply.
+	//
+	// .. note::
+	//
+	//   If left unspecified, Envoy will use the global
+	//   :ref:`route timeout <envoy_api_field_route.RouteAction.timeout>` for the request.
+	//   Consequently, when using a :ref:`5xx <config_http_filters_router_x-envoy-retry-on>` based
+	//   retry policy, a request that times out will not be retried as the total timeout budget
+	//   would have been exhausted.
+	PerTryTimeout *time.Duration `protobuf:"bytes,3,opt,name=per_try_timeout,json=perTryTimeout,proto3,stdduration" json:"per_try_timeout,omitempty"`
+	// Specifies an implementation of a RetryPriority which is used to determine the
+	// distribution of load across priorities used for retries. Refer to
+	// :ref:`retry plugin configuration <arch_overview_http_retry_plugins>` for more details.
+	RetryPriority *RetryPolicy_RetryPriority `protobuf:"bytes,4,opt,name=retry_priority,json=retryPriority,proto3" json:"retry_priority,omitempty"`
+	// Specifies a collection of RetryHostPredicates that will be consulted when selecting a host
+	// for retries. If any of the predicates reject the host, host selection will be reattempted.
+	// Refer to :ref:`retry plugin configuration <arch_overview_http_retry_plugins>` for more
+	// details.
+	RetryHostPredicate []*RetryPolicy_RetryHostPredicate `protobuf:"bytes,5,rep,name=retry_host_predicate,json=retryHostPredicate,proto3" json:"retry_host_predicate,omitempty"`
+	// The maximum number of times host selection will be reattempted before giving up, at which
+	// point the host that was last selected will be routed to. If unspecified, this will default to
+	// retrying once.
+	HostSelectionRetryMaxAttempts int64 `protobuf:"varint,6,opt,name=host_selection_retry_max_attempts,json=hostSelectionRetryMaxAttempts,proto3" json:"host_selection_retry_max_attempts,omitempty"`
+	// HTTP status codes that should trigger a retry in addition to those specified by retry_on.
+	RetriableStatusCodes []uint32 `protobuf:"varint,7,rep,packed,name=retriable_status_codes,json=retriableStatusCodes,proto3" json:"retriable_status_codes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RetryPolicy) Reset()         { *m = RetryPolicy{} }
+func (m *RetryPolicy) String() string { return proto.CompactTextString(m) }
+func (*RetryPolicy) ProtoMessage()    {}
+func (*RetryPolicy) Descriptor() ([]byte, []int) {
+	return fileDescriptor_route_ee11921c49fa9e35, []int{6}
+}
+func (m *RetryPolicy) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RetryPolicy) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RetryPolicy.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *RetryPolicy) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RetryPolicy.Merge(dst, src)
+}
+func (m *RetryPolicy) XXX_Size() int {
+	return m.Size()
+}
+func (m *RetryPolicy) XXX_DiscardUnknown() {
+	xxx_messageInfo_RetryPolicy.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RetryPolicy proto.InternalMessageInfo
+
+func (m *RetryPolicy) GetRetryOn() string {
+	if m != nil {
+		return m.RetryOn
+	}
+	return ""
+}
+
+func (m *RetryPolicy) GetNumRetries() *types.UInt32Value {
+	if m != nil {
+		return m.NumRetries
+	}
+	return nil
+}
+
+func (m *RetryPolicy) GetPerTryTimeout() *time.Duration {
+	if m != nil {
+		return m.PerTryTimeout
+	}
+	return nil
+}
+
+func (m *RetryPolicy) GetRetryPriority() *RetryPolicy_RetryPriority {
+	if m != nil {
+		return m.RetryPriority
+	}
+	return nil
+}
+
+func (m *RetryPolicy) GetRetryHostPredicate() []*RetryPolicy_RetryHostPredicate {
+	if m != nil {
+		return m.RetryHostPredicate
+	}
+	return nil
+}
+
+func (m *RetryPolicy) GetHostSelectionRetryMaxAttempts() int64 {
+	if m != nil {
+		return m.HostSelectionRetryMaxAttempts
+	}
+	return 0
+}
+
+func (m *RetryPolicy) GetRetriableStatusCodes() []uint32 {
+	if m != nil {
+		return m.RetriableStatusCodes
+	}
+	return nil
+}
+
+type RetryPolicy_RetryPriority struct {
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Types that are valid to be assigned to ConfigType:
+	//	*RetryPolicy_RetryPriority_Config
+	//	*RetryPolicy_RetryPriority_TypedConfig
+	ConfigType           isRetryPolicy_RetryPriority_ConfigType `protobuf_oneof:"config_type"`
+	XXX_NoUnkeyedLiteral struct{}                               `json:"-"`
+	XXX_unrecognized     []byte                                 `json:"-"`
+	XXX_sizecache        int32                                  `json:"-"`
+}
+
+func (m *RetryPolicy_RetryPriority) Reset()         { *m = RetryPolicy_RetryPriority{} }
+func (m *RetryPolicy_RetryPriority) String() string { return proto.CompactTextString(m) }
+func (*RetryPolicy_RetryPriority) ProtoMessage()    {}
+func (*RetryPolicy_RetryPriority) Descriptor() ([]byte, []int) {
+	return fileDescriptor_route_ee11921c49fa9e35, []int{6, 0}
+}
+func (m *RetryPolicy_RetryPriority) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RetryPolicy_RetryPriority) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RetryPolicy_RetryPriority.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *RetryPolicy_RetryPriority) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RetryPolicy_RetryPriority.Merge(dst, src)
+}
+func (m *RetryPolicy_RetryPriority) XXX_Size() int {
+	return m.Size()
+}
+func (m *RetryPolicy_RetryPriority) XXX_DiscardUnknown() {
+	xxx_messageInfo_RetryPolicy_RetryPriority.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RetryPolicy_RetryPriority proto.InternalMessageInfo
+
+type isRetryPolicy_RetryPriority_ConfigType interface {
+	isRetryPolicy_RetryPriority_ConfigType()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type RetryPolicy_RetryPriority_Config struct {
+	Config *types.Struct `protobuf:"bytes,2,opt,name=config,proto3,oneof"`
+}
+type RetryPolicy_RetryPriority_TypedConfig struct {
+	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,proto3,oneof"`
+}
+
+func (*RetryPolicy_RetryPriority_Config) isRetryPolicy_RetryPriority_ConfigType()      {}
+func (*RetryPolicy_RetryPriority_TypedConfig) isRetryPolicy_RetryPriority_ConfigType() {}
+
+func (m *RetryPolicy_RetryPriority) GetConfigType() isRetryPolicy_RetryPriority_ConfigType {
+	if m != nil {
+		return m.ConfigType
+	}
+	return nil
+}
+
+func (m *RetryPolicy_RetryPriority) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *RetryPolicy_RetryPriority) GetConfig() *types.Struct {
+	if x, ok := m.GetConfigType().(*RetryPolicy_RetryPriority_Config); ok {
+		return x.Config
+	}
+	return nil
+}
+
+func (m *RetryPolicy_RetryPriority) GetTypedConfig() *types.Any {
+	if x, ok := m.GetConfigType().(*RetryPolicy_RetryPriority_TypedConfig); ok {
+		return x.TypedConfig
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*RetryPolicy_RetryPriority) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _RetryPolicy_RetryPriority_OneofMarshaler, _RetryPolicy_RetryPriority_OneofUnmarshaler, _RetryPolicy_RetryPriority_OneofSizer, []interface{}{
+		(*RetryPolicy_RetryPriority_Config)(nil),
+		(*RetryPolicy_RetryPriority_TypedConfig)(nil),
+	}
+}
+
+func _RetryPolicy_RetryPriority_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*RetryPolicy_RetryPriority)
+	// config_type
+	switch x := m.ConfigType.(type) {
+	case *RetryPolicy_RetryPriority_Config:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Config); err != nil {
+			return err
+		}
+	case *RetryPolicy_RetryPriority_TypedConfig:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.TypedConfig); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("RetryPolicy_RetryPriority.ConfigType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _RetryPolicy_RetryPriority_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*RetryPolicy_RetryPriority)
+	switch tag {
+	case 2: // config_type.config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Struct)
+		err := b.DecodeMessage(msg)
+		m.ConfigType = &RetryPolicy_RetryPriority_Config{msg}
+		return true, err
+	case 3: // config_type.typed_config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Any)
+		err := b.DecodeMessage(msg)
+		m.ConfigType = &RetryPolicy_RetryPriority_TypedConfig{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _RetryPolicy_RetryPriority_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*RetryPolicy_RetryPriority)
+	// config_type
+	switch x := m.ConfigType.(type) {
+	case *RetryPolicy_RetryPriority_Config:
+		s := proto.Size(x.Config)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *RetryPolicy_RetryPriority_TypedConfig:
+		s := proto.Size(x.TypedConfig)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+type RetryPolicy_RetryHostPredicate struct {
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Types that are valid to be assigned to ConfigType:
+	//	*RetryPolicy_RetryHostPredicate_Config
+	//	*RetryPolicy_RetryHostPredicate_TypedConfig
+	ConfigType           isRetryPolicy_RetryHostPredicate_ConfigType `protobuf_oneof:"config_type"`
+	XXX_NoUnkeyedLiteral struct{}                                    `json:"-"`
+	XXX_unrecognized     []byte                                      `json:"-"`
+	XXX_sizecache        int32                                       `json:"-"`
+}
+
+func (m *RetryPolicy_RetryHostPredicate) Reset()         { *m = RetryPolicy_RetryHostPredicate{} }
+func (m *RetryPolicy_RetryHostPredicate) String() string { return proto.CompactTextString(m) }
+func (*RetryPolicy_RetryHostPredicate) ProtoMessage()    {}
+func (*RetryPolicy_RetryHostPredicate) Descriptor() ([]byte, []int) {
+	return fileDescriptor_route_ee11921c49fa9e35, []int{6, 1}
+}
+func (m *RetryPolicy_RetryHostPredicate) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *RetryPolicy_RetryHostPredicate) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_RetryPolicy_RetryHostPredicate.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *RetryPolicy_RetryHostPredicate) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RetryPolicy_RetryHostPredicate.Merge(dst, src)
+}
+func (m *RetryPolicy_RetryHostPredicate) XXX_Size() int {
+	return m.Size()
+}
+func (m *RetryPolicy_RetryHostPredicate) XXX_DiscardUnknown() {
+	xxx_messageInfo_RetryPolicy_RetryHostPredicate.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RetryPolicy_RetryHostPredicate proto.InternalMessageInfo
+
+type isRetryPolicy_RetryHostPredicate_ConfigType interface {
+	isRetryPolicy_RetryHostPredicate_ConfigType()
+	Equal(interface{}) bool
+	MarshalTo([]byte) (int, error)
+	Size() int
+}
+
+type RetryPolicy_RetryHostPredicate_Config struct {
+	Config *types.Struct `protobuf:"bytes,2,opt,name=config,proto3,oneof"`
+}
+type RetryPolicy_RetryHostPredicate_TypedConfig struct {
+	TypedConfig *types.Any `protobuf:"bytes,3,opt,name=typed_config,json=typedConfig,proto3,oneof"`
+}
+
+func (*RetryPolicy_RetryHostPredicate_Config) isRetryPolicy_RetryHostPredicate_ConfigType()      {}
+func (*RetryPolicy_RetryHostPredicate_TypedConfig) isRetryPolicy_RetryHostPredicate_ConfigType() {}
+
+func (m *RetryPolicy_RetryHostPredicate) GetConfigType() isRetryPolicy_RetryHostPredicate_ConfigType {
+	if m != nil {
+		return m.ConfigType
+	}
+	return nil
+}
+
+func (m *RetryPolicy_RetryHostPredicate) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *RetryPolicy_RetryHostPredicate) GetConfig() *types.Struct {
+	if x, ok := m.GetConfigType().(*RetryPolicy_RetryHostPredicate_Config); ok {
+		return x.Config
+	}
+	return nil
+}
+
+func (m *RetryPolicy_RetryHostPredicate) GetTypedConfig() *types.Any {
+	if x, ok := m.GetConfigType().(*RetryPolicy_RetryHostPredicate_TypedConfig); ok {
+		return x.TypedConfig
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*RetryPolicy_RetryHostPredicate) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _RetryPolicy_RetryHostPredicate_OneofMarshaler, _RetryPolicy_RetryHostPredicate_OneofUnmarshaler, _RetryPolicy_RetryHostPredicate_OneofSizer, []interface{}{
+		(*RetryPolicy_RetryHostPredicate_Config)(nil),
+		(*RetryPolicy_RetryHostPredicate_TypedConfig)(nil),
+	}
+}
+
+func _RetryPolicy_RetryHostPredicate_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*RetryPolicy_RetryHostPredicate)
+	// config_type
+	switch x := m.ConfigType.(type) {
+	case *RetryPolicy_RetryHostPredicate_Config:
+		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Config); err != nil {
+			return err
+		}
+	case *RetryPolicy_RetryHostPredicate_TypedConfig:
+		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.TypedConfig); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("RetryPolicy_RetryHostPredicate.ConfigType has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _RetryPolicy_RetryHostPredicate_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*RetryPolicy_RetryHostPredicate)
+	switch tag {
+	case 2: // config_type.config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Struct)
+		err := b.DecodeMessage(msg)
+		m.ConfigType = &RetryPolicy_RetryHostPredicate_Config{msg}
+		return true, err
+	case 3: // config_type.typed_config
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(types.Any)
+		err := b.DecodeMessage(msg)
+		m.ConfigType = &RetryPolicy_RetryHostPredicate_TypedConfig{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _RetryPolicy_RetryHostPredicate_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*RetryPolicy_RetryHostPredicate)
+	// config_type
+	switch x := m.ConfigType.(type) {
+	case *RetryPolicy_RetryHostPredicate_Config:
+		s := proto.Size(x.Config)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *RetryPolicy_RetryHostPredicate_TypedConfig:
+		s := proto.Size(x.TypedConfig)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
 }
 
 type RedirectAction struct {
@@ -2728,7 +2998,7 @@ func (m *RedirectAction) Reset()         { *m = RedirectAction{} }
 func (m *RedirectAction) String() string { return proto.CompactTextString(m) }
 func (*RedirectAction) ProtoMessage()    {}
 func (*RedirectAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{6}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{7}
 }
 func (m *RedirectAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2979,7 +3249,7 @@ type DirectResponseAction struct {
 	//   Headers can be specified using *response_headers_to_add* in the enclosing
 	//   :ref:`envoy_api_msg_route.Route`, :ref:`envoy_api_msg_RouteConfiguration` or
 	//   :ref:`envoy_api_msg_route.VirtualHost`.
-	Body                 *core.DataSource `protobuf:"bytes,2,opt,name=body" json:"body,omitempty"`
+	Body                 *core.DataSource `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -2989,7 +3259,7 @@ func (m *DirectResponseAction) Reset()         { *m = DirectResponseAction{} }
 func (m *DirectResponseAction) String() string { return proto.CompactTextString(m) }
 func (*DirectResponseAction) ProtoMessage()    {}
 func (*DirectResponseAction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{7}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{8}
 }
 func (m *DirectResponseAction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3051,7 +3321,7 @@ func (m *Decorator) Reset()         { *m = Decorator{} }
 func (m *Decorator) String() string { return proto.CompactTextString(m) }
 func (*Decorator) ProtoMessage()    {}
 func (*Decorator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{8}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{9}
 }
 func (m *Decorator) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3133,7 +3403,7 @@ func (m *VirtualCluster) Reset()         { *m = VirtualCluster{} }
 func (m *VirtualCluster) String() string { return proto.CompactTextString(m) }
 func (*VirtualCluster) ProtoMessage()    {}
 func (*VirtualCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{9}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{10}
 }
 func (m *VirtualCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3192,7 +3462,7 @@ type RateLimit struct {
 	// .. note::
 	//
 	//   The filter supports a range of 0 - 10 inclusively for stage numbers.
-	Stage *types.UInt32Value `protobuf:"bytes,1,opt,name=stage" json:"stage,omitempty"`
+	Stage *types.UInt32Value `protobuf:"bytes,1,opt,name=stage,proto3" json:"stage,omitempty"`
 	// The key to be set in runtime to disable this rate limit configuration.
 	DisableKey string `protobuf:"bytes,2,opt,name=disable_key,json=disableKey,proto3" json:"disable_key,omitempty"`
 	// A list of actions that are to be applied for this rate limit configuration.
@@ -3201,7 +3471,7 @@ type RateLimit struct {
 	// cannot append a descriptor entry, no descriptor is generated for the
 	// configuration. See :ref:`composing actions
 	// <config_http_filters_rate_limit_composing_actions>` for additional documentation.
-	Actions              []*RateLimit_Action `protobuf:"bytes,3,rep,name=actions" json:"actions,omitempty"`
+	Actions              []*RateLimit_Action `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -3211,7 +3481,7 @@ func (m *RateLimit) Reset()         { *m = RateLimit{} }
 func (m *RateLimit) String() string { return proto.CompactTextString(m) }
 func (*RateLimit) ProtoMessage()    {}
 func (*RateLimit) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{10}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{11}
 }
 func (m *RateLimit) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3279,7 +3549,7 @@ func (m *RateLimit_Action) Reset()         { *m = RateLimit_Action{} }
 func (m *RateLimit_Action) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action) ProtoMessage()    {}
 func (*RateLimit_Action) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{10, 0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0}
 }
 func (m *RateLimit_Action) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3316,22 +3586,22 @@ type isRateLimit_Action_ActionSpecifier interface {
 }
 
 type RateLimit_Action_SourceCluster_ struct {
-	SourceCluster *RateLimit_Action_SourceCluster `protobuf:"bytes,1,opt,name=source_cluster,json=sourceCluster,oneof"`
+	SourceCluster *RateLimit_Action_SourceCluster `protobuf:"bytes,1,opt,name=source_cluster,json=sourceCluster,proto3,oneof"`
 }
 type RateLimit_Action_DestinationCluster_ struct {
-	DestinationCluster *RateLimit_Action_DestinationCluster `protobuf:"bytes,2,opt,name=destination_cluster,json=destinationCluster,oneof"`
+	DestinationCluster *RateLimit_Action_DestinationCluster `protobuf:"bytes,2,opt,name=destination_cluster,json=destinationCluster,proto3,oneof"`
 }
 type RateLimit_Action_RequestHeaders_ struct {
-	RequestHeaders *RateLimit_Action_RequestHeaders `protobuf:"bytes,3,opt,name=request_headers,json=requestHeaders,oneof"`
+	RequestHeaders *RateLimit_Action_RequestHeaders `protobuf:"bytes,3,opt,name=request_headers,json=requestHeaders,proto3,oneof"`
 }
 type RateLimit_Action_RemoteAddress_ struct {
-	RemoteAddress *RateLimit_Action_RemoteAddress `protobuf:"bytes,4,opt,name=remote_address,json=remoteAddress,oneof"`
+	RemoteAddress *RateLimit_Action_RemoteAddress `protobuf:"bytes,4,opt,name=remote_address,json=remoteAddress,proto3,oneof"`
 }
 type RateLimit_Action_GenericKey_ struct {
-	GenericKey *RateLimit_Action_GenericKey `protobuf:"bytes,5,opt,name=generic_key,json=genericKey,oneof"`
+	GenericKey *RateLimit_Action_GenericKey `protobuf:"bytes,5,opt,name=generic_key,json=genericKey,proto3,oneof"`
 }
 type RateLimit_Action_HeaderValueMatch_ struct {
-	HeaderValueMatch *RateLimit_Action_HeaderValueMatch `protobuf:"bytes,6,opt,name=header_value_match,json=headerValueMatch,oneof"`
+	HeaderValueMatch *RateLimit_Action_HeaderValueMatch `protobuf:"bytes,6,opt,name=header_value_match,json=headerValueMatch,proto3,oneof"`
 }
 
 func (*RateLimit_Action_SourceCluster_) isRateLimit_Action_ActionSpecifier()      {}
@@ -3557,7 +3827,7 @@ func (m *RateLimit_Action_SourceCluster) Reset()         { *m = RateLimit_Action
 func (m *RateLimit_Action_SourceCluster) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_SourceCluster) ProtoMessage()    {}
 func (*RateLimit_Action_SourceCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{10, 0, 0}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 0}
 }
 func (m *RateLimit_Action_SourceCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3612,7 +3882,7 @@ func (m *RateLimit_Action_DestinationCluster) Reset()         { *m = RateLimit_A
 func (m *RateLimit_Action_DestinationCluster) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_DestinationCluster) ProtoMessage()    {}
 func (*RateLimit_Action_DestinationCluster) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{10, 0, 1}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 1}
 }
 func (m *RateLimit_Action_DestinationCluster) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3663,7 +3933,7 @@ func (m *RateLimit_Action_RequestHeaders) Reset()         { *m = RateLimit_Actio
 func (m *RateLimit_Action_RequestHeaders) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_RequestHeaders) ProtoMessage()    {}
 func (*RateLimit_Action_RequestHeaders) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{10, 0, 2}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 2}
 }
 func (m *RateLimit_Action_RequestHeaders) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3722,7 +3992,7 @@ func (m *RateLimit_Action_RemoteAddress) Reset()         { *m = RateLimit_Action
 func (m *RateLimit_Action_RemoteAddress) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_RemoteAddress) ProtoMessage()    {}
 func (*RateLimit_Action_RemoteAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{10, 0, 3}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 3}
 }
 func (m *RateLimit_Action_RemoteAddress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3768,7 +4038,7 @@ func (m *RateLimit_Action_GenericKey) Reset()         { *m = RateLimit_Action_Ge
 func (m *RateLimit_Action_GenericKey) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_GenericKey) ProtoMessage()    {}
 func (*RateLimit_Action_GenericKey) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{10, 0, 4}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 4}
 }
 func (m *RateLimit_Action_GenericKey) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3816,13 +4086,13 @@ type RateLimit_Action_HeaderValueMatch struct {
 	// request matches the headers. If set to false, the action will append a
 	// descriptor entry when the request does not match the headers. The
 	// default value is true.
-	ExpectMatch *types.BoolValue `protobuf:"bytes,2,opt,name=expect_match,json=expectMatch" json:"expect_match,omitempty"`
+	ExpectMatch *types.BoolValue `protobuf:"bytes,2,opt,name=expect_match,json=expectMatch,proto3" json:"expect_match,omitempty"`
 	// Specifies a set of headers that the rate limit action should match
 	// on. The action will check the request’s headers against all the
 	// specified headers in the config. A match will happen if all the
 	// headers in the config are present in the request with the same values
 	// (or based on presence if the value field is not in the config).
-	Headers              []*HeaderMatcher `protobuf:"bytes,3,rep,name=headers" json:"headers,omitempty"`
+	Headers              []*HeaderMatcher `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -3832,7 +4102,7 @@ func (m *RateLimit_Action_HeaderValueMatch) Reset()         { *m = RateLimit_Act
 func (m *RateLimit_Action_HeaderValueMatch) String() string { return proto.CompactTextString(m) }
 func (*RateLimit_Action_HeaderValueMatch) ProtoMessage()    {}
 func (*RateLimit_Action_HeaderValueMatch) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{10, 0, 5}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{11, 0, 5}
 }
 func (m *RateLimit_Action_HeaderValueMatch) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3934,7 +4204,7 @@ func (m *HeaderMatcher) Reset()         { *m = HeaderMatcher{} }
 func (m *HeaderMatcher) String() string { return proto.CompactTextString(m) }
 func (*HeaderMatcher) ProtoMessage()    {}
 func (*HeaderMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{11}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{12}
 }
 func (m *HeaderMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3977,7 +4247,7 @@ type HeaderMatcher_RegexMatch struct {
 	RegexMatch string `protobuf:"bytes,5,opt,name=regex_match,json=regexMatch,proto3,oneof"`
 }
 type HeaderMatcher_RangeMatch struct {
-	RangeMatch *_type.Int64Range `protobuf:"bytes,6,opt,name=range_match,json=rangeMatch,oneof"`
+	RangeMatch *_type.Int64Range `protobuf:"bytes,6,opt,name=range_match,json=rangeMatch,proto3,oneof"`
 }
 type HeaderMatcher_PresentMatch struct {
 	PresentMatch bool `protobuf:"varint,7,opt,name=present_match,json=presentMatch,proto3,oneof"`
@@ -4206,7 +4476,7 @@ type QueryParameterMatcher struct {
 	// Defaults to false. The entire query parameter value (i.e., the part to
 	// the right of the equals sign in "key=value") must match the regex.
 	// E.g., the regex "\d+$" will match "123" but not "a123" or "123a".
-	Regex                *types.BoolValue `protobuf:"bytes,4,opt,name=regex" json:"regex,omitempty"`
+	Regex                *types.BoolValue `protobuf:"bytes,4,opt,name=regex,proto3" json:"regex,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -4216,7 +4486,7 @@ func (m *QueryParameterMatcher) Reset()         { *m = QueryParameterMatcher{} }
 func (m *QueryParameterMatcher) String() string { return proto.CompactTextString(m) }
 func (*QueryParameterMatcher) ProtoMessage()    {}
 func (*QueryParameterMatcher) Descriptor() ([]byte, []int) {
-	return fileDescriptor_route_d9210464f63ce08b, []int{12}
+	return fileDescriptor_route_ee11921c49fa9e35, []int{13}
 }
 func (m *QueryParameterMatcher) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4281,14 +4551,15 @@ func init() {
 	proto.RegisterType((*RouteMatch_GrpcRouteMatchOptions)(nil), "envoy.api.v2.route.RouteMatch.GrpcRouteMatchOptions")
 	proto.RegisterType((*CorsPolicy)(nil), "envoy.api.v2.route.CorsPolicy")
 	proto.RegisterType((*RouteAction)(nil), "envoy.api.v2.route.RouteAction")
-	proto.RegisterType((*RouteAction_RetryPolicy)(nil), "envoy.api.v2.route.RouteAction.RetryPolicy")
-	proto.RegisterType((*RouteAction_RetryPolicy_RetryPriority)(nil), "envoy.api.v2.route.RouteAction.RetryPolicy.RetryPriority")
-	proto.RegisterType((*RouteAction_RetryPolicy_RetryHostPredicate)(nil), "envoy.api.v2.route.RouteAction.RetryPolicy.RetryHostPredicate")
 	proto.RegisterType((*RouteAction_RequestMirrorPolicy)(nil), "envoy.api.v2.route.RouteAction.RequestMirrorPolicy")
 	proto.RegisterType((*RouteAction_HashPolicy)(nil), "envoy.api.v2.route.RouteAction.HashPolicy")
 	proto.RegisterType((*RouteAction_HashPolicy_Header)(nil), "envoy.api.v2.route.RouteAction.HashPolicy.Header")
 	proto.RegisterType((*RouteAction_HashPolicy_Cookie)(nil), "envoy.api.v2.route.RouteAction.HashPolicy.Cookie")
 	proto.RegisterType((*RouteAction_HashPolicy_ConnectionProperties)(nil), "envoy.api.v2.route.RouteAction.HashPolicy.ConnectionProperties")
+	proto.RegisterType((*RouteAction_UpgradeConfig)(nil), "envoy.api.v2.route.RouteAction.UpgradeConfig")
+	proto.RegisterType((*RetryPolicy)(nil), "envoy.api.v2.route.RetryPolicy")
+	proto.RegisterType((*RetryPolicy_RetryPriority)(nil), "envoy.api.v2.route.RetryPolicy.RetryPriority")
+	proto.RegisterType((*RetryPolicy_RetryHostPredicate)(nil), "envoy.api.v2.route.RetryPolicy.RetryHostPredicate")
 	proto.RegisterType((*RedirectAction)(nil), "envoy.api.v2.route.RedirectAction")
 	proto.RegisterType((*DirectResponseAction)(nil), "envoy.api.v2.route.DirectResponseAction")
 	proto.RegisterType((*Decorator)(nil), "envoy.api.v2.route.Decorator")
@@ -4305,6 +4576,7 @@ func init() {
 	proto.RegisterType((*QueryParameterMatcher)(nil), "envoy.api.v2.route.QueryParameterMatcher")
 	proto.RegisterEnum("envoy.api.v2.route.VirtualHost_TlsRequirementType", VirtualHost_TlsRequirementType_name, VirtualHost_TlsRequirementType_value)
 	proto.RegisterEnum("envoy.api.v2.route.RouteAction_ClusterNotFoundResponseCode", RouteAction_ClusterNotFoundResponseCode_name, RouteAction_ClusterNotFoundResponseCode_value)
+	proto.RegisterEnum("envoy.api.v2.route.RouteAction_InternalRedirectAction", RouteAction_InternalRedirectAction_name, RouteAction_InternalRedirectAction_value)
 	proto.RegisterEnum("envoy.api.v2.route.RedirectAction_RedirectResponseCode", RedirectAction_RedirectResponseCode_name, RedirectAction_RedirectResponseCode_value)
 }
 func (this *VirtualHost) Equal(that interface{}) bool {
@@ -4416,6 +4688,9 @@ func (this *VirtualHost) Equal(that interface{}) bool {
 		}
 	}
 	if this.IncludeRequestAttemptCount != that1.IncludeRequestAttemptCount {
+		return false
+	}
+	if !this.RetryPolicy.Equal(that1.RetryPolicy) {
 		return false
 	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
@@ -4908,10 +5183,67 @@ func (this *CorsPolicy) Equal(that interface{}) bool {
 	if !this.AllowCredentials.Equal(that1.AllowCredentials) {
 		return false
 	}
-	if !this.Enabled.Equal(that1.Enabled) {
+	if that1.EnabledSpecifier == nil {
+		if this.EnabledSpecifier != nil {
+			return false
+		}
+	} else if this.EnabledSpecifier == nil {
+		return false
+	} else if !this.EnabledSpecifier.Equal(that1.EnabledSpecifier) {
+		return false
+	}
+	if !this.ShadowEnabled.Equal(that1.ShadowEnabled) {
 		return false
 	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *CorsPolicy_Enabled) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*CorsPolicy_Enabled)
+	if !ok {
+		that2, ok := that.(CorsPolicy_Enabled)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Enabled.Equal(that1.Enabled) {
+		return false
+	}
+	return true
+}
+func (this *CorsPolicy_FilterEnabled) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*CorsPolicy_FilterEnabled)
+	if !ok {
+		that2, ok := that.(CorsPolicy_FilterEnabled)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.FilterEnabled.Equal(that1.FilterEnabled) {
 		return false
 	}
 	return true
@@ -5044,6 +5376,17 @@ func (this *RouteAction) Equal(that interface{}) bool {
 	} else if that1.MaxGrpcTimeout != nil {
 		return false
 	}
+	if len(this.UpgradeConfigs) != len(that1.UpgradeConfigs) {
+		return false
+	}
+	for i := range this.UpgradeConfigs {
+		if !this.UpgradeConfigs[i].Equal(that1.UpgradeConfigs[i]) {
+			return false
+		}
+	}
+	if this.InternalRedirectAction != that1.InternalRedirectAction {
+		return false
+	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
@@ -5169,235 +5512,6 @@ func (this *RouteAction_AutoHostRewrite) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *RouteAction_RetryPolicy) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*RouteAction_RetryPolicy)
-	if !ok {
-		that2, ok := that.(RouteAction_RetryPolicy)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if this.RetryOn != that1.RetryOn {
-		return false
-	}
-	if !this.NumRetries.Equal(that1.NumRetries) {
-		return false
-	}
-	if this.PerTryTimeout != nil && that1.PerTryTimeout != nil {
-		if *this.PerTryTimeout != *that1.PerTryTimeout {
-			return false
-		}
-	} else if this.PerTryTimeout != nil {
-		return false
-	} else if that1.PerTryTimeout != nil {
-		return false
-	}
-	if !this.RetryPriority.Equal(that1.RetryPriority) {
-		return false
-	}
-	if len(this.RetryHostPredicate) != len(that1.RetryHostPredicate) {
-		return false
-	}
-	for i := range this.RetryHostPredicate {
-		if !this.RetryHostPredicate[i].Equal(that1.RetryHostPredicate[i]) {
-			return false
-		}
-	}
-	if this.HostSelectionRetryMaxAttempts != that1.HostSelectionRetryMaxAttempts {
-		return false
-	}
-	if len(this.RetriableStatusCodes) != len(that1.RetriableStatusCodes) {
-		return false
-	}
-	for i := range this.RetriableStatusCodes {
-		if this.RetriableStatusCodes[i] != that1.RetriableStatusCodes[i] {
-			return false
-		}
-	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
-	return true
-}
-func (this *RouteAction_RetryPolicy_RetryPriority) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*RouteAction_RetryPolicy_RetryPriority)
-	if !ok {
-		that2, ok := that.(RouteAction_RetryPolicy_RetryPriority)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if this.Name != that1.Name {
-		return false
-	}
-	if that1.ConfigType == nil {
-		if this.ConfigType != nil {
-			return false
-		}
-	} else if this.ConfigType == nil {
-		return false
-	} else if !this.ConfigType.Equal(that1.ConfigType) {
-		return false
-	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
-	return true
-}
-func (this *RouteAction_RetryPolicy_RetryPriority_Config) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*RouteAction_RetryPolicy_RetryPriority_Config)
-	if !ok {
-		that2, ok := that.(RouteAction_RetryPolicy_RetryPriority_Config)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.Config.Equal(that1.Config) {
-		return false
-	}
-	return true
-}
-func (this *RouteAction_RetryPolicy_RetryPriority_TypedConfig) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*RouteAction_RetryPolicy_RetryPriority_TypedConfig)
-	if !ok {
-		that2, ok := that.(RouteAction_RetryPolicy_RetryPriority_TypedConfig)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.TypedConfig.Equal(that1.TypedConfig) {
-		return false
-	}
-	return true
-}
-func (this *RouteAction_RetryPolicy_RetryHostPredicate) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*RouteAction_RetryPolicy_RetryHostPredicate)
-	if !ok {
-		that2, ok := that.(RouteAction_RetryPolicy_RetryHostPredicate)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if this.Name != that1.Name {
-		return false
-	}
-	if that1.ConfigType == nil {
-		if this.ConfigType != nil {
-			return false
-		}
-	} else if this.ConfigType == nil {
-		return false
-	} else if !this.ConfigType.Equal(that1.ConfigType) {
-		return false
-	}
-	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
-		return false
-	}
-	return true
-}
-func (this *RouteAction_RetryPolicy_RetryHostPredicate_Config) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*RouteAction_RetryPolicy_RetryHostPredicate_Config)
-	if !ok {
-		that2, ok := that.(RouteAction_RetryPolicy_RetryHostPredicate_Config)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.Config.Equal(that1.Config) {
-		return false
-	}
-	return true
-}
-func (this *RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig)
-	if !ok {
-		that2, ok := that.(RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.TypedConfig.Equal(that1.TypedConfig) {
-		return false
-	}
-	return true
-}
 func (this *RouteAction_RequestMirrorPolicy) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -5421,6 +5535,9 @@ func (this *RouteAction_RequestMirrorPolicy) Equal(that interface{}) bool {
 		return false
 	}
 	if this.RuntimeKey != that1.RuntimeKey {
+		return false
+	}
+	if !this.RuntimeFraction.Equal(that1.RuntimeFraction) {
 		return false
 	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
@@ -5625,6 +5742,265 @@ func (this *RouteAction_HashPolicy_ConnectionProperties) Equal(that interface{})
 		return false
 	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RouteAction_UpgradeConfig) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RouteAction_UpgradeConfig)
+	if !ok {
+		that2, ok := that.(RouteAction_UpgradeConfig)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.UpgradeType != that1.UpgradeType {
+		return false
+	}
+	if !this.Enabled.Equal(that1.Enabled) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RetryPolicy) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RetryPolicy)
+	if !ok {
+		that2, ok := that.(RetryPolicy)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.RetryOn != that1.RetryOn {
+		return false
+	}
+	if !this.NumRetries.Equal(that1.NumRetries) {
+		return false
+	}
+	if this.PerTryTimeout != nil && that1.PerTryTimeout != nil {
+		if *this.PerTryTimeout != *that1.PerTryTimeout {
+			return false
+		}
+	} else if this.PerTryTimeout != nil {
+		return false
+	} else if that1.PerTryTimeout != nil {
+		return false
+	}
+	if !this.RetryPriority.Equal(that1.RetryPriority) {
+		return false
+	}
+	if len(this.RetryHostPredicate) != len(that1.RetryHostPredicate) {
+		return false
+	}
+	for i := range this.RetryHostPredicate {
+		if !this.RetryHostPredicate[i].Equal(that1.RetryHostPredicate[i]) {
+			return false
+		}
+	}
+	if this.HostSelectionRetryMaxAttempts != that1.HostSelectionRetryMaxAttempts {
+		return false
+	}
+	if len(this.RetriableStatusCodes) != len(that1.RetriableStatusCodes) {
+		return false
+	}
+	for i := range this.RetriableStatusCodes {
+		if this.RetriableStatusCodes[i] != that1.RetriableStatusCodes[i] {
+			return false
+		}
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RetryPolicy_RetryPriority) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RetryPolicy_RetryPriority)
+	if !ok {
+		that2, ok := that.(RetryPolicy_RetryPriority)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Name != that1.Name {
+		return false
+	}
+	if that1.ConfigType == nil {
+		if this.ConfigType != nil {
+			return false
+		}
+	} else if this.ConfigType == nil {
+		return false
+	} else if !this.ConfigType.Equal(that1.ConfigType) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RetryPolicy_RetryPriority_Config) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RetryPolicy_RetryPriority_Config)
+	if !ok {
+		that2, ok := that.(RetryPolicy_RetryPriority_Config)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Config.Equal(that1.Config) {
+		return false
+	}
+	return true
+}
+func (this *RetryPolicy_RetryPriority_TypedConfig) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RetryPolicy_RetryPriority_TypedConfig)
+	if !ok {
+		that2, ok := that.(RetryPolicy_RetryPriority_TypedConfig)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.TypedConfig.Equal(that1.TypedConfig) {
+		return false
+	}
+	return true
+}
+func (this *RetryPolicy_RetryHostPredicate) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RetryPolicy_RetryHostPredicate)
+	if !ok {
+		that2, ok := that.(RetryPolicy_RetryHostPredicate)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Name != that1.Name {
+		return false
+	}
+	if that1.ConfigType == nil {
+		if this.ConfigType != nil {
+			return false
+		}
+	} else if this.ConfigType == nil {
+		return false
+	} else if !this.ConfigType.Equal(that1.ConfigType) {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
+	return true
+}
+func (this *RetryPolicy_RetryHostPredicate_Config) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RetryPolicy_RetryHostPredicate_Config)
+	if !ok {
+		that2, ok := that.(RetryPolicy_RetryHostPredicate_Config)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Config.Equal(that1.Config) {
+		return false
+	}
+	return true
+}
+func (this *RetryPolicy_RetryHostPredicate_TypedConfig) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*RetryPolicy_RetryHostPredicate_TypedConfig)
+	if !ok {
+		that2, ok := that.(RetryPolicy_RetryHostPredicate_TypedConfig)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.TypedConfig.Equal(that1.TypedConfig) {
 		return false
 	}
 	return true
@@ -6674,6 +7050,18 @@ func (m *VirtualHost) MarshalTo(dAtA []byte) (int, error) {
 			}
 		}
 	}
+	if m.RetryPolicy != nil {
+		dAtA[i] = 0x82
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.RetryPolicy.Size()))
+		n4, err := m.RetryPolicy.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -6698,37 +7086,37 @@ func (m *Route) MarshalTo(dAtA []byte) (int, error) {
 	dAtA[i] = 0xa
 	i++
 	i = encodeVarintRoute(dAtA, i, uint64(m.Match.Size()))
-	n4, err := m.Match.MarshalTo(dAtA[i:])
+	n5, err := m.Match.MarshalTo(dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
-	i += n4
+	i += n5
 	if m.Action != nil {
-		nn5, err := m.Action.MarshalTo(dAtA[i:])
+		nn6, err := m.Action.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn5
+		i += nn6
 	}
 	if m.Metadata != nil {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Metadata.Size()))
-		n6, err := m.Metadata.MarshalTo(dAtA[i:])
+		n7, err := m.Metadata.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n6
+		i += n7
 	}
 	if m.Decorator != nil {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Decorator.Size()))
-		n7, err := m.Decorator.MarshalTo(dAtA[i:])
+		n8, err := m.Decorator.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n7
+		i += n8
 	}
 	if len(m.PerFilterConfig) > 0 {
 		for k, _ := range m.PerFilterConfig {
@@ -6750,11 +7138,11 @@ func (m *Route) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintRoute(dAtA, i, uint64(v.Size()))
-				n8, err := v.MarshalTo(dAtA[i:])
+				n9, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n8
+				i += n9
 			}
 		}
 	}
@@ -6832,11 +7220,11 @@ func (m *Route) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintRoute(dAtA, i, uint64(v.Size()))
-				n9, err := v.MarshalTo(dAtA[i:])
+				n10, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n9
+				i += n10
 			}
 		}
 	}
@@ -6852,11 +7240,11 @@ func (m *Route_Route) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Route.Size()))
-		n10, err := m.Route.MarshalTo(dAtA[i:])
+		n11, err := m.Route.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n10
+		i += n11
 	}
 	return i, nil
 }
@@ -6866,11 +7254,11 @@ func (m *Route_Redirect) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Redirect.Size()))
-		n11, err := m.Redirect.MarshalTo(dAtA[i:])
+		n12, err := m.Redirect.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n11
+		i += n12
 	}
 	return i, nil
 }
@@ -6880,11 +7268,11 @@ func (m *Route_DirectResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.DirectResponse.Size()))
-		n12, err := m.DirectResponse.MarshalTo(dAtA[i:])
+		n13, err := m.DirectResponse.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n12
+		i += n13
 	}
 	return i, nil
 }
@@ -6925,11 +7313,11 @@ func (m *WeightedCluster) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.TotalWeight.Size()))
-		n13, err := m.TotalWeight.MarshalTo(dAtA[i:])
+		n14, err := m.TotalWeight.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n13
+		i += n14
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -6962,21 +7350,21 @@ func (m *WeightedCluster_ClusterWeight) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Weight.Size()))
-		n14, err := m.Weight.MarshalTo(dAtA[i:])
+		n15, err := m.Weight.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n14
+		i += n15
 	}
 	if m.MetadataMatch != nil {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.MetadataMatch.Size()))
-		n15, err := m.MetadataMatch.MarshalTo(dAtA[i:])
+		n16, err := m.MetadataMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n15
+		i += n16
 	}
 	if len(m.RequestHeadersToAdd) > 0 {
 		for _, msg := range m.RequestHeadersToAdd {
@@ -7037,11 +7425,11 @@ func (m *WeightedCluster_ClusterWeight) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintRoute(dAtA, i, uint64(v.Size()))
-				n16, err := v.MarshalTo(dAtA[i:])
+				n17, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n16
+				i += n17
 			}
 		}
 	}
@@ -7080,11 +7468,11 @@ func (m *WeightedCluster_ClusterWeight) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintRoute(dAtA, i, uint64(v.Size()))
-				n17, err := v.MarshalTo(dAtA[i:])
+				n18, err := v.MarshalTo(dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
-				i += n17
+				i += n18
 			}
 		}
 	}
@@ -7110,21 +7498,21 @@ func (m *RouteMatch) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.PathSpecifier != nil {
-		nn18, err := m.PathSpecifier.MarshalTo(dAtA[i:])
+		nn19, err := m.PathSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn18
+		i += nn19
 	}
 	if m.CaseSensitive != nil {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.CaseSensitive.Size()))
-		n19, err := m.CaseSensitive.MarshalTo(dAtA[i:])
+		n20, err := m.CaseSensitive.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n19
+		i += n20
 	}
 	if len(m.Headers) > 0 {
 		for _, msg := range m.Headers {
@@ -7154,21 +7542,21 @@ func (m *RouteMatch) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Grpc.Size()))
-		n20, err := m.Grpc.MarshalTo(dAtA[i:])
+		n21, err := m.Grpc.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n20
+		i += n21
 	}
 	if m.RuntimeFraction != nil {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RuntimeFraction.Size()))
-		n21, err := m.RuntimeFraction.MarshalTo(dAtA[i:])
+		n22, err := m.RuntimeFraction.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n21
+		i += n22
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -7279,21 +7667,18 @@ func (m *CorsPolicy) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.AllowCredentials.Size()))
-		n22, err := m.AllowCredentials.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n22
-	}
-	if m.Enabled != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.Enabled.Size()))
-		n23, err := m.Enabled.MarshalTo(dAtA[i:])
+		n23, err := m.AllowCredentials.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n23
+	}
+	if m.EnabledSpecifier != nil {
+		nn24, err := m.EnabledSpecifier.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn24
 	}
 	if len(m.AllowOriginRegex) > 0 {
 		for _, s := range m.AllowOriginRegex {
@@ -7310,12 +7695,50 @@ func (m *CorsPolicy) MarshalTo(dAtA []byte) (int, error) {
 			i += copy(dAtA[i:], s)
 		}
 	}
+	if m.ShadowEnabled != nil {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.ShadowEnabled.Size()))
+		n25, err := m.ShadowEnabled.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n25
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
 
+func (m *CorsPolicy_Enabled) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Enabled != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.Enabled.Size()))
+		n26, err := m.Enabled.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n26
+	}
+	return i, nil
+}
+func (m *CorsPolicy_FilterEnabled) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.FilterEnabled != nil {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.FilterEnabled.Size()))
+		n27, err := m.FilterEnabled.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n27
+	}
+	return i, nil
+}
 func (m *RouteAction) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -7332,21 +7755,21 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.ClusterSpecifier != nil {
-		nn24, err := m.ClusterSpecifier.MarshalTo(dAtA[i:])
+		nn28, err := m.ClusterSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn24
+		i += nn28
 	}
 	if m.MetadataMatch != nil {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.MetadataMatch.Size()))
-		n25, err := m.MetadataMatch.MarshalTo(dAtA[i:])
+		n29, err := m.MetadataMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n25
+		i += n29
 	}
 	if len(m.PrefixRewrite) > 0 {
 		dAtA[i] = 0x2a
@@ -7355,41 +7778,41 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.PrefixRewrite)
 	}
 	if m.HostRewriteSpecifier != nil {
-		nn26, err := m.HostRewriteSpecifier.MarshalTo(dAtA[i:])
+		nn30, err := m.HostRewriteSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn26
+		i += nn30
 	}
 	if m.Timeout != nil {
 		dAtA[i] = 0x42
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Timeout)))
-		n27, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
+		n31, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Timeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n27
+		i += n31
 	}
 	if m.RetryPolicy != nil {
 		dAtA[i] = 0x4a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RetryPolicy.Size()))
-		n28, err := m.RetryPolicy.MarshalTo(dAtA[i:])
+		n32, err := m.RetryPolicy.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n28
+		i += n32
 	}
 	if m.RequestMirrorPolicy != nil {
 		dAtA[i] = 0x52
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RequestMirrorPolicy.Size()))
-		n29, err := m.RequestMirrorPolicy.MarshalTo(dAtA[i:])
+		n33, err := m.RequestMirrorPolicy.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n29
+		i += n33
 	}
 	if m.Priority != 0 {
 		dAtA[i] = 0x58
@@ -7424,11 +7847,11 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x72
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.IncludeVhRateLimits.Size()))
-		n30, err := m.IncludeVhRateLimits.MarshalTo(dAtA[i:])
+		n34, err := m.IncludeVhRateLimits.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n30
+		i += n34
 	}
 	if len(m.HashPolicy) > 0 {
 		for _, msg := range m.HashPolicy {
@@ -7448,11 +7871,11 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Cors.Size()))
-		n31, err := m.Cors.MarshalTo(dAtA[i:])
+		n35, err := m.Cors.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n31
+		i += n35
 	}
 	if len(m.ResponseHeadersToAdd) > 0 {
 		for _, msg := range m.ResponseHeadersToAdd {
@@ -7498,11 +7921,11 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.MaxGrpcTimeout)))
-		n32, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.MaxGrpcTimeout, dAtA[i:])
+		n36, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.MaxGrpcTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n32
+		i += n36
 	}
 	if m.IdleTimeout != nil {
 		dAtA[i] = 0xc2
@@ -7510,11 +7933,32 @@ func (m *RouteAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)))
-		n33, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
+		n37, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.IdleTimeout, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n33
+		i += n37
+	}
+	if len(m.UpgradeConfigs) > 0 {
+		for _, msg := range m.UpgradeConfigs {
+			dAtA[i] = 0xca
+			i++
+			dAtA[i] = 0x1
+			i++
+			i = encodeVarintRoute(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.InternalRedirectAction != 0 {
+		dAtA[i] = 0xd0
+		i++
+		dAtA[i] = 0x1
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.InternalRedirectAction))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -7544,11 +7988,11 @@ func (m *RouteAction_WeightedClusters) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.WeightedClusters.Size()))
-		n34, err := m.WeightedClusters.MarshalTo(dAtA[i:])
+		n38, err := m.WeightedClusters.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n34
+		i += n38
 	}
 	return i, nil
 }
@@ -7566,226 +8010,11 @@ func (m *RouteAction_AutoHostRewrite) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.AutoHostRewrite.Size()))
-		n35, err := m.AutoHostRewrite.MarshalTo(dAtA[i:])
+		n39, err := m.AutoHostRewrite.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n35
-	}
-	return i, nil
-}
-func (m *RouteAction_RetryPolicy) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *RouteAction_RetryPolicy) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.RetryOn) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(len(m.RetryOn)))
-		i += copy(dAtA[i:], m.RetryOn)
-	}
-	if m.NumRetries != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.NumRetries.Size()))
-		n36, err := m.NumRetries.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n36
-	}
-	if m.PerTryTimeout != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PerTryTimeout)))
-		n37, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PerTryTimeout, dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n37
-	}
-	if m.RetryPriority != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.RetryPriority.Size()))
-		n38, err := m.RetryPriority.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n38
-	}
-	if len(m.RetryHostPredicate) > 0 {
-		for _, msg := range m.RetryHostPredicate {
-			dAtA[i] = 0x2a
-			i++
-			i = encodeVarintRoute(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.HostSelectionRetryMaxAttempts != 0 {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.HostSelectionRetryMaxAttempts))
-	}
-	if len(m.RetriableStatusCodes) > 0 {
-		dAtA40 := make([]byte, len(m.RetriableStatusCodes)*10)
-		var j39 int
-		for _, num := range m.RetriableStatusCodes {
-			for num >= 1<<7 {
-				dAtA40[j39] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j39++
-			}
-			dAtA40[j39] = uint8(num)
-			j39++
-		}
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(j39))
-		i += copy(dAtA[i:], dAtA40[:j39])
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryPriority) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryPriority) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.ConfigType != nil {
-		nn41, err := m.ConfigType.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += nn41
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryPriority_Config) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.Config != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.Config.Size()))
-		n42, err := m.Config.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n42
-	}
-	return i, nil
-}
-func (m *RouteAction_RetryPolicy_RetryPriority_TypedConfig) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.TypedConfig != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.TypedConfig.Size()))
-		n43, err := m.TypedConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n43
-	}
-	return i, nil
-}
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.ConfigType != nil {
-		nn44, err := m.ConfigType.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += nn44
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
-}
-
-func (m *RouteAction_RetryPolicy_RetryHostPredicate_Config) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.Config != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.Config.Size()))
-		n45, err := m.Config.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n45
-	}
-	return i, nil
-}
-func (m *RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.TypedConfig != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintRoute(dAtA, i, uint64(m.TypedConfig.Size()))
-		n46, err := m.TypedConfig.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n46
+		i += n39
 	}
 	return i, nil
 }
@@ -7816,6 +8045,16 @@ func (m *RouteAction_RequestMirrorPolicy) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintRoute(dAtA, i, uint64(len(m.RuntimeKey)))
 		i += copy(dAtA[i:], m.RuntimeKey)
 	}
+	if m.RuntimeFraction != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.RuntimeFraction.Size()))
+		n40, err := m.RuntimeFraction.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n40
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -7838,11 +8077,11 @@ func (m *RouteAction_HashPolicy) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.PolicySpecifier != nil {
-		nn47, err := m.PolicySpecifier.MarshalTo(dAtA[i:])
+		nn41, err := m.PolicySpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn47
+		i += nn41
 	}
 	if m.Terminal {
 		dAtA[i] = 0x20
@@ -7866,11 +8105,11 @@ func (m *RouteAction_HashPolicy_Header_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Header.Size()))
-		n48, err := m.Header.MarshalTo(dAtA[i:])
+		n42, err := m.Header.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n48
+		i += n42
 	}
 	return i, nil
 }
@@ -7880,11 +8119,11 @@ func (m *RouteAction_HashPolicy_Cookie_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Cookie.Size()))
-		n49, err := m.Cookie.MarshalTo(dAtA[i:])
+		n43, err := m.Cookie.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n49
+		i += n43
 	}
 	return i, nil
 }
@@ -7894,11 +8133,11 @@ func (m *RouteAction_HashPolicy_ConnectionProperties_) MarshalTo(dAtA []byte) (i
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.ConnectionProperties.Size()))
-		n50, err := m.ConnectionProperties.MarshalTo(dAtA[i:])
+		n44, err := m.ConnectionProperties.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n50
+		i += n44
 	}
 	return i, nil
 }
@@ -7954,11 +8193,11 @@ func (m *RouteAction_HashPolicy_Cookie) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Ttl)))
-		n51, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Ttl, dAtA[i:])
+		n45, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.Ttl, dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n51
+		i += n45
 	}
 	if len(m.Path) > 0 {
 		dAtA[i] = 0x1a
@@ -8003,6 +8242,258 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) MarshalTo(dAtA []byte) (in
 	return i, nil
 }
 
+func (m *RouteAction_UpgradeConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RouteAction_UpgradeConfig) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.UpgradeType) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(len(m.UpgradeType)))
+		i += copy(dAtA[i:], m.UpgradeType)
+	}
+	if m.Enabled != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.Enabled.Size()))
+		n46, err := m.Enabled.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n46
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RetryPolicy) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RetryPolicy) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.RetryOn) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(len(m.RetryOn)))
+		i += copy(dAtA[i:], m.RetryOn)
+	}
+	if m.NumRetries != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.NumRetries.Size()))
+		n47, err := m.NumRetries.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n47
+	}
+	if m.PerTryTimeout != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*m.PerTryTimeout)))
+		n48, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*m.PerTryTimeout, dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n48
+	}
+	if m.RetryPriority != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.RetryPriority.Size()))
+		n49, err := m.RetryPriority.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n49
+	}
+	if len(m.RetryHostPredicate) > 0 {
+		for _, msg := range m.RetryHostPredicate {
+			dAtA[i] = 0x2a
+			i++
+			i = encodeVarintRoute(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.HostSelectionRetryMaxAttempts != 0 {
+		dAtA[i] = 0x30
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.HostSelectionRetryMaxAttempts))
+	}
+	if len(m.RetriableStatusCodes) > 0 {
+		dAtA51 := make([]byte, len(m.RetriableStatusCodes)*10)
+		var j50 int
+		for _, num := range m.RetriableStatusCodes {
+			for num >= 1<<7 {
+				dAtA51[j50] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j50++
+			}
+			dAtA51[j50] = uint8(num)
+			j50++
+		}
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(j50))
+		i += copy(dAtA[i:], dAtA51[:j50])
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RetryPolicy_RetryPriority) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RetryPolicy_RetryPriority) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.ConfigType != nil {
+		nn52, err := m.ConfigType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn52
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RetryPolicy_RetryPriority_Config) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Config != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.Config.Size()))
+		n53, err := m.Config.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n53
+	}
+	return i, nil
+}
+func (m *RetryPolicy_RetryPriority_TypedConfig) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.TypedConfig != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.TypedConfig.Size()))
+		n54, err := m.TypedConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n54
+	}
+	return i, nil
+}
+func (m *RetryPolicy_RetryHostPredicate) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RetryPolicy_RetryHostPredicate) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.ConfigType != nil {
+		nn55, err := m.ConfigType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn55
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *RetryPolicy_RetryHostPredicate_Config) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.Config != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.Config.Size()))
+		n56, err := m.Config.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n56
+	}
+	return i, nil
+}
+func (m *RetryPolicy_RetryHostPredicate_TypedConfig) MarshalTo(dAtA []byte) (int, error) {
+	i := 0
+	if m.TypedConfig != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintRoute(dAtA, i, uint64(m.TypedConfig.Size()))
+		n57, err := m.TypedConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n57
+	}
+	return i, nil
+}
 func (m *RedirectAction) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -8025,11 +8516,11 @@ func (m *RedirectAction) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.HostRedirect)
 	}
 	if m.PathRewriteSpecifier != nil {
-		nn52, err := m.PathRewriteSpecifier.MarshalTo(dAtA[i:])
+		nn58, err := m.PathRewriteSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn52
+		i += nn58
 	}
 	if m.ResponseCode != 0 {
 		dAtA[i] = 0x18
@@ -8037,11 +8528,11 @@ func (m *RedirectAction) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintRoute(dAtA, i, uint64(m.ResponseCode))
 	}
 	if m.SchemeRewriteSpecifier != nil {
-		nn53, err := m.SchemeRewriteSpecifier.MarshalTo(dAtA[i:])
+		nn59, err := m.SchemeRewriteSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn53
+		i += nn59
 	}
 	if m.StripQuery {
 		dAtA[i] = 0x30
@@ -8124,11 +8615,11 @@ func (m *DirectResponseAction) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Body.Size()))
-		n54, err := m.Body.MarshalTo(dAtA[i:])
+		n60, err := m.Body.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n54
+		i += n60
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8220,11 +8711,11 @@ func (m *RateLimit) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Stage.Size()))
-		n55, err := m.Stage.MarshalTo(dAtA[i:])
+		n61, err := m.Stage.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n55
+		i += n61
 	}
 	if len(m.DisableKey) > 0 {
 		dAtA[i] = 0x12
@@ -8266,11 +8757,11 @@ func (m *RateLimit_Action) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.ActionSpecifier != nil {
-		nn56, err := m.ActionSpecifier.MarshalTo(dAtA[i:])
+		nn62, err := m.ActionSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn56
+		i += nn62
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8284,11 +8775,11 @@ func (m *RateLimit_Action_SourceCluster_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.SourceCluster.Size()))
-		n57, err := m.SourceCluster.MarshalTo(dAtA[i:])
+		n63, err := m.SourceCluster.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n57
+		i += n63
 	}
 	return i, nil
 }
@@ -8298,11 +8789,11 @@ func (m *RateLimit_Action_DestinationCluster_) MarshalTo(dAtA []byte) (int, erro
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.DestinationCluster.Size()))
-		n58, err := m.DestinationCluster.MarshalTo(dAtA[i:])
+		n64, err := m.DestinationCluster.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n58
+		i += n64
 	}
 	return i, nil
 }
@@ -8312,11 +8803,11 @@ func (m *RateLimit_Action_RequestHeaders_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RequestHeaders.Size()))
-		n59, err := m.RequestHeaders.MarshalTo(dAtA[i:])
+		n65, err := m.RequestHeaders.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n59
+		i += n65
 	}
 	return i, nil
 }
@@ -8326,11 +8817,11 @@ func (m *RateLimit_Action_RemoteAddress_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RemoteAddress.Size()))
-		n60, err := m.RemoteAddress.MarshalTo(dAtA[i:])
+		n66, err := m.RemoteAddress.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n60
+		i += n66
 	}
 	return i, nil
 }
@@ -8340,11 +8831,11 @@ func (m *RateLimit_Action_GenericKey_) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.GenericKey.Size()))
-		n61, err := m.GenericKey.MarshalTo(dAtA[i:])
+		n67, err := m.GenericKey.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n61
+		i += n67
 	}
 	return i, nil
 }
@@ -8354,11 +8845,11 @@ func (m *RateLimit_Action_HeaderValueMatch_) MarshalTo(dAtA []byte) (int, error)
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.HeaderValueMatch.Size()))
-		n62, err := m.HeaderValueMatch.MarshalTo(dAtA[i:])
+		n68, err := m.HeaderValueMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n62
+		i += n68
 	}
 	return i, nil
 }
@@ -8510,11 +9001,11 @@ func (m *RateLimit_Action_HeaderValueMatch) MarshalTo(dAtA []byte) (int, error) 
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.ExpectMatch.Size()))
-		n63, err := m.ExpectMatch.MarshalTo(dAtA[i:])
+		n69, err := m.ExpectMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n63
+		i += n69
 	}
 	if len(m.Headers) > 0 {
 		for _, msg := range m.Headers {
@@ -8556,11 +9047,11 @@ func (m *HeaderMatcher) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.Name)
 	}
 	if m.HeaderMatchSpecifier != nil {
-		nn64, err := m.HeaderMatchSpecifier.MarshalTo(dAtA[i:])
+		nn70, err := m.HeaderMatchSpecifier.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn64
+		i += nn70
 	}
 	if m.InvertMatch {
 		dAtA[i] = 0x40
@@ -8600,11 +9091,11 @@ func (m *HeaderMatcher_RangeMatch) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.RangeMatch.Size()))
-		n65, err := m.RangeMatch.MarshalTo(dAtA[i:])
+		n71, err := m.RangeMatch.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n65
+		i += n71
 	}
 	return i, nil
 }
@@ -8667,11 +9158,11 @@ func (m *QueryParameterMatcher) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintRoute(dAtA, i, uint64(m.Regex.Size()))
-		n66, err := m.Regex.MarshalTo(dAtA[i:])
+		n72, err := m.Regex.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n66
+		i += n72
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8689,6 +9180,9 @@ func encodeVarintRoute(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *VirtualHost) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -8779,6 +9273,10 @@ func (m *VirtualHost) Size() (n int) {
 			n += mapEntrySize + 1 + sovRoute(uint64(mapEntrySize))
 		}
 	}
+	if m.RetryPolicy != nil {
+		l = m.RetryPolicy.Size()
+		n += 2 + l + sovRoute(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -8786,6 +9284,9 @@ func (m *VirtualHost) Size() (n int) {
 }
 
 func (m *Route) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = m.Match.Size()
@@ -8858,6 +9359,9 @@ func (m *Route) Size() (n int) {
 }
 
 func (m *Route_Route) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Route != nil {
@@ -8867,6 +9371,9 @@ func (m *Route_Route) Size() (n int) {
 	return n
 }
 func (m *Route_Redirect) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Redirect != nil {
@@ -8876,6 +9383,9 @@ func (m *Route_Redirect) Size() (n int) {
 	return n
 }
 func (m *Route_DirectResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DirectResponse != nil {
@@ -8885,6 +9395,9 @@ func (m *Route_DirectResponse) Size() (n int) {
 	return n
 }
 func (m *WeightedCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Clusters) > 0 {
@@ -8908,6 +9421,9 @@ func (m *WeightedCluster) Size() (n int) {
 }
 
 func (m *WeightedCluster_ClusterWeight) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -8979,6 +9495,9 @@ func (m *WeightedCluster_ClusterWeight) Size() (n int) {
 }
 
 func (m *RouteMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.PathSpecifier != nil {
@@ -9015,6 +9534,9 @@ func (m *RouteMatch) Size() (n int) {
 }
 
 func (m *RouteMatch_Prefix) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Prefix)
@@ -9022,6 +9544,9 @@ func (m *RouteMatch_Prefix) Size() (n int) {
 	return n
 }
 func (m *RouteMatch_Path) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Path)
@@ -9029,6 +9554,9 @@ func (m *RouteMatch_Path) Size() (n int) {
 	return n
 }
 func (m *RouteMatch_Regex) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Regex)
@@ -9036,6 +9564,9 @@ func (m *RouteMatch_Regex) Size() (n int) {
 	return n
 }
 func (m *RouteMatch_GrpcRouteMatchOptions) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -9045,6 +9576,9 @@ func (m *RouteMatch_GrpcRouteMatchOptions) Size() (n int) {
 }
 
 func (m *CorsPolicy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.AllowOrigin) > 0 {
@@ -9073,9 +9607,8 @@ func (m *CorsPolicy) Size() (n int) {
 		l = m.AllowCredentials.Size()
 		n += 1 + l + sovRoute(uint64(l))
 	}
-	if m.Enabled != nil {
-		l = m.Enabled.Size()
-		n += 1 + l + sovRoute(uint64(l))
+	if m.EnabledSpecifier != nil {
+		n += m.EnabledSpecifier.Size()
 	}
 	if len(m.AllowOriginRegex) > 0 {
 		for _, s := range m.AllowOriginRegex {
@@ -9083,13 +9616,44 @@ func (m *CorsPolicy) Size() (n int) {
 			n += 1 + l + sovRoute(uint64(l))
 		}
 	}
+	if m.ShadowEnabled != nil {
+		l = m.ShadowEnabled.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
 
+func (m *CorsPolicy_Enabled) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Enabled != nil {
+		l = m.Enabled.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	return n
+}
+func (m *CorsPolicy_FilterEnabled) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.FilterEnabled != nil {
+		l = m.FilterEnabled.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	return n
+}
 func (m *RouteAction) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ClusterSpecifier != nil {
@@ -9170,6 +9734,15 @@ func (m *RouteAction) Size() (n int) {
 		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.IdleTimeout)
 		n += 2 + l + sovRoute(uint64(l))
 	}
+	if len(m.UpgradeConfigs) > 0 {
+		for _, e := range m.UpgradeConfigs {
+			l = e.Size()
+			n += 2 + l + sovRoute(uint64(l))
+		}
+	}
+	if m.InternalRedirectAction != 0 {
+		n += 2 + sovRoute(uint64(m.InternalRedirectAction))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -9177,6 +9750,9 @@ func (m *RouteAction) Size() (n int) {
 }
 
 func (m *RouteAction_Cluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Cluster)
@@ -9184,6 +9760,9 @@ func (m *RouteAction_Cluster) Size() (n int) {
 	return n
 }
 func (m *RouteAction_ClusterHeader) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ClusterHeader)
@@ -9191,6 +9770,9 @@ func (m *RouteAction_ClusterHeader) Size() (n int) {
 	return n
 }
 func (m *RouteAction_WeightedClusters) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.WeightedClusters != nil {
@@ -9200,6 +9782,9 @@ func (m *RouteAction_WeightedClusters) Size() (n int) {
 	return n
 }
 func (m *RouteAction_HostRewrite) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.HostRewrite)
@@ -9207,6 +9792,9 @@ func (m *RouteAction_HostRewrite) Size() (n int) {
 	return n
 }
 func (m *RouteAction_AutoHostRewrite) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.AutoHostRewrite != nil {
@@ -9215,7 +9803,163 @@ func (m *RouteAction_AutoHostRewrite) Size() (n int) {
 	}
 	return n
 }
-func (m *RouteAction_RetryPolicy) Size() (n int) {
+func (m *RouteAction_RequestMirrorPolicy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Cluster)
+	if l > 0 {
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	l = len(m.RuntimeKey)
+	if l > 0 {
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.RuntimeFraction != nil {
+		l = m.RuntimeFraction.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RouteAction_HashPolicy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.PolicySpecifier != nil {
+		n += m.PolicySpecifier.Size()
+	}
+	if m.Terminal {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RouteAction_HashPolicy_Header_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Header != nil {
+		l = m.Header.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	return n
+}
+func (m *RouteAction_HashPolicy_Cookie_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Cookie != nil {
+		l = m.Cookie.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	return n
+}
+func (m *RouteAction_HashPolicy_ConnectionProperties_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ConnectionProperties != nil {
+		l = m.ConnectionProperties.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	return n
+}
+func (m *RouteAction_HashPolicy_Header) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.HeaderName)
+	if l > 0 {
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RouteAction_HashPolicy_Cookie) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.Ttl != nil {
+		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Ttl)
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	l = len(m.Path)
+	if l > 0 {
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RouteAction_HashPolicy_ConnectionProperties) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SourceIp {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RouteAction_UpgradeConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.UpgradeType)
+	if l > 0 {
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.Enabled != nil {
+		l = m.Enabled.Size()
+		n += 1 + l + sovRoute(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *RetryPolicy) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.RetryOn)
@@ -9256,7 +10000,10 @@ func (m *RouteAction_RetryPolicy) Size() (n int) {
 	return n
 }
 
-func (m *RouteAction_RetryPolicy_RetryPriority) Size() (n int) {
+func (m *RetryPolicy_RetryPriority) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -9272,7 +10019,10 @@ func (m *RouteAction_RetryPolicy_RetryPriority) Size() (n int) {
 	return n
 }
 
-func (m *RouteAction_RetryPolicy_RetryPriority_Config) Size() (n int) {
+func (m *RetryPolicy_RetryPriority_Config) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Config != nil {
@@ -9281,7 +10031,10 @@ func (m *RouteAction_RetryPolicy_RetryPriority_Config) Size() (n int) {
 	}
 	return n
 }
-func (m *RouteAction_RetryPolicy_RetryPriority_TypedConfig) Size() (n int) {
+func (m *RetryPolicy_RetryPriority_TypedConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TypedConfig != nil {
@@ -9290,7 +10043,10 @@ func (m *RouteAction_RetryPolicy_RetryPriority_TypedConfig) Size() (n int) {
 	}
 	return n
 }
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) Size() (n int) {
+func (m *RetryPolicy_RetryHostPredicate) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -9306,7 +10062,10 @@ func (m *RouteAction_RetryPolicy_RetryHostPredicate) Size() (n int) {
 	return n
 }
 
-func (m *RouteAction_RetryPolicy_RetryHostPredicate_Config) Size() (n int) {
+func (m *RetryPolicy_RetryHostPredicate_Config) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Config != nil {
@@ -9315,7 +10074,10 @@ func (m *RouteAction_RetryPolicy_RetryHostPredicate_Config) Size() (n int) {
 	}
 	return n
 }
-func (m *RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig) Size() (n int) {
+func (m *RetryPolicy_RetryHostPredicate_TypedConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TypedConfig != nil {
@@ -9324,112 +10086,10 @@ func (m *RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig) Size() (n int) 
 	}
 	return n
 }
-func (m *RouteAction_RequestMirrorPolicy) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.Cluster)
-	if l > 0 {
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	l = len(m.RuntimeKey)
-	if l > 0 {
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *RouteAction_HashPolicy) Size() (n int) {
-	var l int
-	_ = l
-	if m.PolicySpecifier != nil {
-		n += m.PolicySpecifier.Size()
-	}
-	if m.Terminal {
-		n += 2
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *RouteAction_HashPolicy_Header_) Size() (n int) {
-	var l int
-	_ = l
-	if m.Header != nil {
-		l = m.Header.Size()
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	return n
-}
-func (m *RouteAction_HashPolicy_Cookie_) Size() (n int) {
-	var l int
-	_ = l
-	if m.Cookie != nil {
-		l = m.Cookie.Size()
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	return n
-}
-func (m *RouteAction_HashPolicy_ConnectionProperties_) Size() (n int) {
-	var l int
-	_ = l
-	if m.ConnectionProperties != nil {
-		l = m.ConnectionProperties.Size()
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	return n
-}
-func (m *RouteAction_HashPolicy_Header) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.HeaderName)
-	if l > 0 {
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *RouteAction_HashPolicy_Cookie) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.Name)
-	if l > 0 {
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	if m.Ttl != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Ttl)
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	l = len(m.Path)
-	if l > 0 {
-		n += 1 + l + sovRoute(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *RouteAction_HashPolicy_ConnectionProperties) Size() (n int) {
-	var l int
-	_ = l
-	if m.SourceIp {
-		n += 2
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
 func (m *RedirectAction) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.HostRedirect)
@@ -9458,6 +10118,9 @@ func (m *RedirectAction) Size() (n int) {
 }
 
 func (m *RedirectAction_PathRedirect) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.PathRedirect)
@@ -9465,12 +10128,18 @@ func (m *RedirectAction_PathRedirect) Size() (n int) {
 	return n
 }
 func (m *RedirectAction_HttpsRedirect) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 2
 	return n
 }
 func (m *RedirectAction_PrefixRewrite) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.PrefixRewrite)
@@ -9478,6 +10147,9 @@ func (m *RedirectAction_PrefixRewrite) Size() (n int) {
 	return n
 }
 func (m *RedirectAction_SchemeRedirect) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.SchemeRedirect)
@@ -9485,6 +10157,9 @@ func (m *RedirectAction_SchemeRedirect) Size() (n int) {
 	return n
 }
 func (m *DirectResponseAction) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Status != 0 {
@@ -9501,6 +10176,9 @@ func (m *DirectResponseAction) Size() (n int) {
 }
 
 func (m *Decorator) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Operation)
@@ -9514,6 +10192,9 @@ func (m *Decorator) Size() (n int) {
 }
 
 func (m *VirtualCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Pattern)
@@ -9534,6 +10215,9 @@ func (m *VirtualCluster) Size() (n int) {
 }
 
 func (m *RateLimit) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Stage != nil {
@@ -9557,6 +10241,9 @@ func (m *RateLimit) Size() (n int) {
 }
 
 func (m *RateLimit_Action) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ActionSpecifier != nil {
@@ -9569,6 +10256,9 @@ func (m *RateLimit_Action) Size() (n int) {
 }
 
 func (m *RateLimit_Action_SourceCluster_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.SourceCluster != nil {
@@ -9578,6 +10268,9 @@ func (m *RateLimit_Action_SourceCluster_) Size() (n int) {
 	return n
 }
 func (m *RateLimit_Action_DestinationCluster_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DestinationCluster != nil {
@@ -9587,6 +10280,9 @@ func (m *RateLimit_Action_DestinationCluster_) Size() (n int) {
 	return n
 }
 func (m *RateLimit_Action_RequestHeaders_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RequestHeaders != nil {
@@ -9596,6 +10292,9 @@ func (m *RateLimit_Action_RequestHeaders_) Size() (n int) {
 	return n
 }
 func (m *RateLimit_Action_RemoteAddress_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RemoteAddress != nil {
@@ -9605,6 +10304,9 @@ func (m *RateLimit_Action_RemoteAddress_) Size() (n int) {
 	return n
 }
 func (m *RateLimit_Action_GenericKey_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.GenericKey != nil {
@@ -9614,6 +10316,9 @@ func (m *RateLimit_Action_GenericKey_) Size() (n int) {
 	return n
 }
 func (m *RateLimit_Action_HeaderValueMatch_) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.HeaderValueMatch != nil {
@@ -9623,6 +10328,9 @@ func (m *RateLimit_Action_HeaderValueMatch_) Size() (n int) {
 	return n
 }
 func (m *RateLimit_Action_SourceCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -9632,6 +10340,9 @@ func (m *RateLimit_Action_SourceCluster) Size() (n int) {
 }
 
 func (m *RateLimit_Action_DestinationCluster) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -9641,6 +10352,9 @@ func (m *RateLimit_Action_DestinationCluster) Size() (n int) {
 }
 
 func (m *RateLimit_Action_RequestHeaders) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.HeaderName)
@@ -9658,6 +10372,9 @@ func (m *RateLimit_Action_RequestHeaders) Size() (n int) {
 }
 
 func (m *RateLimit_Action_RemoteAddress) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
@@ -9667,6 +10384,9 @@ func (m *RateLimit_Action_RemoteAddress) Size() (n int) {
 }
 
 func (m *RateLimit_Action_GenericKey) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.DescriptorValue)
@@ -9680,6 +10400,9 @@ func (m *RateLimit_Action_GenericKey) Size() (n int) {
 }
 
 func (m *RateLimit_Action_HeaderValueMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.DescriptorValue)
@@ -9703,6 +10426,9 @@ func (m *RateLimit_Action_HeaderValueMatch) Size() (n int) {
 }
 
 func (m *HeaderMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -9722,6 +10448,9 @@ func (m *HeaderMatcher) Size() (n int) {
 }
 
 func (m *HeaderMatcher_ExactMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.ExactMatch)
@@ -9729,6 +10458,9 @@ func (m *HeaderMatcher_ExactMatch) Size() (n int) {
 	return n
 }
 func (m *HeaderMatcher_RegexMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.RegexMatch)
@@ -9736,6 +10468,9 @@ func (m *HeaderMatcher_RegexMatch) Size() (n int) {
 	return n
 }
 func (m *HeaderMatcher_RangeMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.RangeMatch != nil {
@@ -9745,12 +10480,18 @@ func (m *HeaderMatcher_RangeMatch) Size() (n int) {
 	return n
 }
 func (m *HeaderMatcher_PresentMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	n += 2
 	return n
 }
 func (m *HeaderMatcher_PrefixMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.PrefixMatch)
@@ -9758,6 +10499,9 @@ func (m *HeaderMatcher_PrefixMatch) Size() (n int) {
 	return n
 }
 func (m *HeaderMatcher_SuffixMatch) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.SuffixMatch)
@@ -9765,6 +10509,9 @@ func (m *HeaderMatcher_SuffixMatch) Size() (n int) {
 	return n
 }
 func (m *QueryParameterMatcher) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -10415,6 +11162,39 @@ func (m *VirtualHost) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.TypedPerFilterConfig[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 16:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RetryPolicy", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RetryPolicy == nil {
+				m.RetryPolicy = &RetryPolicy{}
+			}
+			if err := m.RetryPolicy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -12286,12 +13066,11 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Enabled == nil {
-				m.Enabled = &types.BoolValue{}
-			}
-			if err := m.Enabled.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			v := &types.BoolValue{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
+			m.EnabledSpecifier = &CorsPolicy_Enabled{v}
 			iNdEx = postIndex
 		case 8:
 			if wireType != 2 {
@@ -12321,6 +13100,71 @@ func (m *CorsPolicy) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.AllowOriginRegex = append(m.AllowOriginRegex, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FilterEnabled", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &core.RuntimeFractionalPercent{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.EnabledSpecifier = &CorsPolicy_FilterEnabled{v}
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ShadowEnabled", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ShadowEnabled == nil {
+				m.ShadowEnabled = &core.RuntimeFractionalPercent{}
+			}
+			if err := m.ShadowEnabled.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -12646,7 +13490,7 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.RetryPolicy == nil {
-				m.RetryPolicy = &RouteAction_RetryPolicy{}
+				m.RetryPolicy = &RetryPolicy{}
 			}
 			if err := m.RetryPolicy.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -13008,89 +13852,9 @@ func (m *RouteAction) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipRoute(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthRoute
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *RouteAction_RetryPolicy) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowRoute
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: RetryPolicy: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RetryPolicy: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
+		case 25:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RetryOn", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.RetryOn = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NumRetries", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field UpgradeConfigs", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -13114,115 +13878,16 @@ func (m *RouteAction_RetryPolicy) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.NumRetries == nil {
-				m.NumRetries = &types.UInt32Value{}
-			}
-			if err := m.NumRetries.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.UpgradeConfigs = append(m.UpgradeConfigs, &RouteAction_UpgradeConfig{})
+			if err := m.UpgradeConfigs[len(m.UpgradeConfigs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PerTryTimeout", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.PerTryTimeout == nil {
-				m.PerTryTimeout = new(time.Duration)
-			}
-			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.PerTryTimeout, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RetryPriority", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.RetryPriority == nil {
-				m.RetryPriority = &RouteAction_RetryPolicy_RetryPriority{}
-			}
-			if err := m.RetryPriority.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RetryHostPredicate", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.RetryHostPredicate = append(m.RetryHostPredicate, &RouteAction_RetryPolicy_RetryHostPredicate{})
-			if err := m.RetryHostPredicate[len(m.RetryHostPredicate)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 6:
+		case 26:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field HostSelectionRetryMaxAttempts", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field InternalRedirectAction", wireType)
 			}
-			m.HostSelectionRetryMaxAttempts = 0
+			m.InternalRedirectAction = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowRoute
@@ -13232,361 +13897,11 @@ func (m *RouteAction_RetryPolicy) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.HostSelectionRetryMaxAttempts |= (int64(b) & 0x7F) << shift
+				m.InternalRedirectAction |= (RouteAction_InternalRedirectAction(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-		case 7:
-			if wireType == 0 {
-				var v uint32
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowRoute
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					v |= (uint32(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				m.RetriableStatusCodes = append(m.RetriableStatusCodes, v)
-			} else if wireType == 2 {
-				var packedLen int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowRoute
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					packedLen |= (int(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				if packedLen < 0 {
-					return ErrInvalidLengthRoute
-				}
-				postIndex := iNdEx + packedLen
-				if postIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				for iNdEx < postIndex {
-					var v uint32
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowRoute
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						v |= (uint32(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					m.RetriableStatusCodes = append(m.RetriableStatusCodes, v)
-				}
-			} else {
-				return fmt.Errorf("proto: wrong wireType = %d for field RetriableStatusCodes", wireType)
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipRoute(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthRoute
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *RouteAction_RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowRoute
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: RetryPriority: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RetryPriority: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &types.Struct{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.ConfigType = &RouteAction_RetryPolicy_RetryPriority_Config{v}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TypedConfig", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &types.Any{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.ConfigType = &RouteAction_RetryPolicy_RetryPriority_TypedConfig{v}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipRoute(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthRoute
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *RouteAction_RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowRoute
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: RetryHostPredicate: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RetryHostPredicate: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Name = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &types.Struct{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.ConfigType = &RouteAction_RetryPolicy_RetryHostPredicate_Config{v}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TypedConfig", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowRoute
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthRoute
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &types.Any{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.ConfigType = &RouteAction_RetryPolicy_RetryHostPredicate_TypedConfig{v}
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRoute(dAtA[iNdEx:])
@@ -13695,6 +14010,39 @@ func (m *RouteAction_RequestMirrorPolicy) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.RuntimeKey = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RuntimeFraction", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RuntimeFraction == nil {
+				m.RuntimeFraction = &core.RuntimeFractionalPercent{}
+			}
+			if err := m.RuntimeFraction.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -14156,6 +14504,709 @@ func (m *RouteAction_HashPolicy_ConnectionProperties) Unmarshal(dAtA []byte) err
 				}
 			}
 			m.SourceIp = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRoute(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RouteAction_UpgradeConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRoute
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UpgradeConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UpgradeConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UpgradeType", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.UpgradeType = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Enabled", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Enabled == nil {
+				m.Enabled = &types.BoolValue{}
+			}
+			if err := m.Enabled.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRoute(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RetryPolicy) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRoute
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RetryPolicy: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RetryPolicy: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RetryOn", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RetryOn = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NumRetries", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.NumRetries == nil {
+				m.NumRetries = &types.UInt32Value{}
+			}
+			if err := m.NumRetries.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PerTryTimeout", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.PerTryTimeout == nil {
+				m.PerTryTimeout = new(time.Duration)
+			}
+			if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(m.PerTryTimeout, dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RetryPriority", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RetryPriority == nil {
+				m.RetryPriority = &RetryPolicy_RetryPriority{}
+			}
+			if err := m.RetryPriority.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RetryHostPredicate", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RetryHostPredicate = append(m.RetryHostPredicate, &RetryPolicy_RetryHostPredicate{})
+			if err := m.RetryHostPredicate[len(m.RetryHostPredicate)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HostSelectionRetryMaxAttempts", wireType)
+			}
+			m.HostSelectionRetryMaxAttempts = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.HostSelectionRetryMaxAttempts |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 7:
+			if wireType == 0 {
+				var v uint32
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowRoute
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= (uint32(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.RetriableStatusCodes = append(m.RetriableStatusCodes, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowRoute
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= (int(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthRoute
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				var count int
+				for _, integer := range dAtA {
+					if integer < 128 {
+						count++
+					}
+				}
+				elementCount = count
+				if elementCount != 0 && len(m.RetriableStatusCodes) == 0 {
+					m.RetriableStatusCodes = make([]uint32, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v uint32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowRoute
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= (uint32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.RetriableStatusCodes = append(m.RetriableStatusCodes, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field RetriableStatusCodes", wireType)
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRoute(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RetryPolicy_RetryPriority) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRoute
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RetryPriority: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RetryPriority: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.Struct{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ConfigType = &RetryPolicy_RetryPriority_Config{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TypedConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.Any{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ConfigType = &RetryPolicy_RetryPriority_TypedConfig{v}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipRoute(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthRoute
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *RetryPolicy_RetryHostPredicate) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowRoute
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RetryHostPredicate: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RetryHostPredicate: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Config", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.Struct{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ConfigType = &RetryPolicy_RetryHostPredicate_Config{v}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TypedConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowRoute
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthRoute
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &types.Any{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.ConfigType = &RetryPolicy_RetryHostPredicate_TypedConfig{v}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipRoute(dAtA[iNdEx:])
@@ -16125,216 +17176,230 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("envoy/api/v2/route/route.proto", fileDescriptor_route_d9210464f63ce08b)
+	proto.RegisterFile("envoy/api/v2/route/route.proto", fileDescriptor_route_ee11921c49fa9e35)
 }
 
-var fileDescriptor_route_d9210464f63ce08b = []byte{
-	// 3301 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe4, 0x5a, 0xcb, 0x6f, 0x1b, 0xd7,
-	0xd5, 0xd7, 0x90, 0x14, 0x1f, 0x67, 0x48, 0x6a, 0x74, 0x2d, 0x4b, 0x14, 0x1d, 0xdb, 0x32, 0x6d,
-	0x7f, 0x51, 0xfc, 0x7d, 0xa1, 0x62, 0x59, 0x5f, 0x1d, 0xc7, 0x70, 0x52, 0x51, 0xa2, 0x4d, 0xcb,
-	0x7a, 0xf5, 0x4a, 0x71, 0xeb, 0x04, 0xe9, 0x64, 0x4c, 0x5e, 0x91, 0x93, 0x90, 0x33, 0x93, 0x3b,
-	0x97, 0xb2, 0xb8, 0x4b, 0xb3, 0x2a, 0x5a, 0x04, 0x68, 0xb3, 0x28, 0xba, 0xef, 0xa6, 0x68, 0x51,
-	0x20, 0xcb, 0xa0, 0xab, 0x2c, 0xb3, 0xcc, 0xb2, 0x9b, 0x3e, 0x60, 0xa0, 0x40, 0xf3, 0x17, 0xb4,
-	0xcb, 0xe2, 0x3e, 0x86, 0x0f, 0x71, 0x28, 0x4a, 0x41, 0x10, 0xb4, 0xc8, 0x46, 0x9a, 0x39, 0xf7,
-	0x77, 0xce, 0x7d, 0xff, 0xce, 0x63, 0x08, 0x97, 0x88, 0x73, 0xe8, 0x76, 0x96, 0x2c, 0xcf, 0x5e,
-	0x3a, 0x5c, 0x5e, 0xa2, 0x6e, 0x9b, 0x11, 0xf9, 0xb7, 0xe8, 0x51, 0x97, 0xb9, 0x08, 0x89, 0xf6,
-	0xa2, 0xe5, 0xd9, 0xc5, 0xc3, 0xe5, 0xa2, 0x68, 0xc9, 0xbf, 0x30, 0xa0, 0x53, 0x75, 0x29, 0x59,
-	0x7a, 0x6a, 0xf9, 0x4a, 0x23, 0x3f, 0x2b, 0x5b, 0x59, 0xc7, 0x23, 0x4b, 0xd4, 0x72, 0xea, 0x81,
-	0x7c, 0xbe, 0xee, 0xba, 0xf5, 0x26, 0x59, 0x12, 0x6f, 0x4f, 0xdb, 0x07, 0x4b, 0x96, 0xd3, 0x51,
-	0x4d, 0x97, 0x8e, 0x37, 0xd5, 0xda, 0xd4, 0x62, 0xb6, 0xeb, 0xa8, 0xf6, 0x17, 0x8e, 0xb7, 0xfb,
-	0x8c, 0xb6, 0xab, 0x6c, 0x94, 0xf6, 0x33, 0x6a, 0x79, 0x1e, 0xa1, 0xbe, 0x6a, 0x9f, 0x3b, 0xb4,
-	0x9a, 0x76, 0xcd, 0x62, 0x64, 0x29, 0x78, 0x50, 0x0d, 0x33, 0x75, 0xb7, 0xee, 0x8a, 0xc7, 0x25,
-	0xfe, 0x24, 0xa5, 0x85, 0x8f, 0x00, 0xf4, 0xc7, 0x36, 0x65, 0x6d, 0xab, 0x59, 0x71, 0x7d, 0x86,
-	0x2e, 0x42, 0xcc, 0xb1, 0x5a, 0x24, 0xa7, 0x2d, 0x68, 0x8b, 0xa9, 0x52, 0xea, 0x8f, 0x5f, 0x7d,
-	0x1e, 0x8d, 0xd1, 0xc8, 0x82, 0x86, 0x85, 0x18, 0x5d, 0x83, 0x44, 0xcd, 0x6d, 0x59, 0xb6, 0xe3,
-	0xe7, 0x22, 0x0b, 0xd1, 0xc5, 0x54, 0x09, 0x38, 0x62, 0xf2, 0x13, 0x2d, 0x92, 0xd4, 0x70, 0xd0,
-	0x84, 0x6e, 0x43, 0x5c, 0xac, 0x9d, 0x9f, 0x8b, 0x2e, 0x44, 0x17, 0xf5, 0xe5, 0xf9, 0xe2, 0xf0,
-	0xba, 0x16, 0x31, 0xff, 0x5b, 0x8a, 0x7d, 0xf1, 0x97, 0xcb, 0x13, 0x58, 0xc1, 0xd1, 0x1e, 0xe8,
-	0x94, 0x7c, 0xd0, 0xb6, 0x29, 0x31, 0x59, 0xd3, 0xcf, 0xc5, 0x16, 0xb4, 0xc5, 0xec, 0xf2, 0x72,
-	0x98, 0x76, 0xdf, 0x98, 0x8b, 0xfb, 0x4d, 0x1f, 0x4b, 0xad, 0x16, 0x71, 0xd8, 0x7e, 0xc7, 0x23,
-	0x18, 0x94, 0x99, 0xfd, 0xa6, 0x8f, 0xb6, 0xc0, 0x38, 0x94, 0x68, 0xb3, 0xda, 0x6c, 0xfb, 0x8c,
-	0x50, 0x3f, 0x37, 0x29, 0xc6, 0x55, 0x38, 0xc1, 0xf2, 0x9a, 0x84, 0xe2, 0xa9, 0xc3, 0x81, 0x77,
-	0x1f, 0xbd, 0x0e, 0x3a, 0xb5, 0x18, 0x31, 0x9b, 0x76, 0xcb, 0x66, 0x7e, 0x2e, 0x2e, 0x2c, 0x5d,
-	0x0c, 0x9d, 0xa1, 0xc5, 0xc8, 0x26, 0x47, 0x61, 0xa0, 0xc1, 0xa3, 0x8f, 0x0e, 0x60, 0x96, 0x0f,
-	0x8e, 0xf8, 0xcc, 0x6c, 0x10, 0xab, 0x46, 0xa8, 0x6f, 0x32, 0xd7, 0xb4, 0x6a, 0xb5, 0x5c, 0x42,
-	0x98, 0xba, 0x36, 0x68, 0x8a, 0x1f, 0xb8, 0x62, 0x45, 0x00, 0x1f, 0x5b, 0xcd, 0x36, 0xd9, 0xf1,
-	0xf8, 0x51, 0x29, 0xe9, 0x7c, 0xdd, 0xe3, 0x9f, 0x68, 0x51, 0xe3, 0x1f, 0x09, 0x7c, 0x4e, 0x19,
-	0x94, 0x30, 0x7f, 0xdf, 0x5d, 0xad, 0xd5, 0xd0, 0x32, 0xc4, 0xaa, 0x2e, 0xf5, 0x73, 0xc9, 0x05,
-	0x6d, 0x51, 0x5f, 0xbe, 0x14, 0x36, 0xc0, 0x35, 0x97, 0xfa, 0xbb, 0x6e, 0xd3, 0xae, 0x76, 0xb0,
-	0xc0, 0xa2, 0x06, 0xcc, 0x51, 0xe2, 0x7b, 0xae, 0xe3, 0x93, 0xe3, 0x83, 0x83, 0xaf, 0x3b, 0xb8,
-	0x99, 0xc0, 0xe2, 0xc0, 0xe8, 0xee, 0x42, 0x3e, 0xac, 0x27, 0x4a, 0x5a, 0xee, 0x21, 0xc9, 0xe9,
-	0xfc, 0x6c, 0xe1, 0xb9, 0x21, 0x4d, 0x2c, 0x9a, 0xd1, 0xbb, 0x30, 0xed, 0x11, 0x6a, 0x1e, 0xd8,
-	0x4d, 0x46, 0xa8, 0x59, 0x75, 0x9d, 0x03, 0xbb, 0x9e, 0x4b, 0x8b, 0x01, 0xae, 0x8c, 0x3b, 0x2c,
-	0xbb, 0x84, 0xde, 0x17, 0x7a, 0x6b, 0x42, 0xad, 0xec, 0x30, 0xda, 0xc1, 0x53, 0xde, 0xa0, 0x14,
-	0xdd, 0x81, 0xf9, 0x90, 0x4d, 0x52, 0xa3, 0xcb, 0x88, 0xd1, 0xcd, 0x1e, 0x5f, 0x74, 0x35, 0xb8,
-	0x55, 0xb8, 0x68, 0x3b, 0xd5, 0x66, 0xbb, 0x46, 0xcc, 0xc0, 0x84, 0xc5, 0x18, 0x69, 0x79, 0xcc,
-	0xac, 0xba, 0x6d, 0x87, 0xe5, 0xb2, 0x0b, 0xda, 0x62, 0x12, 0xe7, 0x15, 0x08, 0x4b, 0xcc, 0xaa,
-	0x84, 0xac, 0x71, 0x04, 0xf2, 0x60, 0x8e, 0x13, 0x4a, 0xcd, 0x1c, 0x9e, 0xe5, 0x94, 0x98, 0xe5,
-	0x9d, 0xb1, 0x57, 0x82, 0xab, 0x87, 0x4e, 0x75, 0x86, 0x85, 0x34, 0xe5, 0xdf, 0x86, 0x99, 0x30,
-	0x34, 0x32, 0x20, 0xfa, 0x3e, 0xe9, 0x48, 0x36, 0xc0, 0xfc, 0x11, 0xbd, 0x0c, 0x93, 0x87, 0x7c,
-	0xab, 0x73, 0x11, 0x71, 0xae, 0xe6, 0x8a, 0x92, 0x8f, 0x8a, 0x01, 0x1f, 0x15, 0xf7, 0x04, 0x5b,
-	0x61, 0x89, 0x7a, 0x2d, 0xf2, 0xaa, 0x96, 0x7f, 0x07, 0xe6, 0x47, 0x8e, 0x27, 0xa4, 0x87, 0x1b,
-	0x83, 0x3d, 0xcc, 0x0c, 0xf5, 0xb0, 0xea, 0x74, 0xfa, 0xcc, 0x17, 0x5e, 0x03, 0x34, 0xcc, 0x00,
-	0x28, 0x09, 0xb1, 0xed, 0x9d, 0xed, 0xb2, 0x31, 0x81, 0xa6, 0x21, 0x53, 0xfe, 0xd1, 0x7e, 0x19,
-	0x6f, 0xaf, 0x6e, 0x9a, 0x3b, 0xdb, 0x9b, 0x4f, 0x0c, 0x0d, 0x25, 0x20, 0xba, 0xba, 0xb9, 0x69,
-	0x44, 0x36, 0x62, 0xc9, 0x94, 0x01, 0x85, 0x7f, 0x25, 0x61, 0x52, 0xd0, 0x11, 0x5a, 0x87, 0xc9,
-	0x96, 0xc5, 0xaa, 0x0d, 0x31, 0x9e, 0x11, 0xb7, 0x46, 0x20, 0xb7, 0x38, 0xaa, 0x94, 0xe5, 0xec,
-	0x25, 0x18, 0xf0, 0x67, 0x5a, 0xc4, 0xd0, 0xb0, 0x54, 0x46, 0xb7, 0x61, 0x52, 0x40, 0xd5, 0x0c,
-	0x2e, 0x8f, 0xb4, 0xb2, 0x5a, 0xe5, 0xf7, 0xa5, 0x32, 0x81, 0x25, 0x1e, 0x7d, 0x1f, 0x92, 0x94,
-	0xd4, 0x6c, 0x4a, 0xaa, 0x2c, 0x17, 0x15, 0xba, 0xa1, 0x14, 0x85, 0x15, 0xa6, 0xab, 0xde, 0xd5,
-	0x42, 0xb7, 0x21, 0xd9, 0x22, 0xcc, 0xaa, 0x59, 0xcc, 0x12, 0xf4, 0xa9, 0x2f, 0x5f, 0x08, 0xb9,
-	0xb2, 0x5b, 0x0a, 0x82, 0xbb, 0x60, 0x74, 0x17, 0x52, 0x35, 0x52, 0x75, 0xa9, 0xc5, 0x5c, 0x9a,
-	0x9b, 0x14, 0x9a, 0xa1, 0xa4, 0xb6, 0x1e, 0x80, 0x70, 0x0f, 0x8f, 0xf6, 0x60, 0x4a, 0xf6, 0x6f,
-	0x06, 0x57, 0x36, 0x97, 0x10, 0x26, 0x16, 0x43, 0x4d, 0x08, 0x28, 0x56, 0xc8, 0xee, 0x24, 0xb2,
-	0xb5, 0x01, 0x39, 0x7a, 0x2b, 0xec, 0x96, 0x27, 0xc5, 0xf9, 0x2f, 0x8e, 0x5c, 0xd1, 0x53, 0xde,
-	0xef, 0xd1, 0x24, 0x9c, 0xfa, 0x46, 0x49, 0xf8, 0xbf, 0x84, 0x50, 0x4f, 0xa4, 0xbb, 0xf4, 0x89,
-	0x74, 0xf7, 0xde, 0x68, 0xae, 0xca, 0x88, 0x19, 0xde, 0x1a, 0xbd, 0x57, 0xdf, 0x21, 0x96, 0x2a,
-	0x4d, 0x41, 0xdc, 0x12, 0x27, 0x1d, 0x4d, 0x7e, 0xf6, 0xd5, 0xe7, 0x51, 0x6d, 0x23, 0x96, 0x8c,
-	0x1b, 0x89, 0xc2, 0xaf, 0x52, 0x30, 0xf5, 0x43, 0x62, 0xd7, 0x1b, 0x8c, 0xd4, 0x54, 0x88, 0x81,
-	0x9e, 0x40, 0xb2, 0x1b, 0xa8, 0x68, 0x62, 0x0d, 0x6f, 0x86, 0xad, 0xe1, 0x31, 0xb5, 0xa2, 0xfa,
-	0x2f, 0xc5, 0x03, 0x81, 0x59, 0xd7, 0x1c, 0xfa, 0x3f, 0x40, 0xb4, 0xed, 0x30, 0xbb, 0x45, 0xcc,
-	0xf7, 0x49, 0xc7, 0xf4, 0x28, 0x39, 0xb0, 0x8f, 0xc4, 0x14, 0x52, 0xd8, 0x50, 0x2d, 0x8f, 0x48,
-	0x67, 0x57, 0xc8, 0xd1, 0x06, 0xa4, 0x99, 0xcb, 0xac, 0xa6, 0xf9, 0x4c, 0xd8, 0x54, 0x94, 0xf4,
-	0xc2, 0xd0, 0x54, 0xdf, 0x7c, 0xe8, 0xb0, 0x5b, 0xcb, 0xe2, 0xc0, 0xaa, 0x90, 0xf1, 0x46, 0x64,
-	0x51, 0xc3, 0xba, 0x50, 0x96, 0xe3, 0xc9, 0xff, 0x21, 0x01, 0x99, 0x81, 0x11, 0x8e, 0x0b, 0x35,
-	0x57, 0x20, 0xae, 0xba, 0x8d, 0x8c, 0xef, 0x16, 0x2b, 0x2c, 0x2a, 0x41, 0x36, 0xa0, 0x34, 0x53,
-	0x32, 0x79, 0x74, 0x3c, 0x0b, 0x66, 0x02, 0x15, 0xc1, 0xea, 0x27, 0x90, 0x43, 0xec, 0xdb, 0x22,
-	0x87, 0xc9, 0x6f, 0x93, 0x1c, 0xe2, 0x27, 0x93, 0x03, 0x1d, 0xcd, 0xc3, 0xf7, 0xcf, 0x7c, 0x2e,
-	0xbf, 0x89, 0xf8, 0x2b, 0x75, 0x22, 0x21, 0x7d, 0xa4, 0x8d, 0x66, 0x24, 0xc9, 0xb9, 0x8f, 0xce,
-	0x3e, 0xea, 0xef, 0x10, 0x53, 0x6d, 0xc4, 0x92, 0x09, 0x23, 0x59, 0xf8, 0x45, 0x0c, 0xa0, 0x17,
-	0xe9, 0xa0, 0x1c, 0xc4, 0x15, 0x59, 0x08, 0xcb, 0x95, 0x09, 0xac, 0xde, 0xd1, 0x0c, 0xc4, 0x3c,
-	0x8b, 0x35, 0x24, 0x89, 0x54, 0x26, 0xb0, 0x78, 0x43, 0x05, 0x98, 0xa4, 0xa4, 0x4e, 0x8e, 0xc4,
-	0xf5, 0x0b, 0xd2, 0x44, 0x1a, 0x5d, 0xfc, 0x30, 0x29, 0xa2, 0x1d, 0xde, 0x84, 0x56, 0x21, 0x5b,
-	0xb5, 0x7c, 0x62, 0xfa, 0xc4, 0xf1, 0x6d, 0x66, 0x1f, 0x12, 0x15, 0xb1, 0xe4, 0x87, 0x46, 0x58,
-	0x72, 0xdd, 0xa6, 0xbc, 0xe7, 0x19, 0xae, 0xb1, 0x17, 0x28, 0xa0, 0xbb, 0x90, 0x50, 0xe7, 0x43,
-	0x25, 0x62, 0x57, 0xc2, 0xf6, 0x56, 0x1e, 0x11, 0x31, 0x11, 0x42, 0x71, 0xa0, 0x81, 0xf6, 0xc1,
-	0xf8, 0xa0, 0x4d, 0x68, 0xc7, 0xf4, 0x2c, 0x6a, 0xb5, 0x88, 0xe0, 0x5b, 0x99, 0x83, 0xbd, 0x14,
-	0x66, 0xe5, 0x07, 0x1c, 0xbb, 0x1b, 0x40, 0x03, 0x6b, 0x53, 0x1f, 0x0c, 0x88, 0x7d, 0x54, 0x81,
-	0x58, 0x9d, 0x7a, 0x55, 0x95, 0x77, 0xad, 0x9c, 0x1c, 0x41, 0x16, 0x1f, 0x50, 0xaf, 0xda, 0x7b,
-	0x95, 0x37, 0xda, 0xc7, 0xc2, 0x02, 0x7a, 0x0c, 0x01, 0x25, 0x9b, 0x07, 0x54, 0x3a, 0x8f, 0x5c,
-	0x4a, 0x58, 0xfd, 0xdf, 0x10, 0x62, 0xc0, 0x12, 0x7a, 0x5f, 0x21, 0xad, 0xe6, 0x2e, 0xa1, 0x55,
-	0xe2, 0x30, 0x3c, 0x45, 0x07, 0x5b, 0xf2, 0x73, 0x70, 0x3e, 0xb4, 0xdb, 0xd2, 0x1c, 0x64, 0xf9,
-	0xe6, 0x99, 0xbe, 0x47, 0xaa, 0xf6, 0x81, 0x4d, 0x68, 0xcf, 0x57, 0x4d, 0x1a, 0xf1, 0xc2, 0x3f,
-	0x23, 0x00, 0xbd, 0x94, 0x11, 0x5d, 0x81, 0xb4, 0xd5, 0x6c, 0xba, 0xcf, 0x4c, 0x97, 0xda, 0x75,
-	0xdb, 0x11, 0xae, 0x2a, 0x85, 0x75, 0x21, 0xdb, 0x11, 0x22, 0x74, 0x15, 0x32, 0x12, 0xd2, 0x22,
-	0xac, 0xe1, 0xd6, 0x7c, 0xe5, 0x69, 0xa4, 0xde, 0x96, 0x94, 0xf5, 0x40, 0xc1, 0x4e, 0x46, 0xfb,
-	0x40, 0xea, 0x76, 0xa3, 0xeb, 0x90, 0x25, 0x47, 0x9e, 0xdb, 0xe3, 0x2f, 0x71, 0x56, 0x52, 0x38,
-	0x23, 0xa5, 0x01, 0x6c, 0x0e, 0x12, 0x2d, 0xeb, 0xc8, 0xb4, 0xea, 0x44, 0xc4, 0xb0, 0x29, 0x1c,
-	0x6f, 0x59, 0x47, 0xab, 0x75, 0x82, 0x1e, 0xc0, 0xb4, 0xec, 0xa4, 0x4a, 0x49, 0x8d, 0x38, 0xcc,
-	0xb6, 0x9a, 0xfc, 0xc8, 0x8c, 0x3b, 0x6e, 0x86, 0x50, 0x5a, 0xeb, 0xe9, 0xa0, 0x15, 0x48, 0x10,
-	0xc7, 0x7a, 0xda, 0x24, 0x35, 0x15, 0xe2, 0x9e, 0xa4, 0x1e, 0x40, 0xd1, 0x3d, 0x40, 0xfd, 0x6b,
-	0x65, 0xca, 0xbb, 0x91, 0x14, 0x25, 0x94, 0x29, 0x7e, 0x37, 0xe0, 0x13, 0x2d, 0x51, 0x90, 0x17,
-	0x44, 0x75, 0x2a, 0x97, 0x10, 0x73, 0x60, 0xe1, 0xe3, 0x79, 0xd0, 0xfb, 0x12, 0x06, 0x74, 0x1d,
-	0x12, 0xca, 0xa5, 0x0f, 0x79, 0xcf, 0xca, 0x04, 0x0e, 0xda, 0xd0, 0x32, 0x64, 0xd5, 0xa3, 0x5a,
-	0x35, 0xb9, 0xfe, 0x83, 0xe8, 0x8c, 0x82, 0xc8, 0x25, 0x44, 0x18, 0xa6, 0x9f, 0x29, 0x2a, 0xec,
-	0x95, 0x4b, 0xa4, 0x0f, 0xbd, 0x7a, 0x0a, 0xde, 0xac, 0x4c, 0x60, 0xe3, 0xd9, 0xa0, 0xc8, 0x0f,
-	0x71, 0xca, 0xb1, 0x33, 0x3b, 0xe5, 0xeb, 0x90, 0x95, 0x84, 0x63, 0x52, 0xf2, 0x8c, 0xda, 0x2c,
-	0xd8, 0xe0, 0x8c, 0x94, 0x62, 0x29, 0x44, 0x57, 0x21, 0xdd, 0x70, 0x7d, 0xd6, 0x05, 0xc5, 0x05,
-	0x2b, 0x69, 0x58, 0xe7, 0xd2, 0x00, 0x54, 0x81, 0x69, 0xab, 0xcd, 0x5c, 0x73, 0x00, 0x39, 0x76,
-	0x37, 0x2b, 0x1a, 0x9e, 0xe2, 0x6a, 0x95, 0x3e, 0x4b, 0x77, 0x20, 0xc1, 0xaf, 0x96, 0xdb, 0x66,
-	0xea, 0xbe, 0xcf, 0x0f, 0xe9, 0xaf, 0xab, 0xea, 0x5e, 0x29, 0xf6, 0xeb, 0xbf, 0x5e, 0xd6, 0x70,
-	0x80, 0x47, 0xdb, 0x90, 0xa6, 0x84, 0x71, 0xf6, 0x11, 0xd7, 0x29, 0xfc, 0x66, 0x0f, 0xe5, 0x8a,
-	0x45, 0xcc, 0x75, 0x54, 0xd1, 0x46, 0xa7, 0xbd, 0x17, 0x54, 0x87, 0xf3, 0x81, 0xcb, 0x6c, 0xd9,
-	0x94, 0xba, 0x34, 0x30, 0x0c, 0xc2, 0xf0, 0xad, 0xf1, 0x86, 0x85, 0xf2, 0x96, 0xd0, 0x55, 0x1d,
-	0x04, 0x61, 0x4b, 0xbf, 0x10, 0xbd, 0x0e, 0x49, 0x8f, 0xda, 0x2e, 0xb5, 0x59, 0x27, 0xa7, 0x8b,
-	0x0a, 0x5d, 0x21, 0x8c, 0x8e, 0xdc, 0x36, 0xb3, 0x9d, 0xfa, 0xae, 0x42, 0xe2, 0xae, 0x0e, 0x7a,
-	0x67, 0x64, 0x78, 0x95, 0x3e, 0x43, 0xd4, 0x13, 0xc9, 0x69, 0xe1, 0x51, 0xd5, 0xb1, 0xfa, 0x5c,
-	0xe6, 0xac, 0xf5, 0xb9, 0x1d, 0x98, 0x0d, 0xea, 0x37, 0x87, 0x0d, 0xb3, 0xdf, 0x54, 0x76, 0xec,
-	0x7d, 0x3f, 0xa7, 0x34, 0x1f, 0x37, 0x70, 0xcf, 0xe0, 0x23, 0xd0, 0x1b, 0x96, 0xdf, 0x08, 0xb6,
-	0x43, 0x56, 0x70, 0x6e, 0x8c, 0xdb, 0x8e, 0x8a, 0xe5, 0x37, 0xd4, 0x2e, 0x40, 0xa3, 0xfb, 0xdc,
-	0xad, 0xea, 0x4d, 0x9f, 0xa1, 0xaa, 0x67, 0x8e, 0x8e, 0x33, 0xd1, 0x19, 0x57, 0x3c, 0x3c, 0xbc,
-	0x7c, 0xe3, 0xc4, 0xf0, 0xf2, 0x9c, 0x60, 0x39, 0xae, 0x3d, 0x32, 0xc4, 0xfc, 0x58, 0x83, 0xcb,
-	0x01, 0x53, 0x39, 0x2e, 0x33, 0x0f, 0xdc, 0xb6, 0x53, 0xeb, 0xd6, 0x12, 0xcc, 0xaa, 0x5b, 0x23,
-	0xb9, 0x19, 0x71, 0xd4, 0xee, 0x8e, 0x5b, 0x37, 0x45, 0x3a, 0xdb, 0x2e, 0xbb, 0xcf, 0x8d, 0x04,
-	0xd5, 0x84, 0x35, 0xb7, 0x46, 0x54, 0x14, 0xf2, 0x91, 0x28, 0xd5, 0x5c, 0xa8, 0x8e, 0x06, 0xa2,
-	0x87, 0x60, 0x70, 0x37, 0xc2, 0xbd, 0xb0, 0x19, 0xdc, 0xef, 0xb9, 0xd3, 0xdd, 0xef, 0x6c, 0xcb,
-	0x3a, 0xe2, 0xde, 0x75, 0x5f, 0x5d, 0xf3, 0x4d, 0x48, 0xdb, 0xb5, 0x26, 0xe9, 0x9a, 0xc9, 0x8d,
-	0x33, 0x93, 0xe5, 0x66, 0xc4, 0x40, 0x7f, 0xa7, 0x45, 0x6e, 0x4c, 0x60, 0x9d, 0xab, 0x2b, 0x6b,
-	0xf9, 0xbf, 0xc7, 0x41, 0xef, 0x63, 0x00, 0x34, 0x0f, 0x49, 0x49, 0x22, 0xae, 0xa3, 0x42, 0xbe,
-	0x84, 0x78, 0xdf, 0x71, 0xd0, 0x3d, 0xd0, 0x9d, 0x76, 0xcb, 0xe4, 0xaf, 0x36, 0xf1, 0x4f, 0x95,
-	0x44, 0x81, 0xd3, 0x6e, 0x61, 0x89, 0x47, 0x0f, 0x80, 0x07, 0xe5, 0x26, 0xb7, 0x1d, 0x0c, 0x3d,
-	0x7a, 0xba, 0x15, 0xc8, 0x78, 0x84, 0xee, 0xd3, 0x4e, 0xb0, 0x00, 0xef, 0x42, 0x56, 0xf1, 0x5c,
-	0x40, 0x1a, 0x92, 0xfc, 0xef, 0x9c, 0x81, 0xe9, 0xd4, 0x73, 0xc0, 0x25, 0x19, 0xda, 0xff, 0x8a,
-	0x3c, 0x98, 0x91, 0x3d, 0x08, 0x3e, 0xf7, 0x28, 0xa9, 0xd9, 0x55, 0x4b, 0x38, 0x08, 0x7e, 0xb8,
-	0x5f, 0x3f, 0x73, 0x3f, 0x9c, 0xe0, 0x77, 0x03, 0x2b, 0x18, 0xd1, 0x21, 0x19, 0xaa, 0xc0, 0x15,
-	0xd1, 0x97, 0x4f, 0x9a, 0x44, 0x18, 0x31, 0xe5, 0x00, 0x44, 0xec, 0x21, 0x2b, 0xb9, 0x32, 0xba,
-	0x88, 0xe2, 0x8b, 0x1c, 0xb8, 0x17, 0xe0, 0x84, 0xfd, 0x2d, 0xeb, 0x48, 0x95, 0x7b, 0x79, 0x38,
-	0x31, 0x2b, 0x76, 0x88, 0x87, 0x09, 0xa6, 0xcf, 0x2c, 0xd6, 0xf6, 0xc5, 0x71, 0x97, 0x91, 0x68,
-	0x06, 0xcf, 0x74, 0x5b, 0xf7, 0x44, 0x23, 0x3f, 0x9e, 0x7e, 0xfe, 0xf7, 0x1a, 0x64, 0x06, 0x96,
-	0x64, 0x5c, 0x32, 0x7d, 0x13, 0xe2, 0x2a, 0x05, 0x3a, 0x39, 0xcd, 0xe0, 0x71, 0x7d, 0x35, 0x48,
-	0xc1, 0xd2, 0x32, 0x8d, 0x52, 0x8a, 0xd1, 0xd1, 0xd9, 0x43, 0x65, 0x02, 0xeb, 0x02, 0x2b, 0x13,
-	0x91, 0x52, 0x06, 0x74, 0xa9, 0x64, 0x72, 0x69, 0xfe, 0x53, 0x0d, 0xd0, 0xf0, 0xc2, 0xfe, 0x47,
-	0x0f, 0xf9, 0x6d, 0x38, 0x17, 0xe2, 0x0f, 0xd1, 0xd5, 0xd1, 0x71, 0x57, 0x2f, 0xea, 0xba, 0x0c,
-	0x7a, 0x5f, 0x8d, 0x45, 0x85, 0xbc, 0xd0, 0x2b, 0xae, 0xe4, 0x3f, 0x8d, 0x01, 0xf4, 0xe8, 0x1d,
-	0x3d, 0x82, 0xb8, 0x8a, 0xce, 0x64, 0xd1, 0xf9, 0xe6, 0xe9, 0x5d, 0x83, 0x62, 0x69, 0xbe, 0x04,
-	0xd2, 0x04, 0x37, 0x56, 0x75, 0xdd, 0xf7, 0xed, 0x20, 0xdb, 0x3b, 0x8b, 0xb1, 0x35, 0xa1, 0x28,
-	0xd7, 0x93, 0x3f, 0xa1, 0x43, 0x38, 0x5f, 0x75, 0x1d, 0x47, 0x1d, 0x71, 0x8f, 0xba, 0x1e, 0xa1,
-	0xcc, 0x26, 0x41, 0x3c, 0xf8, 0xc6, 0x99, 0x6c, 0x07, 0x76, 0x76, 0xbb, 0x66, 0x2a, 0x13, 0x78,
-	0xa6, 0x1a, 0x22, 0x47, 0x79, 0x48, 0x32, 0x42, 0x5b, 0xb6, 0x63, 0x35, 0x05, 0x59, 0x24, 0x71,
-	0xf7, 0x3d, 0xbf, 0x02, 0x71, 0x15, 0xa9, 0xde, 0x00, 0x5d, 0x4e, 0xda, 0x0c, 0x3f, 0x46, 0x20,
-	0x5b, 0xb7, 0xad, 0x16, 0xc9, 0x3b, 0x10, 0x97, 0xb3, 0x1b, 0x7f, 0xea, 0xa2, 0x8c, 0x35, 0xd5,
-	0xe2, 0x8d, 0xa5, 0x3a, 0x8e, 0x45, 0x48, 0x25, 0xc0, 0x32, 0x6d, 0x11, 0xcf, 0xf9, 0x5b, 0x30,
-	0x13, 0x36, 0x63, 0x74, 0x01, 0x52, 0xbe, 0xdb, 0xa6, 0x55, 0x62, 0xda, 0x9e, 0x18, 0x42, 0x12,
-	0x27, 0xa5, 0xe0, 0xa1, 0x57, 0x9a, 0x07, 0x43, 0xc6, 0x08, 0x43, 0x09, 0x58, 0xa1, 0x0c, 0x17,
-	0x4e, 0x70, 0x6c, 0x68, 0x0e, 0xce, 0xed, 0x95, 0xf1, 0xe3, 0x87, 0x6b, 0x65, 0xf3, 0xcd, 0xed,
-	0xd5, 0xc7, 0xab, 0x0f, 0x37, 0x57, 0x4b, 0x9b, 0x65, 0x63, 0x02, 0x65, 0x20, 0xb5, 0xbd, 0xb3,
-	0x6f, 0xde, 0xdf, 0x79, 0x73, 0x7b, 0xdd, 0xd0, 0x4a, 0x79, 0x98, 0x0e, 0xdc, 0xec, 0xf1, 0x2e,
-	0x4a, 0x39, 0x98, 0xed, 0x8f, 0x87, 0x7b, 0x80, 0x8d, 0x58, 0xd2, 0x30, 0xa6, 0x37, 0x62, 0xc9,
-	0x59, 0x63, 0x6e, 0x23, 0x96, 0x3c, 0x6f, 0xcc, 0x16, 0x3e, 0x8b, 0x41, 0x76, 0xf0, 0x23, 0x04,
-	0xcf, 0xe2, 0x94, 0xba, 0xfa, 0x7e, 0x21, 0xdd, 0x51, 0x5a, 0xc6, 0xdd, 0xea, 0xeb, 0xc4, 0x75,
-	0xc8, 0x88, 0x04, 0xb3, 0x0b, 0x8a, 0xa8, 0xf0, 0x3c, 0xcd, 0xc5, 0x5d, 0x58, 0x03, 0x32, 0x83,
-	0xbe, 0x3f, 0x2a, 0x7c, 0xff, 0xed, 0xf1, 0xdf, 0x42, 0xba, 0xaf, 0x23, 0xfd, 0x7e, 0x9a, 0xf6,
-	0x2f, 0xdc, 0x8b, 0x90, 0x6d, 0x30, 0xe6, 0xf9, 0xbd, 0x11, 0x89, 0xf3, 0xc6, 0xd3, 0x22, 0x21,
-	0xef, 0x0e, 0xe9, 0xc5, 0xf0, 0xf4, 0xa3, 0xa2, 0x1d, 0x4f, 0x40, 0x2e, 0x83, 0xee, 0x33, 0x6a,
-	0x7b, 0xa6, 0xa8, 0x0b, 0x08, 0x27, 0x90, 0xc4, 0x20, 0x44, 0xa2, 0x80, 0x80, 0x5e, 0x82, 0x29,
-	0xbf, 0xda, 0x20, 0x2d, 0xd2, 0xeb, 0x33, 0xa1, 0x4a, 0x27, 0x59, 0xd9, 0xd0, 0xed, 0xf4, 0x2a,
-	0x64, 0x3c, 0x97, 0xf6, 0xad, 0x29, 0xcf, 0x31, 0x32, 0x38, 0xcd, 0x85, 0x01, 0xa8, 0xf0, 0x0c,
-	0x66, 0xc2, 0x26, 0x8d, 0xce, 0xc3, 0xf4, 0xd6, 0xce, 0xe3, 0xf2, 0xba, 0xb9, 0x5b, 0xc6, 0x5b,
-	0xab, 0xdb, 0xe5, 0xed, 0xfd, 0xcd, 0x27, 0xc6, 0x04, 0x4a, 0xc1, 0xa4, 0x3a, 0x0d, 0xfc, 0x70,
-	0xec, 0x95, 0xcb, 0xe6, 0xce, 0x7e, 0xa5, 0x8c, 0x8d, 0x08, 0x9a, 0x05, 0xb4, 0x5f, 0xde, 0xda,
-	0xdd, 0xc1, 0xab, 0xf8, 0x89, 0x89, 0xcb, 0xeb, 0x0f, 0x71, 0x79, 0x6d, 0xdf, 0x88, 0x72, 0x79,
-	0xd7, 0x44, 0x4f, 0x1e, 0x2b, 0xe5, 0x21, 0xd7, 0x9d, 0xc8, 0xb1, 0x23, 0xc3, 0x0f, 0x93, 0xda,
-	0xe8, 0x63, 0x2d, 0x05, 0x17, 0x66, 0xc2, 0xbe, 0xff, 0xa0, 0x6b, 0x10, 0x97, 0xee, 0x4f, 0x1c,
-	0x9c, 0x4c, 0x29, 0xcd, 0xf7, 0x2c, 0x71, 0x63, 0xd2, 0xf8, 0x53, 0x6c, 0xb1, 0x86, 0x55, 0x1b,
-	0xba, 0x09, 0xb1, 0xa7, 0x6e, 0xad, 0xa3, 0xee, 0xe7, 0xc5, 0x90, 0xb8, 0x75, 0xdd, 0x62, 0xd6,
-	0x9e, 0xb8, 0x51, 0x58, 0x40, 0x0b, 0x2b, 0x90, 0xea, 0x7e, 0xb3, 0x42, 0x2f, 0x42, 0x8a, 0xdf,
-	0x45, 0x71, 0x87, 0x87, 0x29, 0xa0, 0xd7, 0x56, 0xf8, 0xa5, 0x06, 0xd9, 0xc1, 0x5f, 0x02, 0xa0,
-	0xff, 0x81, 0x84, 0xc7, 0x9d, 0x3b, 0x0d, 0x34, 0xe5, 0x10, 0x29, 0x3f, 0x08, 0x1f, 0x26, 0x71,
-	0xd0, 0xd8, 0x65, 0x98, 0x48, 0x38, 0xc3, 0xbc, 0x0a, 0x71, 0x59, 0x0d, 0x51, 0xa7, 0x7a, 0x21,
-	0x2c, 0x79, 0x52, 0xbe, 0x47, 0xe0, 0xb0, 0xc2, 0x17, 0xfe, 0x9c, 0x82, 0x54, 0x37, 0xaf, 0x40,
-	0xf7, 0x60, 0xd2, 0x67, 0x56, 0x9d, 0x28, 0xaf, 0x71, 0xba, 0xaa, 0x7c, 0x0e, 0xb0, 0xd4, 0xe2,
-	0xe7, 0xb4, 0x66, 0xfb, 0x22, 0xec, 0xe8, 0xf3, 0x52, 0x4a, 0xf4, 0x88, 0x74, 0xd0, 0x06, 0x24,
-	0x64, 0xbd, 0x28, 0xf8, 0x15, 0xc7, 0xb5, 0x13, 0x73, 0xa8, 0xa2, 0xdc, 0xc7, 0xc1, 0x1f, 0x84,
-	0x28, 0x03, 0xf9, 0xdf, 0x24, 0x21, 0xae, 0xf6, 0xf9, 0x6d, 0xc8, 0x2a, 0x06, 0xec, 0xf7, 0xa4,
-	0x7a, 0xf8, 0xaf, 0x3c, 0x8e, 0x5b, 0x2f, 0xca, 0x9d, 0xed, 0xd5, 0x1a, 0x32, 0x7e, 0xbf, 0x00,
-	0xbd, 0x07, 0xe7, 0x6a, 0xc4, 0x67, 0xb6, 0x23, 0x36, 0xb1, 0xdb, 0x83, 0x3c, 0x2d, 0xb7, 0x4f,
-	0xd5, 0xc3, 0x7a, 0x4f, 0xbf, 0xd7, 0x0d, 0xaa, 0x0d, 0x49, 0xd1, 0x8f, 0x61, 0xea, 0x58, 0x1a,
-	0xab, 0xdc, 0xe2, 0xad, 0x53, 0xf5, 0x83, 0x07, 0x52, 0x57, 0x7e, 0xf9, 0x07, 0x93, 0x59, 0xbe,
-	0x50, 0x3c, 0x81, 0x62, 0x84, 0x27, 0x6a, 0x94, 0xf8, 0xbe, 0x8a, 0x9b, 0x97, 0x4f, 0x69, 0x9e,
-	0xab, 0xae, 0x4a, 0x4d, 0xbe, 0x50, 0xb4, 0x5f, 0x80, 0x30, 0xe8, 0x75, 0xe2, 0x10, 0x6a, 0x57,
-	0xc5, 0xee, 0xcb, 0xef, 0xbd, 0x4b, 0xa7, 0xb2, 0xfc, 0x40, 0xea, 0x3d, 0x22, 0x3c, 0x86, 0x82,
-	0x7a, 0xf7, 0x0d, 0x11, 0x40, 0xca, 0x1f, 0x8b, 0x5a, 0xb2, 0xaa, 0xf4, 0xc8, 0x1a, 0xdb, 0xff,
-	0x9f, 0xca, 0x74, 0x5f, 0xce, 0x29, 0x8a, 0x3e, 0x95, 0x09, 0x6c, 0x34, 0x8e, 0xc9, 0xf2, 0x53,
-	0x90, 0x19, 0x38, 0x05, 0xf9, 0x19, 0x40, 0xc3, 0x9b, 0x96, 0x77, 0xb8, 0x87, 0x1a, 0x58, 0xd0,
-	0x33, 0xc4, 0x0b, 0xe8, 0x15, 0xc8, 0xd6, 0x88, 0x5f, 0xa5, 0xb6, 0xc7, 0x5c, 0xda, 0xbb, 0x20,
-	0xfd, 0xf0, 0x4c, 0x0f, 0xc0, 0x83, 0xba, 0x29, 0x1e, 0x91, 0xf7, 0x2d, 0x71, 0xbe, 0x04, 0xd0,
-	0x5b, 0x2a, 0xb4, 0x02, 0x46, 0x9f, 0x41, 0x59, 0x8f, 0x1f, 0x1a, 0xc1, 0x54, 0x0f, 0x22, 0x26,
-	0x9c, 0xff, 0x52, 0x03, 0xe3, 0xf8, 0xa2, 0x7c, 0x3d, 0x53, 0xe8, 0x1e, 0xa4, 0xc9, 0x91, 0x47,
-	0xaa, 0x4c, 0xed, 0x4b, 0x64, 0x6c, 0x31, 0x43, 0x97, 0x78, 0xd9, 0xe9, 0x83, 0x5e, 0xa1, 0x3d,
-	0x7a, 0xca, 0x42, 0xfb, 0x20, 0x15, 0x28, 0x6d, 0x1e, 0xe4, 0x48, 0x56, 0x18, 0x0e, 0x72, 0x7e,
-	0x1e, 0x85, 0xcc, 0x80, 0x85, 0x71, 0xc1, 0xda, 0x15, 0xd0, 0xc9, 0x91, 0xd5, 0x9d, 0x52, 0x4c,
-	0xb9, 0x51, 0x10, 0x42, 0x39, 0xee, 0x97, 0x41, 0x17, 0xb5, 0x56, 0x05, 0x99, 0x0c, 0xf9, 0x1a,
-	0x01, 0x02, 0x20, 0xe1, 0x77, 0x40, 0x17, 0xbf, 0xe2, 0x1b, 0x38, 0xbc, 0xb3, 0x6a, 0xaa, 0x3c,
-	0x33, 0x28, 0x3e, 0x74, 0xd8, 0xf7, 0x56, 0x30, 0xc7, 0x08, 0x55, 0xfe, 0x10, 0x14, 0x28, 0x79,
-	0x24, 0xe0, 0x13, 0x27, 0x18, 0x4e, 0x42, 0x45, 0x12, 0x69, 0x25, 0x96, 0xb0, 0x2b, 0x90, 0xb6,
-	0x9d, 0x43, 0x42, 0x03, 0x54, 0x52, 0x04, 0x08, 0xba, 0x94, 0x49, 0x48, 0x11, 0xd2, 0x2a, 0xd6,
-	0x90, 0x90, 0xd4, 0x70, 0xd1, 0x56, 0x97, 0x80, 0x2e, 0xde, 0x6f, 0x1f, 0xf4, 0xf0, 0x10, 0x82,
-	0x97, 0x00, 0xf9, 0xab, 0x15, 0x1e, 0xe9, 0xc9, 0x8b, 0x20, 0xf0, 0x03, 0x91, 0x5e, 0xc4, 0x88,
-	0x6e, 0xc4, 0x92, 0x51, 0x23, 0x56, 0xf8, 0x89, 0x06, 0xe7, 0x43, 0x3f, 0x79, 0xa0, 0x85, 0x81,
-	0x5d, 0x19, 0xf4, 0x82, 0x72, 0x63, 0x66, 0x82, 0x4f, 0x4e, 0x32, 0x26, 0x96, 0x2f, 0xe8, 0x95,
-	0xe0, 0x9b, 0xd0, 0xf8, 0xcf, 0x3c, 0x12, 0x58, 0xca, 0xff, 0xf6, 0xf9, 0x25, 0xed, 0x8b, 0xe7,
-	0x97, 0xb4, 0x2f, 0x9f, 0x5f, 0xd2, 0xfe, 0xf6, 0xfc, 0x92, 0xf6, 0x96, 0xfc, 0xa1, 0xcc, 0x4f,
-	0x35, 0xed, 0x69, 0x5c, 0xa8, 0xdd, 0xfa, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0x0b, 0x5e, 0xd4,
-	0x0d, 0xd4, 0x29, 0x00, 0x00,
+var fileDescriptor_route_ee11921c49fa9e35 = []byte{
+	// 3532 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe4, 0x5a, 0xcb, 0x6f, 0x23, 0xc9,
+	0x79, 0x57, 0x93, 0x14, 0x1f, 0x1f, 0x5f, 0xad, 0x1a, 0x8d, 0x44, 0x71, 0x77, 0x34, 0x1a, 0xce,
+	0x6e, 0x56, 0x9e, 0x64, 0x29, 0xaf, 0x46, 0xf6, 0x78, 0x76, 0x30, 0xeb, 0x90, 0x12, 0x67, 0x28,
+	0x8d, 0x5e, 0x29, 0x71, 0x94, 0x8c, 0x0d, 0xbb, 0xd1, 0xc3, 0x2e, 0x91, 0xed, 0x25, 0xbb, 0x7b,
+	0xab, 0x8b, 0x92, 0x78, 0x73, 0x7c, 0x08, 0x82, 0x04, 0x01, 0x92, 0x3d, 0x05, 0xb9, 0xe6, 0x12,
+	0xe4, 0x92, 0x04, 0x08, 0x10, 0x23, 0xc8, 0xc1, 0x47, 0x23, 0x27, 0x5f, 0x02, 0xe4, 0x92, 0x07,
+	0xe6, 0x14, 0xff, 0x0f, 0x39, 0x04, 0xf5, 0x68, 0x3e, 0xc4, 0xa6, 0x28, 0x19, 0x0b, 0x23, 0x0b,
+	0x5f, 0xa4, 0xee, 0xaa, 0xdf, 0xf7, 0xd5, 0xeb, 0xab, 0x5f, 0xfd, 0xea, 0x6b, 0xc2, 0x2a, 0x71,
+	0xce, 0xdd, 0xfe, 0x86, 0xe9, 0xd9, 0x1b, 0xe7, 0x9b, 0x1b, 0xd4, 0xed, 0x31, 0x22, 0xff, 0x96,
+	0x3d, 0xea, 0x32, 0x17, 0x21, 0x51, 0x5f, 0x36, 0x3d, 0xbb, 0x7c, 0xbe, 0x59, 0x16, 0x35, 0xc5,
+	0xf7, 0xc7, 0x6c, 0x9a, 0x2e, 0x25, 0x1b, 0x6f, 0x4d, 0x5f, 0x59, 0x14, 0x97, 0x64, 0x2d, 0xeb,
+	0x7b, 0x64, 0x83, 0x9a, 0x4e, 0x2b, 0x28, 0x5f, 0x69, 0xb9, 0x6e, 0xab, 0x43, 0x36, 0xc4, 0xdb,
+	0xdb, 0xde, 0xd9, 0x86, 0xe9, 0xf4, 0x55, 0xd5, 0xea, 0xd5, 0x2a, 0xab, 0x47, 0x4d, 0x66, 0xbb,
+	0x8e, 0xaa, 0x7f, 0xff, 0x6a, 0xbd, 0xcf, 0x68, 0xaf, 0xc9, 0xa6, 0x59, 0x5f, 0x50, 0xd3, 0xf3,
+	0x08, 0xf5, 0x55, 0xfd, 0xf2, 0xb9, 0xd9, 0xb1, 0x2d, 0x93, 0x91, 0x8d, 0xe0, 0x41, 0x55, 0x2c,
+	0xb6, 0xdc, 0x96, 0x2b, 0x1e, 0x37, 0xf8, 0x93, 0x2c, 0x2d, 0xfd, 0x2b, 0x40, 0xfa, 0xd4, 0xa6,
+	0xac, 0x67, 0x76, 0xea, 0xae, 0xcf, 0xd0, 0x3d, 0x88, 0x39, 0x66, 0x97, 0x14, 0xb4, 0x35, 0x6d,
+	0x3d, 0x55, 0x4d, 0xfd, 0xf3, 0x2f, 0x7f, 0x16, 0x8d, 0xd1, 0xc8, 0x9a, 0x86, 0x45, 0x31, 0xfa,
+	0x00, 0x12, 0x96, 0xdb, 0x35, 0x6d, 0xc7, 0x2f, 0x44, 0xd6, 0xa2, 0xeb, 0xa9, 0x2a, 0x70, 0xc4,
+	0xfc, 0x97, 0x5a, 0x24, 0xa9, 0xe1, 0xa0, 0x0a, 0x3d, 0x81, 0xb8, 0x98, 0x3b, 0xbf, 0x10, 0x5d,
+	0x8b, 0xae, 0xa7, 0x37, 0x57, 0xca, 0x93, 0xf3, 0x5a, 0xc6, 0xfc, 0x6f, 0x35, 0xf6, 0xf3, 0xff,
+	0xbc, 0x3f, 0x87, 0x15, 0x1c, 0x9d, 0x40, 0x9a, 0x92, 0x2f, 0x7a, 0x36, 0x25, 0x06, 0xeb, 0xf8,
+	0x85, 0xd8, 0x9a, 0xb6, 0x9e, 0xdb, 0xdc, 0x0c, 0xb3, 0x1e, 0xe9, 0x73, 0xb9, 0xd1, 0xf1, 0xb1,
+	0xb4, 0xea, 0x12, 0x87, 0x35, 0xfa, 0x1e, 0xc1, 0xa0, 0xdc, 0x34, 0x3a, 0x3e, 0x3a, 0x00, 0xfd,
+	0x5c, 0xa2, 0x8d, 0x66, 0xa7, 0xe7, 0x33, 0x42, 0xfd, 0xc2, 0xbc, 0xe8, 0x57, 0xe9, 0x1a, 0xcf,
+	0xdb, 0x12, 0x8a, 0xf3, 0xe7, 0x63, 0xef, 0x3e, 0xfa, 0x0c, 0xd2, 0xd4, 0x64, 0xc4, 0xe8, 0xd8,
+	0x5d, 0x9b, 0xf9, 0x85, 0xb8, 0xf0, 0x74, 0x2f, 0x74, 0x84, 0x26, 0x23, 0xfb, 0x1c, 0x85, 0x81,
+	0x06, 0x8f, 0x3e, 0x3a, 0x83, 0x25, 0xde, 0x39, 0xe2, 0x33, 0xa3, 0x4d, 0x4c, 0x8b, 0x50, 0xdf,
+	0x60, 0xae, 0x61, 0x5a, 0x56, 0x21, 0x21, 0x5c, 0x7d, 0x30, 0xee, 0x8a, 0x07, 0x5c, 0xb9, 0x2e,
+	0x80, 0xa7, 0x66, 0xa7, 0x47, 0x8e, 0x3c, 0x1e, 0x2a, 0xd5, 0x34, 0x9f, 0xf7, 0xf8, 0x97, 0x5a,
+	0x54, 0xff, 0x9f, 0x04, 0xbe, 0xa3, 0x1c, 0x4a, 0x98, 0xdf, 0x70, 0x2b, 0x96, 0x85, 0x36, 0x21,
+	0xd6, 0x74, 0xa9, 0x5f, 0x48, 0xae, 0x69, 0xeb, 0xe9, 0xcd, 0xd5, 0xb0, 0x0e, 0x6e, 0xbb, 0xd4,
+	0x3f, 0x76, 0x3b, 0x76, 0xb3, 0x8f, 0x05, 0x16, 0xb5, 0x61, 0x99, 0x12, 0xdf, 0x73, 0x1d, 0x9f,
+	0x5c, 0xed, 0x1c, 0xfc, 0xaa, 0x9d, 0x5b, 0x0c, 0x3c, 0x8e, 0xf5, 0xee, 0x19, 0x14, 0xc3, 0x5a,
+	0xa2, 0xa4, 0xeb, 0x9e, 0x93, 0x42, 0x9a, 0xc7, 0x16, 0x5e, 0x9e, 0xb0, 0xc4, 0xa2, 0x1a, 0x59,
+	0xb0, 0xe0, 0x11, 0x6a, 0x9c, 0xd9, 0x1d, 0x46, 0xa8, 0xd1, 0x74, 0x9d, 0x33, 0xbb, 0x55, 0xc8,
+	0x88, 0x0e, 0x6e, 0xcd, 0x0a, 0x96, 0x63, 0x42, 0x5f, 0x08, 0xbb, 0x6d, 0x61, 0x56, 0x73, 0x18,
+	0xed, 0x57, 0x23, 0x05, 0x0d, 0xe7, 0xbd, 0xf1, 0x1a, 0xf4, 0x14, 0x56, 0x42, 0x16, 0x4a, 0xf5,
+	0x30, 0x2b, 0x7a, 0xb8, 0x74, 0x75, 0xe2, 0x55, 0x07, 0x2b, 0x70, 0xcf, 0x76, 0x9a, 0x9d, 0x9e,
+	0x45, 0x8c, 0xc0, 0x85, 0xc9, 0x18, 0xe9, 0x7a, 0xcc, 0x68, 0xba, 0x3d, 0x87, 0x15, 0x72, 0x6b,
+	0xda, 0x7a, 0x12, 0x17, 0x15, 0x08, 0x4b, 0x4c, 0x45, 0x42, 0xb6, 0x39, 0x02, 0x79, 0xb0, 0xcc,
+	0x49, 0xc5, 0x32, 0x26, 0x47, 0x9a, 0x17, 0x23, 0x7d, 0x3a, 0x73, 0x5b, 0x70, 0xf3, 0xb0, 0xe1,
+	0xe2, 0x45, 0x16, 0x52, 0x85, 0xaa, 0x90, 0xa1, 0x84, 0xd1, 0xbe, 0xe1, 0x89, 0x90, 0x28, 0xe8,
+	0x22, 0x70, 0xee, 0x87, 0x46, 0x36, 0xc7, 0xa9, 0xc8, 0x49, 0xd3, 0xe1, 0x4b, 0xf1, 0xfb, 0xb0,
+	0x18, 0xd6, 0x22, 0xd2, 0x21, 0xfa, 0x39, 0xe9, 0x4b, 0x56, 0xc1, 0xfc, 0x11, 0x7d, 0x0c, 0xf3,
+	0xe7, 0x3c, 0x64, 0x0a, 0x11, 0xd1, 0xcc, 0x72, 0x59, 0xf2, 0x5a, 0x39, 0xe0, 0xb5, 0xf2, 0x89,
+	0x60, 0x3d, 0x2c, 0x51, 0x9f, 0x46, 0xbe, 0xa3, 0x15, 0x7f, 0x00, 0x2b, 0x53, 0xc7, 0x14, 0xd2,
+	0xc2, 0xa3, 0xf1, 0x16, 0x16, 0x27, 0x5a, 0xa8, 0x38, 0xfd, 0x11, 0xf7, 0xa5, 0x4f, 0x01, 0x4d,
+	0x32, 0x09, 0x4a, 0x42, 0xec, 0xf0, 0xe8, 0xb0, 0xa6, 0xcf, 0xa1, 0x05, 0xc8, 0xd6, 0xfe, 0xa0,
+	0x51, 0xc3, 0x87, 0x95, 0x7d, 0xe3, 0xe8, 0x70, 0xff, 0x8d, 0xae, 0xa1, 0x04, 0x44, 0x2b, 0xfb,
+	0xfb, 0x7a, 0x64, 0x2f, 0x96, 0x4c, 0xe9, 0x50, 0xfa, 0xdf, 0x24, 0xcc, 0x0b, 0x5a, 0x43, 0x3b,
+	0x30, 0xdf, 0x35, 0x59, 0xb3, 0x2d, 0xfa, 0x33, 0x65, 0xf7, 0x09, 0xe4, 0x01, 0x47, 0x55, 0x73,
+	0x9c, 0x05, 0x05, 0x93, 0xfe, 0x89, 0x16, 0xd1, 0x35, 0x2c, 0x8d, 0xd1, 0x13, 0x98, 0x17, 0x50,
+	0x35, 0x82, 0xfb, 0x53, 0xbd, 0x54, 0x9a, 0x7c, 0xdf, 0xd5, 0xe7, 0xb0, 0xc4, 0xa3, 0xdf, 0x85,
+	0x24, 0x25, 0x96, 0x4d, 0x49, 0x93, 0x15, 0xa2, 0xc2, 0xb6, 0x14, 0xbe, 0x8c, 0x12, 0x33, 0x30,
+	0x1f, 0x58, 0xa1, 0x27, 0x90, 0xec, 0x12, 0x66, 0x5a, 0x26, 0x33, 0x05, 0x0d, 0xa7, 0x37, 0xdf,
+	0x0b, 0xd9, 0xfa, 0x07, 0x0a, 0x82, 0x07, 0x60, 0xf4, 0x0c, 0x52, 0x16, 0x69, 0xba, 0xd4, 0x64,
+	0x2e, 0x2d, 0xcc, 0x0b, 0xcb, 0x50, 0x72, 0xdc, 0x09, 0x40, 0x78, 0x88, 0x47, 0x27, 0x90, 0x97,
+	0xed, 0x1b, 0xc1, 0xd6, 0x2f, 0x24, 0x84, 0x8b, 0xf5, 0x50, 0x17, 0x02, 0x8a, 0x15, 0x72, 0x30,
+	0x88, 0x9c, 0x35, 0x56, 0x8e, 0x7e, 0x18, 0xc6, 0x16, 0x49, 0xb1, 0x87, 0xca, 0x53, 0x67, 0xf4,
+	0x16, 0x3c, 0x31, 0x9d, 0xd0, 0x53, 0x5f, 0x29, 0xa1, 0x7f, 0x4d, 0xc8, 0xf9, 0x5a, 0xda, 0xcc,
+	0x5c, 0x4b, 0x9b, 0x3f, 0x9a, 0xce, 0x79, 0x59, 0x31, 0xc2, 0xc7, 0xd3, 0xd7, 0xeb, 0x96, 0x6c,
+	0xf7, 0x75, 0x66, 0xaa, 0x6a, 0x1e, 0xe2, 0xa6, 0x88, 0x76, 0x34, 0xff, 0xd3, 0x5f, 0xfe, 0x2c,
+	0xaa, 0xed, 0xc5, 0x92, 0x71, 0x3d, 0x51, 0xfa, 0xab, 0x14, 0xe4, 0x7f, 0x9f, 0xd8, 0xad, 0x36,
+	0x23, 0x96, 0x92, 0x2b, 0xe8, 0x0d, 0x24, 0x07, 0xa2, 0x47, 0x13, 0x73, 0xf8, 0x49, 0xd8, 0x1c,
+	0x5e, 0x31, 0x2b, 0xab, 0xff, 0xb2, 0x78, 0x4c, 0xe4, 0x0d, 0xdc, 0xa1, 0xdf, 0x01, 0x44, 0x7b,
+	0x0e, 0xb3, 0xbb, 0xc4, 0xf8, 0x9c, 0xf4, 0x0d, 0x8f, 0x92, 0x33, 0xfb, 0x52, 0x0c, 0x21, 0x85,
+	0x75, 0x55, 0xf3, 0x8a, 0xf4, 0x8f, 0x45, 0x39, 0xda, 0x83, 0x0c, 0x73, 0x99, 0xd9, 0x31, 0x2e,
+	0x84, 0x4f, 0x45, 0x4b, 0xef, 0x4f, 0x0c, 0xf5, 0xf5, 0xae, 0xc3, 0x1e, 0x6f, 0x8a, 0x80, 0x55,
+	0xf2, 0xf3, 0x51, 0x64, 0x5d, 0xc3, 0x69, 0x61, 0x2c, 0xfb, 0x53, 0xfc, 0x87, 0x04, 0x64, 0xc7,
+	0x7a, 0x38, 0x4b, 0xb6, 0x6e, 0x41, 0x5c, 0x35, 0x1b, 0x99, 0xdd, 0x2c, 0x56, 0x58, 0x54, 0x85,
+	0x5c, 0x40, 0x6b, 0x86, 0x64, 0xf3, 0xe8, 0x6c, 0x26, 0xcc, 0x06, 0x26, 0x82, 0xd9, 0xaf, 0x21,
+	0x87, 0xd8, 0xaf, 0x8b, 0x1c, 0xe6, 0x7f, 0x9d, 0xe4, 0x10, 0xbf, 0x9e, 0x1c, 0xce, 0xa7, 0x73,
+	0xf1, 0x8b, 0x5b, 0xc7, 0xe5, 0x57, 0xa5, 0xe5, 0x52, 0xd7, 0x92, 0xd2, 0x4f, 0xb4, 0xe9, 0xac,
+	0x24, 0x79, 0xf7, 0xd5, 0xed, 0x7b, 0xfe, 0x1b, 0xc4, 0x56, 0x7b, 0xb1, 0x64, 0x42, 0x4f, 0x96,
+	0xfe, 0x3c, 0x06, 0x30, 0x54, 0x3c, 0xa8, 0x00, 0x71, 0x45, 0x18, 0xc2, 0x73, 0x7d, 0x0e, 0xab,
+	0x77, 0xb4, 0x08, 0x31, 0xcf, 0x64, 0x6d, 0x49, 0x24, 0xf5, 0x39, 0x2c, 0xde, 0x50, 0x09, 0xe6,
+	0x29, 0x69, 0x91, 0x4b, 0xb1, 0x05, 0x83, 0x6b, 0x27, 0x8d, 0xae, 0xff, 0x38, 0x29, 0x54, 0x0f,
+	0xaf, 0x42, 0x15, 0xc8, 0x35, 0x4d, 0x9f, 0x18, 0x3e, 0x71, 0x7c, 0x9b, 0xd9, 0xe7, 0x44, 0x29,
+	0x97, 0xe2, 0x44, 0x0f, 0xab, 0xae, 0xdb, 0x91, 0x7b, 0x3d, 0xcb, 0x2d, 0x4e, 0x02, 0x03, 0xf4,
+	0x0c, 0x12, 0x2a, 0x3e, 0xd4, 0xc5, 0xee, 0x41, 0xd8, 0xda, 0xca, 0x10, 0x11, 0x03, 0x21, 0x14,
+	0x07, 0x16, 0xa8, 0x01, 0xfa, 0x17, 0x3d, 0xc2, 0x05, 0xb4, 0x49, 0xcd, 0x2e, 0x11, 0x9c, 0x2b,
+	0xef, 0x74, 0xdf, 0x08, 0xf3, 0xf2, 0x7b, 0x1c, 0x7b, 0x1c, 0x40, 0x03, 0x6f, 0xf9, 0x2f, 0xc6,
+	0x8a, 0x7d, 0x54, 0x87, 0x58, 0x8b, 0x7a, 0x4d, 0x75, 0x8f, 0xdb, 0xba, 0x5e, 0x49, 0x96, 0x5f,
+	0x52, 0xaf, 0x39, 0x7c, 0x95, 0xbb, 0xda, 0xc7, 0xc2, 0x03, 0x3a, 0x85, 0x80, 0x96, 0x8d, 0x33,
+	0x2a, 0x0f, 0x90, 0x42, 0x4a, 0x78, 0xfd, 0xed, 0x10, 0x72, 0xc0, 0x12, 0xfa, 0x42, 0x21, 0xcd,
+	0xce, 0x31, 0xa1, 0x4d, 0xe2, 0x30, 0x9c, 0xa7, 0xe3, 0x35, 0xc5, 0x65, 0xb8, 0x1b, 0xda, 0x6c,
+	0x75, 0x19, 0x72, 0x7c, 0xf1, 0x0c, 0xdf, 0x23, 0x4d, 0xfb, 0xcc, 0x26, 0x74, 0x78, 0x5e, 0xcd,
+	0xeb, 0xf1, 0xd2, 0xbf, 0xc4, 0x00, 0x86, 0x57, 0x50, 0xf4, 0x00, 0x32, 0x66, 0xa7, 0xe3, 0x5e,
+	0x18, 0x2e, 0xb5, 0x5b, 0xb6, 0x23, 0x8e, 0xab, 0x14, 0x4e, 0x8b, 0xb2, 0x23, 0x51, 0x84, 0x1e,
+	0x42, 0x56, 0x42, 0xba, 0x84, 0xb5, 0x5d, 0xcb, 0x57, 0xa7, 0x8d, 0xb4, 0x3b, 0x90, 0x65, 0x43,
+	0x50, 0xb0, 0x92, 0xd1, 0x11, 0x90, 0xda, 0xdd, 0xe8, 0x43, 0xc8, 0x91, 0x4b, 0xcf, 0x1d, 0x72,
+	0x98, 0x88, 0x95, 0x14, 0xce, 0xca, 0xd2, 0x00, 0xb6, 0x0c, 0x89, 0xae, 0x79, 0x69, 0x98, 0x2d,
+	0x22, 0xb4, 0x6c, 0x0a, 0xc7, 0xbb, 0xe6, 0x65, 0xa5, 0x45, 0xd0, 0x4b, 0x58, 0x90, 0x8d, 0x34,
+	0x29, 0xb1, 0x88, 0xc3, 0x6c, 0xb3, 0xc3, 0x43, 0x66, 0x56, 0xb8, 0xe9, 0xc2, 0x68, 0x7b, 0x68,
+	0x83, 0x3e, 0x85, 0x04, 0x71, 0xcc, 0xb7, 0x1d, 0x62, 0x29, 0xa9, 0x7b, 0x8d, 0x39, 0xe7, 0xb6,
+	0xfa, 0x1c, 0x0e, 0x0c, 0xd0, 0x73, 0x40, 0xa3, 0x33, 0x66, 0xc8, 0x1d, 0x92, 0x14, 0x89, 0x99,
+	0x3c, 0xdf, 0x21, 0xf0, 0xa5, 0x96, 0x28, 0xc9, 0x6d, 0xa2, 0x9a, 0x96, 0x13, 0x89, 0xc5, 0x7e,
+	0x69, 0x40, 0x4e, 0xd1, 0x59, 0xd0, 0x83, 0xdb, 0x47, 0x43, 0x7d, 0x0e, 0x67, 0xa5, 0x93, 0x9a,
+	0xea, 0x14, 0x86, 0x9c, 0xdf, 0x36, 0x2d, 0xf7, 0x62, 0xe0, 0x15, 0x6e, 0x1f, 0x63, 0x59, 0xe9,
+	0x42, 0xf9, 0xac, 0xde, 0x81, 0x05, 0xe5, 0x6c, 0x18, 0x4b, 0xa5, 0x3f, 0x5a, 0x82, 0xf4, 0xc8,
+	0xed, 0x07, 0x7d, 0x08, 0x09, 0xa5, 0x4d, 0x26, 0x64, 0x00, 0x9f, 0x34, 0x55, 0x87, 0x36, 0x21,
+	0xa7, 0x1e, 0xd5, 0xd2, 0xcb, 0x20, 0x1a, 0x47, 0x67, 0x15, 0x44, 0xc6, 0x01, 0xc2, 0xb0, 0x70,
+	0xa1, 0xf8, 0x7c, 0x98, 0x43, 0x92, 0x62, 0xe0, 0xe1, 0x0d, 0xc8, 0xbf, 0x3e, 0x87, 0xf5, 0x8b,
+	0xf1, 0x22, 0x3f, 0x44, 0x5d, 0xc4, 0x6e, 0xad, 0x2e, 0x3e, 0x84, 0x9c, 0x64, 0x4d, 0x83, 0x92,
+	0x0b, 0x6a, 0xb3, 0x20, 0x4a, 0xb3, 0xb2, 0x14, 0xcb, 0x42, 0xf4, 0x10, 0x32, 0x6d, 0xd7, 0x67,
+	0x03, 0x50, 0x5c, 0x50, 0xab, 0x86, 0xd3, 0xbc, 0x34, 0x00, 0xd5, 0x61, 0xc1, 0xec, 0x31, 0xd7,
+	0x18, 0x43, 0xce, 0x0c, 0xc9, 0xba, 0x86, 0xf3, 0xdc, 0xac, 0x3e, 0xe2, 0xe9, 0x29, 0x24, 0xf8,
+	0xaa, 0xba, 0x3d, 0xa6, 0x48, 0x6b, 0x65, 0xc2, 0x7e, 0x47, 0xa5, 0x3c, 0xab, 0xb1, 0xbf, 0xfc,
+	0xaf, 0xfb, 0x1a, 0x0e, 0xf0, 0x13, 0x39, 0x88, 0xd4, 0xed, 0x73, 0x10, 0xa8, 0x05, 0x77, 0x83,
+	0xb3, 0xbe, 0x6b, 0x53, 0xea, 0xd2, 0xc0, 0x99, 0x8c, 0xc3, 0xc7, 0x33, 0x6e, 0xd1, 0x65, 0x95,
+	0x8d, 0x39, 0x10, 0xb6, 0xaa, 0x81, 0x40, 0x73, 0x8d, 0x16, 0xa2, 0xcf, 0x20, 0xe9, 0x51, 0xdb,
+	0xa5, 0x36, 0xeb, 0x17, 0xd2, 0x22, 0x55, 0x59, 0x0a, 0x8b, 0x71, 0xb7, 0xc7, 0x6c, 0xa7, 0x75,
+	0xac, 0x90, 0x78, 0x60, 0x83, 0x7e, 0x30, 0x55, 0x1b, 0x66, 0x6e, 0x21, 0xd9, 0xb8, 0xde, 0x09,
+	0x95, 0x84, 0x57, 0x12, 0x95, 0xd9, 0xdb, 0x26, 0x2a, 0x8f, 0x60, 0x29, 0x48, 0x62, 0x9d, 0xb7,
+	0x8d, 0x51, 0x57, 0xb9, 0x99, 0x3c, 0x77, 0x47, 0x59, 0x9e, 0xb6, 0xf1, 0xd0, 0xe1, 0x2b, 0x48,
+	0xb7, 0x4d, 0xbf, 0x1d, 0x2c, 0x87, 0x4c, 0x63, 0x3d, 0x9a, 0xb5, 0x1c, 0x75, 0xd3, 0x6f, 0xab,
+	0x55, 0x80, 0xf6, 0xe0, 0x79, 0x90, 0xde, 0x5c, 0xb8, 0x45, 0x7a, 0xd3, 0x98, 0x2e, 0x92, 0xd1,
+	0x2d, 0x67, 0x3c, 0x5c, 0x1b, 0x7f, 0xf7, 0x5a, 0x6d, 0x7c, 0x47, 0x10, 0x33, 0xb7, 0x9e, 0xaa,
+	0x8f, 0xff, 0x4c, 0x83, 0xfb, 0x01, 0x3b, 0x39, 0x2e, 0x33, 0xce, 0xdc, 0x9e, 0x63, 0x0d, 0x92,
+	0x21, 0x46, 0xd3, 0xb5, 0x48, 0x61, 0x51, 0x84, 0xda, 0xb3, 0x59, 0xf3, 0xa6, 0x88, 0xe6, 0xd0,
+	0x65, 0x2f, 0xb8, 0x93, 0x20, 0x1d, 0xb2, 0xed, 0x5a, 0x44, 0xc9, 0xa7, 0x9f, 0x88, 0x5c, 0xd3,
+	0x7b, 0xcd, 0xe9, 0x40, 0xb4, 0x0b, 0x3a, 0x3f, 0xff, 0xb8, 0x7c, 0x30, 0x82, 0x3d, 0xbd, 0x7c,
+	0xb3, 0x3d, 0x9d, 0xeb, 0x9a, 0x97, 0x5c, 0x16, 0x34, 0xd4, 0xd6, 0xde, 0x87, 0x8c, 0x6d, 0x75,
+	0xc8, 0xc0, 0x4d, 0x61, 0x96, 0x9b, 0x1c, 0x77, 0x23, 0x3a, 0xfa, 0xb7, 0x5a, 0xe4, 0xd1, 0x1c,
+	0x4e, 0x73, 0xf3, 0xc0, 0xdb, 0x29, 0xe4, 0x7b, 0x5e, 0x8b, 0x9a, 0x16, 0x51, 0x5a, 0xdc, 0x2f,
+	0xac, 0x88, 0x25, 0xfc, 0x78, 0xd6, 0xbc, 0xbc, 0x96, 0x66, 0x52, 0xe3, 0xe2, 0x5c, 0x6f, 0xf4,
+	0xd5, 0x47, 0x1e, 0x14, 0x6c, 0x87, 0x11, 0xea, 0x98, 0x1d, 0x23, 0x48, 0x86, 0x19, 0x4a, 0x2b,
+	0x15, 0xc5, 0xc4, 0x7f, 0x7b, 0x56, 0x03, 0xbb, 0xca, 0x7e, 0x3c, 0xbb, 0x86, 0x97, 0xec, 0xd0,
+	0xf2, 0xe2, 0x3f, 0x69, 0x70, 0x27, 0x84, 0x72, 0xd0, 0xc3, 0xe9, 0xc7, 0xd9, 0xf0, 0x30, 0x7b,
+	0x08, 0xe9, 0x91, 0x3b, 0xb8, 0x3a, 0xc9, 0x78, 0x84, 0xc1, 0xf0, 0x02, 0x1e, 0xaa, 0xfb, 0xa2,
+	0x5f, 0x81, 0xee, 0xfb, 0xfb, 0x18, 0xc0, 0x70, 0x77, 0xa2, 0x57, 0x10, 0x57, 0x07, 0xaa, 0x4c,
+	0x7a, 0x7e, 0x72, 0xf3, 0x9d, 0xad, 0x36, 0x19, 0xbf, 0x05, 0x48, 0x17, 0xdc, 0x59, 0xd3, 0x75,
+	0x3f, 0xb7, 0x83, 0x5b, 0xc6, 0x6d, 0x9c, 0x6d, 0x0b, 0x43, 0xee, 0x4c, 0xba, 0x40, 0xe7, 0x70,
+	0xb7, 0xe9, 0x3a, 0x0e, 0x11, 0x48, 0xc3, 0xa3, 0xae, 0x47, 0x28, 0xb3, 0x49, 0x70, 0x84, 0x7f,
+	0xf7, 0x56, 0xbe, 0x03, 0x3f, 0xc7, 0x03, 0x37, 0xf5, 0x39, 0xbc, 0xd8, 0x0c, 0x29, 0x47, 0x45,
+	0x48, 0x32, 0x42, 0xbb, 0xb6, 0x63, 0x76, 0xc4, 0xe1, 0x9e, 0xc4, 0x83, 0xf7, 0xe2, 0x16, 0xc4,
+	0x95, 0xb8, 0x78, 0x04, 0x69, 0x39, 0x68, 0x23, 0x3c, 0x85, 0x01, 0xb2, 0xf6, 0xd0, 0xec, 0x92,
+	0xa2, 0x03, 0x71, 0x39, 0xba, 0x59, 0x19, 0x8f, 0x4f, 0x20, 0xca, 0x58, 0x47, 0x4d, 0xde, 0xcc,
+	0xbd, 0xca, 0xb1, 0x08, 0xa9, 0x8b, 0x97, 0x94, 0xcb, 0xe2, 0xb9, 0xf8, 0x18, 0x16, 0xc3, 0x46,
+	0x8c, 0xde, 0x83, 0x94, 0xef, 0xf6, 0x68, 0x93, 0x18, 0xb6, 0x27, 0xba, 0x90, 0xc4, 0x49, 0x59,
+	0xb0, 0xeb, 0x55, 0x57, 0x40, 0x97, 0x14, 0x3f, 0x21, 0xfc, 0x8b, 0x6d, 0xc8, 0x8e, 0xed, 0x3f,
+	0x2e, 0xfa, 0x83, 0x7d, 0xcc, 0x2f, 0xbe, 0xea, 0x9e, 0x99, 0x56, 0x65, 0x22, 0x03, 0xbf, 0x35,
+	0x54, 0xc8, 0x91, 0x99, 0x07, 0x4f, 0x00, 0x2d, 0xd5, 0xe0, 0xbd, 0x6b, 0x18, 0x10, 0x2d, 0xc3,
+	0x9d, 0x93, 0x1a, 0x3e, 0xdd, 0xdd, 0xae, 0x19, 0xaf, 0x0f, 0x2b, 0xa7, 0x95, 0xdd, 0xfd, 0x4a,
+	0x75, 0xbf, 0xa6, 0xcf, 0xa1, 0x2c, 0xa4, 0x0e, 0x8f, 0x1a, 0xc6, 0x8b, 0xa3, 0xd7, 0x87, 0x3b,
+	0xba, 0x56, 0xfa, 0x1e, 0x2c, 0x85, 0xef, 0x67, 0x54, 0x82, 0xd5, 0xe3, 0xca, 0xc9, 0x89, 0xd1,
+	0xa8, 0xe3, 0xa3, 0xd7, 0x2f, 0xeb, 0xc6, 0xee, 0xa1, 0xfa, 0x36, 0x80, 0x6b, 0x3b, 0xbb, 0xb8,
+	0xb6, 0xdd, 0xd0, 0xe7, 0xd0, 0xfb, 0x50, 0xa8, 0x57, 0x0e, 0x77, 0xf6, 0x6b, 0x21, 0xb5, 0x5a,
+	0xb5, 0x08, 0x0b, 0x01, 0xd7, 0x5f, 0x9d, 0xa8, 0x6a, 0x01, 0x96, 0x46, 0x85, 0xd8, 0x10, 0xb0,
+	0x17, 0x4b, 0xea, 0xfa, 0xc2, 0x5e, 0x2c, 0xb9, 0xa4, 0x2f, 0xef, 0xc5, 0x92, 0x77, 0xf5, 0xa5,
+	0xd2, 0xbf, 0xc5, 0x21, 0x3d, 0xa2, 0x86, 0xd0, 0x0a, 0x24, 0xa5, 0x88, 0x72, 0x1d, 0x35, 0x9f,
+	0x09, 0xf1, 0x7e, 0xe4, 0xa0, 0xe7, 0x90, 0x76, 0x7a, 0x5d, 0x83, 0xbf, 0xf2, 0xf8, 0xbf, 0x49,
+	0x36, 0x0c, 0x9c, 0x5e, 0x17, 0x4b, 0x3c, 0x7a, 0x09, 0x79, 0x8f, 0x50, 0x83, 0xfb, 0x0e, 0x68,
+	0x3c, 0x7a, 0xb3, 0x08, 0xcb, 0x7a, 0x84, 0x36, 0x68, 0x3f, 0xa0, 0xef, 0x06, 0xe4, 0x94, 0xce,
+	0x0b, 0x04, 0x94, 0x14, 0xbf, 0x1f, 0xcf, 0x50, 0x7a, 0xea, 0x39, 0xd0, 0x52, 0x59, 0x3a, 0xfa,
+	0x8a, 0x2c, 0x58, 0x94, 0x5e, 0xc5, 0xd4, 0x79, 0x9c, 0xbf, 0x9b, 0xa6, 0x10, 0xc5, 0xfc, 0x64,
+	0xd8, 0xbc, 0x91, 0x6f, 0x2e, 0x64, 0x8f, 0x03, 0x4b, 0x8c, 0xe8, 0x44, 0x19, 0xaa, 0xc3, 0x03,
+	0xe1, 0xdf, 0x27, 0x1d, 0xc5, 0x28, 0xb2, 0x51, 0x71, 0x51, 0x94, 0x9f, 0xf0, 0xe4, 0x55, 0x30,
+	0x8a, 0xef, 0x71, 0xe0, 0x49, 0x80, 0x13, 0xfe, 0x0f, 0xcc, 0x4b, 0xf5, 0x9d, 0xcf, 0x47, 0x5b,
+	0x5c, 0x00, 0x32, 0x6a, 0xf3, 0x88, 0x35, 0x7c, 0x66, 0xb2, 0x9e, 0x2f, 0x8e, 0x78, 0x99, 0x36,
+	0xc8, 0xe2, 0xc5, 0x41, 0xed, 0x89, 0xa8, 0xe4, 0x91, 0xeb, 0x17, 0xff, 0x4e, 0x83, 0xec, 0xd8,
+	0x34, 0xcc, 0xe2, 0x82, 0x6f, 0x71, 0x2e, 0x15, 0xf9, 0xaa, 0xeb, 0x73, 0x42, 0xea, 0x7a, 0xa9,
+	0xc0, 0xe8, 0x29, 0x64, 0x64, 0xde, 0x4b, 0x19, 0x47, 0xa7, 0xa7, 0x7b, 0xea, 0x73, 0x38, 0x2d,
+	0xb0, 0x72, 0x57, 0x57, 0xb3, 0x90, 0x96, 0x46, 0x62, 0x53, 0x17, 0xff, 0x51, 0x03, 0x34, 0x39,
+	0xb9, 0xff, 0xdf, 0xbb, 0x5d, 0xfa, 0x69, 0x0c, 0x72, 0x57, 0x36, 0xfd, 0x43, 0xc8, 0xaa, 0x6d,
+	0xa9, 0xbe, 0xae, 0xc9, 0xfd, 0x95, 0x91, 0x17, 0x29, 0xf5, 0xed, 0xec, 0x43, 0xc8, 0x8a, 0xb4,
+	0xc7, 0x00, 0x14, 0x51, 0xf7, 0xad, 0x0c, 0x2f, 0x1e, 0xc0, 0xda, 0x90, 0x1d, 0x17, 0x76, 0x51,
+	0xa1, 0x2f, 0x9e, 0xcc, 0xfe, 0x52, 0x37, 0x78, 0x9d, 0x2a, 0xea, 0x32, 0x74, 0x94, 0xec, 0x3e,
+	0x82, 0x5c, 0x9b, 0x31, 0xcf, 0x1f, 0xf6, 0x48, 0x9c, 0x46, 0xfc, 0x9e, 0x2b, 0xca, 0x07, 0x5d,
+	0xfa, 0x28, 0xfc, 0x3e, 0x59, 0xd7, 0xae, 0xde, 0x28, 0xef, 0x43, 0xda, 0x67, 0xd4, 0xf6, 0x0c,
+	0x91, 0xad, 0x12, 0xd1, 0x9e, 0xc4, 0x20, 0x8a, 0x44, 0x5a, 0x0b, 0x7d, 0x03, 0xf2, 0x7e, 0xb3,
+	0x4d, 0xba, 0x64, 0xd8, 0x66, 0x42, 0x25, 0xf4, 0x72, 0xb2, 0x62, 0xd0, 0xe8, 0x43, 0xc8, 0x7a,
+	0x2e, 0x1d, 0x99, 0x53, 0x7e, 0x69, 0xcc, 0xe2, 0x0c, 0x2f, 0x0c, 0x40, 0xa5, 0x0b, 0x58, 0x0c,
+	0x1b, 0x34, 0xba, 0x0b, 0x0b, 0x07, 0x47, 0xa7, 0xb5, 0x1d, 0xe3, 0xb8, 0x86, 0x0f, 0x2a, 0x87,
+	0xb5, 0xc3, 0xc6, 0xfe, 0x1b, 0x7d, 0x0e, 0xa5, 0x60, 0x5e, 0x31, 0x38, 0x27, 0xf4, 0x93, 0x5a,
+	0xcd, 0x38, 0x6a, 0xd4, 0x6b, 0x58, 0x8f, 0xa0, 0x25, 0x40, 0x8d, 0xda, 0xc1, 0xf1, 0x11, 0xae,
+	0xe0, 0x37, 0x43, 0x32, 0x8e, 0xf2, 0xf2, 0x81, 0x8b, 0x61, 0x79, 0xac, 0x5a, 0x84, 0xc2, 0x60,
+	0x20, 0x57, 0xa8, 0x98, 0x93, 0xb4, 0x5a, 0xe8, 0x2b, 0x35, 0x25, 0x17, 0x16, 0xc3, 0xbe, 0x4e,
+	0xa2, 0x0f, 0x20, 0x2e, 0xf7, 0xb9, 0x08, 0x9c, 0x6c, 0x35, 0xc3, 0xd7, 0x2c, 0xf1, 0x68, 0x5e,
+	0xff, 0xf7, 0xd8, 0xba, 0x85, 0x55, 0x1d, 0xfa, 0x04, 0x62, 0x6f, 0x5d, 0xab, 0xaf, 0xe2, 0xfe,
+	0x5e, 0x88, 0x48, 0xdb, 0x31, 0x99, 0x79, 0x22, 0xce, 0x5b, 0x2c, 0xa0, 0xa5, 0x2d, 0x48, 0x0d,
+	0xbe, 0xa8, 0xa2, 0x8f, 0x20, 0xc5, 0x4f, 0x6a, 0xc1, 0xbf, 0x93, 0xbb, 0x6b, 0x58, 0x57, 0xfa,
+	0x0b, 0x0d, 0x72, 0xe3, 0xbf, 0x77, 0x41, 0xbf, 0x05, 0x09, 0x8f, 0xb3, 0x18, 0x0d, 0x2c, 0x65,
+	0x17, 0x29, 0x0f, 0x84, 0x1f, 0x27, 0x71, 0x50, 0x39, 0xd8, 0xbc, 0x91, 0xf0, 0xcd, 0xfb, 0x1d,
+	0x88, 0xcb, 0x1c, 0x9d, 0x8a, 0xea, 0xb5, 0x30, 0xa5, 0xa9, 0x54, 0xaf, 0xc0, 0x61, 0x85, 0x2f,
+	0xfd, 0x47, 0x0a, 0x52, 0x83, 0x4b, 0x23, 0x7a, 0x0e, 0xf3, 0x3e, 0x33, 0x5b, 0x44, 0x69, 0xca,
+	0x9b, 0x7d, 0x2f, 0x2a, 0x00, 0x96, 0x56, 0x3c, 0x4e, 0x2d, 0xdb, 0x17, 0xfc, 0x3a, 0xd0, 0xc7,
+	0x18, 0x54, 0x11, 0xd7, 0xc6, 0x7b, 0x90, 0x90, 0x6a, 0x36, 0xf8, 0xad, 0xd2, 0x07, 0xd7, 0x5e,
+	0x90, 0xcb, 0x72, 0x1d, 0xc7, 0x7f, 0xf6, 0xa4, 0x1c, 0x14, 0xff, 0x3a, 0x09, 0x71, 0xb5, 0xce,
+	0xdf, 0x87, 0x9c, 0xd2, 0x47, 0xa3, 0x1a, 0x7e, 0xda, 0x19, 0x74, 0xc5, 0x7b, 0x59, 0xae, 0xec,
+	0x30, 0x79, 0x94, 0xf5, 0x47, 0x0b, 0xd0, 0x8f, 0xe0, 0x8e, 0x45, 0x7c, 0x66, 0x3b, 0x62, 0x11,
+	0x07, 0x2d, 0xc8, 0x68, 0x79, 0x72, 0xa3, 0x16, 0x76, 0x86, 0xf6, 0xc3, 0x66, 0x90, 0x35, 0x51,
+	0x8a, 0x7e, 0x08, 0xf9, 0x2b, 0x39, 0x0a, 0x45, 0xa8, 0x8f, 0x6f, 0xd4, 0x0e, 0x1e, 0xcb, 0x4b,
+	0xf0, 0xcd, 0x3f, 0x9e, 0xa9, 0xe0, 0x13, 0xc5, 0x6f, 0xc7, 0x8c, 0xf0, 0x5b, 0x38, 0x25, 0xbe,
+	0xaf, 0x84, 0xc0, 0xe6, 0x0d, 0xdd, 0x73, 0xd3, 0x8a, 0xb4, 0xe4, 0x13, 0x45, 0x47, 0x0b, 0x10,
+	0x86, 0x74, 0x8b, 0x38, 0x84, 0xda, 0x4d, 0xb1, 0xfa, 0xf2, 0xd7, 0x08, 0x1b, 0x37, 0xf2, 0xfc,
+	0x52, 0xda, 0xbd, 0x22, 0xfc, 0x90, 0x80, 0xd6, 0xe0, 0x0d, 0x11, 0x40, 0x4a, 0xad, 0x8b, 0x2f,
+	0x1c, 0x2a, 0x75, 0x27, 0x33, 0xbf, 0xdf, 0xba, 0x91, 0xeb, 0x91, 0x84, 0x82, 0xc8, 0xe2, 0xd5,
+	0xe7, 0xb0, 0xde, 0xbe, 0x52, 0x56, 0xcc, 0x43, 0x76, 0x2c, 0x0a, 0x8a, 0x8b, 0x80, 0x26, 0x17,
+	0xad, 0xe8, 0xf0, 0x13, 0x6a, 0x6c, 0x42, 0x6f, 0x71, 0x9b, 0x40, 0xdf, 0x84, 0x9c, 0x45, 0xfc,
+	0x26, 0xb5, 0x3d, 0xe6, 0xd2, 0x91, 0x0b, 0xe4, 0x08, 0x3c, 0x3b, 0x04, 0xbc, 0x22, 0x7d, 0xde,
+	0xad, 0xb1, 0x39, 0x2f, 0x56, 0x01, 0x86, 0x53, 0x85, 0xb6, 0x40, 0x1f, 0x71, 0x28, 0xbf, 0x12,
+	0x4d, 0xf4, 0x20, 0x3f, 0x84, 0x88, 0x01, 0x17, 0x7f, 0xa1, 0x81, 0x7e, 0x75, 0x52, 0x7e, 0x35,
+	0x57, 0xe8, 0x39, 0x64, 0xc8, 0xa5, 0xc7, 0xef, 0xec, 0x72, 0x5d, 0x66, 0x5f, 0x18, 0xd2, 0x12,
+	0x2f, 0x1b, 0x7d, 0x39, 0xfc, 0xfc, 0x13, 0xbd, 0xe1, 0xe7, 0x9f, 0x71, 0x2a, 0x50, 0xd6, 0xfc,
+	0x0a, 0x24, 0x59, 0x61, 0x42, 0xd9, 0x97, 0xfe, 0x34, 0x0a, 0xd9, 0x31, 0x0f, 0xb3, 0x74, 0xd0,
+	0x03, 0x48, 0x93, 0x4b, 0x73, 0x30, 0xa4, 0x98, 0x3a, 0x46, 0x41, 0x14, 0xca, 0x7e, 0x7f, 0x0c,
+	0x69, 0x91, 0xfb, 0x57, 0x90, 0xf9, 0x90, 0x6f, 0x64, 0x20, 0x00, 0x12, 0xfe, 0x14, 0xd2, 0xe2,
+	0xb7, 0xaa, 0x63, 0xc1, 0xbb, 0xa4, 0x86, 0xca, 0xa5, 0x4f, 0x79, 0xd7, 0x61, 0xdf, 0xde, 0xc2,
+	0x1c, 0x23, 0x4c, 0xf9, 0x43, 0x90, 0x71, 0xe6, 0x4a, 0xc0, 0x27, 0x4e, 0xd0, 0x9d, 0x84, 0x52,
+	0x12, 0x19, 0x55, 0x2c, 0x61, 0x0f, 0x20, 0x63, 0x3b, 0xe7, 0x84, 0x06, 0xa8, 0xa4, 0x10, 0x08,
+	0x69, 0x59, 0x26, 0x21, 0x65, 0xc8, 0x28, 0xad, 0x21, 0x21, 0xa9, 0xc9, 0x2c, 0x7c, 0x5a, 0x02,
+	0x06, 0x78, 0xbf, 0x77, 0x36, 0xc4, 0x43, 0x08, 0x5e, 0x02, 0xe4, 0x6f, 0xaa, 0xf8, 0x0d, 0x4a,
+	0x6e, 0x04, 0x81, 0x1f, 0xbb, 0x41, 0x45, 0xf4, 0xe8, 0x5e, 0x2c, 0x19, 0xd5, 0x63, 0xa5, 0x3f,
+	0xd4, 0xe0, 0x6e, 0xe8, 0x87, 0x38, 0xb4, 0x36, 0xb6, 0x2a, 0xe3, 0xa7, 0xa0, 0x5c, 0x98, 0xc5,
+	0xe0, 0x43, 0xa8, 0xbc, 0x31, 0xcb, 0x17, 0xf4, 0xcd, 0xe0, 0x4b, 0xe5, 0xec, 0x8f, 0x8f, 0x12,
+	0x58, 0xfd, 0xec, 0x6f, 0xde, 0xad, 0x6a, 0x3f, 0x7f, 0xb7, 0xaa, 0xfd, 0xe2, 0xdd, 0xaa, 0xf6,
+	0xdf, 0xef, 0x56, 0x35, 0x58, 0xb3, 0x5d, 0xb9, 0x1a, 0x1e, 0x75, 0x2f, 0xfb, 0x21, 0x31, 0x78,
+	0xac, 0x7d, 0x4f, 0xfe, 0xd4, 0xeb, 0x8f, 0x35, 0xed, 0x6d, 0x5c, 0xb8, 0x7e, 0xfc, 0x7f, 0x01,
+	0x00, 0x00, 0xff, 0xff, 0xa0, 0xda, 0x77, 0xc3, 0xde, 0x2c, 0x00, 0x00,
 }

@@ -19,9 +19,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
 	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/google/uuid"
+	"go.uber.org/atomic"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
@@ -36,19 +36,12 @@ var (
 	periodicRefreshDuration = 0 * time.Second
 
 	versionMutex sync.RWMutex
-
 	// version is the timestamp of the last registry event.
 	version = "0"
-
 	// versionNum counts versions
-	versionNum = 1
+	versionNum = atomic.NewUint64(0)
 
 	periodicRefreshMetrics = 10 * time.Second
-
-	// clearCacheTime is the max time to squash a series of events.
-	// The push will happen 1 sec after the last config change, or after 'clearCacheTime'
-	// Default value is 1 second, or the value of PILOT_CACHE_SQUASH env
-	clearCacheTime = 1
 
 	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
@@ -80,14 +73,6 @@ const (
 )
 
 func init() {
-	cacheSquash := pilot.CacheSquash
-	if len(cacheSquash) > 0 {
-		t, err := strconv.Atoi(cacheSquash)
-		if err == nil {
-			clearCacheTime = t
-		}
-	}
-
 	DebounceAfter = envDuration(pilot.DebounceAfter, 100*time.Millisecond)
 	DebounceMax = envDuration(pilot.DebounceMax, 10*time.Second)
 }
@@ -137,11 +122,11 @@ type DiscoveryServer struct {
 	// shards.
 	mutex sync.RWMutex
 
-	// EndpointShardsByService for a service. This is a global (per-server) list, built from
+	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates.
-	EndpointShardsByService map[string]*EndpointShardsByService
+	EndpointShardsByService map[string]*EndpointShards
 
-	// WorkloadsById keeps track of informations about a workload, based on direct notifications
+	// WorkloadsById keeps track of information about a workload, based on direct notifications
 	// from registry. This acts as a cache and allows detecting changes.
 	WorkloadsByID map[string]*Workload
 
@@ -150,31 +135,12 @@ type DiscoveryServer struct {
 	// updated. This should only be used in the xDS server - will be removed/made private in 1.1,
 	// once the last v1 pieces are cleaned. For 1.0.3+ it is used only for tracking incremental
 	// pushes between the 2 packages.
-	edsUpdates map[string]*EndpointShardsByService
+	edsUpdates map[string]*EndpointShards
 
 	updateChannel chan *updateReq
 
 	// mutex used for config update scheduling (former cache update mutex)
 	updateMutex sync.RWMutex
-
-	// true if a full push is needed after debounce. False if only EDS is required.
-	fullPush bool
-
-	// lastPushStart (former lastClearCache) is the time we last started a push
-	lastPushStart time.Time
-
-	// lastConfigUpdateTime is the time of the last config event
-	lastConfigUpdateTime time.Time
-
-	// confiugUpdateCounter is the counter of 'clearCache' calls
-	configUpdateCounter int
-
-	// debouncePushTimerSet is true if a config update was requested and we are
-	// waiting for more events, to debounce.
-	debouncePushTimerSet bool
-
-	// endpointsFilterFuncs is an ordered list of functions to apply to EDS just before pushing it
-	endpointsFilterFuncs []EndpointsFilterFunc
 }
 
 // updateReq includes info about the requested update.
@@ -182,15 +148,17 @@ type updateReq struct {
 	full bool
 }
 
-// EndpointShardsByService holds the set of endpoint shards of a service. Registries update
+// EndpointShards holds the set of endpoint shards of a service. Registries update
 // individual shards incrementally. The shards are aggregated and split into
 // clusters when a push for the specific cluster is needed.
-type EndpointShardsByService struct {
+type EndpointShards struct {
+	// mutex protecting below map.
+	mutex sync.RWMutex
 
 	// Shards is used to track the shards. EDS updates are grouped by shard.
 	// Current implementation uses the registry name as key - in multicluster this is the
 	// name of the k8s cluster, derived from the config (secret).
-	Shards map[string]*EndpointShard
+	Shards map[string][]*model.IstioEndpoint
 
 	// ServiceAccounts has the concatenation of all service accounts seen so far in endpoints.
 	// This is updated on push, based on shards. If the previous list is different than
@@ -200,22 +168,11 @@ type EndpointShardsByService struct {
 	ServiceAccounts map[string]bool
 }
 
-// EndpointShard contains all the endpoints for a single shard (subset) of a service.
-// Shards are updated atomically by registries. A registry may split a service into
-// multiple shards (for example each deployment, or smaller sub-sets).
-type EndpointShard struct {
-	Shard   string
-	Entries []*model.IstioEndpoint
-}
-
 // Workload has the minimal info we need to detect if we need to push workloads, and to
 // cache data to avoid expensive model allocations.
 type Workload struct {
 	// Labels
 	Labels map[string]string
-
-	// Annotations
-	Annotations map[string]string
 }
 
 func intEnv(envVal string, def int) int {
@@ -234,14 +191,12 @@ func NewDiscoveryServer(env *model.Environment, generator core.ConfigGenerator, 
 	out := &DiscoveryServer{
 		Env:                     env,
 		ConfigGenerator:         generator,
-		EndpointShardsByService: map[string]*EndpointShardsByService{},
+		ConfigController:        configCache,
+		EndpointShardsByService: map[string]*EndpointShards{},
 		WorkloadsByID:           map[string]*Workload{},
-		edsUpdates:              map[string]*EndpointShardsByService{},
+		edsUpdates:              map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, 20), // TODO(hzxuzhonghu): support configuration
 		updateChannel:           make(chan *updateReq, 10),
-		endpointsFilterFuncs: []EndpointsFilterFunc{
-			EndpointsByNetworkFilter, // A filter to support Split Horizon EDS
-		},
 	}
 	env.PushContext = model.NewPushContext()
 	go out.handleUpdates()
@@ -321,19 +276,23 @@ func (s *DiscoveryServer) periodicRefreshMetrics() {
 	defer ticker.Stop()
 	for range ticker.C {
 		push := s.globalPushContext()
+		push.Mutex.Lock()
 		if push.End != timeZero {
+			model.LastPushMutex.Lock()
 			model.LastPushStatus = push
+			model.LastPushMutex.Unlock()
 		}
 		push.UpdateMetrics()
+		push.Mutex.Unlock()
 	}
 }
 
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
-func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsByService) {
+func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShards) {
 	if !full {
 		adsLog.Infof("XDS Incremental Push EDS:%d", len(edsUpdates))
-		go s.AdsPushAll(version, s.globalPushContext(), false, edsUpdates)
+		go s.AdsPushAll(versionInfo(), s.globalPushContext(), false, edsUpdates)
 		return
 	}
 	// Reset the status during the push.
@@ -345,7 +304,6 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	// saved.
 	t0 := time.Now()
 	push := model.NewPushContext()
-	push.ServiceAccounts = s.ServiceAccounts
 	err := push.InitContext(s.Env)
 	if err != nil {
 		adsLog.Errorf("XDS: failed to update services %v", err)
@@ -367,12 +325,10 @@ func (s *DiscoveryServer) Push(full bool, edsUpdates map[string]*EndpointShardsB
 	s.Env.PushContext = push
 	s.updateMutex.Unlock()
 
-	s.mutex.Lock()
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.Itoa(versionNum)
-	versionNum++
+	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
+	versionNum.Inc()
 	initContextTime := time.Since(t0)
 	adsLog.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
-	s.mutex.Unlock()
 
 	versionMutex.Lock()
 	version = versionLocal
@@ -391,37 +347,6 @@ func versionInfo() string {
 	return version
 }
 
-// ServiceAccounts returns the list of service accounts for a service.
-// The XDS server incrementally updates the list, by getting the SA from registries.
-// Same list is used to compute CDS response.
-func (s *DiscoveryServer) ServiceAccounts(serviceName string) []string {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	sa := []string{}
-
-	// TODO: cache the computed service account map in EndpointShardsByService.
-
-	ep, f := s.EndpointShardsByService[serviceName]
-	if !f {
-		return sa
-	}
-	samap := map[string]bool{}
-	for _, es := range ep.Shards {
-		for _, el := range es.Entries {
-			if f := samap[el.ServiceAccount]; !f {
-				samap[el.ServiceAccount] = true
-			}
-		}
-	}
-	// TODO: we can just return the map.
-	for k := range samap {
-		sa = append(sa, k)
-	}
-
-	return sa
-}
-
 // Returns the global push context.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	s.updateMutex.RLock()
@@ -435,51 +360,17 @@ func (s *DiscoveryServer) ClearCache() {
 	s.clearCache()
 }
 
-// debouncePush is called on config or endpoint changes, to initiate a push.
-func (s *DiscoveryServer) debouncePush(startDebounce time.Time) {
-	s.updateMutex.RLock()
-	since := time.Since(s.lastConfigUpdateTime)
-	events := s.configUpdateCounter
-	s.updateMutex.RUnlock()
-
-	if since > 2*DebounceAfter ||
-		time.Since(startDebounce) > DebounceMax {
-
-		adsLog.Infof("Push debounce stable %d: %v since last change, %v since last push, full=%v",
-			events,
-			since, time.Since(s.lastPushStart), s.fullPush)
-
-		s.doPush()
-
-	} else {
-		time.AfterFunc(DebounceAfter, func() {
-			s.debouncePush(startDebounce)
-		})
-	}
-}
-
 // Start the actual push. Called from a timer.
-func (s *DiscoveryServer) doPush() {
+func (s *DiscoveryServer) doPush(full bool) {
 	// more config update events may happen while doPush is processing.
 	// we don't want to lose updates.
-	s.updateMutex.Lock()
-
-	s.debouncePushTimerSet = false
-	s.lastPushStart = time.Now()
-	full := s.fullPush
-
 	s.mutex.Lock()
 	// Swap the edsUpdates map - tracking requests for incremental updates.
 	// The changes to the map are protected by ds.mutex.
 	edsUpdates := s.edsUpdates
 	// Reset - any new updates will be tracked by the new map
-	s.edsUpdates = map[string]*EndpointShardsByService{}
+	s.edsUpdates = map[string]*EndpointShards{}
 	s.mutex.Unlock()
-
-	// Update the config values, next ConfigUpdate and eds updates will use this
-	s.fullPush = false
-
-	s.updateMutex.Unlock()
 
 	s.Push(full, edsUpdates)
 }
@@ -499,41 +390,57 @@ func (s *DiscoveryServer) ConfigUpdate(full bool) {
 // Debouncing and update request happens in a separate thread, it uses locks
 // and we want to avoid complications, ConfigUpdate may already hold other locks.
 func (s *DiscoveryServer) handleUpdates() {
-	for {
-		select {
-		case r, _ := <-s.updateChannel:
-
-			if DebounceAfter == 0 {
-				go s.doPush()
-				continue
-			}
-			s.updateMutex.Lock()
-
-			if r.full {
-				s.fullPush = true
-			}
-			s.configUpdateCounter++
-
-			s.lastConfigUpdateTime = time.Now()
-
-			if !s.debouncePushTimerSet {
-				s.debouncePushTimerSet = true
-				startDebounce := s.lastConfigUpdateTime
-				time.AfterFunc(DebounceAfter, func() {
-					s.debouncePush(startDebounce)
-				})
-			} // else: debounce in progress - it'll keep delaying the push
-
-			s.updateMutex.Unlock()
-		}
-	}
+	handleUpdates(s.updateChannel, DebounceAfter, DebounceMax, s.doPush)
 }
 
-// Apply filter functions listed in the 'endpointsFilterFuncs' one after the other
-func (s *DiscoveryServer) applyEndpointsFilterFuncs(endpoints []endpoint.LocalityLbEndpoints, con *XdsConnection) []endpoint.LocalityLbEndpoints {
-	filtered := endpoints
-	for _, ff := range s.endpointsFilterFuncs {
-		filtered = ff(filtered, con, s.Env)
+// handleUpdates processes events from updateChannel
+// It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
+// It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
+func handleUpdates(updateChannel <-chan *updateReq, minQuiet time.Duration, maxDelay time.Duration, processUpdate func(bool)) {
+	var timeChan <-chan time.Time
+	var startDebounce time.Time
+	var lastConfigUpdateTime time.Time
+
+	configUpdateCounter := 0
+	pushCounter := 0
+
+	debouncedEvents := 0
+	fullPush := false
+
+	for {
+		select {
+		case r := <-updateChannel:
+			lastConfigUpdateTime = time.Now()
+			if debouncedEvents == 0 {
+				timeChan = time.After(minQuiet)
+				startDebounce = lastConfigUpdateTime
+			}
+			debouncedEvents++
+			configUpdateCounter++
+			// fullPush is sticky if any debounced event requires a fullPush
+			if r.full {
+				fullPush = true
+			}
+
+		case now := <-timeChan:
+			timeChan = nil
+
+			eventDelay := now.Sub(startDebounce)
+			quietTime := now.Sub(lastConfigUpdateTime)
+			// it has been too long or quiet enough
+			if eventDelay >= maxDelay || quietTime >= minQuiet {
+				pushCounter++
+				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
+					pushCounter, debouncedEvents,
+					quietTime, eventDelay, fullPush)
+
+				go processUpdate(fullPush)
+				fullPush = false
+				debouncedEvents = 0
+				continue
+			}
+
+			timeChan = time.After(minQuiet - quietTime)
+		}
 	}
-	return filtered
 }

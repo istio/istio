@@ -17,11 +17,12 @@ package conversions
 import (
 	"testing"
 
+	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/metadata"
 	"istio.io/istio/galley/pkg/runtime/resource"
-	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestIngressConversion(t *testing.T) {
@@ -79,8 +80,8 @@ func TestIngressConversion(t *testing.T) {
 	}
 	key := resource.VersionedKey{
 		Key: resource.Key{
-			TypeURL:  metadata.IngressSpec.TypeURL,
-			FullName: resource.FullNameFromNamespaceAndName("mock", "i1"),
+			Collection: metadata.Ingress.Collection,
+			FullName:   resource.FullNameFromNamespaceAndName("mock", "i1"),
 		},
 	}
 
@@ -106,14 +107,14 @@ func TestIngressConversion(t *testing.T) {
 	}
 	key2 := resource.VersionedKey{
 		Key: resource.Key{
-			TypeURL:  metadata.IngressSpec.TypeURL,
-			FullName: resource.FullNameFromNamespaceAndName("mock", "i1"),
+			Collection: metadata.Ingress.Collection,
+			FullName:   resource.FullNameFromNamespaceAndName("mock", "i1"),
 		},
 	}
 
 	cfgs := map[string]resource.Entry{}
-	IngressToVirtualService(key, &ingress, "mydomain", cfgs)
-	IngressToVirtualService(key2, &ingress2, "mydomain", cfgs)
+	IngressToVirtualService(key, resource.Metadata{}, &ingress, "mydomain", cfgs)
+	IngressToVirtualService(key2, resource.Metadata{}, &ingress2, "mydomain", cfgs)
 
 	if len(cfgs) != 3 {
 		t.Error("VirtualServices, expected 3 got ", len(cfgs))

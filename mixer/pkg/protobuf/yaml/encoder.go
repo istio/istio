@@ -56,7 +56,7 @@ func (e *Encoder) EncodeBytes(data map[string]interface{}, msgName string, skipU
 	return result, nil
 }
 
-// encodeBytes updates a proto.Buffer from a yaml representation of a proto.
+// encodeBytes updates a proto.Buffer from a yaml representation of a proto and outputs into a buffer.
 func (e *Encoder) encodeBytes(data map[string]interface{}, msgName string, skipUnknown bool, dest *proto.Buffer) error {
 	buf := GetBuffer()
 	defer func() { PutBuffer(buf) }()
@@ -626,6 +626,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			for i, iface := range v {
 				c, ok := ToInt64(iface)
 				if !ok {
+					PutBuffer(tmpBuffer)
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeZigzag32(uint64(c))
@@ -710,6 +711,7 @@ func (e *Encoder) visit(name string, data interface{}, field *descriptor.FieldDe
 			for i, iface := range v {
 				c, ok := ToInt64(iface)
 				if !ok {
+					PutBuffer(tmpBuffer)
 					return badTypeError(fmt.Sprintf("%s[%d]", name, i), "int", iface)
 				}
 				_ = tmpBuffer.EncodeZigzag64(uint64(c))

@@ -48,8 +48,8 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, spec := range gateways {
-		name := ResolveShortnameToFQDN(spec.Name, spec.ConfigMeta)
-		names[string(name)] = true
+		name := fmt.Sprintf("%s/%s", spec.Namespace, spec.Name)
+		names[name] = true
 
 		gateway := spec.Spec.(*networking.Gateway)
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", name, names, gateway)
@@ -152,7 +152,7 @@ func isHTTPServer(server *networking.Server) bool {
 		return true
 	}
 
-	if protocol == ProtocolHTTPS && server.Tls != nil && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+	if protocol == ProtocolHTTPS && server.Tls != nil && !IsPassThroughServer(server) {
 		return true
 	}
 
@@ -190,9 +190,23 @@ func GatewayRDSRouteName(server *networking.Server) string {
 		return fmt.Sprintf("http.%d", server.Port.Number)
 	}
 
-	if protocol == ProtocolHTTPS && server.Tls != nil && server.Tls.Mode != networking.Server_TLSOptions_PASSTHROUGH {
+	if protocol == ProtocolHTTPS && server.Tls != nil && !IsPassThroughServer(server) {
 		return fmt.Sprintf("https.%d.%s", server.Port.Number, server.Port.Name)
 	}
 
 	return ""
+}
+
+// IsPassThroughServer returns true if this server does TLS passthrough (auto or manual)
+func IsPassThroughServer(server *networking.Server) bool {
+	if server.Tls == nil {
+		return false
+	}
+
+	if server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH ||
+		server.Tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH {
+		return true
+	}
+
+	return false
 }

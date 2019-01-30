@@ -33,15 +33,15 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
-	"istio.io/istio/mixer/test/spyAdapter/template/apa"
+	sampleapa "istio.io/istio/mixer/test/spyAdapter/template/apa"
 
-	"istio.io/istio/mixer/test/spyAdapter/template/check"
+	samplecheck "istio.io/istio/mixer/test/spyAdapter/template/check"
 
-	"istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
+	checkproducer "istio.io/istio/mixer/test/spyAdapter/template/checkoutput"
 
-	"istio.io/istio/mixer/test/spyAdapter/template/quota"
+	samplequota "istio.io/istio/mixer/test/spyAdapter/template/quota"
 
-	"istio.io/istio/mixer/test/spyAdapter/template/report"
+	samplereport "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 // Add void usages for some imports so that go linter does not complain in case the imports does not get used in the
@@ -284,11 +284,11 @@ var (
 
 							case "stringMap":
 
-								return out.StringMap, true
+								return attribute.WrapStringMap(out.StringMap), true
 
 							case "ip":
 
-								return []uint8(out.Ip), true
+								return []byte(out.Ip), true
 
 							case "duration":
 
@@ -584,7 +584,7 @@ var (
 
 					out.Set(outPrefix+"stringPrimitive", obj.StringPrimitive)
 
-					out.Set(outPrefix+"stringMap", obj.StringMap)
+					out.Set(outPrefix+"stringMap", attribute.WrapStringMap(obj.StringMap))
 
 				}
 				return res, err

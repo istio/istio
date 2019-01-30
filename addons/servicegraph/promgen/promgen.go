@@ -25,13 +25,15 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/api"
-	"github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/addons/servicegraph"
 )
 
 const reqsFmt = "sum(rate(istio_requests_total{reporter=\"destination\"%s}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
+
+// nolint: lll
 const tcpFmt = "sum(rate(istio_tcp_received_bytes_total{reporter=\"destination\"%s}[%s])) by (source_workload, destination_workload, source_app, destination_app)"
 const emptyFilter = " > 0"
 

@@ -1,0 +1,22 @@
+global:
+  controlPlaneSecurityEnabled: false
+
+  mtls:
+    # Default setting for service-to-service mtls. Can be set explicitly using
+    # destination rules or service annotations.
+    enabled: true
+
+  sds:
+    enabled: true
+    udsPath: "unix:/var/run/sds/uds_path"
+    useTrustworthyJwt: true 
+
+  trustDomain: ""
+
+nodeagent:
+  enabled: true
+  image: node-agent-k8s
+  env:
+    CA_PROVIDER: "GoogleCA"
+    CA_ADDR: "istioca.googleapis.com:443"
+    Plugins: "GoogleTokenExchange"

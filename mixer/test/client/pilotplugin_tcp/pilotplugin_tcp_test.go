@@ -19,7 +19,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
@@ -47,6 +47,10 @@ admin:
 node:
   id: id
   cluster: unknown
+  metadata:
+    # these two must come together and they need to be set
+    NODE_UID: pod.ns
+    NODE_NAMESPACE: ns
 dynamic_resources:
   lds_config: { ads: {} }
   ads_config:
@@ -143,6 +147,8 @@ func TestPilotPluginTCP(t *testing.T) {
 	}()
 	defer grpcServer.GracefulStop()
 
+	s.SetMixerSourceUID("pod.ns")
+
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
@@ -167,6 +173,9 @@ func (mock) ID(*core.Node) string {
 }
 func (mock) GetProxyServiceInstances(_ *model.Proxy) ([]*model.ServiceInstance, error) {
 	return nil, nil
+}
+func (mock) GetProxyLocality(_ *model.Proxy) string {
+	return ""
 }
 func (mock) GetService(_ model.Hostname) (*model.Service, error) { return nil, nil }
 func (mock) InstancesByPort(_ model.Hostname, _ int, _ model.LabelsCollection) ([]*model.ServiceInstance, error) {
@@ -207,10 +216,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod1.ns1",
-			Type: model.Sidecar,
-			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.1",
-			},
+			Type: model.SidecarProxy,
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            &pushContext,
@@ -220,10 +226,7 @@ var (
 		Env:              mesh,
 		Node: &model.Proxy{
 			ID:   "pod2.ns2",
-			Type: model.Sidecar,
-			Metadata: map[string]string{
-				"ISTIO_PROXY_VERSION": "1.1",
-			},
+			Type: model.SidecarProxy,
 		},
 		Service: &svc,
 		Push:    &pushContext,

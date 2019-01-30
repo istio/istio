@@ -142,7 +142,9 @@ func (c *Controller) Services() ([]*model.Service, error) {
 				if sp.ClusterVIPs == nil {
 					sp.ClusterVIPs = make(map[string]string)
 				}
+				sp.Mutex.Lock()
 				sp.ClusterVIPs[r.ClusterID] = s.Address
+				sp.Mutex.Unlock()
 			}
 		}
 		clusterAddressesMutex.Unlock()
@@ -239,6 +241,17 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 	}
 
 	return out, errs
+}
+
+// GetProxyLocality returns the locality where the proxy runs.
+func (c *Controller) GetProxyLocality(proxy *model.Proxy) string {
+	for _, r := range c.GetRegistries() {
+		locality := r.GetProxyLocality(proxy)
+		if len(locality) > 0 {
+			return locality
+		}
+	}
+	return ""
 }
 
 // Run starts all the controllers

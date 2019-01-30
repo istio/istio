@@ -94,7 +94,7 @@ spec:
 {{- end }}
 {{- end }}
 
-{{- if .Values.global.multiCluster.connectUsingGateway }}
+{{- if .Values.global.multiCluster.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -115,55 +115,8 @@ spec:
       name: tls
       number: 15443
       protocol: TLS
-    tls: {}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: istio-multicluster-egressgateway
-  namespace: {{ .Release.Namespace }} 
-  labels:
-    app: {{ template "gateway.name" . }}
-    chart: {{ template "gateway.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
-spec:
-  gateways:
-  - istio-multicluster-egressgateway
-  hosts:
-  - "*.global"
-  tls:
-  - match:
-    - port: 15443
-      sniHosts:
-      - "*.global"
-    route:
-    - destination:
-        host: non.existent.cluster
-        port:
-          number: 15443
-      weight: 100
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: istio-multicluster-egressgateway
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: {{ template "gateway.name" . }}
-    chart: {{ template "gateway.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
-spec:
-   workloadLabels:
-     istio: egressgateway
-   filters:
-   - listenerMatch:
-       portNumber: 15443
-       listenerType: GATEWAY
-     filterName: envoy.filters.network.sni_cluster
-     filterType: NETWORK
-     filterConfig: {}
+    tls:
+      mode: AUTO_PASSTHROUGH
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -185,34 +138,8 @@ spec:
       name: tls
       number: 15443
       protocol: TLS
-    tls: {}
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: istio-multicluster-ingressgateway
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: {{ template "gateway.name" . }}
-    chart: {{ template "gateway.chart" . }}
-    heritage: {{ .Release.Service }}
-    release: {{ .Release.Name }}
-spec:
-  gateways:
-  - istio-multicluster-ingressgateway
-  hosts:
-  - "*.global"
-  tls:
-  - match:
-    - port: 15443
-      sniHosts:
-      - "*.global"
-    route:
-    - destination:        
-        host: non.existent.cluster
-        port:
-          number: 15443
-      weight: 100
+    tls:
+      mode: AUTO_PASSTHROUGH
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -231,12 +158,6 @@ spec:
    - listenerMatch:
        portNumber: 15443
        listenerType: GATEWAY
-     filterName: envoy.filters.network.sni_cluster
-     filterType: NETWORK
-     filterConfig: {}
-   - listenerMatch:
-       portNumber: 15443
-       listenerType: GATEWAY
      insertPosition:
        index: AFTER
        relativeTo: envoy.filters.network.sni_cluster
@@ -244,7 +165,7 @@ spec:
      filterType: NETWORK
      filterConfig:
        cluster_pattern: "\\.global$"
-       cluster_replacement: ".svc.cluster.local"       
+       cluster_replacement: ".svc.{{ .Values.global.proxy.clusterDomain }}"       
 ---
 ## To ensure all traffic to *.global is using mTLS
 apiVersion: networking.istio.io/v1alpha3

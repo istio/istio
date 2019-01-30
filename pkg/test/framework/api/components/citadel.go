@@ -15,11 +15,12 @@
 package components
 
 import (
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/ids"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/ids"
 )
 
 // Citadel represents a deployed Citadel instance.

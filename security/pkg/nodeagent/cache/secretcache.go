@@ -18,15 +18,23 @@ package cache
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"math/rand"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/gogo/status"
+	"google.golang.org/grpc/codes"
+
 	"istio.io/istio/pkg/log"
-	ca "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
+	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -42,7 +50,20 @@ const (
 
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
+
+	// identityTemplate is the format template of identity in the CSR request.
+	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
+
+	// For REST APIs between envoy->nodeagent, default value of 1s is used.
+	envoyDefaultTimeoutInMilliSec = 1000
+
+	// initialBackOffIntervalInMilliSec is the initial backoff time interval when hitting non-retryable error in CSR request.
+	initialBackOffIntervalInMilliSec = 50
 )
+
+type k8sJwtPayload struct {
+	Sub string `json:"sub"`
+}
 
 // Options provides all of the configuration parameters for secret cache.
 type Options struct {
@@ -65,6 +86,9 @@ type Options struct {
 
 	// authentication provider specific plugins.
 	Plugins []plugin.Plugin
+
+	// set this flag to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -74,6 +98,9 @@ type SecretManager interface {
 
 	// SecretExist checks if secret already existed.
 	SecretExist(proxyID, resourceName, token, version string) bool
+
+	// DeleteSecret deletes a secret by its key from cache.
+	DeleteSecret(proxyID, resourceName string)
 }
 
 // ConnKey is the key of one SDS connection.
@@ -91,7 +118,7 @@ type SecretCache struct {
 	// map key is Envoy instance ID, map value is secretItem.
 	secrets        sync.Map
 	rotationTicker *time.Ticker
-	caClient       ca.Client
+	fetcher        *secretfetcher.SecretFetcher
 
 	// configOptions includes all configurable params for the cache.
 	configOptions Options
@@ -116,14 +143,17 @@ type SecretCache struct {
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(cl ca.Client, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
+func NewSecretCache(fetcher *secretfetcher.SecretFetcher, notifyCb func(string, string, *model.SecretItem) error, options Options) *SecretCache {
 	ret := &SecretCache{
-		caClient:       cl,
+		fetcher:        fetcher,
 		closing:        make(chan bool),
 		notifyCallback: notifyCb,
 		rootCertMutex:  &sync.Mutex{},
 		configOptions:  options,
 	}
+
+	fetcher.DeleteCache = ret.DeleteK8sSecret
+	fetcher.UpdateCache = ret.UpdateK8sSecret
 
 	atomic.StoreUint64(&ret.secretChangedCount, 0)
 	atomic.StoreUint32(&ret.skipTokenExpireCheck, 1)
@@ -170,7 +200,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 
 	if sc.rootCert == nil {
 		log.Errorf("Failed to get root cert for proxy %q", proxyID)
-		return nil, errors.New("faied to get root cert")
+		return nil, errors.New("failed to get root cert")
 
 	}
 
@@ -184,6 +214,89 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	}
 	sc.secrets.Store(key, *ns)
 	return ns, nil
+}
+
+// DeleteSecret deletes a secret by its key from cache.
+func (sc *SecretCache) DeleteSecret(proxyID, resourceName string) {
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
+	sc.secrets.Delete(key)
+}
+
+// DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
+// for ingress gateway is deleted.
+func (sc *SecretCache) DeleteK8sSecret(secretName string) {
+	wg := sync.WaitGroup{}
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+
+		if key.ResourceName == secretName {
+			proxyID := key.ProxyID
+			sc.secrets.Delete(key)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if sc.notifyCallback != nil {
+					if err := sc.notifyCallback(proxyID, secretName, nil /*nil indicates close the streaming connection to proxy*/); err != nil {
+						log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
+					}
+				} else {
+					log.Warnf("secret cache notify callback isn't set")
+				}
+			}()
+			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Stop the iteration once we have deleted that cache entry.
+			return false
+		}
+		return true
+	})
+	wg.Wait()
+}
+
+// UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
+// for ingress gateway is updated.
+func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
+	secretMap := map[ConnKey]*model.SecretItem{}
+	wg := sync.WaitGroup{}
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		key := k.(ConnKey)
+		oldSecret := v.(model.SecretItem)
+		if key.ResourceName == secretName {
+			proxyID := key.ProxyID
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				newSecret := &model.SecretItem{
+					CertificateChain: ns.CertificateChain,
+					PrivateKey:       ns.PrivateKey,
+					ResourceName:     secretName,
+					Token:            oldSecret.Token,
+					CreatedTime:      ns.CreatedTime,
+					Version:          ns.Version,
+				}
+				secretMap[key] = newSecret
+				if sc.notifyCallback != nil {
+					if err := sc.notifyCallback(proxyID, secretName, newSecret); err != nil {
+						log.Errorf("Failed to notify secret change for proxy %q: %v", proxyID, err)
+					}
+				} else {
+					log.Warnf("secret cache notify callback isn't set")
+				}
+			}()
+			// Currently only one ingress gateway is running, therefore there is at most one cache entry.
+			// Stop the iteration once we have updated that cache entry.
+			return false
+		}
+		return true
+	})
+
+	wg.Wait()
+	for key, secret := range secretMap {
+		sc.secrets.Store(key, *secret)
+	}
 }
 
 // SecretExist checks if secret already existed.
@@ -226,6 +339,11 @@ func (sc *SecretCache) keyCertRotationJob() {
 }
 
 func (sc *SecretCache) rotate() {
+	// Skip secret rotation for kubernetes secrets.
+	if !sc.fetcher.UseCaClient {
+		return
+	}
+
 	log.Debug("Refresh job running")
 
 	secretMap := map[ConnKey]*model.SecretItem{}
@@ -254,7 +372,7 @@ func (sc *SecretCache) rotate() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if sc.isTokenExpired(&e) {
+				if sc.isTokenExpired() {
 					log.Debugf("Token for %q expired for proxy %q", e.ResourceName, proxyID)
 
 					if sc.notifyCallback != nil {
@@ -268,6 +386,8 @@ func (sc *SecretCache) rotate() {
 
 					return
 				}
+
+				log.Debugf("Token for %q is still valid for proxy %q, use it to generate key/cert", e.ResourceName, proxyID)
 
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
@@ -304,9 +424,22 @@ func (sc *SecretCache) rotate() {
 }
 
 func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName string, t time.Time) (*model.SecretItem, error) {
-	options := util.CertOptions{
-		Host:       resourceName,
-		RSAKeySize: keySize,
+	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
+	// CSR to CA.
+	if sc.fetcher.UseCaClient == false {
+		secretItem, exist := sc.fetcher.FindIngressGatewaySecret(resourceName)
+		if !exist {
+			return nil, fmt.Errorf("cannot find secret %s for ingress gateway", resourceName)
+		}
+
+		return &model.SecretItem{
+			CertificateChain: secretItem.CertificateChain,
+			PrivateKey:       secretItem.PrivateKey,
+			ResourceName:     resourceName,
+			Token:            token,
+			CreatedTime:      t,
+			Version:          t.String(),
+		}, nil
 	}
 
 	// call authentication provider specific plugins to exchange token if necessary.
@@ -322,6 +455,18 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		}
 	}
 
+	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
+	// otherwise just use sdsrequest.resourceName as csr host name.
+	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
+	if err != nil {
+		log.Warnf("failed to extract host name from jwt: %v, fallback to SDS request resource name", err)
+		csrHostName = resourceName
+	}
+	options := util.CertOptions{
+		Host:       csrHostName,
+		RSAKeySize: keySize,
+	}
+
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := util.GenCSR(options)
 	if err != nil {
@@ -329,10 +474,33 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token, resourceName s
 		return nil, err
 	}
 
-	certChainPEM, err := sc.caClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
-	if err != nil {
-		log.Errorf("Failed to sign cert for %q: %v", resourceName, err)
-		return nil, err
+	startTime := time.Now()
+	retry := 0
+	backOffInMilliSec := initialBackOffIntervalInMilliSec
+	var certChainPEM []string
+	for true {
+		certChainPEM, err = sc.fetcher.CaClient.CSRSign(ctx, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
+		if err == nil {
+			break
+		}
+
+		// If non-retryable error, fail the request by returning err
+		if !isRetryableErr(status.Code(err)) {
+			log.Errorf("CSR for %q hit non-retryable error %v", resourceName, err)
+			return nil, err
+		}
+
+		// If reach envoy timeout, fail the request by returning err
+		if startTime.Add(time.Millisecond * envoyDefaultTimeoutInMilliSec).Before(time.Now()) {
+			log.Errorf("CSR retry timeout for %q: %v", resourceName, err)
+			return nil, err
+		}
+
+		retry++
+		backOffInMilliSec = retry * backOffInMilliSec
+		randomTime := rand.Intn(initialBackOffIntervalInMilliSec)
+		time.Sleep(time.Duration(backOffInMilliSec+randomTime) * time.Millisecond)
+		log.Warnf("Failed to sign cert for %q: %v, will retry in %d millisec", resourceName, err, backOffInMilliSec)
 	}
 
 	certChain := []byte{}
@@ -366,10 +534,60 @@ func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 	return time.Now().After(s.CreatedTime.Add(sc.configOptions.SecretTTL - sc.configOptions.SecretRefreshGraceDuration))
 }
 
-func (sc *SecretCache) isTokenExpired(s *model.SecretItem) bool {
+func (sc *SecretCache) isTokenExpired() bool {
+	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
+	if sc.configOptions.AlwaysValidTokenFlag {
+		return false
+	}
+
 	if atomic.LoadUint32(&sc.skipTokenExpireCheck) == 1 {
 		return true
 	}
 	// TODO(quanlin), check if token has expired.
+	return false
+}
+
+func constructCSRHostName(trustDomain, token string) (string, error) {
+	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
+	strs := strings.Split(token, ".")
+	if len(strs) != 3 {
+		return "", fmt.Errorf("invalid k8s jwt token")
+	}
+
+	payload := strs[1]
+	if l := len(payload) % 4; l > 0 {
+		payload += strings.Repeat("=", 4-l)
+	}
+	dp, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	}
+
+	var jp k8sJwtPayload
+	if err = json.Unmarshal(dp, &jp); err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	}
+
+	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
+	ss := strings.Split(jp.Sub, ":")
+	if len(ss) != 4 {
+		return "", fmt.Errorf("invalid sub field in k8s jwt token")
+	}
+	ns := ss[2] //namespace
+	sa := ss[3] //service account
+
+	domain := "cluster.local"
+	if trustDomain != "" {
+		domain = trustDomain
+	}
+
+	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
+}
+
+func isRetryableErr(c codes.Code) bool {
+	switch c {
+	case codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable:
+		return true
+	}
 	return false
 }

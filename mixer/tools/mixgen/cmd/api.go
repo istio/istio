@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
 
-func apiGenCmd(rawArgs []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func apiGenCmd(fatalf shared.FormatFn) *cobra.Command {
 	var templateFile string
 	var outInterfaceFile string
 	var oAugmentedTmplFile string

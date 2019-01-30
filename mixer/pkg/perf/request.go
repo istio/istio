@@ -45,7 +45,12 @@ var _ Request = &BasicCheck{}
 func BuildBasicReport(attributes map[string]interface{}) BasicReport {
 	requestBag := attribute.GetMutableBag(nil)
 	for k, v := range attributes {
-		requestBag.Set(k, v)
+		switch v := v.(type) {
+		case map[string]string:
+			requestBag.Set(k, attribute.WrapStringMap(v))
+		default:
+			requestBag.Set(k, v)
+		}
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes
@@ -80,7 +85,12 @@ func (r BasicReport) MarshalJSON() ([]byte, error) {
 func BuildBasicCheck(attributes map[string]interface{}, quotas map[string]istio_mixer_v1.CheckRequest_QuotaParams) BasicCheck {
 	requestBag := attribute.GetMutableBag(nil)
 	for k, v := range attributes {
-		requestBag.Set(k, v)
+		switch v := v.(type) {
+		case map[string]string:
+			requestBag.Set(k, attribute.WrapStringMap(v))
+		default:
+			requestBag.Set(k, v)
+		}
 	}
 
 	var attrProto istio_mixer_v1.CompressedAttributes

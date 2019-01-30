@@ -405,6 +405,10 @@ func (m *ResponseFlags) Validate() error {
 
 	// no validation rules for RateLimitServiceError
 
+	// no validation rules for DownstreamConnectionTermination
+
+	// no validation rules for UpstreamRetryLimitExceeded
+
 	return nil
 }
 

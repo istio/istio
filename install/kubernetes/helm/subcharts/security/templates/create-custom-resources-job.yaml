@@ -55,7 +55,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: istio-security-post-install-v1.1.0
+  name: istio-security-post-install-{{ .Values.global.tag | printf "%v" | trunc 32  }}
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install
@@ -74,7 +74,6 @@ spec:
         chart: {{ template "security.chart" . }}
         heritage: {{ .Release.Service }}
         release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
     spec:
       serviceAccountName: istio-security-post-install-account
       containers:
@@ -90,4 +89,6 @@ spec:
           configMap:
             name: istio-security-custom-resources
       restartPolicy: OnFailure
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
 {{- end }}

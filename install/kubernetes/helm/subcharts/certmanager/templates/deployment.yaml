@@ -10,14 +10,16 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: certmanager
   template:
     metadata:
       labels:
         app: certmanager
         chart: {{ template "certmanager.chart" . }}
         heritage: {{ .Release.Service }}
-        release: {{ .Release.Name }}
-        version: {{ .Chart.Version }}
+        release: {{ .Release.Name }}        
         {{- if .Values.podLabels }}
 {{ toYaml .Values.podLabels | indent 8 }}
         {{- end }}
@@ -49,22 +51,13 @@ spec:
               fieldPath: metadata.namespace
         resources:
 {{ toYaml .Values.resources | indent 10 }}
-    {{- with .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml . | indent 8 }}
-    {{- end }}
-    {{- with .Values.affinity }}
-      affinity:
-{{ toYaml . | indent 8 }}
-    {{- end }}
-    {{- with .Values.tolerations }}
-      tolerations:
-{{ toYaml . | indent 8 }}
-    {{- end }}
-{{- if .Values.podDnsPolicy }}
+      
+      {{- if .Values.podDnsPolicy }}
       dnsPolicy: {{ .Values.podDnsPolicy }}
-{{- end }}
-{{- if .Values.podDnsConfig }}
+      {{- end }}
+      {{- if .Values.podDnsConfig }}
       dnsConfig:
-{{ toYaml .Values.podDnsConfig | indent 8 }}
-{{- end }}
+      {{ toYaml .Values.podDnsConfig | indent 8 }}
+      {{- end }}
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}

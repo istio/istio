@@ -15,17 +15,18 @@
 package framework
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/runtime"
-	"testing"
 )
 
 var r = runtime.New()
 
 // Run is a helper for executing test main with appropriate resource allocation/doCleanup steps.
 // It allows us to do post-run doCleanup, and flag parsing.
-func Run(testID string, m *testing.M) {
-	_, _ = r.Run(testID, m)
+func Run(testID string, m *testing.M) (int, error) {
+	return r.Run(testID, m)
 }
 
 // GetContext resets and returns the environment. Should be called exactly once per test.

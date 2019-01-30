@@ -15,23 +15,35 @@
 package ctrlz
 
 import (
-	"sync"
 	"testing"
+	"time"
 )
 
-func TestStartStop(t *testing.T) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	listeningTestProbe = wg.Done
+func TestStartStopEnabled(t *testing.T) {
+	done := make(chan struct{})
+	listeningTestProbe = func() { close(done) }
 	defer func() { listeningTestProbe = nil }()
 	o := DefaultOptions()
-	s, _ := Run(o, nil)
-	wg.Wait()
-	s.Close()
+	// TODO: Pick an unused port in o.Port.
+	s, err := Run(o, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	defer s.Close()
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("Timed out waiting for listeningTestProbe to be called")
+	}
+}
 
+func TestStartStopDisabled(t *testing.T) {
 	listeningTestProbe = nil
-	o = DefaultOptions()
+	o := DefaultOptions()
 	o.Port = 0
-	s, _ = Run(o, nil)
+	s, err := Run(o, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
 	s.Close()
 }

@@ -38,7 +38,7 @@ func TestZipkin(t *testing.T) {
 		traceSent := false
 		var id string
 
-		runRetriableTest(t, primaryCluster, testName, defaultRetryBudget, func() error {
+		runRetriableTest(t, testName, defaultRetryBudget, func() error {
 			if !traceSent {
 				// Send a request with a trace header.
 				id = uuid.NewV4().String()

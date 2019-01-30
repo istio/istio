@@ -60,17 +60,21 @@ func (x TlsParameters_TlsProtocol) String() string {
 	return proto.EnumName(TlsParameters_TlsProtocol_name, int32(x))
 }
 func (TlsParameters_TlsProtocol) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{0, 0}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{0, 0}
 }
 
 type TlsParameters struct {
-	// Minimum TLS protocol version.
+	// Minimum TLS protocol version. By default, it's ``TLSv1_0``.
 	TlsMinimumProtocolVersion TlsParameters_TlsProtocol `protobuf:"varint,1,opt,name=tls_minimum_protocol_version,json=tlsMinimumProtocolVersion,proto3,enum=envoy.api.v2.auth.TlsParameters_TlsProtocol" json:"tls_minimum_protocol_version,omitempty"`
-	// Maximum TLS protocol version.
+	// Maximum TLS protocol version. By default, it's ``TLSv1_3`` for servers in non-FIPS builds, and
+	// ``TLSv1_2`` for clients and for servers using :ref:`BoringSSL FIPS <arch_overview_ssl_fips>`.
 	TlsMaximumProtocolVersion TlsParameters_TlsProtocol `protobuf:"varint,2,opt,name=tls_maximum_protocol_version,json=tlsMaximumProtocolVersion,proto3,enum=envoy.api.v2.auth.TlsParameters_TlsProtocol" json:"tls_maximum_protocol_version,omitempty"`
 	// If specified, the TLS listener will only support the specified `cipher list
-	// <https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#Cipher-suite-configuration>`_.
-	// If not specified, the default list:
+	// <https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#Cipher-suite-configuration>`_
+	// when negotiating TLS 1.0-1.2 (this setting has no effect when negotiating TLS 1.3). If not
+	// specified, the default list will be used.
+	//
+	// In non-FIPS builds, the default cipher list is:
 	//
 	// .. code-block:: none
 	//
@@ -87,11 +91,39 @@ type TlsParameters struct {
 	//   AES256-GCM-SHA384
 	//   AES256-SHA
 	//
-	// will be used.
-	CipherSuites []string `protobuf:"bytes,3,rep,name=cipher_suites,json=cipherSuites" json:"cipher_suites,omitempty"`
+	// In builds using :ref:`BoringSSL FIPS <arch_overview_ssl_fips>`, the default cipher list is:
+	//
+	// .. code-block:: none
+	//
+	//   ECDHE-ECDSA-AES128-GCM-SHA256
+	//   ECDHE-RSA-AES128-GCM-SHA256
+	//   ECDHE-ECDSA-AES128-SHA
+	//   ECDHE-RSA-AES128-SHA
+	//   AES128-GCM-SHA256
+	//   AES128-SHA
+	//   ECDHE-ECDSA-AES256-GCM-SHA384
+	//   ECDHE-RSA-AES256-GCM-SHA384
+	//   ECDHE-ECDSA-AES256-SHA
+	//   ECDHE-RSA-AES256-SHA
+	//   AES256-GCM-SHA384
+	//   AES256-SHA
+	CipherSuites []string `protobuf:"bytes,3,rep,name=cipher_suites,json=cipherSuites,proto3" json:"cipher_suites,omitempty"`
 	// If specified, the TLS connection will only support the specified ECDH
-	// curves. If not specified, the default curves (X25519, P-256) will be used.
-	EcdhCurves           []string `protobuf:"bytes,4,rep,name=ecdh_curves,json=ecdhCurves" json:"ecdh_curves,omitempty"`
+	// curves. If not specified, the default curves will be used.
+	//
+	// In non-FIPS builds, the default curves are:
+	//
+	// .. code-block:: none
+	//
+	//   X25519
+	//   P-256
+	//
+	// In builds using :ref:`BoringSSL FIPS <arch_overview_ssl_fips>`, the default curve is:
+	//
+	// .. code-block:: none
+	//
+	//   P-256
+	EcdhCurves           []string `protobuf:"bytes,4,rep,name=ecdh_curves,json=ecdhCurves,proto3" json:"ecdh_curves,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -101,7 +133,7 @@ func (m *TlsParameters) Reset()         { *m = TlsParameters{} }
 func (m *TlsParameters) String() string { return proto.CompactTextString(m) }
 func (*TlsParameters) ProtoMessage()    {}
 func (*TlsParameters) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{0}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{0}
 }
 func (m *TlsParameters) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -160,15 +192,16 @@ func (m *TlsParameters) GetEcdhCurves() []string {
 
 type TlsCertificate struct {
 	// The TLS certificate chain.
-	CertificateChain *core.DataSource `protobuf:"bytes,1,opt,name=certificate_chain,json=certificateChain" json:"certificate_chain,omitempty"`
+	CertificateChain *core.DataSource `protobuf:"bytes,1,opt,name=certificate_chain,json=certificateChain,proto3" json:"certificate_chain,omitempty"`
 	// The TLS private key.
-	PrivateKey *core.DataSource `protobuf:"bytes,2,opt,name=private_key,json=privateKey" json:"private_key,omitempty"`
+	PrivateKey *core.DataSource `protobuf:"bytes,2,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
+	// The password to decrypt the TLS private key. If this field is not set, it is assumed that the
+	// TLS private key is not password encrypted.
+	Password *core.DataSource `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
 	// [#not-implemented-hide:]
-	Password *core.DataSource `protobuf:"bytes,3,opt,name=password" json:"password,omitempty"`
+	OcspStaple *core.DataSource `protobuf:"bytes,4,opt,name=ocsp_staple,json=ocspStaple,proto3" json:"ocsp_staple,omitempty"`
 	// [#not-implemented-hide:]
-	OcspStaple *core.DataSource `protobuf:"bytes,4,opt,name=ocsp_staple,json=ocspStaple" json:"ocsp_staple,omitempty"`
-	// [#not-implemented-hide:]
-	SignedCertificateTimestamp []*core.DataSource `protobuf:"bytes,5,rep,name=signed_certificate_timestamp,json=signedCertificateTimestamp" json:"signed_certificate_timestamp,omitempty"`
+	SignedCertificateTimestamp []*core.DataSource `protobuf:"bytes,5,rep,name=signed_certificate_timestamp,json=signedCertificateTimestamp,proto3" json:"signed_certificate_timestamp,omitempty"`
 	XXX_NoUnkeyedLiteral       struct{}           `json:"-"`
 	XXX_unrecognized           []byte             `json:"-"`
 	XXX_sizecache              int32              `json:"-"`
@@ -178,7 +211,7 @@ func (m *TlsCertificate) Reset()         { *m = TlsCertificate{} }
 func (m *TlsCertificate) String() string { return proto.CompactTextString(m) }
 func (*TlsCertificate) ProtoMessage()    {}
 func (*TlsCertificate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{1}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{1}
 }
 func (m *TlsCertificate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -266,7 +299,7 @@ type TlsSessionTicketKeys struct {
 	//   * Keep the session ticket keys at least as secure as your TLS certificate private keys
 	//   * Rotate session ticket keys at least daily, and preferably hourly
 	//   * Always generate keys using a cryptographically-secure random data source
-	Keys                 []*core.DataSource `protobuf:"bytes,1,rep,name=keys" json:"keys,omitempty"`
+	Keys                 []*core.DataSource `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -276,7 +309,7 @@ func (m *TlsSessionTicketKeys) Reset()         { *m = TlsSessionTicketKeys{} }
 func (m *TlsSessionTicketKeys) String() string { return proto.CompactTextString(m) }
 func (*TlsSessionTicketKeys) ProtoMessage()    {}
 func (*TlsSessionTicketKeys) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{2}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{2}
 }
 func (m *TlsSessionTicketKeys) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -332,7 +365,7 @@ type CertificateValidationContext struct {
 	//
 	// See :ref:`the TLS overview <arch_overview_ssl_enabling_verification>` for a list of common
 	// system CA locations.
-	TrustedCa *core.DataSource `protobuf:"bytes,1,opt,name=trusted_ca,json=trustedCa" json:"trusted_ca,omitempty"`
+	TrustedCa *core.DataSource `protobuf:"bytes,1,opt,name=trusted_ca,json=trustedCa,proto3" json:"trusted_ca,omitempty"`
 	// An optional list of base64-encoded SHA-256 hashes. If specified, Envoy will verify that the
 	// SHA-256 of the DER-encoded Subject Public Key Information (SPKI) of the presented certificate
 	// matches one of the specified values.
@@ -363,7 +396,7 @@ type CertificateValidationContext struct {
 	//   <envoy_api_field_auth.CertificateValidationContext.verify_certificate_hash>`,
 	//   because SPKI is tied to a private key, so it doesn't change when the certificate
 	//   is renewed using the same private key.
-	VerifyCertificateSpki []string `protobuf:"bytes,3,rep,name=verify_certificate_spki,json=verifyCertificateSpki" json:"verify_certificate_spki,omitempty"`
+	VerifyCertificateSpki []string `protobuf:"bytes,3,rep,name=verify_certificate_spki,json=verifyCertificateSpki,proto3" json:"verify_certificate_spki,omitempty"`
 	// An optional list of hex-encoded SHA-256 hashes. If specified, Envoy will verify that
 	// the SHA-256 of the DER-encoded presented certificate matches one of the specified values.
 	//
@@ -390,7 +423,7 @@ type CertificateValidationContext struct {
 	// :ref:`verify_certificate_spki
 	// <envoy_api_field_auth.CertificateValidationContext.verify_certificate_spki>` are specified,
 	// a hash matching value from either of the lists will result in the certificate being accepted.
-	VerifyCertificateHash []string `protobuf:"bytes,2,rep,name=verify_certificate_hash,json=verifyCertificateHash" json:"verify_certificate_hash,omitempty"`
+	VerifyCertificateHash []string `protobuf:"bytes,2,rep,name=verify_certificate_hash,json=verifyCertificateHash,proto3" json:"verify_certificate_hash,omitempty"`
 	// An optional list of Subject Alternative Names. If specified, Envoy will verify that the
 	// Subject Alternative Name of the presented certificate matches one of the specified values.
 	//
@@ -399,17 +432,17 @@ type CertificateValidationContext struct {
 	//   Subject Alternative Names are easily spoofable and verifying only them is insecure,
 	//   therefore this option must be used together with :ref:`trusted_ca
 	//   <envoy_api_field_auth.CertificateValidationContext.trusted_ca>`.
-	VerifySubjectAltName []string `protobuf:"bytes,4,rep,name=verify_subject_alt_name,json=verifySubjectAltName" json:"verify_subject_alt_name,omitempty"`
+	VerifySubjectAltName []string `protobuf:"bytes,4,rep,name=verify_subject_alt_name,json=verifySubjectAltName,proto3" json:"verify_subject_alt_name,omitempty"`
 	// [#not-implemented-hide:] Must present a signed time-stamped OCSP response.
-	RequireOcspStaple *types.BoolValue `protobuf:"bytes,5,opt,name=require_ocsp_staple,json=requireOcspStaple" json:"require_ocsp_staple,omitempty"`
+	RequireOcspStaple *types.BoolValue `protobuf:"bytes,5,opt,name=require_ocsp_staple,json=requireOcspStaple,proto3" json:"require_ocsp_staple,omitempty"`
 	// [#not-implemented-hide:] Must present signed certificate time-stamp.
-	RequireSignedCertificateTimestamp *types.BoolValue `protobuf:"bytes,6,opt,name=require_signed_certificate_timestamp,json=requireSignedCertificateTimestamp" json:"require_signed_certificate_timestamp,omitempty"`
+	RequireSignedCertificateTimestamp *types.BoolValue `protobuf:"bytes,6,opt,name=require_signed_certificate_timestamp,json=requireSignedCertificateTimestamp,proto3" json:"require_signed_certificate_timestamp,omitempty"`
 	// An optional `certificate revocation list
 	// <http://https://en.wikipedia.org/wiki/Certificate_revocation_list>`_
 	// (in PEM format). If specified, Envoy will verify that the presented peer
 	// certificate has not been revoked by this CRL. If this DataSource contains
 	// multiple CRLs, all of them will be used.
-	Crl *core.DataSource `protobuf:"bytes,7,opt,name=crl" json:"crl,omitempty"`
+	Crl *core.DataSource `protobuf:"bytes,7,opt,name=crl,proto3" json:"crl,omitempty"`
 	// If specified, Envoy will not reject expired certificates.
 	AllowExpiredCertificate bool     `protobuf:"varint,8,opt,name=allow_expired_certificate,json=allowExpiredCertificate,proto3" json:"allow_expired_certificate,omitempty"`
 	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
@@ -421,7 +454,7 @@ func (m *CertificateValidationContext) Reset()         { *m = CertificateValidat
 func (m *CertificateValidationContext) String() string { return proto.CompactTextString(m) }
 func (*CertificateValidationContext) ProtoMessage()    {}
 func (*CertificateValidationContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{3}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{3}
 }
 func (m *CertificateValidationContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -509,17 +542,16 @@ func (m *CertificateValidationContext) GetAllowExpiredCertificate() bool {
 // TLS context shared by both client and server TLS contexts.
 type CommonTlsContext struct {
 	// TLS protocol versions, cipher suites etc.
-	TlsParams *TlsParameters `protobuf:"bytes,1,opt,name=tls_params,json=tlsParams" json:"tls_params,omitempty"`
-	// Multiple TLS certificates can be associated with the same context.
-	// E.g. to allow both RSA and ECDSA certificates, two TLS certificates can be configured.
+	TlsParams *TlsParameters `protobuf:"bytes,1,opt,name=tls_params,json=tlsParams,proto3" json:"tls_params,omitempty"`
+	// :ref:`Multiple TLS certificates <arch_overview_ssl_cert_select>` can be associated with the
+	// same context to allow both RSA and ECDSA certificates.
 	//
-	// .. attention::
-	//
-	//   Although this is a list, currently only a single certificate is supported. This will be
-	//   relaxed in the future.
-	TlsCertificates []*TlsCertificate `protobuf:"bytes,2,rep,name=tls_certificates,json=tlsCertificates" json:"tls_certificates,omitempty"`
+	// Only a single TLS certificate is supported in client contexts. In server contexts, the first
+	// RSA certificate is used for clients that only support RSA and the first ECDSA certificate is
+	// used for clients that support ECDSA.
+	TlsCertificates []*TlsCertificate `protobuf:"bytes,2,rep,name=tls_certificates,json=tlsCertificates,proto3" json:"tls_certificates,omitempty"`
 	// Configs for fetching TLS certificates via SDS API.
-	TlsCertificateSdsSecretConfigs []*SdsSecretConfig `protobuf:"bytes,6,rep,name=tls_certificate_sds_secret_configs,json=tlsCertificateSdsSecretConfigs" json:"tls_certificate_sds_secret_configs,omitempty"`
+	TlsCertificateSdsSecretConfigs []*SdsSecretConfig `protobuf:"bytes,6,rep,name=tls_certificate_sds_secret_configs,json=tlsCertificateSdsSecretConfigs,proto3" json:"tls_certificate_sds_secret_configs,omitempty"`
 	// Types that are valid to be assigned to ValidationContextType:
 	//	*CommonTlsContext_ValidationContext
 	//	*CommonTlsContext_ValidationContextSdsSecretConfig
@@ -535,7 +567,7 @@ type CommonTlsContext struct {
 	// * "http/1.1" If the listener is only going to support HTTP/1.1.
 	//
 	// There is no default for this parameter. If empty, Envoy will not expose ALPN.
-	AlpnProtocols        []string `protobuf:"bytes,4,rep,name=alpn_protocols,json=alpnProtocols" json:"alpn_protocols,omitempty"`
+	AlpnProtocols        []string `protobuf:"bytes,4,rep,name=alpn_protocols,json=alpnProtocols,proto3" json:"alpn_protocols,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -545,7 +577,7 @@ func (m *CommonTlsContext) Reset()         { *m = CommonTlsContext{} }
 func (m *CommonTlsContext) String() string { return proto.CompactTextString(m) }
 func (*CommonTlsContext) ProtoMessage()    {}
 func (*CommonTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{4}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{4}
 }
 func (m *CommonTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -582,13 +614,13 @@ type isCommonTlsContext_ValidationContextType interface {
 }
 
 type CommonTlsContext_ValidationContext struct {
-	ValidationContext *CertificateValidationContext `protobuf:"bytes,3,opt,name=validation_context,json=validationContext,oneof"`
+	ValidationContext *CertificateValidationContext `protobuf:"bytes,3,opt,name=validation_context,json=validationContext,proto3,oneof"`
 }
 type CommonTlsContext_ValidationContextSdsSecretConfig struct {
-	ValidationContextSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,7,opt,name=validation_context_sds_secret_config,json=validationContextSdsSecretConfig,oneof"`
+	ValidationContextSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,7,opt,name=validation_context_sds_secret_config,json=validationContextSdsSecretConfig,proto3,oneof"`
 }
 type CommonTlsContext_CombinedValidationContext struct {
-	CombinedValidationContext *CommonTlsContext_CombinedCertificateValidationContext `protobuf:"bytes,8,opt,name=combined_validation_context,json=combinedValidationContext,oneof"`
+	CombinedValidationContext *CommonTlsContext_CombinedCertificateValidationContext `protobuf:"bytes,8,opt,name=combined_validation_context,json=combinedValidationContext,proto3,oneof"`
 }
 
 func (*CommonTlsContext_ValidationContext) isCommonTlsContext_ValidationContextType()                {}
@@ -746,9 +778,9 @@ func _CommonTlsContext_OneofSizer(msg proto.Message) (n int) {
 
 type CommonTlsContext_CombinedCertificateValidationContext struct {
 	// How to validate peer certificates.
-	DefaultValidationContext *CertificateValidationContext `protobuf:"bytes,1,opt,name=default_validation_context,json=defaultValidationContext" json:"default_validation_context,omitempty"`
+	DefaultValidationContext *CertificateValidationContext `protobuf:"bytes,1,opt,name=default_validation_context,json=defaultValidationContext,proto3" json:"default_validation_context,omitempty"`
 	// Config for fetching validation context via SDS API.
-	ValidationContextSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,2,opt,name=validation_context_sds_secret_config,json=validationContextSdsSecretConfig" json:"validation_context_sds_secret_config,omitempty"`
+	ValidationContextSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,2,opt,name=validation_context_sds_secret_config,json=validationContextSdsSecretConfig,proto3" json:"validation_context_sds_secret_config,omitempty"`
 	XXX_NoUnkeyedLiteral             struct{}         `json:"-"`
 	XXX_unrecognized                 []byte           `json:"-"`
 	XXX_sizecache                    int32            `json:"-"`
@@ -762,7 +794,7 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) String() string 
 }
 func (*CommonTlsContext_CombinedCertificateValidationContext) ProtoMessage() {}
 func (*CommonTlsContext_CombinedCertificateValidationContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{4, 0}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{4, 0}
 }
 func (m *CommonTlsContext_CombinedCertificateValidationContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -807,7 +839,7 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) GetValidationCon
 
 type UpstreamTlsContext struct {
 	// Common TLS context settings.
-	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext" json:"common_tls_context,omitempty"`
+	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext,proto3" json:"common_tls_context,omitempty"`
 	// SNI string to use when creating TLS backend connections.
 	Sni string `protobuf:"bytes,2,opt,name=sni,proto3" json:"sni,omitempty"`
 	// If true, server-initiated TLS renegotiation will be allowed.
@@ -815,17 +847,22 @@ type UpstreamTlsContext struct {
 	// .. attention::
 	//
 	//   TLS renegotiation is considered insecure and shouldn't be used unless absolutely necessary.
-	AllowRenegotiation   bool     `protobuf:"varint,3,opt,name=allow_renegotiation,json=allowRenegotiation,proto3" json:"allow_renegotiation,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	AllowRenegotiation bool `protobuf:"varint,3,opt,name=allow_renegotiation,json=allowRenegotiation,proto3" json:"allow_renegotiation,omitempty"`
+	// Maximum number of session keys (Pre-Shared Keys for TLSv1.3+, Session IDs and Session Tickets
+	// for TLSv1.2 and older) to store for the purpose of session resumption.
+	//
+	// Defaults to 1, setting this to 0 disables session resumption.
+	MaxSessionKeys       *types.UInt32Value `protobuf:"bytes,4,opt,name=max_session_keys,json=maxSessionKeys,proto3" json:"max_session_keys,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
+	XXX_unrecognized     []byte             `json:"-"`
+	XXX_sizecache        int32              `json:"-"`
 }
 
 func (m *UpstreamTlsContext) Reset()         { *m = UpstreamTlsContext{} }
 func (m *UpstreamTlsContext) String() string { return proto.CompactTextString(m) }
 func (*UpstreamTlsContext) ProtoMessage()    {}
 func (*UpstreamTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{5}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{5}
 }
 func (m *UpstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -875,15 +912,22 @@ func (m *UpstreamTlsContext) GetAllowRenegotiation() bool {
 	return false
 }
 
+func (m *UpstreamTlsContext) GetMaxSessionKeys() *types.UInt32Value {
+	if m != nil {
+		return m.MaxSessionKeys
+	}
+	return nil
+}
+
 type DownstreamTlsContext struct {
 	// Common TLS context settings.
-	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext" json:"common_tls_context,omitempty"`
+	CommonTlsContext *CommonTlsContext `protobuf:"bytes,1,opt,name=common_tls_context,json=commonTlsContext,proto3" json:"common_tls_context,omitempty"`
 	// If specified, Envoy will reject connections without a valid client
 	// certificate.
-	RequireClientCertificate *types.BoolValue `protobuf:"bytes,2,opt,name=require_client_certificate,json=requireClientCertificate" json:"require_client_certificate,omitempty"`
+	RequireClientCertificate *types.BoolValue `protobuf:"bytes,2,opt,name=require_client_certificate,json=requireClientCertificate,proto3" json:"require_client_certificate,omitempty"`
 	// If specified, Envoy will reject connections without a valid and matching SNI.
 	// [#not-implemented-hide:]
-	RequireSni *types.BoolValue `protobuf:"bytes,3,opt,name=require_sni,json=requireSni" json:"require_sni,omitempty"`
+	RequireSni *types.BoolValue `protobuf:"bytes,3,opt,name=require_sni,json=requireSni,proto3" json:"require_sni,omitempty"`
 	// Types that are valid to be assigned to SessionTicketKeysType:
 	//	*DownstreamTlsContext_SessionTicketKeys
 	//	*DownstreamTlsContext_SessionTicketKeysSdsSecretConfig
@@ -897,7 +941,7 @@ func (m *DownstreamTlsContext) Reset()         { *m = DownstreamTlsContext{} }
 func (m *DownstreamTlsContext) String() string { return proto.CompactTextString(m) }
 func (*DownstreamTlsContext) ProtoMessage()    {}
 func (*DownstreamTlsContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{6}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{6}
 }
 func (m *DownstreamTlsContext) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -934,10 +978,10 @@ type isDownstreamTlsContext_SessionTicketKeysType interface {
 }
 
 type DownstreamTlsContext_SessionTicketKeys struct {
-	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,4,opt,name=session_ticket_keys,json=sessionTicketKeys,oneof"`
+	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,4,opt,name=session_ticket_keys,json=sessionTicketKeys,proto3,oneof"`
 }
 type DownstreamTlsContext_SessionTicketKeysSdsSecretConfig struct {
-	SessionTicketKeysSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,5,opt,name=session_ticket_keys_sds_secret_config,json=sessionTicketKeysSdsSecretConfig,oneof"`
+	SessionTicketKeysSdsSecretConfig *SdsSecretConfig `protobuf:"bytes,5,opt,name=session_ticket_keys_sds_secret_config,json=sessionTicketKeysSdsSecretConfig,proto3,oneof"`
 }
 
 func (*DownstreamTlsContext_SessionTicketKeys) isDownstreamTlsContext_SessionTicketKeysType() {}
@@ -1066,7 +1110,7 @@ type SdsSecretConfig struct {
 	// When both name and config are specified, then secret can be fetched and/or reloaded via SDS.
 	// When only name is specified, then secret will be loaded from static resources [V2-API-DIFF].
 	Name                 string             `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	SdsConfig            *core.ConfigSource `protobuf:"bytes,2,opt,name=sds_config,json=sdsConfig" json:"sds_config,omitempty"`
+	SdsConfig            *core.ConfigSource `protobuf:"bytes,2,opt,name=sds_config,json=sdsConfig,proto3" json:"sds_config,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
 	XXX_unrecognized     []byte             `json:"-"`
 	XXX_sizecache        int32              `json:"-"`
@@ -1076,7 +1120,7 @@ func (m *SdsSecretConfig) Reset()         { *m = SdsSecretConfig{} }
 func (m *SdsSecretConfig) String() string { return proto.CompactTextString(m) }
 func (*SdsSecretConfig) ProtoMessage()    {}
 func (*SdsSecretConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{7}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{7}
 }
 func (m *SdsSecretConfig) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1137,7 +1181,7 @@ func (m *Secret) Reset()         { *m = Secret{} }
 func (m *Secret) String() string { return proto.CompactTextString(m) }
 func (*Secret) ProtoMessage()    {}
 func (*Secret) Descriptor() ([]byte, []int) {
-	return fileDescriptor_cert_8c7cc5f89f6e5669, []int{8}
+	return fileDescriptor_cert_b6b543c414c2aeaf, []int{8}
 }
 func (m *Secret) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1174,13 +1218,13 @@ type isSecret_Type interface {
 }
 
 type Secret_TlsCertificate struct {
-	TlsCertificate *TlsCertificate `protobuf:"bytes,2,opt,name=tls_certificate,json=tlsCertificate,oneof"`
+	TlsCertificate *TlsCertificate `protobuf:"bytes,2,opt,name=tls_certificate,json=tlsCertificate,proto3,oneof"`
 }
 type Secret_SessionTicketKeys struct {
-	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,3,opt,name=session_ticket_keys,json=sessionTicketKeys,oneof"`
+	SessionTicketKeys *TlsSessionTicketKeys `protobuf:"bytes,3,opt,name=session_ticket_keys,json=sessionTicketKeys,proto3,oneof"`
 }
 type Secret_ValidationContext struct {
-	ValidationContext *CertificateValidationContext `protobuf:"bytes,4,opt,name=validation_context,json=validationContext,oneof"`
+	ValidationContext *CertificateValidationContext `protobuf:"bytes,4,opt,name=validation_context,json=validationContext,proto3,oneof"`
 }
 
 func (*Secret_TlsCertificate) isSecret_Type()    {}
@@ -1701,6 +1745,9 @@ func (this *UpstreamTlsContext) Equal(that interface{}) bool {
 		return false
 	}
 	if this.AllowRenegotiation != that1.AllowRenegotiation {
+		return false
+	}
+	if !this.MaxSessionKeys.Equal(that1.MaxSessionKeys) {
 		return false
 	}
 	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
@@ -2420,6 +2467,16 @@ func (m *UpstreamTlsContext) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i++
 	}
+	if m.MaxSessionKeys != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintCert(dAtA, i, uint64(m.MaxSessionKeys.Size()))
+		n17, err := m.MaxSessionKeys.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n17
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -2445,38 +2502,38 @@ func (m *DownstreamTlsContext) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.CommonTlsContext.Size()))
-		n17, err := m.CommonTlsContext.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n17
-	}
-	if m.RequireClientCertificate != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintCert(dAtA, i, uint64(m.RequireClientCertificate.Size()))
-		n18, err := m.RequireClientCertificate.MarshalTo(dAtA[i:])
+		n18, err := m.CommonTlsContext.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n18
 	}
-	if m.RequireSni != nil {
-		dAtA[i] = 0x1a
+	if m.RequireClientCertificate != nil {
+		dAtA[i] = 0x12
 		i++
-		i = encodeVarintCert(dAtA, i, uint64(m.RequireSni.Size()))
-		n19, err := m.RequireSni.MarshalTo(dAtA[i:])
+		i = encodeVarintCert(dAtA, i, uint64(m.RequireClientCertificate.Size()))
+		n19, err := m.RequireClientCertificate.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
 		i += n19
 	}
-	if m.SessionTicketKeysType != nil {
-		nn20, err := m.SessionTicketKeysType.MarshalTo(dAtA[i:])
+	if m.RequireSni != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCert(dAtA, i, uint64(m.RequireSni.Size()))
+		n20, err := m.RequireSni.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn20
+		i += n20
+	}
+	if m.SessionTicketKeysType != nil {
+		nn21, err := m.SessionTicketKeysType.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += nn21
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -2490,11 +2547,11 @@ func (m *DownstreamTlsContext_SessionTicketKeys) MarshalTo(dAtA []byte) (int, er
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.SessionTicketKeys.Size()))
-		n21, err := m.SessionTicketKeys.MarshalTo(dAtA[i:])
+		n22, err := m.SessionTicketKeys.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n21
+		i += n22
 	}
 	return i, nil
 }
@@ -2504,11 +2561,11 @@ func (m *DownstreamTlsContext_SessionTicketKeysSdsSecretConfig) MarshalTo(dAtA [
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.SessionTicketKeysSdsSecretConfig.Size()))
-		n22, err := m.SessionTicketKeysSdsSecretConfig.MarshalTo(dAtA[i:])
+		n23, err := m.SessionTicketKeysSdsSecretConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n22
+		i += n23
 	}
 	return i, nil
 }
@@ -2537,11 +2594,11 @@ func (m *SdsSecretConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.SdsConfig.Size()))
-		n23, err := m.SdsConfig.MarshalTo(dAtA[i:])
+		n24, err := m.SdsConfig.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n23
+		i += n24
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -2571,11 +2628,11 @@ func (m *Secret) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], m.Name)
 	}
 	if m.Type != nil {
-		nn24, err := m.Type.MarshalTo(dAtA[i:])
+		nn25, err := m.Type.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += nn24
+		i += nn25
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -2589,11 +2646,11 @@ func (m *Secret_TlsCertificate) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.TlsCertificate.Size()))
-		n25, err := m.TlsCertificate.MarshalTo(dAtA[i:])
+		n26, err := m.TlsCertificate.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n25
+		i += n26
 	}
 	return i, nil
 }
@@ -2603,11 +2660,11 @@ func (m *Secret_SessionTicketKeys) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.SessionTicketKeys.Size()))
-		n26, err := m.SessionTicketKeys.MarshalTo(dAtA[i:])
+		n27, err := m.SessionTicketKeys.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n26
+		i += n27
 	}
 	return i, nil
 }
@@ -2617,11 +2674,11 @@ func (m *Secret_ValidationContext) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintCert(dAtA, i, uint64(m.ValidationContext.Size()))
-		n27, err := m.ValidationContext.MarshalTo(dAtA[i:])
+		n28, err := m.ValidationContext.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n27
+		i += n28
 	}
 	return i, nil
 }
@@ -2635,6 +2692,9 @@ func encodeVarintCert(dAtA []byte, offset int, v uint64) int {
 	return offset + 1
 }
 func (m *TlsParameters) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TlsMinimumProtocolVersion != 0 {
@@ -2662,6 +2722,9 @@ func (m *TlsParameters) Size() (n int) {
 }
 
 func (m *TlsCertificate) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.CertificateChain != nil {
@@ -2693,6 +2756,9 @@ func (m *TlsCertificate) Size() (n int) {
 }
 
 func (m *TlsSessionTicketKeys) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if len(m.Keys) > 0 {
@@ -2708,6 +2774,9 @@ func (m *TlsSessionTicketKeys) Size() (n int) {
 }
 
 func (m *CertificateValidationContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TrustedCa != nil {
@@ -2754,6 +2823,9 @@ func (m *CertificateValidationContext) Size() (n int) {
 }
 
 func (m *CommonTlsContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TlsParams != nil {
@@ -2788,6 +2860,9 @@ func (m *CommonTlsContext) Size() (n int) {
 }
 
 func (m *CommonTlsContext_ValidationContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ValidationContext != nil {
@@ -2797,6 +2872,9 @@ func (m *CommonTlsContext_ValidationContext) Size() (n int) {
 	return n
 }
 func (m *CommonTlsContext_ValidationContextSdsSecretConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ValidationContextSdsSecretConfig != nil {
@@ -2806,6 +2884,9 @@ func (m *CommonTlsContext_ValidationContextSdsSecretConfig) Size() (n int) {
 	return n
 }
 func (m *CommonTlsContext_CombinedValidationContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.CombinedValidationContext != nil {
@@ -2815,6 +2896,9 @@ func (m *CommonTlsContext_CombinedValidationContext) Size() (n int) {
 	return n
 }
 func (m *CommonTlsContext_CombinedCertificateValidationContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.DefaultValidationContext != nil {
@@ -2832,6 +2916,9 @@ func (m *CommonTlsContext_CombinedCertificateValidationContext) Size() (n int) {
 }
 
 func (m *UpstreamTlsContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.CommonTlsContext != nil {
@@ -2845,6 +2932,10 @@ func (m *UpstreamTlsContext) Size() (n int) {
 	if m.AllowRenegotiation {
 		n += 2
 	}
+	if m.MaxSessionKeys != nil {
+		l = m.MaxSessionKeys.Size()
+		n += 1 + l + sovCert(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -2852,6 +2943,9 @@ func (m *UpstreamTlsContext) Size() (n int) {
 }
 
 func (m *DownstreamTlsContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.CommonTlsContext != nil {
@@ -2876,6 +2970,9 @@ func (m *DownstreamTlsContext) Size() (n int) {
 }
 
 func (m *DownstreamTlsContext_SessionTicketKeys) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.SessionTicketKeys != nil {
@@ -2885,6 +2982,9 @@ func (m *DownstreamTlsContext_SessionTicketKeys) Size() (n int) {
 	return n
 }
 func (m *DownstreamTlsContext_SessionTicketKeysSdsSecretConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.SessionTicketKeysSdsSecretConfig != nil {
@@ -2894,6 +2994,9 @@ func (m *DownstreamTlsContext_SessionTicketKeysSdsSecretConfig) Size() (n int) {
 	return n
 }
 func (m *SdsSecretConfig) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -2911,6 +3014,9 @@ func (m *SdsSecretConfig) Size() (n int) {
 }
 
 func (m *Secret) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Name)
@@ -2927,6 +3033,9 @@ func (m *Secret) Size() (n int) {
 }
 
 func (m *Secret_TlsCertificate) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.TlsCertificate != nil {
@@ -2936,6 +3045,9 @@ func (m *Secret_TlsCertificate) Size() (n int) {
 	return n
 }
 func (m *Secret_SessionTicketKeys) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.SessionTicketKeys != nil {
@@ -2945,6 +3057,9 @@ func (m *Secret_SessionTicketKeys) Size() (n int) {
 	return n
 }
 func (m *Secret_ValidationContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.ValidationContext != nil {
@@ -4199,6 +4314,39 @@ func (m *UpstreamTlsContext) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.AllowRenegotiation = bool(v != 0)
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxSessionKeys", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCert
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCert
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.MaxSessionKeys == nil {
+				m.MaxSessionKeys = &types.UInt32Value{}
+			}
+			if err := m.MaxSessionKeys.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCert(dAtA[iNdEx:])
@@ -4829,88 +4977,91 @@ var (
 	ErrIntOverflowCert   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptor_cert_8c7cc5f89f6e5669) }
+func init() { proto.RegisterFile("envoy/api/v2/auth/cert.proto", fileDescriptor_cert_b6b543c414c2aeaf) }
 
-var fileDescriptor_cert_8c7cc5f89f6e5669 = []byte{
-	// 1280 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x56, 0xbf, 0x73, 0x1b, 0x45,
-	0x14, 0xf6, 0x49, 0xb2, 0x22, 0x3f, 0x25, 0xce, 0x79, 0x63, 0xf0, 0x59, 0x18, 0x47, 0xb9, 0x24,
-	0x83, 0x8b, 0x8c, 0x44, 0x9c, 0xa1, 0xe0, 0x57, 0x20, 0x56, 0x98, 0xf1, 0x24, 0x81, 0xc0, 0x49,
-	0xc9, 0x04, 0x9a, 0x65, 0x7d, 0x5a, 0x4b, 0x8b, 0x4f, 0xb7, 0xc7, 0xee, 0x4a, 0x8e, 0x1a, 0x0a,
-	0xca, 0x94, 0xa9, 0x69, 0xe8, 0xe8, 0xe8, 0x28, 0xa8, 0x28, 0x69, 0x98, 0xe1, 0x4f, 0x60, 0xdc,
-	0xd1, 0xa4, 0xa6, 0x83, 0xd9, 0xbd, 0x93, 0x75, 0x92, 0x2e, 0x91, 0x60, 0x32, 0x74, 0x77, 0xfb,
-	0xf6, 0x7d, 0xdf, 0xdb, 0x7d, 0xdf, 0x7e, 0xbb, 0xb0, 0x45, 0xc3, 0x01, 0x1f, 0xd6, 0x49, 0xc4,
-	0xea, 0x83, 0xdd, 0x3a, 0xe9, 0xab, 0x6e, 0xdd, 0xa7, 0x42, 0xd5, 0x22, 0xc1, 0x15, 0x47, 0x6b,
-	0x26, 0x5a, 0x23, 0x11, 0xab, 0x0d, 0x76, 0x6b, 0x3a, 0x5a, 0x99, 0x4c, 0xf0, 0xb9, 0xa0, 0xf5,
-	0x03, 0x22, 0x69, 0x9c, 0x50, 0xb9, 0x3a, 0x1b, 0xf5, 0x79, 0x78, 0xc8, 0x3a, 0x58, 0xf2, 0xbe,
-	0xf0, 0x47, 0xd3, 0xb6, 0x3b, 0x9c, 0x77, 0x02, 0x5a, 0x37, 0x7f, 0x07, 0xfd, 0xc3, 0xfa, 0xb1,
-	0x20, 0x51, 0x44, 0x85, 0x4c, 0xe2, 0x1b, 0x03, 0x12, 0xb0, 0x36, 0x51, 0xb4, 0x3e, 0xfa, 0x48,
-	0x02, 0xeb, 0x1d, 0xde, 0xe1, 0xe6, 0xb3, 0xae, 0xbf, 0xe2, 0x51, 0xf7, 0xbb, 0x3c, 0x9c, 0x6b,
-	0x05, 0xf2, 0x53, 0x22, 0x48, 0x8f, 0x2a, 0x2a, 0x24, 0x1a, 0xc2, 0x96, 0x0a, 0x24, 0xee, 0xb1,
-	0x90, 0xf5, 0xfa, 0x3d, 0x6c, 0xa6, 0xf9, 0x3c, 0xc0, 0x03, 0x2a, 0x24, 0xe3, 0xa1, 0x63, 0x55,
-	0xad, 0x9d, 0xd5, 0xdd, 0x6b, 0xb5, 0x99, 0xf5, 0xd5, 0x26, 0x70, 0xcc, 0x5f, 0x92, 0xbb, 0x07,
-	0x3f, 0xff, 0xf9, 0x4b, 0x7e, 0xf9, 0x5b, 0x2b, 0x67, 0x5b, 0xde, 0xa6, 0x0a, 0xe4, 0xc7, 0x31,
-	0xf8, 0x28, 0xfe, 0x30, 0x86, 0x3e, 0xa5, 0x26, 0x8f, 0xb3, 0xa9, 0x73, 0x2f, 0x83, 0x3a, 0x06,
-	0x9f, 0xa6, 0xbe, 0x0c, 0xe7, 0x7c, 0x16, 0x75, 0xa9, 0xc0, 0xb2, 0xcf, 0x14, 0x95, 0x4e, 0xbe,
-	0x9a, 0xdf, 0x59, 0xf1, 0xce, 0xc6, 0x83, 0x4d, 0x33, 0x86, 0x2e, 0x42, 0x99, 0xfa, 0xed, 0x2e,
-	0xf6, 0xfb, 0x62, 0x40, 0xa5, 0x53, 0x30, 0x53, 0x40, 0x0f, 0x35, 0xcc, 0x88, 0x7b, 0x1f, 0xca,
-	0x29, 0x6e, 0x74, 0x16, 0x4a, 0xad, 0x7b, 0x4d, 0x7c, 0xeb, 0x41, 0xeb, 0xbe, 0xbd, 0x84, 0xca,
-	0x70, 0xa6, 0x75, 0xaf, 0x39, 0xb8, 0x8e, 0xdf, 0xb4, 0xad, 0xf1, 0xcf, 0x75, 0x3b, 0x37, 0xfe,
-	0xd9, 0xb5, 0xf3, 0xe3, 0x9f, 0x1b, 0x76, 0xc1, 0xfd, 0x2b, 0x07, 0xab, 0xad, 0x40, 0x36, 0xa8,
-	0x50, 0xec, 0x90, 0xf9, 0x44, 0x51, 0x74, 0x07, 0xd6, 0xfc, 0xf1, 0x2f, 0xf6, 0xbb, 0x84, 0xc5,
-	0x4d, 0x29, 0xef, 0xbe, 0x3e, 0xb9, 0x33, 0x5a, 0x43, 0xb5, 0xdb, 0x44, 0x91, 0xa6, 0x11, 0x90,
-	0x67, 0xa7, 0xf2, 0x1a, 0x3a, 0x0d, 0xdd, 0x84, 0x72, 0x24, 0xd8, 0x40, 0xe3, 0x1c, 0xd1, 0xa1,
-	0xd9, 0xdf, 0xb9, 0x28, 0x90, 0x64, 0xdc, 0xa5, 0x43, 0xf4, 0x36, 0x94, 0x22, 0x22, 0xe5, 0x31,
-	0x17, 0x6d, 0x27, 0xbf, 0x48, 0xf2, 0xe9, 0x74, 0x4d, 0xcd, 0x7d, 0x19, 0x61, 0xa9, 0x48, 0x14,
-	0x50, 0xa7, 0xb0, 0x10, 0xb5, 0xce, 0x68, 0x9a, 0x04, 0x84, 0x61, 0x4b, 0xb2, 0x4e, 0x48, 0xdb,
-	0x38, 0xbd, 0x1b, 0x8a, 0xf5, 0xa8, 0x54, 0xa4, 0x17, 0x39, 0xcb, 0xd5, 0xfc, 0x7c, 0xc0, 0x4a,
-	0x0c, 0x91, 0xda, 0xde, 0xd6, 0x08, 0xc0, 0x7d, 0x00, 0xeb, 0xad, 0x40, 0x36, 0xa9, 0xd4, 0xfa,
-	0x68, 0x31, 0xff, 0x88, 0xaa, 0xbb, 0x74, 0x28, 0xd1, 0xfb, 0x50, 0x38, 0xa2, 0x43, 0xe9, 0x58,
-	0x0b, 0x10, 0x24, 0xea, 0x7b, 0x6a, 0xe5, 0x4a, 0x96, 0x67, 0xd2, 0xdc, 0xdf, 0x0a, 0xb0, 0x95,
-	0xe2, 0x7b, 0x18, 0x1f, 0x52, 0xc6, 0xc3, 0x06, 0x0f, 0x15, 0x7d, 0xac, 0xd0, 0x7b, 0x00, 0x4a,
-	0xf4, 0xa5, 0xd2, 0x2b, 0x23, 0x8b, 0x35, 0x76, 0x25, 0x49, 0x68, 0x10, 0xb4, 0x0f, 0x1b, 0x03,
-	0x2a, 0xd8, 0xe1, 0x70, 0x62, 0x5b, 0xba, 0x44, 0x76, 0x9d, 0x9c, 0x96, 0xeb, 0x9e, 0xad, 0x2b,
-	0x2a, 0x3f, 0xb5, 0x4a, 0x6e, 0x51, 0x14, 0xaa, 0x1f, 0xee, 0x60, 0xef, 0x95, 0x38, 0x21, 0x55,
-	0xd4, 0x3e, 0x91, 0xdd, 0xe7, 0x20, 0xc9, 0xe8, 0x88, 0xc5, 0x67, 0x63, 0x0a, 0xe9, 0xda, 0xce,
-	0xb5, 0x0c, 0xa4, 0x66, 0x74, 0xc4, 0xd0, 0x5b, 0xa7, 0x48, 0xb2, 0x7f, 0xf0, 0x15, 0xf5, 0x15,
-	0x26, 0x81, 0xc2, 0x21, 0xe9, 0xd1, 0xe4, 0x08, 0xad, 0xc7, 0xe1, 0x66, 0x1c, 0xbd, 0x15, 0xa8,
-	0x4f, 0x48, 0x4f, 0x0b, 0xfd, 0x82, 0xa0, 0x5f, 0xf7, 0x99, 0xa0, 0x38, 0xad, 0x94, 0x65, 0xb3,
-	0x23, 0x95, 0x5a, 0xec, 0x83, 0xb5, 0x91, 0x0f, 0xd6, 0xf6, 0x38, 0x0f, 0x1e, 0x92, 0xa0, 0x4f,
-	0xbd, 0xb5, 0x24, 0xed, 0xfe, 0x58, 0x2d, 0x47, 0x70, 0x65, 0x84, 0xf5, 0x42, 0xd5, 0x14, 0xe7,
-	0x82, 0x5f, 0x4a, 0x70, 0x9a, 0xcf, 0x55, 0x0e, 0xaa, 0x43, 0xde, 0x17, 0x81, 0x73, 0x66, 0x91,
-	0xd6, 0xe9, 0x99, 0xe8, 0x1d, 0xd8, 0x24, 0x41, 0xc0, 0x8f, 0x31, 0x7d, 0x1c, 0x31, 0x31, 0x59,
-	0x9c, 0x53, 0xaa, 0x5a, 0x3b, 0x25, 0x6f, 0xc3, 0x4c, 0xf8, 0x28, 0x8e, 0xa7, 0x58, 0xdd, 0x67,
-	0x67, 0xc0, 0x6e, 0xf0, 0x5e, 0x8f, 0x87, 0xda, 0x27, 0x12, 0x0d, 0x7d, 0x00, 0xa0, 0x8d, 0x34,
-	0xd2, 0x96, 0x28, 0x13, 0x0d, 0x55, 0xe7, 0xd9, 0xa6, 0xb7, 0xa2, 0x92, 0x5f, 0x89, 0x1e, 0x81,
-	0xad, 0x01, 0x52, 0x75, 0x48, 0xa3, 0x9f, 0xf2, 0xee, 0xa5, 0x6c, 0x98, 0x54, 0x49, 0x63, 0xd1,
-	0xdb, 0x96, 0x77, 0x5e, 0x4d, 0xc4, 0x24, 0xfa, 0x12, 0xd0, 0xe0, 0x54, 0xf3, 0xd8, 0x8f, 0x0b,
-	0x4e, 0xcc, 0xa3, 0x9e, 0x81, 0xfd, 0xa2, 0xb3, 0xb2, 0xbf, 0xe4, 0xad, 0x0d, 0x66, 0x0e, 0xd0,
-	0x55, 0x58, 0x25, 0x41, 0x14, 0x9e, 0x5e, 0x1f, 0x23, 0xa3, 0x3e, 0xa7, 0x47, 0x47, 0xde, 0x2c,
-	0x51, 0x08, 0xee, 0xd4, 0x12, 0xb1, 0x6c, 0x4b, 0x2c, 0xa9, 0x2f, 0xa8, 0xc2, 0xf1, 0xd5, 0x2b,
-	0x9d, 0xa2, 0x59, 0xb4, 0x9b, 0x51, 0x58, 0xb3, 0x2d, 0x9b, 0x66, 0x6e, 0xc3, 0x4c, 0xf5, 0xb6,
-	0x27, 0x57, 0x3a, 0x15, 0x96, 0x48, 0xc1, 0x95, 0xd9, 0x85, 0xcf, 0x52, 0x26, 0xb2, 0x59, 0x80,
-	0x71, 0x7f, 0xc9, 0xab, 0xce, 0xac, 0x7e, 0x6a, 0x0e, 0x7a, 0x62, 0xc1, 0x6b, 0x3e, 0xef, 0x1d,
-	0x30, 0xad, 0xf9, 0x8c, 0x8d, 0x2f, 0x19, 0xb6, 0xfd, 0xac, 0x8d, 0x9f, 0x12, 0x95, 0x1e, 0x30,
-	0x30, 0x73, 0x3a, 0xb2, 0x39, 0xa2, 0x9b, 0x09, 0x56, 0xbe, 0xcf, 0xc1, 0x95, 0x45, 0x50, 0xd0,
-	0x10, 0x2a, 0x6d, 0x7a, 0x48, 0xfa, 0x81, 0xca, 0xaa, 0xd9, 0xfa, 0x4f, 0x62, 0x49, 0x64, 0xf9,
-	0xc4, 0xc8, 0xd2, 0x49, 0xe0, 0x67, 0xa9, 0xbf, 0x59, 0xb0, 0x4d, 0xb9, 0x45, 0xdb, 0x34, 0xc1,
-	0x3b, 0xb7, 0x61, 0x7b, 0x9b, 0xb0, 0x91, 0xc1, 0xaf, 0x86, 0x11, 0xbd, 0x53, 0x28, 0x2d, 0xdb,
-	0x45, 0xf7, 0x27, 0x0b, 0xd0, 0x83, 0x48, 0x2a, 0x41, 0x49, 0x2f, 0x75, 0xe4, 0x3f, 0x03, 0xe4,
-	0x9b, 0x8e, 0x61, 0xa3, 0xea, 0x89, 0xad, 0xba, 0xbc, 0x40, 0x7b, 0x3d, 0xdb, 0x9f, 0x76, 0x91,
-	0x2d, 0xc8, 0xcb, 0x90, 0x99, 0x95, 0xae, 0x24, 0xab, 0x10, 0xf9, 0x9d, 0xbf, 0x2d, 0x4f, 0x0f,
-	0xa3, 0x3a, 0x5c, 0x88, 0x4d, 0x4b, 0xd0, 0x90, 0x76, 0xb8, 0x62, 0xa6, 0x62, 0x73, 0x92, 0x4b,
-	0x1e, 0x32, 0x21, 0x2f, 0x1d, 0x71, 0x9f, 0xe5, 0x61, 0xfd, 0x36, 0x3f, 0x0e, 0xff, 0x8f, 0xd2,
-	0x1f, 0x41, 0x65, 0xe4, 0xf7, 0x7e, 0xc0, 0x68, 0xa8, 0x26, 0x2c, 0x35, 0x37, 0xd7, 0xe5, 0x9d,
-	0x24, 0xbb, 0x61, 0x92, 0xd3, 0xcf, 0xaf, 0x77, 0xa1, 0x7c, 0x7a, 0x93, 0x84, 0x2c, 0x31, 0xae,
-	0x17, 0x41, 0xc1, 0xe8, 0xc2, 0x08, 0x19, 0xfa, 0x1c, 0x2e, 0xc8, 0xf8, 0x41, 0x81, 0x95, 0x79,
-	0x51, 0x60, 0xf3, 0x94, 0x88, 0x1f, 0x3f, 0x6f, 0x64, 0x3b, 0xeb, 0xcc, 0x0b, 0x44, 0xbb, 0x9e,
-	0x9c, 0x79, 0x96, 0xf4, 0xe1, 0x6a, 0x06, 0x74, 0x86, 0x70, 0x97, 0xff, 0x8d, 0xbf, 0xcc, 0xf0,
-	0x4c, 0xcb, 0xb5, 0x02, 0x4e, 0x16, 0xad, 0xd6, 0xab, 0x4b, 0xe1, 0xfc, 0xb4, 0x1d, 0x21, 0x28,
-	0x98, 0x7b, 0x5f, 0x37, 0x77, 0xc5, 0x33, 0xdf, 0xe8, 0x26, 0x80, 0xae, 0x72, 0xe2, 0x5c, 0x5d,
-	0xcc, 0xb8, 0x35, 0x63, 0x88, 0xd1, 0x93, 0x47, 0xb6, 0x65, 0x3c, 0xe0, 0xfe, 0x98, 0x83, 0x62,
-	0x4c, 0x92, 0x09, 0x7f, 0x0f, 0xce, 0x4f, 0xf9, 0x7c, 0xc2, 0x31, 0xff, 0x26, 0xdb, 0x5f, 0xf2,
-	0x56, 0x27, 0x5d, 0xfd, 0x79, 0x1d, 0xcc, 0xbf, 0x84, 0x0e, 0x66, 0xdf, 0x8c, 0x85, 0x97, 0x77,
-	0x33, 0xee, 0x15, 0xa1, 0xa0, 0x1b, 0xb3, 0xf7, 0xea, 0x0f, 0x27, 0xdb, 0xd6, 0xaf, 0x27, 0xdb,
-	0xd6, 0xef, 0x27, 0xdb, 0xd6, 0x1f, 0x27, 0xdb, 0xd6, 0x17, 0x05, 0x8d, 0x78, 0x50, 0x34, 0xf2,
-	0xbd, 0xf1, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xce, 0x07, 0x76, 0x8c, 0xda, 0x0e, 0x00, 0x00,
+var fileDescriptor_cert_b6b543c414c2aeaf = []byte{
+	// 1325 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x56, 0xbf, 0x73, 0x1b, 0xc5,
+	0x17, 0xf7, 0x49, 0xb2, 0x22, 0x3f, 0x25, 0xce, 0x79, 0xe3, 0xef, 0xf8, 0xac, 0xaf, 0x71, 0x14,
+	0x25, 0x19, 0x5c, 0x64, 0x24, 0xa2, 0x0c, 0x45, 0xf8, 0x11, 0x88, 0x15, 0x18, 0x93, 0x18, 0x12,
+	0x4e, 0x72, 0x06, 0x68, 0x8e, 0xf5, 0x69, 0x2d, 0x2d, 0xbe, 0xbb, 0x3d, 0x76, 0x57, 0xb2, 0x45,
+	0x41, 0x41, 0x99, 0x32, 0x35, 0x0d, 0x1d, 0x1d, 0x3d, 0x15, 0x25, 0x0d, 0x33, 0xfc, 0x09, 0x8c,
+	0x3b, 0x9a, 0xd4, 0x54, 0xc0, 0xec, 0xde, 0xc9, 0x3e, 0xe9, 0x2e, 0x91, 0x60, 0x32, 0x54, 0x77,
+	0xbb, 0x6f, 0xdf, 0xe7, 0xb3, 0xfb, 0xde, 0x67, 0xdf, 0x5b, 0xd8, 0x20, 0xc1, 0x90, 0x8d, 0x1a,
+	0x38, 0xa4, 0x8d, 0x61, 0xb3, 0x81, 0x07, 0xb2, 0xdf, 0x70, 0x09, 0x97, 0xf5, 0x90, 0x33, 0xc9,
+	0xd0, 0x8a, 0xb6, 0xd6, 0x71, 0x48, 0xeb, 0xc3, 0x66, 0x5d, 0x59, 0x2b, 0x93, 0x0e, 0x2e, 0xe3,
+	0xa4, 0xb1, 0x8f, 0x05, 0x89, 0x1c, 0x2a, 0xd7, 0xd3, 0x56, 0x97, 0x05, 0x07, 0xb4, 0xe7, 0x08,
+	0x36, 0xe0, 0xee, 0x78, 0xd9, 0x66, 0x8f, 0xb1, 0x9e, 0x47, 0x1a, 0x7a, 0xb4, 0x3f, 0x38, 0x68,
+	0x1c, 0x71, 0x1c, 0x86, 0x84, 0x8b, 0xd8, 0xbe, 0x36, 0xc4, 0x1e, 0xed, 0x62, 0x49, 0x1a, 0xe3,
+	0x9f, 0xd8, 0xb0, 0xda, 0x63, 0x3d, 0xa6, 0x7f, 0x1b, 0xea, 0x2f, 0x9a, 0xad, 0x7d, 0x9b, 0x87,
+	0x0b, 0x1d, 0x4f, 0x3c, 0xc2, 0x1c, 0xfb, 0x44, 0x12, 0x2e, 0xd0, 0x08, 0x36, 0xa4, 0x27, 0x1c,
+	0x9f, 0x06, 0xd4, 0x1f, 0xf8, 0x8e, 0x5e, 0xe6, 0x32, 0xcf, 0x19, 0x12, 0x2e, 0x28, 0x0b, 0x2c,
+	0xa3, 0x6a, 0x6c, 0x2d, 0x37, 0x6f, 0xd4, 0x53, 0xe7, 0xab, 0x4f, 0xe0, 0xe8, 0x51, 0xec, 0xbb,
+	0x0d, 0x3f, 0xfe, 0xfe, 0x53, 0x7e, 0xf1, 0x1b, 0x23, 0x67, 0x1a, 0xf6, 0xba, 0xf4, 0xc4, 0x87,
+	0x11, 0xf8, 0xd8, 0xfe, 0x38, 0x82, 0x3e, 0xa5, 0xc6, 0xc7, 0xd9, 0xd4, 0xb9, 0x97, 0x41, 0x1d,
+	0x81, 0x4f, 0x53, 0x5f, 0x85, 0x0b, 0x2e, 0x0d, 0xfb, 0x84, 0x3b, 0x62, 0x40, 0x25, 0x11, 0x56,
+	0xbe, 0x9a, 0xdf, 0x5a, 0xb2, 0xcf, 0x47, 0x93, 0x6d, 0x3d, 0x87, 0x2e, 0x43, 0x99, 0xb8, 0xdd,
+	0xbe, 0xe3, 0x0e, 0xf8, 0x90, 0x08, 0xab, 0xa0, 0x97, 0x80, 0x9a, 0x6a, 0xe9, 0x99, 0xda, 0x43,
+	0x28, 0x27, 0xb8, 0xd1, 0x79, 0x28, 0x75, 0x76, 0xdb, 0xce, 0xdd, 0xbd, 0xce, 0x43, 0x73, 0x01,
+	0x95, 0xe1, 0x5c, 0x67, 0xb7, 0x3d, 0xbc, 0xe9, 0xbc, 0x66, 0x1a, 0x67, 0x83, 0x9b, 0x66, 0xee,
+	0x6c, 0xd0, 0x34, 0xf3, 0x67, 0x83, 0x5b, 0x66, 0xa1, 0xf6, 0x47, 0x0e, 0x96, 0x3b, 0x9e, 0x68,
+	0x11, 0x2e, 0xe9, 0x01, 0x75, 0xb1, 0x24, 0xe8, 0x3e, 0xac, 0xb8, 0x67, 0x43, 0xc7, 0xed, 0x63,
+	0x1a, 0x25, 0xa5, 0xdc, 0x7c, 0x65, 0x32, 0x32, 0x4a, 0x43, 0xf5, 0x7b, 0x58, 0xe2, 0xb6, 0x16,
+	0x90, 0x6d, 0x26, 0xfc, 0x5a, 0xca, 0x0d, 0xdd, 0x81, 0x72, 0xc8, 0xe9, 0x50, 0xe1, 0x1c, 0x92,
+	0x91, 0x8e, 0xef, 0x4c, 0x14, 0x88, 0x3d, 0x1e, 0x90, 0x11, 0xba, 0x0d, 0xa5, 0x10, 0x0b, 0x71,
+	0xc4, 0x78, 0xd7, 0xca, 0xcf, 0xe3, 0x7c, 0xba, 0x5c, 0x51, 0x33, 0x57, 0x84, 0x8e, 0x90, 0x38,
+	0xf4, 0x88, 0x55, 0x98, 0x8b, 0x5a, 0x79, 0xb4, 0xb5, 0x03, 0x72, 0x60, 0x43, 0xd0, 0x5e, 0x40,
+	0xba, 0x4e, 0x32, 0x1a, 0x92, 0xfa, 0x44, 0x48, 0xec, 0x87, 0xd6, 0x62, 0x35, 0x3f, 0x1b, 0xb0,
+	0x12, 0x41, 0x24, 0xc2, 0xdb, 0x19, 0x03, 0xd4, 0xf6, 0x60, 0xb5, 0xe3, 0x89, 0x36, 0x11, 0x4a,
+	0x1f, 0x1d, 0xea, 0x1e, 0x12, 0xf9, 0x80, 0x8c, 0x04, 0x7a, 0x1b, 0x0a, 0x87, 0x64, 0x24, 0x2c,
+	0x63, 0x0e, 0x82, 0x58, 0x7d, 0x4f, 0x8d, 0x5c, 0xc9, 0xb0, 0xb5, 0x5b, 0xed, 0x97, 0x02, 0x6c,
+	0x24, 0xf8, 0x1e, 0x47, 0x97, 0x94, 0xb2, 0xa0, 0xc5, 0x02, 0x49, 0x8e, 0x25, 0x7a, 0x0b, 0x40,
+	0xf2, 0x81, 0x90, 0xea, 0x64, 0x78, 0xbe, 0xc4, 0x2e, 0xc5, 0x0e, 0x2d, 0x8c, 0x76, 0x60, 0x6d,
+	0x48, 0x38, 0x3d, 0x18, 0x4d, 0x84, 0xa5, 0x8f, 0x45, 0xdf, 0xca, 0x29, 0xb9, 0x6e, 0x9b, 0x6a,
+	0x47, 0xe5, 0xa7, 0x46, 0xa9, 0x56, 0xe4, 0x85, 0xea, 0xbb, 0x5b, 0x8e, 0xfd, 0xbf, 0xc8, 0x21,
+	0xb1, 0xa9, 0x1d, 0x2c, 0xfa, 0xcf, 0x41, 0x12, 0xe1, 0x21, 0x8d, 0xee, 0xc6, 0x14, 0xd2, 0x8d,
+	0xad, 0x1b, 0x19, 0x48, 0xed, 0xf0, 0x90, 0xa2, 0xd7, 0x4f, 0x91, 0xc4, 0x60, 0xff, 0x0b, 0xe2,
+	0x4a, 0x07, 0x7b, 0xd2, 0x09, 0xb0, 0x4f, 0xe2, 0x2b, 0xb4, 0x1a, 0x99, 0xdb, 0x91, 0xf5, 0xae,
+	0x27, 0x3f, 0xc2, 0xbe, 0x12, 0xfa, 0x25, 0x4e, 0xbe, 0x1c, 0x50, 0x4e, 0x9c, 0xa4, 0x52, 0x16,
+	0x75, 0x44, 0x2a, 0xf5, 0xa8, 0x0e, 0xd6, 0xc7, 0x75, 0xb0, 0xbe, 0xcd, 0x98, 0xf7, 0x18, 0x7b,
+	0x03, 0x62, 0xaf, 0xc4, 0x6e, 0x0f, 0xcf, 0xd4, 0x72, 0x08, 0xd7, 0xc6, 0x58, 0x2f, 0x54, 0x4d,
+	0x71, 0x26, 0xf8, 0x95, 0x18, 0xa7, 0xfd, 0x5c, 0xe5, 0xa0, 0x06, 0xe4, 0x5d, 0xee, 0x59, 0xe7,
+	0xe6, 0x49, 0x9d, 0x5a, 0x89, 0xde, 0x80, 0x75, 0xec, 0x79, 0xec, 0xc8, 0x21, 0xc7, 0x21, 0xe5,
+	0x93, 0x9b, 0xb3, 0x4a, 0x55, 0x63, 0xab, 0x64, 0xaf, 0xe9, 0x05, 0xef, 0x45, 0xf6, 0x04, 0x6b,
+	0xed, 0xd9, 0x39, 0x30, 0x5b, 0xcc, 0xf7, 0x59, 0xa0, 0xea, 0x44, 0xac, 0xa1, 0x77, 0x00, 0x54,
+	0x21, 0x0d, 0x55, 0x49, 0x14, 0xb1, 0x86, 0xaa, 0xb3, 0xca, 0xa6, 0xbd, 0x24, 0xe3, 0xa1, 0x40,
+	0xbb, 0x60, 0x2a, 0x80, 0xc4, 0x3e, 0x84, 0xd6, 0x4f, 0xb9, 0x79, 0x25, 0x1b, 0x26, 0xb1, 0x25,
+	0xfb, 0xa2, 0x9c, 0x18, 0x0b, 0xf4, 0x39, 0xa0, 0xe1, 0xa9, 0xce, 0x1d, 0x37, 0xda, 0x64, 0x5c,
+	0x30, 0x1a, 0x19, 0x78, 0x2f, 0xba, 0x1f, 0x3b, 0x0b, 0xf6, 0xca, 0x30, 0x75, 0x69, 0xae, 0xc3,
+	0x32, 0xf6, 0xc2, 0xe0, 0xb4, 0x65, 0x8c, 0x8b, 0xf3, 0x05, 0x35, 0x3b, 0xae, 0xc7, 0x02, 0x7d,
+	0x05, 0xb5, 0xa9, 0x63, 0x39, 0xa2, 0x2b, 0x1c, 0x41, 0x5c, 0x4e, 0xa4, 0x13, 0xb5, 0x5b, 0x61,
+	0x15, 0xf5, 0x41, 0x6b, 0x19, 0x1b, 0x6b, 0x77, 0x45, 0x5b, 0xaf, 0x6d, 0xe9, 0xa5, 0x67, 0xd7,
+	0xdb, 0x34, 0xec, 0xcd, 0xc9, 0x53, 0x4f, 0x2d, 0x15, 0x48, 0xc2, 0xb5, 0x74, 0x10, 0xd2, 0xf4,
+	0xb1, 0x6c, 0xe6, 0x60, 0xdf, 0x59, 0xb0, 0xab, 0xa9, 0x48, 0x4c, 0xad, 0x41, 0x4f, 0x0c, 0xf8,
+	0xbf, 0xcb, 0xfc, 0x7d, 0xaa, 0x34, 0x9f, 0x91, 0x84, 0x92, 0x66, 0xdb, 0xc9, 0x4a, 0xc2, 0x94,
+	0xa8, 0xd4, 0x84, 0x86, 0x99, 0x91, 0x9d, 0xf5, 0x31, 0x5d, 0xca, 0x58, 0xf9, 0x2e, 0x07, 0xd7,
+	0xe6, 0x41, 0x41, 0x23, 0xa8, 0x74, 0xc9, 0x01, 0x1e, 0x78, 0x32, 0x6b, 0xcf, 0xc6, 0xbf, 0x12,
+	0x4e, 0x9c, 0xac, 0x27, 0x3a, 0x59, 0x56, 0x0c, 0x9f, 0xa6, 0xfe, 0x7a, 0xce, 0x34, 0xe5, 0xe6,
+	0x4d, 0xd3, 0x04, 0xef, 0xcc, 0x84, 0x6d, 0xaf, 0xc3, 0x5a, 0x06, 0xbf, 0x1c, 0x85, 0xe4, 0x7e,
+	0xa1, 0xb4, 0x68, 0x16, 0x6b, 0x7f, 0x1a, 0x80, 0xf6, 0x42, 0x21, 0x39, 0xc1, 0x7e, 0xe2, 0xca,
+	0x7f, 0x0c, 0xc8, 0xd5, 0x19, 0x73, 0xb4, 0xc2, 0x27, 0x42, 0x75, 0x75, 0x8e, 0xf4, 0xda, 0xa6,
+	0x3b, 0x5d, 0x45, 0x36, 0x20, 0x2f, 0x02, 0xaa, 0x4f, 0xba, 0x14, 0x9f, 0x82, 0xe7, 0xb7, 0xfe,
+	0x32, 0x6c, 0x35, 0x8d, 0x1a, 0x70, 0x29, 0x2a, 0x5a, 0x9c, 0x04, 0xa4, 0xc7, 0x24, 0xd5, 0x3b,
+	0xd6, 0xb7, 0xba, 0x64, 0x23, 0x6d, 0xb2, 0x93, 0x16, 0xf4, 0x3e, 0x98, 0x3e, 0x3e, 0x76, 0x44,
+	0xd4, 0x51, 0x1d, 0xdd, 0x44, 0xa3, 0xb6, 0xbf, 0x91, 0xaa, 0xb7, 0x7b, 0x1f, 0x04, 0xf2, 0x56,
+	0x33, 0xaa, 0xb8, 0xcb, 0x3e, 0x3e, 0x8e, 0xdb, 0xb0, 0x6a, 0xc0, 0xb5, 0x67, 0x79, 0x58, 0xbd,
+	0xc7, 0x8e, 0x82, 0xff, 0x22, 0x04, 0x9f, 0x40, 0x65, 0xdc, 0x37, 0x5c, 0x8f, 0x92, 0x40, 0x4e,
+	0x94, 0xe6, 0xdc, 0xcc, 0x6e, 0x61, 0xc5, 0xde, 0x2d, 0xed, 0x9c, 0x7c, 0xc6, 0xbd, 0x09, 0xe5,
+	0xd3, 0x8e, 0x14, 0xd0, 0xb8, 0x18, 0xbe, 0x08, 0x0a, 0xc6, 0x8d, 0x27, 0xa0, 0xe8, 0x53, 0xb8,
+	0x34, 0x0e, 0xa3, 0xd4, 0x2f, 0x93, 0x64, 0x34, 0x5f, 0xcd, 0xae, 0xd0, 0xa9, 0x97, 0x8c, 0xaa,
+	0xa4, 0x22, 0xf5, 0xbc, 0x19, 0xc0, 0xf5, 0x0c, 0xe8, 0x8c, 0x0b, 0xb0, 0xf8, 0x4f, 0xea, 0x54,
+	0x8a, 0x67, 0x5a, 0xf6, 0x15, 0xb0, 0xb2, 0x68, 0x95, 0xee, 0x6b, 0x04, 0x2e, 0x4e, 0x97, 0x35,
+	0x04, 0x05, 0xfd, 0x7e, 0x50, 0xc9, 0x5d, 0xb2, 0xf5, 0x3f, 0xba, 0x03, 0xa0, 0x76, 0x39, 0x71,
+	0x3f, 0x2f, 0x67, 0x74, 0xdf, 0x08, 0x62, 0xfc, 0x74, 0x12, 0x5d, 0x11, 0x4d, 0xd4, 0x7e, 0xc8,
+	0x41, 0x31, 0x22, 0xc9, 0x84, 0xdf, 0x85, 0x8b, 0x53, 0xbd, 0x23, 0xe6, 0x98, 0xdd, 0x11, 0x77,
+	0x16, 0xec, 0xe5, 0xc9, 0xee, 0xf0, 0xbc, 0x0c, 0xe6, 0x5f, 0x42, 0x06, 0xb3, 0xbb, 0x6d, 0xe1,
+	0xe5, 0x75, 0xdb, 0xed, 0x22, 0x14, 0x54, 0x62, 0xb6, 0x6f, 0x7f, 0x7f, 0xb2, 0x69, 0xfc, 0x7c,
+	0xb2, 0x69, 0xfc, 0x7a, 0xb2, 0x69, 0xfc, 0x76, 0xb2, 0x69, 0xc0, 0x65, 0xca, 0x22, 0x86, 0x90,
+	0xb3, 0xe3, 0x51, 0x9a, 0xec, 0x91, 0xf1, 0x59, 0x41, 0x7d, 0xf7, 0x8b, 0x5a, 0xe1, 0xb7, 0xfe,
+	0x0e, 0x00, 0x00, 0xff, 0xff, 0x20, 0x71, 0xe0, 0x24, 0x45, 0x0f, 0x00, 0x00,
 }

@@ -54,6 +54,7 @@ import (
 	"strings"
 
 	"go.opencensus.io/stats"
+
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	descriptor "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -114,8 +115,9 @@ func BuildTable(
 			entries: make(map[tpb.TemplateVariety]*varietyTable, 4),
 		},
 
-		handlers: handlers,
-		expb:     expb,
+		// nolint: goimports
+		handlers:               handlers,
+		expb:                   expb,
 		defaultConfigNamespace: defaultConfigNamespace,
 		nextIDCounter:          1,
 
@@ -208,11 +210,7 @@ func (b *builder) build(snapshot *config.Snapshot) {
 			for _, instance := range action.Instances {
 				// get the instance mapper and builder for this instance. Mapper is used by APA instances
 				// to map the instance result back to attributes.
-				builder, mapper, err := b.getBuilderAndMapperDynamic(snapshot.Attributes, instance)
-				if err != nil {
-					log.Warnf("Unable to create builder/mapper for instance: instance='%s', err='%v'", instance.Name, err)
-					continue
-				}
+				builder, mapper := b.getBuilderAndMapperDynamic(snapshot.Attributes, instance)
 
 				b.add(rule.Namespace, b.templateInfo(instance.Template), entry, condition, builder, mapper,
 					entry.Name, instance.Name, rule.Match, action.Name)
@@ -538,7 +536,7 @@ const defaultInstanceSize = 128
 // get or create a builder and a mapper for the given instance. The mapper is created only if the template
 // is an attribute generator. At present this function never returns an error.
 func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinder,
-	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn, error) {
+	instance *config.InstanceDynamic) (template.InstanceBuilderFn, template.OutputMapperFn) {
 	var instBuilder template.InstanceBuilderFn = func(attrs attribute.Bag) (interface{}, error) {
 		var err error
 		ba := make([]byte, 0, defaultInstanceSize)
@@ -583,7 +581,7 @@ func (b *builder) getBuilderAndMapperDynamic(finder ast.AttributeDescriptorFinde
 
 		b.mappers[instance.Name] = mapper
 	}
-	return instBuilder, mapper, nil
+	return instBuilder, mapper
 }
 
 // buildRuleCompiler constructs an expression compiler over an extended attribute vocabulary
@@ -692,6 +690,23 @@ func (b *builder) addRuleOperations(
 	namespace string,
 	condition compiled.Expression,
 	operations []*HeaderOperation) {
+
+	// ensure struct population for rules with routeDirectives and no actions
+	if b.table.entries == nil {
+		b.table.entries = map[tpb.TemplateVariety]*varietyTable{}
+	}
+	if b.table.entries[tpb.TEMPLATE_VARIETY_CHECK] == nil {
+		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK] = &varietyTable{}
+	}
+	if b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries == nil {
+		b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries = map[string]*NamespaceTable{
+			namespace: {
+				entries:    []*Destination{},
+				directives: []*DirectiveGroup{},
+			},
+		}
+	}
+
 	byNamespace := b.table.entries[tpb.TEMPLATE_VARIETY_CHECK].entries[namespace]
 
 	var group *DirectiveGroup

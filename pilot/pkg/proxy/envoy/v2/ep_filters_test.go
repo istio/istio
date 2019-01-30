@@ -29,6 +29,8 @@ import (
 type LbEpInfo struct {
 	network string
 	address string
+	// nolint: structcheck
+	weight uint32
 }
 
 type LocLbEpInfo struct {
@@ -67,18 +69,15 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			env:       env,
 			endpoints: testEndpoints,
 			want: []LocLbEpInfo{
-				{ // 2 local endpoints
+				{
 					lbEps: []LbEpInfo{
-						{address: "10.0.0.1"},
-						{address: "10.0.0.2"},
+						// 2 local endpoints
+						{address: "10.0.0.1", weight: 1},
+						{address: "10.0.0.2", weight: 1},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
 					},
-					weight: 2,
-				},
-				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-					lbEps: []LbEpInfo{
-						{address: "2.2.2.2"},
-					},
-					weight: 1,
+					weight: 3,
 				},
 			},
 		},
@@ -88,17 +87,14 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			env:       env,
 			endpoints: testEndpoints,
 			want: []LocLbEpInfo{
-				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+				{
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1"},
+						// 1 local endpoint
+						{address: "20.0.0.1", weight: 1},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
 					},
 					weight: 2,
-				},
-				{ // 1 local endpoint
-					lbEps: []LbEpInfo{
-						{address: "20.0.0.1"},
-					},
-					weight: 1,
 				},
 			},
 		},
@@ -108,17 +104,14 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			env:       env,
 			endpoints: testEndpoints,
 			want: []LocLbEpInfo{
-				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+				{
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1"},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
 					},
 					weight: 2,
-				},
-				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-					lbEps: []LbEpInfo{
-						{address: "2.2.2.2"},
-					},
-					weight: 1,
 				},
 			},
 		},
@@ -128,23 +121,16 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			env:       env,
 			endpoints: testEndpoints,
 			want: []LocLbEpInfo{
-				{ // 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+				{
 					lbEps: []LbEpInfo{
-						{address: "1.1.1.1"},
+						// 1 local endpoint
+						{address: "40.0.0.1", weight: 1},
+						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
+						{address: "1.1.1.1", weight: 2},
+						// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+						{address: "2.2.2.2", weight: 1},
 					},
-					weight: 2,
-				},
-				{ // 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-					lbEps: []LbEpInfo{
-						{address: "2.2.2.2"},
-					},
-					weight: 1,
-				},
-				{ // 1 local endpoint
-					lbEps: []LbEpInfo{
-						{address: "40.0.0.1"},
-					},
-					weight: 1,
+					weight: 3,
 				},
 			},
 		},
@@ -158,8 +144,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 			}
 
 			sort.Slice(filtered, func(i, j int) bool {
-				addrI := filtered[i].LbEndpoints[0].Endpoint.Address.GetSocketAddress().Address
-				addrJ := filtered[j].LbEndpoints[0].Endpoint.Address.GetSocketAddress().Address
+				addrI := filtered[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+				addrJ := filtered[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
 				return addrI < addrJ
 			})
 
@@ -172,9 +158,18 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), tt.want[i].weight)
 				}
 
-				addr := ep.LbEndpoints[0].Endpoint.Address.GetSocketAddress().Address
-				if addr != tt.want[i].lbEps[0].address {
-					t.Errorf("Unexpected address for endpoint %d: got %v, want %v", i, addr, tt.want[i].lbEps[0].address)
+				for _, lbEp := range ep.LbEndpoints {
+					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
+					found := false
+					for _, wantLbEp := range tt.want[i].lbEps {
+						if addr == wantLbEp.address {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
+					}
 				}
 			}
 		})
@@ -243,27 +238,31 @@ func environment() *model.Environment {
 // testEndpoints creates endpoints to be handed to the filter. It creates
 // 2 endpoints on network1, 1 endpoint on network2 and 1 endpoint on network4.
 func testEndpoints() []endpoint.LocalityLbEndpoints {
-	return createEndpoints(
-		[]LocLbEpInfo{
-			{
-				lbEps: []LbEpInfo{
-					{network: "network1", address: "10.0.0.1"},
-					{network: "network1", address: "10.0.0.2"},
-					{network: "network2", address: "20.0.0.1"},
-					{network: "network4", address: "40.0.0.1"},
-				},
-			},
+	lbEndpoints := createLbEndpoints(
+		[]LbEpInfo{
+			{network: "network1", address: "10.0.0.1"},
+			{network: "network1", address: "10.0.0.2"},
+			{network: "network2", address: "20.0.0.1"},
+			{network: "network4", address: "40.0.0.1"},
 		},
 	)
+
+	return []endpoint.LocalityLbEndpoints{
+		{
+			LbEndpoints: lbEndpoints,
+			LoadBalancingWeight: &types.UInt32Value{
+				Value: uint32(len(lbEndpoints)),
+			},
+		},
+	}
+
 }
 
-func createEndpoints(locLbEpsInfo []LocLbEpInfo) []endpoint.LocalityLbEndpoints {
-	locLbEps := make([]endpoint.LocalityLbEndpoints, len(locLbEpsInfo))
-	for i, locLbEpInfo := range locLbEpsInfo {
-		locLbEp := endpoint.LocalityLbEndpoints{}
-		locLbEp.LbEndpoints = make([]endpoint.LbEndpoint, len(locLbEpInfo.lbEps))
-		for j, lbEpInfo := range locLbEpInfo.lbEps {
-			lbEp := endpoint.LbEndpoint{
+func createLbEndpoints(lbEpsInfo []LbEpInfo) []endpoint.LbEndpoint {
+	lbEndpoints := make([]endpoint.LbEndpoint, len(lbEpsInfo))
+	for j, lbEpInfo := range lbEpsInfo {
+		lbEp := endpoint.LbEndpoint{
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
 					Address: &core.Address{
 						Address: &core.Address_SocketAddress{
@@ -273,26 +272,28 @@ func createEndpoints(locLbEpsInfo []LocLbEpInfo) []endpoint.LocalityLbEndpoints 
 						},
 					},
 				},
-				Metadata: &core.Metadata{
-					FilterMetadata: map[string]*types.Struct{
-						"istio": &types.Struct{
-							Fields: map[string]*types.Value{
-								"network": &types.Value{
-									Kind: &types.Value_StringValue{
-										StringValue: lbEpInfo.network,
-									},
+			},
+			Metadata: &core.Metadata{
+				FilterMetadata: map[string]*types.Struct{
+					"istio": &types.Struct{
+						Fields: map[string]*types.Value{
+							"network": &types.Value{
+								Kind: &types.Value_StringValue{
+									StringValue: lbEpInfo.network,
+								},
+							},
+							"uid": &types.Value{
+								Kind: &types.Value_StringValue{
+									StringValue: "kubernetes://dummy",
 								},
 							},
 						},
 					},
 				},
-			}
-			locLbEp.LbEndpoints[j] = lbEp
+			},
 		}
-		locLbEp.LoadBalancingWeight = &types.UInt32Value{
-			Value: uint32(len(locLbEp.LbEndpoints)),
-		}
-		locLbEps[i] = locLbEp
+		lbEndpoints[j] = lbEp
 	}
-	return locLbEps
+
+	return lbEndpoints
 }

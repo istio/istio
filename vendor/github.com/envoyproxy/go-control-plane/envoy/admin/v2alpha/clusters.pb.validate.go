@@ -213,6 +213,8 @@ func (m *HostStatus) Validate() error {
 		}
 	}
 
+	// no validation rules for Weight
+
 	return nil
 }
 
@@ -258,6 +260,8 @@ func (m *HostHealthStatus) Validate() error {
 	// no validation rules for FailedActiveHealthCheck
 
 	// no validation rules for FailedOutlierCheck
+
+	// no validation rules for FailedActiveDegradedCheck
 
 	// no validation rules for EdsHealthStatus
 

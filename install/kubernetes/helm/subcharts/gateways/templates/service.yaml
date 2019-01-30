@@ -1,5 +1,5 @@
 {{- range $key, $spec := .Values }}
-{{- if and (ne $key "enabled") }}
+{{- if ne $key "enabled" }}
 {{- if $spec.enabled }}
 apiVersion: v1
 kind: Service
@@ -28,8 +28,13 @@ spec:
 {{- if $spec.externalTrafficPolicy }}
   externalTrafficPolicy: {{$spec.externalTrafficPolicy }}
 {{- end }}
+{{- if $spec.externalIPs }}
+  externalIPs:
+{{ toYaml $spec.externalIPs | indent 4 }}
+{{- end }}
   type: {{ .type }}
   selector:
+    release: {{ $.Release.Name }}
     {{- range $key, $val := $spec.labels }}
     {{ $key }}: {{ $val }}
     {{- end }}

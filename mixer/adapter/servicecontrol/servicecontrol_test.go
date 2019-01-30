@@ -29,10 +29,7 @@ import (
 
 func TestInitializeHandlerContext(t *testing.T) {
 	adapterCfg := getTestAdapterConfig()
-	ctx, err := initializeHandlerContext(at.NewEnv(t), adapterCfg, &mockSvcctrlClient{})
-	if err != nil {
-		t.Errorf("initializeHandlerContext() failed with %v", err)
-	}
+	ctx := initializeHandlerContext(at.NewEnv(t), adapterCfg, &mockSvcctrlClient{})
 
 	expectedIdx := map[string]*config.GcpServiceSetting{
 		"service_a": adapterCfg.ServiceConfigs[0],
@@ -137,7 +134,8 @@ func getTestAdapterConfig() *config.Params {
 				GoogleServiceName: "service_a.googleapi.com",
 				Quotas: []*config.Quota{
 					{
-						Name: "request-count",
+						// nolint: goimports
+						Name:                  "request-count",
 						GoogleQuotaMetricName: "request-metric",
 						Expiration: &pbtypes.Duration{
 							Seconds: 10,

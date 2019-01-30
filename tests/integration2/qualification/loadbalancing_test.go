@@ -17,6 +17,16 @@ package qualification
 import (
 	"context"
 	"fmt"
+	"sort"
+	"sync"
+	"testing"
+	"time"
+
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/model"
+
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
@@ -24,16 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-	"sort"
-	"sync"
-	"testing"
-	"time"
-
-	"github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/model"
-
-	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test"
 )
 
 const (
