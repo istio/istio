@@ -600,7 +600,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 	loadAssignments := []*xdsapi.ClusterLoadAssignment{}
 	emptyClusters := 0
 	endpoints := 0
-	empty := []string{}
 
 	for _, clusterName := range con.Clusters {
 
@@ -645,7 +644,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *XdsConnection, e
 		endpoints += len(l.Endpoints)
 		if len(l.Endpoints) == 0 {
 			emptyClusters++
-			empty = append(empty, clusterName)
 		}
 		loadAssignments = append(loadAssignments, l)
 	}
