@@ -136,13 +136,32 @@ func TestClientSource(t *testing.T) {
 		}
 	}
 
-	reconnectChan := make(chan struct{}, 10)
+	waiting := make(chan bool)
+	proceed := make(chan bool)
 	reconnectTestProbe = func() {
-		reconnectChan <- struct{}{}
+		waiting <- true
+		<-proceed
 	}
 	defer func() { reconnectTestProbe = nil }()
 
 	h.setOpenError(errors.New("fake connection error"))
 	h.recvErrorChan <- errRecv
-	<-reconnectChan
+	<-waiting
+	proceed <- true
+
+	<-waiting
+	h.setOpenError(nil)
+	h.client = true
+	h.requestsChan <- test.MakeRequest("", "", codes.OK)
+	proceed <- true
+
+	<-waiting
+	h.client = true
+	h.requestsChan <- test.MakeRequest("", "", codes.InvalidArgument)
+	proceed <- true
+
+	<-waiting
+	h.setRecvError(errors.New("fake recv error"))
+	h.client = true
+	proceed <- true
 }

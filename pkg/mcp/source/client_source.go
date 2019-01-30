@@ -99,12 +99,12 @@ func (c *Client) Run(ctx context.Context) {
 			// slow subsequent reconnection attempts down
 			retryDelay = reestablishStreamDelay
 
-			scope.Info("(re)trying to establish new MCP source stream")
-			stream, err := c.client.EstablishResourceStream(ctx)
-
 			if reconnectTestProbe != nil {
 				reconnectTestProbe()
 			}
+
+			scope.Info("(re)trying to establish new MCP source stream")
+			stream, err := c.client.EstablishResourceStream(ctx)
 
 			if err != nil {
 				scope.Errorf("Failed to create a new MCP source stream: %v", err)
