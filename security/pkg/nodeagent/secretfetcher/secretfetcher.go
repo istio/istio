@@ -40,14 +40,14 @@ const (
 	secretResyncPeriod = 15 * time.Second
 
 	// The ID/name for the certificate chain in kubernetes generic secret.
-	GenericScrtCert = "cert"
+	genericScrtCert = "cert"
 	// The ID/name for the k8sKey in kubernetes generic secret.
-	GenericScrtKey = "key"
+	genericScrtKey = "key"
 
 	// The ID/name for the certificate chain in kubernetes tls secret.
-	TLSScrtCert = "tls.crt"
+	tlsScrtCert = "tls.crt"
 	// The ID/name for the k8sKey in kubernetes tls secret.
-	TLSScrtKey = "tls.key"
+	tlsScrtKey = "tls.key"
 
 	// IngressSecretNameSpace the namespace of kubernetes secrets to watch.
 	ingressSecretNameSpace = "INGRESS_GATEWAY_NAMESPACE"
@@ -136,12 +136,12 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 }
 
 func extractCertAndKey(scrt *v1.Secret) (cert, key []byte) {
-	if len(scrt.Data[GenericScrtCert]) > 0 {
-		cert = scrt.Data[GenericScrtCert]
-		key = scrt.Data[GenericScrtKey]
+	if len(scrt.Data[genericScrtCert]) > 0 {
+		cert = scrt.Data[genericScrtCert]
+		key = scrt.Data[genericScrtKey]
 	} else {
-		cert = scrt.Data[TLSScrtCert]
-		key = scrt.Data[TLSScrtKey]
+		cert = scrt.Data[tlsScrtCert]
+		key = scrt.Data[tlsScrtKey]
 	}
 	return cert, key
 }

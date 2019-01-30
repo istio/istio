@@ -31,8 +31,8 @@ var (
 	k8sSecretNameA        = "test-scrtA"
 	k8sTestGenericSecretA = &v1.Secret{
 		Data: map[string][]byte{
-			GenericScrtCert: k8sCertChainA,
-			GenericScrtKey:  k8sKeyA,
+			genericScrtCert: k8sCertChainA,
+			genericScrtKey:  k8sKeyA,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameA,
@@ -45,8 +45,8 @@ var (
 	k8sCertChainB         = []byte("B chain cert fake")
 	k8sTestGenericSecretB = &v1.Secret{
 		Data: map[string][]byte{
-			GenericScrtCert: k8sCertChainB,
-			GenericScrtKey:  k8sKeyB,
+			genericScrtCert: k8sCertChainB,
+			genericScrtKey:  k8sKeyB,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameA,
@@ -60,8 +60,8 @@ var (
 	k8sSecretNameC    = "test-scrtC"
 	k8sTestTLSSecretC = &v1.Secret{
 		Data: map[string][]byte{
-			TLSScrtCert: k8sCertChainC,
-			TLSScrtKey:  k8sKeyC,
+			tlsScrtCert: k8sCertChainC,
+			tlsScrtKey:  k8sKeyC,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameC,
@@ -74,8 +74,8 @@ var (
 	k8sCertChainD     = []byte("fake cert chain D")
 	k8sTestTLSSecretD = &v1.Secret{
 		Data: map[string][]byte{
-			TLSScrtCert: k8sCertChainD,
-			TLSScrtKey:  k8sKeyD,
+			tlsScrtCert: k8sCertChainD,
+			tlsScrtKey:  k8sKeyD,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretNameC,
