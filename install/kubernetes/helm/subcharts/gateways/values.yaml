@@ -21,9 +21,11 @@ istio-ingressgateway:
   labels:
     app: istio-ingressgateway
     istio: ingressgateway
-  replicaCount: 1
+  autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
+  # specify replicaCount when autoscaleEnabled: false
+  # replicaCount: 1
   resources: {}
     # limits:
     #  cpu: 100m
@@ -109,9 +111,11 @@ istio-egressgateway:
   labels:
     app: istio-egressgateway
     istio: egressgateway
-  replicaCount: 1
+  autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
+  # specify replicaCount when autoscaleEnabled: false
+  # replicaCount: 1
   cpu:
     targetAverageUtilization: 80
   serviceAnnotations: {}
@@ -157,9 +161,11 @@ istio-ilbgateway:
   labels:
     app: istio-ilbgateway
     istio: ilbgateway
-  replicaCount: 1
+  autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
+  # specify replicaCount when autoscaleEnabled: false
+  # replicaCount: 1
   cpu:
     targetAverageUtilization: 80
   resources:
