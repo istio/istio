@@ -52,7 +52,7 @@ var (
 			Name:      k8sSecretName,
 			Namespace: "test-namespace",
 		},
-		Type: secretfetcher.IngressSecretType,
+		Type: "test-secret",
 	}
 )
 
