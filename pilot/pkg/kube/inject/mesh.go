@@ -172,6 +172,7 @@ containers:
   resources:
     requests:
       cpu: 10m
+      memory: 30Mi
   securityContext:
     {{ if (or (eq .DebugMode true) (eq .Privileged true)) -}}
     privileged: true
