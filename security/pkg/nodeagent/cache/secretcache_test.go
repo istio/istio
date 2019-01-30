@@ -45,8 +45,8 @@ var (
 	k8sSecretName = "test-scrt"
 	k8sTestSecret = &v1.Secret{
 		Data: map[string][]byte{
-			secretfetcher.ScrtCert: k8sCertChain,
-			secretfetcher.ScrtKey:  k8sKey,
+			secretfetcher.GenericScrtCert: k8sCertChain,
+			secretfetcher.GenericScrtKey:  k8sKey,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sSecretName,
