@@ -238,12 +238,6 @@ func (d *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) ([]*mode
 	return out, nil
 }
 
-// GetProxyLocality returns the locality where the proxy runs.
-func (d *ServiceEntryStore) GetProxyLocality(node *model.Proxy) string {
-	// not supported
-	return ""
-}
-
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODOg
 func (d *ServiceEntryStore) GetIstioServiceAccounts(hostname model.Hostname, ports []int) []string {
 	//for service entries, there is no istio auth, no service accounts, etc. It is just a

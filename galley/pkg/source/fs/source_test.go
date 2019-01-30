@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/galley/pkg/meshconfig"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/source/fs"
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
@@ -138,6 +139,39 @@ spec:
     protocol: TCP
     targetPort: 53
   type: ClusterIP
+`
+
+	sameNameDifferentTypes = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: service-a
+spec:
+  hosts:
+  - some.example.com
+  gateways:
+  - some-ingress
+  http:
+  - route:
+    - destination:
+        host: some.example.internal
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-a
+spec:
+   hosts:
+   - some.example.com
+   ports:
+   - number: 80
+     name: http
+     protocol: HTTP
+   resolution: STATIC
+   endpoints:
+    - address: 127.0.0.2
+      ports:
+        http: 7072
 `
 
 	cfg = &converter.Config{Mesh: meshconfig.NewInMemory()}
@@ -258,6 +292,42 @@ func TestDynamicResource(t *testing.T) {
 		actual := events.Expect(t, ch)
 		g.Expect(actual).To(Equal(expected))
 	})
+}
+
+func TestDuplicateResourceNamesDifferentTypes(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	dir := createTempDir(t)
+	defer deleteTempDir(t, dir)
+
+	// Copy a file to the dir
+	u := copyAndParseFile(t, dir, "service-a.yaml", sameNameDifferentTypes)
+
+	// Start the source.
+	s := newOrFail(t, dir)
+	ch := startOrFail(t, s)
+	defer s.Stop()
+
+	// Expect the add of VirtualService
+	u[0].SetResourceVersion("v0")
+	expectedVirtualService := resource.Event{
+		Kind:  resource.Added,
+		Entry: unstructuredToEntry(t, u[0], *kubeMeta.Types.Get("VirtualService")),
+	}
+	actualVirtualService := events.Expect(t, ch)
+	g.Expect(actualVirtualService).To(Equal(expectedVirtualService))
+
+	// ... and the add of service entry
+	u[1].SetResourceVersion("v0")
+	expectedServiceEntry := resource.Event{
+		Kind:  resource.Added,
+		Entry: unstructuredToEntry(t, u[1], *kubeMeta.Types.Get("ServiceEntry")),
+	}
+	actualServiceEntry := events.Expect(t, ch)
+	g.Expect(actualServiceEntry).To(Equal(expectedServiceEntry))
+
+	// Expect the full sync event immediately after.
+	expectFullSync(t, ch)
 }
 
 func TestBuiltinResource(t *testing.T) {
@@ -404,7 +474,7 @@ func TestSnapshotDistribution(t *testing.T) {
 	s := newOrFail(t, dir)
 
 	// Create a snapshot distributor.
-	d := runtime.NewInMemoryDistributor()
+	d := publish.NewInMemoryDistributor()
 
 	// Create and start the runtime processor.
 	cfg := &runtime.Config{Mesh: meshconfig.NewInMemory()}

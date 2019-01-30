@@ -36,7 +36,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -85,10 +84,6 @@ func loadConfig(injectFile, meshFile string) (*Config, *meshconfig.MeshConfig, e
 		return nil, nil, err
 	}
 	meshConfig, err := cmd.ReadMeshConfig(meshFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = model.ValidateMeshConfig(meshConfig)
 	if err != nil {
 		return nil, nil, err
 	}

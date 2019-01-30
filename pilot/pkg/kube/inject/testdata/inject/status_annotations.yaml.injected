@@ -53,6 +53,8 @@ spec:
         - "123"
         - --applicationPorts
         - 1,2,3
+        - --concurrency
+        - "1"
         env:
         - name: POD_NAME
           valueFrom:

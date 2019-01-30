@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -47,6 +48,7 @@ type cliOptions struct { // nolint: maligned
 	listenedNamespace       string
 	istioCaStorageNamespace string
 	kubeConfigFile          string
+	readSigningCertOnly     bool
 
 	certChainFile   string
 	signingCertFile string
@@ -66,8 +68,9 @@ type cliOptions struct { // nolint: maligned
 	// TODO(incfly): delete this field once we deprecate flag --grpc-hostname.
 	grpcHostname string
 	// Comma separated string containing all possible host name that clients may use to connect to.
-	grpcHosts string
-	grpcPort  int
+	grpcHosts  string
+	grpcPort   int
+	serverOnly bool
 
 	// Whether the CA signs certificates for other CAs.
 	signCACerts bool
@@ -148,6 +151,10 @@ func init() {
 
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
+	flags.BoolVar(&opts.readSigningCertOnly, "read-signing-cert-only", false, "When set, Citadel only reads the self-signed signing "+
+		"key and cert from Kubernetes secret without generating one (if not exist). This flag avoids racing condition between "+
+		"multiple Citadels generating self-signed key and cert. Please make sure one and only one Citadel instance has this flag set "+
+		"to false.")
 
 	// Configuration if Citadel accepts key/cert configured through arguments.
 	flags.StringVar(&opts.certChainFile, "cert-chain", "", "Path to the certificate chain file")
@@ -187,6 +194,8 @@ func init() {
 		"The list of hostnames for istio ca server, separated by comma.")
 	flags.IntVar(&opts.grpcPort, "grpc-port", 8060, "The port number for Citadel GRPC server. "+
 		"If unspecified, Citadel will not serve GRPC requests.")
+	flags.BoolVar(&opts.serverOnly, "server-only", false, "When set, Citadel only serves as a server without writing "+
+		"the Kubernetes secrets.")
 
 	flags.StringVar(&opts.grpcHostname, "grpc-hostname", "istio-ca", "deprecated")
 	flags.MarkDeprecated("grpc-hostname", "please use --grpc-host-identities instead")
@@ -294,17 +303,25 @@ func runCA() {
 		fatalf("Could not create k8s clientset: %v", err)
 	}
 	ca := createCA(cs.CoreV1())
-	// For workloads in K8s, we apply the configured workload cert TTL.
-	sc, err := controller.NewSecretController(ca,
-		opts.workloadCertTTL,
-		opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
-		cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
-	if err != nil {
-		fatalf("Failed to create secret controller: %v", err)
-	}
 
 	stopCh := make(chan struct{})
-	sc.Run(stopCh)
+	if !opts.serverOnly {
+		log.Infof("Creating Kubernetes controller to write issued keys and certs into secret ...")
+		// For workloads in K8s, we apply the configured workload cert TTL.
+		sc, err := controller.NewSecretController(ca,
+			opts.workloadCertTTL,
+			opts.workloadCertGracePeriodRatio, opts.workloadCertMinGracePeriod, opts.dualUse,
+			cs.CoreV1(), opts.signCACerts, opts.listenedNamespace, webhooks)
+		if err != nil {
+			fatalf("Failed to create secret controller: %v", err)
+		}
+		sc.Run(stopCh)
+	} else {
+		log.Info("Citadel is running in server only mode, certificates will not be propagated via secret.")
+		if opts.grpcPort <= 0 {
+			fatalf("The gRPC port must be set in server-only model.")
+		}
+	}
 
 	if opts.grpcPort > 0 {
 		// start registry if gRPC server is to be started
@@ -396,9 +413,18 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
 		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, "", len(opts.kubeConfigFile) != 0))
-		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
+		// Abort after 20 minutes.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*20)
+		defer cancel()
+		var checkInterval time.Duration
+		if opts.readSigningCertOnly {
+			checkInterval = ca.ReadSigningCertCheckInterval
+		} else {
+			checkInterval = -1
+		}
+		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx, opts.selfSignedCACertTTL, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
-			opts.istioCaStorageNamespace, client)
+			opts.istioCaStorageNamespace, checkInterval, client)
 		if err != nil {
 			fatalf("Failed to create a self-signed Citadel (error: %v)", err)
 		}

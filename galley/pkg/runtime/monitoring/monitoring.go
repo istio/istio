@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package monitoring
 
 import (
 	"context"
@@ -21,6 +21,8 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
+
+	"istio.io/istio/galley/pkg/runtime/log"
 )
 
 const collection = "collection"
@@ -74,11 +76,13 @@ var (
 		131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608)
 )
 
-func recordStrategyOnChange() {
+// RecordStrategyOnChange
+func RecordStrategyOnChange() {
 	stats.Record(context.Background(), strategyOnChangeTotal.M(1))
 }
 
-func recordOnTimer(maxTimeReached, quiesceTimeReached, timerReset bool) {
+// RecordOnTimer
+func RecordOnTimer(maxTimeReached, quiesceTimeReached, timerReset bool) {
 	if maxTimeReached {
 		stats.Record(context.Background(), strategyOnTimerMaxTimeReachedTotal.M(1))
 	}
@@ -90,21 +94,24 @@ func recordOnTimer(maxTimeReached, quiesceTimeReached, timerReset bool) {
 	}
 }
 
-func recordProcessorEventProcessed(eventSpan time.Duration) {
+// RecordProcessorEventProcessed
+func RecordProcessorEventProcessed(eventSpan time.Duration) {
 	stats.Record(context.Background(), processorEventsProcessed.M(1),
 		processorEventSpansMs.M(eventSpan.Nanoseconds()/1e6))
 }
 
-func recordProcessorSnapshotPublished(events int64, snapshotSpan time.Duration) {
+// RecordProcessorSnapshotPublished
+func RecordProcessorSnapshotPublished(events int64, snapshotSpan time.Duration) {
 	stats.Record(context.Background(), processorSnapshotsPublished.M(1))
 	stats.Record(context.Background(), processorEventsPerSnapshot.M(events),
 		processorSnapshotLifetimesMs.M(snapshotSpan.Nanoseconds()/1e6))
 }
 
-func recordStateTypeCount(collection string, count int) {
+// RecordStateTypeCount
+func RecordStateTypeCount(collection string, count int) {
 	ctx, err := tag.New(context.Background(), tag.Insert(CollectionTag, collection))
 	if err != nil {
-		scope.Errorf("Error creating monitoring context for counting state: %v", err)
+		log.Scope.Errorf("Error creating monitoring context for counting state: %v", err)
 	} else {
 		stats.Record(ctx, stateTypeInstancesTotal.M(int64(count)))
 	}
