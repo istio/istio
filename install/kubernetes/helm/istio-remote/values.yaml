@@ -58,7 +58,7 @@ global:
     resources:
       requests:
         cpu: 10m
-      #  memory: 128Mi
+        memory: 30Mi
       # limits:
       #   cpu: 100m
       #   memory: 128Mi
@@ -121,7 +121,7 @@ global:
       port: # example: 9125
 
     # Specify which tracer to use. One of: lightstep, zipkin
-    tracer: "zipkin"    
+    tracer: "zipkin"
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
@@ -225,7 +225,7 @@ global:
   defaultResources:
     requests:
       cpu: 10m
-    #   memory: 128Mi
+      memory: 30Mi
     # limits:
     #   cpu: 100m
     #   memory: 128Mi
@@ -244,7 +244,7 @@ global:
   # The trust domain corresponds to the trust root of a system
   # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
   trustDomain: ""
-  
+
   sds:
     enabled: false
     udsPath: ""
@@ -258,9 +258,9 @@ global:
   #
   # Must match the names in the meshNetworks section in the Istio local.
   network: ""
-  
+
   # Specifies whether helm test is enabled or not.
-  # This field is set to false by default, so 'helm template ...' 
+  # This field is set to false by default, so 'helm template ...'
   # will ignore the helm test yaml files when generating the template
   enableHelmTest: false
 
