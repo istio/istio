@@ -23,7 +23,7 @@ spec:
       image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
-      args: ['--retry', '3', '--retry-delay', '30', 'http://prometheus:9090/-/ready']
+      args: ['--retry', '3', '--retry-connrefused', '--retry-delay', '30', 'http://prometheus:9090/-/ready']
   restartPolicy: Never
   affinity:
     {{- include "nodeaffinity" . | indent 4 }}
