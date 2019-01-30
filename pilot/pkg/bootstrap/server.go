@@ -166,9 +166,9 @@ type ServiceArgs struct {
 // JWKSOptions allows the user to provide expiration duration/refresh interval for JWT.
 // See more at https://github.com/istio/istio/issues/9520.
 type JWKSOptions struct {
-	JWKSURICacheExpiration 		time.Duration
-	JWTPubKeyExpireDuration 	time.Duration
-	JWTPubKeyRefreshInterval 	time.Duration
+	JWKSURICacheExpiration   time.Duration
+	JWTPubKeyExpireDuration  time.Duration
+	JWTPubKeyRefreshInterval time.Duration
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -186,7 +186,7 @@ type PilotArgs struct {
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
 	KeepaliveOptions     *istiokeepalive.Options
-	JWKSOptions					 JWKSOptions
+	JWKSOptions          JWKSOptions
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }

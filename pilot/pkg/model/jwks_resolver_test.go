@@ -190,7 +190,7 @@ func TestGetPublicKey(t *testing.T) {
 }
 
 func TestJwtPubKeyRefresh(t *testing.T) {
-	r := NewJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond /*EvictionDuration*/,
+	r := NewJwksResolver(time.Millisecond /*ExpireDuration*/, 100*time.Millisecond, /*EvictionDuration*/
 		2*time.Millisecond /*RefreshInterval*/, jwksURICacheExpiration)
 	defer r.Close()
 
