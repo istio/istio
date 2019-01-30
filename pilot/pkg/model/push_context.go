@@ -588,6 +588,11 @@ func (ps *PushContext) InitContext(env *Environment) error {
 	ps.Env = env
 	var err error
 
+	// Must be initialized first
+	// as initServiceRegistry/VirtualServices/Destrules
+	// use the default export map
+	ps.initDefaultExportMaps()
+
 	if err = ps.initServiceRegistry(env); err != nil {
 		return err
 	}
@@ -604,8 +609,6 @@ func (ps *PushContext) InitContext(env *Environment) error {
 		rbacLog.Errorf("failed to initialize authorization policies: %v", err)
 		return err
 	}
-
-	ps.initDefaultExportMaps()
 
 	// Must be initialized in the end
 	if err = ps.InitSidecarScopes(env); err != nil {
