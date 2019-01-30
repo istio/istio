@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	defaultRetryTimeout = retry.Timeout(time.Minute * 3)
+	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
 	defaultRetryDelay   = retry.Delay(time.Second * 10)
 )
 
