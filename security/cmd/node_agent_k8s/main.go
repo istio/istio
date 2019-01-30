@@ -86,6 +86,9 @@ const (
 	// The environmental variable name for key rotation job running interval.
 	// example value format like "20m"
 	SecretRotationJobRunInterval = "SECRET_JOB_RUN_INTERVAL"
+
+	// The environmental variable name for the token used in StreamSecret.
+	tokenForStreamSecret = "TOKEN_FOR_STREAM_SECRET"
 )
 
 var (
@@ -238,6 +241,9 @@ func init() {
 		"Vault sign CSR path")
 	rootCmd.PersistentFlags().StringVar(&serverOptions.VaultTLSRootCert, "vaultTLSRootCert", os.Getenv(vaultTLSRootCert),
 		"Vault TLS root certificate")
+
+	rootCmd.PersistentFlags().StringVar(&serverOptions.TokenForStreamSecret, "tokenForStreamSecret", os.Getenv(tokenForStreamSecret),
+		"The token, when not empty, used as the token when streaming secrets")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

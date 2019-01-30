@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -24,7 +25,7 @@ import (
 
 	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
@@ -44,9 +45,10 @@ var (
 	fakePushCertificateChain = []byte{03}
 	fakePushPrivateKey       = []byte{04}
 
-	fakeCredentialToken = "faketoken"
-	testResourceName    = "default"
-	extraResourceName   = "extra resource name"
+	fakeCredentialToken  = "faketoken"
+	wrongCredentialToken = "wrongtoken"
+	testResourceName     = "default"
+	extraResourceName    = "extra resource name"
 
 	fakeSecret = &model.SecretItem{
 		CertificateChain: fakeCertificateChain,
@@ -70,6 +72,48 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
+}
+
+func TestStreamSecretsForWorkloadSdsWithWrongToken(t *testing.T) {
+	arg := Options{
+		EnableIngressGatewaySDS: false,
+		EnableWorkloadSDS:       true,
+		IngressGatewayUDSPath:   "",
+		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		TokenForStreamSecret:    wrongCredentialToken,
+	}
+
+	var wst, gst cache.SecretManager
+	wst = &mockSecretStore{
+		checkToken: true,
+	}
+	server, err := NewServer(arg, wst, gst)
+	defer server.Stop()
+	if err != nil {
+		t.Fatalf("failed to create server for sds: %v", err)
+	}
+
+	proxyID := "sidecar~127.0.0.1~id1~local"
+	rn := []string{testResourceName}
+	req := &api.DiscoveryRequest{
+		ResourceNames: rn,
+		Node: &core.Node{
+			Id: proxyID,
+		},
+	}
+
+	// Try to call the server, wrong token should result in an error.
+	_, err = sdsRequestStream(arg.WorkloadUDSPath, req)
+	if err == nil {
+		t.Fatal("wrong token did not result in an error!")
+		return
+	}
+	match, _ := regexp.MatchString(".*"+wrongCredentialToken+".*", err.Error())
+	if !match {
+		t.Fatalf("wrong token is not in the error (%v)!", err)
+	} else {
+		t.Logf("an error (%v) on wrong token is returned", err)
+	}
 }
 
 func TestStreamSecretsForGatewaySds(t *testing.T) {

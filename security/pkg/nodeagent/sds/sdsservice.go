@@ -88,17 +88,20 @@ type sdsservice struct {
 	st cache.SecretManager
 	// skipToken indicates whether token is required.
 	skipToken bool
+	// tokenForStreamSecret passed from an input parameter, when not empty, is used as the token in StreamSecret().
+	tokenForStreamSecret string
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification bool) *sdsservice {
+func newSDSService(st cache.SecretManager, skipTokenVerification bool, tokenForStreamSecret string) *sdsservice {
 	if st == nil {
 		return nil
 	}
 
 	return &sdsservice{
-		st:        st,
-		skipToken: skipTokenVerification,
+		st:                   st,
+		skipToken:            skipTokenVerification,
+		tokenForStreamSecret: tokenForStreamSecret,
 	}
 }
 
@@ -118,6 +121,10 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			return err
 		}
 		token = t
+		if len(s.tokenForStreamSecret) > 0 {
+			log.Warn("Token passed from the input parameter is used for as the stream secret")
+			token = s.tokenForStreamSecret
+		}
 	}
 
 	var receiveError error
