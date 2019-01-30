@@ -38,11 +38,7 @@ import (
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
 	// collect workload labels
-	workloadInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		log.Errora("Failed to get gateway instances for router ", node.ID, err)
-		return nil, err
-	}
+	workloadInstances := node.ServiceInstances
 
 	var workloadLabels model.LabelsCollection
 	for _, w := range workloadInstances {
@@ -127,18 +123,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			},
 		}
 		for _, p := range configgen.Plugins {
-			if err = p.OnOutboundListener(pluginParams, mutable); err != nil {
+			if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
 				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err = buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
+		if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
 
-		if err = mutable.Listener.Validate(); err != nil {
+		if err := mutable.Listener.Validate(); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
@@ -150,7 +146,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		listeners = append(listeners, mutable.Listener)
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
-	err = errs.ErrorOrNil()
+	err := errs.ErrorOrNil()
 	if err != nil {
 		// we have some listeners to return, but we also have some errors; log them
 		log.Info(err.Error())
