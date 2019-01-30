@@ -55,7 +55,7 @@ var (
 		Type: "test-generic-secret",
 	}
 	k8sTLSSecretName = "test-tls-scrt"
-	k8sTestTlsSecret = &v1.Secret{
+	k8sTestTLSSecret = &v1.Secret{
 		Data: map[string][]byte{
 			"tls.crt": k8sCertChain,
 			"tls.key": k8sKey,
@@ -276,7 +276,7 @@ func TestGatewayAgentGenerateSecret(t *testing.T) {
 	}
 
 	// Add a Tls secret and verify that secret can be read and cached.
-	fetcher.AddSecret(k8sTestTlsSecret)
+	fetcher.AddSecret(k8sTestTLSSecret)
 	proxyID = "proxy2-id"
 	gotSecret, err = sc.GenerateSecret(ctx, proxyID, k8sTLSSecretName, "")
 	if err != nil {
@@ -350,7 +350,7 @@ func TestGatewayAgentDeleteSecret(t *testing.T) {
 	}()
 
 	fetcher.AddSecret(k8sTestGenericSecret)
-	fetcher.AddSecret(k8sTestTlsSecret)
+	fetcher.AddSecret(k8sTestTLSSecret)
 	proxyID := "proxy1-id"
 	ctx := context.Background()
 	gotSecret, err := sc.GenerateSecret(ctx, proxyID, k8sGenericSecretName, "")
