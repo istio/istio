@@ -199,7 +199,7 @@ ignored = [
 
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
-  version = "0.8.2"
+  version = "0.10.3"
 
 [[constraint]]
   branch = "master"
