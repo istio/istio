@@ -29,7 +29,7 @@ items:
     selector:
       app: {{ .Values.provider }}
 {{ if and (eq .Values.provider "jaeger") (eq .Values.jaeger.spec.strategy "production") }}
-      jaeger-component: collector
+      app.kubernetes.io/component: collector
 {{ end}}
 - apiVersion: v1
   kind: Service
@@ -58,5 +58,5 @@ items:
     selector:
       app: {{ .Values.provider }}
 {{ if and (eq .Values.provider "jaeger") (eq .Values.jaeger.spec.strategy "production") }}
-      jaeger-component: query
+      app.kubernetes.io/component: query
 {{ end}}
