@@ -333,7 +333,7 @@ set +xe
 case "$1" in
     start) startLocalApiserver ;;
     stop) stopLocalApiserver ;;
-    ensure) ensureLocalApiServer ;;
+    ensure) /bin/sh ;;
     startIstio) startIstio ;;
     stopIstio) stopIstio ;;
     startMultiCluster) startMultiCluster ;;
