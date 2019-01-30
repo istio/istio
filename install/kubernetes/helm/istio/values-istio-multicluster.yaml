@@ -13,9 +13,6 @@ global:
   # imagePullSecrets:
   #   - name: "private-registry-key"
 
-  # Default is 10s second
-  refreshInterval: 1s
-
 # In a multiple cluster environment, citadel uses the same root certificate in all the clusters
 security:
   selfSigned: false
