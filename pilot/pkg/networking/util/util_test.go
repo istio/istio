@@ -280,66 +280,22 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 		want *core.Metadata
 	}{
 		{
-			"route-rule",
-			model.ConfigMeta{Name: "svcA", Namespace: "default", Domain: "svc.cluster.local", Type: "route-rule"},
-			&core.Metadata{
-				FilterMetadata: map[string]*types.Struct{
-					IstioMetadataKey: {
-						Fields: map[string]*types.Value{
-							"route-rule": {
-								Kind: &types.Value_StringValue{
-									StringValue: "svcA.default.svc.cluster.local",
-								},
-							},
-						},
-					},
-				},
+			"destination-rule",
+			model.ConfigMeta{
+				Group:     "networking.istio.io",
+				Version:   "v1alpha3",
+				Name:      "svcA",
+				Namespace: "default",
+				Domain:    "svc.cluster.local",
+				Type:      "destination-rule",
 			},
-		},
-		{
-			"missing namespace",
-			model.ConfigMeta{Name: "svcA", Domain: "svc.cluster.local", Type: "route-rule"},
 			&core.Metadata{
 				FilterMetadata: map[string]*types.Struct{
 					IstioMetadataKey: {
 						Fields: map[string]*types.Value{
-							"route-rule": {
+							"config": {
 								Kind: &types.Value_StringValue{
-									StringValue: "svcA..svc.cluster.local",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			"missing domain",
-			model.ConfigMeta{Name: "svcA", Namespace: "istio-system", Type: "unknown-type"},
-			&core.Metadata{
-				FilterMetadata: map[string]*types.Struct{
-					IstioMetadataKey: {
-						Fields: map[string]*types.Value{
-							"unknown-type": {
-								Kind: &types.Value_StringValue{
-									StringValue: "svcA.istio-system.", // is this OK?
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			"no-type",
-			model.ConfigMeta{Name: "svcA", Namespace: "istio-system", Domain: "istio.io"},
-			&core.Metadata{
-				FilterMetadata: map[string]*types.Struct{
-					IstioMetadataKey: {
-						Fields: map[string]*types.Value{
-							"": { // is this OK?
-								Kind: &types.Value_StringValue{
-									StringValue: "svcA.istio-system.istio.io",
+									StringValue: "/apis/networking.istio.io/v1alpha3/namespaces/default/destination-rule/svcA",
 								},
 							},
 						},

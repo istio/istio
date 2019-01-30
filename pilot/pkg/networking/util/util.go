@@ -286,10 +286,9 @@ func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
 		FilterMetadata: map[string]*types.Struct{
 			IstioMetadataKey: {
 				Fields: map[string]*types.Value{
-					config.Type: {
+					"config": {
 						Kind: &types.Value_StringValue{
-							StringValue: config.Name + "." + config.Namespace + "." + config.Domain,
-							//							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace, config.Type, config.Name),
+							StringValue: fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", config.Group, config.Version, config.Namespace, config.Type, config.Name),
 						},
 					},
 				},
