@@ -178,6 +178,8 @@ func buildTestClusters(serviceHostname string, nodeType model.NodeType, mesh mes
 		panic(fmt.Sprintf("unsupported node type: %v", nodeType))
 	}
 
+	proxy.ServiceInstances, _ = serviceDiscovery.GetProxyServiceInstances(proxy)
+
 	return configgen.BuildClusters(env, proxy, env.PushContext)
 }
 
