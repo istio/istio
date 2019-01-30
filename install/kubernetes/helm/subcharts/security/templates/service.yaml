@@ -18,6 +18,6 @@ spec:
       targetPort: 8060
       protocol: TCP
     - name: http-monitoring
-      port: 9093
+      port: {{ .Values.global.monitoringPort }}
   selector:
     istio: citadel

@@ -203,7 +203,7 @@ func init() {
 	flags.BoolVar(&opts.signCACerts, "sign-ca-certs", false, "Whether Citadel signs certificates for other CAs")
 
 	// Monitoring configuration
-	flags.IntVar(&opts.monitoringPort, "monitoring-port", 9093, "The port number for monitoring Citadel. "+
+	flags.IntVar(&opts.monitoringPort, "monitoring-port", 15014, "The port number for monitoring Citadel. "+
 		"If unspecified, Citadel will disable monitoring.")
 	flags.BoolVar(&opts.enableProfiling, "enable-profiling", false, "Enabling profiling when monitoring Citadel.")
 

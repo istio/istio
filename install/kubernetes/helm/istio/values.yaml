@@ -108,7 +108,7 @@ global:
   tag: master-latest-daily
 
   # monitoring port used by mixer, pilot, galley
-  monitoringPort: 9093
+  monitoringPort: 15014
 
   k8sIngress:
     enabled: false
