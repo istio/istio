@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -62,7 +63,10 @@ func TestCalloutRun(t *testing.T) {
 	co := &callout{
 		address: "foo",
 	}
-	co.Run()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	co.Run(&wg)
+
 	if dialAddr != "foo" {
 		t.Error("Callout run did not dial address")
 	}

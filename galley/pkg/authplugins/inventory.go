@@ -27,3 +27,12 @@ func Inventory() []authplugin.InfoFn {
 		none.GetInfo,
 	}
 }
+
+func AuthMap() map[string]authplugin.AuthFn {
+	m := make(map[string]authplugin.AuthFn)
+	for _, g := range Inventory() {
+		i := g()
+		m[i.Name] = i.GetAuth
+	}
+	return m
+}

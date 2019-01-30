@@ -17,11 +17,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"google.golang.org/grpc"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/istio/galley/pkg/authplugin"
 	"istio.io/istio/galley/pkg/authplugins"
 	"istio.io/istio/pkg/mcp/source"
 )
@@ -56,7 +56,7 @@ func init() {
 }
 
 func newCallout(sa *Args, so *source.Options) (*callout, error) {
-	auths := getAuth()
+	auths := authplugins.AuthMap()
 
 	f, ok := auths[sa.CalloutAuth]
 	if !ok {
@@ -75,7 +75,8 @@ func newCallout(sa *Args, so *source.Options) (*callout, error) {
 	}, nil
 }
 
-func (c *callout) Run() {
+func (c *callout) Run(wg *sync.WaitGroup) {
+	defer wg.Done()
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 
@@ -97,13 +98,4 @@ func (c *callout) Close() {
 	if c.cancel != nil {
 		c.cancel()
 	}
-}
-
-func getAuth() map[string]authplugin.AuthFn {
-	m := make(map[string]authplugin.AuthFn)
-	for _, g := range authplugins.Inventory() {
-		i := g()
-		m[i.Name] = i.GetAuth
-	}
-	return m
 }

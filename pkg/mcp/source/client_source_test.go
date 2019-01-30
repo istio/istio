@@ -79,6 +79,7 @@ func TestClientSource(t *testing.T) {
 	h := &sourceHarness{
 		sourceTestHarness: newSourceTestHarness(t),
 	}
+	h.client = true
 
 	options := &Options{
 		Watcher:            h,
@@ -115,6 +116,7 @@ func TestClientSource(t *testing.T) {
 		Resources:  []*mcp.Resource{test.Type2A[0].Resource},
 	})
 
+	h.requestsChan <- test.MakeRequest("", "", codes.Unimplemented)
 	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
 	h.requestsChan <- test.MakeRequest(test.FakeType1Collection, "", codes.OK)
 	h.requestsChan <- test.MakeRequest(test.FakeType2Collection, "", codes.OK)

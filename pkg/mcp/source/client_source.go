@@ -54,13 +54,16 @@ func NewClient(client mcp.ResourceSinkClient, options *Options) *Client {
 
 var reconnectTestProbe = func() {}
 
-func (c *Client) sendDummyResponse(stream Stream) error {
-	dummy := &mcp.Resources{
+// Some scenarios requires the client to send the first message in a
+// bi-directional stream to establish the stream on the server. Send a
+// trigger response which we expect the server to NACK.
+func (c *Client) sendTriggerResponse(stream Stream) error {
+	trigger := &mcp.Resources{
 		Collection: "", // unimplemented collection
 	}
 
-	if err := stream.Send(dummy); err != nil {
-		return fmt.Errorf("could not send dummy request %v", err)
+	if err := stream.Send(trigger); err != nil {
+		return fmt.Errorf("could not send trigger request %v", err)
 	}
 
 	msg, err := stream.Recv()
@@ -110,9 +113,7 @@ func (c *Client) Run(ctx context.Context) {
 			c.reporter.RecordStreamCreateSuccess()
 			scope.Info("New MCP source stream created")
 
-			// Some scenarios requires the client to send the first message in a bi-directional stream to establish
-			// the stream on the server. Send a dummy response which we expect the server to NACK.
-			if err := c.sendDummyResponse(stream); err != nil {
+			if err := c.sendTriggerResponse(stream); err != nil {
 				scope.Errorf("Failed to send fake response: %v", err)
 				continue
 			}

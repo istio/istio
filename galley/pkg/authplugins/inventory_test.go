@@ -23,7 +23,18 @@ import (
 func TestInventory(t *testing.T) {
 	for _, v := range authplugins.Inventory() {
 		if v == nil {
-			t.Error("Invalid info function")
+			t.Error("Invalid GetInfo function")
+		}
+	}
+}
+
+func TestAuthMap(t *testing.T) {
+	for k, v := range authplugins.AuthMap() {
+		if k == "" {
+			t.Error("Empty plugin name")
+		}
+		if v == nil {
+			t.Error("Invalid GetAuth function")
 		}
 	}
 }

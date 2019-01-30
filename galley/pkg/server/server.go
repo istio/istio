@@ -239,7 +239,8 @@ func (s *Server) Run() {
 		}
 	}()
 	if s.callOut != nil {
-		go s.callOut.Run()
+		s.serveWG.Add(1)
+		go s.callOut.Run(&s.serveWG)
 	}
 }
 

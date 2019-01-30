@@ -27,16 +27,13 @@ import (
 	"istio.io/istio/galley/pkg/authplugin"
 )
 
+// To allow override in test
 type dcFn func(context.Context, ...string) (*google.Credentials, error)
 
-var findDC dcFn
+// Default value for non-test
+var findDC dcFn = google.FindDefaultCredentials
 
-func init() {
-	findDC = google.FindDefaultCredentials
-}
-
-func returnAuth(config map[string]string) ([]grpc.DialOption, error) {
-	_ = config
+func returnAuth(map[string]string) ([]grpc.DialOption, error) {
 	ctx := context.Background()
 	creds, err := findDC(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
