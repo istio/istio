@@ -27,8 +27,8 @@ import (
 
 func TestCallout(t *testing.T) {
 	sa := &Args{
-		CalloutAuth:    "NONE",
-		CalloutAddress: "foo",
+		SinkAuthMode: "NONE",
+		SinkAddress:  "foo",
 	}
 	co, err := newCallout(sa, &source.Options{})
 	if err != nil {

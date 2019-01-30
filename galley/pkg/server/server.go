@@ -170,7 +170,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
 	}
 
-	if a.CalloutAddress != "" {
+	if a.SinkAddress != "" {
 		s.callOut, err = newCallout(a, options)
 		if err != nil {
 			s.callOut = nil

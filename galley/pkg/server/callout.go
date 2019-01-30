@@ -64,9 +64,9 @@ func newCallout(sa *Args, so *source.Options) (*callout, error) {
 func newCalloutPT(sa *Args, so *source.Options, pt calloutPT) (*callout, error) {
 	auths := authplugins.AuthMap()
 
-	f, ok := auths[sa.CalloutAuth]
+	f, ok := auths[sa.SinkAuthMode]
 	if !ok {
-		return nil, fmt.Errorf("auth plugin %v not found", sa.CalloutAuth)
+		return nil, fmt.Errorf("auth plugin %v not found", sa.SinkAuthMode)
 	}
 
 	opts, err := f(nil)
@@ -75,7 +75,7 @@ func newCalloutPT(sa *Args, so *source.Options, pt calloutPT) (*callout, error) 
 	}
 
 	return &callout{
-		address: sa.CalloutAddress,
+		address: sa.SinkAddress,
 		so:      so,
 		do:      opts,
 		pt:      pt,
