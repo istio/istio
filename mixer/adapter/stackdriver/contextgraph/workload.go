@@ -23,7 +23,23 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-const membershipTypeName = "google.cloud.contextgraph.Membership"
+const (
+	membershipTypeName = "google.cloud.contextgraph.Membership"
+
+	grpcComm  = "google.cloud.contextgraph.Communication.Grpc"
+	httpComm  = "google.cloud.contextgraph.Communication.Http"
+	httpsComm = "google.cloud.contextgraph.Communication.Https"
+	tcpComm   = "google.cloud.contextgraph.Communication.Tcp"
+)
+
+var (
+	protocolMap = map[string]string{
+		"http":  httpComm,
+		"https": httpsComm,
+		"tcp":   tcpComm,
+		"grpc":  grpcComm,
+	}
+)
 
 type workloadInstance struct {
 	// N.B. The projects can potentially be different for each workload.
@@ -180,69 +196,47 @@ type trafficAssertion struct {
 }
 
 func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
-	var sourceFullNames, destinationFullNames []string
-	var srcInst, srcOwn, dstInst, dstOwn, dstCluster, dstProject, dstLoc string
+
+	commType, ok := protocolMap[t.contextProtocol]
+	if !ok {
+		if commType, ok = protocolMap[t.apiProtocol]; !ok {
+			logger.Warningf("Unknown type of protocol: %s", t.apiProtocol)
+		}
+	}
+
+	serviceEntity := t.destinationService.Reify()
 	entities, edges := t.source.Reify(logger)
+	var sourceFullNames []string
 	for _, entity := range entities {
 		sourceFullNames = append(sourceFullNames, entity.fullName)
 		switch entity.typeName {
-		case "io.istio.WorkloadInstance":
-			srcInst = entity.fullName
-			dstLoc = entity.location
-			dstCluster = entity.shortNames[2] // todo: make this less fragile
-			dstProject = entity.shortNames[1]
-		case "io.istio.Owner":
-			srcOwn = entity.fullName
+		case "io.istio.WorkloadInstance", "io.istio.Owner":
+			if len(commType) > 0 {
+				edges = append(edges, edge{entity.fullName, serviceEntity.fullName, commType})
+			}
 		}
 	}
 	destEntities, destEdges := t.destination.Reify(logger)
-	for _, entity := range destEntities {
-		entities = append(entities, entity)
-		destinationFullNames = append(destinationFullNames, entity.fullName)
-		switch entity.typeName {
-		case "io.istio.WorkloadInstance":
-			dstInst = entity.fullName
-		case "io.istio.Owner":
-			dstOwn = entity.fullName
-		}
-	}
+	entities = append(entities, destEntities...)
 	edges = append(edges, destEdges...)
-	serviceEntity := t.destinationService.Reify()
-	entities = append(entities, serviceEntity)
+	var k8sSvc string
+	for _, entity := range destEntities {
+		if len(commType) > 0 {
+			for _, s := range sourceFullNames {
+				edges = append(edges, edge{s, entity.fullName, commType})
+			}
 
-	var typeName string
-	var protocol string
-	switch t.contextProtocol {
-	case "tcp", "http", "grpc":
-		protocol = t.contextProtocol
-	default:
-		protocol = t.apiProtocol
-	}
-	switch protocol {
-	case "http":
-		typeName = "google.cloud.contextgraph.Communication.Http"
-	case "tcp":
-		typeName = "google.cloud.contextgraph.Communication.Tcp"
-	case "https":
-		typeName = "google.cloud.contextgraph.Communication.Https"
-	case "grpc":
-		typeName = "google.cloud.contextgraph.Communication.Grpc"
-	default:
-		logger.Warningf("Unknown type of protocol: %s", protocol)
-	}
-	if typeName != "" {
-		// Publish the full N-way relationships.
-		for _, s := range sourceFullNames {
-			for _, d := range destinationFullNames {
-				edges = append(edges, edge{s, d, typeName})
+			switch entity.typeName {
+			case "io.istio.WorkloadInstance", "io.istio.Owner":
+				edges = append(edges, edge{serviceEntity.fullName, entity.fullName, commType})
+				if k8sSvc == "" {
+					k8sSvc = k8sSvcFullname(entity.shortNames[1], entity.location, entity.shortNames[2], t.destinationService.namespace, t.destinationService.name)
+				}
 			}
 		}
-		edges = append(edges, edge{srcInst, serviceEntity.fullName, typeName})
-		edges = append(edges, edge{srcOwn, serviceEntity.fullName, typeName})
-		edges = append(edges, edge{serviceEntity.fullName, dstInst, typeName})
-		edges = append(edges, edge{serviceEntity.fullName, dstOwn, typeName})
-
-		k8sSvc := k8sSvcFullname(dstProject, dstLoc, dstCluster, t.destinationService.namespace, t.destinationService.name)
+	}
+	entities = append(entities, serviceEntity)
+	if len(k8sSvc) > 0 {
 		edges = append(edges, edge{serviceEntity.fullName, k8sSvc, membershipTypeName})
 	}
 
