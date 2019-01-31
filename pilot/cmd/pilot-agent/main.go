@@ -110,8 +110,6 @@ var (
 				envIP := os.Getenv("INSTANCE_IP")
 				if len(envIP) > 0 {
 					role.IPAddresses = append(role.IPAddresses, envIP)
-				} else {
-					role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 				}
 			}
 
@@ -119,6 +117,11 @@ var (
 			if ipAddr, ok := proxy.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddr)
 				role.IPAddresses = append(role.IPAddresses, ipAddr...)
+			}
+
+			// No IP addresses provided, append 127.0.0.1
+			if len(role.IPAddresses) == 0 {
+				role.IPAddresses = append(role.IPAddresses, "127.0.0.1")
 			}
 
 			if len(role.ID) == 0 {
