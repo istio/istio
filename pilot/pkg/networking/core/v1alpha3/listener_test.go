@@ -20,6 +20,7 @@ import (
 	"time"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -35,11 +36,14 @@ var (
 	tnow  = time.Now()
 	tzero = time.Time{}
 	proxy = model.Proxy{
-		Type:            model.SidecarProxy,
-		IPAddresses:     []string{"1.1.1.1"},
-		ID:              "v0.default",
-		DNSDomain:       "default.example.org",
-		Metadata:        map[string]string{model.NodeMetadataConfigNamespace: "not-default"},
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: map[string]string{
+			model.NodeMetadataConfigNamespace: "not-default",
+			"ISTIO_PROXY_VERSION":             "1.1",
+		},
 		ConfigNamespace: "not-default",
 	}
 	proxyInstances = []*model.ServiceInstance{
@@ -257,7 +261,8 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *xdsapi.Listener, hostnam
 	}
 	f := fc.Filters[0]
 	expectedStatPrefix := fmt.Sprintf("outbound|8080||%s", hostname)
-	statPrefix := f.GetConfig().Fields["stat_prefix"].GetStringValue()
+	config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	statPrefix := config.Fields["stat_prefix"].GetStringValue()
 	if statPrefix != expectedStatPrefix {
 		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)
 	}
@@ -274,7 +279,8 @@ func verifyInboundHTTPListenerServerName(t *testing.T, l *xdsapi.Listener) {
 	}
 	f := fc.Filters[0]
 	expectedServerName := "istio-envoy"
-	serverName := f.GetConfig().Fields["server_name"].GetStringValue()
+	config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	serverName := config.Fields["server_name"].GetStringValue()
 	if serverName != expectedServerName {
 		t.Fatalf("expected listener to contain server_name %s, found %s", expectedServerName, serverName)
 	}
@@ -290,11 +296,12 @@ func verifyInboundHTTPListenerCertDetails(t *testing.T, l *xdsapi.Listener) {
 		t.Fatalf("expected %d filters, found %d", 1, len(fc.Filters))
 	}
 	f := fc.Filters[0]
-	forwardDetails, expected := f.GetConfig().Fields["forward_client_cert_details"].GetStringValue(), "APPEND_FORWARD"
+	config, _ := xdsutil.MessageToStruct(f.GetTypedConfig())
+	forwardDetails, expected := config.Fields["forward_client_cert_details"].GetStringValue(), "APPEND_FORWARD"
 	if forwardDetails != expected {
 		t.Fatalf("expected listener to contain forward_client_cert_details %s, found %s", expected, forwardDetails)
 	}
-	setDetails := f.GetConfig().Fields["set_current_client_cert_details"].GetStructValue()
+	setDetails := config.Fields["set_current_client_cert_details"].GetStructValue()
 	subject := setDetails.Fields["subject"].GetBoolValue()
 	dns := setDetails.Fields["dns"].GetBoolValue()
 	uri := setDetails.Fields["uri"].GetBoolValue()
