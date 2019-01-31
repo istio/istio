@@ -43,7 +43,7 @@ var (
 // Compare implements traits.Comparer.Compare.
 func (b Bool) Compare(other ref.Value) ref.Value {
 	if BoolType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	otherBool := other.(Bool)
 	if b == otherBool {
@@ -93,7 +93,10 @@ func (b Bool) ConvertToType(typeVal ref.Type) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (b Bool) Equal(other ref.Value) ref.Value {
-	return Bool(BoolType == other.Type() && b == other.(Bool))
+	if BoolType != other.Type() {
+		return ValOrErr(other, "no such overload")
+	}
+	return Bool(b == other.(Bool))
 }
 
 // Negate implements traits.Negater.Negate.

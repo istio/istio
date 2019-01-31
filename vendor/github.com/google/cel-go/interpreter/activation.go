@@ -15,6 +15,8 @@
 package interpreter
 
 import (
+	"sync"
+
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
@@ -24,11 +26,6 @@ import (
 // An Activation is the primary mechanism by which a caller supplies input
 // into a CEL program.
 type Activation interface {
-
-	// ResolveReference returns a value from the activation by expression id,
-	// or false if the id-based reference could not be found.
-	ResolveReference(exprID int64) (ref.Value, bool)
-
 	// ResolveName returns a value from the activation by qualified name, or
 	// false if the name could not be found.
 	ResolveName(name string) (ref.Value, bool)
@@ -56,10 +53,12 @@ type mapActivation struct {
 	bindings   map[string]interface{}
 }
 
+// Parent implements the Activation interface method.
 func (a *mapActivation) Parent() Activation {
 	return nil
 }
 
+// ResolveName implements the Activation interface method.
 func (a *mapActivation) ResolveName(name string) (ref.Value, bool) {
 	if object, found := a.bindings[name]; found {
 		switch object.(type) {
@@ -76,11 +75,6 @@ func (a *mapActivation) ResolveName(name string) (ref.Value, bool) {
 	return nil, false
 }
 
-func (a *mapActivation) ResolveReference(exprID int64) (ref.Value, bool) {
-	object, found := a.references[exprID]
-	return object, found
-}
-
 // hierarchicalActivation which implements Activation and contains a parent and
 // child activation.
 type hierarchicalActivation struct {
@@ -88,10 +82,12 @@ type hierarchicalActivation struct {
 	child  Activation
 }
 
+// Parent implements the Activation interface method.
 func (a *hierarchicalActivation) Parent() Activation {
 	return a.parent
 }
 
+// ResolveName implements the Activation interface method.
 func (a *hierarchicalActivation) ResolveName(name string) (ref.Value, bool) {
 	if object, found := a.child.ResolveName(name); found {
 		return object, found
@@ -99,15 +95,47 @@ func (a *hierarchicalActivation) ResolveName(name string) (ref.Value, bool) {
 	return a.parent.ResolveName(name)
 }
 
-func (a *hierarchicalActivation) ResolveReference(exprID int64) (ref.Value, bool) {
-	if object, found := a.child.ResolveReference(exprID); found {
-		return object, found
-	}
-	return a.parent.ResolveReference(exprID)
-}
-
 // NewHierarchicalActivation takes two activations and produces a new one which prioritizes
 // resolution in the child first and parent(s) second.
 func NewHierarchicalActivation(parent Activation, child Activation) Activation {
 	return &hierarchicalActivation{parent, child}
 }
+
+func newVarActivation(parent Activation, name string) *varActivation {
+	return &varActivation{
+		parent: parent,
+		name:   name,
+	}
+}
+
+// varActivation represents a single mutable variable binding.
+//
+// This activation type should only be used within folds as the fold loop controls the object
+// life-cycle.
+type varActivation struct {
+	parent Activation
+	name   string
+	val    ref.Value
+}
+
+// Parent implements the Activation interface method.
+func (v *varActivation) Parent() Activation {
+	return v.parent
+}
+
+// ResolveName implements the Activation interface method.
+func (v *varActivation) ResolveName(name string) (ref.Value, bool) {
+	if name == v.name {
+		return v.val, true
+	}
+	return v.parent.ResolveName(name)
+}
+
+var (
+	// pool of var activations to reduce allocations during folds.
+	varActivationPool = &sync.Pool{
+		New: func() interface{} {
+			return &varActivation{}
+		},
+	}
+)

@@ -32,8 +32,20 @@ var (
 )
 
 // NewErr creates a new Err described by the format string and args.
-func NewErr(format string, args ...interface{}) *Err {
+// TODO: Audit the use of this function and standardize the error messages and codes.
+func NewErr(format string, args ...interface{}) ref.Value {
 	return &Err{fmt.Errorf(format, args...)}
+}
+
+// ValOrErr either returns the existing error or create a new one.
+// TODO: Audit the use of this function and standardize the error messages and codes.
+func ValOrErr(val ref.Value, format string, args ...interface{}) ref.Value {
+	switch val.Type() {
+	case ErrType, UnknownType:
+		return val
+	default:
+		return NewErr(format, args...)
+	}
 }
 
 // ConvertToNative implements ref.Value.ConvertToNative.
@@ -70,12 +82,6 @@ func (e *Err) Value() interface{} {
 
 // IsError returns whether the input element ref.Type or ref.Value is equal to
 // the ErrType singleton.
-func IsError(elem interface{}) bool {
-	switch elem.(type) {
-	case ref.Type:
-		return elem == ErrType
-	case ref.Value:
-		return IsError(elem.(ref.Value).Type())
-	}
-	return false
+func IsError(val ref.Value) bool {
+	return val.Type() == ErrType
 }

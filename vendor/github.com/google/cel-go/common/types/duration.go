@@ -73,13 +73,13 @@ func (d Duration) Add(other ref.Value) ref.Value {
 		}
 		return Timestamp{tstamp}
 	}
-	return NewErr("unsupported overload")
+	return ValOrErr(other, "no such overload")
 }
 
 // Compare implements traits.Comparer.Compare.
 func (d Duration) Compare(other ref.Value) ref.Value {
 	if DurationType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	dur1, err := ptypes.Duration(d.Duration)
 	if err != nil {
@@ -133,8 +133,10 @@ func (d Duration) ConvertToType(typeVal ref.Type) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (d Duration) Equal(other ref.Value) ref.Value {
-	return Bool(DurationType == other.Type() &&
-		proto.Equal(d.Duration, other.Value().(proto.Message)))
+	if DurationType != other.Type() {
+		return ValOrErr(other, "no such overload")
+	}
+	return Bool(proto.Equal(d.Duration, other.Value().(proto.Message)))
 }
 
 // Negate implements traits.Negater.Negate.
@@ -157,13 +159,13 @@ func (d Duration) Receive(function string, overload string, args []ref.Value) re
 			return f(dur)
 		}
 	}
-	return NewErr("unsupported overload")
+	return NewErr("no such overload")
 }
 
 // Subtract implements traits.Subtractor.Subtract.
 func (d Duration) Subtract(subtrahend ref.Value) ref.Value {
 	if DurationType != subtrahend.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(subtrahend, "no such overload")
 	}
 	return d.Add(subtrahend.(Duration).Negate())
 }

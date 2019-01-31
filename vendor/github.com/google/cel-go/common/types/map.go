@@ -23,14 +23,30 @@ import (
 	"github.com/google/cel-go/common/types/traits"
 )
 
+// baseMap is a reflection based map implementation designed to handle a variety of map-like types.
 type baseMap struct {
 	value    interface{}
 	refValue reflect.Value
 }
 
+// stringMap is a specialization to improve the performance of simple key, value pair lookups by
+// string as this is the most common usage of maps.
+type stringMap struct {
+	*baseMap
+	mapStrStr map[string]string
+}
+
 // NewDynamicMap returns a traits.Mapper value with dynamic key, value pairs.
 func NewDynamicMap(value interface{}) traits.Mapper {
 	return &baseMap{value, reflect.ValueOf(value)}
+}
+
+// NewStringStringMap returns a specialized traits.Mapper with string keys and values.
+func NewStringStringMap(value map[string]string) traits.Mapper {
+	return &stringMap{
+		baseMap:   &baseMap{value: value},
+		mapStrStr: value,
+	}
 }
 
 var (
@@ -43,7 +59,7 @@ var (
 )
 
 func (m *baseMap) Contains(index ref.Value) ref.Value {
-	return !Bool(IsError(m.Get(index).Type()))
+	return Bool(m.Get(index).Type() != ErrType)
 }
 
 func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
@@ -104,6 +120,13 @@ func (m *baseMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
 	return nativeMap.Interface(), nil
 }
 
+func (m *stringMap) ConvertToNative(refType reflect.Type) (interface{}, error) {
+	if !m.baseMap.refValue.IsValid() {
+		m.baseMap.refValue = reflect.ValueOf(m.value)
+	}
+	return m.baseMap.ConvertToNative(refType)
+}
+
 func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Value {
 	switch typeVal {
 	case MapType:
@@ -116,7 +139,7 @@ func (m *baseMap) ConvertToType(typeVal ref.Type) ref.Value {
 
 func (m *baseMap) Equal(other ref.Value) ref.Value {
 	if MapType != other.Type() {
-		return False
+		return ValOrErr(other, "no such overload")
 	}
 	otherMap := other.(traits.Mapper)
 	if m.Size() != otherMap.Size() {
@@ -125,18 +148,31 @@ func (m *baseMap) Equal(other ref.Value) ref.Value {
 	it := m.Iterator()
 	for it.HasNext() == True {
 		key := it.Next()
-		if otherVal := otherMap.Get(key); IsError(otherVal.Type()) {
+		if otherVal := otherMap.Get(key); IsError(otherVal) {
 			return False
-		} else if thisVal := m.Get(key); IsError(thisVal.Type()) {
+		} else if thisVal := m.Get(key); IsError(thisVal) {
 			return False
-		} else if thisVal.Equal(otherVal) != True {
-			return False
+		} else {
+			valEq := thisVal.Equal(otherVal)
+			if valEq == False || IsUnknownOrError(valEq) {
+				return valEq
+			}
 		}
 	}
 	return True
 }
 
+func (m *stringMap) Equal(other ref.Value) ref.Value {
+	if !m.baseMap.refValue.IsValid() {
+		m.baseMap.refValue = reflect.ValueOf(m.value)
+	}
+	return m.baseMap.Equal(other)
+}
+
 func (m *baseMap) Get(key ref.Value) ref.Value {
+	// TODO: There are multiple reasons why a Get could fail. Typically, this is because the key
+	// does not exist in the map; however, it's possible that the value cannot be converted to
+	// the desired type. Refine this strategy to disambiguate these cases.
 	thisKeyType := m.refValue.Type().Key()
 	nativeKey, err := key.ConvertToNative(thisKeyType)
 	if err != nil {
@@ -153,6 +189,18 @@ func (m *baseMap) Get(key ref.Value) ref.Value {
 	return NativeToValue(value.Interface())
 }
 
+func (m *stringMap) Get(key ref.Value) ref.Value {
+	strKey, ok := key.(String)
+	if !ok {
+		return ValOrErr(key, "no such key: %v", key)
+	}
+	val, found := m.mapStrStr[string(strKey)]
+	if !found {
+		return NewErr("no such key: %s", key)
+	}
+	return String(val)
+}
+
 func (m *baseMap) Iterator() traits.Iterator {
 	mapKeys := m.refValue.MapKeys()
 	return &mapIterator{
@@ -163,8 +211,19 @@ func (m *baseMap) Iterator() traits.Iterator {
 		len:          int(m.Size().(Int))}
 }
 
+func (m *stringMap) Iterator() traits.Iterator {
+	if !m.baseMap.refValue.IsValid() {
+		m.baseMap.refValue = reflect.ValueOf(m.value)
+	}
+	return m.baseMap.Iterator()
+}
+
 func (m *baseMap) Size() ref.Value {
 	return Int(m.refValue.Len())
+}
+
+func (m *stringMap) Size() ref.Value {
+	return Int(len(m.mapStrStr))
 }
 
 func (m *baseMap) Type() ref.Type {

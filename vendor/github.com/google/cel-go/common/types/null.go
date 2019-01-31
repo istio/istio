@@ -19,7 +19,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -72,7 +72,10 @@ func (n Null) ConvertToType(typeVal ref.Type) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (n Null) Equal(other ref.Value) ref.Value {
-	return Bool(NullType == other.Type())
+	if NullType != other.Type() {
+		return ValOrErr(other, "no such overload")
+	}
+	return True
 }
 
 // Type implements ref.Value.Type.

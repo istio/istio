@@ -32,18 +32,6 @@ func StandardOverloads() []*Overload {
 			Unary: func(value ref.Value) ref.Value {
 				return value.(traits.Negater).Negate()
 			}},
-		// Logical and (a && b)
-		{
-			Operator: operators.LogicalAnd,
-			Binary:   logicalAnd},
-		// Logical or (a || b)
-		{
-			Operator: operators.LogicalOr,
-			Binary:   logicalOr},
-		// Conditional operator (a ? b : c)
-		{
-			Operator: operators.Conditional,
-			Function: conditional},
 		// Not strictly false: IsBool(a) ? a : true
 		{
 			Operator: operators.NotStrictlyFalse,
@@ -52,22 +40,6 @@ func StandardOverloads() []*Overload {
 		{
 			Operator: operators.OldNotStrictlyFalse,
 			Unary:    notStrictlyFalse},
-
-		// Equality overloads
-		{Operator: operators.Equals,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				return lhs.Equal(rhs)
-			}},
-
-		{Operator: operators.NotEquals,
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				eq := lhs.Equal(rhs)
-				eqBool, isbool := eq.(types.Bool)
-				if isbool {
-					return !eqBool
-				}
-				return eq
-			}},
 
 		// Less than operator
 		{Operator: operators.Less,
@@ -273,79 +245,6 @@ func StandardOverloads() []*Overload {
 
 }
 
-func logicalAnd(lhs ref.Value, rhs ref.Value) ref.Value {
-	lhsIsBool := types.Bool(types.IsBool(lhs))
-	rhsIsBool := types.Bool(types.IsBool(rhs))
-	// both are boolean use natural logic.
-	if lhsIsBool && rhsIsBool {
-		return lhs.(types.Bool) && rhs.(types.Bool)
-	}
-	// one or the other is boolean and false, return false.
-	if lhsIsBool && !lhs.(types.Bool) ||
-		rhsIsBool && !rhs.(types.Bool) {
-		return types.False
-	}
-
-	if types.IsUnknown(lhs) {
-		return lhs
-	}
-
-	if types.IsUnknown(rhs) {
-		return rhs
-	}
-
-	// if the left-hand side is non-boolean return it as the error.
-	if !lhsIsBool {
-		return types.NewErr("Got '%v', expected argument of type 'bool'", lhs)
-	}
-	return types.NewErr("Got '%v', expected argument of type 'bool'", rhs)
-}
-
-func logicalOr(lhs ref.Value, rhs ref.Value) ref.Value {
-	lhsIsBool := types.Bool(types.IsBool(lhs))
-	rhsIsBool := types.Bool(types.IsBool(rhs))
-	// both are boolean, use natural logic.
-	if lhsIsBool && rhsIsBool {
-		return lhs.(types.Bool) || rhs.(types.Bool)
-	}
-	// one or the other is boolean and true, return true
-	if lhsIsBool && lhs.(types.Bool) ||
-		rhsIsBool && rhs.(types.Bool) {
-		return types.True
-	}
-
-	if types.IsUnknown(lhs) {
-		return lhs
-	}
-	if types.IsUnknown(rhs) {
-		return rhs
-	}
-
-	// if the left-hand side is non-boolean return it as the error.
-	if !lhsIsBool {
-		return types.NewErr("Got '%v', expected argument of type 'bool'", lhs)
-	}
-	return types.NewErr("Got '%v', expected argument of type 'bool'", rhs)
-}
-
-func conditional(values ...ref.Value) ref.Value {
-	if len(values) != 3 {
-		return types.NewErr("no such overload")
-	}
-	cond := values[0]
-	condType := cond.Type()
-	if types.IsBool(condType) {
-		if cond == types.True {
-			return values[1]
-		}
-		return values[2]
-	} else if types.IsError(condType) || types.IsUnknown(condType) {
-		return cond
-	} else {
-		return types.NewErr("no such overload")
-	}
-}
-
 func notStrictlyFalse(value ref.Value) ref.Value {
 	if types.IsBool(value) {
 		return value
@@ -357,5 +256,5 @@ func inAggregate(lhs ref.Value, rhs ref.Value) ref.Value {
 	if rhs.Type().HasTrait(traits.ContainerType) {
 		return rhs.(traits.Container).Contains(lhs)
 	}
-	return types.NewErr("no such overload")
+	return types.ValOrErr(rhs, "no such overload")
 }

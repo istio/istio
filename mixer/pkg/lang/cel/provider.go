@@ -45,15 +45,15 @@ import (
 //   B b = 1;
 // }
 //
-// message Root {
-//   A a = 1;
-// }
+// with root context containing a variable "a" of type "A".
 //
+// Synthetic message type names are dot-prepended attribute names, e.g. ".a.b.c".
 type attributeProvider struct {
 	// fallback proto-based type provider
 	protos ref.TypeProvider
 
-	root    *node
+	root *node
+
 	typeMap map[string]*node
 }
 
@@ -264,10 +264,6 @@ func (a attributeActivation) ResolveName(name string) (ref.Value, bool) {
 	if node, ok := a.provider.root.children[name]; ok {
 		return resolve(node, a.bag), true
 	}
-	return nil, false
-}
-
-func (a attributeActivation) ResolveReference(exprID int64) (ref.Value, bool) {
 	return nil, false
 }
 

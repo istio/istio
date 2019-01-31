@@ -50,13 +50,13 @@ func (t Timestamp) Add(other ref.Value) ref.Value {
 	case DurationType:
 		return other.(Duration).Add(t)
 	}
-	return NewErr("unsupported overload")
+	return ValOrErr(other, "no such overload")
 }
 
 // Compare implements traits.Comparer.Compare.
 func (t Timestamp) Compare(other ref.Value) ref.Value {
 	if TimestampType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	ts1, err := ptypes.Timestamp(t.Timestamp)
 	if err != nil {
@@ -109,8 +109,10 @@ func (t Timestamp) ConvertToType(typeVal ref.Type) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (t Timestamp) Equal(other ref.Value) ref.Value {
-	return Bool(TimestampType == other.Type() &&
-		proto.Equal(t.Timestamp, other.Value().(proto.Message)))
+	if TimestampType != other.Type() {
+		return ValOrErr(other, "no such overload")
+	}
+	return Bool(proto.Equal(t.Timestamp, other.Value().(proto.Message)))
 }
 
 // Receive implements traits.Reciever.Receive.
@@ -161,7 +163,7 @@ func (t Timestamp) Subtract(subtrahend ref.Value) ref.Value {
 		}
 		return Duration{ptypes.DurationProto(ts1.Sub(ts2))}
 	}
-	return NewErr("unsupported overload")
+	return ValOrErr(subtrahend, "no such overload")
 }
 
 // Type implements ref.Value.Type.
@@ -269,7 +271,7 @@ func timestampGetMillisecondsWithTz(t time.Time, tz ref.Value) ref.Value {
 func timeZone(tz ref.Value, visitor timestampVisitor) timestampVisitor {
 	return func(t time.Time) ref.Value {
 		if StringType != tz.Type() {
-			return NewErr("unsupported overload")
+			return ValOrErr(tz, "no such overload")
 		}
 		loc, err := time.LoadLocation(string(tz.(String)))
 		if err == nil {

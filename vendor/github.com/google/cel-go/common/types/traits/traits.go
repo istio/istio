@@ -19,7 +19,7 @@ package traits
 const (
 	// AdderType types provide a '+' operator overload.
 	AdderType = 1 << iota
-	// CompFarerType types support ordering comparisons '<', '<=', '>', '>='.
+	// ComparerType types support ordering comparisons '<', '<=', '>', '>='.
 	ComparerType
 	// ContainerType types support 'in' operations.
 	ContainerType

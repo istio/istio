@@ -25,7 +25,6 @@ import (
 	"github.com/google/cel-go/common/debug"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/interpreter"
 
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -500,11 +499,13 @@ func TestCELExpressions(t *testing.T) {
 			}
 
 			// expressions must evaluate to the right result
-			program := interpreter.NewCheckedProgram(checked)
-			eval := i.NewInterpretable(program)
+			eval, err := i.NewInterpretable(checked)
+			if err != nil {
+				t.Fatal(err)
+			}
 			b := ilt.NewFakeBag(test.bag)
 
-			result, _ := eval.Eval(provider.newActivation(b))
+			result := eval.Eval(provider.newActivation(b))
 			got, err := recoverValue(result)
 			if err != nil {
 				got = err

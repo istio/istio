@@ -241,7 +241,7 @@ func (p *astPruner) prune(node *exprpb.Expr) (*exprpb.Expr, bool) {
 }
 
 func (p *astPruner) value(id int64) (ref.Value, bool) {
-	val, found := p.state.Value(p.state.GetRuntimeExpressionID(id))
+	val, found := p.state.Value(id)
 	return val, (found && val != nil)
 }
 

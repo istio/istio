@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2019 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,10 +48,9 @@ type ExpressionBuilder struct {
 }
 
 type expression struct {
-	expr        *exprpb.Expr
-	provider    *attributeProvider
-	interpreter interpreter.Interpreter
-	checked     *exprpb.CheckedExpr
+	expr          *exprpb.Expr
+	provider      *attributeProvider
+	interpretable interpreter.Interpretable
 }
 
 func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
@@ -61,11 +60,7 @@ func (ex *expression) Evaluate(bag attribute.Bag) (out interface{}, err error) {
 		}
 	}()
 
-	// TODO: the following allocates space that prevents concurrent reuse
-	program := interpreter.NewCheckedProgram(ex.checked)
-	interpretable := ex.interpreter.NewInterpretable(program)
-
-	result, _ := interpretable.Eval(ex.provider.newActivation(bag))
+	result := ex.interpretable.Eval(ex.provider.newActivation(bag))
 	out, err = recoverValue(result)
 	return
 }
@@ -125,9 +120,8 @@ func (exb *ExpressionBuilder) Compile(text string) (ex compiled.Expression, typ 
 	}
 
 	out := &expression{
-		provider:    exb.provider,
-		interpreter: exb.interpreter,
-		expr:        expr,
+		provider: exb.provider,
+		expr:     expr,
 	}
 	ex = out
 
@@ -137,6 +131,6 @@ func (exb *ExpressionBuilder) Compile(text string) (ex compiled.Expression, typ 
 	}
 
 	typ = recoverType(checked.TypeMap[expr.Id])
-	out.checked = checked
+	out.interpretable, err = exb.interpreter.NewInterpretable(checked)
 	return
 }

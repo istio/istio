@@ -49,7 +49,7 @@ var (
 // Add implements traits.Adder.Add.
 func (i Int) Add(other ref.Value) ref.Value {
 	if IntType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	return i + other.(Int)
 }
@@ -57,7 +57,7 @@ func (i Int) Add(other ref.Value) ref.Value {
 // Compare implements traits.Comparer.Compare.
 func (i Int) Compare(other ref.Value) ref.Value {
 	if IntType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	if i < other.(Int) {
 		return IntNegOne
@@ -117,7 +117,7 @@ func (i Int) ConvertToType(typeVal ref.Type) ref.Value {
 // Divide implements traits.Divider.Divide.
 func (i Int) Divide(other ref.Value) ref.Value {
 	if IntType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	otherInt := other.(Int)
 	if otherInt == IntZero {
@@ -128,13 +128,16 @@ func (i Int) Divide(other ref.Value) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (i Int) Equal(other ref.Value) ref.Value {
-	return Bool(IntType == other.Type() && i == other.(Int))
+	if IntType != other.Type() {
+		return ValOrErr(other, "no such overload")
+	}
+	return Bool(i == other.(Int))
 }
 
 // Modulo implements traits.Modder.Modulo.
 func (i Int) Modulo(other ref.Value) ref.Value {
 	if IntType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	otherInt := other.(Int)
 	if otherInt == IntZero {
@@ -146,7 +149,7 @@ func (i Int) Modulo(other ref.Value) ref.Value {
 // Multiply implements traits.Multiplier.Multiply.
 func (i Int) Multiply(other ref.Value) ref.Value {
 	if IntType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	return i * other.(Int)
 }
@@ -159,7 +162,7 @@ func (i Int) Negate() ref.Value {
 // Subtract implements traits.Subtractor.Subtract.
 func (i Int) Subtract(subtrahend ref.Value) ref.Value {
 	if IntType != subtrahend.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(subtrahend, "no such overload")
 	}
 	return i - subtrahend.(Int)
 }

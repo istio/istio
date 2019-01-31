@@ -175,28 +175,50 @@ func NativeToValue(value interface{}) ref.Value {
 		return value.(ref.Value)
 	case bool:
 		return Bool(value.(bool))
+	case *bool:
+		return Bool(*value.(*bool))
 	case int:
 		return Int(value.(int))
 	case int32:
 		return Int(value.(int32))
 	case int64:
 		return Int(value.(int64))
+	case *int:
+		return Int(*value.(*int))
+	case *int32:
+		return Int(*value.(*int32))
+	case *int64:
+		return Int(*value.(*int64))
 	case uint:
 		return Uint(value.(uint))
 	case uint32:
 		return Uint(value.(uint32))
 	case uint64:
 		return Uint(value.(uint64))
+	case *uint:
+		return Uint(*value.(*uint))
+	case *uint32:
+		return Uint(*value.(*uint32))
+	case *uint64:
+		return Uint(*value.(*uint64))
 	case float32:
 		return Double(value.(float32))
 	case float64:
 		return Double(value.(float64))
+	case *float32:
+		return Double(*value.(*float32))
+	case *float64:
+		return Double(*value.(*float64))
 	case string:
 		return String(value.(string))
+	case *string:
+		return String(*value.(*string))
 	case []byte:
 		return Bytes(value.([]byte))
 	case []string:
 		return NewStringList(value.([]string))
+	case map[string]string:
+		return NewStringStringMap(value.(map[string]string))
 	case *dpb.Duration:
 		return Duration{value.(*dpb.Duration)}
 	case *structpb.ListValue:

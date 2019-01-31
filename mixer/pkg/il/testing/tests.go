@@ -326,9 +326,8 @@ end`,
 		conf: istio06AttributeSet,
 	},
 	{
-		E:     `request.headers[toLower("USER-AGENT")] == "curlish"`,
-		Bench: true,
-		Type:  descriptor.BOOL,
+		E:    `request.headers[toLower("USER-AGENT")] == "curlish"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.headers": map[string]string{
 				"user-agent": "curlish",

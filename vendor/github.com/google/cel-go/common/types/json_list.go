@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/struct"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
 )
@@ -41,7 +41,7 @@ func NewJSONList(l *structpb.ListValue) traits.Lister {
 
 func (l *jsonListValue) Add(other ref.Value) ref.Value {
 	if other.Type() != ListType {
-		return NewErr("no such overload")
+		return ValOrErr(other, "no such overload")
 	}
 	switch other.(type) {
 	case *jsonListValue:
@@ -112,7 +112,7 @@ func (l *jsonListValue) ConvertToType(typeVal ref.Type) ref.Value {
 
 func (l *jsonListValue) Equal(other ref.Value) ref.Value {
 	if ListType != other.Type() {
-		return False
+		return ValOrErr(other, "no such overload")
 	}
 	otherList := other.(traits.Lister)
 	if l.Size() != otherList.Size() {
@@ -121,8 +121,9 @@ func (l *jsonListValue) Equal(other ref.Value) ref.Value {
 	for i := IntZero; i < l.Size().(Int); i++ {
 		thisElem := l.Get(i)
 		otherElem := otherList.Get(i)
-		if thisElem.Equal(otherElem) != True {
-			return False
+		elemEq := thisElem.Equal(otherElem)
+		if elemEq == False || IsUnknownOrError(elemEq) {
+			return elemEq
 		}
 	}
 	return True
@@ -130,7 +131,7 @@ func (l *jsonListValue) Equal(other ref.Value) ref.Value {
 
 func (l *jsonListValue) Get(index ref.Value) ref.Value {
 	if IntType != index.Type() {
-		return NewErr("unsupported index type: '%v", index.Type())
+		return ValOrErr(index, "unsupported index type: '%v", index.Type())
 	}
 	i := index.(Int)
 	if i < 0 || i >= l.Size().(Int) {

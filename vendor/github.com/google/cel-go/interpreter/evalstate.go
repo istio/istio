@@ -20,79 +20,41 @@ import (
 
 // EvalState tracks the values associated with expression ids during execution.
 type EvalState interface {
-	// GetRuntimeExpressionID returns the runtime id corresponding to the
-	// expression id from the AST.
-	GetRuntimeExpressionID(exprID int64) int64
-
-	// OnlyValue returns the value in the eval state, if only one exists.
-	OnlyValue() (ref.Value, bool)
-
-	// Value of the given expression id, false if not found.
+	// Value returns the observed value of the given expression id if found, and a nil false
+	// result if not.
 	Value(int64) (ref.Value, bool)
-}
 
-// MutableEvalState permits the mutation of evaluation state for a given
-// expression id.
-type MutableEvalState interface {
-	EvalState
-
-	// SetRuntimeExpressionID sets the runtime id for the given expr id.
-	SetRuntimeExpressionID(exprID int64, runtimeID int64)
-
-	// SetValue associates an expression id with a value.
+	// SetValue sets the observed value of the expression id.
 	SetValue(int64, ref.Value)
+
+	// Reset clears the previously recorded expression values.
+	Reset()
 }
 
-// NewEvalState returns a MutableEvalState.
-func NewEvalState(instructionCount int64) MutableEvalState {
-	return &defaultEvalState{exprCount: instructionCount,
-		exprValues: make([]ref.Value, instructionCount, instructionCount),
-		exprIDMap:  make(map[int64]int64)}
+// evalState permits the mutation of evaluation state for a given expression id.
+type evalState struct {
+	values map[int64]ref.Value
 }
 
-type defaultEvalState struct {
-	exprCount  int64
-	exprValues []ref.Value
-	exprIDMap  map[int64]int64
-}
-
-func (s *defaultEvalState) GetRuntimeExpressionID(exprID int64) int64 {
-	if val, ok := s.exprIDMap[exprID]; ok {
-		return val
+// NewEvalState returns an EvalState instanced used to observe the intermediate
+// evaluations of an expression.
+func NewEvalState() EvalState {
+	return &evalState{
+		values: make(map[int64]ref.Value),
 	}
-	return exprID
 }
 
-func (s *defaultEvalState) OnlyValue() (ref.Value, bool) {
-	var result ref.Value
-	i := 0
-	for _, val := range s.exprValues {
-		if val != nil {
-			result = val
-			i++
-		}
-	}
-	if i == 1 {
-		return result, true
-	}
-	return nil, false
+// Value is an implementation of the EvalState interface method.
+func (s *evalState) Value(exprID int64) (ref.Value, bool) {
+	val, found := s.values[exprID]
+	return val, found
 }
 
-func (s *defaultEvalState) SetRuntimeExpressionID(exprID int64, runtimeID int64) {
-	s.exprIDMap[exprID] = runtimeID
+// SetValue is an implementation of the EvalState interface method.
+func (s *evalState) SetValue(exprID int64, val ref.Value) {
+	s.values[exprID] = val
 }
 
-func (s *defaultEvalState) SetValue(exprID int64, value ref.Value) {
-	s.exprValues[exprID] = value
-}
-
-func (s *defaultEvalState) Value(exprID int64) (ref.Value, bool) {
-	// TODO: The eval state assumes a dense progrma expression id space. While
-	// this is true of how the cel-go parser generates identifiers, it may not
-	// be true for all implementations or for the long term. Replace the use of
-	// parse-time generated expression ids with a dense runtiem identifier.
-	if exprID >= 0 && exprID < s.exprCount {
-		return s.exprValues[exprID], true
-	}
-	return nil, false
+func (s *evalState) Reset() {
+	s.values = map[int64]ref.Value{}
 }

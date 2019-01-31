@@ -78,7 +78,7 @@ func (o *protoObj) ConvertToType(typeVal ref.Type) ref.Value {
 
 func (o *protoObj) Equal(other ref.Value) ref.Value {
 	if o.typeDesc.Name() != other.Type().TypeName() {
-		return False
+		return ValOrErr(other, "no such overload")
 	}
 	return Bool(proto.Equal(o.value, other.Value().(proto.Message)))
 }
@@ -86,7 +86,7 @@ func (o *protoObj) Equal(other ref.Value) ref.Value {
 // IsSet tests whether a field which is defined is set to a non-default value.
 func (o *protoObj) IsSet(field ref.Value) ref.Value {
 	if field.Type() != StringType {
-		return NewErr("illegal object field type '%s'", field.Type())
+		return ValOrErr(field, "illegal object field type '%s'", field.Type())
 	}
 	protoFieldName := string(field.(String))
 	if f, found := o.typeDesc.FieldByName(protoFieldName); found {
@@ -107,7 +107,7 @@ func (o *protoObj) IsSet(field ref.Value) ref.Value {
 
 func (o *protoObj) Get(index ref.Value) ref.Value {
 	if index.Type() != StringType {
-		return NewErr("illegal object field type '%s'", index.Type())
+		return ValOrErr(index, "illegal object field type '%s'", index.Type())
 	}
 	protoFieldName := string(index.(String))
 	if f, found := o.typeDesc.FieldByName(protoFieldName); found {

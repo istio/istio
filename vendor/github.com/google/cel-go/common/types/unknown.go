@@ -56,12 +56,6 @@ func (u Unknown) Value() interface{} {
 
 // IsUnknown returns whether the element ref.Type or ref.Value is equal to the
 // UnknownType singleton.
-func IsUnknown(elem interface{}) bool {
-	switch elem.(type) {
-	case ref.Type:
-		return elem == UnknownType
-	case ref.Value:
-		return IsUnknown(elem.(ref.Value).Type())
-	}
-	return false
+func IsUnknown(val ref.Value) bool {
+	return val.Type() == UnknownType
 }

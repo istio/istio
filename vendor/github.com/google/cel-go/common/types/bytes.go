@@ -38,7 +38,7 @@ var (
 // Add implements traits.Adder.Add by concatenating byte sequences.
 func (b Bytes) Add(other ref.Value) ref.Value {
 	if BytesType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	return append(b, other.(Bytes)...)
 }
@@ -46,7 +46,7 @@ func (b Bytes) Add(other ref.Value) ref.Value {
 // Compare implments traits.Comparer.Compare by lexicographic ordering.
 func (b Bytes) Compare(other ref.Value) ref.Value {
 	if BytesType != other.Type() {
-		return NewErr("unsupported overload")
+		return ValOrErr(other, "no such overload")
 	}
 	return Int(bytes.Compare(b, other.(Bytes)))
 }
@@ -81,8 +81,10 @@ func (b Bytes) ConvertToType(typeVal ref.Type) ref.Value {
 
 // Equal implements ref.Value.Equal.
 func (b Bytes) Equal(other ref.Value) ref.Value {
-	return Bool(BytesType == other.Type() &&
-		bytes.Equal(b, other.(Bytes)))
+	if BytesType != other.Type() {
+		return ValOrErr(other, "no such overload")
+	}
+	return Bool(bytes.Equal(b, other.(Bytes)))
 }
 
 // Size implements traits.Sizer.Size.

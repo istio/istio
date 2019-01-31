@@ -14,8 +14,16 @@
 
 package types
 
+import (
+	"github.com/google/cel-go/common/types/ref"
+)
+
 // IsUnknownOrError returns whether the input element ref.Type or ref.Value is an ErrType or
 // UnknonwType.
-func IsUnknownOrError(elem interface{}) bool {
-	return IsUnknown(elem) || IsError(elem)
+func IsUnknownOrError(val ref.Value) bool {
+	switch val.Type() {
+	case UnknownType, ErrType:
+		return true
+	}
+	return false
 }

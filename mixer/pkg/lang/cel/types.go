@@ -163,26 +163,23 @@ func recoverValue(value ref.Value) (interface{}, error) {
 	return nil, fmt.Errorf("failed to recover of type %s", value.Type())
 }
 
+var defaultValues = map[v1beta1.ValueType]ref.Value{
+	v1beta1.STRING:        types.String(""),
+	v1beta1.INT64:         types.Int(0),
+	v1beta1.DOUBLE:        types.Double(0),
+	v1beta1.BOOL:          types.Bool(false),
+	v1beta1.TIMESTAMP:     types.Timestamp{Timestamp: &tpb.Timestamp{}},
+	v1beta1.DURATION:      types.Duration{Duration: &dpb.Duration{}},
+	v1beta1.STRING_MAP:    emptyStringMap,
+	v1beta1.IP_ADDRESS:    wrapperValue{typ: v1beta1.IP_ADDRESS, bytes: []byte{}},
+	v1beta1.EMAIL_ADDRESS: wrapperValue{typ: v1beta1.EMAIL_ADDRESS, s: ""},
+	v1beta1.URI:           wrapperValue{typ: v1beta1.URI, s: ""},
+	v1beta1.DNS_NAME:      wrapperValue{typ: v1beta1.DNS_NAME, s: ""},
+}
+
 func defaultValue(typ v1beta1.ValueType) ref.Value {
-	switch typ {
-	case v1beta1.STRING:
-		return types.String("")
-	case v1beta1.INT64:
-		return types.Int(0)
-	case v1beta1.DOUBLE:
-		return types.Double(0)
-	case v1beta1.BOOL:
-		return types.Bool(false)
-	case v1beta1.TIMESTAMP:
-		return types.Timestamp{Timestamp: &tpb.Timestamp{}}
-	case v1beta1.DURATION:
-		return types.Duration{Duration: &dpb.Duration{}}
-	case v1beta1.STRING_MAP:
-		return emptyStringMap
-	case v1beta1.IP_ADDRESS:
-		return wrapperValue{typ: typ, bytes: []byte{}}
-	case v1beta1.EMAIL_ADDRESS, v1beta1.URI, v1beta1.DNS_NAME:
-		return wrapperValue{typ: typ, s: ""}
+	if out, ok := defaultValues[typ]; ok {
+		return out
 	}
 	return types.NewErr("cannot provide defaults for %q", typ)
 }

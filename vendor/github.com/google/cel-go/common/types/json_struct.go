@@ -40,7 +40,7 @@ func NewJSONStruct(st *structpb.Struct) traits.Mapper {
 }
 
 func (m *jsonStruct) Contains(index ref.Value) ref.Value {
-	return !Bool(IsError(m.Get(index).Type()))
+	return Bool(!IsError(m.Get(index)))
 }
 
 func (m *jsonStruct) ConvertToNative(typeDesc reflect.Type) (interface{}, error) {
@@ -103,7 +103,7 @@ func (m *jsonStruct) ConvertToType(typeVal ref.Type) ref.Value {
 
 func (m *jsonStruct) Equal(other ref.Value) ref.Value {
 	if MapType != other.Type() {
-		return False
+		return ValOrErr(other, "no such overload")
 	}
 	otherMap := other.(traits.Mapper)
 	if m.Size() != otherMap.Size() {
@@ -112,12 +112,15 @@ func (m *jsonStruct) Equal(other ref.Value) ref.Value {
 	it := m.Iterator()
 	for it.HasNext() == True {
 		key := it.Next()
-		if otherVal := otherMap.Get(key); IsError(otherVal.Type()) {
+		if otherVal := otherMap.Get(key); IsError(otherVal) {
 			return False
-		} else if thisVal := m.Get(key); IsError(thisVal.Type()) {
+		} else if thisVal := m.Get(key); IsError(thisVal) {
 			return False
-		} else if thisVal.Equal(otherVal) != True {
-			return False
+		} else {
+			valEq := thisVal.Equal(otherVal)
+			if valEq == False || IsUnknownOrError(valEq) {
+				return valEq
+			}
 		}
 	}
 	return True
@@ -125,7 +128,7 @@ func (m *jsonStruct) Equal(other ref.Value) ref.Value {
 
 func (m *jsonStruct) Get(key ref.Value) ref.Value {
 	if StringType != key.Type() {
-		return NewErr("unsupported key type: '%v", key.Type())
+		return ValOrErr(key, "unsupported key type: '%v", key.Type())
 	}
 	fields := m.Struct.GetFields()
 	value, found := fields[string(key.(String))]
