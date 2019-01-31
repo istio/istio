@@ -85,7 +85,7 @@ func loadCerts(caFile string) (*x509.CertPool, error) {
 	return caCertPool, nil
 }
 
-func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) (grpc.DialOption, error) {
+func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) ([]grpc.DialOption, error) {
 	// load peer cert/key.
 	pk := mtlsCfg.GetPrivateKey()
 	cc := mtlsCfg.GetClientCertificate()
@@ -105,7 +105,7 @@ func buildMTLSDialOption(mtlsCfg *policypb.Mutual, skipVerify bool) (grpc.DialOp
 		RootCAs:            caCertPool,
 		InsecureSkipVerify: skipVerify,
 	})
-	return grpc.WithTransportCredentials(tc), nil
+	return []grpc.DialOption{grpc.WithTransportCredentials(tc)}, nil
 }
 
 func buildOAuthToken(oauthCfg *policypb.OAuth) (oauth2.TokenSource, error) {
@@ -203,27 +203,18 @@ func buildTLSDialOption(tlsCfg *policypb.Tls, skipVerify bool) ([]grpc.DialOptio
 }
 
 func (a *authHelper) getAuthOpt() (opts []grpc.DialOption, err error) {
-	opts = []grpc.DialOption{}
 	if a.authCfg == nil {
-		opts = append(opts, grpc.WithInsecure())
-		return opts, nil
+		opts = append(opts)
+		return []grpc.DialOption{grpc.WithInsecure()}, nil
 	}
 	switch t := a.authCfg.AuthType.(type) {
 	case *policypb.Authentication_Tls:
-		opts, err = buildTLSDialOption(a.authCfg.GetTls(), a.skipVerification)
-		if err != nil {
-			return nil, err
-		}
+		return buildTLSDialOption(a.authCfg.GetTls(), a.skipVerification)
 	case *policypb.Authentication_Mutual:
-		dialAuthOpt, err := buildMTLSDialOption(a.authCfg.GetMutual(), a.skipVerification)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, dialAuthOpt)
+		return buildMTLSDialOption(a.authCfg.GetMutual(), a.skipVerification)
 	default:
-		err = fmt.Errorf("authentication type has unexpected type %T", t)
+		return nil, fmt.Errorf("authentication type is unexpected: %T", t)
 	}
-	return opts, err
 }
 
 func getAuthHelper(ac *policypb.Authentication, sv bool) *authHelper {
