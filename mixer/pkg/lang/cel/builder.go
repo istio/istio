@@ -104,7 +104,7 @@ func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageMode) *Expres
 }
 
 // Compile the given text and return a pre-compiled expression object.
-func (exb *ExpressionBuilder) Compile(text string) (ex compiled.Expression, typ descriptor.ValueType, err error) {
+func (exb *ExpressionBuilder) check(text string) (checked *exprpb.CheckedExpr, typ descriptor.ValueType, err error) {
 	typ = descriptor.VALUE_TYPE_UNSPECIFIED
 
 	if exb.mode == LegacySyntaxCEL {
@@ -119,24 +119,36 @@ func (exb *ExpressionBuilder) Compile(text string) (ex compiled.Expression, typ 
 		return
 	}
 
-	out := &expression{
-		provider: exb.provider,
-		expr:     expr,
-	}
-	ex = out
-
-	checked, err := Check(expr, exb.env)
+	checked, err = Check(expr, exb.env)
 	if err != nil {
 		return
 	}
 
 	typ = recoverType(checked.TypeMap[expr.Id])
-	out.interpretable, err = exb.interpreter.NewInterpretable(checked)
 	return
+}
+
+// Compile the given text and return a pre-compiled expression object.
+func (exb *ExpressionBuilder) Compile(text string) (compiled.Expression, descriptor.ValueType, error) {
+	checked, typ, err := exb.check(text)
+	if err != nil {
+		return nil, typ, err
+	}
+
+	interpretable, err := exb.interpreter.NewInterpretable(checked)
+	if err != nil {
+		return nil, typ, err
+	}
+
+	return &expression{
+		provider:      exb.provider,
+		expr:          checked.Expr,
+		interpretable: interpretable,
+	}, typ, nil
 }
 
 // EvalType returns the type of an expression
 func (exb *ExpressionBuilder) EvalType(text string) (descriptor.ValueType, error) {
-	_, typ, err := exb.Compile(text)
+	_, typ, err := exb.check(text)
 	return typ, err
 }
