@@ -430,9 +430,9 @@ func TestClusterMetadata(t *testing.T) {
 			md := cluster.Metadata
 			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
 			istio := md.FilterMetadata["istio"]
-			g.Expect(istio.Fields["destination-rule"]).NotTo(BeNil())
-			dr := istio.Fields["destination-rule"]
-			g.Expect(dr.GetStringValue()).To(Equal("acme.."))
+			g.Expect(istio.Fields["config"]).NotTo(BeNil())
+			dr := istio.Fields["config"]
+			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
 		} else {
 			g.Expect(cluster.Metadata).To(BeNil())
 		}
@@ -449,9 +449,9 @@ func TestClusterMetadata(t *testing.T) {
 			md := cluster.Metadata
 			g.Expect(md.FilterMetadata["istio"]).NotTo(BeNil())
 			istio := md.FilterMetadata["istio"]
-			g.Expect(istio.Fields["destination-rule"]).NotTo(BeNil())
-			dr := istio.Fields["destination-rule"]
-			g.Expect(dr.GetStringValue()).To(Equal("acme.."))
+			g.Expect(istio.Fields["config"]).NotTo(BeNil())
+			dr := istio.Fields["config"]
+			g.Expect(dr.GetStringValue()).To(Equal("/apis//v1alpha3/namespaces//destination-rule/acme"))
 		} else {
 			g.Expect(cluster.Metadata).To(BeNil())
 		}
