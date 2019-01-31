@@ -52,4 +52,3 @@ func TestMain(m *testing.M) {
 	rt, _ := framework.Run("echo_test", m)
 	os.Exit(rt)
 }
-

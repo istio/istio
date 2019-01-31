@@ -84,15 +84,15 @@ func NewNativeComponent() (api.Component, error) {
 }
 
 type nativeComponent struct {
-	name           string
-	scope          lifecycle.Scope
-	endpoints      []components.EchoEndpoint
-	client         *echo.Client
+	name      string
+	scope     lifecycle.Scope
+	endpoints []components.EchoEndpoint
+	client    *echo.Client
 }
 
 type echoConfig struct {
-	serviceName      string
-	version          string
+	serviceName string
+	version     string
 }
 
 func (c *nativeComponent) Descriptor() component.Descriptor {
@@ -232,7 +232,7 @@ func (c *nativeComponent) Call(ee components.EchoEndpoint, opts components.EchoC
 	}
 
 	resp, err := c.client.ForwardEcho(request)
-if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
