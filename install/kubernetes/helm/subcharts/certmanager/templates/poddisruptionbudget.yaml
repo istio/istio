@@ -1,4 +1,4 @@
-{{- if or .Values.global.defaultPodDisruptionBudget.enabled }}
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
