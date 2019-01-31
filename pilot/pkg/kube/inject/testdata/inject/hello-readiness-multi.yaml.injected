@@ -24,10 +24,7 @@ spec:
           name: http
         readinessProbe:
           httpGet:
-            httpHeaders:
-            - name: istio-app-probe-port
-              value: "8000"
-            path: /ip
+            path: /app-health/hello/readyz
             port: 15020
         resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -37,10 +34,7 @@ spec:
           name: http
         readinessProbe:
           httpGet:
-            httpHeaders:
-            - name: istio-app-probe-port
-              value: "9000"
-            path: /ipv6
+            path: /app-health/world/readyz
             port: 15020
         resources: {}
       - args:
@@ -70,6 +64,10 @@ spec:
         - "15020"
         - --applicationPorts
         - 80,90
+        - --concurrency
+        - "1"
+        - --kubeAppProberConfig
+        - '{"/app-health/hello/readyz":{"path":"/ip","port":8000},"/app-health/world/readyz":{"path":"/ipv6","port":9000}}'
         env:
         - name: POD_NAME
           valueFrom:

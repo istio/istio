@@ -95,6 +95,7 @@ func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
 
 		defer func() {
 			// Always decrement the daemon count.
+			e.Logger().Infof("shutting down daemon...")
 			stats.Record(e.monitoringCtx, monitoring.DaemonsTotal.M(atomic.AddInt64(e.daemons, -1)))
 
 			if !reachedEnd {
@@ -121,22 +122,16 @@ func (e env) Daemons() int64 {
 	return atomic.LoadInt64(e.daemons)
 }
 
-func (e env) reportStrayWorkers() error {
+func (e env) hasStrayWorkers() bool {
+	return e.Daemons() > 0 || e.Workers() > 0
+}
+
+func (e env) reportStrayWorkers() {
 	if atomic.LoadInt64(e.daemons) > 0 {
-		// TODO: ideally we should return some sort of error here to bubble up this issue to the top so that
-		// operator can look at it. However, currently we cannot guarantee that SchedulerXXXX gauge
-		// counter will give consistent value because of timing issue in the ScheduleWorker and ScheduleDaemon.
-		// Basically, even if the adapter would have closed everything before returning from Close function, our
-		// counter might get delayed decremented, causing this false positive error.
-		// Therefore, we need a new retry kind logic on handler Close to give time for counters to get updated
-		// before making this as a red flag error. runtime work has plans to implement this stuff, we can revisit
-		// this to-do then. Same for the code below related to workers.
 		_ = e.Logger().Errorf("adapter did not close all the scheduled daemons")
 	}
 
 	if atomic.LoadInt64(e.workers) > 0 {
 		_ = e.Logger().Errorf("adapter did not close all the scheduled workers")
 	}
-
-	return nil
 }

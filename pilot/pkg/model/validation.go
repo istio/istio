@@ -450,12 +450,7 @@ func validateServer(server *networking.Server) (errs error) {
 			if host != "*" && !strings.Contains(host, ".") {
 				errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed in Gateway server hosts"))
 			}
-			if err := ValidateWildcardDomain(host); err != nil {
-				ipAddr := net.ParseIP(host) // Could also be an IP
-				if ipAddr == nil {
-					errs = appendErrors(errs, err)
-				}
-			}
+			errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, true))
 		}
 	}
 	portErr := validateServerPort(server.Port)
@@ -489,7 +484,7 @@ func validateServerPort(port *networking.Port) (errs error) {
 		return appendErrors(errs, fmt.Errorf("port is required"))
 	}
 	if ParseProtocol(port.Protocol) == ProtocolUnsupported {
-		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, TCP", port.Protocol))
+		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, MYSQL, TCP", port.Protocol))
 	}
 	if port.Number > 0 {
 		errs = appendErrors(errs, ValidatePort(int(port.Number)))
@@ -567,6 +562,53 @@ func ValidateEnvoyFilter(name, namespace string, msg proto.Message) (errs error)
 		}
 	}
 
+	return
+}
+
+// validates that hostname in ns/<hostname> is a valid hostname according to
+// API specs
+func validateSidecarOrGatewayHostnamePart(host string, isGateway bool) (errs error) {
+	// short name hosts are not allowed
+	if host != "*" && !strings.Contains(host, ".") {
+		errs = appendErrors(errs, fmt.Errorf("short names (non FQDN) are not allowed"))
+	}
+
+	if err := ValidateWildcardDomain(host); err != nil {
+		if !isGateway {
+			errs = appendErrors(errs, err)
+		}
+
+		// Gateway allows IP as the host string, as well
+		ipAddr := net.ParseIP(host)
+		if ipAddr == nil {
+			errs = appendErrors(errs, err)
+		}
+	}
+	return
+}
+
+func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs error) {
+	parts := strings.SplitN(host, "/", 2)
+	if len(parts) != 2 {
+		if isGateway {
+			// Old style host in the gateway
+			return validateSidecarOrGatewayHostnamePart(host, true)
+		}
+		errs = appendErrors(errs, fmt.Errorf("host must be of form namespace/dnsName"))
+		return
+	}
+
+	if len(parts[0]) == 0 || len(parts[1]) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("config namespace and dnsName in host entry cannot be empty"))
+	}
+
+	// namespace can be * or . or a valid DNS label
+	if parts[0] != "*" && parts[0] != "." {
+		if !IsDNS1123Label(parts[0]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q", parts[0]))
+		}
+	}
+	errs = appendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
 	return
 }
 
@@ -680,22 +722,7 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
 		} else {
 			for _, host := range i.Hosts {
-				parts := strings.SplitN(host, "/", 2)
-				if len(parts) != 2 {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: host must be of form namespace/dnsName"))
-					continue
-				}
-
-				if len(parts[0]) == 0 || len(parts[1]) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: config namespace and dnsName in host entry cannot be empty"))
-				}
-
-				// short name hosts are not allowed
-				if parts[1] != "*" && !strings.Contains(parts[1], ".") {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: short names (non FQDN) are not allowed"))
-				}
-
-				errs = appendErrors(errs, ValidateWildcardDomain(parts[1]))
+				errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(host, false))
 			}
 		}
 	}
@@ -1521,12 +1548,11 @@ func ValidateVirtualService(name, namespace string, msg proto.Message) (errs err
 		appliesToMesh = true
 	}
 
+	errs = appendErrors(errs, validateGatewayNames(virtualService.Gateways))
 	for _, gateway := range virtualService.Gateways {
-		if err := ValidateFQDN(gateway); err != nil {
-			errs = appendErrors(errs, err)
-		}
 		if gateway == IstioMeshGateway {
 			appliesToMesh = true
+			break
 		}
 	}
 
@@ -1746,9 +1772,30 @@ func validateHTTPRoute(http *networking.HTTPRoute) (errs error) {
 
 func validateGatewayNames(gateways []string) (errs error) {
 	for _, gateway := range gateways {
-		if err := ValidateFQDN(gateway); err != nil {
-			errs = appendErrors(errs, err)
+		parts := strings.SplitN(gateway, "/", 2)
+		if len(parts) != 2 {
+			// deprecated
+			log.Warn("Gateway names with FQDN format or short forms are deprecated. " +
+				"Use namespace/name format instead")
+			// Old style spec with FQDN gateway name
+			errs = appendErrors(errs, ValidateFQDN(gateway))
+			return
 		}
+
+		if len(parts[0]) == 0 || len(parts[1]) == 0 {
+			errs = appendErrors(errs, fmt.Errorf("config namespace and gateway name cannot be empty"))
+		}
+
+		// namespace and name must be DNS labels
+		if !IsDNS1123Label(parts[0]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
+		}
+
+		if !IsDNS1123Label(parts[1]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
+		}
+
+		return
 	}
 	return
 }
@@ -1993,7 +2040,10 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	if retries.RetryOn != "" {
 		retryOnPolicies := strings.Split(retries.RetryOn, ",")
 		for _, policy := range retryOnPolicies {
-			if !supportedRetryOnPolicies[policy] {
+			// Try converting it to an integer to see if it's a valid HTTP status code.
+			i, _ := strconv.Atoi(policy)
+
+			if http.StatusText(i) == "" && !supportedRetryOnPolicies[policy] {
 				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
 			}
 		}
@@ -2027,8 +2077,8 @@ func ValidateServiceEntry(name, namespace string, config proto.Message) (errs er
 		errs = appendErrors(errs, fmt.Errorf("service entry must have at least one host"))
 	}
 	for _, host := range serviceEntry.Hosts {
-		// Full wildcard or short names are not allowed in the service entry.
-		if host == "*" || !strings.Contains(host, ".") {
+		// Full wildcard is not allowed in the service entry.
+		if host == "*" {
 			errs = appendErrors(errs, fmt.Errorf("invalid host %s", host))
 		} else {
 			errs = appendErrors(errs, ValidateWildcardDomain(host))

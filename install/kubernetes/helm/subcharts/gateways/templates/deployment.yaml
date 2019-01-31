@@ -14,7 +14,13 @@ metadata:
     {{ $key }}: {{ $val }}
     {{- end }}
 spec:
+{{- if not $spec.autoscaleEnabled }}
+{{- if $spec.replicaCount }}
   replicas: {{ $spec.replicaCount }}
+{{- else }}
+  replicas: 1
+{{- end }}
+{{- end }}
   template:
     metadata:
       labels:
@@ -95,10 +101,8 @@ spec:
           args:
           - proxy
           - router
-{{- if $.Values.global.proxy.proxyDomain }}
           - --domain
-          - {{ $.Values.global.proxy.proxyDomain }}
-{{- end }}
+          - $(POD_NAMESPACE).svc.{{ $.Values.global.proxy.clusterDomain }}
           - --log_output_level
           - 'info'
           - --drainDuration

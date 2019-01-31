@@ -390,7 +390,11 @@ func (s *Server) initMesh(args *PilotArgs) error {
 					log.Infof("mesh configuration sources have changed")
 					//TODO Need to re-create or reload initConfigController()
 				}
-				s.EnvoyXdsServer.ConfigUpdate(true)
+				s.mesh = mesh
+				if s.EnvoyXdsServer != nil {
+					s.EnvoyXdsServer.Env.Mesh = mesh
+					s.EnvoyXdsServer.ConfigUpdate(true)
+				}
 			}
 		})
 	}
@@ -449,7 +453,13 @@ func (s *Server) initMeshNetworks(args *PilotArgs) error {
 			log.Infof("mesh networks configuration file updated to: %s", spew.Sdump(meshNetworks))
 			util.ResolveHostsInNetworksConfig(s.meshNetworks)
 			s.meshNetworks = meshNetworks
-			s.EnvoyXdsServer.ConfigUpdate(true)
+			if s.kubeRegistry != nil {
+				s.kubeRegistry.InitNetworkLookup(meshNetworks)
+			}
+			if s.EnvoyXdsServer != nil {
+				s.EnvoyXdsServer.Env.MeshNetworks = meshNetworks
+				s.EnvoyXdsServer.ConfigUpdate(true)
+			}
 		}
 	})
 
@@ -515,8 +525,18 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var clients []*client.Client
+	var clients2 []*sink.Client
 	var conns []*grpc.ClientConn
 	var configStores []model.ConfigStoreCache
+
+	// TODO - temporarily support both the new and old stack during transition
+	var useLegacyMCPStack bool
+	if os.Getenv("USE_MCP_LEGACY") == "1" {
+		useLegacyMCPStack = true
+		log.Infof("USE_MCP_LEGACY=1 - using legacy MCP client stack")
+	} else {
+		log.Infof("Using new MCP client sink stack")
+	}
 
 	reporter := monitoring.NewStatsContext("pilot/mcp/sink")
 
@@ -610,7 +630,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			cancel()
 			return err
 		}
-		cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+
 		mcpController := coredatamodel.NewController(options)
 		sinkOptions := &sink.Options{
 			CollectionOptions: collections,
@@ -618,10 +638,19 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 			ID:                clientNodeID,
 			Reporter:          reporter,
 		}
-		mcpClient := client.New(cl, sinkOptions)
-		configz.Register(mcpClient)
 
-		clients = append(clients, mcpClient)
+		if useLegacyMCPStack {
+			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+			mcpClient := client.New(cl, sinkOptions)
+			configz.Register(mcpClient)
+			clients = append(clients, mcpClient)
+		} else {
+			cl2 := mcpapi.NewResourceSourceClient(conn)
+			mcpClient2 := sink.NewClient(cl2, sinkOptions)
+			configz.Register(mcpClient2)
+			clients2 = append(clients2, mcpClient2)
+		}
+
 		conns = append(conns, conn)
 		configStores = append(configStores, mcpController)
 	}
@@ -675,7 +704,7 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				cancel()
 				return err
 			}
-			cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+
 			mcpController := coredatamodel.NewController(options)
 			sinkOptions := &sink.Options{
 				CollectionOptions: collections,
@@ -683,10 +712,19 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 				ID:                clientNodeID,
 				Reporter:          reporter,
 			}
-			mcpClient := client.New(cl, sinkOptions)
-			configz.Register(mcpClient)
 
-			clients = append(clients, mcpClient)
+			if useLegacyMCPStack {
+				cl := mcpapi.NewAggregatedMeshConfigServiceClient(conn)
+				mcpClient := client.New(cl, sinkOptions)
+				configz.Register(mcpClient)
+				clients = append(clients, mcpClient)
+			} else {
+				cl2 := mcpapi.NewResourceSourceClient(conn)
+				mcpClient2 := sink.NewClient(cl2, sinkOptions)
+				configz.Register(mcpClient2)
+				clients2 = append(clients2, mcpClient2)
+			}
+
 			conns = append(conns, conn)
 			configStores = append(configStores, mcpController)
 		}
@@ -695,13 +733,24 @@ func (s *Server) initMCPConfigController(args *PilotArgs) error {
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		var wg sync.WaitGroup
 
-		for i := range clients {
-			client := clients[i]
-			wg.Add(1)
-			go func() {
-				client.Run(ctx)
-				wg.Done()
-			}()
+		if useLegacyMCPStack {
+			for i := range clients {
+				client := clients[i]
+				wg.Add(1)
+				go func() {
+					client.Run(ctx)
+					wg.Done()
+				}()
+			}
+		} else {
+			for i := range clients2 {
+				client := clients2[i]
+				wg.Add(1)
+				go func() {
+					client.Run(ctx)
+					wg.Done()
+				}()
+			}
 		}
 
 		go func() {

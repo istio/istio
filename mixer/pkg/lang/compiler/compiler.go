@@ -122,9 +122,11 @@ const (
 func compile(text string, finder ast.AttributeDescriptorFinder, functions map[string]ast.FunctionMetadata) (*il.Program, error) {
 	c := New(finder, functions)
 	_, _, err := c.compileExpression(text, "eval")
+
 	if err != nil {
 		return nil, err
 	}
+
 	return c.program, nil
 }
 

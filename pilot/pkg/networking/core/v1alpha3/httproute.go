@@ -33,11 +33,7 @@ import (
 func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	routeName string) (*xdsapi.RouteConfiguration, error) {
 	// TODO: Move all this out
-	proxyInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		return nil, err
-	}
-
+	proxyInstances := node.ServiceInstances
 	switch node.Type {
 	case model.SidecarProxy:
 		return configgen.buildSidecarOutboundHTTPRouteConfig(env, node, push, proxyInstances, routeName), nil
@@ -60,7 +56,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Name,
 		instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
 	traceOperation := fmt.Sprintf("%s:%d/*", instance.Service.Hostname, instance.Endpoint.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPRoute(clusterName, traceOperation)
+	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(clusterName, traceOperation)
 
 	inboundVHost := route.VirtualHost{
 		Name:    fmt.Sprintf("%s|http|%d", model.TrafficDirectionInbound, instance.Endpoint.ServicePort.Port),

@@ -42,6 +42,7 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 )
 
@@ -301,8 +302,9 @@ func validateInterceptionMode(mode string) error {
 	switch mode {
 	case meshconfig.ProxyConfig_REDIRECT.String():
 	case meshconfig.ProxyConfig_TPROXY.String():
+	case string(model.InterceptionNone): // not a global mesh config - must be enabled for each sidecar
 	default:
-		return fmt.Errorf("interceptionMode invalid: %v", mode)
+		return fmt.Errorf("interceptionMode invalid, use REDIRECT,TPROXY,NONE: %v", mode)
 	}
 	return nil
 }
@@ -530,6 +532,9 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		log.Warnf("Failed to unmarshall template %v %s", err, tmpl.String())
 		return nil, "", err
 	}
+
+	// set sidecar --concurrency
+	applyConcurrency(sic.Containers)
 
 	status := &SidecarInjectionStatus{Version: version}
 	for _, c := range sic.InitContainers {

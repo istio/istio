@@ -6,18 +6,18 @@
 package kube
 
 import (
-	"istio.io/istio/galley/pkg/kube"
-	"istio.io/istio/galley/pkg/kube/converter"
 	"istio.io/istio/galley/pkg/metadata"
+	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
+	"istio.io/istio/galley/pkg/source/kube/schema"
 )
 
 // Types in the schema.
-var Types *kube.Schema
+var Types *schema.Instance
 
 func init() {
-	b := kube.NewSchemaBuilder()
+	b := schema.NewBuilder()
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "MeshPolicy",
 		ListKind:  "MeshPolicyList",
 		Singular:  "meshpolicy",
@@ -28,7 +28,7 @@ func init() {
 		Converter: converter.Get("auth-policy-resource"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "Policy",
 		ListKind:  "PolicyList",
 		Singular:  "policy",
@@ -39,7 +39,7 @@ func init() {
 		Converter: converter.Get("auth-policy-resource"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "adapter",
 		ListKind:  "adapterList",
 		Singular:  "adapter",
@@ -50,7 +50,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "HTTPAPISpecBinding",
 		ListKind:  "HTTPAPISpecBindingList",
 		Singular:  "httpapispecbinding",
@@ -61,7 +61,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "HTTPAPISpec",
 		ListKind:  "HTTPAPISpecList",
 		Singular:  "httpapispec",
@@ -72,7 +72,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "apikey",
 		ListKind:  "apikeyList",
 		Singular:  "apikey",
@@ -83,7 +83,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "authorization",
 		ListKind:  "authorizationList",
 		Singular:  "authorization",
@@ -94,7 +94,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "bypass",
 		ListKind:  "bypassList",
 		Singular:  "bypass",
@@ -105,7 +105,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "checknothing",
 		ListKind:  "checknothingList",
 		Singular:  "checknothing",
@@ -116,7 +116,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "circonus",
 		ListKind:  "circonusList",
 		Singular:  "circonus",
@@ -127,7 +127,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "cloudwatch",
 		ListKind:  "cloudwatchList",
 		Singular:  "cloudwatch",
@@ -138,7 +138,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "denier",
 		ListKind:  "denierList",
 		Singular:  "denier",
@@ -149,7 +149,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "dogstatsd",
 		ListKind:  "dogstatsdList",
 		Singular:  "dogstatsd",
@@ -160,7 +160,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "edge",
 		ListKind:  "edgeList",
 		Singular:  "edge",
@@ -171,7 +171,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "fluentd",
 		ListKind:  "fluentdList",
 		Singular:  "fluentd",
@@ -182,7 +182,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "kubernetesenv",
 		ListKind:  "kubernetesenvList",
 		Singular:  "kubernetesenv",
@@ -193,7 +193,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "kubernetes",
 		ListKind:  "kubernetesList",
 		Singular:  "kubernetes",
@@ -204,7 +204,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "listchecker",
 		ListKind:  "listcheckerList",
 		Singular:  "listchecker",
@@ -215,7 +215,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "listentry",
 		ListKind:  "listentryList",
 		Singular:  "listentry",
@@ -226,7 +226,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "logentry",
 		ListKind:  "logentryList",
 		Singular:  "logentry",
@@ -237,7 +237,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "memquota",
 		ListKind:  "memquotaList",
 		Singular:  "memquota",
@@ -248,7 +248,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "metric",
 		ListKind:  "metricList",
 		Singular:  "metric",
@@ -259,7 +259,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "noop",
 		ListKind:  "noopList",
 		Singular:  "noop",
@@ -270,7 +270,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "opa",
 		ListKind:  "opaList",
 		Singular:  "opa",
@@ -281,7 +281,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "prometheus",
 		ListKind:  "prometheusList",
 		Singular:  "prometheus",
@@ -292,7 +292,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "quota",
 		ListKind:  "quotaList",
 		Singular:  "quota",
@@ -303,7 +303,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "rbac",
 		ListKind:  "rbacList",
 		Singular:  "rbac",
@@ -314,7 +314,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "redisquota",
 		ListKind:  "redisquotaList",
 		Singular:  "redisquota",
@@ -325,7 +325,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "reportnothing",
 		ListKind:  "reportnothingList",
 		Singular:  "reportnothing",
@@ -336,29 +336,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
-		Kind:      "servicecontrolreport",
-		ListKind:  "servicecontrolreportList",
-		Singular:  "servicecontrolreport",
-		Plural:    "servicecontrolreports",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/servicecontrolreports"),
-		Converter: converter.Get("identity"),
-	})
-
-	b.Add(kube.ResourceSpec{
-		Kind:      "servicecontrol",
-		ListKind:  "servicecontrolList",
-		Singular:  "servicecontrol",
-		Plural:    "servicecontrols",
-		Version:   "v1alpha2",
-		Group:     "config.istio.io",
-		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/servicecontrols"),
-		Converter: converter.Get("identity"),
-	})
-
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "signalfx",
 		ListKind:  "signalfxList",
 		Singular:  "signalfx",
@@ -369,7 +347,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "solarwinds",
 		ListKind:  "solarwindsList",
 		Singular:  "solarwinds",
@@ -380,7 +358,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "stackdriver",
 		ListKind:  "stackdriverList",
 		Singular:  "stackdriver",
@@ -391,7 +369,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "statsd",
 		ListKind:  "statsdList",
 		Singular:  "statsd",
@@ -402,7 +380,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "stdio",
 		ListKind:  "stdioList",
 		Singular:  "stdio",
@@ -413,7 +391,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "tracespan",
 		ListKind:  "tracespanList",
 		Singular:  "tracespan",
@@ -424,7 +402,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "template",
 		ListKind:  "templateList",
 		Singular:  "template",
@@ -435,7 +413,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "QuotaSpecBinding",
 		ListKind:  "QuotaSpecBindingList",
 		Singular:  "quotaspecbinding",
@@ -446,7 +424,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "QuotaSpec",
 		ListKind:  "QuotaSpecList",
 		Singular:  "quotaspec",
@@ -457,7 +435,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "DestinationRule",
 		ListKind:  "DestinationRuleList",
 		Singular:  "destinationrule",
@@ -468,7 +446,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "EnvoyFilter",
 		ListKind:  "EnvoyFilterList",
 		Singular:  "envoyfilter",
@@ -479,7 +457,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "Gateway",
 		ListKind:  "GatewayList",
 		Singular:  "gateway",
@@ -490,7 +468,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "ServiceEntry",
 		ListKind:  "ServiceEntryList",
 		Singular:  "serviceentry",
@@ -501,7 +479,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "Sidecar",
 		ListKind:  "SidecarList",
 		Singular:  "sidecar",
@@ -512,7 +490,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "VirtualService",
 		ListKind:  "VirtualServiceList",
 		Singular:  "virtualservice",
@@ -523,7 +501,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "attributemanifest",
 		ListKind:  "attributemanifestList",
 		Singular:  "attributemanifest",
@@ -534,7 +512,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "handler",
 		ListKind:  "handlerList",
 		Singular:  "handler",
@@ -545,7 +523,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "instance",
 		ListKind:  "instanceList",
 		Singular:  "instance",
@@ -556,7 +534,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "rule",
 		ListKind:  "ruleList",
 		Singular:  "rule",
@@ -567,7 +545,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "ClusterRbacConfig",
 		ListKind:  "ClusterRbacConfigList",
 		Singular:  "clusterrbacconfig",
@@ -578,7 +556,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "RbacConfig",
 		ListKind:  "RbacConfigList",
 		Singular:  "rbacconfig",
@@ -589,7 +567,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "ServiceRoleBinding",
 		ListKind:  "ServiceRoleBindingList",
 		Singular:  "servicerolebinding",
@@ -600,7 +578,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "ServiceRole",
 		ListKind:  "ServiceRoleList",
 		Singular:  "servicerole",
@@ -611,7 +589,18 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
+		Kind:      "Endpoints",
+		ListKind:  "EndpointsList",
+		Singular:  "endpoints",
+		Plural:    "endpoints",
+		Version:   "v1",
+		Group:     "",
+		Target:    metadata.Types.Get("k8s/core/v1/endpoints"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
 		Kind:      "Node",
 		ListKind:  "NodeList",
 		Singular:  "node",
@@ -622,7 +611,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "Pod",
 		ListKind:  "PodList",
 		Singular:  "pod",
@@ -633,7 +622,7 @@ func init() {
 		Converter: converter.Get("identity"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "Service",
 		ListKind:  "ServiceList",
 		Singular:  "service",
@@ -644,7 +633,7 @@ func init() {
 		Converter: converter.Get("kube-service-resource"),
 	})
 
-	b.Add(kube.ResourceSpec{
+	b.Add(schema.ResourceSpec{
 		Kind:      "Ingress",
 		ListKind:  "IngressList",
 		Singular:  "ingress",

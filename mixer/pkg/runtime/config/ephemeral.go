@@ -400,7 +400,8 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 
 		template := tmpl.(*Template)
 		// validate if the param is valid
-		compiler := lang.NewBuilder(attributes)
+		mode := lang.GetLanguageRuntime(resource.Metadata.Annotations)
+		compiler := lang.NewBuilder(attributes, mode)
 		resolver := yaml.NewResolver(template.FileDescSet)
 		b := dynamic.NewEncoderBuilder(
 			resolver,
@@ -434,6 +435,7 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 			Encoder:           enc,
 			Params:            params,
 			AttributeBindings: inst.AttributeBindings,
+			Language:          mode,
 		}
 
 		instances[cfg.Name] = cfg
@@ -488,6 +490,7 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.A
 			Template:     info,
 			Params:       resource.Spec,
 			InferredType: inferredType,
+			Language:     lang.GetLanguageRuntime(resource.Metadata.Annotations),
 		}
 
 		instances[cfg.Name] = cfg
@@ -735,7 +738,8 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		// If there are no valid actions found for this rule, then elide the rule.
-		if len(actionsStat) == 0 && len(actionsDynamic) == 0 {
+		if len(actionsStat) == 0 && len(actionsDynamic) == 0 &&
+			len(cfg.RequestHeaderOperations) == 0 && len(cfg.ResponseHeaderOperations) == 0 {
 			appendErr(ctx, errs, fmt.Sprintf("rule=%s", ruleName), monitoring.RuleErrs, "No valid actions found in rule")
 			continue
 		}
@@ -749,6 +753,7 @@ func (e *Ephemeral) processRuleConfigs(
 			Match:                    cfg.Match,
 			RequestHeaderOperations:  cfg.RequestHeaderOperations,
 			ResponseHeaderOperations: cfg.ResponseHeaderOperations,
+			Language:                 lang.GetLanguageRuntime(resource.Metadata.Annotations),
 		}
 
 		rules = append(rules, rule)

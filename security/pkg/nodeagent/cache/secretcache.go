@@ -86,6 +86,9 @@ type Options struct {
 
 	// authentication provider specific plugins.
 	Plugins []plugin.Plugin
+
+	// set this flag to true for if token used is always valid(ex, normal k8s JWT)
+	AlwaysValidTokenFlag bool
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -95,6 +98,9 @@ type SecretManager interface {
 
 	// SecretExist checks if secret already existed.
 	SecretExist(proxyID, resourceName, token, version string) bool
+
+	// DeleteSecret deletes a secret by its key from cache.
+	DeleteSecret(proxyID, resourceName string)
 }
 
 // ConnKey is the key of one SDS connection.
@@ -194,7 +200,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 
 	if sc.rootCert == nil {
 		log.Errorf("Failed to get root cert for proxy %q", proxyID)
-		return nil, errors.New("faied to get root cert")
+		return nil, errors.New("failed to get root cert")
 
 	}
 
@@ -208,6 +214,15 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, proxyID, resourceName
 	}
 	sc.secrets.Store(key, *ns)
 	return ns, nil
+}
+
+// DeleteSecret deletes a secret by its key from cache.
+func (sc *SecretCache) DeleteSecret(proxyID, resourceName string) {
+	key := ConnKey{
+		ProxyID:      proxyID,
+		ResourceName: resourceName,
+	}
+	sc.secrets.Delete(key)
 }
 
 // DeleteK8sSecret deletes all entries that match secretName. This is called when a K8s secret
@@ -372,6 +387,8 @@ func (sc *SecretCache) rotate() {
 					return
 				}
 
+				log.Debugf("Token for %q is still valid for proxy %q, use it to generate key/cert", e.ResourceName, proxyID)
+
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
@@ -518,6 +535,11 @@ func (sc *SecretCache) shouldRefresh(s *model.SecretItem) bool {
 }
 
 func (sc *SecretCache) isTokenExpired() bool {
+	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
+	if sc.configOptions.AlwaysValidTokenFlag {
+		return false
+	}
+
 	if atomic.LoadUint32(&sc.skipTokenExpireCheck) == 1 {
 		return true
 	}

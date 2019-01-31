@@ -20,6 +20,8 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 )
 
 // ConfigFile represents config yaml files for different bookinfo scenarios.
@@ -62,4 +64,15 @@ func (l ConfigFile) LoadOrFail(t testing.TB) string {
 	}
 
 	return content
+}
+
+func GetDestinationRuleConfigFile(t testing.TB, ctx component.Repository) ConfigFile {
+	env, err := kube.GetEnvironment(ctx)
+	if err != nil {
+		t.Fatalf("Could not get test environment: %v", err)
+	}
+	if env.IsMtlsEnabled() {
+		return NetworkingDestinationRuleAllMtls
+	}
+	return NetworkingDestinationRuleAll
 }

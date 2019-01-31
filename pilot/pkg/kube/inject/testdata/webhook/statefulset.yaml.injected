@@ -29,6 +29,8 @@ spec:
       - args:
         - proxy
         - sidecar
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
         - --configPath
         - /etc/istio/proxy
         - --binaryPath
@@ -53,6 +55,8 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        - --concurrency
+        - "1"
         env:
         - name: POD_NAME
           valueFrom:

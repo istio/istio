@@ -1341,6 +1341,36 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			""},
+		{"happy ip",
+			&networking.Server{
+				Hosts: []string{"1.1.1.1"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy ns/name",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy */name",
+			&networking.Server{
+				Hosts: []string{"*/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"happy ./name",
+			&networking.Server{
+				Hosts: []string{"./foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			""},
+		{"invalid domain ns/name format",
+			&networking.Server{
+				Hosts: []string{"ns1/foo.*.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"domain"},
 		{"invalid domain",
 			&networking.Server{
 				Hosts: []string{"foo.*.bar.com"},
@@ -1735,7 +1765,12 @@ func TestValidateHTTPRetry(t *testing.T) {
 		{name: "valid default", in: &networking.HTTPRetry{
 			Attempts: 10,
 		}, valid: true},
-		{name: "bad attempts", in: &networking.HTTPRetry{
+		{name: "valid http status retryOn", in: &networking.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "503,connect-failure",
+		}, valid: true},
+		{name: "invalid attempts", in: &networking.HTTPRetry{
 			Attempts:      -1,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 		}, valid: false},
@@ -1747,10 +1782,15 @@ func TestValidateHTTPRetry(t *testing.T) {
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Nanos: 999},
 		}, valid: false},
-		{name: "non supported retryOn", in: &networking.HTTPRetry{
+		{name: "invalid policy retryOn", in: &networking.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &types.Duration{Seconds: 2},
 			RetryOn:       "5xx,invalid policy",
+		}, valid: false},
+		{name: "invalid http status retryOn", in: &networking.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &types.Duration{Seconds: 2},
+			RetryOn:       "600,connect-failure",
 		}, valid: false},
 	}
 
@@ -2264,6 +2304,33 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "namespace/name for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/gateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "namespace/* for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"ns1/*"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
+		{name: "*/name for gateway", in: &networking.VirtualService{
+			Hosts:    []string{"foo.bar"},
+			Gateways: []string{"*/gateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: false},
 		{name: "wildcard for mesh gateway", in: &networking.VirtualService{
 			Hosts: []string{"*"},
 			Http: []*networking.HTTPRoute{{
@@ -2892,11 +2959,11 @@ func TestValidateServiceEntries(t *testing.T) {
 				{Number: 80, Protocol: "http", Name: "http-valid1"},
 			},
 			Endpoints: []*networking.ServiceEntry_Endpoint{
-				{Address: "in.google.com", Ports: map[string]uint32{"http-valid2": 9080}},
+				{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
 			},
 			Resolution: networking.ServiceEntry_DNS,
 		},
-			valid: false},
+			valid: true},
 		{name: "undefined endpoint port", in: networking.ServiceEntry{
 			Hosts: []string{"google.com"},
 			Ports: []*networking.Port{
@@ -3720,6 +3787,20 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true},
+		{"import local namespace with wildcard", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"./*"},
+				},
+			},
+		}, true},
+		{"import local namespace with fqdn", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"./foo.com"},
+				},
+			},
+		}, true},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -3731,6 +3812,13 @@ func TestValidateSidecar(t *testing.T) {
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"/"},
+				},
+			},
+		}, false},
+		{"bad egress host 3", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"~/foo.com"},
 				},
 			},
 		}, false},

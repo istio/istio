@@ -76,7 +76,7 @@ func (b *FakeBag) Contains(key string) bool {
 // String is needed to implement the Bag interface.
 func (b *FakeBag) String() string { return "" }
 
-// ReferencedList returns the list of attributes that were referenced. Attribute references through
+// ReferencedList returns the sorted list of attributes that were referenced. Attribute references through
 // string maps are encoded as mapname[keyname]. Absent values are prefixed with "-".
 func (b *FakeBag) ReferencedList() []string {
 	attributes := make([]string, 0, len(b.referenced))
@@ -85,7 +85,7 @@ func (b *FakeBag) ReferencedList() []string {
 	for k, found := range b.referenced {
 		attr := k
 		if !found {
-			attr = "-" + k
+			attr = "-" + attr
 		}
 		attributes = append(attributes, attr)
 	}
