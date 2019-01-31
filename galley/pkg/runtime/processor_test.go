@@ -87,7 +87,7 @@ func TestProcessor_Stop(t *testing.T) {
 
 func TestProcessor_EventAccumulation(t *testing.T) {
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	strategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
@@ -113,7 +113,7 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	info, _ := resources.TestSchema.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
 	strategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
@@ -139,7 +139,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	info, _ := resources.TestSchema.Lookup("type.googleapis.com/google.protobuf.Empty")
 
 	src := NewInMemorySource()
-	distributor := publish.NewInMemoryDistributor()
+	distributor := NewInMemoryDistributor()
 	strategy := publish.NewStrategy(time.Millisecond, time.Millisecond, time.Microsecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 

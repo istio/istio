@@ -44,7 +44,7 @@ type State struct {
 
 	distribute  bool
 	strategy    *publish.Strategy
-	distributor publish.Distributor
+	distributor Distributor
 
 	config *Config
 
@@ -77,7 +77,7 @@ type resourceTypeState struct {
 }
 
 func newState(name string, schema *resource.Schema, cfg *Config, strategy *publish.Strategy,
-	distributor publish.Distributor) *State {
+	distributor Distributor) *State {
 
 	now := time.Now()
 	s := &State{
