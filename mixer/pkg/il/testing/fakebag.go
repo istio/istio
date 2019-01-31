@@ -79,6 +79,7 @@ func (b *FakeBag) String() string { return "" }
 // ReferencedList returns the sorted list of attributes that were referenced. Attribute references through
 // string maps are encoded as mapname[keyname]. Absent values are prefixed with "-".
 func (b *FakeBag) ReferencedList() []string {
+
 	attributes := make([]string, 0, len(b.referenced))
 
 	b.referencedLock.RLock()
