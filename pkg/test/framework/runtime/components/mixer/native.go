@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
@@ -136,15 +135,6 @@ func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (er
 	c.client.args.ConfigStoreURL = fmt.Sprintf("fs://%s", c.client.workdir)
 	c.client.args.Templates = generatedTmplRepo.SupportedTmplInfo
 	c.client.args.Adapters = adapter.Inventory()
-
-	z := ctx.GetComponent("", ids.Zipkin)
-	if z != nil {
-		zc, ok := z.(components.Zipkin)
-		if ok {
-			c.client.args.TracingOptions.ZipkinURL = zc.GetAddress()
-			c.client.args.TracingOptions.SamplingRate = 1.0
-		}
-	}
 
 	c.client.server, err = server.New(c.client.args)
 	if err != nil {

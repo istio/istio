@@ -36,10 +36,11 @@ const (
 	EchoProtocolWebSocket = "ws"
 )
 
-// Echo is a component that provides access to a deployed test service.
+// Echo is a component that provides access to the deployed echo service.
 type Echo interface {
 	component.Instance
 
+	Name() string
 	Endpoints() []EchoEndpoint
 	EndpointsForProtocol(protocol model.Protocol) []EchoEndpoint
 	Call(e EchoEndpoint, opts EchoCallOptions) ([]*echo.ParsedResponse, error)
@@ -71,6 +72,7 @@ type EchoEndpoint interface {
 	Protocol() model.Protocol
 }
 
+// Get an echo instance from the repository.
 func GetEcho(name string, e component.Repository, t testing.TB) Echo {
 	return e.GetComponentOrFail(name, ids.Echo, t).(Echo)
 }

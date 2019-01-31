@@ -19,6 +19,7 @@ import (
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"reflect"
+	"time"
 )
 
 // creationProcessor is used by Manager to resolve creation order for components.
@@ -186,7 +187,7 @@ func (p *creationProcessor) ApplyDefaults() component.RequirementError {
 				if err != nil {
 					return resolutionError(err)
 				}
-				toProcess = append(toProcess, &desc)
+				toProcess = append(toProcess, component.NewNamedRequirement(entry.id.Name, &desc))
 			}
 		}
 		done = len(toProcess) == 0
@@ -197,6 +198,7 @@ func (p *creationProcessor) ApplyDefaults() component.RequirementError {
 			}
 			toProcess = nil
 		}
+		time.Sleep(time.Second)
 	}
 	return nil
 }

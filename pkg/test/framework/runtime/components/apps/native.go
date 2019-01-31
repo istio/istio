@@ -278,7 +278,6 @@ func newNativeApp(cfg appConfig) (a components.App, err error) {
 	}).NewApplication
 
 	agentFactory := (&agent.PilotAgentFactory{
-		Namespace:        cfg.namespace,
 		DiscoveryAddress: cfg.discoveryAddress,
 	}).NewAgent
 

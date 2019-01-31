@@ -104,7 +104,6 @@ var (
 		ID:                ids.Echo,
 		IsSystemComponent: false,
 		Requires: []component.Requirement{
-			&ids.Pilot,
 			&ids.Environment,
 		},
 	}

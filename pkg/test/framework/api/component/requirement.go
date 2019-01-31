@@ -16,45 +16,5 @@ package component
 
 import "fmt"
 
-var (
-	_ Requirement = &ConfiguredRequirement{}
-)
-
 // Requirement is a marker interface for an element that can be required of the testing framework.
 type Requirement fmt.Stringer
-
-// Configuration is a marker interface for configuration objects that components take.
-type Configuration fmt.Stringer
-
-// A configured requirement contains the requirement, a configuration object, and the name to give
-// that configured object.
-type ConfiguredRequirement struct {
-	name   string
-	req    Requirement
-	config Configuration
-}
-
-func NewNamedRequirement(name string, requirement Requirement) *ConfiguredRequirement {
-	return NewConfiguredRequirement(name, requirement, nil)
-}
-
-// Creates a named requirement that includes configuration
-func NewConfiguredRequirement(name string, requirement Requirement, config Configuration) *ConfiguredRequirement {
-	return &ConfiguredRequirement{name, requirement, config}
-}
-
-func (c ConfiguredRequirement) String() string {
-	return fmt.Sprint("{name: ", c.name, ", requirement: ", c.req, ", config: ", c.config)
-}
-
-func (c *ConfiguredRequirement) GetName() string {
-	return c.name
-}
-
-func (c *ConfiguredRequirement) GetRequirement() Requirement {
-	return c.req
-}
-
-func (c *ConfiguredRequirement) GetConfiguration() Configuration {
-	return c.config
-}

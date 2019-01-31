@@ -15,34 +15,29 @@
 package echo
 
 import (
+	gocontext "context"
 	"errors"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"google.golang.org/grpc"
 	"io"
+	"istio.io/istio/pkg/test/framework/api/context"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	multierror "github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/application"
 	"istio.io/istio/pkg/test/application/echo"
 	"istio.io/istio/pkg/test/application/echo/proto"
-	"istio.io/istio/pkg/test/envoy"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
-	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
-	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
-	"istio.io/istio/pkg/test/framework/runtime/components/apps/agent"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
-	"istio.io/istio/pkg/test/framework/runtime/components/environment/native/service"
-	"istio.io/istio/pkg/test/framework/runtime/components/pilot"
 )
 
 const (
@@ -85,226 +80,67 @@ var (
 
 // NewNativeComponent factory function for the component
 func NewNativeComponent() (api.Component, error) {
-	return &nativeComponent{
-		apps: make([]components.App, 0),
-	}, nil
+	return &nativeComponent{}, nil
 }
 
 type nativeComponent struct {
-	component.InstanceImpl
+	name           string
+	scope          lifecycle.Scope
+	endpoints      []components.EchoEndpoint
+	client         *echo.Client
+}
 
-	//tlsCKey          string
-	//tlsCert          string
-	discoveryAddress *net.TCPAddr
-	serviceManager   *service.Manager
-	echo             components.Echo
+type echoConfig struct {
+	serviceName      string
+	version          string
+}
+
+func (c *nativeComponent) Descriptor() component.Descriptor {
+	return descriptors.Echo
+}
+
+func (c *nativeComponent) Scope() lifecycle.Scope {
+	return c.scope
 }
 
 // Start implements the api.Component interface
 func (c *nativeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err error) {
-	c.Scope = scope
+	c.scope = scope
 
-	env, err := native.GetEnvironment(ctx)
-	if err != nil {
-		return err
-	}
-
-	p := ctx.GetComponent(ids.Pilot)
-	if p == nil {
-		return fmt.Errorf("missing dependency: %s", ids.Pilot)
-	}
-	nativePilot, ok := p.(pilot.Native)
-	if !ok {
-		return errors.New("pilot does not support in-process interface")
-	}
-
-	//return NewApps(p.GetDiscoveryAddress(), e.ServiceManager)
-	cfgs := []appConfig{
-		{
-			serviceName: "a",
-			version:     "v1",
-		},
-		{
-			serviceName: "b",
-			version:     "unversioned",
-		},
-		{
-			serviceName: "c",
-			version:     "v1",
-		},
-		// TODO(nmittler): Investigate how to support multiple versions in the local environment.
-		/*{
-			serviceName: "c",
-			version:     "v2",
-		},*/
-	}
-
-	c.discoveryAddress = nativePilot.GetDiscoveryAddress()
-	c.serviceManager = env.ServiceManager
-
-	zipkinAddress := ""
-	z := ctx.GetComponent(ids.Zipkin)
-	if z != nil {
-		zc, ok := z.(components.Zipkin)
-		if ok {
-			zipkinAddress = zc.GetAddress()
-		}
-	}
-
+	// Setup a close function to close the echo instance on an error.
 	defer func() {
 		if err != nil {
 			c.Close()
 		}
 	}()
 
-	for _, cfg := range cfgs {
-		//cfg.tlsCKey = c.tlsCert
-		//cfg.tlsCert = c.tlsCert
-		cfg.discoveryAddress = c.discoveryAddress
-		cfg.serviceManager = c.serviceManager
-		cfg.namespace = env.Namespace
-		cfg.zipkinAddress = zipkinAddress
-		cfg.mixerAddress = env.Mesh.GetMixerReportServer()
+	// TODO(sven): Pass configuration through Start() and use that for service name and version.
+	c.name = "a"
 
-		app, err := newNativeApp(cfg)
-		if err != nil {
-			return err
-		}
-
-		c.apps = append(c.apps, app)
+	cfg := echoConfig{
+		serviceName: c.name,
+		version:     "v1",
 	}
 
-	if err = c.waitForAppConfigDistribution(); err != nil {
-		return err
-	}
-
-	return
-}
-
-// Close implements io.Closer
-func (c *nativeComponent) Close() (err error) {
-	for i, a := range c.apps {
-		if a != nil {
-			err = multierror.Append(err, a.(*nativeApp).Close()).ErrorOrNil()
-			c.apps[i] = nil
-		}
-	}
-	return
-}
-
-// GetApp implements components.Apps
-func (c *nativeComponent) GetApp(name string) (components.App, error) {
-	for _, a := range c.apps {
-		if a.Name() == name {
-			return a, nil
-		}
-	}
-	return nil, fmt.Errorf("app %s does not exist", name)
-}
-
-// GetApp implements components.Apps
-func (c *nativeComponent) GetAppOrFail(name string, t testing.TB) components.App {
-	a, err := c.GetApp(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return a
-}
-
-func (c *nativeComponent) waitForAppConfigDistribution() error {
-	// Wait for config for all services to be distributed to all Envoys.
-	endTime := time.Now().Add(timeout)
-	for _, src := range c.apps {
-		for _, target := range c.apps {
-			if src == target {
-				continue
-			}
-			for {
-				err := src.(*nativeApp).agent.CheckConfiguredForService(target.(*nativeApp).agent)
-				if err == nil {
-					break
-				}
-
-				if time.Now().After(endTime) {
-					out := fmt.Sprintf("failed to configure apps: %v. Dumping Envoy configurations:\n", err)
-					for _, a := range c.apps {
-						dump, _ := configDumpStr(a)
-						out += fmt.Sprintf("app %s Config: %s\n", a.Name(), dump)
-					}
-
-					return errors.New(out)
-				}
-				time.Sleep(retryInterval)
-			}
-		}
-	}
-	return nil
-}
-
-func configDumpStr(a components.App) (string, error) {
-	return envoy.GetConfigDumpStr(a.(*nativeApp).agent.GetAdminPort())
-}
-
-// ConstructDiscoveryRequest returns an Envoy discovery request.
-func ConstructDiscoveryRequest(a components.App, typeURL string) *xdsapi.DiscoveryRequest {
-	nodeID := agent.GetNodeID(a.(*nativeApp).agent)
-	return &xdsapi.DiscoveryRequest{
-		Node: &core.Node{
-			Id: nodeID,
-		},
-		TypeUrl: typeURL,
-	}
-}
-
-type appConfig struct {
-	serviceName      string
-	version          string
-	tlsCKey          string
-	tlsCert          string
-	discoveryAddress *net.TCPAddr
-	serviceManager   *service.Manager
-	namespace        string
-	zipkinAddress    string
-	mixerAddress     string
-}
-
-func newNativeApp(cfg appConfig) (a components.App, err error) {
-	newapp := &nativeApp{
-		name: cfg.serviceName,
-	}
-	defer func() {
-		if err != nil {
-			_ = newapp.Close()
-		}
-	}()
-
-	appFactory := (&echo.Factory{
+	echoFactory := (&echo.Factory{
 		Ports:   ports,
 		Version: cfg.version,
-		TLSCKey: cfg.tlsCKey,
-		TLSCert: cfg.tlsCert,
 	}).NewApplication
 
-	agentFactory := (&agent.PilotAgentFactory{
-		Namespace:        cfg.namespace,
-		DiscoveryAddress: cfg.discoveryAddress,
-		ZipkinAddress:    cfg.zipkinAddress,
-		MixerAddress:     cfg.mixerAddress,
-	}).NewAgent
-
-	// Create and start the agent.
-	newapp.agent, err = agentFactory(cfg.serviceName, cfg.version, cfg.serviceManager, appFactory, nil)
-	if err != nil {
-		return
+	dialer := application.Dialer{
+		GRPC:      c.dialGRPC,
+		Websocket: c.dialWebsocket,
+		HTTP:      c.doHTTP,
 	}
+	app, err := echoFactory(dialer)
 
 	// Create the endpoints for the app.
 	var grpcEndpoint *nativeEndpoint
-	ports := newapp.agent.GetPorts()
-	endpoints := make([]components.AppEndpoint, len(ports))
+	ports := app.GetPorts()
+	endpoints := make([]components.EchoEndpoint, len(ports))
 	for i, port := range ports {
 		ep := &nativeEndpoint{
-			owner: newapp,
+			owner: c,
 			port:  port,
 		}
 		endpoints[i] = ep
@@ -313,57 +149,53 @@ func newNativeApp(cfg appConfig) (a components.App, err error) {
 			grpcEndpoint = ep
 		}
 	}
-	newapp.endpoints = endpoints
+	c.endpoints = endpoints
 
 	// Create the client for sending forward requests.
 	if grpcEndpoint == nil {
-		return nil, errors.New("unable to find grpc port for application")
+		return errors.New("unable to find grpc port for application")
 	}
-	newapp.client, err = echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.ApplicationPort))
+	c.client, err = echo.NewClient(fmt.Sprintf("127.0.0.1:%d", grpcEndpoint.port.Port))
 	if err != nil {
-		return nil, err
-	}
-
-	return newapp, nil
-}
-
-type nativeApp struct {
-	name      string
-	agent     agent.Agent
-	endpoints []components.AppEndpoint
-	client    *echo.Client
-}
-
-// GetAgent is a utility method for testing that extracts the agent from a local app.
-func GetAgent(a components.App) agent.Agent {
-	localApp, ok := a.(*nativeApp)
-	if !ok {
-		return nil
-	}
-	return localApp.agent
-}
-
-func (a *nativeApp) Close() (err error) {
-	if a.client != nil {
-		err = a.client.Close()
-	}
-	if a.agent != nil {
-		err = multierror.Append(err, a.agent.Close()).ErrorOrNil()
+		return err
 	}
 	return
 }
 
-func (a *nativeApp) Name() string {
-	return a.name
+// function for establishing GRPC connections from the application.
+func (c *nativeComponent) dialGRPC(ctx gocontext.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	return grpc.DialContext(ctx, address, opts...)
 }
 
-func (a *nativeApp) Endpoints() []components.AppEndpoint {
-	return a.endpoints
+// function for establishing Websocket connections from the application.
+func (c *nativeComponent) dialWebsocket(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
+	return dialer.Dial(urlStr, requestHeader)
 }
 
-func (a *nativeApp) EndpointsForProtocol(protocol model.Protocol) []components.AppEndpoint {
-	eps := make([]components.AppEndpoint, 0, len(a.endpoints))
-	for _, ep := range a.endpoints {
+// function for making outbound HTTP requests from the application.
+func (c *nativeComponent) doHTTP(client *http.Client, req *http.Request) (*http.Response, error) {
+	return client.Do(req)
+}
+
+// Close implements io.Closer
+func (c *nativeComponent) Close() (err error) {
+	if c.client != nil {
+		err = c.client.Close()
+	}
+	return
+}
+
+func (c *nativeComponent) Name() string {
+	return c.name
+}
+
+func (c *nativeComponent) Endpoints() []components.EchoEndpoint {
+	return c.endpoints
+}
+
+func (c *nativeComponent) EndpointsForProtocol(protocol model.Protocol) []components.EchoEndpoint {
+	eps := make([]components.EchoEndpoint, 0, len(c.endpoints))
+	for _, ep := range c.endpoints {
 		if ep.Protocol() == protocol {
 			eps = append(eps, ep)
 		}
@@ -371,8 +203,8 @@ func (a *nativeApp) EndpointsForProtocol(protocol model.Protocol) []components.A
 	return eps
 }
 
-func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
-	dst, ok := e.(*nativeEndpoint)
+func (c *nativeComponent) Call(ee components.EchoEndpoint, opts components.EchoCallOptions) ([]*echo.ParsedResponse, error) {
+	dst, ok := ee.(*nativeEndpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
 	}
@@ -386,7 +218,7 @@ func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOption
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
 
-	headers := []*proto.Header{}
+	var headers []*proto.Header = nil
 	headers = append(headers, &proto.Header{Key: "Host", Value: dstServiceName})
 	for key, values := range opts.Headers {
 		for _, value := range values {
@@ -398,9 +230,9 @@ func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOption
 		Count:   int32(opts.Count),
 		Headers: headers,
 	}
-	resp, err := a.client.ForwardEcho(request)
 
-	if err != nil {
+	resp, err := c.client.ForwardEcho(request)
+if err != nil {
 		return nil, err
 	}
 
@@ -411,17 +243,17 @@ func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOption
 		return nil, fmt.Errorf("unexpected response status code: %s", resp[0].Code)
 	}
 	if resp[0].Host != dstServiceName {
-		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
+		return nil, fmt.Errorf("unexpected host: %s (expected %s)", resp[0].Host, dstServiceName)
 	}
-	if resp[0].Port != strconv.Itoa(dst.port.ApplicationPort) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
+	if resp[0].Port != strconv.Itoa(dst.port.Port) {
+		return nil, fmt.Errorf("unexpected port: %s (expected %s)", resp[0].Port, strconv.Itoa(dst.port.Port))
 	}
 
 	return resp, nil
 }
 
-func (a *nativeApp) CallOrFail(e components.AppEndpoint, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
-	r, err := a.Call(e, opts)
+func (c *nativeComponent) CallOrFail(ee components.EchoEndpoint, opts components.EchoCallOptions, t testing.TB) []*echo.ParsedResponse {
+	r, err := c.Call(ee, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -429,15 +261,15 @@ func (a *nativeApp) CallOrFail(e components.AppEndpoint, opts components.AppCall
 }
 
 type nativeEndpoint struct {
-	owner *nativeApp
-	port  *agent.MappedPort
+	owner *nativeComponent
+	port  *model.Port
 }
 
 func (e *nativeEndpoint) Name() string {
 	return e.port.Name
 }
 
-func (e *nativeEndpoint) Owner() components.App {
+func (e *nativeEndpoint) Owner() components.Echo {
 	return e.owner
 }
 
@@ -445,7 +277,7 @@ func (e *nativeEndpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-func (e *nativeEndpoint) makeURL(opts components.AppCallOptions) *url.URL {
+func (e *nativeEndpoint) makeURL(opts components.EchoCallOptions) *url.URL {
 	protocol := string(opts.Protocol)
 	switch protocol {
 	case components.AppProtocolHTTP:
@@ -460,7 +292,7 @@ func (e *nativeEndpoint) makeURL(opts components.AppCallOptions) *url.URL {
 	}
 
 	host := "127.0.0.1"
-	port := e.port.ProxyPort
+	port := e.port.Port
 	return &url.URL{
 		Scheme: protocol,
 		Host:   net.JoinHostPort(host, strconv.Itoa(port)),

@@ -16,6 +16,7 @@ package registries
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/runtime/components/echo"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
@@ -47,6 +48,7 @@ var (
 func init() {
 	// Register native components.
 	Native.Register(descriptors.Apps, true, apps.NewNativeComponent)
+	Native.Register(descriptors.Echo, true, echo.NewNativeComponent)
 	Native.Register(descriptors.Galley, true, galley.NewNativeComponent)
 	Native.Register(descriptors.Mixer, true, mixer.NewNativeComponent)
 	Native.Register(descriptors.Pilot, true, pilot.NewNativeComponent)

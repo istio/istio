@@ -22,7 +22,6 @@ var _ Requirement = &Descriptor{}
 // support two Widget components: "fake widget" and "real widget".
 type Variant string
 
-// TODO(sven): Remove Variant in favor of support for configuration and names.
 // Descriptor describes a component of the testing framework.
 type Descriptor struct {
 	ID
