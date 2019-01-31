@@ -27,7 +27,7 @@ import (
 	"sort"
 	"strings"
 
-        "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/pkg/spiffe"
 

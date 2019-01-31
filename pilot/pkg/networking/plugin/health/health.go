@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-        "github.com/gogo/protobuf/types"
+	"github.com/gogo/protobuf/types"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	envoy_api_v2_route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
@@ -152,6 +152,7 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
 }
+
 // OnPreComputePerRouteFilterConfig is called whenever a new push is initialized to set up Per Route Filter config
 func (Plugin) OnPreComputePerRouteFilterConfig(env *model.Environment, proxy *model.Proxy, push *model.PushContext) map[plugin.CacheKey]*types.Struct {
 	return nil

@@ -15,12 +15,12 @@
 package plugin
 
 import (
+	"github.com/gogo/protobuf/types"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-        "github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -94,7 +94,7 @@ type InputParams struct {
 	Subset string
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
-        // SidecarScope associated with the push
+	// SidecarScope associated with the push
 	SidecarScope *model.SidecarScope
 }
 
@@ -167,7 +167,7 @@ type Plugin interface {
 	// configuration, like FilterChainMatch and TLSContext.
 	OnInboundFilterChains(in *InputParams) []FilterChain
 
-        // OnPreComputePerRouteFilterConfig is called whenever a new push is initialized to set up Per Route Filter config
+	// OnPreComputePerRouteFilterConfig is called whenever a new push is initialized to set up Per Route Filter config
 	OnPreComputePerRouteFilterConfig(env *model.Environment, proxy *model.Proxy, push *model.PushContext) map[CacheKey]*types.Struct
 
 	// GetName returns the Plugin name

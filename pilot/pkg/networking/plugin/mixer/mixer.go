@@ -749,6 +749,7 @@ func attrsCopy(attrs attributes) attributes {
 	}
 	return out
 }
+
 // GetName returns the Plugin name
 func (mixerplugin) GetName() string {
 	return plugin.Mixer
