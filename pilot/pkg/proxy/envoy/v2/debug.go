@@ -259,6 +259,8 @@ const (
 	authnHTTP       authProtocol = 1
 	authnMTls       authProtocol = 2
 	authnPermissive authProtocol = authnHTTP | authnMTls
+	authnCustomTLS  authProtocol = 4
+	authnCustomMTls authProtocol = 8
 )
 
 // Returns whether the given destination rule use (Istio) mutual TLS setting for given port.
@@ -269,8 +271,17 @@ func clientAuthProtocol(rule *networking.DestinationRule, port *model.Port) auth
 	}
 	_, _, _, tls := networking_core.SelectTrafficPolicyComponents(rule.TrafficPolicy, port)
 
-	if tls != nil && tls.Mode == networking.TLSSettings_ISTIO_MUTUAL {
-		return authnMTls
+	if tls != nil {
+		switch tls.Mode {
+		case networking.TLSSettings_ISTIO_MUTUAL:
+			return authnMTls
+		case networking.TLSSettings_SIMPLE:
+			return authnCustomTLS
+		case networking.TLSSettings_MUTUAL:
+			return authnCustomMTls
+		case networking.TLSSettings_DISABLE:
+			return authnHTTP
+		}
 	}
 	return authnHTTP
 }
@@ -311,6 +322,10 @@ func authProtocolToString(protocol authProtocol) string {
 		return "mTLS"
 	case authnPermissive:
 		return "HTTP/mTLS"
+	case authnCustomTLS:
+		return "TLS"
+	case authnCustomMTls:
+		return "custom mTLS"
 	default:
 		return "UNKNOWN"
 	}
@@ -362,7 +377,11 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 			info.ClientProtocol = authProtocolToString(clientProtocol)
 
 			if (clientProtocol & serverProtocol) == 0 {
-				info.TLSConflictStatus = "CONFLICT"
+				if clientProtocol == authnCustomMTls && serverProtocol != authnHTTP {
+					info.TLSConflictStatus = "MAY CONFLICT"
+				} else {
+					info.TLSConflictStatus = "CONFLICT"
+				}
 			} else {
 				info.TLSConflictStatus = "OK"
 			}
