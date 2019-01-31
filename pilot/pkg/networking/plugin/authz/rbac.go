@@ -745,7 +745,7 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 		}
 	case isKeyBinary(key) && !attributesEnforcedInPlugin(key):
 		// Split key of format a[b] to [a, b].
-		parts := strings.Split(strings.TrimSuffix(key, "]"), "[")
+		parts := strings.SplitN(strings.TrimSuffix(key, "]"), "[", 2)
 		converter = func(v string) (*policyproto.Permission, error) {
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_Metadata{
