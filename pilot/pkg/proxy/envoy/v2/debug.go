@@ -378,7 +378,7 @@ func (s *DiscoveryServer) authenticationz(w http.ResponseWriter, req *http.Reque
 
 			if (clientProtocol & serverProtocol) == 0 {
 				if clientProtocol == authnCustomMTls && serverProtocol != authnHTTP {
-					info.TLSConflictStatus = "?"
+					info.TLSConflictStatus = "MAY CONFLICT"
 				} else {
 					info.TLSConflictStatus = "CONFLICT"
 				}
