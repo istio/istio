@@ -25,7 +25,6 @@ import (
 	cpb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/runtime/config"
 	"istio.io/istio/mixer/pkg/runtime/config/constant"
 	"istio.io/istio/mixer/pkg/template"
@@ -41,7 +40,7 @@ type Validator struct {
 
 // NewValidator creates a new store.Validator instance which validates runtime semantics of
 // the configs.
-func NewValidator(tc checker.TypeChecker, s store.Store,
+func NewValidator(s store.Store,
 	adapterInfo map[string]*adapter.Info, templateInfo map[string]*template.Info) (store.Validator, error) {
 	kinds := config.KindMap(adapterInfo, templateInfo)
 	if err := s.Init(kinds); err != nil {

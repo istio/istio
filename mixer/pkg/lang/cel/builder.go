@@ -134,3 +134,9 @@ func (exb *ExpressionBuilder) Compile(text string) (ex compiled.Expression, typ 
 	out.interpretable, err = exb.interpreter.NewInterpretable(checked)
 	return
 }
+
+// EvalType returns the type of an expression
+func (exb *ExpressionBuilder) EvalType(text string) (descriptor.ValueType, error) {
+	_, typ, err := exb.Compile(text)
+	return typ, err
+}

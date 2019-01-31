@@ -325,8 +325,8 @@ func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 		}
 
 		if retType == pb.VALUE_TYPE_UNSPECIFIED {
-			tc := checker.NewTypeChecker()
-			retType, err = tc.EvalType(expr, createAttributeDescriptorFinder(nil))
+			tc := checker.NewTypeChecker(createAttributeDescriptorFinder(nil))
+			retType, err = tc.EvalType(expr)
 		}
 		return retType, err
 	}
@@ -897,8 +897,8 @@ func (e *fakeExpr) EvalType(s string, af ast.AttributeDescriptorFinder) (pb.Valu
 	if i := af.GetAttribute(s); i != nil {
 		return i.ValueType, nil
 	}
-	tc := checker.NewTypeChecker()
-	return tc.EvalType(s, af)
+	tc := checker.NewTypeChecker(af)
+	return tc.EvalType(s)
 }
 
 func (e *fakeExpr) AssertType(string, ast.AttributeDescriptorFinder, pb.ValueType) error {

@@ -65,7 +65,9 @@ type Ephemeral struct {
 	// next snapshot id
 	nextID int64
 
-	tc checker.TypeChecker
+	// type checkers
+	attributes ast.AttributeDescriptorFinder
+	tcs        map[lang.LanguageRuntime]lang.TypeChecker
 
 	// The ephemeral object is used inside a webhooks validators which run as multiple nodes.
 	// Which means every ephemeral instance (associated with every isolated webhook node) needs to keep itself in sync with the
@@ -92,12 +94,22 @@ func NewEphemeral(
 		adapters:  adapters,
 
 		nextID: 0,
-		tc:     checker.NewTypeChecker(),
+		tcs:    make(map[lang.LanguageRuntime]checker.TypeChecker),
 
 		entries: make(map[store.Key]*store.Resource),
 	}
 
 	return e
+}
+
+func (e *Ephemeral) checker(mode lang.LanguageRuntime) checker.TypeChecker {
+	if out, ok := e.tcs[mode]; ok {
+		return out
+	}
+
+	out := lang.NewTypeChecker(e.attributes, mode)
+	e.tcs[mode] = out
+	return out
 }
 
 // SetState with the supplied state map. All existing ephemeral state is overwritten.
@@ -152,15 +164,16 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 	shandlers := e.processStaticAdapterHandlerConfigs(monitoringCtx)
 
 	af := ast.NewFinder(attributes)
-	instances := e.processInstanceConfigs(monitoringCtx, af, errs)
+	e.attributes = af
+	instances := e.processInstanceConfigs(monitoringCtx, errs)
 
 	// New dynamic configurations
 	dTemplates := e.processDynamicTemplateConfigs(monitoringCtx, errs)
 	dAdapters := e.processDynamicAdapterConfigs(monitoringCtx, dTemplates, errs)
 	dhandlers := e.processDynamicHandlerConfigs(monitoringCtx, dAdapters, errs)
-	dInstances := e.processDynamicInstanceConfigs(monitoringCtx, dTemplates, af, errs)
+	dInstances := e.processDynamicInstanceConfigs(monitoringCtx, dTemplates, errs)
 
-	rules := e.processRuleConfigs(monitoringCtx, shandlers, instances, dhandlers, dInstances, af, errs)
+	rules := e.processRuleConfigs(monitoringCtx, shandlers, instances, dhandlers, dInstances, errs)
 
 	s := &Snapshot{
 		ID:                id,
@@ -168,7 +181,7 @@ func (e *Ephemeral) BuildSnapshot() (*Snapshot, error) {
 		Adapters:          e.adapters,
 		TemplateMetadatas: dTemplates,
 		AdapterMetadatas:  dAdapters,
-		Attributes:        ast.NewFinder(attributes),
+		Attributes:        af,
 		HandlersStatic:    shandlers,
 		InstancesStatic:   instances,
 		Rules:             rules,
@@ -373,7 +386,7 @@ func asAny(msgFQN string, bytes []byte) *types.Any {
 	}
 }
 
-func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates map[string]*Template, attributes ast.AttributeDescriptorFinder,
+func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates map[string]*Template,
 	errs *multierror.Error) map[string]*InstanceDynamic {
 	instances := make(map[string]*InstanceDynamic, len(e.templates))
 
@@ -401,7 +414,7 @@ func (e *Ephemeral) processDynamicInstanceConfigs(ctx context.Context, templates
 		template := tmpl.(*Template)
 		// validate if the param is valid
 		mode := lang.GetLanguageRuntime(resource.Metadata.Annotations)
-		compiler := lang.NewBuilder(attributes, mode)
+		compiler := lang.NewBuilder(e.attributes, mode)
 		resolver := yaml.NewResolver(template.FileDescSet)
 		b := dynamic.NewEncoderBuilder(
 			resolver,
@@ -464,7 +477,7 @@ func validateEncodeBytes(params *types.Struct, fds *descriptor.FileDescriptorSet
 	return yaml.NewEncoder(fds).EncodeBytes(d, msgName, false)
 }
 
-func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.AttributeDescriptorFinder, errs *multierror.Error) map[string]*InstanceStatic {
+func (e *Ephemeral) processInstanceConfigs(ctx context.Context, errs *multierror.Error) map[string]*InstanceStatic {
 	instances := make(map[string]*InstanceStatic, len(e.templates))
 
 	for key, resource := range e.entries {
@@ -476,10 +489,11 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.A
 		}
 
 		instanceName := key.String()
+		mode := lang.GetLanguageRuntime(resource.Metadata.Annotations)
 
 		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 		inferredType, err := info.InferType(resource.Spec, func(s string) (config.ValueType, error) {
-			return e.tc.EvalType(s, attributes)
+			return e.checker(mode).EvalType(s)
 		})
 		if err != nil {
 			appendErr(ctx, errs, fmt.Sprintf("instance='%s'", instanceName), monitoring.InstanceErrs, err.Error())
@@ -490,7 +504,7 @@ func (e *Ephemeral) processInstanceConfigs(ctx context.Context, attributes ast.A
 			Template:     info,
 			Params:       resource.Spec,
 			InferredType: inferredType,
-			Language:     lang.GetLanguageRuntime(resource.Metadata.Annotations),
+			Language:     mode,
 		}
 
 		instances[cfg.Name] = cfg
@@ -552,13 +566,21 @@ func (e *Ephemeral) processDynamicAdapterConfigs(ctx context.Context, availableT
 	return result
 }
 
+func assertType(tc lang.TypeChecker, expression string, expectedType config.ValueType) error {
+	if t, err := tc.EvalType(expression); err != nil {
+		return err
+	} else if t != expectedType {
+		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expression, t, expectedType)
+	}
+	return nil
+}
+
 func (e *Ephemeral) processRuleConfigs(
 	ctx context.Context,
 	sHandlers map[string]*HandlerStatic,
 	sInstances map[string]*InstanceStatic,
 	dHandlers map[string]*HandlerDynamic,
 	dInstances map[string]*InstanceDynamic,
-	attributes ast.AttributeDescriptorFinder,
 	errs *multierror.Error) []*Rule {
 
 	log.Debug("Begin processing rule configurations.")
@@ -574,11 +596,12 @@ func (e *Ephemeral) processRuleConfigs(
 		ruleName := ruleKey.String()
 
 		cfg := resource.Spec.(*config.Rule)
+		mode := lang.GetLanguageRuntime(resource.Metadata.Annotations)
 
 		log.Debugf("Processing incoming rule: name='%s'\n%s", ruleName, cfg)
 
 		if cfg.Match != "" {
-			if err := e.tc.AssertType(cfg.Match, attributes, config.BOOL); err != nil {
+			if err := assertType(e.checker(mode), cfg.Match, config.BOOL); err != nil {
 				appendErr(ctx, errs, fmt.Sprintf("rule='%s'.Match", ruleName), monitoring.RuleErrs, err.Error())
 			}
 		}
@@ -753,7 +776,7 @@ func (e *Ephemeral) processRuleConfigs(
 			Match:                    cfg.Match,
 			RequestHeaderOperations:  cfg.RequestHeaderOperations,
 			ResponseHeaderOperations: cfg.ResponseHeaderOperations,
-			Language:                 lang.GetLanguageRuntime(resource.Metadata.Annotations),
+			Language:                 mode,
 		}
 
 		rules = append(rules, rule)

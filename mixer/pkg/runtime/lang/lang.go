@@ -21,6 +21,7 @@ import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/cel"
+	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 )
 
@@ -33,6 +34,9 @@ type (
 
 	// LanguageRuntime enumerates the expression languages supported by istio
 	LanguageRuntime int
+
+	// TypeChecker interface (bound to legacy one)
+	TypeChecker = checker.TypeChecker
 )
 
 const (
@@ -81,6 +85,20 @@ func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Comp
 		fallthrough
 	default:
 		return compiled.NewBuilder(finder)
+	}
+}
+
+// NewTypeChecker returns a type checker
+func NewTypeChecker(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) TypeChecker {
+	switch mode {
+	case CEL:
+		return cel.NewBuilder(finder, cel.CEL)
+	case COMPAT:
+		return cel.NewBuilder(finder, cel.LegacySyntaxCEL)
+	case CEXL:
+		fallthrough
+	default:
+		return checker.NewTypeChecker(finder)
 	}
 }
 

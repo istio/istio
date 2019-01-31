@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/lang/checker"
 	"istio.io/istio/mixer/pkg/template"
 	template2 "istio.io/istio/mixer/template"
 )
@@ -86,7 +85,6 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	tc := checker.NewTypeChecker()
 	adapterInfo := make(map[string]*adapter.Info)
 	for _, y := range adapter2.Inventory() {
 		i := y()
@@ -130,7 +128,7 @@ func getValidatorForTest() (*Validator, error) {
 		},
 	}
 
-	v, err := NewValidator(tc, s, adapterInfo, templateInfo)
+	v, err := NewValidator(s, adapterInfo, templateInfo)
 	if err != nil {
 		return nil, err
 	}
