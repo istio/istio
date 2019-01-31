@@ -24,6 +24,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
 
 	kubeCore "k8s.io/api/core/v1"
 )
@@ -76,6 +77,8 @@ var (
 		"global.mtls.enabled":         "true",
 		"galley.enabled":              "true",
 	}
+
+	helmOverridesByTest = map[lifecycle.Scope]map[string]string{}
 )
 
 // settings provide kube-specific settings from flags.
@@ -119,7 +122,35 @@ type settings struct {
 	ValuesFile string
 
 	// Overrides for the Helm values file.
-	Values map[string]string
+	values map[string]string
+}
+
+// Values returns the helm value overrides given a lifecycle scope.
+func (s *settings) Values(scope lifecycle.Scope) map[string]string {
+	out := map[string]string{}
+	for k, v := range s.values {
+		out[k] = v
+	}
+	values, exists := helmOverridesByTest[scope]
+	if !exists {
+		return nil
+	}
+	for k, v := range values {
+		out[k] = v
+	}
+	return out
+}
+
+// RegisterHelmOverrides allows helm value overrides in the test in Kubernetes environment setup.
+// This allows some test to specify a customized Istio deployment by specifying additional Helm values.
+// TODO(incfly): remove the flag value overrides.
+func RegisterHelmOverrides(scope lifecycle.Scope, values map[string]string) error {
+	_, exists := helmOverridesByTest[scope]
+	if exists {
+		return fmt.Errorf("Unable to register overrides, already exists scope = %v, values = %v", scope, values)
+	}
+	helmOverridesByTest[scope] = values
+	return nil
 }
 
 // New returns settings built from flags and environment variables.
@@ -146,7 +177,7 @@ func newSettings() (*settings, error) {
 	}
 
 	var err error
-	s.Values, err = newHelmValues()
+	s.values, err = newHelmValues()
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +253,7 @@ func (s *settings) String() string {
 	result += fmt.Sprintf("DeployTimeout:   %ds\n", s.DeployTimeout/time.Second)
 	result += fmt.Sprintf("UndeployTimeout: %ds\n", s.UndeployTimeout/time.Second)
 	result += fmt.Sprintf("MinikubeIngress: %v\n", s.MinikubeIngress)
-	result += fmt.Sprintf("Values:          %v\n", s.Values)
+	result += fmt.Sprintf("Values:          %v\n", s.values)
 
 	return result
 }

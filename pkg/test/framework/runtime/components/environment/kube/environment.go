@@ -43,9 +43,11 @@ const (
 	validatingWebhookName = "istio-galley"
 )
 
-var _ api.Environment = &Environment{}
-var _ api.Resettable = &Environment{}
-var _ io.Closer = &Environment{}
+var (
+	_ api.Environment = &Environment{}
+	_ api.Resettable  = &Environment{}
+	_ io.Closer       = &Environment{}
+)
 
 // Environment is the implementation of a kubernetes environment. It implements environment.Environment,
 // and also hosts publicly accessible methods that are specific to cluster environment.
@@ -97,7 +99,7 @@ func (e *Environment) Scope() lifecycle.Scope {
 
 // Is mtls enabled. Check in Values flag and Values file.
 func (e *Environment) IsMtlsEnabled() bool {
-	if e.s.Values["global.mtls.enabled"] == "true" {
+	if e.s.Values(e.scope)["global.mtls.enabled"] == "true" {
 		return true
 	}
 
@@ -167,12 +169,8 @@ func (e *Environment) MinikubeIngress() bool {
 }
 
 // HelmValueMap returns the overrides for helm values.
-func (e *Environment) HelmValueMap() map[string]string {
-	out := make(map[string]string)
-	for k, v := range e.s.Values {
-		out[k] = v
-	}
-	return out
+func (e *Environment) HelmValueMap(scope lifecycle.Scope) map[string]string {
+	return e.s.Values(scope)
 }
 
 // Start implements the api.Environment interface
@@ -250,7 +248,7 @@ func (e *Environment) deployIstio() (err error) {
 		ChartDir:     e.s.ChartDir,
 		CrdsFilesDir: e.s.CrdsFilesDir,
 		ValuesFile:   e.s.ValuesFile,
-		Values:       e.s.Values,
+		Values:       e.s.Values(e.scope),
 	})
 	if err == nil {
 		err = e.deployment.Deploy(e.Accessor, true, retry.Timeout(e.s.DeployTimeout))

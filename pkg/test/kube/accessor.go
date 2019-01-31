@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -124,6 +125,8 @@ func (a *Accessor) FindPodBySelectors(namespace string, selectors ...string) (ku
 	}
 
 	if len(list) == 0 {
+		fmt.Println("jianfeih debug find pod failure ")
+		debug.PrintStack()
 		return kubeApiCore.Pod{}, fmt.Errorf("no matching pod found for selectors: %v", selectors)
 	}
 

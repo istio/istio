@@ -37,6 +37,8 @@ import (
 
 func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.GetContext(t)
+	// Test requires this Helm flag to be enabled.
+	kube.RegisterHelmOverrides(lifecycle.Test, map[string]string{"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true"})
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment)
 	path := filepath.Join(ctx.WorkDir(), "mtls-strict-healthcheck.yaml")
 	err := ioutil.WriteFile(path, []byte(`apiVersion: "authentication.istio.io/v1alpha1"
