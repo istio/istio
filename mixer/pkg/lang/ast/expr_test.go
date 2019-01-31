@@ -42,7 +42,6 @@ func TestGoodParse(t *testing.T) {
 		{`true == false`, `EQ(true, false)`},
 		{`a.b == 3.14`, `EQ($a.b, 3.14)`},
 		{`a/b`, `QUO($a, $b)`},
-		{`"1s"`, `"1s"`},
 		{`request.header["X-FORWARDED-HOST"] == "aaa"`, `EQ(INDEX($request.header, "X-FORWARDED-HOST"), "aaa")`},
 		{`source.ip | ip("0.0.0.0")`, `OR($source.ip, ip("0.0.0.0"))`},
 		{`context.time | timestamp("2015-01-02T15:04:05Z")`, `OR($context.time, timestamp("2015-01-02T15:04:05Z"))`},
