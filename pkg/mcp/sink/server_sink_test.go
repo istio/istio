@@ -24,6 +24,7 @@ import (
 
 	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -33,6 +34,37 @@ import (
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
+type fakeRateLimiter struct {
+	notAllowc chan struct{}
+}
+
+func newFakeRateLimiter() *fakeRateLimiter {
+	return &fakeRateLimiter{
+		notAllowc: make(chan struct{}),
+	}
+}
+
+func (f *fakeRateLimiter) Limit() rate.Limit {
+	return 0
+}
+
+func (f *fakeRateLimiter) Burst() int {
+	return 0
+}
+
+func (f *fakeRateLimiter) Allow() bool {
+	select {
+	case <-f.notAllowc:
+		return false
+	default:
+		return true
+	}
+}
+
+func (f *fakeRateLimiter) AllowN(now time.Time, n int) bool {
+	return false
+}
+
 type serverHarness struct {
 	grpc.ServerStream
 	*sinkTestHarness
@@ -41,6 +73,69 @@ type serverHarness struct {
 // avoid ambiguity between grpc.ServerStream and test.sinkTestHarness
 func (h *serverHarness) Context() context.Context {
 	return h.sinkTestHarness.Context()
+}
+
+func TestServerSinkRateLimitter(t *testing.T) {
+	h := &serverHarness{
+		sinkTestHarness: newSinkTestHarness(),
+	}
+
+	fakeLimiter := newFakeRateLimiter()
+	authChecker := test.NewFakeAuthChecker()
+	options := &Options{
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Updater:           h,
+		ID:                test.NodeID,
+		Metadata:          test.NodeMetadata,
+		Reporter:          monitoring.NewInMemoryStatsContext(),
+	}
+	serverOpts := &ServerOptions{
+		AuthChecker: authChecker,
+	}
+	s := NewServer(options, serverOpts)
+	s.newConnectionLimiter = fakeLimiter
+
+	// when rate limit reached
+	errc := make(chan error)
+	go func() {
+		errc <- s.EstablishResourceStream(h)
+	}()
+
+	fakeLimiter.notAllowc <- struct{}{}
+
+	expectedErr := "new connection limit reached"
+	err := <-errc
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("Expected rate limit error: got %v want %v ", err, expectedErr)
+	}
+
+	// when rate limit is not reached
+	go func() {
+		errc <- s.EstablishResourceStream(h)
+	}()
+
+	h.resourcesChan <- &mcp.Resources{
+		Collection: test.FakeType0Collection,
+		Nonce:      "n0",
+		Resources: []mcp.Resource{
+			*test.Type0A[0].Resource,
+		},
+	}
+
+	<-h.changeUpdatedChans
+	h.mu.Lock()
+	got := h.changes[test.FakeType0Collection]
+	h.mu.Unlock()
+	if got == nil {
+		t.Fatalf("Expected to receive something: got %v", got)
+	}
+
+	h.recvErrorChan <- io.EOF
+
+	err = <-errc
+	if err != nil {
+		t.Fatalf("Expected no error: got %v", err)
+	}
 }
 
 func TestServerSink(t *testing.T) {
@@ -57,11 +152,10 @@ func TestServerSink(t *testing.T) {
 		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	serverOpts := &ServerOptions{
-		AuthChecker:            authChecker,
-		NewConnectionFreq:      time.Second,
-		NewConnectionBurstSize: 3,
+		AuthChecker: authChecker,
 	}
 	s := NewServer(options, serverOpts)
+	s.newConnectionLimiter = newFakeRateLimiter()
 
 	errc := make(chan error)
 	go func() {
@@ -111,8 +205,7 @@ func TestServerSink(t *testing.T) {
 
 	// multiple connections
 	go func() {
-		err := s.EstablishResourceStream(h)
-		errc <- err
+		errc <- s.EstablishResourceStream(h)
 	}()
 
 	// wait for first connection to succeed and change to be applied
@@ -131,12 +224,6 @@ func TestServerSink(t *testing.T) {
 		AuthInfo: authChecker,
 	}))
 
-	//
-	//	err = s.EstablishResourceStream(h)
-	//	if err == nil {
-	//		t.Fatal("should fail")
-	//	}
-
 	// error disconnect
 	h.recvErrorChan <- errors.New("unknown error")
 	err = <-errc
@@ -149,40 +236,5 @@ func TestServerSink(t *testing.T) {
 	err = s.EstablishResourceStream(h)
 	if s, ok := status.FromError(err); !ok || s.Code() != codes.Unauthenticated {
 		t.Fatalf("Connection should have failed: got %v want %v", err, nil)
-	}
-}
-
-func TestServerSinkRateLimitter(t *testing.T) {
-	h := &serverHarness{
-		sinkTestHarness: newSinkTestHarness(),
-	}
-
-	authChecker := test.NewFakeAuthChecker()
-	options := &Options{
-		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Updater:           h,
-		ID:                test.NodeID,
-		Metadata:          test.NodeMetadata,
-		Reporter:          monitoring.NewInMemoryStatsContext(),
-	}
-	serverOpts := &ServerOptions{
-		AuthChecker:            authChecker,
-		NewConnectionFreq:      time.Second,
-		NewConnectionBurstSize: 1,
-	}
-	s := NewServer(options, serverOpts)
-
-	errc := make(chan error)
-	go func() {
-		errc <- s.EstablishResourceStream(h)
-	}()
-	go func() {
-		errc <- s.EstablishResourceStream(h)
-	}()
-
-	expectedErr := "New connection limit reached"
-	err := <-errc
-	if err == nil || err.Error() != expectedErr {
-		t.Fatalf("Expected rate limit error: got %v want %v ", err, expectedErr)
 	}
 }

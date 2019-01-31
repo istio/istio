@@ -28,6 +28,14 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 )
 
+// RateLimiter is representing standard libraries rate Limiter
+type RateLimiter interface {
+	Limit() rate.Limit
+	Burst() int
+	Allow() bool
+	AllowN(now time.Time, n int) bool
+}
+
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
 // returns nil, then the connection will be allowed. If the function returns an error, then it will be
 // percolated up to the gRPC stack.
@@ -43,9 +51,8 @@ type AuthChecker interface {
 // from the client.
 type Server struct {
 	authCheck            AuthChecker
-	newConnectionLimiter *rate.Limiter
-	//	connections          int64
-	sink *Sink
+	newConnectionLimiter RateLimiter
+	sink                 *Sink
 }
 
 var _ mcp.ResourceSinkServer = &Server{}
@@ -72,13 +79,9 @@ func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 func (s *Server) EstablishResourceStream(stream mcp.ResourceSink_EstablishResourceStreamServer) error {
 	// TODO support receiving configuration from multiple sources?
 	// TODO MVP - limit to one connection at a time?
-	//	if !atomic.CompareAndSwapInt64(&s.connections, 0, 1) {
-	//		return errors.New("TODO limited to one connection at a time")
-	//	}
-	//	defer atomic.AddInt64(&s.connections, -1)
 
 	if !s.newConnectionLimiter.Allow() {
-		return errors.New("New connection limit reached")
+		return errors.New("new connection limit reached")
 	}
 	var authInfo credentials.AuthInfo
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
