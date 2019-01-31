@@ -157,33 +157,47 @@ func TestTrafficAssertionReify(t *testing.T) {
 		wantEdges    []edge
 		wantEntities []entity
 	}{
-		{name: "http-service", assertion: trafficAssertion{
-			source:             istioPolicyWorkloadInstance,
-			destination:        istioTelemetryWorkloadInstance,
-			contextProtocol:    "http",
-			destinationService: svc,
-			timestamp:          time.Now(),
-		},
-			wantEdges: []edge{
+		{"http-service",
+			trafficAssertion{
+				source:             istioPolicyWorkloadInstance,
+				destination:        istioTelemetryWorkloadInstance,
+				contextProtocol:    "http",
+				destinationService: svc,
+				timestamp:          time.Now(),
+			},
+			[]edge{
 				// policy memberships
 				edge{policyWorkloadEntity.fullName, policyOwnerEntity.fullName, membershipTypeName},
 				edge{policyOwnerEntity.fullName, policyWorkloadInstanceEntity.fullName, membershipTypeName},
 
 				// policy -> k8s membership
-				edge{policyOwnerEntity.fullName, "//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/k8s/namespaces/istio-system/extensions/deployments/istio-policy", membershipTypeName},
-				edge{policyWorkloadInstanceEntity.fullName, "//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/k8s/namespaces/istio-system/pods/istio-policy-65db5b46fc-r7qhq", membershipTypeName},
+				edge{policyOwnerEntity.fullName,
+					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
+						"k8s/namespaces/istio-system/extensions/deployments/istio-policy",
+					membershipTypeName},
+				edge{policyWorkloadInstanceEntity.fullName,
+					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
+						"k8s/namespaces/istio-system/pods/istio-policy-65db5b46fc-r7qhq",
+					membershipTypeName},
 
 				// policy -> service comms
 				edge{policyWorkloadInstanceEntity.fullName, svcEntity.fullName, httpComm},
 				edge{policyOwnerEntity.fullName, svcEntity.fullName, httpComm},
+				edge{policyWorkloadEntity.fullName, svcEntity.fullName, httpComm},
 
 				// telemetry memberships
 				edge{telemetryWorkloadEntity.fullName, telemetryOwnerEntity.fullName, membershipTypeName},
 				edge{telemetryOwnerEntity.fullName, telemetryWorkloadInstanceEntity.fullName, membershipTypeName},
 
 				// telemetry -> k8s membership
-				edge{telemetryOwnerEntity.fullName, "//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/k8s/namespaces/istio-system/extensions/deployments/istio-telemetry", membershipTypeName},
-				edge{telemetryWorkloadInstanceEntity.fullName, "//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/k8s/namespaces/istio-system/pods/istio-telemetry-65db5b46fc-r7qhq", membershipTypeName},
+				edge{telemetryOwnerEntity.fullName,
+					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
+						"k8s/namespaces/istio-system/extensions/deployments/istio-telemetry",
+					membershipTypeName},
+				edge{telemetryWorkloadInstanceEntity.fullName,
+					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/" +
+						"k8s/namespaces/istio-system/pods/istio-telemetry-65db5b46fc-r7qhq",
+					membershipTypeName},
 
 				// policy sources -> telemetry workload instance
 				edge{policyWorkloadInstanceEntity.fullName, telemetryWorkloadInstanceEntity.fullName, httpComm},
@@ -206,10 +220,15 @@ func TestTrafficAssertionReify(t *testing.T) {
 				edge{policyOwnerEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
 				edge{policyWorkloadEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
 
+				// service -> workload comms
+				edge{svcEntity.fullName, telemetryWorkloadEntity.fullName, httpComm},
+
 				// svc -> k8s svc membership
-				edge{svcEntity.fullName, "//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/k8s/namespaces/svc-ns/services/my-svc", membershipTypeName},
+				edge{svcEntity.fullName,
+					"//container.googleapis.com/projects/org2:project2/locations//clusters/global-mesh/k8s/namespaces/svc-ns/services/my-svc",
+					membershipTypeName},
 			},
-			wantEntities: []entity{
+			[]entity{
 				policyWorkloadInstanceEntity,
 				policyOwnerEntity,
 				policyWorkloadEntity,
@@ -271,15 +290,18 @@ var istioTelemetryWorkloadInstance = workloadInstance{
 var policyWorkloadInstanceEntity = entity{
 	containerFullName: "//cloudresourcemanager.googleapis.com/projects/org:project",
 	typeName:          "io.istio.WorkloadInstance",
-	fullName:          "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/workloadInstances/kubernetes%3A%2F%2Fistio-policy-65db5b46fc-r7qhq.istio-system",
-	shortNames:        [4]string{"mesh%2F1", "org2:project2", "global-mesh", "kubernetes%3A%2F%2Fistio-policy-65db5b46fc-r7qhq.istio-system"},
+	fullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/" +
+		"workloadInstances/kubernetes%3A%2F%2Fistio-policy-65db5b46fc-r7qhq.istio-system",
+	shortNames: [4]string{"mesh%2F1", "org2:project2", "global-mesh", "kubernetes%3A%2F%2Fistio-policy-65db5b46fc-r7qhq.istio-system"},
 }
 
 var policyOwnerEntity = entity{
 	containerFullName: "//cloudresourcemanager.googleapis.com/projects/org:project",
 	typeName:          "io.istio.Owner",
-	fullName:          "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
-	shortNames:        [4]string{"mesh%2F1", "org2:project2", "global-mesh", "kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy"},
+	fullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/" +
+		"owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy",
+	shortNames: [4]string{"mesh%2F1", "org2:project2", "global-mesh",
+		"kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-policy"},
 }
 
 var policyWorkloadEntity = entity{
@@ -293,15 +315,18 @@ var policyWorkloadEntity = entity{
 var telemetryWorkloadInstanceEntity = entity{
 	containerFullName: "//cloudresourcemanager.googleapis.com/projects/org:project",
 	typeName:          "io.istio.WorkloadInstance",
-	fullName:          "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/workloadInstances/kubernetes%3A%2F%2Fistio-telemetry-65db5b46fc-r7qhq.istio-system",
-	shortNames:        [4]string{"mesh%2F1", "org2:project2", "global-mesh", "kubernetes%3A%2F%2Fistio-telemetry-65db5b46fc-r7qhq.istio-system"},
+	fullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/" +
+		"workloadInstances/kubernetes%3A%2F%2Fistio-telemetry-65db5b46fc-r7qhq.istio-system",
+	shortNames: [4]string{"mesh%2F1", "org2:project2", "global-mesh", "kubernetes%3A%2F%2Fistio-telemetry-65db5b46fc-r7qhq.istio-system"},
 }
 
 var telemetryOwnerEntity = entity{
 	containerFullName: "//cloudresourcemanager.googleapis.com/projects/org:project",
 	typeName:          "io.istio.Owner",
-	fullName:          "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-telemetry",
-	shortNames:        [4]string{"mesh%2F1", "org2:project2", "global-mesh", "kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-telemetry"},
+	fullName: "//istio.io/projects/org:project/meshes/mesh%2F1/clusterProjects/org2:project2/locations//clusters/global-mesh/" +
+		"owners/kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-telemetry",
+	shortNames: [4]string{"mesh%2F1", "org2:project2", "global-mesh",
+		"kubernetes%3A%2F%2Fapis%2Fextensions%2Fv1beta1%2Fnamespaces%2Fistio-system%2Fdeployments%2Fistio-telemetry"},
 }
 
 var telemetryWorkloadEntity = entity{

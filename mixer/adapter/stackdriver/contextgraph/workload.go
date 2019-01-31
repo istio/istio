@@ -209,11 +209,8 @@ func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
 	var sourceFullNames []string
 	for _, entity := range entities {
 		sourceFullNames = append(sourceFullNames, entity.fullName)
-		switch entity.typeName {
-		case "io.istio.WorkloadInstance", "io.istio.Owner":
-			if len(commType) > 0 {
-				edges = append(edges, edge{entity.fullName, serviceEntity.fullName, commType})
-			}
+		if len(commType) > 0 {
+			edges = append(edges, edge{entity.fullName, serviceEntity.fullName, commType})
 		}
 	}
 	destEntities, destEdges := t.destination.Reify(logger)
@@ -225,13 +222,9 @@ func (t trafficAssertion) Reify(logger adapter.Logger) ([]entity, []edge) {
 			for _, s := range sourceFullNames {
 				edges = append(edges, edge{s, entity.fullName, commType})
 			}
-
-			switch entity.typeName {
-			case "io.istio.WorkloadInstance", "io.istio.Owner":
-				edges = append(edges, edge{serviceEntity.fullName, entity.fullName, commType})
-				if k8sSvc == "" {
-					k8sSvc = k8sSvcFullname(entity.shortNames[1], entity.location, entity.shortNames[2], t.destinationService.namespace, t.destinationService.name)
-				}
+			edges = append(edges, edge{serviceEntity.fullName, entity.fullName, commType})
+			if k8sSvc == "" {
+				k8sSvc = k8sSvcFullname(entity.shortNames[1], entity.location, entity.shortNames[2], t.destinationService.namespace, t.destinationService.name)
 			}
 		}
 	}
