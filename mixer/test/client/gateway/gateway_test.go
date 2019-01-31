@@ -220,7 +220,7 @@ func TestGateway(t *testing.T) {
 	}
 	sourceUID = "in-mesh-app"
 	s.VerifyCheck("http-outbound", fmt.Sprintf(checkAttributesOkOutbound, sourceUID))
-	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, source_uid))
+	s.VerifyReport("http", fmt.Sprintf(reportAttributesOkOutbound, sourceUID))
 }
 
 type mock struct{}
