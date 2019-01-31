@@ -78,7 +78,7 @@ else
 fi
 
 function update_gcp_opts() {
-  export GCP_OPTS="--project=${PROJECT} --zone=${ZONE}"
+  export GCP_OPTS=("--project=${PROJECT}" "--zone=${ZONE}")
 }
 
 function Execute() {
@@ -93,19 +93,19 @@ function ExecuteEval() {
 
 
 function create_cluster() {
-  Execute gcloud container clusters create "$CLUSTER_NAME" "$GCP_OPTS" --machine-type="$MACHINE_TYPE" --num-nodes="$NUM_NODES" --no-enable-legacy-authorization
+  Execute gcloud container clusters create "$CLUSTER_NAME" "${GCP_OPTS[@]}" --machine-type="$MACHINE_TYPE" --num-nodes="$NUM_NODES" --no-enable-legacy-authorization
 }
 
 function delete_cluster() {
   echo "Deleting CLUSTER_NAME=$CLUSTER_NAME"
-  Execute gcloud container clusters delete "$CLUSTER_NAME" "$GCP_OPTS" -q
+  Execute gcloud container clusters delete "$CLUSTER_NAME" "${GCP_OPTS[@]}" -q
 }
 
 function create_vm() {
   echo "Obtaining latest ubuntu xenial image name... (takes a few seconds)..."
   VM_IMAGE=${VM_IMAGE:-$(gcloud compute images list --standard-images --filter=name~ubuntu-1604-xenial --limit=1 --uri)}
   echo "Creating VM_NAME=$VM_NAME using VM_IMAGE=$VM_IMAGE"
-  Execute gcloud compute instances create "$VM_NAME" "$GCP_OPTS" --machine-type "$MACHINE_TYPE" --image "$VM_IMAGE"
+  Execute gcloud compute instances create "$VM_NAME" "${GCP_OPTS[@]}" --machine-type "$MACHINE_TYPE" --image "$VM_IMAGE"
   echo "Waiting a bit for the VM to come up..."
   #TODO: 'wait for vm to be ready'
   sleep 45
@@ -113,16 +113,16 @@ function create_vm() {
 
 function delete_vm() {
   echo "Deleting VM_NAME=$VM_NAME"
-  Execute gcloud compute instances delete "$VM_NAME" "$GCP_OPTS" -q
+  Execute gcloud compute instances delete "$VM_NAME" "${GCP_OPTS[@]}" -q
 }
 
 function run_on_vm() {
   echo "*** Remote run: \"$1\"" 1>&2
-  Execute gcloud compute ssh "$VM_NAME" "$GCP_OPTS" --command "$1"
+  Execute gcloud compute ssh "$VM_NAME" "${GCP_OPTS[@]}" --command "$1"
 }
 
 function setup_vm() {
-  Execute gcloud compute instances add-tags "$VM_NAME" "$GCP_OPTS" --tags https-server
+  Execute gcloud compute instances add-tags "$VM_NAME" "${GCP_OPTS[@]}" --tags https-server
   # shellcheck disable=SC2016
   run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.10-go make && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.10/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
@@ -145,7 +145,7 @@ function run_fortio_on_vm() {
 }
 
 function get_vm_ip() {
-  VM_IP=$(gcloud compute instances describe "$VM_NAME" "$GCP_OPTS" |grep natIP|awk -F": " '{print $2}')
+  VM_IP=$(gcloud compute instances describe "$VM_NAME" "${GCP_OPTS[@]}" |grep natIP|awk -F": " '{print $2}')
   VM_URL="http://$VM_IP:443/fortio/"
   echo "+++ VM Ip is $VM_IP - visit (http on port 443 is not a typo:) $VM_URL"
 }
@@ -166,7 +166,7 @@ function delete_istio() {
 }
 
 function kubectl_setup() {
-  Execute gcloud container clusters get-credentials "$CLUSTER_NAME" "$GCP_OPTS"
+  Execute gcloud container clusters get-credentials "$CLUSTER_NAME" "${GCP_OPTS[@]}"
 }
 
 function install_non_istio_svc() {
