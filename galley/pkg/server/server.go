@@ -54,6 +54,7 @@ type Server struct {
 	grpcServer *grpc.Server
 	processor  *runtime.Processor
 	mcp        *server.Server
+	mcpSource  *source.Server
 	reporter   monitoring.Reporter
 	listener   net.Listener
 	controlZ   *ctrlz.Server
@@ -171,6 +172,9 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 
 	s.mcp = server.New(options, checker)
 
+	serverOptions := &source.ServerOptions{AuthChecker: checker}
+	s.mcpSource = source.NewServer(options, serverOptions)
+
 	// get the network stuff setup
 	network := "tcp"
 	var address string
@@ -187,6 +191,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	}
 
 	mcp.RegisterAggregatedMeshConfigServiceServer(s.grpcServer, s.mcp)
+	mcp.RegisterResourceSourceServer(s.grpcServer, s.mcpSource)
 
 	s.controlZ, _ = ctrlz.Run(a.IntrospectionOptions, nil)
 
@@ -219,14 +224,14 @@ func (s *Server) Run() {
 		defer s.serveWG.Done()
 		err := s.processor.Start()
 		if err != nil {
-			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
+			scope.Errorf("Galley Server unexpectedly terminated: %v", err)
 			return
 		}
 
 		// start serving
 		err = s.grpcServer.Serve(s.listener)
 		if err != nil {
-			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
+			scope.Errorf("Galley Server unexpectedly terminated: %v", err)
 		}
 	}()
 }

@@ -10,8 +10,12 @@ metadata:
     release: {{ .Release.Name }}
     istio: ingress
 spec:
-{{- if not .Values.autoscaleMin }}
+{{- if not .Values.autoscaleEnabled }}
+{{- if .Values.replicaCount }}
   replicas: {{ .Values.replicaCount }}
+{{- else }}
+  replicas: 1
+{{- end }}
 {{- end }}
   template:
     metadata:

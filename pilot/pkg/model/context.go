@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -87,9 +86,6 @@ type Proxy struct {
 	// namespace.
 	ID string
 
-	// Locality is the location of where Envoy proxy runs.
-	Locality Locality
-
 	// DNSDomain defines the DNS domain suffix for short hostnames (e.g.
 	// "default.svc.cluster.local")
 	DNSDomain string
@@ -107,6 +103,9 @@ type Proxy struct {
 
 	// the sidecarScope associated with the proxy
 	SidecarScope *SidecarScope
+
+	// service instances associated with the proxy
+	ServiceInstances []*ServiceInstance
 }
 
 // NodeType decides the responsibility of the proxy serves in the mesh
@@ -172,6 +171,32 @@ func (node *Proxy) GetRouterMode() RouterMode {
 		}
 	}
 	return StandardRouter
+}
+
+// SetSidecarScope identifies the sidecar scope object associated with this
+// proxy and updates the proxy Node. This is a convenience hack so that
+// callers can simply call push.Services(node) while the implementation of
+// push.Services can return the set of services from the proxyNode's
+// sidecar scope or from the push context's set of global services. Similar
+// logic applies to push.VirtualServices and push.DestinationRule. The
+// short cut here is useful only for CDS and parts of RDS generation code.
+//
+// Listener generation code will still use the SidecarScope object directly
+// as it needs the set of services for each listener port.
+func (node *Proxy) SetSidecarScope(ps *PushContext) {
+	instances := node.ServiceInstances
+	node.SidecarScope = ps.getSidecarScope(node, instances)
+}
+
+func (node *Proxy) SetServiceInstances(env *Environment) error {
+	instances, err := env.GetProxyServiceInstances(node)
+	if err != nil {
+		log.Errorf("failed to get service proxy service instances: %v", err)
+		return err
+	}
+
+	node.ServiceInstances = instances
+	return nil
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh
@@ -284,19 +309,6 @@ func GetProxyConfigNamespace(proxy *Proxy) string {
 	}
 
 	return ""
-}
-
-// GetProxyLocality returns the locality where Envoy proxy is running.
-func GetProxyLocality(proxy *core.Node) *Locality {
-	if proxy == nil || proxy.Locality == nil {
-		return nil
-	}
-
-	return &Locality{
-		Region:  proxy.Locality.Region,
-		Zone:    proxy.Locality.Zone,
-		SubZone: proxy.Locality.SubZone,
-	}
 }
 
 const (

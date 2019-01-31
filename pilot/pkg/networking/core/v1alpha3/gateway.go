@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -37,11 +38,7 @@ import (
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environment, node *model.Proxy, push *model.PushContext) ([]*xdsapi.Listener, error) {
 	// collect workload labels
-	workloadInstances, err := env.GetProxyServiceInstances(node)
-	if err != nil {
-		log.Errora("Failed to get gateway instances for router ", node.ID, err)
-		return nil, err
-	}
+	workloadInstances := node.ServiceInstances
 
 	var workloadLabels model.LabelsCollection
 	for _, w := range workloadInstances {
@@ -126,18 +123,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 			},
 		}
 		for _, p := range configgen.Plugins {
-			if err = p.OnOutboundListener(pluginParams, mutable); err != nil {
+			if err := p.OnOutboundListener(pluginParams, mutable); err != nil {
 				log.Warna("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
 
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err = buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
+		if err := buildCompleteFilterChain(pluginParams, mutable, opts); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
 
-		if err = mutable.Listener.Validate(); err != nil {
+		if err := mutable.Listener.Validate(); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway listener %s validation failed: %v", mutable.Listener.Name, err.Error()))
 			continue
 		}
@@ -149,7 +146,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		listeners = append(listeners, mutable.Listener)
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
-	err = errs.ErrorOrNil()
+	err := errs.ErrorOrNil()
 	if err != nil {
 		// we have some listeners to return, but we also have some errors; log them
 		log.Info(err.Error())
@@ -223,8 +220,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Env
 	vHostDedupMap := make(map[string]*route.VirtualHost)
 
 	for _, v := range virtualServices {
-		vs := v.Spec.(*networking.VirtualService)
-		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, vs.Hosts)
+		matchingHosts := pickMatchingGatewayHosts(gatewayHosts, v)
 		if len(matchingHosts) == 0 {
 			log.Debugf("%s omitting virtual service %q because its hosts  don't match gateways %v server %d", node.ID, v.Name, gateways, port)
 			continue
@@ -380,9 +376,18 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		},
 	}
 
-	if enableSds {
+	// TODO: BUG. Server.Hosts could be a format like ns/*, ns/hostname, *,
+	// etc. Two different servers on different ports could have the same
+	// host.  How does the SDS server differentiate the right secret to
+	// retrieve ?  If gateway controller has enabled SDS and TLSmode is
+	// SIMPLE, generate SDS config for gateway controller.
+	if enableSds && server.Tls.GetMode() == networking.Server_TLSOptions_SIMPLE {
+		sdsName := server.Hosts[0]
+		if server.Tls.SdsName != "" {
+			sdsName = server.Tls.SdsName
+		}
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(server.Hosts[0], model.IngressGatewaySdsUdsPath),
+			model.ConstructSdsSecretConfigForGatewayListener(sdsName, model.IngressGatewaySdsUdsPath),
 		}
 	} else {
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
@@ -503,9 +508,9 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 	}
 
 	virtualServices := push.VirtualServices(node, gatewaysForWorkload)
-	for _, spec := range virtualServices {
-		vsvc := spec.Spec.(*networking.VirtualService)
-		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
+	for _, v := range virtualServices {
+		vsvc := v.Spec.(*networking.VirtualService)
+		matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, v)
 		if len(matchingHosts) == 0 {
 			// the VirtualService's hosts don't include hosts advertised by server
 			continue
@@ -516,7 +521,7 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, env *model.Envir
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
 			if l4MultiMatch(tcp.Match, server, gatewaysForWorkload) {
-				return buildOutboundNetworkFilters(env, node, tcp.Route, push, port, spec.ConfigMeta)
+				return buildOutboundNetworkFilters(env, node, tcp.Route, push, port, v.ConfigMeta)
 			}
 		}
 	}
@@ -545,15 +550,15 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 	if server.Tls.Mode == networking.Server_TLSOptions_AUTO_PASSTHROUGH {
 		// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
 		filterChains = append(filterChains, &filterChainOpts{
-			sniHosts:       server.Hosts,
+			sniHosts:       getSNIHostsForServer(server),
 			tlsContext:     nil, // NO TLS context because this is passthrough
 			networkFilters: buildOutboundAutoPassthroughFilterStack(env, node, port),
 		})
 	} else {
 		virtualServices := push.VirtualServices(node, gatewaysForWorkload)
-		for _, spec := range virtualServices {
-			vsvc := spec.Spec.(*networking.VirtualService)
-			matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, vsvc.Hosts)
+		for _, v := range virtualServices {
+			vsvc := v.Spec.(*networking.VirtualService)
+			matchingHosts := pickMatchingGatewayHosts(gatewayServerHosts, v)
 			if len(matchingHosts) == 0 {
 				// the VirtualService's hosts don't include hosts advertised by server
 				continue
@@ -567,7 +572,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
 							tlsContext:     nil, // NO TLS context because this is passthrough
-							networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, spec.ConfigMeta),
+							networkFilters: buildOutboundNetworkFilters(env, node, tls.Route, push, port, v.ConfigMeta),
 						})
 					}
 				}
@@ -578,11 +583,28 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, env *model.Envir
 	return filterChains
 }
 
-func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualServiceHosts []string) map[string]model.Hostname {
+// Select the virtualService's hosts that match the ones specified in the gateway server's hosts
+// based on the wildcard hostname match and the namespace match
+func pickMatchingGatewayHosts(gatewayServerHosts map[model.Hostname]bool, virtualService model.Config) map[string]model.Hostname {
 	matchingHosts := make(map[string]model.Hostname, 0)
+	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {
 		for gatewayHost := range gatewayServerHosts {
-			if gatewayHost.Matches(model.Hostname(vsvcHost)) {
+			gwHostnameForMatching := gatewayHost
+			if strings.Contains(string(gwHostnameForMatching), "/") {
+				// match the namespace first
+				// gateway merging code ensures that we only have ns/host
+				// and no ./* or */host
+				parts := strings.Split(string(gwHostnameForMatching), "/")
+				if parts[0] != virtualService.Namespace {
+					continue
+				}
+				//strip the namespace
+				gwHostnameForMatching = model.Hostname(parts[1])
+			}
+			if gwHostnameForMatching.Matches(model.Hostname(vsvcHost)) {
+				// assign the actual gateway host because calling code uses it as a key
+				// to locate TLS redirect servers
 				matchingHosts[vsvcHost] = gatewayHost
 			}
 		}
@@ -641,5 +663,16 @@ func getSNIHostsForServer(server *networking.Server) []string {
 	if server.Tls == nil {
 		return nil
 	}
-	return server.Hosts
+	// sanitize the server hosts as it could contain hosts of form ns/host
+	sniHosts := make([]string, 0)
+	for _, h := range server.Hosts {
+		if strings.Contains(h, "/") {
+			parts := strings.Split(h, "/")
+			sniHosts = append(sniHosts, parts[1])
+		} else {
+			sniHosts = append(sniHosts, h)
+		}
+	}
+
+	return sniHosts
 }

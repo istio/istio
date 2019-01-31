@@ -54,6 +54,8 @@ spec:
         - "15020"
         - --applicationPorts
         - "80"
+        - --concurrency
+        - "1"
         - --kubeAppProberConfig
         - '{"/app-health/hello/readyz":{"path":"/ip","port":8000}}'
         env:

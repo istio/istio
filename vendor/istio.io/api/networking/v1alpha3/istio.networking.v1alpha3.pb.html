@@ -3035,6 +3035,18 @@ Otherwise default to the default cipher list supported by Envoy.</p>
 
 </td>
 </tr>
+<tr id="Server-TLSOptions-sds_name">
+<td><code>sdsName</code></td>
+<td><code>string</code></td>
+<td>
+<p>Optional: If specified, the gateway controllers (with SDS enabled)
+use the specified name as the SDS secret config name to call the SDS
+server, to retrieve the key and certificates. Otherwise, the gateway
+controllers (with SDS enabled) use the first value in the hosts as
+the SDS secret config name to call the SDS server.</p>
+
+</td>
+</tr>
 </tbody>
 </table>
 </section>

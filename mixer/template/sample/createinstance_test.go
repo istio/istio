@@ -28,6 +28,7 @@ import (
 	pb "istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 	sample_apa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
@@ -190,7 +191,7 @@ func TestCreateInstanceBuilder(t *testing.T) {
 
 	for _, tst := range tests {
 		t.Run(tst.name, func(tt *testing.T) {
-			expb := compiled.NewBuilder(finder{defaultAttributeInfos})
+			expb := compiled.NewBuilder(ast.NewFinder(defaultAttributeInfos))
 			builder, e := SupportedTmplInfo[tst.template].CreateInstanceBuilder("instance1", tst.param, expb)
 			assertErr(tt, "CreateInstanceBuilder", tst.expectCreateError, e)
 			if tst.expectCreateError != "" {
@@ -241,7 +242,7 @@ var defaultApaInstanceParam = sample_apa.InstanceParam{
 	DoublePrimitive:                "ad",
 	BoolPrimitive:                  "ab",
 	Duration:                       "adr",
-	Email:                          "`email@email`",
+	Email:                          `"email@email"`,
 	OptionalIP:                     `ip("0.0.0.0")`,
 	DimensionsFixedInt64ValueDType: map[string]string{"ai2": "ai2"},
 	Res3Map: map[string]*sample_apa.Resource3InstanceParam{
@@ -1003,18 +1004,8 @@ func generateReportTests() []createInstanceTest {
 	return tests
 }
 
-// A basic finder implementation.
-type finder struct {
-	attrs map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo
-}
-
-// GetAttribute finds an attribute by name.
-// This function is only called when a new handler is instantiated.
-func (a finder) GetAttribute(name string) *istio_mixer_v1_config.AttributeManifest_AttributeInfo {
-	return a.attrs[name]
-}
-
 func assertErr(t *testing.T, context string, expected string, actual error) {
+	t.Helper()
 	if expected == "" {
 		if actual != nil {
 			t.Fatalf("[%s] got error = %s, want success", context, actual.Error())
