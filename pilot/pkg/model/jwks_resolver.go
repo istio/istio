@@ -79,7 +79,7 @@ type jwtPubKeyEntry struct {
 	lastUsedTime time.Time
 }
 
-// jwksResolver is resolver for jwksURI and jwt public key.
+// JWKSResolver is resolver for jwksURI and jwt public key.
 type JWKSResolver struct {
 	// cache for jwksURI.
 	JwksURICache cache.ExpiringCache
@@ -107,18 +107,26 @@ type JWKSResolver struct {
 	keyChangedCount uint64
 }
 
-// NewJwksResolver creates new instance of jwksResolver.
+// NewJwksResolver creates new instance of JWKSResolver.
 func NewJwksResolver(expireDuration, evictionDuration, refreshInterval,
 	uriCacheExpiration time.Duration) *JWKSResolver {
-	log.Info("JwtPubKeyExpireDuration " + expireDuration.String())
-	log.Info("JwtPubKeyEvictionDuration " + evictionDuration.String())
-	log.Info("JwtPubKeyRefreshInterval " + refreshInterval.String())
-	log.Info("jwksURICacheExpiration " + uriCacheExpiration.String())
+	log.Debug("JwtPubKeyExpireDuration " + expireDuration.String())
+	log.Debug("JwtPubKeyEvictionDuration " + evictionDuration.String())
+	log.Debug("JwtPubKeyRefreshInterval " + refreshInterval.String())
+	log.Debug("jwksURICacheExpiration " + uriCacheExpiration.String())
+
+	// Public key refresh interval must be a positive number.
+	var jwtPubKeyRefreshInterval time.Duration
+	if jwtPubKeyRefreshInterval = refreshInterval; jwtPubKeyRefreshInterval == 0 {
+		log.Warn("Public key refresh interval must be a positive number. Using default value (20m)")
+		jwtPubKeyRefreshInterval = JwtPubKeyRefreshInterval
+	}
+
 	ret := &JWKSResolver{
 		JwksURICache:     cache.NewTTL(uriCacheExpiration, jwksURICacheEviction),
 		expireDuration:   expireDuration,
 		evictionDuration: evictionDuration,
-		refreshInterval:  refreshInterval,
+		refreshInterval:  jwtPubKeyRefreshInterval,
 		httpClient: &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
 

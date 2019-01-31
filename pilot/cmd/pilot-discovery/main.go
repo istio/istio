@@ -157,12 +157,11 @@ func init() {
 		"Enable caching discovery service responses")
 
 	// Flags for JWT options
-	// https://github.com/istio/istio/issues/9520
-	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSOptions.JWKSURICacheExpiration, "jwksURICacheExpiration", time.Hour*24,
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSCacheOptions.URICacheExpiration, "jwksURICacheExpiration", time.Hour*24,
 		"JwksURI cache expiration time duration")
-	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSOptions.JWTPubKeyExpireDuration, "jwtPubKeyExpireDuration", time.Hour,
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSCacheOptions.PubKeyExpireDuration, "jwtPubKeyExpireDuration", time.Hour,
 		"The expire duration for JWT public key in the cache")
-	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSOptions.JWTPubKeyRefreshInterval, "jwtPubKeyRefreshInterval", time.Minute*20,
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.JWKSCacheOptions.PubKeyRefreshInterval, "jwtPubKeyRefreshInterval", time.Minute*20,
 		"The running interval of JWT pubKey refresh job")
 
 	// Attach the Istio logging options to the command.

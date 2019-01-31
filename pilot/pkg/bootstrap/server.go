@@ -163,12 +163,11 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
-// JWKSOptions allows the user to provide expiration duration/refresh interval for JWT.
-// See more at https://github.com/istio/istio/issues/9520.
-type JWKSOptions struct {
-	JWKSURICacheExpiration   time.Duration
-	JWTPubKeyExpireDuration  time.Duration
-	JWTPubKeyRefreshInterval time.Duration
+// JWKSCacheOptions allows the user to provide expiration duration/refresh interval for JWT.
+type JWKSCacheOptions struct {
+	URICacheExpiration    time.Duration
+	PubKeyExpireDuration  time.Duration
+	PubKeyRefreshInterval time.Duration
 }
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
@@ -186,7 +185,7 @@ type PilotArgs struct {
 	MCPCredentialOptions *creds.Options
 	MCPMaxMessageSize    int
 	KeepaliveOptions     *istiokeepalive.Options
-	JWKSOptions          JWKSOptions
+	JWKSCacheOptions     JWKSCacheOptions
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
 }
@@ -966,15 +965,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 	if model.JwtKeyResolver == nil {
 		log.Info("Creating a JwtKeyResolver for the first time")
-		// Public key refresh interval must be a positive number.
-		var jwtPubKeyRefreshInterval time.Duration
-		if jwtPubKeyRefreshInterval = args.JWKSOptions.JWTPubKeyRefreshInterval; jwtPubKeyRefreshInterval == 0 {
-			log.Warn("Public key refresh interval must be a positive number. Using default value (20m)")
-			jwtPubKeyRefreshInterval = time.Minute * 20
-		}
-		model.JwtKeyResolver = model.NewJwksResolver(args.JWKSOptions.JWTPubKeyExpireDuration,
-			model.JwtPubKeyEvictionDuration, jwtPubKeyRefreshInterval,
-			args.JWKSOptions.JWKSURICacheExpiration)
+		model.JwtKeyResolver = model.NewJwksResolver(args.JWKSCacheOptions.PubKeyExpireDuration,
+			model.JwtPubKeyEvictionDuration, args.JWKSCacheOptions.PubKeyRefreshInterval,
+			args.JWKSCacheOptions.URICacheExpiration)
 	}
 
 	s.EnvoyXdsServer = envoyv2.NewDiscoveryServer(environment,

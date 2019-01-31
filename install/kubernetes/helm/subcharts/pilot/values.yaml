@@ -24,12 +24,12 @@ cpu:
 nodeSelector: {}
 # Provide options to allow user to configure JWT related fields.
 # Values below are in time.Duration type.
-jwtOptions:
+jwksCacheOptions:
   # JwksURI Cache expiration time duration, individual cached JwksURI item will be removed
   # from cache after its duration expires.
-  jwksURICacheExpiration: 24h
-  # JwtPubKeyExpireDuration is the expire duration for JWT public key in the cache.
+  uriCacheExpiration: 24h
+  # pubKeyExpireDuration is the expire duration for JWT public key in the cache.
   # After this duration expire, refresher job will fetch key for the cached item again.
-  jwtPubKeyExpireDuration: 1h
-  # JwtPubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
-  jwtPubKeyRefreshInterval: 20m
+  pubKeyExpireDuration: 1h
+  # pubKeyRefreshInterval is the running interval of JWT pubKey refresh job.
+  pubKeyRefreshInterval: 20m
