@@ -281,6 +281,19 @@ func TestDependencyWithLesserScopeFails(t *testing.T) {
 	expect(t).resolutionError(m.Require(lifecycle.Suite, &a))
 }
 
+func TestNamedIds(t *testing.T) {
+	m := newManager(t)
+
+	a := m.registerDefault(aID)
+	req1 := component.NewNamedRequirement("one", &aID)
+	req2 := component.NewNamedRequirement("two", &aID)
+
+	m.RequireOrFail(t, lifecycle.Test, req1, req2)
+	m.assertCount(2)
+	m.assertNamedDescriptor("one", a, lifecycle.Test)
+	m.assertNamedDescriptor("two", a, lifecycle.Test)
+}
+
 func assertDescriptor(c component.Instance, desc component.Descriptor, scope lifecycle.Scope, t *testing.T) {
 	t.Helper()
 	if c.Scope() != scope {
@@ -310,13 +323,13 @@ func newManager(t *testing.T) *manager {
 
 func (m *manager) registerDefault(cid component.ID, reqs ...component.Requirement) component.Descriptor {
 	desc := descriptor(cid, "", reqs...)
-	m.reg.Register("", desc, true, newFactory(desc).newComponent)
+	m.reg.Register(desc, true, newFactory(desc).newComponent)
 	return desc
 }
 
 func (m *manager) registerVariant(cid component.ID, variant component.Variant, reqs ...component.Requirement) component.Descriptor {
 	desc := descriptor(cid, variant, reqs...)
-	m.reg.Register("", desc, false, newFactory(desc).newComponent)
+	m.reg.Register(desc, false, newFactory(desc).newComponent)
 	return desc
 }
 
@@ -328,9 +341,13 @@ func (m *manager) assertCount(expected int) {
 }
 
 func (m *manager) assertDescriptor(desc component.Descriptor, scope lifecycle.Scope) {
-	c := m.GetComponentForDescriptor("", desc)
+	m.assertNamedDescriptor("", desc, scope)
+}
+
+func (m *manager) assertNamedDescriptor(name string, desc component.Descriptor, scope lifecycle.Scope) {
+	c := m.GetComponentForDescriptor(name, desc)
 	if c == nil {
-		m.t.Fatalf("component not found for descriptor: %v", desc)
+		m.t.Fatalf("component not found for descriptor:  (%v) %v", name, desc)
 	}
 	assertDescriptor(c, desc, scope, m.t)
 }

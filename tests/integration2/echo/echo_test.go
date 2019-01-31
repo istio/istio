@@ -12,30 +12,28 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-// Package basic contains an example test suite for showcase purposes.
 package echo
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
-	"os"
-	"testing"
-
-	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
+	"os"
+	"testing"
 )
 
-// A simple echo test that creates two echo servers with different names.
+// TODO(sven): Add additional testing of the echo component, this is just the basics.
 func TestEcho(t *testing.T) {
-	// Call Requires to explicitly initialize dependencies that the test needs.
 	ctx := framework.GetContext(t)
 
 	reqA := component.NewNamedRequirement("a", &ids.Echo)
 	reqB := component.NewNamedRequirement("b", &ids.Echo)
+	ctx.RequireOrFail(t, lifecycle.Test, &descriptors.NativeEnvironment, reqA, reqB)
 
-	ctx.RequireOrFail(t, lifecycle.Test, reqA, reqB)
 	echoA := components.GetEcho("a", ctx, t)
 	echoB := components.GetEcho("b", ctx, t)
 
