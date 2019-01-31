@@ -25,4 +25,4 @@ nodeSelector: {}
 sdsOptions:
   # The path to the SDS k8s token.
   # If non-empty, this path is used to fetch the SDS k8s token.
-  sdsK8sTokenPath: /var/run/secrets/tokens/sds-k8s-token
+  sdsK8sTokenPath: ''

@@ -163,12 +163,6 @@ type ServiceArgs struct {
 	Consul     ConsulArgs
 }
 
-// SdsArgs provides SDS related configuration
-type SdsArgs struct {
-	// SdsK8sTokenPath, if non-empty, is used as the path for k8s service account
-	SdsK8sTokenPath string
-}
-
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
 	DiscoveryOptions     envoy.DiscoveryServiceOptions
@@ -186,7 +180,7 @@ type PilotArgs struct {
 	KeepaliveOptions     *istiokeepalive.Options
 	// ForceStop is set as true when used for testing to make the server stop quickly
 	ForceStop bool
-	SdsArgs   *SdsArgs
+	SdsArgs   model.SdsArgs
 }
 
 // Server contains the runtime configuration for the Pilot discovery service.
@@ -1000,8 +994,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
-	if model.SdsArgs == nil {
-		model.SdsArgs = model.NewSdsArg(args.SdsArgs.SdsK8sTokenPath)
+	if model.SdsArg == nil {
+		model.SdsArg = model.NewSdsArg(args.SdsArgs.SdsK8sTokenPath)
 	}
 
 	// Set up discovery service

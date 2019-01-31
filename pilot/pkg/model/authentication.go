@@ -23,7 +23,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 	"github.com/gogo/protobuf/types"
-	"istio.io/istio/pilot/pkg/bootstrap"
 
 	authn "istio.io/api/authentication/v1alpha1"
 )
@@ -58,13 +57,19 @@ const (
 	IngressGatewaySdsCaSuffix = "-cacert"
 )
 
+// SdsArgs provides SDS related configuration
+type SdsArgs struct {
+	// SdsK8sTokenPath, if non-empty, is used as the path for k8s service account
+	SdsK8sTokenPath string
+}
+
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-var SdsArgs *bootstrap.SdsArgs
+var SdsArg *SdsArgs
 
-func NewSdsArg(sdsTokenPath string) *bootstrap.SdsArgs {
-	return &bootstrap.SdsArgs{
+func NewSdsArg(sdsTokenPath string) *SdsArgs {
+	return &SdsArgs{
 		SdsK8sTokenPath: sdsTokenPath,
 	}
 }
@@ -138,8 +143,8 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 	} else if useK8sSANormalJwt {
 		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
 		var tokenPath string
-		if len(SdsArgs.SdsK8sTokenPath) > 0 {
-			tokenPath = SdsArgs.SdsK8sTokenPath
+		if len(SdsArg.SdsK8sTokenPath) > 0 {
+			tokenPath = SdsArg.SdsK8sTokenPath
 		} else {
 			tokenPath = K8sSAJwtFileName
 		}
