@@ -554,7 +554,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:37e0d09320fedf3b2cab640c0fcf7ddefe566e6702a689b7b64c776af30b57f3"
+  digest = "1:560322890df57a04bf9bf9de795618d2e3fe8a6497cbfb7984d9cbd08c4fe0c7"
   name = "github.com/google/cel-go"
   packages = [
     "checker",
@@ -574,7 +574,7 @@
     "parser/gen",
   ]
   pruneopts = "NUT"
-  revision = "712f27087b9520edca2d3c532e59372da38855e6"
+  revision = "b0683d54c1c8f26c39254a1978188d3e522c9eb2"
 
 [[projects]]
   digest = "1:d2754cafcab0d22c13541618a8029a70a8959eb3525ff201fe971637e2274cd0"
