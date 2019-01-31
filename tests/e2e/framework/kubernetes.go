@@ -670,10 +670,7 @@ func (k *KubeInfo) deployIstio() error {
 			log.Infof("Failed to create Cacerts with namespace %s in primary cluster", k.Namespace)
 		}
 	}
-	// There is no need to supply namespace istio-system here as all the helm generated yamls
-	// have the namespace field set to istio-system. In addition, it also has some artifacts
-	// in istio-config namespace. So, supplying istio-system will cause the test installations to fail
-	if err := util.KubeApply("", testIstioYaml, k.KubeConfig); err != nil {
+	if err := util.KubeApply(k.Namespace, testIstioYaml, k.KubeConfig); err != nil {
 		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
 	}
