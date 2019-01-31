@@ -66,8 +66,7 @@ func fromString(value string) LanguageRuntime {
 	case "CEXL":
 		return CEXL
 	default:
-		// TODO(kuat): temporary testing
-		return COMPAT
+		return CEXL
 	}
 }
 
