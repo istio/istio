@@ -51,8 +51,8 @@ spec:
             - --root-cert=/etc/cacerts/root-cert.pem
             - --cert-chain=/etc/cacerts/cert-chain.pem
           {{- end }}
-          {{- if .Values.trustDomain }}
-            - --trust-domain={{ .Values.trustDomain }}
+          {{- if .Values.global.trustDomain }}
+            - --trust-domain={{ .Values.global.trustDomain }}
           {{- end }}
           resources:
 {{- if .Values.resources }}
