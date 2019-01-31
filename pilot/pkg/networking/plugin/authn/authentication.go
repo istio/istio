@@ -297,28 +297,38 @@ func ConvertPolicyToAuthNFilterConfig(policy *authn.Policy, proxyType model.Node
 }
 
 // BuildJwtFilter returns a Jwt filter for all Jwt specs in the policy.
-func BuildJwtFilter(policy *authn.Policy) *http_conn.HttpFilter {
+func BuildJwtFilter(policy *authn.Policy, is11 bool) *http_conn.HttpFilter {
 	// v2 api will use inline public key.
 	filterConfigProto := ConvertPolicyToJwtConfig(policy)
 	if filterConfigProto == nil {
 		return nil
 	}
-	return &http_conn.HttpFilter{
-		Name:       JwtFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)},
+	out := &http_conn.HttpFilter{
+		Name: JwtFilterName,
 	}
+	if is11 {
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
+	} else {
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	}
+	return out
 }
 
 // BuildAuthNFilter returns authn filter for the given policy. If policy is nil, returns nil.
-func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType) *http_conn.HttpFilter {
+func BuildAuthNFilter(policy *authn.Policy, proxyType model.NodeType, is11 bool) *http_conn.HttpFilter {
 	filterConfigProto := ConvertPolicyToAuthNFilterConfig(policy, proxyType)
 	if filterConfigProto == nil {
 		return nil
 	}
-	return &http_conn.HttpFilter{
-		Name:       AuthnFilterName,
-		ConfigType: &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)},
+	out := &http_conn.HttpFilter{
+		Name: AuthnFilterName,
 	}
+	if is11 {
+		out.ConfigType = &http_conn.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(filterConfigProto)}
+	} else {
+		out.ConfigType = &http_conn.HttpFilter_Config{Config: util.MessageToStruct(filterConfigProto)}
+	}
+	return out
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -358,10 +368,10 @@ func buildFilter(in *plugin.InputParams, mutable *plugin.MutableObjects) error {
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == plugin.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
-			if filter := BuildJwtFilter(authnPolicy); filter != nil {
+			if filter := BuildJwtFilter(authnPolicy, util.IsProxyVersionGE11(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := BuildAuthNFilter(authnPolicy, in.Node.Type); filter != nil {
+			if filter := BuildAuthNFilter(authnPolicy, in.Node.Type, util.IsProxyVersionGE11(in.Node)); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}

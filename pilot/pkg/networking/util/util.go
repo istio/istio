@@ -190,6 +190,16 @@ func GetByAddress(listeners []*xdsapi.Listener, addr string) *xdsapi.Listener {
 	return nil
 }
 
+// MessageToAny converts from proto message to proto Any
+func MessageToAny(msg proto.Message) *types.Any {
+	s, err := types.MarshalAny(msg)
+	if err != nil {
+		log.Error(err.Error())
+		return nil
+	}
+	return s
+}
+
 // MessageToStruct converts from proto message to proto Struct
 func MessageToStruct(msg proto.Message) *types.Struct {
 	s, err := util.MessageToStruct(msg)

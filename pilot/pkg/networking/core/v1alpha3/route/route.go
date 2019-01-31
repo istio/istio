@@ -319,8 +319,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 	out := &route.Route{
 		Match:           translateRouteMatch(match),
-		PerFilterConfig: make(map[string]*types.Struct),
 		Metadata:        util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
+	}
+
+	if util.IsProxyVersionGE11(node) {
+		out.TypedPerFilterConfig = make(map[string]*types.Any)
+	} else {
+		out.PerFilterConfig = make(map[string]*types.Struct)
 	}
 
 	if redirect := in.Redirect; redirect != nil {
@@ -453,7 +458,11 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
-		out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))
+		if util.IsProxyVersionGE11(node) {
+			out.TypedPerFilterConfig[xdsutil.Fault] = util.MessageToAny(translateFault(node, in.Fault))
+		} else {
+			out.PerFilterConfig[xdsutil.Fault] = util.MessageToStruct(translateFault(node, in.Fault))
+		}
 	}
 
 	return out
