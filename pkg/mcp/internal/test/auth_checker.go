@@ -15,8 +15,6 @@
 package test
 
 import (
-	"fmt"
-
 	"google.golang.org/grpc/credentials"
 )
 
@@ -33,7 +31,6 @@ func (f *FakeAuthChecker) Check(authInfo credentials.AuthInfo) error {
 }
 
 func (f *FakeAuthChecker) AuthType() string {
-	fmt.Println("XXX", f.AllowError)
 	if f.AllowError != nil {
 		return "disallowed"
 	}

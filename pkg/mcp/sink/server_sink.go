@@ -17,7 +17,6 @@ package sink
 import (
 	"errors"
 	"io"
-	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -45,8 +44,8 @@ type AuthChecker interface {
 type Server struct {
 	authCheck            AuthChecker
 	newConnectionLimiter *rate.Limiter
-	connections          int64
-	sink                 *Sink
+	//	connections          int64
+	sink *Sink
 }
 
 var _ mcp.ResourceSinkServer = &Server{}
@@ -73,12 +72,14 @@ func NewServer(srcOptions *Options, serverOptions *ServerOptions) *Server {
 func (s *Server) EstablishResourceStream(stream mcp.ResourceSink_EstablishResourceStreamServer) error {
 	// TODO support receiving configuration from multiple sources?
 	// TODO MVP - limit to one connection at a time?
-	if !atomic.CompareAndSwapInt64(&s.connections, 0, 1) {
-		return errors.New("TODO limited to one connection at a time")
-	}
-	defer atomic.AddInt64(&s.connections, -1)
+	//	if !atomic.CompareAndSwapInt64(&s.connections, 0, 1) {
+	//		return errors.New("TODO limited to one connection at a time")
+	//	}
+	//	defer atomic.AddInt64(&s.connections, -1)
 
-	// TODO - rate limit new connections?
+	if !s.newConnectionLimiter.Allow() {
+		return errors.New("New connection limit reached")
+	}
 	var authInfo credentials.AuthInfo
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
 		authInfo = peerInfo.AuthInfo
