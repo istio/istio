@@ -24,7 +24,6 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"google.golang.org/grpc"
@@ -39,11 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
-)
-
-const (
-	timeout       = 10 * time.Second
-	retryInterval = 500 * time.Millisecond
 )
 
 var (
@@ -219,7 +213,7 @@ func (c *nativeComponent) Call(ee components.EchoEndpoint, opts components.EchoC
 	dstURL := dst.makeURL(opts)
 	dstServiceName := dst.owner.Name()
 
-	var headers []*proto.Header = nil
+	var headers []*proto.Header
 	headers = append(headers, &proto.Header{Key: "Host", Value: dstServiceName})
 	for key, values := range opts.Headers {
 		for _, value := range values {

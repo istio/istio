@@ -15,6 +15,9 @@
 package echo
 
 import (
+	"os"
+	"testing"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/component"
@@ -22,17 +25,18 @@ import (
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
-	"os"
-	"testing"
 )
 
 // TODO(sven): Add additional testing of the echo component, this is just the basics.
 func TestEcho(t *testing.T) {
 	ctx := framework.GetContext(t)
 
+	// Echo is only supported on native environment right now, skip if we can't load that.
+	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.NativeEnvironment)
+
 	reqA := component.NewNamedRequirement("a", &ids.Echo)
 	reqB := component.NewNamedRequirement("b", &ids.Echo)
-	ctx.RequireOrFail(t, lifecycle.Test, &descriptors.NativeEnvironment, reqA, reqB)
+	ctx.RequireOrFail(t, lifecycle.Test, reqA, reqB)
 
 	echoA := components.GetEcho("a", ctx, t)
 	echoB := components.GetEcho("b", ctx, t)

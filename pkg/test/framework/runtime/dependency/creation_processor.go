@@ -29,7 +29,7 @@ type creationProcessor struct {
 	mgr   *Manager
 
 	// The entries that need to be processed.
-	required map[namedId]*reqEntry
+	required map[namedID]*reqEntry
 }
 
 // newCreationProcessor creates a new creation processor for the Manager.
@@ -37,33 +37,25 @@ func newCreationProcessor(mgr *Manager, scope lifecycle.Scope) *creationProcesso
 	return &creationProcessor{
 		scope:    scope,
 		mgr:      mgr,
-		required: make(map[namedId]*reqEntry),
+		required: make(map[namedID]*reqEntry),
 	}
 }
 
 // A struct representing a named ID. This is used as the key to what requirements need to be
 // created, as the Variant is not important, just the ID and Name.
-type namedId struct {
+type namedID struct {
 	Name string
 	ID   component.ID
 }
 
-// Create a named ID for the given name and ID.
-func namedIdFor(name string, ID component.ID) namedId {
-	return namedId{
-		Name: name,
-		ID:   ID,
-	}
-}
-
 // A struct representing a single parsed requirement.
 type reqEntry struct {
-	id     namedId
+	id     namedID
 	desc   *component.Descriptor
 	config component.Configuration
 
 	// Child entries that need to be processed before this entry can be created.
-	children map[namedId]bool
+	children map[namedID]bool
 }
 
 func (p *creationProcessor) ProcessRequirements(reqs []component.Requirement) component.RequirementError {
@@ -92,16 +84,16 @@ func parseRequirement(req component.Requirement) (r *reqEntry, err component.Req
 	}
 	if id, ok := req.(*component.ID); ok {
 		r = &reqEntry{
-			id:       namedIdFor("", *id),
-			children: make(map[namedId]bool),
+			id:       namedID{"", *id},
+			children: make(map[namedID]bool),
 		}
 		return
 	}
 	if d, ok := req.(*component.Descriptor); ok {
 		r = &reqEntry{
-			id:       namedIdFor("", d.ID),
+			id:       namedID{"", d.ID},
 			desc:     d,
-			children: make(map[namedId]bool),
+			children: make(map[namedID]bool),
 		}
 		return
 	}
@@ -188,7 +180,7 @@ func (p *creationProcessor) loadChildren(entry *reqEntry) component.RequirementE
 // adding any child requirements.
 func (p *creationProcessor) ApplyDefaults() component.RequirementError {
 	done := false
-	var toProcess []component.Requirement = nil
+	var toProcess []component.Requirement
 	for !done {
 		for _, entry := range p.required {
 			if entry.desc == nil {
@@ -218,9 +210,9 @@ func (p *creationProcessor) CreateComponents() component.RequirementError {
 		progress := false
 		for _, entry := range p.required {
 			// Remove requirements for any components that have been created.
-			for childId := range entry.children {
-				if p.mgr.GetComponent(childId.Name, childId.ID) != nil {
-					delete(entry.children, childId)
+			for childID := range entry.children {
+				if p.mgr.GetComponent(childID.Name, childID.ID) != nil {
+					delete(entry.children, childID)
 				}
 			}
 

@@ -31,7 +31,7 @@ var (
 	// Citadel component
 	Citadel = component.ID("citadel")
 
-	// The Echo component.
+	// Echo component
 	Echo = component.ID("echo")
 
 	// Ingress component

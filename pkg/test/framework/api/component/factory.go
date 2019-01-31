@@ -22,6 +22,12 @@ import (
 
 // Factory for new component instances
 type Factory interface {
+
+	// Creates a new component with the given descriptor and scope. The name parameter may be used
+	// to create multiple instances of a single descriptor, if multiple are not needed use "".
 	NewComponent(name string, d Descriptor, scope lifecycle.Scope) (Instance, error)
+
+	// Creates a new component with the given descriptor and scope, failing if the component cannot
+	// be created. The name parameter may be used to create multiple instances of a single descriptor.
 	NewComponentOrFail(name string, d Descriptor, scope lifecycle.Scope, t testing.TB) Instance
 }

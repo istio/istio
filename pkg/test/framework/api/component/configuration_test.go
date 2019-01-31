@@ -70,7 +70,7 @@ func TestConfiguredRequirements(t *testing.T) {
 
 	for _, rt := range tests {
 		t.Run(rt.desc, func(t *testing.T) {
-			var req *ConfiguredRequirement = nil
+			var req *ConfiguredRequirement
 			if rt.conf == nil {
 				req = NewNamedRequirement(rt.name, rt.req)
 			} else {

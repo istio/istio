@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -46,14 +46,14 @@ type Manager struct {
 	registry *registry.Instance
 
 	// A map of all components
-	compMap map[namedId]*compEntry
+	compMap map[namedID]*compEntry
 
 	// A list of all components in creation order.
 	all []*compEntry
 }
 
 type compEntry struct {
-	id   namedId
+	id   namedID
 	comp api.Component
 }
 
@@ -63,7 +63,7 @@ func NewManager(ctx context.Instance, registry *registry.Instance) *Manager {
 		Defaults: registry,
 		ctx:      ctx,
 		registry: registry,
-		compMap:  make(map[namedId]*compEntry),
+		compMap:  make(map[namedID]*compEntry),
 	}
 }
 
@@ -100,7 +100,7 @@ func (m *Manager) RequireOrSkip(t testing.TB, scope lifecycle.Scope, reqs ...com
 	}
 }
 
-// NewNamedComponent implements the component.Factory interface
+// NewComponent implements the component.Factory interface
 func (m *Manager) NewComponent(name string, desc component.Descriptor, scope lifecycle.Scope) (component.Instance, error) {
 	// Require all of the children to be loaded first.
 	if err := m.Require(scope, desc.Requires...); err != nil {
@@ -110,7 +110,7 @@ func (m *Manager) NewComponent(name string, desc component.Descriptor, scope lif
 	return m.requireComponent(name, desc, scope)
 }
 
-// NewNameComponentOrFail implements the component.Factory interface
+// NewComponentOrFail implements the component.Factory interface
 func (m *Manager) NewComponentOrFail(name string, desc component.Descriptor, scope lifecycle.Scope, t testing.TB) component.Instance {
 	t.Helper()
 	c, err := m.NewComponent(name, desc, scope)
@@ -133,10 +133,10 @@ func normalizeScope(desc component.Descriptor, scope lifecycle.Scope) lifecycle.
 func (m *Manager) requireComponent(name string, desc component.Descriptor, scope lifecycle.Scope) (component.Instance, component.RequirementError) {
 	// Make sure that system components are always created with suite scope.
 	scope = normalizeScope(desc, scope)
-	compId := namedIdFor(name, desc.ID)
+	compID := namedID{name, desc.ID}
 
 	// First, check if we've already created this named component.
-	if c, ok := m.compMap[compId]; ok {
+	if c, ok := m.compMap[compID]; ok {
 		if !reflect.DeepEqual(c.comp.Descriptor(), desc) {
 			return nil, resolutionError(fmt.Errorf("cannot add component `%s`, already running with `%s`", desc.FriendlyName(), c.comp.Descriptor().FriendlyName()))
 		}
@@ -155,12 +155,12 @@ func (m *Manager) requireComponent(name string, desc component.Descriptor, scope
 			return nil, err
 		}
 		if _, ok := m.compMap[childEntry.id]; !ok {
-			return nil, resolutionError(fmt.Errorf("missing child component %v while trying to create component %v", childEntry.id, compId))
+			return nil, resolutionError(fmt.Errorf("missing child component %v while trying to create component %v", childEntry.id, compID))
 		}
 	}
 
 	// Get the component factory function.
-	// TODO(sven): Allow config-taking factory methods in addition to empty factor methods, or add a setConfig method to the resulting component, or add config to Start().
+	// TODO(sven): Add support for taking configuration. Current plan is to use a Configurable marker interface.
 	fn, err := m.registry.GetFactory(desc)
 	if err != nil {
 		return nil, resolutionError(err)
@@ -183,10 +183,10 @@ func (m *Manager) requireComponent(name string, desc component.Descriptor, scope
 
 	// Store the component entry in the manager.
 	cEntry := compEntry{
-		id:   compId,
+		id:   compID,
 		comp: c,
 	}
-	m.compMap[compId] = &cEntry
+	m.compMap[compID] = &cEntry
 	m.all = append(m.all, &cEntry)
 
 	return c, nil
@@ -194,7 +194,7 @@ func (m *Manager) requireComponent(name string, desc component.Descriptor, scope
 
 // GetComponent implements the component.Repository interface
 func (m *Manager) GetComponent(name string, id component.ID) component.Instance {
-	if compEntry, ok := m.compMap[namedIdFor(name, id)]; ok {
+	if compEntry, ok := m.compMap[namedID{name, id}]; ok {
 		return compEntry.comp
 	}
 	return nil
