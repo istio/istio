@@ -523,13 +523,10 @@ type ServiceDiscovery interface {
 	// These probes are used by the platform to identify requests that are performing
 	// health checks.
 	WorkloadHealthCheckInfo(addr string) ProbeList
-}
 
-// ServiceAccounts exposes Istio service accounts
-// Deprecated - service account tracking moved to XdsServer, incremental.
-type ServiceAccounts interface {
 	// GetIstioServiceAccounts returns a list of service accounts looked up from
 	// the specified service hostname and ports.
+	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(hostname Hostname, ports []int) []string
 }
 
