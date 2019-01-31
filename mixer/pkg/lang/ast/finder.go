@@ -41,6 +41,11 @@ func (a finder) GetAttribute(name string) *configpb.AttributeManifest_AttributeI
 	return a.attributes[name]
 }
 
+// Attributes exposes the internal attribute manifest.
+func (a finder) Attributes() map[string]*configpb.AttributeManifest_AttributeInfo {
+	return a.attributes
+}
+
 func (a finder) String() string {
 	b := pool.GetBuffer()
 
@@ -85,4 +90,15 @@ func (a *chainedFinder) GetAttribute(name string) *configpb.AttributeManifest_At
 		return info
 	}
 	return a.parent.GetAttribute(name)
+}
+
+func (a *chainedFinder) Attributes() map[string]*configpb.AttributeManifest_AttributeInfo {
+	out := make(map[string]*configpb.AttributeManifest_AttributeInfo)
+	for name, attr := range a.parent.Attributes() {
+		out[name] = attr
+	}
+	for name, attr := range a.overrides {
+		out[name] = attr
+	}
+	return out
 }

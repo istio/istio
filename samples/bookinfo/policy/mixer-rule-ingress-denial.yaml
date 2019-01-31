@@ -22,7 +22,7 @@ metadata:
   name: denyingress
   namespace: istio-system
 spec:
-  match: source.labels["istio"] == "ingressgateway" && request.headers["x-user"] == "john"
+  match: (source.labels["istio"] | "") == "ingressgateway" && (request.headers["x-user"] | "") == "john"
   actions:
   - handler: handler.denier.istio-system
     instances: [ denyrequest.checknothing.istio-system ]
