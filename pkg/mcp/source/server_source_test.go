@@ -31,6 +31,25 @@ import (
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
+type fakeRateLimiter struct {
+	waitErr chan error
+}
+
+func newFakeRateLimiter() *fakeRateLimiter {
+	return &fakeRateLimiter{
+		waitErr: make(chan error),
+	}
+}
+
+func (f *fakeRateLimiter) Wait(ctx context.Context) error {
+	select {
+	case err := <-f.waitErr:
+		return err
+	default:
+		return nil
+	}
+}
+
 type serverHarness struct {
 	grpc.ServerStream
 	*sourceTestHarness
@@ -45,6 +64,37 @@ func (h *serverHarness) Context() context.Context {
 	return h.sourceTestHarness.Context()
 }
 
+func TestServerSinkRateLimitter(t *testing.T) {
+	h := &serverHarness{
+		sourceTestHarness: newSourceTestHarness(t),
+	}
+
+	fakeLimiter := newFakeRateLimiter()
+	authChecker := test.NewFakeAuthChecker()
+	options := &Options{
+		Watcher:            h,
+		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:           monitoring.NewInMemoryStatsContext(),
+	}
+	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
+	s.newConnectionLimiter = fakeLimiter
+
+	// when rate limit returns an error
+	errc := make(chan error)
+	go func() {
+		errc <- s.EstablishResourceStream(h)
+	}()
+
+	expectedErr := "something went wrong while waiting"
+
+	fakeLimiter.waitErr <- errors.New(expectedErr)
+
+	err := <-errc
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("Expected error from Wait: got %v want %v ", err, expectedErr)
+	}
+}
+
 func TestServerSource(t *testing.T) {
 	h := &serverHarness{
 		sourceTestHarness: newSourceTestHarness(t),
@@ -57,6 +107,7 @@ func TestServerSource(t *testing.T) {
 		Reporter:           monitoring.NewInMemoryStatsContext(),
 	}
 	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
+	s.newConnectionLimiter = newFakeRateLimiter()
 
 	errc := make(chan error)
 	go func() {

@@ -15,6 +15,7 @@
 package source
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -26,6 +27,13 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 )
+
+// TODO: consolidate common interfaces in source/server_source.go and sink/server_sink.go
+
+// RateLimiter is partially representing standard lib's rate limiter
+type RateLimiter interface {
+	Wait(ctx context.Context) (err error)
+}
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
 // returns nil, then the connection will be allowed. If the function returns an error, then it will be
@@ -42,7 +50,7 @@ type AuthChecker interface {
 // configuration to the client.
 type Server struct {
 	authCheck            AuthChecker
-	newConnectionLimiter *rate.Limiter
+	newConnectionLimiter RateLimiter
 	src                  *Source
 }
 
@@ -68,7 +76,9 @@ func NewServer(options *Options, serverOptions *ServerOptions) *Server {
 
 // EstablishResourceStream implements the ResourceSourceServer interface.
 func (s *Server) EstablishResourceStream(stream mcp.ResourceSource_EstablishResourceStreamServer) error {
-	// TODO - rate limit new connections?
+	if err := s.newConnectionLimiter.Wait(stream.Context()); err != nil {
+		return err
+	}
 	var authInfo credentials.AuthInfo
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
 		authInfo = peerInfo.AuthInfo
