@@ -21,6 +21,7 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/util"
+	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,6 +31,7 @@ import (
 
 const (
 	wildcardIP = "0.0.0.0"
+	fake       = "fake"
 )
 
 var (
@@ -385,6 +387,13 @@ func (p *fakePlugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeCo
 }
 
 func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
+	return nil
+}
+func (p *fakePlugin) GetName() string {
+	return fake
+}
+
+func (p *fakePlugin) OnPreComputePerRouteFilterConfig(env *model.Environment, proxy *model.Proxy, push *model.PushContext) map[plugin.CacheKey]*types.Struct {
 	return nil
 }
 

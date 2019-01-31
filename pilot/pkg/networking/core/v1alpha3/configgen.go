@@ -96,11 +96,17 @@ func (configgen *ConfigGeneratorImpl) buildSharedPushStateForSidecars(env *model
 				// here will be the default CDS output for a given namespace based on public/private
 				// services and destination rules
 				sc.XDSOutboundClusters = configgen.buildOutboundClusters(env, &dummyNode, push)
+				sc.RDSPerRouteFilterConfig = make(map[string]interface{})
+				for _, p := range configgen.Plugins {
+					perRouteFilterConfig := p.OnPreComputePerRouteFilterConfig(env, &dummyNode, push)
+					if perRouteFilterConfig != nil {
+						sc.RDSPerRouteFilterConfig[p.GetName()] = perRouteFilterConfig
+					}
+				}
 			}
 		}(ns, sidecarScopes)
 	}
 	wg.Wait()
-
 	return nil
 }
 

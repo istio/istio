@@ -80,6 +80,9 @@ type SidecarScope struct {
 	// XDSOutboundClusters is the CDS output for sidecars that map to this
 	// sidecarScope object. Contains the outbound clusters only
 	XDSOutboundClusters []*xdsapi.Cluster
+
+	// RDSPerRouteFilterConfig has plugin Router Filter config
+	RDSPerRouteFilterConfig map[string]interface{}
 }
 
 // IstioEgressListenerWrapper is a wrapper for

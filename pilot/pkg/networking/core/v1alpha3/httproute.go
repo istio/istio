@@ -78,6 +78,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(env *mo
 			ServiceInstance:  instance,
 			Service:          instance.Service,
 			Push:             push,
+			SidecarScope:     node.SidecarScope,
 		}
 		p.OnInboundRouteConfiguration(in, r)
 	}
@@ -209,6 +210,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(env *m
 			Env:              env,
 			Node:             node,
 			Push:             push,
+			SidecarScope:     sidecarScope,
 		}
 		p.OnOutboundRouteConfiguration(in, out)
 	}

@@ -63,6 +63,13 @@ const (
 	policyCheckEnableAllow = "allow-on-error"
 )
 
+var (
+	defaultdisableCheckPerFilterConfig = util.MessageToStruct(&mccpb.ServiceConfig{
+		DisableCheckCalls: true})
+	defaultenableCheckPerFilterConfig = util.MessageToStruct(&mccpb.ServiceConfig{
+		DisableCheckCalls: false})
+)
+
 type direction int
 
 const (
@@ -73,6 +80,71 @@ const (
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
 func NewPlugin() plugin.Plugin {
 	return mixerplugin{}
+}
+
+func (mixerplugin) OnPreComputePerRouteFilterConfig(env *model.Environment, proxy *model.Proxy, push *model.PushContext) map[plugin.CacheKey]*types.Struct {
+
+	mixerPerRouteFilterConfig := make(map[plugin.CacheKey]*types.Struct)
+	is11 := util.IsProxyVersionGE11(proxy)
+	if !is11 {
+		for _, service := range push.Services(proxy) {
+			hostname := string(service.Hostname)
+			//calculate outbound
+			attrs := addDestinationServiceAttributes(make(attributes), push, service.Hostname)
+			//outbound/without Policy
+			key := plugin.CacheKey{
+				Hostname:  hostname,
+				Direction: "outbound",
+				Policy:    policyCheckDisable,
+			}
+			config := &mccpb.ServiceConfig{
+				DisableCheckCalls: true,
+				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+			}
+			filterConfig := util.MessageToStruct(config)
+			mixerPerRouteFilterConfig[key] = filterConfig
+			//outbound/with Policy
+			key = plugin.CacheKey{
+				Hostname:  hostname,
+				Direction: "outbound",
+				Policy:    policyCheckEnable,
+			}
+			config = &mccpb.ServiceConfig{
+				DisableCheckCalls: false,
+				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+			}
+			filterConfig = util.MessageToStruct(config)
+			mixerPerRouteFilterConfig[key] = filterConfig
+			//calculate inbound
+			//inbound/without Policy
+			key = plugin.CacheKey{
+				Hostname:  hostname,
+				Direction: "inbound",
+				Policy:    policyCheckDisable,
+			}
+			config = buildInboundRouteConfigWithoutPolicy(env, push, &model.ServiceInstance{
+				Service: &model.Service{
+					Hostname: model.Hostname(string(service.Hostname)),
+				}})
+			filterConfig = util.MessageToStruct(config)
+			mixerPerRouteFilterConfig[key] = filterConfig
+			//inbound/with policy
+			key = plugin.CacheKey{
+				Hostname:  hostname,
+				Direction: "inbound",
+				Policy:    policyCheckEnable,
+			}
+			config = buildInboundRouteConfigWithPolicy(env, push, &model.ServiceInstance{
+				Service: &model.Service{
+					Hostname: model.Hostname(string(service.Hostname)),
+				}})
+			filterConfig = util.MessageToStruct(config)
+			mixerPerRouteFilterConfig[key] = filterConfig
+		}
+	}
+	return mixerPerRouteFilterConfig
 }
 
 // OnOutboundListener implements the Callbacks interface method.
@@ -216,7 +288,8 @@ func (mixerplugin) OnInboundRouteConfiguration(in *plugin.InputParams, routeConf
 				if is11 {
 					route.TypedPerFilterConfig = addTypedServiceConfig(route.TypedPerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
 				} else {
-					route.PerFilterConfig = addServiceConfig(route.PerFilterConfig, buildInboundRouteConfig(in.Push, in, in.ServiceInstance))
+					route.PerFilterConfig = addServiceConfigForInbound(in.ServiceInstance.Service.Hostname,
+						in, route.PerFilterConfig)
 				}
 				host.Routes[j] = route
 			}
@@ -332,46 +405,43 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 		})
 	} else {
-		httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-			DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-		})
+		if httpRoute.PerFilterConfig == nil {
+			httpRoute.PerFilterConfig = make(map[string]*types.Struct)
+		}
+		if disablePolicyChecks(outbound, in.Env.Mesh, in.Node) {
+			httpRoute.PerFilterConfig[mixer] = defaultdisableCheckPerFilterConfig
+		} else {
+			httpRoute.PerFilterConfig[mixer] = defaultenableCheckPerFilterConfig
+		}
 	}
 	switch action := httpRoute.Action.(type) {
 	case *route.Route_Route:
 		switch upstreams := action.Route.ClusterSpecifier.(type) {
 		case *route.RouteAction_Cluster:
 			_, _, hostname, _ := model.ParseSubsetKey(upstreams.Cluster)
-			attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
 			if is11 {
+				attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
 				httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mccpb.ServiceConfig{
 					DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
 				})
 			} else {
-				httpRoute.PerFilterConfig = addServiceConfig(httpRoute.PerFilterConfig, &mccpb.ServiceConfig{
-					DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-					MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-					ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-				})
+				httpRoute.PerFilterConfig = addServiceConfigForOutbound(push, hostname, in, httpRoute.PerFilterConfig)
 			}
 
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
-				attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
 				if is11 {
+					attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
 					weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mccpb.ServiceConfig{
 						DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
 						MixerAttributes:   &mpb.Attributes{Attributes: attrs},
 						ForwardAttributes: &mpb.Attributes{Attributes: attrs},
 					})
 				} else {
-					weighted.PerFilterConfig = addServiceConfig(weighted.PerFilterConfig, &mccpb.ServiceConfig{
-						DisableCheckCalls: disablePolicyChecks(outbound, in.Env.Mesh, in.Node),
-						MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-						ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-					})
+					weighted.PerFilterConfig = addServiceConfigForOutbound(push, hostname, in, httpRoute.PerFilterConfig)
 				}
 			}
 		case *route.RouteAction_ClusterHeader:
@@ -383,6 +453,45 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 		log.Warn("Unknown route type in mixer#OnOutboundRouteConfiguration")
 	}
 	return httpRoute
+}
+
+func buildInboundRouteConfigWithPolicy(env *model.Environment, push *model.PushContext, instance *model.ServiceInstance) *mccpb.ServiceConfig {
+	config := env.IstioConfigStore
+	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service.Hostname)
+	out := &mccpb.ServiceConfig{
+		DisableCheckCalls: false,
+		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+	}
+	if config != nil {
+		appendInboundSpec(config, instance, out)
+	}
+	return out
+}
+
+func buildInboundRouteConfigWithoutPolicy(env *model.Environment, push *model.PushContext, instance *model.ServiceInstance) *mccpb.ServiceConfig {
+	config := env.IstioConfigStore
+	attrs := addDestinationServiceAttributes(make(attributes), push, instance.Service.Hostname)
+	out := &mccpb.ServiceConfig{
+		DisableCheckCalls: true,
+		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+	}
+	if config != nil {
+		appendInboundSpec(config, instance, out)
+	}
+	return out
+}
+
+func appendInboundSpec(config model.IstioConfigStore, instance *model.ServiceInstance, out *mccpb.ServiceConfig) {
+	apiSpecs := config.HTTPAPISpecByDestination(instance)
+	model.SortHTTPAPISpec(apiSpecs)
+	for _, config := range apiSpecs {
+		out.HttpApiSpec = append(out.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+	}
+	quotaSpecs := config.QuotaSpecByDestination(instance)
+	model.SortQuotaSpec(quotaSpecs)
+	for _, config := range quotaSpecs {
+		out.QuotaSpec = append(out.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+	}
 }
 
 func buildInboundRouteConfig(push *model.PushContext, in *plugin.InputParams, instance *model.ServiceInstance) *mccpb.ServiceConfig {
@@ -455,12 +564,92 @@ func buildInboundTCPFilter(mesh *meshconfig.MeshConfig, attrs attributes, node *
 	return out
 }
 
-func addServiceConfig(filterConfigs map[string]*types.Struct, config *mccpb.ServiceConfig) map[string]*types.Struct {
+func addServiceConfigForOutbound(push *model.PushContext, hostname model.Hostname, in *plugin.InputParams,
+	filterConfigs map[string]*types.Struct) map[string]*types.Struct {
 	if filterConfigs == nil {
 		filterConfigs = make(map[string]*types.Struct)
 	}
-	filterConfigs[mixer] = util.MessageToStruct(config)
+	disableCheckCalls := disablePolicyChecks(outbound, in.Env.Mesh, in.Node)
+	var key plugin.CacheKey
+	if disableCheckCalls {
+		key = plugin.CacheKey{
+			Hostname:  string(hostname),
+			Direction: "outbound",
+			Policy:    policyCheckDisable,
+		}
+	} else {
+		key = plugin.CacheKey{
+			Hostname:  string(hostname),
+			Direction: "outbound",
+			Policy:    policyCheckEnable,
+		}
+	}
+	filterConfig := findRouteFilterConfigInCache(in, key)
+	if filterConfig != nil {
+		filterConfigs[mixer] = filterConfig
+		return filterConfigs
+	}
+	var config *mccpb.ServiceConfig
+	attrs := addDestinationServiceAttributes(make(attributes), push, hostname)
+	config = &mccpb.ServiceConfig{
+		DisableCheckCalls: disableCheckCalls,
+		MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+		ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+	}
+	filterConfig = util.MessageToStruct(config)
+	filterConfigs[mixer] = filterConfig
 	return filterConfigs
+}
+
+func addServiceConfigForInbound(hostname model.Hostname, in *plugin.InputParams,
+	filterConfigs map[string]*types.Struct) map[string]*types.Struct {
+	if filterConfigs == nil {
+		filterConfigs = make(map[string]*types.Struct)
+	}
+	var key plugin.CacheKey
+	disablePolicyCheck := disablePolicyChecks(inbound, in.Env.Mesh, in.Node)
+	if disablePolicyCheck {
+		key = plugin.CacheKey{
+			Hostname:  string(hostname),
+			Direction: "inbound",
+			Policy:    policyCheckDisable,
+		}
+	} else {
+		key = plugin.CacheKey{
+			Hostname:  string(hostname),
+			Direction: "inbound",
+			Policy:    policyCheckEnable,
+		}
+	}
+	filterConfig := findRouteFilterConfigInCache(in, key)
+	if filterConfig != nil {
+		filterConfigs[mixer] = filterConfig
+		return filterConfigs
+	}
+	var config *mccpb.ServiceConfig
+	if disablePolicyCheck {
+		config = buildInboundRouteConfigWithoutPolicy(in.Env, in.Push, in.ServiceInstance)
+	} else {
+		config = buildInboundRouteConfigWithPolicy(in.Env, in.Push, in.ServiceInstance)
+	}
+	filterConfig = util.MessageToStruct(config)
+	filterConfigs[mixer] = filterConfig
+	return filterConfigs
+}
+func findRouteFilterConfigInCache(in *plugin.InputParams, key plugin.CacheKey) *types.Struct {
+	var mixerPerRouteFilterConfig map[plugin.CacheKey]*types.Struct
+	if in.SidecarScope != nil {
+		if c, ok := in.SidecarScope.RDSPerRouteFilterConfig[mixer].(map[plugin.CacheKey]*types.Struct); ok {
+			mixerPerRouteFilterConfig = c
+		} else {
+			mixerPerRouteFilterConfig = nil
+		}
+		filterConfig, ok := mixerPerRouteFilterConfig[key]
+		if ok {
+			return filterConfig
+		}
+	}
+	return nil
 }
 
 func addTypedServiceConfig(filterConfigs map[string]*types.Any, config *mccpb.ServiceConfig) map[string]*types.Any {

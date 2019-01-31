@@ -395,3 +395,13 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
+
+// OnPreComputePerRouteFilterConfig is called whenever a new push is initialized to set up  Per Route Filter config
+func (Plugin) OnPreComputePerRouteFilterConfig(env *model.Environment, proxy *model.Proxy, push *model.PushContext) map[plugin.CacheKey]*types.Struct {
+	return nil
+}
+
+// GetName returns the Plugin name
+func (Plugin) GetName() string {
+	return plugin.Authn
+}

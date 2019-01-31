@@ -15,6 +15,8 @@
 package plugin
 
 import (
+        "github.com/gogo/protobuf/types"
+
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
@@ -92,6 +94,8 @@ type InputParams struct {
 	Subset string
 	// Push holds stats and other information about the current push.
 	Push *model.PushContext
+        // SidecarScope associated with the push
+	SidecarScope *model.SidecarScope
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
@@ -107,6 +111,16 @@ type FilterChain struct {
 	HTTP []*http_conn.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []listener.Filter
+}
+
+// CacheKey is the key for RDS perRouter Filter Config cache
+type CacheKey struct {
+	// Hostname is the service Host Name
+	Hostname string
+	// Direction is used to define inbound/outbound direction
+	Direction string
+	// Policy is used to define enabling/disabling policy
+	Policy string
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
@@ -152,4 +166,10 @@ type Plugin interface {
 	// OnInboundFilterChains is called whenever a plugin needs to setup the filter chains, including relevant filter chain
 	// configuration, like FilterChainMatch and TLSContext.
 	OnInboundFilterChains(in *InputParams) []FilterChain
+
+        // OnPreComputePerRouteFilterConfig is called whenever a new push is initialized to set up Per Route Filter config
+	OnPreComputePerRouteFilterConfig(env *model.Environment, proxy *model.Proxy, push *model.PushContext) map[CacheKey]*types.Struct
+
+	// GetName returns the Plugin name
+	GetName() string
 }
