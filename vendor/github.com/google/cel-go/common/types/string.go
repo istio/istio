@@ -22,10 +22,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"github.com/google/cel-go/common/overloads"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/common/types/traits"
+
+	"github.com/golang/protobuf/ptypes"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 )
 
 // String type implementation which supports addition, comparison, matching,
@@ -38,7 +40,14 @@ var (
 		traits.AdderType,
 		traits.ComparerType,
 		traits.MatcherType,
+		traits.ReceiverType,
 		traits.SizerType)
+
+	stringOneArgOverloads = map[string]func(String, ref.Value) ref.Value{
+		overloads.Contains:   stringContains,
+		overloads.EndsWith:   stringEndsWith,
+		overloads.StartsWith: stringStartsWith,
+	}
 )
 
 // Add implements traits.Adder.Add.
@@ -140,6 +149,17 @@ func (s String) Match(pattern ref.Value) ref.Value {
 	return Bool(matched)
 }
 
+// Receive implements traits.Reciever.Receive.
+func (s String) Receive(function string, overload string, args []ref.Value) ref.Value {
+	switch len(args) {
+	case 1:
+		if f, found := stringOneArgOverloads[function]; found {
+			return f(s, args[0])
+		}
+	}
+	return NewErr("no such overload")
+}
+
 // Size implements traits.Sizer.Size.
 func (s String) Size() ref.Value {
 	return Int(len([]rune(s.Value().(string))))
@@ -153,4 +173,28 @@ func (s String) Type() ref.Type {
 // Value implements ref.Value.Value.
 func (s String) Value() interface{} {
 	return string(s)
+}
+
+func stringContains(s String, sub ref.Value) ref.Value {
+	subStr, ok := sub.(String)
+	if !ok {
+		return ValOrErr(sub, "no such overload")
+	}
+	return Bool(strings.Contains(string(s), string(subStr)))
+}
+
+func stringEndsWith(s String, suf ref.Value) ref.Value {
+	sufStr, ok := suf.(String)
+	if !ok {
+		return ValOrErr(suf, "no such overload")
+	}
+	return Bool(strings.HasSuffix(string(s), string(sufStr)))
+}
+
+func stringStartsWith(s String, pre ref.Value) ref.Value {
+	preStr, ok := pre.(String)
+	if !ok {
+		return ValOrErr(pre, "no such overload")
+	}
+	return Bool(strings.HasPrefix(string(s), string(preStr)))
 }

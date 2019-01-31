@@ -116,13 +116,23 @@ const (
 	SizeMapInst    = "map_size"
 )
 
-// Matches function
+// String function names.
 const (
-	Matches     = "matches"
-	MatchString = "matches_string"
+	Contains   = "contains"
+	EndsWith   = "endsWith"
+	Matches    = "matches"
+	StartsWith = "startsWith"
 )
 
-// Time-based functions
+// String function overload names.
+const (
+	ContainsString   = "contains_string"
+	EndsWithString   = "ends_with_string"
+	MatchString      = "matches_string"
+	StartsWithString = "starts_with_string"
+)
+
+// Time-based functions.
 const (
 	TimeGetFullYear     = "getFullYear"
 	TimeGetMonth        = "getMonth"

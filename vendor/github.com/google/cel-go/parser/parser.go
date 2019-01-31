@@ -145,11 +145,13 @@ func (p *parser) VisitConditionalOr(ctx *gen.ConditionalOrContext) interface{} {
 	if ctx.GetOps() == nil {
 		return result
 	}
+	b := newBalancer(p.helper, operators.LogicalOr, result)
 	for i, op := range ctx.GetOps() {
 		next := p.Visit(ctx.GetE1()[i]).(*exprpb.Expr)
-		result = p.globalCallOrMacro(op, operators.LogicalOr, result, next)
+		opID := p.helper.id(op)
+		b.addTerm(opID, next)
 	}
-	return result
+	return b.balance()
 }
 
 // Visit a parse tree produced by CELParser#conditionalAnd.
@@ -158,11 +160,13 @@ func (p *parser) VisitConditionalAnd(ctx *gen.ConditionalAndContext) interface{}
 	if ctx.GetOps() == nil {
 		return result
 	}
+	b := newBalancer(p.helper, operators.LogicalAnd, result)
 	for i, op := range ctx.GetOps() {
 		next := p.Visit(ctx.GetE1()[i]).(*exprpb.Expr)
-		result = p.globalCallOrMacro(op, operators.LogicalAnd, result, next)
+		opID := p.helper.id(op)
+		b.addTerm(opID, next)
 	}
-	return result
+	return b.balance()
 }
 
 // Visit a parse tree produced by CELParser#relation.

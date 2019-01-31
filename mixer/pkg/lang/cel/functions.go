@@ -27,12 +27,6 @@ import (
 
 func standardFunctions() []*exprpb.Decl {
 	return []*exprpb.Decl{
-		decls.NewFunction("startsWith",
-			decls.NewInstanceOverload("startsWith",
-				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
-		decls.NewFunction("endsWith",
-			decls.NewInstanceOverload("endsWith",
-				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
 		decls.NewFunction("match",
 			decls.NewOverload("match",
 				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),

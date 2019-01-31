@@ -171,6 +171,10 @@ func (p *parserHelper) newComprehension(ctx interface{}, iterVar string,
 }
 
 func (p *parserHelper) newExpr(ctx interface{}) *exprpb.Expr {
+	id, isID := ctx.(int64)
+	if isID {
+		return &exprpb.Expr{Id: id}
+	}
 	return &exprpb.Expr{Id: p.id(ctx)}
 }
 
@@ -196,4 +200,67 @@ func (p *parserHelper) getLocation(id int64) common.Location {
 	characterOffset := p.positions[id]
 	location, _ := p.source.OffsetLocation(characterOffset)
 	return location
+}
+
+// balancer performs tree balancing on operators whose arguments are of equal precedence.
+//
+// The purpose of the balancer is to ensure a compact serialization format for the logical &&, ||
+// operators which have a tendency to create long DAGs which are skewed in one direction. Since the
+// operators are commutative re-ordering the terms *must not* affect the evaluation result.
+//
+// Re-balancing the terms is a safe, if somewhat controversial choice. A better solution would be
+// to make these functions variadic and update both the checker and interpreter to understand this;
+// however, this is a more complex change.
+//
+// TODO: Consider replacing tree-balancing with variadic logical &&, || within the parser, checker,
+// and interpreter.
+type balancer struct {
+	helper   *parserHelper
+	function string
+	terms    []*exprpb.Expr
+	ops      []int64
+}
+
+// newBalancer creates a balancer instance bound to a specific function and its first term.
+func newBalancer(h *parserHelper, function string, term *exprpb.Expr) *balancer {
+	return &balancer{
+		helper:   h,
+		function: function,
+		terms:    []*exprpb.Expr{term},
+		ops:      []int64{},
+	}
+}
+
+// addTerm adds an operation identifier and term to the set of terms to be balanced.
+func (b *balancer) addTerm(op int64, term *exprpb.Expr) {
+	b.terms = append(b.terms, term)
+	b.ops = append(b.ops, op)
+}
+
+// balance creates a balanced tree from the sub-terms and returns the final Expr value.
+func (b *balancer) balance() *exprpb.Expr {
+	if len(b.terms) == 1 {
+		return b.terms[0]
+	}
+	return b.balancedTree(0, len(b.ops)-1)
+}
+
+// balancedTree recursively balances the terms provided to a commutative operator.
+func (b *balancer) balancedTree(lo, hi int) *exprpb.Expr {
+	mid := (lo + hi + 1) / 2
+
+	var left *exprpb.Expr
+	if mid == lo {
+		left = b.terms[mid]
+	} else {
+		left = b.balancedTree(lo, mid-1)
+	}
+
+	var right *exprpb.Expr
+	if mid == hi {
+		right = b.terms[mid+1]
+	} else {
+		right = b.balancedTree(mid+1, hi)
+	}
+	return b.helper.newGlobalCall(b.ops[mid], b.function, left, right)
 }

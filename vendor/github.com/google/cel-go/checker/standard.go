@@ -69,11 +69,7 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.NotStrictlyFalse,
 				[]*exprpb.Type{decls.Bool}, decls.Bool)),
 
-		decls.NewFunction(overloads.Matches,
-			decls.NewInstanceOverload(overloads.MatchString,
-				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
-
-		// Relations
+		// Relations.
 
 		decls.NewFunction(operators.Less,
 			decls.NewOverload(overloads.LessBool,
@@ -157,7 +153,7 @@ func StandardDeclarations() []*exprpb.Decl {
 				[]*exprpb.Type{paramA, paramA}, decls.Bool,
 				typeParamAList)),
 
-		// Algebra
+		// Algebra.
 
 		decls.NewFunction(operators.Subtract,
 			decls.NewOverload(overloads.SubtractInt64,
@@ -222,7 +218,7 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.NegateDouble,
 				[]*exprpb.Type{decls.Double}, decls.Double)),
 
-		// Index
+		// Index.
 
 		decls.NewFunction(operators.Index,
 			decls.NewParameterizedOverload(overloads.IndexList,
@@ -234,7 +230,7 @@ func StandardDeclarations() []*exprpb.Decl {
 		//decls.NewOverload(overloads.IndexMessage,
 		//	[]*expr.Type{decls.Dyn, decls.String}, decls.Dyn)),
 
-		// Collections
+		// Collections.
 
 		decls.NewFunction(overloads.Size,
 			decls.NewInstanceOverload(overloads.SizeStringInst,
@@ -262,7 +258,7 @@ func StandardDeclarations() []*exprpb.Decl {
 				[]*exprpb.Type{paramA, mapOfAB}, decls.Bool,
 				typeParamABList)),
 
-		// Deprecated 'in()' function
+		// Deprecated 'in()' function.
 
 		decls.NewFunction(overloads.DeprecatedIn,
 			decls.NewParameterizedOverload(overloads.InList,
@@ -274,13 +270,13 @@ func StandardDeclarations() []*exprpb.Decl {
 		//decls.NewOverload(overloads.InMessage,
 		//	[]*expr.Type{Dyn, decls.String},decls.Bool)),
 
-		// Conversions to type
+		// Conversions to type.
 
 		decls.NewFunction(overloads.TypeConvertType,
 			decls.NewParameterizedOverload(overloads.TypeConvertType,
 				[]*exprpb.Type{paramA}, decls.NewTypeType(paramA), typeParamAList)),
 
-		// Conversions to int
+		// Conversions to int.
 
 		decls.NewFunction(overloads.TypeConvertInt,
 			decls.NewOverload(overloads.IntToInt, []*exprpb.Type{decls.Int}, decls.Int),
@@ -290,7 +286,7 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.TimestampToInt, []*exprpb.Type{decls.Timestamp}, decls.Int),
 			decls.NewOverload(overloads.DurationToInt, []*exprpb.Type{decls.Duration}, decls.Int)),
 
-		// Conversions to uint
+		// Conversions to uint.
 
 		decls.NewFunction(overloads.TypeConvertUint,
 			decls.NewOverload(overloads.UintToUint, []*exprpb.Type{decls.Uint}, decls.Uint),
@@ -298,7 +294,7 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.DoubleToUint, []*exprpb.Type{decls.Double}, decls.Uint),
 			decls.NewOverload(overloads.StringToUint, []*exprpb.Type{decls.String}, decls.Uint)),
 
-		// Conversions to double
+		// Conversions to double.
 
 		decls.NewFunction(overloads.TypeConvertDouble,
 			decls.NewOverload(overloads.DoubleToDouble, []*exprpb.Type{decls.Double}, decls.Double),
@@ -306,13 +302,13 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.UintToDouble, []*exprpb.Type{decls.Uint}, decls.Double),
 			decls.NewOverload(overloads.StringToDouble, []*exprpb.Type{decls.String}, decls.Double)),
 
-		// Conversions to bool
+		// Conversions to bool.
 
 		decls.NewFunction(overloads.TypeConvertBool,
 			decls.NewOverload(overloads.BoolToBool, []*exprpb.Type{decls.Bool}, decls.Bool),
 			decls.NewOverload(overloads.StringToBool, []*exprpb.Type{decls.String}, decls.Bool)),
 
-		// Conversions to string
+		// Conversions to string.
 
 		decls.NewFunction(overloads.TypeConvertString,
 			decls.NewOverload(overloads.StringToString, []*exprpb.Type{decls.String}, decls.String),
@@ -324,13 +320,13 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.TimestampToString, []*exprpb.Type{decls.Timestamp}, decls.String),
 			decls.NewOverload(overloads.DurationToString, []*exprpb.Type{decls.Duration}, decls.String)),
 
-		// Conversions to bytes
+		// Conversions to bytes.
 
 		decls.NewFunction(overloads.TypeConvertBytes,
 			decls.NewOverload(overloads.BytesToBytes, []*exprpb.Type{decls.Bytes}, decls.Bytes),
 			decls.NewOverload(overloads.StringToBytes, []*exprpb.Type{decls.String}, decls.Bytes)),
 
-		// Conversions to timestamps
+		// Conversions to timestamps.
 
 		decls.NewFunction(overloads.TypeConvertTimestamp,
 			decls.NewOverload(overloads.TimestampToTimestamp,
@@ -340,7 +336,7 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.IntToTimestamp,
 				[]*exprpb.Type{decls.Int}, decls.Timestamp)),
 
-		// Conversions to durations
+		// Conversions to durations.
 
 		decls.NewFunction(overloads.TypeConvertDuration,
 			decls.NewOverload(overloads.DurationToDuration,
@@ -350,14 +346,29 @@ func StandardDeclarations() []*exprpb.Decl {
 			decls.NewOverload(overloads.IntToDuration,
 				[]*exprpb.Type{decls.Int}, decls.Duration)),
 
-		// Conversions to Dyn
+		// Conversions to Dyn.
 
 		decls.NewFunction(overloads.TypeConvertDyn,
 			decls.NewParameterizedOverload(overloads.ToDyn,
 				[]*exprpb.Type{paramA}, decls.Dyn,
 				typeParamAList)),
 
-		// Date/time functions
+		// String functions.
+
+		decls.NewFunction(overloads.Contains,
+			decls.NewInstanceOverload(overloads.ContainsString,
+				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
+		decls.NewFunction(overloads.EndsWith,
+			decls.NewInstanceOverload(overloads.EndsWithString,
+				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
+		decls.NewFunction(overloads.Matches,
+			decls.NewInstanceOverload(overloads.MatchString,
+				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
+		decls.NewFunction(overloads.StartsWith,
+			decls.NewInstanceOverload(overloads.StartsWithString,
+				[]*exprpb.Type{decls.String, decls.String}, decls.Bool)),
+
+		// Date/time functions.
 
 		decls.NewFunction(overloads.TimeGetFullYear,
 			decls.NewInstanceOverload(overloads.TimestampToYear,
