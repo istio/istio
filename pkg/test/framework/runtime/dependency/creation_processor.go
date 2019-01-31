@@ -154,7 +154,7 @@ func compareEntries(oldEntry *reqEntry, entry *reqEntry) (override bool, err com
 		err = resolutionError(fmt.Errorf("required mismatched descriptors for %v: %v, %v", entry.id, oldEntry.desc, entry.desc))
 		return
 	}
-	
+
 	// Next compare config, and do the same check, do we need to merge or override.
 	if oldEntry.config == nil {
 		if entry.config != nil {
