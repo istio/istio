@@ -54,13 +54,19 @@ func (configgen *ConfigGeneratorImpl) BuildSharedPushState(env *model.Environmen
 	namespaceMap[""] = struct{}{}
 
 	// generate outbound clusters for all namespaces in parallel.
-	// TODO: for large number of clusters this may result in OOM, needs rate control !!!
 	wg := &sync.WaitGroup{}
 	mutex := &sync.Mutex{}
+	// NOTE: better concurrency for balancing efficiency and OOM?
+	concurrentLimit := make(chan struct{}, 20)
 	wg.Add(len(namespaceMap))
 	for ns := range namespaceMap {
+		concurrentLimit <- struct{}{}
 		go func(ns string) {
-			defer wg.Done()
+			defer func() {
+				<-concurrentLimit
+				wg.Done()
+			}()
+
 			dummyNode := model.Proxy{
 				ConfigNamespace: ns,
 				Type:            model.Router,
