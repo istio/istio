@@ -136,6 +136,12 @@ func convertToHeaderMatcher(k, v string) *route.HeaderMatcher {
 	}
 }
 
+// Check if the key is of format a[b].
+func isKeyBinary(key string) bool {
+	open := strings.Index(key, "[")
+	return strings.HasSuffix(key, "]") && open > 0 && open < len(key)-2
+}
+
 func extractNameInBrackets(s string) (string, error) {
 	if !strings.HasPrefix(s, "[") || !strings.HasSuffix(s, "]") {
 		return "", fmt.Errorf("expecting format [<NAME>], but found %s", s)

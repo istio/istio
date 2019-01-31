@@ -194,7 +194,7 @@ func generateMetadataStringMatcher(key string, v *metadata.StringMatcher, filter
 }
 
 // generateMetadataListMatcher generates a metadata list matcher for the given path keys and value.
-func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatcher {
+func generateMetadataListMatcher(filter string, keys []string, v string) *metadata.MetadataMatcher {
 	listMatcher := &metadata.ListMatcher{
 		MatchPattern: &metadata.ListMatcher_OneOf{
 			OneOf: &metadata.ValueMatcher{
@@ -213,7 +213,7 @@ func generateMetadataListMatcher(keys []string, v string) *metadata.MetadataMatc
 	}
 
 	return &metadata.MetadataMatcher{
-		Filter: authn.AuthnFilterName,
+		Filter: filter,
 		Path:   paths,
 		Value: &metadata.ValueMatcher{
 			MatchPattern: &metadata.ValueMatcher_ListMatch{
@@ -275,7 +275,7 @@ func createDynamicMetadataMatcher(k, v string, forTCPFilter bool) *metadata.Meta
 		}
 		// Generate a metadata list matcher for the given path keys and value.
 		// On proxy side, the value should be of list type.
-		return generateMetadataListMatcher([]string{attrRequestClaims, claim}, v)
+		return generateMetadataListMatcher(authn.AuthnFilterName, []string{attrRequestClaims, claim}, v)
 	}
 
 	stringMatcher := createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */)
@@ -740,6 +740,16 @@ func permissionForKeyValues(key string, values []string) *policyproto.Permission
 			return &policyproto.Permission{
 				Rule: &policyproto.Permission_RequestedServerName{
 					RequestedServerName: createStringMatcher(v, false /* forceRegexPattern */, false /* forTCPFilter */),
+				},
+			}, nil
+		}
+	case isKeyBinary(key) && !attributesEnforcedInPlugin(key):
+		// Split key of format a[b] to [a, b].
+		parts := strings.Split(strings.TrimSuffix(key, "]"), "[")
+		converter = func(v string) (*policyproto.Permission, error) {
+			return &policyproto.Permission{
+				Rule: &policyproto.Permission_Metadata{
+					Metadata: generateMetadataListMatcher(parts[0], parts[1:], v),
 				},
 			}, nil
 		}

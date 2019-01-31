@@ -405,6 +405,19 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-7"},
+			Spec: &rbacproto.ServiceRole{
+				Rules: []*rbacproto.AccessRule{
+					{
+						Services: []string{"mysql"},
+						Constraints: []*rbacproto.AccessRule_Constraint{
+							{Key: "envoy.filters.network.mysql_proxy[db.table]", Values: []string{"update"}},
+						},
+					},
+				},
+			},
+		},
 	}
 	bindings := []model.Config{
 		{
@@ -502,6 +515,20 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 				RoleRef: &rbacproto.RoleRef{
 					Kind: "ServiceRole",
 					Name: "service-role-6",
+				},
+			},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "service-role-binding-7"},
+			Spec: &rbacproto.ServiceRoleBinding{
+				Subjects: []*rbacproto.Subject{
+					{
+						User: "*",
+					},
+				},
+				RoleRef: &rbacproto.RoleRef{
+					Kind: "ServiceRole",
+					Name: "service-role-7",
 				},
 			},
 		},
@@ -610,13 +637,13 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 					Ids: []*policy.Principal{
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(
+								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
 									[]string{attrRequestClaims, "groups"}, "group*"),
 							},
 						},
 						{
 							Identifier: &policy.Principal_Metadata{
-								Metadata: generateMetadataListMatcher(
+								Metadata: generateMetadataListMatcher(authn.AuthnFilterName,
 									[]string{attrRequestClaims, "iss"}, "test-iss"),
 							},
 						},
@@ -775,6 +802,37 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		},
 	}
 
+	policy7 := &policy.Policy{
+		Permissions: []*policy.Permission{{
+			Rule: &policy.Permission_AndRules{
+				AndRules: &policy.Permission_Set{
+					Rules: []*policy.Permission{{
+						Rule: &policy.Permission_OrRules{
+							OrRules: &policy.Permission_Set{
+								Rules: []*policy.Permission{{
+									Rule: &policy.Permission_Metadata{
+										Metadata: generateMetadataListMatcher("envoy.filters.network.mysql_proxy", []string{"db.table"}, "update"),
+									},
+								}},
+							},
+						},
+					}},
+				},
+			},
+		}},
+		Principals: []*policy.Principal{{
+			Identifier: &policy.Principal_AndIds{
+				AndIds: &policy.Principal_Set{
+					Ids: []*policy.Principal{{
+						Identifier: &policy.Principal_Any{
+							Any: true,
+						},
+					}},
+				},
+			},
+		}},
+	}
+
 	expectRbac1 := &policy.RBAC{
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
@@ -810,6 +868,12 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 		Action: policy.RBAC_ALLOW,
 		Policies: map[string]*policy.Policy{
 			"service-role-6": policy6,
+		},
+	}
+	expectRbac7 := &policy.RBAC{
+		Action: policy.RBAC_ALLOW,
+		Policies: map[string]*policy.Policy{
+			"service-role-7": policy7,
 		},
 	}
 
@@ -892,6 +956,14 @@ func TestConvertRbacRulesToFilterConfig(t *testing.T) {
 			},
 			rbac:   expectRbac6,
 			option: option,
+		},
+		{
+			name: "service with metadata constraints",
+			service: &serviceMetadata{
+				name: "mysql",
+			},
+			rbac:   expectRbac7,
+			option: rbacOption{authzPolicies: authzPolicies, forTCPFilter: true},
 		},
 	}
 
@@ -1329,11 +1401,11 @@ func TestCreateDynamicMetadataMatcher(t *testing.T) {
 		},
 		{
 			k: attrRequestClaims + "[groups]", v: "group*", tcp: false,
-			expect: generateMetadataListMatcher([]string{attrRequestClaims, "groups"}, "group*"),
+			expect: generateMetadataListMatcher(authn.AuthnFilterName, []string{attrRequestClaims, "groups"}, "group*"),
 		},
 		{
 			k: attrRequestClaims + "[iss]", v: "test-iss", tcp: false,
-			expect: generateMetadataListMatcher([]string{attrRequestClaims, "iss"}, "test-iss"),
+			expect: generateMetadataListMatcher(authn.AuthnFilterName, []string{attrRequestClaims, "iss"}, "test-iss"),
 		},
 		{
 			k: attrSrcUser, v: "*test-user", tcp: false,
