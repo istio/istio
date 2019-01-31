@@ -23,11 +23,6 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "default"
-{{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-{{- else }}
-  namespace: {{ .Release.Namespace }}
-{{- end }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ template "security.chart" . }}
@@ -45,11 +40,6 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: "api-server"
-{{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-{{- else }}
-  namespace: {{ .Release.Namespace }}
-{{- end }}
   labels:
     app: {{ template "security.name" . }}
     chart: {{ template "security.chart" . }}

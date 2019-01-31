@@ -172,11 +172,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: istio-multicluster-destinationrule
-{{- if .Values.global.configRootNamespace }}
-  namespace: {{ .Values.global.configRootNamespace }}
-{{- else }}
   namespace: {{ .Release.Namespace }}
-{{- end }}
   labels:
     app: {{ template "gateway.name" . }}
     chart: {{ template "gateway.chart" . }}

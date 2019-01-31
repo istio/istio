@@ -5,10 +5,3 @@ metadata:
   labels:
     istio-injection: disabled
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-config
-  labels:
-    istio-injection: disabled
----
