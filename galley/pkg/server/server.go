@@ -224,14 +224,14 @@ func (s *Server) Run() {
 		defer s.serveWG.Done()
 		err := s.processor.Start()
 		if err != nil {
-			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
+			scope.Errorf("Galley Server unexpectedly terminated: %v", err)
 			return
 		}
 
 		// start serving
 		err = s.grpcServer.Serve(s.listener)
 		if err != nil {
-			scope.Fatalf("Galley Server unexpectedly terminated: %v", err)
+			scope.Errorf("Galley Server unexpectedly terminated: %v", err)
 		}
 	}()
 }
