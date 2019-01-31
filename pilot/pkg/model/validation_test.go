@@ -3822,13 +3822,6 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
-		{"bad egress host 3", &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					Hosts: []string{"~/foo.com"},
-				},
-			},
-		}, false},
 		{"empty egress host", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
