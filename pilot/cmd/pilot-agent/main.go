@@ -134,6 +134,8 @@ var (
 				}
 			}
 
+			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(role.TrustDomain, true))
+			role.TrustDomain = spiffe.GetTrustDomain()
 			log.Infof("Proxy role: %#v", role)
 
 			proxyConfig := model.DefaultProxyConfig()

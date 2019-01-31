@@ -395,7 +395,7 @@ func createCA(client corev1.CoreV1Interface) *ca.IstioCA {
 
 	if opts.selfSignedCA {
 		log.Info("Use self-signed certificate as the CA certificate")
-		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, "", len(opts.kubeConfigFile) != 0))
+		spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(opts.trustDomain, true))
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(opts.selfSignedCACertTTL, opts.workloadCertTTL,
 			opts.maxWorkloadCertTTL, spiffe.GetTrustDomain(), opts.dualUse,
 			opts.istioCaStorageNamespace, client)
