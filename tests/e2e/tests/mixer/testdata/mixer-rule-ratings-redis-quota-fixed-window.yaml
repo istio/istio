@@ -45,7 +45,7 @@ metadata:
   name: quota
   namespace: istio-system
 spec:
-  match: (destination.labels["app"] | "unknown") == "ratings"
+  match: (destination.labels["app"]|"unknown") == "ratings"
   actions:
   - handler: handler.redisquota
     instances:
