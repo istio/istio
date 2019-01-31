@@ -70,6 +70,12 @@ type Args struct {
 	// ConfigPath is the path for Galley specific config files
 	ConfigPath string
 
+	// SourceMCPServerAddress is the mcpserver address galley will connect to source config
+	SourceMCPServerAddress string
+
+	// MCPClientCredOpts is the credentials galley will use to connect to source mcpserver
+	MCPClientCredOpts *creds.Options
+
 	// ExcludedResourceKinds is a list of resource kinds for which no source events will be triggered.
 	ExcludedResourceKinds []string
 
@@ -98,6 +104,7 @@ func DefaultArgs() *Args {
 		EnableServer:              true,
 		CredentialOptions:         creds.DefaultOptions(),
 		ConfigPath:                "",
+		MCPClientCredOpts:         creds.DefaultOptions(),
 		DomainSuffix:              defaultDomainSuffix,
 		DisableResourceReadyCheck: false,
 		ExcludedResourceKinds:     defaultExcludedResourceKinds(),
@@ -130,6 +137,10 @@ func (a *Args) String() string {
 	_, _ = fmt.Fprintf(buf, "CertificateFile: %s\n", a.CredentialOptions.CertificateFile)
 	_, _ = fmt.Fprintf(buf, "CACertificateFile: %s\n", a.CredentialOptions.CACertificateFile)
 	_, _ = fmt.Fprintf(buf, "ConfigFilePath: %s\n", a.ConfigPath)
+	_, _ = fmt.Fprintf(buf, "SourceMCPServerAddress: %s\n", a.SourceMCPServerAddress)
+	_, _ = fmt.Fprintf(buf, "MCPClientKeyFile: %s\n", a.MCPClientCredOpts.KeyFile)
+	_, _ = fmt.Fprintf(buf, "MCPClientCertificateFile: %s\n", a.MCPClientCredOpts.CertificateFile)
+	_, _ = fmt.Fprintf(buf, "MCPClientCACertificateFile: %s\n", a.MCPClientCredOpts.CACertificateFile)
 	_, _ = fmt.Fprintf(buf, "MeshConfigFile: %s\n", a.MeshConfigFile)
 	_, _ = fmt.Fprintf(buf, "DomainSuffix: %s\n", a.DomainSuffix)
 	_, _ = fmt.Fprintf(buf, "DisableResourceReadyCheck: %v\n", a.DisableResourceReadyCheck)

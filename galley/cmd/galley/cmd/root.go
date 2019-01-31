@@ -70,6 +70,17 @@ func GetRootCmd(args []string) *cobra.Command {
 			serverArgs.CredentialOptions.CACertificateFile = validationArgs.CACertFile
 			serverArgs.CredentialOptions.KeyFile = validationArgs.KeyFile
 			serverArgs.CredentialOptions.CertificateFile = validationArgs.CertFile
+			// Default MCPClient credentials to MCP Server if not supplied
+			if serverArgs.MCPClientCredOpts.CertificateFile == "" {
+				serverArgs.MCPClientCredOpts.CertificateFile = validationArgs.CertFile
+			}
+			if serverArgs.MCPClientCredOpts.KeyFile == "" {
+				serverArgs.MCPClientCredOpts.KeyFile = validationArgs.KeyFile
+			}
+			if serverArgs.MCPClientCredOpts.CACertificateFile == "" {
+				serverArgs.MCPClientCredOpts.CACertificateFile = validationArgs.CACertFile
+			}
+
 			if livenessProbeOptions.IsValid() {
 				livenessProbeController = probe.NewFileController(&livenessProbeOptions)
 			}
@@ -169,6 +180,17 @@ func GetRootCmd(args []string) *cobra.Command {
 		"Name of the validation service running in the same namespace as the deployment")
 	rootCmd.PersistentFlags().StringVar(&validationArgs.WebhookName, "webhook-name", "istio-galley",
 		"Name of the k8s validatingwebhookconfiguration")
+
+	// MCP client flags
+	rootCmd.PersistentFlags().StringVar(&serverArgs.SourceMCPServerAddress, "sourceMCPServerAddress", "",
+		" MCP server addresses with "+"mcp:// (insecure) or mcps:// (secure) schema, e.g. mcps://istio-galley.istio-system.svc:9901")
+	// MCP Client defaults to MCP server certs to connect to MCP Source server
+	rootCmd.PersistentFlags().StringVar(&serverArgs.MCPClientCredOpts.CertificateFile, "mcpClientTLSCertFile", "",
+		"File containing the x509 Certificate for mTLS to connect to source MCP Server")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.MCPClientCredOpts.KeyFile, "mcpClientTLSKeyFile", "",
+		"File containing the x509 private key matching --mcpClientTLSCertFile")
+	rootCmd.PersistentFlags().StringVar(&serverArgs.MCPClientCredOpts.CACertificateFile, "mcpClientCACertFile", "",
+		"File containing the caBundle that signed the cert/key specified by --mcpClientTLSCertFile and --mcpClientTLSKeyFile.")
 
 	rootCmd.AddCommand(probeCmd())
 	rootCmd.AddCommand(version.CobraCommand())

@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net"
 	"sync"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/source/kube/dynamic/converter"
 	"istio.io/istio/galley/pkg/source/kube/schema"
 	"istio.io/istio/galley/pkg/testing/mock"
+	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	mcptestmon "istio.io/istio/pkg/mcp/testing/monitoring"
 )
@@ -68,6 +70,11 @@ loop:
 		case 3:
 			p.newMeshConfigCache = func(path string) (meshconfig.Cache, error) { return nil, e }
 		case 4:
+			args.SourceMCPServerAddress = "mcp"
+			p.mcpSrcNew = func(ctx context.Context, copts *creds.Options, mcpAddress, nodeID string) (runtime.Source, error) {
+				return nil, e
+			}
+		case 5:
 			args.ConfigPath = "aaa"
 			p.fsNew = func(string, *schema.Instance, *converter.Config) (runtime.Source, error) { return nil, e }
 		default:
