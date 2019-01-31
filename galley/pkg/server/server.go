@@ -256,7 +256,6 @@ func (s *Server) Close() error {
 
 	if s.grpcServer != nil {
 		s.grpcServer.GracefulStop()
-		s.serveWG.Wait()
 	}
 
 	if s.controlZ != nil {
@@ -277,6 +276,10 @@ func (s *Server) Close() error {
 
 	if s.callOut != nil {
 		s.callOut.Close()
+	}
+
+	if s.grpcServer != nil || s.callOut != nil {
+		s.serveWG.Wait()
 	}
 
 	// final attempt to purge buffered logs

@@ -63,12 +63,13 @@ func (c *Client) sendTriggerResponse(stream Stream) error {
 	}
 
 	if err := stream.Send(trigger); err != nil {
-		return fmt.Errorf("could not send trigger request %v", err)
+		return status.Errorf(status.Code(err), "could not send trigger request %v", err)
 	}
 
 	msg, err := stream.Recv()
 	if err != nil {
-		return fmt.Errorf("could not receive expected nack response: %v", err)
+		return status.Errorf(status.Code(err),
+			"could not receive expected nack response: %v", err)
 	}
 
 	if msg.ErrorDetail == nil {

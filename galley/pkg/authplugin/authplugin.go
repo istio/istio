@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// TODO(jeffmendoza) Longer term, consider merging with pkg/mcp/creds.
+
 package authplugin
 
 import "google.golang.org/grpc"

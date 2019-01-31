@@ -21,6 +21,8 @@ import (
 	"istio.io/istio/galley/pkg/authplugins/none"
 )
 
+// Inventory returns a slice of all supported plugins. For new plugins
+// add them here.
 func Inventory() []authplugin.InfoFn {
 	return []authplugin.InfoFn{
 		google.GetInfo,
@@ -28,6 +30,8 @@ func Inventory() []authplugin.InfoFn {
 	}
 }
 
+// AuthMap goes ahead and runs each GetInfo function and produces a
+// map of plugin names to GetAuth functions.
 func AuthMap() map[string]authplugin.AuthFn {
 	m := make(map[string]authplugin.AuthFn)
 	for _, g := range Inventory() {
