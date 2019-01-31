@@ -18,6 +18,7 @@ package lang
 import (
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
+	"istio.io/istio/mixer/pkg/lang/cel"
 	"istio.io/istio/mixer/pkg/lang/compiled"
 )
 
@@ -36,6 +37,12 @@ const (
 	// CEXL is legacy istio expression language
 	CEXL LanguageRuntime = iota
 
+	// CEL is Common Expression Language (https://github.com/google/cel-spec)
+	CEL
+
+	// COMPAT is a hybrid with CEXL syntax but CEL semantics
+	COMPAT
+
 	// LanguageRuntimeAnnotation on config resources to select a language runtime
 	LanguageRuntimeAnnotation = "policy.istio.io/lang"
 )
@@ -43,6 +50,10 @@ const (
 // GetLanguageRuntime reads an override from a resource annotation
 func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
 	switch annotations[LanguageRuntimeAnnotation] {
+	case "CEL":
+		return CEL
+	case "COMPAT":
+		return COMPAT
 	case "CEXL":
 		fallthrough
 	default:
@@ -53,6 +64,10 @@ func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
 // NewBuilder returns an expression builder
 func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Compiler {
 	switch mode {
+	case CEL:
+		return cel.NewBuilder(finder, cel.CEL)
+	case COMPAT:
+		return cel.NewBuilder(finder, cel.LegacySyntaxCEL)
 	case CEXL:
 		fallthrough
 	default:
@@ -62,6 +77,10 @@ func NewBuilder(finder ast.AttributeDescriptorFinder, mode LanguageRuntime) Comp
 
 func (mode LanguageRuntime) String() string {
 	switch mode {
+	case CEL:
+		return "CEL"
+	case COMPAT:
+		return "COMPAT"
 	case CEXL:
 		return "CEXL"
 	default:
