@@ -104,6 +104,7 @@ func testMetric(t *testing.T, ctx component.Repository, label string, labelValue
 
 // Port of TestTcpMetric
 func TestTcpMetric(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/11430")
 	ctx := framework.GetContext(t)
 	scope := lifecycle.Test
 	ctx.RequireOrSkip(t, scope, &descriptors.KubernetesEnvironment, &ids.Mixer, &ids.Prometheus, &ids.BookInfo, &ids.Ingress)
