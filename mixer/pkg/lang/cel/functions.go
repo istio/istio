@@ -59,20 +59,6 @@ func standardFunctions() []*exprpb.Decl {
 
 func standardOverloads() []*functions.Overload {
 	return []*functions.Overload{
-		{Operator: "startsWith",
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				if lhs.Type() != types.StringType || rhs.Type() != types.StringType {
-					return types.NewErr("overload cannot be applied to argument types")
-				}
-				return types.Bool(lang.ExternStartsWith(lhs.Value().(string), rhs.Value().(string)))
-			}},
-		{Operator: "endsWith",
-			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
-				if lhs.Type() != types.StringType || rhs.Type() != types.StringType {
-					return types.NewErr("overload cannot be applied to argument types")
-				}
-				return types.Bool(lang.ExternEndsWith(lhs.Value().(string), rhs.Value().(string)))
-			}},
 		{Operator: "match",
 			Binary: func(lhs ref.Value, rhs ref.Value) ref.Value {
 				if lhs.Type() != types.StringType || rhs.Type() != types.StringType {
