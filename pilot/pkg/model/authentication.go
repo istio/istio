@@ -66,10 +66,10 @@ type SdsArgs struct {
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
 
-var SdsArg *SdsArgs
+var SdsArg SdsArgs
 
-func NewSdsArg(sdsTokenPath string) *SdsArgs {
-	return &SdsArgs{
+func NewSdsArg(sdsTokenPath string) SdsArgs {
+	return SdsArgs{
 		SdsK8sTokenPath: sdsTokenPath,
 	}
 }

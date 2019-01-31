@@ -994,9 +994,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		MixerSAN:         s.mixerSAN,
 	}
 
-	if model.SdsArg == nil {
-		model.SdsArg = model.NewSdsArg(args.SdsArgs.SdsK8sTokenPath)
-	}
+	model.SdsArg = model.NewSdsArg(args.SdsArgs.SdsK8sTokenPath)
 
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
