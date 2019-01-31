@@ -20,11 +20,9 @@ import (
 	"io"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/gogo/status"
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -35,34 +33,22 @@ import (
 )
 
 type fakeRateLimiter struct {
-	notAllowc chan struct{}
+	waitErr chan error
 }
 
 func newFakeRateLimiter() *fakeRateLimiter {
 	return &fakeRateLimiter{
-		notAllowc: make(chan struct{}),
+		waitErr: make(chan error),
 	}
 }
 
-func (f *fakeRateLimiter) Limit() rate.Limit {
-	return 0
-}
-
-func (f *fakeRateLimiter) Burst() int {
-	return 0
-}
-
-func (f *fakeRateLimiter) Allow() bool {
+func (f *fakeRateLimiter) Wait(ctx context.Context) error {
 	select {
-	case <-f.notAllowc:
-		return false
+	case err := <-f.waitErr:
+		return err
 	default:
-		return true
+		return nil
 	}
-}
-
-func (f *fakeRateLimiter) AllowN(now time.Time, n int) bool {
-	return false
 }
 
 type serverHarness struct {
@@ -95,18 +81,19 @@ func TestServerSinkRateLimitter(t *testing.T) {
 	s := NewServer(options, serverOpts)
 	s.newConnectionLimiter = fakeLimiter
 
-	// when rate limit reached
+	// when rate limit returns an error
 	errc := make(chan error)
 	go func() {
 		errc <- s.EstablishResourceStream(h)
 	}()
 
-	fakeLimiter.notAllowc <- struct{}{}
+	expectedErr := "something went wrong while waiting"
 
-	expectedErr := "new connection limit reached"
+	fakeLimiter.waitErr <- errors.New(expectedErr)
+
 	err := <-errc
 	if err == nil || err.Error() != expectedErr {
-		t.Fatalf("Expected rate limit error: got %v want %v ", err, expectedErr)
+		t.Fatalf("Expected error from Wait: got %v want %v ", err, expectedErr)
 	}
 
 	// when rate limit is not reached

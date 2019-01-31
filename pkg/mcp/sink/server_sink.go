@@ -15,7 +15,7 @@
 package sink
 
 import (
-	"errors"
+	"context"
 	"io"
 	"time"
 
@@ -28,12 +28,9 @@ import (
 	mcp "istio.io/api/mcp/v1alpha1"
 )
 
-// RateLimiter is representing standard libraries rate Limiter
+// RateLimiter is partially representing standard lib's rate limiter
 type RateLimiter interface {
-	Limit() rate.Limit
-	Burst() int
-	Allow() bool
-	AllowN(now time.Time, n int) bool
+	Wait(ctx context.Context) (err error)
 }
 
 // AuthChecker is used to check the transport auth info that is associated with each stream. If the function
@@ -80,8 +77,8 @@ func (s *Server) EstablishResourceStream(stream mcp.ResourceSink_EstablishResour
 	// TODO support receiving configuration from multiple sources?
 	// TODO MVP - limit to one connection at a time?
 
-	if !s.newConnectionLimiter.Allow() {
-		return errors.New("new connection limit reached")
+	if err := s.newConnectionLimiter.Wait(stream.Context()); err != nil {
+		return err
 	}
 	var authInfo credentials.AuthInfo
 	if peerInfo, ok := peer.FromContext(stream.Context()); ok {
