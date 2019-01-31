@@ -318,8 +318,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out := &route.Route{
-		Match:           translateRouteMatch(match),
-		Metadata:        util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
+		Match:    translateRouteMatch(match),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
 	if util.IsProxyVersionGE11(node) {
