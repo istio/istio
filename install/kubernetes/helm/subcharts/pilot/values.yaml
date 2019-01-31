@@ -21,10 +21,3 @@ env:
 cpu:
   targetAverageUtilization: 80
 nodeSelector: {}
-# SDS related options
-sdsOptions:
-  # The path to the SDS k8s token.
-  # If non-empty and useNormalJwt is set, envoy will fetch SDS token from this
-  # path, instead of the default k8s SA JWT path under
-  # "/var/run/secrets/kubernetes.io/serviceaccount/token".
-  sdsK8sTokenPath: ''
