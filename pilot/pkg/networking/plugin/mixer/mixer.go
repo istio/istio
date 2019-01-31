@@ -86,63 +86,64 @@ func (mixerplugin) OnPreComputePerRouteFilterConfig(env *model.Environment, prox
 
 	mixerPerRouteFilterConfig := make(map[plugin.CacheKey]*types.Struct)
 	is11 := util.IsProxyVersionGE11(proxy)
-	if !is11 {
-		for _, service := range push.Services(proxy) {
-			hostname := string(service.Hostname)
-			//calculate outbound
-			attrs := addDestinationServiceAttributes(make(attributes), push, service.Hostname)
-			//outbound/without Policy
-			key := plugin.CacheKey{
-				Hostname:  hostname,
-				Direction: "outbound",
-				Policy:    policyCheckDisable,
-			}
-			config := &mccpb.ServiceConfig{
-				DisableCheckCalls: true,
-				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-			}
-			filterConfig := util.MessageToStruct(config)
-			mixerPerRouteFilterConfig[key] = filterConfig
-			//outbound/with Policy
-			key = plugin.CacheKey{
-				Hostname:  hostname,
-				Direction: "outbound",
-				Policy:    policyCheckEnable,
-			}
-			config = &mccpb.ServiceConfig{
-				DisableCheckCalls: false,
-				MixerAttributes:   &mpb.Attributes{Attributes: attrs},
-				ForwardAttributes: &mpb.Attributes{Attributes: attrs},
-			}
-			filterConfig = util.MessageToStruct(config)
-			mixerPerRouteFilterConfig[key] = filterConfig
-			//calculate inbound
-			//inbound/without Policy
-			key = plugin.CacheKey{
-				Hostname:  hostname,
-				Direction: "inbound",
-				Policy:    policyCheckDisable,
-			}
-			config = buildInboundRouteConfigWithoutPolicy(env, push, &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname: model.Hostname(string(service.Hostname)),
-				}})
-			filterConfig = util.MessageToStruct(config)
-			mixerPerRouteFilterConfig[key] = filterConfig
-			//inbound/with policy
-			key = plugin.CacheKey{
-				Hostname:  hostname,
-				Direction: "inbound",
-				Policy:    policyCheckEnable,
-			}
-			config = buildInboundRouteConfigWithPolicy(env, push, &model.ServiceInstance{
-				Service: &model.Service{
-					Hostname: model.Hostname(string(service.Hostname)),
-				}})
-			filterConfig = util.MessageToStruct(config)
-			mixerPerRouteFilterConfig[key] = filterConfig
+	if is11 {
+		return mixerPerRouteFilterConfig
+	}
+	for _, service := range push.Services(proxy) {
+		hostname := string(service.Hostname)
+		//calculate outbound
+		attrs := addDestinationServiceAttributes(make(attributes), push, service.Hostname)
+		//outbound/without Policy
+		key := plugin.CacheKey{
+			Hostname:  hostname,
+			Direction: "outbound",
+			Policy:    policyCheckDisable,
 		}
+		config := &mccpb.ServiceConfig{
+			DisableCheckCalls: true,
+			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+			ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+		}
+		filterConfig := util.MessageToStruct(config)
+		mixerPerRouteFilterConfig[key] = filterConfig
+		//outbound/with Policy
+		key = plugin.CacheKey{
+			Hostname:  hostname,
+			Direction: "outbound",
+			Policy:    policyCheckEnable,
+		}
+		config = &mccpb.ServiceConfig{
+			DisableCheckCalls: false,
+			MixerAttributes:   &mpb.Attributes{Attributes: attrs},
+			ForwardAttributes: &mpb.Attributes{Attributes: attrs},
+		}
+		filterConfig = util.MessageToStruct(config)
+		mixerPerRouteFilterConfig[key] = filterConfig
+		//calculate inbound
+		//inbound/without Policy
+		key = plugin.CacheKey{
+			Hostname:  hostname,
+			Direction: "inbound",
+			Policy:    policyCheckDisable,
+		}
+		config = buildInboundRouteConfigWithoutPolicy(env, push, &model.ServiceInstance{
+			Service: &model.Service{
+				Hostname: model.Hostname(string(service.Hostname)),
+			}})
+		filterConfig = util.MessageToStruct(config)
+		mixerPerRouteFilterConfig[key] = filterConfig
+		//inbound/with policy
+		key = plugin.CacheKey{
+			Hostname:  hostname,
+			Direction: "inbound",
+			Policy:    policyCheckEnable,
+		}
+		config = buildInboundRouteConfigWithPolicy(env, push, &model.ServiceInstance{
+			Service: &model.Service{
+				Hostname: model.Hostname(string(service.Hostname)),
+			}})
+		filterConfig = util.MessageToStruct(config)
+		mixerPerRouteFilterConfig[key] = filterConfig
 	}
 	return mixerPerRouteFilterConfig
 }
