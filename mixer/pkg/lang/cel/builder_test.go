@@ -30,8 +30,6 @@ func TestCEXLCompatibility(t *testing.T) {
 		}
 
 		t.Run(test.TestName(), func(t *testing.T) {
-			t.Parallel()
-
 			finder := ast.NewFinder(test.Conf())
 			builder := NewBuilder(finder, LegacySyntaxCEL)
 			ex, typ, err := builder.Compile(test.E)
