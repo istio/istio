@@ -94,13 +94,19 @@ data:
     rootNamespace: {{ .Values.global.configRootNamespace }}
     {{- end }}
 
-    {{- if .Values.global.defaultConfigExportSetting }}
+    {{- if .Values.global.defaultConfigVisibilitySettings }}
     defaultServiceExportTo:
-    - '{{ .Values.global.defaultConfigExportSetting }}'
+      {{- range .Values.global.defaultConfigVisibilitySettings }}
+      - {{ . }}
+      {{- end }}
     defaultVirtualServiceExportTo:
-    - '{{ .Values.global.defaultConfigExportSetting }}'
+      {{- range .Values.global.defaultConfigVisibilitySettings }}
+      - {{ . }}
+      {{- end }}
     defaultDestinationRuleExportTo:
-    - '{{ .Values.global.defaultConfigExportSetting }}'
+      {{- range .Values.global.defaultConfigVisibilitySettings }}
+      - {{ . }}
+      {{- end }}
     {{- end }}
 
     defaultConfig:
