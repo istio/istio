@@ -16,6 +16,8 @@
 package lang
 
 import (
+	"os"
+
 	"istio.io/api/policy/v1beta1"
 	"istio.io/istio/mixer/pkg/lang/ast"
 	"istio.io/istio/mixer/pkg/lang/cel"
@@ -49,15 +51,23 @@ const (
 
 // GetLanguageRuntime reads an override from a resource annotation
 func GetLanguageRuntime(annotations map[string]string) LanguageRuntime {
-	switch annotations[LanguageRuntimeAnnotation] {
+	if override, has := os.LookupEnv("ISTIO_LANG"); has {
+		return fromString(override)
+	}
+	return fromString(annotations[LanguageRuntimeAnnotation])
+}
+
+func fromString(value string) LanguageRuntime {
+	switch value {
 	case "CEL":
 		return CEL
 	case "COMPAT":
 		return COMPAT
 	case "CEXL":
-		fallthrough
-	default:
 		return CEXL
+	default:
+		// TODO(kuat): temporary testing
+		return COMPAT
 	}
 }
 
