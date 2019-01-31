@@ -16,10 +16,11 @@ package dependency
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/api/component"
-	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"reflect"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/api/component"
+	"istio.io/istio/pkg/test/framework/api/lifecycle"
 )
 
 // creationProcessor is used by Manager to resolve creation order for components.
@@ -116,39 +117,14 @@ func (p *creationProcessor) addRequirement(entry *reqEntry) component.Requiremen
 		return err
 	}
 
-	// Now check if there is an existing entry, if so we need to validate that they match or this
-	// entry should replace the previous one (since it is more specific)
+	// Now check if there is an existing entry, and if so compare them.
 	if oldEntry, ok := p.required[entry.id]; ok {
-		if reflect.DeepEqual(oldEntry, entry) {
-			// This is the same entry we already have in our list, ignore it.
-			return nil
+		override, err := compareEntries(oldEntry, entry)
+		if err != nil {
+			return err
 		}
-		// If the old entry does not have a descriptor, but it did have config and that config does not match the new config, error.
-		if oldEntry.desc == nil {
-			if oldEntry.config != nil && !reflect.DeepEqual(oldEntry.config, entry.config) {
-				return resolutionError(fmt.Errorf("required mismatched configuration for %v: %v, %v", entry.id, oldEntry, entry))
-			}
-		} else {
-			if entry.desc == nil {
-				// The previous entry was more specific, keep it.
-				return nil
-			}
-			// Both have descriptors, compare them.
-			if !reflect.DeepEqual(oldEntry.desc, entry.desc) {
-				return resolutionError(fmt.Errorf("required mismatched descriptors for %v: %v, %v", entry.id, oldEntry.desc, entry.desc))
-			}
-			// Descriptors match, next check config.
-			if oldEntry.config != nil {
-				if entry.config == nil {
-					// The previous entry was more specific, keep it.
-					return nil
-				}
-				if !reflect.DeepEqual(oldEntry.config, entry.config) {
-					return resolutionError(fmt.Errorf("required mismatched configuration for %v: %v, %v", entry.id, oldEntry.config, entry.config))
-				}
-				// This shouldn't be possible, we should have had a match. Report an error.
-				return resolutionError(fmt.Errorf("resolution is confused about entries for %v: %v, %v", entry.id, oldEntry, entry))
-			}
+		if !override {
+			return nil
 		}
 	}
 	p.required[entry.id] = entry
@@ -158,6 +134,39 @@ func (p *creationProcessor) addRequirement(entry *reqEntry) component.Requiremen
 		return p.ProcessRequirements(entry.desc.Requires)
 	}
 	return nil
+}
+
+// Compare two entries, returning true if the new entry should override the old one.
+func compareEntries(oldEntry *reqEntry, entry *reqEntry) (override bool, err component.RequirementError) {
+	override = false
+	if reflect.DeepEqual(oldEntry, entry) {
+		return
+	}
+
+	// First compare descriptors, and check if we need to merge or override the descriptor.
+	if oldEntry.desc == nil {
+		if entry.desc != nil {
+			override = true
+		}
+	} else if entry.desc == nil {
+		entry.desc = oldEntry.desc
+	} else if !reflect.DeepEqual(oldEntry.desc, entry.desc) {
+		err = resolutionError(fmt.Errorf("required mismatched descriptors for %v: %v, %v", entry.id, oldEntry.desc, entry.desc))
+		return
+	}
+	
+	// Next compare config, and do the same check, do we need to merge or override.
+	if oldEntry.config == nil {
+		if entry.config != nil {
+			override = true
+		}
+	} else if entry.config == nil {
+		entry.config = oldEntry.config
+	} else if !reflect.DeepEqual(oldEntry.config, entry.config) {
+		err = resolutionError(fmt.Errorf("required mismatched configuration for %v: %v, %v", entry.id, oldEntry, entry))
+	}
+
+	return
 }
 
 func (p *creationProcessor) loadChildren(entry *reqEntry) component.RequirementError {

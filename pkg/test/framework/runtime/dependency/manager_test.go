@@ -281,7 +281,7 @@ func TestDependencyWithLesserScopeFails(t *testing.T) {
 	expect(t).resolutionError(m.Require(lifecycle.Suite, &a))
 }
 
-func TestNamedIds(t *testing.T) {
+func TestNamedIdsCreateMultipleComponents(t *testing.T) {
 	m := newManager(t)
 
 	a := m.registerDefault(aID)
@@ -292,6 +292,95 @@ func TestNamedIds(t *testing.T) {
 	m.assertCount(2)
 	m.assertNamedDescriptor("one", a, lifecycle.Test)
 	m.assertNamedDescriptor("two", a, lifecycle.Test)
+}
+
+type testConfig struct {
+	content string
+}
+
+func (c testConfig) String() string {
+	return c.content
+}
+
+func TestDescriptorsMismatchedConfiguration(t *testing.T) {
+	m := newManager(t)
+
+	a := m.registerDefault(aID)
+	config1 := testConfig{"one"}
+	config2 := testConfig{"two"}
+
+	req1 := component.NewConfiguredRequirement("", &a, config1)
+	req2 := component.NewConfiguredRequirement("", &a, config2)
+
+	expect(t).resolutionError(m.Require(lifecycle.Test, req1, req2))
+}
+
+func TestIDsMismatchedConfiguration(t *testing.T) {
+	m := newManager(t)
+
+	m.registerDefault(aID)
+	config1 := testConfig{"one"}
+	config2 := testConfig{"two"}
+
+	req1 := component.NewConfiguredRequirement("", &aID, config1)
+	req2 := component.NewConfiguredRequirement("", &aID, config2)
+
+	expect(t).resolutionError(m.Require(lifecycle.Test, req1, req2))
+}
+
+func TestMixedMismatchedConfiguration(t *testing.T) {
+	m := newManager(t)
+
+	a := m.registerDefault(aID)
+	config1 := testConfig{"one"}
+	config2 := testConfig{"two"}
+
+	req1 := component.NewConfiguredRequirement("", &a, config1)
+	req2 := component.NewConfiguredRequirement("", &aID, config2)
+
+	expect(t).resolutionError(m.Require(lifecycle.Test, req1, req2))
+}
+
+func TestDescriptorConfigOverride(t *testing.T) {
+	m := newManager(t)
+
+	a := m.registerDefault(aID)
+	config1 := testConfig{"one"}
+
+	req1 := component.NewConfiguredRequirement("", &a, nil)
+	req2 := component.NewConfiguredRequirement("", &a, config1)
+
+	m.RequireOrFail(t, lifecycle.Test, req1, req2)
+	m.assertCount(1)
+	m.assertDescriptor(a, lifecycle.Test)
+}
+
+func TestIDsConfigOverride(t *testing.T) {
+	m := newManager(t)
+
+	a := m.registerDefault(aID)
+	config1 := testConfig{"one"}
+
+	req1 := component.NewConfiguredRequirement("", &aID, nil)
+	req2 := component.NewConfiguredRequirement("", &aID, config1)
+
+	m.RequireOrFail(t, lifecycle.Test, req1, req2)
+	m.assertCount(1)
+	m.assertDescriptor(a, lifecycle.Test)
+}
+
+func TestMixedConfigOverride(t *testing.T) {
+	m := newManager(t)
+
+	a := m.registerDefault(aID)
+	config1 := testConfig{"one"}
+
+	req1 := component.NewConfiguredRequirement("", &a, nil)
+	req2 := component.NewConfiguredRequirement("", &aID, config1)
+
+	m.RequireOrFail(t, lifecycle.Test, req1, req2)
+	m.assertCount(1)
+	m.assertDescriptor(a, lifecycle.Test)
 }
 
 func assertDescriptor(c component.Instance, desc component.Descriptor, scope lifecycle.Scope, t *testing.T) {
