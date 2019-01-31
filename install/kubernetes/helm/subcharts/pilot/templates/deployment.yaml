@@ -76,6 +76,10 @@ spec:
 {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
 {{- end }}
+{{- if .Values.sdsOptions.sdsK8sTokenPath }}
+          - --sdsK8sTokenPath={{ .Values.sdsOptions.sdsK8sTokenPath }}
+{{- end }}
+
           ports:
           - containerPort: 8080
           - containerPort: 15010

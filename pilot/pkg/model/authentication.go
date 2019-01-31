@@ -23,6 +23,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	"github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v2alpha"
 	"github.com/gogo/protobuf/types"
+	"istio.io/istio/pilot/pkg/bootstrap"
 
 	authn "istio.io/api/authentication/v1alpha1"
 )
@@ -59,6 +60,14 @@ const (
 
 // JwtKeyResolver resolves JWT public key and JwksURI.
 var JwtKeyResolver = newJwksResolver(JwtPubKeyExpireDuration, JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval)
+
+var SdsArgs *bootstrap.SdsArgs
+
+func NewSdsArg(sdsTokenPath string) *bootstrap.SdsArgs {
+	return &bootstrap.SdsArgs{
+		SdsK8sTokenPath: sdsTokenPath,
+	}
+}
 
 // GetConsolidateAuthenticationPolicy returns the authentication policy for
 // service specified by hostname and port, if defined. It also tries to resolve JWKS URI if necessary.
@@ -128,7 +137,14 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, useK8sSATrustworthyJwt, u
 		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSATrustworthyJwtFileName, k8sSAJwtTokenHeaderKey)
 	} else if useK8sSANormalJwt {
 		gRPCConfig.CredentialsFactoryName = fileBasedMetadataPlugName
-		gRPCConfig.CallCredentials = constructgRPCCallCredentials(K8sSAJwtFileName, k8sSAJwtTokenHeaderKey)
+		var tokenPath string
+		if len(SdsArgs.SdsK8sTokenPath) > 0 {
+			tokenPath = SdsArgs.SdsK8sTokenPath
+		} else {
+			tokenPath = K8sSAJwtFileName
+		}
+		log.Debugf("SDS k8s token path is (%v)", tokenPath)
+		gRPCConfig.CallCredentials = constructgRPCCallCredentials(tokenPath, k8sSAJwtTokenHeaderKey)
 	} else {
 		gRPCConfig.CallCredentials = []*core.GrpcService_GoogleGrpc_CallCredentials{
 			&core.GrpcService_GoogleGrpc_CallCredentials{
