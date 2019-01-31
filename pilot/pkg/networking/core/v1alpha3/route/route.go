@@ -17,6 +17,7 @@ package route
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -592,7 +593,7 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	out.AllowMethods = strings.Join(in.AllowMethods, ",")
 	out.ExposeHeaders = strings.Join(in.ExposeHeaders, ",")
 	if in.MaxAge != nil {
-		out.MaxAge = in.MaxAge.String()
+		out.MaxAge = strconv.FormatInt(in.MaxAge.GetSeconds(), 10)
 	}
 	return &out
 }
