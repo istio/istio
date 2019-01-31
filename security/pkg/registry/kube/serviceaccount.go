@@ -46,7 +46,7 @@ type ServiceAccountController struct {
 }
 
 // NewServiceAccountController returns a new ServiceAccountController
-func NewServiceAccountController(core corev1.CoreV1Interface, namespace string, reg registry.Registry) *ServiceAccountController {
+func NewServiceAccountController(core corev1.CoreV1Interface, namespace []string, reg registry.Registry) *ServiceAccountController {
 	c := &ServiceAccountController{
 		core: core,
 		reg:  reg,
@@ -54,10 +54,10 @@ func NewServiceAccountController(core corev1.CoreV1Interface, namespace string, 
 
 	LW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return core.ServiceAccounts(namespace).List(options)
+			return core.ServiceAccounts(namespace[0]).List(options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return core.ServiceAccounts(namespace).Watch(options)
+			return core.ServiceAccounts(namespace[0]).Watch(options)
 		},
 	}
 
