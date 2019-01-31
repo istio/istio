@@ -1799,8 +1799,6 @@ func validateGatewayNames(gateways []string) (errs error) {
 		parts := strings.SplitN(gateway, "/", 2)
 		if len(parts) != 2 {
 			// deprecated
-			// log.Warn("Gateway names with FQDN format or short forms are deprecated. " +
-			//	"Use namespace/name format instead")
 			// Old style spec with FQDN gateway name
 			errs = appendErrors(errs, ValidateFQDN(gateway))
 			return

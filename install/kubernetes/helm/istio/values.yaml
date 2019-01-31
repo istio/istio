@@ -359,13 +359,15 @@ global:
   outboundTrafficPolicy:
     mode: REGISTRY_ONLY
 
+  # The namespace where globally shared configurations should be present.
+  # DestinationRules that apply to the entire mesh (e.g., enabling mTLS),
+  # default Sidecar configs, etc. should be added to this namespace.
   # configRootNamespace: istio-config
 
   # set the default visibility of a service, service entry, virtual service, destination
   # rule across one or more namespaces.
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
-  # . implies these objects are visible to only the current namespace where the sidecar is running
-  # ~ implies these objects are not visible to anyone by default. Sidecars will bootup with no outbound configs.
+  # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host  
   defaultConfigExportSetting: '*'
 
   sds:
