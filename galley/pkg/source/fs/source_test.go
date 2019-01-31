@@ -308,14 +308,21 @@ func TestDuplicateResourceNamesDifferentTypes(t *testing.T) {
 	ch := startOrFail(t, s)
 	defer s.Stop()
 
+	actual1 := events.Expect(t, ch)
+	actual2 := events.Expect(t, ch)
+	if actual2.Entry.ID.Collection == kubeMeta.Types.Get("VirtualService").Target.Collection {
+		// Reorder
+		tmp := actual2
+		actual2 = actual1
+		actual1 = tmp
+	}
 	// Expect the add of VirtualService
 	u[0].SetResourceVersion("v0")
 	expectedVirtualService := resource.Event{
 		Kind:  resource.Added,
 		Entry: unstructuredToEntry(t, u[0], *kubeMeta.Types.Get("VirtualService")),
 	}
-	actualVirtualService := events.Expect(t, ch)
-	g.Expect(actualVirtualService).To(Equal(expectedVirtualService))
+	g.Expect(actual1).To(Equal(expectedVirtualService))
 
 	// ... and the add of service entry
 	u[1].SetResourceVersion("v0")
@@ -323,8 +330,7 @@ func TestDuplicateResourceNamesDifferentTypes(t *testing.T) {
 		Kind:  resource.Added,
 		Entry: unstructuredToEntry(t, u[1], *kubeMeta.Types.Get("ServiceEntry")),
 	}
-	actualServiceEntry := events.Expect(t, ch)
-	g.Expect(actualServiceEntry).To(Equal(expectedServiceEntry))
+	g.Expect(actual2).To(Equal(expectedServiceEntry))
 
 	// Expect the full sync event immediately after.
 	expectFullSync(t, ch)
