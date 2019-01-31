@@ -170,7 +170,3 @@ func TestServer_Basic(t *testing.T) {
 		t.Fatalf("unexpected address found")
 	}
 }
-
-func TestServer_Address(t *testing.T) {
-
-}
