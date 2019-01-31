@@ -13,11 +13,10 @@ spec:
   egress:
   - hosts:
 {{- if .Values.global.defaultSidecarConfigImportSetting }}
-    - '{{- if .Values.global.defaultSidecarConfigImportSetting }}/*'
+    - '{{ .Values.global.defaultSidecarConfigImportSetting }}/*'
     - {{ .Release.Namespace }}/istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
     - {{ .Release.Namespace }}/istio-policy.{{ .Release.Namespace }}.svc.cluster.local
 {{- else }}
     - '*/*'
 {{- end }}
 {{- end }}
-
