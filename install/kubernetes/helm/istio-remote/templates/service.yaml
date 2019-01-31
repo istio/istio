@@ -18,7 +18,7 @@ spec:
     name: https-xds # mTLS or non-mTLS depending on auth setting
   - port: 8080
     name: http-legacy-discovery # direct
-  - port: {{ .Values.global.monitoringPort }}
+  - port: 15014
     name: http-monitoring
   clusterIP: None
 {{- end }}
@@ -36,7 +36,7 @@ spec:
   - name: grpc-mixer-mtls
     port: 15004
   - name: http-monitoring
-    port: {{ .Values.global.monitoringPort }}
+    port: 15014
   clusterIP: None
 {{- end }}
 {{- if and .Values.global.remoteTelemetryAddress .Values.global.createRemoteSvcEndpoints }}
@@ -53,7 +53,7 @@ spec:
   - name: grpc-mixer-mtls
     port: 15004
   - name: http-monitoring
-    port: {{ .Values.global.monitoringPort }}
+    port: 15014
   - name: prometheus
     port: 42422
   clusterIP: None
