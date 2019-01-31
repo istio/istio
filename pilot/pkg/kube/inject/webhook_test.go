@@ -669,10 +669,6 @@ func TestHelmInject(t *testing.T) {
 			wantFile:  "hello-multi.yaml.injected",
 		},
 		{
-			inputFile: "multi-init.yaml",
-			wantFile:  "multi-init.yaml.injected",
-		},
-		{
 			inputFile: "statefulset.yaml",
 			wantFile:  "statefulset.yaml.injected",
 		},

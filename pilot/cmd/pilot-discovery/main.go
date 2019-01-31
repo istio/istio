@@ -62,8 +62,7 @@ var (
 				return err
 			}
 
-			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain,
-				serverArgs.Config.ControllerOptions.DomainSuffix, hasKubeRegistry()))
+			spiffe.SetTrustDomain(spiffe.DetermineTrustDomain(serverArgs.Config.ControllerOptions.TrustDomain, hasKubeRegistry()))
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})

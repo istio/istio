@@ -55,6 +55,9 @@ spec:
         - --applicationPorts
         - "80"
         - --ISTIO_KUBE_APP_PROBERS
+        - --concurrency
+        - "1"
+        - --kubeAppProberConfig
         - '{"/app-health/hello/readyz":{"path":"/ip","port":8000}}'
         env:
         - name: POD_NAME

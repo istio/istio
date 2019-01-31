@@ -32,9 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/types"
-
 	multierror "github.com/hashicorp/go-multierror"
-
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -534,6 +532,9 @@ func injectionData(sidecarTemplate, version string, deploymentMetadata *metav1.O
 		log.Warnf("Failed to unmarshall template %v %s", err, tmpl.String())
 		return nil, "", err
 	}
+
+	// set sidecar --concurrency
+	applyConcurrency(sic.Containers)
 
 	status := &SidecarInjectionStatus{Version: version}
 	for _, c := range sic.InitContainers {

@@ -73,6 +73,13 @@ spec:
         - "15020"
         - --applicationPorts
         - 80,90
+<<<<<<< HEAD:pilot/pkg/kube/inject/testdata/inject/app_probe/ready_live.yaml.injected
+=======
+        - --concurrency
+        - "1"
+        - --kubeAppProberConfig
+        - '{"/app-health/hello/livez":{"port":80},"/app-health/hello/readyz":{"port":3333},"/app-health/world/livez":{"port":90}}'
+>>>>>>> d43b689df3f879ee166e63afb5ad6c4fbb7fc738:pilot/pkg/kube/inject/testdata/inject/hello-probes.yaml.injected
         env:
         - name: POD_NAME
           valueFrom:
