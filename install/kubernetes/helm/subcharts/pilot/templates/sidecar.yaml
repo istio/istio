@@ -1,0 +1,23 @@
+{{- if .Values.global.configRootNamespace }}
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: default-sidecar
+  namespace: {{ .Values.global.configRootNamespace }}
+  labels:
+    app: {{ template "pilot.name" . }}
+    chart: {{ template "pilot.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  egress:
+  - hosts:
+{{- if .Values.global.defaultSidecarConfigImportSetting }}
+    - '{{- if .Values.global.defaultSidecarConfigImportSetting }}/*'
+    - {{ .Release.Namespace }}/istio-telemetry.{{ .Release.Namespace }}.svc.cluster.local
+    - {{ .Release.Namespace }}/istio-policy.{{ .Release.Namespace }}.svc.cluster.local
+{{- else }}
+    - '*/*'
+{{- end }}
+{{- end }}
+
