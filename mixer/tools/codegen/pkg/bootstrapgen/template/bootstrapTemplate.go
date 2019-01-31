@@ -44,6 +44,7 @@ import (
     "istio.io/istio/mixer/pkg/attribute"
     "istio.io/istio/mixer/pkg/lang/ast"
     "istio.io/istio/mixer/pkg/lang/compiled"
+    "istio.io/istio/mixer/pkg/runtime/lang"
     "istio.io/istio/pkg/log"
     "istio.io/istio/mixer/pkg/template"
     istio_adapter_model_v1beta1 "istio.io/api/mixer/adapter/model/v1beta1"
@@ -416,7 +417,7 @@ var (
         // the builder with an attribute bag.
         //
         // See template.CreateInstanceBuilderFn for more details.
-        CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+        CreateInstanceBuilder: func(instanceName string, param proto.Message, expb lang.Compiler) (template.InstanceBuilderFn, error) {
             {{$t := .}}
             {{$m := $t.TemplateMessage}}
             {{$newBuilderFnName := getNewMessageBuilderFnName $t $m}}
@@ -455,7 +456,7 @@ var (
         CreateOutputExpressions: func(
             instanceParam proto.Message,
             finder ast.AttributeDescriptorFinder,
-            expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+            expb lang.Compiler) (map[string]compiled.Expression, error) {
             var err error
             var expType istio_policy_v1beta1.ValueType
 
@@ -534,7 +535,7 @@ var (
  
         // Instantiates and returns a new builder for {{$m.Name}}, based on the provided instance parameter.
         func {{$newBuilderFnName}}(
-            expb *compiled.ExpressionBuilder,
+            expb lang.Compiler,
             param *{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}}) (*{{$builderName}}, template.ErrorPath) {
 
             // If the parameter is nil. Simply return nil. The builder, then, will also return nil.
