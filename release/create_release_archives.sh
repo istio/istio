@@ -142,6 +142,7 @@ popd
 for unwanted_manifest in \
     istio-one-namespace.yaml \
     istio-one-namespace-auth.yaml \
+    istio-one-namespace-trust-domain.yaml \
     istio-multicluster.yaml \
     istio-auth-multicluster.yaml \
     istio.yaml \
