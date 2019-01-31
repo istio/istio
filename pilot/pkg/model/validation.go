@@ -619,10 +619,19 @@ func validateNamespaceSlashWildcardHostname(host string, isGateway bool) (errs e
 		errs = appendErrors(errs, fmt.Errorf("config namespace and dnsName in host entry cannot be empty"))
 	}
 
-	// namespace can be * or . or a valid DNS label
-	if parts[0] != "*" && parts[0] != "." {
-		if !IsDNS1123Label(parts[0]) {
-			errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q", parts[0]))
+	if !isGateway {
+		// namespace can be * or . or ~ or a valid DNS label in sidecars
+		if parts[0] != "*" && parts[0] != "." && parts[0] != "~" {
+			if !IsDNS1123Label(parts[0]) {
+				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar", parts[0]))
+			}
+		}
+	} else {
+		// namespace can be * or . or a valid DNS label in gateways
+		if parts[0] != "*" && parts[0] != "." {
+			if !IsDNS1123Label(parts[0]) {
+				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
+			}
 		}
 	}
 	errs = appendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
@@ -642,8 +651,8 @@ func ValidateSidecar(name, namespace string, msg proto.Message) (errs error) {
 		}
 	}
 
-	if len(rule.Ingress) == 0 && len(rule.Egress) == 0 {
-		return fmt.Errorf("sidecar: missing ingress/egress")
+	if len(rule.Egress) == 0 {
+		return fmt.Errorf("sidecar: missing egress")
 	}
 
 	portMap := make(map[uint32]struct{})

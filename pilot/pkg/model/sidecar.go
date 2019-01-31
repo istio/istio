@@ -161,46 +161,39 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		return DefaultSidecarScopeForNamespace(ps, configNamespace)
 	}
 
-	var out *SidecarScope
 	r := sidecarConfig.Spec.(*networking.Sidecar)
-	// If there are no egress listeners but only ingress listeners, then infer from
-	// environment. This is same as the default egress listener setup above
-	if r.Egress == nil || len(r.Egress) == 0 {
-		out = DefaultSidecarScopeForNamespace(ps, configNamespace)
-	} else {
-		out = &SidecarScope{}
+	out := &SidecarScope{}
 
-		out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
-		for _, e := range r.Egress {
-			out.EgressListeners = append(out.EgressListeners,
-				convertIstioListenerToWrapper(ps, configNamespace, e))
-		}
+	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
+	for _, e := range r.Egress {
+		out.EgressListeners = append(out.EgressListeners,
+			convertIstioListenerToWrapper(ps, configNamespace, e))
+	}
 
-		// Now collect all the imported services across all egress listeners in
-		// this sidecar crd. This is needed to generate CDS output
-		out.services = make([]*Service, 0)
-		servicesAdded := make(map[string]struct{})
-		dummyNode := Proxy{
-			ConfigNamespace: configNamespace,
-		}
+	// Now collect all the imported services across all egress listeners in
+	// this sidecar crd. This is needed to generate CDS output
+	out.services = make([]*Service, 0)
+	servicesAdded := make(map[string]struct{})
+	dummyNode := Proxy{
+		ConfigNamespace: configNamespace,
+	}
 
-		for _, listener := range out.EgressListeners {
-			for _, s := range listener.services {
-				// TODO: port merging when each listener generates a partial service
-				if _, found := servicesAdded[string(s.Hostname)]; !found {
-					servicesAdded[string(s.Hostname)] = struct{}{}
-					out.services = append(out.services, s)
-				}
+	for _, listener := range out.EgressListeners {
+		for _, s := range listener.services {
+			// TODO: port merging when each listener generates a partial service
+			if _, found := servicesAdded[string(s.Hostname)]; !found {
+				servicesAdded[string(s.Hostname)] = struct{}{}
+				out.services = append(out.services, s)
 			}
 		}
+	}
 
-		// Now that we have all the services that sidecars using this scope (in
-		// this config namespace) will see, identify all the destinationRules
-		// that these services need
-		out.destinationRules = make(map[Hostname]*Config)
-		for _, s := range out.services {
-			out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
-		}
+	// Now that we have all the services that sidecars using this scope (in
+	// this config namespace) will see, identify all the destinationRules
+	// that these services need
+	out.destinationRules = make(map[Hostname]*Config)
+	for _, s := range out.services {
+		out.destinationRules[s.Hostname] = ps.DestinationRule(&dummyNode, s)
 	}
 
 	out.Config = sidecarConfig
