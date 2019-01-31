@@ -1,0 +1,27 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+package(
+    default_visibility = [
+        "//checker:__subpackages__",
+        "//common:__subpackages__",
+        "//interpreter:__subpackages__",
+        "//parser:__subpackages__",
+        "//server:__subpackages__",
+      ],
+    licenses = ["notice"],  # Apache 2.0
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "compare.go",
+        "expr.go",
+    ],
+    importpath = "github.com/google/cel-go/test",
+    deps = [
+      "//common/operators:go_default_library",
+      "@com_github_golang_protobuf//proto:go_default_library",
+      "@io_bazel_rules_go//proto/wkt:struct_go_proto",
+      "@org_golang_google_genproto//googleapis/api/expr/v1alpha1:go_default_library",
+    ],
+)

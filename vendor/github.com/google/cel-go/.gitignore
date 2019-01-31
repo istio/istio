@@ -1,0 +1,10 @@
+.DS_Store
+.idea
+bazel-bin
+bazel-cel-go
+bazel-genfiles
+bazel-out
+bazel-testlogs
+proto/checked.pb.go
+proto/syntax.pb.go
+*~

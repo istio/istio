@@ -1,0 +1,16 @@
+dist: trusty
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - wget
+      - pkg-config
+
+before_install:
+  - wget https://github.com/bazelbuild/bazel/releases/download/0.20.0/bazel_0.20.0-linux-x86_64.deb
+  - sudo dpkg -i bazel_0.20.0-linux-x86_64.deb
+
+script:
+  - bazel test --test_output=errors ...
