@@ -107,8 +107,13 @@ func applyLocalityFailover(
 
 	// 1. calculate the LocalityLbEndpoints.Priority compared with proxy locality
 	for i, localityEndpoint := range loadAssignment.Endpoints {
+		// if region/zone/subZone all match, the priority is 0.
+		// if region/zone match, the priority is 1.
+		// if region matches, the priority is 2.
+		// if locality not match, the priority is 3.
 		priority := util.LbPriority(locality, localityEndpoint.Locality)
-		// region not match, apply failover settings
+		// region not match, apply failover settings when specified
+		// update localityLbEndpoints' priority to 4 if failover not match
 		if priority == 3 {
 			for _, failoverSetting := range failover {
 				if failoverSetting.From == locality.Region {
