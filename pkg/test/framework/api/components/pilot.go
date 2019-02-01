@@ -31,5 +31,5 @@ type Pilot interface {
 
 // GetPilot from the repository
 func GetPilot(e component.Repository, t testing.TB) Pilot {
-	return e.GetComponentOrFail(ids.Pilot, t).(Pilot)
+	return e.GetComponentOrFail("", ids.Pilot, t).(Pilot)
 }

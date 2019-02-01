@@ -18,45 +18,33 @@ import "fmt"
 
 var _ Requirement = &Descriptor{}
 
-// Variant supports multiple components with the same ID. For example, a test may use two Widget
-// components: "fake widget" and "real widget".
+// Variant allows an environment to support multiple components with the same ID. For example, an environment might
+// support two Widget components: "fake widget" and "real widget".
 type Variant string
-
-// NewDescriptor creates a descriptor with the given ID and variant. Variants of a component type
-// will override the properties of the default Descriptor for that component type if set. For example
-// setting a new Configuration or Requires value will override the default Configuration or Requires
-// values. This can be used to create multiple instances of a component type with different
-// configuration and requirements.
-func NewDescriptor(id ID, variant Variant) *Descriptor {
-	return &Descriptor{Key: Key{ID: id, Variant: variant}}
-}
 
 // Descriptor describes a component of the testing framework.
 type Descriptor struct {
-	Key               Key
+	ID
 	IsSystemComponent bool
-	Configuration     Configuration
+	Variant           Variant
 	Requires          []Requirement
-}
-
-// GetKey returns the key for this Descriptor, which includes the ID and Variant.
-func (d Descriptor) GetKey() Key {
-	return d.Key
 }
 
 // FriendlyName provides a brief one-liner containing ID and Variant. Useful for error messages.
 func (d Descriptor) FriendlyName() string {
-	return d.Key.String()
+	if d.Variant != "" {
+		return fmt.Sprintf("%s(%s)", d.ID, d.Variant)
+	}
+	return string(d.ID)
 }
 
-func (d Descriptor) String() string {
-	result := "Descriptor{\n"
+func (d *Descriptor) String() string {
+	result := ""
 
-	result += fmt.Sprintf("Key:                %v\n", d.Key)
+	result += fmt.Sprintf("ID:                 %v\n", d.ID)
 	result += fmt.Sprintf("IsSystemComponent:  %t\n", d.IsSystemComponent)
-	result += fmt.Sprintf("Configuration:      %s\n", d.Configuration)
+	result += fmt.Sprintf("Variant:            %s\n", d.Variant)
 	result += fmt.Sprintf("Requires:           %v\n", d.Requires)
-	result += "}"
 
 	return result
 }
