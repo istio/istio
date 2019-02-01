@@ -149,99 +149,96 @@ func TestReport(t *testing.T) {
 			},
 
 			Want: `{
-  "AdapterState": [
-    {
-      "Annotations": null,
-      "Attributes": {
-        "http.host": "example.istio.com",
-        "http.method": "POST",
-        "http.path": "/foo/bar",
-        "http.status_code": 200,
-        "http.user_agent": "xxx",
-        "principal": "unknown",
-        "protocol": "http",
-        "request.size": 128,
-        "response.size": 512,
-        "source.ip": "[10 0 0 1]",
-        "source.service": "srcsvc",
-        "source.version": "v1"
-      },
-      "Code": 0,
-      "EndTime": "2006-01-02T22:04:05Z",
-      "HasRemoteParent": true,
-      "Links": null,
-      "Message": "\"OK\"",
-      "MessageEvents": [
-        {
-          "CompressedByteSize": 128,
-          "EventType": 2,
-          "MessageID": 0,
-          "Time": "2006-01-02T22:04:04.9Z",
-          "UncompressedByteSize": 128
-        },
-        {
-          "CompressedByteSize": 512,
-          "EventType": 1,
-          "MessageID": 0,
-          "Time": "2006-01-02T22:04:05Z",
-          "UncompressedByteSize": 512
-        }
-      ],
-      "Name": "/foo/bar",
-      "ParentSpanID": [
-        0,
-        32,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1
-      ],
-      "SpanID": [
-        162,
-        251,
-        74,
-        29,
-        26,
-        150,
-        211,
-        18
-      ],
-      "SpanKind": 1,
-      "StartTime": "2006-01-02T22:04:04.9Z",
-      "TraceID": [
-        70,
-        58,
-        195,
-        92,
-        159,
-        100,
-        19,
-        173,
-        72,
-        72,
-        90,
-        57,
-        83,
-        187,
-        97,
-        36
-      ],
-      "TraceOptions": 1
-    }
-  ],
-  "Returns": [
-    {
-      "Check": {
-        "Status": {},
-        "ValidDuration": 0,
-        "ValidUseCount": 0
-      },
-      "Error": null
-    }
-  ]
-}`,
+        "AdapterState": [
+         {
+          "Annotations": null,
+          "Attributes": {
+           "http.host": "example.istio.com",
+           "http.method": "POST",
+           "http.path": "/foo/bar",
+           "http.status_code": 200,
+           "http.user_agent": "xxx",
+           "principal": "unknown",
+           "source.version": "v1"
+          },
+          "Code": 0,
+          "EndTime": "2006-01-02T22:04:05Z",
+          "HasRemoteParent": true,
+          "Links": null,
+          "Message": "\"OK\"",
+          "MessageEvents": [
+           {
+            "CompressedByteSize": 128,
+            "EventType": 2,
+            "MessageID": 0,
+            "Time": "2006-01-02T22:04:04.9Z",
+            "UncompressedByteSize": 128
+           },
+           {
+            "CompressedByteSize": 512,
+            "EventType": 1,
+            "MessageID": 0,
+            "Time": "2006-01-02T22:04:05Z",
+            "UncompressedByteSize": 512
+           }
+          ],
+          "Name": "/foo/bar",
+          "ParentSpanID": [
+           0,
+           32,
+           0,
+           0,
+           0,
+           0,
+           0,
+           1
+          ],
+          "SpanID": [
+           162,
+           251,
+           74,
+           29,
+           26,
+           150,
+           211,
+           18
+          ],
+          "SpanKind": 1,
+          "StartTime": "2006-01-02T22:04:04.9Z",
+          "TraceID": [
+           70,
+           58,
+           195,
+           92,
+           159,
+           100,
+           19,
+           173,
+           72,
+           72,
+           90,
+           57,
+           83,
+           187,
+           97,
+           36
+          ],
+          "TraceOptions": 1
+         }
+        ],
+        "Returns": [
+         {
+          "Check": {
+           "Status": {},
+           "ValidDuration": 0,
+           "ValidUseCount": 0,
+           "RouteDirective": null
+          },
+          "Quota": null,
+          "Error": {}
+         }
+        ]
+      }`,
 		},
 	)
 }
