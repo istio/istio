@@ -34,18 +34,18 @@ import (
 	"time"
 
 	"google.golang.org/grpc/grpclog"
-	"istio.io/istio/pkg/log"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -70,6 +70,8 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	flag.Parse()
+
 	// reduce logging from grpc library
 	var (
 		infoW    = ioutil.Discard
@@ -182,7 +184,7 @@ func benchmarkUnknownCollection(clients int, b *testing.B) {
 		d.clientOpts.CollectionOptions = sink.CollectionOptionsFromSlice(generateCollectionNames(*numCollections, 1))
 	}
 	o.iterations = b.N
-	o.numClients = 50
+	o.numClients = clients
 	stressTestCommon(b, o)
 }
 
@@ -263,7 +265,7 @@ func initDataset() {
 					e := l[commonRand.Intn(len(l))]
 					e.version = e.version.next() // bumping the version is sufficient. MCP doesn't inspect the body.
 					b.SetEntry(collection, e.name, e.version.String(), e.createTime, e.labels, e.annotations, e.body)
-				case 2: // Delete an resource
+				case 2: // Delete a resource
 					l := resourcesByCollection[collection]
 					if len(l) == 0 {
 						continue
@@ -296,7 +298,6 @@ func initDataset() {
 
 type clientState struct {
 	// metadata indexed by collection and name
-	mu                        sync.Mutex
 	resourcesByCollectionName map[string]map[string]*mcp.Metadata
 
 	applied    int64
@@ -310,9 +311,6 @@ type clientState struct {
 	minApplyDelay time.Duration
 	maxApplyDelay time.Duration
 	nackRate      float64
-
-	conn   *grpc.ClientConn
-	client *sink.Client
 }
 
 type driver struct {
@@ -357,10 +355,7 @@ func updateSnapshot(d *driver) {
 
 	sn := commonDataset[d.nextDataset]
 
-	d.nextDataset++
-	if d.nextDataset == len(commonDataset) {
-		d.nextDataset = 0
-	}
+	d.nextDataset = (d.nextDataset + 1) % len(commonDataset)
 
 	d.cache.SetSnapshot(snapshot.DefaultGroup, sn)
 }
@@ -453,7 +448,6 @@ func (d *driver) initClient(id int) error {
 	}
 
 	cs := &clientState{
-		conn: conn,
 		resourcesByCollectionName: make(map[string]map[string]*mcp.Metadata),
 		minApplyDelay:             d.options.minApplyDelay,
 		maxApplyDelay:             d.options.maxApplyDelay,
@@ -463,10 +457,11 @@ func (d *driver) initClient(id int) error {
 		cs.resourcesByCollectionName[collection.Name] = make(map[string]*mcp.Metadata)
 	}
 
-	cl := mcp.NewResourceSourceClient(cs.conn)
+	cl := mcp.NewResourceSourceClient(conn)
 
 	options := *d.clientOpts
 	options.Updater = cs
+	options.ID = strconv.Itoa(id)
 
 	c := sink.NewClient(cl, &options)
 	d.clients = append(d.clients, cs)
@@ -475,6 +470,7 @@ func (d *driver) initClient(id int) error {
 	go func() {
 		c.Run(d.ctx)
 		d.clientWG.Done()
+		conn.Close()
 	}()
 	return nil
 }
