@@ -39,7 +39,7 @@ func TestInMemory_Start_Empty(t *testing.T) {
 [Event](FullSync)
 `)
 	if actual != expected {
-		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
+		t.Fatalf("channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
 	}
 }
 
@@ -59,7 +59,7 @@ func TestInMemory_Start_WithItem(t *testing.T) {
 [Event](FullSync)
 `)
 	if actual != expected {
-		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
+		t.Fatalf("channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
 	}
 }
 
@@ -100,7 +100,7 @@ func TestInMemory_Set(t *testing.T) {
 [Event](Updated: [VKey](empty:n1/f1 @v2))
 `)
 	if actual != expected {
-		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
+		t.Fatalf("channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
 	}
 }
 
@@ -124,7 +124,7 @@ func TestInMemory_Delete(t *testing.T) {
 [Event](Deleted: [VKey](empty:n1/f1 @v2))
 `)
 	if actual != expected {
-		t.Fatalf("Channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
+		t.Fatalf("channel mismatch:\nActual:\n%v\nExpected:\n%v\n", actual, expected)
 	}
 }
 

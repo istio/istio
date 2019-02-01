@@ -21,10 +21,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"istio.io/istio/galley/pkg/runtime/groups"
 
 	"istio.io/istio/galley/pkg/meshconfig"
-	"istio.io/istio/galley/pkg/runtime/publish"
+	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/galley/pkg/testing/resources"
 	"istio.io/istio/pkg/mcp/snapshot"
@@ -69,10 +68,9 @@ func TestProcessor_Start_Error(t *testing.T) {
 func TestProcessor_Stop(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := snapshot.New(snapshot.DefaultGroupIndex)
-	strategy := publish.NewStrategyWithDefaults()
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(newState(snapshot.DefaultGroup, resources.TestSchema, cfg, strategy, distributor), src, nil)
+	p := newProcessor(src, distributor, cfg, nil)
 
 	err := p.Start()
 	if err != nil {
@@ -89,10 +87,10 @@ func TestProcessor_EventAccumulation(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
-	strategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
+	//	strategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(newState(snapshot.DefaultGroup, resources.TestSchema, cfg, strategy, distributor), src, nil)
+	p := newProcessor(src, distributor, cfg, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -115,10 +113,9 @@ func TestProcessor_EventAccumulation_WithFullSync(t *testing.T) {
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
 	// Do not quiesce/timeout for an hour
-	strategy := publish.NewStrategy(time.Hour, time.Hour, time.Millisecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
-	p := newProcessor(newState(snapshot.DefaultGroup, resources.TestSchema, cfg, strategy, distributor), src, nil)
+	p := newProcessor(src, distributor, cfg, nil)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -140,7 +137,7 @@ func TestProcessor_Publishing(t *testing.T) {
 
 	src := NewInMemorySource()
 	distributor := NewInMemoryDistributor()
-	strategy := publish.NewStrategy(time.Millisecond, time.Millisecond, time.Microsecond)
+	//strategy := publish.NewStrategy(time.Millisecond, time.Millisecond, time.Microsecond)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 
 	processCallCount := sync.WaitGroup{}
@@ -149,7 +146,7 @@ func TestProcessor_Publishing(t *testing.T) {
 	}
 	processCallCount.Add(3) // 1 for add, 1 for sync, 1 for publish trigger
 
-	p := newProcessor(newState(snapshot.DefaultGroup, resources.TestSchema, cfg, strategy, distributor), src, hookFn)
+	p := newProcessor(src, distributor, cfg, hookFn)
 	err := p.Start()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

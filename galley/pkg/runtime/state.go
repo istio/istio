@@ -30,28 +30,26 @@ import (
 	"istio.io/istio/galley/pkg/runtime/log"
 	"istio.io/istio/galley/pkg/runtime/monitoring"
 	"istio.io/istio/galley/pkg/runtime/processing"
-	"istio.io/istio/galley/pkg/runtime/publish"
 	"istio.io/istio/galley/pkg/runtime/resource"
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-var _ processing.Handler = &State{}
+var _ processing.Handler = &configState{}
+var _ processing.Snapshotter = &configState{}
 
-// State is the in-memory state of Galley.
-type State struct {
-	name   string
+// configState is the in-memory configState of Galley.
+type configState struct {
+//	name   string
 	schema *resource.Schema
 
-	distribute  bool
-	strategy    *publish.Strategy
-	distributor Distributor
+	listener processing.Listener
 
 	config *Config
 
-	// version counter is a nonce that generates unique ids for each updated view of State.
+	// version counter is a nonce that generates unique ids for each updated view of configState.
 	versionCounter int64
 
-	// entries for per-message-type State.
+	// entries for per-message-type configState.
 	entriesLock sync.Mutex
 	entries     map[resource.Collection]*resourceTypeState
 
@@ -67,24 +65,20 @@ type State struct {
 	lastSnapshotTime time.Time
 }
 
-// per-resource-type State.
+// per-resource-type state.
 type resourceTypeState struct {
-	// The version number for the current State of the object. Every time entries or versions change,
+	// The version number for the current state of the object. Every time entries or versions change,
 	// the version number also change
 	version  int64
 	entries  map[resource.FullName]*mcp.Resource
 	versions map[resource.FullName]resource.Version
 }
 
-func newState(name string, schema *resource.Schema, cfg *Config, strategy *publish.Strategy,
-	distributor Distributor) *State {
+func newConfigState(schema *resource.Schema, cfg *Config) *configState {
 
 	now := time.Now()
-	s := &State{
-		name:             name,
+	s := &configState{
 		schema:           schema,
-		strategy:         strategy,
-		distributor:      distributor,
 		config:           cfg,
 		entries:          make(map[resource.Collection]*resourceTypeState),
 		lastSnapshotTime: now,
@@ -102,27 +96,22 @@ func newState(name string, schema *resource.Schema, cfg *Config, strategy *publi
 	return s
 }
 
-func (s *State) close() {
-	s.strategy.Reset()
+func (s *configState) Snapshot() snapshot.Snapshot {
+	return s.buildSnapshot()
 }
 
-func (s *State) publish() {
-	now := time.Now()
-	monitoring.RecordProcessorSnapshotPublished(s.pendingEvents, now.Sub(s.lastSnapshotTime))
-	s.lastSnapshotTime = now
-	sn := s.buildSnapshot()
-
-	s.distributor.SetSnapshot(s.name, sn)
-	s.pendingEvents = 0
+func (s *configState) SetListener(l processing.Listener) {
+	s.listener = l
 }
 
-func (s *State) onFullSync() {
-	s.distribute = true
-	s.strategy.OnChange()
+func (s *configState) registerHandlers(b *processing.DispatcherBuilder) {
+	for _, spec := range s.schema.All() {
+		b.Add(spec.Collection, s)
+	}
 }
 
 // Handle implements the processing.Handler interface.
-func (s *State) Handle(event resource.Event) {
+func (s *configState) Handle(event resource.Event) {
 	pks, found := s.getResourceTypeState(event.Entry.ID.Collection)
 	if !found {
 		return
@@ -161,14 +150,14 @@ func (s *State) Handle(event resource.Event) {
 	s.versionCounter++
 	pks.version = s.versionCounter
 
-	log.Scope.Debugf("In-memory State has changed:\n%v\n", s)
+	log.Scope.Debugf("In-memory state has changed:\n%v\n", s)
 	s.pendingEvents++
-	if s.distribute {
-		s.strategy.OnChange()
-	}
+	//if s.distribute {
+	//	s.strategy.OnChange()
+	//}
 }
 
-func (s *State) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
+func (s *configState) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -176,7 +165,7 @@ func (s *State) getResourceTypeState(name resource.Collection) (*resourceTypeSta
 	return pks, found
 }
 
-func (s *State) buildSnapshot() snapshot.Snapshot {
+func (s *configState) buildSnapshot() snapshot.Snapshot {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -197,11 +186,11 @@ func (s *State) buildSnapshot() snapshot.Snapshot {
 	return b.Build()
 }
 
-func (s *State) buildProjections(b *snapshot.InMemoryBuilder) {
+func (s *configState) buildProjections(b *snapshot.InMemoryBuilder) {
 	s.buildIngressProjectionResources(b)
 }
 
-func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
+func (s *configState) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	ingressByHost := make(map[string]resource.Entry)
 
 	// Build ingress projections
@@ -305,7 +294,7 @@ func extractMetadata(entry *mcp.Resource) resource.Metadata {
 	}
 }
 
-func (s *State) toResource(e resource.Entry) (*mcp.Resource, bool) {
+func (s *configState) toResource(e resource.Entry) (*mcp.Resource, bool) {
 	body, err := types.MarshalAny(e.Item)
 	if err != nil {
 		log.Scope.Errorf("Error serializing proto from source e: %v:", e)
@@ -333,10 +322,10 @@ func (s *State) toResource(e resource.Entry) (*mcp.Resource, bool) {
 }
 
 // String implements fmt.Stringer
-func (s *State) String() string {
+func (s *configState) String() string {
 	var b bytes.Buffer
 
-	_, _ = fmt.Fprintf(&b, "[State @%v]\n", s.versionCounter)
+	_, _ = fmt.Fprintf(&b, "[configState @%v]\n", s.versionCounter)
 
 	sn := s.buildSnapshot().(*snapshot.InMemory)
 	_, _ = fmt.Fprintf(&b, "%v", sn)

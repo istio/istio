@@ -36,6 +36,9 @@ type Processor struct {
 	// source interface for retrieving the events from.
 	source Source
 
+	// distributor for distributing snapshots.
+	distributor Distributor
+
 	// events channel that was obtained from source
 	events chan resource.Event
 
@@ -48,8 +51,11 @@ type Processor struct {
 	// channel that signals the background process as being stopped.
 	stopped chan struct{}
 
-	// The current in-memory configuration State
-	state *State
+	// publishers that the processor is controlling.
+	// At this time, we know the exact number of publishers, so this is an array with a well-known size.
+	// This is important, as the select method below uses this.
+	// TODO: Fixed-size array should disappear once processing pipeline can process all events concurrently.
+	publishers [1]*publisher
 
 	// hook that gets called after each event processing. Useful for testing.
 	postProcessHook postProcessHookFn
@@ -62,20 +68,34 @@ type postProcessHookFn func()
 
 // NewProcessor returns a new instance of a Processor
 func NewProcessor(src Source, distributor Distributor, cfg *Config) *Processor {
-	state := newState(sn.DefaultGroup, metadata.Types, cfg, publish.NewStrategyWithDefaults(), distributor)
-	return newProcessor(state, src, nil)
+	return newProcessor(src, distributor, cfg, nil)
 }
 
 func newProcessor(
-	state *State,
 	src Source,
+	distributor Distributor,
+	cfg *Config,
 	postProcessHook postProcessHookFn) *Processor {
 
 	now := time.Now()
+
+	cfgState := newConfigState(metadata.Types, cfg)
+	cfgPublisher := newPublisher(sn.DefaultGroup, cfgState, distributor, publish.NewStrategyWithDefaults())
+	cfgState.SetListener(cfgPublisher)
+
+	b := processing.NewDispatcherBuilder()
+	cfgState.registerHandlers(b)
+	dispatcher := b.Build()
+
+	publishers := [1]*publisher{
+		cfgPublisher,
+	}
+
 	return &Processor{
-		handler:         buildDispatcher(state),
-		state:           state,
 		source:          src,
+		distributor:     distributor,
+		handler:         dispatcher,
+		publishers:      publishers,
 		postProcessHook: postProcessHook,
 		done:            make(chan struct{}),
 		stopped:         make(chan struct{}),
@@ -139,9 +159,9 @@ loop:
 		case e := <-p.events:
 			p.processEvent(e)
 
-		case <-p.state.strategy.Publish:
+		case <-p.publishers[0].channel():
 			scope.Debug("Processor.process: publish")
-			p.state.publish()
+			p.publishers[0].publish()
 
 		// p.done signals the graceful Shutdown of the processor.
 		case <-p.done:
@@ -154,7 +174,12 @@ loop:
 		}
 	}
 
-	p.state.close()
+	for _, publisher := range p.publishers {
+		if err := publisher.Close(); err != nil {
+			scope.Errorf("Error closing publisher: %v", err)
+		}
+	}
+
 	close(p.stopped)
 	scope.Debugf("Process.process: Exiting process loop")
 }
@@ -165,7 +190,9 @@ func (p *Processor) processEvent(e resource.Event) {
 
 	if e.Kind == resource.FullSync {
 		scope.Infof("Synchronization is complete, starting distribution.")
-		p.state.onFullSync()
+		for _, publisher := range p.publishers {
+			publisher.start()
+		}
 		return
 	}
 
@@ -176,14 +203,4 @@ func (p *Processor) recordEvent() {
 	now := time.Now()
 	monitoring.RecordProcessorEventProcessed(now.Sub(p.lastEventTime))
 	p.lastEventTime = now
-}
-
-func buildDispatcher(states ...*State) *processing.Dispatcher {
-	b := processing.NewDispatcherBuilder()
-	for _, state := range states {
-		for _, spec := range state.schema.All() {
-			b.Add(spec.Collection, state)
-		}
-	}
-	return b.Build()
 }
