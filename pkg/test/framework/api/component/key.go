@@ -12,20 +12,22 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package component
+package key
 
-import "fmt"
+import "istio.io/istio/pkg/test/framework/api/component"
 
-// Instance of a key for identifying component variants.
-type Key struct {
-	ID
-	Variant Variant
+// Instance of a key for component descriptors.
+type Instance struct {
+	Name    string
+	ID      component.ID
+	Variant component.Variant
 }
 
-// String provides a brief one-liner containing ID and Variant. Useful for error messages.
-func (k Key) String() string {
-	if k.Variant != "" {
-		return fmt.Sprintf("%s(%s)", k.ID, k.Variant)
+// For creates a key for the given named descriptor.
+func For(name string, d component.Descriptor) Instance {
+	return Instance{
+		Name:    name,
+		ID:      d.ID,
+		Variant: d.Variant,
 	}
-	return string(k.ID)
 }

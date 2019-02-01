@@ -22,19 +22,21 @@ import (
 var (
 	// NativeEnvironment component
 	NativeEnvironment = component.Descriptor{
-		Key:               component.Key{ID: ids.Environment, Variant: "native"},
+		ID:                ids.Environment,
 		IsSystemComponent: true,
+		Variant:           "native",
 	}
 
 	// KubernetesEnvironment component
 	KubernetesEnvironment = component.Descriptor{
-		Key:               component.Key{ID: ids.Environment, Variant: "kubernetes"},
+		ID:                ids.Environment,
 		IsSystemComponent: true,
+		Variant:           "kubernetes",
 	}
 
 	// Pilot component
 	Pilot = component.Descriptor{
-		Key:               ids.Pilot.GetKey(),
+		ID:                ids.Pilot,
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Mixer,
@@ -44,7 +46,7 @@ var (
 
 	// Mixer component
 	Mixer = component.Descriptor{
-		Key:               ids.Mixer.GetKey(),
+		ID:                ids.Mixer,
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Environment,
@@ -53,7 +55,7 @@ var (
 
 	// Galley component
 	Galley = component.Descriptor{
-		Key:               ids.Galley.GetKey(),
+		ID:                ids.Galley,
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Environment,
@@ -62,7 +64,7 @@ var (
 
 	// Citadel component
 	Citadel = component.Descriptor{
-		Key:               ids.Citadel.GetKey(),
+		ID:                ids.Citadel,
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Environment,
@@ -71,7 +73,7 @@ var (
 
 	// Ingress component
 	Ingress = component.Descriptor{
-		Key:               ids.Ingress.GetKey(),
+		ID:                ids.Ingress,
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Environment,
@@ -80,7 +82,7 @@ var (
 
 	// Prometheus component
 	Prometheus = component.Descriptor{
-		Key:               ids.Prometheus.GetKey(),
+		ID:                ids.Prometheus,
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Environment,
@@ -89,7 +91,7 @@ var (
 
 	// PolicyBackend component
 	PolicyBackend = component.Descriptor{
-		Key:               ids.PolicyBackend.GetKey(),
+		ID:                ids.PolicyBackend,
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Mixer,
@@ -99,7 +101,7 @@ var (
 
 	// Echo component. Multiple of these may be created.
 	Echo = component.Descriptor{
-		Key:               ids.Echo.GetKey(),
+		ID:                ids.Echo,
 		IsSystemComponent: false,
 		Requires: []component.Requirement{
 			&ids.Environment,
@@ -108,7 +110,7 @@ var (
 
 	// Apps component
 	Apps = component.Descriptor{
-		Key:               ids.Apps.GetKey(),
+		ID:                ids.Apps,
 		IsSystemComponent: false,
 		Requires: []component.Requirement{
 			&ids.Pilot,
@@ -118,7 +120,7 @@ var (
 
 	// BookInfo component
 	BookInfo = component.Descriptor{
-		Key:               ids.BookInfo.GetKey(),
+		ID:                ids.BookInfo,
 		IsSystemComponent: false,
 		Requires: []component.Requirement{
 			&ids.Pilot,
