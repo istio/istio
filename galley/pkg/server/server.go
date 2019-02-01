@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/source/fs"
 	kubeSource "istio.io/istio/galley/pkg/source/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
@@ -137,7 +138,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		DomainSuffix: a.DomainSuffix,
 		Mesh:         mesh,
 	}
-	distributor := snapshot.New(snapshot.DefaultGroupIndex)
+	distributor := snapshot.New(groups.IndexFunction)
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 
 	var grpcOptions []grpc.ServerOption
