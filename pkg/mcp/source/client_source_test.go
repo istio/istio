@@ -116,7 +116,7 @@ func TestClientSource(t *testing.T) {
 		Resources:  []*mcp.Resource{test.Type2A[0].Resource},
 	})
 
-	h.requestsChan <- test.MakeRequest("", "", codes.Unimplemented)
+	h.requestsChan <- test.MakeRequest(false, "", "", codes.Unimplemented)
 	h.requestsChan <- test.MakeRequest(false, test.FakeType0Collection, "", codes.OK)
 	h.requestsChan <- test.MakeRequest(false, test.FakeType1Collection, "", codes.OK)
 	h.requestsChan <- test.MakeRequest(false, test.FakeType2Collection, "", codes.OK)
@@ -152,12 +152,12 @@ func TestClientSource(t *testing.T) {
 	<-waiting
 	h.setOpenError(nil)
 	h.client = true
-	h.requestsChan <- test.MakeRequest("", "", codes.OK)
+	h.requestsChan <- test.MakeRequest(false, "", "", codes.OK)
 	proceed <- true
 
 	<-waiting
 	h.client = true
-	h.requestsChan <- test.MakeRequest("", "", codes.InvalidArgument)
+	h.requestsChan <- test.MakeRequest(false, "", "", codes.InvalidArgument)
 	proceed <- true
 
 	<-waiting

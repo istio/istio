@@ -1,41 +1,41 @@
 ## Overview
 
-This MCP stress test suite provides a set of regression tests and preconfigured 
-benchmarks for analyzing cpu and memory usage. Most of the testing parameters 
-are exposed as flags to enable additional experiments to be run.  
+This MCP stress test suite provides a set of regression tests and preconfigured
+benchmarks for analyzing cpu and memory usage. Most of the testing parameters
+are exposed as flags to enable additional experiments to be run.
 
 ## Methodology
 
-A single source server periodically publishes snapshots from a pre-generated 
-dataset. The dataset is generated over a fixed set of simulated collection types. 
-Each snapshot includes includes a random set of added, updated, and deleted 
-resources across the set of known collections. Each collection version with a 
-particular snapshot is significant for verifying consistent end-to-end delivery. 
-These version is a stable hash of all resource names and versions in the full 
-_desired_ snapshot before being encoding over MCP and pushed to the client. These 
-version is encoded in the SystemVersionInfo in the source server's MCP response to 
-the client. Clients can perform the same stable hash over the _applied_ set of 
+A single source server periodically publishes snapshots from a pre-generated
+dataset. The dataset is generated over a fixed set of simulated collection types.
+Each snapshot includes includes a random set of added, updated, and deleted
+resources across the set of known collections. Each collection version with a
+particular snapshot is significant for verifying consistent end-to-end delivery.
+These version is a stable hash of all resource names and versions in the full
+_desired_ snapshot before being encoding over MCP and pushed to the client. These
+version is encoded in the SystemVersionInfo in the source server's MCP response to
+the client. Clients can perform the same stable hash over the _applied_ set of
 resources and verify that their hash matches the received hash (via SystemVersionInfo).
-The hash check will fail if there are discrepancies between the server's desired state 
-and the client's applied state. This works for both full state and incremental MCP variants. 
-It also works in cases where the server's publish rate is faster than individual clients 
-receive rate. The MCP server may effectively coalese intermediate snapshots and only publish
+The hash check will fail if there are discrepancies between the server's desired state
+and the client's applied state. This works for both full state and incremental MCP variants.
+It also works in cases where the server's publish rate is faster than individual clients
+receive rate. The MCP server may effectively coalesce intermediate snapshots and only publish
 the most recent version to the client. This is allowed by the protocol and should result
-in eventually consistent state that is correct.      
+in eventually consistent state that is correct.
 
 _configuration knobs_:
 
-- The number of simulated collections in the dataset, along with the number of snapshots and 
+- The number of simulated collections in the dataset, along with the number of snapshots and
 random changes within each snapshot are configurable.
 
 - The number of simulated clients and their NACK rate can be configured with adjusted.
 
-- Random delay with min/max constraints can be inserted in both the server-side publishing 
+- Random delay with min/max constraints can be inserted in both the server-side publishing
 ({min,max}UpdateDelay) and client-side apply path ({min,max)ApplyDelay).
 
 ## Regression test
 
-Regression tests will be run as part of normal presubmit testing. Total running time is tuned to complete 
+Regression tests will be run as part of normal presubmit testing. Total running time is tuned to complete
 on the order of tens of seconds. Longer running experiments can be run by changing the default settings via
 flags (see experiments below).
 
@@ -59,7 +59,7 @@ ok  	command-line-arguments	7.488s
 This creates two pprof profile files.
 
 ```bash
-$ file cpu.out mem.out 
+$ file cpu.out mem.out
 cpu.out: gzip compressed data, max speed, original size 54280
 mem.out: gzip compressed data, max speed, original size 37536
 ```
@@ -67,20 +67,20 @@ mem.out: gzip compressed data, max speed, original size 37536
 Use `go tool pprof` to view the cpu and memory profiles.
 
 ```bash
-go tool pprof -http=":8081" cpu.out 
+go tool pprof -http=":8081" cpu.out
 ```
 
 ```bash
 go tool pprof -http=":8081" mem.out
 ```
 
-Note that these profiles include resources used by the test harness itself. Analysis 
-should account for resources used by the dataset initialization and server and 
+Note that these profiles include resources used by the test harness itself. Analysis
+should account for resources used by the dataset initialization and server and
 client test runner paths.
 
 ## Experiments
 
-Several test parameters are exposed as flags. For example, the following test runs the 
+Several test parameters are exposed as flags. For example, the following test runs the
 full state regression test with 100 clients and a simulated NACK rate of 10%.
 
 ```bash
@@ -108,7 +108,7 @@ PASS
 ok  	command-line-arguments	5.469s
 ```
 
-These can also be used to run benchmark experiments. 
+These can also be used to run benchmark experiments.
 ```bash
 $ go test ./pkg/mcp/tests/stress/stress_test.go \
     -run ^Bench \
@@ -127,7 +127,7 @@ ok  	command-line-arguments	7.682s
 ```
 
 ```bash
-go tool pprof -http=":8081" cpu.out 
+go tool pprof -http=":8081" cpu.out
 # or ...
 go tool pprof -http=":8081" mem.out
 ```
