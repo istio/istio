@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/galley/pkg/metadata"
 	kubeMeta "istio.io/istio/galley/pkg/metadata/kube"
 	"istio.io/istio/galley/pkg/runtime"
+	"istio.io/istio/galley/pkg/runtime/groups"
 	"istio.io/istio/galley/pkg/source/fs"
 	kubeSource "istio.io/istio/galley/pkg/source/kube"
 	"istio.io/istio/galley/pkg/source/kube/client"
@@ -59,6 +60,7 @@ type Server struct {
 	listener   net.Listener
 	controlZ   *ctrlz.Server
 	stopCh     chan struct{}
+	callOut    *callout
 }
 
 type patchTable struct {
@@ -136,7 +138,7 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		DomainSuffix: a.DomainSuffix,
 		Mesh:         mesh,
 	}
-	distributor := snapshot.New(snapshot.DefaultGroupIndex)
+	distributor := snapshot.New(groups.IndexFunction)
 	s.processor = runtime.NewProcessor(src, distributor, &processorCfg)
 
 	var grpcOptions []grpc.ServerOption
@@ -168,6 +170,14 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 		Watcher:           distributor,
 		Reporter:          s.reporter,
 		CollectionOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+	}
+
+	if a.SinkAddress != "" {
+		s.callOut, err = newCallout(a.SinkAddress, a.SinkAuthMode, options)
+		if err != nil {
+			s.callOut = nil
+			scope.Fatalf("Callout could not be initialized: %v", err)
+		}
 	}
 
 	s.mcp = server.New(options, checker)
@@ -234,6 +244,21 @@ func (s *Server) Run() {
 			scope.Errorf("Galley Server unexpectedly terminated: %v", err)
 		}
 	}()
+	if s.callOut != nil {
+		s.serveWG.Add(1)
+		go func() {
+			defer s.serveWG.Done()
+			s.callOut.Run()
+		}()
+	}
+}
+
+// Address returns the Address of the MCP service.
+func (s *Server) Address() net.Addr {
+	if s.listener == nil {
+		return nil
+	}
+	return s.listener.Addr()
 }
 
 // Close cleans up resources used by the server.
@@ -245,7 +270,6 @@ func (s *Server) Close() error {
 
 	if s.grpcServer != nil {
 		s.grpcServer.GracefulStop()
-		s.serveWG.Wait()
 	}
 
 	if s.controlZ != nil {
@@ -258,10 +282,19 @@ func (s *Server) Close() error {
 
 	if s.listener != nil {
 		_ = s.listener.Close()
+		s.listener = nil
 	}
 
 	if s.reporter != nil {
 		_ = s.reporter.Close()
+	}
+
+	if s.callOut != nil {
+		s.callOut.Close()
+	}
+
+	if s.grpcServer != nil || s.callOut != nil {
+		s.serveWG.Wait()
 	}
 
 	// final attempt to purge buffered logs
