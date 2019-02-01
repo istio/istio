@@ -13,6 +13,10 @@
 //  limitations under the License.
 
 // Package healthcheck contains a test to support kubernetes app health check when mTLS is turned on.
+// go test -v ./tests/integration2/security/healthcheck -istio.test.env  kubernetes \
+// -istio.test.kube.helm.values "global.hub=gcr.io/jianfeih-test,global.tag=0130a"  \
+// --istio.test.kube.suiteNamespace  istio-suite   --istio.test.kube.testNamespace istio-test  \
+// --log_output_level CI:info | tee somefile
 package healthcheck
 
 import (
@@ -20,17 +24,18 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 func TestMain(m *testing.M) {
-	rt, _ := framework.Run("healthcheck_with_mtls", m)
+	rt, _ := framework.Run("mtls_healthcheck", m)
 	os.Exit(rt)
 }
 
@@ -42,6 +47,9 @@ func TestMtlsHealthCheck(t *testing.T) {
 	// Test requires this Helm flag to be enabled.
 	// TODO: instead trying to tear down the entire system for this test...
 	// might not make much sense to use helmValues by scope...
+
+	scopes.Framework.SetOutputLevel(log.DebugLevel)
+	scopes.CI.SetOutputLevel(log.DebugLevel)
 	kube.RegisterHelmOverrides(lifecycle.System, map[string]string{
 		"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
 		// TODO(incfly): without this mixer livenes probe failure, investigate...
@@ -73,5 +81,4 @@ spec:
 	ctx.RequireOrFail(t, lifecycle.Test, &descriptors.Apps)
 	apps := components.GetApps(ctx, t)
 	apps.GetAppOrFail("healthcheck", t)
-	time.Sleep(1000 * time.Second)
 }
