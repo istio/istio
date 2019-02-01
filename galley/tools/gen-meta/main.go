@@ -55,10 +55,12 @@ type entry struct {
 	Converter      string `json:"converter"`
 	ProtoGoPackage string `json:"protoPackage"`
 	Collection     string `json:"collection"`
+	Generated      string `json:"generated"`
 }
 
 // collection related metadata
 type collectionDef struct {
+	ID          string `json:"-"`
 	FullName    string `json:"-"`
 	MessageName string `json:"-"`
 	Collection  string `json:"-"`
@@ -172,6 +174,7 @@ func readMetadata(path string) (*metadata, error) {
 		parts := strings.Split(e.Proto, ".")
 		msgName := parts[len(parts)-1]
 		defn := collectionDef{
+			ID:          getID(e.Collection),
 			MessageName: msgName,
 			FullName:    e.Proto,
 			Collection:  e.Collection,
@@ -223,15 +226,15 @@ var Types *resource.Schema
 
 var (
 	{{range .CollectionDefs}}
-		// {{.Kind}} metadata
-		{{.Kind}} resource.Info
+		// {{.Collection}} metadata
+		{{.ID}} resource.Info
 	{{end}}
 )
 
 func init() {
 	b := resource.NewSchemaBuilder()
 
-{{range .CollectionDefs}}	{{.Kind}} = b.Register(
+{{range .CollectionDefs}}	{{.ID}} = b.Register(
 		"{{.Collection}}",
 		"type.googleapis.com/{{.FullName}}")
 {{end}}
@@ -259,6 +262,7 @@ var Types *schema.Instance
 func init() {
 	b := schema.NewBuilder()
 {{range .Resources}}
+	{{ if ne .Generated "true" }}
 	b.Add(schema.ResourceSpec{
 		Kind:       "{{.Kind}}",
 		ListKind:   "{{.ListKind}}",
@@ -269,6 +273,7 @@ func init() {
 		Target:     metadata.Types.Get("{{.Collection}}"),
 		Converter:  converter.Get("{{ if .Converter }}{{.Converter}}{{ else }}identity{{end}}"),
     })
+	{{end}}
 {{end}}
 	Types = b.Build()
 }
@@ -288,4 +293,15 @@ func applyTemplate(tmpl string, m *metadata) ([]byte, error) {
 	}
 
 	return b.Bytes(), nil
+}
+
+func getID(collection string) string {
+	out := ""
+
+	// Convert to camelcase by capitalizing the first letter in each word separated by "/".
+	for _, part := range strings.Split(collection, "/") {
+		out += strings.Title(part)
+	}
+
+	return out
 }

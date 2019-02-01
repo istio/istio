@@ -18,7 +18,6 @@ resources:
     version:     "v1"
     proto:       "k8s.io.api.core.v1.ServiceSpec"
     protoPackage: "k8s.io/api/core/v1"
-    converter:    "kube-service-resource"
     collection:   "k8s/core/v1/services"
 
   - kind:        "Node"
@@ -68,6 +67,15 @@ resources:
     version:     "v1alpha3"
     proto:       "istio.networking.v1alpha3.ServiceEntry"
     collection:  "istio/networking/v1alpha3/serviceentries"
+
+  - kind:        "ServiceEntry"
+    singular:    "serviceentry"
+    plural:      "serviceentries"
+    group:       "networking.istio.io"
+    version:     "v1alpha3"
+    proto:       "istio.networking.v1alpha3.ServiceEntry"
+    collection:  "istio/networking/v1alpha3/synthetic/serviceentries"
+    generated:   "true"
 
   - kind:        "DestinationRule"
     singular:    "destinationrule"

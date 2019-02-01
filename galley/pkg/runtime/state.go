@@ -205,7 +205,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	ingressByHost := make(map[string]resource.Entry)
 
 	// Build ingress projections
-	state := s.entries[metadata.Ingress.Collection]
+	state := s.entries[metadata.K8sExtensionsV1beta1Ingresses.Collection]
 	if state == nil || len(state.entries) == 0 {
 		return
 	}
@@ -220,12 +220,12 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	}
 
 	versionStr := fmt.Sprintf("%d_%d",
-		s.entries[metadata.Gateway.Collection].version, s.ingressGWVersion)
-	b.SetVersion(metadata.Gateway.Collection.String(), versionStr)
+		s.entries[metadata.IstioNetworkingV1alpha3Gateways.Collection].version, s.ingressGWVersion)
+	b.SetVersion(metadata.IstioNetworkingV1alpha3Gateways.Collection.String(), versionStr)
 
 	versionStr = fmt.Sprintf("%d_%d",
-		s.entries[metadata.VirtualService.Collection].version, s.ingressVSVersion)
-	b.SetVersion(metadata.VirtualService.Collection.String(), versionStr)
+		s.entries[metadata.IstioNetworkingV1alpha3Virtualservices.Collection].version, s.ingressVSVersion)
+	b.SetVersion(metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(), versionStr)
 
 	// Order names for stable generation.
 	var orderedNames []resource.FullName
@@ -254,7 +254,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 		gw := conversions.IngressToGateway(key, meta, ingress)
 
 		err = b.SetEntry(
-			metadata.Gateway.Collection.String(),
+			metadata.IstioNetworkingV1alpha3Gateways.Collection.String(),
 			gw.ID.FullName.String(),
 			string(gw.ID.Version),
 			gw.Metadata.CreateTime,
@@ -268,7 +268,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 
 	for _, e := range ingressByHost {
 		err := b.SetEntry(
-			metadata.VirtualService.Collection.String(),
+			metadata.IstioNetworkingV1alpha3Virtualservices.Collection.String(),
 			e.ID.FullName.String(),
 			string(e.ID.Version),
 			e.Metadata.CreateTime,
@@ -284,7 +284,7 @@ func (s *State) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 func extractKey(name resource.FullName, version resource.Version) resource.VersionedKey {
 	return resource.VersionedKey{
 		Key: resource.Key{
-			Collection: metadata.Ingress.Collection,
+			Collection: metadata.K8sExtensionsV1beta1Ingresses.Collection,
 			FullName:   name,
 		},
 		Version: version,
