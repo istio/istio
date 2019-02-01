@@ -1,7 +1,6 @@
 #
 # addon kiali
 #
-enabled: false
 replicaCount: 1
 hub: docker.io/kiali
 tag: v0.12

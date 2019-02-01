@@ -1,7 +1,6 @@
 #
 # addon jeager tracing configuration
 #
-enabled: false
 
 provider: jaeger
 nodeSelector: {}

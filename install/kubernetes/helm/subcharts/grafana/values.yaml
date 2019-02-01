@@ -1,7 +1,6 @@
 #
 # addon grafana configuration
 #
-enabled: false
 replicaCount: 1
 image:
   repository: grafana/grafana

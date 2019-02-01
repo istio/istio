@@ -1,7 +1,6 @@
 #
 # addon prometheus configuration
 #
-enabled: true
 replicaCount: 1
 hub: docker.io/prom
 tag: v2.3.1

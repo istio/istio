@@ -1,7 +1,6 @@
 #
 # addon servicegraph configuration
 #
-enabled: false
 replicaCount: 1
 image: servicegraph
 nodeSelector: {}

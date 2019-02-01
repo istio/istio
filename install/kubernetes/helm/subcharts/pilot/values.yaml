@@ -1,7 +1,6 @@
 #
 # pilot configuration
 #
-enabled: true
 autoscaleEnabled: true
 autoscaleMin: 1
 autoscaleMax: 5

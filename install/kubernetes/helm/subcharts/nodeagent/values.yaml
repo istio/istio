@@ -1,7 +1,6 @@
 #
 # nodeagent configuration
 #
-enabled: false
 image: node-agent-k8s
 env:
   # name of authentication provider.

@@ -1,7 +1,6 @@
 #
 # ingress configuration
 #
-enabled: false
 autoscaleEnabled: true
 autoscaleMin: 1
 autoscaleMax: 5

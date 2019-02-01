@@ -79,9 +79,15 @@ tracing:
   enabled: false
 
 #
-# addon kiali tracing configuration
+# addon kiali configuration
 #
 kiali:
+  enabled: false
+
+#
+# addon certmanager configuration
+#
+certmanager:
   enabled: false
 
 #
