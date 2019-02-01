@@ -962,6 +962,21 @@
   version = "v1.0.2"
 
 [[projects]]
+  digest = "1:38700b9492e4aff021a743577a57f450cbaa1dc375cf02c27cee54ed399c14cb"
+  name = "github.com/openzipkin/zipkin-go"
+  packages = [
+    ".",
+    "idgenerator",
+    "model",
+    "propagation",
+    "reporter",
+    "reporter/http",
+  ]
+  pruneopts = "NUT"
+  revision = "d455a5674050831c1e187644faa4046d653433c2"
+  version = "v0.1.1"
+
+[[projects]]
   digest = "1:cce3a18fb0b96b5015cd8ca03a57d20a662679de03c4dc4b6ff5f17ea2050fa6"
   name = "github.com/pborman/uuid"
   packages = ["."]
@@ -1271,12 +1286,13 @@
   revision = "84ea3a3c79b3c4b3b39606cc96f255cd63635ce0"
 
 [[projects]]
-  digest = "1:14c23c68d00e1fd427a26acf9e6d7e2105fbf7b0b0531060c0df9ddb62450e7f"
+  digest = "1:df8a68ff3f75ec4103510fe3d7ce9797c0d43c3cbd5fcef2bb2a13c70419de5b"
   name = "go.opencensus.io"
   packages = [
     ".",
     "exporter/prometheus",
     "exporter/stackdriver/propagation",
+    "exporter/zipkin",
     "internal",
     "internal/tagencoding",
     "plugin/ocgrpc",
@@ -2083,6 +2099,10 @@
     "github.com/opentracing/opentracing-go/ext",
     "github.com/opentracing/opentracing-go/log",
     "github.com/opentracing/opentracing-go/mocktracer",
+    "github.com/openzipkin/zipkin-go",
+    "github.com/openzipkin/zipkin-go/model",
+    "github.com/openzipkin/zipkin-go/reporter",
+    "github.com/openzipkin/zipkin-go/reporter/http",
     "github.com/pkg/errors",
     "github.com/pmezard/go-difflib/difflib",
     "github.com/prometheus/client_golang/api",
@@ -2108,6 +2128,7 @@
     "github.com/uber/jaeger-client-go/zipkin",
     "github.com/yl2chen/cidranger",
     "go.opencensus.io/exporter/prometheus",
+    "go.opencensus.io/exporter/zipkin",
     "go.opencensus.io/plugin/ocgrpc",
     "go.opencensus.io/plugin/ochttp",
     "go.opencensus.io/plugin/ochttp/propagation/b3",
