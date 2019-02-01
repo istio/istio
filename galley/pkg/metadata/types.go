@@ -145,6 +145,9 @@ var (
 	// istio/config/v1alpha2/legacy/tracespans metadata
 	IstioConfigV1alpha2LegacyTracespans resource.Info
 
+	// istio/config/v1alpha2/legacy/tracespans metadata
+	IstioConfigV1alpha2LegacyZipkins resource.Info
+
 	// istio/config/v1alpha2/templates metadata
 	IstioConfigV1alpha2Templates resource.Info
 
@@ -319,6 +322,9 @@ func init() {
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	IstioConfigV1alpha2LegacyTracespans = b.Register(
 		"istio/config/v1alpha2/legacy/tracespans",
+		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
+	IstioConfigV1alpha2LegacyZipkins = b.Register(
+		"istio/config/v1alpha2/legacy/zipkins",
 		"type.googleapis.com/type.googleapis.com/google.protobuf.Struct")
 	IstioConfigV1alpha2Templates = b.Register(
 		"istio/config/v1alpha2/templates",
