@@ -17,6 +17,7 @@ package apps
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/url"
 	"strconv"
@@ -86,7 +87,7 @@ spec:
     name: http2-example
   - port: 7070
     targetPort: {{ .port6 }}
-		name: grpc
+    name: grpc
   selector:
     app: {{ .service }}
 ---
@@ -156,110 +157,6 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 {{- end }}
----
-`
-	// healthcheckAppYAML is the template for the health check app.
-	healthcheckAppYAML = `
-{{- if eq .serviceAccount "true" }}
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ .service }}
----
-{{- end }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .service }}
-  labels:
-    app: {{ .service }}
-spec:
-{{- if eq .headless "true" }}
-  clusterIP: None
-{{- end }}
-  ports:
-  - port: 80
-    targetPort: {{ .port1 }}
-    name: http
-  - port: 8080
-    targetPort: {{ .port2 }}
-    name: http-two
-{{- if eq .headless "true" }}
-  - port: 10090
-    targetPort: {{ .port3 }}
-    name: tcp
-{{- else }}
-  - port: 90
-    targetPort: {{ .port3 }}
-    name: tcp
-  - port: 9090
-    targetPort: {{ .port4 }}
-    name: https
-{{- end }}
-  - port: 70
-    targetPort: {{ .port5 }}
-    name: http2-example
-  - port: 7070
-    targetPort: {{ .port6 }}
-		name: grpc
-  - port: 3333
-    targetPort: 3333
-		name: healthcheck
-  selector:
-    app: {{ .service }}
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: {{ .deployment }}
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: {{ .service }}
-        version: {{ .version }}
-    spec:
-{{- if eq .serviceAccount "true" }}
-      serviceAccountName: {{ .service }}
-{{- end }}
-      containers:
-      - name: app
-        image: {{ .Hub }}/app:{{ .Tag }}
-        imagePullPolicy: {{ .ImagePullPolicy }}
-        args:
-          - --port
-          - "{{ .port1 }}"
-          - --port
-          - "{{ .port2 }}"
-          - --port
-          - "{{ .port3 }}"
-          - --port
-          - "{{ .port4 }}"
-          - --grpc
-          - "{{ .port5 }}"
-          - --grpc
-          - "{{ .port6 }}"
-          - --port
-          - "3333"
-          - --version
-          - "{{ .version }}"
-        ports:
-        - containerPort: {{ .port1 }}
-        - containerPort: {{ .port2 }}
-        - containerPort: {{ .port3 }}
-        - containerPort: {{ .port4 }}
-        - containerPort: {{ .port5 }}
-        - containerPort: {{ .port6 }}
-        - name: tcp-health-port
-          containerPort: 3333
-				readinessProbe:
-					httpGet:
-						path: /healthz
-						port: 3333
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          failureThreshold: 10
 ---
 `
 )
@@ -365,18 +262,18 @@ var (
 			serviceAccount: true,
 		},
 		{
-			deployment:     "health-check",
-			service:        "health-check",
-			version:        "v1",
-			port1:          8080,
-			port2:          80,
-			port3:          9090,
-			port4:          90,
-			port5:          7070,
-			port6:          70,
+			deployment:     "healthcheck",
+			service:        "healthcheck",
+			version:        "unversioned",
+			port1:          80,
+			port2:          8080,
+			port3:          90,
+			port4:          9090,
+			port5:          70,
+			port6:          7070,
 			injectProxy:    true,
 			headless:       false,
-			serviceAccount: false,
+			serviceAccount: true,
 		},
 	}
 
@@ -717,8 +614,12 @@ type deploymentFactory struct {
 func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
 	helmValues := e.HelmValueMap(scope)
 	templateContent := template
-	if d.deployment == "health-check" {
-		templateContent = healthcheckAppYAML
+	if d.deployment == "healthcheck" {
+		b, err := ioutil.ReadFile("healthcheck.yaml")
+		if err != nil {
+			return nil, err
+		}
+		templateContent = string(b)
 	}
 	result, err := e.EvaluateWithParams(templateContent, map[string]string{
 		"Hub":             helmValues[kube.HubValuesKey],
@@ -746,9 +647,6 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.S
 	out := deployment.NewYamlContentDeployment(e.NamespaceForScope(scope), result)
 	if err = out.Deploy(e.Accessor, false); err != nil {
 		return nil, err
-	}
-	if d.deployment == "health-check" {
-		fmt.Println("jianfeih debug the health check app is here...", out)
 	}
 	return out, nil
 }

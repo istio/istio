@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
@@ -38,7 +39,13 @@ import (
 func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.GetContext(t)
 	// Test requires this Helm flag to be enabled.
-	kube.RegisterHelmOverrides(lifecycle.Test, map[string]string{"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true"})
+	// TODO: instead trying to tear down the entire system for this test...
+	// might not make much sense to use helmValues by scope...
+	kube.RegisterHelmOverrides(lifecycle.System, map[string]string{
+		"sidecarInjectorWebhook.rewriteAppHTTPProbe": "true",
+		// TODO(incfly): without this mixer livenes probe failure, investigate...
+		"global.mtls.enabled": "false",
+	})
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment)
 	path := filepath.Join(ctx.WorkDir(), "mtls-strict-healthcheck.yaml")
 	err := ioutil.WriteFile(path, []byte(`apiVersion: "authentication.istio.io/v1alpha1"
@@ -65,4 +72,5 @@ spec:
 	ctx.RequireOrFail(t, lifecycle.Test, &descriptors.Apps)
 	apps := components.GetApps(ctx, t)
 	apps.GetAppOrFail("a", t)
+	time.Sleep(1000 * time.Second)
 }

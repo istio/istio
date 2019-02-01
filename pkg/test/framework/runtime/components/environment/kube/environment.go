@@ -284,11 +284,13 @@ func (e *Environment) EvaluateWithParams(tpl string, data interface{}) (string, 
 
 	t2, err := t.Parse(tpl)
 	if err != nil {
+		fmt.Println("jianfeih debug parsing failure")
 		return "", err
 	}
 
 	var b bytes.Buffer
 	if err = t2.Execute(&b, data); err != nil {
+		fmt.Println("jianfeih debug t2", *t2)
 		return "", err
 	}
 

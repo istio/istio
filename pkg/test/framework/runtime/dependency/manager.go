@@ -147,7 +147,7 @@ func normalizeScope(desc component.Descriptor, scope lifecycle.Scope) lifecycle.
 
 func (m *Manager) requireComponent(desc component.Descriptor, scope lifecycle.Scope) (component.Instance, component.RequirementError) {
 	// Make sure that system components are always created with suite scope.
-	// scope = normalizeScope(desc, scope)
+	scope = normalizeScope(desc, scope)
 
 	// First, check if we've already created this component.
 	if c, ok := m.compMap[desc.ID]; ok {

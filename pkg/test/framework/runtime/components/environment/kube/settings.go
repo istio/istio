@@ -132,11 +132,10 @@ func (s *settings) Values(scope lifecycle.Scope) map[string]string {
 		out[k] = v
 	}
 	values, exists := helmOverridesByTest[scope]
-	if !exists {
-		return nil
-	}
-	for k, v := range values {
-		out[k] = v
+	if exists {
+		for k, v := range values {
+			out[k] = v
+		}
 	}
 	return out
 }

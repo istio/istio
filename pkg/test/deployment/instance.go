@@ -15,6 +15,8 @@
 package deployment
 
 import (
+	"fmt"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/kube"
@@ -38,11 +40,13 @@ type Instance struct {
 func (i *Instance) Deploy(a *kube.Accessor, wait bool, opts ...retry.Option) (err error) {
 	if i.yamlFilePath != "" {
 		if err = a.Apply(i.namespace, i.yamlFilePath); err != nil {
-			return multierror.Prefix(err, "kube apply of generated yaml filed:")
+			return multierror.Prefix(err, fmt.Sprintf("kube apply of generated yaml failed: %v %v",
+				i.namespace, i.yamlFilePath))
 		}
 	} else {
 		if i.appliedFiles, err = a.ApplyContents(i.namespace, i.yamlContents); err != nil {
-			return multierror.Prefix(err, "kube apply of generated yaml filed:")
+			return multierror.Prefix(err, fmt.Sprintf(
+				"kube apply contents of generated yaml failed: namespace %v, content %v", i.namespace, i.yamlContents))
 		}
 	}
 
