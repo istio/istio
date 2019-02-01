@@ -40,6 +40,9 @@ spec:
   - port: 7070
     targetPort: {{ .port6 }}
     name: grpc
+  - port: 3333
+    targetPort: 3333
+    name: healthcheckport
   selector:
     app: {{ .service }}
 ---
@@ -92,7 +95,6 @@ spec:
         - containerPort: {{ .port4 }}
         - containerPort: {{ .port5 }}
         - containerPort: {{ .port6 }}
-{{- if eq .healthPort "true" }}
         - name: tcp-health-port
           containerPort: 3333
         livenessProbe:
@@ -103,10 +105,10 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
         readinessProbe:
-          tcpSocket:
-            port: tcp-health-port
+          httpGet:
+            path: /healthz
+            port: 3333
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
-{{- end }}
 ---
