@@ -23,6 +23,7 @@ telemetry:
     targetAverageUtilization: 80
   sessionAffinityEnabled: false
 
+  # based on measurements 50ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
   averageLatencyThreshold: 75ms
   # disabled, logonly or enforce
   loadsheddingMode: logonly

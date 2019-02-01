@@ -31,7 +31,8 @@ mixer:
     enabled: true
   telemetry:
     enabled: true
-    averageLatencyThreshold: 75ms
+    # based on measurements 50ms p50 translates to p99 of under 1s. This is ok for telemetry which is inherently async.
+    averageLatencyThreshold: 50ms
     # disabled, logonly or enforce
     loadsheddingMode: enforce
   adapters:
@@ -158,7 +159,7 @@ global:
 
     # Configures the access log for each sidecar. Setting it to an empty string will
     # disable access log for sidecar.
-    accessLogFile: "/dev/null"
+    accessLogFile: ""
 
     # Configure how and what fields are displayed in sidecar access log. Setting to
     # empty string will result in default log format
