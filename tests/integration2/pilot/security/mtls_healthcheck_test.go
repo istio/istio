@@ -30,11 +30,6 @@ import (
 
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
 // is enabled.
-// TODO(incfly): next step for integration test istio.io/istio/pkg/test/framework/runtime/components/apps/kube.go
-// Allow ourselves to on demand deploy apps, modifying on existing app yaml does not work.
-// Changes compared to existing:
-// - Declare readiness probe http.
-// - Declare service port for 3333 or other service.
 
 func TestMtlsHealthCheck(t *testing.T) {
 	ctx := framework.GetContext(t)
@@ -51,10 +46,10 @@ func TestMtlsHealthCheck(t *testing.T) {
 	err := ioutil.WriteFile(path, []byte(`apiVersion: "authentication.istio.io/v1alpha1"
 kind: "Policy"
 metadata:
-  name: "mtls-strict-for-a"
+  name: "mtls-strict-for-healthcheck"
 spec:
   targets:
-  - name: "a"
+  - name: "healthcheck"
   peers:
     - mtls:
         mode: STRICT
@@ -71,6 +66,6 @@ spec:
 	// Deploy app now.
 	ctx.RequireOrFail(t, lifecycle.Test, &descriptors.Apps)
 	apps := components.GetApps(ctx, t)
-	apps.GetAppOrFail("a", t)
+	apps.GetAppOrFail("healthcheck", t)
 	time.Sleep(1000 * time.Second)
 }
