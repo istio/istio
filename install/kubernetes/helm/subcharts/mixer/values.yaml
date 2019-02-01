@@ -4,7 +4,7 @@
 image: mixer
 
 env:
-  GODEBUG: gctrace=2
+  GODEBUG: gctrace=1
 
 policy:
   replicaCount: 1
@@ -18,10 +18,14 @@ telemetry:
   replicaCount: 1
   autoscaleEnabled: true
   autoscaleMin: 1
-  autoscaleMax: 5
+  autoscaleMax: 15
   cpu:
     targetAverageUtilization: 80
   sessionAffinityEnabled: false
+
+  averageLatencyThreshold: 75ms
+  # disabled, logonly or enforce
+  loadsheddingMode: logonly
 
 podAnnotations: {}
 nodeSelector: {}
@@ -37,3 +41,5 @@ adapters:
     metricsExpiryDuration: 10m
   # Setting this to false sets the useAdapterCRDs mixer startup argument to false
   useAdapterCRDs: true
+
+
