@@ -33,7 +33,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 		enableSds bool
 		result    *auth.DownstreamTlsContext
 	}{
-		{
+		{ // No credential name is specified, generate file paths for key/cert.
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
@@ -44,9 +44,39 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
 					AlpnProtocols: ListenersALPNProtocols,
+					TlsCertificates: []*auth.TlsCertificate{
+						{
+							CertificateChain: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "",
+								},
+							},
+							PrivateKey: &core.DataSource{
+								Specifier: &core.DataSource_Filename{
+									Filename: "",
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolFalse,
+			},
+		},
+		{ // Credential name is specified, SDS config is generated for fetching key/cert.
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Tls: &networking.Server_TLSOptions{
+					Mode:    networking.Server_TLSOptions_SIMPLE,
+					CredentialName: "ingress-sds-resource-name",
+				},
+			},
+			enableSds: true,
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: ListenersALPNProtocols,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
-							Name: "httpbin.example.com",
+							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -70,12 +100,14 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolFalse,
 			},
 		},
-		{
+		{ // Credential name and subject alternative names are specified, generate SDS configs for
+		  // key/cert and root cert.
 			server: &networking.Server{
 				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
 				Tls: &networking.Server_TLSOptions{
 					Mode:    networking.Server_TLSOptions_SIMPLE,
-					SdsName: "ingress-sds-resource-name",
+					CredentialName: "ingress-sds-resource-name",
+					SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
 				},
 			},
 			enableSds: true,
@@ -95,6 +127,33 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
 														TargetUri:  model.IngressGatewaySdsUdsPath,
 														StatPrefix: model.SDSStatPrefix,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{
+								VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+							},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "ingress-sds-resource-name-cacert",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType: core.ApiConfigSource_GRPC,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+														GoogleGrpc: &core.GrpcService_GoogleGrpc{
+															TargetUri:  model.IngressGatewaySdsUdsPath,
+															StatPrefix: model.SDSStatPrefix,
+														},
 													},
 												},
 											},
@@ -168,6 +227,75 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					},
 				},
 				RequireClientCertificate: proto.BoolTrue,
+			},
+		},
+		{ // Credential name and subject names are specified, SDS configs are generated for fetching
+		  // key/cert and root cert.
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com", "bookinfo.example.com"},
+				Tls: &networking.Server_TLSOptions{
+					Mode:    networking.Server_TLSOptions_MUTUAL,
+					CredentialName: "ingress-sds-resource-name",
+					ServerCertificate: "server-cert.crt",
+					PrivateKey:        "private-key.key",
+					SubjectAltNames: []string{"subject.name.a.com", "subject.name.b.com"},
+				},
+			},
+			enableSds: true,
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: ListenersALPNProtocols,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name: "ingress-sds-resource-name",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+													GoogleGrpc: &core.GrpcService_GoogleGrpc{
+														TargetUri:  model.IngressGatewaySdsUdsPath,
+														StatPrefix: model.SDSStatPrefix,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+						CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+							DefaultValidationContext: &auth.CertificateValidationContext{
+								VerifySubjectAltName: []string{"subject.name.a.com", "subject.name.b.com"},
+							},
+							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+								Name: "ingress-sds-resource-name-cacert",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType: core.ApiConfigSource_GRPC,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
+														GoogleGrpc: &core.GrpcService_GoogleGrpc{
+															TargetUri:  model.IngressGatewaySdsUdsPath,
+															StatPrefix: model.SDSStatPrefix,
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolFalse,
 			},
 		},
 		{
