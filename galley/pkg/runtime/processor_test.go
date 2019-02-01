@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"istio.io/istio/galley/pkg/runtime/groups"
 
 	"istio.io/istio/galley/pkg/meshconfig"
 	"istio.io/istio/galley/pkg/runtime/publish"
@@ -31,7 +32,7 @@ import (
 
 func TestProcessor_Start(t *testing.T) {
 	src := NewInMemorySource()
-	distributor := snapshot.New(snapshot.DefaultGroupIndex)
+	distributor := snapshot.New(groups.IndexFunction)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 	p := NewProcessor(src, distributor, cfg)
 
@@ -55,7 +56,7 @@ func (e *erroneousSource) Start(_ resource.EventHandler) error {
 func (e *erroneousSource) Stop() {}
 
 func TestProcessor_Start_Error(t *testing.T) {
-	distributor := snapshot.New(snapshot.DefaultGroupIndex)
+	distributor := snapshot.New(groups.IndexFunction)
 	cfg := &Config{Mesh: meshconfig.NewInMemory()}
 	p := NewProcessor(&erroneousSource{}, distributor, cfg)
 
