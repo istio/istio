@@ -87,7 +87,7 @@ func TestState_DefaultSnapshot(t *testing.T) {
 
 	s.Handle(e)
 	if s.pendingEvents != 1 {
-		t.Fatal("calling apply should have changed configState.")
+		t.Fatal("calling apply should have changed configHandler.")
 	}
 
 	sn = s.buildSnapshot()
@@ -123,7 +123,7 @@ func TestState_Apply_Update(t *testing.T) {
 
 	s.Handle(e)
 	if s.pendingEvents != 1 {
-		t.Fatal("calling apply should have changed configState.")
+		t.Fatal("calling apply should have changed configHandler.")
 	}
 
 	e = resource.Event{
@@ -141,7 +141,7 @@ func TestState_Apply_Update(t *testing.T) {
 	}
 	s.Handle(e)
 	if s.pendingEvents != 2 {
-		t.Fatal("calling apply should have changed configState.")
+		t.Fatal("calling apply should have changed configHandler.")
 	}
 
 	sn := s.buildSnapshot()
@@ -177,7 +177,7 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 
 	s.Handle(e)
 	if s.pendingEvents != 1 {
-		t.Fatal("calling apply should have changed configState.")
+		t.Fatal("calling apply should have changed configHandler.")
 	}
 
 	e = resource.Event{
@@ -197,7 +197,7 @@ func TestState_Apply_Update_SameVersion(t *testing.T) {
 
 	s.Handle(e)
 	if s.pendingEvents != 1 {
-		t.Fatal("calling apply should not have changed configState.")
+		t.Fatal("calling apply should not have changed configHandler.")
 	}
 }
 
@@ -214,7 +214,7 @@ func TestState_Apply_Delete(t *testing.T) {
 
 	s.Handle(e)
 	if s.pendingEvents != 1 {
-		t.Fatal("calling apply should have changed configState.")
+		t.Fatal("calling apply should have changed configHandler.")
 	}
 
 	e = resource.Event{
@@ -227,7 +227,7 @@ func TestState_Apply_Delete(t *testing.T) {
 
 	s.Handle(e)
 	if s.pendingEvents != 3 {
-		t.Fatal("calling apply should have changed configState.")
+		t.Fatal("calling apply should have changed configHandler.")
 	}
 
 	sn := s.buildSnapshot()
@@ -249,7 +249,7 @@ func TestState_Apply_UnknownEventKind(t *testing.T) {
 	}
 	s.Handle(e)
 	if s.pendingEvents > 0 {
-		t.Fatal("calling apply should not have changed configState.")
+		t.Fatal("calling apply should not have changed configHandler.")
 	}
 
 	sn := s.buildSnapshot()
@@ -271,7 +271,7 @@ func TestState_Apply_BrokenProto(t *testing.T) {
 	}
 	s.Handle(e)
 	if s.pendingEvents > 0 {
-		t.Fatal("calling apply should not have changed configState.")
+		t.Fatal("calling apply should not have changed configHandler.")
 	}
 
 	sn := s.buildSnapshot()
@@ -297,6 +297,6 @@ func TestState_String(t *testing.T) {
 	_ = s.String()
 }
 
-func newTestState() *configState {
-	return newConfigState(resources.TestSchema, cfg)
+func newTestState() *configHandler {
+	return newConfigHandler(resources.TestSchema, cfg)
 }

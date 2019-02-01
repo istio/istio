@@ -25,7 +25,7 @@ import (
 
 // Source to be implemented by a source configuration provider.
 type Source interface {
-	// Start the source interface, provided the EventHandler. The initial configState of the underlying
+	// Start the source interface, provided the EventHandler. The initial configHandler of the underlying
 	// config store should be reflected as a series of Added events, followed by a FullSync event.
 	Start(handler resource.EventHandler) error
 

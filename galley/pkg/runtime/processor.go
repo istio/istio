@@ -79,12 +79,12 @@ func newProcessor(
 
 	now := time.Now()
 
-	cfgState := newConfigState(metadata.Types, cfg)
-	cfgPublisher := newPublisher(sn.DefaultGroup, cfgState, distributor, publish.NewStrategyWithDefaults())
-	cfgState.SetListener(cfgPublisher)
+	cfgHandler := newConfigHandler(metadata.Types, cfg)
+	cfgPublisher := newPublisher(sn.DefaultGroup, cfgHandler, distributor, publish.NewStrategyWithDefaults())
+	cfgHandler.SetListener(cfgPublisher)
 
 	b := processing.NewDispatcherBuilder()
-	cfgState.registerHandlers(b)
+	cfgHandler.registerHandlers(b)
 	dispatcher := b.Build()
 
 	publishers := [1]*publisher{

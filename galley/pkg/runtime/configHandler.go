@@ -34,22 +34,22 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 )
 
-var _ processing.Handler = &configState{}
-var _ processing.Snapshotter = &configState{}
+var _ processing.Handler = &configHandler{}
+var _ processing.Snapshotter = &configHandler{}
 
-// configState is the in-memory configState of Galley.
-type configState struct {
-//	name   string
+// configHandler is the in-memory configHandler of Galley.
+type configHandler struct {
+	//	name   string
 	schema *resource.Schema
 
 	listener processing.Listener
 
 	config *Config
 
-	// version counter is a nonce that generates unique ids for each updated view of configState.
+	// version counter is a nonce that generates unique ids for each updated view of configHandler.
 	versionCounter int64
 
-	// entries for per-message-type configState.
+	// entries for per-message-type configHandler.
 	entriesLock sync.Mutex
 	entries     map[resource.Collection]*resourceTypeState
 
@@ -74,10 +74,10 @@ type resourceTypeState struct {
 	versions map[resource.FullName]resource.Version
 }
 
-func newConfigState(schema *resource.Schema, cfg *Config) *configState {
+func newConfigHandler(schema *resource.Schema, cfg *Config) *configHandler {
 
 	now := time.Now()
-	s := &configState{
+	s := &configHandler{
 		schema:           schema,
 		config:           cfg,
 		entries:          make(map[resource.Collection]*resourceTypeState),
@@ -96,22 +96,22 @@ func newConfigState(schema *resource.Schema, cfg *Config) *configState {
 	return s
 }
 
-func (s *configState) Snapshot() snapshot.Snapshot {
+func (s *configHandler) Snapshot() snapshot.Snapshot {
 	return s.buildSnapshot()
 }
 
-func (s *configState) SetListener(l processing.Listener) {
+func (s *configHandler) SetListener(l processing.Listener) {
 	s.listener = l
 }
 
-func (s *configState) registerHandlers(b *processing.DispatcherBuilder) {
+func (s *configHandler) registerHandlers(b *processing.DispatcherBuilder) {
 	for _, spec := range s.schema.All() {
 		b.Add(spec.Collection, s)
 	}
 }
 
 // Handle implements the processing.Handler interface.
-func (s *configState) Handle(event resource.Event) {
+func (s *configHandler) Handle(event resource.Event) {
 	pks, found := s.getResourceTypeState(event.Entry.ID.Collection)
 	if !found {
 		return
@@ -157,7 +157,7 @@ func (s *configState) Handle(event resource.Event) {
 	//}
 }
 
-func (s *configState) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
+func (s *configHandler) getResourceTypeState(name resource.Collection) (*resourceTypeState, bool) {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -165,7 +165,7 @@ func (s *configState) getResourceTypeState(name resource.Collection) (*resourceT
 	return pks, found
 }
 
-func (s *configState) buildSnapshot() snapshot.Snapshot {
+func (s *configHandler) buildSnapshot() snapshot.Snapshot {
 	s.entriesLock.Lock()
 	defer s.entriesLock.Unlock()
 
@@ -186,11 +186,11 @@ func (s *configState) buildSnapshot() snapshot.Snapshot {
 	return b.Build()
 }
 
-func (s *configState) buildProjections(b *snapshot.InMemoryBuilder) {
+func (s *configHandler) buildProjections(b *snapshot.InMemoryBuilder) {
 	s.buildIngressProjectionResources(b)
 }
 
-func (s *configState) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
+func (s *configHandler) buildIngressProjectionResources(b *snapshot.InMemoryBuilder) {
 	ingressByHost := make(map[string]resource.Entry)
 
 	// Build ingress projections
@@ -294,7 +294,7 @@ func extractMetadata(entry *mcp.Resource) resource.Metadata {
 	}
 }
 
-func (s *configState) toResource(e resource.Entry) (*mcp.Resource, bool) {
+func (s *configHandler) toResource(e resource.Entry) (*mcp.Resource, bool) {
 	body, err := types.MarshalAny(e.Item)
 	if err != nil {
 		log.Scope.Errorf("Error serializing proto from source e: %v:", e)
@@ -322,10 +322,10 @@ func (s *configState) toResource(e resource.Entry) (*mcp.Resource, bool) {
 }
 
 // String implements fmt.Stringer
-func (s *configState) String() string {
+func (s *configHandler) String() string {
 	var b bytes.Buffer
 
-	_, _ = fmt.Fprintf(&b, "[configState @%v]\n", s.versionCounter)
+	_, _ = fmt.Fprintf(&b, "[configHandler @%v]\n", s.versionCounter)
 
 	sn := s.buildSnapshot().(*snapshot.InMemory)
 	_, _ = fmt.Fprintf(&b, "%v", sn)
