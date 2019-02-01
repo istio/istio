@@ -376,6 +376,25 @@ func TestSourceWatchClosed(t *testing.T) {
 	}
 }
 
+func TestRateLimitError(t *testing.T) {
+	h := newSourceTestHarness(t)
+	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
+
+	fakeLimiter := newFakeRateLimiter()
+
+	s := makeSourceUnderTest(h)
+	s.requestLimiter = fakeLimiter
+
+	expectedErr := "rate limiting went wrong"
+	go func() {
+		fakeLimiter.waitErr <- errors.New(expectedErr)
+	}()
+
+	if err := s.processStream(h); err == nil || err.Error() != expectedErr {
+		t.Errorf("Stream() => expected %v got %v", expectedErr, err)
+	}
+}
+
 func TestSourceSendError(t *testing.T) {
 	h := newSourceTestHarness(t)
 	h.injectWatchResponse(&WatchResponse{

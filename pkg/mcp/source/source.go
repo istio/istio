@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gogo/status"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 
@@ -105,9 +106,11 @@ func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 
 // Options contains options for configuring MCP sources.
 type Options struct {
-	Watcher            Watcher
-	CollectionsOptions []CollectionOptions
-	Reporter           monitoring.Reporter
+	Watcher                 Watcher
+	CollectionsOptions      []CollectionOptions
+	Reporter                monitoring.Reporter
+	PerConnRequestBurstSize int
+	PerConnRequestFreq      time.Duration
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -117,14 +120,15 @@ type Stream interface {
 	Context() context.Context
 }
 
-// Sources implements the resource source message exchange for MCP. It can be instantiated by client and server
-// source implementations to manage the MCP message exchange.
+// Source implements the resource source message exchange for MCP.
+// It can be instantiated by client and server
 type Source struct {
-	watcher      Watcher
-	collections  []CollectionOptions
-	nextStreamID int64
-	reporter     monitoring.Reporter
-	connections  int64
+	watcher        Watcher
+	collections    []CollectionOptions
+	nextStreamID   int64
+	reporter       monitoring.Reporter
+	connections    int64
+	requestLimiter RateLimiter
 }
 
 // watch maintains local push state of the most recent watch per-type.
@@ -158,14 +162,15 @@ type connection struct {
 	queue *internal.UniqueQueue
 }
 
-const DefaultRetryPushDelay = 10 * time.Millisecond
-
 // New creates a new resource source.
 func New(options *Options) *Source {
 	s := &Source{
 		watcher:     options.Watcher,
 		collections: options.CollectionsOptions,
 		reporter:    options.Reporter,
+		requestLimiter: rate.NewLimiter(
+			rate.Every(options.PerConnRequestFreq),
+			options.PerConnRequestBurstSize),
 	}
 	return s
 }
@@ -241,6 +246,9 @@ func (s *Source) processStream(stream Stream) error {
 		case req, more := <-con.requestC:
 			if !more {
 				return con.reqError
+			}
+			if err := s.requestLimiter.Wait(stream.Context()); err != nil {
+				return err
 			}
 			if err := con.processClientRequest(req); err != nil {
 				return err
