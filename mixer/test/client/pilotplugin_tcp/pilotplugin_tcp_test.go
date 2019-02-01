@@ -217,9 +217,6 @@ var (
 			Metadata: map[string]string{
 				"ISTIO_PROXY_VERSION": "1.1",
 			},
-			SidecarScope: &model.SidecarScope{
-				PluginData: make(map[string]interface{}),
-			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
 		Push:            pushContext,
@@ -232,9 +229,6 @@ var (
 			Type: model.SidecarProxy,
 			Metadata: map[string]string{
 				"ISTIO_PROXY_VERSION": "1.1",
-			},
-			SidecarScope: &model.SidecarScope{
-				PluginData: make(map[string]interface{}),
 			},
 		},
 		Service: &svc,
