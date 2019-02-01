@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
+	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
 )
 
@@ -357,7 +358,7 @@ func updateSnapshot(d *driver) {
 
 	d.nextDataset = (d.nextDataset + 1) % len(commonDataset)
 
-	d.cache.SetSnapshot(snapshot.DefaultGroup, sn)
+	d.cache.SetSnapshot(groups.Default, sn)
 }
 
 func defaultOptions() options {
@@ -406,7 +407,7 @@ func newDriver(o options) (*driver, error) {
 func (d *driver) initOptions() {
 	d.serverOpts = &source.Options{
 		Reporter:          monitoring.NewInMemoryStatsContext(),
-		Watcher:           snapshot.New(snapshot.DefaultGroupIndex),
+		Watcher:           snapshot.New(groups.DefaultIndexFn),
 		CollectionOptions: source.CollectionOptionsFromSlice(defaultCollections),
 	}
 	for i := range d.serverOpts.CollectionOptions {
@@ -476,7 +477,7 @@ func (d *driver) initClient(id int) error {
 }
 
 func (d *driver) initServer() error {
-	d.cache = snapshot.New(snapshot.DefaultGroupIndex)
+	d.cache = snapshot.New(groups.DefaultIndexFn)
 	d.serverOpts.Watcher = d.cache
 
 	s := source.NewServer(d.serverOpts, &source.ServerOptions{
