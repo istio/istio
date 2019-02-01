@@ -10,38 +10,38 @@ metadata:
 rules:
 - apiGroups: [""]
   resources:
-    - configmaps
-    - endpoints
-    - namespaces
-    - nodes
-    - pods
-    - projects
-    - services
-    - replicationcontrollers
+  - configmaps
+  - endpoints
+  - namespaces
+  - nodes
+  - pods
+  - projects
+  - services
+  - replicationcontrollers
   verbs:
-    - get
-    - list
-    - watch
+  - get
+  - list
+  - watch
 - apiGroups: ["extensions", "apps"]
   resources:
-    - deployments
-    - statefulsets
-    - replicasets
+  - deployments
+  - statefulsets
+  - replicasets
   verbs:
-    - get
-    - list
-    - watch
+  - get
+  - list
+  - watch
 - apiGroups: ["autoscaling"]
   resources:
-    - horizontalpodautoscalers
+  - horizontalpodautoscalers
   verbs:
-    - get
-    - list
-    - watch
+  - get
+  - list
+  - watch
 - apiGroups: ["batch"]
   resources:
-    - cronjobs
-    - jobs
+  - cronjobs
+  - jobs
   verbs:
   - get
   - list
