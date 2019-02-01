@@ -425,6 +425,17 @@ func init() {
 	})
 
 	b.Add(schema.ResourceSpec{
+		Kind:      "zipkin",
+		ListKind:  "zipkinList",
+		Singular:  "zipkin",
+		Plural:    "zipkins",
+		Version:   "v1alpha2",
+		Group:     "config.istio.io",
+		Target:    metadata.Types.Get("istio/config/v1alpha2/legacy/zipkins"),
+		Converter: converter.Get("identity"),
+	})
+
+	b.Add(schema.ResourceSpec{
 		Kind:      "template",
 		ListKind:  "templateList",
 		Singular:  "template",
