@@ -157,7 +157,7 @@ func endpointMetadata(UID string, network string) *core.Metadata {
 
 	metadata := &core.Metadata{
 		FilterMetadata: map[string]*types.Struct{
-			"istio": {
+			util.IstioMetadataKey: {
 				Fields: map[string]*types.Value{},
 			},
 		},
