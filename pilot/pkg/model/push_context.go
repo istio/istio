@@ -846,6 +846,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
+		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta))
 		// Store in an index for the config's namespace
 		// a proxy from this namespace will first look here for the destination rule for a given service
 		// This pool consists of both public/private destination rules.
