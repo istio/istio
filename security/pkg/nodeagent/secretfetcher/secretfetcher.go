@@ -41,8 +41,10 @@ const (
 
 	// The ID/name for the certificate chain in kubernetes generic secret.
 	genericScrtCert = "cert"
-	// The ID/name for the k8sKey in kubernetes generic secret.
+	// The ID/name for the private key in kubernetes generic secret.
 	genericScrtKey = "key"
+	// The ID/name for the CA certificate in kubernetes generic secret.
+	genericScrtCa = "cacert"
 
 	// The ID/name for the certificate chain in kubernetes tls secret.
 	tlsScrtCert = "tls.crt"
@@ -135,15 +137,17 @@ func (sf *SecretFetcher) Init(core corev1.CoreV1Interface) { // nolint:interface
 		})
 }
 
-func extractCertAndKey(scrt *v1.Secret) (cert, key []byte) {
+func extractCertAndKey(scrt *v1.Secret) (cert, key, root []byte) {
 	if len(scrt.Data[genericScrtCert]) > 0 {
 		cert = scrt.Data[genericScrtCert]
 		key = scrt.Data[genericScrtKey]
+		root = scrt.Data[genericScrtCa]
 	} else {
 		cert = scrt.Data[tlsScrtCert]
 		key = scrt.Data[tlsScrtKey]
+		root = []byte{}
 	}
-	return cert, key
+	return cert, key, root
 }
 
 func (sf *SecretFetcher) scrtAdded(obj interface{}) {
@@ -155,13 +159,14 @@ func (sf *SecretFetcher) scrtAdded(obj interface{}) {
 
 	t := time.Now()
 	resourceName := scrt.GetName()
-	newCert, newKey := extractCertAndKey(scrt)
+	newCert, newKey, newRoot := extractCertAndKey(scrt)
 	// If there is secret with the same resource name, delete that secret now.
 	sf.secrets.Delete(resourceName)
 	ns := &model.SecretItem{
 		ResourceName:     resourceName,
 		CertificateChain: newCert,
 		PrivateKey:       newKey,
+		RootCert:					newRoot,
 		CreatedTime:      t,
 		Version:          t.String(),
 	}
@@ -203,9 +208,9 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		log.Warnf("Failed to update secret: name does not match (%s vs %s).", oldScrtName, newScrtName)
 		return
 	}
-	oldCert, oldKey := extractCertAndKey(oscrt)
-	newCert, newKey := extractCertAndKey(nscrt)
-	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) {
+	oldCert, oldKey, oldRoot:= extractCertAndKey(oscrt)
+	newCert, newKey, newRoot := extractCertAndKey(nscrt)
+	if bytes.Equal(oldCert, newCert) && bytes.Equal(oldKey, newKey) && bytes.Equal(oldRoot, newRoot){
 		log.Debugf("secret %s does not change, skip update", oldScrtName)
 		return
 	}
@@ -216,6 +221,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 		ResourceName:     newScrtName,
 		CertificateChain: newCert,
 		PrivateKey:       newKey,
+		RootCert: 				newRoot,
 		CreatedTime:      t,
 		Version:          t.String(),
 	}
