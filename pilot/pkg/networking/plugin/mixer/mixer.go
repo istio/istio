@@ -61,6 +61,9 @@ const (
 	// mixer filter name
 	mixer = "mixer"
 
+	inbound direction = iota
+	outbound
+
 	// defaultConfig is the default service config (that does not correspond to an actual service)
 	defaultConfig = "default"
 
@@ -75,9 +78,6 @@ const (
 
 	// force enable policy checks for both inbound and outbound calls, but fail open on errors
 	policyCheckEnableAllow = "allow-on-error"
-
-	inbound direction = iota
-	outbound
 )
 
 // NewPlugin returns an ptr to an initialized mixer.Plugin.
@@ -505,23 +505,20 @@ func addTypedServiceConfig(filterConfigs map[string]*types.Any, cache *cacheData
 		filterConfigs = make(map[string]*types.Any)
 	}
 
-	if cache == nil {
-		// fallback to regular call
-		routeConfig := buildRouteConfig(direction, istioConfig, push, disablePolicy, hostname)
-		filterConfigs[mixer] = util.MessageToAny(routeConfig)
-		return filterConfigs
+	var config *types.Any
+
+	if cache != nil {
+		k := cacheKey{
+			direction:     direction,
+			disablePolicy: disablePolicy,
+			hostname:      hostname,
+		}
+		config, _ = cache.serviceConfigAny[k]
 	}
 
-	k := cacheKey{
-		direction:     direction,
-		disablePolicy: disablePolicy,
-		hostname:      hostname,
-	}
-
-	config, ok := cache.serviceConfigAny[k]
-	if !ok {
-		log.Warnf("missing cache key %#v", k)
-		return filterConfigs
+	// fallback to regular call
+	if config == nil {
+		config = util.MessageToAny(buildRouteConfig(direction, istioConfig, push, disablePolicy, hostname))
 	}
 
 	filterConfigs[mixer] = config
@@ -623,23 +620,37 @@ func (mixerplugin) GetName() string {
 	return plugin.Mixer
 }
 
+var baseKeys = []cacheKey{
+	{
+		disablePolicy: true,
+		direction:     inbound,
+	},
+	{
+		disablePolicy: true,
+		direction:     outbound,
+	},
+	{
+		disablePolicy: false,
+		direction:     inbound,
+	},
+	{
+		disablePolicy: false,
+		direction:     outbound,
+	},
+}
+
 // OnPrecompute implements the plugin interface
 func (mixerplugin) OnPrecompute(in *plugin.InputParams) interface{} {
 	out := &cacheData{
 		serviceConfigAny: make(map[cacheKey]*types.Any),
 	}
-	// TODO: unclear whether this enumerates all services, including external?
-	for _, service := range in.Push.ServiceByHostname {
-		for _, disable := range []bool{true, false} {
-			for _, direction := range []direction{inbound, outbound} {
 
-				out.serviceConfigAny[cacheKey{
-					direction:     direction,
-					disablePolicy: disable,
-					hostname:      service.Hostname}] = util.MessageToAny(
-					buildRouteConfig(direction, in.Env.IstioConfigStore, in.Push, disable, service.Hostname))
-
-			}
+	for hostname := range in.Push.ServiceByHostname {
+		for _, baseKey := range baseKeys {
+			key := baseKey
+			key.hostname = hostname
+			out.serviceConfigAny[key] = util.MessageToAny(
+				buildRouteConfig(key.direction, in.Env.IstioConfigStore, in.Push, key.disablePolicy, hostname))
 		}
 	}
 
