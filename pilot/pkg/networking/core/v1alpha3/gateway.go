@@ -381,13 +381,9 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 	// host.  How does the SDS server differentiate the right secret to
 	// retrieve ?  If gateway controller has enabled SDS and TLSmode is
 	// SIMPLE, generate SDS config for gateway controller.
-	if enableSds && server.Tls.GetMode() == networking.Server_TLSOptions_SIMPLE {
-		sdsName := server.Hosts[0]
-		if server.Tls.SdsName != "" {
-			sdsName = server.Tls.SdsName
-		}
+	if enableSds && server.Tls.CredentialName != "" && server.Tls.GetMode() == networking.Server_TLSOptions_SIMPLE {
 		tls.CommonTlsContext.TlsCertificateSdsSecretConfigs = []*auth.SdsSecretConfig{
-			model.ConstructSdsSecretConfigForGatewayListener(sdsName, model.IngressGatewaySdsUdsPath),
+			model.ConstructSdsSecretConfigForGatewayListener(server.Tls.CredentialName, model.IngressGatewaySdsUdsPath),
 		}
 	} else {
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
