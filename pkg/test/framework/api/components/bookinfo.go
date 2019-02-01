@@ -34,5 +34,5 @@ type Bookinfo interface {
 
 // GetBookinfo from the repository.
 func GetBookinfo(e component.Repository, t testing.TB) Bookinfo {
-	return e.GetComponentOrFail(ids.BookInfo, t).(Bookinfo)
+	return e.GetComponentOrFail("", ids.BookInfo, t).(Bookinfo)
 }
