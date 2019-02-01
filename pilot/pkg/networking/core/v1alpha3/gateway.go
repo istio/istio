@@ -402,22 +402,29 @@ func buildGatewayListenerTLSContext(server *networking.Server, enableSds bool) *
 		}
 	}
 
-	var trustedCa *core.DataSource
-	if len(server.Tls.CaCertificates) != 0 {
-		trustedCa = &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: server.Tls.CaCertificates,
-			},
+	if len(server.Tls.SubjectAltNames) > 0 {
+		if enableSds && server.Tls.CredentialName != "" {
+			
+		} else {
+			var trustedCa *core.DataSource
+			if len(server.Tls.CaCertificates) != 0 {
+				trustedCa = &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: server.Tls.CaCertificates,
+					},
+				}
+			}
+			if trustedCa != nil {
+				tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa:            trustedCa,
+						VerifySubjectAltName: server.Tls.SubjectAltNames,
+					},
+				}
+			}
 		}
 	}
-	if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
-		tls.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-			ValidationContext: &auth.CertificateValidationContext{
-				TrustedCa:            trustedCa,
-				VerifySubjectAltName: server.Tls.SubjectAltNames,
-			},
-		}
-	}
+
 	tls.RequireClientCertificate = proto.BoolFalse
 	if server.Tls.Mode == networking.Server_TLSOptions_MUTUAL {
 		tls.RequireClientCertificate = proto.BoolTrue
