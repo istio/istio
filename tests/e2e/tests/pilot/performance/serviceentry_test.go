@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 	mcptest "istio.io/istio/pkg/mcp/testing"
+	"istio.io/istio/pkg/mcp/testing/groups"
 	"istio.io/istio/tests/util"
 )
 
@@ -110,7 +111,7 @@ func TestServiceEntry(t *testing.T) {
 func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 	for {
 		// wait for pilot to make a MCP request
-		if status := mcpServer.Cache.Status(snapshot.DefaultGroup); status != nil {
+		if status := mcpServer.Cache.Status(groups.Default); status != nil {
 			if status.Watches() > 0 {
 				break
 			}
@@ -142,12 +143,12 @@ func runSnapshot(mcpServer *mcptest.Server, quit chan struct{}, t *testing.T) {
 
 			lastSnapshot := time.Now()
 			shot := b.Build()
-			mcpServer.Cache.SetSnapshot(snapshot.DefaultGroup, shot)
+			mcpServer.Cache.SetSnapshot(groups.Default, shot)
 			b = shot.Builder()
 
 			// wait for client to ACK the pushed snapshot
 			for {
-				if status := mcpServer.Cache.Status(snapshot.DefaultGroup); status != nil {
+				if status := mcpServer.Cache.Status(groups.Default); status != nil {
 					if status.LastWatchRequestTime().After(lastSnapshot) {
 						break
 					}
