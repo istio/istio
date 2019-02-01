@@ -33,19 +33,19 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"google.golang.org/grpc/grpclog"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 
 	mcp "istio.io/api/mcp/v1alpha1"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/mcp/server"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/istio/pkg/mcp/snapshot"
 	"istio.io/istio/pkg/mcp/source"
 	"istio.io/istio/pkg/mcp/testing/monitoring"
-	"istio.io/istio/pkg/log"
 )
 
 var (
