@@ -81,9 +81,9 @@ func TestClientSource(t *testing.T) {
 	}
 
 	options := &Options{
-		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:           monitoring.NewInMemoryStatsContext(),
+		Watcher:           h,
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	c := NewClient(h, options)
 

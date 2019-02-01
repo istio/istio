@@ -165,9 +165,9 @@ func newServer(a *Args, p patchTable) (*Server, error) {
 	s.reporter = p.mcpMetricReporter("galley/mcp/source")
 
 	options := &source.Options{
-		Watcher:            distributor,
-		Reporter:           s.reporter,
-		CollectionsOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
+		Watcher:           distributor,
+		Reporter:          s.reporter,
+		CollectionOptions: source.CollectionOptionsFromSlice(metadata.Types.Collections()),
 	}
 
 	s.mcp = server.New(options, checker)

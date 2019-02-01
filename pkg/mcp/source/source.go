@@ -105,9 +105,9 @@ func CollectionOptionsFromSlice(names []string) []CollectionOptions {
 
 // Options contains options for configuring MCP sources.
 type Options struct {
-	Watcher            Watcher
-	CollectionsOptions []CollectionOptions
-	Reporter           monitoring.Reporter
+	Watcher           Watcher
+	CollectionOptions []CollectionOptions
+	Reporter          monitoring.Reporter
 }
 
 // Stream is for sending Resource messages and receiving RequestResources messages.
@@ -164,7 +164,7 @@ const DefaultRetryPushDelay = 10 * time.Millisecond
 func New(options *Options) *Source {
 	s := &Source{
 		watcher:     options.Watcher,
-		collections: options.CollectionsOptions,
+		collections: options.CollectionOptions,
 		reporter:    options.Reporter,
 	}
 	return s

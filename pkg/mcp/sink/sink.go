@@ -272,13 +272,16 @@ type Change struct {
 	// Ignore when Incremental=false.
 	Removed []string
 
-	// When true, the set of changes represents an incrementalEnabled resource update. The
+	// When true, the set of changes represents an requestIncremental resource update. The
 	// `Objects` is a list of added/update resources and `Removed` is a list of delete
 	// resources.
 	//
 	// When false, the set of changes represents a full-state update for the specified
 	// type. Any previous resources not included in this update should be removed.
 	Incremental bool
+
+	// SystemVersionInfo is the version of the response data (used for debugging purposes only).
+	SystemVersionInfo string
 }
 
 // Updater provides configuration changes in batches of the same protobuf message type.

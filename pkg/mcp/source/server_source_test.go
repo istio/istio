@@ -52,9 +52,9 @@ func TestServerSource(t *testing.T) {
 
 	authChecker := test.NewFakeAuthChecker()
 	options := &Options{
-		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:           monitoring.NewInMemoryStatsContext(),
+		Watcher:           h,
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	s := NewServer(options, &ServerOptions{AuthChecker: authChecker})
 

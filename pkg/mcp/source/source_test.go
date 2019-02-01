@@ -245,9 +245,9 @@ func makeWatchResponse(collection string, version string, fakes ...*test.Fake) *
 
 func makeSourceUnderTest(w Watcher) *Source {
 	options := &Options{
-		Watcher:            w,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:           monitoring.NewInMemoryStatsContext(),
+		Watcher:           w,
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	return New(options)
 }
@@ -408,9 +408,9 @@ func TestSourceReceiveError(t *testing.T) {
 	h.requestsChan <- test.MakeRequest(test.FakeType0Collection, "", codes.OK)
 
 	options := &Options{
-		Watcher:            h,
-		CollectionsOptions: CollectionOptionsFromSlice(test.SupportedCollections),
-		Reporter:           monitoring.NewInMemoryStatsContext(),
+		Watcher:           h,
+		CollectionOptions: CollectionOptionsFromSlice(test.SupportedCollections),
+		Reporter:          monitoring.NewInMemoryStatsContext(),
 	}
 	// check that response fails since watch gets closed
 	s := New(options)
