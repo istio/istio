@@ -309,11 +309,12 @@ func (h *sinkHarness) verifyStreamReturnValue(t *testing.T, wantError error) {
 	}
 }
 
-func makeChange(collection string, inc bool, removed []string, fakes ...*test.Fake) *Change { // nolint: unparam
+func makeChange(collection, version string, inc bool, removed []string, fakes ...*test.Fake) *Change { // nolint: unparam
 	change := &Change{
-		Collection:  collection,
-		Removed:     removed,
-		Incremental: inc,
+		Collection:        collection,
+		Removed:           removed,
+		Incremental:       inc,
+		SystemVersionInfo: version,
 	}
 	for _, fake := range fakes {
 		change.Objects = append(change.Objects, &Object{
@@ -373,49 +374,49 @@ func TestSinkACKAddUpdateDelete(t *testing.T) {
 			name:        "ACK test.Type0 add A",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v0", "type0/n0", nil, test.Type0A[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[0]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v0", false, nil, test.Type0A[0]),
 		},
 		{
 			name:        "ACK test.Type1 add A",
 			resources:   test.MakeResources(false, test.FakeType1Collection, "type1/v0", "type1/n0", nil, test.Type1A[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType1Collection, "type1/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType1Collection, false, nil, test.Type1A[0]),
+			wantChange:  makeChange(test.FakeType1Collection, "type1/v0", false, nil, test.Type1A[0]),
 		},
 		{
-			name:        "ACK test.Type1 add A",
+			name:        "ACK test.Type2 add A",
 			resources:   test.MakeResources(false, test.FakeType2Collection, "type2/v0", "type2/n0", nil, test.Type2A[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType2Collection, "type2/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType2Collection, false, nil, test.Type2A[0]),
+			wantChange:  makeChange(test.FakeType2Collection, "type2/v0", false, nil, test.Type2A[0]),
 		},
 		{
 			name:        "ACK update A add B",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v1", "type0/n1", nil, test.Type0A[1], test.Type0B[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n1", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[1], test.Type0B[0]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v1", false, nil, test.Type0A[1], test.Type0B[0]),
 		},
 		{
 			name:        "ACK remove A update B add C",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v2", "type0/n2", nil, test.Type0B[1], test.Type0C[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n2", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0B[1], test.Type0C[0]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v2", false, nil, test.Type0B[1], test.Type0C[0]),
 		},
 		{
 			name:        "ACK remove B",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v3", "type0/n3", nil),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n3", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v3", false, nil),
 		},
 		{
 			name:        "ACK remove B again",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v4", "type0/n4", nil),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n4", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v4", false, nil),
 		},
 		{
 			name:        "ACK update C",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v5", "type0/n5", nil, test.Type0C[1]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n5", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0C[1]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v5", false, nil, test.Type0C[1]),
 		},
 	}
 
@@ -440,7 +441,7 @@ func TestSinkNACK(t *testing.T) {
 			name:        "ACK add A",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v0", "type0/n0", nil, test.Type0A[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[0]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v0", false, nil, test.Type0A[0]),
 		},
 		{
 			name:        "NACK unsupported type_url",
@@ -462,7 +463,7 @@ func TestSinkNACK(t *testing.T) {
 			name:        "ACK update A",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v5", "type0/n5", nil, test.Type0A[1]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n5", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[1]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v5", false, nil, test.Type0A[1]),
 		},
 	}
 
@@ -482,13 +483,13 @@ func TestSinkResume(t *testing.T) {
 			name:        "ACK add test.Type0 A B",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v0", "type0/n0", nil, test.Type0A[0], test.Type0B[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[0], test.Type0B[0]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v0", false, nil, test.Type0A[0], test.Type0B[0]),
 		},
 		{
 			name:        "ACK add test.Type1 A",
 			resources:   test.MakeResources(false, test.FakeType1Collection, "type1/v0", "type1/n0", nil, test.Type1A[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType1Collection, "type1/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType1Collection, false, nil, test.Type1A[0]),
+			wantChange:  makeChange(test.FakeType1Collection, "type1/v0", false, nil, test.Type1A[0]),
 		},
 	}
 
@@ -497,13 +498,13 @@ func TestSinkResume(t *testing.T) {
 			name:        "ACK remove test.Type0 A B",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v0", "type0/n0", nil),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v0", false, nil),
 		},
 		{
 			name:        "ACK remove test.Type1 A",
 			resources:   test.MakeResources(false, test.FakeType1Collection, "type1/v0", "type1/n0", nil),
 			wantRequest: test.MakeRequest(false, test.FakeType1Collection, "type1/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType1Collection, false, nil),
+			wantChange:  makeChange(test.FakeType1Collection, "type1/v0", false, nil),
 		},
 	}
 
@@ -546,13 +547,13 @@ func TestSinkSendError(t *testing.T) {
 			name:        "ACK add A",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v0", "type0/n0", nil, test.Type0A[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[0]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v0", false, nil, test.Type0A[0]),
 		},
 		{
 			name:        "send error",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v1", "type0/n1", nil, test.Type0A[1]),
 			wantRequest: nil, // ACK request dropped on send error
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[1]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v1", false, nil, test.Type0A[1]),
 			sendError:   errSend,
 		},
 	}
@@ -573,7 +574,7 @@ func TestSinkRecvError(t *testing.T) {
 			name:        "ACK add A",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v0", "type0/n0", nil, test.Type0A[0]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[0]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v0", false, nil, test.Type0A[0]),
 		},
 		{
 			name:      "recv error EOF",
@@ -588,7 +589,7 @@ func TestSinkRecvError(t *testing.T) {
 			name:        "ACK update A",
 			resources:   test.MakeResources(false, test.FakeType0Collection, "type0/v0", "type0/n0", nil, test.Type0A[1]),
 			wantRequest: test.MakeRequest(false, test.FakeType0Collection, "type0/n0", codes.OK),
-			wantChange:  makeChange(test.FakeType0Collection, false, nil, test.Type0A[1]),
+			wantChange:  makeChange(test.FakeType0Collection, "type0/v0", false, nil, test.Type0A[1]),
 		},
 		{
 			name:      "recv error unknown",
