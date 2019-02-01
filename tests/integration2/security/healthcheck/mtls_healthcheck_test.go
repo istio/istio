@@ -12,11 +12,12 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-// Package basic contains an example test suite for showcase purposes.
-package security
+// Package healthcheck contains a test to support kubernetes app health check when mTLS is turned on.
+package healthcheck
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -27,6 +28,11 @@ import (
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 )
+
+func TestMain(m *testing.M) {
+	rt, _ := framework.Run("healthcheck_with_mtls", m)
+	os.Exit(rt)
+}
 
 // TestMtlsHealthCheck verifies Kubernetes HTTP health check can work when mTLS
 // is enabled.
