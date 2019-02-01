@@ -777,11 +777,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 		},
 	}
 	ii := model.MakeIstioStore(l)
-	cfgs := ii.QuotaSpecByDestination(&model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: model.Hostname("a." + ns + ".svc.cluster.local"),
-		},
-	})
+	cfgs := ii.QuotaSpecByDestination(model.Hostname("a." + ns + ".svc.cluster.local"))
 
 	if len(cfgs) != 1 {
 		t.Fatalf("did not find 1 matched quota")
@@ -998,11 +994,7 @@ func TestIstioConfigStore_HTTPAPISpecByDestination(t *testing.T) {
 		},
 	}
 	ii := model.MakeIstioStore(l)
-	cfgs := ii.HTTPAPISpecByDestination(&model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: model.Hostname("foo." + ns + ".svc.cluster.local"),
-		},
-	})
+	cfgs := ii.HTTPAPISpecByDestination(model.Hostname("foo." + ns + ".svc.cluster.local"))
 
 	if len(cfgs) != 1 {
 		t.Fatalf("did not find 1 matched HTTPAPISpec, \n%v", cfgs)

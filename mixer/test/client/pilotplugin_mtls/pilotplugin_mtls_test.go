@@ -341,10 +341,13 @@ var (
 		},
 		ServiceDiscovery: mock{},
 	}
-	pushContext = model.PushContext{
+	pushContext = &model.PushContext{
 		ServiceByHostname: map[model.Hostname]*model.Service{
 			model.Hostname("svc.ns3"): &svc,
 		},
+	}
+	scope = &model.SidecarScope{
+		PluginData: make(map[string]interface{}),
 	}
 	serverParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
@@ -352,9 +355,13 @@ var (
 		Node: &model.Proxy{
 			ID:   "pod1.ns2",
 			Type: model.SidecarProxy,
+			Metadata: map[string]string{
+				"ISTIO_PROXY_VERSION": "1.1",
+			},
+			SidecarScope: scope,
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
-		Push:            &pushContext,
+		Push:            pushContext,
 	}
 	clientParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolHTTP,
@@ -362,9 +369,13 @@ var (
 		Node: &model.Proxy{
 			ID:   "pod2.ns2",
 			Type: model.SidecarProxy,
+			Metadata: map[string]string{
+				"ISTIO_PROXY_VERSION": "1.1",
+			},
+			SidecarScope: scope,
 		},
 		Service: &svc,
-		Push:    &pushContext,
+		Push:    pushContext,
 	}
 )
 
@@ -412,6 +423,11 @@ func makeSnapshot(s *env.TestSetup, t *testing.T) cache.Snapshot {
 	serverRoute := makeRoute("inbound|||backend")
 
 	p := mixer.NewPlugin()
+
+	scope.PluginData[p.GetName()] = p.OnPrecompute(&plugin.InputParams{
+		Env:  mesh,
+		Push: pushContext,
+	})
 
 	serverMutable := plugin.MutableObjects{Listener: serverListener, FilterChains: []plugin.FilterChain{{}}}
 	if err := p.OnInboundListener(&serverParams, &serverMutable); err != nil {

@@ -125,6 +125,12 @@ type MutableObjects struct {
 // way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
 // and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
 type Plugin interface {
+	// GetName returns the unique plugin name
+	GetName() string
+
+	// OnPrecompute is called whenever a new push is initialized to precompute and store plugin data
+	OnPrecompute(in *InputParams) interface{}
+
 	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service.
 	// Can be used to add additional filters on the outbound path.
 	OnOutboundListener(in *InputParams, mutable *MutableObjects) error

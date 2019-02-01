@@ -114,10 +114,10 @@ type IstioConfigStore struct {
 	envoyFilterReturnsOnCall map[int]struct {
 		result1 *model.Config
 	}
-	HTTPAPISpecByDestinationStub        func(instance *model.ServiceInstance) []model.Config
+	HTTPAPISpecByDestinationStub        func(hostname model.Hostname) []model.Config
 	hTTPAPISpecByDestinationMutex       sync.RWMutex
 	hTTPAPISpecByDestinationArgsForCall []struct {
-		instance *model.ServiceInstance
+		hostname model.Hostname
 	}
 	hTTPAPISpecByDestinationReturns struct {
 		result1 []model.Config
@@ -125,10 +125,10 @@ type IstioConfigStore struct {
 	hTTPAPISpecByDestinationReturnsOnCall map[int]struct {
 		result1 []model.Config
 	}
-	QuotaSpecByDestinationStub        func(instance *model.ServiceInstance) []model.Config
+	QuotaSpecByDestinationStub        func(hostname model.Hostname) []model.Config
 	quotaSpecByDestinationMutex       sync.RWMutex
 	quotaSpecByDestinationArgsForCall []struct {
-		instance *model.ServiceInstance
+		hostname model.Hostname
 	}
 	quotaSpecByDestinationReturns struct {
 		result1 []model.Config
@@ -622,16 +622,16 @@ func (fake *IstioConfigStore) EnvoyFilterReturnsOnCall(i int, result1 *model.Con
 	}{result1}
 }
 
-func (fake *IstioConfigStore) HTTPAPISpecByDestination(instance *model.ServiceInstance) []model.Config {
+func (fake *IstioConfigStore) HTTPAPISpecByDestination(hostname model.Hostname) []model.Config {
 	fake.hTTPAPISpecByDestinationMutex.Lock()
 	ret, specificReturn := fake.hTTPAPISpecByDestinationReturnsOnCall[len(fake.hTTPAPISpecByDestinationArgsForCall)]
 	fake.hTTPAPISpecByDestinationArgsForCall = append(fake.hTTPAPISpecByDestinationArgsForCall, struct {
-		instance *model.ServiceInstance
-	}{instance})
-	fake.recordInvocation("HTTPAPISpecByDestination", []interface{}{instance})
+		hostname model.Hostname
+	}{hostname})
+	fake.recordInvocation("HTTPAPISpecByDestination", []interface{}{hostname})
 	fake.hTTPAPISpecByDestinationMutex.Unlock()
 	if fake.HTTPAPISpecByDestinationStub != nil {
-		return fake.HTTPAPISpecByDestinationStub(instance)
+		return fake.HTTPAPISpecByDestinationStub(hostname)
 	}
 	if specificReturn {
 		return ret.result1
@@ -645,10 +645,10 @@ func (fake *IstioConfigStore) HTTPAPISpecByDestinationCallCount() int {
 	return len(fake.hTTPAPISpecByDestinationArgsForCall)
 }
 
-func (fake *IstioConfigStore) HTTPAPISpecByDestinationArgsForCall(i int) *model.ServiceInstance {
+func (fake *IstioConfigStore) HTTPAPISpecByDestinationArgsForCall(i int) model.Hostname {
 	fake.hTTPAPISpecByDestinationMutex.RLock()
 	defer fake.hTTPAPISpecByDestinationMutex.RUnlock()
-	return fake.hTTPAPISpecByDestinationArgsForCall[i].instance
+	return fake.hTTPAPISpecByDestinationArgsForCall[i].hostname
 }
 
 func (fake *IstioConfigStore) HTTPAPISpecByDestinationReturns(result1 []model.Config) {
@@ -670,16 +670,16 @@ func (fake *IstioConfigStore) HTTPAPISpecByDestinationReturnsOnCall(i int, resul
 	}{result1}
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestination(instance *model.ServiceInstance) []model.Config {
+func (fake *IstioConfigStore) QuotaSpecByDestination(hostname model.Hostname) []model.Config {
 	fake.quotaSpecByDestinationMutex.Lock()
 	ret, specificReturn := fake.quotaSpecByDestinationReturnsOnCall[len(fake.quotaSpecByDestinationArgsForCall)]
 	fake.quotaSpecByDestinationArgsForCall = append(fake.quotaSpecByDestinationArgsForCall, struct {
-		instance *model.ServiceInstance
-	}{instance})
-	fake.recordInvocation("QuotaSpecByDestination", []interface{}{instance})
+		hostname model.Hostname
+	}{hostname})
+	fake.recordInvocation("QuotaSpecByDestination", []interface{}{hostname})
 	fake.quotaSpecByDestinationMutex.Unlock()
 	if fake.QuotaSpecByDestinationStub != nil {
-		return fake.QuotaSpecByDestinationStub(instance)
+		return fake.QuotaSpecByDestinationStub(hostname)
 	}
 	if specificReturn {
 		return ret.result1
@@ -693,10 +693,10 @@ func (fake *IstioConfigStore) QuotaSpecByDestinationCallCount() int {
 	return len(fake.quotaSpecByDestinationArgsForCall)
 }
 
-func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) *model.ServiceInstance {
+func (fake *IstioConfigStore) QuotaSpecByDestinationArgsForCall(i int) model.Hostname {
 	fake.quotaSpecByDestinationMutex.RLock()
 	defer fake.quotaSpecByDestinationMutex.RUnlock()
-	return fake.quotaSpecByDestinationArgsForCall[i].instance
+	return fake.quotaSpecByDestinationArgsForCall[i].hostname
 }
 
 func (fake *IstioConfigStore) QuotaSpecByDestinationReturns(result1 []model.Config) {

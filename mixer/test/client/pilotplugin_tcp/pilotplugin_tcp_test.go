@@ -203,7 +203,7 @@ var (
 		},
 		ServiceDiscovery: mock{},
 	}
-	pushContext = model.PushContext{
+	pushContext = &model.PushContext{
 		ServiceByHostname: map[model.Hostname]*model.Service{
 			model.Hostname("svc.ns3"): &svc,
 		},
@@ -214,9 +214,15 @@ var (
 		Node: &model.Proxy{
 			ID:   "pod1.ns1",
 			Type: model.SidecarProxy,
+			Metadata: map[string]string{
+				"ISTIO_PROXY_VERSION": "1.1",
+			},
+			SidecarScope: &model.SidecarScope{
+				PluginData: make(map[string]interface{}),
+			},
 		},
 		ServiceInstance: &model.ServiceInstance{Service: &svc},
-		Push:            &pushContext,
+		Push:            pushContext,
 	}
 	clientParams = plugin.InputParams{
 		ListenerProtocol: plugin.ListenerProtocolTCP,
@@ -224,9 +230,15 @@ var (
 		Node: &model.Proxy{
 			ID:   "pod2.ns2",
 			Type: model.SidecarProxy,
+			Metadata: map[string]string{
+				"ISTIO_PROXY_VERSION": "1.1",
+			},
+			SidecarScope: &model.SidecarScope{
+				PluginData: make(map[string]interface{}),
+			},
 		},
 		Service: &svc,
-		Push:    &pushContext,
+		Push:    pushContext,
 	}
 )
 

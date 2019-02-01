@@ -841,3 +841,13 @@ func principalForStringMatcher(m *metadata.StringMatcher) *policyproto.Principal
 		},
 	}
 }
+
+// GetName returns the plugin name
+func (Plugin) GetName() string {
+	return plugin.Authz
+}
+
+// OnPrecompute implements the plugin interface
+func (Plugin) OnPrecompute(in *plugin.InputParams) interface{} {
+	return nil
+}

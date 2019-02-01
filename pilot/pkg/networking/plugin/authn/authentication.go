@@ -395,3 +395,13 @@ func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.
 // OnOutboundCluster implements the Plugin interface method.
 func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
 }
+
+// GetName returns the plugin name
+func (Plugin) GetName() string {
+	return plugin.Authn
+}
+
+// OnPrecompute implements the plugin interface
+func (Plugin) OnPrecompute(in *plugin.InputParams) interface{} {
+	return nil
+}

@@ -150,3 +150,13 @@ func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster)
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []plugin.FilterChain {
 	return nil
 }
+
+// GetName returns the plugin name
+func (Plugin) GetName() string {
+	return plugin.Health
+}
+
+// OnPrecompute implements the plugin interface
+func (Plugin) OnPrecompute(in *plugin.InputParams) interface{} {
+	return nil
+}

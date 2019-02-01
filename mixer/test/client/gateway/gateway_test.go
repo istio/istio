@@ -262,6 +262,12 @@ var (
 		Node: &model.Proxy{
 			ID:   "pod.ns",
 			Type: model.Router,
+			Metadata: map[string]string{
+				"ISTIO_PROXY_VERSION": "1.1",
+			},
+			SidecarScope: &model.SidecarScope{
+				PluginData: make(map[string]interface{}),
+			},
 		},
 		Service: &svc,
 		Push:    &pushContext,

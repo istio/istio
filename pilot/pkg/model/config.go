@@ -260,11 +260,11 @@ type IstioConfigStore interface {
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
-	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
+	HTTPAPISpecByDestination(Hostname) []Config
 
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
-	QuotaSpecByDestination(instance *ServiceInstance) []Config
+	QuotaSpecByDestination(Hostname) []Config
 
 	// AuthenticationPolicyByDestination selects authentication policy associated
 	// with a service + port.
@@ -707,7 +707,7 @@ func (store *istioConfigStore) EnvoyFilter(workloadLabels LabelsCollection) *Con
 
 // HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 // associated with destination service instances.
-func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstance) []Config {
+func (store *istioConfigStore) HTTPAPISpecByDestination(serviceHostname Hostname) []Config {
 	bindings, err := store.List(HTTPAPISpecBinding.Type, NamespaceAll)
 	if err != nil {
 		return nil
@@ -726,7 +726,7 @@ func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstanc
 		b := binding.Spec.(*mccpb.HTTPAPISpecBinding)
 		for _, service := range b.Services {
 			hostname := ResolveHostname(binding.ConfigMeta, service)
-			if hostname == instance.Service.Hostname {
+			if hostname == serviceHostname {
 				for _, spec := range b.ApiSpecs {
 					namespace := spec.Namespace
 					if namespace == "" {
@@ -811,13 +811,13 @@ func key(name, namespace string) string {
 }
 
 // findQuotaSpecRefs returns a set of quotaSpec reference names
-func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]bool {
+func findQuotaSpecRefs(serviceHostname Hostname, bindings []Config) map[string]bool {
 	// Build the set of quota spec references bound to the service instance.
 	refs := make(map[string]bool)
 	for _, binding := range bindings {
 		b := binding.Spec.(*mccpb.QuotaSpecBinding)
 		for _, service := range b.Services {
-			if MatchesDestHost(string(instance.Service.Hostname), binding.ConfigMeta, service) {
+			if MatchesDestHost(string(serviceHostname), binding.ConfigMeta, service) {
 				recordSpecRef(refs, binding.Namespace, b.QuotaSpecs)
 				// found a binding that matches the instance.
 				break
@@ -830,8 +830,8 @@ func findQuotaSpecRefs(instance *ServiceInstance, bindings []Config) map[string]
 
 // QuotaSpecByDestination selects Mixerclient quota specifications
 // associated with destination service instances.
-func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
-	log.Debugf("QuotaSpecByDestination(%v)", instance)
+func (store *istioConfigStore) QuotaSpecByDestination(serviceHostname Hostname) []Config {
+	log.Debugf("QuotaSpecByDestination(%v)", serviceHostname)
 	bindings, err := store.List(QuotaSpecBinding.Type, NamespaceAll)
 	if err != nil {
 		log.Warnf("Unable to fetch QuotaSpecBindings: %v", err)
@@ -848,7 +848,7 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	log.Debugf("QuotaSpecByDestination specs[%d] %v", len(specs), specs)
 
 	// Build the set of quota spec references bound to the service instance.
-	refs := findQuotaSpecRefs(instance, bindings)
+	refs := findQuotaSpecRefs(serviceHostname, bindings)
 	log.Debugf("QuotaSpecByDestination refs:%v", refs)
 
 	// Append any spec that is in the set of references.

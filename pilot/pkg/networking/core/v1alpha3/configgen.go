@@ -96,6 +96,17 @@ func (configgen *ConfigGeneratorImpl) buildSharedPushStateForSidecars(env *model
 				// here will be the default CDS output for a given namespace based on public/private
 				// services and destination rules
 				sc.XDSOutboundClusters = configgen.buildOutboundClusters(env, &dummyNode, push)
+
+				if sc.PluginData == nil {
+					sc.PluginData = make(map[string]interface{})
+				}
+				for _, p := range configgen.Plugins {
+					sc.PluginData[p.GetName()] = p.OnPrecompute(&plugin.InputParams{
+						Env:  env,
+						Node: &dummyNode,
+						Push: push,
+					})
+				}
 			}
 		}(ns, sidecarScopes)
 	}
