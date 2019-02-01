@@ -1,15 +1,8 @@
 ## Overview
 
-This MCP stress test suite provides the following:
-
-- regression tests for common scenarios. e.g `func Test*(t testin.T)`
-    
-- preconfigured benchmarks for analyzing cpu and memory usage. e.g. `func Benchmark*(b testing.B)`  
-
-Most of the testing parameters are exposed as flags. These flags effect 
-both regression and benchmark tests. They are intended to be used to run
-additional experiments. Flag combinations that are found to be useful should
-be added to the set of preconfigured regression or benchmark tests. 
+This MCP stress test suite provides a set of regression tests and preconfigured 
+benchmarks for analyzing cpu and memory usage. Most of the testing parameters 
+are exposed as flags to enable additional experiments to be run.  
 
 ## Methodology
 
@@ -43,8 +36,8 @@ random changes within each snapshot are configurable.
 ## Regression test
 
 Regression tests will be run as part of normal presubmit testing. Total running time is tuned to complete 
-in the order of tens of seconds. Longer running experiments can be run by overriding the default settings 
-(see experiments below).
+on the order of tens of seconds. Longer running experiments can be run by changing the default settings via
+flags (see experiments below).
 
 ```golang
 go test ./pkg/mcp/tests/stress/stress_test.go
@@ -81,16 +74,14 @@ go tool pprof -http=":8081" cpu.out
 go tool pprof -http=":8081" mem.out
 ```
 
-Note that these profiles include the test harness itself. Analysis 
-should resources used by the dataset initialization and server and 
+Note that these profiles include resources used by the test harness itself. Analysis 
+should account for resources used by the dataset initialization and server and 
 client test runner paths.
 
 ## Experiments
 
-Several test parameters are exposed as flags. These can be used to run additional experiments.
-
-For example, the following test runs the full state regression test with 100 clients and a 
-simulated NACK rate of 10%.
+Several test parameters are exposed as flags. For example, the following test runs the 
+full state regression test with 100 clients and a simulated NACK rate of 10%.
 
 ```bash
 $ go test ./pkg/mcp/tests/stress/stress_test.go \
