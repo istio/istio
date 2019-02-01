@@ -2103,7 +2103,6 @@
     "github.com/openzipkin/zipkin-go/model",
     "github.com/openzipkin/zipkin-go/reporter",
     "github.com/openzipkin/zipkin-go/reporter/http",
-    "github.com/pborman/uuid",
     "github.com/pkg/errors",
     "github.com/pmezard/go-difflib/difflib",
     "github.com/prometheus/client_golang/api",
