@@ -28,6 +28,7 @@ import (
 // TestSecretCreationKubernetes verifies that Citadel creates secret and stores as Kubernetes secrets,
 // and that when secrets are deleted, new secrets will be created.
 func TestSecretCreationKubernetes(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/10989")
 	ctx := framework.GetContext(t)
 	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Citadel)
 
